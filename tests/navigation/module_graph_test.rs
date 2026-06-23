@@ -103,13 +103,12 @@ fn module_deps_python_cross_file_call_and_import() {
         r,
         prism::navigation::types::Reason::Calls { callee, .. } if callee == "helper"
     )));
-    // `from util import helper; helper()` is a BARE call (qualifier-less), so it
-    // resolves via R5 cross-file free-function single match (free_single), NOT R3
-    // import-qualified — that kind is for `import util; util.helper()` (covered by
-    // the nav_compat callees_run/module_deps_run goldens).
+    // `from util import helper; helper()` is a BARE call (qualifier-less). With R4c
+    // import-member resolution, this resolves via the import binding to the target
+    // in util.py (import_member). Previously it fell through to R5 free_single.
     assert!(call_item.why.iter().any(|r| matches!(
         r,
-        Reason::Resolution { kind } if kind == "free_single"
+        Reason::Resolution { kind } if kind == "import_member"
     )));
 
     // Extracted import labeled UnresolvedImport (HeuristicImport).
@@ -299,10 +298,11 @@ fn module_deps_aggregates_file_pair_with_max_resolution_score() {
         .why
         .iter()
         .any(|r| matches!(r, Reason::Resolution { kind } if kind == "r6_single_owner")));
+    // `from owner import exact; exact()` now resolves via R4c import_member.
     assert!(item
         .why
         .iter()
-        .any(|r| matches!(r, Reason::Resolution { kind } if kind == "free_single")));
+        .any(|r| matches!(r, Reason::Resolution { kind } if kind == "import_member")));
 }
 
 #[test]

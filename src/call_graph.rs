@@ -124,6 +124,46 @@ pub struct MethodFacts {
     pub cfg: Option<String>,
 }
 
+// -----------------------------------------------------------------------
+// Import-binding types (R4c: Python/JS/TS import-member resolution)
+// -----------------------------------------------------------------------
+
+/// A single import binding extracted from a Python/JS/TS file.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ImportBinding {
+    /// The name as used in the caller file (after `as` aliasing).
+    pub local: String,
+    /// Raw module string from the import statement.
+    pub module_path: String,
+    /// The original member name (before alias); `None` for module imports.
+    pub member: Option<String>,
+    /// What kind of import this is.
+    pub kind: ImportBindingKind,
+    /// False if poisoned by wildcard or re-bound by another top-level binding.
+    pub eligible: bool,
+}
+
+/// The kind of import binding.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ImportBindingKind {
+    /// `from mod import func` / `from mod import func as f`
+    MemberImport,
+    /// `import mod` / `import mod as m`
+    ModuleImport,
+    /// `from mod import *`
+    WildcardImport,
+}
+
+/// The kind of a module-scope binding (for occurrence-clean eligibility checking).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ModuleBindingKind {
+    Import,
+    ClassDef,
+    FunctionDef,
+    Assignment,
+    Other,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ScopeGraphBuildInputs {
     pub repo_root: PathBuf,
@@ -258,6 +298,15 @@ pub struct CallGraph {
     pub method_facts: BTreeMap<FunctionId, MethodFacts>,
     #[serde(default)]
     pub scope_graph: Option<ScopeGraph>,
+    /// R4c: per-file import bindings for Python/JS/TS import-member resolution.
+    #[serde(default)]
+    pub import_bindings: BTreeMap<String, Vec<ImportBinding>>,
+    /// R4c: per-file module-scope binding kinds for occurrence-clean eligibility.
+    #[serde(default)]
+    pub module_bindings: BTreeMap<String, BTreeMap<String, ModuleBindingKind>>,
+    /// R4c: authority flag — which files prism has actually indexed.
+    #[serde(default)]
+    pub indexed_files: BTreeSet<String>,
 }
 
 impl CallGraph {
@@ -290,6 +339,9 @@ impl CallGraph {
             method_arity: BTreeMap::new(),
             method_facts: BTreeMap::new(),
             scope_graph: None,
+            import_bindings: BTreeMap::new(),
+            module_bindings: BTreeMap::new(),
+            indexed_files: BTreeSet::new(),
         }
     }
 
@@ -446,6 +498,9 @@ impl CallGraph {
             method_arity: BTreeMap::new(),
             method_facts,
             scope_graph: None,
+            import_bindings: BTreeMap::new(),
+            module_bindings: BTreeMap::new(),
+            indexed_files: BTreeSet::new(),
         }
     }
 
@@ -1049,6 +1104,10 @@ impl CallGraph {
         // Phase 5: Build class_bases for inherited-self resolution (Py/JS/TS only).
         let class_bases = Self::build_class_bases(files);
 
+        // R4c: populate import bindings for Python/JS/TS import-member resolution.
+        let (import_bindings, module_bindings) = Self::extract_all_import_bindings(files);
+        let indexed_files: BTreeSet<String> = files.keys().cloned().collect();
+
         let mut cg = CallGraph {
             functions,
             calls,
@@ -1076,11 +1135,51 @@ impl CallGraph {
             method_arity: BTreeMap::new(),
             method_facts,
             scope_graph: Self::populate_scope_graph(files, scope_inputs),
+            import_bindings,
+            module_bindings,
+            indexed_files,
         };
         cg.refresh_rust_receiver_state(files);
         cg.apply_go_embedding_promotion(files);
         cg.apply_go_interface_dispatch(files);
         cg
+    }
+
+    // -----------------------------------------------------------------------
+    // R4c: import-binding extraction for Python/JS/TS
+    // -----------------------------------------------------------------------
+
+    /// Extract import bindings and module bindings for all eligible files.
+    fn extract_all_import_bindings(
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> (
+        BTreeMap<String, Vec<ImportBinding>>,
+        BTreeMap<String, BTreeMap<String, ModuleBindingKind>>,
+    ) {
+        let mut import_bindings: BTreeMap<String, Vec<ImportBinding>> = BTreeMap::new();
+        let mut module_bindings: BTreeMap<String, BTreeMap<String, ModuleBindingKind>> =
+            BTreeMap::new();
+
+        for (file_path, parsed) in files {
+            if matches!(
+                parsed.language,
+                crate::languages::Language::Python
+                    | crate::languages::Language::JavaScript
+                    | crate::languages::Language::TypeScript
+                    | crate::languages::Language::Tsx
+            ) {
+                let bindings = parsed.extract_import_bindings();
+                if !bindings.is_empty() {
+                    import_bindings.insert(file_path.clone(), bindings);
+                }
+                let mbindings = parsed.extract_module_bindings();
+                if !mbindings.is_empty() {
+                    module_bindings.insert(file_path.clone(), mbindings);
+                }
+            }
+        }
+        mark_import_binding_eligibility(&mut import_bindings, &module_bindings);
+        (import_bindings, module_bindings)
     }
 
     // -----------------------------------------------------------------------
@@ -1145,6 +1244,12 @@ impl CallGraph {
         self.clear_promoted_embedding();
         self.clear_interface_dispatch();
         self.scope_graph = None;
+
+        // R4c: remove import/module bindings for excluded files.
+        self.import_bindings.retain(|f, _| !exclude.contains(f));
+        self.module_bindings.retain(|f, _| !exclude.contains(f));
+        // indexed_files tracks the file set; removed files are no longer indexed.
+        self.indexed_files.retain(|f| !exclude.contains(f));
     }
 
     /// Merge another CallGraph into this one.
@@ -1192,6 +1297,11 @@ impl CallGraph {
         self.receiver_vars.extend(other.receiver_vars);
         self.method_facts.extend(other.method_facts);
         self.scope_graph = None;
+
+        // R4c: merge import bindings.
+        self.import_bindings.extend(other.import_bindings);
+        self.module_bindings.extend(other.module_bindings);
+        self.indexed_files.extend(other.indexed_files);
     }
 
     /// Build `class_bases` for inherited-self resolution (Py/JS/TS only).
@@ -2125,6 +2235,36 @@ impl CallGraph {
         // incremental cache merges carry inherited-self data for the subset.
         let class_bases = Self::build_class_bases(files);
 
+        // R4c: populate import bindings for subset.
+        let subset_files: BTreeMap<String, &ParsedFile> = files
+            .iter()
+            .filter(|(k, _)| only_files.contains(*k))
+            .map(|(k, v)| (k.clone(), v))
+            .collect();
+        let mut import_bindings_map: BTreeMap<String, Vec<ImportBinding>> = BTreeMap::new();
+        let mut module_bindings_map: BTreeMap<String, BTreeMap<String, ModuleBindingKind>> =
+            BTreeMap::new();
+        for (fp, parsed) in &subset_files {
+            if matches!(
+                parsed.language,
+                crate::languages::Language::Python
+                    | crate::languages::Language::JavaScript
+                    | crate::languages::Language::TypeScript
+                    | crate::languages::Language::Tsx
+            ) {
+                let bindings = parsed.extract_import_bindings();
+                if !bindings.is_empty() {
+                    import_bindings_map.insert(fp.clone(), bindings);
+                }
+                let mbindings = parsed.extract_module_bindings();
+                if !mbindings.is_empty() {
+                    module_bindings_map.insert(fp.clone(), mbindings);
+                }
+            }
+        }
+        mark_import_binding_eligibility(&mut import_bindings_map, &module_bindings_map);
+        let indexed_files: BTreeSet<String> = files.keys().cloned().collect();
+
         CallGraph {
             functions,
             calls,
@@ -2152,6 +2292,9 @@ impl CallGraph {
             method_arity: BTreeMap::new(),
             method_facts,
             scope_graph: None,
+            import_bindings: import_bindings_map,
+            module_bindings: module_bindings_map,
+            indexed_files,
         }
     }
 
@@ -2733,6 +2876,238 @@ fn collect_identifiers_from_pattern(
         }
         _ => {}
     }
+}
+
+
+/// Mark import-binding eligibility: wildcard in file poisons all; re-bound name
+/// (any non-Import module binding with the same local name) makes that binding
+/// ineligible. Duplicate import bindings for the same local name also make both
+/// ineligible (ambiguous import).
+fn mark_import_binding_eligibility(
+    import_bindings: &mut BTreeMap<String, Vec<ImportBinding>>,
+    module_bindings: &BTreeMap<String, BTreeMap<String, ModuleBindingKind>>,
+) {
+    for (file, bindings) in import_bindings.iter_mut() {
+        // Check for wildcard imports in this file.
+        let has_wildcard = bindings
+            .iter()
+            .any(|b| matches!(b.kind, ImportBindingKind::WildcardImport));
+
+        // Count how many import bindings share the same local name.
+        let mut local_counts: BTreeMap<String, usize> = BTreeMap::new();
+        for b in bindings.iter() {
+            *local_counts.entry(b.local.clone()).or_default() += 1;
+        }
+
+        let file_module_bindings = module_bindings.get(file);
+
+        for binding in bindings.iter_mut() {
+            if has_wildcard {
+                binding.eligible = false;
+                continue;
+            }
+            // Duplicate import bindings for the same local -> ineligible.
+            if local_counts.get(&binding.local).copied().unwrap_or(0) > 1 {
+                binding.eligible = false;
+                continue;
+            }
+            // Re-bound by a non-Import module binding -> ineligible.
+            if let Some(mb) = file_module_bindings {
+                if let Some(kind) = mb.get(&binding.local) {
+                    if !matches!(kind, ModuleBindingKind::Import) {
+                        binding.eligible = false;
+                        continue;
+                    }
+                }
+            }
+            // Member imports start eligible; module/wildcard do not (R4c
+            // only handles unqualified calls, which come from member imports).
+            binding.eligible = matches!(binding.kind, ImportBindingKind::MemberImport);
+        }
+    }
+}
+
+/// Check if a file path matches a module path for R4c resolution.
+///
+/// Handles two module-path styles:
+/// - **Python**: dotted (`myapp.utils`), relative (`.utils`, `..pkg`)
+/// - **JS/TS**: slash-based (`./utils`, `../pkg/utils`, `@scope/pkg`)
+///
+/// Strategy: extract the last path component ("stem") of the module path
+/// and match it against the file's stem or directory name (for packages).
+pub fn file_matches_module(
+    file: &str,
+    module_path: &str,
+    caller_file: &str,
+    indexed_files: &BTreeSet<String>,
+) -> bool {
+    let module_path = module_path.trim();
+    if module_path.is_empty() {
+        return false;
+    }
+
+    // Determine if this is a JS/TS-style path (contains `/`) or a Python-style
+    // dotted module path.
+    let is_js_path = module_path.contains('/');
+
+    // Relative path resolution: try to construct the exact candidate first.
+    let is_relative = if is_js_path {
+        module_path.starts_with("./") || module_path.starts_with("../")
+    } else {
+        module_path.starts_with('.')
+    };
+
+    if is_relative {
+        let caller_dir = caller_file.rsplit_once('/').map(|(d, _)| d).unwrap_or("");
+
+        if is_js_path {
+            // JS/TS relative: strip leading "./" or count "../" levels.
+            let mut rel = module_path;
+            let mut base = caller_dir.to_string();
+            while let Some(rest) = rel.strip_prefix("../") {
+                base = base
+                    .rsplit_once('/')
+                    .map(|(d, _)| d)
+                    .unwrap_or("")
+                    .to_string();
+                rel = rest;
+            }
+            rel = rel.strip_prefix("./").unwrap_or(rel);
+            // Try with common extensions.
+            for ext in &[".js", ".ts", ".tsx", ".mjs", ".cjs", ""] {
+                let candidate = if base.is_empty() {
+                    format!("{rel}{ext}")
+                } else {
+                    format!("{base}/{rel}{ext}")
+                };
+                if indexed_files.contains(&candidate) && candidate == file {
+                    return true;
+                }
+            }
+            // Try index file inside directory
+            for index in &["index.js", "index.ts", "index.tsx"] {
+                let candidate = if base.is_empty() {
+                    format!("{rel}/{index}")
+                } else {
+                    format!("{base}/{rel}/{index}")
+                };
+                if indexed_files.contains(&candidate) && candidate == file {
+                    return true;
+                }
+            }
+        } else {
+            // Python relative: `.utils` or `..pkg.utils`
+            let stripped = module_path.trim_start_matches('.');
+            let dot_count = module_path.len() - stripped.len();
+            let mut base = caller_dir.to_string();
+            for _ in 1..dot_count {
+                base = base
+                    .rsplit_once('/')
+                    .map(|(d, _)| d)
+                    .unwrap_or("")
+                    .to_string();
+            }
+            // Convert remaining dotted path to FULL relative file path
+            // (e.g. `pkg.utils` → `pkg/utils`), not just the last component.
+            let rel = stripped.replace('.', "/");
+            for ext in &[".py"] {
+                let candidate = if base.is_empty() {
+                    format!("{rel}{ext}")
+                } else {
+                    format!("{base}/{rel}{ext}")
+                };
+                if indexed_files.contains(&candidate) && candidate == file {
+                    return true;
+                }
+            }
+            // __init__.py for the full path
+            let init_candidate = if base.is_empty() {
+                format!("{rel}/__init__.py")
+            } else {
+                format!("{base}/{rel}/__init__.py")
+            };
+            if indexed_files.contains(&init_candidate) && init_candidate == file {
+                return true;
+            }
+            // Relative imports NEVER fall through to stem — they must resolve
+            // relative to the caller's directory or not at all.
+            return false;
+        }
+    }
+
+    // For multi-component Python dotted absolute imports (e.g. `myapp.utils`),
+    // try converting to a path and checking indexed_files. Do NOT use the stem
+    // fallback — it would match ANY file named `utils.py` regardless of package.
+    if !is_js_path && !is_relative {
+        let stripped = module_path.trim_start_matches('.');
+        if stripped.contains('.') {
+            // Multi-component absolute import: try full path candidates.
+            let rel = stripped.replace('.', "/");
+            // Try `myapp/utils.py`
+            let py_candidate = format!("{rel}.py");
+            if indexed_files.contains(&py_candidate) && py_candidate == file {
+                return true;
+            }
+            // Try `myapp/utils/__init__.py`
+            let init_candidate = format!("{rel}/__init__.py");
+            if indexed_files.contains(&init_candidate) && init_candidate == file {
+                return true;
+            }
+            // No stem fallback for dotted imports — fail open to R5.
+            return false;
+        }
+    }
+
+    // Stem-based fallback: only for single-component imports (e.g. `utils`
+    // in Python, `./utils` in JS) where the module IS the stem.
+    let last_component = if is_js_path {
+        // JS: last path segment, strip leading @ for scoped packages.
+        module_path
+            .rsplit('/')
+            .next()
+            .unwrap_or(module_path)
+            .trim_start_matches('.')
+    } else {
+        // Python: last dotted component, strip leading dots for relative.
+        let stripped = module_path.trim_start_matches('.');
+        stripped.rsplit('.').next().unwrap_or(stripped)
+    };
+
+    if last_component.is_empty() {
+        return false;
+    }
+
+    // File stem: strip directory and extension.
+    let file_name = file.rsplit('/').next().unwrap_or(file);
+    let file_stem = file_name
+        .rsplit_once('.')
+        .map(|(s, _)| s)
+        .unwrap_or(file_name);
+    if file_stem == last_component {
+        return true;
+    }
+
+    // Package directories: `utils/__init__.py` matches module "utils",
+    // `utils/index.js` matches module "utils".
+    if file.ends_with("/__init__.py") || file.ends_with("\\__init__.py") {
+        let dir = file
+            .trim_end_matches("/__init__.py")
+            .trim_end_matches("\\__init__.py");
+        let dir_name = dir.rsplit('/').next().unwrap_or(dir);
+        if dir_name == last_component {
+            return true;
+        }
+    }
+    for index in &["/index.js", "/index.ts", "/index.tsx"] {
+        if file.ends_with(index) {
+            let dir = &file[..file.len() - index.len()];
+            let dir_name = dir.rsplit('/').next().unwrap_or(dir);
+            if dir_name == last_component {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 /// Check if a C/C++ function definition has a `static` storage class specifier.

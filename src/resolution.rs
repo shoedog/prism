@@ -48,6 +48,8 @@ pub enum ResolutionKind {
     StemMulti,
     EmbeddedPromotion,
     InterfaceDispatch,
+    /// R4c: resolved via import-member binding (Python/JS/TS).
+    ImportMember,
 }
 
 impl ResolutionKind {
@@ -71,6 +73,7 @@ impl ResolutionKind {
             ResolutionKind::StemMulti => "stem_multi",
             ResolutionKind::EmbeddedPromotion => "embedded_promotion",
             ResolutionKind::InterfaceDispatch => "interface_dispatch",
+            ResolutionKind::ImportMember => "import_member",
         }
     }
 }
@@ -1373,6 +1376,68 @@ impl CallGraph {
                 ResolutionOutcome::dropped(DropReason::MultiOwnerCollision)
             }
             None => {
+                // R4c: import-member resolution (Python/JS/TS).
+                // Must fire before the functions.get(name) check because aliases
+                // mean the call-site name ("p") differs from the function name
+                // ("process"), so the index won't have a hit on the aliased name.
+                if site.qualifier.is_none() && caller.file.ends_with(".py") {
+                    if let Some(bindings) = self.import_bindings.get(&caller.file) {
+                        if let Some(binding) = bindings.iter().find(|b| {
+                            b.local == name
+                                && b.eligible
+                                && matches!(
+                                    b.kind,
+                                    crate::call_graph::ImportBindingKind::MemberImport
+                                )
+                        }) {
+                            let member = binding.member.as_deref().unwrap_or(name);
+                            if let Some(ids) = self.functions.get(member) {
+                                // Filter to free functions in matching files.
+                                // Python `from m import f` imports a module-level
+                                // name, so methods (class-scoped) are excluded.
+                                let matched: Vec<&FunctionId> = ids
+                                    .iter()
+                                    .filter(|fid| {
+                                        !self.method_owners.contains_key(*fid)
+                                            && crate::call_graph::file_matches_module(
+                                                &fid.file,
+                                                &binding.module_path,
+                                                &caller.file,
+                                                &self.indexed_files,
+                                            )
+                                            // Only accept module-level functions, not nested defs.
+                                            && self
+                                                .module_bindings
+                                                .get(&fid.file)
+                                                .and_then(|mb| mb.get(member))
+                                                .map_or(false, |k| {
+                                                    matches!(
+                                                        k,
+                                                        crate::call_graph::ModuleBindingKind::FunctionDef
+                                                    )
+                                                })
+                                    })
+                                    .collect();
+                                match matched.len() {
+                                    1 => {
+                                        return ResolutionOutcome::hit(exact(
+                                            matched,
+                                            ResolutionKind::ImportMember,
+                                        ))
+                                    }
+                                    n if n > 1 => {
+                                        return ResolutionOutcome::hit(demoted(
+                                            matched,
+                                            ResolutionKind::ImportMember,
+                                        ))
+                                    }
+                                    _ => {} // fall through to R5
+                                }
+                            }
+                        }
+                    }
+                }
+
                 let ids = match self.functions.get(name) {
                     Some(v) => v,
                     None => return ResolutionOutcome::dropped(DropReason::UnknownName),
