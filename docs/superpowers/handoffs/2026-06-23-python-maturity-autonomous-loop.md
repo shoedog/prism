@@ -49,12 +49,42 @@ Owner returned, gave direction on all 3 slices:
    Python-only gate (3). Low-risk items deferred: source-root duplicates (already conservative).
 7. **Sequential merge**: 2c → 1b (rebase, CACHE 26) → 3 (rebase, CACHE 27). Tier-A 0-regr post-merge.
 
+### Current main state (for cold start)
+- **Main tip**: `077d25d` (handoff doc commit on top of `bf58508` = Slice 3 merge)
+- **CACHE_VERSION**: 27
+- **Tier-A**: 42 cases, 0 regressions (40 ok + 2 expected_gap: `python/from_import_alias`, `python/inherited_override`)
+- **Resolution ladder (S3)**: R1 qualified → R2 self → R3 import-qualifier → R3b owner-key → R4 local_def → R4.5 Go same-package → R4b implicit-this → **R4c import-member (NEW, Python-only)** → R5 free-multi → R6 receiver-typed dispatch
+- **New structures on CallGraph**: `class_bases` (1b), `import_bindings`/`module_bindings`/`indexed_files` (3)
+- **New on `ast.rs`**: `walk_receiver_bindings` binding-PRESENCE (2c), `extract_import_bindings`/`extract_module_bindings` (3)
+- **Memory updated**: `[[project_prism_measurement_maturity]]` reflects all 5 slices merged (1a+decorated+2c+1b+3)
+
 ### Remaining follow-ups (next session)
-1. **Run call-stats** on main for fastapi/pydantic/excalidraw/express — measure realized buy.
-2. **Update memory** `[[project_prism_measurement_maturity]]` with buy + merged status.
-3. **Tier-A baseline refresh** if inherited_override gap flips.
-4. **Deferred from codex reviews**: source-root suffix duplicates for dotted absolute imports (Slice 3,
-   low-risk — conservative fall-through already); JS/TS export proof for R4c (gated to Python-only for now).
+1. **Run call-stats** on main for fastapi/pydantic/excalidraw/express — measure realized buy across all 3 new slices.
+   ```bash
+   cargo build --release
+   # For each corpus:
+   target/release/prism nav --no-cache call-stats --repo ~/code/bench-repos/<corpus>
+   ```
+   Compare vs pre-merge baseline (before slices 2c/1b/3). Key buckets: `kind_exact` total, `self_receiver`,
+   `import_member` (new), `unresolved`, `multi_target_exact_sites` (canary).
+2. **Tier-A baseline refresh** — `inherited_override` expected_gap may now flip to `ok` (slice 1b added
+   inherited resolution). Run `cd eval && uv run tier-a --matrix-only --allow-stale-sut` and check.
+   If it flips, update `eval/tier_a_config.toml` (or equivalent) to remove the expected_gap entry.
+3. **Deferred from codex reviews** (low priority, not blocking):
+   - Source-root suffix duplicates for dotted absolute imports (Slice 3 — conservative fall-through already)
+   - JS/TS R4c export proof (currently gated Python-only; needs JS/TS export-table awareness to enable)
+4. **Python maturity next steps** (from `docs/superpowers/deferred-work.md`):
+   - Slice 4: scope-graph for Python (AFTER 1–3, deferred)
+   - Value measurement: Tier-C end-task A/B (reviewer-first, 50 golden PRs)
+
+### Standing constraints (carry forward)
+- Explicit `git add <paths>` (never `-a`); NEVER stage `eval/` or `docs/eval/`
+- Commit trailer: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`
+- PR body ends: `🤖 Generated with [Claude Code](https://claude.com/claude-code)`
+- Approved to merge when CI tests pass (can merge before coverage settles)
+- "Rust/Go byte-ident is enough" (skip `--quick`)
+- Verify codex's work before committing (its output is not safety-classified)
+- a2a-bridge codex reviews: `~/code/a2a-bridge/target/release/a2a-bridge run-workflow <id> --input <file> --config <toml> --session-cwd <repo> --out <out>`, wrap in `timeout 600`. `--input` expects a FILE PATH not inline text.
 
 ---
 
