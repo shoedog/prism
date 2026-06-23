@@ -97,10 +97,11 @@ fn prism_mcp_protocol_smoke() {
         agent_evidence, evidence,
         "agent view must preserve canonical structuredContent"
     );
-    assert!(agent_result["content"][0]["text"]
-        .as_str()
-        .unwrap()
-        .starts_with("# Prism Evidence"));
+    let agent_view: Value =
+        serde_json::from_str(agent_result["content"][0]["text"].as_str().unwrap())
+            .expect("agent_json content text");
+    assert_eq!(agent_view["meta"]["schema_version"], "0.3");
+    assert_eq!(agent_result["_meta"]["prism/view_schema_version"], "0.3");
 }
 
 fn lifecycle_messages() -> String {
@@ -109,7 +110,7 @@ fn lifecycle_messages() -> String {
         r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
         r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
         r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_callees","arguments":{"seed":{"kind":"symbol","name":"run","file":"main.py"}}}}"#,
-        r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"nav_callees","arguments":{"seed":{"kind":"symbol","name":"run","file":"main.py"},"format":"agent_markdown","profile":"dependencies"}}}"#,
+        r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"nav_callees","arguments":{"seed":{"kind":"symbol","name":"run","file":"main.py"},"format":"agent_json","profile":"dependencies"}}}"#,
     ]
     .join("\n")
         + "\n"

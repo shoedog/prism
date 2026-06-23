@@ -11,6 +11,7 @@ use crate::navigation::{module_graph, queries};
 use serde_json::json;
 
 const SNAPSHOT_NOTICE: &str = "Results reflect the repository snapshot loaded when prism-mcp started or last refreshed. If indexed files change during the server session, Prism marks tool results with stale-index metadata and warnings; restart/re-add the MCP server or use CLI nav for a fresh snapshot.";
+const VIEW_NOTICE: &str = "Optional LLM views are opt-in: set format to agent_markdown or agent_json. Agent views change only content text and view metadata; structuredContent remains canonical Evidence. agent_json includes normalized locations, canonical symbol_ref handles, deterministic reasons, group summaries, and parser-valid next_queries.";
 
 pub fn register_all(r: &mut ToolRegistry) {
     r.register(tool_with_handler(
@@ -66,7 +67,7 @@ fn tool_with_handler(
 ) -> ToolDescriptor {
     ToolDescriptor {
         name,
-        description: format!("{description} {SNAPSHOT_NOTICE}"),
+        description: format!("{description} {SNAPSHOT_NOTICE} {VIEW_NOTICE}"),
         input_schema,
         annotations: ToolAnnotations::read_only(title),
         runtime_behavior: None,
@@ -628,7 +629,10 @@ mod tests {
             agent.meta["prism/content_text_format"],
             json!("agent_markdown")
         );
-        assert_eq!(agent.meta["prism/view_schema_version"], json!("0.2"));
+        assert_eq!(agent.meta["prism/view_schema_version"], json!("0.3"));
+        assert_eq!(agent.meta["prism/schema_version"], json!("0.2"));
+        assert!(agent.content_text.contains("## a.py (items="));
+        assert!(agent.content_text.contains(" files=1 exact="));
     }
 
     #[test]
@@ -648,6 +652,15 @@ mod tests {
         let view: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
         assert_eq!(view["profile"], "impact");
         assert_eq!(out.meta["prism/content_text_format"], json!("agent_json"));
+        assert_eq!(out.meta["prism/view_schema_version"], json!("0.3"));
+        assert_eq!(out.meta["prism/schema_version"], json!("0.2"));
+        assert_eq!(view["meta"]["schema_version"], json!("0.3"));
+        let item = &view["groups"][0]["items"][0];
+        assert_eq!(item["location"]["display"], item["loc"]);
+        assert_eq!(item["location"]["file"], "a.py");
+        assert!(item["location"]["start_byte"].is_number());
+        assert_eq!(item["symbol_ref"]["Function"]["name"], "caller");
+        assert!(item["reasons"].as_array().unwrap().len() >= 1);
     }
 
     #[test]
@@ -667,6 +680,13 @@ mod tests {
         let grouped_view: serde_json::Value = serde_json::from_str(&grouped.content_text).unwrap();
         assert!(grouped_view["groups"].as_array().unwrap().len() >= 2);
         assert_eq!(grouped_view["meta"]["group_by"], "symbol");
+        let first_group = &grouped_view["groups"][0];
+        assert!(first_group["file_count"].as_u64().unwrap() >= 1);
+        assert!(first_group["trust"]["exact"].as_u64().unwrap() >= 1);
+        assert!(!first_group["representative_locations"]
+            .as_array()
+            .unwrap()
+            .is_empty());
 
         let ungrouped = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
             &ToolContext::for_test(&s),
@@ -713,6 +733,8 @@ mod tests {
             .find(|item| item["loc"].as_str().unwrap().starts_with("util.py:"))
             .expect("resolved util.py dependency item");
         assert_eq!(util_item["trust"], "exact");
+        assert_eq!(util_item["location"]["display"], util_item["loc"]);
+        assert!(util_item.get("symbol_ref").is_none());
         assert!(view["summary"]["exact"].as_u64().unwrap() >= 1);
     }
 
@@ -745,6 +767,30 @@ mod tests {
                 && query["arguments"]["file"] == "main.py"
                 && query["arguments"]["line"] == 4
         }));
+        let call_site = queries
+            .iter()
+            .find(|query| {
+                query["tool"] == "nav_nodes_at"
+                    && query["reason"] == "call_site"
+                    && query["arguments"]["file"] == "main.py"
+                    && query["arguments"]["line"] == 4
+            })
+            .expect("source-file call-site hint");
+        assert_eq!(call_site["source_location"]["kind"], "call_site");
+        assert_eq!(call_site["source_location"]["file"], "main.py");
+        assert_eq!(call_site["source_location"]["line"], 4);
+        assert!(call_site["source_location"].get("start_byte").is_none());
+        let dependency_target = queries
+            .iter()
+            .find(|query| {
+                query["tool"] == "nav_nodes_at"
+                    && query["reason"] == "dependency_target"
+                    && query["arguments"]["file"] == "util.py"
+                    && query["arguments"]["line"] == 1
+            })
+            .expect("dependency target hint");
+        assert!(dependency_target["source_location"]["start_byte"].is_number());
+        assert_eq!(dependency_target["source_location"]["kind"], "item");
         assert!(queries.iter().any(|query| {
             query["tool"] == "nav_nodes_at"
                 && query["reason"] == "dependency_target"
@@ -810,12 +856,35 @@ mod tests {
                 && query["arguments"]["file"] == "main.py"
                 && query["arguments"]["line"] == 4
         }));
+        let call_site = queries
+            .iter()
+            .find(|query| {
+                query["tool"] == "nav_nodes_at"
+                    && query["reason"] == "call_site"
+                    && query["arguments"]["file"] == "main.py"
+                    && query["arguments"]["line"] == 4
+            })
+            .expect("seed-file call-site hint");
+        assert_eq!(call_site["source_location"]["kind"], "call_site");
+        assert_eq!(call_site["source_location"]["file"], "main.py");
+        assert!(call_site["source_location"].get("start_byte").is_none());
         assert!(queries.iter().any(|query| {
             query["tool"] == "nav_nodes_at"
                 && query["reason"] == "callee_definition"
                 && query["arguments"]["file"] == "util.py"
                 && query["arguments"]["line"] == 1
         }));
+        let callee_definition = queries
+            .iter()
+            .find(|query| {
+                query["tool"] == "nav_nodes_at"
+                    && query["reason"] == "callee_definition"
+                    && query["arguments"]["file"] == "util.py"
+                    && query["arguments"]["line"] == 1
+            })
+            .expect("callee definition hint");
+        assert_eq!(callee_definition["source_location"]["kind"], "item");
+        assert!(callee_definition["source_location"]["start_byte"].is_number());
         assert!(!queries.iter().any(|query| {
             query["reason"] == "call_site"
                 && query["arguments"]["file"] == "util.py"
@@ -847,11 +916,19 @@ mod tests {
             .any(|query| {
                 query["tool"] == "nav_module_deps" && query["reason"] == "inspect_module"
             }));
+        let inspect_module = view["next_queries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|query| query["tool"] == "nav_module_deps" && query["reason"] == "inspect_module")
+            .expect("repo-map inspect-module hint");
+        assert_eq!(inspect_module["source_location"]["kind"], "graph_node");
+        assert!(inspect_module["source_location"]["start_byte"].is_number());
         assert!(view["graph"]["nodes"]
             .as_array()
             .unwrap()
             .iter()
-            .all(|node| { node.get("trust").is_none() }));
+            .all(|node| { node.get("trust").is_none() && node.get("location").is_some() }));
         assert_eq!(view["summary"]["exact"], 0);
     }
 
@@ -865,11 +942,28 @@ mod tests {
             &ToolContext::for_test(&s),
             &json!({
                 "seed":{"kind":"symbol","name":"target","file":"a.py"},
-                "format":"agent_markdown",
+                "format":"agent_json",
+                "profile":"impact",
                 "snippets":"line"
             }),
         );
-        assert!(out.content_text.contains("5:     return target()"));
+        let view: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
+        let item = &view["groups"][0]["items"][0];
+        assert_eq!(item["snippet"], "5:     return target()");
+        let queries = view["next_queries"].as_array().unwrap();
+        let call_site = queries
+            .iter()
+            .find(|query| {
+                query["tool"] == "nav_nodes_at"
+                    && query["reason"] == "call_site"
+                    && query["arguments"]["file"] == "a.py"
+                    && query["arguments"]["line"] == 5
+            })
+            .expect("caller call-site hint");
+        assert_eq!(call_site["source_location"]["kind"], "call_site");
+        assert_eq!(call_site["source_location"]["file"], "a.py");
+        assert_eq!(call_site["source_location"]["line"], 5);
+        assert!(call_site["source_location"].get("start_byte").is_none());
     }
 
     #[test]
@@ -939,5 +1033,10 @@ mod tests {
             schema["properties"]["profile"]["enum"],
             json!(["impact", "edit_context", "audit"])
         );
+        assert!(registry
+            .get("nav_callers")
+            .unwrap()
+            .description
+            .contains("symbol_ref"));
     }
 }

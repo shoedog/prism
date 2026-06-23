@@ -4,14 +4,15 @@ use super::input::{
 };
 use super::output::{shape_result, McpToolResult, Verbosity};
 use crate::navigation::types::{
-    Evidence, EvidenceItem, GraphNode, Location, Reason, Source, SymbolRef, Warning,
+    Evidence, EvidenceItem, GraphNode, Location, Reason, ReasoningReason, Source, SymbolRef,
+    Warning,
 };
 use crate::navigation::NavigationSession;
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
-const VIEW_SCHEMA_VERSION: &str = "0.2";
+const VIEW_SCHEMA_VERSION: &str = "0.3";
 const MAX_NEXT_QUERIES: usize = 5;
 
 #[derive(Debug, Clone)]
@@ -70,19 +71,50 @@ struct ViewSummary {
 struct ViewGroup {
     key: String,
     item_count: usize,
+    file_count: usize,
+    trust: TrustCounts,
+    representative_locations: Vec<ViewLocation>,
     items: Vec<ViewItem>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 struct ViewItem {
     loc: String,
+    location: ViewLocation,
     #[serde(skip_serializing_if = "Option::is_none")]
     symbol: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    symbol_ref: Option<SymbolRef>,
     score: f32,
     trust: &'static str,
     reason: String,
+    reasons: Vec<ViewReason>,
     #[serde(skip_serializing_if = "Option::is_none")]
     snippet: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ViewLocation {
+    file: String,
+    start_line: usize,
+    end_line: usize,
+    start_byte: usize,
+    end_byte: usize,
+    display: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ViewReason {
+    kind: String,
+    label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    detail: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    target: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    file: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    line: Option<usize>,
 }
 
 #[derive(Debug, Serialize)]
@@ -96,6 +128,7 @@ struct ViewGraph {
 #[derive(Debug, Serialize)]
 struct ViewNode {
     loc: String,
+    location: ViewLocation,
     #[serde(skip_serializing_if = "Option::is_none")]
     symbol: Option<String>,
 }
@@ -105,6 +138,20 @@ struct NextQuery {
     tool: &'static str,
     reason: &'static str,
     arguments: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_location: Option<ViewSourceLocation>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ViewSourceLocation {
+    kind: &'static str,
+    file: String,
+    line: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    start_byte: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    end_byte: Option<usize>,
+    display: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -299,13 +346,19 @@ fn build_items(
     full.items
         .iter()
         .take(item_limit)
-        .map(|item| ViewItem {
-            loc: format_location(&item.location),
-            symbol: item.symbol.as_ref().map(symbol_label),
-            score: item.score,
-            trust: trust_label(item),
-            reason: reason_label(item, view.profile),
-            snippet: snippet_for_item(session, item, view.snippets, kind),
+        .map(|item| {
+            let location = view_location(&item.location);
+            ViewItem {
+                loc: location.display.clone(),
+                location,
+                symbol: item.symbol.as_ref().map(symbol_label),
+                symbol_ref: item.symbol.clone(),
+                score: item.score,
+                trust: trust_label(item),
+                reason: reason_label(item, view.profile),
+                reasons: view_reasons(item, view.profile),
+                snippet: snippet_for_item(session, item, view.snippets, kind),
+            }
         })
         .collect()
 }
@@ -336,7 +389,7 @@ fn effective_group_by(view: ViewOptions, full: &Evidence, policy: ProfilePolicy)
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Default, Serialize)]
 struct TrustCounts {
     exact: usize,
     fallback: usize,
@@ -345,11 +398,16 @@ struct TrustCounts {
 }
 
 fn trust_counts(items: &[ViewItem], groups: &[ViewGroup]) -> TrustCounts {
+    trust_counts_for_items(
+        items
+            .iter()
+            .chain(groups.iter().flat_map(|group| group.items.iter())),
+    )
+}
+
+fn trust_counts_for_items<'a>(items: impl IntoIterator<Item = &'a ViewItem>) -> TrustCounts {
     let mut counts = TrustCounts::default();
-    for item in items
-        .iter()
-        .chain(groups.iter().flat_map(|group| group.items.iter()))
-    {
+    for item in items {
         match item.trust {
             "fallback" => counts.fallback += 1,
             "unresolved" => counts.unresolved += 1,
@@ -392,11 +450,7 @@ fn group_items(items: &[ViewItem], group_by: GroupPolicy) -> Vec<ViewGroup> {
     for item in items {
         let key = match group_by {
             GroupPolicy::None => unreachable!(),
-            GroupPolicy::File => item
-                .loc
-                .split_once(':')
-                .map(|(file, _)| file.to_string())
-                .unwrap_or_else(|| item.loc.clone()),
+            GroupPolicy::File => item.location.file.clone(),
             GroupPolicy::Symbol => item.symbol.clone().unwrap_or_else(|| "(no symbol)".into()),
         };
         grouped.entry(key).or_default().push(item.clone());
@@ -405,10 +459,25 @@ fn group_items(items: &[ViewItem], group_by: GroupPolicy) -> Vec<ViewGroup> {
         .into_iter()
         .map(|(key, items)| ViewGroup {
             item_count: items.len(),
+            file_count: file_count_for_items(&items),
+            trust: trust_counts_for_items(items.iter()),
+            representative_locations: items
+                .iter()
+                .take(3)
+                .map(|item| item.location.clone())
+                .collect(),
             key,
             items,
         })
         .collect()
+}
+
+fn file_count_for_items(items: &[ViewItem]) -> usize {
+    items
+        .iter()
+        .map(|item| item.location.file.as_str())
+        .collect::<BTreeSet<_>>()
+        .len()
 }
 
 fn render_markdown(view: &EvidenceView) -> String {
@@ -450,7 +519,18 @@ fn render_markdown(view: &EvidenceView) -> String {
         }
     }
     for group in &view.groups {
-        out.push_str(&format!("\n## {}\n", group.key));
+        let trust = markdown_trust_counts(&group.trust);
+        if trust.is_empty() {
+            out.push_str(&format!(
+                "\n## {} (items={} files={})\n",
+                group.key, group.item_count, group.file_count
+            ));
+        } else {
+            out.push_str(&format!(
+                "\n## {} (items={} files={} {})\n",
+                group.key, group.item_count, group.file_count, trust
+            ));
+        }
         for item in &group.items {
             render_markdown_item(&mut out, item);
         }
@@ -471,6 +551,23 @@ fn render_markdown(view: &EvidenceView) -> String {
         }
     }
     out
+}
+
+fn markdown_trust_counts(counts: &TrustCounts) -> String {
+    let mut parts = Vec::new();
+    if counts.exact > 0 {
+        parts.push(format!("exact={}", counts.exact));
+    }
+    if counts.fallback > 0 {
+        parts.push(format!("fallback={}", counts.fallback));
+    }
+    if counts.unresolved > 0 {
+        parts.push(format!("unresolved={}", counts.unresolved));
+    }
+    if counts.heuristic > 0 {
+        parts.push(format!("heuristic={}", counts.heuristic));
+    }
+    parts.join(" ")
 }
 
 fn render_markdown_item(out: &mut String, item: &ViewItem) {
@@ -598,10 +695,21 @@ fn add_callers_hints(
                     "call_site",
                     &item.location.file,
                     *call_site_line,
+                    Some(call_site_source_location(
+                        &item.location.file,
+                        *call_site_line,
+                    )),
                 );
             }
         }
-        push_symbol_query(queries, seen, "nav_callers", "caller_symbol", &item.symbol);
+        push_symbol_query(
+            queries,
+            seen,
+            "nav_callers",
+            "caller_symbol",
+            &item.symbol,
+            Some(item_source_location(item)),
+        );
     }
 }
 
@@ -620,7 +728,14 @@ fn add_callees_hints(
         {
             for reason in &item.why {
                 if let Reason::Calls { call_site_line, .. } = reason {
-                    push_nodes_at_query(queries, seen, "call_site", seed_file, *call_site_line);
+                    push_nodes_at_query(
+                        queries,
+                        seen,
+                        "call_site",
+                        seed_file,
+                        *call_site_line,
+                        Some(call_site_source_location(seed_file, *call_site_line)),
+                    );
                 }
             }
         }
@@ -629,8 +744,15 @@ fn add_callees_hints(
         } else {
             "edit_locator"
         };
-        push_nodes_at_location(queries, seen, reason, &item.location);
-        push_symbol_query(queries, seen, "nav_callees", "callee_symbol", &item.symbol);
+        push_nodes_at_item(queries, seen, reason, item);
+        push_symbol_query(
+            queries,
+            seen,
+            "nav_callees",
+            "callee_symbol",
+            &item.symbol,
+            Some(item_source_location(item)),
+        );
     }
 }
 
@@ -649,11 +771,18 @@ fn add_module_deps_hints(
         if let Some(source_file) = source_file {
             for reason in &item.why {
                 if let Reason::Calls { call_site_line, .. } = reason {
-                    push_nodes_at_query(queries, seen, "call_site", source_file, *call_site_line);
+                    push_nodes_at_query(
+                        queries,
+                        seen,
+                        "call_site",
+                        source_file,
+                        *call_site_line,
+                        Some(call_site_source_location(source_file, *call_site_line)),
+                    );
                 }
             }
         }
-        push_nodes_at_location(queries, seen, "dependency_target", &item.location);
+        push_nodes_at_item(queries, seen, "dependency_target", item);
     }
 }
 
@@ -672,6 +801,7 @@ fn add_repo_map_hints(
                 "nav_module_deps",
                 "inspect_module",
                 arguments,
+                Some(graph_source_location(node)),
             );
         }
     }
@@ -685,7 +815,7 @@ fn add_item_locator_hints(
     seen: &mut BTreeSet<String>,
 ) {
     for item in full.items.iter().take(item_limit) {
-        push_nodes_at_location(queries, seen, reason, &item.location);
+        push_nodes_at_item(queries, seen, reason, item);
     }
 }
 
@@ -697,7 +827,7 @@ fn add_graph_locator_hints(
 ) {
     if let Some(graph) = &full.graph {
         for node in graph.nodes.iter().take(item_limit) {
-            push_nodes_at_location(queries, seen, "edit_locator", &node.location);
+            push_nodes_at_graph_node(queries, seen, "edit_locator", node);
         }
     }
 }
@@ -709,7 +839,7 @@ fn add_truncation_hint(
     seen: &mut BTreeSet<String>,
 ) {
     if let Some(item) = full.items.iter().take(item_limit).next() {
-        push_nodes_at_location(queries, seen, "result_truncated", &item.location);
+        push_nodes_at_item(queries, seen, "result_truncated", item);
         return;
     }
     if let Some(node) = full
@@ -717,17 +847,40 @@ fn add_truncation_hint(
         .as_ref()
         .and_then(|graph| graph.nodes.iter().take(item_limit).next())
     {
-        push_nodes_at_location(queries, seen, "result_truncated", &node.location);
+        push_nodes_at_graph_node(queries, seen, "result_truncated", node);
     }
 }
 
-fn push_nodes_at_location(
+fn push_nodes_at_item(
     queries: &mut Vec<NextQuery>,
     seen: &mut BTreeSet<String>,
     reason: &'static str,
-    location: &Location,
+    item: &EvidenceItem,
 ) {
-    push_nodes_at_query(queries, seen, reason, &location.file, location.start_line);
+    push_nodes_at_query(
+        queries,
+        seen,
+        reason,
+        &item.location.file,
+        item.location.start_line,
+        Some(item_source_location(item)),
+    );
+}
+
+fn push_nodes_at_graph_node(
+    queries: &mut Vec<NextQuery>,
+    seen: &mut BTreeSet<String>,
+    reason: &'static str,
+    node: &GraphNode,
+) {
+    push_nodes_at_query(
+        queries,
+        seen,
+        reason,
+        &node.location.file,
+        node.location.start_line,
+        Some(graph_source_location(node)),
+    );
 }
 
 fn push_nodes_at_query(
@@ -736,12 +889,20 @@ fn push_nodes_at_query(
     reason: &'static str,
     file: &str,
     line: usize,
+    source_location: Option<ViewSourceLocation>,
 ) {
     let arguments = json!({
         "file": file,
         "line": line,
     });
-    push_query(queries, seen, "nav_nodes_at", reason, arguments);
+    push_query(
+        queries,
+        seen,
+        "nav_nodes_at",
+        reason,
+        arguments,
+        source_location,
+    );
 }
 
 fn push_symbol_query(
@@ -750,6 +911,7 @@ fn push_symbol_query(
     tool: &'static str,
     reason: &'static str,
     symbol: &Option<SymbolRef>,
+    source_location: Option<ViewSourceLocation>,
 ) {
     let Some(SymbolRef::Function { file, name, .. }) = symbol else {
         return;
@@ -761,7 +923,7 @@ fn push_symbol_query(
             "file": file,
         }
     });
-    push_query(queries, seen, tool, reason, arguments);
+    push_query(queries, seen, tool, reason, arguments, source_location);
 }
 
 fn push_query(
@@ -770,6 +932,7 @@ fn push_query(
     tool: &'static str,
     reason: &'static str,
     arguments: Value,
+    source_location: Option<ViewSourceLocation>,
 ) {
     if queries.len() >= MAX_NEXT_QUERIES || !query_arguments_valid(tool, &arguments) {
         return;
@@ -783,6 +946,7 @@ fn push_query(
             tool,
             reason,
             arguments,
+            source_location,
         });
     }
 }
@@ -798,9 +962,52 @@ fn query_arguments_valid(tool: &str, arguments: &Value) -> bool {
 }
 
 fn view_node(node: &GraphNode) -> ViewNode {
+    let location = view_location(&node.location);
     ViewNode {
-        loc: format_location(&node.location),
+        loc: location.display.clone(),
+        location,
         symbol: node.symbol.as_ref().map(symbol_label),
+    }
+}
+
+fn view_location(location: &Location) -> ViewLocation {
+    ViewLocation {
+        file: location.file.clone(),
+        start_line: location.start_line,
+        end_line: location.end_line,
+        start_byte: location.start_byte,
+        end_byte: location.end_byte,
+        display: format_location(location),
+    }
+}
+
+fn item_source_location(item: &EvidenceItem) -> ViewSourceLocation {
+    evidence_source_location("item", &item.location)
+}
+
+fn graph_source_location(node: &GraphNode) -> ViewSourceLocation {
+    evidence_source_location("graph_node", &node.location)
+}
+
+fn evidence_source_location(kind: &'static str, location: &Location) -> ViewSourceLocation {
+    ViewSourceLocation {
+        kind,
+        file: location.file.clone(),
+        line: location.start_line,
+        start_byte: Some(location.start_byte),
+        end_byte: Some(location.end_byte),
+        display: format_location(location),
+    }
+}
+
+fn call_site_source_location(file: &str, line: usize) -> ViewSourceLocation {
+    ViewSourceLocation {
+        kind: "call_site",
+        file: file.into(),
+        line,
+        start_byte: None,
+        end_byte: None,
+        display: format!("{file}:{line}"),
     }
 }
 
@@ -863,6 +1070,153 @@ fn symbol_label(symbol: &SymbolRef) -> String {
             access,
             ..
         } => format!("variable {path} {access} in {function} @ {file}:{line}"),
+    }
+}
+
+fn symbol_file_line(symbol: &SymbolRef) -> (String, usize) {
+    match symbol {
+        SymbolRef::Function {
+            file, start_line, ..
+        } => (file.clone(), *start_line),
+        SymbolRef::Statement { file, line, .. } | SymbolRef::Variable { file, line, .. } => {
+            (file.clone(), *line)
+        }
+    }
+}
+
+fn view_reasons(item: &EvidenceItem, profile: EvidenceProfile) -> Vec<ViewReason> {
+    let mut reasons = Vec::new();
+    if matches!(profile, EvidenceProfile::Audit) {
+        reasons.extend(item.why.iter().map(view_reason));
+    } else if let Some(first) = item.why.first() {
+        reasons.push(view_reason(first));
+        if !matches!(first, Reason::Resolution { .. }) {
+            if let Some(resolution) = item
+                .why
+                .iter()
+                .find(|reason| matches!(reason, Reason::Resolution { .. }))
+            {
+                reasons.push(view_reason(resolution));
+            }
+        }
+    }
+    if reasons.is_empty() {
+        reasons.push(ViewReason {
+            kind: "matched_evidence".into(),
+            label: "matched evidence".into(),
+            detail: None,
+            target: None,
+            file: None,
+            line: None,
+        });
+    }
+    reasons
+}
+
+fn view_reason(reason: &Reason) -> ViewReason {
+    match reason {
+        Reason::Calls {
+            callee,
+            call_site_line,
+            qualifier,
+        } => {
+            let display_callee = qualifier
+                .as_ref()
+                .map(|qualifier| format!("{qualifier}.{callee}"))
+                .unwrap_or_else(|| callee.clone());
+            ViewReason {
+                kind: "calls".into(),
+                label: format!("calls `{display_callee}` at line {call_site_line}"),
+                detail: qualifier
+                    .as_ref()
+                    .map(|qualifier| format!("qualifier={qualifier}")),
+                target: Some(callee.clone()),
+                file: None,
+                line: Some(*call_site_line),
+            }
+        }
+        Reason::CalledBy {
+            caller,
+            call_site_line,
+        } => ViewReason {
+            kind: "called_by".into(),
+            label: format!("called by `{caller}` at line {call_site_line}"),
+            detail: None,
+            target: Some(caller.clone()),
+            file: None,
+            line: Some(*call_site_line),
+        },
+        Reason::Resolution { kind } => ViewReason {
+            kind: "resolution".into(),
+            label: format!("resolution {kind}"),
+            detail: Some(kind.clone()),
+            target: None,
+            file: None,
+            line: None,
+        },
+        Reason::EnclosingFunction { function } => {
+            let target = symbol_label(function);
+            let (file, line) = symbol_file_line(function);
+            ViewReason {
+                kind: "enclosing_function".into(),
+                label: format!("enclosing function {target}"),
+                detail: None,
+                target: Some(target),
+                file: Some(file),
+                line: Some(line),
+            }
+        }
+        Reason::Containment { parent } => {
+            let target = symbol_label(parent);
+            let (file, line) = symbol_file_line(parent);
+            ViewReason {
+                kind: "containment".into(),
+                label: format!("contained by {target}"),
+                detail: None,
+                target: Some(target),
+                file: Some(file),
+                line: Some(line),
+            }
+        }
+        Reason::ResolvedImport {
+            module,
+            target_file,
+        } => ViewReason {
+            kind: "resolved_import".into(),
+            label: format!("import `{module}` resolves to `{target_file}`"),
+            detail: None,
+            target: Some(module.clone()),
+            file: Some(target_file.clone()),
+            line: None,
+        },
+        Reason::UnresolvedImport { module } => ViewReason {
+            kind: "unresolved_import".into(),
+            label: format!("unresolved import `{module}`"),
+            detail: None,
+            target: Some(module.clone()),
+            file: None,
+            line: None,
+        },
+        Reason::Reasoning(ReasoningReason::TaintedBy {
+            source,
+            sanitizers_present_in_source_fn,
+            path_proven,
+        }) => {
+            let target = symbol_label(source);
+            let (file, line) = symbol_file_line(source);
+            ViewReason {
+                kind: "reasoning".into(),
+                label: format!("tainted by {target}"),
+                detail: Some(format!(
+                    "path_proven={} sanitizers={}",
+                    path_proven,
+                    sanitizers_present_in_source_fn.len()
+                )),
+                target: Some(target),
+                file: Some(file),
+                line: Some(line),
+            }
+        }
     }
 }
 
@@ -932,7 +1286,7 @@ fn reason_label(item: &EvidenceItem, profile: EvidenceProfile) -> String {
             target_file,
         } => format!("import `{module}` resolves to `{target_file}`"),
         Reason::UnresolvedImport { module } => format!("unresolved import `{module}`"),
-        Reason::Reasoning(reason) => format!("{reason:?}"),
+        Reason::Reasoning(_) => view_reason(reason).label,
     };
     match profile {
         EvidenceProfile::Audit => format!(
@@ -979,5 +1333,87 @@ impl CloneMcpToolResult for McpToolResult {
             is_error: self.is_error,
             meta: self.meta.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn function_symbol(name: &str, file: &str, start_line: usize) -> SymbolRef {
+        SymbolRef::Function {
+            file: file.into(),
+            name: name.into(),
+            start_line,
+            end_line: start_line + 1,
+            start_byte: 10,
+            end_byte: 20,
+            ordinal: 0,
+        }
+    }
+
+    fn statement_symbol(kind: &str, file: &str, line: usize) -> SymbolRef {
+        SymbolRef::Statement {
+            file: file.into(),
+            line,
+            kind: kind.into(),
+            start_byte: 30,
+            end_byte: 40,
+            ordinal: 0,
+        }
+    }
+
+    #[test]
+    fn view_reason_maps_reasoning_without_debug_output() {
+        let reason = Reason::Reasoning(ReasoningReason::TaintedBy {
+            source: function_symbol("source", "a.py", 3),
+            sanitizers_present_in_source_fn: vec!["clean".into(), "escape".into()],
+            path_proven: true,
+        });
+
+        let mapped = view_reason(&reason);
+        assert_eq!(mapped.kind, "reasoning");
+        assert!(mapped.label.contains("tainted by function source @ a.py:3"));
+        assert!(!mapped.label.contains("TaintedBy"));
+        assert_eq!(mapped.file.as_deref(), Some("a.py"));
+        assert_eq!(mapped.line, Some(3));
+        assert_eq!(
+            mapped.detail.as_deref(),
+            Some("path_proven=true sanitizers=2")
+        );
+    }
+
+    #[test]
+    fn view_reason_extracts_symbol_location_fields() {
+        let enclosing = view_reason(&Reason::EnclosingFunction {
+            function: function_symbol("outer", "a.py", 11),
+        });
+        assert_eq!(enclosing.kind, "enclosing_function");
+        assert_eq!(
+            enclosing.label,
+            "enclosing function function outer @ a.py:11"
+        );
+        assert_eq!(enclosing.file.as_deref(), Some("a.py"));
+        assert_eq!(enclosing.line, Some(11));
+
+        let containment = view_reason(&Reason::Containment {
+            parent: statement_symbol("if_statement", "b.py", 7),
+        });
+        assert_eq!(containment.kind, "containment");
+        assert_eq!(
+            containment.label,
+            "contained by statement if_statement @ b.py:7"
+        );
+        assert_eq!(containment.file.as_deref(), Some("b.py"));
+        assert_eq!(containment.line, Some(7));
+    }
+
+    #[test]
+    fn call_site_source_location_is_line_only() {
+        let location = call_site_source_location("main.py", 4);
+        assert_eq!(location.kind, "call_site");
+        assert_eq!(location.display, "main.py:4");
+        assert_eq!(location.start_byte, None);
+        assert_eq!(location.end_byte, None);
     }
 }
