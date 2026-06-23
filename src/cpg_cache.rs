@@ -63,7 +63,8 @@ use std::path::{Path, PathBuf};
 /// - v19: glob re-export member expansion (resolution behavior change).
 /// - v20: member-visibility tri-state (glob member-rib continuation — behavior change).
 /// - v21: method_class_span for self-receiver same-class narrowing.
-const CACHE_VERSION: u32 = 21; // 21: method_class_span (self-receiver same-class narrowing).
+/// - v22: method_class_span_ambiguous for fail-open line-id collisions.
+const CACHE_VERSION: u32 = 22; // 22: method_class_span_ambiguous (self-receiver fail-open).
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -568,9 +569,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_21_for_method_class_span() {
-        // v21: method_class_span (self-receiver same-class narrowing).
-        assert_eq!(super::CACHE_VERSION, 21);
+    fn cache_version_is_22_for_method_class_span_ambiguous() {
+        // v22: method_class_span_ambiguous (self-receiver fail-open).
+        assert_eq!(super::CACHE_VERSION, 22);
     }
 
     #[test]

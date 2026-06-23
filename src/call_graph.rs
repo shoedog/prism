@@ -166,6 +166,10 @@ pub struct CallGraph {
     /// Py/JS/TS only; the self-receiver class identity.
     #[serde(default)]
     pub method_class_span: BTreeMap<FunctionId, (usize, usize)>,
+    /// Method FunctionIds whose line-based identity maps to multiple class spans.
+    /// These fail open to owner lookup because the class span is not trustworthy.
+    #[serde(default)]
+    pub method_class_span_ambiguous: BTreeSet<FunctionId>,
     /// Phase-2a PR-1: (defining-type scope, method_name) -> definitions.
     /// Inert until the receiver-typed read path lands.
     #[serde(default)]
@@ -237,6 +241,7 @@ impl CallGraph {
             methods: BTreeMap::new(),
             method_owners: BTreeMap::new(),
             method_class_span: BTreeMap::new(),
+            method_class_span_ambiguous: BTreeSet::new(),
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -270,6 +275,7 @@ impl CallGraph {
         let mut methods: BTreeMap<(String, String), Vec<FunctionId>> = BTreeMap::new();
         let mut method_owners: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_class_span: BTreeMap<FunctionId, (usize, usize)> = BTreeMap::new();
+        let mut method_class_span_ambiguous: BTreeSet<FunctionId> = BTreeSet::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
 
@@ -298,7 +304,12 @@ impl CallGraph {
                             .push(func_id.clone());
                         method_owners.insert(func_id.clone(), o);
                         if let Some(s) = class_span {
-                            method_class_span.insert(func_id.clone(), s);
+                            record_method_class_span(
+                                &mut method_class_span,
+                                &mut method_class_span_ambiguous,
+                                &func_id,
+                                s,
+                            );
                         }
                     }
                     if let Some(t) = trait_key {
@@ -384,6 +395,7 @@ impl CallGraph {
             methods,
             method_owners,
             method_class_span,
+            method_class_span_ambiguous,
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -452,6 +464,7 @@ impl CallGraph {
         let mut methods: BTreeMap<(String, String), Vec<FunctionId>> = BTreeMap::new();
         let mut method_owners: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_class_span: BTreeMap<FunctionId, (usize, usize)> = BTreeMap::new();
+        let mut method_class_span_ambiguous: BTreeSet<FunctionId> = BTreeSet::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
 
@@ -545,7 +558,12 @@ impl CallGraph {
                         .push(func_id.clone());
                     method_owners.insert(func_id.clone(), o);
                     if let Some(s) = class_span {
-                        method_class_span.insert(func_id.clone(), s);
+                        record_method_class_span(
+                            &mut method_class_span,
+                            &mut method_class_span_ambiguous,
+                            &func_id,
+                            s,
+                        );
                     }
                 }
                 if let Some(t) = trait_key {
@@ -995,6 +1013,7 @@ impl CallGraph {
             methods,
             method_owners,
             method_class_span,
+            method_class_span_ambiguous,
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -1060,6 +1079,8 @@ impl CallGraph {
             .retain(|fid, _| !exclude.contains(&fid.file));
         self.method_class_span
             .retain(|fid, _| !exclude.contains(&fid.file));
+        self.method_class_span_ambiguous
+            .retain(|fid| !exclude.contains(&fid.file));
         self.methods_by_scope.clear();
         self.extension_methods.clear();
         self.identity_complete.clear();
@@ -1099,7 +1120,16 @@ impl CallGraph {
             self.methods.entry(key).or_default().extend(fids);
         }
         self.method_owners.extend(other.method_owners);
-        self.method_class_span.extend(other.method_class_span);
+        self.method_class_span_ambiguous
+            .extend(other.method_class_span_ambiguous);
+        for (fid, span) in other.method_class_span {
+            record_method_class_span(
+                &mut self.method_class_span,
+                &mut self.method_class_span_ambiguous,
+                &fid,
+                span,
+            );
+        }
         for (key, fids) in other.methods_by_scope {
             self.methods_by_scope.entry(key).or_default().extend(fids);
         }
@@ -1462,6 +1492,7 @@ impl CallGraph {
         let mut methods: BTreeMap<(String, String), Vec<FunctionId>> = BTreeMap::new();
         let mut method_owners: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_class_span: BTreeMap<FunctionId, (usize, usize)> = BTreeMap::new();
+        let mut method_class_span_ambiguous: BTreeSet<FunctionId> = BTreeSet::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
 
@@ -1503,7 +1534,12 @@ impl CallGraph {
                             .push(func_id.clone());
                         method_owners.insert(func_id.clone(), o);
                         if let Some(s) = class_span {
-                            method_class_span.insert(func_id.clone(), s);
+                            record_method_class_span(
+                                &mut method_class_span,
+                                &mut method_class_span_ambiguous,
+                                &func_id,
+                                s,
+                            );
                         }
                     }
                     if let Some(t) = trait_key {
@@ -1615,6 +1651,7 @@ impl CallGraph {
             methods,
             method_owners,
             method_class_span,
+            method_class_span_ambiguous,
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -2140,6 +2177,21 @@ impl PartialOrd for CallSite {
 impl Ord for CallSite {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.cmp_key().cmp(&other.cmp_key())
+    }
+}
+
+fn record_method_class_span(
+    spans: &mut BTreeMap<FunctionId, (usize, usize)>,
+    ambiguous: &mut BTreeSet<FunctionId>,
+    fid: &FunctionId,
+    span: (usize, usize),
+) {
+    if let Some(existing) = spans.get(fid) {
+        if *existing != span {
+            ambiguous.insert(fid.clone());
+        }
+    } else {
+        spans.insert(fid.clone(), span);
     }
 }
 
