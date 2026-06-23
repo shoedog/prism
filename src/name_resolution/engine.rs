@@ -188,6 +188,51 @@ mod glob_guard_tests {
     }
 }
 
+#[cfg(test)]
+mod member_probe_tests {
+    use super::*;
+
+    #[test]
+    fn member_probe_all_known_hidden_predicate() {
+        // The continuation predicate: hidden present, no unknown, no visible.
+        assert!(MemberProbe::Rib {
+            saw_hidden: true,
+            saw_unknown: false,
+            saw_visible: false,
+        }
+        .all_known_hidden());
+        // Any unknown poisons (must not continue).
+        assert!(!MemberProbe::Rib {
+            saw_hidden: true,
+            saw_unknown: true,
+            saw_visible: false,
+        }
+        .all_known_hidden());
+        // Any visible means the rib did not end Unresolved-all-hidden.
+        assert!(!MemberProbe::Rib {
+            saw_hidden: false,
+            saw_unknown: false,
+            saw_visible: true,
+        }
+        .all_known_hidden());
+        // No hidden binding at all → not all-known-hidden.
+        assert!(!MemberProbe::Rib {
+            saw_hidden: false,
+            saw_unknown: false,
+            saw_visible: false,
+        }
+        .all_known_hidden());
+        // rib_present discriminates NoRib from Rib.
+        assert!(!MemberProbe::NoRib.rib_present());
+        assert!(MemberProbe::Rib {
+            saw_hidden: true,
+            saw_unknown: false,
+            saw_visible: false,
+        }
+        .rib_present());
+    }
+}
+
 // ── the bare-name inner→outer walk ────────────────────────────────────────────
 
 fn resolve_bare(
@@ -256,33 +301,81 @@ fn resolve_bare(
     }
 }
 
-/// Resolve the candidates claimed at a single rib (explicit bindings).
+/// How a single member rib classified under member visibility, surfaced so a glob
+/// member lookup can distinguish all-known-hidden (safe to continue past) from
+/// any-undecidable (must poison). `NoRib` is set by the glob/macro tier (no
+/// explicit rib for the name claimed in this scope).
+enum MemberProbe {
+    NoRib,
+    Rib {
+        saw_hidden: bool,
+        saw_unknown: bool,
+        saw_visible: bool,
+    },
+}
+
+impl MemberProbe {
+    fn rib_present(&self) -> bool {
+        matches!(self, MemberProbe::Rib { .. })
+    }
+
+    /// Encodes the cardinal continuation rule directly: continue past a filtered
+    /// rib only if some binding was proved `Hidden`, none `Unknown`, AND none
+    /// `Visible`. `saw_visible` is belt-and-suspenders — a visible binding cannot
+    /// leave the rib `Unresolved` today (it contributes or poisons) — but gating on
+    /// it future-proofs the predicate against changes to the contribution logic.
+    fn all_known_hidden(&self) -> bool {
+        matches!(
+            self,
+            MemberProbe::Rib {
+                saw_hidden: true,
+                saw_unknown: false,
+                saw_visible: false,
+            }
+        )
+    }
+}
+
+/// Resolve the candidates claimed at a single rib (explicit bindings), ALSO
+/// reporting a `MemberProbe` describing how the rib's bindings classified under
+/// member visibility. The `Resolution` is identical to the pre-probe behavior.
 ///
 /// Pending targets are chased through the fixpoint (cycle-guarded). A still-
-/// pending / cyclic import **poisons**. Visibility is enforced via the policy
+/// pending / cyclic import **poisons**. Visibility is classified via the policy
 /// hook; if every name-match fails visibility the result is `Unresolved` (fall
 /// through) — we do NOT continue outward (the rib claimed the name).
-fn resolve_rib(
+fn resolve_rib_probed(
     graph: &ScopeGraph,
     rib: &[usize],
     q: &ResolveQuery,
     policy: &dyn ResolutionPolicy,
     guard: &mut CycleGuard<'_>,
-) -> Resolution {
+) -> (Resolution, MemberProbe) {
     let mut candidates: Vec<Candidate> = Vec::new();
+    let (mut saw_hidden, mut saw_unknown, mut saw_visible) = (false, false, false);
     for &bidx in rib {
         let b = &graph.bindings[bidx];
-        // Visibility is checked against the binding as found at this rib.
+        // Visibility is classified (not just filtered) against the binding as found
+        // at this rib: Visible contributes; Hidden/Unknown are skipped but recorded
+        // so the caller can tell all-known-hidden (continue) from undecidable (poison).
         let trav = TraversalCtx {
             lookup_scope: Some(b.scope),
             via_glob: false,
             edge_kind: None,
         };
-        if !policy.visible(b, q, &trav) {
-            // Claimed the name but not visible → does not contribute a candidate
-            // AND does not let us fall through to an outer item. We keep scanning
-            // the rib (a sibling cfg-alternative may be visible) but never ascend.
-            continue;
+        match policy.member_visible(b, q, &trav) {
+            VisibilityDecision::Visible => saw_visible = true,
+            // Claimed the name but proved not visible → does not contribute AND does
+            // not let us fall through to an outer item. Keep scanning (a sibling
+            // cfg-alternative may be visible) but never ascend.
+            VisibilityDecision::Hidden => {
+                saw_hidden = true;
+                continue;
+            }
+            VisibilityDecision::Unknown => {
+                saw_unknown = true;
+                continue;
+            }
         }
         match &b.target {
             BindTarget::Resolved(t) => {
@@ -298,7 +391,14 @@ fn resolve_rib(
                 // privacy: the chased path must be visible at the re-export site).
                 if !guard.enter(bidx) {
                     // Cycle: a still-pending import in a cycle poisons.
-                    return poisoned();
+                    return (
+                        poisoned(),
+                        MemberProbe::Rib {
+                            saw_hidden,
+                            saw_unknown,
+                            saw_visible,
+                        },
+                    );
                 }
                 // Prefix segments resolve in the policy's first scope-bearing
                 // namespace (Rust: Type), NOT the final-segment ns of the query.
@@ -319,23 +419,65 @@ fn resolve_rib(
                             });
                         }
                     }
-                    ResStatus::Ambiguous => return ambiguous(sub.candidates),
+                    ResStatus::Ambiguous => {
+                        return (
+                            ambiguous(sub.candidates),
+                            MemberProbe::Rib {
+                                saw_hidden,
+                                saw_unknown,
+                                saw_visible,
+                            },
+                        );
+                    }
                     // A STILL-PENDING import (its path is unresolvable, OR its
                     // target is not visible at the re-export site) ⇒ POISON, never
                     // fall through to an outer same-name (§4 / §7 poison-not-skip).
                     // `Poisoned` and `Unresolved` both mean "this import did not
                     // yield a concrete visible target" → poison.
-                    ResStatus::Poisoned | ResStatus::Unresolved => return poisoned(),
+                    ResStatus::Poisoned | ResStatus::Unresolved => {
+                        return (
+                            poisoned(),
+                            MemberProbe::Rib {
+                                saw_hidden,
+                                saw_unknown,
+                                saw_visible,
+                            },
+                        );
+                    }
                 }
             }
         }
     }
-    if candidates.is_empty() {
+    let res = if candidates.is_empty() {
         // Claimed but nothing visible/resolvable → fall through (NOT outward).
         unresolved()
     } else {
         policy.combine(candidates)
-    }
+    };
+    debug_assert!(
+        !(saw_visible && matches!(res.status, ResStatus::Unresolved)),
+        "a visible member binding cannot leave the rib Unresolved (cardinal-rule invariant)"
+    );
+    (
+        res,
+        MemberProbe::Rib {
+            saw_hidden,
+            saw_unknown,
+            saw_visible,
+        },
+    )
+}
+
+/// Thin wrapper for the direct-rib callers (`resolve_bare`): identical Resolution,
+/// probe discarded.
+fn resolve_rib(
+    graph: &ScopeGraph,
+    rib: &[usize],
+    q: &ResolveQuery,
+    policy: &dyn ResolutionPolicy,
+    guard: &mut CycleGuard<'_>,
+) -> Resolution {
+    resolve_rib_probed(graph, rib, q, policy, guard).0
 }
 
 // ── glob handling (non-deferred members known; deferred ⇒ poison) ─────────────
@@ -428,7 +570,7 @@ fn glob_lookup(
                             }
                         };
 
-                    let (member_res, member_rib_present) =
+                    let (member_res, probe) =
                         scope_member_lookup_probed(graph, target_scope, q, policy, guard);
                     match member_res.status {
                         ResStatus::Resolved if member_res.candidates.len() == 1 => {
@@ -458,7 +600,7 @@ fn glob_lookup(
                         // private member could soundly continue; distinguishing it
                         // (a member-visibility tri-state, mirroring `glob_edge_visible`)
                         // is a deferred follow-on.
-                        ResStatus::Unresolved if !member_rib_present => GlobOutcome::Empty,
+                        ResStatus::Unresolved if !probe.rib_present() => GlobOutcome::Empty,
                         ResStatus::Unresolved => {
                             guard.stats().record_ambiguous();
                             GlobOutcome::Poison
@@ -548,7 +690,7 @@ fn resolve_path_guarded(
         };
         // Single-scope member lookup AND a "was a rib claimed here?" probe (so a
         // claimed-but-invisible local cannot be overridden by the crate fallback).
-        let (res, rib_present) = scope_member_lookup_probed(graph, scope, &seg_q, policy, guard);
+        let (res, probe) = scope_member_lookup_probed(graph, scope, &seg_q, policy, guard);
         // Leading-segment crate-root fallback (strictly last; P2/P3): a 2018+
         // extern-prelude root resolves to the owning crate's Root scope ONLY on a
         // TRUE no-rib miss — no rib was claimed for the segment (so a local item,
@@ -557,7 +699,7 @@ fn resolve_path_guarded(
         // gate pass (P3). Poison/empty-glob `Unresolved` WITH a claimed rib does not
         // qualify. `from` (the query origin) is threaded so the policy can identify
         // the consuming crate.
-        let res = if i == 0 && !rib_present && matches!(res.status, ResStatus::Unresolved) {
+        let res = if i == 0 && !probe.rib_present() && matches!(res.status, ResStatus::Unresolved) {
             match policy.extern_crate_root(graph, seg, anchor, from) {
                 Some(root) => Resolution {
                     candidates: vec![Candidate {
@@ -608,7 +750,7 @@ fn scope_member_lookup_probed(
     q: &ResolveQuery,
     policy: &dyn ResolutionPolicy,
     guard: &mut CycleGuard<'_>,
-) -> (Resolution, bool) {
+) -> (Resolution, MemberProbe) {
     // Explicit bindings in this scope for (name, ns), cfg-compatible. For path
     // member lookup we do NOT gate on vis_extents byte-range (a module member is
     // visible across the whole module to a path); visibility is the `visible()`
@@ -623,14 +765,13 @@ fn scope_member_lookup_probed(
         .filter(|(_, b)| cfg_compatible(&b.cond))
         .map(|(i, _)| i)
         .collect();
-    let rib_present = !rib.is_empty();
-    if rib_present {
-        return (resolve_rib(graph, &rib, q, policy, guard), true);
+    if !rib.is_empty() {
+        return resolve_rib_probed(graph, &rib, q, policy, guard);
     }
     // Glob tier: a covering macro wildcard poisons here (exactly like a deferred
     // glob), reached only when the rib above found no explicit member binding.
     if macro_wildcard_poisons(graph, scope, q.ns, &q.at) {
-        return (poisoned(), false);
+        return (poisoned(), MemberProbe::NoRib);
     }
     // Else this scope's globs.
     let res = match glob_lookup(graph, scope, q, policy, guard) {
@@ -638,7 +779,7 @@ fn scope_member_lookup_probed(
         GlobOutcome::Hit(cands) => policy.combine(cands),
         GlobOutcome::Empty => unresolved(),
     };
-    (res, false)
+    (res, MemberProbe::NoRib)
 }
 
 // ── binding selection helpers ─────────────────────────────────────────────────
