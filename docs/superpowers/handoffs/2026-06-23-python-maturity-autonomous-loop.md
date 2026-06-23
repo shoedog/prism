@@ -49,11 +49,26 @@ function's byte-range call/DFG scan attributes a nested `def`'s calls + the `@de
 enclosing fn — VERIFIED on main for an undecorated `outer`/`inner`, so NOT introduced here; needs a
 cross-cutting "belongs-to-this-body" predicate across `function_calls_*`/DFG/callees = its own slice; PR
 #132 body documents it). **NEXT after #132 merges: slice 2 (typed receivers) off merged main.**
-| **2** typed receivers | **narrowing COMMITTED `22deb40`** (Python-only); focused tests green (Py 230 / JS 41 / TS 63 / Rust 18 / Go 28 / integration); fmt clean; **ACCEPTANCE PASS** (below); **codex xhigh re-review IN FLIGHT** (`bkeo4ttai`, port 8245) = the final "last fix cycle" gate → SHIP→PR→merge, BLOCKER→shelve | `slice2-typed-receivers` (wt `/tmp/prism-slice2`, tip `22deb40`) |
+| **2** typed receivers | **🅿️ SHELVED `22deb40`** (re-review REWORK; pre-declared "last fix cycle"). Branch preserved (local, unpushed). +18 fully recoverable. **⚠️ OWNER DECISION FLAGGED below.** | `slice2-typed-receivers` (wt `/tmp/prism-slice2`, tip `22deb40`) |
 
 **Slice-2 ACCEPTANCE (branch `22deb40` vs main `08f019d`, `--no-cache call-stats`, `/tmp/slice2-accept/`):**
 **Soundness gate — Rust/Go/JS BYTE-IDENTICAL:** ripgrep (Rust), caddy (Go), express + excalidraw (JS) all `diff -q` empty ✓ (the `call_start_byte` byte-scan did NOT perturb Rust/Go; JS/TS fully inert post-narrowing).
 **Python buy:** fastapi `constructor_local +1` / `typed_param +1` (+2); pydantic `constructor_local 28→43` / `typed_param 286→287` (+16) = **~+18 Exact total**. **Canary `multi_target_exact_sites` FLAT** (fastapi 10→10, pydantic 316→316) — no wrong-singleton FP. **`dropped_external_receiver` FLAT** (0→0, 1228→1228) — no recall loss. All other Exact buckets unchanged. Precision-neutral + small sound recall buy. (~+18 matches the strategic finding; owner may reconsider/prioritize slice 3 in the morning — slice 3 is the actual cross-module lever and is next regardless.)
+
+### ⚠️ Slice-2 SHELVE decision + OWNER DECISION (autonomous, owner asleep — `/tmp/slice2-rereview-out.md`)
+The codex xhigh re-review (`bkeo4ttai`) returned **VERDICT: REWORK** — 2 BLOCKERs + 1 MINOR:
+- **BLOCKER A** (`resolution.rs:371`, `ast.rs:4114`, `resolution.rs:1052`): an **untyped** Python local shadow of an import — `import api` + `api = other(); api.m()` — increments the binding counter but recovers **no type** (`other()` lowercase → `constructor_type`=None → `found`=None), so `classify_simple_ident` returns `none()` (NOT materialized) → R3 still mints false `ImportQualified` Exact. Same for `class api` → R3b `QualifierOwner`.
+- **BLOCKER B** (`ast.rs:470`, `ast.rs:4114`): non-`assignment` Python binders (`for api in …`, `with … as api`, walrus, lambda params, comprehension targets) are **not walked at all** → never increment the counter → never materialize → import-shadow leaks the same way.
+- **MINOR** (`ast.rs:4022`): the `call_start_byte` byte-scan is **not** Python-gated, so Rust/Go aren't *theoretically* byte-identical (a same-line `x.m(); let x = …` case main counted, branch prunes — actually a correctness improvement).
+
+**VERIFIED pre-existing, NOT a slice-2 regression:** on fastapi/pydantic the acceptance buckets `import_qualified` (16→16, 5636→5636), `qualifier_owner` (2→2, 20→20), `qualified_owner` (816→816) are **FLAT** — slice 2 mints **zero** new R3/R3b Exacts. Main has the identical false Exacts (main has no Python receiver recovery), so these BLOCKERs are pre-existing prism precision limits the slice's *type-driven* materialization only half-closes (typed shadows suppress R3/R3b; untyped/loop-bound shadows leak). The MINOR is empirically inert (ripgrep/caddy byte-identical).
+
+**Why SHELVED (not merged, not fixed-now):** (1) pre-declared guardrail "Last fix cycle — shelve if another BLOCKER"; (2) buy is marginal **+18 Exact**; (3) completing the mechanism is a soundness-risk rabbit hole (enumerating for/with/walrus/lambda/comprehension/except-as binders + an attribute/subscript tail codex flagged) — a new sub-slice, not a tweak; (4) **slice 3 is the actual cross-module lever** and is next regardless; (5) mandate explicitly allows parking a stuck slice.
+
+**⚠️ OWNER, pick one in the morning** (branch `slice2-typed-receivers`@`22deb40` preserved, all reversible):
+- **(a) Accept shelve** (default; slice 3 carries the value) — recommended.
+- **(b) Merge as-is** — it's a clean no-regression +18 (canary/buckets FLAT, Rust/Go/JS byte-identical); the BLOCKERs are pre-existing and don't manifest on the corpora. Just say "merge slice 2 as-is" and I'll push+PR+merge.
+- **(c) Complete the mechanism properly** as sub-slice 2b: **binding-PRESENCE suppression** (not type-driven). The fix is principled and the key data is *already there* — `receiver_type_in_fn` already counts `bindings`; map `bindings>=1 && found=None` → `materialized_only()` (closes BLOCKER A in ~5 lines). BLOCKER B needs the for/with/walrus/lambda/comprehension binders added to the walk to increment the counter (no type recovery needed — presence is enough). This makes materialization binding-driven (syntactic, decidable) instead of type-driven, and is strictly more correct. Estimated 1 spec→impl→review cycle.
 
 **Slice-2 diff-review (REWORK) — the fix IMPROVES the value story:** the 2 BLOCKERs are PRE-EXISTING
 false-Exacts (verified on main: `def run(x: Foo): x.m()` + a `class x` → false `qualifier_owner` to
@@ -130,10 +145,8 @@ methods). **Spec-review (SHIP-WITH-FIXES) findings being folded into rev 2:**
   formalize into specs before relying on them).
 
 ## Next action (live)
-1. **Slice 2 (in final gate):** await codex re-review `bkeo4ttai` (`/tmp/slice2-rereview-out.md`, port 8245).
-   - **SHIP** → push `slice2-typed-receivers` → open PR (body: the acceptance block above) → merge on green CI → sync main.
-   - **REWORK/BLOCKER** → SHELVE slice 2 (preserve branch `slice2-typed-receivers` @ `22deb40`, document the hole here), move to slice 3. (This is the declared "last fix cycle".)
-2. **Slice 3 (next, the value lever):** architect memo `/tmp/slice3-architect-out.md` = Option B bare-import-qualified narrowing. Spec drafting STARTED (off `08f019d`; rung is orthogonal to slice-2 receiver changes, so spec is valid either way). Pipeline: spec → codex spec-review → fold → plan → review → fold → codex-implement → acceptance → diff-review → PR → merge.
+1. **Slice 2:** ✅ SHELVED (REWORK; see ⚠️ block above). Branch preserved. Owner decision flagged for morning. Moving on.
+2. **Slice 3 (NOW ACTIVE — the value lever):** architect memo `/tmp/slice3-architect-out.md` = Option B bare-import-qualified narrowing. **Spec draft DONE** `/tmp/slice3-spec-draft.md`. Branches off **main `bf1a271`** (slice 2 shelved, so NOT off slice 2 — `import_member` rung is independent of slice-2 receiver changes). Pipeline: spec → codex spec-review → fold → plan → review → fold → codex-implement → acceptance → diff-review → PR → merge. NOTE: spec says CACHE 25→26 assuming slice-2 base; with slice-2 shelved, fix to "main's CACHE → +1" when creating the branch.
 3. **Slice 1b (last, smallest, 16 sites):** memo `/tmp/slice1b-architect-out.md`.
 
-Ports used this loop: 8210-8221, 8245 → **next ≥8250**. Acceptance binaries: main `/Users/wesleyjinks/code/slicing/target/release/prism` @ `08f019d` (fresh), branch `/tmp/prism-slice2/target/release/prism` @ `22deb40`. Update this handoff at each milestone.
+Ports used this loop: 8210-8221, 8245 → **next ≥8250**. Update this handoff at each milestone.
