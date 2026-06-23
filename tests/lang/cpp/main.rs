@@ -3,3 +3,4 @@ mod algo_test;
 #[path = "../../common/mod.rs"]
 mod common;
 mod cpp_test;
+mod decorated_test;
