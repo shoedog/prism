@@ -33,7 +33,7 @@ commit trailer `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.
 | Slice | Stage | Branch / artifacts |
 |---|---|---|
 | **1a** self same-class | **MERGED** (#131, rebase, main `184208a`) | — |
-| **decorated** double-capture | spec SOUND (rev 3) + **plan written** → **plan-review running** (b1d3enbh5) | `decorated-double-capture` (wt `/tmp/prism-decorated`), plan `88c12dc` |
+| **decorated** double-capture | spec SOUND (rev 3) + **plan SOUND (rev 3)** (review+re-review folded: chokepoint→all_functions_via_tree, CFG de-dup Task 2b, contract_slice) → **codex-implement running** (bfrbw924j) | `decorated-double-capture` (wt `/tmp/prism-decorated`), plan `1c9fe11` |
 | **2** typed receivers | **architect DONE** — awaiting spec (do AFTER decorated) | memo `/tmp/slice2-architect-out.md` |
 | **3** import-scoping/free_multi | **architect DONE** — awaiting spec | memo `/tmp/slice3-architect-out.md` |
 | **1b** inheritance MRO | **architect DONE** — awaiting spec | memo `/tmp/slice1b-architect-out.md` |
