@@ -93,6 +93,7 @@ pub struct ViewOptions {
     pub profile: EvidenceProfile,
     pub snippets: SnippetPolicy,
     pub group_by: GroupPolicy,
+    pub group_by_explicit: bool,
     pub max_view_bytes: usize,
     pub requested: bool,
 }
@@ -104,6 +105,7 @@ impl ViewOptions {
             profile: default_profile,
             snippets: SnippetPolicy::None,
             group_by: GroupPolicy::None,
+            group_by_explicit: false,
             max_view_bytes: MAX_VIEW_BYTES_DEFAULT,
             requested: false,
         }
@@ -547,6 +549,7 @@ fn parse_view_options(
         profile,
         snippets: parse_snippets(obj.get("snippets"))?,
         group_by: parse_group_by(obj.get("group_by"))?,
+        group_by_explicit: obj.contains_key("group_by"),
         max_view_bytes: optional_usize(
             obj,
             "max_view_bytes",
@@ -732,11 +735,24 @@ mod tests {
         .unwrap();
         assert!(parsed.view.agent_requested());
         assert_eq!(parsed.view.profile, EvidenceProfile::Impact);
+        assert!(!parsed.view.group_by_explicit);
         assert!(parse_callers(&json!({
             "seed":{"kind":"symbol","name":"f"},
             "format":"agent_json",
             "profile":"dependencies"
         }))
         .is_err());
+    }
+
+    #[test]
+    fn view_options_track_explicit_group_by_none() {
+        let parsed = parse_callers(&json!({
+            "seed":{"kind":"symbol","name":"f"},
+            "format":"agent_markdown",
+            "group_by":"none"
+        }))
+        .unwrap();
+        assert!(parsed.view.group_by_explicit);
+        assert_eq!(parsed.view.group_by, GroupPolicy::None);
     }
 }

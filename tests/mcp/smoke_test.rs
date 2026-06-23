@@ -63,6 +63,25 @@ fn prism_mcp_protocol_smoke() {
         items.iter().any(cross_file_function_item),
         "expected cross-file callee for file-qualified run seed"
     );
+
+    let agent_tools_call = response_with_id(&responses, 4);
+    let agent_result = &agent_tools_call["result"];
+    assert_eq!(
+        agent_result["isError"], false,
+        "agent tools/call should succeed"
+    );
+    let agent_evidence = agent_result
+        .get("structuredContent")
+        .cloned()
+        .expect("agent tools/call structuredContent Evidence");
+    assert_eq!(
+        agent_evidence, evidence,
+        "agent view must preserve canonical structuredContent"
+    );
+    assert!(agent_result["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .starts_with("# Prism Evidence"));
 }
 
 fn lifecycle_messages() -> String {
@@ -71,6 +90,7 @@ fn lifecycle_messages() -> String {
         r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
         r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
         r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_callees","arguments":{"seed":{"kind":"symbol","name":"run","file":"main.py"}}}}"#,
+        r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"nav_callees","arguments":{"seed":{"kind":"symbol","name":"run","file":"main.py"},"format":"agent_markdown","profile":"dependencies"}}}"#,
     ]
     .join("\n")
         + "\n"
