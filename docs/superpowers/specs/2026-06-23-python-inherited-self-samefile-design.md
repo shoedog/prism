@@ -1,170 +1,166 @@
-# Slice 1b — Inherited `self`/`this` Resolution, SAME-FILE bases (Python/JS/TS) — Design
+# Slice 1b — Inherited `self`/`this` Resolution, SAME-FILE bases (Python/JS/TS) — Design rev 2
 
-> Spec-of-record, Python-maturity loop slice 1b (last mandate slice). Recall companion to 1a
-> (#131). Scoped to **same-file base classes** (cross-file bases deferred to slice 3's parked
-> import model + its owner decision). **Front-loads the slice-3 review lessons** (occurrence
-> hygiene, wildcard-poison, the bounded-static contract, canary-is-blind). Pairs with the loop
-> handoff + `[[project_prism_measurement_maturity]]`.
+> Spec-of-record, Python-maturity loop slice 1b (last mandate slice). **rev2 folds the codex
+> spec-review of rev1** (3 BLOCKERs — all FIXABLE syntactic gaps, NOT the dynamic-binding
+> boundary that parked slice 3): MRO C3 ordering, barrier non-propagation, and base-name
+> rebinding. Recall companion to 1a (#131). Pairs with the loop handoff +
+> `[[project_prism_measurement_maturity]]`.
 
 ## Goal
 
-Resolve `self.method()` / `this.method()` where `method` is not on the caller's own class but
-**is** defined on a **same-file base class** — currently dropped as `UnknownName` by 1a's
-same-class narrowing. Pure-recall win, no precision risk (these are drops today; the design
-mints Exact only on a single unambiguous same-file provider). Buy: most of the measured 16
-in-repo inherited sites (FastAPI 12, Pydantic 4) whose base is same-file; cross-file bases
-(e.g. Pydantic's imported `BaseConfig`) are **deferred** (need slice 3's import resolution).
+Resolve `self.method()` / `this.method()` where `method` is on a **same-file base class** —
+currently dropped as `UnknownName` by 1a's same-class narrowing. Pure-recall, no precision risk
+(drops today; Exact only on a single unambiguous same-file provider via a sound walk). Buy: the
+same-file **single-inheritance** subset of the measured 16 in-repo sites (FastAPI's
+`OAuth2PasswordBearer(OAuth2)`, `APIKeyBase` chain; Pydantic's `Secret(_SecretBase)` — all
+same-file single-inheritance). Cross-file bases deferred to slice 3's parked import model.
 
-## Framing: this is the inheritance analogue of R4 (no new soundness contract)
+## Framing: the inheritance analogue of R4 (no new soundness contract)
 
-prism's **R4 same-file `LocalDef`** (`resolution.rs:1248`) already resolves a same-file free
-function under prism's standing **bounded-static assumption** (it does not disprove
-`globals()`/`exec` rebinding — no prism rung does; same as pyright/mypy/all IDEs). Slice 1b is
-the same move for the class hierarchy: resolve a `self.m()` call to a method on a **same-file**
-base class, found by class **identity** (file + byte-span, preserving 1a). It relies ONLY on
-prism's existing contract — **no new owner decision** (unlike slice 3's cross-file imports,
-which are higher dynamic-risk and parked on that decision). The one syntactically-detectable
-hole — a `from x import *` that could supply a base name shadowing the same-file class — is
-closed by **wildcard-poison** (below). `globals()`/`exec` class rebinding is out of scope =
-prism's standing assumption.
+R4 same-file `LocalDef` (`resolution.rs:1248`) resolves a same-file free function under prism's
+standing **bounded-static assumption** (no rung disproves `globals()`/`exec`). 1b is that move
+for the class hierarchy, via class **identity** (file + byte-span, preserving 1a). It relies
+ONLY on prism's existing contract. **rev1's BLOCKER-3 (base-name rebinding) is closed MORE
+strictly than R4** — we syntactically poison a base name that has any other same-file top-level
+binding — so 1b does not even bless R4's latent weakness; no new owner decision. `globals()`/
+`exec` class rebinding is out of scope = prism's standing assumption.
 
-**Canary caveat (slice-3 lesson):** `multi_target_exact_sites` only counts ≥2-Exact sites, so
-it CANNOT catch a single wrong inherited Exact. Soundness here is gated by **design + the
-adversarial diff-review**, not the canary. Every gate fails open (→ the existing `UnknownName`
-drop), never to a wrong Exact.
+**Canary caveat (slice-3 lesson):** `multi_target_exact_sites` (≥2-Exact only) CANNOT catch a
+single wrong inherited Exact. Soundness is gated by **design + the adversarial diff-review**.
+Every gate fails open to the existing `UnknownName` drop, never to a wrong Exact.
 
-## Architecture (span-keyed same-file class hierarchy)
+## Architecture (span-keyed, single-inheritance, tri-state walk)
 
 ### Data model
 
 ```rust
-// Ordered base links for one class. Order = textual base order (MRO left-to-right approx).
 pub enum ClassBaseLink {
-    SameFile((usize, usize)),   // base resolved to a same-file class by byte-span (its method_class_span)
-    ExternalOrAmbiguous,        // base name not a unique same-file class (external, 0, or >1) — an MRO BARRIER
+    SameFile { span: (usize, usize), owner: String }, // base = a clean sole same-file class
+    Barrier,                                          // external / rebound / ambiguous — MRO BARRIER
 }
 
-// on CallGraph, serialized:
-pub class_bases: BTreeMap<FunctionId, Vec<ClassBaseLink>>,
+// on CallGraph, serialized, keyed by class identity (file, class byte-span):
+pub class_bases: BTreeMap<(String, (usize, usize)), Vec<ClassBaseLink>>,
 ```
 
-Keyed by the class's representative `FunctionId` — reuse the **same identity 1a uses**: a class
-is identified by `(file, method_class_span)`. `class_bases` is keyed per the class-owning span;
-in practice we store it keyed by the same `FunctionId`→span mapping `method_class_span` uses, so
-the resolver can go caller `FunctionId` → caller class span → bases. (Implementation detail for
-the plan: a parallel `BTreeMap<(file, span), Vec<ClassBaseLink>>`, or fold into the
-`method_metadata` tuple 1a threads — the plan picks the cleanest; the span identity is
-non-negotiable.)
+`(file, span)` key (per review: a `FunctionId` key would lose methodless intermediate classes =
+recall loss). `SameFile` carries the base's `owner` key so the walk forms `methods[(owner,name)]`
+directly. **Never** a global span-only / bare-`owner_lookup` path (that is the cross-file
+same-name FP 1a fixed).
 
-**Base-name → SameFile resolution (build time):** for `class Child(Base): …`, resolve `Base` to
-a **same-file** class named `Base`. If exactly **one** same-file class is named `Base` →
-`SameFile(its_span)`. If **0** (base is external/imported) or **>1** (same-name collision in
-file) → `ExternalOrAmbiguous`. Cross-file/imported bases are **always** `ExternalOrAmbiguous`
-in this slice (no import resolution) → a barrier (so an imported base never mints an edge — the
-recall is deferred, soundly).
+### Base-name resolution (build time) — occurrence-clean or Barrier
 
-**Wildcard-poison:** if the caller's file contains any `from x import *` (Python) /
-`import * as`/`export *` shadow risk (JS/TS), a base name could be supplied by the wildcard
-rather than the same-file class → mark **all** of that file's `ClassBaseLink`s
-`ExternalOrAmbiguous` (the whole file's inherited resolution falls open). Detected
-syntactically at extraction (the import walk already sees wildcard nodes — cf. slice-2's `"*"`
-sentinel).
+For `class Child(Base): …`, resolve each base name. `Base` → `SameFile{span,owner}` **iff ALL**:
+1. exactly **one** top-level `class Base` in the caller's file (→ its span+owner), AND
+2. `Base` has **no other top-level binding occurrence** in the file — no `import Base` / `from x
+   import Base` / `from x import y as Base`, no top-level `Base = …`, no top-level `def Base`, no
+   second `class Base`, AND
+3. the file has **no `from x import *`** (wildcard could supply `Base`).
+Otherwise → `Barrier`. (This is the slice-3 occurrence-completeness rule applied to base names:
+any rebinding of `Base`, in any syntactic form, adds a non-`class`-`Base` occurrence → Barrier.
+Closes rev1 BLOCKER-3; `globals()`-style invisible rebind is out of scope = prism's contract.)
+Cross-file/imported bases are thus **always** `Barrier` in this slice (no import resolution).
+
+Subscripted bases (`class C(Base[int])`, `class C(Generic[T])`) → take the head identifier
+(`Base`/`Generic`) and apply the same occurrence rule (`Generic` is external → Barrier).
+Attribute/call bases (`class C(mod.Base)`, `class C(make_base())`) → not a simple name →
+`Barrier`. Decorated classes (`@dataclass class C(Base)`) → unwrap to the `class_definition`.
+`metaclass=`/keyword args skipped.
 
 ### Extraction helper
+`Language::class_base_names(class_node) -> Vec<String>` beside `method_owner_class_node`
+(`languages/mod.rs:1182`), Python/JS/TS only: Python `class C(A, B)` → base exprs from
+`argument_list` (strict per above); JS/TS `class C extends A` → `["A"]` from `class_heritage`
+(single parent). Build layer, not resolution.
 
-Add `Language::class_base_names(class_node) -> Vec<String>` beside 1a's
-`method_owner_class_node` (`languages/mod.rs`), Python/JS/TS only: Python `class C(A, B)` →
-`["A","B"]` from the `argument_list` (skip keyword args like `metaclass=`); JS/TS
-`class C extends A` → `["A"]` from `class_heritage`. Lives in the languages/build layer, not
-resolution.
+### Resolution hook — single-inheritance, tri-state (closes BLOCKERs 1 & 2)
 
-### Resolution hook
-
-In the self-arm, after `self_owner_lookup_same_class` returns `None` (`resolution.rs:733`/the
-self-arm at ~`:944`), before the `UnknownName` drop, gated Python/JS/TS:
+After `self_owner_lookup_same_class` returns `None` (`resolution.rs:733`/self-arm ~`:944`),
+before the `UnknownName` drop, gated Python/JS/TS:
 
 ```
-self_owner_lookup_inherited(caller, name):
-    caller_span = method_class_span[caller]               // 1a identity; None -> give up (drop)
-    visited = {caller_span}
-    return walk(caller.file, caller_span, name, visited)
+enum Walk { Hit(FunctionId), Absent, Blocked }
 
-walk(file, class_span, name, visited):
-    for link in class_bases[(file, class_span)] (IN ORDER):   // MRO left-to-right
-        match link:
-          ExternalOrAmbiguous => return None                  // BARRIER: a base we can't see may define `name`; stop
-          SameFile(base_span):
-              if base_span in visited { return None }          // cycle guard
-              visited.insert(base_span)
-              hits = methods[(base_owner, name)] filtered to (file, base_span)   // span-exact, never bare owner_lookup
-              match hits.len():
-                1 => return Exact SelfReceiver([hit])           // single unambiguous provider
-                >1 => return None                               // ambiguous provider -> drop (conservative)
-                0 => { r = walk(file, base_span, name, visited); if r.is_some() { return r } }  // not here -> deeper base
-    return None
+fn inherited(file, class_span, name, visited) -> Walk:
+    let bases = class_bases[(file, class_span)]            // None => Absent
+    if bases.len() > 1 { return Blocked }                 // BLOCKER-1: multiple inheritance — no C3, bail (sound)
+    match bases.first():
+        None              => Absent                        // no base
+        Some(Barrier)     => Blocked                       // BLOCKER-2: external/rebound base may define `name` — STOP
+        Some(SameFile{span, owner}):
+            if visited.contains(span) { return Blocked }   // cycle
+            visited.insert(span)
+            let hits = methods[(owner, name)] filtered to (file, span)   // span-exact
+            match hits.len():
+                1 => Hit(hits[0])
+                n if n > 1 => Blocked                       // ambiguous provider
+                0 => inherited(file, span, name, visited)   // recurse the SINGLE chain; Blocked propagates up
+
+// caller:
+match inherited(caller.file, caller_span, name, {caller_span}):
+    Hit(fid) => Exact SelfReceiver([fid])
+    _        => None    // -> existing UnknownName drop
 ```
 
-(`base_owner` = the base class's owner key, available from the span→owner mapping the build
-records.) **Soundness invariants:**
-- Span-exact filtering only — **never** bare `owner_lookup(base_name, name)` (would bind an
-  external base to a same-named in-repo class — the exact 1a FP class).
-- **`ExternalOrAmbiguous` is a hard MRO barrier:** if encountered before an in-repo hit, return
-  `None` (drop). We do NOT look past a base whose contents we can't see (it might define `name`).
-- Exact only on a **single** same-file provider → cannot raise `multi_target_exact_sites`.
-- Cycle-guarded; same-file only (bounded recursion within one file's class graph).
-- Python/JS/TS-gated → Rust/Go byte-identical. Every uncertainty → the existing `UnknownName`
-  drop (never a new wrong Exact).
+**Soundness invariants:**
+- **Single-inheritance only:** any class in the chain with >1 base → `Blocked` (no C3 guessing).
+  Linear chains are C3-correct. The measured buy is single-inheritance.
+- **Tri-state propagation:** a `Barrier`/ambiguous/cycle/MI anywhere in the chain → `Blocked`,
+  which propagates up (recurse result is returned directly — no "try a sibling" path, and with
+  single-inheritance there are no siblings). Only `Absent` continues deeper.
+- **Span-exact** `methods[(owner,name)]` filter by `(file, span)`; never bare `owner_lookup`.
+- Single provider → cannot raise `multi_target_exact_sites`.
+- Python/JS/TS-gated → Rust/Go byte-identical. Every non-`Hit` → existing `UnknownName` drop.
 
 ## Scope guards (first merge)
-- **Same-file bases only.** Cross-file/imported bases = `ExternalOrAmbiguous` (deferred to
-  slice 3's import model + owner decision).
-- Single + multiple inheritance both handled, but only via the ordered same-file walk with the
-  barrier rule; no C3 (a `>1 provider` or a barrier → drop).
-- Wildcard-poison per file (above).
-- Preserve 1a canaries: cross-file same-name-class stays Exact-only-for-caller-class; absent
-  same-class method without an in-repo base stays dropped.
+- Same-file bases only; single-inheritance only (MI → Blocked); cross-file deferred to slice 3.
+- Occurrence-clean base resolution + wildcard-poison (above).
+- Preserve 1a canaries (same-class Exact; absent-method drop; cross-file same-name no-bind).
 
 ## Plumbing + cache
 `class_bases` threaded through `empty`/full/skeleton/subset builds + `remove_files` (drop
 entries whose file is excluded) + `merge` (extend), mirroring 1a's `method_class_span`
-(`call_graph.rs` template). **Bump `CACHE_VERSION` 23→24** + assertion test.
+template. **Bump `CACHE_VERSION` 23→24** + assertion test.
 
 ## Test plan (TDD — soundness decoys mandatory)
-- Python same-file `class Child(Base)`, `Base.m` defined, `Child` lacks `m`,
-  `self.m()` in Child → Exact `SelfReceiver`.
-- JS/TS `class Child extends Base { … this.m() }`, same-file `Base.m()` → Exact.
-- **External base barrier:** `class Child(ExternalBase)` (no same-file `ExternalBase`),
-  `self.m()` → `ExternalOrAmbiguous` → drop (NOT a guess).
-- **Same-name unrelated class (1a FP class):** `a.py` has `class Widget(Base)` and the repo has
-  an unrelated `Base` elsewhere — same-file resolution only, span-exact → no cross-file bind.
-- **Ambiguous base** (two same-file `class Base`) → `ExternalOrAmbiguous` → drop.
-- **Multiple inheritance**, two same-file bases each defining `m` → ambiguous provider → drop.
-- **Barrier ordering:** `class C(External, InRepoBase)` where `InRepoBase.m` exists → External
-  is first → barrier → drop (don't reach InRepoBase). (Conservative; documents the MRO rule.)
-- **Wildcard-poison:** caller file has `from x import *` → inherited resolution falls open.
-- **Cycle:** `class A(B)` / `class B(A)` (pathological) → terminates, drops.
-- 1a regressions preserved (same-class Exact; absent-method drop).
+- **Single-inheritance Exact:** Python `class Child(Base)`, same-file `Base.m`, `self.m()` in
+  Child → Exact `SelfReceiver`. JS/TS `extends` analogue.
+- **Linear chain:** `C(B)`, `B(A)`, `A.m` same-file, `self.m()` in C → Exact (recurse).
+- **MI bail (BLOCKER-1):** `class C(B, D)`, `B(A)`/`D` same-file, `D.m` + `A.m` → `Blocked` →
+  drop (NOT a C3 guess).
+- **Barrier-in-chain (BLOCKER-2):** `C(B)`, `B(External)` (External not same-file), `self.m()`
+  → `Blocked` → drop (don't reach anything past External).
+- **Named-import-shadow base (BLOCKER-3):** same-file `class Base` + `from ext import Base` →
+  `Base` rebound → `Barrier` → drop.
+- **Assignment-rebind base (BLOCKER-3):** `class Base` + `Base = Other` → `Barrier` → drop.
+- **Wildcard-poison:** file has `from x import *` → all bases `Barrier` → drop.
+- **Ambiguous same-name base:** two same-file `class Base` → `Barrier`.
+- **>1 provider:** single base whose class defines `m` twice (overload-ish) → `Blocked`.
+- **Cycle:** `A(B)`/`B(A)` → terminates, drops.
+- **Subscript/attribute base:** `class C(Generic[T])` / `class C(mod.Base)` → `Barrier`.
+- 1a regressions preserved (same-class Exact; absent-method drop; cross-file same-name no-bind).
 
 CACHE asserts 24; `class_bases` serde round-trip + merge/remove_files.
 
 ## Acceptance
-- `unresolved_unknown_name` **down** by the same-file inherited buy (≈ up to 12 fastapi / 4
-  pydantic — whichever bases are same-file); `kind_exact.self_receiver` **up** by the same.
-- **Canary `multi_target_exact_sites` byte-FLAT** (necessary, not sufficient — design + the
-  diff-review are the soundness gate).
+- `unresolved_unknown_name` **down** by the same-file single-inheritance inherited buy;
+  `kind_exact.self_receiver` **up** by the same.
+- **Canary `multi_target_exact_sites` byte-FLAT** (necessary, not sufficient — design + the 1b
+  diff-review are the soundness gate; it must trace every non-`Hit` → drop).
 - **Rust/Go (ripgrep, caddy) call-stats byte-identical** (Python/JS/TS-gated); JS inert if
-  excalidraw has 0 same-file inherited sites.
+  excalidraw has 0 same-file single-inheritance inherited sites.
 - Tier-A: replace the mislabeled `python/inherited_override` fixture (currently `c.go()` on an
-  untyped param) with a real same-file inherited-self fixture; `--matrix-only` 0-regression;
-  suite green; fmt clean.
+  untyped param) with a real same-file single-inheritance inherited-self fixture;
+  `--matrix-only` 0-regression; suite green; fmt clean.
 - Build both binaries via git worktree.
 
 ## Risks / unknowns
-- **Span-identity reuse** must exactly mirror 1a (`method_class_span`) or it reintroduces the
-  cross-file same-name-class FP 1a fixed. Non-negotiable.
-- **Base-owner key lookup** from a span: the build must record span→owner so the walk can form
-  `methods[(base_owner, name)]`. If unavailable, fall open (drop), never guess.
-- **Realized buy may be < 16** (only same-file bases; cross-file deferred). Honest: a smaller
-  SOUND same-file buy now, the cross-file remainder waiting on slice 3's owner decision.
+- **Span-identity reuse** must mirror 1a exactly (key `(file, span)`, never global) or it
+  reintroduces the cross-file same-name FP. Non-negotiable.
+- **Realized buy may be < 16** (same-file single-inheritance subset). Honest: a smaller SOUND
+  buy now; cross-file + MI remainder deferred (slice 3 / C3 follow-on).
+- **Base occurrence scan** must itself be correct (top-level only; every binding form of the
+  name → Barrier). The one syntactic judgment; test it (named import, alias import, assignment,
+  2nd class, def, wildcard).
 - `globals()`/`exec`/dynamic class rebinding out of scope = prism's standing bounded-static
   contract (same as every existing rung).
