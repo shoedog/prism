@@ -65,7 +65,8 @@ use std::path::{Path, PathBuf};
 /// - v21: method_class_span for self-receiver same-class narrowing.
 /// - v22: method_class_span_ambiguous for fail-open line-id collisions.
 /// - v23: wrapper-canonical decorated extraction.
-const CACHE_VERSION: u32 = 23; // 23: wrapper-canonical decorated extraction.
+/// - v24: Python/JS/TS typed-receiver recovery behavior.
+const CACHE_VERSION: u32 = 24; // 24: Python/JS/TS typed-receiver recovery behavior.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -570,9 +571,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_23_for_wrapper_canonical_decorated_extraction() {
-        // v23: wrapper-canonical decorated extraction.
-        assert_eq!(super::CACHE_VERSION, 23);
+    fn cache_version_is_24_for_python_js_typed_receiver_recovery() {
+        // v24: Python/JS/TS typed-receiver recovery changes resolution behavior.
+        assert_eq!(super::CACHE_VERSION, 24);
     }
 
     #[test]
