@@ -43,6 +43,16 @@ impl ToolAnnotations {
             open_world_hint: false,
         }
     }
+
+    pub fn local_state_change(title: &str) -> Self {
+        Self {
+            title: title.into(),
+            read_only_hint: false,
+            destructive_hint: false,
+            idempotent_hint: false,
+            open_world_hint: false,
+        }
+    }
 }
 
 pub struct ToolDescriptor {
@@ -50,7 +60,13 @@ pub struct ToolDescriptor {
     pub description: String,
     pub input_schema: serde_json::Value,
     pub annotations: ToolAnnotations,
+    pub runtime_behavior: Option<ToolRuntimeBehavior>,
     pub handler: Box<ToolHandler>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ToolRuntimeBehavior {
+    RefreshIndex,
 }
 
 impl ToolDescriptor {
@@ -86,6 +102,7 @@ impl ToolRegistry {
     pub fn all_v1() -> Self {
         let mut registry = Self::nav_v1();
         crate::mcp::tools_reasoning::register_all(&mut registry);
+        crate::mcp::tools_refresh::register_all(&mut registry);
         registry
     }
 
@@ -151,8 +168,17 @@ mod tests {
             reason.list().iter().map(|d| d.name).collect::<Vec<_>>(),
             ["taint_reaches"]
         );
-        assert_eq!(all.list().len(), 7);
+        assert_eq!(all.list().len(), 8);
         assert!(all.get("taint_reaches").is_some());
+        assert_eq!(
+            all.get("refresh_index").unwrap().runtime_behavior,
+            Some(ToolRuntimeBehavior::RefreshIndex)
+        );
+        let refresh = all.get("refresh_index").unwrap().to_listed();
+        assert_eq!(refresh["annotations"]["readOnlyHint"], false);
+        assert_eq!(refresh["annotations"]["destructiveHint"], false);
+        assert_eq!(refresh["annotations"]["idempotentHint"], false);
+        assert_eq!(refresh["annotations"]["openWorldHint"], false);
         assert_eq!(nav.list().len(), 6);
     }
 }

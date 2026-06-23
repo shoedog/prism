@@ -7,12 +7,13 @@ pub mod registry;
 pub mod session;
 pub mod tools;
 pub mod tools_reasoning;
+pub mod tools_refresh;
 pub mod transport;
 
-pub use session::{CacheMode, ServerConfig, SessionProvider};
+pub use session::{CacheMode, RefreshSummary, ServerConfig, SessionProvider};
 
 pub fn run(cfg: ServerConfig) -> anyhow::Result<()> {
-    let p = SessionProvider::bootstrap(&cfg)?;
+    let mut p = SessionProvider::bootstrap(&cfg)?;
     let r = registry::ToolRegistry::all_v1();
-    transport::serve_stdio(&p, &r)
+    transport::serve_stdio(&mut p, &r)
 }

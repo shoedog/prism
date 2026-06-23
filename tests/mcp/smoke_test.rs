@@ -32,14 +32,33 @@ fn prism_mcp_protocol_smoke() {
         .expect("tools/list result tools array");
     assert_eq!(
         tools.len(),
-        7,
-        "tools/list should return the six nav tools plus taint_reaches"
+        8,
+        "tools/list should return the six nav tools plus taint_reaches and refresh_index"
     );
     assert!(
         tools.iter().any(|tool| tool["name"] == "taint_reaches"),
         "tools/list should include taint_reaches"
     );
+    assert!(
+        tools.iter().any(|tool| tool["name"] == "refresh_index"),
+        "tools/list should include refresh_index"
+    );
     for tool in tools {
+        if tool["name"] == "refresh_index" {
+            assert_eq!(
+                tool["annotations"]["readOnlyHint"], false,
+                "refresh_index mutates the MCP session"
+            );
+            assert_eq!(
+                tool["annotations"]["destructiveHint"], false,
+                "refresh_index should not be destructive"
+            );
+            assert_eq!(
+                tool["annotations"]["idempotentHint"], false,
+                "refresh_index increments generation and refreshes state"
+            );
+            continue;
+        }
         assert_eq!(
             tool["annotations"]["readOnlyHint"], true,
             "tool {tool:?} should be read-only"

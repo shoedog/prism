@@ -100,6 +100,10 @@ impl FreshnessProbe {
             changed_paths,
         }
     }
+
+    pub(crate) fn tracked_len(&self) -> usize {
+        self.tracked.len()
+    }
 }
 
 impl FreshnessReport {
@@ -228,7 +232,7 @@ pub(crate) fn stale_warning(report: &FreshnessReport) -> Warning {
 
 fn stale_message(report: &FreshnessReport) -> String {
     let mut message = format!(
-        "MCP index may be stale; {} tracked {} changed since server startup",
+        "MCP index may be stale; {} tracked {} changed since the current MCP snapshot was loaded",
         report.total_changed,
         if report.total_changed == 1 {
             "path"
@@ -246,7 +250,9 @@ fn stale_message(report: &FreshnessReport) -> String {
     if omitted > 0 {
         message.push_str(&format!(" ({omitted} more omitted)"));
     }
-    message.push_str(". Restart/re-add the MCP server or use CLI nav for a fresh snapshot.");
+    message.push_str(
+        ". If this server exposes refresh_index, call it; otherwise restart/re-add the MCP server or use CLI nav for a fresh snapshot.",
+    );
     message
 }
 

@@ -26,18 +26,12 @@ fn provider(files: &[(&str, &str)]) -> (tempfile::TempDir, crate::mcp::SessionPr
 }
 
 fn run_provider(
-    provider: &crate::mcp::SessionProvider,
+    provider: &mut crate::mcp::SessionProvider,
     registry: &ToolRegistry,
     msgs: Vec<&str>,
 ) -> Vec<serde_json::Value> {
     let mut t = InMemoryTransport::new(msgs);
-    serve_session_with_freshness(
-        provider.session(),
-        Some(provider.freshness()),
-        registry,
-        &mut t,
-    )
-    .unwrap();
+    serve_runtime(provider, registry, &mut t).unwrap();
     t.responses().to_vec()
 }
 
@@ -63,9 +57,9 @@ fn lifecycle_list_and_call() {
 
 #[test]
 fn freshness_probe_does_not_mark_unedited_session_stale() {
-    let (_dir, provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
+    let (_dir, mut provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
     let o = run_provider(
-        &provider,
+        &mut provider,
         &ToolRegistry::nav_v1(),
         vec![
             INIT,
@@ -80,10 +74,10 @@ fn freshness_probe_does_not_mark_unedited_session_stale() {
 
 #[test]
 fn stale_index_metadata_warning_and_text_are_visible_after_edit() {
-    let (dir, provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
+    let (dir, mut provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
     std::fs::write(dir.path().join("a.py"), "def f():\n    return 12345\n").unwrap();
     let o = run_provider(
-        &provider,
+        &mut provider,
         &ToolRegistry::nav_v1(),
         vec![
             INIT,
@@ -111,7 +105,7 @@ fn stale_index_metadata_warning_and_text_are_visible_after_edit() {
 
 #[test]
 fn stale_agent_json_clipped_text_remains_bounded_notice() {
-    let (dir, provider) = provider(&[(
+    let (dir, mut provider) = provider(&[(
         "a.py",
         "def target():\n    return 1\n\ndef caller():\n    return target()\n",
     )]);
@@ -121,7 +115,7 @@ fn stale_agent_json_clipped_text_remains_bounded_notice() {
     )
     .unwrap();
     let o = run_provider(
-        &provider,
+        &mut provider,
         &ToolRegistry::nav_v1(),
         vec![
             INIT,
@@ -142,10 +136,10 @@ fn stale_agent_json_clipped_text_remains_bounded_notice() {
 
 #[test]
 fn freshness_is_not_added_to_list_ping_unknown_or_input_errors() {
-    let (dir, provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
+    let (dir, mut provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
     std::fs::write(dir.path().join("a.py"), "def f():\n    return 12345\n").unwrap();
     let o = run_provider(
-        &provider,
+        &mut provider,
         &ToolRegistry::nav_v1(),
         vec![
             INIT,
@@ -170,7 +164,7 @@ fn freshness_is_not_added_to_list_ping_unknown_or_input_errors() {
 
 #[test]
 fn taint_reaches_receives_stale_warning() {
-    let (dir, provider) = provider(&[(
+    let (dir, mut provider) = provider(&[(
         "app.py",
         "def f():\n    user = input()\n    value = user\n    sink(value)\n",
     )]);
@@ -180,7 +174,7 @@ fn taint_reaches_receives_stale_warning() {
     )
     .unwrap();
     let o = run_provider(
-        &provider,
+        &mut provider,
         &ToolRegistry::all_v1(),
         vec![
             INIT,
@@ -195,6 +189,115 @@ fn taint_reaches_receives_stale_warning() {
         .unwrap()
         .iter()
         .any(|warning| warning["kind"] == "StaleIndex"));
+}
+
+#[test]
+fn refresh_index_rebuilds_session_and_clears_stale_warning() {
+    let (dir, mut provider) = provider(&[("a.py", "def old():\n    return 1\n")]);
+    std::fs::write(dir.path().join("a.py"), "def fresh():\n    return 2\n").unwrap();
+    let o = run_provider(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+            r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"refresh_index","arguments":{}}}"#,
+            r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        ],
+    );
+
+    let stale_result = &o[1]["result"];
+    assert_eq!(stale_result["_meta"]["prism/index_freshness"], "stale");
+    assert!(stale_result["structuredContent"]["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|warning| warning["kind"] == "StaleIndex"));
+
+    let refresh = &o[2]["result"];
+    assert_eq!(refresh["isError"], false);
+    assert!(refresh["_meta"].get("prism/index_freshness").is_none());
+    assert_eq!(refresh["structuredContent"]["status"], "refreshed");
+    assert_eq!(refresh["structuredContent"]["generation"], 1);
+    assert_eq!(refresh["structuredContent"]["stale_before_refresh"], true);
+    assert_eq!(
+        refresh["structuredContent"]["stale_index_paths_before_refresh"],
+        serde_json::json!(["a.py"])
+    );
+    let refresh_text: serde_json::Value =
+        serde_json::from_str(refresh["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(refresh_text, refresh["structuredContent"]);
+
+    let fresh_result = &o[3]["result"];
+    assert!(fresh_result["_meta"].get("prism/index_freshness").is_none());
+    assert!(fresh_result["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("fresh"));
+    assert!(!fresh_result["structuredContent"]["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|warning| warning["kind"] == "StaleIndex"));
+}
+
+#[test]
+fn refresh_index_without_edits_reports_fresh_prior_snapshot() {
+    let (_dir, mut provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
+    let o = run_provider(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"refresh_index","arguments":{}}}"#,
+        ],
+    );
+    let refresh = &o[1]["result"];
+    assert_eq!(refresh["isError"], false);
+    assert_eq!(refresh["structuredContent"]["generation"], 1);
+    assert_eq!(refresh["structuredContent"]["stale_before_refresh"], false);
+    assert_eq!(
+        refresh["structuredContent"]["stale_index_total_before_refresh"],
+        0
+    );
+}
+
+#[test]
+fn refresh_index_requires_no_arguments() {
+    let (_dir, mut provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
+    let o = run_provider(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"refresh_index","arguments":{"force":true}}}"#,
+        ],
+    );
+    assert_eq!(o[1]["result"]["isError"], true);
+    assert!(o[1]["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("takes no arguments"));
+}
+
+#[test]
+fn refresh_index_is_unavailable_in_static_serve_session() {
+    let s = crate::mcp::tools::test_support::session(&[("a.py", "def f():\n    return 1\n")]);
+    let mut t = InMemoryTransport::new(vec![
+        INIT,
+        INITED,
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"refresh_index","arguments":{}}}"#,
+    ]);
+    serve_session(&s, &ToolRegistry::all_v1(), &mut t).unwrap();
+    let o = t.responses();
+    assert_eq!(o[1]["result"]["isError"], true);
+    assert!(o[1]["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("provider-backed"));
 }
 
 #[test]
