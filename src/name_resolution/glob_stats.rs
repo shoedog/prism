@@ -92,7 +92,8 @@ impl GlobExpandStats {
     // swallowed by an outer poison, so `_hit` over/under-counts final recovery — the
     // realized buy is read from the `kind_exact` delta, never these counters.
     pub fn record_member_hidden_continue_hit(&self) {
-        self.member_hidden_continue_hit.fetch_add(1, Ordering::Relaxed);
+        self.member_hidden_continue_hit
+            .fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn record_member_hidden_continue_empty(&self) {

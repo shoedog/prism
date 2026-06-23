@@ -26,9 +26,9 @@
 use crate::name_resolution::glob_stats::GlobExpandStats;
 pub use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::types::{
-    Anchor, BindTarget, Binding, Candidate, CfgCond, CfgCtx, VisibilityDecision, NamespaceId,
-    PolicyQueryCtx, ResStatus, Resolution, ResolutionPolicy, ResolveQuery, ScopeId, SourceLoc,
-    Target, TraversalCtx,
+    Anchor, BindTarget, Binding, Candidate, CfgCond, CfgCtx, NamespaceId, PolicyQueryCtx,
+    ResStatus, Resolution, ResolutionPolicy, ResolveQuery, ScopeId, SourceLoc, Target,
+    TraversalCtx, VisibilityDecision,
 };
 
 // ── public entry points ───────────────────────────────────────────────────────
@@ -617,7 +617,9 @@ fn glob_lookup_inner(
                         ResStatus::Poisoned => (GlobOutcome::Poison, false),
                         // No rib claimed the name in the target → provably absent →
                         // contribute nothing, continue to the next glob edge.
-                        ResStatus::Unresolved if !probe.rib_present() => (GlobOutcome::Empty, false),
+                        ResStatus::Unresolved if !probe.rib_present() => {
+                            (GlobOutcome::Empty, false)
+                        }
                         // A rib claimed the name but EVERY binding is proved Hidden
                         // (none Unknown) → the glob soundly does not re-export it →
                         // CONTINUE to a sibling glob / outer scope (member-visibility

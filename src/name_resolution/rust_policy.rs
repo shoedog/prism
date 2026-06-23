@@ -30,8 +30,9 @@
 
 use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::types::{
-    Anchor, AnchorKind, Binding, Candidate, Edge, EdgeKindId, VisibilityDecision, NamespaceId, ResStatus,
-    Resolution, ResolutionPolicy, ResolveQuery, ScopeId, ScopeKind, TraversalCtx, Vis, VisKindId,
+    Anchor, AnchorKind, Binding, Candidate, Edge, EdgeKindId, NamespaceId, ResStatus, Resolution,
+    ResolutionPolicy, ResolveQuery, ScopeId, ScopeKind, TraversalCtx, Vis, VisKindId,
+    VisibilityDecision,
 };
 
 // ── Rust namespace registry (policy-owned discriminants) ──────────────────────
