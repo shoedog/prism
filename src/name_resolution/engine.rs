@@ -319,6 +319,19 @@ impl MemberProbe {
         matches!(self, MemberProbe::Rib { .. })
     }
 
+    /// Any binding in the rib was undecidable (`Unknown`). A claimed rib with ANY
+    /// undecidable member must poison even when a visible candidate also resolved —
+    /// we cannot prove the glob's contribution for the name is unambiguous.
+    fn has_unknown(&self) -> bool {
+        matches!(
+            self,
+            MemberProbe::Rib {
+                saw_unknown: true,
+                ..
+            }
+        )
+    }
+
     /// Encodes the cardinal continuation rule directly: continue past a filtered
     /// rib only if some binding was proved `Hidden`, none `Unknown`, AND none
     /// `Visible`. `saw_visible` is belt-and-suspenders — a visible binding cannot
@@ -596,6 +609,16 @@ fn glob_lookup_inner(
 
                     let (member_res, probe) =
                         scope_member_lookup_probed(graph, target_scope, q, policy, guard);
+                    // ANY undecidable member in the rib poisons, regardless of whether a
+                    // visible candidate also resolved to a singleton: a visible `S` plus an
+                    // undecidable same-name member means we cannot prove the glob brings
+                    // exactly one `S` (the undecidable one may also be visible) -> fail closed,
+                    // never mint a wrong singleton (final-review BLOCKER). The `all_known_hidden`
+                    // arm below handles only the no-visible-candidate (Unresolved) continue case.
+                    if probe.has_unknown() {
+                        guard.stats().record_member_undecidable();
+                        return (GlobOutcome::Poison, false);
+                    }
                     match member_res.status {
                         ResStatus::Resolved if member_res.candidates.len() == 1 => {
                             let mut member_candidates = member_res.candidates;
@@ -779,13 +802,14 @@ fn resolve_path_guarded(
 /// walks to a parent — that is what keeps a sibling-private decoy from reaching
 /// an outer same-name).
 ///
-/// ALSO reports whether an explicit rib binding for `(name, ns)` was CLAIMED in
-/// this scope (regardless of visibility/outcome). The boolean lets
-/// `resolve_path_guarded` distinguish a TRUE no-rib miss (where the crate-root
-/// fallback may fire) from a claimed-but-invisible local rib (which surfaces as
-/// `Unresolved` but must shadow the crate name — P2/BLOCKER 1). It does NOT change
-/// the `Resolution` returned. (`resolve_path_guarded` is the only caller and needs
-/// the flag, so there is no thin non-probed wrapper.)
+/// ALSO reports a `MemberProbe` describing the rib (regardless of visibility/outcome):
+/// whether a rib was claimed (`rib_present`) and — for the glob member arm — whether
+/// every filtered binding was proved `Hidden` vs any `Unknown` (`all_known_hidden` /
+/// `has_unknown`). `resolve_path_guarded` uses only `rib_present()` to distinguish a
+/// TRUE no-rib miss (crate-root fallback may fire) from a claimed-but-invisible local
+/// rib (surfaces as `Unresolved` but must shadow the crate name — P2/BLOCKER 1); the
+/// deferred glob member arm uses the full tri-state. It does NOT change the
+/// `Resolution` returned.
 fn scope_member_lookup_probed(
     graph: &ScopeGraph,
     scope: ScopeId,
