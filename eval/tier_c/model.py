@@ -9,9 +9,10 @@ _OPENAI = {"gpt-5.5", "gpt-5.3-spark"}
 class Variant:
     model: str
     prism: bool
+    lsp: bool = False
     @property
     def id(self) -> str:
-        return f"{self.model}{'+prism' if self.prism else ''}"
+        return f"{self.model}{'+prism' if self.prism else ''}{'+lsp' if self.lsp else ''}"
     @property
     def family(self) -> str:
         if self.model in _ANTHROPIC: return "anthropic"
