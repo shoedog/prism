@@ -63,3 +63,11 @@ class FakeArmRunner:
         return ArmOutput(variant=variant, text=text, citations=parse_citations(text),
                          tokens=len(text.split()), tool_calls=0, wall_s=0.0,
                          used_prism="prism" in text.lower() if variant.prism else False)
+
+class RoutingArmRunner:
+    """Dispatch a variant to its CLI runner by model family (Opus->claude, gpt->codex)."""
+    def __init__(self, claude, codex):
+        self.claude, self.codex = claude, codex
+    def run(self, variant, stage, prompt, repo_root):
+        runner = self.claude if variant.family == "anthropic" else self.codex
+        return runner.run(variant, stage, prompt, repo_root)

@@ -27,9 +27,12 @@ def _strip_plants(text: str, plants: list[PlantedError]) -> str:
         out = re.sub(re.escape(p.token), "[removed]", out, flags=re.IGNORECASE)
     return out
 
-def run_stage(*, stage, variants, runner, co, prompt, repo_root, claim_counts,
+def run_stage(*, stage, variants, runner, co, prompt, repo_root, claim_counts=None,
               plants, judges, relevance) -> StageResult:
     outputs = {v.id: runner.run(v, stage, prompt, repo_root) for v in variants}
+    if claim_counts is None:
+        from .claims import count_claims
+        claim_counts = {vid: max(1, count_claims(o.text)) for vid, o in outputs.items()}
     investigator = {
         vid: score_citations(co, o.citations, claim_count=claim_counts[vid],
                              relevance=relevance)
