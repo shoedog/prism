@@ -2,9 +2,7 @@
 Mirrors tier_a/cli.py argument-parsing style."""
 from __future__ import annotations
 import argparse
-import json
 import os
-import tempfile
 from .corpus import load_issues
 
 
@@ -51,32 +49,6 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _make_prism_mcp_config(repo_path: str) -> str:
-    """Write a minimal prism-mcp config JSON to a temp file pointing at repo_path.
-
-    The prism-mcp binary (prism-mcp) must be on PATH and built with --features mcp.
-    The exact flags are verified in the integration run (Task 5 Step 7), not in CI.
-    Returns the path to the temp config file (caller is responsible for cleanup,
-    but since we run inside a context-managed checkout, a process-scoped temp is fine).
-    """
-    cfg = {
-        "mcpServers": {
-            "prism": {
-                "command": "prism-mcp",
-                "args": ["--repo", repo_path],
-            }
-        }
-    }
-    fd, path = tempfile.mkstemp(prefix="prism-mcp-", suffix=".json")
-    try:
-        with os.fdopen(fd, "w") as f:
-            json.dump(cfg, f)
-    except BaseException:
-        os.unlink(path)
-        raise
-    return path
-
-
 def _run_live_cmd(issues, bench_root: str) -> None:
     """Build LiveComponents and run the full live loop, printing per-cell results."""
     from .model import Variant
@@ -92,16 +64,8 @@ def _run_live_cmd(issues, bench_root: str) -> None:
         for p in (False, True)
     ]
 
-    # Write a shared per-run MCP config.  The config points prism-mcp at the
-    # bench_root; in a production run each issue's checkout path would be wired
-    # per-issue.  For Phase-1c this config is passed at ClaudeRunner construction
-    # time and remains static across issues.  A per-issue dynamic config is a
-    # Phase-2 hardening (the exact prism-MCP flag path is verified in the
-    # integration run, not CI).
-    mcp_cfg_path = _make_prism_mcp_config(bench_root)
-
     runner = RoutingArmRunner(
-        claude=ClaudeRunner(mcp_cfg=mcp_cfg_path),
+        claude=ClaudeRunner(),
         codex=CodexRunner(),
     )
 

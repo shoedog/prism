@@ -62,6 +62,23 @@ class Report:
     detectability: object   # Detectability
 
 
+def _avg(ms: list) -> "StageMetrics":
+    """Average a list of StageMetrics into a single representative StageMetrics.
+
+    Numeric fields (precision, recall, planted, tokens) are arithmetic means.
+    used_prism uses majority vote: True when the True count >= (n+1)//2.
+    """
+    from .report import StageMetrics
+    n = len(ms)
+    return StageMetrics(
+        precision=sum(m.precision for m in ms) / n,
+        recall=sum(m.recall for m in ms) / n,
+        planted=sum(m.planted for m in ms) / n,
+        used_prism=(sum(1 for m in ms if m.used_prism) >= (n + 1) // 2),
+        tokens=sum(m.tokens for m in ms) // n,
+    )
+
+
 def run_live(issues, comps: LiveComponents) -> "Report":
     """Drive all issues through the spec->plan chain and assemble a Report.
 
@@ -69,14 +86,15 @@ def run_live(issues, comps: LiveComponents) -> "Report":
     (min p=0.0625 > 0.05), so ArmOutputs are pooled across ALL issues × stages before
     the single detectability call at the end.
 
-    per_cell accumulates per-variant StageMetrics keyed by (stage, language), which
-    assemble_cell then summarises into the per-model prism deltas and GO/NO-GO gate.
+    per_cell accumulates per-variant StageMetrics keyed by (stage, language).  Multiple
+    issues of the same language are APPENDED (not overwritten) and averaged via _avg
+    before assemble_cell, so each (stage, language) cell reflects all issues.
     """
     from .report import StageMetrics, assemble_cell
     from .detect import run_detectability
 
     pool = []                      # all ArmOutputs across issues × stages
-    per_cell: dict = {}            # (stage, language) -> {vid: StageMetrics}
+    per_cell: dict = {}            # (stage, language) -> {vid: list[StageMetrics]}
 
     for issue in issues:
         with comps.open_checkout(issue.repo, issue.sha) as co:
@@ -96,25 +114,25 @@ def run_live(issues, comps: LiveComponents) -> "Report":
                 pool.extend(stage_result.outputs)
 
             key = (stage_result.stage, issue.language)
-            if key not in per_cell:
-                per_cell[key] = {}
+            vid_lists = per_cell.setdefault(key, {})
 
             for vid in stage_result.investigator:
-                per_cell[key][vid] = StageMetrics(
+                vid_lists.setdefault(vid, []).append(StageMetrics(
                     precision=stage_result.investigator[vid].precision,
                     recall=stage_result.investigator[vid].recall,
                     planted=stage_result.planted[vid].recall,
                     used_prism=stage_result.used_prism[vid],
                     tokens=stage_result.tokens[vid],
-                )
+                ))
 
     # Single pooled detectability call (n = variants × stages × issues)
     detect = run_detectability(pool, comps.guesser)
 
-    # Assemble per-cell reports
+    # Average each vid's list of per-issue StageMetrics into one representative value
     cells = {}
     models = sorted({v.model for v in comps.variants})
-    for (stage, language), per_id in per_cell.items():
+    for (stage, language), vid_lists in per_cell.items():
+        per_id = {vid: _avg(lst) for vid, lst in vid_lists.items()}
         cells[(stage, language)] = assemble_cell(
             stage=stage,
             language=language,

@@ -1,5 +1,6 @@
 # eval/tests/test_tc_run_live.py
 """Task 5: run_live + Report + LiveComponents (fakes only — NO live calls)."""
+import pytest
 from tier_c.model import Issue, Variant
 from tier_c.arm_runner import FakeArmRunner
 from tier_c.investigator import RelevanceAllTrue
@@ -95,3 +96,47 @@ def test_run_live_stage_outputs_pooled_from_stageresult():
     report = run_live(issues, comps)
     # 4 variants × 2 stages × 1 issue = 8
     assert report.detectability.n == 4 * 2 * 1
+
+
+def test_avg_helper_averages_stagemetrics():
+    """_avg(list[StageMetrics]) returns the per-field average.
+
+    precision 0.9 + 0.5 → 0.7; recall 1.0 + 0.0 → 0.5; tokens 100 + 200 → 150;
+    planted 2 + 4 → 3; used_prism majority (True+False → True since (2+1)//2=1 ≥ 1).
+    This tests the helper directly before run_live integration.
+    """
+    from tier_c.run import _avg
+    from tier_c.report import StageMetrics
+
+    a = StageMetrics(precision=0.9, recall=1.0, planted=2.0, used_prism=True, tokens=100)
+    b = StageMetrics(precision=0.5, recall=0.0, planted=4.0, used_prism=False, tokens=200)
+
+    result = _avg([a, b])
+    assert result.precision == pytest.approx(0.7)
+    assert result.recall == pytest.approx(0.5)
+    assert result.planted == pytest.approx(3.0)
+    assert result.tokens == 150
+    # majority: 1 True out of 2 → (2+1)//2 = 1, so used_prism = True
+    assert result.used_prism is True
+
+
+def test_run_live_same_language_issues_produce_single_cell():
+    """Two issues of the same language collapse to ONE (stage, language) cell
+    (not two cells, not a dict-overwrite that silently drops the first issue).
+    """
+    from tier_c.run import run_live
+    from tier_c.model import Issue, Variant
+
+    issue_a = Issue("rust-1", "rust", "ruff", "sha1", "u", "bug a.py:1", "slice")
+    issue_b = Issue("rust-2", "rust", "ruff", "sha2", "u", "bug a.py:2", "slice")
+
+    variants = [Variant("opus-4.8", True), Variant("opus-4.8", False)]
+    runner = FakeArmRunner({"opus-4.8+prism": "spec a.py:1 detailed", "opus-4.8": "spec"})
+
+    comps = _make_comps(variants, runner)
+    report = run_live([issue_a, issue_b], comps)
+
+    rust_cells = [(s, l) for (s, l) in report.cells if l == "rust"]
+    assert sorted(rust_cells) == [("plan", "rust"), ("spec", "rust")], (
+        f"expected exactly 2 rust cells (spec+plan), got {rust_cells}"
+    )

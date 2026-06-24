@@ -46,3 +46,35 @@ def test_runner_raises_clear_error_on_subprocess_failure(monkeypatch):
     monkeypatch.setattr("tier_c.arm_runner.subprocess.run", fake_run)
     with pytest.raises(RuntimeError, match="auth: missing API key"):
         ClaudeRunner(mcp_cfg="/tmp/p.json").run(Variant("opus-4.8", True), "spec", "P", "/repo")
+
+
+def test_claude_runner_per_checkout_prism_config(monkeypatch):
+    """ClaudeRunner() with no static cfg builds a per-checkout MCP config pointing at repo_root."""
+    import json
+    captured = {}
+    def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None):
+        captured["cmd"] = cmd
+        class R:
+            stdout = json.dumps({"type": "result", "is_error": False, "num_turns": 1,
+                                 "result": "found issue", "total_cost_usd": 0.01,
+                                 "usage": {"input_tokens": 3, "output_tokens": 5}})
+            returncode = 0; stderr = ""
+        return R()
+    monkeypatch.setattr("tier_c.arm_runner.subprocess.run", fake_run)
+
+    from tier_c.arm_runner import ClaudeRunner
+    from tier_c.model import Variant
+
+    out = ClaudeRunner().run(Variant("opus-4.8", True), "spec", "PROMPT", "/repo")
+
+    # Command must contain --mcp-config
+    assert "--mcp-config" in captured["cmd"]
+
+    # Find the path that follows --mcp-config
+    idx = captured["cmd"].index("--mcp-config")
+    cfg_path = captured["cmd"][idx + 1]
+
+    # The written config must point prism-mcp at /repo
+    with open(cfg_path) as f:
+        cfg = json.load(f)
+    assert cfg["mcpServers"]["prism"]["args"] == ["--repo", "/repo"]
