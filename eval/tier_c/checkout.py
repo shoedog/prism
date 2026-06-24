@@ -10,8 +10,13 @@ class Checkout:
         self._dir: Path | None = None
     def __enter__(self) -> "Checkout":
         self._dir = Path(tempfile.mkdtemp(prefix="tc-co-"))
-        subprocess.run(["git", "worktree", "add", "--detach", "-q", str(self._dir), self.sha],
-                       cwd=self.repo, check=True)
+        try:
+            subprocess.run(["git", "worktree", "add", "--detach", "-q", str(self._dir), self.sha],
+                           cwd=self.repo, check=True)
+        except BaseException:
+            shutil.rmtree(self._dir, ignore_errors=True)
+            self._dir = None
+            raise
         return self
     def __exit__(self, *exc) -> None:
         if self._dir:

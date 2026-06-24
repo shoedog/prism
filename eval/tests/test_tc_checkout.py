@@ -18,3 +18,13 @@ def test_checkout_reads_file_at_sha(tmp_path):
         assert co.read_line("a.py", 1) == "def foo():"
         assert co.file_exists("a.py")
         assert not co.file_exists("missing.py")
+
+def test_no_tempdir_leak_on_bad_sha(tmp_path):
+    import glob, tempfile, pytest
+    _init_repo(tmp_path / "repo")
+    before = set(glob.glob(str(Path(tempfile.gettempdir()) / "tc-co-*")))
+    with pytest.raises(subprocess.CalledProcessError):
+        with Checkout(str(tmp_path / "repo"), "deadbeefdeadbeef"):
+            pass
+    after = set(glob.glob(str(Path(tempfile.gettempdir()) / "tc-co-*")))
+    assert after == before  # no leaked worktree dir
