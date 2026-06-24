@@ -2,7 +2,6 @@
 ARGV they assemble (the live subprocess call is exercised only in an integration run).
 prism ON = MCP config passed; OFF = omitted. Mirrors tier_a/sut.py's subprocess style."""
 from __future__ import annotations
-import json, subprocess, time
 from .model import Variant, ArmOutput
 from .citations import parse_citations
 

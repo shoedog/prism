@@ -6,7 +6,6 @@ from __future__ import annotations
 import re
 import random
 from dataclasses import dataclass
-from .model import Variant
 from .investigator import score_citations, InvestigatorReport
 from .planted import PlantedError, score_catch, sanitation_ok, PlantedReport, inject
 from .judges import borda_consensus
