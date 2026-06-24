@@ -16,6 +16,7 @@ class LlmRankJudge:
         body = "\n\n".join(f"[{lbl}]\n{txt}" for lbl, txt in candidates.items())
         prompt = _RANK_INSTR.format(stage=stage, rubric=rubric) + "\n\n" + body
         raw = self.ask(self.model, prompt)
+        # candidate labels are chain.py's opaque cand{i} scheme; unknown/extra labels are filtered, omitted ones appended -> always a full permutation
         found = [t for t in re.findall(r"cand\d+", raw)]
         seen, order = set(), []
         for c in found:
@@ -31,7 +32,8 @@ class LlmRelevanceJudge:
         self.ask, self.model = ask, model
     def is_relevant(self, cite: Citation, issue_text: str) -> bool:
         prompt = (f"Issue:\n{issue_text}\n\nIs the code at {cite.file}:{cite.line} "
-                  f"(symbol {cite.symbol}) actually relevant to fixing this issue? Answer YES or NO.")
+                  f"(symbol {cite.symbol}) actually relevant to fixing this issue? Answer with exactly YES or NO and nothing else.")
+        # conservative: any non-YES (incl. hedged) reads False
         return self.ask(self.model, prompt).strip().upper().startswith("YES")
 
 class LlmConditionGuesser:
@@ -39,5 +41,6 @@ class LlmConditionGuesser:
         self.ask, self.model = ask, model
     def guess_used_prism(self, text: str) -> bool:
         prompt = ("Below is an output from a coding task. Was a code-navigation tool that yields exact "
-                  "file:line/call-graph facts likely USED to produce it? Answer YES or NO.\n\n" + text)
+                  "file:line/call-graph facts likely USED to produce it? Answer with exactly YES or NO and nothing else.\n\n" + text)
+        # conservative: any non-YES (incl. hedged) reads False
         return self.ask(self.model, prompt).strip().upper().startswith("YES")

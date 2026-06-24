@@ -22,3 +22,7 @@ def test_relevance_judge_yes_no():
 def test_condition_guesser_returns_bool():
     g = LlmConditionGuesser(ask=lambda m,p: "YES", model="opus-4.8")
     assert g.guess_used_prism("some output text") is True
+
+def test_condition_guesser_false_on_no_and_hedge():
+    assert LlmConditionGuesser(ask=lambda m,p: "NO", model="opus-4.8").guess_used_prism("x") is False
+    assert LlmConditionGuesser(ask=lambda m,p: "Probably not", model="opus-4.8").guess_used_prism("x") is False

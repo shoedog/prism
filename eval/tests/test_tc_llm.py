@@ -24,3 +24,22 @@ def test_live_ask_codex_parses_jsonl(monkeypatch):
         return R()
     monkeypatch.setattr("tier_c.llm.subprocess.run", fake_run)
     assert live_ask("gpt-5.5", "relevant?") == "YES"
+
+def test_live_ask_claude_raises_runtime_error_on_bad_json(monkeypatch):
+    def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None):
+        class R: stdout = json.dumps({"is_error": True, "subtype": "api_error"}); returncode=0; stderr=""
+        return R()
+    monkeypatch.setattr("tier_c.llm.subprocess.run", fake_run)
+    import pytest
+    with pytest.raises(RuntimeError, match="claude judge output unparseable"):
+        live_ask("opus-4.8", "rank these")
+
+def test_live_ask_codex_raises_runtime_error_on_bad_jsonl(monkeypatch):
+    def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None):
+        # JSONL with no agent_message -> ValueError -> RuntimeError
+        class R: stdout = json.dumps({"item":{"type":"other","text":""}}); returncode=0; stderr=""
+        return R()
+    monkeypatch.setattr("tier_c.llm.subprocess.run", fake_run)
+    import pytest
+    with pytest.raises(RuntimeError, match="codex judge output unparseable"):
+        live_ask("gpt-5.5", "relevant?")

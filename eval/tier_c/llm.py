@@ -19,9 +19,15 @@ def live_ask(model: str, prompt: str) -> str:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=_TIMEOUT)
         if proc.returncode != 0 or not proc.stdout.strip():
             raise RuntimeError(f"claude judge exited {proc.returncode}: {(proc.stderr or '').strip()[:300]}")
-        return parse_claude_json(proc.stdout).text
+        try:
+            return parse_claude_json(proc.stdout).text
+        except ValueError as e:
+            raise RuntimeError(f"claude judge output unparseable: {e}") from e
     cmd = ["codex", "exec", "--json", "-m", flag, "-s", "read-only", "-"]
     proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=_TIMEOUT)
     if proc.returncode != 0 or not proc.stdout.strip():
         raise RuntimeError(f"codex judge exited {proc.returncode}: {(proc.stderr or '').strip()[:300]}")
-    return parse_codex_jsonl(proc.stdout).text
+    try:
+        return parse_codex_jsonl(proc.stdout).text
+    except ValueError as e:
+        raise RuntimeError(f"codex judge output unparseable: {e}") from e
