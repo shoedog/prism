@@ -28,8 +28,21 @@ def test_codex_runner_off_has_no_prism(monkeypatch):
                 json.dumps({"item":{"type":"agent_message","text":"plan src/b.go:2"}})])
             returncode = 0; stderr = ""
         assert "mcp_servers.prism" not in " ".join(cmd)
+        assert "--json" in cmd
         return R()
     monkeypatch.setattr("tier_c.arm_runner.subprocess.run", fake_run)
     out = CodexRunner().run(Variant("gpt-5.5", False), "plan", "PROMPT", "/repo")
     assert out.text == "plan src/b.go:2" and out.tokens == 9
     assert out.used_prism is False
+
+
+def test_runner_raises_clear_error_on_subprocess_failure(monkeypatch):
+    import pytest
+    from tier_c.model import Variant
+    from tier_c.arm_runner import ClaudeRunner
+    def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None):
+        class R: stdout = ""; returncode = 1; stderr = "auth: missing API key"
+        return R()
+    monkeypatch.setattr("tier_c.arm_runner.subprocess.run", fake_run)
+    with pytest.raises(RuntimeError, match="auth: missing API key"):
+        ClaudeRunner(mcp_cfg="/tmp/p.json").run(Variant("opus-4.8", True), "spec", "P", "/repo")

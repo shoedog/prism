@@ -32,6 +32,8 @@ class ClaudeRunner:
         cmd = build_claude_cmd(variant, mcp_cfg=self.mcp_cfg) + [prompt]
         t0 = time.monotonic()
         proc = subprocess.run(cmd, capture_output=True, text=True, cwd=repo_root, timeout=_TIMEOUT)
+        if proc.returncode != 0 or not proc.stdout.strip():
+            raise RuntimeError(f"arm exited {proc.returncode}: {(proc.stderr or '').strip()[:400]}")
         r = parse_claude_json(proc.stdout)
         return ArmOutput(variant=variant, text=r.text, citations=parse_citations(r.text),
                          tokens=r.output_tokens, tool_calls=r.tool_calls, wall_s=time.monotonic() - t0,
@@ -41,10 +43,12 @@ class CodexRunner:
     """ArmRunner via `codex exec --json` (prompt on stdin). prism ON = inline -c mcp_servers."""
     def run(self, variant: Variant, stage: str, prompt: str, repo_root: str) -> ArmOutput:
         cmd = build_codex_cmd(variant, repo=repo_root)
-        cmd.insert(2, "--json")  # codex exec --json ...
+        cmd = ["codex", "exec", "--json"] + cmd[2:]  # codex exec --json ... (robust vs index drift)
         t0 = time.monotonic()
         proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
                               cwd=repo_root, timeout=_TIMEOUT)
+        if proc.returncode != 0 or not proc.stdout.strip():
+            raise RuntimeError(f"arm exited {proc.returncode}: {(proc.stderr or '').strip()[:400]}")
         r = parse_codex_jsonl(proc.stdout)
         return ArmOutput(variant=variant, text=r.text, citations=parse_citations(r.text),
                          tokens=r.output_tokens, tool_calls=r.tool_calls, wall_s=time.monotonic() - t0,
