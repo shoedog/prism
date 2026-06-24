@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use prism::call_graph::{CallKind, CallSite, FunctionId};
+use prism::call_graph::{CallKind, CallSite, CallSiteOrigin, FunctionId};
 use prism::name_resolution::consumer::{
     authoritative_for, graph_callable_edge, graph_module_dep_edge, GraphImport, ResolvedImport,
 };
@@ -107,6 +107,7 @@ fn call_site(file: &str, name: &str, byte: usize) -> CallSite {
         arg_count: None,
         arg_spread: false,
         receiver_outcome: None,
+        origin: CallSiteOrigin::Source,
     }
 }
 

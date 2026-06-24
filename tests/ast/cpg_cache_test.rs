@@ -23,6 +23,321 @@ fn write_repo(files: &[(&str, &str)]) -> TempDir {
     dir
 }
 
+fn parsed_files(fixtures: &[(&str, &str, Language)]) -> BTreeMap<String, ParsedFile> {
+    fixtures
+        .iter()
+        .map(|(path, src, lang)| {
+            (
+                (*path).to_string(),
+                ParsedFile::parse(path, src, *lang).unwrap(),
+            )
+        })
+        .collect()
+}
+
+fn fid_dump(fid: &prism::call_graph::FunctionId) -> String {
+    format!(
+        "{}:{}:{}-{}",
+        fid.file, fid.name, fid.start_line, fid.end_line
+    )
+}
+
+fn callsite_dump(site: &prism::call_graph::CallSite) -> String {
+    format!(
+        "{} -> {} line={} kind={:?} span={}-{} qual={:?} recv={:?} recovery={:?} materialized={} argc={:?} spread={} outcome={:?} origin={:?}",
+        fid_dump(&site.caller),
+        site.callee_name,
+        site.line,
+        site.kind,
+        site.start_byte,
+        site.end_byte,
+        site.qualifier,
+        site.receiver_type,
+        site.receiver_recovery,
+        site.receiver_materialized,
+        site.arg_count,
+        site.arg_spread,
+        site.receiver_outcome,
+        site.origin
+    )
+}
+
+fn var_location_dump(var: &prism::data_flow::VarLocation) -> String {
+    format!(
+        "{}:{}:{}:{}:{:?}:{:?}:{}-{}",
+        var.file,
+        var.function,
+        var.function_start_line,
+        var.line,
+        var.path,
+        var.kind,
+        var.start_byte,
+        var.end_byte
+    )
+}
+
+fn cpg_node_dump(node: &prism::cpg::CpgNode) -> String {
+    match node {
+        prism::cpg::CpgNode::Function {
+            file,
+            name,
+            start_line,
+            end_line,
+            start_byte,
+            end_byte,
+        } => format!("fn {file}:{name}:{start_line}-{end_line}:{start_byte}-{end_byte}"),
+        prism::cpg::CpgNode::Statement {
+            file,
+            line,
+            kind,
+            start_byte,
+            end_byte,
+        } => format!("stmt {file}:{line}:{kind:?}:{start_byte}-{end_byte}"),
+        prism::cpg::CpgNode::Variable {
+            path,
+            file,
+            function,
+            function_start_line,
+            line,
+            access,
+            start_byte,
+            end_byte,
+        } => format!(
+            "var {file}:{function}:{function_start_line}:{line}:{path:?}:{access:?}:{start_byte}-{end_byte}"
+        ),
+    }
+}
+
+fn normalized_cpg_behavior(cpg: &CodePropertyGraph) -> Vec<String> {
+    use petgraph::visit::EdgeRef;
+
+    let mut out = Vec::new();
+    for (name, fids) in &cpg.call_graph.functions {
+        for fid in fids {
+            out.push(format!("cg-fn {name} {}", fid_dump(fid)));
+        }
+    }
+    for (caller, sites) in &cpg.call_graph.calls {
+        for site in sites {
+            out.push(format!(
+                "cg-call {} {}",
+                fid_dump(caller),
+                callsite_dump(site)
+            ));
+        }
+    }
+    for (callee, sites) in &cpg.call_graph.callers {
+        let mut normalized: Vec<String> = sites.iter().map(callsite_dump).collect();
+        normalized.sort();
+        for site in normalized {
+            out.push(format!("cg-caller {callee} {site}"));
+        }
+    }
+    out.push(format!(
+        "cg-index static_functions {:?}",
+        cpg.call_graph.static_functions
+    ));
+    out.push(format!("cg-index imports {:?}", cpg.call_graph.imports));
+    out.push(format!("cg-index methods {:?}", cpg.call_graph.methods));
+    out.push(format!(
+        "cg-index method_owners {:?}",
+        cpg.call_graph.method_owners
+    ));
+    out.push(format!(
+        "cg-index method_class_span {:?}",
+        cpg.call_graph.method_class_span
+    ));
+    out.push(format!(
+        "cg-index method_class_span_ambiguous {:?}",
+        cpg.call_graph.method_class_span_ambiguous
+    ));
+    out.push(format!(
+        "cg-index class_bases {:?}",
+        cpg.call_graph.class_bases
+    ));
+    out.push(format!(
+        "cg-index methods_by_scope {:?}",
+        cpg.call_graph.methods_by_scope
+    ));
+    out.push(format!(
+        "cg-index extension_methods {:?}",
+        cpg.call_graph.extension_methods
+    ));
+    out.push(format!(
+        "cg-index identity_complete {:?}",
+        cpg.call_graph.identity_complete
+    ));
+    out.push(format!(
+        "cg-index field_types {:?}",
+        cpg.call_graph.field_types
+    ));
+    out.push(format!(
+        "cg-index return_types {:?}",
+        cpg.call_graph.return_types
+    ));
+    out.push(format!(
+        "cg-index receiver_vars {:?}",
+        cpg.call_graph.receiver_vars
+    ));
+    out.push(format!(
+        "cg-index promoted_aliases {:?}",
+        cpg.call_graph.promoted_aliases
+    ));
+    out.push(format!(
+        "cg-index embedding_gaps {:?}",
+        cpg.call_graph.embedding_gaps
+    ));
+    out.push(format!(
+        "cg-index interface_impls {:?}",
+        cpg.call_graph.interface_impls
+    ));
+    out.push(format!(
+        "cg-index interface_gaps {:?}",
+        cpg.call_graph.interface_gaps
+    ));
+    out.push(format!(
+        "cg-index interface_overapprox {:?}",
+        cpg.call_graph.interface_overapprox
+    ));
+    out.push(format!(
+        "cg-index interface_method_names {:?}",
+        cpg.call_graph.interface_method_names
+    ));
+    out.push(format!(
+        "cg-index interface_dispatch_computed {}",
+        cpg.call_graph.interface_dispatch_computed
+    ));
+    out.push(format!(
+        "cg-index method_arity {:?}",
+        cpg.call_graph.method_arity
+    ));
+    out.push(format!(
+        "cg-index method_facts {:?}",
+        cpg.call_graph.method_facts
+    ));
+    out.push(format!(
+        "cg-index scope_graph {:?}",
+        cpg.call_graph.scope_graph
+    ));
+    out.push(format!(
+        "cg-index import_bindings {:?}",
+        cpg.call_graph.import_bindings
+    ));
+    out.push(format!(
+        "cg-index module_bindings {:?}",
+        cpg.call_graph.module_bindings
+    ));
+    out.push(format!(
+        "cg-index indexed_files {:?}",
+        cpg.call_graph.indexed_files
+    ));
+    for edge in cpg.graph.edge_references() {
+        if let prism::cpg::CpgEdge::Call(confidence) = edge.weight() {
+            out.push(format!(
+                "cpg-call-edge {} -> {} {:?}",
+                cpg_node_dump(cpg.node(edge.source())),
+                cpg_node_dump(cpg.node(edge.target())),
+                confidence
+            ));
+        }
+    }
+    for edge in &cpg.dfg.edges {
+        out.push(format!(
+            "dfg-edge {} -> {}",
+            var_location_dump(&edge.from),
+            var_location_dump(&edge.to)
+        ));
+    }
+    for (key, vars) in &cpg.dfg.defs {
+        let mut normalized: Vec<String> = vars.iter().map(var_location_dump).collect();
+        normalized.sort();
+        for var in normalized {
+            out.push(format!("dfg-def {key:?} {var}"));
+        }
+    }
+    for (key, vars) in &cpg.dfg.uses {
+        let mut normalized: Vec<String> = vars.iter().map(var_location_dump).collect();
+        normalized.sort();
+        for var in normalized {
+            out.push(format!("dfg-use {key:?} {var}"));
+        }
+    }
+    out.sort();
+    out
+}
+
+fn assert_incremental_matches_full(
+    v1: BTreeMap<String, ParsedFile>,
+    v2: BTreeMap<String, ParsedFile>,
+    changed_files: BTreeSet<String>,
+) -> CodePropertyGraph {
+    let full_v1 = CodePropertyGraph::build(&v1);
+    let full_v2 = CodePropertyGraph::build(&v2);
+    let scope_inputs = prism::call_graph::ScopeGraphBuildInputs::from_files_convention(&v2);
+    let incremental = CodePropertyGraph::build_incremental_with_scope_graph_inputs(
+        full_v1.call_graph.clone(),
+        full_v1.dfg.clone(),
+        &changed_files,
+        &v2,
+        None,
+        Some(&scope_inputs),
+    );
+
+    assert_eq!(
+        normalized_cpg_behavior(&full_v2),
+        normalized_cpg_behavior(&incremental),
+        "incremental CPG should match full build for changed files {changed_files:?}"
+    );
+    incremental
+}
+
+fn has_indirect_call(cpg: &CodePropertyGraph, caller: &str, callee: &str) -> bool {
+    cpg.call_graph.calls.values().flatten().any(|site| {
+        site.caller.name == caller
+            && site.callee_name == callee
+            && site.origin == prism::call_graph::CallSiteOrigin::IndirectResolution
+    })
+}
+
+fn call_site(cpg: &CodePropertyGraph, caller: &str, callee: &str) -> prism::call_graph::CallSite {
+    cpg.call_graph
+        .calls
+        .iter()
+        .find(|(fid, _)| fid.name == caller)
+        .and_then(|(_, sites)| sites.iter().find(|site| site.callee_name == callee))
+        .cloned()
+        .unwrap_or_else(|| panic!("missing call site {caller}->{callee}"))
+}
+
+fn call_site_in_file(
+    cpg: &CodePropertyGraph,
+    file: &str,
+    caller: &str,
+    callee: &str,
+) -> prism::call_graph::CallSite {
+    cpg.call_graph
+        .calls
+        .iter()
+        .find(|(fid, _)| fid.file == file && fid.name == caller)
+        .and_then(|(_, sites)| sites.iter().find(|site| site.callee_name == callee))
+        .cloned()
+        .unwrap_or_else(|| panic!("missing call site {file}:{caller}->{callee}"))
+}
+
+fn has_indirect_call_in_file(
+    cpg: &CodePropertyGraph,
+    file: &str,
+    caller: &str,
+    callee: &str,
+) -> bool {
+    cpg.call_graph.calls.values().flatten().any(|site| {
+        site.caller.file == file
+            && site.caller.name == caller
+            && site.callee_name == callee
+            && site.origin == prism::call_graph::CallSiteOrigin::IndirectResolution
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Round-trip tests: build CPG → save → load → verify identical results
 // ---------------------------------------------------------------------------
@@ -1045,6 +1360,594 @@ fn test_incremental_multifile_c_cross_file_calls() {
         }
         _ => panic!("expected PartialHit"),
     }
+}
+
+#[test]
+fn incremental_matches_full_for_c_local_function_pointer_changed_caller() {
+    let v1 = parsed_files(&[(
+        "run.c",
+        "void target(int x) { (void)x; }\nvoid run() {}\n",
+        Language::C,
+    )]);
+    let v2 = parsed_files(&[(
+        "run.c",
+        r#"void target(int x) { (void)x; }
+void run() {
+    void (*fp)(int);
+    fp = target;
+    fp(1);
+}
+"#,
+        Language::C,
+    )]);
+
+    let incremental =
+        assert_incremental_matches_full(v1, v2, BTreeSet::from(["run.c".to_string()]));
+    assert!(has_indirect_call(&incremental, "run", "target"));
+}
+
+#[test]
+fn incremental_matches_full_for_c_local_function_pointer_changed_target() {
+    let run_src = r#"extern void old_handler(int);
+void run() {
+    void (*fp)(int) = old_handler;
+    fp(1);
+}
+"#;
+    let v1 = parsed_files(&[
+        ("run.c", run_src, Language::C),
+        (
+            "targets.c",
+            "void old_handler(int x) { (void)x; }\n",
+            Language::C,
+        ),
+    ]);
+    let v2 = parsed_files(&[
+        ("run.c", run_src, Language::C),
+        (
+            "targets.c",
+            "void new_handler(int x) { (void)x; }\n",
+            Language::C,
+        ),
+    ]);
+    let full_v1 = CodePropertyGraph::build(&v1);
+    assert!(has_indirect_call(&full_v1, "run", "old_handler"));
+
+    let incremental =
+        assert_incremental_matches_full(v1, v2, BTreeSet::from(["targets.c".to_string()]));
+    assert!(!has_indirect_call(&incremental, "run", "old_handler"));
+}
+
+#[test]
+fn incremental_matches_full_for_c_array_dispatch_same_file_table_change() {
+    let v1 = parsed_files(&[(
+        "dispatch.c",
+        "void a() {}\nvoid b() {}\nvoid (*handlers[])() = { a };\nvoid run() { handlers[0](); }\n",
+        Language::C,
+    )]);
+    let v2 = parsed_files(&[(
+        "dispatch.c",
+        "void a() {}\nvoid b() {}\nvoid (*handlers[])() = { b };\nvoid run() { handlers[0](); }\n",
+        Language::C,
+    )]);
+
+    let incremental =
+        assert_incremental_matches_full(v1, v2, BTreeSet::from(["dispatch.c".to_string()]));
+    assert!(has_indirect_call(&incremental, "run", "b"));
+    assert!(!has_indirect_call(&incremental, "run", "a"));
+}
+
+#[test]
+fn incremental_matches_full_for_c_struct_field_callback_target_removal() {
+    let run_src =
+        "struct Device { void (*callback)(); };\nvoid run(struct Device *d) { d->callback(); }\n";
+    let v1 = parsed_files(&[
+        ("device.c", run_src, Language::C),
+        (
+            "setup.c",
+            "struct Device { void (*callback)(); };\nvoid handler() {}\nvoid setup(struct Device *d) { d->callback = handler; }\n",
+            Language::C,
+        ),
+    ]);
+    let v2 = parsed_files(&[
+        ("device.c", run_src, Language::C),
+        (
+            "setup.c",
+            "struct Device { void (*callback)(); };\nvoid replacement() {}\nvoid setup(struct Device *d) { d->callback = missing_handler; }\n",
+            Language::C,
+        ),
+    ]);
+
+    let incremental =
+        assert_incremental_matches_full(v1, v2, BTreeSet::from(["setup.c".to_string()]));
+    assert!(!has_indirect_call(&incremental, "run", "handler"));
+}
+
+#[test]
+fn incremental_matches_full_for_c_parameter_callback_target_removal() {
+    let execute_src = "void execute(void (*cb)()) { cb(); }\n";
+    let outer_src = "extern void execute(void (*cb)());\nextern void handler();\nvoid outer() { execute(handler); }\n";
+    let v1 = parsed_files(&[
+        ("execute.c", execute_src, Language::C),
+        ("outer.c", outer_src, Language::C),
+        ("targets.c", "void handler() {}\n", Language::C),
+    ]);
+    let v2 = parsed_files(&[
+        ("execute.c", execute_src, Language::C),
+        ("outer.c", outer_src, Language::C),
+        ("targets.c", "void replacement() {}\n", Language::C),
+    ]);
+
+    let incremental =
+        assert_incremental_matches_full(v1, v2, BTreeSet::from(["targets.c".to_string()]));
+    assert!(!has_indirect_call(&incremental, "execute", "handler"));
+}
+
+#[test]
+fn incremental_matches_full_for_c_struct_field_callback_assignment_change() {
+    let run_src =
+        "struct Device { void (*callback)(); };\nvoid run(struct Device *d) { d->callback(); }\n";
+    let v1 = parsed_files(&[
+        ("device.c", run_src, Language::C),
+        (
+            "setup.c",
+            "struct Device { void (*callback)(); };\nvoid old_handler() {}\nvoid new_handler() {}\nvoid setup(struct Device *d) { d->callback = old_handler; }\n",
+            Language::C,
+        ),
+    ]);
+    let v2 = parsed_files(&[
+        ("device.c", run_src, Language::C),
+        (
+            "setup.c",
+            "struct Device { void (*callback)(); };\nvoid old_handler() {}\nvoid new_handler() {}\nvoid setup(struct Device *d) { d->callback = new_handler; }\n",
+            Language::C,
+        ),
+    ]);
+
+    let incremental =
+        assert_incremental_matches_full(v1, v2, BTreeSet::from(["setup.c".to_string()]));
+    assert!(has_indirect_call_in_file(
+        &incremental,
+        "device.c",
+        "run",
+        "new_handler"
+    ));
+    assert!(!has_indirect_call_in_file(
+        &incremental,
+        "device.c",
+        "run",
+        "old_handler"
+    ));
+}
+
+#[test]
+fn incremental_matches_full_for_c_parameter_callback_outer_caller_change() {
+    let execute_src = "void execute(void (*cb)()) { cb(); }\n";
+    let v1 = parsed_files(&[
+        ("execute.c", execute_src, Language::C),
+        (
+            "outer.c",
+            "extern void execute(void (*cb)());\nextern void old_handler();\nvoid outer() { execute(old_handler); }\n",
+            Language::C,
+        ),
+        (
+            "targets.c",
+            "void old_handler() {}\nvoid new_handler() {}\n",
+            Language::C,
+        ),
+    ]);
+    let v2 = parsed_files(&[
+        ("execute.c", execute_src, Language::C),
+        (
+            "outer.c",
+            "extern void execute(void (*cb)());\nextern void new_handler();\nvoid outer() { execute(new_handler); }\n",
+            Language::C,
+        ),
+        (
+            "targets.c",
+            "void old_handler() {}\nvoid new_handler() {}\n",
+            Language::C,
+        ),
+    ]);
+
+    let incremental =
+        assert_incremental_matches_full(v1, v2, BTreeSet::from(["outer.c".to_string()]));
+    assert!(has_indirect_call_in_file(
+        &incremental,
+        "execute.c",
+        "execute",
+        "new_handler"
+    ));
+    assert!(!has_indirect_call_in_file(
+        &incremental,
+        "execute.c",
+        "execute",
+        "old_handler"
+    ));
+}
+
+#[test]
+fn incremental_matches_full_for_cpp_function_pointer_changed_caller() {
+    let v1 = parsed_files(&[(
+        "run.cpp",
+        "void target(int x) { (void)x; }\nvoid run() {}\n",
+        Language::Cpp,
+    )]);
+    let v2 = parsed_files(&[(
+        "run.cpp",
+        r#"void target(int x) { (void)x; }
+void run() {
+    void (*fp)(int);
+    fp = target;
+    fp(1);
+}
+"#,
+        Language::Cpp,
+    )]);
+
+    let incremental =
+        assert_incremental_matches_full(v1, v2, BTreeSet::from(["run.cpp".to_string()]));
+    assert!(has_indirect_call(&incremental, "run", "target"));
+}
+
+#[test]
+fn incremental_matches_full_for_rust_receiver_rematerialization() {
+    let lib_src = "mod model;\n\
+                   use crate::model::Outer;\n\
+                   pub fn run(o: Outer) { let x = o.inner; x.poke(); }\n";
+    let v1 = parsed_files(&[
+        ("src/lib.rs", lib_src, Language::Rust),
+        (
+            "src/model.rs",
+            "pub struct Inner;\n\
+             impl Inner { pub fn poke(&self) {} }\n\
+             pub struct Inner2;\n\
+             impl Inner2 { pub fn poke(&self) {} }\n\
+             pub struct Outer { pub inner: Inner }\n",
+            Language::Rust,
+        ),
+    ]);
+    let v2 = parsed_files(&[
+        ("src/lib.rs", lib_src, Language::Rust),
+        (
+            "src/model.rs",
+            "pub struct Inner;\n\
+             impl Inner { pub fn poke(&self) {} }\n\
+             pub struct Inner2;\n\
+             impl Inner2 { pub fn poke(&self) {} }\n\
+             pub struct Outer { pub inner: Inner2 }\n",
+            Language::Rust,
+        ),
+    ]);
+
+    let incremental =
+        assert_incremental_matches_full(v1, v2, BTreeSet::from(["src/model.rs".to_string()]));
+    let site = call_site(&incremental, "run", "poke");
+    assert!(
+        site.receiver_outcome.is_some(),
+        "incremental rebuild should rematerialize Rust receiver outcome"
+    );
+    let resolved = incremental.call_graph.resolve_call_site(&site);
+    assert_eq!(
+        resolved.len(),
+        1,
+        "receiver should disambiguate Inner2::poke"
+    );
+    assert_eq!(resolved[0].target.file, "src/model.rs");
+    assert_eq!(resolved[0].target.start_line, 4);
+}
+
+#[test]
+fn incremental_matches_full_for_mixed_recompute_ordering() {
+    let rust_lib_src = "mod model;\n\
+                        use crate::model::Outer;\n\
+                        pub fn run_rust(o: Outer) { let x = o.inner; x.poke(); }\n";
+    let c_device_src =
+        "struct Device { void (*callback)(); };\nvoid run_c(struct Device *d) { d->callback(); }\n";
+
+    let v1 = parsed_files(&[
+        ("src/lib.rs", rust_lib_src, Language::Rust),
+        (
+            "src/model.rs",
+            "pub struct Inner;\n\
+             impl Inner { pub fn poke(&self) {} }\n\
+             pub struct Inner2;\n\
+             impl Inner2 { pub fn poke(&self) {} }\n\
+             pub struct Outer { pub inner: Inner }\n",
+            Language::Rust,
+        ),
+        (
+            "base.go",
+            "package p\ntype Base struct{}\nfunc (b Base) Ping() {}\n",
+            Language::Go,
+        ),
+        (
+            "wrap.go",
+            "package p\ntype Wrap struct {\n\tBase\n}\n",
+            Language::Go,
+        ),
+        (
+            "iface.go",
+            "package p\ntype Runner interface { Go() }\nfunc runGo(r Runner) { r.Go() }\n",
+            Language::Go,
+        ),
+        (
+            "fast.go",
+            "package p\ntype Fast struct{}\nfunc (f Fast) Go() {}\n",
+            Language::Go,
+        ),
+        (
+            "slow.go",
+            "package p\ntype Slow struct{}\nfunc (s Slow) Go() {}\n",
+            Language::Go,
+        ),
+        ("live.go", "package p\nfunc use() {}\n", Language::Go),
+        ("device.c", c_device_src, Language::C),
+        (
+            "setup.c",
+            "struct Device { void (*callback)(); };\nvoid old_handler() {}\nvoid new_handler() {}\nvoid setup(struct Device *d) { d->callback = old_handler; }\n",
+            Language::C,
+        ),
+    ]);
+    let v2 = parsed_files(&[
+        ("src/lib.rs", rust_lib_src, Language::Rust),
+        (
+            "src/model.rs",
+            "pub struct Inner;\n\
+             impl Inner { pub fn poke(&self) {} }\n\
+             pub struct Inner2;\n\
+             impl Inner2 { pub fn poke(&self) {} }\n\
+             pub struct Outer { pub inner: Inner2 }\n",
+            Language::Rust,
+        ),
+        (
+            "base.go",
+            "package p\ntype Base struct{}\nfunc (b Base) Ping() {}\n",
+            Language::Go,
+        ),
+        ("wrap.go", "package p\ntype Wrap struct{}\n", Language::Go),
+        (
+            "iface.go",
+            "package p\ntype Runner interface { Go() }\nfunc runGo(r Runner) { r.Go() }\n",
+            Language::Go,
+        ),
+        (
+            "fast.go",
+            "package p\ntype Fast struct{}\nfunc (f Fast) Go() {}\n",
+            Language::Go,
+        ),
+        (
+            "slow.go",
+            "package p\ntype Slow struct{}\nfunc (s Slow) Go() {}\n",
+            Language::Go,
+        ),
+        (
+            "live.go",
+            "package p\nfunc use() { _ = Fast{} }\n",
+            Language::Go,
+        ),
+        ("device.c", c_device_src, Language::C),
+        (
+            "setup.c",
+            "struct Device { void (*callback)(); };\nvoid old_handler() {}\nvoid new_handler() {}\nvoid setup(struct Device *d) { d->callback = new_handler; }\n",
+            Language::C,
+        ),
+    ]);
+
+    let incremental = assert_incremental_matches_full(
+        v1,
+        v2,
+        BTreeSet::from([
+            "src/model.rs".to_string(),
+            "wrap.go".to_string(),
+            "live.go".to_string(),
+            "setup.c".to_string(),
+        ]),
+    );
+
+    let rust_site = call_site_in_file(&incremental, "src/lib.rs", "run_rust", "poke");
+    let rust_resolved = incremental.call_graph.resolve_call_site(&rust_site);
+    assert_eq!(rust_resolved.len(), 1);
+    assert_eq!(rust_resolved[0].target.start_line, 4);
+
+    assert!(!incremental
+        .call_graph
+        .promoted_aliases
+        .contains_key(&("Wrap".to_string(), "Ping".to_string())));
+    let go_site = call_site_in_file(&incremental, "iface.go", "runGo", "Go");
+    let go_resolved = incremental.call_graph.resolve_call_site(&go_site);
+    assert_eq!(go_resolved.len(), 1);
+    assert_eq!(go_resolved[0].target.file, "fast.go");
+
+    assert!(has_indirect_call_in_file(
+        &incremental,
+        "device.c",
+        "run_c",
+        "new_handler"
+    ));
+    assert!(!has_indirect_call_in_file(
+        &incremental,
+        "device.c",
+        "run_c",
+        "old_handler"
+    ));
+}
+
+#[test]
+fn incremental_matches_full_for_go_embedding_and_interface_dispatch() {
+    let v1 = parsed_files(&[
+        (
+            "base.go",
+            "package p\ntype Base struct{}\nfunc (b Base) Ping() {}\n",
+            Language::Go,
+        ),
+        (
+            "wrap.go",
+            "package p\ntype Wrap struct {\n\tBase\n}\n",
+            Language::Go,
+        ),
+        (
+            "iface.go",
+            "package p\ntype Runner interface { Go() }\nfunc run(r Runner) { r.Go() }\n",
+            Language::Go,
+        ),
+        (
+            "fast.go",
+            "package p\ntype Fast struct{}\nfunc (f Fast) Go() {}\n",
+            Language::Go,
+        ),
+        (
+            "slow.go",
+            "package p\ntype Slow struct{}\nfunc (s Slow) Go() {}\n",
+            Language::Go,
+        ),
+        ("live.go", "package p\nfunc use() {}\n", Language::Go),
+    ]);
+    let v2 = parsed_files(&[
+        (
+            "base.go",
+            "package p\ntype Base struct{}\nfunc (b Base) Ping() {}\n",
+            Language::Go,
+        ),
+        ("wrap.go", "package p\ntype Wrap struct{}\n", Language::Go),
+        (
+            "iface.go",
+            "package p\ntype Runner interface { Go() }\nfunc run(r Runner) { r.Go() }\n",
+            Language::Go,
+        ),
+        (
+            "fast.go",
+            "package p\ntype Fast struct{}\nfunc (f Fast) Go() {}\n",
+            Language::Go,
+        ),
+        (
+            "slow.go",
+            "package p\ntype Slow struct{}\nfunc (s Slow) Go() {}\n",
+            Language::Go,
+        ),
+        (
+            "live.go",
+            "package p\nfunc use() { _ = Fast{} }\n",
+            Language::Go,
+        ),
+    ]);
+
+    let incremental = assert_incremental_matches_full(
+        v1,
+        v2,
+        BTreeSet::from(["wrap.go".to_string(), "live.go".to_string()]),
+    );
+    assert!(!incremental
+        .call_graph
+        .promoted_aliases
+        .contains_key(&("Wrap".to_string(), "Ping".to_string())));
+
+    let site = call_site(&incremental, "run", "Go");
+    let resolved = incremental.call_graph.resolve_call_site(&site);
+    assert_eq!(
+        resolved.len(),
+        1,
+        "RTA should prune Slow after Fast is live"
+    );
+    assert_eq!(resolved[0].target.file, "fast.go");
+}
+
+#[test]
+fn incremental_matches_full_for_python_js_ts_import_bindings() {
+    let v1 = parsed_files(&[
+        (
+            "app.py",
+            "from utils import process\ndef run_py():\n    process()\n",
+            Language::Python,
+        ),
+        (
+            "utils.py",
+            "def process():\n    return 1\n",
+            Language::Python,
+        ),
+        (
+            "app.js",
+            "import { process } from './utils';\nfunction runJs() { process(); }\n",
+            Language::JavaScript,
+        ),
+        (
+            "utils.js",
+            "export function process() { return 1; }\n",
+            Language::JavaScript,
+        ),
+        (
+            "app.ts",
+            "import { process } from './utils';\nfunction runTs() { process(); }\n",
+            Language::TypeScript,
+        ),
+        (
+            "utils.ts",
+            "export function process() { return 1; }\n",
+            Language::TypeScript,
+        ),
+    ]);
+    let v2 = parsed_files(&[
+        (
+            "app.py",
+            "from utils import process as work\ndef run_py():\n    work()\n",
+            Language::Python,
+        ),
+        (
+            "utils.py",
+            "def process():\n    return 1\n",
+            Language::Python,
+        ),
+        (
+            "app.js",
+            "import { process as workJs } from './utils';\nfunction runJs() { workJs(); }\n",
+            Language::JavaScript,
+        ),
+        (
+            "utils.js",
+            "export function process() { return 1; }\n",
+            Language::JavaScript,
+        ),
+        (
+            "app.ts",
+            "import { process as workTs } from './utils';\nfunction runTs() { workTs(); }\n",
+            Language::TypeScript,
+        ),
+        (
+            "utils.ts",
+            "export function process() { return 1; }\n",
+            Language::TypeScript,
+        ),
+    ]);
+
+    let incremental = assert_incremental_matches_full(
+        v1,
+        v2,
+        BTreeSet::from([
+            "app.py".to_string(),
+            "app.js".to_string(),
+            "app.ts".to_string(),
+        ]),
+    );
+    let py_bindings = incremental
+        .call_graph
+        .import_bindings
+        .get("app.py")
+        .expect("python import bindings");
+    assert!(py_bindings
+        .iter()
+        .any(|binding| binding.local == "work" && binding.member.as_deref() == Some("process")));
+    let js_bindings = incremental
+        .call_graph
+        .import_bindings
+        .get("app.js")
+        .expect("js import bindings");
+    assert!(js_bindings.iter().any(|binding| binding.local == "workJs"));
+    let ts_bindings = incremental
+        .call_graph
+        .import_bindings
+        .get("app.ts")
+        .expect("ts import bindings");
+    assert!(ts_bindings.iter().any(|binding| binding.local == "workTs"));
 }
 
 #[test]

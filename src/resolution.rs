@@ -2272,7 +2272,7 @@ mod self_receiver_same_class_tests {
 #[cfg(test)]
 mod scope_resolution_predicate_tests {
     use super::*;
-    use crate::call_graph::{CallSite, FunctionId};
+    use crate::call_graph::{CallSite, CallSiteOrigin, FunctionId};
     use crate::name_resolution::graph::ScopeGraph;
     use crate::name_resolution::types::{FileId, ScopeId};
     use crate::resolution_disproof::{DisproofCx, DisproofPredicate};
@@ -2301,6 +2301,7 @@ mod scope_resolution_predicate_tests {
             arg_count: None,
             arg_spread: false,
             receiver_outcome: None,
+            origin: CallSiteOrigin::Source,
         }
     }
 

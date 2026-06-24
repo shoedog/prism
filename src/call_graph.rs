@@ -42,6 +42,13 @@ pub enum CallKind {
     MacroInvocation,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CallSiteOrigin {
+    #[default]
+    Source,
+    IndirectResolution,
+}
+
 /// A call site: where a function is called from.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CallSite {
@@ -86,6 +93,10 @@ pub struct CallSite {
     /// Excluded from cmp_key so logical CallSite identity/order stays inert.
     #[serde(default)]
     pub receiver_outcome: Option<crate::resolution_identity::ReceiverOutcome>,
+    /// Provenance for derived call sites. Excluded from cmp_key so a derived
+    /// edge cannot coexist with an identical source call-site identity.
+    #[serde(default)]
+    pub origin: CallSiteOrigin,
 }
 
 /// Parameter arity for a method definition (language-agnostic shape).
@@ -459,6 +470,7 @@ impl CallGraph {
                         arg_count: None,
                         arg_spread: false,
                         receiver_outcome: None,
+                        origin: CallSiteOrigin::Source,
                     };
                     calls
                         .entry(caller_id.clone())
@@ -749,6 +761,7 @@ impl CallGraph {
                             arg_count,
                             arg_spread,
                             receiver_outcome: None,
+                            origin: CallSiteOrigin::Source,
                         };
                         file_call_sites.push((caller_id.clone(), site));
                     }
@@ -771,334 +784,6 @@ impl CallGraph {
                     .or_default()
                     .push(site);
             }
-        }
-
-        // Phase 3: Resolve indirect call sites (function pointer variables and dispatch tables).
-        //
-        // For each callee_name that doesn't match any known function:
-        //   Level 1: scan the caller's source for `callee_name = known_func` assignments
-        //   Level 2: if callee_name contains `[`, find the array initializer and add all entries
-        let known_fn_names: BTreeSet<String> = functions.keys().cloned().collect();
-        let mut extra_sites: Vec<(FunctionId, CallSite)> = Vec::new();
-
-        for (caller_id, sites) in &calls {
-            for site in sites {
-                if functions.contains_key(&site.callee_name) {
-                    continue; // Already resolved by direct name match
-                }
-
-                let parsed = match files.get(&caller_id.file) {
-                    Some(p) => p,
-                    None => continue,
-                };
-
-                // Level 2: array dispatch table — callee_name like "handlers[0]"
-                if site.callee_name.contains('[') {
-                    let array_name = site.callee_name.split('[').next().unwrap_or("");
-                    if array_name.is_empty() {
-                        continue;
-                    }
-                    // Search the caller function's source, then file scope
-                    let func_source = Self::extract_func_source(parsed, caller_id);
-                    let targets = crate::ast::resolve_array_dispatch(
-                        &func_source,
-                        array_name,
-                        &known_fn_names,
-                    );
-                    // Also check file scope for global dispatch tables
-                    let file_targets = if targets.is_empty() {
-                        crate::ast::resolve_array_dispatch(
-                            &parsed.source,
-                            array_name,
-                            &known_fn_names,
-                        )
-                    } else {
-                        Vec::new()
-                    };
-                    for target in targets.iter().chain(file_targets.iter()) {
-                        extra_sites.push((
-                            caller_id.clone(),
-                            CallSite {
-                                caller: caller_id.clone(),
-                                callee_name: target.clone(),
-                                line: site.line,
-                                kind: CallKind::Call,
-                                // S2: carry the source call site span so same-line indirect dups don't collapse (review MAJOR).
-                                start_byte: site.start_byte,
-                                end_byte: site.end_byte,
-                                qualifier: None,
-                                receiver_type: None,
-                                receiver_recovery: None,
-                                receiver_materialized: false,
-                                arg_count: None,
-                                arg_spread: false,
-                                receiver_outcome: None,
-                            },
-                        ));
-                    }
-                    continue;
-                }
-
-                // Level 1: local variable function pointer — callee_name is a plain identifier
-                if site
-                    .callee_name
-                    .chars()
-                    .all(|c| c.is_alphanumeric() || c == '_')
-                {
-                    let func_source = Self::extract_func_source(parsed, caller_id);
-                    if let Some(resolved) = crate::ast::resolve_fptr_assignment(
-                        &func_source,
-                        &site.callee_name,
-                        &known_fn_names,
-                    ) {
-                        extra_sites.push((
-                            caller_id.clone(),
-                            CallSite {
-                                caller: caller_id.clone(),
-                                callee_name: resolved,
-                                line: site.line,
-                                kind: CallKind::Call,
-                                // S2: carry the source call site span so same-line indirect dups don't collapse (review MAJOR).
-                                start_byte: site.start_byte,
-                                end_byte: site.end_byte,
-                                qualifier: None,
-                                receiver_type: None,
-                                receiver_recovery: None,
-                                receiver_materialized: false,
-                                arg_count: None,
-                                arg_spread: false,
-                                receiver_outcome: None,
-                            },
-                        ));
-                    }
-                }
-            }
-        }
-
-        // Level 4: struct field callback resolution (interprocedural).
-        //
-        // When a call goes through a struct field (timer->callback(data)),
-        // the callee_name is the field name ("callback") and qualifier is set.
-        // Search ALL functions and file scope for assignments like:
-        //   anything->field_name = known_func
-        //   anything.field_name = known_func
-        //   .field_name = known_func  (designated initializer)
-        //
-        // Level-4 index (S1/B1): field -> file -> targets, built ONCE per build.
-        // Reuses the legacy per-line core, so per-(field,file) results are
-        // byte-identical to resolve_struct_field_assignment by construction.
-        type Level4Index = BTreeMap<String, BTreeMap<String, BTreeSet<String>>>;
-        let mut level4_index: Level4Index = BTreeMap::new();
-        for (path, parsed) in files {
-            let mut per_field: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-            for line in parsed.source.lines() {
-                let trimmed = line.trim();
-                for field in crate::ast::candidate_fields_on_line(trimmed) {
-                    let targets = per_field.entry(field.clone()).or_default();
-                    crate::ast::line_field_targets(trimmed, &field, &known_fn_names, targets);
-                }
-            }
-            for (field, targets) in per_field {
-                if !targets.is_empty() {
-                    level4_index
-                        .entry(field)
-                        .or_default()
-                        .insert(path.clone(), targets);
-                }
-            }
-        }
-
-        let mut level4_sites: Vec<(FunctionId, CallSite)> = Vec::new();
-        for (caller_id, sites) in &calls {
-            for site in sites {
-                if functions.contains_key(&site.callee_name) {
-                    continue;
-                }
-                if site.qualifier.is_none() {
-                    continue; // Not a struct field call
-                }
-                if !site
-                    .callee_name
-                    .chars()
-                    .all(|c| c.is_alphanumeric() || c == '_')
-                {
-                    continue;
-                }
-                // Check if already resolved by earlier levels
-                let already_resolved = extra_sites.iter().any(|(cid, es)| {
-                    cid == caller_id
-                        && es.line == site.line
-                        && known_fn_names.contains(&es.callee_name)
-                });
-                if already_resolved {
-                    continue;
-                }
-
-                // Search the prebuilt index for assignments to this field name
-                let field_name = &site.callee_name;
-                if let Some(by_file) = level4_index.get(field_name) {
-                    for targets in by_file.values() {
-                        for target in targets {
-                            level4_sites.push((
-                                caller_id.clone(),
-                                CallSite {
-                                    caller: caller_id.clone(),
-                                    callee_name: target.clone(),
-                                    line: site.line,
-                                    kind: CallKind::Call,
-                                    // S2: carry the source call site span so same-line indirect dups don't collapse (review MAJOR).
-                                    start_byte: site.start_byte,
-                                    end_byte: site.end_byte,
-                                    qualifier: None,
-                                    receiver_type: None,
-                                    receiver_recovery: None,
-                                    receiver_materialized: false,
-                                    arg_count: None,
-                                    arg_spread: false,
-                                    receiver_outcome: None,
-                                },
-                            ));
-                        }
-                    }
-                }
-            }
-        }
-        extra_sites.extend(level4_sites);
-
-        // Level 3: parameter-passed function pointers (1-hop interprocedural).
-        //
-        // When a function calls through a parameter (`cb(data)` where `cb` is a
-        // parameter), check all callers of that function to see what argument they
-        // pass for that parameter position. If the argument is a known function
-        // name, add an edge from the original function to that target.
-        //
-        // This resolves patterns like:
-        //   void execute(callback_fn cb, int data) { cb(data); }
-        //   execute(handler_a, 1);  // → adds edge: execute → handler_a
-        let mut level3_sites: Vec<(FunctionId, CallSite)> = Vec::new();
-        for (caller_id, sites) in &calls {
-            let parsed = match files.get(&caller_id.file) {
-                Some(p) => p,
-                None => continue,
-            };
-
-            // Get parameter names for this function
-            let func_node = parsed.find_function_by_name(&caller_id.name);
-            let param_names = match func_node {
-                Some(ref f) => parsed.function_parameter_names(f),
-                None => continue,
-            };
-            if param_names.is_empty() {
-                continue;
-            }
-
-            for site in sites {
-                // Skip if already resolved to a known function
-                if functions.contains_key(&site.callee_name) {
-                    continue;
-                }
-                // Skip non-plain identifiers (already handled by Level 1/2)
-                if !site
-                    .callee_name
-                    .chars()
-                    .all(|c| c.is_alphanumeric() || c == '_')
-                {
-                    continue;
-                }
-                // Skip if already resolved to a known function by Level 1
-                let already_resolved = extra_sites.iter().any(|(cid, es)| {
-                    cid == caller_id
-                        && es.line == site.line
-                        && known_fn_names.contains(&es.callee_name)
-                });
-                if already_resolved {
-                    continue;
-                }
-
-                // Is this callee_name one of the function's parameters?
-                let param_idx = match param_names.iter().position(|p| p == &site.callee_name) {
-                    Some(idx) => idx,
-                    None => continue,
-                };
-
-                // Find all callers of this function and extract the argument at param_idx
-                if let Some(caller_sites) = callers.get(&caller_id.name) {
-                    for caller_site in caller_sites {
-                        let caller_parsed = match files.get(&caller_site.caller.file) {
-                            Some(p) => p,
-                            None => continue,
-                        };
-
-                        // Extract the argument text at the parameter position
-                        if let Some(arg_text) = caller_parsed.call_argument_text_at(
-                            caller_site.line,
-                            &caller_id.name,
-                            param_idx,
-                        ) {
-                            // Check if the argument is a known function name
-                            if known_fn_names.contains(&arg_text) {
-                                level3_sites.push((
-                                    caller_id.clone(),
-                                    CallSite {
-                                        caller: caller_id.clone(),
-                                        callee_name: arg_text,
-                                        line: site.line,
-                                        kind: CallKind::Call,
-                                        // S2: carry the source call site span so same-line indirect dups don't collapse (review MAJOR).
-                                        start_byte: site.start_byte,
-                                        end_byte: site.end_byte,
-                                        qualifier: None,
-                                        receiver_type: None,
-                                        receiver_recovery: None,
-                                        receiver_materialized: false,
-                                        arg_count: None,
-                                        arg_spread: false,
-                                        receiver_outcome: None,
-                                    },
-                                ));
-                            } else {
-                                // Try Level 1 at the caller site: arg might be a local fptr variable
-                                let caller_func_source =
-                                    Self::extract_func_source(caller_parsed, &caller_site.caller);
-                                if let Some(resolved) = crate::ast::resolve_fptr_assignment(
-                                    &caller_func_source,
-                                    &arg_text,
-                                    &known_fn_names,
-                                ) {
-                                    level3_sites.push((
-                                        caller_id.clone(),
-                                        CallSite {
-                                            caller: caller_id.clone(),
-                                            callee_name: resolved,
-                                            line: site.line,
-                                            kind: CallKind::Call,
-                                            // S2: carry the source call site span so same-line indirect dups don't collapse (review MAJOR).
-                                            start_byte: site.start_byte,
-                                            end_byte: site.end_byte,
-                                            qualifier: None,
-                                            receiver_type: None,
-                                            receiver_recovery: None,
-                                            receiver_materialized: false,
-                                            arg_count: None,
-                                            arg_spread: false,
-                                            receiver_outcome: None,
-                                        },
-                                    ));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        extra_sites.extend(level3_sites);
-
-        // Add resolved edges
-        for (caller_id, site) in extra_sites {
-            let callee_name = site.callee_name.clone();
-            calls.entry(caller_id).or_default().insert(site.clone());
-            callers.entry(callee_name).or_default().push(site);
         }
 
         // Phase 5: Build class_bases for inherited-self resolution (Py/JS/TS only).
@@ -1139,6 +824,7 @@ impl CallGraph {
             module_bindings,
             indexed_files,
         };
+        cg.recompute_indirect_calls(files);
         cg.refresh_rust_receiver_state(files);
         cg.apply_go_embedding_promotion(files);
         cg.apply_go_interface_dispatch(files);
@@ -1302,6 +988,279 @@ impl CallGraph {
         self.import_bindings.extend(other.import_bindings);
         self.module_bindings.extend(other.module_bindings);
         self.indexed_files.extend(other.indexed_files);
+    }
+
+    pub(crate) fn recompute_indirect_calls(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        self.clear_indirect_calls();
+        let sites = self.compute_indirect_call_sites(files);
+        self.apply_indirect_call_sites(sites);
+    }
+
+    fn clear_indirect_calls(&mut self) {
+        for sites in self.calls.values_mut() {
+            sites.retain(|site| site.origin != CallSiteOrigin::IndirectResolution);
+        }
+        self.calls.retain(|_, sites| !sites.is_empty());
+
+        for sites in self.callers.values_mut() {
+            sites.retain(|site| site.origin != CallSiteOrigin::IndirectResolution);
+        }
+        self.callers.retain(|_, sites| !sites.is_empty());
+    }
+
+    fn compute_indirect_call_sites(
+        &self,
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> Vec<(FunctionId, CallSite)> {
+        // Resolve indirect call sites (function pointer variables and dispatch
+        // tables). Preserve the historical level ordering:
+        // 1/2 local function pointer and array dispatch, 4 struct callbacks,
+        // then 3 parameter-passed function pointers.
+        let known_fn_names: BTreeSet<String> = self.functions.keys().cloned().collect();
+        let mut extra_sites: Vec<(FunctionId, CallSite)> = Vec::new();
+
+        for (caller_id, sites) in &self.calls {
+            for site in sites {
+                if self.functions.contains_key(&site.callee_name) {
+                    continue;
+                }
+
+                let parsed = match files.get(&caller_id.file) {
+                    Some(p) => p,
+                    None => continue,
+                };
+
+                // Level 2: array dispatch table — callee_name like "handlers[0]".
+                if site.callee_name.contains('[') {
+                    let array_name = site.callee_name.split('[').next().unwrap_or("");
+                    if array_name.is_empty() {
+                        continue;
+                    }
+
+                    let func_source = Self::extract_func_source(parsed, caller_id);
+                    let targets = crate::ast::resolve_array_dispatch(
+                        &func_source,
+                        array_name,
+                        &known_fn_names,
+                    );
+                    let file_targets = if targets.is_empty() {
+                        crate::ast::resolve_array_dispatch(
+                            &parsed.source,
+                            array_name,
+                            &known_fn_names,
+                        )
+                    } else {
+                        Vec::new()
+                    };
+                    for target in targets.iter().chain(file_targets.iter()) {
+                        extra_sites.push((
+                            caller_id.clone(),
+                            Self::indirect_call_site(caller_id, target.clone(), site),
+                        ));
+                    }
+                    continue;
+                }
+
+                // Level 1: local variable function pointer — callee_name is a plain identifier.
+                if site
+                    .callee_name
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '_')
+                {
+                    let func_source = Self::extract_func_source(parsed, caller_id);
+                    if let Some(resolved) = crate::ast::resolve_fptr_assignment(
+                        &func_source,
+                        &site.callee_name,
+                        &known_fn_names,
+                    ) {
+                        extra_sites.push((
+                            caller_id.clone(),
+                            Self::indirect_call_site(caller_id, resolved, site),
+                        ));
+                    }
+                }
+            }
+        }
+
+        // Level 4: struct field callback resolution (interprocedural).
+        type Level4Index = BTreeMap<String, BTreeMap<String, BTreeSet<String>>>;
+        let mut level4_index: Level4Index = BTreeMap::new();
+        for (path, parsed) in files {
+            let mut per_field: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+            for line in parsed.source.lines() {
+                let trimmed = line.trim();
+                for field in crate::ast::candidate_fields_on_line(trimmed) {
+                    let targets = per_field.entry(field.clone()).or_default();
+                    crate::ast::line_field_targets(trimmed, &field, &known_fn_names, targets);
+                }
+            }
+            for (field, targets) in per_field {
+                if !targets.is_empty() {
+                    level4_index
+                        .entry(field)
+                        .or_default()
+                        .insert(path.clone(), targets);
+                }
+            }
+        }
+
+        let mut level4_sites: Vec<(FunctionId, CallSite)> = Vec::new();
+        for (caller_id, sites) in &self.calls {
+            for site in sites {
+                if self.functions.contains_key(&site.callee_name) {
+                    continue;
+                }
+                if site.qualifier.is_none() {
+                    continue;
+                }
+                if !site
+                    .callee_name
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '_')
+                {
+                    continue;
+                }
+
+                let already_resolved = extra_sites.iter().any(|(cid, es)| {
+                    cid == caller_id
+                        && es.line == site.line
+                        && known_fn_names.contains(&es.callee_name)
+                });
+                if already_resolved {
+                    continue;
+                }
+
+                if let Some(by_file) = level4_index.get(&site.callee_name) {
+                    for targets in by_file.values() {
+                        for target in targets {
+                            level4_sites.push((
+                                caller_id.clone(),
+                                Self::indirect_call_site(caller_id, target.clone(), site),
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        extra_sites.extend(level4_sites);
+
+        // Level 3: parameter-passed function pointers (1-hop interprocedural).
+        let mut level3_sites: Vec<(FunctionId, CallSite)> = Vec::new();
+        for (caller_id, sites) in &self.calls {
+            let parsed = match files.get(&caller_id.file) {
+                Some(p) => p,
+                None => continue,
+            };
+
+            let func_node = parsed.find_function_by_name(&caller_id.name);
+            let param_names = match func_node {
+                Some(ref f) => parsed.function_parameter_names(f),
+                None => continue,
+            };
+            if param_names.is_empty() {
+                continue;
+            }
+
+            for site in sites {
+                if self.functions.contains_key(&site.callee_name) {
+                    continue;
+                }
+                if !site
+                    .callee_name
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '_')
+                {
+                    continue;
+                }
+
+                let already_resolved = extra_sites.iter().any(|(cid, es)| {
+                    cid == caller_id
+                        && es.line == site.line
+                        && known_fn_names.contains(&es.callee_name)
+                });
+                if already_resolved {
+                    continue;
+                }
+
+                let param_idx = match param_names.iter().position(|p| p == &site.callee_name) {
+                    Some(idx) => idx,
+                    None => continue,
+                };
+
+                if let Some(caller_sites) = self.callers.get(&caller_id.name) {
+                    for caller_site in caller_sites {
+                        let caller_parsed = match files.get(&caller_site.caller.file) {
+                            Some(p) => p,
+                            None => continue,
+                        };
+
+                        if let Some(arg_text) = caller_parsed.call_argument_text_at(
+                            caller_site.line,
+                            &caller_id.name,
+                            param_idx,
+                        ) {
+                            if known_fn_names.contains(&arg_text) {
+                                level3_sites.push((
+                                    caller_id.clone(),
+                                    Self::indirect_call_site(caller_id, arg_text, site),
+                                ));
+                            } else {
+                                let caller_func_source =
+                                    Self::extract_func_source(caller_parsed, &caller_site.caller);
+                                if let Some(resolved) = crate::ast::resolve_fptr_assignment(
+                                    &caller_func_source,
+                                    &arg_text,
+                                    &known_fn_names,
+                                ) {
+                                    level3_sites.push((
+                                        caller_id.clone(),
+                                        Self::indirect_call_site(caller_id, resolved, site),
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        extra_sites.extend(level3_sites);
+        extra_sites
+    }
+
+    fn apply_indirect_call_sites(&mut self, sites: Vec<(FunctionId, CallSite)>) {
+        for (caller_id, site) in sites {
+            let callee_name = site.callee_name.clone();
+            self.calls
+                .entry(caller_id)
+                .or_default()
+                .insert(site.clone());
+            self.callers.entry(callee_name).or_default().push(site);
+        }
+    }
+
+    fn indirect_call_site(
+        caller_id: &FunctionId,
+        target: String,
+        source_site: &CallSite,
+    ) -> CallSite {
+        CallSite {
+            caller: caller_id.clone(),
+            callee_name: target,
+            line: source_site.line,
+            kind: CallKind::Call,
+            // Carry the source call site span so same-line indirect dups do not collapse.
+            start_byte: source_site.start_byte,
+            end_byte: source_site.end_byte,
+            qualifier: None,
+            receiver_type: None,
+            receiver_recovery: None,
+            receiver_materialized: false,
+            arg_count: None,
+            arg_spread: false,
+            receiver_outcome: None,
+            origin: CallSiteOrigin::IndirectResolution,
+        }
     }
 
     /// Build `class_bases` for inherited-self resolution (Py/JS/TS only).
@@ -2050,7 +2009,7 @@ impl CallGraph {
     ///
     /// Unlike `build()`, this skips Phase 3 (indirect call resolution) because
     /// that requires knowledge of all functions, not just the subset. The caller
-    /// should run `resolve_indirect` on the merged result.
+    /// should run `recompute_indirect_calls` on the merged result.
     pub fn build_direct_subset(
         files: &BTreeMap<String, ParsedFile>,
         only_files: &BTreeSet<String>,
@@ -2221,6 +2180,7 @@ impl CallGraph {
                         arg_count,
                         arg_spread,
                         receiver_outcome: None,
+                        origin: CallSiteOrigin::Source,
                     };
                     calls
                         .entry(caller_id.clone())
@@ -3339,7 +3299,7 @@ mod tests {
     }
 
     #[test]
-    fn callsite_receiver_materialized_and_outcome_serde_default_and_excluded_from_cmp_key() {
+    fn callsite_origin_receiver_materialized_and_outcome_serde_default_and_excluded_from_cmp_key() {
         let cg = build_rust_call_graph(
             "struct Engine;\nimpl Engine { fn go(&self) {} }\nfn run(e: Engine) { e.go(); }\n",
         );
@@ -3357,6 +3317,7 @@ mod tests {
             recovery: crate::resolution::ReceiverRecovery::TypedParam,
         });
         a.receiver_materialized = true;
+        a.origin = CallSiteOrigin::IndirectResolution;
 
         assert_eq!(a.cmp_key(), b.cmp_key());
         let mut legacy_json = serde_json::to_value(&b).unwrap();
@@ -3368,9 +3329,11 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("receiver_materialized");
+        legacy_json.as_object_mut().unwrap().remove("origin");
         let defaulted: CallSite = serde_json::from_value(legacy_json).unwrap();
         assert_eq!(defaulted.receiver_outcome, None);
         assert!(!defaulted.receiver_materialized);
+        assert_eq!(defaulted.origin, CallSiteOrigin::Source);
 
         let back: CallSite = bincode::deserialize(&bincode::serialize(&a).unwrap()).unwrap();
         assert_eq!(a, back);
@@ -3383,6 +3346,142 @@ mod tests {
             .and_then(|(_, sites)| sites.iter().find(|site| site.callee_name == callee))
             .cloned()
             .unwrap_or_else(|| panic!("missing call site {caller}->{callee}"))
+    }
+
+    fn c_files(srcs: &[(&str, &str)]) -> BTreeMap<String, ParsedFile> {
+        srcs.iter()
+            .map(|(path, source)| {
+                (
+                    (*path).to_string(),
+                    ParsedFile::parse(path, source, crate::languages::Language::C).unwrap(),
+                )
+            })
+            .collect()
+    }
+
+    fn indirect_call_dump(cg: &CallGraph) -> Vec<String> {
+        let mut out = Vec::new();
+        for (caller, sites) in &cg.calls {
+            for site in sites {
+                if site.origin == CallSiteOrigin::IndirectResolution {
+                    out.push(format!(
+                        "{}:{}:{}:{}:{}-{}",
+                        caller.file,
+                        caller.name,
+                        site.callee_name,
+                        site.line,
+                        site.start_byte,
+                        site.end_byte
+                    ));
+                }
+            }
+        }
+        out.sort();
+        out
+    }
+
+    fn indirect_caller_dump(cg: &CallGraph) -> Vec<String> {
+        let mut out = Vec::new();
+        for (callee, sites) in &cg.callers {
+            for site in sites {
+                if site.origin == CallSiteOrigin::IndirectResolution {
+                    out.push(format!(
+                        "{}:{}:{}:{}:{}-{}",
+                        callee,
+                        site.caller.file,
+                        site.caller.name,
+                        site.line,
+                        site.start_byte,
+                        site.end_byte
+                    ));
+                }
+            }
+        }
+        out.sort();
+        out
+    }
+
+    #[test]
+    fn clear_indirect_calls_removes_only_synthetic_entries_from_calls_and_callers() {
+        let mut cg = CallGraph::build(&c_files(&[(
+            "callbacks.c",
+            "void target() {}\nvoid run() { target(); }\n",
+        )]));
+        let source = site_in(&cg, "run", "target");
+        assert_eq!(source.origin, CallSiteOrigin::Source);
+
+        let mut synthetic = source.clone();
+        synthetic.origin = CallSiteOrigin::IndirectResolution;
+        let original_call_count = cg.calls.get(&source.caller).unwrap().len();
+        let inserted = cg
+            .calls
+            .get_mut(&source.caller)
+            .unwrap()
+            .insert(synthetic.clone());
+        assert!(
+            !inserted,
+            "origin is excluded from CallSite identity so source wins in calls"
+        );
+        assert_eq!(
+            cg.calls.get(&source.caller).unwrap().len(),
+            original_call_count
+        );
+        cg.callers
+            .entry("target".to_string())
+            .or_default()
+            .push(synthetic);
+
+        assert!(cg
+            .callers
+            .get("target")
+            .unwrap()
+            .iter()
+            .any(|site| site.origin == CallSiteOrigin::IndirectResolution));
+
+        cg.clear_indirect_calls();
+
+        let calls = cg.calls.get(&source.caller).unwrap();
+        assert!(calls
+            .iter()
+            .any(|site| site.origin == CallSiteOrigin::Source));
+        assert!(!calls
+            .iter()
+            .any(|site| site.origin == CallSiteOrigin::IndirectResolution));
+        assert!(cg
+            .callers
+            .get("target")
+            .unwrap()
+            .iter()
+            .all(|site| site.origin == CallSiteOrigin::Source));
+    }
+
+    #[test]
+    fn recompute_indirect_calls_is_idempotent_and_post_merge_matches_full_build() {
+        let files_v1 = c_files(&[(
+            "callbacks.c",
+            "void old_handler() {}\nvoid execute(void (*cb)()) { cb(); }\nvoid outer() { execute(old_handler); }\n",
+        )]);
+        let files_v2 = c_files(&[(
+            "callbacks.c",
+            "void new_handler() {}\nvoid execute(void (*cb)()) { cb(); }\nvoid outer() { execute(new_handler); }\n",
+        )]);
+
+        let mut merged = CallGraph::build(&files_v1);
+        let changed = BTreeSet::from(["callbacks.c".to_string()]);
+        merged.remove_files(&changed);
+        merged.merge(CallGraph::build_direct_subset(&files_v2, &changed));
+        merged.recompute_indirect_calls(&files_v2);
+        let once = indirect_call_dump(&merged);
+        let callers_once = indirect_caller_dump(&merged);
+        assert!(once.iter().any(|entry| entry.contains(":new_handler:")));
+
+        merged.recompute_indirect_calls(&files_v2);
+        assert_eq!(once, indirect_call_dump(&merged));
+        assert_eq!(callers_once, indirect_caller_dump(&merged));
+
+        let full = CallGraph::build(&files_v2);
+        assert_eq!(once, indirect_call_dump(&full));
+        assert_eq!(callers_once, indirect_caller_dump(&full));
     }
 
     #[test]

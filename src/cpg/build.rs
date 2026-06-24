@@ -242,10 +242,8 @@ impl CodePropertyGraph {
     /// # Limitations
     ///
     /// Indirect call resolution (Phase 3: function pointers, struct callbacks)
-    /// is NOT re-run for changed files. This is correct for direct-call
-    /// languages (Python, JS, Go, Java) but may miss indirect targets in C/C++
-    /// code. Use `--no-cache` for C/C++ reviews with heavy function pointer
-    /// usage.
+    /// is recomputed over the merged whole call graph because derived indirect
+    /// edges can depend on unchanged callers and changed targets/assignments.
     pub fn build_incremental(
         cached_cg: CallGraph,
         cached_dfg: DataFlowGraph,
@@ -280,11 +278,8 @@ impl CodePropertyGraph {
             cached_cg.remove_files(changed_files);
             cached_dfg.remove_files(changed_files);
 
-            // Step 2: Build fresh CG/DFG for changed files only.
-            // Note: build_direct_subset only resolves direct calls (Phases 1+2),
-            // not indirect calls (Phase 3: function pointers, parameter-passed
-            // callbacks, struct field callbacks). Cached indirect resolution for
-            // unchanged files is preserved via the merge.
+            // Step 2: Build fresh CG/DFG for changed files only. The merged graph
+            // recomputes derived whole-program indexes below.
             let fresh_cg = CallGraph::build_direct_subset(files, changed_files);
             let fresh_dfg = DataFlowGraph::build_subset(files, changed_files);
 
@@ -292,14 +287,17 @@ impl CodePropertyGraph {
             cached_cg.merge(fresh_cg);
             cached_dfg.merge(fresh_dfg);
 
-            // Phase-IP: Go embedding promotion is whole-program — recompute (replace-
-            // not-merge) over ALL merged files so a removed/changed embedding cannot
-            // leave a stale alias (remove_files prunes methods by fid.file only).
-            cached_cg.apply_go_embedding_promotion(files);
-            cached_cg.apply_go_interface_dispatch(files);
+            // Phase 3: C/C++ indirect calls are whole-program derived edges.
+            // Clear old synthetic sites and recompute over the merged source graph.
+            cached_cg.recompute_indirect_calls(files);
+
             // Rebuild-together: this also refreshes Phase-2a Rust receiver indices
             // and re-materializes CallSite.receiver_outcome before assemble reads it.
             cached_cg.rebuild_scope_graph(files, scope_inputs);
+            // Phase-IP: Go embedding/interface dispatch are whole-program — recompute
+            // after scope/Rust receiver state to mirror full-build derived ordering.
+            cached_cg.apply_go_embedding_promotion(files);
+            cached_cg.apply_go_interface_dispatch(files);
 
             Self::assemble_graph(cached_cg, cached_dfg, files, type_db)
         })
