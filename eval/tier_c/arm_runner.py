@@ -62,14 +62,19 @@ class ClaudeRunner:
     mcp_cfg: optional static config path override.  When None (default), a per-checkout
     config pointing at repo_root is built on each run() call (mirrors CodexRunner's
     per-checkout --repo).  Pass an explicit path only for testing or special overrides.
+    lsp_deny_dir: when set, prepended to PATH for lsp=False variants (deny-shim enforcement).
     """
-    def __init__(self, mcp_cfg: str | None = None):
+    def __init__(self, mcp_cfg: str | None = None, lsp_deny_dir: str | None = None):
         self.mcp_cfg = mcp_cfg          # optional static override; per-checkout config is default
+        self.lsp_deny_dir = lsp_deny_dir
     def run(self, variant: Variant, stage: str, prompt: str, repo_root: str) -> ArmOutput:
         cfg = self.mcp_cfg if self.mcp_cfg else (_prism_mcp_config(repo_root) if variant.prism else "")
         cmd = build_claude_cmd(variant, mcp_cfg=cfg) + [prompt]
         t0 = time.monotonic()
-        proc = subprocess.run(cmd, capture_output=True, text=True, cwd=repo_root, timeout=_TIMEOUT)
+        env = dict(os.environ)
+        if not variant.lsp and self.lsp_deny_dir:
+            env["PATH"] = self.lsp_deny_dir + os.pathsep + env["PATH"]
+        proc = subprocess.run(cmd, capture_output=True, text=True, cwd=repo_root, timeout=_TIMEOUT, env=env)
         if proc.returncode != 0 or not proc.stdout.strip():
             raise RuntimeError(f"arm exited {proc.returncode}: {(proc.stderr or '').strip()[:400]}")
         r = parse_claude_json(proc.stdout)
@@ -78,13 +83,20 @@ class ClaudeRunner:
                          used_prism=variant.prism and r.tool_calls > 0)
 
 class CodexRunner:
-    """ArmRunner via `codex exec --json` (prompt on stdin). prism ON = inline -c mcp_servers."""
+    """ArmRunner via `codex exec --json` (prompt on stdin). prism ON = inline -c mcp_servers.
+    lsp_deny_dir: when set, prepended to PATH for lsp=False variants (deny-shim enforcement).
+    """
+    def __init__(self, lsp_deny_dir: str | None = None):
+        self.lsp_deny_dir = lsp_deny_dir
     def run(self, variant: Variant, stage: str, prompt: str, repo_root: str) -> ArmOutput:
         cmd = build_codex_cmd(variant, repo=repo_root)
         cmd = ["codex", "exec", "--json"] + cmd[2:]  # codex exec --json ... (robust vs index drift)
         t0 = time.monotonic()
+        env = dict(os.environ)
+        if not variant.lsp and self.lsp_deny_dir:
+            env["PATH"] = self.lsp_deny_dir + os.pathsep + env["PATH"]
         proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
-                              cwd=repo_root, timeout=_TIMEOUT)
+                              cwd=repo_root, timeout=_TIMEOUT, env=env)
         if proc.returncode != 0 or not proc.stdout.strip():
             raise RuntimeError(f"arm exited {proc.returncode}: {(proc.stderr or '').strip()[:400]}")
         r = parse_codex_jsonl(proc.stdout)

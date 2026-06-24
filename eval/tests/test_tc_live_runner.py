@@ -4,7 +4,7 @@ from tier_c.arm_runner import ClaudeRunner, CodexRunner
 
 def test_claude_runner_builds_output(monkeypatch):
     captured = {}
-    def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None):
+    def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None, env=None):
         captured["cmd"] = cmd
         class R: stdout = json.dumps({"type":"result","is_error":False,"num_turns":2,
                   "result":"spec cites src/a.py:1","total_cost_usd":0.01,
@@ -19,7 +19,7 @@ def test_claude_runner_builds_output(monkeypatch):
     assert "--mcp-config" in captured["cmd"]
 
 def test_codex_runner_off_has_no_prism(monkeypatch):
-    def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None):
+    def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None, env=None):
         captured = cmd
         class R:
             stdout = "\n".join([
@@ -40,7 +40,7 @@ def test_runner_raises_clear_error_on_subprocess_failure(monkeypatch):
     import pytest
     from tier_c.model import Variant
     from tier_c.arm_runner import ClaudeRunner
-    def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None):
+    def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None, env=None):
         class R: stdout = ""; returncode = 1; stderr = "auth: missing API key"
         return R()
     monkeypatch.setattr("tier_c.arm_runner.subprocess.run", fake_run)
@@ -52,7 +52,7 @@ def test_claude_runner_per_checkout_prism_config(monkeypatch):
     """ClaudeRunner() with no static cfg builds a per-checkout MCP config pointing at repo_root."""
     import json
     captured = {}
-    def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None):
+    def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None, env=None):
         captured["cmd"] = cmd
         class R:
             stdout = json.dumps({"type": "result", "is_error": False, "num_turns": 1,
