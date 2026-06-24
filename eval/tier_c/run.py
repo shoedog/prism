@@ -4,8 +4,12 @@ chain with whatever ArmRunner/judges/investigator are supplied (fakes in tests, 
 runners in a real run). The corpus + live runners are wired by cli.py run --live."""
 from __future__ import annotations
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 from .chain import run_spec_plan_chain, ChainResult
 from .prompts import stage_prompt
+
+if TYPE_CHECKING:
+    from .store import RunStore
 
 
 def run_issue(issue, *, variants, runner, co, judges, relevance, plants,
@@ -41,8 +45,10 @@ class LiveComponents:
     object.  Defaults to tier_c.checkout.Checkout if not supplied; callers may override with
     a fake (FakeCo) for unit tests.
 
-    run_store_root: root directory for run artifacts (default None = no persistence).
-    run_id: the run identifier; required when run_store_root is set.
+    store: a fully-initialised RunStore (ensure_new already called by the CLI).  When None,
+    run_live skips all persistence — pure-logic tests pass None here.
+    lsp_shim_dir: path to the LSP-deny shim directory; created by the CLI and passed in.
+    When None, run_live skips shim setup (tests that don't exercise the shim pass None).
     """
     variants: list
     runner: object
@@ -51,8 +57,8 @@ class LiveComponents:
     guesser: object
     plants: list
     open_checkout: object = None   # callable(repo, sha) -> ctx-manager; default = Checkout
-    run_store_root: str | None = None
-    run_id: str | None = None
+    store: "RunStore | None" = None
+    lsp_shim_dir: str | None = None
 
     def __post_init__(self):
         if self.open_checkout is None:
@@ -95,26 +101,25 @@ def run_live(issues, comps: LiveComponents) -> "Report":
     issues of the same language are APPENDED (not overwritten) and averaged via _avg
     before assemble_cell_2x2, so each (stage, language) cell reflects all issues.
 
-    Persistence (spec §4): when run_store_root + run_id are set on comps, a RunStore is
-    created and per-stage artifacts (prompt, seeds, variant outputs, judges, best) plus
-    detectability + report + manifest are persisted under runs/<run_id>/.
+    Persistence (spec §4): when comps.store is set (a fully-initialised RunStore whose
+    manifest was written by the CLI before calling run_live), per-stage artifacts
+    (prompt, seeds, variant outputs, judges, investigator, best) plus detectability +
+    report are persisted under runs/<run_id>/.  The CLI is the single owner of the
+    RunStore; run_live calls write_manifest() once to flush the CLI's full manifest.
+
+    Deferred (Phase-1d-replay follow-up): raw runner transcript + per-variant prism SHA
+    in the arm_<vid> artifact (spec §4 nit).
     """
     import dataclasses
     from .report import StageMetrics, assemble_cell_2x2
     from .detect import run_detectability
-    from .lspshim import make_lsp_deny_shim
-    from .store import RunStore
 
-    # Create run store if requested; create shim dir (log under run dir if store present)
-    store: RunStore | None = None
-    if comps.run_store_root and comps.run_id:
-        store = RunStore(comps.run_store_root, comps.run_id, {})
-        store.ensure_new(force=True)
-        shim_log = _store_path(store, "shim.jsonl")
-    else:
-        import tempfile
-        shim_log = tempfile.mktemp(suffix="-shim.jsonl")
-    _lsp_deny_dir = make_lsp_deny_shim(shim_log)
+    store = comps.store  # may be None (pure-logic tests)
+
+    # Capture per-stage upstream frame so we can persist prompt.json correctly.
+    # We replay stage_prompt with the same inputs as run_spec_plan_chain uses,
+    # so we need to track what was passed per stage.
+    _upstream_for_stage: dict = {}   # stage -> upstream frame fed to prompt_fn
 
     pool = []                      # all ArmOutputs across issues × stages
     per_cell: dict = {}            # (stage, language) -> {vid: list[StageMetrics]}
@@ -130,6 +135,14 @@ def run_live(issues, comps: LiveComponents) -> "Report":
                 relevance=comps.relevance,
                 plants=comps.plants,
             )
+
+        # Re-derive the upstream frames so we can write prompt artifacts.
+        # spec upstream = the issue text (salted if plants present).
+        from .planted import inject as _inject
+        spec_upstream = _inject(issue.text, comps.plants)[0] if comps.plants else issue.text
+        spec_prompt_text = stage_prompt("spec", issue_text=spec_upstream,
+                                        scoped_slice=issue.scoped_slice)
+        _upstream_for_stage["spec"] = (spec_prompt_text, spec_upstream)
 
         for stage_result in chain.stages:
             # Pool all ArmOutputs from this stage for detectability
@@ -151,16 +164,47 @@ def run_live(issues, comps: LiveComponents) -> "Report":
             # Persist stage artifacts when store is present
             if store is not None:
                 s = stage_result.stage
+                # prompt.json (Fix 2)
+                if s == "spec":
+                    prompt_text, upstream = _upstream_for_stage.get("spec", ("", ""))
+                else:
+                    # plan upstream = cleaned-best spec (may have been salted)
+                    # The chain's spec stage carries cleaned_best_text; find it.
+                    spec_sr = next((sr for sr in chain.stages if sr.stage == "spec"), None)
+                    plan_upstream = (_inject(spec_sr.cleaned_best_text, comps.plants)[0]
+                                     if (comps.plants and spec_sr) else
+                                     (spec_sr.cleaned_best_text if spec_sr else ""))
+                    prompt_text = stage_prompt("plan", issue_text=issue.text,
+                                              scoped_slice=issue.scoped_slice,
+                                              upstream=plan_upstream)
+                    upstream = plan_upstream
+                store.write_stage_artifact(s, "prompt", {
+                    "prompt": prompt_text,
+                    "upstream": upstream,
+                })
+                # judges.json (Fix 2)
+                store.write_stage_artifact(s, "judges", {
+                    "rankings": stage_result.rankings,
+                    "consensus": stage_result.consensus,
+                })
+                # seeds.json
                 store.write_stage_artifact(s, "seeds", {
                     "shuffle": stage_result.shuffle_seed,
                     "tiebreak": f"{s}|tiebreak",
                     "label_map": stage_result.label_map or {},
                 })
+                # arm_<vid>.json per variant
                 if stage_result.outputs is not None:
                     for arm_out in stage_result.outputs:
                         vid = arm_out.variant.id
                         store.write_stage_artifact(s, f"arm_{vid.replace('+','_')}",
                                                    dataclasses.asdict(arm_out))
+                # investigator.json (Fix 2)
+                store.write_stage_artifact(s, "investigator", {
+                    vid: dataclasses.asdict(rep)
+                    for vid, rep in stage_result.investigator.items()
+                })
+                # best.json
                 store.write_stage_artifact(s, "best", {
                     "best_variant_id": stage_result.best_variant_id,
                     "consensus": stage_result.consensus,
@@ -185,10 +229,10 @@ def run_live(issues, comps: LiveComponents) -> "Report":
 
     report = Report(cells=cells, detectability=detect)
 
-    # Persist detectability + report summary + write manifest
+    # Persist detectability + report at run-dir ROOT + write manifest (Fix 3)
     if store is not None:
-        store.write_stage_artifact(".", "detectability", dataclasses.asdict(detect))
-        store.write_stage_artifact(".", "report_summary", {
+        store.write_root_artifact("detectability", dataclasses.asdict(detect))
+        store.write_root_artifact("report", {
             "cells": {
                 f"{stage}/{language}": {
                     "gate": cell.gate.decision,
@@ -201,12 +245,8 @@ def run_live(issues, comps: LiveComponents) -> "Report":
                 for (stage, language), cell in cells.items()
             }
         })
-        store.write_manifest()
+        store.write_manifest()  # CLI's full manifest; single write here
 
     return report
 
 
-def _store_path(store: "RunStore", filename: str) -> str:
-    """Return the absolute path for a file directly under the store's run dir."""
-    import os
-    return os.path.join(store.dir, filename)

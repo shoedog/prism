@@ -23,6 +23,8 @@ class StageResult:
     outputs: list = None              # list[ArmOutput] — all variant outputs for this stage (pooled detectability)
     shuffle_seed: str = ""            # seed used to blind-shuffle variant ids before judging
     label_map: dict = None            # label_to_vid map used (label -> vid)
+    prompt: str = ""                  # rendered prompt fed to all variants this stage (spec §4 / Task 7)
+    rankings: dict = None             # {family: [ranked label list]} per judge family
 
 def _strip_plants(text: str, plants: list[PlantedError]) -> str:
     out = text
@@ -67,6 +69,8 @@ def run_stage(*, stage, variants, runner, co, prompt, repo_root, claim_counts=No
         outputs=list(outputs.values()),
         shuffle_seed=shuffle_seed,
         label_map=dict(label_to_vid),
+        prompt=prompt,
+        rankings=rankings,
     )
 
 

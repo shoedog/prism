@@ -136,10 +136,14 @@ def _run_live_cmd(issues, *, bench_root: str, run_id: str, run_store_root: str,
     from .store import RunStore
     from .lspshim import make_lsp_deny_shim
 
-    # Collision guard
-    store = RunStore(run_store_root, run_id, {})
+    # Build full manifest (used as store payload)
+    manifest = _build_manifest(issues=issues, bench_root=bench_root,
+                               run_id=run_id, run_store_root=run_store_root)
+
+    # Build store; collision-guard; create shim under the run dir
+    store = RunStore(run_store_root, run_id, manifest)
     store.ensure_new(force=force_new)
-    shim_log = os.path.join(store.dir, "shim.jsonl")
+    shim_log = os.path.join(store.dir, "shim-log.jsonl")
 
     # Build 8 variants: 2 models × prism on/off × lsp on/off
     variants = [
@@ -167,13 +171,6 @@ def _run_live_cmd(issues, *, bench_root: str, run_id: str, run_store_root: str,
         path = os.path.join(bench_root, repo)
         return Checkout(path, sha)
 
-    # Build and write manifest (collision guard already passed)
-    manifest = _build_manifest(issues=issues, bench_root=bench_root,
-                               run_id=run_id, run_store_root=run_store_root)
-    # update the store's manifest before run_live overwrites it at the end
-    store.manifest = manifest
-    store.write_manifest()
-
     comps = LiveComponents(
         variants=variants,
         runner=runner,
@@ -182,8 +179,8 @@ def _run_live_cmd(issues, *, bench_root: str, run_id: str, run_store_root: str,
         guesser=guesser,
         plants=[],
         open_checkout=open_checkout,
-        run_store_root=run_store_root,
-        run_id=run_id,
+        store=store,
+        lsp_shim_dir=lsp_deny_dir,
     )
 
     print(f"Run ID: {run_id}")

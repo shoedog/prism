@@ -26,3 +26,7 @@ class RunStore:
 
     def write_stage_artifact(self, stage: str, name: str, obj):
         self._write(os.path.join("stages", stage, f"{name}.json"), obj)
+
+    def write_root_artifact(self, name: str, obj):
+        """Write <run-dir>/<name>.json (report, detectability, etc.)."""
+        self._write(f"{name}.json", obj)

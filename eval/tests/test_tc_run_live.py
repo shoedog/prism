@@ -143,10 +143,13 @@ def test_run_live_same_language_issues_produce_single_cell():
 
 
 def test_run_live_8_variants_writes_store_and_2x2(tmp_path):
+    import json, os
     from tier_c.model import Issue, Variant
     from tier_c.arm_runner import FakeArmRunner
     from tier_c.investigator import RelevanceAllTrue
     from tier_c.run import run_live, LiveComponents
+    from tier_c.store import RunStore
+
     class FakeCo:
         root="."
         def __enter__(self): return self
@@ -157,13 +160,38 @@ def test_run_live_8_variants_writes_store_and_2x2(tmp_path):
         def rank(self,s,r,c): return sorted(c, key=lambda k: -len(c[k]))
     class FakeGuess:
         def guess_used_prism(self,t): return False
+
     variants = [Variant(m,p,l) for m in ("opus-4.8","gpt-5.5") for p in (False,True) for l in (False,True)]
     runner = FakeArmRunner({v.id: f"spec a.py:1 {v.id}" for v in variants})
+
+    # Fix 1: pass a pre-built store (single owner) instead of run_store_root/run_id
+    store = RunStore(str(tmp_path / "runs"), "t1", {"prism_sha": "abc", "models": ["opus-4.8"]})
+    store.ensure_new(force=False)
     comps = LiveComponents(variants=variants, runner=runner,
         judges={"anthropic": FakeRank(), "openai": FakeRank()}, relevance=RelevanceAllTrue(),
         guesser=FakeGuess(), plants=[], open_checkout=lambda repo,sha: FakeCo(),
-        run_store_root=str(tmp_path/"runs"), run_id="t1")
+        store=store)
     issues=[Issue("k","python","pydantic","sha","u","bug a.py:1","slice")]
     report = run_live(issues, comps)
     assert ("spec","python") in report.cells
-    import os; assert os.path.exists(str(tmp_path/"runs"/"t1"/"manifest.json"))
+
+    # Fix 1 regression: manifest must NOT be clobbered by run_live
+    manifest = json.load(open(str(tmp_path / "runs" / "t1" / "manifest.json")))
+    assert manifest["prism_sha"] == "abc", (
+        f"manifest was clobbered — got {manifest!r} (Fix 1 regression)"
+    )
+
+    # Fix 2: per-stage artifacts (prompt, judges, investigator) must exist
+    run_dir = str(tmp_path / "runs" / "t1")
+    assert os.path.exists(os.path.join(run_dir, "stages", "spec", "prompt.json")), \
+        "stages/spec/prompt.json missing (Fix 2)"
+    assert os.path.exists(os.path.join(run_dir, "stages", "spec", "judges.json")), \
+        "stages/spec/judges.json missing (Fix 2)"
+    assert os.path.exists(os.path.join(run_dir, "stages", "spec", "investigator.json")), \
+        "stages/spec/investigator.json missing (Fix 2)"
+
+    # Fix 3: report.json and detectability.json at run-dir ROOT (not under stages/)
+    assert os.path.exists(os.path.join(run_dir, "report.json")), \
+        "report.json missing at run root (Fix 3)"
+    assert os.path.exists(os.path.join(run_dir, "detectability.json")), \
+        "detectability.json missing at run root (Fix 3)"
