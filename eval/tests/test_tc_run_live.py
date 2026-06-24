@@ -140,3 +140,30 @@ def test_run_live_same_language_issues_produce_single_cell():
     assert sorted(rust_cells) == [("plan", "rust"), ("spec", "rust")], (
         f"expected exactly 2 rust cells (spec+plan), got {rust_cells}"
     )
+
+
+def test_run_live_8_variants_writes_store_and_2x2(tmp_path):
+    from tier_c.model import Issue, Variant
+    from tier_c.arm_runner import FakeArmRunner
+    from tier_c.investigator import RelevanceAllTrue
+    from tier_c.run import run_live, LiveComponents
+    class FakeCo:
+        root="."
+        def __enter__(self): return self
+        def __exit__(self,*a): return False
+        def file_exists(self,r): return True
+        def read_line(self,r,l): return "x"
+    class FakeRank:
+        def rank(self,s,r,c): return sorted(c, key=lambda k: -len(c[k]))
+    class FakeGuess:
+        def guess_used_prism(self,t): return False
+    variants = [Variant(m,p,l) for m in ("opus-4.8","gpt-5.5") for p in (False,True) for l in (False,True)]
+    runner = FakeArmRunner({v.id: f"spec a.py:1 {v.id}" for v in variants})
+    comps = LiveComponents(variants=variants, runner=runner,
+        judges={"anthropic": FakeRank(), "openai": FakeRank()}, relevance=RelevanceAllTrue(),
+        guesser=FakeGuess(), plants=[], open_checkout=lambda repo,sha: FakeCo(),
+        run_store_root=str(tmp_path/"runs"), run_id="t1")
+    issues=[Issue("k","python","pydantic","sha","u","bug a.py:1","slice")]
+    report = run_live(issues, comps)
+    assert ("spec","python") in report.cells
+    import os; assert os.path.exists(str(tmp_path/"runs"/"t1"/"manifest.json"))

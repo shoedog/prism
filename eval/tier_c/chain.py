@@ -21,6 +21,8 @@ class StageResult:
     used_prism: dict[str, bool]
     tokens: dict[str, int]
     outputs: list = None              # list[ArmOutput] — all variant outputs for this stage (pooled detectability)
+    shuffle_seed: str = ""            # seed used to blind-shuffle variant ids before judging
+    label_map: dict = None            # label_to_vid map used (label -> vid)
 
 def _strip_plants(text: str, plants: list[PlantedError]) -> str:
     out = text
@@ -45,11 +47,13 @@ def run_stage(*, stage, variants, runner, co, prompt, repo_root, claim_counts=No
     # the run is reproducible but the order does not encode the prism condition.
     vids = list(outputs.keys())
     shuffled = vids[:]
-    random.Random(f"{stage}|{'|'.join(sorted(vids))}").shuffle(shuffled)
+    shuffle_seed = f"{stage}|{'|'.join(sorted(vids))}"
+    random.Random(shuffle_seed).shuffle(shuffled)
     label_to_vid = {f"cand{i}": vid for i, vid in enumerate(shuffled)}
     candidates = {lbl: outputs[vid].text for lbl, vid in label_to_vid.items()}
     rankings = {fam: j.rank(stage, "rubric", candidates) for fam, j in judges.items()}
-    consensus = [label_to_vid[lbl] for lbl in borda_consensus(rankings)]
+    tiebreak_seed = f"{stage}|tiebreak"
+    consensus = [label_to_vid[lbl] for lbl in borda_consensus(rankings, seed=tiebreak_seed)]
     best = consensus[0]
     cleaned = _strip_plants(outputs[best].text, plants)
     # Sanitation gate (spec §5 / codex new-5): explicit raise (a bare assert is stripped by python -O).
@@ -61,6 +65,8 @@ def run_stage(*, stage, variants, runner, co, prompt, repo_root, claim_counts=No
         used_prism={vid: o.used_prism for vid, o in outputs.items()},
         tokens={vid: o.tokens for vid, o in outputs.items()},
         outputs=list(outputs.values()),
+        shuffle_seed=shuffle_seed,
+        label_map=dict(label_to_vid),
     )
 
 
