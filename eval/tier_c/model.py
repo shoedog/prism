@@ -1,6 +1,6 @@
 """Tier-C schemas (spec 2026-06-23 rev-3). Frozen dataclasses; files repo-relative POSIX, lines 1-based."""
 from __future__ import annotations
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 _ANTHROPIC = {"opus-4.8", "sonnet-4.6"}
 _OPENAI = {"gpt-5.5", "gpt-5.3-spark"}
