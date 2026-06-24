@@ -32,4 +32,5 @@ def test_assemble_cell_computes_prism_deltas_and_gate():
     assert isinstance(cell, Cell)
     assert abs(cell.prism_precision_delta["opus-4.8"] - 0.3) < 1e-9
     assert cell.gate.decision == "GO"          # material lift, low failure
-    assert cell.itt_used_prism_rate == 0.5     # 1 of 2 variants actually used prism
+    assert cell.itt_available_rate == 0.5       # 1 of 2 variants had prism (opus-4.8+prism)
+    assert cell.per_protocol_used_rate == 0.5   # 1 of 2 actually used it

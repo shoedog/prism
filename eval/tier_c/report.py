@@ -2,7 +2,7 @@
 delta on the OBJECTIVE channel; cross-model delta carries the family-bias band; the
 GO/NO-GO gate is per role x language and never averaged."""
 from __future__ import annotations
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 def prism_delta(metric_by_id: dict[str, float], model: str) -> float:
     return metric_by_id.get(f"{model}+prism", 0.0) - metric_by_id.get(model, 0.0)
@@ -47,7 +47,8 @@ class Cell:
     prism_precision_delta: dict        # model -> ON-OFF
     prism_recall_delta: dict
     prism_planted_delta: dict
-    itt_used_prism_rate: float
+    itt_available_rate: float        # fraction of variants that HAD prism (intent-to-treat)
+    per_protocol_used_rate: float    # fraction that actually used prism (tool_calls>0)
     gate: Gate
 
 def assemble_cell(*, stage, language, per_id, models, analyze_failure_rate, detectable,
@@ -68,8 +69,9 @@ def assemble_cell(*, stage, language, per_id, models, analyze_failure_rate, dete
         }
 
     pd, rd, ld = dlt("precision"), dlt("recall"), dlt("planted")
-    used = [v.used_prism for v in per_id.values()]
-    itt = sum(used) / len(used) if used else 0.0
+    n = len(per_id)
+    itt_available_rate = sum(1 for vid in per_id if vid.endswith("+prism")) / n if n else 0.0
+    per_protocol_used_rate = sum(v.used_prism for v in per_id.values()) / n if n else 0.0
     gate = gate_decision(
         precision_delta=max(pd.values(), default=0.0),
         recall_delta=max(rd.values(), default=0.0),
@@ -78,4 +80,4 @@ def assemble_cell(*, stage, language, per_id, models, analyze_failure_rate, dete
         cost_ok=True,
         detectable_judges=detectable,
     )
-    return Cell(stage, language, pd, rd, ld, itt, gate)
+    return Cell(stage, language, pd, rd, ld, itt_available_rate, per_protocol_used_rate, gate)
