@@ -85,7 +85,9 @@ def assemble_cell_2x2(*, stage, language, per_id, models, analyze_failure_rate,
     """Assemble the 5-contrast 2×2 cell from per-variant StageMetrics (precision axis).
 
     For each model m, requires four variants: m, m+lsp, m+prism, m+prism+lsp.
-    Missing variants yield 0.0 for that model's delta (fail-safe).
+    missing variant → its precision reads 0.0 via p(); a contrast against a present variant
+    is then negative. In the full 8-variant run all variants are present; partial-corpus
+    callers must account for this.
 
     Gate drives from the max prism_at_lsp_on delta (prism lift with LSP noise controlled).
     """

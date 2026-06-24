@@ -5,11 +5,12 @@ Compilers (cargo/go/tsc-via-build) are intentionally NOT denied — see spec §2
 from __future__ import annotations
 import os, stat, tempfile
 
+LAUNCHERS = ["npx", "uvx", "mise", "pnpm", "yarn"]  # bypass bare-name shims (spec §2.2 codex new-4)
+
 DENIED = [
     "rust-analyzer", "gopls", "pyright", "pyright-langserver", "basedpyright", "pylsp",
     "ruff-lsp", "typescript-language-server", "tsserver", "tsc", "clangd", "mypy",
-    "npx", "uvx", "mise", "pnpm", "yarn",  # launchers that bypass bare-name shims (spec §2.2 codex new-4)
-]
+] + LAUNCHERS
 
 def make_lsp_deny_shim(log_path: str) -> str:
     """Create the deny-shim dir; return its path (prepend to PATH for lsp-off arms)."""

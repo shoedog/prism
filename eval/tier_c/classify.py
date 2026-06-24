@@ -3,9 +3,10 @@
 type-check (compiler_assisted — the 'no dedicated LSP' caveat, reported per-protocol)."""
 from __future__ import annotations
 import re
-from .lspshim import DENIED
+from .lspshim import DENIED, LAUNCHERS
 
-_LSP = re.compile(r"\b(" + "|".join(re.escape(t) for t in DENIED if t not in {"npx", "uvx", "mise"}) + r")\b")
+_LSP = re.compile(r"\b(" + "|".join(re.escape(t) for t in DENIED if t not in set(LAUNCHERS)) + r")\b")
+# tsc intentionally appears in BOTH _LSP and _COMPILER (it's the TS type-checker AND compiler).
 _COMPILER = re.compile(r"\b(cargo\s+(check|clippy|build)|go\s+(vet|build)|rustc|tsc)\b")
 
 def classify_tools(commands: list[str]) -> dict:
