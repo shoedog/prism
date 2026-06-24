@@ -1,4 +1,4 @@
-from tier_c.report import prism_delta, gate_decision
+from tier_c.report import prism_delta, gate_decision, StageMetrics, assemble_cell, Cell
 
 def test_prism_delta_is_within_model_on_minus_off():
     # precision: opus+prism 0.9 vs opus(off) 0.6 -> +0.3
@@ -20,3 +20,16 @@ def test_gate_nogo_when_flat():
     d = gate_decision(precision_delta=0.0, recall_delta=0.0, planted_delta=0.0,
                       analyze_failure_rate=0.0, cost_ok=True, detectable_judges=False)
     assert d.decision == "NO-GO"
+
+def test_assemble_cell_computes_prism_deltas_and_gate():
+    # one stage, one language; precision ON vs OFF per model
+    per_id = {
+        "opus-4.8+prism": StageMetrics(precision=0.9, recall=0.8, planted=0.7, used_prism=True, tokens=100),
+        "opus-4.8":       StageMetrics(precision=0.6, recall=0.5, planted=0.4, used_prism=False, tokens=90),
+    }
+    cell = assemble_cell(stage="spec", language="python", per_id=per_id,
+                         models=["opus-4.8"], analyze_failure_rate=0.0, detectable=False)
+    assert isinstance(cell, Cell)
+    assert abs(cell.prism_precision_delta["opus-4.8"] - 0.3) < 1e-9
+    assert cell.gate.decision == "GO"          # material lift, low failure
+    assert cell.itt_used_prism_rate == 0.5     # 1 of 2 variants actually used prism
