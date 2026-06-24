@@ -1,0 +1,119 @@
+# Tier-C open-issue corpus (spec §4 Goldilocks). MINIMAL first run: 1 issue per language.
+# Selected 2026-06-24 from a 4-language gh investigation (see the run handoff). Each issue is
+# OPEN and UNFIXED at the pinned `sha` (a commit in the local bench-repos clone), recent, multi-file,
+# needs spec+plan, with a concrete repro/acceptance. `repo` is the bench-repos clone NAME; the run
+# loop resolves it against the bench-repos root. files_touched_hint must be >= 2 (Goldilocks).
+# Frozen before any run — do not edit after a run starts.
+
+[[issue]]
+key = "ruff-26287"
+language = "rust"
+repo = "ruff"
+sha = "44f6d1865fd29ed1d96585e167f56119b2a2d57c"
+url = "https://github.com/astral-sh/ruff/issues/26287"
+files_touched_hint = 3
+text = '''
+`--add-noqa` deletes trailing content (astral-sh/ruff #26287, OPEN, filed 2026-06-23).
+
+When `ruff check --add-noqa` merges a new rule code into an existing noqa comment, any text after
+the codes section — a trailing reason or a `# fmt:skip` — is silently destroyed.
+
+Repro:
+  $ cat try.py
+  import math  # noqa: RUF100 with a trailing reason
+  import sys   # noqa: RUF100 # fmt:skip
+  $ ruff check --add-noqa
+  $ cat try.py
+  import math  # noqa: F401, RUF100          # <- "with a trailing reason" lost
+  import sys   # noqa: F401, RUF100          # <- "# fmt:skip" lost
+
+Expected: trailing content after the codes is preserved (as `ty --add-ignore` does).
+'''
+scoped_slice = '''
+Fix `generate_noqa_edit` in `crates/ruff_linter/src/noqa.rs` to capture the bytes between the
+existing codes-section end and the line-ending start, store them on `NoqaEdit`, and re-emit them in
+`NoqaEdit::write()` between the codes and the line ending. Add regression tests for both the
+plain trailing-text case and the `# fmt:skip` case. Build/test: `cargo test -p ruff_linter`.
+'''
+
+[[issue]]
+key = "prometheus-18896"
+language = "go"
+repo = "prometheus"
+sha = "505095b64b43dd76baf08839e1800a8d473c97e0"
+url = "https://github.com/prometheus/prometheus/issues/18896"
+files_touched_hint = 2
+text = '''
+FastRegexMatcher: false-positive match for `.*<lit>(group)<lit>.*` with a capturing group
+(prometheus/prometheus #18896, OPEN, filed 2026-06-09).
+
+`labels.NewFastRegexMatcher(`.*\|(foo)\|.*`).MatchString("|foo-bar|")` returns true, disagreeing
+with Go stdlib RE2 `^(?:.*\|(foo)\|.*)$` which returns false. A non-capturing group `(?:foo)` is
+correct. Root cause (reporter): `clearCapture` unwraps the capturing group before
+`isSimpleConcatenationPattern`, which then sees a concat of literals and returns true, installing a
+`trueMatcher{}` that matches everything and bypasses the regex.
+
+Expected: FastRegexMatcher agrees with regexp/RE2. The issue provides 5 (pattern, value, expected)
+test cases.
+'''
+scoped_slice = '''
+In `model/labels/regexp.go`, prevent the capturing-group-between-literals pattern from collapsing to
+`trueMatcher` — guard `isSimpleConcatenationPattern` (or reorder it relative to `clearCapture`) so a
+group between two literals is not treated as independent substrings. Add the 5 regression cases from
+the issue to `model/labels/regexp_test.go`, asserting agreement with `regexp.MustCompile`.
+Build/test: `go test ./model/labels/...`.
+'''
+
+[[issue]]
+key = "pydantic-13300"
+language = "python"
+repo = "pydantic"
+sha = "363728fe0b353db1a1fcb44aac5c38fd96a8cc20"
+url = "https://github.com/pydantic/pydantic/issues/13300"
+files_touched_hint = 3
+text = '''
+`__pydantic_init_subclass__` cannot receive custom class keyword arguments without also defining
+`__init_subclass__` (pydantic/pydantic #13300, OPEN, filed 2026-06-11).
+
+The docs say `__pydantic_init_subclass__` receives the same kwargs as `__init_subclass__`, but custom
+kwargs at class definition time (e.g. `class Foo(Bar, my_kwarg='value')`) raise TypeError. Root cause:
+`ModelMetaclass.__new__` forwards the full kwargs to `super().__new__(mcs, cls_name, bases, namespace,
+**kwargs)`, so `object.__init_subclass__` is invoked with `my_kwarg` (which nothing in the MRO
+consumes) and raises before pydantic calls `__pydantic_init_subclass__`.
+
+Expected: custom class kwargs reach `__pydantic_init_subclass__` without a TypeError.
+'''
+scoped_slice = '''
+In `pydantic/_internal/_model_construction.py` (`ModelMetaclass.__new__`), strip the user's custom
+kwargs before the `super().__new__(...)` call (mirroring how `ConfigWrapper.for_model` already pops
+known config kwargs) and forward them to `__pydantic_init_subclass__`. Add a test in
+`tests/test_main.py` asserting `class Foo(Bar, event_type='created')` does not raise and that
+`__pydantic_init_subclass__` receives `event_type`. Build/test: `pytest tests/test_main.py -x`.
+'''
+
+[[issue]]
+key = "excalidraw-11479"
+language = "ts"
+repo = "excalidraw"
+sha = "0642e72cfa2d9a71198200e52f37399384610ee3"
+url = "https://github.com/excalidraw/excalidraw/issues/11479"
+files_touched_hint = 3
+text = '''
+[Bug] Alt resize changes positioning on vertical transforms (excalidraw/excalidraw #11479, OPEN,
+filed 2026-06-12).
+
+Alt-resizing (resize-from-center) a container that has multi-line bound text, dragging the north or
+south handle, produces a vertical position jump once the bound-text min-height constraint clamps the
+height. The container should stay anchored at its center during a center-resize, but its `y` shifts.
+
+Fix direction (from triage): `handleBindTextResize` does not know whether the resize is
+center-anchored, so its `updatedY` adjustment is applied in full even when resizing from center.
+'''
+scoped_slice = '''
+Add a `shouldResizeFromCenter` parameter (default false) to `handleBindTextResize` in
+`packages/element/src/textElement.ts`, pass it from both call sites in
+`packages/element/src/resizeElements.ts` (`resizeSingleElement`, `resizeMultipleElements`), and halve
+the `updatedY` diff when center-resizing so the container stays centered. Add a test in
+`packages/element/tests/textElement.test.ts` asserting `container.y` is stable on a center alt-resize
+from the n/s handle at min height. Build/test: `yarn test` (vitest).
+'''
