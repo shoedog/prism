@@ -4,8 +4,7 @@ def test_borda_consensus_combines_two_rankings():
     a = ["x", "y", "z", "w"]   # judge A best-first
     b = ["y", "x", "w", "z"]   # judge B
     order = borda_consensus({"A": a, "B": b})
-    assert order[0] in ("x", "y")   # x and y tie at top; deterministic tie-break by id
-    assert order == sorted(order, key=lambda c: order.index(c))  # stable list
+    assert order[0] == "x"  # x and y tie on Borda points; deterministic tie-break by id
 
 def test_family_bias_detects_own_family_inflation():
     # anthropic judge ranks anthropic ids high; openai judge ranks openai high
