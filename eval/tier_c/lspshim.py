@@ -8,7 +8,7 @@ import os, stat, tempfile
 DENIED = [
     "rust-analyzer", "gopls", "pyright", "pyright-langserver", "basedpyright", "pylsp",
     "ruff-lsp", "typescript-language-server", "tsserver", "tsc", "clangd", "mypy",
-    "npx", "uvx", "mise",  # launchers that bypass bare-name shims (spec §2.2 codex new-4)
+    "npx", "uvx", "mise", "pnpm", "yarn",  # launchers that bypass bare-name shims (spec §2.2 codex new-4)
 ]
 
 def make_lsp_deny_shim(log_path: str) -> str:
