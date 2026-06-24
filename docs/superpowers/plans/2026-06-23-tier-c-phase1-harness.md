@@ -1,5 +1,13 @@
 # Tier-C Value Measurement — Phase 1 (spec+plan stages) Implementation Plan
 
+> **STATUS: BUILT 2026-06-23** — all 12 tasks implemented via subagent-driven TDD on branch
+> `tier-c-value-measurement` (per-task commits; per-task spec+quality review; opus final review = **SHIP**).
+> `eval/tier_c/` is a complete, importable, **35-test-green** package (full eval suite 178 green, tier_a
+> unaffected). Mid-build reviews caught + fixed: checkout temp-dir leak, a vacuous test assertion, and three
+> integration gaps — **judge blinding** (judges now see opaque `cand*` labels, never the `+prism` id), the
+> **sanitation gate** (explicit `raise`, not a strippable `assert`), and **planted-error injection** (`inject()`
+> wired into the chain so the probe isn't inert). See "Phase-1 known gaps" at the bottom before the next phase.
+>
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the Tier-C harness for the **spec** and **plan** stages — run the 4 variants, score them with the independent **investigator** (objective citation precision/recall + hallucination) and the **planted-error** diagnostic, run the **dual blind judges** (consensus + family-bias), chain spec→plan with **reset-to-cleaned-best**, and emit a per-stage report with the **GO/NO-GO** gate.
@@ -1258,3 +1266,45 @@ git commit -m "feat(tier-c): cli entry + end-to-end fakes smoke"
 - **Investigator must never import prism** (codex new-3) — it uses `Checkout` (git/file) only. Keep it that way.
 - **Live model flags:** Task 8's `build_codex_cmd`/`build_claude_cmd` encode the on/off MCP toggle; verify exact flags against `codex exec --help` and `claude --help` before the first live run, and keep the unit tests asserting the on/off toggle.
 - **NEVER stage** `eval/snapshots/` or `docs/eval/`. Commit only the explicit `tier_c` + test paths shown.
+
+---
+
+## Phase-1 known gaps (from the opus final review — what the next phase must build)
+
+The Phase-1 package is the **objective backbone + spec→plan orchestration, fakes-tested**. These are
+deliberately deferred and must be built before the harness produces a real verdict:
+
+1. **Live model-call driver (the first execution after this lands).** `build_codex_cmd`/`build_claude_cmd`
+   assemble argv and are unit-tested on the on/off MCP toggle, but **nothing spawns the subprocess or parses
+   real `codex exec`/`claude -p --output-format json` output** (capture text, citations, tokens, tool-calls,
+   `used_prism`). Re-verify exact flags against `codex exec --help` / `claude --help` first. The `claim_count`
+   per output (denominator of citation recall) also needs a real extractor (count substantive repo-claims).
+2. **Detectability test is load-bearing and unwired.** `judges.detectable()` is a pure function; there is no
+   pooling across issues, no pre-registered permutation test/threshold, and nothing computes
+   `detectable_judges` to feed `gate_decision`. Spec §6b makes this decisive ("if detectable, the judge
+   prism-delta is INVALID"). **Label-blinding alone is insufficient** — a live arm's *text* can still leak the
+   prism condition (prism phrasing / citation density); the detectability gate is the real safety net.
+3. **Relevance-judge audit-sampling + κ adjudication.** `RelevanceJudge` has only `RelevanceAllTrue/None`
+   fakes; the spec's audit-sampled, blind, adjudicated relevance pass (§6a) and κ-style judge reconciliation
+   (§6b) are unbuilt.
+4. **Report assembly is partial.** `prism_delta` + `gate_decision` exist, but there is **no per-(stage ×
+   language) table generator**, `family_bias` is never called by a report, and there is no
+   evidence-availability split or ITT/per-protocol usage rollup (`StageResult` carries `used_prism`/`tokens`
+   but nothing aggregates them). Spec §7/§12.
+5. **Sanitation gate is structural-only.** `_strip_plants` removes all tokens then `sanitation_ok` checks the
+   same set, so the `raise` is fail-closed defense-in-depth but cannot fire on token residue; the spec §5
+   *semantic* survival check ("planted falsehood surviving as a corrected-looking claim") and the **re-run
+   loop** are not implemented.
+6. **Tie-handling.** `borda_consensus` tie-breaks deterministically by id (favors lexically-smaller ids); spec
+   §5/§8 wants a **pre-registered random** tie-break with tied cells flagged non-identifiable.
+7. **Cold leakage probe** (spec §2 — ask the model if it already knows the fix; drop reproducible issues) is a
+   run-time checklist item with no harness support yet.
+8. **Develop + Review stages = Phase 2** (separate plan): per-repo build/test/lint sandbox, repro resolution,
+   seeded-bug recall. The chain stops at spec→plan.
+9. **Two human-in-loop inputs before the first live run:** select + pin the actual **open issues** (the
+   Goldilocks corpus → `eval/tier_c/issues/issues.toml`), and verify the live `codex`/`claude` flags.
+
+Minor/diagnostic (acceptable as-is, noted for calibration): `score_catch` under-counts (±80-char window, first
+occurrence only) — it's an explicit diagnostic metric; `ArmRunner`/`RankJudge` Protocols aren't used as type
+annotations on `run_stage` (tightening would catch fake-drift); the unrealized `JudgeRanking` type name (folded
+into `dict[str, list[str]]`).
