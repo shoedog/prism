@@ -65,6 +65,17 @@ def _default_run_store_root() -> str:
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs")
 
 
+def _prism_build_id(path: str) -> str:
+    """Build identity of the prism-mcp binary = sha256 of its bytes (prism-mcp has no --version).
+    Different build => different hash, so audit/replay can detect a prism change."""
+    import hashlib
+    try:
+        with open(path, "rb") as f:
+            return "sha256:" + hashlib.sha256(f.read()).hexdigest()[:16]
+    except Exception as e:
+        return f"error:{e}"
+
+
 def _build_manifest(*, issues, bench_root: str, run_id: str, run_store_root: str) -> dict:
     """Build the run manifest (models, prism bin/SHA, harness git SHA, corpus, env)."""
     import shutil
@@ -74,15 +85,10 @@ def _build_manifest(*, issues, bench_root: str, run_id: str, run_store_root: str
 
     models = ["opus-4.8", "gpt-5.5"]
 
-    # Prism binary + SHA
+    # Prism build identity: prism-mcp has NO --version flag (it needs --repo), so identify the
+    # build by a content hash of the binary — unique per build, all replay/audit needs.
     prism_bin = _prism_mcp_bin()
-    try:
-        prism_sha_out = subprocess.run(
-            [prism_bin, "--version"], capture_output=True, text=True, timeout=10
-        )
-        prism_sha = prism_sha_out.stdout.strip() or prism_sha_out.stderr.strip() or "unknown"
-    except Exception as e:
-        prism_sha = f"error:{e}"
+    prism_sha = _prism_build_id(prism_bin)
 
     # Harness git SHA
     try:

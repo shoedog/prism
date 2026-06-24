@@ -1,4 +1,5 @@
-from tier_c.cli import main
+import hashlib
+from tier_c.cli import main, _prism_build_id
 
 def test_cli_dry_run_lists_issues(tmp_path, capsys):
     p = tmp_path / "issues.toml"
@@ -7,3 +8,11 @@ def test_cli_dry_run_lists_issues(tmp_path, capsys):
     rc = main(["--issues", str(p), "--list"])
     assert rc == 0
     assert "k" in capsys.readouterr().out
+
+
+def test_prism_build_id_hashes_binary(tmp_path):
+    f = tmp_path / "prism-mcp"
+    f.write_bytes(b"hello prism")
+    expected = "sha256:" + hashlib.sha256(b"hello prism").hexdigest()[:16]
+    assert _prism_build_id(str(f)) == expected
+    assert _prism_build_id("/nonexistent/prism-mcp").startswith("error:")
