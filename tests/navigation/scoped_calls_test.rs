@@ -1,4 +1,4 @@
-use prism::call_graph::{CallKind, CallSite};
+use prism::call_graph::{CallKind, CallSite, CallSiteOrigin};
 use prism::navigation::call_resolve::resolve_site_nav;
 use prism::navigation::module_graph::{module_deps, repo_map};
 use prism::navigation::queries;
@@ -60,6 +60,7 @@ fn resolved_targets(
                 arg_count: None,
                 arg_spread: false,
                 receiver_outcome: None,
+                origin: CallSiteOrigin::Source,
             }
         });
     resolve_site_nav(cg, &site)

@@ -2,7 +2,7 @@
 
 Status: Draft for A2A review
 Date: 2026-06-24
-Branch: `codex/incremental-cpg-correctness-spec`, based on `origin/main` at `042078d`
+Branch: `codex/incremental-cpg-correctness-spec`, based on `origin/main` at `ce510d6`
 Predecessor: `docs/prism-query-layer/mcp-auto-refresh-incremental-correctness-design-2026-06-23.md`
 
 ## 1. Goal

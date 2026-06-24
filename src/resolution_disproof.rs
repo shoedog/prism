@@ -71,7 +71,7 @@ pub fn prune<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::call_graph::FunctionId;
+    use crate::call_graph::{CallSiteOrigin, FunctionId};
     use crate::name_resolution::graph::ScopeGraph;
     use crate::name_resolution::types::{FileId, ScopeId};
 
@@ -99,6 +99,7 @@ mod tests {
             arg_count: None,
             arg_spread: false,
             receiver_outcome: None,
+            origin: CallSiteOrigin::Source,
         }
     }
 

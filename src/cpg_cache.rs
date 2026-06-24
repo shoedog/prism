@@ -69,7 +69,8 @@ use std::path::{Path, PathBuf};
 /// - v25: CallSite.receiver_materialized for poisoned local receiver bindings.
 /// - v26: class_bases for inherited-self resolution (Slice 1b).
 /// - v27: R4c import-binding resolution (import_bindings/module_bindings/indexed_files).
-const CACHE_VERSION: u32 = 27; // 27: R4c import-binding resolution.
+/// - v28: CallSite.origin for source vs indirect-resolution provenance.
+const CACHE_VERSION: u32 = 28; // 28: CallSite.origin provenance.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -574,9 +575,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_27_for_r4c_import_binding_resolution() {
-        // v27: R4c import-binding resolution.
-        assert_eq!(super::CACHE_VERSION, 27);
+    fn cache_version_is_28_for_callsite_origin_provenance() {
+        // v28: CallSite.origin provenance.
+        assert_eq!(super::CACHE_VERSION, 28);
     }
 
     #[test]
