@@ -35,3 +35,12 @@ def test_borda_seeded_random_tiebreak_is_deterministic():
 def test_has_tie_detects_top_tie():
     assert has_tie({"A": ["x","y"], "B": ["y","x"]})      # x,y both score equal
     assert not has_tie({"A": ["x","y"], "B": ["x","y"]})  # x strictly wins
+
+from tier_c.judges import detectability_pvalue
+
+def test_detectability_pvalue_low_when_guesser_is_accurate():
+    # 10 issues, guesser got 9/10 prism-condition guesses right -> low p (detectable)
+    p = detectability_pvalue(correct=9, n=10)
+    assert p < 0.05
+def test_detectability_pvalue_high_at_chance():
+    assert detectability_pvalue(correct=5, n=10) > 0.2

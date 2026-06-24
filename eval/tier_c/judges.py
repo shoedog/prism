@@ -3,6 +3,7 @@ family bias; family_bias() reports residual; detectable() gates the subjective c
 (codex new-1/new-7: if prism condition is detectable, the judge prism-delta is INVALID)."""
 from __future__ import annotations
 import random
+from math import comb
 
 def _points(rankings):
     ids = {c for r in rankings.values() for c in r}
@@ -54,3 +55,10 @@ def family_bias(rankings: dict[str, list[str]], family_of: dict[str, str]) -> fl
 
 def detectable(correct: int, n: int, threshold: float = 0.7) -> bool:
     return n > 0 and (correct / n) > threshold
+
+def detectability_pvalue(correct: int, n: int, chance: float = 0.5) -> float:
+    """One-sided exact binomial P(X >= correct | p=chance). Low => prism condition is
+    detectable above chance => the judge prism-delta is INVALID (spec §6b/new-7)."""
+    if n <= 0:
+        return 1.0
+    return sum(comb(n, k) * chance**k * (1 - chance)**(n - k) for k in range(correct, n + 1))
