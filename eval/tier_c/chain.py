@@ -49,3 +49,30 @@ def run_stage(*, stage, variants, runner, co, prompt, repo_root, claim_counts,
         used_prism={vid: o.used_prism for vid, o in outputs.items()},
         tokens={vid: o.tokens for vid, o in outputs.items()},
     )
+
+
+@dataclass(frozen=True)
+class Provenance:
+    spec_best: str
+    plan_best: str
+
+@dataclass(frozen=True)
+class ChainResult:
+    stages: list[StageResult]
+    provenance: Provenance
+
+def run_spec_plan_chain(*, issue_text, scoped_slice, variants, runner, co,
+                        claim_counts, plants, judges, relevance, prompt_fn) -> ChainResult:
+    spec_prompt = prompt_fn("spec", issue_text=issue_text, scoped_slice=scoped_slice)
+    spec = run_stage(stage="spec", variants=variants, runner=runner, co=co,
+                     prompt=spec_prompt, repo_root=str(getattr(co, "root", ".")),
+                     claim_counts=claim_counts, plants=plants, judges=judges,
+                     relevance=relevance)
+    plan_prompt = prompt_fn("plan", issue_text=issue_text, scoped_slice=scoped_slice,
+                            upstream=spec.cleaned_best_text)
+    plan = run_stage(stage="plan", variants=variants, runner=runner, co=co,
+                     prompt=plan_prompt, repo_root=str(getattr(co, "root", ".")),
+                     claim_counts=claim_counts, plants=plants, judges=judges,
+                     relevance=relevance)
+    return ChainResult(stages=[spec, plan],
+                       provenance=Provenance(spec.best_variant_id, plan.best_variant_id))
