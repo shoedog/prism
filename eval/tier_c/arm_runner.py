@@ -12,10 +12,28 @@ from .citations import parse_citations
 from .parse import parse_claude_json, parse_codex_jsonl
 
 
+def _prism_mcp_bin() -> str:
+    """Resolve the prism-mcp server binary so prism-ON arms can actually launch it.
+    Order: $PRISM_MCP_BIN -> on PATH -> this repo's target/release/prism-mcp -> bare name.
+    (prism-mcp is typically NOT on PATH; it's built at <prism-repo>/target/release/prism-mcp,
+    and this harness lives at <prism-repo>/eval/tier_c — so resolve it explicitly, else the
+    MCP server fails to start and prism-ON silently degrades to no-prism.)"""
+    import shutil
+    env = os.environ.get("PRISM_MCP_BIN")
+    if env:
+        return env
+    found = shutil.which("prism-mcp")
+    if found:
+        return found
+    cand = os.path.normpath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..",
+                     "target", "release", "prism-mcp"))
+    return cand if os.path.exists(cand) else "prism-mcp"
+
 def _prism_mcp_config(repo_root: str) -> str:
     """Write a per-checkout claude MCP config pointing prism-mcp at THIS repo_root (the pinned
     worktree). Mirrors CodexRunner's per-checkout --repo. Returns the temp config path."""
-    cfg = {"mcpServers": {"prism": {"command": "prism-mcp", "args": ["--repo", repo_root]}}}
+    cfg = {"mcpServers": {"prism": {"command": _prism_mcp_bin(), "args": ["--repo", repo_root]}}}
     fd, path = tempfile.mkstemp(prefix="tc-mcp-", suffix=".json")
     with os.fdopen(fd, "w") as f:
         json.dump(cfg, f)
@@ -25,7 +43,7 @@ def build_codex_cmd(variant: Variant, *, repo: str) -> list[str]:
     # codex MCP is inline `-c mcp_servers.prism...`; OFF omits it. `-` reads prompt from stdin.
     cmd = ["codex", "exec", "-m", variant.model, "-C", repo, "-s", "workspace-write", "-"]
     if variant.prism:
-        cmd[6:6] = ["-c", "mcp_servers.prism.command=prism-mcp",
+        cmd[6:6] = ["-c", f"mcp_servers.prism.command={_prism_mcp_bin()}",
                     "-c", f'mcp_servers.prism.args=["--repo","{repo}"]']
     return cmd
 
