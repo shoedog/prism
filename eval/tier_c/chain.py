@@ -20,6 +20,7 @@ class StageResult:
     cleaned_best_text: str
     used_prism: dict[str, bool]
     tokens: dict[str, int]
+    outputs: list = None              # list[ArmOutput] — all variant outputs for this stage (pooled detectability)
 
 def _strip_plants(text: str, plants: list[PlantedError]) -> str:
     out = text
@@ -59,6 +60,7 @@ def run_stage(*, stage, variants, runner, co, prompt, repo_root, claim_counts=No
         best_variant_id=best, cleaned_best_text=cleaned,
         used_prism={vid: o.used_prism for vid, o in outputs.items()},
         tokens={vid: o.tokens for vid, o in outputs.items()},
+        outputs=list(outputs.values()),
     )
 
 
