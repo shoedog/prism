@@ -1,6 +1,11 @@
 """claim_count = the recall denominator (spec §6a, codex new-2): how many substantive
 code-claims an output makes, so under-citing (claims without citations) is penalized.
-Heuristic proxy: sentences that reference a code entity (identifier-ish / path / call)."""
+Heuristic proxy: sentences that reference a code entity (identifier-ish / path / call).
+
+Known false positives (acceptable — this is a diagnostic heuristic, and FPs inflate the
+denominator => UNDERSTATE recall, the conservative direction): words ending in common
+suffixes (reset/offset/subset/dialog/catalog), and mid-sentence proper nouns (Alice/Docker).
+"""
 from __future__ import annotations
 import re
 

@@ -24,7 +24,8 @@ def borda_consensus(rankings, seed=None):
         groups.setdefault(p, []).append(c)
     out = []
     for p in sorted(groups, reverse=True):
-        g = groups[p][:]
+        g = sorted(groups[p])   # canonical start so the shuffle is fully determined by `seed`
+                                # (set/dict iteration order is hash-randomized per process)
         rng.shuffle(g)
         out.extend(g)
     return out

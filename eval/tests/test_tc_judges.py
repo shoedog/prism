@@ -44,3 +44,13 @@ def test_detectability_pvalue_low_when_guesser_is_accurate():
     assert p < 0.05
 def test_detectability_pvalue_high_at_chance():
     assert detectability_pvalue(correct=5, n=10) > 0.2
+
+def test_borda_seeded_tiebreak_matches_sorted_start_shuffle():
+    import random
+    # p and q tie (each judge ranks one first and one second => equal Borda points)
+    tie = {"A": ["p", "q"], "B": ["q", "p"]}
+    # expected: start from sorted(["p","q"]) then shuffle with the seed
+    expected = sorted(["p", "q"]); random.Random("seedA").shuffle(expected)
+    assert borda_consensus(tie, seed="seedA") == expected
+    # same seed must always give same order (cross-process determinism)
+    assert borda_consensus(tie, seed="seedA") == borda_consensus(tie, seed="seedA")
