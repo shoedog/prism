@@ -1,5 +1,16 @@
 # Tier-C Phase-1d-core — LSP 2×2 matrix + run-store (Implementation Plan)
 
+> **STATUS: BUILT 2026-06-24** — all 7 tasks via subagent-driven TDD (3 groups + review fixes), opus final
+> review SHIP-WITH-FIXES → fixes folded. 88 tier_c / 231 eval green. Adds: `Variant.lsp` 2×2, LSP deny-shim
+> (shared `LAUNCHERS`, symmetric claude/codex PATH enforcement — adversarially verified: 8 lsp-off arms
+> shimmed, 8 lsp-on normal), per-command logging + `classify` (lsp_leak/compiler_assisted), the 5-contrast
+> `Cell2x2` (gate on prism@LSP-on), and the run-store. Reviews caught+fixed: shim malformed-JSON, pnpm/yarn
+> deny + classify launcher-drift false-positive, and a **run-store manifest-clobber BLOCKER** (run_live built a
+> 2nd store with `{}` and overwrote the cli's full manifest — fixed to single-owner store + now persists
+> prompt/judges/investigator + root-level report/detectability). **Run-blocker cleared: the first full
+> `--live` run is now sound (LSP-disentangled) + reproducible (audited run-store).** Replay engine = deferred
+> Phase-1d-replay. Before the full run: a 1-issue `--live` integration smoke (Task 7 Step 7).
+>
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:subagent-driven-development. Steps use `- [ ]`.
 
 **Goal:** Make the first full `--live` run sound + reproducible: add the LSP 2×2 dimension (shim-deny control), per-command logging + tool-usage classification, the 5-contrast report, and a deterministic run-artifact store. (Replay engine = deferred Phase-1d-replay.)
