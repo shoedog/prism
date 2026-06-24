@@ -76,7 +76,7 @@ def _salt(frame: str, plants: list[PlantedError]) -> str:
     return inject(frame, plants)[0] if plants else frame
 
 def run_spec_plan_chain(*, issue_text, scoped_slice, variants, runner, co,
-                        claim_counts, plants, judges, relevance, prompt_fn) -> ChainResult:
+                        claim_counts=None, plants, judges, relevance, prompt_fn) -> ChainResult:
     spec_prompt = prompt_fn("spec", issue_text=_salt(issue_text, plants), scoped_slice=scoped_slice)
     spec = run_stage(stage="spec", variants=variants, runner=runner, co=co,
                      prompt=spec_prompt, repo_root=str(getattr(co, "root", ".")),

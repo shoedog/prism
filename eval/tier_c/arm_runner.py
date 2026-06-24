@@ -69,5 +69,12 @@ class RoutingArmRunner:
     def __init__(self, claude, codex):
         self.claude, self.codex = claude, codex
     def run(self, variant, stage, prompt, repo_root):
-        runner = self.claude if variant.family == "anthropic" else self.codex
+        if variant.family == "anthropic":
+            runner = self.claude
+        elif variant.family == "openai":
+            runner = self.codex
+        else:
+            raise ValueError(
+                f"RoutingArmRunner: no CLI registered for family {variant.family!r} "
+                f"(model {variant.model!r})")
         return runner.run(variant, stage, prompt, repo_root)

@@ -11,6 +11,12 @@ def test_routing_picks_cli_by_family():
     assert r.run(Variant("opus-4.8", True), "spec", "p", "/r")[0] == "claude"
     assert r.run(Variant("gpt-5.5", False), "spec", "p", "/r")[0] == "codex"
 
+def test_routing_raises_on_unknown_family():
+    import pytest
+    r = RoutingArmRunner(claude=FakeClaude(), codex=FakeCodex())
+    with pytest.raises(ValueError, match="no CLI registered"):
+        r.run(Variant("some-future-model", True), "spec", "p", "/r")
+
 def test_run_stage_computes_claim_counts_from_outputs():
     # when claim_counts is None, run_stage derives it per-output via count_claims
     from tier_c.arm_runner import FakeArmRunner

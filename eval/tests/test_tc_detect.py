@@ -22,7 +22,7 @@ def test_detectability_detects_when_pooled_and_separable():
     assert r.pvalue < 0.05 and r.detectable is True   # 0.5^8 ~= 0.0039
 
 def test_detectability_not_flagged_at_chance():
-    # guesser never sees "navfact" -> guesses all prism-off -> only the off arms are correct (4/8)
+    # guesser sees no signal -> only the off-arms match (4/8) -> not flagged
     outs = _pool(separated=False, n_pairs=4)
     r = run_detectability(outs, Guesser())
     assert r.correct == 4 and r.n == 8

@@ -11,18 +11,16 @@ def run_issue(issue, *, variants, runner, co, judges, relevance, plants,
               claim_counts=None) -> ChainResult:
     """Drive one issue through the spec->plan chain.
 
-    claim_counts defaults to {v.id: 1 for v in variants} as a placeholder.
-    Per-output claim counting (via claims.count_claims on each output.text) is a
-    documented follow-up wired in run_stage — see Phase-1b plan Task 7 Step 3 note.
+    claim_counts=None (default) -> run_stage derives per-output via count_claims;
+    pass an explicit dict to override.
     """
-    cc = claim_counts or {v.id: 1 for v in variants}
     return run_spec_plan_chain(
         issue_text=issue.text,
         scoped_slice=issue.scoped_slice,
         variants=variants,
         runner=runner,
         co=co,
-        claim_counts=cc,
+        claim_counts=claim_counts,
         plants=plants,
         judges=judges,
         relevance=relevance,
