@@ -1,5 +1,18 @@
 # Tier-C Phase-1c — Live loop + real LLM judges (Implementation Plan)
 
+> **STATUS: BUILT 2026-06-24** — all 5 tasks via subagent-driven TDD (3 groups + review fixes), opus final
+> review **SHIP**. 74 tier_c / 214 eval green. **The harness is now LIVE-RUNNABLE:**
+> `cd eval && uv run tier-c run --issues tier_c/issues/issues.toml --live`. Built: `ask()` model-call seam +
+> LLM judges (rank/relevance/condition), routing arm-runner (Opus→claude, gpt→codex), per-output
+> `claim_counts`, pooled detectability (α=0.05, exact binomial), and `run_live` → per-(stage×language) report
+> Cells + GO/NO-GO. Reviews caught+fixed: detectability alpha/power (must POOL across issues×stages),
+> routing unknown-family guard, dead `claim_counts` path, **claude prism pointing at bench_root not the
+> per-issue checkout**, same-language cell overwrite. **BEFORE A LIVE RUN (owner-triggered, costs real
+> model spend):** verify claude `--model opus` / codex `-m gpt-5.5` + `--json` flags and the codex JSONL field
+> names in `parse.py`; note `plants=[]` (planted-error probe inert for the pilot), and `analyze_failure_rate=0.0`
+> + `cost_ok=True` (those GO/NO-GO gate arms are non-functional until prism-analyze-failure + cost tracking are
+> wired — the gate currently keys only on objective lift). See "Remaining after Phase-1c".
+>
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:subagent-driven-development. Steps use `- [ ]`.
 
 **Goal:** Make `tier-c run --live` actually execute the spec→plan 2×2 over the corpus: real LLM-backed judges (RankJudge / RelevanceJudge / ConditionGuesser), a routing arm-runner (Opus→claude, gpt→codex), real per-output `claim_counts`, the detectability gate, and the end-to-end run loop that emits the per-(stage×language) report + GO/NO-GO.
