@@ -9,6 +9,13 @@ fn run(msgs: Vec<&str>) -> Vec<serde_json::Value> {
 }
 
 fn provider(files: &[(&str, &str)]) -> (tempfile::TempDir, crate::mcp::SessionProvider) {
+    provider_with_policy(files, crate::mcp::RefreshPolicy::WarnOnly)
+}
+
+fn provider_with_policy(
+    files: &[(&str, &str)],
+    refresh_policy: crate::mcp::RefreshPolicy,
+) -> (tempfile::TempDir, crate::mcp::SessionProvider) {
     let dir = tempfile::tempdir().unwrap();
     for (name, source) in files {
         let path = dir.path().join(name);
@@ -20,6 +27,7 @@ fn provider(files: &[(&str, &str)]) -> (tempfile::TempDir, crate::mcp::SessionPr
     let cfg = crate::mcp::ServerConfig {
         repo_root: dir.path().to_path_buf(),
         cache: crate::mcp::CacheMode::NoCache,
+        refresh_policy,
     };
     let provider = crate::mcp::SessionProvider::bootstrap(&cfg).unwrap();
     (dir, provider)
@@ -33,6 +41,66 @@ fn run_provider(
     let mut t = InMemoryTransport::new(msgs);
     serve_runtime(provider, registry, &mut t).unwrap();
     t.responses().to_vec()
+}
+
+struct FailingAutoRuntime {
+    provider: crate::mcp::SessionProvider,
+}
+
+impl SessionRuntime for FailingAutoRuntime {
+    fn session(&self) -> &crate::navigation::NavigationSession {
+        self.provider.session()
+    }
+
+    fn freshness(&self) -> Option<&FreshnessProbe> {
+        Some(self.provider.freshness())
+    }
+
+    fn known_stale_after_refresh(&self) -> Option<&FreshnessReport> {
+        self.provider.known_stale_after_refresh()
+    }
+
+    fn refresh_policy(&self) -> crate::mcp::RefreshPolicy {
+        crate::mcp::RefreshPolicy::AutoFull
+    }
+
+    fn refresh_index(&mut self) -> anyhow::Result<RefreshSummary> {
+        self.provider.refresh()
+    }
+
+    fn auto_refresh_index(&mut self) -> anyhow::Result<AutoRefreshSummary> {
+        anyhow::bail!("injected auto-refresh failure")
+    }
+}
+
+fn run_failing_auto_runtime(
+    provider: crate::mcp::SessionProvider,
+    registry: &ToolRegistry,
+    msgs: Vec<&str>,
+) -> Vec<serde_json::Value> {
+    let mut runtime = FailingAutoRuntime { provider };
+    let mut t = InMemoryTransport::new(msgs);
+    serve_runtime(&mut runtime, registry, &mut t).unwrap();
+    t.responses().to_vec()
+}
+
+fn call_tool_at_cap(
+    runtime: &mut impl SessionRuntime,
+    registry: &ToolRegistry,
+    request: &str,
+    cap: usize,
+) -> serde_json::Value {
+    let message: serde_json::Value = serde_json::from_str(request).unwrap();
+    let obj = message.as_object().unwrap();
+    let id = obj.get("id").cloned().unwrap_or(serde_json::Value::Null);
+    match call_tool_response_with_cap(obj, id, runtime, registry, cap) {
+        Dispatch::Response(response) => response,
+        Dispatch::NoResponse => panic!("tools/call must return a response"),
+    }
+}
+
+fn serialized_len(value: &serde_json::Value) -> usize {
+    serde_json::to_vec(value).unwrap().len()
 }
 
 const INIT: &str = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}"#;
@@ -298,6 +366,359 @@ fn refresh_index_is_unavailable_in_static_serve_session() {
         .as_str()
         .unwrap()
         .contains("provider-backed"));
+}
+
+#[test]
+fn auto_full_refresh_rebuilds_before_tool_and_clears_stale_warning() {
+    let (dir, mut provider) = provider_with_policy(
+        &[("a.py", "def old():\n    return 1\n")],
+        crate::mcp::RefreshPolicy::AutoFull,
+    );
+    std::fs::write(dir.path().join("a.py"), "def fresh():\n    return 2\n").unwrap();
+    let o = run_provider(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        ],
+    );
+
+    let result = &o[1]["result"];
+    assert_eq!(result["isError"], false);
+    assert_eq!(result["_meta"]["prism/auto_refresh"], "refreshed");
+    assert_eq!(result["_meta"]["prism/refresh_generation"], 1);
+    assert_eq!(result["_meta"]["prism/stale_index_total_before_refresh"], 1);
+    assert_eq!(
+        result["_meta"]["prism/stale_index_paths_before_refresh"],
+        serde_json::json!(["a.py"])
+    );
+    assert!(result["_meta"].get("prism/index_freshness").is_none());
+    assert_eq!(
+        result["_meta"]["anthropic/maxResultSizeChars"],
+        crate::mcp::output::MAX_RESULT_CHARS
+    );
+    assert!(result["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("fresh"));
+    assert!(!result["structuredContent"]["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|warning| warning["kind"] == "StaleIndex"));
+}
+
+#[test]
+fn auto_full_refresh_uses_new_repo_map_after_file_addition() {
+    let (dir, mut provider) = provider_with_policy(
+        &[("a.py", "def a():\n    return 1\n")],
+        crate::mcp::RefreshPolicy::AutoFull,
+    );
+    std::fs::write(dir.path().join("b.py"), "def b():\n    return 2\n").unwrap();
+    let o = run_provider(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"b.py","line":1}}}"#,
+        ],
+    );
+
+    let result = &o[1]["result"];
+    assert_eq!(result["_meta"]["prism/auto_refresh"], "refreshed");
+    assert!(result["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("nodes-at:b.py:1"));
+    assert!(result["structuredContent"]["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|item| item["location"]["file"] == "b.py"));
+}
+
+#[test]
+fn auto_full_refresh_uses_new_callers_after_edit() {
+    let (dir, mut provider) = provider_with_policy(
+        &[("a.py", "def target():\n    return 1\n")],
+        crate::mcp::RefreshPolicy::AutoFull,
+    );
+    std::fs::write(
+        dir.path().join("a.py"),
+        "def target():\n    return 1\n\ndef caller():\n    return target()\n",
+    )
+    .unwrap();
+    let o = run_provider(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_callers","arguments":{"seed":{"kind":"symbol","name":"target","file":"a.py"},"depth":1}}}"#,
+        ],
+    );
+
+    let result = &o[1]["result"];
+    assert_eq!(result["_meta"]["prism/auto_refresh"], "refreshed");
+    assert!(result["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("caller"));
+    assert!(result["structuredContent"]["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|item| item["symbol"]["Function"]["name"] == "caller"));
+}
+
+#[test]
+fn auto_full_refresh_failure_keeps_old_session_and_stale_warning() {
+    let (dir, provider) = provider(&[("a.py", "def old():\n    return 1\n")]);
+    std::fs::write(dir.path().join("a.py"), "def fresh():\n    return 2\n").unwrap();
+    let o = run_failing_auto_runtime(
+        provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        ],
+    );
+
+    let result = &o[1]["result"];
+    assert_eq!(result["_meta"]["prism/auto_refresh"], "failed");
+    assert!(result["_meta"]["prism/auto_refresh_error"]
+        .as_str()
+        .unwrap()
+        .contains("injected"));
+    assert_eq!(result["_meta"]["prism/index_freshness"], "stale");
+    assert!(result["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("old"));
+    assert!(result["structuredContent"]["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|warning| warning["kind"] == "StaleIndex"));
+}
+
+#[test]
+fn auto_full_raced_stale_refresh_retries_on_next_request_and_clears_warning() {
+    let (dir, mut provider) = provider_with_policy(
+        &[("a.py", "def old():\n    return 1\n")],
+        crate::mcp::RefreshPolicy::AutoFull,
+    );
+    std::fs::write(dir.path().join("a.py"), "def fresh():\n    return 2\n").unwrap();
+    provider.force_next_verification_for_tests(RefreshVerification::Diverged(
+        FreshnessReport::from_changed_paths(["a.py".to_string()]),
+    ));
+    let o = run_provider(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+            r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        ],
+    );
+
+    let raced = &o[1]["result"];
+    assert_eq!(raced["_meta"]["prism/auto_refresh"], "raced_stale");
+    assert_eq!(raced["_meta"]["prism/index_freshness"], "stale");
+    assert!(raced["structuredContent"]["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|warning| warning["kind"] == "StaleIndex"));
+
+    let retried = &o[2]["result"];
+    assert_eq!(retried["_meta"]["prism/auto_refresh"], "refreshed");
+    assert!(retried["_meta"].get("prism/index_freshness").is_none());
+    assert!(retried["structuredContent"]["warnings"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn auto_full_refresh_then_tool_error_preserves_tool_error_shape() {
+    let (dir, mut provider) = provider_with_policy(
+        &[("a.py", "def old():\n    return 1\n")],
+        crate::mcp::RefreshPolicy::AutoFull,
+    );
+    std::fs::write(dir.path().join("a.py"), "def fresh():\n    return 2\n").unwrap();
+    let o = run_provider(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":0}}}"#,
+        ],
+    );
+
+    let result = &o[1]["result"];
+    assert_eq!(result["isError"], true);
+    assert!(result["_meta"].get("prism/auto_refresh").is_none());
+    assert!(result["_meta"].get("prism/index_freshness").is_none());
+}
+
+#[test]
+fn auto_full_clean_success_keeps_content_text_byte_identical_to_fresh_result() {
+    let (dir, mut stale_provider) = provider_with_policy(
+        &[("a.py", "def old():\n    return 1\n")],
+        crate::mcp::RefreshPolicy::AutoFull,
+    );
+    std::fs::write(dir.path().join("a.py"), "def fresh():\n    return 2\n").unwrap();
+    let stale = run_provider(
+        &mut stale_provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        ],
+    );
+    let cfg = crate::mcp::ServerConfig {
+        repo_root: dir.path().to_path_buf(),
+        cache: crate::mcp::CacheMode::NoCache,
+        refresh_policy: crate::mcp::RefreshPolicy::WarnOnly,
+    };
+    let mut fresh_provider = crate::mcp::SessionProvider::bootstrap(&cfg).unwrap();
+    let fresh = run_provider(
+        &mut fresh_provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        ],
+    );
+
+    assert_eq!(
+        stale[1]["result"]["content"][0]["text"],
+        fresh[1]["result"]["content"][0]["text"]
+    );
+    assert_eq!(
+        stale[1]["result"]["structuredContent"],
+        fresh[1]["result"]["structuredContent"]
+    );
+    assert_eq!(
+        stale[1]["result"]["_meta"]["anthropic/maxResultSizeChars"],
+        crate::mcp::output::MAX_RESULT_CHARS
+    );
+}
+
+#[test]
+fn auto_refresh_reserve_floor_covers_all_post_shape_metadata() {
+    assert!(
+        crate::mcp::output::MAX_RESULT_CHARS_FLOOR
+            >= FRESHNESS_RESERVE_BYTES
+                + AUTO_REFRESH_RESERVE_BYTES
+                + MIN_MUTATING_TOOL_CAP_BYTES
+                + ENVELOPE_RESERVE
+    );
+}
+
+#[test]
+fn auto_full_clean_under_floor_cap_preserves_refresh_metadata() {
+    let (dir, mut provider) = provider_with_policy(
+        &[("a.py", "def old():\n    return 1\n")],
+        crate::mcp::RefreshPolicy::AutoFull,
+    );
+    std::fs::write(dir.path().join("a.py"), "def fresh():\n    return 2\n").unwrap();
+
+    let response = call_tool_at_cap(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        crate::mcp::output::MAX_RESULT_CHARS_FLOOR,
+    );
+
+    assert!(serialized_len(&response) <= crate::mcp::output::MAX_RESULT_CHARS_FLOOR);
+    let result = &response["result"];
+    assert_eq!(result["_meta"]["prism/auto_refresh"], "refreshed");
+    assert!(result["_meta"].get("prism/index_freshness").is_none());
+}
+
+#[test]
+fn auto_full_raced_stale_under_floor_cap_preserves_warning_metadata() {
+    let (dir, mut provider) = provider_with_policy(
+        &[("a.py", "def old():\n    return 1\n")],
+        crate::mcp::RefreshPolicy::AutoFull,
+    );
+    std::fs::write(dir.path().join("a.py"), "def fresh():\n    return 2\n").unwrap();
+    provider.force_next_verification_for_tests(RefreshVerification::Diverged(
+        FreshnessReport::from_changed_paths(["a.py".to_string()]),
+    ));
+
+    let response = call_tool_at_cap(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        crate::mcp::output::MAX_RESULT_CHARS_FLOOR,
+    );
+
+    assert!(serialized_len(&response) <= crate::mcp::output::MAX_RESULT_CHARS_FLOOR);
+    let result = &response["result"];
+    assert_eq!(result["_meta"]["prism/auto_refresh"], "raced_stale");
+    assert_eq!(result["_meta"]["prism/index_freshness"], "stale");
+    assert!(result["structuredContent"]["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|warning| warning["kind"] == "StaleIndex"));
+}
+
+#[test]
+fn auto_full_refresh_failure_under_floor_cap_preserves_warning_metadata() {
+    let (dir, provider) = provider(&[("a.py", "def old():\n    return 1\n")]);
+    std::fs::write(dir.path().join("a.py"), "def fresh():\n    return 2\n").unwrap();
+    let mut runtime = FailingAutoRuntime { provider };
+
+    let response = call_tool_at_cap(
+        &mut runtime,
+        &ToolRegistry::all_v1(),
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        crate::mcp::output::MAX_RESULT_CHARS_FLOOR,
+    );
+
+    assert!(serialized_len(&response) <= crate::mcp::output::MAX_RESULT_CHARS_FLOOR);
+    let result = &response["result"];
+    assert_eq!(result["_meta"]["prism/auto_refresh"], "failed");
+    assert_eq!(result["_meta"]["prism/index_freshness"], "stale");
+    assert!(result["structuredContent"]["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|warning| warning["kind"] == "StaleIndex"));
+}
+
+#[test]
+fn warn_only_stale_under_floor_cap_preserves_warning_metadata() {
+    let (dir, mut provider) = provider(&[("a.py", "def old():\n    return 1\n")]);
+    std::fs::write(dir.path().join("a.py"), "def fresh():\n    return 2\n").unwrap();
+
+    let response = call_tool_at_cap(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        crate::mcp::output::MAX_RESULT_CHARS_FLOOR,
+    );
+
+    assert!(serialized_len(&response) <= crate::mcp::output::MAX_RESULT_CHARS_FLOOR);
+    let result = &response["result"];
+    assert_eq!(result["_meta"]["prism/index_freshness"], "stale");
+    assert!(result["structuredContent"]["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|warning| warning["kind"] == "StaleIndex"));
 }
 
 #[test]

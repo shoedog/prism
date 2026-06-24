@@ -10,7 +10,8 @@ pub mod tools_reasoning;
 pub mod tools_refresh;
 pub mod transport;
 
-pub use session::{CacheMode, RefreshSummary, ServerConfig, SessionProvider};
+pub(crate) use session::{AutoRefreshSummary, RefreshVerification};
+pub use session::{CacheMode, RefreshPolicy, RefreshSummary, ServerConfig, SessionProvider};
 
 pub fn run(cfg: ServerConfig) -> anyhow::Result<()> {
     let mut p = SessionProvider::bootstrap(&cfg)?;
