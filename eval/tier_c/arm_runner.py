@@ -10,6 +10,7 @@ import time
 from .model import Variant, ArmOutput
 from .citations import parse_citations
 from .parse import parse_claude_json, parse_codex_jsonl
+from .llm import cli_model_flag
 
 
 def _prism_mcp_bin() -> str:
@@ -41,14 +42,14 @@ def _prism_mcp_config(repo_root: str) -> str:
 
 def build_codex_cmd(variant: Variant, *, repo: str) -> list[str]:
     # codex MCP is inline `-c mcp_servers.prism...`; OFF omits it. `-` reads prompt from stdin.
-    cmd = ["codex", "exec", "-m", variant.model, "-C", repo, "-s", "workspace-write", "-"]
+    cmd = ["codex", "exec", "-m", cli_model_flag(variant.model), "-C", repo, "-s", "workspace-write", "-"]
     if variant.prism:
         cmd[6:6] = ["-c", f"mcp_servers.prism.command={_prism_mcp_bin()}",
                     "-c", f'mcp_servers.prism.args=["--repo","{repo}"]']
     return cmd
 
 def build_claude_cmd(variant: Variant, *, mcp_cfg: str) -> list[str]:
-    cmd = ["claude", "-p", "--output-format", "json", "--model", variant.model]
+    cmd = ["claude", "-p", "--output-format", "json", "--model", cli_model_flag(variant.model)]
     if variant.prism:
         cmd += ["--mcp-config", mcp_cfg, "--strict-mcp-config"]
     return cmd

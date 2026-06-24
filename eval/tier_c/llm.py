@@ -7,10 +7,17 @@ from .parse import parse_claude_json, parse_codex_jsonl
 _TIMEOUT = 600
 
 # Variant.model -> (cli, cli-model-flag). Verify flag values live (claude alias 'opus'; codex 'gpt-5.5').
+# SINGLE SOURCE OF TRUTH for the CLI model flag — both the judges (live_ask) AND the arm runners
+# (arm_runner.build_*_cmd) MUST map through this, or they pass an invalid flag (e.g. claude rejects
+# "opus-4.8", needs the "opus" alias — caught by the 2026-06-24 live smoke).
 MODEL_CLI = {
     "opus-4.8": ("claude", "opus"),
     "gpt-5.5": ("codex", "gpt-5.5"),
 }
+
+def cli_model_flag(model: str) -> str:
+    """The CLI `--model`/`-m` flag value for a Variant.model. Used by judges AND arm runners."""
+    return MODEL_CLI[model][1]
 
 def live_ask(model: str, prompt: str) -> str:
     cli, flag = MODEL_CLI[model]

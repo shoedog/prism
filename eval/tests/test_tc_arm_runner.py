@@ -47,3 +47,12 @@ def test_codex_cmd_prism_on_uses_resolved_bin():
     from tier_c.arm_runner import _prism_mcp_bin
     on = build_codex_cmd(Variant("gpt-5.5", True), repo="/r")
     assert f"mcp_servers.prism.command={_prism_mcp_bin()}" in on
+
+
+def test_build_cmds_map_model_to_cli_flag():
+    # claude rejects "opus-4.8" (exit 1); it needs the "opus" alias — the arms MUST map
+    # through cli_model_flag, same as the judges (caught by the 2026-06-24 live smoke).
+    claude = build_claude_cmd(Variant("opus-4.8", False), mcp_cfg="x")
+    assert "opus" in claude and "opus-4.8" not in claude
+    codex = build_codex_cmd(Variant("gpt-5.5", False), repo="/r")
+    assert "gpt-5.5" in codex  # codex accepts gpt-5.5 as-is
