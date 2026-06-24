@@ -56,3 +56,35 @@ def test_chain_feeds_cleaned_spec_into_plan_prompt(monkeypatch):
     # plan stage received the cleaned best spec as upstream
     assert "spec body" in captured["plan"]
     assert res.provenance.spec_best == "opus-4.8+prism"
+
+
+def test_run_stage_blinds_variant_ids_from_judges():
+    seen = {}
+    class RecordingRank:
+        def rank(self, stage, rubric, candidates):
+            seen.update(candidates)
+            return sorted(candidates, key=lambda k: -len(candidates[k]))
+    variants = [Variant("opus-4.8", True), Variant("gpt-5.5", False)]
+    runner = FakeArmRunner({"opus-4.8+prism": "longer spec a.py:1", "gpt-5.5": "x"})
+    run_stage(stage="spec", variants=variants, runner=runner, co=FakeCo(),
+              prompt="p", repo_root="/r", claim_counts={v.id: 1 for v in variants},
+              plants=[], judges={"anthropic": RecordingRank(), "openai": RecordingRank()},
+              relevance=RelevanceAllTrue())
+    assert seen, "judges saw no candidates"
+    assert all(k.startswith("cand") for k in seen)
+    assert all(("prism" not in k and "opus" not in k and "gpt" not in k) for k in seen)
+
+def test_chain_salts_frames_when_plants_present():
+    from tier_c.planted import PlantedError
+    variants = [Variant("opus-4.8", True), Variant("gpt-5.5", False)]
+    runner = FakeArmRunner({"opus-4.8+prism": "spec body a.py:1", "gpt-5.5": "x"})
+    captured = {}
+    def fake_prompt(stage, *, issue_text, scoped_slice, upstream=""):
+        captured[stage] = (issue_text, upstream); return "p"
+    run_spec_plan_chain(issue_text="bug", scoped_slice="s1", variants=variants, runner=runner,
+        co=FakeCo(), claim_counts={v.id: 1 for v in variants},
+        plants=[PlantedError("file", "ghostref")],
+        judges={"anthropic": FakeRank(), "openai": FakeRank()},
+        relevance=RelevanceAllTrue(), prompt_fn=fake_prompt)
+    assert "ghostref" in captured["spec"][0]   # spec issue frame was salted
+    assert "ghostref" in captured["plan"][1]   # plan upstream (cleaned spec) was salted
