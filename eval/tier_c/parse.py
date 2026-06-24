@@ -3,7 +3,7 @@ fully unit-tested; the subprocess spawn (arm_runner) is the only un-tested seam.
 claude: `--output-format json` single object. codex: `--json` JSONL events."""
 from __future__ import annotations
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class ModelResult:
@@ -12,6 +12,7 @@ class ModelResult:
     output_tokens: int
     tool_calls: int
     cost_usd: float
+    commands: list[str] = field(default_factory=list)
 
 def parse_claude_json(out: str) -> ModelResult:
     d = json.loads(out)
@@ -24,6 +25,7 @@ def parse_claude_json(out: str) -> ModelResult:
         output_tokens=int(u.get("output_tokens", 0)),
         tool_calls=max(0, int(d.get("num_turns", 1)) - 1),  # best-effort; exact needs stream-json
         cost_usd=float(d.get("total_cost_usd", 0.0)),
+        commands=[],  # claude full per-command capture = follow-up (stream-json needed)
     )
 
 # codex --json event item types that count as a tool call (verify against live output, Task 2 Step 5):
@@ -31,6 +33,7 @@ _CODEX_TOOL_ITEMS = {"command_execution", "mcp_tool_call", "file_change", "web_s
 
 def parse_codex_jsonl(out: str) -> ModelResult:
     text, inp, outp, tools = "", 0, 0, 0
+    commands: list[str] = []
     for line in out.splitlines():
         line = line.strip()
         if not line:
@@ -44,10 +47,15 @@ def parse_codex_jsonl(out: str) -> ModelResult:
             text = item["text"]              # last agent message wins
         if item.get("type") in _CODEX_TOOL_ITEMS:
             tools += 1
+        if item.get("type") == "command_execution":
+            cmd_str = item.get("command") or item.get("cmd") or ""
+            if cmd_str:
+                commands.append(cmd_str)
         u = ev.get("usage") or {}
         if u:
             inp = int(u.get("input_tokens", inp))
             outp = int(u.get("output_tokens", outp))
     if not text:
         raise ValueError("codex run produced no agent_message")
-    return ModelResult(text=text, input_tokens=inp, output_tokens=outp, tool_calls=tools, cost_usd=0.0)
+    return ModelResult(text=text, input_tokens=inp, output_tokens=outp, tool_calls=tools,
+                       cost_usd=0.0, commands=commands)

@@ -1,6 +1,6 @@
 """Tier-C schemas (spec 2026-06-23 rev-3). Frozen dataclasses; files repo-relative POSIX, lines 1-based."""
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 _ANTHROPIC = {"opus-4.8", "sonnet-4.6"}
 _OPENAI = {"gpt-5.5", "gpt-5.3-spark"}
@@ -44,3 +44,6 @@ class ArmOutput:
     tool_calls: int
     wall_s: float
     used_prism: bool
+    commands: list[str] = field(default_factory=list)
+    lsp_leak: bool = False
+    compiler_assisted: bool = False

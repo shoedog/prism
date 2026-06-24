@@ -11,6 +11,7 @@ from .model import Variant, ArmOutput
 from .citations import parse_citations
 from .parse import parse_claude_json, parse_codex_jsonl
 from .llm import cli_model_flag
+from .classify import classify_tools
 
 
 def _prism_mcp_bin() -> str:
@@ -78,9 +79,11 @@ class ClaudeRunner:
         if proc.returncode != 0 or not proc.stdout.strip():
             raise RuntimeError(f"arm exited {proc.returncode}: {(proc.stderr or '').strip()[:400]}")
         r = parse_claude_json(proc.stdout)
+        flags = classify_tools(r.commands)
         return ArmOutput(variant=variant, text=r.text, citations=parse_citations(r.text),
                          tokens=r.output_tokens, tool_calls=r.tool_calls, wall_s=time.monotonic() - t0,
-                         used_prism=variant.prism and r.tool_calls > 0)
+                         used_prism=variant.prism and r.tool_calls > 0,
+                         commands=r.commands, **flags)
 
 class CodexRunner:
     """ArmRunner via `codex exec --json` (prompt on stdin). prism ON = inline -c mcp_servers.
@@ -100,9 +103,11 @@ class CodexRunner:
         if proc.returncode != 0 or not proc.stdout.strip():
             raise RuntimeError(f"arm exited {proc.returncode}: {(proc.stderr or '').strip()[:400]}")
         r = parse_codex_jsonl(proc.stdout)
+        flags = classify_tools(r.commands)
         return ArmOutput(variant=variant, text=r.text, citations=parse_citations(r.text),
                          tokens=r.output_tokens, tool_calls=r.tool_calls, wall_s=time.monotonic() - t0,
-                         used_prism=variant.prism and r.tool_calls > 0)
+                         used_prism=variant.prism and r.tool_calls > 0,
+                         commands=r.commands, **flags)
 
 class FakeArmRunner:
     """Deterministic runner keyed by variant.id -> canned text (spec §6 fakes-drive-tests)."""
