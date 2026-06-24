@@ -22,3 +22,16 @@ def test_detectable_true_above_chance():
     # classifier guessed condition correctly 9/10 -> detectable
     assert detectable(correct=9, n=10, threshold=0.7)
     assert not detectable(correct=5, n=10, threshold=0.7)
+
+from tier_c.judges import borda_consensus, has_tie
+
+def test_borda_seeded_random_tiebreak_is_deterministic():
+    r = {"A": ["x","y"], "B": ["y","x"]}  # x,y tie
+    o1 = borda_consensus(r, seed="issue1|spec")
+    o2 = borda_consensus(r, seed="issue1|spec")
+    assert o1 == o2                      # reproducible
+    assert set(o1) == {"x","y"}
+
+def test_has_tie_detects_top_tie():
+    assert has_tie({"A": ["x","y"], "B": ["y","x"]})      # x,y both score equal
+    assert not has_tie({"A": ["x","y"], "B": ["x","y"]})  # x strictly wins

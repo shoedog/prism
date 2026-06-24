@@ -2,15 +2,35 @@
 family bias; family_bias() reports residual; detectable() gates the subjective channel
 (codex new-1/new-7: if prism condition is detectable, the judge prism-delta is INVALID)."""
 from __future__ import annotations
+import random
 
-def borda_consensus(rankings: dict[str, list[str]]) -> list[str]:
+def _points(rankings):
     ids = {c for r in rankings.values() for c in r}
-    points: dict[str, int] = {c: 0 for c in ids}
+    pts = {c: 0 for c in ids}
     for r in rankings.values():
         n = len(r)
         for pos, c in enumerate(r):
-            points[c] += (n - pos)  # best-first => most points
-    return sorted(ids, key=lambda c: (-points[c], c))  # deterministic tie-break by id
+            pts[c] += (n - pos)
+    return pts
+
+def borda_consensus(rankings, seed=None):
+    pts = _points(rankings)
+    if seed is None:
+        return sorted(pts, key=lambda c: (-pts[c], c))
+    rng = random.Random(seed)
+    groups = {}
+    for c, p in pts.items():
+        groups.setdefault(p, []).append(c)
+    out = []
+    for p in sorted(groups, reverse=True):
+        g = groups[p][:]
+        rng.shuffle(g)
+        out.extend(g)
+    return out
+
+def has_tie(rankings) -> bool:
+    pts = sorted(_points(rankings).values(), reverse=True)
+    return len(pts) >= 2 and pts[0] == pts[1]
 
 def _mean_rank(order: list[str], ids: set[str]) -> float:
     ranks = [i for i, c in enumerate(order) if c in ids]
