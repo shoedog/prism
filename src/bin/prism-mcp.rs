@@ -6,6 +6,8 @@ struct Cli {
     no_cache: bool,
     #[arg(long)]
     cache_dir: Option<std::path::PathBuf>,
+    #[arg(long, default_value = "warn-only", value_parser = ["warn-only", "auto-full"])]
+    refresh_policy: String,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -17,8 +19,14 @@ fn main() -> anyhow::Result<()> {
     } else {
         prism::mcp::CacheMode::Default
     };
+    let refresh_policy = match c.refresh_policy.as_str() {
+        "warn-only" => prism::mcp::RefreshPolicy::WarnOnly,
+        "auto-full" => prism::mcp::RefreshPolicy::AutoFull,
+        _ => unreachable!("clap value_parser restricts refresh-policy"),
+    };
     prism::mcp::run(prism::mcp::ServerConfig {
         repo_root: c.repo,
         cache,
+        refresh_policy,
     })
 }

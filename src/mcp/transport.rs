@@ -1,7 +1,14 @@
-use super::freshness::{apply_freshness_report, FreshnessProbe, FRESHNESS_RESERVE_BYTES};
-use super::output::{resolve_cap, McpToolResult, SCHEMA_VERSION};
+use super::freshness::{
+    apply_freshness_report, FreshnessProbe, FreshnessReport, FRESHNESS_RESERVE_BYTES,
+};
+use super::output::{
+    clamp_user_text, resolve_cap, McpToolResult, MAX_RESULT_CHARS_FLOOR, SCHEMA_VERSION,
+};
 use super::registry::{ToolContext, ToolRegistry, ToolRuntimeBehavior};
-use super::{tools_refresh, RefreshSummary, SessionProvider};
+use super::{
+    tools_refresh, AutoRefreshSummary, RefreshPolicy, RefreshSummary, RefreshVerification,
+    SessionProvider,
+};
 use crate::navigation::NavigationSession;
 use serde_json::{json, Map, Value};
 #[cfg(test)]
@@ -23,6 +30,16 @@ const MAX_ID_BYTES: usize = 256;
 /// `reserve_covers_envelope_and_max_id`. Generous vs the real envelope: base ~35 bytes + a bounded
 /// request id <= `MAX_ID_BYTES` (holistic re-review MAJOR — was owned by the result shaper).
 pub(crate) const ENVELOPE_RESERVE: usize = 512;
+pub(crate) const AUTO_REFRESH_RESERVE_BYTES: usize = 2048;
+pub(crate) const MIN_MUTATING_TOOL_CAP_BYTES: usize = 4096;
+
+const _: () = assert!(
+    MAX_RESULT_CHARS_FLOOR
+        >= FRESHNESS_RESERVE_BYTES
+            + AUTO_REFRESH_RESERVE_BYTES
+            + MIN_MUTATING_TOOL_CAP_BYTES
+            + ENVELOPE_RESERVE
+);
 
 /// Result-payload budget under `cap` once this transport's envelope reserve is removed. The result
 /// shaper (`output::shape_result`) sizes results against this so value + envelope <= `cap` on the wire.
@@ -118,7 +135,10 @@ pub fn serve_stdio(p: &mut SessionProvider, r: &ToolRegistry) -> anyhow::Result<
 trait SessionRuntime {
     fn session(&self) -> &NavigationSession;
     fn freshness(&self) -> Option<&FreshnessProbe>;
+    fn known_stale_after_refresh(&self) -> Option<&FreshnessReport>;
+    fn refresh_policy(&self) -> RefreshPolicy;
     fn refresh_index(&mut self) -> anyhow::Result<RefreshSummary>;
+    fn auto_refresh_index(&mut self) -> anyhow::Result<AutoRefreshSummary>;
 }
 
 struct StaticRuntime<'a> {
@@ -135,8 +155,20 @@ impl SessionRuntime for StaticRuntime<'_> {
         self.freshness
     }
 
+    fn known_stale_after_refresh(&self) -> Option<&FreshnessReport> {
+        None
+    }
+
+    fn refresh_policy(&self) -> RefreshPolicy {
+        RefreshPolicy::WarnOnly
+    }
+
     fn refresh_index(&mut self) -> anyhow::Result<RefreshSummary> {
         anyhow::bail!("refresh_index requires provider-backed prism-mcp transport")
+    }
+
+    fn auto_refresh_index(&mut self) -> anyhow::Result<AutoRefreshSummary> {
+        anyhow::bail!("auto refresh requires provider-backed prism-mcp transport")
     }
 }
 
@@ -149,8 +181,20 @@ impl SessionRuntime for SessionProvider {
         Some(SessionProvider::freshness(self))
     }
 
+    fn known_stale_after_refresh(&self) -> Option<&FreshnessReport> {
+        SessionProvider::known_stale_after_refresh(self)
+    }
+
+    fn refresh_policy(&self) -> RefreshPolicy {
+        SessionProvider::refresh_policy(self)
+    }
+
     fn refresh_index(&mut self) -> anyhow::Result<RefreshSummary> {
         self.refresh()
+    }
+
+    fn auto_refresh_index(&mut self) -> anyhow::Result<AutoRefreshSummary> {
+        self.auto_refresh()
     }
 }
 
@@ -297,6 +341,17 @@ fn call_tool_response(
     runtime: &mut impl SessionRuntime,
     registry: &ToolRegistry,
 ) -> Dispatch {
+    let original_cap = resolve_cap();
+    call_tool_response_with_cap(obj, id, runtime, registry, original_cap)
+}
+
+fn call_tool_response_with_cap(
+    obj: &Map<String, Value>,
+    id: Value,
+    runtime: &mut impl SessionRuntime,
+    registry: &ToolRegistry,
+    original_cap: usize,
+) -> Dispatch {
     let Some(params) = obj.get("params").and_then(Value::as_object) else {
         return Dispatch::Response(error_response(id, -32602, "Invalid params"));
     };
@@ -336,11 +391,20 @@ fn call_tool_response(
         return Dispatch::Response(success_response(id, result.to_call_tool_result_value()));
     }
 
-    let original_cap = resolve_cap();
-    let report = runtime.freshness().map(FreshnessProbe::check);
+    let report = effective_stale_report(runtime);
     let stale = report.as_ref().is_some_and(|report| report.stale);
+    if stale && runtime.refresh_policy() == RefreshPolicy::AutoFull {
+        return auto_full_tool_response(
+            id,
+            runtime,
+            tool.handler.as_ref(),
+            &arguments,
+            report,
+            original_cap,
+        );
+    }
     let cap = if stale {
-        original_cap.saturating_sub(FRESHNESS_RESERVE_BYTES)
+        cap_after_reserve(original_cap, FRESHNESS_RESERVE_BYTES)
     } else {
         original_cap
     };
@@ -353,6 +417,156 @@ fn call_tool_response(
     }
 
     Dispatch::Response(success_response(id, result.to_call_tool_result_value()))
+}
+
+fn auto_full_tool_response(
+    id: Value,
+    runtime: &mut impl SessionRuntime,
+    handler: &dyn Fn(&ToolContext<'_>, &Value) -> McpToolResult,
+    arguments: &Value,
+    initial_report: Option<FreshnessReport>,
+    original_cap: usize,
+) -> Dispatch {
+    match runtime.auto_refresh_index() {
+        Ok(summary) => {
+            let stale_after_refresh = post_refresh_stale_report(runtime, &summary);
+            let may_apply_stale = stale_after_refresh
+                .as_ref()
+                .is_some_and(|report| report.stale);
+            let reserve = AUTO_REFRESH_RESERVE_BYTES
+                + if may_apply_stale {
+                    FRESHNESS_RESERVE_BYTES
+                } else {
+                    0
+                };
+            let ctx = ToolContext::new(runtime.session(), cap_after_reserve(original_cap, reserve));
+            let mut result = handler(&ctx, arguments);
+            if result.is_error {
+                return Dispatch::Response(success_response(
+                    id,
+                    result.to_call_tool_result_value(),
+                ));
+            }
+            let status = match &summary.verification {
+                RefreshVerification::Clean => "refreshed",
+                RefreshVerification::Diverged(_) => "raced_stale",
+            };
+            apply_auto_refresh_metadata(&mut result, status, &summary, original_cap);
+            if let Some(report) = stale_after_refresh.as_ref().filter(|report| report.stale) {
+                if result.structured.is_some() {
+                    apply_freshness_report(&mut result, report, original_cap);
+                }
+            }
+            Dispatch::Response(success_response(id, result.to_call_tool_result_value()))
+        }
+        Err(error) => {
+            let reserve = AUTO_REFRESH_RESERVE_BYTES + FRESHNESS_RESERVE_BYTES;
+            let ctx = ToolContext::new(runtime.session(), cap_after_reserve(original_cap, reserve));
+            let mut result = handler(&ctx, arguments);
+            if result.is_error {
+                return Dispatch::Response(success_response(
+                    id,
+                    result.to_call_tool_result_value(),
+                ));
+            }
+            if let Some(report) = initial_report.as_ref().filter(|report| report.stale) {
+                if result.structured.is_some() {
+                    apply_freshness_report(&mut result, report, original_cap);
+                }
+            }
+            apply_auto_refresh_failure_metadata(&mut result, &error, original_cap);
+            Dispatch::Response(success_response(id, result.to_call_tool_result_value()))
+        }
+    }
+}
+
+fn effective_stale_report(runtime: &impl SessionRuntime) -> Option<FreshnessReport> {
+    runtime
+        .known_stale_after_refresh()
+        .cloned()
+        .or_else(|| runtime.freshness().map(FreshnessProbe::check))
+}
+
+fn post_refresh_stale_report(
+    runtime: &impl SessionRuntime,
+    summary: &AutoRefreshSummary,
+) -> Option<FreshnessReport> {
+    match &summary.verification {
+        RefreshVerification::Clean => effective_stale_report(runtime).filter(|report| report.stale),
+        RefreshVerification::Diverged(report) => Some(report.clone()),
+    }
+}
+
+fn cap_after_reserve(original_cap: usize, reserve: usize) -> usize {
+    debug_assert!(
+        original_cap >= reserve + MIN_MUTATING_TOOL_CAP_BYTES + ENVELOPE_RESERVE,
+        "accepted MCP cap must leave room for reserve and minimum shaped result"
+    );
+    original_cap.saturating_sub(reserve)
+}
+
+fn apply_auto_refresh_metadata(
+    result: &mut McpToolResult,
+    status: &str,
+    summary: &AutoRefreshSummary,
+    original_cap: usize,
+) {
+    result.meta.insert(
+        "prism/auto_refresh".into(),
+        Value::String(status.to_string()),
+    );
+    result.meta.insert(
+        "prism/refresh_generation".into(),
+        Value::Number(serde_json::Number::from(summary.generation)),
+    );
+    result.meta.insert(
+        "prism/indexed_files".into(),
+        Value::Number(serde_json::Number::from(summary.indexed_files)),
+    );
+    result.meta.insert(
+        "prism/tracked_paths".into(),
+        Value::Number(serde_json::Number::from(summary.tracked_paths)),
+    );
+    result.meta.insert(
+        "prism/stale_index_total_before_refresh".into(),
+        Value::Number(serde_json::Number::from(
+            summary.stale_before_refresh.total_changed,
+        )),
+    );
+    result.meta.insert(
+        "prism/stale_index_paths_before_refresh".into(),
+        Value::Array(
+            summary
+                .stale_before_refresh
+                .changed_paths
+                .iter()
+                .cloned()
+                .map(Value::String)
+                .collect(),
+        ),
+    );
+    result.meta.insert(
+        "anthropic/maxResultSizeChars".into(),
+        Value::Number(serde_json::Number::from(original_cap)),
+    );
+}
+
+fn apply_auto_refresh_failure_metadata(
+    result: &mut McpToolResult,
+    error: &anyhow::Error,
+    original_cap: usize,
+) {
+    result
+        .meta
+        .insert("prism/auto_refresh".into(), Value::String("failed".into()));
+    result.meta.insert(
+        "prism/auto_refresh_error".into(),
+        Value::String(clamp_user_text(&error.to_string())),
+    );
+    result.meta.insert(
+        "anthropic/maxResultSizeChars".into(),
+        Value::Number(serde_json::Number::from(original_cap)),
+    );
 }
 
 fn unknown_tool_result(name: &str, registry: &ToolRegistry) -> McpToolResult {

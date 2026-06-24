@@ -74,31 +74,17 @@ impl FreshnessProbe {
     }
 
     pub fn check(&self) -> FreshnessReport {
-        let mut total_changed = 0usize;
-        let mut changed_paths = Vec::new();
-        let mut path_bytes = 0usize;
+        let mut changed = Vec::new();
 
         for (rel, before) in &self.tracked {
             let after = PathStamp::read(&self.root, rel);
             if before == &after {
                 continue;
             }
-
-            total_changed += 1;
-            if changed_paths.len() >= MAX_STALE_PATHS || path_bytes >= MAX_STALE_PATH_BYTES {
-                continue;
-            }
-            if let Some(display) = bounded_display_path(rel, MAX_STALE_PATH_BYTES - path_bytes) {
-                path_bytes += display.len();
-                changed_paths.push(display);
-            }
+            changed.push(rel.clone());
         }
 
-        FreshnessReport {
-            stale: total_changed > 0,
-            total_changed,
-            changed_paths,
-        }
+        FreshnessReport::from_changed_paths(changed)
     }
 
     pub(crate) fn tracked_len(&self) -> usize {
@@ -107,6 +93,32 @@ impl FreshnessProbe {
 }
 
 impl FreshnessReport {
+    pub(crate) fn from_changed_paths<I>(paths: I) -> Self
+    where
+        I: IntoIterator<Item = String>,
+    {
+        let mut total_changed = 0usize;
+        let mut changed_paths = Vec::new();
+        let mut path_bytes = 0usize;
+
+        for path in paths {
+            total_changed += 1;
+            if changed_paths.len() >= MAX_STALE_PATHS || path_bytes >= MAX_STALE_PATH_BYTES {
+                continue;
+            }
+            if let Some(display) = bounded_display_path(&path, MAX_STALE_PATH_BYTES - path_bytes) {
+                path_bytes += display.len();
+                changed_paths.push(display);
+            }
+        }
+
+        Self {
+            stale: total_changed > 0,
+            total_changed,
+            changed_paths,
+        }
+    }
+
     #[cfg(test)]
     fn stale_for_tests(total_changed: usize, changed_paths: Vec<&str>) -> Self {
         Self {

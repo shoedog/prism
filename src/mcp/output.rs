@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 /// meta key) are kept for experimental-v1 wire-contract stability. A separate pre-serialization
 /// character limit is a documented follow-up (holistic re-review MINOR).
 pub const MAX_RESULT_CHARS: usize = 80_000;
-pub const MAX_RESULT_CHARS_FLOOR: usize = 4_000;
+pub const MAX_RESULT_CHARS_FLOOR: usize = 12_000;
 // S2: navigation symbols/locations carry byte ranges (additive).
 pub const SCHEMA_VERSION: &str = "0.2";
 
@@ -1178,7 +1178,7 @@ mod tests {
         // M7 §6.5 env parse
         assert_eq!(resolve_cap_from(None), 80_000);
         assert_eq!(resolve_cap_from(Some("bad")), 80_000); // warn + default
-        assert_eq!(resolve_cap_from(Some("100")), 80_000); // < FLOOR(4000) -> default
+        assert_eq!(resolve_cap_from(Some("100")), 80_000); // < FLOOR -> default
         assert_eq!(resolve_cap_from(Some("50000")), 50_000);
     }
 
