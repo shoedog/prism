@@ -1,5 +1,14 @@
 # Tier-C Phase-1b — Live drivers, report assembly, run orchestrator (Implementation Plan)
 
+> **STATUS: BUILT 2026-06-23** — all 7 tasks via subagent-driven TDD (3 groups + review fixes), opus final
+> review **SHIP**. 50 tier_c tests green (193 eval total). Adds: codex/claude output parsers + live
+> `ClaudeRunner`/`CodexRunner` (surface subprocess failures), `claim_count` recall denominator, **pre-registered
+> random tie-break** (sorted-start determinism fix caught by review), exact-binomial detectability p-value,
+> per-(stage×language) report `Cell` (ITT-available **and** per-protocol rates, GO/NO-GO gate), and the
+> `run_issue` orchestrator + `tier-c run` subcommand. The `--live` execution loop, real
+> `RelevanceJudge`/`ConditionGuesser`, per-output `claim_counts` wiring, and Phase-2 (develop/review) remain —
+> see "Remaining after Phase-1b" at the bottom.
+>
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax.
 
 **Goal:** Close the Phase-1 known gaps that make `eval/tier_c/` actually RUNNABLE end-to-end: real model-call drivers (codex/claude), the `claim_count` extractor, random tie-break + detectability wiring, the per-(stage×language) **report assembly** with the GO/NO-GO gate, and the **run orchestrator** + `tier-c run` CLI.
