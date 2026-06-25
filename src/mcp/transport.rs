@@ -393,8 +393,13 @@ fn call_tool_response_with_cap(
 
     let report = effective_stale_report(runtime);
     let stale = report.as_ref().is_some_and(|report| report.stale);
-    if stale && runtime.refresh_policy() == RefreshPolicy::AutoFull {
-        return auto_full_tool_response(
+    if stale
+        && matches!(
+            runtime.refresh_policy(),
+            RefreshPolicy::AutoFull | RefreshPolicy::AutoIncremental
+        )
+    {
+        return auto_refresh_tool_response(
             id,
             runtime,
             tool.handler.as_ref(),
@@ -419,7 +424,7 @@ fn call_tool_response_with_cap(
     Dispatch::Response(success_response(id, result.to_call_tool_result_value()))
 }
 
-fn auto_full_tool_response(
+fn auto_refresh_tool_response(
     id: Value,
     runtime: &mut impl SessionRuntime,
     handler: &dyn Fn(&ToolContext<'_>, &Value) -> McpToolResult,
@@ -519,6 +524,16 @@ fn apply_auto_refresh_metadata(
         "prism/refresh_generation".into(),
         Value::Number(serde_json::Number::from(summary.generation)),
     );
+    result.meta.insert(
+        "prism/refresh_strategy".into(),
+        Value::String(summary.strategy.into()),
+    );
+    if let Some(fallback_reason) = summary.fallback_reason {
+        result.meta.insert(
+            "prism/refresh_fallback_reason".into(),
+            Value::String(fallback_reason.into()),
+        );
+    }
     result.meta.insert(
         "prism/indexed_files".into(),
         Value::Number(serde_json::Number::from(summary.indexed_files)),

@@ -28,6 +28,7 @@ pub enum RefreshPolicy {
     #[default]
     WarnOnly,
     AutoFull,
+    AutoIncremental,
 }
 
 #[derive(Clone, Debug)]
@@ -40,6 +41,8 @@ pub enum CacheMode {
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct RefreshSummary {
     pub status: &'static str,
+    pub strategy: &'static str,
+    pub fallback_reason: Option<&'static str>,
     pub generation: u64,
     pub indexed_files: usize,
     pub tracked_paths: usize,
@@ -50,6 +53,8 @@ pub struct RefreshSummary {
 
 #[derive(Clone, Debug)]
 pub(crate) struct AutoRefreshSummary {
+    pub strategy: &'static str,
+    pub fallback_reason: Option<&'static str>,
     pub generation: u64,
     pub indexed_files: usize,
     pub tracked_paths: usize,
@@ -67,6 +72,7 @@ pub struct SessionProvider {
     cfg: ServerConfig,
     session: NavigationSession,
     freshness: FreshnessProbe,
+    snapshot: SnapshotFingerprint,
     known_stale_after_refresh: Option<FreshnessReport>,
     generation: u64,
     #[cfg(test)]
@@ -77,6 +83,8 @@ struct SessionState {
     session: NavigationSession,
     freshness: FreshnessProbe,
     snapshot: SnapshotFingerprint,
+    strategy: RefreshStrategy,
+    fallback_reason: Option<&'static str>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -84,6 +92,36 @@ struct SnapshotFingerprint {
     file_hashes: BTreeMap<String, String>,
     manifest_hashes: BTreeMap<String, String>,
     topology_key: BTreeMap<String, String>,
+    has_type_db: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RefreshStrategyPolicy {
+    FullOnly,
+    PreferIncremental,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RefreshStrategy {
+    Full,
+    Incremental,
+}
+
+impl RefreshStrategy {
+    fn as_str(self) -> &'static str {
+        match self {
+            RefreshStrategy::Full => "full",
+            RefreshStrategy::Incremental => "incremental",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct RefreshPlan {
+    strategy: RefreshStrategy,
+    changed_files: BTreeSet<String>,
+    fallback_reason: Option<&'static str>,
+    bypass_cache: bool,
 }
 
 #[cfg(test)]
@@ -100,6 +138,7 @@ impl SessionProvider {
             cfg,
             session: state.session,
             freshness: state.freshness,
+            snapshot: state.snapshot,
             known_stale_after_refresh: None,
             generation: 0,
             #[cfg(test)]
@@ -135,13 +174,15 @@ impl SessionProvider {
 
     pub fn refresh(&mut self) -> anyhow::Result<RefreshSummary> {
         let before = self.effective_stale_report();
-        let committed = self.refresh_verified()?;
+        let committed = self.refresh_verified(RefreshStrategyPolicy::FullOnly)?;
         let status = match &committed.verification {
             RefreshVerification::Clean => "refreshed",
             RefreshVerification::Diverged(_) => "raced_stale",
         };
         Ok(RefreshSummary {
             status,
+            strategy: committed.strategy.as_str(),
+            fallback_reason: committed.fallback_reason,
             generation: committed.generation,
             indexed_files: committed.indexed_files,
             tracked_paths: committed.tracked_paths,
@@ -153,8 +194,14 @@ impl SessionProvider {
 
     pub(crate) fn auto_refresh(&mut self) -> anyhow::Result<AutoRefreshSummary> {
         let stale_before_refresh = self.effective_stale_report();
-        let committed = self.refresh_verified()?;
+        let policy = match self.cfg.refresh_policy {
+            RefreshPolicy::AutoIncremental => RefreshStrategyPolicy::PreferIncremental,
+            RefreshPolicy::WarnOnly | RefreshPolicy::AutoFull => RefreshStrategyPolicy::FullOnly,
+        };
+        let committed = self.refresh_verified(policy)?;
         Ok(AutoRefreshSummary {
+            strategy: committed.strategy.as_str(),
+            fallback_reason: committed.fallback_reason,
             generation: committed.generation,
             indexed_files: committed.indexed_files,
             tracked_paths: committed.tracked_paths,
@@ -170,25 +217,43 @@ impl SessionProvider {
         self.freshness.check()
     }
 
-    fn refresh_verified(&mut self) -> anyhow::Result<CommittedRefresh> {
+    fn refresh_verified(
+        &mut self,
+        policy: RefreshStrategyPolicy,
+    ) -> anyhow::Result<CommittedRefresh> {
         #[cfg(test)]
         let verified = if let Some(forced) = self.forced_refresh.take() {
             match forced {
                 ForcedRefreshForTests::Verification(verification) => VerifiedCandidate {
-                    state: build_state(&self.cfg)?,
+                    state: build_candidate_state(
+                        &self.cfg,
+                        &self.snapshot,
+                        self.session.index.as_ref(),
+                        policy,
+                    )?,
                     verification,
                 },
                 ForcedRefreshForTests::Error(message) => anyhow::bail!(message),
             }
         } else {
-            build_verified_candidate(&self.cfg)?
+            build_verified_candidate(
+                &self.cfg,
+                &self.snapshot,
+                self.session.index.as_ref(),
+                policy,
+            )?
         };
 
         #[cfg(not(test))]
         let VerifiedCandidate {
             state,
             verification,
-        } = build_verified_candidate(&self.cfg)?;
+        } = build_verified_candidate(
+            &self.cfg,
+            &self.snapshot,
+            self.session.index.as_ref(),
+            policy,
+        )?;
 
         #[cfg(test)]
         let VerifiedCandidate {
@@ -204,13 +269,18 @@ impl SessionProvider {
             RefreshVerification::Clean => None,
             RefreshVerification::Diverged(report) => Some(report.clone()),
         };
+        let strategy = state.strategy;
+        let fallback_reason = state.fallback_reason;
         self.session = state.session;
         self.freshness = state.freshness;
+        self.snapshot = state.snapshot;
         Ok(CommittedRefresh {
             generation,
             indexed_files,
             tracked_paths,
             verification,
+            strategy,
+            fallback_reason,
         })
     }
 }
@@ -233,17 +303,24 @@ struct CommittedRefresh {
     indexed_files: usize,
     tracked_paths: usize,
     verification: RefreshVerification,
+    strategy: RefreshStrategy,
+    fallback_reason: Option<&'static str>,
 }
 
-fn build_verified_candidate(cfg: &ServerConfig) -> anyhow::Result<VerifiedCandidate> {
-    let first = build_state(cfg)?;
+fn build_verified_candidate(
+    cfg: &ServerConfig,
+    active_snapshot: &SnapshotFingerprint,
+    active_index: &NavigationIndex,
+    policy: RefreshStrategyPolicy,
+) -> anyhow::Result<VerifiedCandidate> {
+    let first = build_candidate_state(cfg, active_snapshot, active_index, policy)?;
     match verify_snapshot(cfg, &first.snapshot)? {
         RefreshVerification::Clean => Ok(VerifiedCandidate {
             state: first,
             verification: RefreshVerification::Clean,
         }),
         RefreshVerification::Diverged(_) => {
-            let second = build_state(cfg)?;
+            let second = build_candidate_state(cfg, active_snapshot, active_index, policy)?;
             let verification = verify_snapshot(cfg, &second.snapshot)?;
             Ok(VerifiedCandidate {
                 state: second,
@@ -286,6 +363,46 @@ fn build_state(cfg: &ServerConfig) -> anyhow::Result<SessionState> {
         session: NavigationSession { repo, index },
         freshness,
         snapshot,
+        strategy: RefreshStrategy::Full,
+        fallback_reason: None,
+    })
+}
+
+#[allow(clippy::arc_with_non_send_sync)]
+fn build_candidate_state(
+    cfg: &ServerConfig,
+    active_snapshot: &SnapshotFingerprint,
+    active_index: &NavigationIndex,
+    policy: RefreshStrategyPolicy,
+) -> anyhow::Result<SessionState> {
+    let loaded_repo = load_repo(&cfg.repo_root)?;
+    let snapshot = SnapshotFingerprint::from_repo(&loaded_repo);
+    let freshness = FreshnessProbe::from_loaded_repo(&loaded_repo);
+    let plan = match policy {
+        RefreshStrategyPolicy::FullOnly => RefreshPlan::full(None),
+        RefreshStrategyPolicy::PreferIncremental => plan_refresh(active_snapshot, &snapshot),
+    };
+    let repo = Arc::new(loaded_repo);
+    let index = match plan.strategy {
+        RefreshStrategy::Incremental => NavigationIndex::build_incremental_from_previous(
+            active_index,
+            &repo,
+            &plan.changed_files,
+        ),
+        RefreshStrategy::Full if plan.bypass_cache => NavigationIndex::build(&repo),
+        RefreshStrategy::Full => match &cfg.cache {
+            CacheMode::NoCache => NavigationIndex::build(&repo),
+            CacheMode::Default => NavigationIndex::build_cached(&repo),
+            CacheMode::Dir(base) => NavigationIndex::build_cached_under(&repo, base),
+        },
+    };
+    let index = Arc::new(index);
+    Ok(SessionState {
+        session: NavigationSession { repo, index },
+        freshness,
+        snapshot,
+        strategy: plan.strategy,
+        fallback_reason: plan.fallback_reason,
     })
 }
 
@@ -297,6 +414,7 @@ impl SnapshotFingerprint {
             file_hashes: repo.file_hashes.clone(),
             manifest_hashes: repo.manifest_hashes.clone(),
             topology_key,
+            has_type_db: repo.type_db.is_some(),
         }
     }
 
@@ -315,8 +433,75 @@ impl SnapshotFingerprint {
             "topology:",
             &mut changed,
         );
+        if self.has_type_db != current.has_type_db {
+            changed.insert("type_db".to_string());
+        }
         FreshnessReport::from_changed_paths(changed)
     }
+}
+
+impl RefreshPlan {
+    fn full(fallback_reason: Option<&'static str>) -> Self {
+        Self {
+            strategy: RefreshStrategy::Full,
+            changed_files: BTreeSet::new(),
+            fallback_reason,
+            bypass_cache: fallback_reason == Some("type_db_present"),
+        }
+    }
+
+    fn incremental(changed_files: BTreeSet<String>) -> Self {
+        Self {
+            strategy: RefreshStrategy::Incremental,
+            changed_files,
+            fallback_reason: None,
+            bypass_cache: false,
+        }
+    }
+}
+
+fn plan_refresh(old: &SnapshotFingerprint, new: &SnapshotFingerprint) -> RefreshPlan {
+    if old.has_type_db || new.has_type_db {
+        return RefreshPlan::full(Some("type_db_present"));
+    }
+
+    let old_files = key_set(&old.file_hashes);
+    let new_files = key_set(&new.file_hashes);
+    if old_files != new_files {
+        return RefreshPlan::full(Some("file_set_changed"));
+    }
+
+    if old.manifest_hashes != new.manifest_hashes {
+        return RefreshPlan::full(Some("manifest_changed"));
+    }
+
+    if topology_residual(&old.topology_key) != topology_residual(&new.topology_key) {
+        return RefreshPlan::full(Some("topology_changed"));
+    }
+
+    let changed_files = old
+        .file_hashes
+        .iter()
+        .filter_map(|(file, old_hash)| {
+            (new.file_hashes.get(file) != Some(old_hash)).then(|| file.clone())
+        })
+        .collect::<BTreeSet<_>>();
+    if changed_files.is_empty() {
+        return RefreshPlan::full(Some("no_semantic_change"));
+    }
+
+    RefreshPlan::incremental(changed_files)
+}
+
+fn key_set(map: &BTreeMap<String, String>) -> BTreeSet<&str> {
+    map.keys().map(String::as_str).collect()
+}
+
+fn topology_residual(map: &BTreeMap<String, String>) -> BTreeMap<&str, &str> {
+    map.iter()
+        .filter(|(key, _)| !key.starts_with("source:") && !key.starts_with("manifest:"))
+        .map(|(key, value)| (key.as_str(), value.as_str()))
+        .collect()
 }
 
 fn collect_changed_hash_paths(
@@ -343,6 +528,28 @@ fn display_changed_key(key: &str, fallback_prefix: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn snapshot(
+        files: &[(&str, &str)],
+        manifests: &[(&str, &str)],
+        topology: &[(&str, &str)],
+    ) -> SnapshotFingerprint {
+        SnapshotFingerprint {
+            file_hashes: files
+                .iter()
+                .map(|(k, v)| ((*k).into(), (*v).into()))
+                .collect(),
+            manifest_hashes: manifests
+                .iter()
+                .map(|(k, v)| ((*k).into(), (*v).into()))
+                .collect(),
+            topology_key: topology
+                .iter()
+                .map(|(k, v)| ((*k).into(), (*v).into()))
+                .collect(),
+            has_type_db: false,
+        }
+    }
 
     #[test]
     fn bootstrap_builds_a_queryable_session() {
@@ -466,6 +673,7 @@ mod tests {
             topology_key: [("source:a.py".into(), "present".into())]
                 .into_iter()
                 .collect(),
+            has_type_db: false,
         };
         let after = SnapshotFingerprint {
             file_hashes: [("a.py".into(), "new".into()), ("b.py".into(), "new".into())]
@@ -478,10 +686,157 @@ mod tests {
             ]
             .into_iter()
             .collect(),
+            has_type_db: true,
         };
         let report = before.diff_report(&after);
         assert!(report.stale);
-        assert_eq!(report.total_changed, 3);
-        assert_eq!(report.changed_paths, ["Cargo.toml", "a.py", "b.py"]);
+        assert_eq!(report.total_changed, 4);
+        assert_eq!(
+            report.changed_paths,
+            ["Cargo.toml", "a.py", "b.py", "type_db"]
+        );
+    }
+
+    #[test]
+    fn auto_incremental_plan_uses_unbounded_changed_files() {
+        let old_files = (0..8)
+            .map(|i| (format!("f{i}.py"), "old".to_string()))
+            .collect::<Vec<_>>();
+        let new_files = (0..8)
+            .map(|i| (format!("f{i}.py"), format!("new{i}")))
+            .collect::<Vec<_>>();
+        let old_file_refs = old_files
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect::<Vec<_>>();
+        let new_file_refs = new_files
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect::<Vec<_>>();
+        let topology = old_files
+            .iter()
+            .map(|(k, _)| (format!("source:{k}"), "present".to_string()))
+            .collect::<Vec<_>>();
+        let topology_refs = topology
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect::<Vec<_>>();
+
+        let old = snapshot(&old_file_refs, &[], &topology_refs);
+        let new = snapshot(&new_file_refs, &[], &topology_refs);
+        let plan = plan_refresh(&old, &new);
+
+        assert_eq!(plan.strategy, RefreshStrategy::Incremental);
+        assert_eq!(plan.changed_files.len(), 8);
+        assert!(plan.fallback_reason.is_none());
+    }
+
+    #[test]
+    fn auto_incremental_plan_reports_file_set_before_topology() {
+        let old = snapshot(&[("a.py", "old")], &[], &[("source:a.py", "present")]);
+        let new = snapshot(
+            &[("a.py", "old"), ("b.py", "new")],
+            &[],
+            &[("source:a.py", "present"), ("source:b.py", "present")],
+        );
+        let plan = plan_refresh(&old, &new);
+
+        assert_eq!(plan.strategy, RefreshStrategy::Full);
+        assert_eq!(plan.fallback_reason, Some("file_set_changed"));
+    }
+
+    #[test]
+    fn auto_incremental_plan_disallows_type_db_and_bypasses_cache() {
+        let old = snapshot(&[("a.py", "old")], &[], &[("source:a.py", "present")]);
+        let mut new = snapshot(&[("a.py", "new")], &[], &[("source:a.py", "present")]);
+        new.has_type_db = true;
+        let plan = plan_refresh(&old, &new);
+
+        assert_eq!(plan.strategy, RefreshStrategy::Full);
+        assert_eq!(plan.fallback_reason, Some("type_db_present"));
+        assert!(plan.bypass_cache);
+    }
+
+    #[test]
+    fn auto_incremental_plan_reports_manifest_change() {
+        let old = snapshot(
+            &[("src/lib.rs", "old")],
+            &[("Cargo.toml", "old")],
+            &[
+                ("source:src/lib.rs", "present"),
+                ("manifest:Cargo.toml", "old"),
+            ],
+        );
+        let new = snapshot(
+            &[("src/lib.rs", "old")],
+            &[("Cargo.toml", "new")],
+            &[
+                ("source:src/lib.rs", "present"),
+                ("manifest:Cargo.toml", "new"),
+            ],
+        );
+        let plan = plan_refresh(&old, &new);
+
+        assert_eq!(plan.strategy, RefreshStrategy::Full);
+        assert_eq!(plan.fallback_reason, Some("manifest_changed"));
+    }
+
+    #[test]
+    fn auto_incremental_plan_reports_no_semantic_change() {
+        let old = snapshot(&[("a.py", "same")], &[], &[("source:a.py", "present")]);
+        let new = snapshot(&[("a.py", "same")], &[], &[("source:a.py", "present")]);
+        let plan = plan_refresh(&old, &new);
+
+        assert_eq!(plan.strategy, RefreshStrategy::Full);
+        assert_eq!(plan.fallback_reason, Some("no_semantic_change"));
+    }
+
+    #[test]
+    fn auto_incremental_plan_reports_residual_topology_after_file_and_manifest_checks() {
+        let old = snapshot(
+            &[("a.py", "old")],
+            &[("Cargo.toml", "same")],
+            &[("source:a.py", "present"), ("future:layout", "old")],
+        );
+        let new = snapshot(
+            &[("a.py", "old")],
+            &[("Cargo.toml", "same")],
+            &[("source:a.py", "present"), ("future:layout", "new")],
+        );
+        let plan = plan_refresh(&old, &new);
+
+        assert_eq!(plan.strategy, RefreshStrategy::Full);
+        assert_eq!(plan.fallback_reason, Some("topology_changed"));
+    }
+
+    #[test]
+    fn auto_incremental_retry_replans_against_active_snapshot() {
+        let active = snapshot(
+            &[("a.py", "old"), ("b.py", "old")],
+            &[],
+            &[("source:a.py", "present"), ("source:b.py", "present")],
+        );
+        let first_attempt = snapshot(
+            &[("a.py", "new"), ("b.py", "old")],
+            &[],
+            &[("source:a.py", "present"), ("source:b.py", "present")],
+        );
+        let second_attempt = snapshot(
+            &[("a.py", "new"), ("b.py", "old"), ("c.py", "new")],
+            &[],
+            &[
+                ("source:a.py", "present"),
+                ("source:b.py", "present"),
+                ("source:c.py", "present"),
+            ],
+        );
+
+        let first_plan = plan_refresh(&active, &first_attempt);
+        assert_eq!(first_plan.strategy, RefreshStrategy::Incremental);
+        assert_eq!(first_plan.changed_files, BTreeSet::from(["a.py".into()]));
+
+        let retry_plan = plan_refresh(&active, &second_attempt);
+        assert_eq!(retry_plan.strategy, RefreshStrategy::Full);
+        assert_eq!(retry_plan.fallback_reason, Some("file_set_changed"));
     }
 }

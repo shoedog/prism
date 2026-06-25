@@ -18,11 +18,7 @@ fn provider_with_policy(
 ) -> (tempfile::TempDir, crate::mcp::SessionProvider) {
     let dir = tempfile::tempdir().unwrap();
     for (name, source) in files {
-        let path = dir.path().join(name);
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).unwrap();
-        }
-        std::fs::write(path, source).unwrap();
+        write_file(dir.path(), name, source);
     }
     let cfg = crate::mcp::ServerConfig {
         repo_root: dir.path().to_path_buf(),
@@ -31,6 +27,14 @@ fn provider_with_policy(
     };
     let provider = crate::mcp::SessionProvider::bootstrap(&cfg).unwrap();
     (dir, provider)
+}
+
+fn write_file(root: &std::path::Path, name: &str, source: &str) {
+    let path = root.join(name);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).unwrap();
+    }
+    std::fs::write(path, source).unwrap();
 }
 
 fn run_provider(
@@ -286,7 +290,13 @@ fn refresh_index_rebuilds_session_and_clears_stale_warning() {
     let refresh = &o[2]["result"];
     assert_eq!(refresh["isError"], false);
     assert!(refresh["_meta"].get("prism/index_freshness").is_none());
+    assert_eq!(refresh["_meta"]["prism/refresh_strategy"], "full");
+    assert!(refresh["_meta"]
+        .get("prism/refresh_fallback_reason")
+        .is_none());
     assert_eq!(refresh["structuredContent"]["status"], "refreshed");
+    assert_eq!(refresh["structuredContent"]["strategy"], "full");
+    assert!(refresh["structuredContent"]["fallback_reason"].is_null());
     assert_eq!(refresh["structuredContent"]["generation"], 1);
     assert_eq!(refresh["structuredContent"]["stale_before_refresh"], true);
     assert_eq!(
@@ -324,6 +334,8 @@ fn refresh_index_without_edits_reports_fresh_prior_snapshot() {
     );
     let refresh = &o[1]["result"];
     assert_eq!(refresh["isError"], false);
+    assert_eq!(refresh["structuredContent"]["strategy"], "full");
+    assert!(refresh["structuredContent"]["fallback_reason"].is_null());
     assert_eq!(refresh["structuredContent"]["generation"], 1);
     assert_eq!(refresh["structuredContent"]["stale_before_refresh"], false);
     assert_eq!(
@@ -388,6 +400,10 @@ fn auto_full_refresh_rebuilds_before_tool_and_clears_stale_warning() {
     let result = &o[1]["result"];
     assert_eq!(result["isError"], false);
     assert_eq!(result["_meta"]["prism/auto_refresh"], "refreshed");
+    assert_eq!(result["_meta"]["prism/refresh_strategy"], "full");
+    assert!(result["_meta"]
+        .get("prism/refresh_fallback_reason")
+        .is_none());
     assert_eq!(result["_meta"]["prism/refresh_generation"], 1);
     assert_eq!(result["_meta"]["prism/stale_index_total_before_refresh"], 1);
     assert_eq!(
@@ -429,6 +445,7 @@ fn auto_full_refresh_uses_new_repo_map_after_file_addition() {
 
     let result = &o[1]["result"];
     assert_eq!(result["_meta"]["prism/auto_refresh"], "refreshed");
+    assert_eq!(result["_meta"]["prism/refresh_strategy"], "full");
     assert!(result["content"][0]["text"]
         .as_str()
         .unwrap()
@@ -463,6 +480,7 @@ fn auto_full_refresh_uses_new_callers_after_edit() {
 
     let result = &o[1]["result"];
     assert_eq!(result["_meta"]["prism/auto_refresh"], "refreshed");
+    assert_eq!(result["_meta"]["prism/refresh_strategy"], "full");
     assert!(result["content"][0]["text"]
         .as_str()
         .unwrap()
@@ -472,6 +490,233 @@ fn auto_full_refresh_uses_new_callers_after_edit() {
         .unwrap()
         .iter()
         .any(|item| item["symbol"]["Function"]["name"] == "caller"));
+}
+
+#[test]
+fn auto_incremental_refresh_uses_new_callers_after_edit() {
+    let (dir, mut provider) = provider_with_policy(
+        &[("a.py", "def target():\n    return 1\n")],
+        crate::mcp::RefreshPolicy::AutoIncremental,
+    );
+    std::fs::write(
+        dir.path().join("a.py"),
+        "def target():\n    return 1\n\ndef caller():\n    return target()\n",
+    )
+    .unwrap();
+    let o = run_provider(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_callers","arguments":{"seed":{"kind":"symbol","name":"target","file":"a.py"},"depth":1}}}"#,
+        ],
+    );
+
+    let result = &o[1]["result"];
+    assert_eq!(result["_meta"]["prism/auto_refresh"], "refreshed");
+    assert_eq!(result["_meta"]["prism/refresh_strategy"], "incremental");
+    assert!(result["_meta"]
+        .get("prism/refresh_fallback_reason")
+        .is_none());
+    assert!(result["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("caller"));
+    assert!(result["structuredContent"]["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|item| item["symbol"]["Function"]["name"] == "caller"));
+}
+
+#[test]
+fn auto_incremental_refresh_recomputes_c_indirect_callers_after_assignment_edit() {
+    let device_src =
+        "struct Device { void (*callback)(); };\nvoid run(struct Device *d) { d->callback(); }\n";
+    let (dir, mut provider) = provider_with_policy(
+        &[
+            ("device.c", device_src),
+            (
+                "setup.c",
+                "struct Device { void (*callback)(); };\nvoid old_handler() {}\nvoid new_handler() {}\nvoid setup(struct Device *d) { d->callback = old_handler; }\n",
+            ),
+        ],
+        crate::mcp::RefreshPolicy::AutoIncremental,
+    );
+    write_file(
+        dir.path(),
+        "setup.c",
+        "struct Device { void (*callback)(); };\nvoid old_handler() {}\nvoid new_handler() {}\nvoid setup(struct Device *d) { d->callback = new_handler; }\n",
+    );
+    let o = run_provider(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_callers","arguments":{"seed":{"kind":"symbol","name":"new_handler","file":"setup.c"},"depth":1}}}"#,
+        ],
+    );
+
+    let result = &o[1]["result"];
+    assert_eq!(result["_meta"]["prism/auto_refresh"], "refreshed");
+    assert_eq!(result["_meta"]["prism/refresh_strategy"], "incremental");
+    assert!(result["_meta"]
+        .get("prism/refresh_fallback_reason")
+        .is_none());
+    assert!(result["structuredContent"]["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|item| item["symbol"]["Function"]["file"] == "device.c"
+            && item["symbol"]["Function"]["name"] == "run"));
+    assert!(result["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("run"));
+}
+
+#[test]
+fn auto_incremental_refresh_uses_unbounded_changed_file_set() {
+    let initial_files = (0..8)
+        .map(|i| {
+            (
+                format!("f{i}.py"),
+                format!("def target_{i}():\n    return {i}\n"),
+            )
+        })
+        .collect::<Vec<_>>();
+    let initial_refs = initial_files
+        .iter()
+        .map(|(name, source)| (name.as_str(), source.as_str()))
+        .collect::<Vec<_>>();
+    let (dir, mut provider) =
+        provider_with_policy(&initial_refs, crate::mcp::RefreshPolicy::AutoIncremental);
+
+    for i in 0..8 {
+        write_file(
+            dir.path(),
+            &format!("f{i}.py"),
+            &format!(
+                "def target_{i}():\n    return {i}\n\ndef caller_{i}():\n    return target_{i}()\n"
+            ),
+        );
+    }
+    let o = run_provider(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_callers","arguments":{"seed":{"kind":"symbol","name":"target_7","file":"f7.py"},"depth":1}}}"#,
+        ],
+    );
+
+    let result = &o[1]["result"];
+    assert_eq!(result["_meta"]["prism/auto_refresh"], "refreshed");
+    assert_eq!(result["_meta"]["prism/refresh_strategy"], "incremental");
+    assert!(result["structuredContent"]["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|item| item["symbol"]["Function"]["file"] == "f7.py"
+            && item["symbol"]["Function"]["name"] == "caller_7"));
+}
+
+#[test]
+fn auto_incremental_falls_back_to_full_on_file_addition() {
+    let (dir, mut provider) = provider_with_policy(
+        &[("a.py", "def a():\n    return 1\n")],
+        crate::mcp::RefreshPolicy::AutoIncremental,
+    );
+    std::fs::write(dir.path().join("b.py"), "def b():\n    return 2\n").unwrap();
+    let o = run_provider(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"b.py","line":1}}}"#,
+        ],
+    );
+
+    let result = &o[1]["result"];
+    assert_eq!(result["_meta"]["prism/auto_refresh"], "refreshed");
+    assert_eq!(result["_meta"]["prism/refresh_strategy"], "full");
+    assert_eq!(
+        result["_meta"]["prism/refresh_fallback_reason"],
+        "file_set_changed"
+    );
+    assert!(result["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("nodes-at:b.py:1"));
+}
+
+#[test]
+fn auto_incremental_falls_back_to_full_on_file_deletion() {
+    let (dir, mut provider) = provider_with_policy(
+        &[
+            ("a.py", "def a():\n    return 1\n"),
+            ("b.py", "def b():\n    return 2\n"),
+        ],
+        crate::mcp::RefreshPolicy::AutoIncremental,
+    );
+    std::fs::remove_file(dir.path().join("b.py")).unwrap();
+    let o = run_provider(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        ],
+    );
+
+    let result = &o[1]["result"];
+    assert_eq!(result["_meta"]["prism/auto_refresh"], "refreshed");
+    assert_eq!(result["_meta"]["prism/refresh_strategy"], "full");
+    assert_eq!(
+        result["_meta"]["prism/refresh_fallback_reason"],
+        "file_set_changed"
+    );
+}
+
+#[test]
+fn auto_incremental_falls_back_to_full_on_manifest_change() {
+    let (dir, mut provider) = provider_with_policy(
+        &[
+            (
+                "Cargo.toml",
+                "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+            ),
+            ("src/lib.rs", "pub fn f() -> i32 { 1 }\n"),
+        ],
+        crate::mcp::RefreshPolicy::AutoIncremental,
+    );
+    write_file(
+        dir.path(),
+        "Cargo.toml",
+        "[package]\nname = \"demo\"\nversion = \"0.2.0\"\nedition = \"2021\"\n",
+    );
+    let o = run_provider(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"src/lib.rs","line":1}}}"#,
+        ],
+    );
+
+    let result = &o[1]["result"];
+    assert_eq!(result["_meta"]["prism/auto_refresh"], "refreshed");
+    assert_eq!(result["_meta"]["prism/refresh_strategy"], "full");
+    assert_eq!(
+        result["_meta"]["prism/refresh_fallback_reason"],
+        "manifest_changed"
+    );
 }
 
 #[test]
@@ -529,6 +774,7 @@ fn auto_full_raced_stale_refresh_retries_on_next_request_and_clears_warning() {
 
     let raced = &o[1]["result"];
     assert_eq!(raced["_meta"]["prism/auto_refresh"], "raced_stale");
+    assert_eq!(raced["_meta"]["prism/refresh_strategy"], "full");
     assert_eq!(raced["_meta"]["prism/index_freshness"], "stale");
     assert!(raced["structuredContent"]["warnings"]
         .as_array()
@@ -538,6 +784,52 @@ fn auto_full_raced_stale_refresh_retries_on_next_request_and_clears_warning() {
 
     let retried = &o[2]["result"];
     assert_eq!(retried["_meta"]["prism/auto_refresh"], "refreshed");
+    assert_eq!(retried["_meta"]["prism/refresh_strategy"], "full");
+    assert!(retried["_meta"].get("prism/index_freshness").is_none());
+    assert!(retried["structuredContent"]["warnings"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn auto_incremental_raced_stale_refresh_retries_and_clears_via_no_semantic_change() {
+    let (dir, mut provider) = provider_with_policy(
+        &[("a.py", "def old():\n    return 1\n")],
+        crate::mcp::RefreshPolicy::AutoIncremental,
+    );
+    write_file(dir.path(), "a.py", "def fresh():\n    return 2\n");
+    provider.force_next_verification_for_tests(RefreshVerification::Diverged(
+        FreshnessReport::from_changed_paths(["a.py".to_string()]),
+    ));
+    let o = run_provider(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+            r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        ],
+    );
+
+    let raced = &o[1]["result"];
+    assert_eq!(raced["_meta"]["prism/auto_refresh"], "raced_stale");
+    assert_eq!(raced["_meta"]["prism/refresh_strategy"], "incremental");
+    assert_eq!(raced["_meta"]["prism/index_freshness"], "stale");
+    assert!(raced["structuredContent"]["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|warning| warning["kind"] == "StaleIndex"));
+
+    let retried = &o[2]["result"];
+    assert_eq!(retried["_meta"]["prism/auto_refresh"], "refreshed");
+    assert_eq!(retried["_meta"]["prism/refresh_strategy"], "full");
+    assert_eq!(
+        retried["_meta"]["prism/refresh_fallback_reason"],
+        "no_semantic_change"
+    );
     assert!(retried["_meta"].get("prism/index_freshness").is_none());
     assert!(retried["structuredContent"]["warnings"]
         .as_array()
@@ -643,6 +935,29 @@ fn auto_full_clean_under_floor_cap_preserves_refresh_metadata() {
     assert!(serialized_len(&response) <= crate::mcp::output::MAX_RESULT_CHARS_FLOOR);
     let result = &response["result"];
     assert_eq!(result["_meta"]["prism/auto_refresh"], "refreshed");
+    assert_eq!(result["_meta"]["prism/refresh_strategy"], "full");
+    assert!(result["_meta"].get("prism/index_freshness").is_none());
+}
+
+#[test]
+fn auto_incremental_under_floor_cap_preserves_strategy_metadata() {
+    let (dir, mut provider) = provider_with_policy(
+        &[("a.py", "def old():\n    return 1\n")],
+        crate::mcp::RefreshPolicy::AutoIncremental,
+    );
+    std::fs::write(dir.path().join("a.py"), "def fresh():\n    return 2\n").unwrap();
+
+    let response = call_tool_at_cap(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        crate::mcp::output::MAX_RESULT_CHARS_FLOOR,
+    );
+
+    assert!(serialized_len(&response) <= crate::mcp::output::MAX_RESULT_CHARS_FLOOR);
+    let result = &response["result"];
+    assert_eq!(result["_meta"]["prism/auto_refresh"], "refreshed");
+    assert_eq!(result["_meta"]["prism/refresh_strategy"], "incremental");
     assert!(result["_meta"].get("prism/index_freshness").is_none());
 }
 
@@ -667,6 +982,7 @@ fn auto_full_raced_stale_under_floor_cap_preserves_warning_metadata() {
     assert!(serialized_len(&response) <= crate::mcp::output::MAX_RESULT_CHARS_FLOOR);
     let result = &response["result"];
     assert_eq!(result["_meta"]["prism/auto_refresh"], "raced_stale");
+    assert_eq!(result["_meta"]["prism/refresh_strategy"], "full");
     assert_eq!(result["_meta"]["prism/index_freshness"], "stale");
     assert!(result["structuredContent"]["warnings"]
         .as_array()

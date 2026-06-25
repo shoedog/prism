@@ -36,6 +36,16 @@ pub fn refresh_result(summary: &RefreshSummary) -> McpToolResult {
         "prism/refresh_status".into(),
         Value::String(summary.status.into()),
     );
+    meta.insert(
+        "prism/refresh_strategy".into(),
+        Value::String(summary.strategy.into()),
+    );
+    if let Some(fallback_reason) = summary.fallback_reason {
+        meta.insert(
+            "prism/refresh_fallback_reason".into(),
+            Value::String(fallback_reason.into()),
+        );
+    }
     McpToolResult {
         content_text,
         structured: Some(structured),
