@@ -2,22 +2,43 @@
 
 > Written near context compaction. Pairs with memory `project_prism_measurement_maturity.md` and the specs/plans below.
 
-## ⏳ LIVE RIGHT NOW — the full run is executing in the background
-- **Background task `bybu6rj28`**, run-id **`full-2026-06-24`**, **launched 15:08:47** (PID `99593`). **Confirmed pace ≈ 2h/issue → ~8.5h total, ETA ~23:30 (2026-06-24)** (the original 2–4h est. was optimistic; each issue = spec+plan = 16 full agent-runs + judges/investigator/guesser, all sequential).
-- **PROGRESS @ 20:35 — 2 of 4 issues done, on issue 3:**
-  - issue 1 **ruff/rust** ✅ written ~17:28 (prism cited `locator.rs:123`/`line_ranges.rs:122`)
-  - issue 2 **prometheus/go** ✅ written 19:29 (prism `used_prism:True`, cited `model/labels/regexp.go`/`regexp_test.go` = the FastRegexMatcher issue #18896 — prism engaging on Go too)
-  - issue 3 **pydantic/python** ⏳ mid-chain since ~19:29
-  - issue 4 **excalidraw/ts** ⌛ pending
-- Command: `cd eval && uv run tier-c run --issues tier_c/issues/issues.toml --live --bench-root /Users/wesleyjinks/code/bench-repos --run-id full-2026-06-24`
-- Output (final report) file: `/private/tmp/claude-501/-Users-wesleyjinks-code-slicing/202efdf4-26cc-4c06-b549-12dba0bc04ee/tasks/bybu6rj28.output` — **0 bytes until the very end** (cli is quiet during the run, prints the full 2×2 report only on completion). A `<task-notification>` fires when `bybu6rj28` finishes — DON'T poll; you're auto-re-invoked.
-- **HOW TO VERIFY IT'S STILL ALIVE** (post-compaction sanity, NOT a hang signal on its own): `ps -o pid,lstart,etime,time,command -p 99593` — expect STARTED `15:08:47`, growing ELAPSED, **near-zero CPU TIME is CORRECT** (the orchestrator is I/O-bound, waiting on LLM subprocess calls). `ps aux | grep -E '[c]laude -p|[c]odex exec'` shows the *current* arm — it turns over every few min (a vanished PID between two checks = progress, not death). **Writes batch per-issue** (artifacts flush only after a full issue's spec→plan chain completes), so **~2h gaps between `stages/` mtimes are NORMAL**, not a stall. Single-arm stalls are capped by a 30-min/arm timeout (errors, moves on).
-- **HOW TO READ PROGRESS**: `find eval/tier_c/runs/full-2026-06-24/stages -name '*.json' | xargs stat -f '%Sm %N' -t '%H:%M:%S' | sort | tail` (latest write = last completed issue); peek `stages/spec/arm_opus-4.8_prism.json` `citations[].file` to see WHICH issue (rust/go/py/ts files) is currently on disk + confirm `used_prism:True`.
-- **Artifacts** in `eval/tier_c/runs/full-2026-06-24/` (gitignored): per-stage `prompt/judges/investigator/seeds.json` + `arm_<vid>.json` ×8 + `best.json`. **`manifest.json` + root `report.json`/`detectability.json` write ONLY at the very end** (`run.py:248`).
-- **⚠️ On-disk stage artifacts are NOT per-issue namespaced** (`stages/spec/`, `stages/plan/` — no `<issue>/` component) → **each issue OVERWRITES the prior's on-disk artifacts; only the LAST issue (excalidraw) survives on disk.** Does NOT corrupt the report: `run_live`'s in-memory `per_cell` keys on `(stage, language)` and each issue is a distinct language → all 4 aggregate correctly. Purely an audit/replay-trail limitation → **fix when building Phase-1d-replay: namespace `stages/<language>/<stage>/`.**
-- **MEASUREMENT NOTE for synthesis:** no `shim-log.jsonl` yet @ 20:35 → no lsp-off arm has reached for a denied type-checker (plausible — spec/plan stages read/write, don't compile). Means the deny-shim's *bite* is unconfirmed-by-log for this run → at synthesis lean on the per-arm `lsp_leak`/`compiler_assisted` flags (`classify.py`) rather than the shim log to judge whether LSP-off was real.
-- **On completion:** read the output file → the per-(stage × language) 2×2 report (5 contrasts/cell + pooled detectability + GO/NO-GO). Adjudicate judge disagreements (κ-style). **Thesis:** prism should help more on rust(ruff)/go(prometheus) than the dynamic stack (py/pydantic, ts/excalidraw); the n=1 pydantic smoke was NO-GO (expected Python weakness).
-- **How to read it (the deliverable):** for each `(stage, language)` cell, 5 contrasts per model — **prism@LSP-on** (`prism+lsp − lsp`, the **primary gate**, realistic IDE deployment), prism@LSP-off (`prism − baseline`), LSP@prism-off, LSP@prism-on, interaction. Plus pooled detectability (if `detectable:True`, the judge prism-delta is INVALID → trust the objective channel only) and GO/NO-GO per cell. **Thesis to check:** prism should help more on Rust(ruff)/Go(prometheus) than the dynamic stack (Python/pydantic, TS/excalidraw). The 1-issue smoke (pydantic) was NO-GO (prism flat/slightly-neg) = expected Python-weakness.
+## ✅ RUN COMPLETE — `full-2026-06-24` (exit 0, 15:08→23:24, ~8h15m, 64 arm-runs)
+Task `bybu6rj28` finished clean. Corpus: ruff#26287(rust), prometheus#18896(go), pydantic#13300(python), excalidraw#11479(ts) — 8 variants × 4 issues × 2 stages. Output: `…/tasks/bybu6rj28.output`. **All 16 cells NO-GO** — but read the next line before concluding anything about prism.
+
+### ⛔ HEADLINE: the run measured NOTHING about prism — the objective is DEGENERATE (harness bug, not a prism result)
+The gate is driven **solely by citation `precision`** (`report.py:96` `p(sm)=sm.precision`, `_MATERIAL=0.1`). **`precision==0.00` and `recall==0.00` for every arm, every stage** (verified on the surviving excalidraw arms; the other 3 repos differ only by rare single-citation blips). So every `prism_at_lsp_on` delta ≈ 0 → every cell is a **mechanical** NO-GO. Prism was never actually weighed.
+- **Root cause** = the relevance oracle is **blind to the code it scores.** `LlmRelevanceJudge.is_relevant` (`judges_live.py:33-37`) is asked *"Is the code at `file:line` (symbol `None`) relevant to fixing this issue? YES/NO"* — **it is never shown the code at that line**, and `symbol` is usually null. Blind, it answers non-YES (`.startswith("YES")`, conservative) → `relevant=False` → `is_valid=(not hallucination) AND relevant = 0` (`investigator.py:20-21,51-53`) → `precision=valid/cited=0`. Confirmed: excalidraw structurally-valid citations (`file_ok/line_ok/symbol_ok=true`) **all** came back `relevant=false`; the only `relevant=true` verdicts are hallucinations (the judge is skipped for bad-structure cites → `relevant` keeps its default `True`), which is why `hallucinations==relevant_count` per arm.
+- **Fix drafted** → `docs/superpowers/specs/2026-06-24-tier-c-investigator-relevance-oracle-fix-design.md` (thread the cited line + context window into the judge; `co.read_line` is already called 2 lines away in `verify_citation`). **This is a measurement-methodology change → re-baselines ALL numbers → spec+codex-review-gated, NOT a hotfix.**
+
+### The ONE working signal: the prism-blind RANK judge (excalidraw only — see audit-recovery below)
+The Borda rank judge (substance-only, gets no prism) DID differentiate, and on the **plan** stage it favored prism:
+- **plan/ts CONSENSUS** (best→worst): `opus+prism` › `opus` › `opus+lsp` › `gpt+prism+lsp` › `gpt+prism` › `opus+prism+lsp` › `gpt` › `gpt+lsp` — **both judges ranked `opus-4.8+prism` #1.** The broken precision gate threw this away.
+- **spec/ts CONSENSUS**: `opus` › `gpt` › `opus+lsp` › `opus+prism` › … — bare opus won; judges *disagreed* (anthropic #1=`opus`, openai #1=`opus+prism+lsp`).
+- ⇒ **fold the rank-judge consensus in as a co-primary objective** — it's the channel that actually carried signal.
+
+### Detectability — CLEAN (the one well-powered result)
+`32/64 correct, p=0.55, detectable=False` → the condition-guesser cannot tell prism-on from prism-off → the judge-based delta methodology is **unbiased and valid**. (n=64 pools across issues×stages×arms, so it IS powered, unlike the per-cell deltas.)
+
+### Per-repo `prism_at_lsp_on` deltas (the ONLY cross-repo numbers that survived — all noise-level)
+| repo/stage | gpt-5.5 | opus-4.8 |  | repo/stage | gpt-5.5 | opus-4.8 |
+|---|---|---|---|---|---|---|
+| ruff spec | 0 | 0 |  | ruff plan | −0.067 | 0 |
+| prometheus spec | **+0.043** | 0 |  | prometheus plan | 0 | 0 |
+| pydantic spec | 0 | 0 |  | pydantic plan | +0.013 | 0 |
+| excalidraw spec | 0 | 0 |  | excalidraw plan | 0 | 0 |
+
+All ≤ |0.067| = a single citation flipping (0.067≈1/15, 0.043≈1/23) — sub-`_MATERIAL`, pure noise.
+
+### 🗂️ AUDIT-TRAIL RECOVERY — the overwrite bug did NOT destroy the specs/plans
+Run-store stage artifacts are NOT per-issue namespaced → each issue overwrote the prior → **only excalidraw/ts survives in `eval/tier_c/runs/full-2026-06-24/stages/`** (arm text + `judges.json` + `investigator.json`). BUT the arms ran as real `claude -p` / `codex exec` subprocesses that keep their OWN session logs, which survived:
+- **Opus arms — FULLY recoverable, all 4 issues** in `~/.claude/projects/*-T-tc-co-*/` (one checkout dir per issue, mapped by mtime window): `5l-uc8qb`=ruff(15:12–16:56), `x1z2unhw`=prometheus(17:33–18:56), `g-bezuym`=pydantic(19:43–20:53), `mw7roa6v`=excalidraw(21:20–22:34). Each = **8 sessions (4 spec + 4 plan)**, full spec/plan text + every tool call + reasoning (verified: ruff specs 5–8KB, plans 1.7–3KB, 86–128 lines each; `prompt0` distinguishes SPEC vs PLAN; prism-tool-call presence distinguishes variant).
+- **GPT arms** — 58 codex sessions in `~/.codex/sessions/` (run window).
+- **GONE / never-existed**: the 3 non-excalidraw repos' **judge verdicts + grounding** (overwritten, but **re-derivable** by re-running the cheap judge step on recovered specs — no model-arm re-run); **"code"** (there is NO code stage — Phase 1 is spec→plan only; develop/code is Phase 2, unbuilt); the clean per-(issue,stage,variant) organization (recovery is manual JSONL mapping).
+- **Fix** = namespace `stages/<language>/<stage>/` (do it with Phase-1d-replay).
+
+### Secondary limitations (real, but now SECONDARY to the degenerate objective)
+- **n = 1 issue per (stage×language) cell** (4 issues, 1/lang) → every per-cell delta is a single judge ranking; no per-cell statistical content. Scale to ≥2/lang.
+- **LSP on/off is INERT in spec/plan** — no `shim-log.jsonl` was ever written; per-arm `commands` are all `rg/git/Read/Grep/prism`, never a denied type-checker (`lsp_leak=False`, `compiler_assisted=False` everywhere). Neither model runs rust-analyzer/gopls/tsc/mypy while *writing a spec or plan*. ⇒ drop the 4 LSP arms from spec/plan (halve cost); LSP matters only in Phase-2 develop/review where a checker actually runs.
 
 ## Repo state
 - **origin/main = `ce510d65`** (all Tier-C work merged + pushed; in sync). prism-mcp rebuilt locally from current main (`sha256:c2e3172b…`, NOT committed — it's a binary; rebuild with `cargo build --release --bin prism-mcp --features mcp`).
@@ -56,7 +77,10 @@
 - Workflow: brainstorm→spec→**codex gpt-5.5 xhigh review** (a2a/`codex exec -m gpt-5.5 -c model_reasoning_effort=xhigh -s read-only -o <file> - < prompt`)→plan→subagent-driven TDD (fresh impl per group + spec+quality review)→merge on green. Owner-approved: submit PRs after reviews settle, merge on green CI. Rust/Go byte-identical = enough (skip `--quick` for non-nav work). Verify codex's findings before folding.
 - Live runs cost real spend — owner-triggered only.
 
-## NEXT STEPS (after the full run lands)
-1. **Read + synthesize the full run's 2×2 report** (the per-language prism value signal — the whole point). Adjudicate any judge disagreements (κ-style). Note `lsp_leak`/`compiler_assisted` flags + detectability per the §2.2/§6b rules.
-2. **Then the owner decides** among: **Phase-1d-replay** (build the `tier-c replay` engine per spec §5 — frozen-control, re-score-all — needed to cheaply re-run prism variants after a prism enhancement); **8-issue expansion** (the recorded 2nd-per-lang picks: tokio#8182, prometheus#18972, mypy#21583, excalidraw#11313 — note paired-per-issue contrasts become needed at N>1); **Phase 2** (develop+review stages + per-repo build sandboxes); wiring the **cost/analyze-failure gate arms** (currently `cost_ok=True`/`analyze_failure_rate=0.0` → non-functional); populating **planted-error** taxonomy (the probe is built but the corpus has no plants → inert); **claude full per-command** logging (stream-json).
-3. If a repo's prism-ON arm shows `used_prism=False` in the report, prism-mcp didn't engage there (MCP handshake timeout on a large repo) — re-warm/retry that issue.
+## NEXT STEPS (run synthesized 2026-06-24 — the objective is broken; fix it before any more spend)
+1. **P0 — fix the relevance oracle** (spec drafted: `docs/superpowers/specs/2026-06-24-tier-c-investigator-relevance-oracle-fix-design.md`). Thread the cited code (line + context window) into `is_relevant`; without it, `precision≡0` and **no GO/NO-GO is meaningful**. Subagent-TDD + codex `gpt-5.5` xhigh review. Then a cheap **re-score-only** pass (re-run judges/investigator on the *recovered* specs — see audit-recovery — no model-arm re-run) to get the first real numbers. This is the gate for everything below.
+2. **Add the prism-blind RANK-judge consensus as a co-primary objective** (`report.py` gate currently precision-only). It was the only channel that carried signal (favored `opus+prism` on plan/ts). Decide: max(precision_delta, rank_delta) or a blend; keep detectability guarding the judge channel.
+3. **Per-issue namespacing** `stages/<language>/<stage>/` (fold into Phase-1d-replay) so a run is auditable arm-by-arm without spelunking `~/.claude/projects` / `~/.codex/sessions`.
+4. **Scale to ≥2 issues/lang** (recorded 2nd picks: tokio#8182, prometheus#18972, mypy#21583, excalidraw#11313) so each cell pools >1 — paired-per-issue contrasts needed at N>1. **Drop the 2 LSP arms from spec/plan** (inert here → 8→4 variants, halves cost); reintroduce LSP in Phase-2 develop/review.
+5. **Then the owner decides** among: **Phase-1d-replay** (frozen-control re-score engine, spec §5); **Phase 2** (develop+review + per-repo build sandboxes — where LSP/compiler signal and a real "code" artifact finally exist); wiring the **cost/analyze-failure gate arms** (`cost_ok=True`/`analyze_failure_rate=0.0` → non-functional); populating the **planted-error** taxonomy (probe built, corpus has no plants → inert); **claude full per-command** logging (stream-json).
+6. If a repo's prism-ON arm shows `used_prism=False`, prism-mcp didn't engage (MCP handshake timeout on a large repo) — re-warm/retry. (This run: `used_prism=True` on all prism arms — engagement was fine.)
