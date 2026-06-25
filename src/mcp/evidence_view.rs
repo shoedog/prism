@@ -3,6 +3,7 @@ use super::input::{
     SnippetPolicy, ViewFormat, ViewOptions,
 };
 use super::output::{shape_result, McpToolResult, Verbosity};
+use crate::navigation::code_context::{classify_file, CodeRole};
 use crate::navigation::types::{
     Evidence, EvidenceItem, GraphNode, Location, Reason, ReasoningReason, Source, SymbolRef,
     Warning,
@@ -12,7 +13,8 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
-const VIEW_SCHEMA_VERSION: &str = "0.3";
+const VIEW_SCHEMA_VERSION: &str = "0.4";
+const VIEW_INDEXING_POLICY: &str = "code_role_v1";
 const MAX_NEXT_QUERIES: usize = 5;
 
 #[derive(Debug, Clone)]
@@ -65,6 +67,8 @@ struct ViewSummary {
     fallback: usize,
     unresolved: usize,
     heuristic: usize,
+    production: usize,
+    test: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -73,6 +77,7 @@ struct ViewGroup {
     item_count: usize,
     file_count: usize,
     trust: TrustCounts,
+    code: CodeCounts,
     representative_locations: Vec<ViewLocation>,
     items: Vec<ViewItem>,
 }
@@ -89,8 +94,16 @@ struct ViewItem {
     trust: &'static str,
     reason: String,
     reasons: Vec<ViewReason>,
+    code: ViewCodeContext,
     #[serde(skip_serializing_if = "Option::is_none")]
     snippet: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ViewCodeContext {
+    role: &'static str,
+    is_test: bool,
+    reasons: Vec<&'static str>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -131,6 +144,7 @@ struct ViewNode {
     location: ViewLocation,
     #[serde(skip_serializing_if = "Option::is_none")]
     symbol: Option<String>,
+    code: ViewCodeContext,
 }
 
 #[derive(Debug, Serialize)]
@@ -161,6 +175,7 @@ struct ViewMeta {
     snippets: &'static str,
     group_by: &'static str,
     clipped_to_fit: bool,
+    indexing_policy: &'static str,
 }
 
 pub fn shape_navigation_result(
@@ -224,6 +239,14 @@ pub fn shape_navigation_result(
         "prism/content_text_format".into(),
         Value::String(view.format.as_str().into()),
     );
+    fallback.meta.insert(
+        "prism/view_profile".into(),
+        Value::String(view.profile.as_str().into()),
+    );
+    fallback.meta.insert(
+        "prism/view_indexing_policy".into(),
+        Value::String(VIEW_INDEXING_POLICY.into()),
+    );
     fallback
         .meta
         .insert("prism/view_clipped".into(), Value::Bool(true));
@@ -271,6 +294,10 @@ fn compose_view_result(
         Value::String(view.profile.as_str().into()),
     );
     canonical_result.meta.insert(
+        "prism/view_indexing_policy".into(),
+        Value::String(VIEW_INDEXING_POLICY.into()),
+    );
+    canonical_result.meta.insert(
         "prism/view_clipped".into(),
         Value::Bool(clipped_to_fit || item_limit < view_count(full)),
     );
@@ -300,6 +327,10 @@ fn build_view(
             loose_items.len() + groups.iter().map(|group| group.items.len()).sum::<usize>()
         });
     let trust_counts = trust_counts(&loose_items, &groups);
+    let code_counts = graph
+        .as_ref()
+        .map(|graph| code_counts_for_nodes(&graph.nodes))
+        .unwrap_or_else(|| code_counts(&loose_items, &groups));
     EvidenceView {
         query: full.query.clone(),
         profile: view.profile.as_str().into(),
@@ -314,6 +345,8 @@ fn build_view(
             fallback: trust_counts.fallback,
             unresolved: trust_counts.unresolved,
             heuristic: trust_counts.heuristic,
+            production: code_counts.production,
+            test: code_counts.test,
         },
         groups,
         items: loose_items,
@@ -332,6 +365,7 @@ fn build_view(
             snippets: view.snippets.as_str(),
             group_by: group_by.as_str(),
             clipped_to_fit,
+            indexing_policy: VIEW_INDEXING_POLICY,
         },
     }
 }
@@ -357,6 +391,7 @@ fn build_items(
                 trust: trust_label(item),
                 reason: reason_label(item, view.profile),
                 reasons: view_reasons(item, view.profile),
+                code: view_code_context(&item.location.file),
                 snippet: snippet_for_item(session, item, view.snippets, kind),
             }
         })
@@ -397,6 +432,12 @@ struct TrustCounts {
     heuristic: usize,
 }
 
+#[derive(Debug, Clone, Copy, Default, Serialize)]
+struct CodeCounts {
+    production: usize,
+    test: usize,
+}
+
 fn trust_counts(items: &[ViewItem], groups: &[ViewGroup]) -> TrustCounts {
     trust_counts_for_items(
         items
@@ -416,6 +457,40 @@ fn trust_counts_for_items<'a>(items: impl IntoIterator<Item = &'a ViewItem>) -> 
         }
     }
     counts
+}
+
+fn code_counts(items: &[ViewItem], groups: &[ViewGroup]) -> CodeCounts {
+    code_counts_for_items(
+        items
+            .iter()
+            .chain(groups.iter().flat_map(|group| group.items.iter())),
+    )
+}
+
+fn code_counts_for_items<'a>(items: impl IntoIterator<Item = &'a ViewItem>) -> CodeCounts {
+    let mut counts = CodeCounts::default();
+    for item in items {
+        counts.add(&item.code);
+    }
+    counts
+}
+
+fn code_counts_for_nodes(nodes: &[ViewNode]) -> CodeCounts {
+    let mut counts = CodeCounts::default();
+    for node in nodes {
+        counts.add(&node.code);
+    }
+    counts
+}
+
+impl CodeCounts {
+    fn add(&mut self, code: &ViewCodeContext) {
+        if code.is_test {
+            self.test += 1;
+        } else {
+            self.production += 1;
+        }
+    }
 }
 
 fn visible_file_count(full: &Evidence, item_limit: usize) -> usize {
@@ -461,6 +536,7 @@ fn group_items(items: &[ViewItem], group_by: GroupPolicy) -> Vec<ViewGroup> {
             item_count: items.len(),
             file_count: file_count_for_items(&items),
             trust: trust_counts_for_items(items.iter()),
+            code: code_counts_for_items(items.iter()),
             representative_locations: items
                 .iter()
                 .take(3)
@@ -484,7 +560,7 @@ fn render_markdown(view: &EvidenceView) -> String {
     let mut out = String::new();
     out.push_str("# Prism Evidence\n");
     out.push_str(&format!(
-        "query: `{}`\nprofile: `{}`\nitems: {} of {}\nfiles: {}\ntrust: exact={} fallback={} unresolved={} heuristic={}\n",
+        "query: `{}`\nprofile: `{}`\nitems: {} of {}\nfiles: {}\ntrust: exact={} fallback={} unresolved={} heuristic={}\ncode: production={} test={}\n",
         view.query,
         view.profile,
         view.summary.visible_items,
@@ -493,7 +569,9 @@ fn render_markdown(view: &EvidenceView) -> String {
         view.summary.exact,
         view.summary.fallback,
         view.summary.unresolved,
-        view.summary.heuristic
+        view.summary.heuristic,
+        view.summary.production,
+        view.summary.test
     ));
     if view.summary.truncated {
         out.push_str("truncated: true\n");
@@ -512,15 +590,18 @@ fn render_markdown(view: &EvidenceView) -> String {
         ));
         for node in &graph.nodes {
             out.push_str(&format!(
-                "- `{}` {}\n",
+                "- `{}` {} code={}\n",
                 node.loc,
-                node.symbol.as_deref().unwrap_or("")
+                node.symbol.as_deref().unwrap_or(""),
+                node.code.role
             ));
         }
     }
     for group in &view.groups {
         let trust = markdown_trust_counts(&group.trust);
-        if trust.is_empty() {
+        let code = markdown_code_counts(&group.code);
+        let counts = join_non_empty([trust.as_str(), code.as_str()]);
+        if counts.is_empty() {
             out.push_str(&format!(
                 "\n## {} (items={} files={})\n",
                 group.key, group.item_count, group.file_count
@@ -528,7 +609,7 @@ fn render_markdown(view: &EvidenceView) -> String {
         } else {
             out.push_str(&format!(
                 "\n## {} (items={} files={} {})\n",
-                group.key, group.item_count, group.file_count, trust
+                group.key, group.item_count, group.file_count, counts
             ));
         }
         for item in &group.items {
@@ -570,13 +651,33 @@ fn markdown_trust_counts(counts: &TrustCounts) -> String {
     parts.join(" ")
 }
 
+fn markdown_code_counts(counts: &CodeCounts) -> String {
+    let mut parts = Vec::new();
+    if counts.production > 0 {
+        parts.push(format!("production={}", counts.production));
+    }
+    if counts.test > 0 {
+        parts.push(format!("test={}", counts.test));
+    }
+    parts.join(" ")
+}
+
+fn join_non_empty<const N: usize>(parts: [&str; N]) -> String {
+    parts
+        .into_iter()
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 fn render_markdown_item(out: &mut String, item: &ViewItem) {
     out.push_str(&format!(
-        "- `{}` {} score={:.2}; trust={}; {}\n",
+        "- `{}` {} score={:.2}; trust={}; code={}; {}\n",
         item.loc,
         item.symbol.as_deref().unwrap_or(""),
         item.score,
         item.trust,
+        item.code.role,
         item.reason
     ));
     if let Some(snippet) = &item.snippet {
@@ -965,8 +1066,25 @@ fn view_node(node: &GraphNode) -> ViewNode {
     let location = view_location(&node.location);
     ViewNode {
         loc: location.display.clone(),
+        code: view_code_context(&node.location.file),
         location,
         symbol: node.symbol.as_ref().map(symbol_label),
+    }
+}
+
+fn view_code_context(file: &str) -> ViewCodeContext {
+    let context = classify_file(file);
+    ViewCodeContext {
+        role: role_label(context.role),
+        is_test: context.is_test,
+        reasons: context.reasons,
+    }
+}
+
+fn role_label(role: CodeRole) -> &'static str {
+    match role {
+        CodeRole::Production => "production",
+        CodeRole::Test => "test",
     }
 }
 

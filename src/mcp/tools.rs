@@ -594,11 +594,9 @@ mod tests {
             .unwrap()
             .handler)(&ToolContext::for_test(&s), &json!({"file":"main.py"}));
         let v: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
-        assert!(v["items"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|i| i["location"]["file"] == "util.py"));
+        let items = v["items"].as_array().unwrap();
+        assert!(items.iter().any(|i| i["location"]["file"] == "util.py"));
+        assert!(items.iter().all(|item| item.get("code").is_none()));
     }
 
     #[test]
@@ -630,10 +628,17 @@ mod tests {
             agent.meta["prism/content_text_format"],
             json!("agent_markdown")
         );
-        assert_eq!(agent.meta["prism/view_schema_version"], json!("0.3"));
+        assert_eq!(agent.meta["prism/view_schema_version"], json!("0.4"));
+        assert_eq!(
+            agent.meta["prism/view_indexing_policy"],
+            json!("code_role_v1")
+        );
         assert_eq!(agent.meta["prism/schema_version"], json!("0.2"));
         assert!(agent.content_text.contains("## a.py (items="));
         assert!(agent.content_text.contains(" files=1 exact="));
+        assert!(agent.content_text.contains("code: production="));
+        assert!(agent.content_text.contains("production="));
+        assert!(agent.content_text.contains("code=production"));
     }
 
     #[test]
@@ -653,15 +658,71 @@ mod tests {
         let view: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
         assert_eq!(view["profile"], "impact");
         assert_eq!(out.meta["prism/content_text_format"], json!("agent_json"));
-        assert_eq!(out.meta["prism/view_schema_version"], json!("0.3"));
+        assert_eq!(out.meta["prism/view_schema_version"], json!("0.4"));
+        assert_eq!(
+            out.meta["prism/view_indexing_policy"],
+            json!("code_role_v1")
+        );
         assert_eq!(out.meta["prism/schema_version"], json!("0.2"));
-        assert_eq!(view["meta"]["schema_version"], json!("0.3"));
+        assert_eq!(view["meta"]["schema_version"], json!("0.4"));
+        assert_eq!(view["meta"]["indexing_policy"], json!("code_role_v1"));
         let item = &view["groups"][0]["items"][0];
         assert_eq!(item["location"]["display"], item["loc"]);
         assert_eq!(item["location"]["file"], "a.py");
         assert!(item["location"]["start_byte"].is_number());
         assert_eq!(item["symbol_ref"]["Function"]["name"], "caller");
         assert!(item["reasons"].as_array().unwrap().len() >= 1);
+        assert_eq!(item["code"]["role"], "production");
+        assert_eq!(item["code"]["is_test"], false);
+        assert!(item["code"]["reasons"].as_array().unwrap().is_empty());
+        assert_eq!(view["summary"]["production"], 1);
+        assert_eq!(view["summary"]["test"], 0);
+        assert_eq!(view["groups"][0]["code"]["production"], 1);
+        assert_eq!(view["groups"][0]["code"]["test"], 0);
+    }
+
+    #[test]
+    fn agent_json_code_counts_distinguish_production_and_test_callers() {
+        let s = test_support::session(&[
+            (
+                "target.py",
+                "def target():\n    return 1\n\ndef prod_caller():\n    return target()\n",
+            ),
+            (
+                "tests/test_target.py",
+                "from target import target\n\ndef test_caller():\n    return target()\n",
+            ),
+        ]);
+        let out = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
+            &ToolContext::for_test(&s),
+            &json!({
+                "seed":{"kind":"symbol","name":"target","file":"target.py"},
+                "format":"agent_json",
+                "profile":"impact",
+                "group_by":"none"
+            }),
+        );
+        let view: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
+        let items = view["items"].as_array().unwrap();
+        let prod = items
+            .iter()
+            .find(|item| item["location"]["file"] == "target.py")
+            .expect("production caller");
+        let test = items
+            .iter()
+            .find(|item| item["location"]["file"] == "tests/test_target.py")
+            .expect("test caller");
+
+        assert_eq!(prod["code"]["role"], "production");
+        assert_eq!(prod["code"]["is_test"], false);
+        assert_eq!(test["code"]["role"], "test");
+        assert_eq!(test["code"]["is_test"], true);
+        assert_eq!(
+            test["code"]["reasons"],
+            json!(["path_component:tests", "filename_prefix:test_"])
+        );
+        assert_eq!(view["summary"]["production"], 1);
+        assert_eq!(view["summary"]["test"], 1);
     }
 
     #[test]
@@ -901,6 +962,10 @@ mod tests {
                 "main.py",
                 "from util import helper\n\ndef run():\n    return helper()\n",
             ),
+            (
+                "tests/test_main.py",
+                "from main import run\n\ndef test_run():\n    return run()\n",
+            ),
         ]);
         let out = (ToolRegistry::nav_v1().get("nav_repo_map").unwrap().handler)(
             &ToolContext::for_test(&s),
@@ -929,8 +994,59 @@ mod tests {
             .as_array()
             .unwrap()
             .iter()
-            .all(|node| { node.get("trust").is_none() && node.get("location").is_some() }));
+            .all(|node| {
+                node.get("trust").is_none()
+                    && node.get("location").is_some()
+                    && node.get("code").is_some()
+            }));
+        let test_node = view["graph"]["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|node| node["location"]["file"] == "tests/test_main.py")
+            .expect("test graph node");
+        assert_eq!(test_node["code"]["role"], "test");
+        assert_eq!(
+            test_node["code"]["reasons"],
+            json!(["path_component:tests", "filename_prefix:test_"])
+        );
+        let graph_nodes = view["graph"]["nodes"].as_array().unwrap();
+        let production_nodes = graph_nodes
+            .iter()
+            .filter(|node| node["code"]["role"] == "production")
+            .count() as u64;
+        let test_nodes = graph_nodes
+            .iter()
+            .filter(|node| node["code"]["role"] == "test")
+            .count() as u64;
+        assert!(production_nodes >= 1);
+        assert!(test_nodes >= 1);
+        assert_eq!(view["summary"]["production"], production_nodes);
+        assert_eq!(view["summary"]["test"], test_nodes);
         assert_eq!(view["summary"]["exact"], 0);
+    }
+
+    #[test]
+    fn repo_map_markdown_labels_graph_nodes() {
+        let s = test_support::session(&[
+            ("main.py", "def run():\n    return 1\n"),
+            (
+                "tests/test_main.py",
+                "from main import run\n\ndef test_run():\n    return run()\n",
+            ),
+        ]);
+        let out = (ToolRegistry::nav_v1().get("nav_repo_map").unwrap().handler)(
+            &ToolContext::for_test(&s),
+            &json!({
+                "format":"agent_markdown",
+                "profile":"orientation"
+            }),
+        );
+        assert!(out.content_text.contains("code: production="));
+        assert!(out.content_text.contains("main.py"));
+        assert!(out.content_text.contains("code=production"));
+        assert!(out.content_text.contains("tests/test_main.py"));
+        assert!(out.content_text.contains("code=test"));
     }
 
     #[test]
@@ -1003,11 +1119,21 @@ mod tests {
             &json!({
                 "seed":{"kind":"symbol","name":"target","file":"a.py"},
                 "format":"agent_markdown",
-                "max_view_bytes":64
+                "max_view_bytes":1
             }),
         );
-        assert!(out.content_text.len() <= 64);
+        assert!(out.content_text.len() <= 1);
         assert_eq!(out.structured, default.structured);
+        assert_eq!(
+            out.meta["prism/content_text_format"],
+            json!("agent_markdown")
+        );
+        assert_eq!(out.meta["prism/view_schema_version"], json!("0.4"));
+        assert_eq!(out.meta["prism/view_profile"], json!("impact"));
+        assert_eq!(
+            out.meta["prism/view_indexing_policy"],
+            json!("code_role_v1")
+        );
         assert_eq!(out.meta["prism/view_clipped"], json!(true));
     }
 
