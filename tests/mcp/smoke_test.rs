@@ -100,8 +100,13 @@ fn prism_mcp_protocol_smoke() {
     let agent_view: Value =
         serde_json::from_str(agent_result["content"][0]["text"].as_str().unwrap())
             .expect("agent_json content text");
-    assert_eq!(agent_view["meta"]["schema_version"], "0.3");
-    assert_eq!(agent_result["_meta"]["prism/view_schema_version"], "0.3");
+    assert_eq!(agent_view["meta"]["schema_version"], "0.4");
+    assert_eq!(agent_view["meta"]["indexing_policy"], "code_role_v1");
+    assert_eq!(agent_result["_meta"]["prism/view_schema_version"], "0.4");
+    assert_eq!(
+        agent_result["_meta"]["prism/view_indexing_policy"],
+        "code_role_v1"
+    );
 }
 
 fn lifecycle_messages() -> String {
