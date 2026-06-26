@@ -35,7 +35,7 @@ def _cfg_for(repo_rel: str):
 @pytest.mark.parametrize("probe", _PROBES, ids=[p.id for p in _PROBES])
 def test_probe(probe):
     cfg = _cfg_for(probe.repo)
-    inv, act = [], []
+    inv, act, failures = [], [], []
     for trial in range(K):
         traj = run_trial(probe, trial, cfg=cfg, eval_root=EVAL_ROOT, results_root=RESULTS,
                          skill_bytes=SKILL_BYTES, model="sonnet")
@@ -43,10 +43,20 @@ def test_probe(probe):
         fired = set(traj.prism_nav_calls())
         inv.append(bool(fired & set(probe.expected_tools)) if probe.kind == "nav" else bool(fired))
         act.append(traj.loaded_prism_skill())
-        # score with deepeval gate metrics (deterministic); nav probes only
+        # score every trial with deepeval gate metrics (deterministic) for ground-truth reporting;
+        # catch the failure so a failing trial does NOT abort _RESULTS recording (nav probes only).
         if probe.kind == "nav":
-            assert_test(test_case=tc, metrics=GATE_METRICS, run_async=False)
+            try:
+                assert_test(test_case=tc, metrics=GATE_METRICS, run_async=False)
+            except AssertionError as e:
+                failures.append(f"t{trial}: {str(e)[:160]}")
+    # record EVERY probe (before any pytest assertion) so the benchmark aggregates all of them
     _RESULTS[probe.id] = {"kind": probe.kind, "invocation": inv, "activation": act}
+    # pytest gate = pass^K: nav probes must invoke on all K trials; negatives must never over-reach
+    if probe.kind == "nav":
+        assert all(inv), f"{probe.id}: invocation pass^{K} = {sum(inv)}/{K}; " + " | ".join(failures[:2])
+    else:
+        assert not any(inv), f"{probe.id}: over-reached for prism on {sum(inv)}/{K} trials"
 
 def teardown_module(_):
     if _RESULTS:
