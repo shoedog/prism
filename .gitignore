@@ -13,3 +13,6 @@ tests/fixtures/hapi-4552-output.txt
 
 # Tier-C live run artifacts (persisted by RunStore; replay engine deferred to Phase-1d-replay)
 eval/tier_c/runs/
+
+# Adoption eval: trajectory cache + benchmark outputs (gitignored per plan Task 9)
+eval/adoption/results/
