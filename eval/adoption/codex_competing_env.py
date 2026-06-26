@@ -8,12 +8,23 @@ No-hint control: ONLY auth.json + skills/ + config.toml are copied.  memories*.s
 and any AGENTS.md are deliberately excluded — the competing home carries config/auth/skills
 competition but never the memory-based prism hint.
 
+extra_skill_dirs: each entry (expanded via expanduser) is scanned for subdirectories,
+and each subdir is copied into CODEX_HOME/skills/ alongside ~/.codex/skills and the
+injected tuned prism-code-navigation. Default is ("~/knowledge-ref/skills",) so that
+the user's prism-nav and lsp-nav skills compete (matching the claude competing env,
+which carries them via ~/.claude/skills). The injected tuned prism-code-navigation is
+copied LAST so it always wins if an extra dir happens to contain a same-named skill.
+
 Pairs with codex_env.py's isolated builder."""
 from __future__ import annotations
 import atexit, os, shutil, tempfile
+from collections.abc import Sequence
+
+_DEFAULT_EXTRA_SKILL_DIRS: tuple[str, ...] = ("~/knowledge-ref/skills",)
 
 def build_competing_codex_home(*, skill_src: str, mcp_repo: str, prism_mcp_bin: str,
-                               root: str | None = None, real_home: str = "~/.codex") -> str:
+                               root: str | None = None, real_home: str = "~/.codex",
+                               extra_skill_dirs: Sequence[str] = _DEFAULT_EXTRA_SKILL_DIRS) -> str:
     base = root or tempfile.mkdtemp(prefix="tc-codex-compete-")
     if root is None:
         atexit.register(shutil.rmtree, base, True)
@@ -26,7 +37,7 @@ def build_competing_codex_home(*, skill_src: str, mcp_repo: str, prism_mcp_bin: 
     if os.path.exists(ra):
         d = os.path.join(base, "auth.json"); shutil.copy2(ra, d); os.chmod(d, 0o600)
 
-    # skills: copy real skills then add the tuned one
+    # skills: copy real skills, then extra_skill_dirs, then the tuned one (last wins)
     skills_dir = os.path.join(base, "skills"); os.makedirs(skills_dir, exist_ok=True)
     rs = os.path.join(real, "skills")
     if os.path.isdir(rs):
@@ -35,6 +46,16 @@ def build_competing_codex_home(*, skill_src: str, mcp_repo: str, prism_mcp_bin: 
             if os.path.isdir(src):
                 shutil.copytree(src, os.path.join(skills_dir, name), symlinks=True,
                                 dirs_exist_ok=True)
+    # extra_skill_dirs: copy each subdir into skills/ (e.g. ~/knowledge-ref/skills/prism-nav →
+    # CODEX_HOME/skills/prism-nav) so they compete alongside ~/.codex/skills skills.
+    for extra_dir in extra_skill_dirs:
+        xd = os.path.expanduser(extra_dir)
+        if os.path.isdir(xd):
+            for name in os.listdir(xd):
+                src = os.path.join(xd, name)
+                if os.path.isdir(src):
+                    shutil.copytree(src, os.path.join(skills_dir, name), symlinks=True,
+                                    dirs_exist_ok=True)
     dst = os.path.join(skills_dir, os.path.basename(skill_src.rstrip("/")))
     if os.path.exists(dst):
         shutil.rmtree(dst)

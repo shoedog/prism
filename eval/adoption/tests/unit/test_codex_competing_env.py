@@ -39,6 +39,29 @@ def test_b1_mcp_server_after_projects_survives(tmp_path):
     assert "[mcp_servers.prism]" in built_cfg
 
 
+# extra_skill_dirs: subdirs from each extra dir are merged into CODEX_HOME/skills/.
+def test_extra_skill_dirs_copied(tmp_path):
+    realcodex = tmp_path / "realcodex"; realcodex.mkdir()
+    (realcodex / "auth.json").write_text('{"t":"x"}')
+    (realcodex / "config.toml").write_text("[mcp_servers.node_repl]\ncommand='x'\n")
+    tuned = tmp_path / "prism-code-navigation"; tuned.mkdir(); (tuned / "SKILL.md").write_text("tuned")
+    # extra dir with prism-nav and lsp-nav skills (like ~/knowledge-ref/skills/)
+    extra = tmp_path / "extra_skills"
+    (extra / "prism-nav").mkdir(parents=True); (extra / "prism-nav" / "SKILL.md").write_text("pn")
+    (extra / "lsp-nav").mkdir(); (extra / "lsp-nav" / "SKILL.md").write_text("ln")
+    home = build_competing_codex_home(skill_src=str(tuned), mcp_repo="/repo",
+                                      prism_mcp_bin="/bin/p", root=str(tmp_path / "home"),
+                                      real_home=str(realcodex),
+                                      extra_skill_dirs=[str(extra)])
+    # extra skills must land in CODEX_HOME/skills/
+    assert os.path.isfile(os.path.join(home, "skills", "prism-nav", "SKILL.md")), \
+        "prism-nav from extra_skill_dirs not found in CODEX_HOME/skills/"
+    assert os.path.isfile(os.path.join(home, "skills", "lsp-nav", "SKILL.md")), \
+        "lsp-nav from extra_skill_dirs not found in CODEX_HOME/skills/"
+    # tuned prism-code-navigation must NOT be overwritten by an extra-dir version
+    assert open(os.path.join(home, "skills", "prism-code-navigation", "SKILL.md")).read() == "tuned"
+
+
 # B2 regression: memories_1.sqlite in the real home must NOT be copied into the competing home.
 def test_b2_memories_sqlite_not_copied(tmp_path):
     realcodex = tmp_path / "realcodex"; realcodex.mkdir()
