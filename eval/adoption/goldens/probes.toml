@@ -1,0 +1,89 @@
+[[probe]]
+id = "callers-count-claims"
+kind = "nav"
+prompt = "List every call site of `count_claims` as file:line. Answer in <=3 lines."
+repo = "tier_c"
+expected_tools = ["nav_callers"]
+expected_symbol = "count_claims"
+
+[[probe]]
+id = "callees-run-stage"
+kind = "nav"
+prompt = "What functions does `run_stage` call? List them. Answer in <=3 lines."
+repo = "tier_c"
+expected_tools = ["nav_callees"]
+expected_symbol = "run_stage"
+
+[[probe]]
+id = "impact-stage-prompt"
+kind = "nav"
+prompt = "What call sites break if I change the signature of `stage_prompt`? List them. Answer in <=3 lines."
+repo = "tier_c"
+expected_tools = ["nav_callers", "nav_ego_graph"]
+expected_symbol = "stage_prompt"
+
+[[probe]]
+id = "nodes-at-chain-35"
+kind = "nav"
+prompt = "What symbol is defined at chain.py:35? Answer in 1 line."
+repo = "tier_c"
+expected_tools = ["nav_nodes_at"]
+
+[[probe]]
+id = "repo-map-top3"
+kind = "nav"
+prompt = "What are the 3 most-depended-on modules in this package? Answer in <=3 lines."
+repo = "tier_c"
+expected_tools = ["nav_repo_map", "nav_module_deps"]
+
+[[probe]]
+id = "module-deps-cli"
+kind = "nav"
+prompt = "What does cli.py depend on within this package? Answer in <=3 lines."
+repo = "tier_c"
+expected_tools = ["nav_module_deps"]
+
+[[probe]]
+id = "ego-run-chain"
+kind = "nav"
+prompt = "Show the local call graph around `run_spec_plan_chain`. Answer in <=3 lines."
+repo = "tier_c"
+expected_tools = ["nav_ego_graph"]
+expected_symbol = "run_spec_plan_chain"
+
+[[probe]]
+id = "callees-score-citations"
+kind = "nav"
+prompt = "What does `score_citations` call? Answer in <=3 lines."
+repo = "tier_c"
+expected_tools = ["nav_callees"]
+expected_symbol = "score_citations"
+
+[[probe]]
+id = "callers-parse-citations"
+kind = "nav"
+prompt = "Who uses `parse_citations`? List call sites. Answer in <=3 lines."
+repo = "tier_c"
+expected_tools = ["nav_callers"]
+expected_symbol = "parse_citations"
+
+[[probe]]
+id = "compound-run-35"
+kind = "nav"
+prompt = "What is defined at run.py:35, and who calls it? Answer in <=3 lines."
+repo = "tier_c"
+expected_tools = ["nav_nodes_at", "nav_callers"]
+
+[[probe]]
+id = "neg-docstring-salt"
+kind = "negative"
+prompt = "Add a one-line docstring to the `_salt` function in chain.py. Show only the new line."
+repo = "tier_c"
+expected_tools = []
+
+[[probe]]
+id = "neg-readme-typo"
+kind = "negative"
+prompt = "Suggest a one-line wording fix for the first sentence of README.md. Answer in 1 line."
+repo = "tier_c"
+expected_tools = []
