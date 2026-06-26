@@ -1,6 +1,6 @@
 # eval/adoption/testcase.py
 """Map a parsed Trajectory + Probe into a deepeval LLMTestCase (no-tracing path).
-tools_called = prism nav calls only (the signal); skill-load goes in additional_metadata
+tools_called = prism nav calls only (the signal); skill-load goes in metadata
 for the custom SkillActivationMetric."""
 from __future__ import annotations
 from deepeval.test_case import LLMTestCase, ToolCall
@@ -14,7 +14,7 @@ def build_test_case(traj: Trajectory, probe: Probe) -> LLMTestCase:
         actual_output=traj.final_text or "(no answer)",
         tools_called=tools_called,
         expected_tools=expected,
-        additional_metadata={
+        metadata={
             "prism_skill_loaded": traj.loaded_prism_skill(),
             "probe_id": probe.id, "kind": probe.kind,
         },

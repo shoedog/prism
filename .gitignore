@@ -16,3 +16,8 @@ eval/tier_c/runs/
 
 # Adoption eval: trajectory cache + benchmark outputs (gitignored per plan Task 9)
 eval/adoption/results/
+
+# deepeval runtime artifacts (telemetry, cache, temp test data)
+eval/.deepeval
+eval/.deepeval-cache/
+eval/temp_test_run_data.json

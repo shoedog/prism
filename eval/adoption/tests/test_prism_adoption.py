@@ -23,11 +23,14 @@ PRISM_BIN = os.path.join(REPO_ROOT, "target", "release", "prism-mcp")
 
 _PROBES = load_probes()
 _RESULTS: dict = {}
+_CFG_CACHE: dict = {}
 
 def _cfg_for(repo_rel: str):
-    return build_isolated_config(skill_src=SKILL_SRC,
-                                 mcp_repo=os.path.join(EVAL_ROOT, repo_rel),
-                                 prism_mcp_bin=PRISM_BIN)
+    if repo_rel not in _CFG_CACHE:
+        _CFG_CACHE[repo_rel] = build_isolated_config(skill_src=SKILL_SRC,
+                                                     mcp_repo=os.path.join(EVAL_ROOT, repo_rel),
+                                                     prism_mcp_bin=PRISM_BIN)
+    return _CFG_CACHE[repo_rel]
 
 @pytest.mark.parametrize("probe", _PROBES, ids=[p.id for p in _PROBES])
 def test_probe(probe):

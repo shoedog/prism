@@ -70,7 +70,7 @@ expected_symbol = "parse_citations"
 [[probe]]
 id = "compound-run-35"
 kind = "nav"
-prompt = "What is defined at run.py:35, and who calls it? Answer in <=3 lines."
+prompt = "What is defined at run.py:93, and who calls it? Answer in <=3 lines."
 repo = "tier_c"
 expected_tools = ["nav_nodes_at", "nav_callers"]
 
@@ -84,6 +84,6 @@ expected_tools = []
 [[probe]]
 id = "neg-readme-typo"
 kind = "negative"
-prompt = "Suggest a one-line wording fix for the first sentence of README.md. Answer in 1 line."
+prompt = "Suggest a clearer one-line module docstring for cli.py. Answer in 1 line."
 repo = "tier_c"
 expected_tools = []

@@ -7,7 +7,17 @@ def test_build_claude_cmd_sonnet_with_mcp():
     assert cmd[-1] == "hi"
 
 def test_cache_key_changes_with_skill_hash():
-    a = cache_key(skill_bytes=b"v1", probe_id="p", trial=0, model="sonnet")
-    b = cache_key(skill_bytes=b"v2", probe_id="p", trial=0, model="sonnet")
+    a = cache_key(skill_bytes=b"v1", probe_id="p", prompt="q", repo="r", trial=0, model="sonnet")
+    b = cache_key(skill_bytes=b"v2", probe_id="p", prompt="q", repo="r", trial=0, model="sonnet")
     assert a != b
-    assert a == cache_key(skill_bytes=b"v1", probe_id="p", trial=0, model="sonnet")
+    assert a == cache_key(skill_bytes=b"v1", probe_id="p", prompt="q", repo="r", trial=0, model="sonnet")
+
+def test_cache_key_changes_with_prompt():
+    a = cache_key(skill_bytes=b"v1", probe_id="p", prompt="original question", repo="r", trial=0, model="sonnet")
+    b = cache_key(skill_bytes=b"v1", probe_id="p", prompt="edited question", repo="r", trial=0, model="sonnet")
+    assert a != b
+
+def test_cache_key_changes_with_repo():
+    a = cache_key(skill_bytes=b"v1", probe_id="p", prompt="q", repo="tier_c", trial=0, model="sonnet")
+    b = cache_key(skill_bytes=b"v1", probe_id="p", prompt="q", repo="other_repo", trial=0, model="sonnet")
+    assert a != b

@@ -13,9 +13,11 @@ def build_claude_cmd(*, prompt: str, mcp_cfg: str, model: str = "sonnet") -> lis
     return ["claude", "-p", "--output-format", "stream-json", "--verbose",
             "--model", model, "--mcp-config", mcp_cfg, "--strict-mcp-config", prompt]
 
-def cache_key(*, skill_bytes: bytes, probe_id: str, trial: int, model: str) -> str:
+def cache_key(*, skill_bytes: bytes, probe_id: str, prompt: str, repo: str,
+              trial: int, model: str) -> str:
     h = hashlib.sha256()
-    h.update(skill_bytes); h.update(f"|{probe_id}|{trial}|{model}".encode())
+    h.update(skill_bytes)
+    h.update(f"|{probe_id}|{prompt}|{repo}|{trial}|{model}".encode())
     return h.hexdigest()[:24]
 
 def _cache_dir(results_root: str) -> str:
@@ -23,7 +25,8 @@ def _cache_dir(results_root: str) -> str:
 
 def run_trial(probe: Probe, trial: int, *, cfg: IsolatedConfig, eval_root: str,
               results_root: str, skill_bytes: bytes, model: str = "sonnet") -> Trajectory:
-    key = cache_key(skill_bytes=skill_bytes, probe_id=probe.id, trial=trial, model=model)
+    key = cache_key(skill_bytes=skill_bytes, probe_id=probe.id, prompt=probe.prompt,
+                    repo=probe.repo, trial=trial, model=model)
     cpath = os.path.join(_cache_dir(results_root), key + ".json")
     if os.path.exists(cpath):
         d = json.load(open(cpath))

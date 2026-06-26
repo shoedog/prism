@@ -12,4 +12,4 @@ def test_build_test_case_maps_tools_and_skill():
     assert tc.actual_output == "foo at a.py:1"
     assert [t.name for t in tc.tools_called] == ["nav_callers"]
     assert [t.name for t in tc.expected_tools] == ["nav_callers"]
-    assert tc.additional_metadata["prism_skill_loaded"] is True
+    assert tc.metadata["prism_skill_loaded"] is True

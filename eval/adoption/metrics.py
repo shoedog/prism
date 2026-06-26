@@ -1,6 +1,6 @@
 # eval/adoption/metrics.py
 """Deterministic metrics carry the pass^5 signal (no LLM cost). SkillActivation reads the
-skill-load flag stashed in additional_metadata; ToolCorrectness (deepeval) compares the
+skill-load flag stashed in metadata; ToolCorrectness (deepeval) compares the
 nav tools fired vs expected. ArgumentCorrectness/TaskCompletion (LLM-judge) are quality-only
 and added later, not part of the v1 gate."""
 from __future__ import annotations
@@ -15,7 +15,7 @@ class SkillActivationMetric(BaseMetric):
         self.reason = ""
         self.success = False
     def measure(self, test_case: LLMTestCase) -> float:
-        loaded = bool((test_case.additional_metadata or {}).get("prism_skill_loaded"))
+        loaded = bool((test_case.metadata or {}).get("prism_skill_loaded"))
         self.score = 1.0 if loaded else 0.0
         self.reason = "prism-nav skill loaded" if loaded else "prism-nav skill did not load"
         self.success = self.score >= self.threshold

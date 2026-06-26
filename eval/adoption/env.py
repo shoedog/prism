@@ -2,7 +2,7 @@
 This is the realistic-but-controlled deployment env (spec §Deployment): no SessionStart
 hooks, no other skills (the prior run leaked superpowers:* — a confound)."""
 from __future__ import annotations
-import json, os, shutil, tempfile
+import atexit, json, os, shutil, tempfile
 from dataclasses import dataclass
 
 @dataclass(frozen=True)
@@ -13,7 +13,10 @@ class IsolatedConfig:
 def build_isolated_config(*, skill_src: str, mcp_repo: str, prism_mcp_bin: str,
                           root: str | None = None,
                           credentials_src: str = "~/.claude/.credentials.json") -> IsolatedConfig:
+    _created = root is None
     base = root or tempfile.mkdtemp(prefix="tc-adopt-cfg-")
+    if _created:
+        atexit.register(shutil.rmtree, base, True)
     cfg_dir = os.path.join(base, "config")
     skills_dir = os.path.join(cfg_dir, "skills")
     os.makedirs(skills_dir, exist_ok=True)
@@ -31,7 +34,9 @@ def build_isolated_config(*, skill_src: str, mcp_repo: str, prism_mcp_bin: str,
     # "Not logged in" and MCP never connects. Copy creds in. SECRET — temp dir only, NEVER commit.
     cred = os.path.expanduser(credentials_src)
     if os.path.exists(cred):
-        shutil.copy2(cred, os.path.join(cfg_dir, ".credentials.json"))
+        dst_cred = os.path.join(cfg_dir, ".credentials.json")
+        shutil.copy2(cred, dst_cred)
+        os.chmod(dst_cred, 0o600)
     mcp_cfg = os.path.join(base, "mcp.json")
     with open(mcp_cfg, "w") as f:
         json.dump({"mcpServers": {"prism": {"command": prism_mcp_bin,
