@@ -1,6 +1,6 @@
 ---
 name: prism-code-navigation
-description: Navigate a codebase structurally with the prism-mcp tools (nav_repo_map, nav_nodes_at, nav_callers, nav_callees, nav_ego_graph, nav_module_deps) instead of grepping. Use when you need to know who calls a symbol, what a symbol calls, what breaks if you change it, the call/dependency graph around it, or the repo's module structure — i.e. "find callers/callees", "impact of changing X", "what depends on Y", "who uses Z", "module dependencies", "trace the call graph". Requires the prism MCP server (tools named mcp__prism__nav_* for Claude/Codex, bare nav_* for Kiro).
+description: Navigate a codebase structurally with the prism-mcp tools (nav_repo_map, nav_nodes_at, nav_callers, nav_callees, nav_ego_graph, nav_module_deps) instead of grepping. ALWAYS use these — never grep/rg/Bash — for any question that names a symbol or file and asks who or what connects to it, INCLUDING quick ones that look grep-able: "who calls X", "list/find the call sites of X", "who uses X", "what does X call", "what functions does X call", "what does this file import / depend on", "what breaks if I change X", "the call/dependency graph around X", "the module structure". Grep is WRONG for these — it matches the definition itself, comments, strings, and same-named symbols in other files, and MISSES aliased / re-exported / renamed-import calls — whereas nav_* returns the *resolved* call/import edges. Reach for the tool even when a single grep looks sufficient. Requires the prism MCP server (tools named mcp__prism__nav_* for Claude/Codex, bare nav_* for Kiro).
 metadata:
   project: prism
   surface: mcp
@@ -12,16 +12,26 @@ Prism's MCP server answers **structural** questions over a Code Property Graph o
 instead of grep whenever the question is "who/what is connected to this symbol" rather than "where does
 this text appear." It resolves calls and imports across files — grep can't.
 
+**Default to nav_*, not grep or Read, the moment a request names a symbol or file and asks who/what
+connects to it — or what symbol is defined at a specific `file:line` — even a quick one-line lookup.**
+These look one-grep-or-Read-able, but those give a wrong or shallow answer: grep matches the definition
+line, comments, doc-strings, and same-named symbols in unrelated files, and silently misses calls made
+through an alias, a re-export, or a renamed import; Read just shows you the raw text at a line. The nav
+tools resolve the *actual* graph instead — `nav_callers` / `nav_callees` / `nav_module_deps` return the
+resolved call/import edges, and **`nav_nodes_at({file, line})` resolves the real symbol/node at a line**
+(use it, not Read, for "what's defined / what's called at `file:line`"). The cost is one tool call; the
+payoff is a correct, complete answer — so don't grep-or-Read first and fall back to nav, start with nav.
+
 ## When to use it (vs grep / reading files)
 
-| Question | Tool | Don't grep because |
+| Question (including quick lookups) | Tool | Don't grep because |
 |---|---|---|
 | "Where am I? what's the module structure?" | `nav_repo_map` | grep can't build a dependency graph |
 | "What's defined / called at this line?" | `nav_nodes_at` | resolves the actual symbol, not the text |
-| "Who calls `X`? what breaks if I change it?" | `nav_callers` | finds call *sites* across files, not name matches |
-| "What does `X` call / depend on?" | `nav_callees` | follows resolved edges, not string hits |
+| "Who calls `X`? list/find its call sites? who uses it? what breaks if I change it?" | `nav_callers` | grep hits the definition, comments, strings, and same-named symbols elsewhere — and misses aliased/re-exported calls; this returns resolved call *sites* |
+| "What does `X` call? what functions does it call/depend on?" | `nav_callees` | follows resolved call edges, not string hits in the body |
 | "Show the local graph around `X`." | `nav_ego_graph` | one call gives the neighborhood |
-| "What does this *file* import/depend on?" | `nav_module_deps` | module edges, not import-line text |
+| "What does this *file* import / depend on?" | `nav_module_deps` | resolves module edges (incl. re-exports & aliased imports), not import-line text |
 
 Use grep/Read when you want literal text, comments, strings, config values, or a symbol prism can't
 resolve (see Gotchas).
