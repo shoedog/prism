@@ -17,4 +17,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["tier_a", "tier_c"]
+packages = ["tier_a", "tier_c", "adoption"]
