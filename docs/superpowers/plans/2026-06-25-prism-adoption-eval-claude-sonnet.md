@@ -54,14 +54,22 @@ def test_build_isolated_config_layout(tmp_path):
     skill_src = tmp_path / "prism-code-navigation"
     (skill_src).mkdir()
     (skill_src / "SKILL.md").write_text("---\nname: prism-code-navigation\n---\nbody")
+    fake_cred = tmp_path / "creds.json"; fake_cred.write_text('{"token":"x"}')
     cfg = build_isolated_config(skill_src=str(skill_src), mcp_repo="/repo/x",
-                                prism_mcp_bin="/bin/prism-mcp", root=str(tmp_path / "iso"))
+                                prism_mcp_bin="/bin/prism-mcp", root=str(tmp_path / "iso"),
+                                credentials_src=str(fake_cred))
     # the skill is present under the isolated config's skills dir
     assert os.path.isfile(os.path.join(cfg.config_dir, "skills", "prism-code-navigation", "SKILL.md"))
     # the MCP config points prism at the repo
     mcp = json.load(open(cfg.mcp_cfg))
     assert mcp["mcpServers"]["prism"]["args"] == ["--repo", "/repo/x"]
-    # NO settings hooks leaked
+    # settings: no hooks, prism allowed, writes denied
+    settings = json.load(open(os.path.join(cfg.config_dir, "settings.json")))
+    assert settings["hooks"] == {}
+    assert "mcp__prism" in settings["permissions"]["allow"]
+    assert "Write" in settings["permissions"]["deny"]
+    # credentials seeded (auth survives the CLAUDE_CONFIG_DIR override)
+    assert json.load(open(os.path.join(cfg.config_dir, ".credentials.json")))["token"] == "x"
     assert cfg.config_dir != os.path.expanduser("~/.claude")
 ```
 
@@ -84,7 +92,8 @@ class IsolatedConfig:
     mcp_cfg: str      # path to the --mcp-config json
 
 def build_isolated_config(*, skill_src: str, mcp_repo: str, prism_mcp_bin: str,
-                          root: str | None = None) -> IsolatedConfig:
+                          root: str | None = None,
+                          credentials_src: str = "~/.claude/.credentials.json") -> IsolatedConfig:
     base = root or tempfile.mkdtemp(prefix="tc-adopt-cfg-")
     cfg_dir = os.path.join(base, "config")
     skills_dir = os.path.join(cfg_dir, "skills")
@@ -93,9 +102,17 @@ def build_isolated_config(*, skill_src: str, mcp_repo: str, prism_mcp_bin: str,
     if os.path.exists(dst):
         shutil.rmtree(dst)
     shutil.copytree(skill_src, dst)
-    # minimal settings: explicitly NO hooks (empty), so nothing is injected.
+    # settings: NO hooks (nothing injected); permit read/nav tools + prism, DENY Write/Edit.
+    # Faithful (a prism user approves the tools) AND safe (the eval cannot modify the target repo).
     with open(os.path.join(cfg_dir, "settings.json"), "w") as f:
-        json.dump({"hooks": {}}, f)
+        json.dump({"hooks": {},
+                   "permissions": {"allow": ["Read", "Grep", "Glob", "Bash", "mcp__prism"],
+                                   "deny": ["Write", "Edit"]}}, f)
+    # Seed auth: overriding CLAUDE_CONFIG_DIR loses ~/.claude credentials, so claude returns
+    # "Not logged in" and MCP never connects. Copy creds in. SECRET — temp dir only, NEVER commit.
+    cred = os.path.expanduser(credentials_src)
+    if os.path.exists(cred):
+        shutil.copy2(cred, os.path.join(cfg_dir, ".credentials.json"))
     mcp_cfg = os.path.join(base, "mcp.json")
     with open(mcp_cfg, "w") as f:
         json.dump({"mcpServers": {"prism": {"command": prism_mcp_bin,
@@ -105,7 +122,7 @@ def build_isolated_config(*, skill_src: str, mcp_repo: str, prism_mcp_bin: str,
 
 - [ ] **Step 4: Run the unit test, expect PASS** — `cd eval && uv run pytest adoption/tests/unit/test_env.py -v`.
 
-- [ ] **Step 5: LIVE verification of isolation** (the load-bearing check). Build prism-mcp first, then run a trivial probe and inspect the init record.
+- [ ] **Step 5: LIVE verification of isolation** (the load-bearing check). Build prism-mcp, then FORCE a prism call. NB: the init `mcp_servers` status can read `pending` pre-handshake — do NOT gate on it; gate on an actual successful prism tool call (`is_error: False`, not "permission denied"/"Not logged in") + no superpowers leak.
 
 ```bash
 cd /Users/wesleyjinks/code/slicing
@@ -117,16 +134,19 @@ cfg = build_isolated_config(skill_src='../skills/prism-code-navigation', mcp_rep
                             prism_mcp_bin=os.path.abspath('../target/release/prism-mcp'))
 env = dict(os.environ); env['CLAUDE_CONFIG_DIR'] = cfg.config_dir
 p = subprocess.run(['claude','-p','--output-format','stream-json','--verbose','--model','sonnet',
-                    '--mcp-config', cfg.mcp_cfg, '--strict-mcp-config', 'Say only: ready.'],
-                   capture_output=True, text=True, cwd='tier_c', env=env, timeout=180)
+                    '--mcp-config', cfg.mcp_cfg, '--strict-mcp-config',
+                    'Call the prism tool mcp__prism__nav_repo_map and report its first line. If you cannot, state the EXACT reason.'],
+                   capture_output=True, text=True, cwd='tier_c', env=env, timeout=240)
 recs=[json.loads(l) for l in p.stdout.splitlines() if l.strip()]
+calls=[c.get('name') for r in recs if r.get('type')=='assistant' for c in (r.get('message',{}).get('content') or []) if isinstance(c,dict) and c.get('type')=='tool_use']
+res=[r for r in recs if r.get('type')=='result']
 init=[r for r in recs if r.get('type')=='system' and r.get('subtype')=='init'][0]
-print('mcp_servers:', init.get('mcp_servers'))
-print('prism tools present:', [t for t in init.get('tools',[]) if 'prism' in str(t)])
-print('slash/skills leaked superpowers?:', any('superpower' in str(x).lower() for x in init.get('slash_commands',[])+init.get('tools',[])))
+print('prism fired ok:', any(str(c).startswith('mcp__prism') for c in calls), '| is_error:', res[0].get('is_error') if res else None)
+print('result head:', (res[0].get('result') if res else p.stderr[:200])[:160])
+print('superpowers leaked:', any('superpower' in str(x).lower() for x in init.get('slash_commands',[])+init.get('tools',[])))
 "
 ```
-Expected: `mcp_servers: [{'name':'prism','status':'connected'}]`, prism tools present, **no superpowers leak**. If MCP not connected or superpowers leaks → STOP, switch to the documented fallback (a minimal `HOME` override) and note it in the spec before continuing.
+Expected: `prism fired ok: True | is_error: False` with a real graph in the result head (NOT "permission denied"/"Not logged in"), and `superpowers leaked: False`. If prism is denied/not-logged-in or superpowers leaks → STOP and report a BLOCKER (controller adjusts the env recipe).
 
 - [ ] **Step 6: Commit** — `git add eval/adoption/__init__.py eval/adoption/env.py eval/adoption/tests/unit/test_env.py && git commit -m "feat(adoption): isolated CLAUDE_CONFIG_DIR env builder + live isolation check"`
 

@@ -108,9 +108,15 @@ repo's `skills/prism-code-navigation`), and **no** SessionStart hooks, **no** ot
 `--mcp-config <cfg> --strict-mcp-config` pointing prism-mcp `--repo <probe repo>` (proven to connect +
 expose all 8 `mcp__prism__nav_*` tools in reproduction).
 
-**LOAD-BEARING ASSUMPTION — verify FIRST in the plan (Task 1):** that `claude -p` honors `CLAUDE_CONFIG_DIR`,
-loads a skill placed there, and excludes global skills/hooks. Fallback if not: a minimal `HOME`/`--settings`
-override or a container. The whole "clean env" rests on this; it must be confirmed before building the suite.
+**LOAD-BEARING ASSUMPTION — RESOLVED 2026-06-25 (spike):** `claude -p` honors `CLAUDE_CONFIG_DIR` and
+isolates skills (superpowers does NOT leak), but the isolated home needs two more seeds to be functional:
+**(1)** a copy of `~/.claude/.credentials.json` (overriding `CLAUDE_CONFIG_DIR` loses auth → "Not logged in"
+→ MCP never connects), and **(2)** a permission allow-list in `settings.json`
+(`allow: [Read, Grep, Glob, Bash, mcp__prism]`, `deny: [Write, Edit]`) — without it the prism tool call is
+**denied** by permissions. With both, a forced prism call succeeds (`is_error: False`, real graph) and
+superpowers stays excluded. The allow-list is faithful (a prism user approves the tools) and the Write/Edit
+deny keeps the eval from modifying the target repo. `.credentials.json` is a secret → temp dir only, never
+committed. (Init `mcp_servers` may read `pending` pre-handshake; gate on an actual successful prism call.)
 
 ## Data flow (one trial)
 
