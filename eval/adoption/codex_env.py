@@ -2,16 +2,17 @@
 prism-code-navigation skill + the prism MCP server (and NOT any user-global skills
 from ~/.codex/skills/ or knowledge-ref/).
 
-The isolation contract:
+The isolation contract (CODEX_HOME alone — codex reads config.toml + skills from
+$CODEX_HOME, so pointing it at this dir excludes ~/.codex and ~/knowledge-ref skills;
+verified live: codex loads only the repo's prism-code-navigation, no fallback):
   - auth.json copied from auth_src, chmod 0600
-  - config.toml has ONLY [mcp_servers.prism]; no skill_dirs, no extra keys that
-    would inject user skills.  Use `--ignore-user-config` on every codex exec call
-    so ~/.codex/config.toml is not loaded.  Auth still reads from CODEX_HOME.
+  - config.toml has ONLY [mcp_servers.prism] (the sole MCP server); no skill_dirs.
+    Do NOT pass --ignore-user-config on the exec call — it would skip THIS config.toml
+    and drop the prism MCP server (prism would be unavailable). Auth reads from CODEX_HOME.
   - skills/prism-code-navigation/ copied from skill_src (the repo's deployed skill).
 
 The caller is responsible for:
   - Setting CODEX_HOME=<returned path> in subprocess env.
-  - Passing --ignore-user-config to `codex exec` to suppress the user config.
   - Passing -C <repo_dir> to set the working directory.
 """
 from __future__ import annotations

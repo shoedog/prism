@@ -25,14 +25,15 @@ def build_claude_cmd(*, prompt: str, mcp_cfg: str, model: str = "sonnet") -> lis
 def build_codex_cmd(*, prompt: str, model: str = "gpt-5.5") -> list[str]:
     """Build a `codex exec --json` command.
 
-    CODEX_HOME must be set by the caller via env; --ignore-user-config prevents the
-    user's ~/.codex/config.toml from injecting extra skills.
-    The -C (cwd) flag is NOT embedded here; the caller sets cwd via subprocess.run cwd=.
+    Isolation is via CODEX_HOME (set by the caller): codex reads config.toml + skills
+    from $CODEX_HOME, so a clean home with only the prism MCP server + the tuned skill
+    fully isolates it (verified: no ~/.codex or knowledge-ref leak). Do NOT pass
+    --ignore-user-config — it would SKIP $CODEX_HOME/config.toml, dropping the prism MCP
+    server (prism would be unavailable). The -C (cwd) flag is set via subprocess.run cwd=.
     """
     return [
         "codex", "exec",
         "--json",
-        "--ignore-user-config",
         "-m", model,
         "-s", "read-only",
         prompt,
