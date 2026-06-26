@@ -11,7 +11,8 @@ class IsolatedConfig:
     mcp_cfg: str      # path to the --mcp-config json
 
 def build_isolated_config(*, skill_src: str, mcp_repo: str, prism_mcp_bin: str,
-                          root: str | None = None) -> IsolatedConfig:
+                          root: str | None = None,
+                          credentials_src: str = "~/.claude/.credentials.json") -> IsolatedConfig:
     base = root or tempfile.mkdtemp(prefix="tc-adopt-cfg-")
     cfg_dir = os.path.join(base, "config")
     skills_dir = os.path.join(cfg_dir, "skills")
@@ -20,9 +21,17 @@ def build_isolated_config(*, skill_src: str, mcp_repo: str, prism_mcp_bin: str,
     if os.path.exists(dst):
         shutil.rmtree(dst)
     shutil.copytree(skill_src, dst)
-    # minimal settings: explicitly NO hooks (empty), so nothing is injected.
+    # settings: NO hooks (nothing injected); permit read/nav tools + prism, DENY Write/Edit.
+    # Faithful (a prism user approves the tools) AND safe (the eval cannot modify the target repo).
     with open(os.path.join(cfg_dir, "settings.json"), "w") as f:
-        json.dump({"hooks": {}}, f)
+        json.dump({"hooks": {},
+                   "permissions": {"allow": ["Read", "Grep", "Glob", "Bash", "mcp__prism"],
+                                   "deny": ["Write", "Edit"]}}, f)
+    # Seed auth: overriding CLAUDE_CONFIG_DIR loses ~/.claude credentials, so claude returns
+    # "Not logged in" and MCP never connects. Copy creds in. SECRET — temp dir only, NEVER commit.
+    cred = os.path.expanduser(credentials_src)
+    if os.path.exists(cred):
+        shutil.copy2(cred, os.path.join(cfg_dir, ".credentials.json"))
     mcp_cfg = os.path.join(base, "mcp.json")
     with open(mcp_cfg, "w") as f:
         json.dump({"mcpServers": {"prism": {"command": prism_mcp_bin,
