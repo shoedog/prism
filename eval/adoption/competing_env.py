@@ -1,7 +1,20 @@
 # eval/adoption/competing_env.py
 """COMPETING claude env: the REAL skill set (superpowers plugins + user skills + the tuned
 prism-code-navigation) with the SessionStart memory hook STRIPPED — tests the tuned skill under
-realistic competition, no prism hint. Pairs with env.py's isolated builder."""
+realistic competition, no prism hint. Pairs with env.py's isolated builder.
+
+What is and is NOT copied from the real ~/.claude:
+  COPIED:   settings.json (hooks stripped, prism plugins excluded — see I3),
+            skills/ (all real competing skills + the tuned skill),
+            plugins/ (symlinked — superpowers etc. unchanged),
+            .credentials.json (auth; temp dir, chmod 0600).
+  EXCLUDED: memories*.sqlite and AGENTS.md — these carry the memory-based prism hint
+            and must be absent for a clean no-hint control.
+  MUTATED:  settings.hooks → {} (I1: no SessionStart memory injection),
+            settings.permissions.deny ⊇ {Write, Edit} (I1: repo safety — eval cannot
+            modify the target repo),
+            settings.enabledPlugins: prism@* entries removed (I3: the prism plugin bundles
+            prism-code-navigation; keeping it would shadow the tuned competing skill)."""
 from __future__ import annotations
 import atexit, json, os, shutil, tempfile
 from .env import IsolatedConfig   # reuse the (config_dir, mcp_cfg) dataclass
@@ -33,12 +46,29 @@ def build_competing_config(*, skill_src: str, mcp_repo: str, prism_mcp_bin: str,
         shutil.rmtree(tuned_dst)
     shutil.copytree(skill_src, tuned_dst)
 
-    # settings: copy real, but STRIP hooks (no SessionStart memory injection)
+    # settings: copy real, then apply safety/control mutations
     settings = {}
     rsj = os.path.join(real, "settings.json")
     if os.path.exists(rsj):
         settings = json.load(open(rsj))
-    settings["hooks"] = {}                       # the key control: no memory injection
+
+    # Control 1 (no-hint): strip memory-injection hooks (no SessionStart)
+    settings["hooks"] = {}
+
+    # I1 (repo safety): force Write + Edit denied so the eval cannot modify the target repo.
+    # Mirror env.py's isolated builder which always denies Write/Edit.
+    perms = settings.setdefault("permissions", {})
+    existing_deny = set(perms.get("deny", []))
+    perms["deny"] = sorted(existing_deny | {"Write", "Edit"})
+
+    # I3 (no-shadow): remove prism@* plugin entries so the plugin's bundled prism-code-navigation
+    # doesn't shadow the injected tuned competing skill.  Non-prism plugins survive.
+    if "enabledPlugins" in settings:
+        settings["enabledPlugins"] = {
+            k: v for k, v in settings["enabledPlugins"].items()
+            if "prism" not in k
+        }
+
     with open(os.path.join(cfg_dir, "settings.json"), "w") as f:
         json.dump(settings, f)
 

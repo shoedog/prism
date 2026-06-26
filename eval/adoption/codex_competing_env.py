@@ -1,7 +1,14 @@
 # eval/adoption/codex_competing_env.py
-"""COMPETING codex CODEX_HOME: the real ~/.codex config + skills (auto-loads knowledge-ref's
-prism-nav/lsp-nav) + the tuned skill + prism MCP, minus the prism-naming instruction. Pairs with
-codex_env.py's isolated builder. Verify-first: the 'no prism hint' condition is recipe-uncertain."""
+"""COMPETING codex CODEX_HOME: carries the ENTIRE real ~/.codex/config.toml (keeps
+[mcp_servers.*], [plugins.*], [marketplaces.*], and [projects.*] = real competition),
+then APPENDS [mcp_servers.prism]. The prism-naming hint is absent from config.toml
+itself so no instruction key injects it.
+
+No-hint control: ONLY auth.json + skills/ + config.toml are copied.  memories*.sqlite
+and any AGENTS.md are deliberately excluded — the competing home carries config/auth/skills
+competition but never the memory-based prism hint.
+
+Pairs with codex_env.py's isolated builder."""
 from __future__ import annotations
 import atexit, os, shutil, tempfile
 
@@ -18,6 +25,7 @@ def build_competing_codex_home(*, skill_src: str, mcp_repo: str, prism_mcp_bin: 
     ra = os.path.join(real, "auth.json")
     if os.path.exists(ra):
         d = os.path.join(base, "auth.json"); shutil.copy2(ra, d); os.chmod(d, 0o600)
+
     # skills: copy real skills then add the tuned one
     skills_dir = os.path.join(base, "skills"); os.makedirs(skills_dir, exist_ok=True)
     rs = os.path.join(real, "skills")
@@ -32,16 +40,17 @@ def build_competing_codex_home(*, skill_src: str, mcp_repo: str, prism_mcp_bin: 
         shutil.rmtree(dst)
     shutil.copytree(skill_src, dst)
 
-    # config.toml: copy the real one (keeps user's mcp_servers = competition) + append prism MCP.
-    # Deliberately do NOT carry any [projects.*] / instruction keys that name prism (the memory hint).
+    # config.toml: carry the ENTIRE real config (mcp_servers, plugins, marketplaces, projects
+    # trust tables — all real competition), then APPEND [mcp_servers.prism].
+    # B1 fix: read ALL lines without truncating at [projects.*]; the real config.toml has no
+    # prism-naming hint so the no-hint control is inherent in the file itself.
+    # B2 control (explicit): we ONLY copy auth.json + skills/ + config.toml.
+    # memories*.sqlite and AGENTS.md are NOT copied — they carry the memory-based prism hint.
     lines = []
     rc = os.path.join(real, "config.toml")
     if os.path.exists(rc):
-        for ln in open(rc):
-            # drop project-instruction blocks that may inject prism hints; keep mcp_servers etc.
-            if ln.strip().startswith("[projects."):
-                break  # everything after the projects table is instruction config — exclude it
-            lines.append(ln)
+        with open(rc) as fh:
+            lines = fh.readlines()  # carry the full file — no filtering by section position
     lines += ["\n[mcp_servers.prism]\n", f'command = "{prism_mcp_bin}"\n',
               f'args = ["--repo", "{mcp_repo}"]\n']
     with open(os.path.join(base, "config.toml"), "w") as f:
