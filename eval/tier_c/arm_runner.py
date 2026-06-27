@@ -7,11 +7,72 @@ import os
 import subprocess
 import tempfile
 import time
+from dataclasses import dataclass, field
+from pathlib import Path
 from .model import Variant, ArmOutput
 from .citations import parse_citations
 from .parse import parse_claude_json, parse_codex_jsonl, parse_claude_stream_json
 from .llm import cli_model_flag
 from .classify import classify_tools
+
+
+def prism_mcp_args(repo_root: str, *, no_cache: bool = False) -> list[str]:
+    """Build the prism-mcp server arg list for a given repo root.
+
+    Used at BOTH the claude MCP-config site and the codex -c mcp_servers.prism.args site
+    so both runners honour the same no_cache flag.
+    """
+    args = ["--repo", repo_root]
+    if no_cache:
+        args.append("--no-cache")
+    return args
+
+
+def _reset_clean(root: "Path | str") -> None:
+    """Revert the checkout at *root* to HEAD: tracked edits (reset --hard) + untracked files (clean -fd)."""
+    root = str(root)
+    subprocess.run(["git", "-C", root, "reset", "--hard", "-q"], check=True)
+    subprocess.run(["git", "-C", root, "clean", "-fdq"], check=True)
+
+
+@dataclass
+class IsolatedArmResult:
+    """Result from run_arm_isolated: the arm output + isolation metadata."""
+    out: ArmOutput
+    cache_mode: str        # "no-cache" | "cached"
+    mcp_args: list[str]   # the prism MCP args used (for assertion in tests)
+
+
+def run_arm_isolated(
+    runner,
+    *,
+    checkout,
+    variant: Variant,
+    stage: str = "spec",
+    prompt: str = "",
+    no_cache: bool = True,
+) -> IsolatedArmResult:
+    """Run *runner* inside an isolated, immutable checkout.
+
+    Isolation contract:
+    - BEFORE: reset --hard + clean -fd (clean slate, no prior arm pollution).
+    - AFTER (in finally): reset --hard + clean -fd (revert any mutations the arm made).
+    - prism-mcp is launched with --no-cache (when no_cache=True) so a stale CPG cannot
+      survive across arms.
+
+    Returns IsolatedArmResult so callers can assert on cache_mode and mcp_args.
+    """
+    root = str(checkout.root)
+    mcp_args = prism_mcp_args(root, no_cache=no_cache)
+    cache_mode = "no-cache" if no_cache else "cached"
+
+    _reset_clean(root)
+    try:
+        out = runner.run(variant, stage, prompt, root)
+    finally:
+        _reset_clean(root)
+
+    return IsolatedArmResult(out=out, cache_mode=cache_mode, mcp_args=mcp_args)
 
 
 def _prism_mcp_bin() -> str:
@@ -32,21 +93,23 @@ def _prism_mcp_bin() -> str:
                      "target", "release", "prism-mcp"))
     return cand if os.path.exists(cand) else "prism-mcp"
 
-def _prism_mcp_config(repo_root: str) -> str:
+def _prism_mcp_config(repo_root: str, *, no_cache: bool = False) -> str:
     """Write a per-checkout claude MCP config pointing prism-mcp at THIS repo_root (the pinned
     worktree). Mirrors CodexRunner's per-checkout --repo. Returns the temp config path."""
-    cfg = {"mcpServers": {"prism": {"command": _prism_mcp_bin(), "args": ["--repo", repo_root]}}}
+    cfg = {"mcpServers": {"prism": {"command": _prism_mcp_bin(),
+                                    "args": prism_mcp_args(repo_root, no_cache=no_cache)}}}
     fd, path = tempfile.mkstemp(prefix="tc-mcp-", suffix=".json")
     with os.fdopen(fd, "w") as f:
         json.dump(cfg, f)
     return path
 
-def build_codex_cmd(variant: Variant, *, repo: str) -> list[str]:
+def build_codex_cmd(variant: Variant, *, repo: str, no_cache: bool = False) -> list[str]:
     # codex MCP is inline `-c mcp_servers.prism...`; OFF omits it. `-` reads prompt from stdin.
     cmd = ["codex", "exec", "-m", cli_model_flag(variant.model), "-C", repo, "-s", "workspace-write", "-"]
     if variant.prism:
+        mcp_args_json = json.dumps(prism_mcp_args(repo, no_cache=no_cache))
         cmd[6:6] = ["-c", f"mcp_servers.prism.command={_prism_mcp_bin()}",
-                    "-c", f'mcp_servers.prism.args=["--repo","{repo}"]']
+                    "-c", f"mcp_servers.prism.args={mcp_args_json}"]
     return cmd
 
 def build_claude_cmd(variant: Variant, *, mcp_cfg: str) -> list[str]:
@@ -68,12 +131,16 @@ class ClaudeRunner:
     config pointing at repo_root is built on each run() call (mirrors CodexRunner's
     per-checkout --repo).  Pass an explicit path only for testing or special overrides.
     lsp_deny_dir: when set, prepended to PATH for lsp=False variants (deny-shim enforcement).
+    no_cache: when True, pass --no-cache to prism-mcp so stale CPGs cannot survive arm resets.
     """
-    def __init__(self, mcp_cfg: str | None = None, lsp_deny_dir: str | None = None):
+    def __init__(self, mcp_cfg: str | None = None, lsp_deny_dir: str | None = None,
+                 no_cache: bool = False):
         self.mcp_cfg = mcp_cfg          # optional static override; per-checkout config is default
         self.lsp_deny_dir = lsp_deny_dir
+        self.no_cache = no_cache
     def run(self, variant: Variant, stage: str, prompt: str, repo_root: str) -> ArmOutput:
-        cfg = self.mcp_cfg if self.mcp_cfg else (_prism_mcp_config(repo_root) if variant.prism else "")
+        cfg = self.mcp_cfg if self.mcp_cfg else (
+            _prism_mcp_config(repo_root, no_cache=self.no_cache) if variant.prism else "")
         cmd = build_claude_cmd(variant, mcp_cfg=cfg) + [prompt]
         t0 = time.monotonic()
         env = dict(os.environ)
@@ -96,11 +163,13 @@ class CodexRunner:
     """ArmRunner via `codex exec --json` (prompt on stdin). prism ON = inline -c mcp_servers.
     used_prism is set from prism_calls > 0 (real mcp_tool_call events with server=='prism').
     lsp_deny_dir: when set, prepended to PATH for lsp=False variants (deny-shim enforcement).
+    no_cache: when True, pass --no-cache to prism-mcp so stale CPGs cannot survive arm resets.
     """
-    def __init__(self, lsp_deny_dir: str | None = None):
+    def __init__(self, lsp_deny_dir: str | None = None, no_cache: bool = False):
         self.lsp_deny_dir = lsp_deny_dir
+        self.no_cache = no_cache
     def run(self, variant: Variant, stage: str, prompt: str, repo_root: str) -> ArmOutput:
-        cmd = build_codex_cmd(variant, repo=repo_root)
+        cmd = build_codex_cmd(variant, repo=repo_root, no_cache=self.no_cache)
         cmd = ["codex", "exec", "--json"] + cmd[2:]  # codex exec --json ... (robust vs index drift)
         t0 = time.monotonic()
         env = dict(os.environ)

@@ -1,9 +1,13 @@
 import json
 import subprocess
 import pytest
+from pathlib import Path
 from tier_c.model import Variant, Dose
 from tier_c.prompts import stage_prompt
-from tier_c.arm_runner import build_codex_cmd, build_claude_cmd, FakeArmRunner, ClaudeRunner, CodexRunner
+from tier_c.arm_runner import (
+    build_codex_cmd, build_claude_cmd, FakeArmRunner, ClaudeRunner, CodexRunner,
+    prism_mcp_args, _reset_clean, run_arm_isolated, IsolatedArmResult,
+)
 
 def test_stage_prompt_requires_citations():
     p = stage_prompt("spec", issue_text="bug X", scoped_slice="slice 1")
@@ -247,3 +251,112 @@ def test_codex_arm_output_zero_prism_calls():
 
     assert out.prism_calls == 0
     assert not out.used_prism
+
+
+# ---------------------------------------------------------------------------
+# Task 9: per-arm SUT+cache immutability
+# ---------------------------------------------------------------------------
+
+def _make_tmp_git_checkout(tmp_path: Path) -> "SimpleNamespace":
+    """Create a minimal git repo in tmp_path and return an object with .root (Path)."""
+    import types
+    root = tmp_path / "repo"
+    root.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    (root / "README.md").write_text("hello\n")
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
+                    "commit", "-q", "-m", "init"], cwd=root, check=True)
+    ns = types.SimpleNamespace()
+    ns.root = root
+    return ns
+
+
+@pytest.fixture
+def tmp_git_checkout(tmp_path):
+    return _make_tmp_git_checkout(tmp_path)
+
+
+def test_prism_mcp_args_no_cache_flag():
+    """prism_mcp_args(r, no_cache=True) must include --no-cache."""
+    args = prism_mcp_args("/some/repo", no_cache=True)
+    assert "--no-cache" in args
+    assert "--repo" in args
+    assert "/some/repo" in args
+
+
+def test_prism_mcp_args_cached_omits_flag():
+    """prism_mcp_args(r, no_cache=False) must NOT include --no-cache."""
+    args = prism_mcp_args("/some/repo", no_cache=False)
+    assert "--no-cache" not in args
+    assert "--repo" in args
+
+
+def test_reset_clean_reverts_tracked_edit(tmp_git_checkout):
+    """_reset_clean must revert an in-place edit to a tracked file (git reset --hard)."""
+    root = tmp_git_checkout.root
+    readme = root / "README.md"
+    readme.write_text("mutated content\n")
+    assert readme.read_text() == "mutated content\n"
+    _reset_clean(root)
+    assert readme.read_text() == "hello\n"
+
+
+def test_reset_clean_removes_untracked_file(tmp_git_checkout):
+    """_reset_clean must remove an untracked new file (git clean -fd)."""
+    root = tmp_git_checkout.root
+    new_file = root / "x.py"
+    new_file.write_text("print('injected')\n")
+    assert new_file.exists()
+    _reset_clean(root)
+    assert not new_file.exists()
+
+
+def _fake_runner_that_writes(filename: str):
+    """Return a runner whose .run() writes *filename* into checkout.root and returns ArmOutput."""
+    from tier_c.model import Dose as _Dose, ArmOutput as _ArmOutput
+
+    class _WritingRunner:
+        def run(self, variant, stage, prompt, repo_root):
+            (Path(repo_root) / filename).write_text("injected\n")
+            return _ArmOutput(
+                variant=variant, text="done", citations=[], tokens=0,
+                tool_calls=0, wall_s=0.0, used_prism=False,
+                prism_calls=0, dose=_Dose(), low_dose=False,
+            )
+
+    return _WritingRunner()
+
+
+def test_arm_is_isolated_and_no_cache(tmp_git_checkout):
+    """run_arm_isolated: arm writes x.py → reverted after; cache_mode/mcp_args recorded."""
+    prism_on = Variant("opus-4.8", True)
+    res = run_arm_isolated(
+        _fake_runner_that_writes("x.py"),
+        checkout=tmp_git_checkout,
+        variant=prism_on,
+        no_cache=True,
+    )
+    # x.py was written by the fake arm then cleaned by the AFTER reset
+    assert not (tmp_git_checkout.root / "x.py").exists(), "x.py should have been removed by post-arm reset"
+    assert res.cache_mode == "no-cache"
+    assert "--no-cache" in res.mcp_args
+
+
+def test_arm_isolated_after_reset_runs_even_if_arm_raises(tmp_git_checkout):
+    """If the arm raises, _reset_clean still runs (finally block) → no leaked files."""
+    prism_on = Variant("opus-4.8", True)
+
+    class _ErrorRunner:
+        def run(self, variant, stage, prompt, repo_root):
+            (Path(repo_root) / "leaked.py").write_text("oops\n")
+            raise RuntimeError("arm crashed")
+
+    with pytest.raises(RuntimeError, match="arm crashed"):
+        run_arm_isolated(
+            _ErrorRunner(),
+            checkout=tmp_git_checkout,
+            variant=prism_on,
+            no_cache=True,
+        )
+    assert not (tmp_git_checkout.root / "leaked.py").exists(), "AFTER reset must run even on arm error"
