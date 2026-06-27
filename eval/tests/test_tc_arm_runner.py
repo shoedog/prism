@@ -360,3 +360,157 @@ def test_arm_isolated_after_reset_runs_even_if_arm_raises(tmp_git_checkout):
             no_cache=True,
         )
     assert not (tmp_git_checkout.root / "leaked.py").exists(), "AFTER reset must run even on arm error"
+
+
+# ---------------------------------------------------------------------------
+# P0 fix: CLAUDE_CONFIG_DIR / CODEX_HOME for prism-ON arms (dose=0 fix)
+# ---------------------------------------------------------------------------
+
+def _capture_env_from_runner(runner, variant: Variant, stream: str) -> dict:
+    """Run *runner* with subprocess.run patched; return the env dict it was called with."""
+    import tier_c.arm_runner as arm_mod
+    import unittest.mock as mock
+
+    captured_envs = []
+
+    def fake_run(*args, **kwargs):
+        captured_envs.append(dict(kwargs.get("env", {})))
+        return _FakeCompletedProcess(stdout=stream)
+
+    with mock.patch.object(arm_mod.subprocess, "run", side_effect=fake_run):
+        runner.run(variant, "spec", "prompt", "/fake/repo")
+
+    # Last call is the arm subprocess (earlier calls may be _prism_mcp_config
+    # subprocess.run calls — there are none in the current impl, but be defensive).
+    return captured_envs[-1]
+
+
+def _make_minimal_codex_stream() -> str:
+    """Minimal valid codex --json JSONL stream (0 prism calls)."""
+    return "\n".join([
+        json.dumps({"type": "item.completed",
+                    "item": {"type": "agent_message", "text": "ok"}}),
+        json.dumps({"type": "turn.completed",
+                    "usage": {"input_tokens": 1, "output_tokens": 1}}),
+    ])
+
+
+class TestClaudeCfgDir:
+    """CLAUDE_CONFIG_DIR is set for prism-ON claude arms; NOT set for prism-OFF."""
+
+    def test_prism_on_sets_claude_config_dir(self):
+        runner = ClaudeRunner(mcp_cfg="/tmp/fake.json")
+        env = _capture_env_from_runner(
+            runner, Variant("opus-4.8", True), stream_with(prism_calls=0))
+        assert "CLAUDE_CONFIG_DIR" in env, (
+            "prism-ON ClaudeRunner must set CLAUDE_CONFIG_DIR so mcp__prism tools are permitted")
+
+    def test_prism_on_config_dir_has_skill(self):
+        runner = ClaudeRunner(mcp_cfg="/tmp/fake.json")
+        env = _capture_env_from_runner(
+            runner, Variant("opus-4.8", True), stream_with(prism_calls=0))
+        cfg_dir = env["CLAUDE_CONFIG_DIR"]
+        skill_md = Path(cfg_dir) / "skills" / "prism-code-navigation" / "SKILL.md"
+        assert skill_md.exists(), (
+            f"skills/prism-code-navigation/SKILL.md not found in CLAUDE_CONFIG_DIR {cfg_dir}")
+
+    def test_prism_on_config_dir_allows_mcp_prism(self):
+        runner = ClaudeRunner(mcp_cfg="/tmp/fake.json")
+        env = _capture_env_from_runner(
+            runner, Variant("opus-4.8", True), stream_with(prism_calls=0))
+        cfg_dir = env["CLAUDE_CONFIG_DIR"]
+        settings = json.loads((Path(cfg_dir) / "settings.json").read_text())
+        allowed = settings.get("permissions", {}).get("allow", [])
+        assert "mcp__prism" in allowed, (
+            f"settings.json permissions.allow must include 'mcp__prism'; got {allowed}")
+
+    def test_prism_off_does_not_set_claude_config_dir(self):
+        runner = ClaudeRunner(mcp_cfg="/tmp/fake.json")
+        env = _capture_env_from_runner(
+            runner, Variant("opus-4.8", False), stream_with(prism_calls=0))
+        assert "CLAUDE_CONFIG_DIR" not in env, (
+            "prism-OFF ClaudeRunner must NOT set CLAUDE_CONFIG_DIR (keep baseline vanilla)")
+
+    def test_prism_on_still_passes_mcp_config_arg(self):
+        """The per-checkout --mcp-config (with --no-cache) must still be present for prism-ON."""
+        import tier_c.arm_runner as arm_mod
+        import unittest.mock as mock
+
+        captured_cmds = []
+
+        def fake_run(*args, **kwargs):
+            captured_cmds.append(list(args[0]) if args else [])
+            return _FakeCompletedProcess(stdout=stream_with(prism_calls=0))
+
+        runner = ClaudeRunner(no_cache=True)  # no mcp_cfg override: uses per-checkout config
+        with mock.patch.object(arm_mod.subprocess, "run", side_effect=fake_run):
+            runner.run(Variant("opus-4.8", True), "spec", "prompt", "/fake/repo")
+
+        cmd = captured_cmds[-1]
+        cmd_str = " ".join(cmd)
+        assert "--mcp-config" in cmd_str, (
+            "prism-ON ClaudeRunner must still pass --mcp-config to the claude command")
+
+    def test_prism_on_config_dir_cached_across_runs(self):
+        """_arm_config_dir must return the same dir on repeated calls (lazy cache)."""
+        runner = ClaudeRunner(mcp_cfg="/tmp/fake.json")
+        # Access the private method directly to verify caching behaviour.
+        dir1 = runner._arm_config_dir()
+        dir2 = runner._arm_config_dir()
+        assert dir1 == dir2, "ClaudeRunner._arm_config_dir() must return the same dir on every call"
+
+
+class TestCodexCfgHome:
+    """CODEX_HOME is set for prism-ON codex arms; NOT set for prism-OFF.
+    Inline -c mcp_servers.prism.* args are dropped when CODEX_HOME is used."""
+
+    def test_prism_on_sets_codex_home(self):
+        runner = CodexRunner()
+        env = _capture_env_from_runner(
+            runner, Variant("gpt-5.5", True), _make_minimal_codex_stream())
+        assert "CODEX_HOME" in env, (
+            "prism-ON CodexRunner must set CODEX_HOME so codex loads the prism MCP + skill")
+
+    def test_prism_off_does_not_set_codex_home(self):
+        runner = CodexRunner()
+        env = _capture_env_from_runner(
+            runner, Variant("gpt-5.5", False), _make_minimal_codex_stream())
+        assert "CODEX_HOME" not in env, (
+            "prism-OFF CodexRunner must NOT set CODEX_HOME")
+
+    def test_prism_on_drops_inline_mcp_servers_args(self):
+        """When CODEX_HOME defines the MCP server, no -c mcp_servers.prism.* must be injected."""
+        import tier_c.arm_runner as arm_mod
+        import unittest.mock as mock
+
+        captured_cmds = []
+
+        def fake_run(*args, **kwargs):
+            captured_cmds.append(list(args[0]) if args else [])
+            return _FakeCompletedProcess(stdout=_make_minimal_codex_stream())
+
+        runner = CodexRunner()
+        with mock.patch.object(arm_mod.subprocess, "run", side_effect=fake_run):
+            runner.run(Variant("gpt-5.5", True), "spec", "prompt", "/fake/repo")
+
+        cmd_str = " ".join(captured_cmds[-1])
+        assert "mcp_servers.prism" not in cmd_str, (
+            "prism-ON CodexRunner must NOT inject inline -c mcp_servers.prism.* args "
+            "(CODEX_HOME/config.toml defines the server instead)")
+
+    def test_prism_off_has_no_inline_mcp_servers_args(self):
+        import tier_c.arm_runner as arm_mod
+        import unittest.mock as mock
+
+        captured_cmds = []
+
+        def fake_run(*args, **kwargs):
+            captured_cmds.append(list(args[0]) if args else [])
+            return _FakeCompletedProcess(stdout=_make_minimal_codex_stream())
+
+        runner = CodexRunner()
+        with mock.patch.object(arm_mod.subprocess, "run", side_effect=fake_run):
+            runner.run(Variant("gpt-5.5", False), "spec", "prompt", "/fake/repo")
+
+        cmd_str = " ".join(captured_cmds[-1])
+        assert "mcp_servers.prism" not in cmd_str
