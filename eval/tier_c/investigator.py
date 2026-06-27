@@ -28,9 +28,9 @@ class InvestigatorReport:
     verdicts: list[CitationVerdict]
 
 class RelevanceAllTrue:
-    def is_relevant(self, cite, issue_text): return True
+    def is_relevant(self, cite, issue_text, code: str = ""): return True
 class RelevanceNone:
-    def is_relevant(self, cite, issue_text): return False
+    def is_relevant(self, cite, issue_text, code: str = ""): return False
 
 def verify_citation(co, cite: Citation, *, issue_text: str = "",
                     relevance: RelevanceJudge | None = None) -> CitationVerdict:

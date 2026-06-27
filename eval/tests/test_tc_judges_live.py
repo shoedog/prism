@@ -26,3 +26,15 @@ def test_condition_guesser_returns_bool():
 def test_condition_guesser_false_on_no_and_hedge():
     assert LlmConditionGuesser(ask=lambda m,p: "NO", model="opus-4.8").guess_used_prism("x") is False
     assert LlmConditionGuesser(ask=lambda m,p: "Probably not", model="opus-4.8").guess_used_prism("x") is False
+
+def _cite(file, line, symbol):
+    return Citation(file, line, symbol)
+
+def test_relevance_prompt_includes_issue_and_code():
+    seen = {}
+    def ask(m, p):
+        seen["p"] = p
+        return "YES"
+    j = LlmRelevanceJudge(ask=ask, model="opus-4.8")
+    assert j.is_relevant(cite=_cite("a.py", 10, "f"), issue_text="ISSUE-XYZ", code="def f(): ...") is True
+    assert "ISSUE-XYZ" in seen["p"] and "def f()" in seen["p"]

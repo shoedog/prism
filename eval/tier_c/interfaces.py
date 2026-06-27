@@ -7,7 +7,7 @@ from .model import Citation, Variant, ArmOutput
 @runtime_checkable
 class RelevanceJudge(Protocol):
     """Secondary, audit-sampled relevance call (spec §6a) — NEVER prism-backed."""
-    def is_relevant(self, cite: Citation, issue_text: str) -> bool: ...
+    def is_relevant(self, cite: Citation, issue_text: str, code: str = "") -> bool: ...
 
 @runtime_checkable
 class ArmRunner(Protocol):

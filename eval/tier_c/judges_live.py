@@ -30,8 +30,9 @@ class LlmRankJudge:
 class LlmRelevanceJudge:
     def __init__(self, ask, model: str):
         self.ask, self.model = ask, model
-    def is_relevant(self, cite: Citation, issue_text: str) -> bool:
-        prompt = (f"Issue:\n{issue_text}\n\nIs the code at {cite.file}:{cite.line} "
+    def is_relevant(self, cite: Citation, issue_text: str, code: str = "") -> bool:
+        code_section = f"\n\nCode at {cite.file}:{cite.line}:\n{code}" if code else ""
+        prompt = (f"Issue:\n{issue_text}{code_section}\n\nIs the code at {cite.file}:{cite.line} "
                   f"(symbol {cite.symbol}) actually relevant to fixing this issue? Answer with exactly YES or NO and nothing else.")
         # conservative: any non-YES (incl. hedged) reads False
         return self.ask(self.model, prompt).strip().upper().startswith("YES")
