@@ -9,7 +9,7 @@ import tempfile
 import time
 from .model import Variant, ArmOutput
 from .citations import parse_citations
-from .parse import parse_claude_json, parse_codex_jsonl
+from .parse import parse_claude_json, parse_codex_jsonl, parse_claude_stream_json
 from .llm import cli_model_flag
 from .classify import classify_tools
 
@@ -50,7 +50,8 @@ def build_codex_cmd(variant: Variant, *, repo: str) -> list[str]:
     return cmd
 
 def build_claude_cmd(variant: Variant, *, mcp_cfg: str) -> list[str]:
-    cmd = ["claude", "-p", "--output-format", "json", "--model", cli_model_flag(variant.model)]
+    cmd = ["claude", "-p", "--output-format", "stream-json", "--verbose",
+           "--model", cli_model_flag(variant.model)]
     if variant.prism:
         cmd += ["--mcp-config", mcp_cfg, "--strict-mcp-config"]
     return cmd
@@ -58,7 +59,10 @@ def build_claude_cmd(variant: Variant, *, mcp_cfg: str) -> list[str]:
 _TIMEOUT = 1800  # 30 min per arm call
 
 class ClaudeRunner:
-    """ArmRunner via `claude -p --output-format json`. prism ON = --mcp-config.
+    """ArmRunner via `claude -p --output-format stream-json`. prism ON = --mcp-config.
+
+    Uses parse_claude_stream_json so real mcp__prism__* tool calls are visible and
+    counted; used_prism is set from prism_calls > 0 (not a variant.prism heuristic).
 
     mcp_cfg: optional static config path override.  When None (default), a per-checkout
     config pointing at repo_root is built on each run() call (mirrors CodexRunner's
@@ -78,15 +82,19 @@ class ClaudeRunner:
         proc = subprocess.run(cmd, capture_output=True, text=True, cwd=repo_root, timeout=_TIMEOUT, env=env)
         if proc.returncode != 0 or not proc.stdout.strip():
             raise RuntimeError(f"arm exited {proc.returncode}: {(proc.stderr or '').strip()[:400]}")
-        r = parse_claude_json(proc.stdout)
+        r = parse_claude_stream_json(proc.stdout)
         flags = classify_tools(r.commands)
+        prism_calls = r.prism_calls
         return ArmOutput(variant=variant, text=r.text, citations=parse_citations(r.text),
                          tokens=r.output_tokens, tool_calls=r.tool_calls, wall_s=time.monotonic() - t0,
-                         used_prism=variant.prism and r.tool_calls > 0,
+                         used_prism=prism_calls > 0,
+                         prism_calls=prism_calls, dose=r.dose,
+                         low_dose=prism_calls > 0 and prism_calls <= 1,
                          commands=r.commands, **flags)
 
 class CodexRunner:
     """ArmRunner via `codex exec --json` (prompt on stdin). prism ON = inline -c mcp_servers.
+    used_prism is set from prism_calls > 0 (real mcp_tool_call events with server=='prism').
     lsp_deny_dir: when set, prepended to PATH for lsp=False variants (deny-shim enforcement).
     """
     def __init__(self, lsp_deny_dir: str | None = None):
@@ -104,20 +112,27 @@ class CodexRunner:
             raise RuntimeError(f"arm exited {proc.returncode}: {(proc.stderr or '').strip()[:400]}")
         r = parse_codex_jsonl(proc.stdout)
         flags = classify_tools(r.commands)
+        prism_calls = r.prism_calls
         return ArmOutput(variant=variant, text=r.text, citations=parse_citations(r.text),
                          tokens=r.output_tokens, tool_calls=r.tool_calls, wall_s=time.monotonic() - t0,
-                         used_prism=variant.prism and r.tool_calls > 0,
+                         used_prism=prism_calls > 0,
+                         prism_calls=prism_calls, dose=r.dose,
+                         low_dose=prism_calls > 0 and prism_calls <= 1,
                          commands=r.commands, **flags)
 
 class FakeArmRunner:
-    """Deterministic runner keyed by variant.id -> canned text (spec §6 fakes-drive-tests)."""
+    """Deterministic runner keyed by variant.id -> canned text (spec §6 fakes-drive-tests).
+    prism_calls/dose/low_dose are all zero/empty — this runner never issues real tool calls.
+    used_prism = prism_calls > 0 = False (consistent with the real runners' contract)."""
     def __init__(self, by_id: dict[str, str]):
         self._by_id = by_id
     def run(self, variant: Variant, stage: str, prompt: str, repo_root: str) -> ArmOutput:
+        from .model import Dose
         text = self._by_id.get(variant.id, "")
         return ArmOutput(variant=variant, text=text, citations=parse_citations(text),
                          tokens=len(text.split()), tool_calls=0, wall_s=0.0,
-                         used_prism="prism" in text.lower() if variant.prism else False)
+                         used_prism=False,
+                         prism_calls=0, dose=Dose(), low_dose=False)
 
 class RoutingArmRunner:
     """Dispatch a variant to its CLI runner by model family (Opus->claude, gpt->codex)."""

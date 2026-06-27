@@ -38,6 +38,8 @@ _CODEX_TOOL_ITEMS = {"command_execution", "mcp_tool_call", "file_change", "web_s
 def parse_codex_jsonl(out: str) -> ModelResult:
     text, inp, outp, tools = "", 0, 0, 0
     commands: list[str] = []
+    prism_count = 0
+    distinct: set[str] = set()
     for line in out.splitlines():
         line = line.strip()
         if not line:
@@ -51,6 +53,11 @@ def parse_codex_jsonl(out: str) -> ModelResult:
             text = item["text"]              # last agent message wins
         if item.get("type") in _CODEX_TOOL_ITEMS:
             tools += 1
+        if item.get("type") == "mcp_tool_call" and item.get("server") == "prism":
+            prism_count += 1
+            tool_name = item.get("tool") or item.get("name") or ""
+            if tool_name:
+                distinct.add(tool_name)
         if item.get("type") == "command_execution":
             cmd_str = item.get("command") or item.get("cmd") or ""
             if cmd_str:
@@ -61,8 +68,9 @@ def parse_codex_jsonl(out: str) -> ModelResult:
             outp = int(u.get("output_tokens", outp))
     if not text:
         raise ValueError("codex run produced no agent_message")
+    dose = Dose(count=prism_count, distinct_tools=frozenset(distinct), errors=0)
     return ModelResult(text=text, input_tokens=inp, output_tokens=outp, tool_calls=tools,
-                       cost_usd=0.0, commands=commands)
+                       cost_usd=0.0, commands=commands, prism_calls=prism_count, dose=dose)
 
 
 def _norm_prism(name: str) -> str:
@@ -76,13 +84,18 @@ def parse_claude_stream_json(out: str) -> ModelResult:
     Counts only real prism tool calls (``tool_use`` entries whose ``name``
     starts with ``mcp__prism__``), collects distinct bare nav tool names, counts
     ``tool_result`` entries with ``is_error: true``, and captures the final
-    assistant text.  Returns a :class:`ModelResult` with ``prism_calls`` and
-    ``dose`` populated.
+    assistant text.  Also reads the final ``type=="result"`` event to capture
+    ``input_tokens``, ``output_tokens``, and ``total_cost_usd`` — mirroring the
+    fields that ``parse_claude_json`` provides so switching parsers loses nothing.
+    Returns a :class:`ModelResult` with ``prism_calls`` and ``dose`` populated.
     """
     final_text = ""
     prism_count = 0
     distinct: set[str] = set()
     errors = 0
+    input_tokens = 0
+    output_tokens = 0
+    cost_usd = 0.0
 
     for line in out.splitlines():
         line = line.strip()
@@ -94,6 +107,21 @@ def parse_claude_stream_json(out: str) -> ModelResult:
             continue
 
         msg_type = r.get("type")
+
+        # Read usage + cost from the final result event (same fields as parse_claude_json).
+        if msg_type == "result":
+            u = r.get("usage") or {}
+            input_tokens = int(u.get("input_tokens", input_tokens))
+            output_tokens = int(u.get("output_tokens", output_tokens))
+            cost_usd = float(r.get("total_cost_usd", cost_usd))
+            # The result event may also carry the final text; only use it if we have
+            # not already captured an assistant text block (assistant text blocks win).
+            if not final_text:
+                result_text = r.get("result") or ""
+                if result_text.strip():
+                    final_text = result_text
+            continue
+
         content = r.get("message", {}).get("content") or []
 
         for c in content:
@@ -119,10 +147,10 @@ def parse_claude_stream_json(out: str) -> ModelResult:
     dose = Dose(count=prism_count, distinct_tools=frozenset(distinct), errors=errors)
     return ModelResult(
         text=final_text,
-        input_tokens=0,
-        output_tokens=0,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
         tool_calls=prism_count,  # for stream-json we have exact prism counts
-        cost_usd=0.0,
+        cost_usd=cost_usd,
         prism_calls=prism_count,
         dose=dose,
     )

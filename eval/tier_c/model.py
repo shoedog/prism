@@ -55,3 +55,6 @@ class ArmOutput:
     commands: list[str] = field(default_factory=list)
     lsp_leak: bool = False
     compiler_assisted: bool = False
+    prism_calls: int = 0
+    dose: Dose = field(default_factory=Dose)
+    low_dose: bool = False
