@@ -34,3 +34,10 @@ class Checkout:
         if not p.is_file(): return None
         lines = p.read_text(errors="replace").splitlines()
         return lines[line - 1] if 1 <= line <= len(lines) else None
+    def read_window(self, rel: str, line: int, ctx: int = 3) -> str | None:
+        p = self.root / rel
+        if not p.is_file():
+            return None
+        lines = p.read_text(errors="replace").splitlines()
+        lo, hi = max(0, line - 1 - ctx), min(len(lines), line + ctx)
+        return "\n".join(lines[lo:hi]) if lo < hi else None

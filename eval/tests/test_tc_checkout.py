@@ -28,3 +28,35 @@ def test_no_tempdir_leak_on_bad_sha(tmp_path):
             pass
     after = set(glob.glob(str(Path(tempfile.gettempdir()) / "tc-co-*")))
     assert after == before  # no leaked worktree dir
+
+
+# --- read_window unit tests (no git worktree needed; set _dir directly) ---
+
+def _make_checkout_at(root: Path) -> Checkout:
+    """Return a Checkout whose .root is *root* without running git worktree."""
+    co = Checkout.__new__(Checkout)
+    co.repo = ""
+    co.sha = ""
+    co._dir = root
+    return co
+
+
+def test_read_window_centered(tmp_path):
+    f = tmp_path / "a.py"
+    f.write_text("\n".join(f"L{i}" for i in range(1, 21)))  # L1..L20
+    co = _make_checkout_at(tmp_path)
+    result = co.read_window("a.py", 10, ctx=2)
+    assert result == "L8\nL9\nL10\nL11\nL12"
+
+
+def test_read_window_clamps_at_top(tmp_path):
+    f = tmp_path / "a.py"
+    f.write_text("\n".join(f"L{i}" for i in range(1, 21)))
+    co = _make_checkout_at(tmp_path)
+    result = co.read_window("a.py", 1, ctx=2)
+    assert result == "L1\nL2\nL3"
+
+
+def test_read_window_missing_file_returns_none(tmp_path):
+    co = _make_checkout_at(tmp_path)
+    assert co.read_window("missing.py", 5, ctx=2) is None
