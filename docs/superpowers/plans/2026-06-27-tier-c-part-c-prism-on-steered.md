@@ -316,6 +316,33 @@ def test_run_partc_cell_scores_on_vs_base_with_fakes():
 
 ---
 
+## Phase-2 prerequisites (from the Phase-1 final opus review — fix in the gap AFTER the Verify Gate)
+
+The final whole-branch review (READY FOR VERIFY GATE) found two integration bugs that do NOT touch the
+documented verify cell (`ruff:spec:opus-4.8`, claude, spec) but **corrupt half the Phase-2 matrix** — fix both
+before any gpt-5.5 or plan cell runs (verify each against the code first):
+
+- **[IMPORTANT] Codex dose double-count** — `eval/tier_c/parse.py` `parse_codex_jsonl` iterates events without
+  gating on `ev.get("type") == "item.completed"`, so each codex `mcp_tool_call` (emitted under both
+  `item.started` AND `item.completed`) is counted twice → `prism_calls`/`dose`/`tool_calls`/`commands` all 2× for
+  every gpt-5.5 cell, making `low_dose` (`prism_calls<=1`) unreachable. The reference `adoption/trajectory.py`
+  gates correctly. **Fix:** add `if ev.get("type") != "item.completed": continue` after the JSON parse; add a
+  regression fixture emitting each item under both event types and assert count==1.
+- **[IMPORTANT] Plan-stage cells lose the upstream spec** — `eval/tier_c/cli.py` `_LivePartCComps.run_on_arm`
+  calls `stage_prompt(stage, …, steer="prism_on")` with no `upstream=`, and `score()` passes only
+  `issue_text=self._issue.text`. For a `plan` cell the on-arm is asked to plan "for this spec" without the spec,
+  and its citations are judged without spec context — mismatched vs the recovered baseline (built WITH a chained
+  spec). `chain.py`'s threading is dead for the Part-C path (cells are scored independently). **Fix:** for plan
+  cells, load the recovered spec body via `partc_baseline.load_base(model, repo, "spec", root)`, pass it as
+  `stage_prompt(…, upstream=<spec>)` AND fold it into `score()`'s `issue_text` (mirror `chain.py`'s
+  `plan_issue_text`). Add a plan-cell test asserting both.
+
+Minor (cosmetic / Phase-2-wiring, fold opportunistically): 3 dead imports (`arm_runner.py:10` `field`,
+`arm_runner.py:14` `parse_claude_json`, `cli.py:126` `shutil`); `scan_leak().redacted` is computed but only
+`.leaked` is consumed (wire `.redacted` into the judged text when the rank judge lands in Task 12/13); Part-C
+does not yet measure recall or the rank judge (Task 12+; the spec calls them co-primary) — wire a real
+`claim_count` (not `max(len,1)`) and the rank-judge consensus in Phase 2.
+
 # PHASE 2 — Scale + sentinel + full run (gated on Verify, owner-triggered live)
 
 ## Task 12: All-16 orchestration + pilot-signal report
