@@ -51,6 +51,11 @@ def main(argv: list[str] | None = None) -> int:
         default="tier_c/runs/full-2026-06-24/recovered",
         help="root of the recovered prism-off baseline tree (default: tier_c/runs/full-2026-06-24/recovered)",
     )
+    partc_p.add_argument(
+        "--issues",
+        default="tier_c/issues/issues.toml",
+        help="issues TOML file (default: tier_c/issues/issues.toml)",
+    )
 
     args = ap.parse_args(argv)
 
@@ -65,7 +70,9 @@ def main(argv: list[str] | None = None) -> int:
         else:
             bench_root = os.path.expanduser(args.bench_root)
             base_root = args.base_root
-            _run_partc_live(cell, bench_root=bench_root, base_root=base_root)
+            issues_path = args.issues
+            _run_partc_live(cell, bench_root=bench_root, base_root=base_root,
+                            issues_path=issues_path)
         return 0
 
     if args.cmd == "run":
@@ -313,17 +320,24 @@ def _run_partc_fake(cell: tuple) -> None:
 class _LivePartCComps:
     """Real components for a live Part-C cell run.
 
-    Mirrors LiveComponents used by _run_live_cmd: real checkout, real runner,
-    real oracle.  The base is loaded from the recovered prism-off tree via
-    Task 7 partc_baseline.load_base; citations are extracted via citations.py;
-    scoring uses investigator.score_citations with a RelevanceAllTrue oracle
-    (full judge is a follow-up).  The on-arm is run via arm_runner.run_arm_isolated
-    with the Task 10 steer="prism_on" prompt from prompts.stage_prompt.
+    Mirrors LiveComponents used by _run_live_cmd: real pinned checkout, real
+    runner (ClaudeRunner/CodexRunner by model family), and the real
+    LlmRelevanceJudge oracle so both base and on scoring see issue.text + the
+    code window at each cited location (defect #2 fix — NOT RelevanceAllTrue).
+
+    ``ask`` is injectable for unit-testing (default: live_ask).  One
+    _LivePartCComps is opened per cell inside a single Checkout context manager.
     """
 
-    def __init__(self, *, bench_root: str, base_root: str):
-        self._bench_root = bench_root
+    def __init__(self, *, co, issue, model: str, base_root: str, ask=None):
+        if ask is None:
+            from .llm import live_ask
+            ask = live_ask
+        self._co = co
+        self._issue = issue
+        self._model = model
         self._base_root = base_root
+        self._ask = ask
 
     def load_base(self, cell: tuple) -> str:
         repo, stage, model = cell
@@ -335,61 +349,63 @@ class _LivePartCComps:
         return parse_citations(text)
 
     def score(self, citations, *, cell: tuple, arm: str) -> float:
-        """Score citations against the repo at HEAD (existence + RelevanceAllTrue oracle).
+        """Score citations using the pinned checkout + the real LlmRelevanceJudge.
 
-        Full judge scoring (LlmRelevanceJudge) is a follow-up; this uses
-        RelevanceAllTrue so the live path runs without API keys for the oracle.
+        Both base and on calls see issue.text and the code window at each cited
+        location so the oracle exercises the fixed issue+code path (spec §6a).
         """
         if not citations:
             return 0.0
-        repo, stage, model = cell
-        repo_path = os.path.join(self._bench_root, repo)
-
-        class _HeadCo:
-            """Minimal checkout-like object pointing at a repo on-disk (no git ops)."""
-            def __init__(self, root: str):
-                self._root = root
-            def file_exists(self, rel: str) -> bool:
-                return os.path.exists(os.path.join(self._root, rel))
-            def read_line(self, rel: str, line: int):
-                try:
-                    with open(os.path.join(self._root, rel)) as f:
-                        lines = f.readlines()
-                    return lines[line - 1].rstrip() if 0 < line <= len(lines) else None
-                except OSError:
-                    return None
-
-        from .investigator import score_citations, RelevanceAllTrue
-        co = _HeadCo(repo_path)
-        report = score_citations(co, citations, claim_count=max(len(citations), 1),
-                                 relevance=RelevanceAllTrue(), issue_text="")
+        from .investigator import score_citations
+        from .judges_live import LlmRelevanceJudge
+        rel = LlmRelevanceJudge(self._ask, "opus-4.8")
+        report = score_citations(
+            self._co,
+            citations,
+            claim_count=max(len(citations), 1),
+            relevance=rel,
+            issue_text=self._issue.text,
+            read_code=lambda f, l: self._co.read_window(f, l),
+        )
         return report.precision
 
     def run_on_arm(self, cell: tuple):
-        """Run ONE steered prism-on arm via ClaudeRunner in an isolated checkout."""
+        """Run ONE steered prism-on arm inside the pinned checkout."""
         repo, stage, model = cell
-        import types
-        from .arm_runner import ClaudeRunner, run_arm_isolated
+        from .arm_runner import ClaudeRunner, CodexRunner, run_arm_isolated
         from .model import Variant
         from .prompts import stage_prompt
 
-        repo_path = os.path.join(self._bench_root, repo)
-        # Minimal checkout-like object exposing .root for run_arm_isolated
-        checkout = types.SimpleNamespace(root=repo_path)
-
         variant = Variant(model, prism=True)
-        prompt = stage_prompt(stage, issue_text="", scoped_slice="", steer="prism_on")
-
-        runner = ClaudeRunner(no_cache=True)
-        iso = run_arm_isolated(runner, checkout=checkout, variant=variant,
-                               stage=stage, prompt=prompt, no_cache=True)
+        prompt = stage_prompt(
+            stage,
+            issue_text=self._issue.text,
+            scoped_slice=self._issue.scoped_slice,
+            steer="prism_on",
+        )
+        runner = ClaudeRunner(no_cache=True) if model.startswith("opus") else CodexRunner(no_cache=True)
+        iso = run_arm_isolated(
+            runner,
+            checkout=self._co,
+            variant=variant,
+            stage=stage,
+            prompt=prompt,
+            no_cache=True,
+        )
         return iso.out
 
 
-def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str) -> None:
-    """Build real components and run one Part-C cell live."""
+def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
+                    issues_path: str) -> None:
+    """Open a pinned throwaway worktree at the issue SHA and run one Part-C cell live."""
+    from .corpus import load_issues
+    from .checkout import Checkout
     from .partc import run_partc_cell, render_partc
 
-    comps = _LivePartCComps(bench_root=bench_root, base_root=base_root)
-    partc_cell = run_partc_cell(cell, comps)
+    repo, stage, model = cell
+    issues = load_issues(issues_path)
+    issue = next(i for i in issues if i.repo == repo)
+    with Checkout(os.path.join(bench_root, repo), issue.sha) as co:
+        comps = _LivePartCComps(co=co, issue=issue, model=model, base_root=base_root)
+        partc_cell = run_partc_cell(cell, comps)
     print(render_partc([partc_cell]))

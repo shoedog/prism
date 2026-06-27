@@ -6,8 +6,10 @@ Tests:
   (b) 0-prism arm → administered == False.
   (c) leaked text → leaked == True.
   (d) render_partc includes the cell row + "pilot signal" label.
+  (e) live comps score() threads issue.text + code window to the real oracle.
 """
 from __future__ import annotations
+import types
 import pytest
 from tier_c.model import Dose, ArmOutput, Variant, Citation
 from tier_c.partc import PartCCell, run_partc_cell, render_partc
@@ -157,3 +159,58 @@ def test_render_partc_includes_row_and_pilot_signal_label():
     assert "0.8" in report or "0.40" in report
     # Must contain "pilot signal" label
     assert "pilot signal" in report.lower()
+
+
+# ---------------------------------------------------------------------------
+# (e) live comps score() threads issue.text + code window to the real oracle
+# ---------------------------------------------------------------------------
+
+def _cite(file: str, line: int, symbol: str | None) -> Citation:
+    """Build a Citation for test use."""
+    return Citation(file=file, line=line, symbol=symbol)
+
+
+def test_live_partc_comps_score_threads_issue_and_code():
+    """score() must use LlmRelevanceJudge with real issue.text + code, not RelevanceAllTrue."""
+    seen: dict = {}
+
+    def fake_ask(model: str, prompt: str) -> str:
+        seen.setdefault("p", prompt)
+        return "YES"
+
+    class _Co:
+        """Fake pinned checkout — file/line resolution always succeeds."""
+        root = "/tmp/x"
+
+        def file_exists(self, rel: str) -> bool:
+            return True
+
+        def read_line(self, rel: str, line: int) -> str:
+            # symbol "f" must appear in the line so symbol_ok passes in verify_citation
+            return "def f(): ..."
+
+        def read_window(self, rel: str, line: int) -> str:
+            return "def f(): ..."
+
+    issue = types.SimpleNamespace(
+        text="ISSUE-XYZ",
+        scoped_slice="s",
+        repo="ruff",
+        sha="deadbeef",
+    )
+    from tier_c.cli import _LivePartCComps
+    comps = _LivePartCComps(
+        co=_Co(),
+        issue=issue,
+        model="opus-4.8",
+        base_root="x",
+        ask=fake_ask,
+    )
+    p = comps.score(
+        [_cite("a.py", 10, "f")],
+        cell=("ruff", "spec", "opus-4.8"),
+        arm="on",
+    )
+    assert "p" in seen, "fake_ask was never called — relevance judge did not fire"
+    assert "ISSUE-XYZ" in seen["p"], "issue.text must appear in the relevance judge prompt"
+    assert "def f()" in seen["p"], "code window must appear in the relevance judge prompt"
