@@ -30,3 +30,30 @@ def test_precision_counts_irrelevant_against():
     cites = [Citation("a.py", 1, "foo")]
     rep = score_citations(FakeCo(), cites, claim_count=1, relevance=RelevanceNone())
     assert rep.precision == 0.0  # exists but judged irrelevant
+
+# ---- Task 4: read_code threading ----
+
+def _cite(file, line, symbol):
+    return Citation(file, line, symbol)
+
+class _FullCo:
+    """FakeCo variant that confirms any file/line/symbol as existing."""
+    def file_exists(self, rel): return True
+    def read_line(self, rel, line): return "f"  # symbol check: "f" in "f" -> True
+
+co_fake = _FullCo()
+
+class _RecordingRelevance:
+    """Records (issue_text, code) for each is_relevant call."""
+    def __init__(self, calls):
+        self._calls = calls
+    def is_relevant(self, cite, issue_text, code: str = ""):
+        self._calls.append((issue_text, code))
+        return True
+
+def test_score_citations_threads_code_to_relevance():
+    calls = []
+    judge = _RecordingRelevance(calls)
+    rep = score_citations(co_fake, [_cite("a.py", 10, "f")], claim_count=1,
+                          relevance=judge, issue_text="I", read_code=lambda f, l: "CODE@%s:%s" % (f, l))
+    assert calls == [("I", "CODE@a.py:10")]

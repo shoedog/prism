@@ -33,7 +33,8 @@ class RelevanceNone:
     def is_relevant(self, cite, issue_text, code: str = ""): return False
 
 def verify_citation(co, cite: Citation, *, issue_text: str = "",
-                    relevance: RelevanceJudge | None = None) -> CitationVerdict:
+                    relevance: RelevanceJudge | None = None,
+                    read_code=lambda *_: None) -> CitationVerdict:
     file_ok = co.file_exists(cite.file)
     line_ok = file_ok and (cite.line is None or co.read_line(cite.file, cite.line) is not None)
     symbol_ok = True
@@ -42,12 +43,15 @@ def verify_citation(co, cite: Citation, *, issue_text: str = "",
         symbol_ok = bool(ln and cite.symbol in ln)
     relevant = True
     if relevance is not None and file_ok and line_ok and symbol_ok:
-        relevant = relevance.is_relevant(cite, issue_text)
+        code = read_code(cite.file, cite.line) or ""
+        relevant = relevance.is_relevant(cite, issue_text, code)
     return CitationVerdict(cite, file_ok, line_ok, symbol_ok, relevant)
 
 def score_citations(co, cites: list[Citation], *, claim_count: int,
-                    relevance: RelevanceJudge, issue_text: str = "") -> InvestigatorReport:
-    verdicts = [verify_citation(co, c, issue_text=issue_text, relevance=relevance) for c in cites]
+                    relevance: RelevanceJudge, issue_text: str = "",
+                    read_code=lambda *_: None) -> InvestigatorReport:
+    verdicts = [verify_citation(co, c, issue_text=issue_text, relevance=relevance,
+                                read_code=read_code) for c in cites]
     valid = sum(v.is_valid for v in verdicts)
     halluc = sum(v.is_hallucination for v in verdicts)
     precision = valid / len(verdicts) if verdicts else 0.0
