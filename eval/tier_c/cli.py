@@ -28,7 +28,45 @@ def main(argv: list[str] | None = None) -> int:
     run_p.add_argument("--run-store-root", default=None,
                        help="root dir for run artifacts (default: eval/tier_c/runs next to this file)")
 
+    # Phase-1 Part-C: tier-c run-partc --cell <repo>:<stage>:<model> [--live]
+    partc_p = sub.add_parser(
+        "run-partc",
+        help="run ONE steered-prism-on Part-C cell (fake comps by default; --live for real run)",
+    )
+    partc_p.add_argument(
+        "--cell", required=True,
+        help="cell descriptor as repo:stage:model (e.g. ruff:spec:opus-4.8)",
+        metavar="REPO:STAGE:MODEL",
+    )
+    partc_p.add_argument(
+        "--live", action="store_true",
+        help="build real components (live model call + real checkout; default = fake comps)",
+    )
+    partc_p.add_argument(
+        "--bench-root", default="~/code/bench-repos",
+        help="root directory containing cloned benchmark repos (default: ~/code/bench-repos)",
+    )
+    partc_p.add_argument(
+        "--base-root",
+        default="tier_c/runs/full-2026-06-24/recovered",
+        help="root of the recovered prism-off baseline tree (default: tier_c/runs/full-2026-06-24/recovered)",
+    )
+
     args = ap.parse_args(argv)
+
+    if args.cmd == "run-partc":
+        parts = (args.cell or "").split(":", 2)
+        if len(parts) != 3:
+            ap.error("--cell must be repo:stage:model (e.g. ruff:spec:opus-4.8)")
+        repo, stage, model = parts
+        cell = (repo, stage, model)
+        if not args.live:
+            _run_partc_fake(cell)
+        else:
+            bench_root = os.path.expanduser(args.bench_root)
+            base_root = args.base_root
+            _run_partc_live(cell, bench_root=bench_root, base_root=base_root)
+        return 0
 
     if args.cmd == "run":
         issues = load_issues(args.issues)
@@ -222,3 +260,136 @@ def _run_live_cmd(issues, *, bench_root: str, run_id: str, run_store_root: str,
 
 def _fmt_delta(d: dict) -> str:
     return "  ".join(f"{m}: {v:+.3f}" for m, v in sorted(d.items()))
+
+
+# ---------------------------------------------------------------------------
+# Part-C cell helpers (Task 11)
+# ---------------------------------------------------------------------------
+
+def _run_partc_fake(cell: tuple) -> None:
+    """Run run_partc_cell with fake comps (no live LLM calls) and print the report."""
+    from .model import Dose, ArmOutput, Variant, Citation
+    from .partc import run_partc_cell, render_partc
+
+    repo, stage, model = cell
+
+    # Build a minimal fake ArmOutput with 2 prism calls and clean text
+    fake_citations = [Citation(file="src/main.go", line=1, symbol=None)]
+    fake_arm_out = ArmOutput(
+        variant=Variant(model, True),
+        text="clean spec, no tool names; src/main.go:1",
+        citations=fake_citations,
+        tokens=10,
+        tool_calls=2,
+        wall_s=0.0,
+        used_prism=True,
+        prism_calls=2,
+        dose=Dose(count=2),
+        low_dose=False,
+    )
+
+    class _FakeComps:
+        _call = 0
+
+        def load_base(self, c):
+            return "base spec text src/main.go:1"
+
+        def extract_citations(self, text):
+            from .citations import parse_citations
+            return parse_citations(text)
+
+        def score(self, citations, **kwargs):
+            self._call += 1
+            # base first (0.4), on second (0.7) — illustrative fake values
+            return 0.4 if self._call == 1 else 0.7
+
+        def run_on_arm(self, c):
+            return fake_arm_out
+
+    partc_cell = run_partc_cell(cell, _FakeComps())
+    print(render_partc([partc_cell]))
+
+
+class _LivePartCComps:
+    """Real components for a live Part-C cell run.
+
+    Mirrors LiveComponents used by _run_live_cmd: real checkout, real runner,
+    real oracle.  The base is loaded from the recovered prism-off tree via
+    Task 7 partc_baseline.load_base; citations are extracted via citations.py;
+    scoring uses investigator.score_citations with a RelevanceAllTrue oracle
+    (full judge is a follow-up).  The on-arm is run via arm_runner.run_arm_isolated
+    with the Task 10 steer="prism_on" prompt from prompts.stage_prompt.
+    """
+
+    def __init__(self, *, bench_root: str, base_root: str):
+        self._bench_root = bench_root
+        self._base_root = base_root
+
+    def load_base(self, cell: tuple) -> str:
+        repo, stage, model = cell
+        from .partc_baseline import load_base
+        return load_base(model=model, repo=repo, stage=stage, root=self._base_root)
+
+    def extract_citations(self, text: str):
+        from .citations import parse_citations
+        return parse_citations(text)
+
+    def score(self, citations, *, cell: tuple, arm: str) -> float:
+        """Score citations against the repo at HEAD (existence + RelevanceAllTrue oracle).
+
+        Full judge scoring (LlmRelevanceJudge) is a follow-up; this uses
+        RelevanceAllTrue so the live path runs without API keys for the oracle.
+        """
+        if not citations:
+            return 0.0
+        repo, stage, model = cell
+        repo_path = os.path.join(self._bench_root, repo)
+
+        class _HeadCo:
+            """Minimal checkout-like object pointing at a repo on-disk (no git ops)."""
+            def __init__(self, root: str):
+                self._root = root
+            def file_exists(self, rel: str) -> bool:
+                return os.path.exists(os.path.join(self._root, rel))
+            def read_line(self, rel: str, line: int):
+                try:
+                    with open(os.path.join(self._root, rel)) as f:
+                        lines = f.readlines()
+                    return lines[line - 1].rstrip() if 0 < line <= len(lines) else None
+                except OSError:
+                    return None
+
+        from .investigator import score_citations, RelevanceAllTrue
+        co = _HeadCo(repo_path)
+        report = score_citations(co, citations, claim_count=max(len(citations), 1),
+                                 relevance=RelevanceAllTrue(), issue_text="")
+        return report.precision
+
+    def run_on_arm(self, cell: tuple):
+        """Run ONE steered prism-on arm via ClaudeRunner in an isolated checkout."""
+        repo, stage, model = cell
+        import types
+        from .arm_runner import ClaudeRunner, run_arm_isolated
+        from .model import Variant
+        from .prompts import stage_prompt
+
+        repo_path = os.path.join(self._bench_root, repo)
+        # Minimal checkout-like object exposing .root for run_arm_isolated
+        checkout = types.SimpleNamespace(root=repo_path)
+
+        variant = Variant(model, prism=True)
+        prompt = stage_prompt(stage, issue_text="", scoped_slice="", steer="prism_on")
+
+        runner = ClaudeRunner(no_cache=True)
+        iso = run_arm_isolated(runner, checkout=checkout, variant=variant,
+                               stage=stage, prompt=prompt, no_cache=True)
+        return iso.out
+
+
+def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str) -> None:
+    """Build real components and run one Part-C cell live."""
+    from .partc import run_partc_cell, render_partc
+
+    comps = _LivePartCComps(bench_root=bench_root, base_root=base_root)
+    partc_cell = run_partc_cell(cell, comps)
+    print(render_partc([partc_cell]))
