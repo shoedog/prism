@@ -1,5 +1,6 @@
 import json
-from tier_c.parse import parse_claude_json, parse_codex_jsonl
+import pytest
+from tier_c.parse import parse_claude_json, parse_codex_jsonl, parse_claude_stream_json
 
 CLAUDE = json.dumps({"type":"result","is_error":False,"num_turns":3,"result":"spec sees src/a.py:1",
                      "total_cost_usd":0.05,"usage":{"input_tokens":10,"output_tokens":42}})
@@ -27,3 +28,62 @@ def test_parse_codex_jsonl_picks_last_message_and_sums_tokens():
     assert r.text == "plan: src/b.go:9"
     assert r.output_tokens == 20
     assert r.tool_calls == 1
+
+
+# ---------------------------------------------------------------------------
+# parse_claude_stream_json tests
+# ---------------------------------------------------------------------------
+
+# Two real prism calls (mcp__prism__*), one non-prism tool call (Bash),
+# one tool_result with is_error=True, and a final assistant text block.
+SAMPLE = "\n".join([
+    # prism call 1: nav_callers
+    json.dumps({"type": "assistant", "message": {"content": [
+        {"type": "tool_use", "name": "mcp__prism__nav_callers", "input": {"symbol": "run"}},
+    ]}}),
+    # non-prism tool (should NOT be counted as prism)
+    json.dumps({"type": "assistant", "message": {"content": [
+        {"type": "tool_use", "name": "Bash", "input": {"command": "ls"}},
+    ]}}),
+    # prism call 2: nav_repo_map
+    json.dumps({"type": "assistant", "message": {"content": [
+        {"type": "tool_use", "name": "mcp__prism__nav_repo_map", "input": {}},
+    ]}}),
+    # tool_result with is_error=True (error from one of the above tool calls)
+    json.dumps({"type": "user", "message": {"content": [
+        {"type": "tool_result", "is_error": True, "content": "tool failed"},
+    ]}}),
+    # final assistant text
+    json.dumps({"type": "assistant", "message": {"content": [
+        {"type": "text", "text": "Found 3 callers in src/main.rs"},
+    ]}}),
+])
+
+def test_stream_json_counts_real_prism_calls_and_dose():
+    r = parse_claude_stream_json(SAMPLE)
+    assert r.prism_calls == 2                    # only mcp__prism__* tool_use
+    assert r.dose.distinct_tools == {"nav_callers", "nav_repo_map"}
+    assert r.dose.errors == 1
+    assert r.text.strip()                        # final assistant text captured
+
+def test_stream_json_non_prism_tool_not_counted():
+    # Only a Bash call — no prism calls, no errors
+    stream = json.dumps({"type": "assistant", "message": {"content": [
+        {"type": "tool_use", "name": "Bash", "input": {"command": "cargo build"}},
+    ]}})
+    r = parse_claude_stream_json(stream)
+    assert r.prism_calls == 0
+    assert r.dose.distinct_tools == set()
+    assert r.dose.errors == 0
+
+def test_stream_json_zero_prism_input():
+    # Plain text output, no tool calls
+    stream = "\n".join([
+        json.dumps({"type": "assistant", "message": {"content": [
+            {"type": "text", "text": "No prism calls needed."},
+        ]}}),
+    ])
+    r = parse_claude_stream_json(stream)
+    assert r.prism_calls == 0
+    assert r.dose.count == 0
+    assert r.text.strip() == "No prism calls needed."

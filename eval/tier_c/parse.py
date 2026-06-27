@@ -1,9 +1,11 @@
 """Model-output parsers (Phase-1b). Pure functions over the CLIs' JSON so they are
 fully unit-tested; the subprocess spawn (arm_runner) is the only un-tested seam.
-claude: `--output-format json` single object. codex: `--json` JSONL events."""
+claude: `--output-format json` single object. codex: `--json` JSONL events.
+claude: `--output-format stream-json` newline-delimited JSON (parse_claude_stream_json)."""
 from __future__ import annotations
 import json
 from dataclasses import dataclass, field
+from .model import Dose
 
 @dataclass(frozen=True)
 class ModelResult:
@@ -13,6 +15,8 @@ class ModelResult:
     tool_calls: int
     cost_usd: float
     commands: list[str] = field(default_factory=list)
+    prism_calls: int = 0
+    dose: Dose = field(default_factory=Dose)
 
 def parse_claude_json(out: str) -> ModelResult:
     d = json.loads(out)
@@ -59,3 +63,66 @@ def parse_codex_jsonl(out: str) -> ModelResult:
         raise ValueError("codex run produced no agent_message")
     return ModelResult(text=text, input_tokens=inp, output_tokens=outp, tool_calls=tools,
                        cost_usd=0.0, commands=commands)
+
+
+def _norm_prism(name: str) -> str:
+    """mcp__prism__nav_callers -> nav_callers; non-prism names returned unchanged."""
+    return name.split("__")[-1] if name.startswith("mcp__prism__") else name
+
+
+def parse_claude_stream_json(out: str) -> ModelResult:
+    """Parse ``claude -p --output-format stream-json`` newline-delimited output.
+
+    Counts only real prism tool calls (``tool_use`` entries whose ``name``
+    starts with ``mcp__prism__``), collects distinct bare nav tool names, counts
+    ``tool_result`` entries with ``is_error: true``, and captures the final
+    assistant text.  Returns a :class:`ModelResult` with ``prism_calls`` and
+    ``dose`` populated.
+    """
+    final_text = ""
+    prism_count = 0
+    distinct: set[str] = set()
+    errors = 0
+
+    for line in out.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+
+        msg_type = r.get("type")
+        content = r.get("message", {}).get("content") or []
+
+        for c in content:
+            if not isinstance(c, dict):
+                continue
+            c_type = c.get("type")
+
+            if c_type == "tool_use":
+                name = c.get("name", "")
+                if name.startswith("mcp__prism__"):
+                    prism_count += 1
+                    distinct.add(_norm_prism(name))
+
+            elif c_type == "text":
+                text = c.get("text", "")
+                if text.strip():
+                    final_text = text  # last non-empty assistant text wins
+
+            elif c_type == "tool_result":
+                if c.get("is_error"):
+                    errors += 1
+
+    dose = Dose(count=prism_count, distinct_tools=frozenset(distinct), errors=errors)
+    return ModelResult(
+        text=final_text,
+        input_tokens=0,
+        output_tokens=0,
+        tool_calls=prism_count,  # for stream-json we have exact prism counts
+        cost_usd=0.0,
+        prism_calls=prism_count,
+        dose=dose,
+    )

@@ -2,6 +2,14 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 
+
+@dataclass(frozen=True)
+class Dose:
+    """Prism invocation measurement for one model run."""
+    count: int = 0
+    distinct_tools: frozenset[str] = field(default_factory=frozenset)
+    errors: int = 0
+
 _ANTHROPIC = {"opus-4.8", "sonnet-4.6"}
 _OPENAI = {"gpt-5.5", "gpt-5.3-spark"}
 
