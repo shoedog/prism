@@ -123,7 +123,6 @@ def _prism_build_id(path: str) -> str:
 
 def _build_manifest(*, issues, bench_root: str, run_id: str, run_store_root: str) -> dict:
     """Build the run manifest (models, prism bin/SHA, harness git SHA, corpus, env)."""
-    import shutil
     import subprocess
     from .arm_runner import _prism_mcp_bin
     from .lspshim import DENIED
@@ -339,6 +338,19 @@ class _LivePartCComps:
         self._base_root = base_root
         self._ask = ask
 
+    def _upstream_spec(self, cell: tuple) -> str:
+        """Return the recovered prism-off SPEC body for a plan cell; '' for spec cells.
+
+        The plan arm and plan oracle both plan from the SAME spec (the prism-off
+        recovered baseline spec for this model+repo), so only the tool availability
+        during planning differs.
+        """
+        repo, stage, model = cell
+        if stage != "plan":
+            return ""
+        from .partc_baseline import load_base
+        return load_base(model=model, repo=repo, stage="spec", root=self._base_root)
+
     def load_base(self, cell: tuple) -> str:
         repo, stage, model = cell
         from .partc_baseline import load_base
@@ -351,20 +363,24 @@ class _LivePartCComps:
     def score(self, citations, *, cell: tuple, arm: str) -> float:
         """Score citations using the pinned checkout + the real LlmRelevanceJudge.
 
-        Both base and on calls see issue.text and the code window at each cited
-        location so the oracle exercises the fixed issue+code path (spec §6a).
+        Both base and on calls see issue.text (and for plan cells, also the
+        upstream spec) plus the code window at each cited location, mirroring
+        how chain.py builds plan_issue_text (spec §6a).
         """
         if not citations:
             return 0.0
         from .investigator import score_citations
         from .judges_live import LlmRelevanceJudge
         rel = LlmRelevanceJudge(self._ask, "opus-4.8")
+        upstream = self._upstream_spec(cell)
+        issue_text = (self._issue.text + "\n\n## Upstream spec\n" + upstream
+                      if upstream else self._issue.text)
         report = score_citations(
             self._co,
             citations,
             claim_count=max(len(citations), 1),
             relevance=rel,
-            issue_text=self._issue.text,
+            issue_text=issue_text,
             read_code=lambda f, l: self._co.read_window(f, l),
         )
         return report.precision
@@ -377,10 +393,12 @@ class _LivePartCComps:
         from .prompts import stage_prompt
 
         variant = Variant(model, prism=True)
+        upstream = self._upstream_spec(cell)
         prompt = stage_prompt(
             stage,
             issue_text=self._issue.text,
             scoped_slice=self._issue.scoped_slice,
+            upstream=upstream,
             steer="prism_on",
         )
         runner = ClaudeRunner(no_cache=True) if model.startswith("opus") else CodexRunner(no_cache=True)

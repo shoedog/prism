@@ -48,6 +48,15 @@ def parse_codex_jsonl(out: str) -> ModelResult:
             ev = json.loads(line)
         except json.JSONDecodeError:
             continue
+        # Usage lives on outer turn events (e.g. turn.completed); read it regardless of event type.
+        u = ev.get("usage") or {}
+        if u:
+            inp = int(u.get("input_tokens", inp))
+            outp = int(u.get("output_tokens", outp))
+        # Each item is emitted twice by codex --json: once under item.started and once under
+        # item.completed.  Gate on item.completed to count every item exactly once.
+        if ev.get("type") != "item.completed":
+            continue
         item = ev.get("item") or {}
         if item.get("type") == "agent_message" and item.get("text"):
             text = item["text"]              # last agent message wins
@@ -62,10 +71,6 @@ def parse_codex_jsonl(out: str) -> ModelResult:
             cmd_str = item.get("command") or item.get("cmd") or ""
             if cmd_str:
                 commands.append(cmd_str)
-        u = ev.get("usage") or {}
-        if u:
-            inp = int(u.get("input_tokens", inp))
-            outp = int(u.get("output_tokens", outp))
     if not text:
         raise ValueError("codex run produced no agent_message")
     dose = Dose(count=prism_count, distinct_tools=frozenset(distinct), errors=0)

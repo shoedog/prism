@@ -87,3 +87,35 @@ def test_stream_json_zero_prism_input():
     assert r.prism_calls == 0
     assert r.dose.count == 0
     assert r.text.strip() == "No prism calls needed."
+
+
+# ---------------------------------------------------------------------------
+# codex double-count gate (FIX 1) — item.started must NOT be counted
+# ---------------------------------------------------------------------------
+
+def _codex_double_event(item: dict) -> str:
+    """Build a JSONL pair: item.started + item.completed for the same item.
+    Real codex --json emits each item twice; only item.completed must count."""
+    started = json.dumps({"type": "item.started", "item": item})
+    completed = json.dumps({"type": "item.completed", "item": item})
+    return started + "\n" + completed
+
+
+def test_codex_double_event_counts_prism_call_once():
+    """Each item appears under item.started AND item.completed; prism_calls must be 1, not 2."""
+    prism_item = {"type": "mcp_tool_call", "server": "prism", "tool": "nav_repo_map"}
+    agent_msg = {"type": "item.completed", "item": {"type": "agent_message", "text": "done: src/a.go:1"}}
+    lines = _codex_double_event(prism_item) + "\n" + json.dumps(agent_msg)
+    r = parse_codex_jsonl(lines)
+    assert r.prism_calls == 1, f"expected 1 prism_call (not 2); got {r.prism_calls}"
+    assert r.dose.count == 1
+
+
+def test_codex_double_event_counts_command_once():
+    """command_execution under item.started + item.completed must count as 1 tool_call."""
+    cmd_item = {"type": "command_execution", "command": "cargo build"}
+    agent_msg = {"type": "item.completed", "item": {"type": "agent_message", "text": "built: src/b.rs:5"}}
+    lines = _codex_double_event(cmd_item) + "\n" + json.dumps(agent_msg)
+    r = parse_codex_jsonl(lines)
+    assert r.tool_calls == 1, f"expected 1 tool_call (not 2); got {r.tool_calls}"
+    assert r.commands == ["cargo build"]

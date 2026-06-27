@@ -7,11 +7,11 @@ import os
 import subprocess
 import tempfile
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from .model import Variant, ArmOutput
 from .citations import parse_citations
-from .parse import parse_claude_json, parse_codex_jsonl, parse_claude_stream_json
+from .parse import parse_codex_jsonl, parse_claude_stream_json
 from .llm import cli_model_flag
 from .classify import classify_tools
 

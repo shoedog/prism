@@ -20,7 +20,8 @@ def test_live_ask_claude_parses_result(monkeypatch):
 def test_live_ask_codex_parses_jsonl(monkeypatch):
     def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None):
         assert "mcp_servers.prism" not in " ".join(cmd)   # no prism
-        class R: stdout = json.dumps({"item":{"type":"agent_message","text":"YES"}}); returncode=0; stderr=""
+        # Real codex --json: items arrive under {"type":"item.completed","item":{...}}
+        class R: stdout = json.dumps({"type":"item.completed","item":{"type":"agent_message","text":"YES"}}); returncode=0; stderr=""
         return R()
     monkeypatch.setattr("tier_c.llm.subprocess.run", fake_run)
     assert live_ask("gpt-5.5", "relevant?") == "YES"

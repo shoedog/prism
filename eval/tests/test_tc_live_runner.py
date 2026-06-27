@@ -36,10 +36,12 @@ def test_codex_runner_off_has_no_prism(monkeypatch):
     def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None, env=None):
         captured = cmd
         class R:
+            # Real codex --json wraps each item as {"type":"item.completed","item":{...}};
+            # usage lives on outer turn events without the item.completed gating.
             stdout = "\n".join([
-                json.dumps({"item":{"type":"command_execution"}}),
-                json.dumps({"usage":{"input_tokens":3,"output_tokens":9}}),
-                json.dumps({"item":{"type":"agent_message","text":"plan src/b.go:2"}})])
+                json.dumps({"type":"item.completed","item":{"type":"command_execution"}}),
+                json.dumps({"type":"turn.completed","usage":{"input_tokens":3,"output_tokens":9}}),
+                json.dumps({"type":"item.completed","item":{"type":"agent_message","text":"plan src/b.go:2"}})])
             returncode = 0; stderr = ""
         assert "mcp_servers.prism" not in " ".join(cmd)
         assert "--json" in cmd

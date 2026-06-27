@@ -7,6 +7,9 @@ Tests:
   (c) leaked text → leaked == True.
   (d) render_partc includes the cell row + "pilot signal" label.
   (e) live comps score() threads issue.text + code window to the real oracle.
+  (f) _upstream_spec returns "" for spec cell, recovered spec body for plan cell (FIX 2).
+  (g) score() for a PLAN cell threads both issue.text and the upstream spec to the oracle
+      (run_on_arm also passes upstream); spec cell does NOT receive a spec section (FIX 2).
 """
 from __future__ import annotations
 import types
@@ -214,3 +217,118 @@ def test_live_partc_comps_score_threads_issue_and_code():
     assert "p" in seen, "fake_ask was never called — relevance judge did not fire"
     assert "ISSUE-XYZ" in seen["p"], "issue.text must appear in the relevance judge prompt"
     assert "def f()" in seen["p"], "code window must appear in the relevance judge prompt"
+
+
+# ---------------------------------------------------------------------------
+# (f) _upstream_spec helper (FIX 2)
+# ---------------------------------------------------------------------------
+
+def test_upstream_spec_returns_empty_for_spec_cell(tmp_path):
+    """_upstream_spec must return '' for a spec cell (no upstream exists yet)."""
+    import types
+    from tier_c.cli import _LivePartCComps
+
+    issue = types.SimpleNamespace(text="ISSUE", scoped_slice="s", repo="ruff", sha="abc")
+    comps = _LivePartCComps(co=None, issue=issue, model="opus-4.8",
+                            base_root=str(tmp_path), ask=lambda m, p: "YES")
+    result = comps._upstream_spec(("ruff", "spec", "opus-4.8"))
+    assert result == "", f"expected '' for spec cell, got {result!r}"
+
+
+def test_upstream_spec_returns_stripped_body_for_plan_cell(tmp_path):
+    """_upstream_spec for a plan cell must load and strip the recovered prism-off spec body."""
+    import types
+    from tier_c.cli import _LivePartCComps
+
+    # Write a fake recovered spec file: <base_root>/<model>/<repo>/spec/<model>.md
+    model, repo = "opus-4.8", "ruff"
+    spec_dir = tmp_path / model / repo / "spec"
+    spec_dir.mkdir(parents=True)
+    spec_body = "## Spec body\nSome spec content here."
+    spec_file = spec_dir / f"{model}.md"
+    spec_file.write_text(f"prism=False\nsession: test\n---\n{spec_body}")
+
+    issue = types.SimpleNamespace(text="ISSUE", scoped_slice="s", repo=repo, sha="abc")
+    comps = _LivePartCComps(co=None, issue=issue, model=model,
+                            base_root=str(tmp_path), ask=lambda m, p: "YES")
+    result = comps._upstream_spec((repo, "plan", model))
+    assert result == spec_body, f"expected spec body, got {result!r}"
+
+
+# ---------------------------------------------------------------------------
+# (g) score() for plan/spec cells — upstream spec threading (FIX 2)
+# ---------------------------------------------------------------------------
+
+def _make_live_comps_for_score_test(issue_text: str, upstream_spec: str, ask_fn):
+    """Build a _LivePartCComps with a fake checkout and the given ask function."""
+    import types
+    from tier_c.cli import _LivePartCComps
+
+    class _Co:
+        root = "/tmp/x"
+
+        def file_exists(self, rel):
+            return True
+
+        def read_line(self, rel, line):
+            return "def f(): ..."
+
+        def read_window(self, rel, line):
+            return "def f(): ..."
+
+    issue = types.SimpleNamespace(
+        text=issue_text,
+        scoped_slice="s",
+        repo="ruff",
+        sha="deadbeef",
+    )
+    comps = _LivePartCComps(co=_Co(), issue=issue, model="opus-4.8",
+                            base_root="x", ask=ask_fn)
+    # Patch _upstream_spec to avoid filesystem access
+    comps._upstream_spec = lambda cell: upstream_spec if cell[1] == "plan" else ""
+    return comps
+
+
+def test_score_plan_cell_includes_upstream_spec_in_oracle_prompt():
+    """score() for a plan cell must pass issue_text + upstream spec to the oracle."""
+    seen: dict = {}
+
+    def fake_ask(model: str, prompt: str) -> str:
+        seen["prompt"] = prompt
+        return "YES"
+
+    spec_text = "## Recovered spec body\nSome detail."
+    comps = _make_live_comps_for_score_test(
+        issue_text="ISSUE-PLAN",
+        upstream_spec=spec_text,
+        ask_fn=fake_ask,
+    )
+    comps.score(
+        [Citation(file="a.py", line=10, symbol="f")],
+        cell=("ruff", "plan", "opus-4.8"),
+        arm="on",
+    )
+    assert "ISSUE-PLAN" in seen["prompt"], "issue.text must appear in oracle prompt for plan cell"
+    assert "Recovered spec body" in seen["prompt"], "upstream spec must appear in oracle prompt for plan cell"
+
+
+def test_score_spec_cell_does_not_include_spec_section():
+    """score() for a spec cell must NOT inject an 'Upstream spec' section."""
+    seen: dict = {}
+
+    def fake_ask(model: str, prompt: str) -> str:
+        seen["prompt"] = prompt
+        return "YES"
+
+    comps = _make_live_comps_for_score_test(
+        issue_text="ISSUE-SPEC",
+        upstream_spec="",
+        ask_fn=fake_ask,
+    )
+    comps.score(
+        [Citation(file="a.py", line=10, symbol="f")],
+        cell=("ruff", "spec", "opus-4.8"),
+        arm="on",
+    )
+    assert "ISSUE-SPEC" in seen["prompt"]
+    assert "Upstream spec" not in seen["prompt"], "spec cell must NOT inject upstream spec section"
