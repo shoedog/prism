@@ -316,11 +316,14 @@ def test_run_partc_cell_scores_on_vs_base_with_fakes():
 
 ---
 
-## Phase-2 prerequisites (from the Phase-1 final opus review — fix in the gap AFTER the Verify Gate)
+## Phase-2 prerequisites (from the Phase-1 final opus review) — ✅ FIXED ahead of the gate (commit `e821f68`)
 
 The final whole-branch review (READY FOR VERIFY GATE) found two integration bugs that do NOT touch the
-documented verify cell (`ruff:spec:opus-4.8`, claude, spec) but **corrupt half the Phase-2 matrix** — fix both
-before any gpt-5.5 or plan cell runs (verify each against the code first):
+documented verify cell (`ruff:spec:opus-4.8`, claude, spec) but **corrupt half the Phase-2 matrix**. The owner
+chose to fix both BEFORE the Verify Gate; both are now FIXED + tested (298 suite green): codex gate added (usage
+read before the `item.completed` gate so token capture is preserved; double-event → count 1); plan-stage
+`_upstream_spec` threads the recovered prism-off spec into BOTH the arm prompt (`upstream=`) and the oracle
+`issue_text`; 3 dead imports removed. Original findings (kept for the record):
 
 - **[IMPORTANT] Codex dose double-count** — `eval/tier_c/parse.py` `parse_codex_jsonl` iterates events without
   gating on `ev.get("type") == "item.completed"`, so each codex `mcp_tool_call` (emitted under both
