@@ -13,6 +13,7 @@ class FakeCo:
     def __exit__(self, *a): return False
     def file_exists(self, rel): return True
     def read_line(self, rel, line): return "x"
+    def read_window(self, rel, line): return "x"
 
 
 class FakeRank:
@@ -156,6 +157,7 @@ def test_run_live_8_variants_writes_store_and_2x2(tmp_path):
         def __exit__(self,*a): return False
         def file_exists(self,r): return True
         def read_line(self,r,l): return "x"
+        def read_window(self,r,l): return "x"
     class FakeRank:
         def rank(self,s,r,c): return sorted(c, key=lambda k: -len(c[k]))
     class FakeGuess:

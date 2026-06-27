@@ -33,14 +33,16 @@ def _strip_plants(text: str, plants: list[PlantedError]) -> str:
     return out
 
 def run_stage(*, stage, variants, runner, co, prompt, repo_root, claim_counts=None,
-              plants, judges, relevance) -> StageResult:
+              plants, judges, relevance, issue_text: str = "",
+              read_code=lambda *_: None) -> StageResult:
     outputs = {v.id: runner.run(v, stage, prompt, repo_root) for v in variants}
     if claim_counts is None:
         from .claims import count_claims
         claim_counts = {vid: max(1, count_claims(o.text)) for vid, o in outputs.items()}
     investigator = {
         vid: score_citations(co, o.citations, claim_count=claim_counts[vid],
-                             relevance=relevance)
+                             relevance=relevance, issue_text=issue_text,
+                             read_code=read_code)
         for vid, o in outputs.items()
     }
     planted = {vid: score_catch(o.text, plants) for vid, o in outputs.items()}
@@ -89,16 +91,18 @@ def _salt(frame: str, plants: list[PlantedError]) -> str:
 
 def run_spec_plan_chain(*, issue_text, scoped_slice, variants, runner, co,
                         claim_counts=None, plants, judges, relevance, prompt_fn) -> ChainResult:
+    read_code = lambda f, l: co.read_window(f, l)
     spec_prompt = prompt_fn("spec", issue_text=_salt(issue_text, plants), scoped_slice=scoped_slice)
     spec = run_stage(stage="spec", variants=variants, runner=runner, co=co,
                      prompt=spec_prompt, repo_root=str(getattr(co, "root", ".")),
                      claim_counts=claim_counts, plants=plants, judges=judges,
-                     relevance=relevance)
+                     relevance=relevance, issue_text=issue_text, read_code=read_code)
+    plan_issue_text = issue_text + "\n\n## Upstream spec\n" + spec.cleaned_best_text
     plan_prompt = prompt_fn("plan", issue_text=issue_text, scoped_slice=scoped_slice,
                             upstream=_salt(spec.cleaned_best_text, plants))
     plan = run_stage(stage="plan", variants=variants, runner=runner, co=co,
                      prompt=plan_prompt, repo_root=str(getattr(co, "root", ".")),
                      claim_counts=claim_counts, plants=plants, judges=judges,
-                     relevance=relevance)
+                     relevance=relevance, issue_text=plan_issue_text, read_code=read_code)
     return ChainResult(stages=[spec, plan],
                        provenance=Provenance(spec.best_variant_id, plan.best_variant_id))
