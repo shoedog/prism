@@ -24,6 +24,25 @@ def test_prism_on_steer_contains_all_nav_tools():
         assert tool in p, f"Missing nav tool: {tool}"
 
 
+def test_prism_on_steer_names_exact_mcp_tool_ids_and_retries():
+    """(a) The prism MCP registers ~1-2s after startup; in the prometheus run the agent
+    wasted its first two calls on ToolSearch discovery (which returned 'no matching tools'),
+    then gave up. The steer must (1) name the exact mcp__prism__ tool ids so the agent calls
+    them DIRECTLY (no discovery), and (2) instruct a retry through the registration window
+    instead of falling back to grep."""
+    p = stage_prompt("spec", issue_text="i", scoped_slice="s", steer="prism_on")
+    assert "mcp__prism__nav_repo_map" in p, "steer must name the exact MCP tool ids (call directly, no ToolSearch)"
+    assert "retry" in p.lower(), "steer must instruct a retry through the MCP-registration window"
+
+
+def test_prism_on_steer_requests_detailed_verbosity():
+    """(b) concise (the default the agent picked) returns line numbers only (snippet/symbol
+    null); detailed returns snippets + symbols, so one call carries enough value that the
+    agent does not 'give up' after a thin result."""
+    p = stage_prompt("spec", issue_text="i", scoped_slice="s", steer="prism_on")
+    assert "detailed" in p.lower(), "steer must request verbosity: detailed for richer one-call value"
+
+
 def test_capability_steer_names_task_not_prism():
     p = stage_prompt("spec", issue_text="i", scoped_slice="s", steer="capability")
     assert "who calls" in p.lower() and "prism" not in p.lower() and "nav_" not in p.lower()
