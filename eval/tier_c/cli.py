@@ -88,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
             base_root = args.base_root
             issues_path = args.issues
             run_id = args.run_id or _default_partc_run_id()
-            runs_root = args.run_store_root or _default_run_store_root()
+            runs_root = args.run_store_root or _default_partc_run_store_root()
             force_new = args.force_new
             _run_partc_live(cell, bench_root=bench_root, base_root=base_root,
                             issues_path=issues_path, run_id=run_id,
@@ -130,10 +130,24 @@ def _default_run_store_root() -> str:
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs")
 
 
+def _default_partc_run_store_root() -> str:
+    """Default Part-C run store: eval/tier_c/runs/partc/ (gitignored)."""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs", "partc")
+
+
 def _default_partc_run_id() -> str:
-    """Generate a timestamp-based Part-C run id: partc-YYYYmmdd-HHMMSS."""
+    """Generate a unique timestamp-based Part-C run id: partc-YYYYmmdd-HHMMSS-XXXX.
+
+    The 4-hex suffix is derived from os.getpid() + time.monotonic() so two calls
+    within the same second produce distinct ids without random state.
+    """
+    import time as _time
     from datetime import datetime
-    return datetime.now().strftime("partc-%Y%m%d-%H%M%S")
+    ts = datetime.now().strftime("partc-%Y%m%d-%H%M%S")
+    # Combine pid and monotonic counter to build a deterministic short suffix.
+    raw = os.getpid() ^ (int(_time.monotonic() * 1e6) & 0xFFFF)
+    suffix = format(raw & 0xFFFF, "04x")
+    return f"{ts}-{suffix}"
 
 
 def _prism_build_id(path: str) -> str:
@@ -688,28 +702,117 @@ def _persist_partc_arm_files(
     return paths
 
 
+def _persist_one_arm(
+    out,  # ArmOutput | None
+    prompt: str | None,
+    prewarm,  # dict | None
+    *,
+    base: str,
+    arm: str,  # "off" | "on"
+    mcp_args: list | None = None,
+    prism: bool | None = None,
+) -> list[str]:
+    """Write all per-arm artifacts for a single arm, immediately after it runs.
+
+    Always written (even on failure — call this from a finally block):
+      <base>.<arm>.meta.json   — argv, returncode, stderr (capped 20000 chars), wall_s,
+                                  exception, cwd, mcp_args, prism flag
+      <base>.<arm>.prompt.txt — exact prompt sent to the arm
+
+    Written only on success (out is not None and returncode == 0):
+      <base>.<arm>.out.md     — arm response text
+      <base>.<arm>.raw.jsonl  — full raw stdout stream
+
+    Additionally for on-arm with prewarm:
+      <base>.on.prewarm.json  — prewarm telemetry
+
+    Returns list of paths written.
+    """
+    import json as _json
+    from tier_c.arm_runner import ArmRunError
+
+    paths: list[str] = []
+
+    def _w(path: str, content: str) -> str:
+        with open(path, "w") as _f:
+            _f.write(content)
+        paths.append(path)
+        return path
+
+    # --- meta.json (always) ---
+    if out is not None:
+        meta = {
+            "argv": getattr(out, "argv", []),
+            "returncode": getattr(out, "returncode", 0),
+            "stderr": (getattr(out, "stderr", "") or "")[:20000],
+            "wall_s": getattr(out, "wall_s", 0.0),
+            "exception": None,
+            "cwd": getattr(out, "cwd", ""),
+            "mcp_args": mcp_args or [],
+            "prism": prism if prism is not None else False,
+        }
+    else:
+        # out is None → placeholder (failure path; caller will set exception separately)
+        meta = {
+            "argv": [],
+            "returncode": -1,
+            "stderr": "",
+            "wall_s": 0.0,
+            "exception": None,
+            "cwd": "",
+            "mcp_args": mcp_args or [],
+            "prism": prism if prism is not None else False,
+        }
+
+    _w(f"{base}.{arm}.meta.json", _json.dumps(meta, indent=2))
+
+    # --- prompt.txt (always) ---
+    _w(f"{base}.{arm}.prompt.txt", prompt or "")
+
+    # --- out.md + raw.jsonl (success only) ---
+    if out is not None and getattr(out, "returncode", 0) == 0:
+        _w(f"{base}.{arm}.out.md", out.text or "")
+        _w(f"{base}.{arm}.raw.jsonl", out.raw_stdout or "")
+
+    # --- prewarm.json (on-arm only) ---
+    if arm == "on" and prewarm is not None:
+        pw_path = f"{base}.on.prewarm.json"
+        with open(pw_path, "w") as _f:
+            _json.dump(prewarm, _f, indent=2)
+        paths.append(pw_path)
+
+    return paths
+
+
 def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
                     issues_path: str, run_id: str | None = None,
                     runs_root: str | None = None, force_new: bool = False) -> None:
     """Open a pinned throwaway worktree at the issue SHA and run one Part-C cell live.
 
     All artifacts go under <runs_root>/<run_id>/ (collision-guarded unless force_new).
+    Per-arm artifacts are written IMMEDIATELY after each arm finishes so a failure
+    in one arm does not lose the other arm's context.  status.json is always written
+    at the end (success or failure).
     """
     import json as _json
+    import shutil
     from .partc import run_partc_cell
+    from .arm_runner import ArmRunError
 
     repo, stage, model = cell
     if runs_root is None:
-        runs_root = _default_run_store_root()
+        runs_root = _default_partc_run_store_root()
     if run_id is None:
         run_id = _default_partc_run_id()
 
-    # Collision guard
+    # Collision guard + force-new clear
     run_dir = os.path.join(runs_root, run_id)
     if os.path.exists(run_dir) and not force_new:
         raise FileExistsError(
             f"run-id dir exists: {run_dir} (use --force-new to override)"
         )
+    if os.path.exists(run_dir) and force_new:
+        shutil.rmtree(run_dir)
     os.makedirs(run_dir, exist_ok=True)
 
     issues = load_issues(issues_path)
@@ -721,9 +824,144 @@ def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
         issues_path=issues_path, run_id=run_id, runs_root=runs_root,
     )
 
-    with Checkout(os.path.join(bench_root, repo), issue.sha) as co:
-        comps = _LivePartCComps(co=co, issue=issue, model=model, base_root=base_root)
-        partc_cell = run_partc_cell(cell, comps)
+    safe_model = model.replace("/", "_").replace(":", "_")
+    base = os.path.join(run_dir, f"{repo}-{stage}-{safe_model}")
+
+    # Track failure state for status.json
+    failed_stage: str | None = None
+    error_msg: str | None = None
+
+    try:
+        with Checkout(os.path.join(bench_root, repo), issue.sha) as co:
+            comps = _LivePartCComps(co=co, issue=issue, model=model, base_root=base_root)
+
+            # --- OFF arm (try/finally for immediate persistence) ---
+            off_exception_info: dict | None = None
+            try:
+                comps.run_off_arm(cell)
+            except ArmRunError as e:
+                failed_stage = "off"
+                error_msg = str(e)
+                off_exception_info = {
+                    "argv": e.argv,
+                    "returncode": e.returncode,
+                    "stderr": e.stderr[:20000],
+                    "wall_s": 0.0,
+                    "exception": str(e),
+                    "cwd": "",
+                    "mcp_args": [],
+                    "prism": False,
+                }
+            finally:
+                # Always write off-arm meta.json + prompt, even on failure
+                if off_exception_info is not None:
+                    import json as _j
+                    with open(f"{base}.off.meta.json", "w") as _f:
+                        _j.dump(off_exception_info, _f, indent=2)
+                    with open(f"{base}.off.prompt.txt", "w") as _f:
+                        _f.write(comps._last_off_prompt or "")
+                else:
+                    _persist_one_arm(
+                        comps._last_off,
+                        comps._last_off_prompt,
+                        None,
+                        base=base,
+                        arm="off",
+                        mcp_args=[],
+                        prism=False,
+                    )
+
+            if failed_stage == "off":
+                raise ArmRunError(
+                    argv=off_exception_info["argv"],
+                    returncode=off_exception_info["returncode"],
+                    stderr=off_exception_info["stderr"],
+                    stdout="",
+                )
+
+            # --- Score off arm ---
+            # (score is called inside run_partc_cell; we mirror partial flow here for
+            #  failure isolation, but we defer to run_partc_cell for the full cell)
+
+            # --- ON arm (try/finally for immediate persistence) ---
+            on_exception_info: dict | None = None
+            try:
+                comps.run_on_arm(cell)
+            except ArmRunError as e:
+                failed_stage = "on"
+                error_msg = str(e)
+                on_exception_info = {
+                    "argv": e.argv,
+                    "returncode": e.returncode,
+                    "stderr": e.stderr[:20000],
+                    "wall_s": 0.0,
+                    "exception": str(e),
+                    "cwd": "",
+                    "mcp_args": [],
+                    "prism": True,
+                }
+            finally:
+                # Always write on-arm meta.json + prompt, even on failure
+                if on_exception_info is not None:
+                    import json as _j
+                    with open(f"{base}.on.meta.json", "w") as _f:
+                        _j.dump(on_exception_info, _f, indent=2)
+                    with open(f"{base}.on.prompt.txt", "w") as _f:
+                        _f.write(comps._last_on_prompt or "")
+                else:
+                    _persist_one_arm(
+                        comps._last_on,
+                        comps._last_on_prompt,
+                        getattr(comps, "_last_prewarm", None),
+                        base=base,
+                        arm="on",
+                        mcp_args=[],
+                        prism=True,
+                    )
+
+            if failed_stage == "on":
+                raise ArmRunError(
+                    argv=on_exception_info["argv"],
+                    returncode=on_exception_info["returncode"],
+                    stderr=on_exception_info["stderr"],
+                    stdout="",
+                )
+
+            # --- Both arms succeeded: run the full cell and persist results ---
+            # Re-run via run_partc_cell using already-set _last_off / _last_on
+            # to avoid a second subprocess call.  Wrap comps so run_*_arm just
+            # returns what already ran.
+            class _CachedComps:
+                def run_off_arm(self_inner, c):
+                    return comps._last_off
+                def run_on_arm(self_inner, c):
+                    return comps._last_on
+                def score(self_inner, citations, **kwargs):
+                    return comps.score(citations, **kwargs)
+
+            partc_cell = run_partc_cell(cell, _CachedComps())
+
+    except (ArmRunError, Exception) as exc:
+        # Write status.json on failure
+        status_path = os.path.join(run_dir, "status.json")
+        with open(status_path, "w") as _f:
+            _json.dump({
+                "status": "failed",
+                "failed_stage": failed_stage,
+                "error": error_msg or str(exc),
+                "cell": {"repo": repo, "stage": stage, "model": model},
+            }, _f, indent=2)
+        raise
+
+    # --- Success: write status.json + remaining artifacts ---
+    status_path = os.path.join(run_dir, "status.json")
+    with open(status_path, "w") as _f:
+        _json.dump({
+            "status": "success",
+            "failed_stage": None,
+            "error": None,
+            "cell": {"repo": repo, "stage": stage, "model": model},
+        }, _f, indent=2)
 
     print(f"Run dir: {run_dir}")
     print(render_partc([partc_cell]))
@@ -732,35 +970,4 @@ def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
     json_path = _persist_partc_cell(partc_cell, repo, stage, model,
                                     run_id=run_id, runs_root=runs_root)
     print(f"cell JSON: {json_path}")
-
-    # Persist arm text + raw
-    safe_model = model.replace("/", "_").replace(":", "_")
-    arm_paths = _persist_partc_arm_files(
-        off_out=comps._last_off,
-        on_out=comps._last_on,
-        repo=repo,
-        stage=stage,
-        model=model,
-        run_id=run_id,
-        runs_root=runs_root,
-    )
-    for p in arm_paths:
-        print(f"arm file: {p}")
-
-    # Persist exact prompts
-    off_prompt_path = os.path.join(run_dir, f"{repo}-{stage}-{safe_model}.off.prompt.txt")
-    on_prompt_path = os.path.join(run_dir, f"{repo}-{stage}-{safe_model}.on.prompt.txt")
-    with open(off_prompt_path, "w") as f:
-        f.write(comps._last_off_prompt or "")
-    with open(on_prompt_path, "w") as f:
-        f.write(comps._last_on_prompt or "")
-    print(f"off prompt: {off_prompt_path}")
-    print(f"on prompt:  {on_prompt_path}")
-
-    # Persist prewarm telemetry (on-arm only)
-    prewarm_data = getattr(comps, "_last_prewarm", None)
-    if prewarm_data is not None:
-        prewarm_path = os.path.join(run_dir, f"{repo}-{stage}-{safe_model}.on.prewarm.json")
-        with open(prewarm_path, "w") as f:
-            _json.dump(prewarm_data, f, indent=2)
-        print(f"prewarm:    {prewarm_path}")
+    print(f"status:    {status_path}")

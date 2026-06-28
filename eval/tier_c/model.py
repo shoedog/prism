@@ -61,3 +61,8 @@ class ArmOutput:
     in_tokens: int = 0   # input tokens (default 0 so existing constructions keep working)
     cost_usd: float = 0.0
     raw_stdout: str = ""  # full proc.stdout from the model subprocess; "" for fakes/tests
+    # Audit fields — populated on success by runners; "" / [] defaults for backward compat.
+    argv: list[str] = field(default_factory=list)
+    returncode: int = 0
+    stderr: str = ""
+    cwd: str = ""

@@ -18,6 +18,26 @@ from adoption.env import build_isolated_config
 from adoption.codex_env import build_isolated_codex_home
 
 
+class ArmRunError(Exception):
+    """Structured exception raised when a runner subprocess fails.
+
+    Carries the full context needed for failure persistence:
+      argv       — the exact command list that was run
+      returncode — the process exit code
+      stderr     — the full stderr (uncapped; callers may cap on serialisation)
+      stdout     — whatever partial stdout was captured (may be empty)
+    """
+
+    def __init__(self, *, argv: list[str], returncode: int, stderr: str, stdout: str):
+        self.argv = argv
+        self.returncode = returncode
+        self.stderr = stderr
+        self.stdout = stdout
+        super().__init__(
+            f"arm exited {returncode}: {stderr[:400]}"
+        )
+
+
 def prism_mcp_args(repo_root: str, *, no_cache: bool = False) -> list[str]:
     """Build the prism-mcp server arg list for a given repo root.
 
@@ -269,9 +289,16 @@ class ClaudeRunner:
         if not variant.lsp and self.lsp_deny_dir:
             env["PATH"] = self.lsp_deny_dir + os.pathsep + env["PATH"]
         proc = subprocess.run(cmd, capture_output=True, text=True, cwd=repo_root, timeout=_TIMEOUT, env=env)
-        if proc.returncode != 0 or not proc.stdout.strip():
-            raise RuntimeError(f"arm exited {proc.returncode}: {(proc.stderr or '').strip()[:400]}")
-        r = parse_claude_stream_json(proc.stdout)
+        stderr_text = (proc.stderr or "").strip()
+        stdout_text = proc.stdout or ""
+        if proc.returncode != 0 or not stdout_text.strip():
+            raise ArmRunError(
+                argv=list(cmd),
+                returncode=proc.returncode,
+                stderr=stderr_text,
+                stdout=stdout_text,
+            )
+        r = parse_claude_stream_json(stdout_text)
         flags = classify_tools(r.commands)
         prism_calls = r.prism_calls
         return ArmOutput(variant=variant, text=r.text, citations=parse_citations(r.text),
@@ -280,7 +307,11 @@ class ClaudeRunner:
                          prism_calls=prism_calls, dose=r.dose,
                          low_dose=prism_calls > 0 and prism_calls <= 1,
                          commands=r.commands, in_tokens=r.input_tokens, cost_usd=r.cost_usd,
-                         raw_stdout=proc.stdout,
+                         raw_stdout=stdout_text,
+                         argv=list(cmd),
+                         returncode=proc.returncode,
+                         stderr=stderr_text,
+                         cwd=repo_root,
                          **flags)
 
 class CodexRunner:
@@ -347,9 +378,16 @@ class CodexRunner:
             env["PATH"] = self.lsp_deny_dir + os.pathsep + env["PATH"]
         proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
                               cwd=repo_root, timeout=_TIMEOUT, env=env)
-        if proc.returncode != 0 or not proc.stdout.strip():
-            raise RuntimeError(f"arm exited {proc.returncode}: {(proc.stderr or '').strip()[:400]}")
-        r = parse_codex_jsonl(proc.stdout)
+        stderr_text = (proc.stderr or "").strip()
+        stdout_text = proc.stdout or ""
+        if proc.returncode != 0 or not stdout_text.strip():
+            raise ArmRunError(
+                argv=list(cmd),
+                returncode=proc.returncode,
+                stderr=stderr_text,
+                stdout=stdout_text,
+            )
+        r = parse_codex_jsonl(stdout_text)
         flags = classify_tools(r.commands)
         prism_calls = r.prism_calls
         return ArmOutput(variant=variant, text=r.text, citations=parse_citations(r.text),
@@ -358,7 +396,11 @@ class CodexRunner:
                          prism_calls=prism_calls, dose=r.dose,
                          low_dose=prism_calls > 0 and prism_calls <= 1,
                          commands=r.commands, in_tokens=r.input_tokens, cost_usd=r.cost_usd,
-                         raw_stdout=proc.stdout,
+                         raw_stdout=stdout_text,
+                         argv=list(cmd),
+                         returncode=proc.returncode,
+                         stderr=stderr_text,
+                         cwd=repo_root,
                          **flags)
 
 class FakeArmRunner:

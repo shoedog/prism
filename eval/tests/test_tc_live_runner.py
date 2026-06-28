@@ -55,13 +55,15 @@ def test_codex_runner_off_has_no_prism(monkeypatch):
 def test_runner_raises_clear_error_on_subprocess_failure(monkeypatch):
     import pytest
     from tier_c.model import Variant
-    from tier_c.arm_runner import ClaudeRunner
+    from tier_c.arm_runner import ClaudeRunner, ArmRunError
     def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None, env=None):
         class R: stdout = ""; returncode = 1; stderr = "auth: missing API key"
         return R()
     monkeypatch.setattr("tier_c.arm_runner.subprocess.run", fake_run)
-    with pytest.raises(RuntimeError, match="auth: missing API key"):
+    with pytest.raises(ArmRunError) as exc_info:
         ClaudeRunner(mcp_cfg="/tmp/p.json").run(Variant("opus-4.8", True), "spec", "P", "/repo")
+    assert "auth: missing API key" in exc_info.value.stderr
+    assert exc_info.value.returncode == 1
 
 
 def test_claude_runner_per_checkout_prism_config(monkeypatch):
