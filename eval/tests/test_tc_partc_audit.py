@@ -9,6 +9,8 @@ Changes tested:
   5. Full per-cite citation verdicts on PartCCell + persisted JSON
   6. Explicit gate decision on PartCCell (keep/discard + reason)
   7. Stage-aware file names (.out.md instead of .spec.md for plan stage)
+  8. Per-cite judge artifacts (.judge.jsonl with prompt+response+relevant)
+  9. Manifest accuracy: real config_summary, full 64-hex sha, dirty_git, thinking_enabled
 """
 from __future__ import annotations
 
@@ -1013,3 +1015,438 @@ def test_persist_arm_files_plan_stage_uses_out_md(tmp_path):
             assert Path(p).read_text() == "off plan text"
         elif name.endswith(".on.out.md"):
             assert Path(p).read_text() == "on plan text"
+
+
+# ---------------------------------------------------------------------------
+# 8. Per-cite judge artifacts (.judge.jsonl with prompt+response+relevant)
+# ---------------------------------------------------------------------------
+
+def test_recording_relevance_judge_captures_prompt_and_response():
+    """_RecordingRelevanceJudge must record (cite, prompt, response, relevant) per call."""
+    from tier_c.judges_live import LlmRelevanceJudge, _RecordingRelevanceJudge
+    from tier_c.model import Citation as _Cit
+
+    calls: list[tuple] = []
+
+    def fake_ask(model, prompt):
+        calls.append(("ask", model, prompt))
+        return "YES"
+
+    inner = LlmRelevanceJudge(fake_ask, "opus-4.8")
+    records: list[dict] = []
+    cite = _Cit(file="src/a.go", line=10, symbol="Foo")
+    recorder = _RecordingRelevanceJudge(inner, records)
+
+    result = recorder.is_relevant(cite, "issue text", "def foo(): ...")
+    assert result is True
+    assert len(records) == 1
+    r = records[0]
+    assert r["file"] == "src/a.go"
+    assert r["line"] == 10
+    assert r["symbol"] == "Foo"
+    assert "issue text" in r["prompt"]
+    assert r["response"] == "YES"
+    assert r["relevant"] is True
+
+
+def test_recording_relevance_judge_captures_no_response():
+    """NO response → relevant=False, still recorded."""
+    from tier_c.judges_live import LlmRelevanceJudge, _RecordingRelevanceJudge
+    from tier_c.model import Citation as _Cit
+
+    inner = LlmRelevanceJudge(lambda m, p: "NO, unrelated", "opus-4.8")
+    records: list[dict] = []
+    cite = _Cit(file="x.py", line=5, symbol=None)
+    recorder = _RecordingRelevanceJudge(inner, records)
+
+    result = recorder.is_relevant(cite, "issue", "")
+    assert result is False
+    assert len(records) == 1
+    assert records[0]["relevant"] is False
+    assert records[0]["symbol"] is None
+
+
+def test_live_partc_comps_score_produces_judge_records(monkeypatch):
+    """_LivePartCComps.score populates self._last_off_judge / _last_on_judge with cite records."""
+    import tier_c.cli as cli_mod
+    import tier_c.investigator as inv_mod
+
+    ask_log: list[tuple] = []
+
+    def fake_ask(model, prompt):
+        ask_log.append((model, prompt))
+        return "YES"
+
+    # Build a checkout fake with resolve_rel + read_window.
+    # read_line must return a string that CONTAINS the cite's symbol so symbol_ok=True
+    # and relevance.is_relevant is always called (otherwise no record is appended).
+    class _FakeCo:
+        root = "/fake"
+
+        def resolve_rel(self, f):
+            return f
+
+        def file_exists(self, f):
+            return True
+
+        def read_line(self, f, ln):
+            # Return a line that contains every possible symbol so symbol_ok is always True
+            return "func Foo() Bar { }"
+
+        def read_window(self, f, ln):
+            return "def foo(): ..."
+
+    issue = types.SimpleNamespace(
+        text="ISSUE BODY", scoped_slice="slice 1", repo="ruff", sha="abc",
+    )
+
+    comps = cli_mod._LivePartCComps(
+        co=_FakeCo(), issue=issue, model="opus-4.8",
+        base_root="/base", ask=fake_ask,
+    )
+    # Force _upstream_spec to return "" (spec cell)
+    comps._upstream_spec = lambda cell: ""
+
+    from tier_c.model import Citation as _Cit
+    cites = [
+        _Cit(file="src/a.go", line=10, symbol="Foo"),
+        _Cit(file="src/b.go", line=20, symbol=None),
+    ]
+
+    cell = ("ruff", "spec", "opus-4.8")
+    comps.score(cites, cell=cell, arm="base")
+
+    # After scoring off-arm, _last_off_judge should have 2 records
+    assert hasattr(comps, "_last_off_judge"), (
+        "_LivePartCComps.score must set _last_off_judge after arm='base' call"
+    )
+    assert len(comps._last_off_judge) == 2, (
+        f"expected 2 judge records (one per cite), got {len(comps._last_off_judge)}"
+    )
+    rec = comps._last_off_judge[0]
+    assert "file" in rec
+    assert "line" in rec
+    assert "prompt" in rec
+    assert "response" in rec
+    assert "relevant" in rec
+
+    # Score the on-arm
+    comps.score(cites, cell=cell, arm="on")
+    assert hasattr(comps, "_last_on_judge"), (
+        "_LivePartCComps.score must set _last_on_judge after arm='on' call"
+    )
+    assert len(comps._last_on_judge) == 2
+
+
+def test_run_partc_live_writes_judge_jsonl(tmp_path, monkeypatch):
+    """_run_partc_live writes <base>.off.judge.jsonl and <base>.on.judge.jsonl."""
+    import tier_c.cli as cli_mod
+
+    off_judge_records = [
+        {"file": "src/a.go", "line": 1, "symbol": None,
+         "prompt": "Is src/a.go:1 relevant?", "response": "YES", "relevant": True},
+    ]
+    on_judge_records = [
+        {"file": "src/a.go", "line": 1, "symbol": None,
+         "prompt": "Is src/a.go:1 relevant?", "response": "NO", "relevant": False},
+    ]
+
+    off_out = _arm_output(prism=False, text="off text", raw="")
+    on_out = _arm_output(prism=True, text="on text", raw="", prism_calls=2)
+
+    class _FakeComps3:
+        _last_off = off_out
+        _last_on = on_out
+        _last_off_prompt = "off prompt"
+        _last_on_prompt = "on prompt"
+        _last_off_judge = off_judge_records
+        _last_on_judge = on_judge_records
+
+        def run_off_arm(self, cell):
+            return off_out
+
+        def run_on_arm(self, cell):
+            return on_out
+
+        def score(self, citations, **kwargs):
+            return _report(0.5, [_verdict()])
+
+    monkeypatch.setattr(cli_mod, "_LivePartCComps", lambda **kw: _FakeComps3())
+
+    class _FakeCheckout:
+        def __init__(self, *a, **kw):
+            pass
+        def __enter__(self):
+            return types.SimpleNamespace(root="/fake")
+        def __exit__(self, *a):
+            pass
+
+    monkeypatch.setattr(cli_mod, "Checkout", _FakeCheckout, raising=False)
+    issue = types.SimpleNamespace(
+        key="ruff-1", language="rust", repo="ruff", sha="abc",
+        url="u", text="t", scoped_slice="s",
+    )
+    monkeypatch.setattr(cli_mod, "load_issues", lambda path: [issue])
+    monkeypatch.setattr(cli_mod, "render_partc", lambda cells: "REPORT")
+
+    runs_root = tmp_path / "runs"
+    run_id = "judge-test-run"
+
+    cli_mod._run_partc_live(
+        ("ruff", "spec", "opus-4.8"),
+        bench_root="/fake/bench",
+        base_root="base_root",
+        issues_path="issues.toml",
+        run_id=run_id,
+        runs_root=str(runs_root),
+    )
+
+    run_dir = runs_root / run_id
+    off_judge = run_dir / "ruff-spec-opus-4.8.off.judge.jsonl"
+    on_judge = run_dir / "ruff-spec-opus-4.8.on.judge.jsonl"
+
+    assert off_judge.exists(), f"off.judge.jsonl must be written: {off_judge}"
+    assert on_judge.exists(), f"on.judge.jsonl must be written: {on_judge}"
+
+    # Each line is a JSON object with required fields
+    off_lines = [json.loads(l) for l in off_judge.read_text().splitlines() if l.strip()]
+    on_lines = [json.loads(l) for l in on_judge.read_text().splitlines() if l.strip()]
+    assert len(off_lines) == 1
+    assert len(on_lines) == 1
+    assert off_lines[0]["relevant"] is True
+    assert on_lines[0]["relevant"] is False
+    assert "prompt" in off_lines[0]
+    assert "response" in off_lines[0]
+    assert "file" in off_lines[0]
+    assert "line" in off_lines[0]
+
+
+def test_judge_jsonl_one_record_per_cite():
+    """Each cited location produces exactly one judge record (no duplicates/omissions)."""
+    from tier_c.judges_live import LlmRelevanceJudge, _RecordingRelevanceJudge
+    from tier_c.model import Citation as _Cit
+
+    responses = ["YES", "NO", "YES"]
+    idx = 0
+
+    def fake_ask(model, prompt):
+        nonlocal idx
+        r = responses[idx]
+        idx += 1
+        return r
+
+    inner = LlmRelevanceJudge(fake_ask, "opus-4.8")
+    records: list[dict] = []
+    recorder = _RecordingRelevanceJudge(inner, records)
+
+    cites = [
+        _Cit("a.go", 1, None),
+        _Cit("b.go", 2, "Bar"),
+        _Cit("c.go", 3, None),
+    ]
+    results = [recorder.is_relevant(c, "issue", "") for c in cites]
+
+    assert len(records) == 3
+    assert [r["relevant"] for r in records] == [True, False, True]
+    assert records[1]["file"] == "b.go"
+    assert records[1]["symbol"] == "Bar"
+    assert results == [True, False, True]
+
+
+# ---------------------------------------------------------------------------
+# 9. Manifest accuracy
+# ---------------------------------------------------------------------------
+
+def test_manifest_config_summary_on_arm_has_skill_and_mcp_prism(tmp_path, monkeypatch):
+    """config_summary.on reflects real prism-ON config: skill_present=True,
+    allow_includes_mcp_prism=True, deny=['Write','Edit']."""
+    import tier_c.cli as cli_mod
+
+    fake_bin = tmp_path / "prism-mcp"
+    fake_bin.write_bytes(b"bin")
+    fake_prism = tmp_path / "prism"
+    fake_prism.write_bytes(b"prism")
+
+    monkeypatch.setattr(cli_mod, "_prism_mcp_bin", lambda: str(fake_bin))
+    monkeypatch.setattr(cli_mod, "_prism_bin", lambda: str(fake_prism), raising=False)
+
+    issue = types.SimpleNamespace(
+        key="r1", language="rust", repo="ruff", sha="abc", url="u",
+    )
+    runs_root = tmp_path / "runs"
+    cli_mod._write_partc_manifest(
+        cell=("ruff", "spec", "opus-4.8"), issue=issue,
+        bench_root="/bench", base_root="/base", issues_path="i.toml",
+        run_id="cfg-test", runs_root=str(runs_root),
+    )
+
+    data = json.loads((runs_root / "cfg-test" / "manifest.json").read_text())
+    on_cfg = data["config_summary"]["on"]
+    assert on_cfg["skill_present"] is True
+    assert on_cfg["allow_includes_mcp_prism"] is True
+    assert "Write" in on_cfg["deny"] and "Edit" in on_cfg["deny"]
+
+
+def test_manifest_config_summary_off_arm_no_skill_no_mcp_prism(tmp_path, monkeypatch):
+    """config_summary.off reflects real prism-OFF config: no skill, no mcp__prism,
+    allow=[Read,Grep,Glob,Bash], deny=[Write,Edit]."""
+    import tier_c.cli as cli_mod
+
+    fake_bin = tmp_path / "prism-mcp"
+    fake_bin.write_bytes(b"bin")
+    fake_prism = tmp_path / "prism"
+    fake_prism.write_bytes(b"prism")
+
+    monkeypatch.setattr(cli_mod, "_prism_mcp_bin", lambda: str(fake_bin))
+    monkeypatch.setattr(cli_mod, "_prism_bin", lambda: str(fake_prism), raising=False)
+
+    issue = types.SimpleNamespace(
+        key="r1", language="rust", repo="ruff", sha="abc", url="u",
+    )
+    runs_root = tmp_path / "runs"
+    cli_mod._write_partc_manifest(
+        cell=("ruff", "spec", "opus-4.8"), issue=issue,
+        bench_root="/bench", base_root="/base", issues_path="i.toml",
+        run_id="cfg-off-test", runs_root=str(runs_root),
+    )
+
+    data = json.loads((runs_root / "cfg-off-test" / "manifest.json").read_text())
+    off_cfg = data["config_summary"]["off"]
+    assert off_cfg["skill_present"] is False
+    assert off_cfg["allow_includes_mcp_prism"] is False
+    assert "mcp__prism" not in off_cfg.get("allow", [])
+    assert "Read" in off_cfg["allow"]
+    assert "Grep" in off_cfg["allow"]
+    assert "Write" in off_cfg["deny"] and "Edit" in off_cfg["deny"]
+
+
+def test_manifest_codex_sandbox_flag_is_workspace_write(tmp_path, monkeypatch):
+    """config_summary must expose the TRUE codex sandbox flag (-s workspace-write),
+    not claim 'read-only' or 'deny Write/Edit'."""
+    import tier_c.cli as cli_mod
+
+    fake_bin = tmp_path / "prism-mcp"
+    fake_bin.write_bytes(b"bin")
+    fake_prism = tmp_path / "prism"
+    fake_prism.write_bytes(b"prism")
+
+    monkeypatch.setattr(cli_mod, "_prism_mcp_bin", lambda: str(fake_bin))
+    monkeypatch.setattr(cli_mod, "_prism_bin", lambda: str(fake_prism), raising=False)
+
+    issue = types.SimpleNamespace(
+        key="r1", language="rust", repo="ruff", sha="abc", url="u",
+    )
+    runs_root = tmp_path / "runs"
+    cli_mod._write_partc_manifest(
+        cell=("ruff", "spec", "opus-4.8"), issue=issue,
+        bench_root="/bench", base_root="/base", issues_path="i.toml",
+        run_id="codex-flag-test", runs_root=str(runs_root),
+    )
+
+    data = json.loads((runs_root / "codex-flag-test" / "manifest.json").read_text())
+    # Must have a codex section in config_summary
+    assert "codex" in data["config_summary"], (
+        "config_summary must have a 'codex' key describing the codex arm config"
+    )
+    codex_cfg = data["config_summary"]["codex"]
+    assert codex_cfg["sandbox"] == "workspace-write", (
+        f"codex sandbox must be 'workspace-write' (the TRUE value from build_codex_cmd); "
+        f"got {codex_cfg.get('sandbox')!r}"
+    )
+
+
+def test_manifest_binary_sha_is_full_64_hex(tmp_path, monkeypatch):
+    """prism_mcp_sha and prism_bin_sha must be full 64-hex sha256 (not 16-char truncated)."""
+    import tier_c.cli as cli_mod
+
+    fake_bin = tmp_path / "prism-mcp"
+    fake_bin.write_bytes(b"fake binary content for sha256 test")
+    fake_prism = tmp_path / "prism"
+    fake_prism.write_bytes(b"fake prism binary")
+
+    monkeypatch.setattr(cli_mod, "_prism_mcp_bin", lambda: str(fake_bin))
+    monkeypatch.setattr(cli_mod, "_prism_bin", lambda: str(fake_prism), raising=False)
+
+    issue = types.SimpleNamespace(
+        key="r1", language="rust", repo="ruff", sha="abc", url="u",
+    )
+    runs_root = tmp_path / "runs"
+    cli_mod._write_partc_manifest(
+        cell=("ruff", "spec", "opus-4.8"), issue=issue,
+        bench_root="/bench", base_root="/base", issues_path="i.toml",
+        run_id="sha-test", runs_root=str(runs_root),
+    )
+
+    data = json.loads((runs_root / "sha-test" / "manifest.json").read_text())
+    mcp_sha = data["prism_mcp_sha"]
+    bin_sha = data["prism_bin_sha"]
+
+    assert mcp_sha.startswith("sha256:"), f"must start with sha256:; got {mcp_sha!r}"
+    hex_part = mcp_sha[len("sha256:"):]
+    assert len(hex_part) == 64, (
+        f"sha256 hex must be 64 chars (full digest), not truncated; got {len(hex_part)}: {hex_part!r}"
+    )
+
+    bin_hex = bin_sha[len("sha256:"):]
+    assert len(bin_hex) == 64, (
+        f"prism_bin_sha hex must be 64 chars; got {len(bin_hex)}: {bin_hex!r}"
+    )
+
+
+def test_manifest_has_dirty_git_key(tmp_path, monkeypatch):
+    """manifest must include 'dirty_git' key (git status --porcelain output or error string)."""
+    import tier_c.cli as cli_mod
+
+    fake_bin = tmp_path / "prism-mcp"
+    fake_bin.write_bytes(b"bin")
+    fake_prism = tmp_path / "prism"
+    fake_prism.write_bytes(b"prism")
+
+    monkeypatch.setattr(cli_mod, "_prism_mcp_bin", lambda: str(fake_bin))
+    monkeypatch.setattr(cli_mod, "_prism_bin", lambda: str(fake_prism), raising=False)
+
+    issue = types.SimpleNamespace(
+        key="r1", language="rust", repo="ruff", sha="abc", url="u",
+    )
+    runs_root = tmp_path / "runs"
+    cli_mod._write_partc_manifest(
+        cell=("ruff", "spec", "opus-4.8"), issue=issue,
+        bench_root="/bench", base_root="/base", issues_path="i.toml",
+        run_id="dirty-git-test", runs_root=str(runs_root),
+    )
+
+    data = json.loads((runs_root / "dirty-git-test" / "manifest.json").read_text())
+    assert "dirty_git" in data, "manifest must include 'dirty_git' key"
+    # Value must be a string (either git output or an error message)
+    assert isinstance(data["dirty_git"], str), (
+        f"dirty_git must be a string; got {type(data['dirty_git'])}"
+    )
+
+
+def test_manifest_has_thinking_enabled_key(tmp_path, monkeypatch):
+    """manifest must include 'thinking_enabled' boolean key."""
+    import tier_c.cli as cli_mod
+
+    fake_bin = tmp_path / "prism-mcp"
+    fake_bin.write_bytes(b"bin")
+    fake_prism = tmp_path / "prism"
+    fake_prism.write_bytes(b"prism")
+
+    monkeypatch.setattr(cli_mod, "_prism_mcp_bin", lambda: str(fake_bin))
+    monkeypatch.setattr(cli_mod, "_prism_bin", lambda: str(fake_prism), raising=False)
+
+    issue = types.SimpleNamespace(
+        key="r1", language="rust", repo="ruff", sha="abc", url="u",
+    )
+    runs_root = tmp_path / "runs"
+    cli_mod._write_partc_manifest(
+        cell=("ruff", "spec", "opus-4.8"), issue=issue,
+        bench_root="/bench", base_root="/base", issues_path="i.toml",
+        run_id="thinking-test", runs_root=str(runs_root),
+    )
+
+    data = json.loads((runs_root / "thinking-test" / "manifest.json").read_text())
+    assert "thinking_enabled" in data, "manifest must include 'thinking_enabled' key"
+    assert isinstance(data["thinking_enabled"], bool), (
+        f"thinking_enabled must be bool; got {type(data['thinking_enabled'])}"
+    )

@@ -13,6 +13,8 @@ def test_cli_dry_run_lists_issues(tmp_path, capsys):
 def test_prism_build_id_hashes_binary(tmp_path):
     f = tmp_path / "prism-mcp"
     f.write_bytes(b"hello prism")
-    expected = "sha256:" + hashlib.sha256(b"hello prism").hexdigest()[:16]
+    # Full 64-hex sha256 (not truncated)
+    expected = "sha256:" + hashlib.sha256(b"hello prism").hexdigest()
     assert _prism_build_id(str(f)) == expected
+    assert len(expected) == len("sha256:") + 64
     assert _prism_build_id("/nonexistent/prism-mcp").startswith("error:")

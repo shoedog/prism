@@ -1,6 +1,9 @@
 """LLM-backed judges (Phase-1c), all behind the ask() seam so they're unit-tested with fakes.
 RankJudge ranks anonymized candidates (style-neutral); RelevanceJudge audits a citation;
-ConditionGuesser powers the detectability test. None of them get prism (ask() is tool-free)."""
+ConditionGuesser powers the detectability test. None of them get prism (ask() is tool-free).
+
+_RecordingRelevanceJudge wraps LlmRelevanceJudge and appends a record per cite to a caller-
+supplied list — {file, line, symbol, prompt, response, relevant} — for audit persistence."""
 from __future__ import annotations
 import re
 from .model import Citation
@@ -45,3 +48,38 @@ class LlmConditionGuesser:
                   "file:line/call-graph facts likely USED to produce it? Answer with exactly YES or NO and nothing else.\n\n" + text)
         # conservative: any non-YES (incl. hedged) reads False
         return self.ask(self.model, prompt).strip().upper().startswith("YES")
+
+
+class _RecordingRelevanceJudge:
+    """Wraps LlmRelevanceJudge and appends one record per cite to *records*.
+
+    Record format: {file, line, symbol, prompt, response, relevant}.
+    The inner judge is called unchanged; this wrapper only adds the side-effect
+    of capturing the prompt/response pair alongside the cite identity and verdict.
+
+    Correlating cite→record is positional: score_citations calls is_relevant
+    once per cite in iteration order, so record[i] corresponds to cite[i].
+    """
+
+    def __init__(self, inner: LlmRelevanceJudge, records: list):
+        self._inner = inner
+        self._records = records
+
+    def is_relevant(self, cite: Citation, issue_text: str, code: str = "") -> bool:
+        # Build the prompt the same way the inner judge does so we capture the
+        # EXACT text that goes to the model (mirroring LlmRelevanceJudge.is_relevant).
+        code_section = f"\n\nCode at {cite.file}:{cite.line}:\n{code}" if code else ""
+        prompt = (f"Issue:\n{issue_text}{code_section}\n\nIs the code at {cite.file}:{cite.line} "
+                  f"(symbol {cite.symbol}) actually relevant to fixing this issue? Answer with exactly YES or NO and nothing else.")
+        # Delegate to the inner judge (which makes the real ask() call)
+        response = self._inner.ask(self._inner.model, prompt)
+        relevant = response.strip().upper().startswith("YES")
+        self._records.append({
+            "file": cite.file,
+            "line": cite.line,
+            "symbol": cite.symbol,
+            "prompt": prompt,
+            "response": response,
+            "relevant": relevant,
+        })
+        return relevant

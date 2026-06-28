@@ -151,12 +151,15 @@ def _default_partc_run_id() -> str:
 
 
 def _prism_build_id(path: str) -> str:
-    """Build identity of the prism-mcp binary = sha256 of its bytes (prism-mcp has no --version).
-    Different build => different hash, so audit/replay can detect a prism change."""
+    """Build identity of the prism-mcp binary = full sha256 of its bytes.
+
+    Full 64-hex digest so audit/replay gets unambiguous binary identity.
+    (prism-mcp has no --version flag; content hash is the only reliable identity.)
+    """
     import hashlib
     try:
         with open(path, "rb") as f:
-            return "sha256:" + hashlib.sha256(f.read()).hexdigest()[:16]
+            return "sha256:" + hashlib.sha256(f.read()).hexdigest()
     except Exception as e:
         return f"error:{e}"
 
@@ -201,6 +204,22 @@ def _write_partc_manifest(
     except Exception as e:
         harness_git_sha = f"error:{e}"
 
+    # Dirty git status (best-effort; truncated to 4000 chars)
+    try:
+        git_status_out = subprocess.run(
+            ["git", "status", "--porcelain"], capture_output=True, text=True, timeout=10,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+        )
+        dirty_git = (git_status_out.stdout or "").strip()[:4000]
+    except Exception as e:
+        dirty_git = f"error:{e}"
+
+    # Thinking: claude -p does NOT expose a per-call thinking budget flag in the
+    # stream-json CLI (as of 2026-06).  Any exposed reasoning IS preserved verbatim
+    # in raw_stdout (the full stream is saved unstripped by _persist_one_arm).
+    # We record thinking_enabled=False here so the manifest is accurate.
+    thinking_enabled = False
+
     manifest = {
         "timestamp": datetime.now(tz=timezone.utc).isoformat(),
         "cell": {"repo": repo, "stage": stage, "model": model},
@@ -219,17 +238,29 @@ def _write_partc_manifest(
         "prism_bin": prism_bin_path,
         "prism_bin_sha": prism_bin_sha,
         "harness_git_sha": harness_git_sha,
+        "dirty_git": dirty_git,
+        "thinking_enabled": thinking_enabled,
         "config_summary": {
+            # Claude prism-ON arm: skill + mcp__prism allow, deny Write/Edit
             "on": {
                 "skill_present": True,
                 "allow_includes_mcp_prism": True,
+                "allow": ["Read", "Grep", "Glob", "Bash", "mcp__prism"],
                 "deny": ["Write", "Edit"],
             },
+            # Claude prism-OFF arm: no skill, no mcp__prism, deny Write/Edit
             "off": {
                 "skill_present": False,
                 "allow_includes_mcp_prism": False,
-                "deny": ["Write", "Edit"],
                 "allow": ["Read", "Grep", "Glob", "Bash"],
+                "deny": ["Write", "Edit"],
+            },
+            # Codex arm: uses workspace-write sandbox (-s workspace-write in build_codex_cmd)
+            # NOTE: codex does NOT use claude CLAUDE_CONFIG_DIR deny/allow; the sandbox flag
+            # controls filesystem access at the OS level.  Write/Edit ARE permitted by codex.
+            "codex": {
+                "sandbox": "workspace-write",
+                "prism_via": "CODEX_HOME/config.toml (on-arm) / auth-only (off-arm)",
             },
         },
         "steer": {"on": "prism_on", "off": ""},
@@ -487,11 +518,13 @@ class _LivePartCComps:
         self._model = model
         self._base_root = base_root
         self._ask = ask
-        self._last_off = None        # set after run_off_arm; carries ArmOutput for audit persistence
-        self._last_on = None         # set after run_on_arm; carries ArmOutput for audit persistence
+        self._last_off = None         # set after run_off_arm; carries ArmOutput for audit persistence
+        self._last_on = None          # set after run_on_arm; carries ArmOutput for audit persistence
         self._last_off_prompt = None  # exact prompt sent to the off-arm
         self._last_on_prompt = None   # exact prompt sent to the on-arm
         self._last_prewarm = None     # prewarm telemetry dict from run_arm_isolated
+        self._last_off_judge: list[dict] = []  # per-cite judge records for off-arm
+        self._last_on_judge: list[dict] = []   # per-cite judge records for on-arm
 
     def _upstream_spec(self, cell: tuple) -> str:
         """Return the recovered prism-off SPEC body for a plan cell; '' for spec cells.
@@ -522,17 +555,27 @@ class _LivePartCComps:
         upstream spec) plus the code window at each cited location, mirroring
         how chain.py builds plan_issue_text (spec §6a).
 
+        Per-cite judge artifacts (prompt, response, relevant) are captured and
+        stored on self._last_off_judge (arm="base") / self._last_on_judge (arm="on")
+        for later persistence as <base>.<arm>.judge.jsonl.
+
         Returns an InvestigatorReport (precision, recall, hallucinations, verdicts).
         """
         from .investigator import score_citations, InvestigatorReport
-        from .judges_live import LlmRelevanceJudge
+        from .judges_live import LlmRelevanceJudge, _RecordingRelevanceJudge
         if not citations:
+            if arm == "on":
+                self._last_on_judge = []
+            else:
+                self._last_off_judge = []
             return InvestigatorReport(precision=0.0, recall=0.0, hallucinations=0, verdicts=[])
-        rel = LlmRelevanceJudge(self._ask, "opus-4.8")
+        inner_rel = LlmRelevanceJudge(self._ask, "opus-4.8")
+        records: list[dict] = []
+        rel = _RecordingRelevanceJudge(inner_rel, records)
         upstream = self._upstream_spec(cell)
         issue_text = (self._issue.text + "\n\n## Upstream spec\n" + upstream
                       if upstream else self._issue.text)
-        return score_citations(
+        result = score_citations(
             self._co,
             citations,
             claim_count=max(len(citations), 1),
@@ -540,6 +583,12 @@ class _LivePartCComps:
             issue_text=issue_text,
             read_code=lambda f, l: self._co.read_window(f, l),
         )
+        # Store per-cite judge records on self for later persistence
+        if arm == "on":
+            self._last_on_judge = records
+        else:
+            self._last_off_judge = records
+        return result
 
     def run_off_arm(self, cell: tuple):
         """Run ONE fresh prism-OFF status-quo arm inside the pinned checkout.
@@ -784,6 +833,19 @@ def _persist_one_arm(
     return paths
 
 
+def _persist_judge_jsonl(records: list[dict], path: str) -> None:
+    """Write per-cite judge records to a .judge.jsonl file (one JSON object per line).
+
+    Each record has: {file, line, symbol, prompt, response, relevant}.
+    Always written (empty list → empty file), so the audit trail exists even when
+    no citations were scored.
+    """
+    import json as _json
+    with open(path, "w") as _f:
+        for rec in records:
+            _f.write(_json.dumps(rec) + "\n")
+
+
 def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
                     issues_path: str, run_id: str | None = None,
                     runs_root: str | None = None, force_new: bool = False) -> None:
@@ -940,6 +1002,11 @@ def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
                     return comps.score(citations, **kwargs)
 
             partc_cell = run_partc_cell(cell, _CachedComps())
+
+            # --- Persist per-cite judge artifacts (<base>.<arm>.judge.jsonl) ---
+            # judge records are populated by comps.score() (called inside _CachedComps.score)
+            _persist_judge_jsonl(getattr(comps, "_last_off_judge", []), f"{base}.off.judge.jsonl")
+            _persist_judge_jsonl(getattr(comps, "_last_on_judge", []), f"{base}.on.judge.jsonl")
 
     except (ArmRunError, Exception) as exc:
         # Write status.json on failure

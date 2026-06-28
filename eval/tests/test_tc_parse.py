@@ -119,3 +119,111 @@ def test_codex_double_event_counts_command_once():
     r = parse_codex_jsonl(lines)
     assert r.tool_calls == 1, f"expected 1 tool_call (not 2); got {r.tool_calls}"
     assert r.commands == ["cargo build"]
+
+
+# ---------------------------------------------------------------------------
+# Tool telemetry: all_tools histogram + prism gate semantics intact
+# ---------------------------------------------------------------------------
+
+def _stream_with_tools(*tool_names, text="result text") -> str:
+    """Build a minimal claude stream-json fixture with the given tool_use names."""
+    lines = []
+    for name in tool_names:
+        lines.append(json.dumps({"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "name": name, "input": {}},
+        ]}}))
+    lines.append(json.dumps({"type": "assistant", "message": {"content": [
+        {"type": "text", "text": text},
+    ]}}))
+    return "\n".join(lines)
+
+
+def test_stream_json_all_tools_histogram_includes_all_tool_names():
+    """parse_claude_stream_json all_tools must include ALL tool names (prism + non-prism)."""
+    stream = _stream_with_tools(
+        "mcp__prism__nav_callers",
+        "Bash",
+        "Read",
+        "mcp__prism__nav_callees",
+    )
+    r = parse_claude_stream_json(stream)
+    assert hasattr(r, "all_tools"), "ModelResult must have all_tools attribute"
+    assert isinstance(r.all_tools, dict), "all_tools must be a dict (name→count)"
+    # All four tool names must be counted
+    assert r.all_tools.get("mcp__prism__nav_callers", 0) >= 1
+    assert r.all_tools.get("Bash", 0) >= 1
+    assert r.all_tools.get("Read", 0) >= 1
+    assert r.all_tools.get("mcp__prism__nav_callees", 0) >= 1
+
+
+def test_stream_json_prism_calls_still_counts_only_prism():
+    """prism_calls must remain prism-only; all_tools captures the full histogram."""
+    stream = _stream_with_tools(
+        "mcp__prism__nav_callers",   # prism
+        "Bash",                       # non-prism
+        "Read",                       # non-prism
+    )
+    r = parse_claude_stream_json(stream)
+    assert r.prism_calls == 1, f"prism_calls must be 1 (only mcp__prism__*); got {r.prism_calls}"
+    assert r.dose.count == 1, "dose.count must equal prism_calls"
+    # tool_calls is now total
+    assert r.tool_calls == 3, f"tool_calls must be total (3); got {r.tool_calls}"
+    # all_tools histogram
+    assert sum(r.all_tools.values()) == 3
+
+
+def test_stream_json_tool_calls_total_when_no_prism():
+    """Off-arm (no prism): tool_calls counts all non-prism tools; prism_calls stays 0."""
+    stream = _stream_with_tools("Read", "Bash", "Grep")
+    r = parse_claude_stream_json(stream)
+    assert r.prism_calls == 0
+    assert r.dose.count == 0
+    assert r.tool_calls == 3, f"tool_calls must be 3 (total non-prism); got {r.tool_calls}"
+    assert r.all_tools == {"Read": 1, "Bash": 1, "Grep": 1}
+
+
+def test_stream_json_dose_gate_semantics_unchanged():
+    """Gate semantics: dose.count == prism_calls (unchanged by all_tools addition)."""
+    stream = _stream_with_tools(
+        "mcp__prism__nav_callers",
+        "mcp__prism__nav_repo_map",
+        "Bash",
+    )
+    r = parse_claude_stream_json(stream)
+    assert r.dose.count == 2   # prism only
+    assert r.prism_calls == 2  # prism only
+    assert r.tool_calls == 3   # total
+    assert "nav_callers" in r.dose.distinct_tools
+    assert "nav_repo_map" in r.dose.distinct_tools
+
+
+def test_stream_json_repeated_tool_name_counted_in_histogram():
+    """A tool called twice must appear with count=2 in all_tools."""
+    stream = _stream_with_tools("Bash", "Bash", "Read")
+    r = parse_claude_stream_json(stream)
+    assert r.all_tools.get("Bash") == 2
+    assert r.all_tools.get("Read") == 1
+    assert r.tool_calls == 3
+
+
+def test_codex_all_tools_histogram():
+    """parse_codex_jsonl must produce an all_tools histogram for codex events."""
+    lines = "\n".join([
+        json.dumps({"type": "item.completed", "item": {"type": "command_execution", "command": "ls"}}),
+        json.dumps({"type": "item.completed", "item": {"type": "mcp_tool_call", "server": "prism", "tool": "nav_callers"}}),
+        json.dumps({"type": "item.completed", "item": {"type": "mcp_tool_call", "server": "other_mcp", "tool": "search"}}),
+        json.dumps({"type": "item.completed", "item": {"type": "agent_message", "text": "done: src/a.go:1"}}),
+    ])
+    r = parse_codex_jsonl(lines)
+    assert hasattr(r, "all_tools"), "ModelResult must have all_tools for codex"
+    # command_execution counted as "command_execution"
+    assert r.all_tools.get("command_execution", 0) >= 1
+    # prism mcp_tool_call
+    assert r.all_tools.get("mcp_tool_call:prism", 0) >= 1 or \
+           r.all_tools.get("nav_callers", 0) >= 1 or \
+           "prism" in str(r.all_tools), (
+               f"prism MCP call must appear in all_tools; got {r.all_tools}"
+           )
+    # prism_calls gate unchanged
+    assert r.prism_calls == 1
+    assert r.dose.count == 1
