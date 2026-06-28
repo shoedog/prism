@@ -1161,3 +1161,77 @@ class TestCodexOffIsolation:
             runner, Variant("gpt-5.5", False), _make_minimal_codex_stream())
         assert env_on["CODEX_HOME"] != env_off["CODEX_HOME"], (
             "ON and OFF arms must use distinct CODEX_HOME paths")
+
+
+class TestCodexReasoningExposure:
+    """Both codex arms must write config.toml exposing raw model reasoning (auditability).
+
+    Mirrors the claude-side showThinkingSummaries pin: the user asked for
+    hide_agent_reasoning=false + show_raw_agent_reasoning=true so the transcript's
+    reasoning is auditable after the fact. The off-arm — which previously wrote NO
+    config.toml — must now write a minimal reasoning-only one.
+    """
+
+    def test_on_arm_config_has_reasoning_keys(self, tmp_path):
+        from adoption.codex_env import build_isolated_codex_home
+        home = build_isolated_codex_home(
+            skill_src=_skill_src_path(),
+            mcp_repo=".",
+            prism_mcp_bin="prism-mcp",
+            root=str(tmp_path),
+            include_skill_and_mcp=True,
+        )
+        content = (Path(home) / "config.toml").read_text()
+        assert "hide_agent_reasoning = false" in content, (
+            f"on-arm config.toml must set hide_agent_reasoning=false; got:\n{content}")
+        assert "show_raw_agent_reasoning = true" in content, (
+            f"on-arm config.toml must set show_raw_agent_reasoning=true; got:\n{content}")
+
+    def test_on_arm_reasoning_keys_precede_mcp_table(self, tmp_path):
+        """TOML rule: top-level keys must come before the [mcp_servers.prism] header."""
+        from adoption.codex_env import build_isolated_codex_home
+        home = build_isolated_codex_home(
+            skill_src=_skill_src_path(),
+            mcp_repo=".",
+            prism_mcp_bin="prism-mcp",
+            root=str(tmp_path),
+            include_skill_and_mcp=True,
+        )
+        content = (Path(home) / "config.toml").read_text()
+        assert "[mcp_servers.prism]" in content, "on-arm must still register the prism MCP server"
+        assert content.index("show_raw_agent_reasoning") < content.index("[mcp_servers.prism]"), (
+            f"reasoning keys must precede [mcp_servers.prism] (TOML top-level rule); got:\n{content}")
+
+    def test_off_arm_writes_reasoning_only_config(self, tmp_path):
+        """OFF arm must now write a minimal config.toml with the reasoning keys and NO MCP."""
+        from adoption.codex_env import build_isolated_codex_home
+        home = build_isolated_codex_home(
+            skill_src=_skill_src_path(),
+            mcp_repo=".",
+            prism_mcp_bin="prism-mcp",
+            root=str(tmp_path),
+            include_skill_and_mcp=False,
+        )
+        config_toml = Path(home) / "config.toml"
+        assert config_toml.exists(), "OFF arm must write a minimal reasoning-only config.toml"
+        content = config_toml.read_text()
+        assert "hide_agent_reasoning = false" in content, (
+            f"off-arm config.toml must set hide_agent_reasoning=false; got:\n{content}")
+        assert "show_raw_agent_reasoning = true" in content, (
+            f"off-arm config.toml must set show_raw_agent_reasoning=true; got:\n{content}")
+        assert "mcp_servers" not in content, (
+            f"off-arm config.toml must NOT register any MCP server; got:\n{content}")
+
+    def test_off_arm_has_no_skill(self, tmp_path):
+        """OFF arm config.toml addition must not regress skill isolation."""
+        from adoption.codex_env import build_isolated_codex_home
+        home = build_isolated_codex_home(
+            skill_src=_skill_src_path(),
+            mcp_repo=".",
+            prism_mcp_bin="prism-mcp",
+            root=str(tmp_path),
+            include_skill_and_mcp=False,
+        )
+        skill_dir = Path(home) / "skills" / "prism-code-navigation"
+        assert not skill_dir.exists(), (
+            f"OFF arm must still copy NO skill; found {skill_dir}")

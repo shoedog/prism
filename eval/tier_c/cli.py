@@ -261,8 +261,19 @@ def _write_partc_manifest(
             # controls filesystem access at the OS level.  Write/Edit ARE permitted by codex.
             "codex": {
                 "sandbox": "workspace-write",
-                "prism_via": "CODEX_HOME/config.toml (on-arm) / auth-only (off-arm)",
+                # Both codex arms now write config.toml (on-arm adds [mcp_servers.prism];
+                # off-arm is reasoning-only) — see adoption.codex_env.build_isolated_codex_home.
+                "prism_via": "CODEX_HOME/config.toml [mcp_servers.prism] (on-arm) / reasoning-only config.toml (off-arm)",
+                # Reasoning exposure: config.toml sets these in BOTH arms (auditability).
+                "hide_agent_reasoning": False,
+                "show_raw_agent_reasoning": True,
             },
+        },
+        # Reasoning/thinking exposure across both CLIs, for after-the-fact audit:
+        #   claude → showThinkingSummaries (settings.json); codex → raw agent reasoning (config.toml).
+        "reasoning_exposure": {
+            "claude": {"show_thinking_summaries": show_thinking_summaries},
+            "codex": {"hide_agent_reasoning": False, "show_raw_agent_reasoning": True},
         },
         "steer": {"on": "prism_on", "off": ""},
     }

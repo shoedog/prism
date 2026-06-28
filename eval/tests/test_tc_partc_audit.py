@@ -1450,3 +1450,45 @@ def test_manifest_has_thinking_enabled_key(tmp_path, monkeypatch):
     assert isinstance(data["thinking_enabled"], bool), (
         f"thinking_enabled must be bool; got {type(data['thinking_enabled'])}"
     )
+
+
+def test_manifest_records_codex_reasoning_exposure(tmp_path, monkeypatch):
+    """manifest must record codex raw-reasoning exposure (hide=false / show_raw=true)
+    in BOTH config_summary.codex and the top-level reasoning_exposure block — these
+    mirror the codex config.toml keys so the run's auditability settings are pinned."""
+    import tier_c.cli as cli_mod
+
+    fake_bin = tmp_path / "prism-mcp"
+    fake_bin.write_bytes(b"bin")
+    fake_prism = tmp_path / "prism"
+    fake_prism.write_bytes(b"prism")
+
+    monkeypatch.setattr(cli_mod, "_prism_mcp_bin", lambda: str(fake_bin))
+    monkeypatch.setattr(cli_mod, "_prism_bin", lambda: str(fake_prism), raising=False)
+
+    issue = types.SimpleNamespace(
+        key="r1", language="rust", repo="ruff", sha="abc", url="u",
+    )
+    runs_root = tmp_path / "runs"
+    cli_mod._write_partc_manifest(
+        cell=("ruff", "spec", "opus-4.8"), issue=issue,
+        bench_root="/bench", base_root="/base", issues_path="i.toml",
+        run_id="reasoning-test", runs_root=str(runs_root),
+    )
+
+    data = json.loads((runs_root / "reasoning-test" / "manifest.json").read_text())
+
+    codex_cfg = data["config_summary"]["codex"]
+    assert codex_cfg["hide_agent_reasoning"] is False, (
+        f"config_summary.codex must record hide_agent_reasoning=False; got {codex_cfg!r}")
+    assert codex_cfg["show_raw_agent_reasoning"] is True, (
+        f"config_summary.codex must record show_raw_agent_reasoning=True; got {codex_cfg!r}")
+
+    assert "reasoning_exposure" in data, "manifest must include a 'reasoning_exposure' block"
+    re_block = data["reasoning_exposure"]
+    assert re_block["claude"]["show_thinking_summaries"] is True, (
+        f"reasoning_exposure.claude must record show_thinking_summaries=True; got {re_block!r}")
+    assert re_block["codex"]["hide_agent_reasoning"] is False, (
+        f"reasoning_exposure.codex must record hide_agent_reasoning=False; got {re_block!r}")
+    assert re_block["codex"]["show_raw_agent_reasoning"] is True, (
+        f"reasoning_exposure.codex must record show_raw_agent_reasoning=True; got {re_block!r}")

@@ -8,10 +8,15 @@ Two modes controlled by include_skill_and_mcp:
     (verified live: codex loads only the repo's prism-code-navigation, no fallback).
 
   False — prism-OFF arm (status-quo baseline):
-    NO skill copy, NO [mcp_servers.prism] in config.toml (config.toml omitted entirely).
-    Auth is still seeded (CODEX_HOME override loses auth otherwise).
+    NO skill copy, NO [mcp_servers.prism] section. A MINIMAL config.toml is still
+    written carrying ONLY the reasoning-exposure keys (auditability parity); auth is
+    seeded (CODEX_HOME override loses auth otherwise).
     This gives a clean, isolated home that is parity with the on-arm EXCEPT for the
     prism bundle — so the only difference between arms is prism itself.
+
+Both modes write the top-level reasoning-exposure keys (hide_agent_reasoning=false,
+show_raw_agent_reasoning=true) so the model's raw reasoning is surfaced in the event
+stream for after-the-fact auditing (codex hides agent reasoning by default).
 
 The caller is responsible for:
   - Setting CODEX_HOME=<returned path> in subprocess env.
@@ -58,22 +63,33 @@ def build_isolated_codex_home(
         shutil.copy2(auth_path, auth_dst)
         os.chmod(auth_dst, 0o600)
 
+    # --- 2. config.toml — written in BOTH modes ---
+    # Using TOML literal construction — no external TOML library needed for writing.
+    # Top-level keys MUST precede any [table] header (TOML rule), so the reasoning
+    # keys come first; the on-arm appends the [mcp_servers.prism] section after them.
+    # Reasoning exposure surfaces the model's raw reasoning in the event stream so the
+    # transcript is auditable after the fact (codex hides agent reasoning by default).
+    cfg_lines = [
+        "# Isolated CODEX_HOME — managed by eval/adoption/codex_env.py\n",
+        "# DO NOT ADD skill_dirs or other keys that inject user-global skills.\n",
+        "\n",
+        "# Reasoning exposure (auditability): show raw model reasoning in the stream.\n",
+        "hide_agent_reasoning = false\n",
+        "show_raw_agent_reasoning = true\n",
+    ]
     if include_skill_and_mcp:
-        # --- 2. config.toml (ONLY prism MCP; no skill_dirs) ---
-        # Using TOML literal construction — no external TOML library needed for writing.
         # The [mcp_servers.prism] section registers prism as the only MCP server.
         # Deliberately omitting: skill_dirs, model, approvals_reviewer, projects, notify.
-        cfg_lines = [
-            "# Isolated CODEX_HOME — managed by eval/adoption/codex_env.py\n",
-            "# DO NOT ADD skill_dirs or other keys that inject user-global skills.\n",
+        cfg_lines += [
             "\n",
             "[mcp_servers.prism]\n",
             f'command = "{prism_mcp_bin}"\n',
             f'args = ["--repo", "{mcp_repo}"]\n',
         ]
-        with open(os.path.join(home, "config.toml"), "w") as f:
-            f.writelines(cfg_lines)
+    with open(os.path.join(home, "config.toml"), "w") as f:
+        f.writelines(cfg_lines)
 
+    if include_skill_and_mcp:
         # --- 3. skills/prism-code-navigation/ (copy from repo) ---
         skills_dir = os.path.join(home, "skills")
         os.makedirs(skills_dir, exist_ok=True)
@@ -81,6 +97,6 @@ def build_isolated_codex_home(
         if os.path.exists(dst):
             shutil.rmtree(dst)
         shutil.copytree(skill_src, dst)
-    # else: status-quo baseline — auth only, no config.toml, no skills dir.
+    # else: status-quo baseline — auth + minimal config.toml (reasoning only), no skill, no MCP.
 
     return home
