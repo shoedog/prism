@@ -67,17 +67,19 @@ class PartCCell:
 def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
     """Build a single Part-C cell from a (repo, stage, model) triple + injected comps.
 
+    Both arms are now fresh live runs using the SAME de-specified prompt so the
+    comparison is fair.  The prism-OFF arm acts as the baseline.
+
     Flow
     ----
-    1. ``comps.load_base(cell)`` → base text (Task 7 header-stripped markdown).
-    2. ``comps.extract_citations(base_text)`` → list[Citation] from base text.
-    3. ``comps.score(base_cites, ...)`` → precision_base (same oracle as on-arm).
-    4. ``comps.run_on_arm(cell)`` → ArmOutput (steered prism-on, Task 9 isolated).
-    5. Gate: if on_out.used_prism is False (0 real prism calls) → administered=False.
-    6. ``comps.score(on_out.citations, ...)`` → precision_on.
-    7. ``scan_leak(on_out.text)`` → leaked flag (Task 10).
-    8. bundle_delta = precision_on - precision_base.
-    9. Return PartCCell.
+    1. ``comps.run_off_arm(cell)`` → ArmOutput (fresh prism-OFF status-quo run, no steer).
+    2. ``comps.score(off_out.citations, ...)`` → precision_base.
+    3. ``comps.run_on_arm(cell)`` → ArmOutput (steered prism-ON run, Task 9 isolated).
+    4. Gate: if on_out.used_prism is False (0 real prism calls) → administered=False.
+    5. ``comps.score(on_out.citations, ...)`` → precision_on.
+    6. ``scan_leak(on_out.text)`` → leaked flag (Task 10).
+    7. bundle_delta = precision_on - precision_base.
+    8. Return PartCCell.
 
     Parameters
     ----------
@@ -85,8 +87,7 @@ def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
         ``(repo, stage, model)`` descriptor.
     comps:
         Composable component bundle with methods:
-        - ``load_base(cell) -> str``
-        - ``extract_citations(text) -> list[Citation]``
+        - ``run_off_arm(cell) -> ArmOutput``
         - ``score(citations, **kwargs) -> float``
         - ``run_on_arm(cell) -> ArmOutput``
         Fakes in unit tests; live implementations in cli.py.
@@ -95,28 +96,25 @@ def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
 
     repo, stage, model = cell
 
-    # Step 1: load baseline text (prism-off, header-stripped)
-    base_text = comps.load_base(cell)
+    # Step 1: run the fresh prism-OFF status-quo arm (no steer, no prism)
+    off_out = comps.run_off_arm(cell)
 
-    # Step 2: extract citations from base text
-    base_cites = comps.extract_citations(base_text)
+    # Step 2: score off-arm citations through the oracle → baseline precision
+    precision_base = comps.score(off_out.citations, cell=cell, arm="base")
 
-    # Step 3: score base citations through the oracle
-    precision_base = comps.score(base_cites, cell=cell, arm="base")
-
-    # Step 4: run the steered prism-on arm
+    # Step 3: run the steered prism-on arm
     on_out = comps.run_on_arm(cell)
 
-    # Step 5: gate — was prism actually administered?
+    # Step 4: gate — was prism actually administered?
     administered = on_out.used_prism  # False when prism_calls == 0
 
-    # Step 6: score on-arm citations through the SAME oracle
+    # Step 5: score on-arm citations through the SAME oracle
     precision_on = comps.score(on_out.citations, cell=cell, arm="on")
 
-    # Step 7: leak scan
+    # Step 6: leak scan (on-arm text only)
     leak_result = scan_leak(on_out.text)
 
-    # Step 8: compute delta
+    # Step 7: compute delta
     bundle_delta = precision_on - precision_base
 
     return PartCCell(

@@ -297,16 +297,25 @@ def _run_partc_fake(cell: tuple) -> None:
     class _FakeComps:
         _call = 0
 
-        def load_base(self, c):
-            return "base spec text src/main.go:1"
-
-        def extract_citations(self, text):
-            from .citations import parse_citations
-            return parse_citations(text)
+        def run_off_arm(self, c):
+            from .model import Dose, ArmOutput, Variant, Citation
+            off_citations = [Citation(file="src/main.go", line=2, symbol=None)]
+            return ArmOutput(
+                variant=Variant(model, False),
+                text="off-arm baseline text src/main.go:2",
+                citations=off_citations,
+                tokens=8,
+                tool_calls=0,
+                wall_s=0.0,
+                used_prism=False,
+                prism_calls=0,
+                dose=Dose(count=0),
+                low_dose=False,
+            )
 
         def score(self, citations, **kwargs):
             self._call += 1
-            # base first (0.4), on second (0.7) — illustrative fake values
+            # off-arm scored first → base precision (0.4); on-arm second → on precision (0.7)
             return 0.4 if self._call == 1 else 0.7
 
         def run_on_arm(self, c):
@@ -384,6 +393,39 @@ class _LivePartCComps:
             read_code=lambda f, l: self._co.read_window(f, l),
         )
         return report.precision
+
+    def run_off_arm(self, cell: tuple):
+        """Run ONE fresh prism-OFF status-quo arm inside the pinned checkout.
+
+        No steer, no prism MCP, no prewarm — mirrors what the agent would do without
+        any prism tooling (the status-quo baseline).  Uses the SAME de-specified prompt
+        as run_on_arm so the only variable between the two arms is tool availability.
+        """
+        repo, stage, model = cell
+        from .arm_runner import ClaudeRunner, CodexRunner, run_arm_isolated
+        from .model import Variant
+        from .prompts import stage_prompt
+
+        variant = Variant(model, prism=False)
+        upstream = self._upstream_spec(cell)
+        prompt = stage_prompt(
+            stage,
+            issue_text=self._issue.text,
+            scoped_slice=self._issue.scoped_slice,
+            upstream=upstream,
+            # NO steer — status quo, agent must discover the code itself
+        )
+        runner = ClaudeRunner(no_cache=False) if model.startswith("opus") else CodexRunner(no_cache=False)
+        iso = run_arm_isolated(
+            runner,
+            checkout=self._co,
+            variant=variant,
+            stage=stage,
+            prompt=prompt,
+            no_cache=False,
+            prewarm=False,
+        )
+        return iso.out
 
     def run_on_arm(self, cell: tuple):
         """Run ONE steered prism-on arm inside the pinned checkout."""

@@ -2,14 +2,16 @@
 """Task 11: single-cell Part-C runner + report + CLI (fakes only — NO live spend).
 
 Tests:
-  (a) main target: run_partc_cell scores on vs base with fakes.
-  (b) 0-prism arm → administered == False.
+  (a) main target: run_partc_cell scores on vs base with fakes (both-live flow).
+  (b) 0-prism on-arm → administered == False.
   (c) leaked text → leaked == True.
   (d) render_partc includes the cell row + "pilot signal" label.
   (e) live comps score() threads issue.text + code window to the real oracle.
   (f) _upstream_spec returns "" for spec cell, recovered spec body for plan cell (FIX 2).
   (g) score() for a PLAN cell threads both issue.text and the upstream spec to the oracle
       (run_on_arm also passes upstream); spec cell does NOT receive a spec section (FIX 2).
+  (h) administered reflects the ON arm's used_prism (not the OFF arm).
+  (i) leaked reflects the ON arm's text (not the OFF arm's text).
 """
 from __future__ import annotations
 import types
@@ -48,25 +50,22 @@ def _fake_arm_output(*, used_prism: bool, prism_calls: int, text: str,
 
 
 class _FakeComps:
-    """Injectable component bundle for run_partc_cell (no live calls)."""
+    """Injectable component bundle for run_partc_cell (no live calls).
+
+    Both-live flow: run_off_arm supplies base citations; run_on_arm supplies on citations.
+    score() returns base_precision on first call (off-arm) and on_precision on second (on-arm).
+    load_base / extract_citations are REMOVED — the off-arm provides citations directly.
+    """
 
     def __init__(self, *, on_precision: float, base_precision: float,
-                 arm_out: ArmOutput, base_text: str = "base spec src/a.go:1"):
+                 arm_out: ArmOutput, off_arm_out: ArmOutput):
         self._on_precision = on_precision
         self._base_precision = base_precision
-        self._arm_out = arm_out
-        self._base_text = base_text
-
-    def load_base(self, cell):
-        return self._base_text
-
-    def extract_citations(self, text: str) -> list:
-        from tier_c.citations import parse_citations
-        return parse_citations(text)
+        self._arm_out = arm_out          # prism-ON arm
+        self._off_arm_out = off_arm_out  # prism-OFF arm (fresh live run)
 
     def score(self, citations, **kwargs) -> float:
-        # Called for on-arm: return on_precision; called for base: return base_precision.
-        # We distinguish by injection order (base first, then on).
+        # off-arm scored first (base), on-arm scored second.
         if not hasattr(self, "_score_call_count"):
             self._score_call_count = 0
         self._score_call_count += 1
@@ -74,33 +73,60 @@ class _FakeComps:
             return self._base_precision
         return self._on_precision
 
+    def run_off_arm(self, cell) -> ArmOutput:
+        return self._off_arm_out
+
     def run_on_arm(self, cell) -> ArmOutput:
         return self._arm_out
 
 
 def _fake_comps(*, on_precision: float, base_precision: float,
                 prism_calls: int = 2, text: str = "clean spec, no tool names",
-                citations: list | None = None) -> _FakeComps:
-    """Build a FakeComps bundle; mirrors the spec's _fake_comps design."""
+                citations: list | None = None,
+                off_text: str = "off arm clean text src/b.go:5",
+                off_citations: list | None = None) -> _FakeComps:
+    """Build a FakeComps bundle for the both-live flow.
+
+    on-arm: prism=True, prism_calls=prism_calls, text=text.
+    off-arm: prism=False, prism_calls=0, text=off_text.
+    """
     arm_out = _fake_arm_output(
         used_prism=(prism_calls > 0),
         prism_calls=prism_calls,
         text=text,
         citations=citations,
     )
-    return _FakeComps(on_precision=on_precision, base_precision=base_precision, arm_out=arm_out)
+    if off_citations is None:
+        off_citations = [Citation(file="src/b.go", line=5, symbol=None)]
+    off_arm_out = ArmOutput(
+        variant=Variant("opus-4.8", False),
+        text=off_text,
+        citations=off_citations,
+        tokens=8,
+        tool_calls=0,
+        wall_s=0.05,
+        used_prism=False,
+        prism_calls=0,
+        dose=Dose(count=0),
+        low_dose=False,
+    )
+    return _FakeComps(on_precision=on_precision, base_precision=base_precision,
+                      arm_out=arm_out, off_arm_out=off_arm_out)
 
 
 # ---------------------------------------------------------------------------
-# (a) Main target test
+# (a) Main target test — both-live flow: off-arm provides base, on-arm provides on
 # ---------------------------------------------------------------------------
 
 def test_run_partc_cell_scores_on_vs_base_with_fakes():
+    """Both arms are fresh live runs; base comes from run_off_arm, on from run_on_arm."""
     cell = run_partc_cell(
         _cell("ruff", "spec", "opus-4.8"),
         _fake_comps(on_precision=0.8, base_precision=0.4),
     )
     assert cell.bundle_delta == pytest.approx(0.4)
+    assert cell.precision_base == pytest.approx(0.4)
+    assert cell.precision_on == pytest.approx(0.8)
     assert cell.dose.count >= 1
     assert not cell.leaked
 
@@ -134,6 +160,40 @@ def test_run_partc_cell_leaked_when_on_arm_text_contains_nav_callers():
         ),
     )
     assert cell.leaked, "on-arm text naming nav_callers must set leaked=True"
+
+
+# ---------------------------------------------------------------------------
+# (h) administered reflects the ON arm's used_prism (not the OFF arm's)
+# ---------------------------------------------------------------------------
+
+def test_run_partc_cell_administered_reflects_on_arm_used_prism():
+    """administered is set from on-arm (prism=True arm); off-arm's used_prism is irrelevant."""
+    # off-arm: prism=False, so used_prism=False — but ON arm has 2 prism calls → administered=True
+    cell = run_partc_cell(
+        _cell("ruff", "spec", "opus-4.8"),
+        _fake_comps(on_precision=0.8, base_precision=0.4, prism_calls=2),
+    )
+    assert cell.administered, "administered must come from the on-arm's used_prism"
+
+
+# ---------------------------------------------------------------------------
+# (i) leaked reflects the ON arm's text (not the OFF arm's text)
+# ---------------------------------------------------------------------------
+
+def test_run_partc_cell_leaked_from_on_arm_not_off_arm():
+    """leaked is derived from on-arm text only; a clean on-arm with a leaky off-arm → not leaked."""
+    # off-arm text contains nav_callers (a leak signal), on-arm text is clean
+    cell = run_partc_cell(
+        _cell("ruff", "spec", "opus-4.8"),
+        _fake_comps(
+            on_precision=0.7,
+            base_precision=0.3,
+            prism_calls=2,
+            text="clean on-arm spec src/a.go:1",
+            off_text="I used nav_callers to look at src/b.go:5",  # leaky off-arm
+        ),
+    )
+    assert not cell.leaked, "leaked must come from the on-arm text only (off-arm leak is irrelevant)"
 
 
 # ---------------------------------------------------------------------------
