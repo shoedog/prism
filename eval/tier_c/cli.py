@@ -100,7 +100,7 @@ def main(argv: list[str] | None = None) -> int:
             out_run_id=args.out_run_id,
             runs_root=args.run_store_root,
         )
-        print(render_partc(cell_result))
+        print(render_partc([cell_result]))  # render_partc takes a list of cells
         print(f"\nrescored (arms NOT re-run) → {out_dir}")
         return 0
 

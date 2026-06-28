@@ -199,11 +199,20 @@ def test_cli_rescore_dispatches(monkeypatch, capsys):
         seen["kw"] = kw
         return ("CELL", "/out/dir")
 
+    render_seen = {}
+
+    def fake_render(cells):
+        render_seen["cells"] = cells
+        return "rendered"
+
     monkeypatch.setattr(rescore_mod, "rescore_run_dir", fake_rescore)
-    monkeypatch.setattr(cli_mod, "render_partc", lambda c: f"rendered:{c}")
+    monkeypatch.setattr(cli_mod, "render_partc", fake_render)
     rc = cli_mod.main(["rescore", "--run-dir", "/some/run", "--out-run-id", "x"])
     assert rc == 0
     assert seen["src"].endswith("/some/run")
     assert seen["kw"]["out_run_id"] == "x"
+    # render_partc takes a LIST of cells — the single cell_result must be wrapped
+    assert render_seen["cells"] == ["CELL"], (
+        f"render_partc must receive [cell_result]; got {render_seen['cells']!r}")
     out = capsys.readouterr().out
     assert "rescored" in out and "/out/dir" in out
