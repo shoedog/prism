@@ -401,14 +401,15 @@ class _LivePartCComps:
             upstream=upstream,
             steer="prism_on",
         )
-        runner = ClaudeRunner(no_cache=True) if model.startswith("opus") else CodexRunner(no_cache=True)
+        runner = ClaudeRunner(no_cache=False) if model.startswith("opus") else CodexRunner(no_cache=False)
         iso = run_arm_isolated(
             runner,
             checkout=self._co,
             variant=variant,
             stage=stage,
             prompt=prompt,
-            no_cache=True,
+            no_cache=False,
+            prewarm=True,
         )
         return iso.out
 

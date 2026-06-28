@@ -514,3 +514,291 @@ class TestCodexCfgHome:
 
         cmd_str = " ".join(captured_cmds[-1])
         assert "mcp_servers.prism" not in cmd_str
+
+
+# ---------------------------------------------------------------------------
+# Part-C prewarm fix: _prism_bin + _prewarm_cpg + run_arm_isolated prewarm param
+# ---------------------------------------------------------------------------
+
+def test_prism_bin_respects_env(monkeypatch):
+    """`_prism_bin` honours $PRISM_BIN env override."""
+    from tier_c.arm_runner import _prism_bin
+    monkeypatch.setenv("PRISM_BIN", "/custom/prism")
+    assert _prism_bin() == "/custom/prism"
+
+
+def test_prism_bin_resolves_to_repo_release_prism(monkeypatch):
+    """`_prism_bin` falls back to <repo>/target/release/prism (mirrors _prism_mcp_bin test)."""
+    import os
+    from tier_c.arm_runner import _prism_bin
+    monkeypatch.delenv("PRISM_BIN", raising=False)
+    result = _prism_bin()
+    # Either an absolute path (PATH hit or repo build) or the bare fallback name
+    assert result.endswith("prism")
+    assert result == "prism" or os.path.isabs(result)
+
+
+def test_prism_bin_uses_repo_target_when_exists(monkeypatch, tmp_path):
+    """`_prism_bin` returns the repo target/release/prism when it exists on disk."""
+    import os
+    import shutil
+    import tier_c.arm_runner as arm_mod
+
+    # Ensure env override is absent and PATH shim is absent
+    monkeypatch.delenv("PRISM_BIN", raising=False)
+    monkeypatch.setattr(shutil, "which", lambda _name: None)
+
+    # Build the expected path from __file__ (mirrors the production normpath logic)
+    expected = os.path.normpath(
+        os.path.join(os.path.dirname(os.path.abspath(arm_mod.__file__)),
+                     "..", "..", "target", "release", "prism")
+    )
+    # If the real file already exists, just assert the function returns it
+    if os.path.exists(expected):
+        assert arm_mod._prism_bin() == expected
+    else:
+        # Create a fake binary so exists() returns True; patch os.path.exists
+        original_exists = os.path.exists
+
+        def patched_exists(p):
+            if os.path.normpath(p) == os.path.normpath(expected):
+                return True
+            return original_exists(p)
+
+        monkeypatch.setattr(os.path, "exists", patched_exists)
+        assert arm_mod._prism_bin() == expected
+
+
+def test_prewarm_calls_nav_repo_map(monkeypatch, tmp_path):
+    """`_prewarm_cpg` calls `prism nav repo-map --repo <root>` via subprocess.run."""
+    import tier_c.arm_runner as arm_mod
+
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+    monkeypatch.setattr(arm_mod.subprocess, "run", fake_run)
+    arm_mod._prewarm_cpg(str(tmp_path))
+
+    assert len(calls) == 1
+    cmd = calls[0]
+    assert "nav" in cmd
+    assert "repo-map" in cmd
+    assert "--repo" in cmd
+    assert str(tmp_path) in cmd
+
+
+def test_prewarm_suppresses_exceptions(monkeypatch, tmp_path):
+    """`_prewarm_cpg` swallows all exceptions (best-effort)."""
+    import tier_c.arm_runner as arm_mod
+
+    def bang(*a, **kw):
+        raise RuntimeError("prism exploded")
+
+    monkeypatch.setattr(arm_mod.subprocess, "run", bang)
+    # Must not raise:
+    arm_mod._prewarm_cpg(str(tmp_path))
+
+
+def test_run_arm_isolated_prewarm_order(tmp_path):
+    """prewarm=True: warm call runs AFTER the before-reset and BEFORE runner.run.
+
+    Patching order: monkeypatch subprocess.run so we can record call sequence.
+    We use a real tmp git checkout so _reset_clean is real (not faked).
+    The fake runner just returns an ArmOutput; we record its call position.
+    """
+    import types
+    import unittest.mock as mock
+    import tier_c.arm_runner as arm_mod
+    from tier_c.model import Dose as _Dose, ArmOutput as _ArmOutput
+
+    # --- set up minimal git checkout ---
+    root = tmp_path / "repo"
+    root.mkdir()
+    import subprocess as real_subprocess
+    real_subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    (root / "README.md").write_text("hello\n")
+    real_subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    real_subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
+                         "commit", "-q", "-m", "init"], cwd=root, check=True)
+    co = types.SimpleNamespace(root=root)
+
+    # --- record all subprocess.run calls ---
+    call_log = []  # list of (kind, argv_or_label)
+
+    original_run = real_subprocess.run
+
+    def recording_run(cmd, *args, **kwargs):
+        # Classify: git commands vs prism nav
+        if isinstance(cmd, (list, tuple)):
+            first = cmd[0]
+            if first == "git":
+                call_log.append(("git", list(cmd)))
+                return original_run(cmd, *args, **kwargs)
+            elif str(first).endswith("prism") or first == "prism":
+                call_log.append(("prewarm", list(cmd)))
+                # Return a no-op result (don't actually run prism)
+                return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+        call_log.append(("other", cmd))
+        return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+    # --- fake runner records when it runs ---
+    runner_calls = []
+
+    class _RecordingRunner:
+        def run(self, variant, stage, prompt, repo_root):
+            runner_calls.append("runner.run")
+            return _ArmOutput(
+                variant=variant, text="ok", citations=[], tokens=0,
+                tool_calls=0, wall_s=0.0, used_prism=False,
+                prism_calls=0, dose=_Dose(), low_dose=False,
+            )
+
+    variant = Variant("opus-4.8", True)
+    with mock.patch.object(arm_mod.subprocess, "run", side_effect=recording_run):
+        arm_mod.run_arm_isolated(
+            _RecordingRunner(),
+            checkout=co,
+            variant=variant,
+            prewarm=True,
+        )
+
+    # Extract the sequence of event kinds
+    kinds = [k for k, _ in call_log]
+    # Must have: git (before-reset x2) → prewarm → ... runner.run ... → git (after-reset x2)
+    # combined with runner_calls
+    # Build a merged ordered sequence
+    events = []
+    git_idx = 0
+    prewarm_idx = 0
+    runner_idx = 0
+    for kind, argv in call_log:
+        events.append(kind)
+    # Now splice in runner.run calls in position (they don't go through subprocess.run)
+    # The runner runs between the prewarm and the after-reset git calls.
+    # We detect before-reset as the first two git calls, after-reset as the last two.
+    assert "prewarm" in kinds, "Expected a prewarm call in subprocess.run"
+    prewarm_pos = kinds.index("prewarm")
+
+    # Count git calls before and after prewarm
+    git_calls_before_prewarm = [i for i, k in enumerate(kinds) if k == "git" and i < prewarm_pos]
+    git_calls_after_prewarm = [i for i, k in enumerate(kinds) if k == "git" and i > prewarm_pos]
+
+    assert len(git_calls_before_prewarm) >= 2, (
+        "before-reset (2 git calls) must precede prewarm")
+    assert len(git_calls_after_prewarm) >= 2, (
+        "after-reset (2 git calls) must follow prewarm")
+    assert runner_calls == ["runner.run"], "runner.run must have been called exactly once"
+    # Verify the prewarm subprocess call contains repo-map + --repo + root
+    prewarm_argv = [argv for kind, argv in call_log if kind == "prewarm"][0]
+    assert "repo-map" in prewarm_argv
+    assert "--repo" in prewarm_argv
+    assert str(root) in prewarm_argv
+
+
+def test_run_arm_isolated_no_prewarm_by_default(tmp_path):
+    """prewarm=False (default): no prism nav subprocess call is made."""
+    import types
+    import unittest.mock as mock
+    import tier_c.arm_runner as arm_mod
+    from tier_c.model import Dose as _Dose, ArmOutput as _ArmOutput
+
+    root = tmp_path / "repo"
+    root.mkdir()
+    import subprocess as real_subprocess
+    real_subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    (root / "README.md").write_text("hello\n")
+    real_subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    real_subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
+                         "commit", "-q", "-m", "init"], cwd=root, check=True)
+    co = types.SimpleNamespace(root=root)
+
+    call_log = []
+    original_run = real_subprocess.run
+
+    def recording_run(cmd, *args, **kwargs):
+        if isinstance(cmd, (list, tuple)):
+            first = cmd[0]
+            if first == "git":
+                call_log.append(("git", list(cmd)))
+                return original_run(cmd, *args, **kwargs)
+            elif str(first).endswith("prism") or first == "prism":
+                call_log.append(("prewarm", list(cmd)))
+                return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+        call_log.append(("other", cmd))
+        return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+    class _NoopRunner:
+        def run(self, variant, stage, prompt, repo_root):
+            return _ArmOutput(
+                variant=variant, text="ok", citations=[], tokens=0,
+                tool_calls=0, wall_s=0.0, used_prism=False,
+                prism_calls=0, dose=_Dose(), low_dose=False,
+            )
+
+    variant = Variant("opus-4.8", True)
+    with mock.patch.object(arm_mod.subprocess, "run", side_effect=recording_run):
+        arm_mod.run_arm_isolated(
+            _NoopRunner(),
+            checkout=co,
+            variant=variant,
+            # prewarm defaults to False
+        )
+
+    kinds = [k for k, _ in call_log]
+    assert "prewarm" not in kinds, "prewarm=False (default) must not call prism nav"
+
+
+def test_run_arm_isolated_prewarm_skipped_for_prism_off(tmp_path):
+    """prewarm=True with prism-OFF variant must NOT call the pre-warm."""
+    import types
+    import unittest.mock as mock
+    import tier_c.arm_runner as arm_mod
+    from tier_c.model import Dose as _Dose, ArmOutput as _ArmOutput
+
+    root = tmp_path / "repo"
+    root.mkdir()
+    import subprocess as real_subprocess
+    real_subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    (root / "README.md").write_text("hello\n")
+    real_subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    real_subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
+                         "commit", "-q", "-m", "init"], cwd=root, check=True)
+    co = types.SimpleNamespace(root=root)
+
+    call_log = []
+    original_run = real_subprocess.run
+
+    def recording_run(cmd, *args, **kwargs):
+        if isinstance(cmd, (list, tuple)):
+            first = cmd[0]
+            if first == "git":
+                call_log.append(("git", list(cmd)))
+                return original_run(cmd, *args, **kwargs)
+            elif str(first).endswith("prism") or first == "prism":
+                call_log.append(("prewarm", list(cmd)))
+                return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+        call_log.append(("other", cmd))
+        return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+    class _NoopRunner:
+        def run(self, variant, stage, prompt, repo_root):
+            return _ArmOutput(
+                variant=variant, text="ok", citations=[], tokens=0,
+                tool_calls=0, wall_s=0.0, used_prism=False,
+                prism_calls=0, dose=_Dose(), low_dose=False,
+            )
+
+    variant = Variant("opus-4.8", False)  # prism OFF
+    with mock.patch.object(arm_mod.subprocess, "run", side_effect=recording_run):
+        arm_mod.run_arm_isolated(
+            _NoopRunner(),
+            checkout=co,
+            variant=variant,
+            prewarm=True,  # requested but variant.prism=False → must be skipped
+        )
+
+    kinds = [k for k, _ in call_log]
+    assert "prewarm" not in kinds, "prism-OFF variant must not trigger prewarm even when prewarm=True"

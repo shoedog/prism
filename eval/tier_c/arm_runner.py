@@ -53,6 +53,7 @@ def run_arm_isolated(
     stage: str = "spec",
     prompt: str = "",
     no_cache: bool = True,
+    prewarm: bool = False,
 ) -> IsolatedArmResult:
     """Run *runner* inside an isolated, immutable checkout.
 
@@ -61,6 +62,10 @@ def run_arm_isolated(
     - AFTER (in finally): reset --hard + clean -fd (revert any mutations the arm made).
     - prism-mcp is launched with --no-cache (when no_cache=True) so a stale CPG cannot
       survive across arms.
+    - prewarm=True + variant.prism=True: runs `prism nav repo-map` AFTER the before-reset
+      and BEFORE runner.run so the arm's prism-mcp starts from a warm cache (avoids
+      cold-CPG-build exceeding claude's MCP handshake timeout on large repos).  No reset
+      is performed between the warm and the arm (which would invalidate the warm cache).
 
     Returns IsolatedArmResult so callers can assert on cache_mode and mcp_args.
     """
@@ -70,6 +75,8 @@ def run_arm_isolated(
 
     _reset_clean(root)
     try:
+        if prewarm and variant.prism:
+            _prewarm_cpg(root)
         out = runner.run(variant, stage, prompt, root)
     finally:
         _reset_clean(root)
@@ -94,6 +101,32 @@ def _prism_mcp_bin() -> str:
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..",
                      "target", "release", "prism-mcp"))
     return cand if os.path.exists(cand) else "prism-mcp"
+
+
+def _prism_bin() -> str:
+    """Resolve the prism CLI binary (not prism-mcp) for pre-warming the nav CPG cache.
+    Order: $PRISM_BIN -> on PATH -> this repo's target/release/prism -> bare name."""
+    import shutil
+    env = os.environ.get("PRISM_BIN")
+    if env:
+        return env
+    found = shutil.which("prism")
+    if found:
+        return found
+    cand = os.path.normpath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..",
+                     "target", "release", "prism"))
+    return cand if os.path.exists(cand) else "prism"
+
+
+def _prewarm_cpg(root: str) -> None:
+    """Build the prism nav CPG cache for `root` so the arm's prism-mcp starts warm.
+    (Cold build can exceed claude's MCP handshake timeout on large repos.)"""
+    try:
+        subprocess.run([_prism_bin(), "nav", "repo-map", "--repo", root],
+                       capture_output=True, timeout=900)
+    except Exception:
+        pass  # best-effort; if warming fails the arm still runs (just slower / may miss prism)
 
 def _prism_mcp_config(repo_root: str, *, no_cache: bool = False) -> str:
     """Write a per-checkout claude MCP config pointing prism-mcp at THIS repo_root (the pinned
