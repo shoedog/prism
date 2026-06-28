@@ -51,6 +51,14 @@ class PartCCell:
         Total tokens (input + output) consumed by the prism-OFF arm.
     tokens_on:
         Total tokens (input + output) consumed by the prism-ON arm.
+    in_tokens_off:
+        Input tokens for the prism-OFF arm (split from total).
+    out_tokens_off:
+        Output tokens for the prism-OFF arm (split from total).
+    in_tokens_on:
+        Input tokens for the prism-ON arm (split from total).
+    out_tokens_on:
+        Output tokens for the prism-ON arm (split from total).
     cost_off:
         USD cost of the prism-OFF arm run.
     cost_on:
@@ -59,6 +67,12 @@ class PartCCell:
         Wall-clock seconds for the prism-OFF arm run.
     wall_on:
         Wall-clock seconds for the prism-ON arm run.
+    off_breakdown:
+        Per-arm citation failure breakdown dict for the OFF arm:
+        {n, valid, halluc, irrelevant, fails: [str, ...]}.
+    on_breakdown:
+        Per-arm citation failure breakdown dict for the ON arm:
+        {n, valid, halluc, irrelevant, fails: [str, ...]}.
     """
     repo: str
     stage: str
@@ -74,10 +88,25 @@ class PartCCell:
     recall_base: float | None
     tokens_off: int = 0
     tokens_on: int = 0
+    in_tokens_off: int = 0
+    out_tokens_off: int = 0
+    in_tokens_on: int = 0
+    out_tokens_on: int = 0
     cost_off: float = 0.0
     cost_on: float = 0.0
     wall_off: float = 0.0
     wall_on: float = 0.0
+    off_breakdown: dict = None  # type: ignore[assignment]
+    on_breakdown: dict = None   # type: ignore[assignment]
+
+    def __post_init__(self):
+        # Supply empty-breakdown dicts for callers that don't provide them
+        if self.off_breakdown is None:
+            object.__setattr__(self, "off_breakdown",
+                               {"n": 0, "valid": 0, "halluc": 0, "irrelevant": 0, "fails": []})
+        if self.on_breakdown is None:
+            object.__setattr__(self, "on_breakdown",
+                               {"n": 0, "valid": 0, "halluc": 0, "irrelevant": 0, "fails": []})
 
 
 # ---------------------------------------------------------------------------
@@ -119,8 +148,9 @@ def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
     # Step 1: run the fresh prism-OFF status-quo arm (no steer, no prism)
     off_out = comps.run_off_arm(cell)
 
-    # Step 2: score off-arm citations through the oracle → baseline precision
-    precision_base = comps.score(off_out.citations, cell=cell, arm="base")
+    # Step 2: score off-arm citations through the oracle → InvestigatorReport
+    off_rep = comps.score(off_out.citations, cell=cell, arm="base")
+    precision_base = off_rep.precision
 
     # Step 3: run the steered prism-on arm
     on_out = comps.run_on_arm(cell)
@@ -128,18 +158,39 @@ def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
     # Step 4: gate — was prism actually administered?
     administered = on_out.used_prism  # False when prism_calls == 0
 
-    # Step 5: score on-arm citations through the SAME oracle
-    precision_on = comps.score(on_out.citations, cell=cell, arm="on")
+    # Step 5: score on-arm citations through the SAME oracle → InvestigatorReport
+    on_rep = comps.score(on_out.citations, cell=cell, arm="on")
+    precision_on = on_rep.precision
 
-    # Step 6: leak scan (on-arm text only)
+    # Step 6: extract per-arm citation failure breakdowns
+    def _breakdown(rep) -> dict:
+        verdicts = rep.verdicts
+        halluc = sum(v.is_hallucination for v in verdicts)
+        irrel  = sum(1 for v in verdicts if not v.is_hallucination and not v.relevant)
+        valid  = sum(v.is_valid for v in verdicts)
+        fails  = [
+            f"{v.cite.file}:{v.cite.line} ({'halluc' if v.is_hallucination else 'irrelevant'})"
+            for v in verdicts if not v.is_valid
+        ]
+        return {"n": len(verdicts), "valid": valid, "halluc": halluc,
+                "irrelevant": irrel, "fails": fails}
+
+    off_breakdown = _breakdown(off_rep)
+    on_breakdown  = _breakdown(on_rep)
+
+    # Step 7: leak scan (on-arm text only)
     leak_result = scan_leak(on_out.text)
 
-    # Step 7: compute delta
+    # Step 8: compute delta
     bundle_delta = precision_on - precision_base
 
-    # Step 8: token/cost/wall accounting — total tokens = input + output per arm
-    tokens_off = off_out.in_tokens + off_out.tokens
-    tokens_on  = on_out.in_tokens + on_out.tokens
+    # Step 9: token/cost/wall accounting — total tokens = input + output per arm
+    in_tokens_off  = off_out.in_tokens
+    out_tokens_off = off_out.tokens
+    in_tokens_on   = on_out.in_tokens
+    out_tokens_on  = on_out.tokens
+    tokens_off = in_tokens_off + out_tokens_off
+    tokens_on  = in_tokens_on  + out_tokens_on
     cost_off   = off_out.cost_usd
     cost_on    = on_out.cost_usd
     wall_off   = off_out.wall_s
@@ -160,10 +211,16 @@ def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
         recall_base=None,
         tokens_off=tokens_off,
         tokens_on=tokens_on,
+        in_tokens_off=in_tokens_off,
+        out_tokens_off=out_tokens_off,
+        in_tokens_on=in_tokens_on,
+        out_tokens_on=out_tokens_on,
         cost_off=cost_off,
         cost_on=cost_on,
         wall_off=wall_off,
         wall_on=wall_on,
+        off_breakdown=off_breakdown,
+        on_breakdown=on_breakdown,
     )
 
 
@@ -183,16 +240,22 @@ _HEADER = (
 )
 
 
+def _fmt_breakdown(label: str, bd: dict) -> str:
+    """Render one cite-breakdown line: 'off cites: N = V valid / H halluc / I irrelevant'."""
+    return (
+        f"  {label} cites: {bd['n']} = {bd['valid']} valid "
+        f"/ {bd['halluc']} halluc / {bd['irrelevant']} irrelevant"
+    )
+
+
 def render_partc(cells: list[PartCCell]) -> str:
-    """Render a two-line-per-cell pilot-signal table of Part-C cells.
+    """Render a multi-line-per-cell pilot-signal table of Part-C cells.
 
-    Line 1 — precision and gate flags:
-        cell (repo/stage/model), precision-off, precision-on, Δprec,
-        dose.count, low_dose, administered, leaked.
-
-    Line 2 — token/cost accounting (indented under the cell column):
-        tok-off (total tokens off-arm), tok-on, Δtok (signed),
-        cost-off ($), cost-on ($), Δcost (signed $).
+    Per cell:
+      Line 1 — precision and gate flags.
+      Line 2 — token/cost accounting (totals).
+      Line 3 — in/out token split per arm.
+      Lines 4-5 — per-arm cite breakdowns (valid / halluc / irrelevant counts).
 
     The report is labelled "directional pilot signal (n=1 per language)".
     """
@@ -212,7 +275,7 @@ def render_partc(cells: list[PartCCell]) -> str:
             f"{'yes' if c.administered else 'NO':>4} "
             f"{'YES' if c.leaked else 'no':>5}"
         )
-        # Line 2: token/cost accounting
+        # Line 2: token/cost accounting (totals)
         lines.append(
             f"{'':28} "
             f"{c.tokens_off:>8} "
@@ -222,4 +285,13 @@ def render_partc(cells: list[PartCCell]) -> str:
             f" ${c.cost_on:>7.4f} "
             f" ${delta_cost:>+8.4f}"
         )
+        # Line 3: in/out token split
+        lines.append(
+            f"  tok off {c.in_tokens_off}in/{c.out_tokens_off}out  "
+            f"on {c.in_tokens_on}in/{c.out_tokens_on}out  "
+            f"Dtot {delta_tok:+}  D${delta_cost:+.2f}"
+        )
+        # Lines 4-5: per-arm cite breakdowns
+        lines.append(_fmt_breakdown("off", c.off_breakdown))
+        lines.append(_fmt_breakdown("on ", c.on_breakdown))
     return "\n".join(lines)

@@ -314,9 +314,28 @@ def _run_partc_fake(cell: tuple) -> None:
             )
 
         def score(self, citations, **kwargs):
+            from .investigator import InvestigatorReport, CitationVerdict, CitationVerdict
+            from .model import Citation as _Cit
             self._call += 1
-            # off-arm scored first → base precision (0.4); on-arm second → on precision (0.7)
-            return 0.4 if self._call == 1 else 0.7
+            # off-arm scored first → base precision (0.4) with 1 valid cite
+            if self._call == 1:
+                cite = _Cit(file="src/main.go", line=2, symbol=None)
+                v = CitationVerdict(cite=cite, file_ok=True, line_ok=True,
+                                    symbol_ok=True, relevant=True)
+                return InvestigatorReport(precision=0.4, recall=0.4,
+                                         hallucinations=0, verdicts=[v])
+            # on-arm second → on precision (0.7) with 1 valid + 1 halluc + 1 irrelevant
+            c1 = _Cit(file="src/main.go", line=1, symbol=None)
+            c2 = _Cit(file="src/missing.go", line=99, symbol=None)
+            c3 = _Cit(file="src/other.go", line=5, symbol=None)
+            v1 = CitationVerdict(cite=c1, file_ok=True, line_ok=True,
+                                 symbol_ok=True, relevant=True)
+            v2 = CitationVerdict(cite=c2, file_ok=False, line_ok=False,
+                                 symbol_ok=True, relevant=True)
+            v3 = CitationVerdict(cite=c3, file_ok=True, line_ok=True,
+                                 symbol_ok=True, relevant=False)
+            return InvestigatorReport(precision=0.7, recall=0.7,
+                                     hallucinations=1, verdicts=[v1, v2, v3])
 
         def run_on_arm(self, c):
             return fake_arm_out
@@ -369,22 +388,24 @@ class _LivePartCComps:
         from .citations import parse_citations
         return parse_citations(text)
 
-    def score(self, citations, *, cell: tuple, arm: str) -> float:
+    def score(self, citations, *, cell: tuple, arm: str):
         """Score citations using the pinned checkout + the real LlmRelevanceJudge.
 
         Both base and on calls see issue.text (and for plan cells, also the
         upstream spec) plus the code window at each cited location, mirroring
         how chain.py builds plan_issue_text (spec §6a).
+
+        Returns an InvestigatorReport (precision, recall, hallucinations, verdicts).
         """
-        if not citations:
-            return 0.0
-        from .investigator import score_citations
+        from .investigator import score_citations, InvestigatorReport
         from .judges_live import LlmRelevanceJudge
+        if not citations:
+            return InvestigatorReport(precision=0.0, recall=0.0, hallucinations=0, verdicts=[])
         rel = LlmRelevanceJudge(self._ask, "opus-4.8")
         upstream = self._upstream_spec(cell)
         issue_text = (self._issue.text + "\n\n## Upstream spec\n" + upstream
                       if upstream else self._issue.text)
-        report = score_citations(
+        return score_citations(
             self._co,
             citations,
             claim_count=max(len(citations), 1),
@@ -392,7 +413,6 @@ class _LivePartCComps:
             issue_text=issue_text,
             read_code=lambda f, l: self._co.read_window(f, l),
         )
-        return report.precision
 
     def run_off_arm(self, cell: tuple):
         """Run ONE fresh prism-OFF status-quo arm inside the pinned checkout.
@@ -456,6 +476,43 @@ class _LivePartCComps:
         return iso.out
 
 
+def _persist_partc_cell(partc_cell, repo: str, stage: str, model: str) -> str:
+    """Serialize a PartCCell to JSON and write to eval/tier_c/runs/partc/.
+
+    Returns the path written.  The runs/ dir is gitignored.
+    """
+    import json
+    import dataclasses
+
+    runs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs", "partc")
+    os.makedirs(runs_dir, exist_ok=True)
+
+    safe_model = model.replace("/", "_").replace(":", "_")
+    fname = f"partc-{repo}-{stage}-{safe_model}.json"
+    path = os.path.join(runs_dir, fname)
+
+    # Dose is a frozen dataclass with a frozenset — convert for JSON
+    def _to_jsonable(obj):
+        if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+            d = dataclasses.asdict(obj)
+            # frozenset fields -> list
+            for k, v in d.items():
+                if isinstance(v, (set, frozenset)):
+                    d[k] = sorted(v)
+            return d
+        return obj
+
+    cell_dict = _to_jsonable(partc_cell)
+    # frozenset in nested dose
+    if "dose" in cell_dict and isinstance(cell_dict["dose"].get("distinct_tools"), (set, frozenset)):
+        cell_dict["dose"]["distinct_tools"] = sorted(cell_dict["dose"]["distinct_tools"])
+
+    with open(path, "w") as f:
+        json.dump(cell_dict, f, indent=2, default=str)
+
+    return path
+
+
 def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
                     issues_path: str) -> None:
     """Open a pinned throwaway worktree at the issue SHA and run one Part-C cell live."""
@@ -470,3 +527,5 @@ def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
         comps = _LivePartCComps(co=co, issue=issue, model=model, base_root=base_root)
         partc_cell = run_partc_cell(cell, comps)
     print(render_partc([partc_cell]))
+    json_path = _persist_partc_cell(partc_cell, repo, stage, model)
+    print(f"cell JSON: {json_path}")

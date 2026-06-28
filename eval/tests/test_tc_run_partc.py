@@ -14,12 +14,16 @@ Tests:
   (i) leaked reflects the ON arm's text (not the OFF arm's text).
   (j) run_partc_cell threads tokens/cost/wall from ArmOutputs into PartCCell.
   (k) render_partc shows token + cost columns + signed Δtokens.
+  (l) run_partc_cell extracts per-arm citation breakdown (valid/halluc/irrelevant/fails).
+  (m) run_partc_cell threads in/out token split into PartCCell.
+  (n) render_partc shows in/out token split line and cite-breakdown lines.
 """
 from __future__ import annotations
 import types
 import pytest
 from tier_c.model import Dose, ArmOutput, Variant, Citation
 from tier_c.partc import PartCCell, run_partc_cell, render_partc
+from tier_c.investigator import InvestigatorReport, CitationVerdict
 
 
 # ---------------------------------------------------------------------------
@@ -54,29 +58,47 @@ def _fake_arm_output(*, used_prism: bool, prism_calls: int, text: str,
     )
 
 
+def _make_fake_report(precision: float, *, verdicts: list | None = None) -> InvestigatorReport:
+    """Build a minimal InvestigatorReport for fake comps."""
+    if verdicts is None:
+        verdicts = []
+    halluc = sum(v.is_hallucination for v in verdicts)
+    return InvestigatorReport(
+        precision=precision,
+        recall=precision,
+        hallucinations=halluc,
+        verdicts=verdicts,
+    )
+
+
 class _FakeComps:
     """Injectable component bundle for run_partc_cell (no live calls).
 
     Both-live flow: run_off_arm supplies base citations; run_on_arm supplies on citations.
-    score() returns base_precision on first call (off-arm) and on_precision on second (on-arm).
+    score() returns an InvestigatorReport — base_precision on first call (off-arm) and
+    on_precision on second (on-arm).
     load_base / extract_citations are REMOVED — the off-arm provides citations directly.
     """
 
     def __init__(self, *, on_precision: float, base_precision: float,
-                 arm_out: ArmOutput, off_arm_out: ArmOutput):
+                 arm_out: ArmOutput, off_arm_out: ArmOutput,
+                 on_verdicts: list | None = None,
+                 off_verdicts: list | None = None):
         self._on_precision = on_precision
         self._base_precision = base_precision
         self._arm_out = arm_out          # prism-ON arm
         self._off_arm_out = off_arm_out  # prism-OFF arm (fresh live run)
+        self._on_verdicts = on_verdicts or []
+        self._off_verdicts = off_verdicts or []
 
-    def score(self, citations, **kwargs) -> float:
+    def score(self, citations, **kwargs) -> InvestigatorReport:
         # off-arm scored first (base), on-arm scored second.
         if not hasattr(self, "_score_call_count"):
             self._score_call_count = 0
         self._score_call_count += 1
         if self._score_call_count == 1:
-            return self._base_precision
-        return self._on_precision
+            return _make_fake_report(self._base_precision, verdicts=self._off_verdicts)
+        return _make_fake_report(self._on_precision, verdicts=self._on_verdicts)
 
     def run_off_arm(self, cell) -> ArmOutput:
         return self._off_arm_out
@@ -91,7 +113,9 @@ def _fake_comps(*, on_precision: float, base_precision: float,
                 off_text: str = "off arm clean text src/b.go:5",
                 off_citations: list | None = None,
                 on_in_tokens: int = 50, on_cost_usd: float = 0.002,
-                off_in_tokens: int = 30, off_cost_usd: float = 0.001) -> _FakeComps:
+                off_in_tokens: int = 30, off_cost_usd: float = 0.001,
+                on_verdicts: list | None = None,
+                off_verdicts: list | None = None) -> _FakeComps:
     """Build a FakeComps bundle for the both-live flow.
 
     on-arm: prism=True, prism_calls=prism_calls, text=text.
@@ -123,7 +147,8 @@ def _fake_comps(*, on_precision: float, base_precision: float,
         cost_usd=off_cost_usd,
     )
     return _FakeComps(on_precision=on_precision, base_precision=base_precision,
-                      arm_out=arm_out, off_arm_out=off_arm_out)
+                      arm_out=arm_out, off_arm_out=off_arm_out,
+                      on_verdicts=on_verdicts, off_verdicts=off_verdicts)
 
 
 # ---------------------------------------------------------------------------
@@ -484,3 +509,237 @@ def test_render_partc_shows_negative_delta_tokens_when_on_arm_cheaper():
     )
     report = render_partc([cell])
     assert "-20" in report, "negative Δtokens (-20) must appear signed in report"
+
+
+# ---------------------------------------------------------------------------
+# Helpers for breakdown tests — build CitationVerdict directly
+# ---------------------------------------------------------------------------
+
+def _valid_verdict(file: str, line: int) -> CitationVerdict:
+    return CitationVerdict(
+        cite=Citation(file=file, line=line, symbol=None),
+        file_ok=True, line_ok=True, symbol_ok=True, relevant=True,
+    )
+
+
+def _halluc_verdict(file: str, line: int) -> CitationVerdict:
+    """Structural failure: file not found."""
+    return CitationVerdict(
+        cite=Citation(file=file, line=line, symbol=None),
+        file_ok=False, line_ok=False, symbol_ok=True, relevant=True,
+    )
+
+
+def _irrelevant_verdict(file: str, line: int) -> CitationVerdict:
+    """Structurally ok but relevant=False."""
+    return CitationVerdict(
+        cite=Citation(file=file, line=line, symbol=None),
+        file_ok=True, line_ok=True, symbol_ok=True, relevant=False,
+    )
+
+
+# ---------------------------------------------------------------------------
+# (l) run_partc_cell extracts per-arm citation breakdown
+# ---------------------------------------------------------------------------
+
+def test_run_partc_cell_extracts_breakdown_from_on_report():
+    """on_breakdown must reflect the verdicts returned by score() for the on-arm."""
+    on_verdicts = [
+        _valid_verdict("src/a.go", 1),
+        _halluc_verdict("src/missing.go", 99),
+        _irrelevant_verdict("src/b.go", 5),
+    ]
+    off_verdicts = [
+        _valid_verdict("src/c.go", 10),
+    ]
+    cell = run_partc_cell(
+        _cell("ruff", "spec", "opus-4.8"),
+        _fake_comps(
+            on_precision=1 / 3,
+            base_precision=1.0,
+            prism_calls=2,
+            on_verdicts=on_verdicts,
+            off_verdicts=off_verdicts,
+        ),
+    )
+    bd = cell.on_breakdown
+    assert bd["n"] == 3, f"expected 3 on-verdicts, got {bd['n']}"
+    assert bd["valid"] == 1, f"expected 1 valid, got {bd['valid']}"
+    assert bd["halluc"] == 1, f"expected 1 halluc, got {bd['halluc']}"
+    assert bd["irrelevant"] == 1, f"expected 1 irrelevant, got {bd['irrelevant']}"
+    assert len(bd["fails"]) == 2, f"expected 2 fail entries, got {bd['fails']}"
+    # halluc entry must mention 'halluc' label, irrelevant must mention 'irrelevant'
+    fail_labels = " ".join(bd["fails"])
+    assert "halluc" in fail_labels, f"halluc label missing from fails: {bd['fails']}"
+    assert "irrelevant" in fail_labels, f"irrelevant label missing from fails: {bd['fails']}"
+
+
+def test_run_partc_cell_extracts_breakdown_from_off_report():
+    """off_breakdown must reflect the verdicts from the off-arm score() call."""
+    off_verdicts = [
+        _valid_verdict("src/x.go", 1),
+        _halluc_verdict("src/ghost.go", 42),
+    ]
+    on_verdicts = [
+        _valid_verdict("src/y.go", 7),
+    ]
+    cell = run_partc_cell(
+        _cell("ruff", "spec", "opus-4.8"),
+        _fake_comps(
+            on_precision=1.0,
+            base_precision=0.5,
+            prism_calls=2,
+            off_verdicts=off_verdicts,
+            on_verdicts=on_verdicts,
+        ),
+    )
+    bd = cell.off_breakdown
+    assert bd["n"] == 2
+    assert bd["valid"] == 1
+    assert bd["halluc"] == 1
+    assert bd["irrelevant"] == 0
+    assert len(bd["fails"]) == 1
+
+
+def test_run_partc_cell_breakdown_all_valid():
+    """When all verdicts are valid, fails is empty and halluc/irrelevant are 0."""
+    on_verdicts = [
+        _valid_verdict("src/a.go", 1),
+        _valid_verdict("src/b.go", 2),
+    ]
+    cell = run_partc_cell(
+        _cell("ruff", "spec", "opus-4.8"),
+        _fake_comps(
+            on_precision=1.0,
+            base_precision=1.0,
+            prism_calls=2,
+            on_verdicts=on_verdicts,
+        ),
+    )
+    bd = cell.on_breakdown
+    assert bd["n"] == 2
+    assert bd["valid"] == 2
+    assert bd["halluc"] == 0
+    assert bd["irrelevant"] == 0
+    assert bd["fails"] == []
+
+
+def test_run_partc_cell_breakdown_empty_verdicts():
+    """Empty verdicts (no citations scored) produces a zero-filled breakdown."""
+    cell = run_partc_cell(
+        _cell("ruff", "spec", "opus-4.8"),
+        _fake_comps(
+            on_precision=0.0,
+            base_precision=0.0,
+            prism_calls=2,
+            on_verdicts=[],
+            off_verdicts=[],
+        ),
+    )
+    bd = cell.on_breakdown
+    assert bd["n"] == 0
+    assert bd["valid"] == 0
+    assert bd["fails"] == []
+
+
+# ---------------------------------------------------------------------------
+# (m) run_partc_cell threads in/out token split into PartCCell
+# ---------------------------------------------------------------------------
+
+def test_run_partc_cell_threads_in_out_token_split():
+    """in_tokens_off/on and out_tokens_off/on must come from the respective ArmOutputs."""
+    # on-arm: in_tokens=50, tokens(output)=10
+    # off-arm: in_tokens=30, tokens(output)=8
+    cell = run_partc_cell(
+        _cell("ruff", "spec", "opus-4.8"),
+        _fake_comps(
+            on_precision=0.8,
+            base_precision=0.4,
+            prism_calls=2,
+            on_in_tokens=50,   # ArmOutput.in_tokens for on-arm
+            off_in_tokens=30,  # ArmOutput.in_tokens for off-arm
+        ),
+    )
+    assert cell.in_tokens_on == 50, f"in_tokens_on: expected 50, got {cell.in_tokens_on}"
+    assert cell.out_tokens_on == 10, f"out_tokens_on: expected 10, got {cell.out_tokens_on}"
+    assert cell.in_tokens_off == 30, f"in_tokens_off: expected 30, got {cell.in_tokens_off}"
+    assert cell.out_tokens_off == 8, f"out_tokens_off: expected 8, got {cell.out_tokens_off}"
+    # tokens_off/on (totals) must still be correct
+    assert cell.tokens_off == 38
+    assert cell.tokens_on == 60
+
+
+# ---------------------------------------------------------------------------
+# (n) render_partc shows in/out split line and cite-breakdown lines
+# ---------------------------------------------------------------------------
+
+def _make_cell_with_breakdown(**kwargs) -> PartCCell:
+    """PartCCell with breakdown + in/out split fields set."""
+    defaults = dict(
+        repo="ruff",
+        stage="spec",
+        model="opus-4.8",
+        precision_on=0.8,
+        precision_base=0.4,
+        bundle_delta=0.4,
+        dose=Dose(count=2),
+        low_dose=False,
+        administered=True,
+        leaked=False,
+        recall_on=None,
+        recall_base=None,
+        tokens_off=38,
+        tokens_on=60,
+        in_tokens_off=30,
+        out_tokens_off=8,
+        in_tokens_on=50,
+        out_tokens_on=10,
+        cost_off=0.001,
+        cost_on=0.002,
+        wall_off=0.05,
+        wall_on=0.10,
+        off_breakdown={"n": 1, "valid": 1, "halluc": 0, "irrelevant": 0, "fails": []},
+        on_breakdown={"n": 3, "valid": 1, "halluc": 1, "irrelevant": 1,
+                      "fails": ["src/missing.go:99 (halluc)", "src/b.go:5 (irrelevant)"]},
+    )
+    defaults.update(kwargs)
+    return PartCCell(**defaults)
+
+
+def test_render_partc_shows_in_out_token_split():
+    """render_partc must include a tokens line with in/out split values for each arm."""
+    cell = _make_cell_with_breakdown(in_tokens_off=30, out_tokens_off=8,
+                                     in_tokens_on=50, out_tokens_on=10)
+    report = render_partc([cell])
+    # The in/out values must appear somewhere in the report
+    assert "30" in report, "off-arm in_tokens (30) must appear in report"
+    assert "50" in report, "on-arm in_tokens (50) must appear in report"
+    # Output tokens too
+    assert "8" in report or "out" in report.lower(), "off-arm out_tokens (8) must appear"
+    assert "10" in report, "on-arm out_tokens (10) must appear"
+
+
+def test_render_partc_shows_cite_breakdown_lines():
+    """render_partc must include lines with valid/halluc/irrelevant counts for each arm."""
+    cell = _make_cell_with_breakdown(
+        off_breakdown={"n": 1, "valid": 1, "halluc": 0, "irrelevant": 0, "fails": []},
+        on_breakdown={"n": 3, "valid": 1, "halluc": 1, "irrelevant": 1,
+                      "fails": ["src/missing.go:99 (halluc)", "src/b.go:5 (irrelevant)"]},
+    )
+    report = render_partc([cell])
+    # breakdown keywords must appear
+    assert "valid" in report.lower(), "render must mention 'valid' cite counts"
+    assert "halluc" in report.lower(), "render must mention 'halluc' cite counts"
+    assert "irrelevant" in report.lower(), "render must mention 'irrelevant' cite counts"
+    # numeric counts must appear
+    assert "1" in report  # valid count appears in both breakdowns
+
+
+def test_render_partc_breakdown_with_zero_verdicts():
+    """Cells with empty verdicts render without errors (n=0 arms)."""
+    cell = _make_cell_with_breakdown(
+        off_breakdown={"n": 0, "valid": 0, "halluc": 0, "irrelevant": 0, "fails": []},
+        on_breakdown={"n": 0, "valid": 0, "halluc": 0, "irrelevant": 0, "fails": []},
+    )
+    report = render_partc([cell])
+    assert "pilot signal" in report.lower()
