@@ -35,15 +35,19 @@ class RelevanceNone:
 def verify_citation(co, cite: Citation, *, issue_text: str = "",
                     relevance: RelevanceJudge | None = None,
                     read_code=lambda *_: None) -> CitationVerdict:
-    file_ok = co.file_exists(cite.file)
-    line_ok = file_ok and (cite.line is None or co.read_line(cite.file, cite.line) is not None)
+    if hasattr(co, "resolve_rel"):
+        resolved = co.resolve_rel(cite.file)
+    else:
+        resolved = cite.file if co.file_exists(cite.file) else None
+    file_ok = resolved is not None
+    line_ok = file_ok and (cite.line is None or co.read_line(resolved, cite.line) is not None)
     symbol_ok = True
     if cite.symbol is not None:
-        ln = co.read_line(cite.file, cite.line) if (file_ok and cite.line) else None
+        ln = co.read_line(resolved, cite.line) if (file_ok and cite.line) else None
         symbol_ok = bool(ln and cite.symbol in ln)
     relevant = True
     if relevance is not None and file_ok and line_ok and symbol_ok:
-        code = read_code(cite.file, cite.line) or ""
+        code = read_code(resolved, cite.line) or ""
         relevant = relevance.is_relevant(cite, issue_text, code)
     return CitationVerdict(cite, file_ok, line_ok, symbol_ok, relevant)
 

@@ -1,13 +1,14 @@
 """Read-only pinned checkout via `git worktree` (spec §4 pinning). The investigator
 verifies citations against THIS, using neutral git/file primitives — never prism."""
 from __future__ import annotations
-import subprocess, tempfile, shutil
+import os, subprocess, tempfile, shutil
 from pathlib import Path
 
 class Checkout:
     def __init__(self, repo: str, sha: str):
         self.repo, self.sha = repo, sha
         self._dir: Path | None = None
+        self._bn_index: dict[str, list[str]] | None = None
     def __enter__(self) -> "Checkout":
         self._dir = Path(tempfile.mkdtemp(prefix="tc-co-"))
         try:
@@ -41,3 +42,26 @@ class Checkout:
         lines = p.read_text(errors="replace").splitlines()
         lo, hi = max(0, line - 1 - ctx), min(len(lines), line + ctx)
         return "\n".join(lines[lo:hi]) if lo < hi else None
+
+    def _basename_index(self) -> dict[str, list[str]]:
+        """Build (and cache) a basename → [repo-relative-path, ...] index from tracked files."""
+        if self._bn_index is None:
+            out = subprocess.run(["git", "-C", str(self.root), "ls-files"],
+                                 capture_output=True, text=True)
+            idx: dict[str, list[str]] = {}
+            for line in out.stdout.splitlines():
+                idx.setdefault(os.path.basename(line), []).append(line)
+            self._bn_index = idx
+        return self._bn_index
+
+    def resolve_rel(self, rel: str) -> str | None:
+        """Resolve a cited path to a real repo-relative path.
+
+        Exact match wins; else if the basename is UNIQUE among tracked files, use that;
+        else None (ambiguous or absent — treated as a hallucination by the caller).
+        """
+        if (self.root / rel).is_file():
+            return rel
+        base = os.path.basename(rel)
+        matches = self._basename_index().get(base, [])
+        return matches[0] if len(matches) == 1 else None

@@ -60,3 +60,63 @@ def test_read_window_clamps_at_top(tmp_path):
 def test_read_window_missing_file_returns_none(tmp_path):
     co = _make_checkout_at(tmp_path)
     assert co.read_window("missing.py", 5, ctx=2) is None
+
+
+# --- resolve_rel tests ---
+
+def _init_repo_multi(p: Path) -> str:
+    """Repo with files at various paths including same-basename duplicates."""
+    p.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=p, check=True)
+    # unique basename: model/labels/regexp.go
+    (p / "model").mkdir()
+    (p / "model" / "labels").mkdir()
+    (p / "model" / "labels" / "regexp.go").write_text("package labels\n")
+    # duplicate basename: util/parser.go AND core/parser.go
+    (p / "util").mkdir()
+    (p / "util" / "parser.go").write_text("package util\n")
+    (p / "core").mkdir()
+    (p / "core" / "parser.go").write_text("package core\n")
+    subprocess.run(["git", "add", "-A"], cwd=p, check=True)
+    subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
+                    "commit", "-q", "-m", "init"], cwd=p, check=True)
+    return subprocess.run(["git", "rev-parse", "HEAD"], cwd=p,
+                          capture_output=True, text=True, check=True).stdout.strip()
+
+
+def test_resolve_rel_exact_match(tmp_path):
+    """Exact repo-relative path resolves to itself."""
+    sha = _init_repo_multi(tmp_path / "repo")
+    with Checkout(str(tmp_path / "repo"), sha) as co:
+        assert co.resolve_rel("model/labels/regexp.go") == "model/labels/regexp.go"
+
+
+def test_resolve_rel_unique_basename(tmp_path):
+    """Basename-only cite resolves when unique among tracked files."""
+    sha = _init_repo_multi(tmp_path / "repo")
+    with Checkout(str(tmp_path / "repo"), sha) as co:
+        assert co.resolve_rel("regexp.go") == "model/labels/regexp.go"
+
+
+def test_resolve_rel_ambiguous_basename_returns_none(tmp_path):
+    """Ambiguous basename (two files) returns None — treated as hallucination."""
+    sha = _init_repo_multi(tmp_path / "repo")
+    with Checkout(str(tmp_path / "repo"), sha) as co:
+        assert co.resolve_rel("parser.go") is None
+
+
+def test_resolve_rel_absent_returns_none(tmp_path):
+    """Non-existent path and non-existent basename both return None."""
+    sha = _init_repo_multi(tmp_path / "repo")
+    with Checkout(str(tmp_path / "repo"), sha) as co:
+        assert co.resolve_rel("no_such_file.go") is None
+        assert co.resolve_rel("deep/path/no_such_file.go") is None
+
+
+def test_resolve_rel_basename_index_cached(tmp_path):
+    """_basename_index is built once and reused (smoke-test idempotency)."""
+    sha = _init_repo_multi(tmp_path / "repo")
+    with Checkout(str(tmp_path / "repo"), sha) as co:
+        idx1 = co._basename_index()
+        idx2 = co._basename_index()
+        assert idx1 is idx2  # same object — cached
