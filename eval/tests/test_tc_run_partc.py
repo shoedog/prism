@@ -12,6 +12,8 @@ Tests:
       (run_on_arm also passes upstream); spec cell does NOT receive a spec section (FIX 2).
   (h) administered reflects the ON arm's used_prism (not the OFF arm).
   (i) leaked reflects the ON arm's text (not the OFF arm's text).
+  (j) run_partc_cell threads tokens/cost/wall from ArmOutputs into PartCCell.
+  (k) render_partc shows token + cost columns + signed Δtokens.
 """
 from __future__ import annotations
 import types
@@ -30,7 +32,8 @@ def _cell(repo: str, stage: str, model: str):
 
 
 def _fake_arm_output(*, used_prism: bool, prism_calls: int, text: str,
-                     citations: list | None = None) -> ArmOutput:
+                     citations: list | None = None,
+                     in_tokens: int = 0, cost_usd: float = 0.0) -> ArmOutput:
     """Build a minimal ArmOutput for fake comps."""
     dose = Dose(count=prism_calls)
     if citations is None:
@@ -46,6 +49,8 @@ def _fake_arm_output(*, used_prism: bool, prism_calls: int, text: str,
         prism_calls=prism_calls,
         dose=dose,
         low_dose=(prism_calls > 0 and prism_calls <= 1),
+        in_tokens=in_tokens,
+        cost_usd=cost_usd,
     )
 
 
@@ -84,17 +89,22 @@ def _fake_comps(*, on_precision: float, base_precision: float,
                 prism_calls: int = 2, text: str = "clean spec, no tool names",
                 citations: list | None = None,
                 off_text: str = "off arm clean text src/b.go:5",
-                off_citations: list | None = None) -> _FakeComps:
+                off_citations: list | None = None,
+                on_in_tokens: int = 50, on_cost_usd: float = 0.002,
+                off_in_tokens: int = 30, off_cost_usd: float = 0.001) -> _FakeComps:
     """Build a FakeComps bundle for the both-live flow.
 
     on-arm: prism=True, prism_calls=prism_calls, text=text.
     off-arm: prism=False, prism_calls=0, text=off_text.
+    in_tokens/cost_usd are distinct per arm so threading is actually exercised.
     """
     arm_out = _fake_arm_output(
         used_prism=(prism_calls > 0),
         prism_calls=prism_calls,
         text=text,
         citations=citations,
+        in_tokens=on_in_tokens,
+        cost_usd=on_cost_usd,
     )
     if off_citations is None:
         off_citations = [Citation(file="src/b.go", line=5, symbol=None)]
@@ -109,6 +119,8 @@ def _fake_comps(*, on_precision: float, base_precision: float,
         prism_calls=0,
         dose=Dose(count=0),
         low_dose=False,
+        in_tokens=off_in_tokens,
+        cost_usd=off_cost_usd,
     )
     return _FakeComps(on_precision=on_precision, base_precision=base_precision,
                       arm_out=arm_out, off_arm_out=off_arm_out)
@@ -200,8 +212,9 @@ def test_run_partc_cell_leaked_from_on_arm_not_off_arm():
 # (d) render_partc includes row + pilot signal label
 # ---------------------------------------------------------------------------
 
-def test_render_partc_includes_row_and_pilot_signal_label():
-    cell = PartCCell(
+def _make_cell(**kwargs) -> PartCCell:
+    """Build a PartCCell with sensible defaults; override via kwargs."""
+    defaults = dict(
         repo="ruff",
         stage="spec",
         model="opus-4.8",
@@ -214,7 +227,19 @@ def test_render_partc_includes_row_and_pilot_signal_label():
         leaked=False,
         recall_on=None,
         recall_base=None,
+        tokens_off=38,
+        tokens_on=60,
+        cost_off=0.001,
+        cost_on=0.002,
+        wall_off=0.05,
+        wall_on=0.10,
     )
+    defaults.update(kwargs)
+    return PartCCell(**defaults)
+
+
+def test_render_partc_includes_row_and_pilot_signal_label():
+    cell = _make_cell()
     report = render_partc([cell])
     # Must contain cell identifier
     assert "ruff/spec/opus-4.8" in report or ("ruff" in report and "spec" in report)
@@ -392,3 +417,70 @@ def test_score_spec_cell_does_not_include_spec_section():
     )
     assert "ISSUE-SPEC" in seen["prompt"]
     assert "Upstream spec" not in seen["prompt"], "spec cell must NOT inject upstream spec section"
+
+
+# ---------------------------------------------------------------------------
+# (j) run_partc_cell threads tokens/cost/wall from ArmOutputs into PartCCell
+# ---------------------------------------------------------------------------
+
+def test_run_partc_cell_threads_tokens_cost_wall():
+    """PartCCell must carry tokens (in+out per arm), cost, and wall from each ArmOutput."""
+    # on-arm: in_tokens=50, tokens(out)=10 → total=60; cost_usd=0.002; wall_s=0.10
+    # off-arm: in_tokens=30, tokens(out)=8  → total=38; cost_usd=0.001; wall_s=0.05
+    cell = run_partc_cell(
+        _cell("ruff", "spec", "opus-4.8"),
+        _fake_comps(
+            on_precision=0.8,
+            base_precision=0.4,
+            prism_calls=2,
+            on_in_tokens=50,
+            on_cost_usd=0.002,
+            off_in_tokens=30,
+            off_cost_usd=0.001,
+        ),
+    )
+    # tokens = in + out per arm
+    assert cell.tokens_off == 38, f"expected 38 (30+8), got {cell.tokens_off}"
+    assert cell.tokens_on == 60, f"expected 60 (50+10), got {cell.tokens_on}"
+    # cost threaded directly
+    assert cell.cost_off == pytest.approx(0.001)
+    assert cell.cost_on == pytest.approx(0.002)
+    # wall threaded directly (off-arm ArmOutput has wall_s=0.05, on-arm has 0.1)
+    assert cell.wall_off == pytest.approx(0.05)
+    assert cell.wall_on == pytest.approx(0.10)
+
+
+# ---------------------------------------------------------------------------
+# (k) render_partc shows token + cost columns + signed Δtokens
+# ---------------------------------------------------------------------------
+
+def test_render_partc_shows_tokens_cost_and_signed_delta():
+    """render_partc must include token counts, costs, and a signed Δtokens column."""
+    # tokens_off=38, tokens_on=60 → Δ = +22
+    cell = _make_cell(
+        tokens_off=38,
+        tokens_on=60,
+        cost_off=0.001,
+        cost_on=0.002,
+    )
+    report = render_partc([cell])
+    # Token counts must appear
+    assert "38" in report, "off-arm token count (38) must appear in report"
+    assert "60" in report, "on-arm token count (60) must appear in report"
+    # Signed delta: +22 (on > off)
+    assert "+22" in report, "positive Δtokens (+22) must appear signed in report"
+    # Cost values must appear (some form of $0.001 and $0.002)
+    assert "$0.001" in report or "0.001" in report, "off-arm cost must appear in report"
+    assert "$0.002" in report or "0.002" in report, "on-arm cost must appear in report"
+
+
+def test_render_partc_shows_negative_delta_tokens_when_on_arm_cheaper():
+    """When on-arm uses fewer tokens than off, Δtokens is negative."""
+    cell = _make_cell(
+        tokens_off=80,
+        tokens_on=60,
+        cost_off=0.003,
+        cost_on=0.002,
+    )
+    report = render_partc([cell])
+    assert "-20" in report, "negative Δtokens (-20) must appear signed in report"

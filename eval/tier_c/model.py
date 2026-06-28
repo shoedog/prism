@@ -48,7 +48,7 @@ class ArmOutput:
     variant: Variant
     text: str
     citations: list[Citation]
-    tokens: int
+    tokens: int          # output tokens
     tool_calls: int
     wall_s: float
     used_prism: bool
@@ -58,3 +58,5 @@ class ArmOutput:
     prism_calls: int = 0
     dose: Dose = field(default_factory=Dose)
     low_dose: bool = False
+    in_tokens: int = 0   # input tokens (default 0 so existing constructions keep working)
+    cost_usd: float = 0.0

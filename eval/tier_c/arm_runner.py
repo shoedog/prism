@@ -223,7 +223,8 @@ class ClaudeRunner:
                          used_prism=prism_calls > 0,
                          prism_calls=prism_calls, dose=r.dose,
                          low_dose=prism_calls > 0 and prism_calls <= 1,
-                         commands=r.commands, **flags)
+                         commands=r.commands, in_tokens=r.input_tokens, cost_usd=r.cost_usd,
+                         **flags)
 
 class CodexRunner:
     """ArmRunner via `codex exec --json` (prompt on stdin).
@@ -275,7 +276,8 @@ class CodexRunner:
                          used_prism=prism_calls > 0,
                          prism_calls=prism_calls, dose=r.dose,
                          low_dose=prism_calls > 0 and prism_calls <= 1,
-                         commands=r.commands, **flags)
+                         commands=r.commands, in_tokens=r.input_tokens, cost_usd=r.cost_usd,
+                         **flags)
 
 class FakeArmRunner:
     """Deterministic runner keyed by variant.id -> canned text (spec §6 fakes-drive-tests).
