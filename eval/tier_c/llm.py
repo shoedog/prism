@@ -22,7 +22,14 @@ def cli_model_flag(model: str) -> str:
 def live_ask(model: str, prompt: str) -> str:
     cli, flag = MODEL_CLI[model]
     if cli == "claude":
-        cmd = ["claude", "-p", "--output-format", "json", "--model", flag, prompt]
+        # --strict-mcp-config: ignore the user's DEFAULT MCP servers (the prism-dev plugin).
+        # Without it, each judge `claude -p` launches prism-mcp, which eagerly builds the CPG
+        # before answering — a ~3s relevance call balloons to minutes (one citation observed
+        # hanging >4min). Judges are designed tool-free (judges_live.py); this enforces it.
+        # No --mcp-config is passed, so strict mode yields ZERO MCP servers. Prompt stays the
+        # trailing positional (the flag is boolean).
+        cmd = ["claude", "-p", "--output-format", "json", "--model", flag,
+               "--strict-mcp-config", prompt]
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=_TIMEOUT)
         if proc.returncode != 0 or not proc.stdout.strip():
             raise RuntimeError(f"claude judge exited {proc.returncode}: {(proc.stderr or '').strip()[:300]}")

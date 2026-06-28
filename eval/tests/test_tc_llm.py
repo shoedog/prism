@@ -17,6 +17,29 @@ def test_live_ask_claude_parses_result(monkeypatch):
     assert out == "ranked: cand1,cand0"
     assert "--mcp-config" not in " ".join(seen["cmd"])   # judges get NO prism
 
+
+def test_live_ask_claude_passes_strict_mcp_config(monkeypatch):
+    """The claude judge MUST pass --strict-mcp-config so it ignores the user's default
+    MCP servers (the prism-dev plugin). Without it, every judge `claude -p` launches
+    prism-mcp, which eagerly builds the CPG before answering — turning a ~3s relevance
+    call into minutes (observed: one citation hung >4min). Absence of --mcp-config is
+    NOT isolation: the default config's MCP servers still load unless --strict-mcp-config
+    is set. The judge is designed tool-free (judges_live.py docstring)."""
+    seen = {}
+    def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None):
+        seen["cmd"] = cmd
+        class R: stdout = json.dumps({"type":"result","is_error":False,"num_turns":1,
+                  "result":"YES","usage":{"output_tokens":1}}); returncode=0; stderr=""
+        return R()
+    monkeypatch.setattr("tier_c.llm.subprocess.run", fake_run)
+    live_ask("opus-4.8", "relevant?")
+    assert "--strict-mcp-config" in seen["cmd"], (
+        f"claude judge must pass --strict-mcp-config to avoid loading default MCP servers; "
+        f"got {seen['cmd']}")
+    # the prompt must remain the trailing positional (the strict flag is boolean, takes no value)
+    assert seen["cmd"][-1] == "relevant?", (
+        f"prompt must stay the last positional arg; got {seen['cmd']}")
+
 def test_live_ask_codex_parses_jsonl(monkeypatch):
     def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None):
         assert "mcp_servers.prism" not in " ".join(cmd)   # no prism
