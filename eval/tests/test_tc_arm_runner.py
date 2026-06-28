@@ -424,12 +424,20 @@ class TestClaudeCfgDir:
         assert "mcp__prism" in allowed, (
             f"settings.json permissions.allow must include 'mcp__prism'; got {allowed}")
 
-    def test_prism_off_does_not_set_claude_config_dir(self):
+    def test_prism_off_sets_isolated_claude_config_dir(self):
+        """prism-OFF ClaudeRunner must set CLAUDE_CONFIG_DIR to an isolated status-quo config.
+        (Previously asserted it was NOT set; now both arms are isolated — only the prism
+        bundle differs, so the off-arm is no longer contaminated by user ~/.claude settings.)"""
         runner = ClaudeRunner(mcp_cfg="/tmp/fake.json")
         env = _capture_env_from_runner(
             runner, Variant("opus-4.8", False), stream_with(prism_calls=0))
-        assert "CLAUDE_CONFIG_DIR" not in env, (
-            "prism-OFF ClaudeRunner must NOT set CLAUDE_CONFIG_DIR (keep baseline vanilla)")
+        assert "CLAUDE_CONFIG_DIR" in env, (
+            "prism-OFF ClaudeRunner must set CLAUDE_CONFIG_DIR to an isolated status-quo config")
+        # Verify it is NOT the same as the prism-ON dir (different configs).
+        env_on = _capture_env_from_runner(
+            runner, Variant("opus-4.8", True), stream_with(prism_calls=0))
+        assert env["CLAUDE_CONFIG_DIR"] != env_on["CLAUDE_CONFIG_DIR"], (
+            "OFF and ON arms must use distinct CLAUDE_CONFIG_DIR paths")
 
     def test_prism_on_still_passes_mcp_config_arg(self):
         """The per-checkout --mcp-config (with --no-cache) must still be present for prism-ON."""
@@ -471,12 +479,15 @@ class TestCodexCfgHome:
         assert "CODEX_HOME" in env, (
             "prism-ON CodexRunner must set CODEX_HOME so codex loads the prism MCP + skill")
 
-    def test_prism_off_does_not_set_codex_home(self):
+    def test_prism_off_sets_isolated_codex_home(self):
+        """prism-OFF CodexRunner must set CODEX_HOME to an isolated status-quo home.
+        (Previously asserted it was NOT set; now both arms are isolated — only the prism
+        bundle differs, so the off-arm is no longer contaminated by user ~/.codex settings.)"""
         runner = CodexRunner()
         env = _capture_env_from_runner(
             runner, Variant("gpt-5.5", False), _make_minimal_codex_stream())
-        assert "CODEX_HOME" not in env, (
-            "prism-OFF CodexRunner must NOT set CODEX_HOME")
+        assert "CODEX_HOME" in env, (
+            "prism-OFF CodexRunner must set CODEX_HOME to an isolated status-quo home")
 
     def test_prism_on_drops_inline_mcp_servers_args(self):
         """When CODEX_HOME defines the MCP server, no -c mcp_servers.prism.* must be injected."""
@@ -842,3 +853,301 @@ def test_fake_runner_raw_stdout_is_empty_string():
     out = runner.run(Variant("opus-4.8", True), "spec", "prompt", "/r")
     assert out.raw_stdout == "", (
         f"FakeArmRunner must not set raw_stdout; expected '' but got {out.raw_stdout!r}")
+
+
+# ---------------------------------------------------------------------------
+# Part-C confound fix: prism-OFF arm isolation (status-quo config)
+# ---------------------------------------------------------------------------
+# The off-arm must run with a CLAUDE_CONFIG_DIR that:
+#   - has deny:[Write,Edit] (so the model writes the spec inline, parity with on-arm)
+#   - does NOT include mcp__prism in allow (off-arm has no prism)
+#   - has NO skills/prism-code-navigation (empty skills dir)
+#   - has NO --mcp-config arg in the command
+# The on-arm is unchanged (still gets skill + mcp__prism allow + --mcp-config).
+
+
+class TestPrismOffIsolation:
+    """prism-OFF ClaudeRunner must run in its own isolated (status-quo) CLAUDE_CONFIG_DIR."""
+
+    def test_prism_off_sets_claude_config_dir(self):
+        """OFF arm must now set CLAUDE_CONFIG_DIR (isolated status-quo baseline)."""
+        runner = ClaudeRunner(mcp_cfg="/tmp/fake.json")
+        env = _capture_env_from_runner(
+            runner, Variant("opus-4.8", False), stream_with(prism_calls=0))
+        assert "CLAUDE_CONFIG_DIR" in env, (
+            "prism-OFF ClaudeRunner must set CLAUDE_CONFIG_DIR to an isolated status-quo config")
+
+    def test_prism_off_config_dir_deny_write_edit(self):
+        """OFF arm settings.json must deny Write and Edit."""
+        runner = ClaudeRunner(mcp_cfg="/tmp/fake.json")
+        env = _capture_env_from_runner(
+            runner, Variant("opus-4.8", False), stream_with(prism_calls=0))
+        cfg_dir = env["CLAUDE_CONFIG_DIR"]
+        settings = json.loads((Path(cfg_dir) / "settings.json").read_text())
+        denied = settings.get("permissions", {}).get("deny", [])
+        assert "Write" in denied, f"settings.json must deny Write; got deny={denied}"
+        assert "Edit" in denied, f"settings.json must deny Edit; got deny={denied}"
+
+    def test_prism_off_config_dir_allow_read_grep_glob_bash(self):
+        """OFF arm settings.json must allow Read, Grep, Glob, Bash."""
+        runner = ClaudeRunner(mcp_cfg="/tmp/fake.json")
+        env = _capture_env_from_runner(
+            runner, Variant("opus-4.8", False), stream_with(prism_calls=0))
+        cfg_dir = env["CLAUDE_CONFIG_DIR"]
+        settings = json.loads((Path(cfg_dir) / "settings.json").read_text())
+        allowed = settings.get("permissions", {}).get("allow", [])
+        for tool in ("Read", "Grep", "Glob", "Bash"):
+            assert tool in allowed, f"settings.json must allow {tool!r}; got allow={allowed}"
+
+    def test_prism_off_config_dir_no_mcp_prism_in_allow(self):
+        """OFF arm settings.json must NOT include mcp__prism in allow."""
+        runner = ClaudeRunner(mcp_cfg="/tmp/fake.json")
+        env = _capture_env_from_runner(
+            runner, Variant("opus-4.8", False), stream_with(prism_calls=0))
+        cfg_dir = env["CLAUDE_CONFIG_DIR"]
+        settings = json.loads((Path(cfg_dir) / "settings.json").read_text())
+        allowed = settings.get("permissions", {}).get("allow", [])
+        assert "mcp__prism" not in allowed, (
+            f"OFF-arm allow must NOT contain mcp__prism; got {allowed}")
+
+    def test_prism_off_config_dir_no_skill(self):
+        """OFF arm config dir must have NO prism-code-navigation skill."""
+        runner = ClaudeRunner(mcp_cfg="/tmp/fake.json")
+        env = _capture_env_from_runner(
+            runner, Variant("opus-4.8", False), stream_with(prism_calls=0))
+        cfg_dir = env["CLAUDE_CONFIG_DIR"]
+        skill_dir = Path(cfg_dir) / "skills" / "prism-code-navigation"
+        assert not skill_dir.exists(), (
+            f"OFF-arm config must have NO prism-code-navigation skill; found {skill_dir}")
+
+    def test_prism_off_config_dir_has_no_mcp_config_arg(self):
+        """prism-OFF command must NOT include --mcp-config."""
+        import tier_c.arm_runner as arm_mod
+        import unittest.mock as mock
+
+        captured_cmds = []
+
+        def fake_run(*args, **kwargs):
+            captured_cmds.append(list(args[0]) if args else [])
+            return _FakeCompletedProcess(stdout=stream_with(prism_calls=0))
+
+        runner = ClaudeRunner(mcp_cfg="/tmp/fake.json")
+        with mock.patch.object(arm_mod.subprocess, "run", side_effect=fake_run):
+            runner.run(Variant("opus-4.8", False), "spec", "prompt", "/fake/repo")
+
+        cmd_str = " ".join(captured_cmds[-1])
+        assert "--mcp-config" not in cmd_str, (
+            "prism-OFF ClaudeRunner must NOT pass --mcp-config to the claude command")
+
+    def test_prism_on_still_has_skill(self):
+        """ON arm must still have the prism-code-navigation skill (regression guard)."""
+        runner = ClaudeRunner(mcp_cfg="/tmp/fake.json")
+        env = _capture_env_from_runner(
+            runner, Variant("opus-4.8", True), stream_with(prism_calls=0))
+        cfg_dir = env["CLAUDE_CONFIG_DIR"]
+        skill_md = Path(cfg_dir) / "skills" / "prism-code-navigation" / "SKILL.md"
+        assert skill_md.exists(), (
+            f"prism-ON config must still have prism-code-navigation/SKILL.md; dir={cfg_dir}")
+
+    def test_prism_on_still_allows_mcp_prism(self):
+        """ON arm must still have mcp__prism in allow (regression guard)."""
+        runner = ClaudeRunner(mcp_cfg="/tmp/fake.json")
+        env = _capture_env_from_runner(
+            runner, Variant("opus-4.8", True), stream_with(prism_calls=0))
+        cfg_dir = env["CLAUDE_CONFIG_DIR"]
+        settings = json.loads((Path(cfg_dir) / "settings.json").read_text())
+        allowed = settings.get("permissions", {}).get("allow", [])
+        assert "mcp__prism" in allowed, (
+            f"prism-ON settings.json must still allow mcp__prism; got {allowed}")
+
+    def test_off_and_on_config_dirs_are_different(self):
+        """The status-quo (OFF) and prism (ON) config dirs must be different paths."""
+        runner = ClaudeRunner(mcp_cfg="/tmp/fake.json")
+        env_on = _capture_env_from_runner(
+            runner, Variant("opus-4.8", True), stream_with(prism_calls=0))
+        env_off = _capture_env_from_runner(
+            runner, Variant("opus-4.8", False), stream_with(prism_calls=0))
+        assert env_on["CLAUDE_CONFIG_DIR"] != env_off["CLAUDE_CONFIG_DIR"], (
+            "ON and OFF arms must use distinct CLAUDE_CONFIG_DIR paths")
+
+    def test_status_quo_config_dir_cached_across_calls(self):
+        """_status_quo_config_dir() must return the same dir on repeated calls."""
+        from tier_c.arm_runner import ClaudeRunner as _CR
+        runner = _CR(mcp_cfg="/tmp/fake.json")
+        dir1 = runner._status_quo_config_dir()
+        dir2 = runner._status_quo_config_dir()
+        assert dir1 == dir2, "_status_quo_config_dir must be cached (same dir on every call)"
+
+
+class TestBuildIsolatedConfigNoMcp:
+    """build_isolated_config(include_skill_and_mcp=False) produces the status-quo config."""
+
+    def test_no_skill_copied(self, tmp_path):
+        from adoption.env import build_isolated_config
+        cfg = build_isolated_config(
+            skill_src=_skill_src_path(),
+            mcp_repo=".",
+            prism_mcp_bin="prism-mcp",
+            root=str(tmp_path),
+            include_skill_and_mcp=False,
+        )
+        skill_dir = Path(cfg.config_dir) / "skills" / "prism-code-navigation"
+        assert not skill_dir.exists(), (
+            f"include_skill_and_mcp=False must not copy the skill; found {skill_dir}")
+
+    def test_mcp_cfg_is_empty_string(self, tmp_path):
+        from adoption.env import build_isolated_config
+        cfg = build_isolated_config(
+            skill_src=_skill_src_path(),
+            mcp_repo=".",
+            prism_mcp_bin="prism-mcp",
+            root=str(tmp_path),
+            include_skill_and_mcp=False,
+        )
+        assert cfg.mcp_cfg == "", (
+            f"include_skill_and_mcp=False must return mcp_cfg=''; got {cfg.mcp_cfg!r}")
+
+    def test_allow_excludes_mcp_prism(self, tmp_path):
+        from adoption.env import build_isolated_config
+        cfg = build_isolated_config(
+            skill_src=_skill_src_path(),
+            mcp_repo=".",
+            prism_mcp_bin="prism-mcp",
+            root=str(tmp_path),
+            include_skill_and_mcp=False,
+        )
+        settings = json.loads((Path(cfg.config_dir) / "settings.json").read_text())
+        allowed = settings.get("permissions", {}).get("allow", [])
+        assert "mcp__prism" not in allowed, (
+            f"include_skill_and_mcp=False: allow must not include mcp__prism; got {allowed}")
+
+    def test_allow_includes_read_grep_glob_bash(self, tmp_path):
+        from adoption.env import build_isolated_config
+        cfg = build_isolated_config(
+            skill_src=_skill_src_path(),
+            mcp_repo=".",
+            prism_mcp_bin="prism-mcp",
+            root=str(tmp_path),
+            include_skill_and_mcp=False,
+        )
+        settings = json.loads((Path(cfg.config_dir) / "settings.json").read_text())
+        allowed = settings.get("permissions", {}).get("allow", [])
+        for tool in ("Read", "Grep", "Glob", "Bash"):
+            assert tool in allowed, (
+                f"include_skill_and_mcp=False: settings must allow {tool!r}; got {allowed}")
+
+    def test_deny_includes_write_edit(self, tmp_path):
+        from adoption.env import build_isolated_config
+        cfg = build_isolated_config(
+            skill_src=_skill_src_path(),
+            mcp_repo=".",
+            prism_mcp_bin="prism-mcp",
+            root=str(tmp_path),
+            include_skill_and_mcp=False,
+        )
+        settings = json.loads((Path(cfg.config_dir) / "settings.json").read_text())
+        denied = settings.get("permissions", {}).get("deny", [])
+        assert "Write" in denied and "Edit" in denied, (
+            f"include_skill_and_mcp=False: settings must deny Write+Edit; got {denied}")
+
+    def test_hooks_empty(self, tmp_path):
+        from adoption.env import build_isolated_config
+        cfg = build_isolated_config(
+            skill_src=_skill_src_path(),
+            mcp_repo=".",
+            prism_mcp_bin="prism-mcp",
+            root=str(tmp_path),
+            include_skill_and_mcp=False,
+        )
+        settings = json.loads((Path(cfg.config_dir) / "settings.json").read_text())
+        assert settings.get("hooks") == {}, (
+            f"include_skill_and_mcp=False: hooks must be {{}}; got {settings.get('hooks')!r}")
+
+    def test_default_true_still_copies_skill(self, tmp_path):
+        """Default include_skill_and_mcp=True (adoption path) must still copy the skill."""
+        from adoption.env import build_isolated_config
+        cfg = build_isolated_config(
+            skill_src=_skill_src_path(),
+            mcp_repo=".",
+            prism_mcp_bin="prism-mcp",
+            root=str(tmp_path),
+        )
+        skill_md = Path(cfg.config_dir) / "skills" / "prism-code-navigation" / "SKILL.md"
+        assert skill_md.exists(), (
+            f"Default include_skill_and_mcp=True must copy the skill; missing {skill_md}")
+
+    def test_default_true_mcp_cfg_nonempty(self, tmp_path):
+        """Default include_skill_and_mcp=True must return a non-empty mcp_cfg path."""
+        from adoption.env import build_isolated_config
+        cfg = build_isolated_config(
+            skill_src=_skill_src_path(),
+            mcp_repo=".",
+            prism_mcp_bin="prism-mcp",
+            root=str(tmp_path),
+        )
+        assert cfg.mcp_cfg != "", (
+            "Default include_skill_and_mcp=True must return a real mcp_cfg path")
+
+    def test_default_true_allows_mcp_prism(self, tmp_path):
+        """Default include_skill_and_mcp=True must still allow mcp__prism."""
+        from adoption.env import build_isolated_config
+        cfg = build_isolated_config(
+            skill_src=_skill_src_path(),
+            mcp_repo=".",
+            prism_mcp_bin="prism-mcp",
+            root=str(tmp_path),
+        )
+        settings = json.loads((Path(cfg.config_dir) / "settings.json").read_text())
+        allowed = settings.get("permissions", {}).get("allow", [])
+        assert "mcp__prism" in allowed, (
+            f"Default build_isolated_config must still allow mcp__prism; got {allowed}")
+
+
+def _skill_src_path() -> str:
+    """Return the absolute path to the prism-code-navigation skill in this repo."""
+    from tier_c.arm_runner import _skill_src
+    return _skill_src()
+
+
+class TestCodexOffIsolation:
+    """prism-OFF CodexRunner must run with an isolated CODEX_HOME (no user skills, no MCP)."""
+
+    def test_prism_off_sets_codex_home(self):
+        """OFF arm must set CODEX_HOME to an isolated minimal home (no user ~/.codex)."""
+        runner = CodexRunner()
+        env = _capture_env_from_runner(
+            runner, Variant("gpt-5.5", False), _make_minimal_codex_stream())
+        assert "CODEX_HOME" in env, (
+            "prism-OFF CodexRunner must set CODEX_HOME to an isolated status-quo home")
+
+    def test_prism_off_codex_home_has_no_prism_skill(self):
+        """OFF arm CODEX_HOME must have no prism-code-navigation skill."""
+        runner = CodexRunner()
+        env = _capture_env_from_runner(
+            runner, Variant("gpt-5.5", False), _make_minimal_codex_stream())
+        codex_home = Path(env["CODEX_HOME"])
+        skill_dir = codex_home / "skills" / "prism-code-navigation"
+        assert not skill_dir.exists(), (
+            f"OFF-arm CODEX_HOME must have no prism-code-navigation skill; found {skill_dir}")
+
+    def test_prism_off_codex_home_has_no_mcp_config(self):
+        """OFF arm CODEX_HOME must have no config.toml with [mcp_servers.prism]."""
+        runner = CodexRunner()
+        env = _capture_env_from_runner(
+            runner, Variant("gpt-5.5", False), _make_minimal_codex_stream())
+        codex_home = Path(env["CODEX_HOME"])
+        config_toml = codex_home / "config.toml"
+        if config_toml.exists():
+            content = config_toml.read_text()
+            assert "mcp_servers" not in content, (
+                f"OFF-arm config.toml must not contain [mcp_servers]; got:\n{content}")
+
+    def test_prism_on_and_off_codex_homes_differ(self):
+        """ON and OFF CODEX_HOME dirs must be different paths."""
+        runner = CodexRunner()
+        env_on = _capture_env_from_runner(
+            runner, Variant("gpt-5.5", True), _make_minimal_codex_stream())
+        env_off = _capture_env_from_runner(
+            runner, Variant("gpt-5.5", False), _make_minimal_codex_stream())
+        assert env_on["CODEX_HOME"] != env_off["CODEX_HOME"], (
+            "ON and OFF arms must use distinct CODEX_HOME paths")

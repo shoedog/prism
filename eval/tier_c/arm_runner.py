@@ -174,17 +174,20 @@ class ClaudeRunner:
     lsp_deny_dir: when set, prepended to PATH for lsp=False variants (deny-shim enforcement).
     no_cache: when True, pass --no-cache to prism-mcp so stale CPGs cannot survive arm resets.
 
-    For prism-ON arms, CLAUDE_CONFIG_DIR is set to a lazily-built, cached, repo-independent
-    config dir containing the prism-code-navigation skill, a settings.json with
-    permissions.allow including mcp__prism, and seeded credentials.  The per-checkout
-    --mcp-config (with --no-cache) is kept separately for the actual MCP server endpoint.
+    CLAUDE_CONFIG_DIR isolation (both arms):
+      - prism-ON:  _arm_config_dir() — skill + mcp__prism allow + seeded creds.
+      - prism-OFF: _status_quo_config_dir() — no skill, no mcp__prism, deny Write/Edit,
+                   seeded creds.  The ONLY difference between arms is the prism bundle.
+    The per-checkout --mcp-config (with --no-cache) is kept separately for the prism-ON
+    arm's actual MCP server endpoint.
     """
     def __init__(self, mcp_cfg: str | None = None, lsp_deny_dir: str | None = None,
                  no_cache: bool = False):
         self.mcp_cfg = mcp_cfg          # optional static override; per-checkout config is default
         self.lsp_deny_dir = lsp_deny_dir
         self.no_cache = no_cache
-        self._cfg_dir: str | None = None  # lazily built, cached across run() calls
+        self._cfg_dir: str | None = None         # lazily built, cached: prism-ON config
+        self._sq_cfg_dir: str | None = None      # lazily built, cached: status-quo OFF config
 
     def _arm_config_dir(self) -> str:
         """Return a cached, repo-independent CLAUDE_CONFIG_DIR with the prism skill + allow-list.
@@ -198,9 +201,27 @@ class ClaudeRunner:
                 skill_src=_skill_src(),
                 mcp_repo=".",
                 prism_mcp_bin=_prism_mcp_bin(),
+                include_skill_and_mcp=True,
             )
             self._cfg_dir = cfg.config_dir
         return self._cfg_dir
+
+    def _status_quo_config_dir(self) -> str:
+        """Return a cached, repo-independent CLAUDE_CONFIG_DIR for the prism-OFF baseline.
+
+        Contains ONLY: settings.json with deny=[Write,Edit], allow=[Read,Grep,Glob,Bash]
+        (no mcp__prism), hooks={}, empty skills dir, and seeded credentials.
+        The only difference between this dir and _arm_config_dir is the prism bundle.
+        """
+        if self._sq_cfg_dir is None:
+            cfg = build_isolated_config(
+                skill_src=_skill_src(),
+                mcp_repo=".",
+                prism_mcp_bin=_prism_mcp_bin(),
+                include_skill_and_mcp=False,
+            )
+            self._sq_cfg_dir = cfg.config_dir
+        return self._sq_cfg_dir
 
     def run(self, variant: Variant, stage: str, prompt: str, repo_root: str) -> ArmOutput:
         cfg = self.mcp_cfg if self.mcp_cfg else (
@@ -208,8 +229,12 @@ class ClaudeRunner:
         cmd = build_claude_cmd(variant, mcp_cfg=cfg) + [prompt]
         t0 = time.monotonic()
         env = dict(os.environ)
+        # Both arms run in isolated CLAUDE_CONFIG_DIRs so neither inherits user hooks/skills.
+        # The only difference is the prism bundle (skill + mcp__prism allow).
         if variant.prism:
             env["CLAUDE_CONFIG_DIR"] = self._arm_config_dir()
+        else:
+            env["CLAUDE_CONFIG_DIR"] = self._status_quo_config_dir()
         if not variant.lsp and self.lsp_deny_dir:
             env["PATH"] = self.lsp_deny_dir + os.pathsep + env["PATH"]
         proc = subprocess.run(cmd, capture_output=True, text=True, cwd=repo_root, timeout=_TIMEOUT, env=env)
@@ -234,7 +259,9 @@ class CodexRunner:
                (skill + MCP config.toml for this repo_root + auth).  Inline -c mcp_servers.prism.*
                args are NOT injected (the MCP server is already defined in CODEX_HOME/config.toml).
                A fresh CODEX_HOME is created per run() call because mcp_repo (= repo_root) varies.
-    prism OFF: CODEX_HOME is not set; no inline -c mcp_servers.prism.* args.
+    prism OFF: CODEX_HOME is set to an isolated status-quo home (auth only; no skill, no MCP
+               config.toml).  This prevents the user's ~/.codex skills/hooks from contaminating
+               the baseline — the only difference between arms is the prism bundle.
 
     used_prism is set from prism_calls > 0 (real mcp_tool_call events with server=='prism').
     lsp_deny_dir: when set, prepended to PATH for lsp=False variants (deny-shim enforcement).
@@ -243,6 +270,23 @@ class CodexRunner:
     def __init__(self, lsp_deny_dir: str | None = None, no_cache: bool = False):
         self.lsp_deny_dir = lsp_deny_dir
         self.no_cache = no_cache
+        self._sq_codex_home: str | None = None   # lazily built, cached: status-quo OFF home
+
+    def _status_quo_codex_home(self) -> str:
+        """Return a cached, repo-independent CODEX_HOME for the prism-OFF baseline.
+
+        Contains ONLY auth.json (seeded); no config.toml, no skills.
+        The only difference between this home and the prism-ON home is the prism bundle.
+        Cached because mcp_repo is irrelevant for the OFF home (no MCP config written).
+        """
+        if self._sq_codex_home is None:
+            self._sq_codex_home = build_isolated_codex_home(
+                skill_src=_skill_src(),
+                mcp_repo=".",
+                prism_mcp_bin=_prism_mcp_bin(),
+                include_skill_and_mcp=False,
+            )
+        return self._sq_codex_home
 
     def run(self, variant: Variant, stage: str, prompt: str, repo_root: str) -> ArmOutput:
         # For prism-ON arms: build the base command WITHOUT inline -c mcp_servers.prism.* args
@@ -262,7 +306,12 @@ class CodexRunner:
                 skill_src=_skill_src(),
                 mcp_repo=repo_root,
                 prism_mcp_bin=_prism_mcp_bin(),
+                include_skill_and_mcp=True,
             )
+        else:
+            # OFF arm: isolated status-quo home (auth only; no skill, no MCP config).
+            # Prevents user's ~/.codex skills/hooks from contaminating the baseline.
+            env["CODEX_HOME"] = self._status_quo_codex_home()
         if not variant.lsp and self.lsp_deny_dir:
             env["PATH"] = self.lsp_deny_dir + os.pathsep + env["PATH"]
         proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
