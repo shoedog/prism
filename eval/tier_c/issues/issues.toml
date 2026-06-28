@@ -3,7 +3,13 @@
 # OPEN and UNFIXED at the pinned `sha` (a commit in the local bench-repos clone), recent, multi-file,
 # needs spec+plan, with a concrete repro/acceptance. `repo` is the bench-repos clone NAME; the run
 # loop resolves it against the bench-repos root. files_touched_hint must be >= 2 (Goldilocks).
-# Frozen before any run — do not edit after a run starts.
+#
+# v2 DE-SPECIFIED (2026-06-27): `text`/`scoped_slice` give the symptom + repro + test-cases +
+# acceptance but DELIBERATELY OMIT the internal file/function/type/package locations a fix touches
+# (public API names stay — they are the user-facing symptom). The agent must DISCOVER the
+# implementation locations, which is exactly where structural nav (prism) vs grep/Read differ — the
+# v1 over-specified prompts handed the locations to the agent, so neither arm needed prism (thin
+# contrast). The over-specified v1 is in git history. Frozen before the v2 run starts.
 
 [[issue]]
 key = "ruff-26287"
@@ -30,10 +36,9 @@ Repro:
 Expected: trailing content after the codes is preserved (as `ty --add-ignore` does).
 '''
 scoped_slice = '''
-Fix `generate_noqa_edit` in `crates/ruff_linter/src/noqa.rs` to capture the bytes between the
-existing codes-section end and the line-ending start, store them on `NoqaEdit`, and re-emit them in
-`NoqaEdit::write()` between the codes and the line ending. Add regression tests for both the
-plain trailing-text case and the `# fmt:skip` case. Build/test: `cargo test -p ruff_linter`.
+Fix the `--add-noqa` logic so trailing content after the noqa codes (a trailing reason or a
+`# fmt:skip`) is preserved when a new code is merged into an existing noqa comment. Add regression
+tests for both the plain trailing-text case and the `# fmt:skip` case. Build/test: `cargo test`.
 '''
 
 [[issue]]
@@ -44,24 +49,21 @@ sha = "505095b64b43dd76baf08839e1800a8d473c97e0"
 url = "https://github.com/prometheus/prometheus/issues/18896"
 files_touched_hint = 2
 text = '''
-FastRegexMatcher: false-positive match for `.*<lit>(group)<lit>.*` with a capturing group
+FastRegexMatcher: false-positive match for a capturing group between two literals
 (prometheus/prometheus #18896, OPEN, filed 2026-06-09).
 
 `labels.NewFastRegexMatcher(`.*\|(foo)\|.*`).MatchString("|foo-bar|")` returns true, disagreeing
-with Go stdlib RE2 `^(?:.*\|(foo)\|.*)$` which returns false. A non-capturing group `(?:foo)` is
-correct. Root cause (reporter): `clearCapture` unwraps the capturing group before
-`isSimpleConcatenationPattern`, which then sees a concat of literals and returns true, installing a
-`trueMatcher{}` that matches everything and bypasses the regex.
+with Go stdlib RE2 `^(?:.*\|(foo)\|.*)$` which returns false (a non-capturing group `(?:foo)` is
+correct). The fast matcher incorrectly treats a capturing group between two literals as a simple
+concatenation of literals, installing a matcher that matches everything and bypasses the regex.
 
 Expected: FastRegexMatcher agrees with regexp/RE2. The issue provides 5 (pattern, value, expected)
 test cases.
 '''
 scoped_slice = '''
-In `model/labels/regexp.go`, prevent the capturing-group-between-literals pattern from collapsing to
-`trueMatcher` — guard `isSimpleConcatenationPattern` (or reorder it relative to `clearCapture`) so a
-group between two literals is not treated as independent substrings. Add the 5 regression cases from
-the issue to `model/labels/regexp_test.go`, asserting agreement with `regexp.MustCompile`.
-Build/test: `go test ./model/labels/...`.
+Fix the FastRegexMatcher so a capturing group between two literals is not collapsed into a
+match-everything fast path. Add the 5 regression cases from the issue asserting agreement with
+`regexp.MustCompile`. Build/test: `go test ./...`.
 '''
 
 [[issue]]
@@ -76,19 +78,17 @@ text = '''
 `__init_subclass__` (pydantic/pydantic #13300, OPEN, filed 2026-06-11).
 
 The docs say `__pydantic_init_subclass__` receives the same kwargs as `__init_subclass__`, but custom
-kwargs at class definition time (e.g. `class Foo(Bar, my_kwarg='value')`) raise TypeError. Root cause:
-`ModelMetaclass.__new__` forwards the full kwargs to `super().__new__(mcs, cls_name, bases, namespace,
-**kwargs)`, so `object.__init_subclass__` is invoked with `my_kwarg` (which nothing in the MRO
-consumes) and raises before pydantic calls `__pydantic_init_subclass__`.
+kwargs at class definition time (e.g. `class Foo(Bar, my_kwarg='value')`) raise TypeError: the custom
+kwarg reaches `object.__init_subclass__` (which nothing in the MRO consumes) and raises before
+pydantic calls `__pydantic_init_subclass__`.
 
 Expected: custom class kwargs reach `__pydantic_init_subclass__` without a TypeError.
 '''
 scoped_slice = '''
-In `pydantic/_internal/_model_construction.py` (`ModelMetaclass.__new__`), strip the user's custom
-kwargs before the `super().__new__(...)` call (mirroring how `ConfigWrapper.for_model` already pops
-known config kwargs) and forward them to `__pydantic_init_subclass__`. Add a test in
-`tests/test_main.py` asserting `class Foo(Bar, event_type='created')` does not raise and that
-`__pydantic_init_subclass__` receives `event_type`. Build/test: `pytest tests/test_main.py -x`.
+Fix the model metaclass so custom class keyword arguments are stripped before the base-class
+construction call and forwarded to `__pydantic_init_subclass__`, instead of raising TypeError. Add a
+test asserting `class Foo(Bar, event_type='created')` does not raise and that
+`__pydantic_init_subclass__` receives `event_type`. Build/test: `pytest`.
 '''
 
 [[issue]]
@@ -106,14 +106,12 @@ Alt-resizing (resize-from-center) a container that has multi-line bound text, dr
 south handle, produces a vertical position jump once the bound-text min-height constraint clamps the
 height. The container should stay anchored at its center during a center-resize, but its `y` shifts.
 
-Fix direction (from triage): `handleBindTextResize` does not know whether the resize is
-center-anchored, so its `updatedY` adjustment is applied in full even when resizing from center.
+Expected: during a center (alt) resize from the n/s handle, the container stays anchored at its
+center — `y` does not shift — even when the bound-text min-height clamps.
 '''
 scoped_slice = '''
-Add a `shouldResizeFromCenter` parameter (default false) to `handleBindTextResize` in
-`packages/element/src/textElement.ts`, pass it from both call sites in
-`packages/element/src/resizeElements.ts` (`resizeSingleElement`, `resizeMultipleElements`), and halve
-the `updatedY` diff when center-resizing so the container stays centered. Add a test in
-`packages/element/tests/textElement.test.ts` asserting `container.y` is stable on a center alt-resize
-from the n/s handle at min height. Build/test: `yarn test` (vitest).
+Fix center-anchored (alt) resize of a container with multi-line bound text so dragging the north/south
+handle keeps the container anchored at its center (its `y` must not shift) once the bound-text
+min-height clamps. Add a test asserting `container.y` is stable on a center alt-resize from the n/s
+handle at min height. Build/test: `yarn test`.
 '''

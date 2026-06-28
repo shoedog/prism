@@ -87,6 +87,7 @@ class ChainResult:
     provenance: Provenance
 
 def _salt(frame: str, plants: list[PlantedError]) -> str:
+    """Inject planted errors into frame text, or return frame unchanged if none."""
     return inject(frame, plants)[0] if plants else frame
 
 def run_spec_plan_chain(*, issue_text, scoped_slice, variants, runner, co,
