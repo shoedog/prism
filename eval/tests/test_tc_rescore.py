@@ -216,3 +216,27 @@ def test_cli_rescore_dispatches(monkeypatch, capsys):
         f"render_partc must receive [cell_result]; got {render_seen['cells']!r}")
     out = capsys.readouterr().out
     assert "rescored" in out and "/out/dir" in out
+
+
+# --------------------------------------------------------------------------
+# --reuse-off-from: re-run the on-arm only, reconstruct the off-arm baseline
+# --------------------------------------------------------------------------
+def test_live_comps_reuse_off_from_reconstructs_without_rerun(tmp_path, monkeypatch):
+    """When reuse_off_from is set, run_off_arm reconstructs the off-arm from a saved run
+    dir and MUST NOT run a live arm — holds the baseline constant when only the steer/on-arm
+    changed, and avoids re-spending on an unchanged arm (feedback_rescore_not_rerun)."""
+    from tier_c.cli import _LivePartCComps
+    import tier_c.arm_runner as arm_mod
+    src = _seed_src_run_dir(tmp_path)
+
+    def _boom(*a, **k):
+        raise AssertionError("run_off_arm must NOT run a live arm when reuse_off_from is set")
+
+    monkeypatch.setattr(arm_mod, "run_arm_isolated", _boom)
+    comps = _LivePartCComps(co=_FakeCo(), issue=_FakeIssue(), model="opus-4.8",
+                            base_root="", reuse_off_from=str(src))
+    out = comps.run_off_arm(("prometheus", "spec", "opus-4.8"))
+    assert out is not None
+    assert any("regexp.go" in c.file for c in out.citations), (
+        "reused off-arm must carry the citations reconstructed from the saved off.raw.jsonl")
+    assert out.used_prism is False, "off-arm baseline must remain prism-free"

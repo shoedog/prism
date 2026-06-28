@@ -72,6 +72,11 @@ def main(argv: list[str] | None = None) -> int:
         "--run-store-root", default=None,
         help="root dir for run artifacts (default: eval/tier_c/runs next to this file)",
     )
+    partc_p.add_argument(
+        "--reuse-off-from", default=None, metavar="RUN_DIR",
+        help="reconstruct the prism-OFF arm from this saved run dir instead of re-running it "
+             "(holds the baseline constant when only the on-arm/steer changed; no off-arm spend)",
+    )
 
     # Re-score a saved Part-C run WITHOUT re-running the arms (judge/scoring fixes are free).
     rescore_p = sub.add_parser(
@@ -121,7 +126,8 @@ def main(argv: list[str] | None = None) -> int:
             force_new = args.force_new
             _run_partc_live(cell, bench_root=bench_root, base_root=base_root,
                             issues_path=issues_path, run_id=run_id,
-                            runs_root=runs_root, force_new=force_new)
+                            runs_root=runs_root, force_new=force_new,
+                            reuse_off_from=args.reuse_off_from)
         return 0
 
     if args.cmd == "run":
@@ -550,7 +556,8 @@ class _LivePartCComps:
     _LivePartCComps is opened per cell inside a single Checkout context manager.
     """
 
-    def __init__(self, *, co, issue, model: str, base_root: str, ask=None):
+    def __init__(self, *, co, issue, model: str, base_root: str, ask=None,
+                 reuse_off_from: str | None = None):
         if ask is None:
             from .llm import live_ask
             ask = live_ask
@@ -559,6 +566,9 @@ class _LivePartCComps:
         self._model = model
         self._base_root = base_root
         self._ask = ask
+        # When set, run_off_arm reconstructs the off-arm from this saved run dir instead of
+        # running it live — holds the baseline constant when only the on-arm/steer changed.
+        self._reuse_off_from = reuse_off_from
         self._last_off = None         # set after run_off_arm; carries ArmOutput for audit persistence
         self._last_on = None          # set after run_on_arm; carries ArmOutput for audit persistence
         self._last_off_prompt = None  # exact prompt sent to the off-arm
@@ -641,6 +651,20 @@ class _LivePartCComps:
         as run_on_arm so the only variable between the two arms is tool availability.
         """
         repo, stage, model = cell
+
+        # Reuse path: reconstruct the off-arm from a saved run dir (no live run, no spend).
+        if self._reuse_off_from:
+            from .rescore import _reconstruct_arm_from_files
+            safe_model = model.replace("/", "_").replace(":", "_")
+            base = os.path.join(self._reuse_off_from, f"{repo}-{stage}-{safe_model}")
+            out = _reconstruct_arm_from_files(base, "off", model)
+            prompt_path = f"{base}.off.prompt.txt"
+            self._last_off_prompt = (
+                open(prompt_path).read() if os.path.exists(prompt_path)
+                else f"(off-arm reused from {self._reuse_off_from}; not re-run)")
+            self._last_off = out
+            return out
+
         from .arm_runner import ClaudeRunner, CodexRunner, run_arm_isolated
         from .model import Variant
 
@@ -891,7 +915,8 @@ def _persist_judge_jsonl(records: list[dict], path: str) -> None:
 
 def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
                     issues_path: str, run_id: str | None = None,
-                    runs_root: str | None = None, force_new: bool = False) -> None:
+                    runs_root: str | None = None, force_new: bool = False,
+                    reuse_off_from: str | None = None) -> None:
     """Open a pinned throwaway worktree at the issue SHA and run one Part-C cell live.
 
     All artifacts go under <runs_root>/<run_id>/ (collision-guarded unless force_new).
@@ -938,7 +963,8 @@ def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
 
     try:
         with Checkout(os.path.join(bench_root, repo), issue.sha) as co:
-            comps = _LivePartCComps(co=co, issue=issue, model=model, base_root=base_root)
+            comps = _LivePartCComps(co=co, issue=issue, model=model, base_root=base_root,
+                                    reuse_off_from=reuse_off_from)
 
             # --- OFF arm (try/finally for immediate persistence) ---
             off_exception_info: dict | None = None
