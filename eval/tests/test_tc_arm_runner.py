@@ -888,6 +888,16 @@ class TestPrismOffIsolation:
         assert "Write" in denied, f"settings.json must deny Write; got deny={denied}"
         assert "Edit" in denied, f"settings.json must deny Edit; got deny={denied}"
 
+    def test_both_arms_settings_show_thinking_summaries(self):
+        """BOTH arms' settings.json must set showThinkingSummaries=true (auditability)."""
+        runner = ClaudeRunner(mcp_cfg="/tmp/fake.json")
+        for prism in (True, False):
+            env = _capture_env_from_runner(
+                runner, Variant("opus-4.8", prism), stream_with(prism_calls=(1 if prism else 0)))
+            settings = json.loads((Path(env["CLAUDE_CONFIG_DIR"]) / "settings.json").read_text())
+            assert settings.get("showThinkingSummaries") is True, (
+                f"prism={prism} arm settings.json must set showThinkingSummaries=true; got {settings}")
+
     def test_prism_off_config_dir_allow_read_grep_glob_bash(self):
         """OFF arm settings.json must allow Read, Grep, Glob, Bash."""
         runner = ClaudeRunner(mcp_cfg="/tmp/fake.json")

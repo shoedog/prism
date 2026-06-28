@@ -63,6 +63,7 @@ def build_isolated_config(*, skill_src: str, mcp_repo: str, prism_mcp_bin: str,
 
     with open(os.path.join(cfg_dir, "settings.json"), "w") as f:
         json.dump({"hooks": {},
+                   "showThinkingSummaries": True,  # expose model thinking in the stream (auditability)
                    "permissions": {"allow": allow_list,
                                    "deny": ["Write", "Edit"]}}, f)
 

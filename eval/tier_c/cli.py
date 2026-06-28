@@ -214,11 +214,11 @@ def _write_partc_manifest(
     except Exception as e:
         dirty_git = f"error:{e}"
 
-    # Thinking: claude -p does NOT expose a per-call thinking budget flag in the
-    # stream-json CLI (as of 2026-06).  Any exposed reasoning IS preserved verbatim
-    # in raw_stdout (the full stream is saved unstripped by _persist_one_arm).
-    # We record thinking_enabled=False here so the manifest is accurate.
-    thinking_enabled = False
+    # Thinking: both arms' isolated settings.json set "showThinkingSummaries": true
+    # (adoption.env.build_isolated_config), so claude emits thinking summaries into the
+    # stream — preserved verbatim in raw_stdout (saved unstripped by _persist_one_arm).
+    show_thinking_summaries = True
+    thinking_enabled = True
 
     manifest = {
         "timestamp": datetime.now(tz=timezone.utc).isoformat(),
@@ -240,6 +240,7 @@ def _write_partc_manifest(
         "harness_git_sha": harness_git_sha,
         "dirty_git": dirty_git,
         "thinking_enabled": thinking_enabled,
+        "show_thinking_summaries": show_thinking_summaries,
         "config_summary": {
             # Claude prism-ON arm: skill + mcp__prism allow, deny Write/Edit
             "on": {
