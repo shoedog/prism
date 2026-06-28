@@ -13,9 +13,18 @@ _STAGE = {
 # Steer directives injected per arm to control tool usage without leaking into
 # the model's output text (each steer also instructs the model not to name the tools).
 _STEER_PRISM_ON = (
-    "TOOL INSTRUCTIONS: Use the navigation tools — nav_callers, nav_callees, "
-    "nav_repo_map, nav_nodes_at — to ground every file:line reference before you "
-    "write it. Trace callers and callees for every symbol you touch. "
+    "NAVIGATION (do this FIRST): This repository has a structural code-navigation tool, prism: "
+    "nav_repo_map (module/dependency layout), nav_callers and nav_callees (who calls a symbol and "
+    "what it calls, resolved ACROSS files), and nav_nodes_at (what is defined or called at a line). "
+    "Use it to LOCATE the code this issue concerns before you read anything.\n"
+    "WHY prism, not grep/Read: grep only matches literal text in files you already guessed, and "
+    "misses calls that cross files or go through imports/aliases; prism follows the actual call graph "
+    "and import graph, so it finds ALL the callers, callees, and relevant modules — including the ones "
+    "grep cannot. On a codebase you do not know, orienting with prism finds the right file and "
+    "function faster and more completely than grepping blindly.\n"
+    "So: start with nav_repo_map for the layout, use nav_callers/nav_callees on the symbols the issue "
+    "is about to trace the relevant code, THEN read the specific sites prism points you to and ground "
+    "every file:line citation in what you found. "
     "Do not name the tools in your spec or plan; write as if you read the code directly."
 )
 
