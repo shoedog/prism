@@ -73,7 +73,36 @@ def main(argv: list[str] | None = None) -> int:
         help="root dir for run artifacts (default: eval/tier_c/runs next to this file)",
     )
 
+    # Re-score a saved Part-C run WITHOUT re-running the arms (judge/scoring fixes are free).
+    rescore_p = sub.add_parser(
+        "rescore",
+        help="re-score a saved Part-C run dir from its raw streams (no arm re-run)",
+    )
+    rescore_p.add_argument("--run-dir", required=True,
+                           help="source Part-C run dir (contains manifest.json + *.raw.jsonl)")
+    rescore_p.add_argument("--bench-root", default="~/code/bench-repos",
+                           help="bench-repos root (default: ~/code/bench-repos; else manifest's)")
+    rescore_p.add_argument("--issues", default=None,
+                           help="issues TOML (default: the path recorded in the run's manifest)")
+    rescore_p.add_argument("--out-run-id", default=None,
+                           help="output run-id (default: <src>-rescore); NEVER clobbers the source")
+    rescore_p.add_argument("--run-store-root", default=None,
+                           help="root dir for the rescored artifacts (default: eval/tier_c/runs/partc)")
+
     args = ap.parse_args(argv)
+
+    if args.cmd == "rescore":
+        from .rescore import rescore_run_dir
+        cell_result, out_dir = rescore_run_dir(
+            os.path.expanduser(args.run_dir),
+            bench_root=args.bench_root,
+            issues_path=args.issues,
+            out_run_id=args.out_run_id,
+            runs_root=args.run_store_root,
+        )
+        print(render_partc(cell_result))
+        print(f"\nrescored (arms NOT re-run) → {out_dir}")
+        return 0
 
     if args.cmd == "run-partc":
         parts = (args.cell or "").split(":", 2)
