@@ -98,6 +98,9 @@ class PartCCell:
     wall_on: float = 0.0
     off_breakdown: dict = None  # type: ignore[assignment]
     on_breakdown: dict = None   # type: ignore[assignment]
+    off_verdicts: list = None   # type: ignore[assignment]
+    on_verdicts: list = None    # type: ignore[assignment]
+    gate: dict = None           # type: ignore[assignment]
 
     def __post_init__(self):
         # Supply empty-breakdown dicts for callers that don't provide them
@@ -107,6 +110,14 @@ class PartCCell:
         if self.on_breakdown is None:
             object.__setattr__(self, "on_breakdown",
                                {"n": 0, "valid": 0, "halluc": 0, "irrelevant": 0, "fails": []})
+        if self.off_verdicts is None:
+            object.__setattr__(self, "off_verdicts", [])
+        if self.on_verdicts is None:
+            object.__setattr__(self, "on_verdicts", [])
+        if self.gate is None:
+            object.__setattr__(self, "gate",
+                               {"decision": "keep", "reason": "", "prism_calls": 0,
+                                "distinct_tools": []})
 
 
 # ---------------------------------------------------------------------------
@@ -162,7 +173,7 @@ def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
     on_rep = comps.score(on_out.citations, cell=cell, arm="on")
     precision_on = on_rep.precision
 
-    # Step 6: extract per-arm citation failure breakdowns
+    # Step 6: extract per-arm citation failure breakdowns + full verdict lists
     def _breakdown(rep) -> dict:
         verdicts = rep.verdicts
         halluc = sum(v.is_hallucination for v in verdicts)
@@ -175,8 +186,45 @@ def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
         return {"n": len(verdicts), "valid": valid, "halluc": halluc,
                 "irrelevant": irrel, "fails": fails}
 
+    def _verdict_list(rep) -> list:
+        """Convert InvestigatorReport.verdicts → list of plain dicts for JSON serialisation."""
+        result = []
+        for v in rep.verdicts:
+            result.append({
+                "file": v.cite.file,
+                "line": v.cite.line,
+                "symbol": v.cite.symbol,
+                "file_ok": v.file_ok,
+                "line_ok": v.line_ok,
+                "symbol_ok": v.symbol_ok,
+                "relevant": v.relevant,
+                "is_hallucination": v.is_hallucination,
+                "is_valid": v.is_valid,
+            })
+        return result
+
     off_breakdown = _breakdown(off_rep)
     on_breakdown  = _breakdown(on_rep)
+    off_verdicts  = _verdict_list(off_rep)
+    on_verdicts   = _verdict_list(on_rep)
+
+    # Step 6b: gate decision
+    prism_calls_on = on_out.prism_calls
+    distinct_tools = sorted(on_out.dose.distinct_tools) if on_out.dose.distinct_tools else []
+    if prism_calls_on == 0:
+        gate: dict = {
+            "decision": "discard",
+            "reason": "zero real prism calls",
+            "prism_calls": 0,
+            "distinct_tools": distinct_tools,
+        }
+    else:
+        gate = {
+            "decision": "keep",
+            "reason": f"prism used ({prism_calls_on} calls)",
+            "prism_calls": prism_calls_on,
+            "distinct_tools": distinct_tools,
+        }
 
     # Step 7: leak scan (on-arm text only)
     leak_result = scan_leak(on_out.text)
@@ -221,6 +269,9 @@ def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
         wall_on=wall_on,
         off_breakdown=off_breakdown,
         on_breakdown=on_breakdown,
+        off_verdicts=off_verdicts,
+        on_verdicts=on_verdicts,
+        gate=gate,
     )
 
 

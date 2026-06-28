@@ -4,6 +4,10 @@ from __future__ import annotations
 import argparse
 import os
 from .corpus import load_issues
+from .arm_runner import _prism_mcp_bin, _prism_bin
+from .partc import render_partc
+from .prompts import stage_prompt
+from .checkout import Checkout
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -56,6 +60,18 @@ def main(argv: list[str] | None = None) -> int:
         default="tier_c/issues/issues.toml",
         help="issues TOML file (default: tier_c/issues/issues.toml)",
     )
+    partc_p.add_argument(
+        "--run-id", default=None,
+        help="run identifier for artifact namespacing (default: auto timestamp partc-YYYYmmdd-HHMMSS)",
+    )
+    partc_p.add_argument(
+        "--force-new", action="store_true",
+        help="override run-id collision guard (overwrites existing run dir)",
+    )
+    partc_p.add_argument(
+        "--run-store-root", default=None,
+        help="root dir for run artifacts (default: eval/tier_c/runs next to this file)",
+    )
 
     args = ap.parse_args(argv)
 
@@ -71,8 +87,12 @@ def main(argv: list[str] | None = None) -> int:
             bench_root = os.path.expanduser(args.bench_root)
             base_root = args.base_root
             issues_path = args.issues
+            run_id = args.run_id or _default_partc_run_id()
+            runs_root = args.run_store_root or _default_run_store_root()
+            force_new = args.force_new
             _run_partc_live(cell, bench_root=bench_root, base_root=base_root,
-                            issues_path=issues_path)
+                            issues_path=issues_path, run_id=run_id,
+                            runs_root=runs_root, force_new=force_new)
         return 0
 
     if args.cmd == "run":
@@ -110,6 +130,12 @@ def _default_run_store_root() -> str:
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs")
 
 
+def _default_partc_run_id() -> str:
+    """Generate a timestamp-based Part-C run id: partc-YYYYmmdd-HHMMSS."""
+    from datetime import datetime
+    return datetime.now().strftime("partc-%Y%m%d-%H%M%S")
+
+
 def _prism_build_id(path: str) -> str:
     """Build identity of the prism-mcp binary = sha256 of its bytes (prism-mcp has no --version).
     Different build => different hash, so audit/replay can detect a prism change."""
@@ -119,6 +145,88 @@ def _prism_build_id(path: str) -> str:
             return "sha256:" + hashlib.sha256(f.read()).hexdigest()[:16]
     except Exception as e:
         return f"error:{e}"
+
+
+def _write_partc_manifest(
+    *,
+    cell: tuple,
+    issue,
+    bench_root: str,
+    base_root: str,
+    issues_path: str,
+    run_id: str,
+    runs_root: str,
+) -> str:
+    """Write <runs_root>/<run_id>/manifest.json for the Part-C live run.
+
+    Fields: timestamp, cell, issue {key,language,repo,sha,url}, bench_root,
+    base_root, issues_path, prism_mcp_bin+sha, prism_bin+sha,
+    harness_git_sha, config_summary per arm, steer per arm.
+    Returns the path written.
+    """
+    import json
+    import hashlib
+    import subprocess
+    from datetime import datetime, timezone
+
+    repo, stage, model = cell
+
+    # Binary paths + sha256
+    mcp_bin = _prism_mcp_bin()
+    mcp_sha = _prism_build_id(mcp_bin)
+    prism_bin_path = _prism_bin()
+    prism_bin_sha = _prism_build_id(prism_bin_path)
+
+    # Harness git SHA (best-effort)
+    try:
+        git_out = subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, timeout=10,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+        )
+        harness_git_sha = git_out.stdout.strip() or "unknown"
+    except Exception as e:
+        harness_git_sha = f"error:{e}"
+
+    manifest = {
+        "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        "cell": {"repo": repo, "stage": stage, "model": model},
+        "issue": {
+            "key": getattr(issue, "key", ""),
+            "language": getattr(issue, "language", ""),
+            "repo": getattr(issue, "repo", ""),
+            "sha": getattr(issue, "sha", ""),
+            "url": getattr(issue, "url", ""),
+        },
+        "bench_root": bench_root,
+        "base_root": base_root,
+        "issues_path": issues_path,
+        "prism_mcp_bin": mcp_bin,
+        "prism_mcp_sha": mcp_sha,
+        "prism_bin": prism_bin_path,
+        "prism_bin_sha": prism_bin_sha,
+        "harness_git_sha": harness_git_sha,
+        "config_summary": {
+            "on": {
+                "skill_present": True,
+                "allow_includes_mcp_prism": True,
+                "deny": ["Write", "Edit"],
+            },
+            "off": {
+                "skill_present": False,
+                "allow_includes_mcp_prism": False,
+                "deny": ["Write", "Edit"],
+                "allow": ["Read", "Grep", "Glob", "Bash"],
+            },
+        },
+        "steer": {"on": "prism_on", "off": ""},
+    }
+
+    run_dir = os.path.join(runs_root, run_id)
+    os.makedirs(run_dir, exist_ok=True)
+    path = os.path.join(run_dir, "manifest.json")
+    with open(path, "w") as f:
+        json.dump(manifest, f, indent=2)
+    return path
 
 
 def _build_manifest(*, issues, bench_root: str, run_id: str, run_store_root: str) -> dict:
@@ -275,7 +383,7 @@ def _fmt_delta(d: dict) -> str:
 def _run_partc_fake(cell: tuple) -> None:
     """Run run_partc_cell with fake comps (no live LLM calls) and print the report."""
     from .model import Dose, ArmOutput, Variant, Citation
-    from .partc import run_partc_cell, render_partc
+    from .partc import run_partc_cell
 
     repo, stage, model = cell
 
@@ -365,8 +473,11 @@ class _LivePartCComps:
         self._model = model
         self._base_root = base_root
         self._ask = ask
-        self._last_off = None   # set after run_off_arm; carries ArmOutput for audit persistence
-        self._last_on = None    # set after run_on_arm; carries ArmOutput for audit persistence
+        self._last_off = None        # set after run_off_arm; carries ArmOutput for audit persistence
+        self._last_on = None         # set after run_on_arm; carries ArmOutput for audit persistence
+        self._last_off_prompt = None  # exact prompt sent to the off-arm
+        self._last_on_prompt = None   # exact prompt sent to the on-arm
+        self._last_prewarm = None     # prewarm telemetry dict from run_arm_isolated
 
     def _upstream_spec(self, cell: tuple) -> str:
         """Return the recovered prism-off SPEC body for a plan cell; '' for spec cells.
@@ -426,7 +537,6 @@ class _LivePartCComps:
         repo, stage, model = cell
         from .arm_runner import ClaudeRunner, CodexRunner, run_arm_isolated
         from .model import Variant
-        from .prompts import stage_prompt
 
         variant = Variant(model, prism=False)
         upstream = self._upstream_spec(cell)
@@ -437,6 +547,7 @@ class _LivePartCComps:
             upstream=upstream,
             # NO steer — status quo, agent must discover the code itself
         )
+        self._last_off_prompt = prompt
         runner = ClaudeRunner(no_cache=False) if model.startswith("opus") else CodexRunner(no_cache=False)
         iso = run_arm_isolated(
             runner,
@@ -455,7 +566,6 @@ class _LivePartCComps:
         repo, stage, model = cell
         from .arm_runner import ClaudeRunner, CodexRunner, run_arm_isolated
         from .model import Variant
-        from .prompts import stage_prompt
 
         variant = Variant(model, prism=True)
         upstream = self._upstream_spec(cell)
@@ -466,6 +576,7 @@ class _LivePartCComps:
             upstream=upstream,
             steer="prism_on",
         )
+        self._last_on_prompt = prompt
         runner = ClaudeRunner(no_cache=False) if model.startswith("opus") else CodexRunner(no_cache=False)
         iso = run_arm_isolated(
             runner,
@@ -477,22 +588,29 @@ class _LivePartCComps:
             prewarm=True,
         )
         self._last_on = iso.out
+        self._last_prewarm = iso.prewarm
         return iso.out
 
 
-def _persist_partc_cell(partc_cell, repo: str, stage: str, model: str) -> str:
-    """Serialize a PartCCell to JSON and write to eval/tier_c/runs/partc/.
+def _persist_partc_cell(partc_cell, repo: str, stage: str, model: str,
+                        *, run_id: str | None = None, runs_root: str | None = None) -> str:
+    """Serialize a PartCCell to JSON and write to <runs_root>/<run_id>/.
 
     Returns the path written.  The runs/ dir is gitignored.
     """
     import json
     import dataclasses
 
-    runs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs", "partc")
+    if runs_root is None:
+        runs_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs")
+    if run_id is not None:
+        runs_dir = os.path.join(runs_root, run_id)
+    else:
+        runs_dir = os.path.join(runs_root, "partc")
     os.makedirs(runs_dir, exist_ok=True)
 
     safe_model = model.replace("/", "_").replace(":", "_")
-    fname = f"partc-{repo}-{stage}-{safe_model}.json"
+    fname = f"{repo}-{stage}-{safe_model}.json"
     path = os.path.join(runs_dir, fname)
 
     # Dose is a frozen dataclass with a frozenset — convert for JSON
@@ -525,20 +643,29 @@ def _persist_partc_arm_files(
     stage: str,
     model: str,
     runs_dir: str | None = None,
+    run_id: str | None = None,
+    runs_root: str | None = None,
 ) -> list[str]:
-    """Persist spec text + raw stream for each arm to the gitignored runs/partc dir.
+    """Persist arm text + raw stream for each arm to the namespaced run dir.
 
     Writes up to four files (two per arm, skipped when the arm is None):
-      <repo>-<stage>-<model>.off.spec.md
+      <repo>-<stage>-<model>.off.out.md
       <repo>-<stage>-<model>.off.raw.jsonl
-      <repo>-<stage>-<model>.on.spec.md
+      <repo>-<stage>-<model>.on.out.md
       <repo>-<stage>-<model>.on.raw.jsonl
 
+    When run_id and runs_root are given, writes to <runs_root>/<run_id>/.
+    Legacy runs_dir override is still accepted for direct tests.
     Returns the list of paths written.  The runs/ dir is gitignored and is
     NEVER staged via git add.
     """
     if runs_dir is None:
-        runs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs", "partc")
+        if run_id is not None and runs_root is not None:
+            runs_dir = os.path.join(runs_root, run_id)
+        else:
+            _default_root = runs_root or os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "runs")
+            runs_dir = os.path.join(_default_root, run_id or "partc")
     os.makedirs(runs_dir, exist_ok=True)
 
     safe_model = model.replace("/", "_").replace(":", "_")
@@ -552,37 +679,88 @@ def _persist_partc_arm_files(
         return p
 
     if off_out is not None:
-        paths.append(_write(f"{base}.off.spec.md", off_out.text))
+        paths.append(_write(f"{base}.off.out.md", off_out.text))
         paths.append(_write(f"{base}.off.raw.jsonl", off_out.raw_stdout))
     if on_out is not None:
-        paths.append(_write(f"{base}.on.spec.md", on_out.text))
+        paths.append(_write(f"{base}.on.out.md", on_out.text))
         paths.append(_write(f"{base}.on.raw.jsonl", on_out.raw_stdout))
 
     return paths
 
 
 def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
-                    issues_path: str) -> None:
-    """Open a pinned throwaway worktree at the issue SHA and run one Part-C cell live."""
-    from .corpus import load_issues
-    from .checkout import Checkout
-    from .partc import run_partc_cell, render_partc
+                    issues_path: str, run_id: str | None = None,
+                    runs_root: str | None = None, force_new: bool = False) -> None:
+    """Open a pinned throwaway worktree at the issue SHA and run one Part-C cell live.
+
+    All artifacts go under <runs_root>/<run_id>/ (collision-guarded unless force_new).
+    """
+    import json as _json
+    from .partc import run_partc_cell
 
     repo, stage, model = cell
+    if runs_root is None:
+        runs_root = _default_run_store_root()
+    if run_id is None:
+        run_id = _default_partc_run_id()
+
+    # Collision guard
+    run_dir = os.path.join(runs_root, run_id)
+    if os.path.exists(run_dir) and not force_new:
+        raise FileExistsError(
+            f"run-id dir exists: {run_dir} (use --force-new to override)"
+        )
+    os.makedirs(run_dir, exist_ok=True)
+
     issues = load_issues(issues_path)
     issue = next(i for i in issues if i.repo == repo)
+
+    # Write manifest before running arms (so we have an audit trail even if arms fail)
+    _write_partc_manifest(
+        cell=cell, issue=issue, bench_root=bench_root, base_root=base_root,
+        issues_path=issues_path, run_id=run_id, runs_root=runs_root,
+    )
+
     with Checkout(os.path.join(bench_root, repo), issue.sha) as co:
         comps = _LivePartCComps(co=co, issue=issue, model=model, base_root=base_root)
         partc_cell = run_partc_cell(cell, comps)
+
+    print(f"Run dir: {run_dir}")
     print(render_partc([partc_cell]))
-    json_path = _persist_partc_cell(partc_cell, repo, stage, model)
+
+    # Persist cell JSON under run_id/
+    json_path = _persist_partc_cell(partc_cell, repo, stage, model,
+                                    run_id=run_id, runs_root=runs_root)
     print(f"cell JSON: {json_path}")
+
+    # Persist arm text + raw
+    safe_model = model.replace("/", "_").replace(":", "_")
     arm_paths = _persist_partc_arm_files(
         off_out=comps._last_off,
         on_out=comps._last_on,
         repo=repo,
         stage=stage,
         model=model,
+        run_id=run_id,
+        runs_root=runs_root,
     )
     for p in arm_paths:
         print(f"arm file: {p}")
+
+    # Persist exact prompts
+    off_prompt_path = os.path.join(run_dir, f"{repo}-{stage}-{safe_model}.off.prompt.txt")
+    on_prompt_path = os.path.join(run_dir, f"{repo}-{stage}-{safe_model}.on.prompt.txt")
+    with open(off_prompt_path, "w") as f:
+        f.write(comps._last_off_prompt or "")
+    with open(on_prompt_path, "w") as f:
+        f.write(comps._last_on_prompt or "")
+    print(f"off prompt: {off_prompt_path}")
+    print(f"on prompt:  {on_prompt_path}")
+
+    # Persist prewarm telemetry (on-arm only)
+    prewarm_data = getattr(comps, "_last_prewarm", None)
+    if prewarm_data is not None:
+        prewarm_path = os.path.join(run_dir, f"{repo}-{stage}-{safe_model}.on.prewarm.json")
+        with open(prewarm_path, "w") as f:
+            _json.dump(prewarm_data, f, indent=2)
+        print(f"prewarm:    {prewarm_path}")

@@ -889,11 +889,11 @@ def test_partc_live_persist_arm_files(tmp_path, monkeypatch):
         from pathlib import Path as _P
         by_suffix[_P(p).suffix + _P(p).stem.split(".")[-1] if "." in _P(p).stem else _P(p).suffix] = p
 
-    # Check file names follow the pattern <repo>-<stage>-<model>.{off,on}.{spec.md,raw.jsonl}
+    # Check file names follow the pattern <repo>-<stage>-<model>.{off,on}.{out.md,raw.jsonl}
     names = [str(p).split("/")[-1] for p in paths]
-    assert any(n.endswith(".off.spec.md") for n in names), f"missing .off.spec.md in {names}"
+    assert any(n.endswith(".off.out.md") for n in names), f"missing .off.out.md in {names}"
     assert any(n.endswith(".off.raw.jsonl") for n in names), f"missing .off.raw.jsonl in {names}"
-    assert any(n.endswith(".on.spec.md") for n in names), f"missing .on.spec.md in {names}"
+    assert any(n.endswith(".on.out.md") for n in names), f"missing .on.out.md in {names}"
     assert any(n.endswith(".on.raw.jsonl") for n in names), f"missing .on.raw.jsonl in {names}"
 
     # Check contents
@@ -901,12 +901,12 @@ def test_partc_live_persist_arm_files(tmp_path, monkeypatch):
         from pathlib import Path as _P
         name = _P(p).name
         content = _P(p).read_text()
-        if name.endswith(".off.spec.md"):
-            assert content == off_text, f"off spec content mismatch: {content!r}"
+        if name.endswith(".off.out.md"):
+            assert content == off_text, f"off out content mismatch: {content!r}"
         elif name.endswith(".off.raw.jsonl"):
             assert content == off_raw, f"off raw content mismatch: {content!r}"
-        elif name.endswith(".on.spec.md"):
-            assert content == on_text, f"on spec content mismatch: {content!r}"
+        elif name.endswith(".on.out.md"):
+            assert content == on_text, f"on out content mismatch: {content!r}"
         elif name.endswith(".on.raw.jsonl"):
             assert content == on_raw, f"on raw content mismatch: {content!r}"
 
@@ -947,7 +947,7 @@ def test_partc_arm_files_only_off(tmp_path):
         runs_dir=str(runs_dir),
     )
     names = [str(p).split("/")[-1] for p in paths]
-    assert any(n.endswith(".off.spec.md") for n in names)
+    assert any(n.endswith(".off.out.md") for n in names)
     assert any(n.endswith(".off.raw.jsonl") for n in names)
-    assert not any(n.endswith(".on.spec.md") for n in names)
+    assert not any(n.endswith(".on.out.md") for n in names)
     assert not any(n.endswith(".on.raw.jsonl") for n in names)

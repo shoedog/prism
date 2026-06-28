@@ -43,6 +43,7 @@ class IsolatedArmResult:
     out: ArmOutput
     cache_mode: str        # "no-cache" | "cached"
     mcp_args: list[str]   # the prism MCP args used (for assertion in tests)
+    prewarm: dict | None = None  # pre-warm telemetry dict; None when prewarm=False
 
 
 def run_arm_isolated(
@@ -74,14 +75,16 @@ def run_arm_isolated(
     cache_mode = "no-cache" if no_cache else "cached"
 
     _reset_clean(root)
+    prewarm_telemetry: dict | None = None
     try:
         if prewarm and variant.prism:
-            _prewarm_cpg(root)
+            prewarm_telemetry = _prewarm_cpg(root)
         out = runner.run(variant, stage, prompt, root)
     finally:
         _reset_clean(root)
 
-    return IsolatedArmResult(out=out, cache_mode=cache_mode, mcp_args=mcp_args)
+    return IsolatedArmResult(out=out, cache_mode=cache_mode, mcp_args=mcp_args,
+                             prewarm=prewarm_telemetry)
 
 
 def _prism_mcp_bin() -> str:
@@ -119,14 +122,42 @@ def _prism_bin() -> str:
     return cand if os.path.exists(cand) else "prism"
 
 
-def _prewarm_cpg(root: str) -> None:
+def _prewarm_cpg(root: str) -> dict:
     """Build the prism nav CPG cache for `root` so the arm's prism-mcp starts warm.
-    (Cold build can exceed claude's MCP handshake timeout on large repos.)"""
+    (Cold build can exceed claude's MCP handshake timeout on large repos.)
+
+    Returns a telemetry dict:
+      {"argv": [...], "returncode": int, "stdout": str, "stderr": str,
+       "wall_s": float, "exception": str|None}
+    Never raises — best-effort; if warming fails the arm still runs.
+    """
+    argv = [_prism_bin(), "nav", "repo-map", "--repo", root]
+    t0 = time.monotonic()
     try:
-        subprocess.run([_prism_bin(), "nav", "repo-map", "--repo", root],
-                       capture_output=True, timeout=900)
-    except Exception:
-        pass  # best-effort; if warming fails the arm still runs (just slower / may miss prism)
+        r = subprocess.run(argv, capture_output=True, timeout=900)
+        wall_s = time.monotonic() - t0
+        stdout = (r.stdout.decode("utf-8", errors="replace") if isinstance(r.stdout, bytes)
+                  else (r.stdout or ""))
+        stderr = (r.stderr.decode("utf-8", errors="replace") if isinstance(r.stderr, bytes)
+                  else (r.stderr or ""))
+        return {
+            "argv": argv,
+            "returncode": r.returncode,
+            "stdout": stdout[:4000],
+            "stderr": stderr[:4000],
+            "wall_s": wall_s,
+            "exception": None,
+        }
+    except Exception as e:
+        wall_s = time.monotonic() - t0
+        return {
+            "argv": argv,
+            "returncode": -1,
+            "stdout": "",
+            "stderr": "",
+            "wall_s": wall_s,
+            "exception": f"{type(e).__name__}: {e}",
+        }
 
 def _prism_mcp_config(repo_root: str, *, no_cache: bool = False) -> str:
     """Write a per-checkout claude MCP config pointing prism-mcp at THIS repo_root (the pinned
