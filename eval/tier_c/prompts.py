@@ -5,6 +5,9 @@ from __future__ import annotations
 _PARITY = ("For every substantive claim about the code, you MUST cite the exact "
            "`file:line` (and `:function` where relevant). Unsupported claims count against you.")
 
+_INLINE = ("Output the full spec/plan INLINE in your final response — do NOT write it to a file. "
+           "Your response text IS the deliverable.")
+
 _STAGE = {
     "spec": "Write a short implementation SPEC for this issue, scoped to the stated slice.",
     "plan": "Write a step-by-step PLAN for this spec, scoped to the stated slice.",
@@ -44,7 +47,7 @@ def stage_prompt(
     upstream: str = "",
     steer: str = "",
 ) -> str:
-    parts = [_STAGE[stage], _PARITY, f"\nISSUE:\n{issue_text}", f"\nSCOPE (first slice only):\n{scoped_slice}"]
+    parts = [_STAGE[stage], _PARITY, _INLINE, f"\nISSUE:\n{issue_text}", f"\nSCOPE (first slice only):\n{scoped_slice}"]
     if upstream:
         parts.append(f"\nUPSTREAM ARTIFACT:\n{upstream}")
     if steer == "prism_on":
