@@ -802,3 +802,43 @@ def test_run_arm_isolated_prewarm_skipped_for_prism_off(tmp_path):
 
     kinds = [k for k, _ in call_log]
     assert "prewarm" not in kinds, "prism-OFF variant must not trigger prewarm even when prewarm=True"
+
+
+# ---------------------------------------------------------------------------
+# raw_stdout persistence: ClaudeRunner and CodexRunner set raw_stdout on ArmOutput
+# ---------------------------------------------------------------------------
+
+def test_claude_runner_sets_raw_stdout():
+    """ClaudeRunner.run must set raw_stdout to the full proc.stdout on the returned ArmOutput."""
+    known_stream = stream_with(prism_calls=1, input_tokens=10, output_tokens=5, cost_usd=0.01)
+    out = _run_fake_claude_arm(known_stream)
+    assert out.raw_stdout == known_stream, (
+        f"ClaudeRunner must set raw_stdout to the raw proc.stdout; "
+        f"got {out.raw_stdout[:80]!r}")
+
+
+def test_codex_runner_sets_raw_stdout():
+    """CodexRunner.run must set raw_stdout to the full proc.stdout on the returned ArmOutput."""
+    import tier_c.arm_runner as arm_mod
+    import unittest.mock as mock
+
+    stream = _make_codex_stream_with_prism(prism_calls=1)
+
+    def fake_run(*args, **kwargs):
+        return _FakeCompletedProcess(stdout=stream)
+
+    with mock.patch.object(arm_mod.subprocess, "run", side_effect=fake_run):
+        runner = CodexRunner()
+        out = runner.run(Variant("gpt-5.5", True), "spec", "prompt", "/fake/repo")
+
+    assert out.raw_stdout == stream, (
+        f"CodexRunner must set raw_stdout to the raw proc.stdout; "
+        f"got {out.raw_stdout[:80]!r}")
+
+
+def test_fake_runner_raw_stdout_is_empty_string():
+    """FakeArmRunner.run must leave raw_stdout as '' (default; never has a real stream)."""
+    runner = FakeArmRunner({"opus-4.8+prism": "some spec text"})
+    out = runner.run(Variant("opus-4.8", True), "spec", "prompt", "/r")
+    assert out.raw_stdout == "", (
+        f"FakeArmRunner must not set raw_stdout; expected '' but got {out.raw_stdout!r}")

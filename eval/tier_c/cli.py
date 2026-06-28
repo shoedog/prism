@@ -365,6 +365,8 @@ class _LivePartCComps:
         self._model = model
         self._base_root = base_root
         self._ask = ask
+        self._last_off = None   # set after run_off_arm; carries ArmOutput for audit persistence
+        self._last_on = None    # set after run_on_arm; carries ArmOutput for audit persistence
 
     def _upstream_spec(self, cell: tuple) -> str:
         """Return the recovered prism-off SPEC body for a plan cell; '' for spec cells.
@@ -445,6 +447,7 @@ class _LivePartCComps:
             no_cache=False,
             prewarm=False,
         )
+        self._last_off = iso.out
         return iso.out
 
     def run_on_arm(self, cell: tuple):
@@ -473,6 +476,7 @@ class _LivePartCComps:
             no_cache=False,
             prewarm=True,
         )
+        self._last_on = iso.out
         return iso.out
 
 
@@ -513,6 +517,50 @@ def _persist_partc_cell(partc_cell, repo: str, stage: str, model: str) -> str:
     return path
 
 
+def _persist_partc_arm_files(
+    *,
+    off_out,
+    on_out,
+    repo: str,
+    stage: str,
+    model: str,
+    runs_dir: str | None = None,
+) -> list[str]:
+    """Persist spec text + raw stream for each arm to the gitignored runs/partc dir.
+
+    Writes up to four files (two per arm, skipped when the arm is None):
+      <repo>-<stage>-<model>.off.spec.md
+      <repo>-<stage>-<model>.off.raw.jsonl
+      <repo>-<stage>-<model>.on.spec.md
+      <repo>-<stage>-<model>.on.raw.jsonl
+
+    Returns the list of paths written.  The runs/ dir is gitignored and is
+    NEVER staged via git add.
+    """
+    if runs_dir is None:
+        runs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs", "partc")
+    os.makedirs(runs_dir, exist_ok=True)
+
+    safe_model = model.replace("/", "_").replace(":", "_")
+    base = f"{repo}-{stage}-{safe_model}"
+    paths: list[str] = []
+
+    def _write(filename: str, content: str) -> str:
+        p = os.path.join(runs_dir, filename)
+        with open(p, "w") as f:
+            f.write(content)
+        return p
+
+    if off_out is not None:
+        paths.append(_write(f"{base}.off.spec.md", off_out.text))
+        paths.append(_write(f"{base}.off.raw.jsonl", off_out.raw_stdout))
+    if on_out is not None:
+        paths.append(_write(f"{base}.on.spec.md", on_out.text))
+        paths.append(_write(f"{base}.on.raw.jsonl", on_out.raw_stdout))
+
+    return paths
+
+
 def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
                     issues_path: str) -> None:
     """Open a pinned throwaway worktree at the issue SHA and run one Part-C cell live."""
@@ -529,3 +577,12 @@ def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
     print(render_partc([partc_cell]))
     json_path = _persist_partc_cell(partc_cell, repo, stage, model)
     print(f"cell JSON: {json_path}")
+    arm_paths = _persist_partc_arm_files(
+        off_out=comps._last_off,
+        on_out=comps._last_on,
+        repo=repo,
+        stage=stage,
+        model=model,
+    )
+    for p in arm_paths:
+        print(f"arm file: {p}")

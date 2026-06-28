@@ -743,3 +743,211 @@ def test_render_partc_breakdown_with_zero_verdicts():
     )
     report = render_partc([cell])
     assert "pilot signal" in report.lower()
+
+
+# ---------------------------------------------------------------------------
+# _LivePartCComps retains _last_off / _last_on after arm runs
+# ---------------------------------------------------------------------------
+
+class _FakeCompsWithRetain:
+    """Minimal comps that records the ArmOutputs returned by run_off_arm / run_on_arm
+    and exposes _last_off / _last_on — matches the contract _LivePartCComps must honour."""
+
+    def __init__(self, off_out: ArmOutput, on_out: ArmOutput):
+        self._off_out = off_out
+        self._on_out = on_out
+        self._last_off: ArmOutput | None = None
+        self._last_on: ArmOutput | None = None
+        self._score_call = 0
+
+    def run_off_arm(self, cell) -> ArmOutput:
+        result = self._off_out
+        self._last_off = result
+        return result
+
+    def run_on_arm(self, cell) -> ArmOutput:
+        result = self._on_out
+        self._last_on = result
+        return result
+
+    def score(self, citations, **kwargs) -> "InvestigatorReport":
+        self._score_call += 1
+        prec = 0.4 if self._score_call == 1 else 0.8
+        return InvestigatorReport(precision=prec, recall=prec, hallucinations=0, verdicts=[])
+
+
+def _make_arm_output_with_raw(*, prism: bool, text: str, raw: str, prism_calls: int = 0) -> ArmOutput:
+    from tier_c.model import Dose
+    return ArmOutput(
+        variant=Variant("opus-4.8", prism),
+        text=text,
+        citations=[Citation(file="src/a.go", line=1, symbol=None)],
+        tokens=5,
+        tool_calls=prism_calls,
+        wall_s=0.0,
+        used_prism=prism_calls > 0,
+        prism_calls=prism_calls,
+        dose=Dose(count=prism_calls),
+        low_dose=(0 < prism_calls <= 1),
+        raw_stdout=raw,
+    )
+
+
+def test_live_partc_comps_retains_last_off_after_run():
+    """_last_off is set on comps after run_off_arm is called (via run_partc_cell)."""
+    off_out = _make_arm_output_with_raw(prism=False, text="off spec", raw='{"off":"stream"}')
+    on_out = _make_arm_output_with_raw(prism=True, text="on spec", raw='{"on":"stream"}',
+                                       prism_calls=2)
+    comps = _FakeCompsWithRetain(off_out=off_out, on_out=on_out)
+
+    run_partc_cell(("ruff", "spec", "opus-4.8"), comps)
+
+    assert comps._last_off is off_out, (
+        "_last_off must be set to the ArmOutput returned by run_off_arm")
+
+
+def test_live_partc_comps_retains_last_on_after_run():
+    """_last_on is set on comps after run_on_arm is called (via run_partc_cell)."""
+    off_out = _make_arm_output_with_raw(prism=False, text="off spec", raw='{"off":"stream"}')
+    on_out = _make_arm_output_with_raw(prism=True, text="on spec", raw='{"on":"stream"}',
+                                       prism_calls=2)
+    comps = _FakeCompsWithRetain(off_out=off_out, on_out=on_out)
+
+    run_partc_cell(("ruff", "spec", "opus-4.8"), comps)
+
+    assert comps._last_on is on_out, (
+        "_last_on must be set to the ArmOutput returned by run_on_arm")
+
+
+# ---------------------------------------------------------------------------
+# _run_partc_live persistence: spec + raw files written per arm
+# ---------------------------------------------------------------------------
+
+def test_partc_live_persist_arm_files(tmp_path, monkeypatch):
+    """_run_partc_live writes off/on spec+raw files to the gitignored runs/partc dir.
+
+    We patch the runs dir to tmp_path and replace the heavy live components with
+    a fake; the test verifies the four files exist with the correct content.
+    """
+    import types
+    from tier_c.cli import _LivePartCComps
+
+    off_raw = '{"type":"result","arm":"off"}\n'
+    on_raw = '{"type":"result","arm":"on"}\n'
+    off_text = "## Off-arm spec\nNo prism here."
+    on_text = "## On-arm spec\nWith prism context."
+
+    off_out = _make_arm_output_with_raw(prism=False, text=off_text, raw=off_raw)
+    on_out = _make_arm_output_with_raw(prism=True, text=on_text, raw=on_raw, prism_calls=2)
+
+    # Patch the runs dir so files go to tmp_path/runs/partc/
+    runs_dir = tmp_path / "runs" / "partc"
+    runs_dir.mkdir(parents=True)
+
+    # Patch cli module's os.path and _persist_partc_cell / _LivePartCComps internals
+    import tier_c.cli as cli_mod
+
+    # Patch the live comps class entirely with a fake that sets _last_off/_last_on
+    class _FakeLiveComps:
+        def __init__(self, **kwargs):
+            self._last_off = off_out
+            self._last_on = on_out
+
+        def run_off_arm(self, cell):
+            return off_out
+
+        def run_on_arm(self, cell):
+            return on_out
+
+        def score(self, citations, **kwargs):
+            from tier_c.investigator import InvestigatorReport
+            return InvestigatorReport(precision=0.5, recall=0.5, hallucinations=0, verdicts=[])
+
+    # Patch _LivePartCComps in cli_mod
+    monkeypatch.setattr(cli_mod, "_LivePartCComps", _FakeLiveComps)
+
+    # Patch the runs dir in _persist_partc_arm_files (or the helper we're about to add)
+    # We test the helper directly to avoid needing the full Checkout + issue IO
+    # instead call _persist_partc_arm_files directly with an explicit runs_dir override
+    from tier_c.cli import _persist_partc_arm_files
+
+    paths = _persist_partc_arm_files(
+        off_out=off_out,
+        on_out=on_out,
+        repo="ruff",
+        stage="spec",
+        model="opus-4.8",
+        runs_dir=str(runs_dir),
+    )
+
+    # Four paths returned
+    assert len(paths) == 4, f"expected 4 paths, got {paths}"
+
+    # Collect them by suffix
+    by_suffix = {}
+    for p in paths:
+        from pathlib import Path as _P
+        by_suffix[_P(p).suffix + _P(p).stem.split(".")[-1] if "." in _P(p).stem else _P(p).suffix] = p
+
+    # Check file names follow the pattern <repo>-<stage>-<model>.{off,on}.{spec.md,raw.jsonl}
+    names = [str(p).split("/")[-1] for p in paths]
+    assert any(n.endswith(".off.spec.md") for n in names), f"missing .off.spec.md in {names}"
+    assert any(n.endswith(".off.raw.jsonl") for n in names), f"missing .off.raw.jsonl in {names}"
+    assert any(n.endswith(".on.spec.md") for n in names), f"missing .on.spec.md in {names}"
+    assert any(n.endswith(".on.raw.jsonl") for n in names), f"missing .on.raw.jsonl in {names}"
+
+    # Check contents
+    for p in paths:
+        from pathlib import Path as _P
+        name = _P(p).name
+        content = _P(p).read_text()
+        if name.endswith(".off.spec.md"):
+            assert content == off_text, f"off spec content mismatch: {content!r}"
+        elif name.endswith(".off.raw.jsonl"):
+            assert content == off_raw, f"off raw content mismatch: {content!r}"
+        elif name.endswith(".on.spec.md"):
+            assert content == on_text, f"on spec content mismatch: {content!r}"
+        elif name.endswith(".on.raw.jsonl"):
+            assert content == on_raw, f"on raw content mismatch: {content!r}"
+
+
+def test_partc_arm_files_guard_none(tmp_path):
+    """_persist_partc_arm_files handles None arms gracefully (skips those files)."""
+    runs_dir = tmp_path / "runs" / "partc"
+    runs_dir.mkdir(parents=True)
+
+    from tier_c.cli import _persist_partc_arm_files
+
+    # Pass off_out=None, on_out=None → should write 0 files (or skip silently)
+    paths = _persist_partc_arm_files(
+        off_out=None,
+        on_out=None,
+        repo="ruff",
+        stage="spec",
+        model="opus-4.8",
+        runs_dir=str(runs_dir),
+    )
+    assert paths == [], f"expected [] when both arms are None, got {paths}"
+
+
+def test_partc_arm_files_only_off(tmp_path):
+    """_persist_partc_arm_files with only off_out writes off files but not on files."""
+    runs_dir = tmp_path / "runs" / "partc"
+    runs_dir.mkdir(parents=True)
+
+    from tier_c.cli import _persist_partc_arm_files
+
+    off_out = _make_arm_output_with_raw(prism=False, text="off spec", raw="offraw\n")
+    paths = _persist_partc_arm_files(
+        off_out=off_out,
+        on_out=None,
+        repo="ruff",
+        stage="spec",
+        model="opus-4.8",
+        runs_dir=str(runs_dir),
+    )
+    names = [str(p).split("/")[-1] for p in paths]
+    assert any(n.endswith(".off.spec.md") for n in names)
+    assert any(n.endswith(".off.raw.jsonl") for n in names)
+    assert not any(n.endswith(".on.spec.md") for n in names)
+    assert not any(n.endswith(".on.raw.jsonl") for n in names)

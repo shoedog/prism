@@ -224,6 +224,7 @@ class ClaudeRunner:
                          prism_calls=prism_calls, dose=r.dose,
                          low_dose=prism_calls > 0 and prism_calls <= 1,
                          commands=r.commands, in_tokens=r.input_tokens, cost_usd=r.cost_usd,
+                         raw_stdout=proc.stdout,
                          **flags)
 
 class CodexRunner:
@@ -277,6 +278,7 @@ class CodexRunner:
                          prism_calls=prism_calls, dose=r.dose,
                          low_dose=prism_calls > 0 and prism_calls <= 1,
                          commands=r.commands, in_tokens=r.input_tokens, cost_usd=r.cost_usd,
+                         raw_stdout=proc.stdout,
                          **flags)
 
 class FakeArmRunner:
