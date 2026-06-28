@@ -374,7 +374,7 @@ def _run_live_cmd(issues, *, bench_root: str, run_id: str, run_store_root: str,
     from .model import Variant
     from .arm_runner import ClaudeRunner, CodexRunner, RoutingArmRunner
     from .judges_live import LlmRankJudge, LlmRelevanceJudge, LlmConditionGuesser
-    from .llm import live_ask
+    from .llm import live_ask, JUDGE_MODEL
     from .checkout import Checkout
     from .run import LiveComponents, run_live
     from .store import RunStore
@@ -408,7 +408,7 @@ def _run_live_cmd(issues, *, bench_root: str, run_id: str, run_store_root: str,
         "anthropic": LlmRankJudge(live_ask, "opus-4.8"),
         "openai": LlmRankJudge(live_ask, "gpt-5.5"),
     }
-    relevance = LlmRelevanceJudge(live_ask, "opus-4.8")
+    relevance = LlmRelevanceJudge(live_ask, JUDGE_MODEL)  # sonnet oracle (opus went agentic on YES/NO)
     guesser = LlmConditionGuesser(live_ask, "opus-4.8")
 
     def open_checkout(repo, sha):
@@ -604,13 +604,15 @@ class _LivePartCComps:
         """
         from .investigator import score_citations, InvestigatorReport
         from .judges_live import LlmRelevanceJudge, _RecordingRelevanceJudge
+        from .llm import JUDGE_MODEL
         if not citations:
             if arm == "on":
                 self._last_on_judge = []
             else:
                 self._last_off_judge = []
             return InvestigatorReport(precision=0.0, recall=0.0, hallucinations=0, verdicts=[])
-        inner_rel = LlmRelevanceJudge(self._ask, "opus-4.8")
+        # Sonnet, not opus — owner-tested to follow the YES/NO instruction (opus went agentic).
+        inner_rel = LlmRelevanceJudge(self._ask, JUDGE_MODEL)
         records: list[dict] = []
         rel = _RecordingRelevanceJudge(inner_rel, records)
         upstream = self._upstream_spec(cell)

@@ -12,8 +12,27 @@ _TIMEOUT = 600
 # "opus-4.8", needs the "opus" alias — caught by the 2026-06-24 live smoke).
 MODEL_CLI = {
     "opus-4.8": ("claude", "opus"),
+    "sonnet-4.6": ("claude", "sonnet"),
+    "haiku-4.5": ("claude", "haiku"),
     "gpt-5.5": ("codex", "gpt-5.5"),
 }
+
+# The relevance/rank oracle model. Sonnet (not opus): owner testing found the smaller
+# models follow the "answer YES or NO and nothing else" instruction reliably, whereas
+# opus intermittently went AGENTIC on the judge prompt — using built-in tools to
+# investigate the repo, taking minutes and returning prose (mis-parsed as not-YES,
+# corrupting the score). Sonnet is also faster + cheaper. Swap to "haiku-4.5" for max
+# speed/cost. (Arms still run on their own model; this is only the scoring oracle.)
+JUDGE_MODEL = "sonnet-4.6"
+
+# A judge is a pure text relevance call — it must NEVER use tools. --strict-mcp-config
+# drops MCP, but the default config still exposes the built-in tools; disallow them all
+# so the judge cannot go agentic regardless of model. Belt-and-suspenders with JUDGE_MODEL.
+_JUDGE_DISALLOWED_TOOLS = [
+    "Bash", "Read", "Grep", "Glob", "Edit", "Write", "MultiEdit", "NotebookEdit",
+    "WebFetch", "WebSearch", "Task", "TodoWrite", "BashOutput", "KillShell",
+    "SlashCommand", "ExitPlanMode",
+]
 
 def cli_model_flag(model: str) -> str:
     """The CLI `--model`/`-m` flag value for a Variant.model. Used by judges AND arm runners."""
@@ -22,15 +41,18 @@ def cli_model_flag(model: str) -> str:
 def live_ask(model: str, prompt: str) -> str:
     cli, flag = MODEL_CLI[model]
     if cli == "claude":
-        # --strict-mcp-config: ignore the user's DEFAULT MCP servers (the prism-dev plugin).
-        # Without it, each judge `claude -p` launches prism-mcp, which eagerly builds the CPG
-        # before answering — a ~3s relevance call balloons to minutes (one citation observed
-        # hanging >4min). Judges are designed tool-free (judges_live.py); this enforces it.
-        # No --mcp-config is passed, so strict mode yields ZERO MCP servers. Prompt stays the
-        # trailing positional (the flag is boolean).
+        # Judge isolation (two independent failure modes, both observed live):
+        #  1. --strict-mcp-config: ignore the user's DEFAULT MCP servers (the prism-dev plugin).
+        #     Without it, each judge `claude -p` launches prism-mcp, which eagerly builds the CPG
+        #     before answering — a relevance call balloons to minutes (no --mcp-config => 0 servers).
+        #  2. --disallowed-tools <all>: a judge must be tool-free, but the default config still
+        #     exposes built-in tools after MCP is dropped. Opus intermittently went AGENTIC
+        #     (used Read/Grep to investigate, ~5min, returned prose not YES/NO). Disallow them all.
+        # The prompt goes on STDIN (not a positional) so the variadic --disallowed-tools cannot
+        # swallow it. See also JUDGE_MODEL (sonnet) — the model-level half of the same fix.
         cmd = ["claude", "-p", "--output-format", "json", "--model", flag,
-               "--strict-mcp-config", prompt]
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=_TIMEOUT)
+               "--strict-mcp-config", "--disallowed-tools", *_JUDGE_DISALLOWED_TOOLS]
+        proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=_TIMEOUT)
         if proc.returncode != 0 or not proc.stdout.strip():
             raise RuntimeError(f"claude judge exited {proc.returncode}: {(proc.stderr or '').strip()[:300]}")
         try:
