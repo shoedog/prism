@@ -1022,7 +1022,7 @@ def test_persist_arm_files_plan_stage_uses_out_md(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_recording_relevance_judge_captures_prompt_and_response():
-    """_RecordingRelevanceJudge must record (cite, prompt, response, relevant) per call."""
+    """_RecordingRelevanceJudge must record (cite, verdict, escalated, votes, relevant) per call."""
     from tier_c.judges_live import LlmRelevanceJudge, _RecordingRelevanceJudge
     from tier_c.model import Citation as _Cit
 
@@ -1044,8 +1044,9 @@ def test_recording_relevance_judge_captures_prompt_and_response():
     assert r["file"] == "src/a.go"
     assert r["line"] == 10
     assert r["symbol"] == "Foo"
-    assert "issue text" in r["prompt"]
-    assert r["response"] == "YES"
+    assert r["verdict"] == "YES"
+    assert r["escalated"] is False
+    assert len(r["votes"]) >= 2
     assert r["relevant"] is True
 
 
@@ -1126,8 +1127,8 @@ def test_live_partc_comps_score_produces_judge_records(monkeypatch):
     rec = comps._last_off_judge[0]
     assert "file" in rec
     assert "line" in rec
-    assert "prompt" in rec
-    assert "response" in rec
+    assert "verdict" in rec
+    assert "escalated" in rec
     assert "relevant" in rec
 
     # Score the on-arm
@@ -1144,11 +1145,15 @@ def test_run_partc_live_writes_judge_jsonl(tmp_path, monkeypatch):
 
     off_judge_records = [
         {"file": "src/a.go", "line": 1, "symbol": None,
-         "prompt": "Is src/a.go:1 relevant?", "response": "YES", "relevant": True},
+         "verdict": "YES", "escalated": False,
+         "votes": [{"model": "sonnet-4.6", "verdict": "YES", "reason": "YES because", "unparsed": False}],
+         "relevant": True},
     ]
     on_judge_records = [
         {"file": "src/a.go", "line": 1, "symbol": None,
-         "prompt": "Is src/a.go:1 relevant?", "response": "NO", "relevant": False},
+         "verdict": "NO", "escalated": False,
+         "votes": [{"model": "sonnet-4.6", "verdict": "NO", "reason": "NO because", "unparsed": False}],
+         "relevant": False},
     ]
 
     off_out = _arm_output(prism=False, text="off text", raw="")
@@ -1215,8 +1220,8 @@ def test_run_partc_live_writes_judge_jsonl(tmp_path, monkeypatch):
     assert len(on_lines) == 1
     assert off_lines[0]["relevant"] is True
     assert on_lines[0]["relevant"] is False
-    assert "prompt" in off_lines[0]
-    assert "response" in off_lines[0]
+    assert "verdict" in off_lines[0]
+    assert "escalated" in off_lines[0]
     assert "file" in off_lines[0]
     assert "line" in off_lines[0]
 
@@ -1226,7 +1231,8 @@ def test_judge_jsonl_one_record_per_cite():
     from tier_c.judges_live import LlmRelevanceJudge, _RecordingRelevanceJudge
     from tier_c.model import Citation as _Cit
 
-    responses = ["YES", "NO", "YES"]
+    # Two consistent sonnet votes per cite (YES/YES, NO/NO, YES/YES) — no tiebreaker needed.
+    responses = ["YES", "YES", "NO", "NO", "YES", "YES"]
     idx = 0
 
     def fake_ask(model, prompt):

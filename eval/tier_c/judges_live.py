@@ -3,7 +3,7 @@ RankJudge ranks anonymized candidates (style-neutral); RelevanceJudge audits a c
 ConditionGuesser powers the detectability test. None of them get prism (ask() is tool-free).
 
 _RecordingRelevanceJudge wraps LlmRelevanceJudge and appends a record per cite to a caller-
-supplied list — {file, line, symbol, prompt, response, relevant} — for audit persistence."""
+supplied list — {file, line, symbol, verdict, escalated, votes, relevant} — for audit persistence."""
 from __future__ import annotations
 import re
 from .model import Citation
@@ -31,14 +31,24 @@ class LlmRankJudge:
         return order
 
 class LlmRelevanceJudge:
-    def __init__(self, ask, model: str):
-        self.ask, self.model = ask, model
-    def is_relevant(self, cite: Citation, issue_text: str, code: str = "") -> bool:
+    """Per-citation relevance via the 2-sonnet/opus ensemble (ensemble.py)."""
+    def __init__(self, ask, model: str | None = None, *, opus: str | None = None):
+        from .llm import JUDGE_MODEL, JUDGE_TIEBREAKER
+        self.ask = ask
+        self.sonnet = model or JUDGE_MODEL
+        self.opus = opus or JUDGE_TIEBREAKER
+
+    def relevance(self, cite: Citation, issue_text: str, code: str = ""):
+        from .ensemble import ensemble
         code_section = f"\n\nCode at {cite.file}:{cite.line}:\n{code}" if code else ""
         prompt = (f"Issue:\n{issue_text}{code_section}\n\nIs the code at {cite.file}:{cite.line} "
-                  f"(symbol {cite.symbol}) actually relevant to fixing this issue? Answer with exactly YES or NO and nothing else.")
-        # conservative: any non-YES (incl. hedged) reads False
-        return self.ask(self.model, prompt).strip().upper().startswith("YES")
+                  f"(symbol {cite.symbol}) actually relevant to fixing this issue? "
+                  f"Start your reply with YES or NO, then one sentence why.")
+        return ensemble(self.ask, prompt, ("YES", "NO"),
+                        sonnet=self.sonnet, opus=self.opus, default="NO")
+
+    def is_relevant(self, cite: Citation, issue_text: str, code: str = "") -> bool:
+        return self.relevance(cite, issue_text, code).verdict == "YES"
 
 class LlmConditionGuesser:
     def __init__(self, ask, model: str):
@@ -51,35 +61,16 @@ class LlmConditionGuesser:
 
 
 class _RecordingRelevanceJudge:
-    """Wraps LlmRelevanceJudge and appends one record per cite to *records*.
-
-    Record format: {file, line, symbol, prompt, response, relevant}.
-    The inner judge is called unchanged; this wrapper only adds the side-effect
-    of capturing the prompt/response pair alongside the cite identity and verdict.
-
-    Correlating cite→record is positional: score_citations calls is_relevant
-    once per cite in iteration order, so record[i] corresponds to cite[i].
-    """
-
-    def __init__(self, inner: LlmRelevanceJudge, records: list):
-        self._inner = inner
-        self._records = records
+    """Wraps LlmRelevanceJudge; appends one record per cite to *records*:
+    {file, line, symbol, verdict, escalated, votes, relevant}."""
+    def __init__(self, inner: "LlmRelevanceJudge", records: list):
+        self.inner, self.records = inner, records
 
     def is_relevant(self, cite: Citation, issue_text: str, code: str = "") -> bool:
-        # Build the prompt the same way the inner judge does so we capture the
-        # EXACT text that goes to the model (mirroring LlmRelevanceJudge.is_relevant).
-        code_section = f"\n\nCode at {cite.file}:{cite.line}:\n{code}" if code else ""
-        prompt = (f"Issue:\n{issue_text}{code_section}\n\nIs the code at {cite.file}:{cite.line} "
-                  f"(symbol {cite.symbol}) actually relevant to fixing this issue? Answer with exactly YES or NO and nothing else.")
-        # Delegate to the inner judge (which makes the real ask() call)
-        response = self._inner.ask(self._inner.model, prompt)
-        relevant = response.strip().upper().startswith("YES")
-        self._records.append({
-            "file": cite.file,
-            "line": cite.line,
-            "symbol": cite.symbol,
-            "prompt": prompt,
-            "response": response,
-            "relevant": relevant,
+        ev = self.inner.relevance(cite, issue_text, code)
+        self.records.append({
+            "file": cite.file, "line": cite.line, "symbol": cite.symbol,
+            "verdict": ev.verdict, "escalated": ev.escalated, "votes": ev.votes,
+            "relevant": ev.verdict == "YES",
         })
-        return relevant
+        return ev.verdict == "YES"

@@ -1,5 +1,5 @@
 from tier_c.model import Citation
-from tier_c.judges_live import LlmRankJudge, LlmRelevanceJudge, LlmConditionGuesser
+from tier_c.judges_live import LlmRankJudge, LlmRelevanceJudge, LlmConditionGuesser, _RecordingRelevanceJudge
 
 def test_rank_judge_parses_permutation():
     j = LlmRankJudge(ask=lambda m, p: "cand2, cand0, cand1", model="opus-4.8")
@@ -38,3 +38,34 @@ def test_relevance_prompt_includes_issue_and_code():
     j = LlmRelevanceJudge(ask=ask, model="opus-4.8")
     assert j.is_relevant(cite=_cite("a.py", 10, "f"), issue_text="ISSUE-XYZ", code="def f(): ...") is True
     assert "ISSUE-XYZ" in seen["p"] and "def f()" in seen["p"]
+
+
+def _rcite():
+    return Citation(file="model/labels/regexp.go", line=96, symbol=None)
+
+
+def test_relevance_ensemble_yes_when_both_sonnet_yes(monkeypatch):
+    j = LlmRelevanceJudge(lambda m, p: "YES because it installs trueMatcher")
+    ev = j.relevance(_rcite(), "issue", "code")
+    assert ev.verdict == "YES" and ev.escalated is False and len(ev.votes) == 2
+    assert j.is_relevant(_rcite(), "issue", "code") is True
+
+
+def test_relevance_ensemble_escalates(monkeypatch):
+    seq = iter(["YES x", "NO y"])
+    def ask(m, p):
+        return "NO opus" if m == "opus-4.8" else next(seq)
+    j = LlmRelevanceJudge(ask)
+    ev = j.relevance(_rcite(), "issue", "code")
+    assert ev.escalated is True and ev.verdict == "NO"
+
+
+def test_recording_relevance_captures_votes():
+    records = []
+    inner = LlmRelevanceJudge(lambda m, p: "YES it is the root cause")
+    rec = _RecordingRelevanceJudge(inner, records)
+    assert rec.is_relevant(_rcite(), "issue", "code") is True
+    r = records[0]
+    assert r["file"] == "model/labels/regexp.go" and r["line"] == 96
+    assert r["relevant"] is True and r["escalated"] is False
+    assert len(r["votes"]) == 2 and "reason" in r["votes"][0]
