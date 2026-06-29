@@ -93,17 +93,21 @@ def main(argv: list[str] | None = None) -> int:
                            help="output run-id (default: <src>-rescore); NEVER clobbers the source")
     rescore_p.add_argument("--run-store-root", default=None,
                            help="root dir for the rescored artifacts (default: eval/tier_c/runs/partc)")
+    rescore_p.add_argument("--judge", choices=["sonnet", "codex"], default="sonnet",
+                           help="judge primary model: sonnet (sonnet-4.6) or codex (gpt-5.5-xhigh)")
 
     args = ap.parse_args(argv)
 
     if args.cmd == "rescore":
         from .rescore import rescore_run_dir
+        judge_primary = {"sonnet": "sonnet-4.6", "codex": "gpt-5.5-xhigh"}[args.judge]
         cell_result, out_dir = rescore_run_dir(
             os.path.expanduser(args.run_dir),
             bench_root=args.bench_root,
             issues_path=args.issues,
             out_run_id=args.out_run_id,
             runs_root=args.run_store_root,
+            judge_primary=judge_primary,
         )
         print(render_partc([cell_result]))  # render_partc takes a list of cells
         print(f"\nrescored (arms NOT re-run) → {out_dir}")
@@ -557,7 +561,8 @@ class _LivePartCComps:
     """
 
     def __init__(self, *, co, issue, model: str, base_root: str, ask=None,
-                 reuse_off_from: str | None = None):
+                 reuse_off_from: str | None = None,
+                 judge_primary: str | None = None):
         if ask is None:
             from .llm import live_ask
             ask = live_ask
@@ -569,6 +574,8 @@ class _LivePartCComps:
         # When set, run_off_arm reconstructs the off-arm from this saved run dir instead of
         # running it live — holds the baseline constant when only the on-arm/steer changed.
         self._reuse_off_from = reuse_off_from
+        # When set, overrides the default JUDGE_MODEL for relevance/quality judges.
+        self._judge_primary = judge_primary
         self._last_off = None         # set after run_off_arm; carries ArmOutput for audit persistence
         self._last_on = None          # set after run_on_arm; carries ArmOutput for audit persistence
         self._last_off_prompt = None  # exact prompt sent to the off-arm
@@ -622,7 +629,8 @@ class _LivePartCComps:
                 self._last_off_judge = []
             return InvestigatorReport(precision=0.0, recall=0.0, hallucinations=0, verdicts=[])
         # Sonnet, not opus — owner-tested to follow the YES/NO instruction (opus went agentic).
-        inner_rel = LlmRelevanceJudge(self._ask, JUDGE_MODEL)
+        # judge_primary overrides JUDGE_MODEL when a codex ensemble is requested.
+        inner_rel = LlmRelevanceJudge(self._ask, self._judge_primary or JUDGE_MODEL)
         records: list[dict] = []
         rel = _RecordingRelevanceJudge(inner_rel, records)
         upstream = self._upstream_spec(cell)
@@ -646,7 +654,7 @@ class _LivePartCComps:
     def head_to_head(self, off_out, on_out, cell: tuple) -> dict:
         """Anonymized head-to-head spec-quality comparison (off vs on) via the ensemble."""
         from .judges_live import SpecQualityJudge
-        judge = SpecQualityJudge(self._ask)
+        judge = SpecQualityJudge(self._ask, self._judge_primary)
         return judge.compare(self._issue.text, off_out.text or "", on_out.text or "")
 
     def run_off_arm(self, cell: tuple):

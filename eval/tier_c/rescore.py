@@ -82,6 +82,7 @@ def rescore_cell(
     issue: Any,
     base_root: str = "",
     ask=None,
+    judge_primary=None,
 ):
     """Score pre-built off/on ArmOutputs through the real oracle, no arm re-run.
 
@@ -96,7 +97,8 @@ def rescore_cell(
     from .partc import run_partc_cell
 
     repo, stage, model = cell
-    live = _LivePartCComps(co=co, issue=issue, model=model, base_root=base_root, ask=ask)
+    live = _LivePartCComps(co=co, issue=issue, model=model, base_root=base_root, ask=ask,
+                           judge_primary=judge_primary)
 
     class _CachedComps:
         def run_off_arm(self_inner, c):
@@ -152,6 +154,7 @@ def rescore_run_dir(
     ask=None,
     co: Any = None,
     issue: Any = None,
+    judge_primary=None,
 ):
     """Re-score a saved Part-C run dir, writing results to a NEW run dir.
 
@@ -202,6 +205,7 @@ def rescore_run_dir(
         cell_result, off_judge, on_judge = rescore_cell(
             cell, off_out=off_out, on_out=on_out, co=checkout,
             issue=issue, base_root=base_root, ask=ask,
+            judge_primary=judge_primary,
         )
         _persist_partc_cell(cell_result, repo, stage, model,
                             run_id=out_run_id, runs_root=runs_root)

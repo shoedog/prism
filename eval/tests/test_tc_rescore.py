@@ -272,3 +272,29 @@ def test_rescore_cell_produces_head_to_head():
                               ask=lambda m, p: "A clearer root cause")
     assert cell.head_to_head.get("winner") in ("off", "on", "tie")
     assert "votes" in cell.head_to_head
+
+
+def test_live_comps_judge_primary_threads_to_relevance(monkeypatch):
+    """judge_primary picks the ensemble's primary model (sonnet vs gpt-5.5-xhigh)."""
+    from tier_c.cli import _LivePartCComps
+    seen = {}
+    def ask(model, prompt):
+        seen.setdefault("models", []).append(model)
+        return "YES sure"
+    comps = _LivePartCComps(co=_FakeCo(), issue=_FakeIssue(), model="opus-4.8", base_root="",
+                            ask=ask, judge_primary="gpt-5.5-xhigh")
+    from tier_c.model import Citation
+    comps.score([Citation("model/labels/regexp.go", 96, None)], cell=("prometheus","spec","opus-4.8"), arm="on")
+    # the two primary votes must be gpt-5.5-xhigh (not sonnet-4.6)
+    assert "gpt-5.5-xhigh" in seen["models"]
+    assert "sonnet-4.6" not in seen["models"]
+
+
+def test_rescore_run_dir_accepts_judge_primary(tmp_path):
+    src = _seed_src_run_dir(tmp_path)
+    runs_root = tmp_path / "out"
+    cell, out_dir = rescore_run_dir(
+        str(src), out_run_id="codex-rescore", runs_root=str(runs_root),
+        issue=_FakeIssue(), co=_FakeCo(), ask=lambda m, p: "YES",
+        judge_primary="gpt-5.5-xhigh")
+    assert (Path(out_dir) / "prometheus-spec-opus-4.8.json").exists()
