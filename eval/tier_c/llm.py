@@ -25,6 +25,10 @@ MODEL_CLI = {
 # speed/cost. (Arms still run on their own model; this is only the scoring oracle.)
 JUDGE_MODEL = "sonnet-4.6"
 
+# Ensemble tiebreaker: consulted ONLY when the two sonnet judges disagree (see ensemble.py).
+# Opus is authoritative-but-pricier, so it adjudicates contested calls, not every call.
+JUDGE_TIEBREAKER = "opus-4.8"
+
 # A judge is a pure text relevance call — it must NEVER use tools. --strict-mcp-config
 # drops MCP, but the default config still exposes the built-in tools; disallow them all
 # so the judge cannot go agentic regardless of model. Belt-and-suspenders with JUDGE_MODEL.

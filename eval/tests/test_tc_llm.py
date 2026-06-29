@@ -87,3 +87,8 @@ def test_live_ask_codex_raises_runtime_error_on_bad_jsonl(monkeypatch):
     import pytest
     with pytest.raises(RuntimeError, match="codex judge output unparseable"):
         live_ask("gpt-5.5", "relevant?")
+
+def test_judge_tiebreaker_is_opus():
+    from tier_c.llm import JUDGE_TIEBREAKER, MODEL_CLI
+    assert JUDGE_TIEBREAKER in MODEL_CLI
+    assert MODEL_CLI[JUDGE_TIEBREAKER] == ("claude", "opus")
