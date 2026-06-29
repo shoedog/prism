@@ -951,3 +951,27 @@ def test_partc_arm_files_only_off(tmp_path):
     assert any(n.endswith(".off.raw.jsonl") for n in names)
     assert not any(n.endswith(".on.out.md") for n in names)
     assert not any(n.endswith(".on.raw.jsonl") for n in names)
+
+
+def test_run_partc_cell_records_head_to_head():
+    """run_partc_cell calls comps.head_to_head(off,on,cell) and stores it on the cell."""
+    from tier_c.partc import run_partc_cell
+    from tier_c.model import ArmOutput, Variant, Dose, Citation
+    from tier_c.investigator import InvestigatorReport
+
+    def _arm(prism):
+        return ArmOutput(variant=Variant("opus-4.8", prism), text="spec",
+                         citations=[Citation("a.go", 1, None)], tokens=10, tool_calls=0,
+                         wall_s=1.0, used_prism=prism, prism_calls=1 if prism else 0,
+                         dose=Dose(count=1 if prism else 0), low_dose=prism,
+                         in_tokens=5, cost_usd=0.0, raw_stdout="")
+
+    class C:
+        def run_off_arm(self, cell): return _arm(False)
+        def run_on_arm(self, cell): return _arm(True)
+        def score(self, cites, *, cell, arm):
+            return InvestigatorReport(precision=1.0, recall=1.0, hallucinations=0, verdicts=[])
+        def head_to_head(self, off, on, cell): return {"winner": "on", "escalated": False, "votes": []}
+
+    cell = run_partc_cell(("prometheus", "spec", "opus-4.8"), C())
+    assert cell.head_to_head == {"winner": "on", "escalated": False, "votes": []}

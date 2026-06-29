@@ -10,7 +10,7 @@ unit tests with zero live spend.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from .model import Dose
@@ -101,6 +101,7 @@ class PartCCell:
     off_verdicts: list = None   # type: ignore[assignment]
     on_verdicts: list = None    # type: ignore[assignment]
     gate: dict = None           # type: ignore[assignment]
+    head_to_head: dict = field(default_factory=dict)
 
     def __post_init__(self):
         # Supply empty-breakdown dicts for callers that don't provide them
@@ -232,6 +233,10 @@ def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
     # Step 8: compute delta
     bundle_delta = precision_on - precision_base
 
+    # Head-to-head spec quality (optional on the comps protocol; back-compat for fakes).
+    head_to_head = (comps.head_to_head(off_out, on_out, cell)
+                    if hasattr(comps, "head_to_head") else {})
+
     # Step 9: token/cost/wall accounting — total tokens = input + output per arm
     in_tokens_off  = off_out.in_tokens
     out_tokens_off = off_out.tokens
@@ -272,6 +277,7 @@ def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
         off_verdicts=off_verdicts,
         on_verdicts=on_verdicts,
         gate=gate,
+        head_to_head=head_to_head,
     )
 
 
@@ -345,4 +351,8 @@ def render_partc(cells: list[PartCCell]) -> str:
         # Lines 4-5: per-arm cite breakdowns
         lines.append(_fmt_breakdown("off", c.off_breakdown))
         lines.append(_fmt_breakdown("on ", c.on_breakdown))
+        h2h = getattr(c, "head_to_head", {}) or {}
+        if h2h:
+            esc = " (opus tiebreak)" if h2h.get("escalated") else ""
+            lines.append(f"  head-to-head spec quality: {h2h.get('winner','?')}{esc}")
     return "\n".join(lines)
