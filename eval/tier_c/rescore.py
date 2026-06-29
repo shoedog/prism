@@ -108,6 +108,11 @@ def rescore_cell(
         def score(self_inner, citations, **kwargs):
             return live.score(citations, **kwargs)
 
+        def head_to_head(self_inner, off, on, c):
+            # Forward to the live comps so rescore produces the head-to-head verdict too
+            # (run_partc_cell only computes it when the comps exposes this method).
+            return live.head_to_head(off, on, c)
+
     result = run_partc_cell(cell, _CachedComps())
     return result, list(live._last_off_judge), list(live._last_on_judge)
 

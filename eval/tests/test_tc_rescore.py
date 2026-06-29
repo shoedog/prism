@@ -256,3 +256,19 @@ def test_live_comps_head_to_head_uses_spec_quality_judge():
                             ask=lambda m, p: "A clearer root cause")
     r = comps.head_to_head(_arm("OFF spec"), _arm("ON spec"), ("prometheus", "spec", "opus-4.8"))
     assert r["winner"] in ("off", "on", "tie") and "votes" in r
+
+
+def test_rescore_cell_produces_head_to_head():
+    """rescore_cell must surface the head-to-head verdict on the cell — the _CachedComps
+    wrapper has to FORWARD head_to_head to the live comps, else run_partc_cell's hasattr
+    guard skips it and rescore silently drops the head-to-head signal."""
+    off = reconstruct_arm_output(_claude_raw("a model/labels/regexp.go:42"),
+                                 variant=Variant("opus-4.8", False), model="opus-4.8")
+    on = reconstruct_arm_output(_claude_raw("b model/labels/regexp.go:42",
+                                            prism_tools=["mcp__prism__nav_callers"]),
+                                variant=Variant("opus-4.8", True), model="opus-4.8")
+    cell, _, _ = rescore_cell(("prometheus", "spec", "opus-4.8"), off_out=off, on_out=on,
+                              co=_FakeCo(), issue=_FakeIssue(), base_root="",
+                              ask=lambda m, p: "A clearer root cause")
+    assert cell.head_to_head.get("winner") in ("off", "on", "tie")
+    assert "votes" in cell.head_to_head
