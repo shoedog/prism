@@ -606,8 +606,8 @@ class _LivePartCComps:
         upstream spec) plus the code window at each cited location, mirroring
         how chain.py builds plan_issue_text (spec §6a).
 
-        Per-cite judge artifacts (prompt, response, relevant) are captured and
-        stored on self._last_off_judge (arm="base") / self._last_on_judge (arm="on")
+        Per-cite judge artifacts (verdict, escalated, votes, relevant) are captured
+        and stored on self._last_off_judge (arm="base") / self._last_on_judge (arm="on")
         for later persistence as <base>.<arm>.judge.jsonl.
 
         Returns an InvestigatorReport (precision, recall, hallucinations, verdicts).
