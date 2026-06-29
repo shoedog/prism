@@ -52,17 +52,14 @@ def _cache_dir(results_root: str) -> str:
 
 
 def _run_codex_trial(probe: Probe, *, eval_root: str, skill_src: str,
-                     prism_mcp_bin: str, model: str) -> Trajectory:
-    """Run one codex trial: build an isolated CODEX_HOME, exec, parse."""
+                     prism_mcp_bin: str, model: str, codex_home: str | None = None) -> Trajectory:
+    """Run one codex trial: use a pre-built CODEX_HOME or build an isolated one."""
     from .codex_env import build_isolated_codex_home
     repo_path = os.path.join(eval_root, probe.repo)
-    codex_home = build_isolated_codex_home(
-        skill_src=skill_src,
-        mcp_repo=repo_path,
-        prism_mcp_bin=prism_mcp_bin,
-    )
+    home = codex_home or build_isolated_codex_home(skill_src=skill_src, mcp_repo=repo_path,
+                                                   prism_mcp_bin=prism_mcp_bin)
     env = dict(os.environ)
-    env["CODEX_HOME"] = codex_home
+    env["CODEX_HOME"] = home
     cmd = build_codex_cmd(prompt=probe.prompt, model=model)
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=_CODEX_TIMEOUT,
                           cwd=repo_path, env=env)
@@ -73,7 +70,8 @@ def run_trial(probe: Probe, trial: int, *, cfg: IsolatedConfig, eval_root: str,
               results_root: str, skill_bytes: bytes, model: str = "sonnet",
               # codex-only kwargs (ignored for claude)
               skill_src: str | None = None,
-              prism_mcp_bin: str | None = None) -> Trajectory:
+              prism_mcp_bin: str | None = None,
+              codex_home: str | None = None) -> Trajectory:
     key = cache_key(skill_bytes=skill_bytes, probe_id=probe.id, prompt=probe.prompt,
                     repo=probe.repo, trial=trial, model=model)
     cpath = os.path.join(_cache_dir(results_root), key + ".json")
@@ -87,7 +85,8 @@ def run_trial(probe: Probe, trial: int, *, cfg: IsolatedConfig, eval_root: str,
         if skill_src is None or prism_mcp_bin is None:
             raise ValueError("skill_src and prism_mcp_bin are required for codex (gpt*) models")
         traj = _run_codex_trial(probe, eval_root=eval_root, skill_src=skill_src,
-                                prism_mcp_bin=prism_mcp_bin, model=model)
+                                prism_mcp_bin=prism_mcp_bin, model=model,
+                                codex_home=codex_home)
     else:
         # Claude path (original)
         env = dict(os.environ); env["CLAUDE_CONFIG_DIR"] = cfg.config_dir

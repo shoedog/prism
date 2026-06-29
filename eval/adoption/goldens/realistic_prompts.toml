@@ -1,0 +1,29 @@
+[[probe]]
+id = "spec-runstage-tiebreak"
+kind = "realistic"
+prompt = "Write a short implementation spec for changing run_stage's tie-break to use a different seed. Cite the exact file:line for every claim."
+repo = "tier_c"
+
+[[probe]]
+id = "analysis-count-claims-blast"
+kind = "realistic"
+prompt = "Analyze the blast radius of changing count_claims's signature — list every site that would need to update, as file:line."
+repo = "tier_c"
+
+[[probe]]
+id = "plan-split-chain"
+kind = "realistic"
+prompt = "Plan the refactor that splits chain.py into a stage-orchestration module and a chaining module. Cite the symbols/sites involved."
+repo = "tier_c"
+
+[[probe]]
+id = "spec-sanitation-gate"
+kind = "realistic"
+prompt = "Write a short spec for fixing the sanitation gate in run_spec_plan_chain. Ground every claim in file:line."
+repo = "tier_c"
+
+[[probe]]
+id = "analysis-dry-run-flag"
+kind = "realistic"
+prompt = "Which functions would a new --dry-run flag for the tier-c CLI touch? List them as file:line."
+repo = "tier_c"

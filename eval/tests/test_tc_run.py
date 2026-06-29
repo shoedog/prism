@@ -8,6 +8,7 @@ class FakeCo:
     root = "."
     def file_exists(self, rel): return rel == "a.py"
     def read_line(self, rel, line): return "x" if rel == "a.py" else None
+    def read_window(self, rel, line): return "x" if rel == "a.py" else None
 
 class FakeRank:
     def rank(self, stage, rubric, candidates): return sorted(candidates, key=lambda k: -len(candidates[k]))

@@ -1,6 +1,9 @@
 """LLM-backed judges (Phase-1c), all behind the ask() seam so they're unit-tested with fakes.
 RankJudge ranks anonymized candidates (style-neutral); RelevanceJudge audits a citation;
-ConditionGuesser powers the detectability test. None of them get prism (ask() is tool-free)."""
+ConditionGuesser powers the detectability test. None of them get prism (ask() is tool-free).
+
+_RecordingRelevanceJudge wraps LlmRelevanceJudge and appends a record per cite to a caller-
+supplied list — {file, line, symbol, verdict, escalated, votes, relevant} — for audit persistence."""
 from __future__ import annotations
 import re
 from .model import Citation
@@ -28,13 +31,24 @@ class LlmRankJudge:
         return order
 
 class LlmRelevanceJudge:
-    def __init__(self, ask, model: str):
-        self.ask, self.model = ask, model
-    def is_relevant(self, cite: Citation, issue_text: str) -> bool:
-        prompt = (f"Issue:\n{issue_text}\n\nIs the code at {cite.file}:{cite.line} "
-                  f"(symbol {cite.symbol}) actually relevant to fixing this issue? Answer with exactly YES or NO and nothing else.")
-        # conservative: any non-YES (incl. hedged) reads False
-        return self.ask(self.model, prompt).strip().upper().startswith("YES")
+    """Per-citation relevance via the 2-sonnet/opus ensemble (ensemble.py)."""
+    def __init__(self, ask, model: str | None = None, *, opus: str | None = None):
+        from .llm import JUDGE_MODEL, JUDGE_TIEBREAKER
+        self.ask = ask
+        self.sonnet = model or JUDGE_MODEL
+        self.opus = opus or JUDGE_TIEBREAKER
+
+    def relevance(self, cite: Citation, issue_text: str, code: str = ""):
+        from .ensemble import ensemble
+        code_section = f"\n\nCode at {cite.file}:{cite.line}:\n{code}" if code else ""
+        prompt = (f"Issue:\n{issue_text}{code_section}\n\nIs the code at {cite.file}:{cite.line} "
+                  f"(symbol {cite.symbol}) actually relevant to fixing this issue? "
+                  f"Start your reply with YES or NO, then one sentence why.")
+        return ensemble(self.ask, prompt, ("YES", "NO"),
+                        sonnet=self.sonnet, opus=self.opus, default="NO")
+
+    def is_relevant(self, cite: Citation, issue_text: str, code: str = "") -> bool:
+        return self.relevance(cite, issue_text, code).verdict == "YES"
 
 class LlmConditionGuesser:
     def __init__(self, ask, model: str):
@@ -44,3 +58,53 @@ class LlmConditionGuesser:
                   "file:line/call-graph facts likely USED to produce it? Answer with exactly YES or NO and nothing else.\n\n" + text)
         # conservative: any non-YES (incl. hedged) reads False
         return self.ask(self.model, prompt).strip().upper().startswith("YES")
+
+
+class _RecordingRelevanceJudge:
+    """Wraps LlmRelevanceJudge; appends one record per cite to *records*:
+    {file, line, symbol, verdict, escalated, votes, relevant}."""
+    def __init__(self, inner: "LlmRelevanceJudge", records: list):
+        self.inner, self.records = inner, records
+
+    def is_relevant(self, cite: Citation, issue_text: str, code: str = "") -> bool:
+        ev = self.inner.relevance(cite, issue_text, code)
+        self.records.append({
+            "file": cite.file, "line": cite.line, "symbol": cite.symbol,
+            "verdict": ev.verdict, "escalated": ev.escalated, "votes": ev.votes,
+            "relevant": ev.verdict == "YES",
+        })
+        return ev.verdict == "YES"
+
+
+class SpecQualityJudge:
+    """Anonymized head-to-head: which spec better identifies root cause + fix.
+
+    A/B assignment is derived deterministically from sha256(off+on) so position
+    bias cannot favor an arm AND rescores reproduce the same assignment (no RNG).
+    Runs through the same 2-sonnet/opus ensemble; winner maps back to off/on/tie.
+    """
+    def __init__(self, ask, model: str | None = None, *, opus: str | None = None):
+        from .llm import JUDGE_MODEL, JUDGE_TIEBREAKER
+        self.ask = ask
+        self.sonnet = model or JUDGE_MODEL
+        self.opus = opus or JUDGE_TIEBREAKER
+
+    def compare(self, issue_text: str, off_spec: str, on_spec: str) -> dict:
+        import hashlib
+        from .ensemble import ensemble
+        swap = int(hashlib.sha256((off_spec + on_spec).encode("utf-8")).hexdigest(), 16) % 2 == 1
+        spec_a, spec_b = (on_spec, off_spec) if swap else (off_spec, on_spec)
+        prompt = (f"Issue:\n{issue_text}\n\nTwo implementation specs were written for this issue.\n\n"
+                  f"=== SPEC A ===\n{spec_a}\n\n=== SPEC B ===\n{spec_b}\n\n"
+                  f"Which spec better identifies the root cause and a correct, complete fix? "
+                  f"Ignore writing style, length, and formatting — judge substance only. "
+                  f"Start your reply with A, B, or TIE, then one sentence why.")
+        ev = ensemble(self.ask, prompt, ("A", "B", "TIE"),
+                      sonnet=self.sonnet, opus=self.opus, default="TIE")
+        if ev.verdict == "TIE":
+            winner = "tie"
+        else:
+            a_is = "on" if swap else "off"
+            b_is = "off" if swap else "on"
+            winner = a_is if ev.verdict == "A" else b_is
+        return {"winner": winner, "escalated": ev.escalated, "votes": ev.votes, "swap": swap}

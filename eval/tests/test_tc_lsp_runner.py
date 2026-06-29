@@ -23,7 +23,8 @@ def test_codex_lsp_off_prepends_deny_shim_to_path(monkeypatch, tmp_path):
     def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None, env=None):
         seen["path"] = (env or {}).get("PATH", "")
         class R:
-            stdout = json.dumps({"item": {"type": "agent_message", "text": "ok"}}); returncode = 0; stderr = ""
+            # Real codex --json: items arrive under {"type":"item.completed","item":{...}}
+            stdout = json.dumps({"type": "item.completed", "item": {"type": "agent_message", "text": "ok"}}); returncode = 0; stderr = ""
         return R()
     monkeypatch.setattr("tier_c.arm_runner.subprocess.run", fake_run)
     deny = str(tmp_path / "deny")

@@ -2,6 +2,14 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 
+
+@dataclass(frozen=True)
+class Dose:
+    """Prism invocation measurement for one model run."""
+    count: int = 0
+    distinct_tools: frozenset[str] = field(default_factory=frozenset)
+    errors: int = 0
+
 _ANTHROPIC = {"opus-4.8", "sonnet-4.6"}
 _OPENAI = {"gpt-5.5", "gpt-5.3-spark"}
 
@@ -40,10 +48,21 @@ class ArmOutput:
     variant: Variant
     text: str
     citations: list[Citation]
-    tokens: int
+    tokens: int          # output tokens
     tool_calls: int
     wall_s: float
     used_prism: bool
     commands: list[str] = field(default_factory=list)
     lsp_leak: bool = False
     compiler_assisted: bool = False
+    prism_calls: int = 0
+    dose: Dose = field(default_factory=Dose)
+    low_dose: bool = False
+    in_tokens: int = 0   # input tokens (default 0 so existing constructions keep working)
+    cost_usd: float = 0.0
+    raw_stdout: str = ""  # full proc.stdout from the model subprocess; "" for fakes/tests
+    # Audit fields — populated on success by runners; "" / [] defaults for backward compat.
+    argv: list[str] = field(default_factory=list)
+    returncode: int = 0
+    stderr: str = ""
+    cwd: str = ""

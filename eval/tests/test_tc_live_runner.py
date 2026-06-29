@@ -3,29 +3,45 @@ from tier_c.model import Variant
 from tier_c.arm_runner import ClaudeRunner, CodexRunner
 
 def test_claude_runner_builds_output(monkeypatch):
+    """ClaudeRunner uses stream-json; real prism calls (mcp__prism__*) drive used_prism."""
     captured = {}
+    # Build a valid stream-json JSONL: one prism tool call + text block + result event.
+    prism_line = json.dumps({"type": "assistant", "message": {"content": [
+        {"type": "tool_use", "name": "mcp__prism__nav_callers", "input": {"symbol": "run"}},
+    ]}})
+    text_line = json.dumps({"type": "assistant", "message": {"content": [
+        {"type": "text", "text": "spec cites src/a.py:1"},
+    ]}})
+    result_line = json.dumps({"type": "result", "is_error": False,
+                              "result": "spec cites src/a.py:1", "total_cost_usd": 0.01,
+                              "usage": {"input_tokens": 5, "output_tokens": 7}})
+    stream = "\n".join([prism_line, text_line, result_line])
+
     def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None, env=None):
         captured["cmd"] = cmd
-        class R: stdout = json.dumps({"type":"result","is_error":False,"num_turns":2,
-                  "result":"spec cites src/a.py:1","total_cost_usd":0.01,
-                  "usage":{"input_tokens":5,"output_tokens":7}}); returncode = 0; stderr = ""
+        class R: stdout = stream; returncode = 0; stderr = ""
         return R()
     monkeypatch.setattr("tier_c.arm_runner.subprocess.run", fake_run)
     out = ClaudeRunner(mcp_cfg="/tmp/p.json").run(Variant("opus-4.8", True), "spec", "PROMPT", "/repo")
     assert out.text == "spec cites src/a.py:1"
-    assert out.tokens == 7 and out.tool_calls == 1
+    assert out.tokens == 7 and out.tool_calls == 1  # 1 prism tool call detected
     assert out.citations[0].file == "src/a.py"
-    assert out.used_prism is True  # prism-ON variant + a tool call occurred
+    assert out.used_prism is True   # 1 real mcp__prism__* call → used_prism
+    assert out.prism_calls == 1
+    assert out.low_dose is True     # exactly 1 call = low-dose
     assert "--mcp-config" in captured["cmd"]
+    assert "stream-json" in " ".join(captured["cmd"])
 
 def test_codex_runner_off_has_no_prism(monkeypatch):
     def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None, env=None):
         captured = cmd
         class R:
+            # Real codex --json wraps each item as {"type":"item.completed","item":{...}};
+            # usage lives on outer turn events without the item.completed gating.
             stdout = "\n".join([
-                json.dumps({"item":{"type":"command_execution"}}),
-                json.dumps({"usage":{"input_tokens":3,"output_tokens":9}}),
-                json.dumps({"item":{"type":"agent_message","text":"plan src/b.go:2"}})])
+                json.dumps({"type":"item.completed","item":{"type":"command_execution"}}),
+                json.dumps({"type":"turn.completed","usage":{"input_tokens":3,"output_tokens":9}}),
+                json.dumps({"type":"item.completed","item":{"type":"agent_message","text":"plan src/b.go:2"}})])
             returncode = 0; stderr = ""
         assert "mcp_servers.prism" not in " ".join(cmd)
         assert "--json" in cmd
@@ -39,13 +55,15 @@ def test_codex_runner_off_has_no_prism(monkeypatch):
 def test_runner_raises_clear_error_on_subprocess_failure(monkeypatch):
     import pytest
     from tier_c.model import Variant
-    from tier_c.arm_runner import ClaudeRunner
+    from tier_c.arm_runner import ClaudeRunner, ArmRunError
     def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None, env=None):
         class R: stdout = ""; returncode = 1; stderr = "auth: missing API key"
         return R()
     monkeypatch.setattr("tier_c.arm_runner.subprocess.run", fake_run)
-    with pytest.raises(RuntimeError, match="auth: missing API key"):
+    with pytest.raises(ArmRunError) as exc_info:
         ClaudeRunner(mcp_cfg="/tmp/p.json").run(Variant("opus-4.8", True), "spec", "P", "/repo")
+    assert "auth: missing API key" in exc_info.value.stderr
+    assert exc_info.value.returncode == 1
 
 
 def test_claude_runner_per_checkout_prism_config(monkeypatch):

@@ -2,7 +2,7 @@
 (fraction of nav probes where all k trials fired the right nav tool). Activation reported
 alongside. Negatives pass when they DON'T over-reach (invocation False all k)."""
 from __future__ import annotations
-import json, os
+import collections, json, os
 
 def passes_k(trial_flags: list[bool]) -> bool:
     return bool(trial_flags) and all(trial_flags)
@@ -29,3 +29,26 @@ def write_benchmark(summary: dict, results_root: str, identifier: str) -> str:
     with open(path, "w") as f:
         json.dump(summary, f, indent=2)
     return path
+
+def prism_invoked(traj) -> bool:
+    """Any-call invocation: did the trajectory fire ANY prism nav tool (open-ended-task metric)."""
+    return bool(traj.prism_nav_calls())
+
+def summarize_cells(cells: dict) -> dict:
+    """cells: {cell_id: {sample_id: [(invoked: bool, skill_loaded: str|None), ... k trials]}}.
+    Per cell: invocation_rate (over all sample*trial), pass5_rate (samples with all-k invoked),
+    skill_attribution (count of which skill loaded across invoked runs)."""
+    out = {}
+    for cell, samples in cells.items():
+        runs = [r for trials in samples.values() for r in trials]
+        n = len(runs) or 1
+        invoked = sum(1 for inv, _ in runs if inv)
+        pass5 = sum(1 for trials in samples.values() if trials and all(inv for inv, _ in trials))
+        attr = collections.Counter(sk for inv, sk in runs if inv and sk)
+        out[cell] = {
+            "invocation_rate": invoked / n,
+            "pass5_rate": pass5 / (len(samples) or 1),
+            "n_samples": len(samples), "n_runs": len(runs),
+            "skill_attribution": dict(attr),
+        }
+    return out
