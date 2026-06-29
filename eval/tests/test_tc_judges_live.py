@@ -1,5 +1,5 @@
 from tier_c.model import Citation
-from tier_c.judges_live import LlmRankJudge, LlmRelevanceJudge, LlmConditionGuesser, _RecordingRelevanceJudge
+from tier_c.judges_live import LlmRankJudge, LlmRelevanceJudge, LlmConditionGuesser, _RecordingRelevanceJudge, SpecQualityJudge
 
 def test_rank_judge_parses_permutation():
     j = LlmRankJudge(ask=lambda m, p: "cand2, cand0, cand1", model="opus-4.8")
@@ -69,3 +69,36 @@ def test_recording_relevance_captures_votes():
     assert r["file"] == "model/labels/regexp.go" and r["line"] == 96
     assert r["relevant"] is True and r["escalated"] is False
     assert len(r["votes"]) == 2 and "reason" in r["votes"][0]
+
+
+def test_spec_quality_deterministic_assignment():
+    """Same (off,on) inputs -> same A/B assignment (rescore reproducibility)."""
+    j = SpecQualityJudge(lambda m, p: "A is better")
+    r1 = j.compare("issue", "OFF spec body", "ON spec body")
+    r2 = j.compare("issue", "OFF spec body", "ON spec body")
+    assert r1["swap"] == r2["swap"]
+
+
+def test_spec_quality_winner_maps_back_to_arm():
+    calls = {}
+    def ask(m, p):
+        calls["prompt"] = p
+        return "A wins, clearer root cause"
+    j = SpecQualityJudge(ask)
+    r = j.compare("issue", "OFF", "ON")
+    a_is = "on" if r["swap"] else "off"
+    assert r["winner"] == a_is
+
+
+def test_spec_quality_tie():
+    j = SpecQualityJudge(lambda m, p: "TIE, both miss it")
+    r = j.compare("issue", "OFF", "ON")
+    assert r["winner"] == "tie" and r["escalated"] is False
+
+
+def test_spec_quality_escalates_on_split():
+    seq = iter(["A better", "B better"])
+    def ask(m, p):
+        return "TIE final" if m == "opus-4.8" else next(seq)
+    r = SpecQualityJudge(ask).compare("issue", "OFF", "ON")
+    assert r["escalated"] is True and r["winner"] == "tie"

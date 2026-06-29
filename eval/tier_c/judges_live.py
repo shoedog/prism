@@ -74,3 +74,37 @@ class _RecordingRelevanceJudge:
             "relevant": ev.verdict == "YES",
         })
         return ev.verdict == "YES"
+
+
+class SpecQualityJudge:
+    """Anonymized head-to-head: which spec better identifies root cause + fix.
+
+    A/B assignment is derived deterministically from sha256(off+on) so position
+    bias cannot favor an arm AND rescores reproduce the same assignment (no RNG).
+    Runs through the same 2-sonnet/opus ensemble; winner maps back to off/on/tie.
+    """
+    def __init__(self, ask, model: str | None = None, *, opus: str | None = None):
+        from .llm import JUDGE_MODEL, JUDGE_TIEBREAKER
+        self.ask = ask
+        self.sonnet = model or JUDGE_MODEL
+        self.opus = opus or JUDGE_TIEBREAKER
+
+    def compare(self, issue_text: str, off_spec: str, on_spec: str) -> dict:
+        import hashlib
+        from .ensemble import ensemble
+        swap = int(hashlib.sha256((off_spec + on_spec).encode("utf-8")).hexdigest(), 16) % 2 == 1
+        spec_a, spec_b = (on_spec, off_spec) if swap else (off_spec, on_spec)
+        prompt = (f"Issue:\n{issue_text}\n\nTwo implementation specs were written for this issue.\n\n"
+                  f"=== SPEC A ===\n{spec_a}\n\n=== SPEC B ===\n{spec_b}\n\n"
+                  f"Which spec better identifies the root cause and a correct, complete fix? "
+                  f"Ignore writing style, length, and formatting — judge substance only. "
+                  f"Start your reply with A, B, or TIE, then one sentence why.")
+        ev = ensemble(self.ask, prompt, ("A", "B", "TIE"),
+                      sonnet=self.sonnet, opus=self.opus, default="TIE")
+        if ev.verdict == "TIE":
+            winner = "tie"
+        else:
+            a_is = "on" if swap else "off"
+            b_is = "off" if swap else "on"
+            winner = a_is if ev.verdict == "A" else b_is
+        return {"winner": winner, "escalated": ev.escalated, "votes": ev.votes, "swap": swap}
