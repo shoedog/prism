@@ -643,6 +643,12 @@ class _LivePartCComps:
             self._last_off_judge = records
         return result
 
+    def head_to_head(self, off_out, on_out, cell: tuple) -> dict:
+        """Anonymized head-to-head spec-quality comparison (off vs on) via the ensemble."""
+        from .judges_live import SpecQualityJudge
+        judge = SpecQualityJudge(self._ask)
+        return judge.compare(self._issue.text, off_out.text or "", on_out.text or "")
+
     def run_off_arm(self, cell: tuple):
         """Run ONE fresh prism-OFF status-quo arm inside the pinned checkout.
 

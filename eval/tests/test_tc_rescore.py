@@ -240,3 +240,19 @@ def test_live_comps_reuse_off_from_reconstructs_without_rerun(tmp_path, monkeypa
     assert any("regexp.go" in c.file for c in out.citations), (
         "reused off-arm must carry the citations reconstructed from the saved off.raw.jsonl")
     assert out.used_prism is False, "off-arm baseline must remain prism-free"
+
+
+def test_live_comps_head_to_head_uses_spec_quality_judge():
+    """_LivePartCComps.head_to_head compares the two specs via SpecQualityJudge over self._ask."""
+    from tier_c.cli import _LivePartCComps
+    from tier_c.model import ArmOutput, Variant, Dose
+
+    def _arm(text):
+        return ArmOutput(variant=Variant("opus-4.8", False), text=text, citations=[], tokens=0,
+                         tool_calls=0, wall_s=0.0, used_prism=False, prism_calls=0, dose=Dose(count=0),
+                         low_dose=False, in_tokens=0, cost_usd=0.0, raw_stdout="")
+
+    comps = _LivePartCComps(co=_FakeCo(), issue=_FakeIssue(), model="opus-4.8", base_root="",
+                            ask=lambda m, p: "A clearer root cause")
+    r = comps.head_to_head(_arm("OFF spec"), _arm("ON spec"), ("prometheus", "spec", "opus-4.8"))
+    assert r["winner"] in ("off", "on", "tie") and "votes" in r
