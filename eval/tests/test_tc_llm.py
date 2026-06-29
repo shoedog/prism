@@ -92,3 +92,36 @@ def test_judge_tiebreaker_is_opus():
     from tier_c.llm import JUDGE_TIEBREAKER, MODEL_CLI
     assert JUDGE_TIEBREAKER in MODEL_CLI
     assert MODEL_CLI[JUDGE_TIEBREAKER] == ("claude", "opus")
+
+
+def test_model_cli_has_codex_xhigh():
+    from tier_c.llm import MODEL_CLI
+    assert MODEL_CLI["gpt-5.5-xhigh"] == ("codex", "gpt-5.5")
+
+
+def test_live_ask_codex_is_tool_free(monkeypatch):
+    """Codex judge must be tool-free: --skip-git-repo-check + an empty cwd so it can't
+    explore the repo (without this it read files for ~3min). Prompt on stdin."""
+    seen = {}
+    def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None):
+        seen["cmd"] = cmd; seen["cwd"] = cwd; seen["input"] = input
+        class R: stdout = json.dumps({"type":"item.completed","item":{"type":"agent_message","text":"YES sure"}}); returncode=0; stderr=""
+        return R()
+    monkeypatch.setattr("tier_c.llm.subprocess.run", fake_run)
+    live_ask("gpt-5.5", "relevant?")
+    assert "--skip-git-repo-check" in seen["cmd"]
+    assert seen["cwd"], "codex judge must run from an isolated (empty) cwd"
+    assert seen["input"] == "relevant?"
+
+
+def test_live_ask_codex_xhigh_sets_reasoning_effort(monkeypatch):
+    seen = {}
+    def fake_run(cmd, input=None, capture_output=None, text=None, cwd=None, timeout=None):
+        seen["cmd"] = cmd
+        class R: stdout = json.dumps({"type":"item.completed","item":{"type":"agent_message","text":"NO"}}); returncode=0; stderr=""
+        return R()
+    monkeypatch.setattr("tier_c.llm.subprocess.run", fake_run)
+    live_ask("gpt-5.5-xhigh", "relevant?")
+    joined = " ".join(seen["cmd"])
+    assert "model_reasoning_effort=xhigh" in joined
+    assert "gpt-5.5" in seen["cmd"]

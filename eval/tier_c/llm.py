@@ -2,6 +2,7 @@
 Opus→claude -p --output-format json; gpt→codex exec --json. Returns the model's text answer."""
 from __future__ import annotations
 import subprocess
+import tempfile
 from .parse import parse_claude_json, parse_codex_jsonl
 
 _TIMEOUT = 600
@@ -15,6 +16,12 @@ MODEL_CLI = {
     "sonnet-4.6": ("claude", "sonnet"),
     "haiku-4.5": ("claude", "haiku"),
     "gpt-5.5": ("codex", "gpt-5.5"),
+    "gpt-5.5-xhigh": ("codex", "gpt-5.5"),
+}
+
+# Models that require a reasoning-effort flag: model-name -> effort level.
+_MODEL_EFFORT: dict[str, str] = {
+    "gpt-5.5-xhigh": "xhigh",
 }
 
 # The relevance/rank oracle model. Sonnet (not opus): owner testing found the smaller
@@ -63,8 +70,16 @@ def live_ask(model: str, prompt: str) -> str:
             return parse_claude_json(proc.stdout).text
         except ValueError as e:
             raise RuntimeError(f"claude judge output unparseable: {e}") from e
-    cmd = ["codex", "exec", "--json", "-m", flag, "-s", "read-only", "-"]
-    proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=_TIMEOUT)
+    effort = _MODEL_EFFORT.get(model)
+    cmd = ["codex", "exec", "--json", "--skip-git-repo-check", "-m", flag, "-s", "read-only"]
+    if effort:
+        cmd += ["-c", f"model_reasoning_effort={effort}"]
+    cmd += ["-"]
+    # Tool-free: run from an empty cwd so the judge cannot explore a repo (it must answer
+    # from the inlined code, like the claude judge). Without this codex read files for minutes.
+    with tempfile.TemporaryDirectory(prefix="tc-codex-judge-") as _cwd:
+        proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
+                              timeout=_TIMEOUT, cwd=_cwd)
     if proc.returncode != 0 or not proc.stdout.strip():
         raise RuntimeError(f"codex judge exited {proc.returncode}: {(proc.stderr or '').strip()[:300]}")
     try:
