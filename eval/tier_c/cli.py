@@ -1083,6 +1083,14 @@ def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
                     return comps._last_on
                 def score(self_inner, citations, **kwargs):
                     return comps.score(citations, **kwargs)
+                def head_to_head(self_inner, off, on, c):
+                    # Forward so the LIVE run-partc path produces the head-to-head verdict
+                    # (run_partc_cell only computes it when the comps exposes this method).
+                    # Guard for comps shapes (test fakes) that don't implement it; the real
+                    # _LivePartCComps always does.
+                    if hasattr(comps, "head_to_head"):
+                        return comps.head_to_head(off, on, c)
+                    return {}
 
             partc_cell = run_partc_cell(cell, _CachedComps())
 

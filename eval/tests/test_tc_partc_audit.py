@@ -88,6 +88,9 @@ class _FakeComps:
             return self._off_report
         return self._on_report
 
+    def head_to_head(self, off, on, cell):
+        return {"winner": "on", "escalated": False, "votes": []}
+
 
 # ---------------------------------------------------------------------------
 # 1. Run-id namespace: --run-id X → artifacts go to runs/partc/<run-id>/
@@ -1498,3 +1501,44 @@ def test_manifest_records_codex_reasoning_exposure(tmp_path, monkeypatch):
         f"reasoning_exposure.codex must record hide_agent_reasoning=False; got {re_block!r}")
     assert re_block["codex"]["show_raw_agent_reasoning"] is True, (
         f"reasoning_exposure.codex must record show_raw_agent_reasoning=True; got {re_block!r}")
+
+
+def test_run_partc_live_populates_head_to_head(tmp_path, monkeypatch):
+    """REGRESSION: the LIVE run-partc path must forward head_to_head through its internal
+    _CachedComps wrapper. The rescore path's _CachedComps was fixed (b0104d3) but this one
+    was missed, so every live cell silently dropped the head-to-head verdict (pydantic
+    landed with head_to_head={})."""
+    import tier_c.cli as cli_mod
+
+    off_out = _arm_output(prism=False, text="off text", raw='{"off":1}')
+    on_out = _arm_output(prism=True, text="on text", raw='{"on":1}', prism_calls=2)
+    comps = _FakeComps(off_out, on_out)
+    monkeypatch.setattr(cli_mod, "_LivePartCComps", lambda **kw: comps)
+
+    class _FakeCheckout:
+        def __init__(self, *a, **kw): pass
+        def __enter__(self): return types.SimpleNamespace(root="/fake/root")
+        def __exit__(self, *a): pass
+
+    monkeypatch.setattr(cli_mod, "Checkout", _FakeCheckout, raising=False)
+    issue = types.SimpleNamespace(key="r", language="rust", repo="ruff", sha="abc",
+                                  url="u", text="body", scoped_slice="s")
+    monkeypatch.setattr(cli_mod, "load_issues", lambda path: [issue])
+    monkeypatch.setattr(cli_mod, "render_partc", lambda cells: "REPORT")
+    monkeypatch.setattr(cli_mod, "_write_partc_manifest", lambda *a, **kw: None, raising=False)
+
+    captured = {}
+
+    def fake_persist_cell(cell, repo, stage, model, *, run_id=None, runs_root=None):
+        captured["cell"] = cell
+        return "/dev/null"
+
+    monkeypatch.setattr(cli_mod, "_persist_partc_cell", fake_persist_cell)
+
+    runs_root = tmp_path / "runs"
+    cli_mod._run_partc_live(("ruff", "spec", "opus-4.8"), bench_root="/fake/bench",
+                            base_root="b", issues_path="i.toml", run_id="h2h-live-test",
+                            runs_root=str(runs_root))
+
+    assert captured["cell"].head_to_head == {"winner": "on", "escalated": False, "votes": []}, (
+        f"live run-partc must populate head_to_head; got {captured['cell'].head_to_head}")
