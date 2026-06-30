@@ -1,0 +1,14 @@
+[case]
+language = "javascript"
+capability = "named_import_alias"
+status = "pass"
+[seed]
+symbol = "process"
+file = "util.js"
+line = 1
+[[expect.callers]]
+file = "app.js"
+line = 4
+[expect]
+exact = true
+resolution_kind = "import_member"

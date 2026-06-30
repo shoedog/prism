@@ -1,0 +1,12 @@
+[case]
+language = "typescript"
+capability = "wrong_directory_same_stem"
+status = "pass"
+[seed]
+symbol = "process"
+file = "elsewhere/util.ts"
+line = 1
+[expect]
+callers = []
+exact = false
+forbid_resolution_kind = "import_member"

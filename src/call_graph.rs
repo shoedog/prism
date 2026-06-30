@@ -318,6 +318,12 @@ pub struct CallGraph {
     /// R4c: authority flag — which files prism has actually indexed.
     #[serde(default)]
     pub indexed_files: BTreeSet<String>,
+    /// JS/TS R4c: file -> exported function declarations.
+    #[serde(default)]
+    pub js_ts_exported_functions: BTreeMap<String, BTreeSet<String>>,
+    /// JS/TS R4c: caller function -> conservative parameter/local binding names.
+    #[serde(default)]
+    pub js_ts_function_locals: BTreeMap<FunctionId, BTreeSet<String>>,
 }
 
 impl CallGraph {
@@ -353,6 +359,8 @@ impl CallGraph {
             import_bindings: BTreeMap::new(),
             module_bindings: BTreeMap::new(),
             indexed_files: BTreeSet::new(),
+            js_ts_exported_functions: BTreeMap::new(),
+            js_ts_function_locals: BTreeMap::new(),
         }
     }
 
@@ -513,6 +521,8 @@ impl CallGraph {
             import_bindings: BTreeMap::new(),
             module_bindings: BTreeMap::new(),
             indexed_files: BTreeSet::new(),
+            js_ts_exported_functions: BTreeMap::new(),
+            js_ts_function_locals: BTreeMap::new(),
         }
     }
 
@@ -791,6 +801,8 @@ impl CallGraph {
 
         // R4c: populate import bindings for Python/JS/TS import-member resolution.
         let (import_bindings, module_bindings) = Self::extract_all_import_bindings(files);
+        let (js_ts_exported_functions, js_ts_function_locals) =
+            Self::extract_js_ts_resolution_facts(files);
         let indexed_files: BTreeSet<String> = files.keys().cloned().collect();
 
         let mut cg = CallGraph {
@@ -823,6 +835,8 @@ impl CallGraph {
             import_bindings,
             module_bindings,
             indexed_files,
+            js_ts_exported_functions,
+            js_ts_function_locals,
         };
         cg.recompute_indirect_calls(files);
         cg.refresh_rust_receiver_state(files);
@@ -866,6 +880,64 @@ impl CallGraph {
         }
         mark_import_binding_eligibility(&mut import_bindings, &module_bindings);
         (import_bindings, module_bindings)
+    }
+
+    fn extract_js_ts_resolution_facts(
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> (
+        BTreeMap<String, BTreeSet<String>>,
+        BTreeMap<FunctionId, BTreeSet<String>>,
+    ) {
+        Self::extract_js_ts_resolution_facts_from_iter(files.iter())
+    }
+
+    fn extract_js_ts_resolution_facts_from_iter<'a, I>(
+        files: I,
+    ) -> (
+        BTreeMap<String, BTreeSet<String>>,
+        BTreeMap<FunctionId, BTreeSet<String>>,
+    )
+    where
+        I: IntoIterator<Item = (&'a String, &'a ParsedFile)>,
+    {
+        let mut exported_functions: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        let mut function_locals: BTreeMap<FunctionId, BTreeSet<String>> = BTreeMap::new();
+
+        for (file_path, parsed) in files {
+            if !matches!(
+                parsed.language,
+                crate::languages::Language::JavaScript
+                    | crate::languages::Language::TypeScript
+                    | crate::languages::Language::Tsx
+            ) {
+                continue;
+            }
+
+            let exports = parsed.extract_js_ts_exported_functions();
+            if !exports.is_empty() {
+                exported_functions.insert(file_path.clone(), exports);
+            }
+
+            for func_node in parsed.all_functions() {
+                let Some(name_node) = parsed.language.function_name(&func_node) else {
+                    continue;
+                };
+                let name = parsed.node_text(&name_node).to_string();
+                let (start, end) = parsed.node_line_range(&func_node);
+                let func_id = FunctionId {
+                    file: file_path.clone(),
+                    name,
+                    start_line: start,
+                    end_line: end,
+                };
+                let locals = parsed.js_ts_function_local_bindings(&func_node);
+                if !locals.is_empty() {
+                    function_locals.insert(func_id, locals);
+                }
+            }
+        }
+
+        (exported_functions, function_locals)
     }
 
     // -----------------------------------------------------------------------
@@ -934,6 +1006,10 @@ impl CallGraph {
         // R4c: remove import/module bindings for excluded files.
         self.import_bindings.retain(|f, _| !exclude.contains(f));
         self.module_bindings.retain(|f, _| !exclude.contains(f));
+        self.js_ts_exported_functions
+            .retain(|f, _| !exclude.contains(f));
+        self.js_ts_function_locals
+            .retain(|fid, _| !exclude.contains(&fid.file));
         // indexed_files tracks the file set; removed files are no longer indexed.
         self.indexed_files.retain(|f| !exclude.contains(f));
     }
@@ -988,6 +1064,10 @@ impl CallGraph {
         self.import_bindings.extend(other.import_bindings);
         self.module_bindings.extend(other.module_bindings);
         self.indexed_files.extend(other.indexed_files);
+        self.js_ts_exported_functions
+            .extend(other.js_ts_exported_functions);
+        self.js_ts_function_locals
+            .extend(other.js_ts_function_locals);
     }
 
     pub(crate) fn recompute_indirect_calls(&mut self, files: &BTreeMap<String, ParsedFile>) {
@@ -2223,6 +2303,10 @@ impl CallGraph {
             }
         }
         mark_import_binding_eligibility(&mut import_bindings_map, &module_bindings_map);
+        let (js_ts_exported_functions, js_ts_function_locals) =
+            Self::extract_js_ts_resolution_facts_from_iter(
+                subset_files.iter().map(|(fp, parsed)| (fp, *parsed)),
+            );
         let indexed_files: BTreeSet<String> = files.keys().cloned().collect();
 
         CallGraph {
@@ -2255,6 +2339,8 @@ impl CallGraph {
             import_bindings: import_bindings_map,
             module_bindings: module_bindings_map,
             indexed_files,
+            js_ts_exported_functions,
+            js_ts_function_locals,
         }
     }
 
@@ -3066,6 +3152,73 @@ pub fn file_matches_module(
             }
         }
     }
+    false
+}
+
+/// Exact relative JS/TS module match for R4c `ImportMember` resolution.
+///
+/// Unlike `file_matches_module`, this helper deliberately has no stem fallback:
+/// `./util` from `pkg/app.ts` can match `pkg/util.ts` or `pkg/util/index.ts`,
+/// but never an unrelated `elsewhere/util.ts`.
+pub fn file_matches_js_ts_relative_module_exact(
+    file: &str,
+    module_path: &str,
+    caller_file: &str,
+    indexed_files: &BTreeSet<String>,
+) -> bool {
+    let module_path = module_path.trim();
+    if !(module_path.starts_with("./") || module_path.starts_with("../")) {
+        return false;
+    }
+
+    let caller_dir = caller_file.rsplit_once('/').map(|(d, _)| d).unwrap_or("");
+    let mut rel = module_path;
+    let mut base_parts: Vec<&str> = if caller_dir.is_empty() {
+        Vec::new()
+    } else {
+        caller_dir.split('/').collect()
+    };
+    while let Some(rest) = rel.strip_prefix("../") {
+        if base_parts.pop().is_none() {
+            return false;
+        }
+        rel = rest;
+    }
+    rel = rel.strip_prefix("./").unwrap_or(rel);
+    if rel.is_empty() {
+        return false;
+    }
+    let base = base_parts.join("/");
+
+    for ext in &[".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ""] {
+        let candidate = if base.is_empty() {
+            format!("{rel}{ext}")
+        } else {
+            format!("{base}/{rel}{ext}")
+        };
+        if indexed_files.contains(&candidate) && candidate == file {
+            return true;
+        }
+    }
+
+    for index in &[
+        "index.js",
+        "index.jsx",
+        "index.mjs",
+        "index.cjs",
+        "index.ts",
+        "index.tsx",
+    ] {
+        let candidate = if base.is_empty() {
+            format!("{rel}/{index}")
+        } else {
+            format!("{base}/{rel}/{index}")
+        };
+        if indexed_files.contains(&candidate) && candidate == file {
+            return true;
+        }
+    }
+
     false
 }
 

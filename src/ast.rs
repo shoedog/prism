@@ -27,6 +27,20 @@ fn count_nodes_recursive(node: Node<'_>, errors: &mut usize, total: &mut usize) 
     }
 }
 
+fn is_js_ts_function_like(kind: &str) -> bool {
+    matches!(
+        kind,
+        "function_declaration"
+            | "function_expression"
+            | "arrow_function"
+            | "generator_function_declaration"
+            | "generator_function"
+            | "method_definition"
+            | "method_signature"
+            | "abstract_method_signature"
+    )
+}
+
 /// Information about a single return statement within a function.
 #[derive(Debug, Clone)]
 pub struct ReturnInfo {
@@ -1179,6 +1193,9 @@ impl ParsedFile {
         if node.kind() != "import_statement" {
             return;
         }
+        if self.js_ts_import_statement_is_type_only(node) {
+            return;
+        }
         let source = node.child_by_field_name("source").map(|n| {
             let text = self.node_text(&n);
             text.trim_matches(|c| c == '\'' || c == '"').to_string()
@@ -1230,6 +1247,9 @@ impl ParsedFile {
                     let mut inner = child.walk();
                     for spec in child.children(&mut inner) {
                         if spec.kind() == "import_specifier" {
+                            if self.js_ts_import_specifier_is_type_only(spec) {
+                                continue;
+                            }
                             let name = spec
                                 .child_by_field_name("name")
                                 .map(|n| self.node_text(&n).to_string());
@@ -1277,6 +1297,22 @@ impl ParsedFile {
         }
     }
 
+    fn js_ts_import_statement_is_type_only(&self, node: Node<'_>) -> bool {
+        let mut cursor = node.walk();
+        let found = node
+            .children(&mut cursor)
+            .any(|child| child.kind() == "type");
+        found
+    }
+
+    fn js_ts_import_specifier_is_type_only(&self, node: Node<'_>) -> bool {
+        let mut cursor = node.walk();
+        let found = node
+            .children(&mut cursor)
+            .any(|child| child.kind() == "type");
+        found
+    }
+
     // -------------------------------------------------------------------
     // R4c: module-scope binding extraction (occurrence-clean eligibility)
     // -------------------------------------------------------------------
@@ -1300,6 +1336,217 @@ impl ParsedFile {
             Self::descend_compound_for_bindings(child, &self.language, &self.source, &mut out);
         }
         out
+    }
+
+    /// Extract JS/TS module-level exported function declarations.
+    ///
+    /// This deliberately accepts only `export function name(...)` declarations.
+    /// Default exports, re-export lists, CommonJS exports, and exported
+    /// const-arrow functions need separate modeling before they can support exact
+    /// import-member resolution.
+    pub fn extract_js_ts_exported_functions(&self) -> BTreeSet<String> {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return BTreeSet::new();
+        }
+
+        let mut out = BTreeSet::new();
+        let root = self.tree.root_node();
+        let mut cursor = root.walk();
+        for child in root.children(&mut cursor) {
+            if child.kind() != "export_statement" {
+                continue;
+            }
+            if self.js_ts_export_statement_is_default(child) {
+                continue;
+            }
+            let mut ec = child.walk();
+            for inner in child.children(&mut ec) {
+                self.collect_exported_function_name(inner, &mut out);
+            }
+        }
+        out
+    }
+
+    fn js_ts_export_statement_is_default(&self, node: Node<'_>) -> bool {
+        let mut cursor = node.walk();
+        let found = node
+            .children(&mut cursor)
+            .any(|child| child.kind() == "default");
+        found
+    }
+
+    fn collect_exported_function_name(&self, node: Node<'_>, out: &mut BTreeSet<String>) {
+        if node.kind() == "function_declaration" {
+            if let Some(name) = self.language.function_name(&node) {
+                out.insert(self.node_text(&name).to_string());
+            }
+        }
+    }
+
+    /// Conservative JS/TS function-scope bindings used to avoid false exact
+    /// import-member edges when an imported local is shadowed.
+    pub fn js_ts_function_local_bindings(&self, func_node: &Node<'_>) -> BTreeSet<String> {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return BTreeSet::new();
+        }
+
+        let mut out: BTreeSet<String> = BTreeSet::new();
+        self.collect_js_ts_parameter_bindings(*func_node, &mut out);
+        let root_key = (
+            func_node.start_byte(),
+            func_node.end_byte(),
+            func_node.kind_id(),
+        );
+        self.collect_js_ts_local_bindings(*func_node, root_key, &mut out);
+        out
+    }
+
+    fn collect_js_ts_parameter_bindings(&self, func_node: Node<'_>, out: &mut BTreeSet<String>) {
+        if let Some(params) = self.find_parameters_node(&func_node) {
+            let mut cursor = params.walk();
+            for child in params.children(&mut cursor) {
+                self.collect_js_ts_parameter_binding_names(child, out);
+            }
+        }
+    }
+
+    fn collect_js_ts_parameter_binding_names(&self, node: Node<'_>, out: &mut BTreeSet<String>) {
+        if let Some(pattern) = node.child_by_field_name("pattern") {
+            self.collect_js_ts_binding_pattern_names(pattern, out);
+            return;
+        }
+        if let Some(name) = node.child_by_field_name("name") {
+            self.collect_js_ts_binding_pattern_names(name, out);
+            return;
+        }
+        if let Some(left) = node.child_by_field_name("left") {
+            self.collect_js_ts_binding_pattern_names(left, out);
+            return;
+        }
+
+        match node.kind() {
+            "object_pattern" | "array_pattern" | "identifier" | "rest_pattern" => {
+                self.collect_js_ts_binding_pattern_names(node, out);
+            }
+            kind if kind.contains("parameter") => {
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if matches!(child.kind(), "type_annotation" | "return_type") {
+                        continue;
+                    }
+                    self.collect_js_ts_binding_pattern_names(child, out);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn collect_js_ts_binding_pattern_names(&self, node: Node<'_>, out: &mut BTreeSet<String>) {
+        match node.kind() {
+            "identifier" | "shorthand_property_identifier_pattern" => {
+                let name = self.node_text(&node);
+                if is_plain_ident(name) {
+                    out.insert(name.to_string());
+                }
+            }
+            "pair_pattern" => {
+                if let Some(value) = node.child_by_field_name("value") {
+                    self.collect_js_ts_binding_pattern_names(value, out);
+                }
+            }
+            "rest_pattern" => {
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    self.collect_js_ts_binding_pattern_names(child, out);
+                }
+            }
+            "assignment_pattern" => {
+                if let Some(left) = node.child_by_field_name("left") {
+                    self.collect_js_ts_binding_pattern_names(left, out);
+                }
+            }
+            "object_pattern"
+            | "array_pattern"
+            | "parenthesized_expression"
+            | "parenthesized_pattern" => {
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    self.collect_js_ts_binding_pattern_names(child, out);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn collect_js_ts_local_bindings(
+        &self,
+        node: Node<'_>,
+        root_key: (usize, usize, u16),
+        out: &mut BTreeSet<String>,
+    ) {
+        let is_root = (node.start_byte(), node.end_byte(), node.kind_id()) == root_key;
+
+        if !is_root && is_js_ts_function_like(node.kind()) {
+            if node.kind() == "function_declaration" {
+                if let Some(name) = self.language.function_name(&node) {
+                    out.insert(self.node_text(&name).to_string());
+                }
+            }
+            return;
+        }
+
+        match node.kind() {
+            "variable_declarator" => {
+                if let Some(name) = node.child_by_field_name("name") {
+                    self.collect_identifier_names(name, out);
+                }
+            }
+            "catch_clause" => {
+                self.collect_js_ts_catch_binding_names(node, out);
+            }
+            "class_declaration" if !is_root => {
+                if let Some(name) = node.child_by_field_name("name") {
+                    out.insert(self.node_text(&name).to_string());
+                }
+            }
+            _ => {}
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_js_ts_local_bindings(child, root_key, out);
+        }
+    }
+
+    fn collect_js_ts_catch_binding_names(&self, node: Node<'_>, out: &mut BTreeSet<String>) {
+        if let Some(param) = node.child_by_field_name("parameter") {
+            self.collect_js_ts_binding_pattern_names(param, out);
+            return;
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == "statement_block" {
+                continue;
+            }
+            self.collect_js_ts_binding_pattern_names(child, out);
+        }
+    }
+
+    fn collect_identifier_names(&self, node: Node<'_>, out: &mut BTreeSet<String>) {
+        if node.kind() == "identifier" {
+            out.insert(self.node_text(&node).to_string());
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_identifier_names(child, out);
+        }
     }
 
     /// Process a single statement node for module-scope bindings.

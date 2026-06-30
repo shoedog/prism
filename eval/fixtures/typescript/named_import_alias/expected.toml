@@ -1,0 +1,14 @@
+[case]
+language = "typescript"
+capability = "named_import_alias"
+status = "pass"
+[seed]
+symbol = "process"
+file = "util.ts"
+line = 1
+[[expect.callers]]
+file = "app.ts"
+line = 4
+[expect]
+exact = true
+resolution_kind = "import_member"
