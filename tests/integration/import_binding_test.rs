@@ -5,7 +5,8 @@
 
 use prism::ast::ParsedFile;
 use prism::call_graph::{
-    file_matches_module, CallGraph, ImportBinding, ImportBindingKind, ModuleBindingKind,
+    file_matches_js_ts_relative_module_exact, file_matches_module, CallGraph, ImportBindingKind,
+    ModuleBindingKind,
 };
 use prism::languages::Language;
 use prism::resolution::{ResolutionConfidence, ResolutionKind};
@@ -407,8 +408,8 @@ fn method_not_resolved_via_r4c() {
 }
 
 #[test]
-fn js_named_import_falls_through_to_r5() {
-    // R4c is gated to Python only; JS/TS imports fall through to R5.
+fn js_commonjs_named_import_stays_negative() {
+    // CommonJS export detection is out of scope for JS/TS R4c.
     let fs = files(&[
         (
             "utils.js",
@@ -422,13 +423,31 @@ fn js_named_import_falls_through_to_r5() {
         ),
     ]);
     let cg = CallGraph::build(&fs);
-    let (_, kind) = resolve_kind(&cg, "app.js", "run", "process");
-    assert_ne!(kind, ResolutionKind::ImportMember, "JS should not use R4c");
+    assert_not_import_member(&cg, "app.js", "run", "process");
 }
 
 #[test]
-fn ts_named_import_falls_through_to_r5() {
-    // R4c is gated to Python only; JS/TS imports fall through to R5.
+fn js_export_function_named_import_resolves_import_member() {
+    let fs = files(&[
+        (
+            "utils.js",
+            "export function process() { return 1; }\n",
+            Language::JavaScript,
+        ),
+        (
+            "app.js",
+            "import { process as runProcess } from './utils';\nfunction run() { runProcess(); }\n",
+            Language::JavaScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    let (conf, kind) = resolve_kind(&cg, "app.js", "run", "runProcess");
+    assert_eq!(conf, ResolutionConfidence::Exact);
+    assert_eq!(kind, ResolutionKind::ImportMember);
+}
+
+#[test]
+fn ts_export_function_named_import_resolves_import_member() {
     let fs = files(&[
         (
             "utils.ts",
@@ -442,8 +461,266 @@ fn ts_named_import_falls_through_to_r5() {
         ),
     ]);
     let cg = CallGraph::build(&fs);
-    let (_, kind) = resolve_kind(&cg, "app.ts", "run", "process");
-    assert_ne!(kind, ResolutionKind::ImportMember, "TS should not use R4c");
+    let (conf, kind) = resolve_kind(&cg, "app.ts", "run", "process");
+    assert_eq!(conf, ResolutionConfidence::Exact);
+    assert_eq!(kind, ResolutionKind::ImportMember);
+}
+
+#[test]
+fn ts_type_only_import_does_not_resolve_import_member() {
+    let fs = files(&[
+        (
+            "utils.ts",
+            "export function process(): number { return 1; }\n",
+            Language::TypeScript,
+        ),
+        (
+            "app.ts",
+            "import type { process } from './utils';\nfunction run() { process(); }\n",
+            Language::TypeScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    assert_not_import_member(&cg, "app.ts", "run", "process");
+}
+
+#[test]
+fn ts_type_named_specifier_does_not_resolve_import_member() {
+    let fs = files(&[
+        (
+            "utils.ts",
+            "export function process(): number { return 1; }\n",
+            Language::TypeScript,
+        ),
+        (
+            "app.ts",
+            "import { type process } from './utils';\nfunction run() { process(); }\n",
+            Language::TypeScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    assert_not_import_member(&cg, "app.ts", "run", "process");
+}
+
+#[test]
+fn tsx_export_function_named_import_resolves_import_member() {
+    let fs = files(&[
+        (
+            "view.tsx",
+            "export function process(): number { return 1; }\n",
+            Language::Tsx,
+        ),
+        (
+            "app.tsx",
+            "import { process } from './view';\nfunction run() { process(); }\n",
+            Language::Tsx,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    let (conf, kind) = resolve_kind(&cg, "app.tsx", "run", "process");
+    assert_eq!(conf, ResolutionConfidence::Exact);
+    assert_eq!(kind, ResolutionKind::ImportMember);
+}
+
+#[test]
+fn ts_named_import_collision_uses_imported_module_only() {
+    let fs = files(&[
+        (
+            "alpha/util.ts",
+            "export function process(): number { return 1; }\n",
+            Language::TypeScript,
+        ),
+        (
+            "beta/util.ts",
+            "export function process(): number { return 2; }\n",
+            Language::TypeScript,
+        ),
+        (
+            "app.ts",
+            "import { process } from './alpha/util';\nfunction run() { process(); }\n",
+            Language::TypeScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    let caller = cg
+        .functions
+        .get("run")
+        .and_then(|v| v.iter().find(|f| f.file == "app.ts"))
+        .unwrap();
+    let site = cg
+        .calls
+        .get(caller)
+        .and_then(|sites| sites.iter().find(|s| s.callee_name == "process"))
+        .unwrap();
+    let out = cg.resolve_call_site_full(site);
+    assert_eq!(out.resolved.len(), 1);
+    assert_eq!(out.resolved[0].target.file, "alpha/util.ts");
+    assert_eq!(out.resolved[0].kind, ResolutionKind::ImportMember);
+}
+
+#[test]
+fn ts_default_export_function_is_not_named_export() {
+    let fs = files(&[
+        (
+            "utils.ts",
+            "export default function process(): number { return 1; }\n",
+            Language::TypeScript,
+        ),
+        (
+            "app.ts",
+            "import { process } from './utils';\nfunction run() { process(); }\n",
+            Language::TypeScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    assert_not_import_member(&cg, "app.ts", "run", "process");
+}
+
+#[test]
+fn ts_import_member_rejects_non_exported_function() {
+    let fs = files(&[
+        (
+            "utils.ts",
+            "function process(): number { return 1; }\n",
+            Language::TypeScript,
+        ),
+        (
+            "app.ts",
+            "import { process } from './utils';\nfunction run() { process(); }\n",
+            Language::TypeScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    assert_not_import_member(&cg, "app.ts", "run", "process");
+}
+
+#[test]
+fn ts_import_member_rejects_param_shadow() {
+    let fs = files(&[
+        (
+            "utils.ts",
+            "export function process(): number { return 1; }\n",
+            Language::TypeScript,
+        ),
+        (
+            "app.ts",
+            "import { process } from './utils';\nfunction run(process: () => number) { process(); }\n",
+            Language::TypeScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    assert_not_import_member(&cg, "app.ts", "run", "process");
+}
+
+#[test]
+fn ts_import_member_ignores_type_annotation_identifier() {
+    let fs = files(&[
+        (
+            "utils.ts",
+            "export function process(): number { return 1; }\n",
+            Language::TypeScript,
+        ),
+        (
+            "app.ts",
+            "import { process } from './utils';\nfunction run(arg: process) { process(); }\n",
+            Language::TypeScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    let (conf, kind) = resolve_kind(&cg, "app.ts", "run", "process");
+    assert_eq!(conf, ResolutionConfidence::Exact);
+    assert_eq!(kind, ResolutionKind::ImportMember);
+}
+
+#[test]
+fn ts_import_member_rejects_catch_shadow() {
+    let fs = files(&[
+        (
+            "utils.ts",
+            "export function process(): number { return 1; }\n",
+            Language::TypeScript,
+        ),
+        (
+            "app.ts",
+            "import { process } from './utils';\nfunction run() { try { throw 1; } catch (process) { process(); } }\n",
+            Language::TypeScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    assert_not_import_member(&cg, "app.ts", "run", "process");
+}
+
+#[test]
+fn ts_import_member_rejects_local_shadow() {
+    let fs = files(&[
+        (
+            "utils.ts",
+            "export function process(): number { return 1; }\n",
+            Language::TypeScript,
+        ),
+        (
+            "app.ts",
+            "import { process } from './utils';\nfunction run() { const process = () => 2; process(); }\n",
+            Language::TypeScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    assert_not_import_member(&cg, "app.ts", "run", "process");
+}
+
+#[test]
+fn ts_import_member_rejects_arrow_param_shadow() {
+    let fs = files(&[
+        (
+            "utils.ts",
+            "export function process(): number { return 1; }\n",
+            Language::TypeScript,
+        ),
+        (
+            "app.ts",
+            "import { process } from './utils';\nconst run = (process: () => number) => { process(); };\n",
+            Language::TypeScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    assert_not_import_member(&cg, "app.ts", "run", "process");
+}
+
+#[test]
+fn ts_import_member_rejects_arrow_const_export() {
+    let fs = files(&[
+        (
+            "utils.ts",
+            "export const process = () => 1;\n",
+            Language::TypeScript,
+        ),
+        (
+            "app.ts",
+            "import { process as runProcess } from './utils';\nfunction run() { runProcess(); }\n",
+            Language::TypeScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    assert_not_import_member(&cg, "app.ts", "run", "runProcess");
+}
+
+#[test]
+fn ts_import_member_rejects_default_and_namespace_imports() {
+    let fs = files(&[
+        (
+            "utils.ts",
+            "export function process(): number { return 1; }\n",
+            Language::TypeScript,
+        ),
+        (
+            "app.ts",
+            "import runProcess from './utils';\nimport * as utils from './utils';\nfunction run() { runProcess(); utils.process(); }\n",
+            Language::TypeScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    assert_not_import_member(&cg, "app.ts", "run", "runProcess");
+    assert_not_import_member(&cg, "app.ts", "run", "process");
 }
 
 // -----------------------------------------------------------------------
@@ -505,6 +782,74 @@ fn file_matches_js_relative() {
         "src/app.js",
         &indexed
     ));
+}
+
+#[test]
+fn js_ts_exact_relative_matcher_accepts_file_and_index() {
+    let indexed: BTreeSet<String> = ["src/utils.ts", "src/pkg/index.ts"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    assert!(file_matches_js_ts_relative_module_exact(
+        "src/utils.ts",
+        "./utils",
+        "src/app.ts",
+        &indexed
+    ));
+    assert!(file_matches_js_ts_relative_module_exact(
+        "src/pkg/index.ts",
+        "./pkg",
+        "src/app.ts",
+        &indexed
+    ));
+}
+
+#[test]
+fn js_ts_exact_relative_matcher_accepts_parent_path() {
+    let indexed: BTreeSet<String> = ["src/utils.ts"].iter().map(|s| s.to_string()).collect();
+    assert!(file_matches_js_ts_relative_module_exact(
+        "src/utils.ts",
+        "../utils",
+        "src/sub/app.ts",
+        &indexed
+    ));
+}
+
+#[test]
+fn js_ts_exact_relative_matcher_rejects_wrong_directory_stem() {
+    let indexed: BTreeSet<String> = ["elsewhere/utils.ts"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    assert!(!file_matches_js_ts_relative_module_exact(
+        "elsewhere/utils.ts",
+        "./utils",
+        "src/app.ts",
+        &indexed
+    ));
+}
+
+#[test]
+fn js_ts_exact_relative_matcher_rejects_bare_package_specifier() {
+    let indexed: BTreeSet<String> = ["node_modules/pkg/index.ts"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    assert!(!file_matches_js_ts_relative_module_exact(
+        "node_modules/pkg/index.ts",
+        "pkg",
+        "src/app.ts",
+        &indexed
+    ));
+}
+
+#[test]
+fn js_ts_exact_relative_matcher_rejects_parent_above_root() {
+    let indexed: BTreeSet<String> = ["util.ts"].iter().map(|s| s.to_string()).collect();
+    assert!(
+        !file_matches_js_ts_relative_module_exact("util.ts", "../util", "app.ts", &indexed),
+        "relative traversal above the caller root should not clamp to repo root"
+    );
 }
 
 // -----------------------------------------------------------------------
@@ -742,7 +1087,7 @@ fn test_import_binding_relative_single_component_no_stem() {
 
 #[test]
 fn test_import_binding_js_not_resolved() {
-    // JS `import { f } from "./m"` must NOT fire R4c (Python-only gate).
+    // CommonJS exports are out of scope for JS/TS R4c exact resolution.
     let fs = files(&[
         (
             "m.js",

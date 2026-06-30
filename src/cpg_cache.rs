@@ -70,7 +70,8 @@ use std::path::{Path, PathBuf};
 /// - v26: class_bases for inherited-self resolution (Slice 1b).
 /// - v27: R4c import-binding resolution (import_bindings/module_bindings/indexed_files).
 /// - v28: CallSite.origin for source vs indirect-resolution provenance.
-const CACHE_VERSION: u32 = 28; // 28: CallSite.origin provenance.
+/// - v29: JS/TS R4c export and function-local shadow facts on CallGraph.
+const CACHE_VERSION: u32 = 29; // 29: JS/TS import-member exactness facts.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -575,9 +576,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_28_for_callsite_origin_provenance() {
-        // v28: CallSite.origin provenance.
-        assert_eq!(super::CACHE_VERSION, 28);
+    fn cache_version_is_29_for_js_ts_import_member_facts() {
+        // v29: JS/TS R4c export and function-local shadow facts.
+        assert_eq!(super::CACHE_VERSION, 29);
     }
 
     #[test]

@@ -1,0 +1,12 @@
+[case]
+language = "typescript"
+capability = "default_export_function_deferred"
+status = "pass"
+[seed]
+symbol = "process"
+file = "util.ts"
+line = 1
+[expect]
+callers = []
+exact = false
+forbid_resolution_kind = "import_member"

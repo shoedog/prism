@@ -107,6 +107,17 @@ pub fn owner_key(text: &str) -> String {
     t.trim().to_string()
 }
 
+fn supports_import_member_resolution(file: &str) -> bool {
+    file.ends_with(".py") || is_js_ts_import_member_file(file)
+}
+
+fn is_js_ts_import_member_file(file: &str) -> bool {
+    matches!(
+        file.rsplit_once('.').map(|(_, ext)| ext),
+        Some("js" | "jsx" | "mjs" | "cjs" | "ts" | "tsx")
+    )
+}
+
 /// Interface lookup key (Go): strip `&`/`*` and a `pkg.` qualifier to the bare
 /// interface name. Returns `None` for a generic instantiation (`Foo[T]`), which
 /// is non-dispatchable (a recorded gap, never a key) — spec §6/§10.
@@ -1380,7 +1391,7 @@ impl CallGraph {
                 // Must fire before the functions.get(name) check because aliases
                 // mean the call-site name ("p") differs from the function name
                 // ("process"), so the index won't have a hit on the aliased name.
-                if site.qualifier.is_none() && caller.file.ends_with(".py") {
+                if site.qualifier.is_none() && supports_import_member_resolution(&caller.file) {
                     if let Some(bindings) = self.import_bindings.get(&caller.file) {
                         if let Some(binding) = bindings.iter().find(|b| {
                             b.local == name
@@ -1390,23 +1401,47 @@ impl CallGraph {
                                     crate::call_graph::ImportBindingKind::MemberImport
                                 )
                         }) {
-                            let member = binding.member.as_deref().unwrap_or(name);
-                            if let Some(ids) = self.functions.get(member) {
-                                // Filter to free functions in matching files.
-                                // Python `from m import f` imports a module-level
-                                // name, so methods (class-scoped) are excluded.
-                                let matched: Vec<&FunctionId> = ids
+                            let is_js_ts = is_js_ts_import_member_file(&caller.file);
+                            if is_js_ts
+                                && self
+                                    .js_ts_function_locals
+                                    .get(caller)
+                                    .is_some_and(|locals| locals.contains(name))
+                            {
+                                // A parameter or local binding shadows the imported
+                                // local name; do not mint an exact import edge.
+                            } else {
+                                let member = binding.member.as_deref().unwrap_or(name);
+                                if let Some(ids) = self.functions.get(member) {
+                                    // Filter to free functions in matching files.
+                                    // Python `from m import f` imports a module-level
+                                    // name, so methods (class-scoped) are excluded.
+                                    let matched: Vec<&FunctionId> = ids
                                     .iter()
                                     .filter(|fid| {
-                                        !self.method_owners.contains_key(*fid)
-                                            && crate::call_graph::file_matches_module(
+                                        if self.method_owners.contains_key(*fid) {
+                                            return false;
+                                        }
+                                        if is_js_ts {
+                                            crate::call_graph::file_matches_js_ts_relative_module_exact(
                                                 &fid.file,
                                                 &binding.module_path,
                                                 &caller.file,
                                                 &self.indexed_files,
                                             )
-                                            // Only accept module-level functions, not nested defs.
-                                            && self
+                                                && self
+                                                    .js_ts_exported_functions
+                                                    .get(&fid.file)
+                                                    .is_some_and(|exports| exports.contains(member))
+                                        } else {
+                                            crate::call_graph::file_matches_module(
+                                                &fid.file,
+                                                &binding.module_path,
+                                                &caller.file,
+                                                &self.indexed_files,
+                                            )
+                                                // Only accept module-level functions, not nested defs.
+                                                && self
                                                 .module_bindings
                                                 .get(&fid.file)
                                                 .and_then(|mb| mb.get(member))
@@ -1416,22 +1451,24 @@ impl CallGraph {
                                                         crate::call_graph::ModuleBindingKind::FunctionDef
                                                     )
                                                 })
+                                        }
                                     })
                                     .collect();
-                                match matched.len() {
-                                    1 => {
-                                        return ResolutionOutcome::hit(exact(
-                                            matched,
-                                            ResolutionKind::ImportMember,
-                                        ))
+                                    match matched.len() {
+                                        1 => {
+                                            return ResolutionOutcome::hit(exact(
+                                                matched,
+                                                ResolutionKind::ImportMember,
+                                            ))
+                                        }
+                                        n if n > 1 => {
+                                            return ResolutionOutcome::hit(demoted(
+                                                matched,
+                                                ResolutionKind::ImportMember,
+                                            ))
+                                        }
+                                        _ => {} // fall through to R5
                                     }
-                                    n if n > 1 => {
-                                        return ResolutionOutcome::hit(demoted(
-                                            matched,
-                                            ResolutionKind::ImportMember,
-                                        ))
-                                    }
-                                    _ => {} // fall through to R5
                                 }
                             }
                         }

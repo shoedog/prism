@@ -27,7 +27,7 @@ from .corpus import (
     universe,
 )
 from .lsp_client import LspError
-from .matrix import run_matrix
+from .matrix import MATRIX_LANGUAGES, run_matrix
 from .metrics import precision_recall
 from .model import CallEdge, FunctionDef, Location, match_by_selection
 from .oracles import OracleError
@@ -401,6 +401,12 @@ def matrix_result_to_json(result) -> dict:
         "outcome": result.outcome,
         "got": [list(site) for site in sorted(result.got)],
         "expected": [list(site) for site in sorted(result.expected)],
+        "got_kinds": {
+            f"{file}:{line}": kind
+            for (file, line), kind in sorted(result.got_kinds.items())
+        },
+        "expected_resolution_kind": result.expected_resolution_kind,
+        "forbid_resolution_kind": result.forbid_resolution_kind,
     }
 
 
@@ -626,7 +632,7 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
                 for r in run_matrix(
                     EVAL_DIR / "fixtures",
                     sut,
-                    ["rust", "go", "python"],
+                    MATRIX_LANGUAGES,
                 )
             ]
             run["meta"]["wall_s"]["matrix"] = round(time.monotonic() - t0, 3)
@@ -724,7 +730,7 @@ def main() -> int:
     if args.matrix_only:
         sut = PrismCli(str(EVAL_DIR.parent), sut_bin=args.sut_bin,
                        allow_stale=args.allow_stale_sut)
-        results = run_matrix(EVAL_DIR / "fixtures", sut, ["rust", "go", "python"])
+        results = run_matrix(EVAL_DIR / "fixtures", sut, MATRIX_LANGUAGES)
         for r in results:
             print(f"{r.language}/{r.capability}: {r.outcome}")
         return 1 if any(r.outcome == "regression" for r in results) else 0

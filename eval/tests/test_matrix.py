@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from tier_a.matrix import load_case, run_matrix
+from tier_a.matrix import MATRIX_LANGUAGES, load_case, run_matrix
 from tier_a.model import CallEdge, FunctionDef, Location
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -19,6 +19,15 @@ class FakeSut:
             return [CallEdge("caller", seed, Location("main.rs", 3, 5), "run",
                              Location("main.rs", 4, 4))]
         return []
+
+
+class KindSut:
+    def __init__(self, kind):
+        self.kind = kind
+
+    def callers(self, root, seed):
+        return [CallEdge("caller", seed, Location("main.ts", 1, 3), "run",
+                         Location("main.ts", 2, 2), self.kind)]
 
 
 def test_load_case_parses_expected_toml():
@@ -56,11 +65,81 @@ def test_run_matrix_flags_flip_candidates():
     assert by_cap["inherited_override"].outcome == "flip_candidate"
 
 
+def test_run_matrix_checks_expected_resolution_kind(tmp_path):
+    case_dir = tmp_path / "fixtures" / "typescript" / "kind_case"
+    case_dir.mkdir(parents=True)
+    (case_dir / "expected.toml").write_text("""
+[case]
+language = "typescript"
+capability = "kind_case"
+status = "pass"
+[seed]
+symbol = "target"
+file = "util.ts"
+line = 1
+[[expect.callers]]
+file = "main.ts"
+line = 2
+[expect]
+exact = true
+resolution_kind = "import_member"
+""")
+    ok = run_matrix(tmp_path / "fixtures", KindSut("import_member"), ["typescript"])
+    wrong = run_matrix(tmp_path / "fixtures", KindSut("free_single"), ["typescript"])
+    assert ok[0].outcome == "ok"
+    assert wrong[0].outcome == "regression"
+
+
+def test_run_matrix_forbids_resolution_kind(tmp_path):
+    case_dir = tmp_path / "fixtures" / "typescript" / "forbid_case"
+    case_dir.mkdir(parents=True)
+    (case_dir / "expected.toml").write_text("""
+[case]
+language = "typescript"
+capability = "forbid_case"
+status = "pass"
+[seed]
+symbol = "target"
+file = "util.ts"
+line = 1
+[expect]
+callers = []
+exact = false
+forbid_resolution_kind = "import_member"
+""")
+    ok = run_matrix(tmp_path / "fixtures", KindSut("free_single"), ["typescript"])
+    wrong = run_matrix(tmp_path / "fixtures", KindSut("import_member"), ["typescript"])
+    assert ok[0].outcome == "ok"
+    assert wrong[0].outcome == "regression"
+
+
+def test_load_case_rejects_resolution_kind_without_expected_callers(tmp_path):
+    case_dir = tmp_path / "fixtures" / "typescript" / "empty_kind_case"
+    case_dir.mkdir(parents=True)
+    expected = case_dir / "expected.toml"
+    expected.write_text("""
+[case]
+language = "typescript"
+capability = "empty_kind_case"
+status = "pass"
+[seed]
+symbol = "target"
+file = "util.ts"
+line = 1
+[expect]
+callers = []
+exact = false
+resolution_kind = "import_member"
+""")
+    with pytest.raises(ValueError, match="resolution_kind requires"):
+        load_case(expected)
+
+
 @pytest.mark.skipif(not os.path.exists(PRISM_BIN), reason="release prism binary absent")
 def test_matrix_against_real_binary_has_no_regressions():
     from tier_a.sut import PrismCli
     sut = PrismCli(str(Path(__file__).resolve().parents[2]), sut_bin=PRISM_BIN,
                    allow_stale=True)   # self-test: freshness is Task 21's concern
-    results = run_matrix(FIXTURES, sut, ["rust", "go", "python"])
+    results = run_matrix(FIXTURES, sut, MATRIX_LANGUAGES)
     regressions = [r for r in results if r.outcome == "regression"]
     assert not regressions, f"matrix regressions: {regressions}"

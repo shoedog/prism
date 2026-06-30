@@ -1,0 +1,12 @@
+[case]
+language = "typescript"
+capability = "duplicate_import_local"
+status = "pass"
+[seed]
+symbol = "process"
+file = "a.ts"
+line = 1
+[expect]
+callers = []
+exact = false
+forbid_resolution_kind = "import_member"
