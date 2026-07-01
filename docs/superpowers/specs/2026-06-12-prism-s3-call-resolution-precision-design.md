@@ -2,12 +2,12 @@
 
 **Date:** 2026-06-12 · **Status:** rev 2.1 — **owner-approved.** Dual cleanroom review
 folded (codex gpt-5.5 xhigh rigor + claude fable xhigh soundness, R6 redacted for
-both; record: `docs/prism-query-layer/s3-spec-review-2026-06-12.md`). Both reviewers
+both; record: `docs/archive/review-artifacts/prism-query-layer/s3-spec-review-2026-06-12.md`). Both reviewers
 independently recommended the R6 policy now in §2.3; owner confirmed P6-lite (with the
 P2-only fallback) after a lite-vs-full comparison, adding the std-wrapper peel list
 and the §7.4 S3.1 field-index candidate.
 **Context docs:** `docs/eval/tier-a/baseline.md` (the measured S3 work-list — the
-anchor), `docs/cpg-substrate-analysis-2026-06-10.md` §3 S3 row (prescribed fix shape),
+anchor), `docs/features/cpg/substrate-analysis-2026-06-10.md` §3 S3 row (prescribed fix shape),
 `docs/prism-query-layer/tier-a-handoff-2026-06-12.md` (sequencing: S3 → S2 → Plan B).
 
 ## 0. Why now

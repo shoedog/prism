@@ -1,8 +1,11 @@
 # LLM Evidence Shaping for Navigation Results
 
-Status: design draft for review
+Status: Historical implemented design; updated 2026-07-01
 Date: 2026-06-23
 Scope: MCP/navigation output ergonomics only; no source changes in this document
+
+> Current status: opt-in MCP `EvidenceView` rendering is implemented in the current codebase, and later slices
+> advanced `VIEW_SCHEMA_VERSION` to `0.4`. This file is retained for the original evidence-shaping design.
 
 ## Executive Summary
 

@@ -4,7 +4,7 @@
 gpt-5.5 xhigh: BLOCKER on the Step-9 CHA *seed scan*; claude opus 4.8: MAJOR on the F7
 helper's substrate — plus a shared MAJOR on 6-slice acceptance; both "tighten", no
 redesign). rev 2 folded round-1 F1–F14. Record:
-`docs/prism-query-layer/eft-spec-review-2026-06-14.md` (rounds 1 + 2). Builds on
+`docs/archive/review-artifacts/prism-query-layer/eft-spec-review-2026-06-14.md` (rounds 1 + 2). Builds on
 **S2 node-identity** (merged `dd60ed6`). Owner forks: **(B1)** tag CPG `Call`/`Return` with
 `ResolutionConfidence`, keep both Exact+NameOnly; **(A)** "Exact-path-and-measure" — exact
 node traversal + a nav confidence filter; external-receiver NameOnly FPs → **Phase-IP**.

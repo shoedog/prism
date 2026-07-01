@@ -8,10 +8,10 @@
 
 **Tech Stack:** Rust, tree-sitter, petgraph, serde/bincode (CPG cache), the Tier-A eval harness (`eval/`, uv Python) for acceptance.
 
-**Spec:** `docs/superpowers/specs/2026-06-12-prism-s3-call-resolution-precision-design.md` (rev 2.1, owner-approved). Spec review record: `docs/prism-query-layer/s3-spec-review-2026-06-12.md`.
+**Spec:** `docs/superpowers/specs/2026-06-12-prism-s3-call-resolution-precision-design.md` (rev 2.1, owner-approved). Spec review record: `docs/archive/review-artifacts/prism-query-layer/s3-spec-review-2026-06-12.md`.
 
 **Plan rev 2** — codex xhigh dual-lens plan review folded (record:
-`docs/prism-query-layer/s3-plan-review-2026-06-12.md`; all 5 BLOCKER + 8 MAJOR +
+`docs/archive/review-artifacts/prism-query-layer/s3-plan-review-2026-06-12.md`; all 5 BLOCKER + 8 MAJOR +
 4 MINOR findings fixed in-plan: incremental `build_direct_subset` recovery parity,
 `ResolutionOutcome`/`DropReason` classification, `ReceiverRecovery` carried on
 `CallSite`, call-line-ordered shadow bail, both traversal branches per-site, 5b

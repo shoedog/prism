@@ -13,7 +13,7 @@
   owner asks (PR-1's rhythm).
 - **Untracked eval artifacts** (`docs/eval/tier-a/2026-06-15-*`, `eval/snapshots/*`) are leftover run
   outputs — leave untracked, never commit (same as PR-1).
-- **Review records:** `docs/prism-query-layer/phase-ip-pr2-spec-review-codex-2026-06-16.md` (codex xhigh);
+- **Review records:** `docs/archive/review-artifacts/prism-query-layer/phase-ip-pr2-spec-review-codex-2026-06-16.md` (codex xhigh);
   the claude-opus lens findings are folded into the spec's rev-2 header. Both verdicts: strategically
   sound, buildability gaps fixed.
 - **Memory:** `~/.claude/projects/-Users-wesleyjinks-code-slicing/memory/` — `project_prism_phase_ip.md`

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Rust, `petgraph` (`DiGraph<CpgNode, CpgEdge>`), `serde`.
 
-**Source specs:** `docs/superpowers/specs/2026-06-09-prism-tier2-planA-substrate-hardening-design.md` and `…-taint-reaches-design.md`. Revised per `docs/prism-query-layer/planA-plan-review-MCP-2026-06-09.md` (folds blockers B1–B7 + majors M1–M6 + minors m1–m6).
+**Source specs:** `docs/superpowers/specs/2026-06-09-prism-tier2-planA-substrate-hardening-design.md` and `…-taint-reaches-design.md`. Revised per `docs/archive/review-artifacts/prism-query-layer/planA-plan-review-MCP-2026-06-09.md` (folds blockers B1–B7 + majors M1–M6 + minors m1–m6).
 
 > **GLOBAL OPTION-C PROOF SET (run ALL of these at every task's commit boundary — B6):**
 > ```

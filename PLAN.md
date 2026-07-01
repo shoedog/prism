@@ -141,7 +141,7 @@ These formats need a different analysis model: parse → find touched units → 
 | Item | Effort | Priority | Notes |
 |------|--------|----------|-------|
 | ~~Type enrichment via `compile_commands.json` + clang~~ | — | **Done** | Phase 5 complete. `TypeDatabase` parses `compile_commands.json`, shells out to `clang -Xclang -ast-dump=json`, extracts struct/class/union definitions, field types, typedefs, and class hierarchy. `CodePropertyGraph::build_with_types()` adds virtual dispatch Call edges via CHA. CLI: `--compile-commands <path>`. 15 tests (10 unit + 5 integration). |
-| ~~Control flow graph edges in CPG~~ | — | **Done** | Phase 6 complete. `cfg.rs` builds intraprocedural CFG edges; `cpg.rs` creates Statement nodes and ControlFlow edges. PR A: core CFG (sequential flow, if/else, loops, goto). PR B: multi-language handlers (Python for/else + try/except, Go defer/select, Rust match, JS/Java try/catch/finally, C switch fall-through). PR C: algorithm integration — `taint_forward_cfg()` and `dfg_cfg_chop()` filter DFG results by CFG reachability, pruning dead-code paths. Known gaps: Go `fallthrough` keyword (sequential workaround), Lua pcall/xpcall (not modeled). Full plan: `docs/cpg-phase6-cfg-plan.md`. |
+| ~~Control flow graph edges in CPG~~ | — | **Done** | Phase 6 complete. `cfg.rs` builds intraprocedural CFG edges; `cpg.rs` creates Statement nodes and ControlFlow edges. PR A: core CFG (sequential flow, if/else, loops, goto). PR B: multi-language handlers (Python for/else + try/except, Go defer/select, Rust match, JS/Java try/catch/finally, C switch fall-through). PR C: algorithm integration — `taint_forward_cfg()` and `dfg_cfg_chop()` filter DFG results by CFG reachability, pruning dead-code paths. Known gaps: Go `fallthrough` keyword (sequential workaround), Lua pcall/xpcall (not modeled). Full plan: `docs/features/cpg/cfg-plan.md`. |
 | ~~Local must-alias tracking~~ | — | **Done** | Phase 3: `ptr = dev` → `ptr->field` resolves to `dev->field`. Supports assignments and declarations with initializers. Chain resolution (a=b, b=c → a resolves to c). Tested across C, Python, JS, Go, Rust with chain and negative tests. 7 must-alias tests. |
 | `oxc_parser` + `oxc_semantic` for JS/TS | 1-2 weeks | Medium | Scope-aware analysis eliminates false taint matches from same-named imports. 3-5x faster than tree-sitter |
 | Preprocessor-aware analysis (`cpp -E`) | 2-4 weeks | Medium | Eliminates ERROR nodes from macro-heavy C/C++ code |
@@ -199,7 +199,7 @@ The eval team's CWE coverage handoff (`~/code/agent-eval/analysis/prism-cwe-cove
 ### Key Design Decisions
 - **Tree-sitter** for multi-language AST parsing (9 languages: Python, JS/TS, Go, Java, C/C++, Rust, Lua)
 - **AccessPath-based variable tracking** — structured `{ base, fields }` replacing bare string names. Enables field-sensitive analysis.
-- **Code Property Graph** — unified petgraph DiGraph merging DFG + call graph + containment edges. Edge-filtered traversals (SCC, reachability, hop-distance BFS). All 11 CPG-consuming algorithms migrated. Legacy DFG/CG retained as embedded fields for edge diffing (delta_slice) and call site line lookups. See `docs/cpg-architecture.md`
+- **Code Property Graph** — unified petgraph DiGraph merging DFG + call graph + containment edges. Edge-filtered traversals (SCC, reachability, hop-distance BFS). All 11 CPG-consuming algorithms migrated. Legacy DFG/CG retained as embedded fields for edge diffing (delta_slice) and call site line lookups. See `docs/features/cpg/architecture.md`
 - **BTreeMap/BTreeSet everywhere** for deterministic sorted output
 - **Shared infrastructure:** `call_graph.rs` and `data_flow.rs` retained as CPG internals; algorithms access them via `cpg.call_graph` and `cpg.dfg` when needed
 - **Algorithm-specific configs** in each module, not in central `SliceConfig`
@@ -242,9 +242,9 @@ The eval team's CWE coverage handoff (`~/code/agent-eval/analysis/prism-cwe-cove
 
 ## Reference
 
-- **CPG architecture:** `docs/cpg-architecture.md` (AccessPath, Code Property Graph, type enrichment — design, phases 1-6 all done)
-- **CPG Phase 6 plan:** `docs/cpg-phase6-cfg-plan.md` (control flow graph edges — completed, 3-PR summary)
-- **CPG improvements:** `docs/cpg-improvements.md` (post-Phase 6: CpgContext build-once, JS/TS destructuring, tree-sitter struct fallback, RTA, Lua colon fix)
+- **CPG architecture:** `docs/features/cpg/architecture.md` (AccessPath, Code Property Graph, type enrichment — design, phases 1-6 all done)
+- **CPG Phase 6 plan:** `docs/features/cpg/cfg-plan.md` (control flow graph edges — completed, 3-PR summary)
+- **CPG improvements:** `docs/features/cpg/improvements.md` (post-Phase 6: CpgContext build-once, JS/TS destructuring, tree-sitter struct fallback, RTA, Lua colon fix)
 - **Terraform/HCL plan:** `docs/terraform-hcl-plan.md` (TerraformRefGraph architecture, algorithm mapping, dual-parser approach)
 - **Shell/Bash plan:** `docs/shell-bash-plan.md` (taint sinks, unquoted variable detection, firmware-specific patterns)
 - **Access network evaluation:** `docs/access-network-analysis-evaluation.md` (YANG/NETCONF, Device Tree, Busybox for ROLT/vCMTS/RPD/CIN/CPE, DOCSIS 4.0, WiFi 7)

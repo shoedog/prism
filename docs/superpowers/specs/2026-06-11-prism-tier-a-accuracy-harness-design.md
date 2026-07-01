@@ -11,11 +11,11 @@
 **Date:** 2026-06-11 · **Status:** rev 4 — **owner-approved** (rev 3 + owner review:
 corpus swap to repeat-run-friendly set, `eval/`-vs-`agent-eval` separation contract).
 Dual spec-review rounds 1 (5 BLOCKER, 11 MAJOR, 6 MINOR) and 2 (2 BLOCKER, 7 MAJOR,
-6 MINOR) folded; records: `docs/prism-query-layer/tier-a-spec-review-2026-06-11.md`,
+6 MINOR) folded; records: `docs/archive/review-artifacts/prism-query-layer/tier-a-spec-review-2026-06-11.md`,
 `...-r2-2026-06-11.md`; r2 verdict: "the architecture itself needs no rework, and
 planning can start immediately after rev 3"
 **Context docs:** `docs/prism-meta-analysis-2026-06-10.md` (§1 three-tier harness, §3 LSP
-head-to-head prototype), `docs/cpg-substrate-analysis-2026-06-10.md` (S3 precision),
+head-to-head prototype), `docs/features/cpg/substrate-analysis-2026-06-10.md` (S3 precision),
 `docs/prism-query-layer/s1-followups.md` (items 1 — B2 trigger, 4 — test wall time).
 
 ## 0. Why now

@@ -1,5 +1,7 @@
 # Clean-room constraints brief — Tier 2 Plan B: `taint_reaches` (on the MERGED substrate)
 
+> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+
 **For codex + claude (clean-room, prism-equipped).** This is a *constraints* brief, not a design. Produce
 your **own** analysis → architecture → component design → implementation-plan outline for `taint_reaches`
 v1, reading the **actual merged repo** at the session cwd via prism (`mcp__prism__nav_*`) + read-only tools.

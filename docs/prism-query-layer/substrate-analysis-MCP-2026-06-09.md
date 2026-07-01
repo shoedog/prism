@@ -1,3 +1,5 @@
+> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+
 I'll merge these two designs. Both architects converge strongly, and most of their "disagreements" are actually one giving a sharper version of the other's claim. Before writing the merged design, let me adjudicate the three load-bearing factual claims the merge pivots on — these determine the central architectural recommendation.All three load-bearing facts are adjudicated. Results:
 
 - **`CpgEdge::Return` exists** (types.rs:90) — claude's G2 is correct. *Correction to claude's specifics:* the predicates are named `is_interprocedural()` (matches `Call | Return`, types.rs:168) and `is_data_flow()` (matches `DataFlow` only, types.rs:163), **not** `is_call_like`/`is_data_like`. Substance holds, names drifted.

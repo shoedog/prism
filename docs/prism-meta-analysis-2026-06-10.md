@@ -1,6 +1,6 @@
 # Prism Meta-Analysis: Measurement, Scale, Adoption Seams, and Operational Truth
 
-**Date:** 2026-06-10 (companion to `docs/cpg-substrate-analysis-2026-06-10.md`)
+**Date:** 2026-06-10 (companion to `docs/features/cpg/substrate-analysis-2026-06-10.md`)
 **Scope:** The seven questions the substrate analysis surfaced but was not asked: (1) accuracy
 ground truth, (2) LLM-consumer value & ergonomics, (3) build-vs-adopt for the precision tier
 (SCIP/LSP), (4) mid-session staleness, (5) the scale ceiling, (6) packaging robustness,

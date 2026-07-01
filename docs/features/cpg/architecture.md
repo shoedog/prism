@@ -1,6 +1,6 @@
 # Code Property Graph Architecture
 
-**Status:** Design  
+**Status:** Current architecture; implementation status updated 2026-07-01
 **Date:** 2026-04-01  
 **Scope:** Long-term architecture for Prism's analysis infrastructure
 
@@ -297,7 +297,7 @@ Added CFG edges to the CPG. `cfg.rs` builds intraprocedural CFG edges from
 tree-sitter AST. `taint_forward_cfg()` and `dfg_cfg_chop()` filter DFG results
 by CFG reachability, pruning dead-code paths. Multi-language handlers for
 Python for/else, Go defer/select, Rust match, JS/Java try/catch/finally,
-C switch fall-through. See `docs/cpg-phase6-cfg-plan.md` for full details.
+C switch fall-through. See `docs/features/cpg/cfg-plan.md` for full details.
 
 ## 4. Open Questions & Uncertainties
 
@@ -323,25 +323,27 @@ C switch fall-through. See `docs/cpg-phase6-cfg-plan.md` for full details.
 
 7. **clang dependency weight for Layer 3?**
    → Option (a): shell out to clang, parse JSON output. Implemented in Phase 5.
-   Tree-sitter struct extraction fallback planned — see `docs/cpg-improvements.md` §4.
+   Tree-sitter struct extraction fallback is implemented for the CLI C/C++ type
+   enrichment path — see `docs/features/cpg/improvements.md` §4.
 
 8. **Virtual dispatch: part of CPG or separate?**
    → Part of CPG via CHA (class hierarchy analysis). Implemented in Phase 5.
-   RTA refinement planned — see `docs/cpg-improvements.md` §5.
+   RTA refinement is implemented with provider-specific recall-preserving
+   fallbacks — see `docs/features/cpg/improvements.md` §5.
+
+9. **JS/TS destructuring alias tracking?**
+   → Implemented for object, renamed, nested, array, rest, for-of, and
+   TypeScript destructuring aliases — see `docs/features/cpg/improvements.md` §1.
+
+10. **Build CPG once, share across algorithms?**
+    → Implemented via `CpgContext`; CLI algorithm dispatch shares the built CPG
+    rather than rebuilding per algorithm — see `docs/features/cpg/improvements.md` §2-3.
 
 ### Open
 
 5. **Incremental CPG construction?**
    Deferred. Batch construction is fine for code review. Revisit if/when LSP
    integration is on the roadmap.
-
-9. **JS/TS destructuring alias tracking?**
-   `const { name } = device` creates an untracked alias. Taint blind spot for
-   idiomatic JS/TS. Planned — see `docs/cpg-improvements.md` §1.
-
-10. **Build CPG once, share across algorithms?**
-    12 algorithms redundantly rebuild identical CPG. `CpgContext` bundle type
-    planned — see `docs/cpg-improvements.md` §2-3.
 
 ## 5. Risks
 
@@ -351,7 +353,7 @@ C switch fall-through. See `docs/cpg-phase6-cfg-plan.md` for full details.
 | Field sensitivity introduces false negatives | Medium | Medium | **Mitigated.** Dual matching implemented; field isolation verified across all 9 languages. |
 | petgraph performance on large firmware repos | Low | Medium | Not yet tested at scale. Profile before optimizing. |
 | Algorithm migration introduces subtle bugs | Medium | High | **Mitigated.** All 12 algorithms migrated, 489 tests pass. |
-| clang dependency reduces portability | Low | Low | Layer 3 is optional. Tree-sitter fallback planned (`docs/cpg-improvements.md` §4). |
+| clang dependency reduces portability | Low | Low | Layer 3 is optional. Tree-sitter fallback implemented for CLI C/C++ type enrichment (`docs/features/cpg/improvements.md` §4). |
 | Scope creep — "while we're refactoring..." | High | Medium | **Mitigated.** Strict phase boundaries maintained across all 6 phases. |
 
 ## 6. Non-Goals

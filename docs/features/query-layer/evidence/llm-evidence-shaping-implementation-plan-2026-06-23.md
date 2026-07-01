@@ -1,8 +1,11 @@
 # LLM Evidence Shaping Implementation Plan
 
-Status: reviewed implementation brief
+Status: Historical implemented plan; updated 2026-07-01
 Date: 2026-06-23
 Branch: `evidence-shaping`, based on `origin/main`
+
+> Current status: the opt-in MCP evidence view slice is implemented; later evidence-profile and contract
+> hardening work extended the same surface. This file is retained for the original implementation plan.
 
 ## Scope
 

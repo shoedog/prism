@@ -1,5 +1,7 @@
 # LLM Codebase Navigation & Understanding: What the Research Actually Shows
 
+> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+
 ## TL;DR
 
 - **No single technique dominates; the evidence favors a layered stack — precise symbol/graph navigation (LSP/SCIP-style or repo code graphs) + lexical+structural search as the backbone, with semantic embeddings as a supplement, and hierarchical localization on top — and several “obvious” additions (LLM-generated context files, pure vector RAG, very long context) measurably *hurt* or fail to beat simpler baselines.**

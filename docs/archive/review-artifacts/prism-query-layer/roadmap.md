@@ -1,11 +1,14 @@
 # Prism Query/Navigation — Initiative Roadmap
 
+> **Archived 2026-07-01.** Tier 1 and Tier 2 have shipped. This file is retained as historical context only.
+> Use `docs/features/query-layer/` for current status.
+
 The larger plan behind Plan 1. Extends Prism from a diff-only review slicer into
 an LLM/agent codebase-understanding tool, **preserving diff-review throughout**.
 
 - **Spec (Tier 1):** `docs/superpowers/specs/2026-06-07-prism-navigation-layer-design.md`
 - **Branch:** `feat/prism-query-layer`
-- **Design history:** `docs/prism-query-layer/provenance/`
+- **Design history:** `docs/archive/review-artifacts/prism-query-layer/provenance/`
 
 ## Vision (three horizons)
 

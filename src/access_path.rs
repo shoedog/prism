@@ -7,7 +7,7 @@
 //! unrelated struct fields.
 //!
 //! Part of the Code Property Graph architecture (Phase 1).
-//! See `docs/cpg-architecture.md` for the full design.
+//! See `docs/features/cpg/architecture.md` for the full design.
 
 use std::fmt;
 

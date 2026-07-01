@@ -1,5 +1,7 @@
 # LLM Codebase Navigation: Prism Extension Analysis
 
+> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+
 **Status:** Analysis  
 **Date:** 2026-06-06  
 **Scope:** Evaluate extending Prism to support LLM-oriented codebase navigation and understanding techniques while preserving the existing diff/code-review use case.
@@ -32,7 +34,7 @@ This analysis is based on:
   - `src/cpg_cache.rs`
   - `src/main.rs`
   - `src/algorithms/mod.rs`
-  - `docs/cpg-architecture.md`
+  - `docs/features/cpg/architecture.md`
   - `PLAN.md`
   - `LLM.md`
 

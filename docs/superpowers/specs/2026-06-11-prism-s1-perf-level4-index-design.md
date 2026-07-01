@@ -8,7 +8,7 @@
 > the PR). Deferred work + execution findings: `docs/prism-query-layer/s1-followups.md`.
 
 **Status:** Owner design, **revision 3 (2026-06-11)** — folded round-2 dual review
-(`docs/prism-query-layer/s1-spec-review-r2-MCP-2026-06-11.md`; verdict "fold 1–8 then
+(`docs/archive/review-artifacts/prism-query-layer/s1-spec-review-r2-MCP-2026-06-11.md`; verdict "fold 1–8 then
 plan"): walk-**up** reconstruction + fallback-fire counter (r2-BLOCKER 1), full-`CallSite`
 equality (r2-2), CG/DFG serialization parity (r2-3), pinned identifier predicate (r2-4),
 two-half oracle pairing rule (r2-5), legacy-symbol-≈0 B1 gate + full-command C gate (r2-6),
@@ -16,7 +16,7 @@ in-module test seam (r2-7), bench command templates/portability (r2-8, 12), MINO
 Revision 2 folded round 1 (`s1-spec-review-MCP-2026-06-11.md`, all 12 findings). Input to
 `writing-plans`.
 **Context:** First slice of the substrate program in
-`docs/cpg-substrate-analysis-2026-06-10.md` (S1) plus the Level-4 inversion identified in
+`docs/features/cpg/substrate-analysis-2026-06-10.md` (S1) plus the Level-4 inversion identified in
 `docs/prism-meta-analysis-2026-06-10.md` §5. Profiling evidence: prism-repo cold build is
 dominated by repeated `ParsedFile::all_functions()` tree-sitter queries; at kubernetes scale
 100% of a sampled window sits in `CallGraph::build` → `ast::resolve_struct_field_assignment`

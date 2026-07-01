@@ -1,7 +1,11 @@
 # Prism EvidenceView Contract Hardening - Design (2026-06-23, rev 2)
 
-Status: A2A spec review findings folded; ready for implementation
+Status: Historical implemented design; updated 2026-07-01
 Branch: `evidence-view-spec`, based on `origin/main`
+
+> Current status: EvidenceView contract hardening is implemented in the current codebase. Current
+> `VIEW_SCHEMA_VERSION` is `0.4` in `src/mcp/evidence_view.rs`; earlier version references below are retained
+> only where they describe spec-time context.
 
 > Next MCP/query-layer slice after the merged evidence-shaping and evidence-profile-quality work.
 > This is not a resolver, CPG, or navigation-query slice. It tightens the opt-in `EvidenceView` contract so
@@ -20,9 +24,9 @@ The early design draft framed EvidenceView as a new layer to build. That layer n
 
 Committed inputs:
 
-- `docs/prism-query-layer/llm-evidence-shaping-implementation-plan-2026-06-23.md`
-- `docs/prism-query-layer/evidence-profile-quality-plan-2026-06-23.md`
-- `docs/prism-query-layer/evidence-profile-quality-implementation-handoff-2026-06-23.md`
+- `docs/features/query-layer/evidence/llm-evidence-shaping-implementation-plan-2026-06-23.md`
+- `docs/features/query-layer/evidence/evidence-profile-quality-plan-2026-06-23.md`
+- `docs/features/query-layer/evidence/evidence-profile-quality-implementation-handoff-2026-06-23.md`
 - `src/mcp/evidence_view.rs`
 - `src/mcp/input.rs`
 - `src/mcp/tools.rs`
@@ -34,7 +38,7 @@ Current implementation facts:
 - `structuredContent` remains capped canonical `Evidence`.
 - `format: "agent_markdown"` and `format: "agent_json"` opt into an `EvidenceView`.
 - `profile`, `snippets`, `group_by`, and `max_view_bytes` are parsed and schema-advertised.
-- `VIEW_SCHEMA_VERSION` is `0.2`.
+- `VIEW_SCHEMA_VERSION` is currently `0.4` (`0.2` at this spec's original context).
 - Profiles already drive grouping, summary trust counts, reason labels, snippets, and next-query hints.
 - Next-query hints are capped, deduped, and parser-validated in tests.
 

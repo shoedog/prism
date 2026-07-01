@@ -1,6 +1,8 @@
 # Tier-A Followups (post-final-review, 2026-06-12)
 
-Final whole-branch review record: `tier-a-final-review-2026-06-12.md` (8 MAJOR fixed
+> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+
+Final whole-branch review record: `docs/archive/review-artifacts/prism-query-layer/tier-a-final-review-2026-06-12.md` (8 MAJOR fixed
 pre-merge; these are the MINORs + corrections carried forward).
 
 1. **build.rs worktree refs (review #9):** in a linked worktree, refs/packed-refs live

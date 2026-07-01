@@ -651,6 +651,6 @@ For test suites that exercise many algorithms, AST-only ones can be batched with
 ## See also
 
 - [`SLICING_METHODS.md`](SLICING_METHODS.md) — theoretical taxonomy and motivation for each algorithm class.
-- [`docs/cpg-architecture.md`](docs/cpg-architecture.md) — how the unified CPG is built.
+- [`docs/features/cpg/architecture.md`](docs/features/cpg/architecture.md) — how the unified CPG is built.
 - [`docs/SPEC-ALGO-LANGUAGE-COVERAGE.md`](docs/SPEC-ALGO-LANGUAGE-COVERAGE.md) — algorithm × language test coverage spec.
 - [`README.md`](README.md) — one-line algorithm summaries and CLI flag reference.

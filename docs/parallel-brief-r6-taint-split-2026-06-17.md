@@ -17,7 +17,7 @@ existing fixtures — the goal is structure, not new behavior.
 - It pairs with the A2 `compute_bindings` extraction (already planned). Est. ~2–4 days, low risk.
 
 ## Where to look (read these first)
-- **`docs/cpg-substrate-analysis-2026-06-10.md`** — authoritative. **F11** ("`taint.rs` is >10k lines …
+- **`docs/features/cpg/substrate-analysis-2026-06-10.md`** — authoritative. **F11** ("`taint.rs` is >10k lines …
   the A4 layering inversion is real, tracked, paired with A2; `src/sanitizers/` already exists as the
   target"); **§4 R6** (cost/benefit/risk + the mitigation: the `algo_taxonomy_sanitizers*` fixtures are
   byte-pinned — "the proven A4 technique"); the "Valuable but safely AFTER (additive)" list.

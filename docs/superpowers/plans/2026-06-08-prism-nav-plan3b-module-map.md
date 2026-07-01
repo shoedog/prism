@@ -8,7 +8,7 @@
 
 **Tech Stack:** Rust, `serde`/`serde_json`, `petgraph`, `clap`, the existing `prism::navigation` + `prism::call_graph` modules.
 
-**Spec:** `docs/superpowers/specs/2026-06-07-prism-navigation-layer-design.md` §5 (skipped-file contract), §8 (Evidence/graph envelope), §10 (module/repo map + precision tiers), §12 (CLI seam), §16 (named goldens), §17 (build order steps 7, 10). **Roadmap:** `docs/prism-query-layer/roadmap.md` (Plan 3 scope, minus the MCP adapter which is Plan 3c).
+**Spec:** `docs/superpowers/specs/2026-06-07-prism-navigation-layer-design.md` §5 (skipped-file contract), §8 (Evidence/graph envelope), §10 (module/repo map + precision tiers), §12 (CLI seam), §16 (named goldens), §17 (build order steps 7, 10). **Roadmap:** `docs/archive/review-artifacts/prism-query-layer/roadmap.md` (Plan 3 scope, minus the MCP adapter which is Plan 3c).
 
 ---
 

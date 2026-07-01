@@ -1,9 +1,12 @@
 # MCP Auto-Incremental Refresh - Slice C Design
 
-Status: A2A review findings folded; ready for implementation review
+Status: Historical implemented design; updated 2026-07-01
 Date: 2026-06-24
 Branch: `codex/mcp-auto-incremental-refresh`, based on `origin/main` at `ea04a89`
-Parent spec: `docs/prism-query-layer/mcp-auto-refresh-incremental-correctness-design-2026-06-23.md`
+Parent spec: `docs/features/query-layer/mcp-refresh/mcp-auto-refresh-incremental-correctness-design-2026-06-23.md`
+
+> Current status: `AutoIncremental` is implemented in the current MCP refresh policy path. This file is
+> retained for the Slice C implementation design and review history.
 
 ## Review History
 

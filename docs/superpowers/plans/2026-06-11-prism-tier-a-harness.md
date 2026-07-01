@@ -4092,7 +4092,7 @@ measured against this baseline).
   across Tasks 10–20; `PrismCli(prism_repo, sut_bin, allow_stale)` consistent between
   Tasks 13/18/20.
 - rev 2 folds the merged plan-review
-  (`docs/prism-query-layer/tier-a-plan-review-2026-06-11.md`): consolidation script
+  (`docs/archive/review-artifacts/prism-query-layer/tier-a-plan-review-2026-06-11.md`): consolidation script
   committed under `scripts/`; cli.py fully coded with a probes-fixture replay test
   (B2) + new Task 19 accounting/floors layer; OracleError + lifecycle wrappers +
   `version()` on both seams (B3); tokio prep (B4); §2.4 universe filter applied to
