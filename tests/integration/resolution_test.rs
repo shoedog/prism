@@ -2729,6 +2729,25 @@ fn py_receiver_typed_param_recovers_exact_among_collisions() {
 }
 
 #[test]
+fn py_inherited_base_typed_param_exact() {
+    use prism::languages::Language::Python;
+    let (cg, _) = build(&[(
+        "svc.py",
+        "class Base:\n    def go(self):\n        pass\n\nclass Child(Base):\n    pass\n\nclass Other:\n    def go(self):\n        pass\n\ndef run(c: Child):\n    c.go()\n",
+        Python,
+    )]);
+    let site = site_in(&cg, "run", "go");
+    assert_eq!(site.receiver_type.as_deref(), Some("Child"));
+    let out = cg.resolve_call_site_full(&site);
+    assert_eq!(out.resolved.len(), 1, "{out:?}");
+    let callee = &out.resolved[0];
+    assert_eq!(callee.target.file, "svc.py");
+    assert_eq!(callee.target.start_line, 2);
+    assert_eq!(callee.kind, ResolutionKind::TypedParam);
+    assert_eq!(callee.confidence, ResolutionConfidence::Exact);
+}
+
+#[test]
 fn py_imported_receiver_type_skips_recovery_and_no_false_exact() {
     use prism::languages::Language::Python;
     let (cg, _) = build(&[(

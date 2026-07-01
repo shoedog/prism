@@ -71,7 +71,8 @@ use std::path::{Path, PathBuf};
 /// - v27: R4c import-binding resolution (import_bindings/module_bindings/indexed_files).
 /// - v28: CallSite.origin for source vs indirect-resolution provenance.
 /// - v29: JS/TS R4c export and function-local shadow facts on CallGraph.
-const CACHE_VERSION: u32 = 29; // 29: JS/TS import-member exactness facts.
+/// - v30: clean_class_spans for Python recovered inherited receiver resolution.
+const CACHE_VERSION: u32 = 30; // 30: Python inherited recovered-receiver class spans.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -576,9 +577,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_29_for_js_ts_import_member_facts() {
-        // v29: JS/TS R4c export and function-local shadow facts.
-        assert_eq!(super::CACHE_VERSION, 29);
+    fn cache_version_is_30_for_python_inherited_receiver_class_spans() {
+        // v30: clean_class_spans for Python recovered inherited receiver resolution.
+        assert_eq!(super::CACHE_VERSION, 30);
     }
 
     #[test]

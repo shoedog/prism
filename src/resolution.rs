@@ -85,6 +85,12 @@ pub struct ResolvedCallee<'a> {
     pub kind: ResolutionKind,
 }
 
+enum RecoveredDirectMethod<'a> {
+    Hit(Vec<ResolvedCallee<'a>>),
+    Blocked,
+    Miss,
+}
+
 /// A resolved caller edge: who calls the seed, with what confidence, at which line.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedCallEdge {
@@ -866,6 +872,84 @@ impl CallGraph {
         }
     }
 
+    fn recovered_receiver_direct_method<'a>(
+        &'a self,
+        caller_file: &str,
+        receiver_owner: &str,
+        method_name: &str,
+        recovered_kind: ResolutionKind,
+    ) -> RecoveredDirectMethod<'a> {
+        let Some(receiver_span) = self
+            .clean_class_spans
+            .get(&(caller_file.to_string(), receiver_owner.to_string()))
+        else {
+            return RecoveredDirectMethod::Miss;
+        };
+        let Some(ids) = self
+            .methods
+            .get(&(receiver_owner.to_string(), method_name.to_string()))
+        else {
+            return RecoveredDirectMethod::Miss;
+        };
+        let same_class: Vec<&FunctionId> = ids
+            .iter()
+            .filter(|fid| {
+                fid.file == caller_file && self.method_class_span.get(*fid) == Some(receiver_span)
+            })
+            .collect();
+        if same_class.is_empty() {
+            return RecoveredDirectMethod::Miss;
+        }
+        if same_class
+            .iter()
+            .any(|fid| self.method_class_span_ambiguous.contains(*fid))
+            || same_class.len() != 1
+        {
+            return RecoveredDirectMethod::Blocked;
+        }
+        RecoveredDirectMethod::Hit(exact(same_class, recovered_kind))
+    }
+
+    fn inherited_recovered_receiver_direct_base<'a>(
+        &'a self,
+        caller_file: &str,
+        receiver_owner: &str,
+        method_name: &str,
+        recovered_kind: ResolutionKind,
+    ) -> Option<Vec<ResolvedCallee<'a>>> {
+        use crate::call_graph::ClassBaseLink;
+
+        let receiver_span = *self
+            .clean_class_spans
+            .get(&(caller_file.to_string(), receiver_owner.to_string()))?;
+        let bases = self
+            .class_bases
+            .get(&(caller_file.to_string(), receiver_span))?;
+        if bases.len() != 1 {
+            return None;
+        }
+        let (base_span, base_owner) = match &bases[0] {
+            ClassBaseLink::SameFile { span, owner } => (*span, owner.as_str()),
+            ClassBaseLink::Barrier => return None,
+        };
+        let ids = self
+            .methods
+            .get(&(base_owner.to_string(), method_name.to_string()))?;
+        let in_base: Vec<&FunctionId> = ids
+            .iter()
+            .filter(|fid| {
+                fid.file == caller_file
+                    && self.method_class_span.get(*fid) == Some(&base_span)
+                    && !self.method_class_span_ambiguous.contains(*fid)
+            })
+            .collect();
+        if in_base.len() == 1 {
+            Some(exact(in_base, recovered_kind))
+        } else {
+            None
+        }
+    }
+
     /// Like `owner_lookup`, but for a qualified `mod::T::m` call the preceding
     /// module segments narrow candidates to files under that module — so
     /// `foo::Engine::start()` does NOT also resolve `bar::Engine::start()` (same
@@ -1253,8 +1337,33 @@ impl CallGraph {
                         }
                         _ => ResolutionKind::TypedParam,
                     };
-                    match self.owner_lookup(recv_ty, name) {
-                        Some(mut resolved) => {
+                    if caller_lang == Some(crate::languages::Language::Python) {
+                        let clean_key = (caller.file.clone(), recv_ty.to_string());
+                        if self.clean_class_spans.contains_key(&clean_key) {
+                            match self.recovered_receiver_direct_method(
+                                &caller.file,
+                                recv_ty,
+                                name,
+                                recovered_kind,
+                            ) {
+                                RecoveredDirectMethod::Hit(resolved) => {
+                                    return ResolutionOutcome::hit(resolved)
+                                }
+                                RecoveredDirectMethod::Blocked => {}
+                                RecoveredDirectMethod::Miss => {
+                                    if let Some(resolved) = self
+                                        .inherited_recovered_receiver_direct_base(
+                                            &caller.file,
+                                            recv_ty,
+                                            name,
+                                            recovered_kind,
+                                        )
+                                    {
+                                        return ResolutionOutcome::hit(resolved);
+                                    }
+                                }
+                            }
+                        } else if let Some(mut resolved) = self.owner_lookup(recv_ty, name) {
                             for callee in &mut resolved {
                                 if callee.kind == ResolutionKind::QualifiedOwner {
                                     callee.kind = recovered_kind;
@@ -1263,55 +1372,66 @@ impl CallGraph {
                             }
                             return ResolutionOutcome::hit(resolved);
                         }
-                        // Gate the interface consult to Go callers: P6-lite receiver
-                        // recovery also fires for Rust, and `interface_impls` is Go-only,
-                        // so an un-gated consult could mint a cross-language edge (e.g. a
-                        // Rust `x.Go()` matching a Go interface named the same). Mirrors the
-                        // language gate at the C-only free-fn fallback below.
-                        None if caller_lang == Some(crate::languages::Language::Go) => {
-                            match crate::resolution::iface_key(recv_ty) {
-                                Some(k) => match self.interface_impls.get(&(k, name.to_string())) {
-                                    Some(ids) if !ids.is_empty() => {
-                                        // Arity-disambiguate the name-keyed candidate set
-                                        // (shared helper; same filter runs in
-                                        // interface_dispatch_manifest). An emptied set takes
-                                        // the existing no-impl drop path — do NOT fall through.
-                                        let kept = crate::resolution::arity_filter(
-                                            ids,
-                                            site.arg_count,
-                                            site.arg_spread,
-                                            &self.method_arity,
-                                        );
-                                        if kept.is_empty() {
-                                            return ResolutionOutcome::dropped(
-                                                DropReason::ExternalReceiver,
-                                            );
-                                        } else {
-                                            return ResolutionOutcome::hit(exact(
-                                                kept,
-                                                ResolutionKind::InterfaceDispatch,
-                                            ));
+                    } else {
+                        match self.owner_lookup(recv_ty, name) {
+                            Some(mut resolved) => {
+                                for callee in &mut resolved {
+                                    if callee.kind == ResolutionKind::QualifiedOwner {
+                                        callee.kind = recovered_kind;
+                                    }
+                                    // Trait-CHA hits keep TraitCha (dyn Trait receivers).
+                                }
+                                return ResolutionOutcome::hit(resolved);
+                            }
+                            // Gate the interface consult to Go callers: P6-lite receiver
+                            // recovery also fires for Rust, and `interface_impls` is Go-only,
+                            // so an un-gated consult could mint a cross-language edge (e.g. a
+                            // Rust `x.Go()` matching a Go interface named the same). Mirrors the
+                            // language gate at the C-only free-fn fallback below.
+                            None if caller_lang == Some(crate::languages::Language::Go) => {
+                                match crate::resolution::iface_key(recv_ty) {
+                                    Some(k) => {
+                                        match self.interface_impls.get(&(k, name.to_string())) {
+                                            Some(ids) if !ids.is_empty() => {
+                                                // Arity-disambiguate the name-keyed candidate set
+                                                // (shared helper; same filter runs in
+                                                // interface_dispatch_manifest). An emptied set takes
+                                                // the existing no-impl drop path — do NOT fall through.
+                                                let kept = crate::resolution::arity_filter(
+                                                    ids,
+                                                    site.arg_count,
+                                                    site.arg_spread,
+                                                    &self.method_arity,
+                                                );
+                                                if kept.is_empty() {
+                                                    return ResolutionOutcome::dropped(
+                                                        DropReason::ExternalReceiver,
+                                                    );
+                                                } else {
+                                                    return ResolutionOutcome::hit(exact(
+                                                        kept,
+                                                        ResolutionKind::InterfaceDispatch,
+                                                    ));
+                                                }
+                                            }
+                                            _ => {
+                                                return ResolutionOutcome::dropped(
+                                                    DropReason::ExternalReceiver,
+                                                )
+                                            }
                                         }
                                     }
-                                    _ => {
+                                    None => {
                                         return ResolutionOutcome::dropped(
                                             DropReason::ExternalReceiver,
                                         )
                                     }
-                                },
-                                None => {
-                                    return ResolutionOutcome::dropped(DropReason::ExternalReceiver)
                                 }
                             }
+                            None => {
+                                return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+                            }
                         }
-                        None if !matches!(
-                            caller_lang,
-                            Some(crate::languages::Language::Python)
-                        ) =>
-                        {
-                            return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
-                        }
-                        None => {}
                     }
                 }
 

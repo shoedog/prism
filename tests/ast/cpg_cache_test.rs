@@ -156,6 +156,10 @@ fn normalized_cpg_behavior(cpg: &CodePropertyGraph) -> Vec<String> {
         cpg.call_graph.class_bases
     ));
     out.push(format!(
+        "cg-index clean_class_spans {:?}",
+        cpg.call_graph.clean_class_spans
+    ));
+    out.push(format!(
         "cg-index methods_by_scope {:?}",
         cpg.call_graph.methods_by_scope
     ));
@@ -748,6 +752,30 @@ fn test_cache_preserves_call_graph() {
     assert_eq!(
         ctx_original.cpg.call_graph.calls.len(),
         loaded_cpg.call_graph.calls.len()
+    );
+}
+
+#[test]
+fn cache_round_trips_python_inherited_receiver_class_spans() {
+    let app =
+        "class Base:\n    def go(self):\n        pass\n\nclass Child(Base):\n    pass\n\ndef run(c: Child):\n    c.go()\n";
+    let sources = BTreeMap::from([("app.py".to_string(), app.to_string())]);
+    let files = parsed_files(&[("app.py", app, Language::Python)]);
+    let ctx_original = CpgContext::build(&files, None);
+    assert!(ctx_original
+        .cpg
+        .call_graph
+        .clean_class_spans
+        .contains_key(&("app.py".to_string(), "Child".to_string())));
+
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&ctx_original.cpg, &hashes, false, cache_dir.path()).unwrap();
+
+    let loaded_cpg = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
+    assert_eq!(
+        ctx_original.cpg.call_graph.clean_class_spans,
+        loaded_cpg.call_graph.clean_class_spans
     );
 }
 
@@ -1948,6 +1976,69 @@ fn incremental_matches_full_for_python_js_ts_import_bindings() {
         .get("app.ts")
         .expect("ts import bindings");
     assert!(ts_bindings.iter().any(|binding| binding.local == "workTs"));
+}
+
+#[test]
+fn incremental_matches_full_for_python_inherited_receiver_changed_file() {
+    let app_v1 = "class Base:\n    def go(self):\n        pass\n\nclass Child(Base):\n    pass\n\nclass Other:\n    def go(self):\n        pass\n\ndef run(c: Child):\n    c.go()\n";
+    let app_v2 = "class Base:\n    def go(self):\n        pass\n\nclass Child(Base):\n    pass\n\nclass Other:\n    def go(self):\n        pass\n\ndef run(c: Child):\n    c.go()\n\ndef touched():\n    pass\n";
+    let v1 = parsed_files(&[
+        ("app.py", app_v1, Language::Python),
+        ("util.py", "def marker():\n    return 1\n", Language::Python),
+    ]);
+    let v2 = parsed_files(&[
+        ("app.py", app_v2, Language::Python),
+        ("util.py", "def marker():\n    return 1\n", Language::Python),
+    ]);
+
+    let incremental =
+        assert_incremental_matches_full(v1, v2, BTreeSet::from(["app.py".to_string()]));
+    let site = call_site_in_file(&incremental, "app.py", "run", "go");
+    let resolved = incremental.call_graph.resolve_call_site(&site);
+    assert_eq!(resolved.len(), 1, "{resolved:?}");
+    assert_eq!(resolved[0].target.file, "app.py");
+    assert_eq!(resolved[0].target.start_line, 2);
+    assert_eq!(
+        resolved[0].kind,
+        prism::resolution::ResolutionKind::TypedParam
+    );
+    assert_eq!(
+        resolved[0].confidence,
+        prism::resolution::ResolutionConfidence::Exact
+    );
+    assert!(incremental
+        .call_graph
+        .clean_class_spans
+        .contains_key(&("app.py".to_string(), "Child".to_string())));
+}
+
+#[test]
+fn incremental_preserves_python_inherited_receiver_on_unrelated_change() {
+    let app = "class Base:\n    def go(self):\n        pass\n\nclass Child(Base):\n    pass\n\nclass Other:\n    def go(self):\n        pass\n\ndef run(c: Child):\n    c.go()\n";
+    let v1 = parsed_files(&[
+        ("app.py", app, Language::Python),
+        ("util.py", "def marker():\n    return 1\n", Language::Python),
+    ]);
+    let v2 = parsed_files(&[
+        ("app.py", app, Language::Python),
+        ("util.py", "def marker():\n    return 2\n", Language::Python),
+    ]);
+
+    let incremental =
+        assert_incremental_matches_full(v1, v2, BTreeSet::from(["util.py".to_string()]));
+    let site = call_site_in_file(&incremental, "app.py", "run", "go");
+    let resolved = incremental.call_graph.resolve_call_site(&site);
+    assert_eq!(resolved.len(), 1, "{resolved:?}");
+    assert_eq!(resolved[0].target.file, "app.py");
+    assert_eq!(resolved[0].target.start_line, 2);
+    assert_eq!(
+        resolved[0].kind,
+        prism::resolution::ResolutionKind::TypedParam
+    );
+    assert!(incremental
+        .call_graph
+        .clean_class_spans
+        .contains_key(&("app.py".to_string(), "Child".to_string())));
 }
 
 #[test]

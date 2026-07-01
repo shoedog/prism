@@ -4,8 +4,8 @@ capability = "inherited_override"
 # S3: reconciled pass -> known_fail (expected_gap). `c.go()` with c untyped and
 # `go` defined on both Base and Child is a genuine multi-owner collision: the R6
 # precision floor drops it (and emits a Collision warning) rather than guess —
-# correct precision-floor behavior. Disambiguating needs the receiver's type
-# (Python has no P6-lite); spec §2.4 → Phase-IP. Owner-approved 2026-06-13.
+# correct precision-floor behavior. Disambiguating needs a recoverable receiver
+# type for this call; here `c` is untyped. Owner-approved 2026-06-13.
 status = "known_fail"
 [seed]
 symbol = "go"
