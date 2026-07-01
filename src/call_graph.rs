@@ -252,6 +252,10 @@ pub struct CallGraph {
     /// Python/JS/TS.
     #[serde(default)]
     pub class_bases: BTreeMap<(String, (usize, usize)), Vec<ClassBaseLink>>,
+    /// Python recovered-receiver class identity: `(file_path, owner_name)` to
+    /// module-scope class byte span, only when the owner is occurrence-clean.
+    #[serde(default)]
+    pub clean_class_spans: BTreeMap<(String, String), (usize, usize)>,
     /// Phase-2a PR-1: (defining-type scope, method_name) -> definitions.
     /// Inert until the receiver-typed read path lands.
     #[serde(default)]
@@ -340,6 +344,7 @@ impl CallGraph {
             method_class_span: BTreeMap::new(),
             method_class_span_ambiguous: BTreeSet::new(),
             class_bases: BTreeMap::new(),
+            clean_class_spans: BTreeMap::new(),
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -502,6 +507,7 @@ impl CallGraph {
             method_class_span,
             method_class_span_ambiguous,
             class_bases: BTreeMap::new(),
+            clean_class_spans: BTreeMap::new(),
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -796,8 +802,8 @@ impl CallGraph {
             }
         }
 
-        // Phase 5: Build class_bases for inherited-self resolution (Py/JS/TS only).
-        let class_bases = Self::build_class_bases(files);
+        // Phase 5: Build class facts for inherited-self and recovered receivers.
+        let (class_bases, clean_class_spans) = Self::build_class_facts(files);
 
         // R4c: populate import bindings for Python/JS/TS import-member resolution.
         let (import_bindings, module_bindings) = Self::extract_all_import_bindings(files);
@@ -816,6 +822,7 @@ impl CallGraph {
             method_class_span,
             method_class_span_ambiguous,
             class_bases,
+            clean_class_spans,
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -985,6 +992,8 @@ impl CallGraph {
         self.method_class_span_ambiguous
             .retain(|fid| !exclude.contains(&fid.file));
         self.class_bases.retain(|(f, _), _| !exclude.contains(f));
+        self.clean_class_spans
+            .retain(|(f, _), _| !exclude.contains(f));
         self.methods_by_scope.clear();
         self.extension_methods.clear();
         self.identity_complete.clear();
@@ -1045,6 +1054,7 @@ impl CallGraph {
             );
         }
         self.class_bases.extend(other.class_bases);
+        self.clean_class_spans.extend(other.clean_class_spans);
         for (key, fids) in other.methods_by_scope {
             self.methods_by_scope.entry(key).or_default().extend(fids);
         }
@@ -1343,15 +1353,20 @@ impl CallGraph {
         }
     }
 
-    /// Build `class_bases` for inherited-self resolution (Py/JS/TS only).
+    /// Build class facts for inherited-self and recovered receiver resolution.
     ///
     /// For each module-scope class definition with base slots, resolves each
-    /// base to `SameFile` or `Barrier` based on occurrence-clean checks.
-    fn build_class_bases(
+    /// base to `SameFile` or `Barrier` based on occurrence-clean checks. Also
+    /// records occurrence-clean module-scope class spans by `(file, owner)`.
+    fn build_class_facts(
         files: &BTreeMap<String, ParsedFile>,
-    ) -> BTreeMap<(String, (usize, usize)), Vec<ClassBaseLink>> {
+    ) -> (
+        BTreeMap<(String, (usize, usize)), Vec<ClassBaseLink>>,
+        BTreeMap<(String, String), (usize, usize)>,
+    ) {
         use crate::languages::Language;
         let mut class_bases = BTreeMap::new();
+        let mut clean_class_spans = BTreeMap::new();
 
         for (file_path, parsed) in files {
             if !matches!(
@@ -1363,12 +1378,13 @@ impl CallGraph {
 
             let root = parsed.tree.root_node();
             let has_wildcard_import = Self::has_wildcard_import(parsed);
+            let has_module_scope_match = Self::has_module_scope_match(parsed);
 
             // Collect all top-level class definitions with their names and spans.
             // "Top-level" = direct child of module root (or inside a decorated_definition
             // that is a direct child of module root). Not nested inside functions or
             // other classes.
-            let mut top_level_classes: Vec<(String, (usize, usize))> = Vec::new();
+            let mut top_level_classes = Vec::new();
             let mut cursor = root.walk();
             for child in root.children(&mut cursor) {
                 let class_node = if child.kind() == "decorated_definition" {
@@ -1398,46 +1414,34 @@ impl CallGraph {
                     let name =
                         parsed.source[name_node.start_byte()..name_node.end_byte()].to_string();
                     let span = (class_node.start_byte(), class_node.end_byte());
-                    top_level_classes.push((name, span));
+                    top_level_classes.push((name, span, class_node));
                 }
             }
 
             // Count top-level binding occurrences of each name for occurrence-clean check.
             let top_level_bindings = Self::top_level_bindings(parsed);
 
-            // Now iterate all module-scope class definitions that have base slots.
-            let mut cursor2 = root.walk();
-            for child in root.children(&mut cursor2) {
-                let class_node = if child.kind() == "decorated_definition" {
-                    let mut inner_cursor = child.walk();
-                    let mut found = None;
-                    for inner in child.children(&mut inner_cursor) {
-                        if inner.kind() == "class_definition" {
-                            found = Some(inner);
-                            break;
-                        }
+            if !has_wildcard_import && !has_module_scope_match {
+                for (class_name, class_span, _) in &top_level_classes {
+                    let class_matches = top_level_classes
+                        .iter()
+                        .filter(|(name, _, _)| name == class_name)
+                        .count();
+                    let binding_count = top_level_bindings.get(class_name).copied().unwrap_or(0);
+                    if class_matches == 1 && binding_count == 1 {
+                        clean_class_spans
+                            .insert((file_path.clone(), class_name.clone()), *class_span);
                     }
-                    match found {
-                        Some(n) => n,
-                        None => continue,
-                    }
-                } else if matches!(
-                    child.kind(),
-                    "class_definition" | "class_declaration" | "class"
-                ) {
-                    child
-                } else {
-                    continue;
-                };
+                }
+            }
 
-                let base_slots = parsed
-                    .language
-                    .class_base_names(&class_node, &parsed.source);
+            // Now iterate all module-scope class definitions that have base slots.
+            for (_, class_span, class_node) in &top_level_classes {
+                let base_slots = parsed.language.class_base_names(class_node, &parsed.source);
                 if base_slots.is_empty() {
                     continue;
                 }
 
-                let class_span = (class_node.start_byte(), class_node.end_byte());
                 let links: Vec<ClassBaseLink> = base_slots
                     .into_iter()
                     .map(|slot| {
@@ -1445,17 +1449,19 @@ impl CallGraph {
                             return ClassBaseLink::Barrier;
                         };
 
-                        // Wildcard import poisons all simple names.
-                        if has_wildcard_import {
+                        // Wildcard imports and module-scope match captures poison
+                        // simple class identity for this precision slice.
+                        if has_wildcard_import || has_module_scope_match {
                             return ClassBaseLink::Barrier;
                         }
 
                         // Check occurrence-clean: the name must appear exactly once as
                         // a top-level class definition and have no other top-level bindings.
-                        let class_matches: Vec<&(String, (usize, usize))> = top_level_classes
-                            .iter()
-                            .filter(|(n, _)| *n == base_name)
-                            .collect();
+                        let class_matches: Vec<&(String, (usize, usize), tree_sitter::Node)> =
+                            top_level_classes
+                                .iter()
+                                .filter(|(n, _, _)| *n == base_name)
+                                .collect();
 
                         if class_matches.len() != 1 {
                             return ClassBaseLink::Barrier;
@@ -1477,11 +1483,76 @@ impl CallGraph {
                     })
                     .collect();
 
-                class_bases.insert((file_path.clone(), class_span), links);
+                class_bases.insert((file_path.clone(), *class_span), links);
             }
         }
 
-        class_bases
+        (class_bases, clean_class_spans)
+    }
+
+    /// Check if a Python file has a module-scope `match` statement. Pattern
+    /// captures bind at module scope; model that conservatively as a class-fact
+    /// barrier for this precision slice.
+    fn has_module_scope_match(parsed: &ParsedFile) -> bool {
+        if !matches!(parsed.language, crate::languages::Language::Python) {
+            return false;
+        }
+
+        fn check_block(node: tree_sitter::Node) -> bool {
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                if check_module_scope_stmt(child) {
+                    return true;
+                }
+            }
+            false
+        }
+
+        fn check_module_scope_stmt(child: tree_sitter::Node) -> bool {
+            if child.kind() == "match_statement" {
+                return true;
+            }
+            // Clause nodes wrap their statements in a `block` child. Recurse
+            // transparently so nested module-scope match statements are seen.
+            if child.kind() == "block" {
+                return check_block(child);
+            }
+            // Module-scope compound statements execute their bodies at module
+            // scope in Python, so a match nested inside can still bind names.
+            if matches!(
+                child.kind(),
+                "if_statement"
+                    | "try_statement"
+                    | "for_statement"
+                    | "while_statement"
+                    | "with_statement"
+            ) {
+                let mut bcursor = child.walk();
+                for block_child in child.children(&mut bcursor) {
+                    if matches!(
+                        block_child.kind(),
+                        "block"
+                            | "else_clause"
+                            | "elif_clause"
+                            | "except_clause"
+                            | "finally_clause"
+                    ) && check_block(block_child)
+                    {
+                        return true;
+                    }
+                }
+            }
+            false
+        }
+
+        let root = parsed.tree.root_node();
+        let mut cursor = root.walk();
+        for child in root.children(&mut cursor) {
+            if check_module_scope_stmt(child) {
+                return true;
+            }
+        }
+        false
     }
 
     /// Check if a Python file has `from x import *` (wildcard import).
@@ -1661,6 +1732,33 @@ impl CallGraph {
                 "expression_statement" | "assignment" => {
                     if matches!(lang, crate::languages::Language::Python) {
                         extract_assignment_targets(child, source, counts);
+                    }
+                }
+                "type_alias_statement" => {
+                    if matches!(lang, crate::languages::Language::Python) {
+                        if let Some(name_node) = child
+                            .child_by_field_name("name")
+                            .or_else(|| child.child_by_field_name("left"))
+                            .or_else(|| child.named_child(0))
+                        {
+                            if matches!(name_node.kind(), "identifier" | "type_identifier") {
+                                count_identifier_like(name_node, source, counts);
+                            } else if let Some(found) = first_identifier_like(name_node) {
+                                count_identifier_like(found, source, counts);
+                            }
+                        } else if let Some(found) = first_identifier_like(child) {
+                            count_identifier_like(found, source, counts);
+                        }
+                    }
+                }
+                "delete_statement" => {
+                    if matches!(lang, crate::languages::Language::Python) {
+                        let mut dcursor = child.walk();
+                        for target in child.children(&mut dcursor) {
+                            if target.kind() != "del" && target.kind() != "," {
+                                collect_identifiers_from_pattern(target, source, counts);
+                            }
+                        }
                     }
                 }
                 // JS/TS variable declarations
@@ -2271,9 +2369,9 @@ impl CallGraph {
             }
         }
 
-        // Phase 5 (direct-subset): build class_bases for changed files so
-        // incremental cache merges carry inherited-self data for the subset.
-        let class_bases = Self::build_class_bases(files);
+        // Phase 5 (direct-subset): build class facts from the complete files map
+        // so unchanged class owners remain available after incremental merges.
+        let (class_bases, clean_class_spans) = Self::build_class_facts(files);
 
         // R4c: populate import bindings for subset.
         let subset_files: BTreeMap<String, &ParsedFile> = files
@@ -2320,6 +2418,7 @@ impl CallGraph {
             method_class_span,
             method_class_span_ambiguous,
             class_bases,
+            clean_class_spans,
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -2908,11 +3007,9 @@ fn collect_identifiers_from_pattern(
     counts: &mut BTreeMap<String, usize>,
 ) {
     match node.kind() {
-        "identifier" => {
-            let name = source[node.start_byte()..node.end_byte()].to_string();
-            *counts.entry(name).or_default() += 1;
-        }
-        "pattern_list" | "tuple_pattern" => {
+        "identifier" | "type_identifier" => count_identifier_like(node, source, counts),
+        "as_pattern" | "as_pattern_target" | "expression_list" | "list_pattern"
+        | "pattern_list" | "tuple_pattern" => {
             let mut cursor = node.walk();
             for child in node.children(&mut cursor) {
                 if child.kind() != "," {
@@ -2922,6 +3019,30 @@ fn collect_identifiers_from_pattern(
         }
         _ => {}
     }
+}
+
+fn count_identifier_like(
+    node: tree_sitter::Node,
+    source: &str,
+    counts: &mut BTreeMap<String, usize>,
+) {
+    if matches!(node.kind(), "identifier" | "type_identifier") {
+        let name = source[node.start_byte()..node.end_byte()].to_string();
+        *counts.entry(name).or_default() += 1;
+    }
+}
+
+fn first_identifier_like<'a>(node: tree_sitter::Node<'a>) -> Option<tree_sitter::Node<'a>> {
+    if matches!(node.kind(), "identifier" | "type_identifier") {
+        return Some(node);
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if let Some(found) = first_identifier_like(child) {
+            return Some(found);
+        }
+    }
+    None
 }
 
 /// Mark import-binding eligibility: wildcard in file poisons all; re-bound name
