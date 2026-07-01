@@ -1,9 +1,12 @@
 # Handoff: Evidence Profile Quality Implementation
 
-Status: implemented locally, validated, publish-ready
+Status: historical implemented handoff; publishable at handoff time
 Date: 2026-06-23
 Worktree: `/private/tmp/slicing-evidence-profile-quality`
 Branch: `evidence-profile-quality`, based on `origin/main`
+
+> Current status: retained as implementation history. Later EvidenceView contract hardening advanced the view
+> schema beyond the `0.2` version recorded in this handoff.
 
 ## State of the World
 
@@ -18,8 +21,8 @@ Current worktree state:
   - `src/mcp/tools.rs`
   - `tests/mcp/smoke_test.rs`
 - Added:
-  - `docs/prism-query-layer/evidence-profile-quality-plan-2026-06-23.md`
-  - `docs/prism-query-layer/evidence-profile-quality-implementation-handoff-2026-06-23.md`
+  - `docs/features/query-layer/evidence/evidence-profile-quality-plan-2026-06-23.md`
+  - `docs/features/query-layer/evidence/evidence-profile-quality-implementation-handoff-2026-06-23.md`
 
 No `src/navigation/*`, resolver, CPG, or cache-version files were edited.
 
@@ -36,7 +39,7 @@ The implementation plan went through A2A review before source edits:
 
 The final plan artifact is:
 
-- `docs/prism-query-layer/evidence-profile-quality-plan-2026-06-23.md`
+- `docs/features/query-layer/evidence/evidence-profile-quality-plan-2026-06-23.md`
 
 Implementation review after source edits:
 

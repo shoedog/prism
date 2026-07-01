@@ -1,5 +1,7 @@
 # Handoff: Tier-A SHIPPED → next phase is S3 (2026-06-12)
 
+> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+
 Orientation doc for a fresh/compacted session. Read order: this file →
 `docs/eval/tier-a/baseline.md` → `tier-a-followups.md`. The spec/plan are reference,
 not reading list (both carry outcome banners).

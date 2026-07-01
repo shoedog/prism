@@ -1,5 +1,7 @@
 # S1 Follow-ups (Perf Hardening + Level-4 Index Inversion)
 
+> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+
 Deferred items from the S1 execution
 (spec: `docs/superpowers/specs/2026-06-11-prism-s1-perf-level4-index-design.md` rev 3;
 plan: `docs/superpowers/plans/2026-06-11-prism-s1-perf-level4-index.md` rev 2).

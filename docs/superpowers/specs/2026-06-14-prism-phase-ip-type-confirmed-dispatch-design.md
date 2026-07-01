@@ -10,7 +10,7 @@
 > §13.1's "fallback-Exact is load-bearing for the flip" was **false** (the matrix is confidence-blind)
 > → corrected + a fallback-under-ExactOnly fixture added (§13); gap taxonomy split fatal-vs-admitted
 > (§15); `CACHE_VERSION` bump to **9** (§11); scoped-build reworded (subset, nav never scoped). Records:
-> `docs/prism-query-layer/phase-ip-spec-review4-{codex,claude}-2026-06-15.md`.
+> `docs/archive/review-artifacts/prism-query-layer/phase-ip-spec-review4-{codex,claude}-2026-06-15.md`.
 
 > **rev 4 (2026-06-15) — the FOUNDATION increment.** After three review rounds the
 > interface half was kept back; **embedding shipped** (`2026-06-15-prism-phase-ip-go-embedding-design.md`,
@@ -29,7 +29,7 @@ typed-param-receiver Go half of `s3-deferred §1`/`§2`.
 (codex+claude on the Option-B §6/§7 surface), round 3 (codex+claude xhigh, both "needs changes" — the
 interface half), **round 4 (codex rigor xhigh + claude soundness on rev 4 — both "needs changes",
 4 BLOCKERs + 3 MAJORs + 3 MINORs, all buildability/accuracy)**. Records:
-`docs/prism-query-layer/phase-ip-spec-review{,2,3,4}-{codex,claude}-2026-06-1{4,5}.md`. rev 4 folded the
+`docs/archive/review-artifacts/prism-query-layer/phase-ip-spec-review{,2,3,4}-{codex,claude}-2026-06-1{4,5}.md`. rev 4 folded the
 round-3 work-list + re-anchored every citation to post-`e03f547`; **rev 5 folds round 4** (see the
 rev-5 banner) and is verified buildable against the post-`e03f547` tree (the §17 CHA dispute was
 adjudicated against `build.rs:534` — codex correct, claude's "sound" overturned).

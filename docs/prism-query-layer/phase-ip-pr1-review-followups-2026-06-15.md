@@ -1,5 +1,7 @@
 # Phase-IP PR-1 — dual code-review follow-ups (deferred / pushed-back)
 
+> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+
 Whole-branch codex + claude review of `phase-ip-interface` (13 task commits, `e03f547..HEAD`),
 2026-06-15. **Fixed-in-branch** findings (BLOCKER embedded-interface fail-closed; MAJOR
 generic-gate-signature-scope; MAJOR `var *T` liveness; MINOR `parenthesized_type`; NIT dead

@@ -1,12 +1,28 @@
 # CPG Architecture Improvements
 
 **Date:** 2026-04-02
-**Status:** Approved priorities — ready for implementation
-**Scope:** Post-Phase 6 improvements derived from open questions in `docs/cpg-architecture.md`
+**Status:** Historical plan; implementation status updated 2026-07-01
+**Scope:** Post-Phase 6 improvements derived from open questions in `docs/features/cpg/architecture.md`
 
 ---
 
-## Priority Summary
+## Current Status
+
+| Item | Status | Evidence / Notes |
+|------|--------|------------------|
+| JS/TS destructuring alias tracking | Implemented | `src/ast.rs`, `src/data_flow.rs`, and `tests/lang/javascript/destructuring_test.rs` cover object, renamed, nested, array, rest, for-of, and TypeScript destructuring aliases. |
+| Build CPG once, share across algorithms | Implemented | `src/main.rs` builds a shared context before algorithm dispatch; algorithms take `&CpgContext`. |
+| `CpgContext` bundle type | Implemented | `src/cpg/context.rs` owns the CPG and stores parsed-file, type-registry, and live-type context for shared consumers. |
+| Tree-sitter struct extraction fallback | Implemented for CLI C/C++ type enrichment | `src/type_db.rs` provides `TypeDatabase::from_parsed_files`; `src/main.rs` auto-enables it when no `compile_commands.json` is provided and C/C++ files are present. This does not imply every non-CLI repo-loading path auto-enables the fallback. |
+| RTA refinement for virtual dispatch | Implemented with current precision limits | Live-type collection and provider pruning are wired through `src/live_types.rs`, `src/type_provider.rs`, and `src/cpg/context.rs`; provider-specific fallbacks still preserve recall when pruning would eliminate all targets. |
+| Python `self` cross-method tracking | Deferred | Still requires interprocedural alias analysis beyond the current intraprocedural DFG model. |
+| Lua colon method syntax | Implemented | `src/languages/mod.rs` handles `method_index_expression`; `tests/lang/lua/lua_test.rs` covers `obj:close()` behavior. |
+
+The original design text is retained below as implementation history and as a compact reference for remaining limits.
+
+---
+
+## Original Priority Summary
 
 | # | Item | Effort | Impact | Rationale |
 |---|------|--------|--------|-----------|
@@ -260,7 +276,7 @@ test_rta_stack_allocation              — Circle c; counts as instantiation
 
 ---
 
-## Implementation Order
+## Original Implementation Order
 
 ```
 PR A: CpgContext + build-once refactor (items #2 + #3)
@@ -284,4 +300,4 @@ PR C: Tree-sitter struct fallback (item #4)
   - RTA refinement (item #5, 4 tests)
 ```
 
-PR A is the highest-leverage change (12x build elimination). PR B closes the biggest taint-tracking gap for daily JS/TS code. PR C improves firmware analysis with zero new dependencies.
+As of 2026-07-01, PR groups A, B, and C have landed in the codebase. The Python cross-method item remains deferred.

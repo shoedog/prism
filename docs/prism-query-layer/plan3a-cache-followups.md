@@ -1,5 +1,7 @@
 # Plan 3a (nav cache) — deferred follow-ups
 
+> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+
 Non-blocking findings from the Plan 3a final holistic review that were
 **intentionally deferred** (they need a larger refactor or carry real risk).
 The low-risk findings (per-repo namespacing of `--cache-dir`, I/O-failure

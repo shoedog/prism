@@ -8,7 +8,7 @@
 
 **Tech Stack:** Rust, tree-sitter, petgraph, serde, bincode (cache), rayon. Spec: `docs/superpowers/specs/2026-06-13-prism-s2-node-identity-design.md` (rev 4 + §3/§7.3 wording fix in rev 5). Branch: `s2-node-identity`.
 
-> **rev 2** — folds the codex xhigh plan-review (`docs/prism-query-layer/s2-plan-review-2026-06-13.md`; verdict "not executable as-is", ~12 blockers). Changes vs rev 1: explicit compile-surface enumerations (no more "compiler-guided" hand-waving); a new DFG `defs`/`uses` re-key (Task 3); sibling extractor APIs (Tasks 4, 8); corrected Task 5 byte direction + spec wording; real cache-test APIs (Task 9); concrete acceptance dumps + test helpers (Task 10); `VarAccessKind` gains `Hash`.
+> **rev 2** — folds the codex xhigh plan-review (`docs/archive/review-artifacts/prism-query-layer/s2-plan-review-2026-06-13.md`; verdict "not executable as-is", ~12 blockers). Changes vs rev 1: explicit compile-surface enumerations (no more "compiler-guided" hand-waving); a new DFG `defs`/`uses` re-key (Task 3); sibling extractor APIs (Tasks 4, 8); corrected Task 5 byte direction + spec wording; real cache-test APIs (Task 9); concrete acceptance dumps + test helpers (Task 10); `VarAccessKind` gains `Hash`.
 
 **Compile-surface principle:** Adding a required field to a Rust struct breaks every *literal construction* (not `match`/destructure — those take `..`). This plan enumerates every literal site from a full-codebase inventory. After each field add, `cargo build` must show **only** the enumerated sites; an unexpected site means the inventory drifted — stop and re-inventory.
 

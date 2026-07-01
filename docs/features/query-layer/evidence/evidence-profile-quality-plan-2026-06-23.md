@@ -1,8 +1,11 @@
 # Evidence Profile Quality Plan
 
-Status: A2A re-review approved after minor findings folded; ready for implementation
+Status: Historical implemented plan; updated 2026-07-01
 Date: 2026-06-23
 Branch: `evidence-profile-quality`, based on `origin/main`
+
+> Current status: the paired handoff records this slice as implemented and validated. Current
+> `EvidenceView` schema has since advanced to `0.4`; this file is retained for the original implementation plan.
 
 ## Goal
 
@@ -33,7 +36,7 @@ Expected implementation files:
 - `src/mcp/evidence_view.rs`
 - `src/mcp/tools.rs` for schema descriptions/tests and runtime view-kind wiring if needed
 - `src/mcp/input.rs` only if profile validation/defaults need local tightening
-- `docs/prism-query-layer/evidence-profile-quality-plan-2026-06-23.md`
+- `docs/features/query-layer/evidence/evidence-profile-quality-plan-2026-06-23.md`
 
 Expected test locations:
 

@@ -7,7 +7,7 @@ Prism navigation layer, Tier-1 final plan. **Predecessors merged:** Plans 1, 2, 
 ## 0. Provenance + spec-review disposition
 
 Clean-room design (firewalled codex+claude) + owner decisions (spike rmcp → hand-rolled fallback; ship
-`Evidence` experimental-v1) + MCP research. Provenance: `docs/prism-query-layer/provenance/plan3c/`.
+`Evidence` experimental-v1) + MCP research. Provenance: `docs/archive/review-artifacts/prism-query-layer/provenance/plan3c/`.
 **Round 1** (3 blockers/8 majors) → coherent subgraph extraction, field-nulling concise, type-enrichment
 dropped, cargo `mcp` feature, `outputSchema`/schemars dropped, `SeedInput=Symbol|Loc`. **Round 2**
 confirmed those hold and added precision fixes: the size cap bounds the **full `CallToolResult`** (§6.3);

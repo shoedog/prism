@@ -13,6 +13,21 @@ risk for the larger refactors.
 
 ---
 
+## 2026-07-01 Status Note
+
+This document is retained as historical analysis. Use the links below for current
+status before turning any recommendation into work:
+
+| Topic | Current location | Status note |
+|-------|------------------|-------------|
+| CPG architecture and resolved questions | `docs/features/cpg/architecture.md` | Current architecture entry point. |
+| Post-Phase-6 CPG improvements | `docs/features/cpg/improvements.md` | Updated with implemented/deferred status. |
+| Query-layer navigation follow-ons | `docs/features/query-layer/navigation/follow-on-roadmap-2026-06-23.md` | Current query-layer roadmap record. |
+| Review/provenance records | `docs/archive/review-artifacts/prism-query-layer/` | Historical audit trail only. |
+| Speed measurements | Fresh benchmark run for the planned speed slice | Pre-`CpgContext` comparisons are historical context, not current speedup targets. |
+
+---
+
 ## 1. Executive summary
 
 The substrate is in good shape architecturally — the `cpg/` split (PR #92), the A3/A4/A7
@@ -114,7 +129,7 @@ CFG edges are statement-level reachability only; no post-dominator analysis anyw
 over-approximation — Plan A §3 frames v1 Evidence honestly as a "data-flow path." Guard
 detection ("is this sink dominated by the null-check / sanitizer branch?") is approximated by
 enclosing-block heuristics in algorithms. Docs already estimate dominator analysis at ~1 week
-(`docs/cpg-phase6-cfg-plan.md` follow-on). The `Reason::Reasoning` quarantine (Plan B §7/M4)
+(`docs/features/cpg/cfg-plan.md` follow-on). The `Reason::Reasoning` quarantine (Plan B §7/M4)
 means adding `guarded_by`-style annotations later is wire-safe — so this is valuable but
 **not** gating.
 

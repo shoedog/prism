@@ -15,10 +15,10 @@ discriminating *ordinal* is **reserved** (the part genuinely deferred), and the 
 deferrals get named additive seams. Round 3 also surfaced the mechanical tightenings
 folded below (named occurrence record, `function_candidates`, the `.function` audit
 sites, the `Ord≡Eq` invariant, macro/multi-target failure modes). Records:
-`docs/prism-query-layer/s2-spec-review-2026-06-13.md` (r1), `...-r2-2026-06-13.md` (r2),
+`docs/archive/review-artifacts/prism-query-layer/s2-spec-review-2026-06-13.md` (r1), `...-r2-2026-06-13.md` (r2),
 `...-r3-2026-06-13.md` (r3). **Architecture confirmed sound by both lenses across all
 three rounds; rev-4 changes are completeness + the wire scoping, not redesign.** Context:
-substrate `cpg-substrate-analysis-2026-06-10.md` (F1/F2, §3 S2, R1); S3 merged (`main` @
+substrate `docs/features/cpg/substrate-analysis-2026-06-10.md` (F1/F2, §3 S2, R1); S3 merged (`main` @
 d972079).
 
 ## 0. Why now

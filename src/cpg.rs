@@ -9,7 +9,7 @@
 //! `CallGraph`, and `ast.rs`. Edge-filtered traversals let each algorithm select
 //! which relationship types to follow.
 //!
-//! See `docs/cpg-architecture.md` for the full design.
+//! See `docs/features/cpg/architecture.md` for the full design.
 //!
 //! This module is a façade: its implementation lives in the `src/cpg/`
 //! submodules (`context`, `types`, `build`, `query`, `cfg_queries`). The

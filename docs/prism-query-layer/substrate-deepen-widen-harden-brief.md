@@ -1,5 +1,7 @@
 # Clean-room analysis brief — Deepening / widening / hardening the prism reasoning substrate (DFG · CFG · CPG)
 
+> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+
 **For codex (clean-room), reading the actual repo at the session cwd.** Produce a prioritized,
 concrete, code-grounded analysis. This brief is intentionally tool-agnostic: it is run once **now**
 (filesystem only) as a baseline, and **re-run later with `prism-mcp` connected** — the two outputs are

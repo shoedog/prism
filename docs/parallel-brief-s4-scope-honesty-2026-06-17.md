@@ -19,7 +19,7 @@ honesty pattern (`path_proven:false`, `BoundaryExited`). Bonus: the warning tele
 *prioritize* future per-language DFG modeling — so doing S4 first has compounding value. Est. ~1–2 days.
 
 ## Where to look (read these first)
-- **`docs/cpg-substrate-analysis-2026-06-10.md`** — the authoritative source. §3 "Do BEFORE Plan B"
+- **`docs/features/cpg/substrate-analysis-2026-06-10.md`** — the authoritative source. §3 "Do BEFORE Plan B"
   defines **S4** (its exact intent + cost); **F6/F7/F8** enumerate the per-language unmodeled constructs;
   §5 component verdicts; §2.4 the `Reason::Reasoning`/`WarningKind::Reasoning` quarantine.
 - **`docs/eval/tier-a/baseline.md`** — "Next-increment work-lists" item references the honesty gap.

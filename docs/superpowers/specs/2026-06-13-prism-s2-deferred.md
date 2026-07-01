@@ -38,7 +38,7 @@ span-*quality* or coverage refinements. Priority L unless noted.
 
 ## Full-branch review (codex xhigh) — deferred (out of S2 spec scope)
 
-The S2 full-branch review (`docs/prism-query-layer/s2-full-branch-review-2026-06-13.md`)
+The S2 full-branch review (`docs/archive/review-artifacts/prism-query-layer/s2-full-branch-review-2026-06-13.md`)
 found 2 BLOCKERs + 5 MAJOR/MINOR. **Three were in-scope and FIXED** (BLOCKER 2 same-line
 `dfg_forward_reachable` cross-function leak; MAJOR `nodes_at` enclosing-function
 line/byte coherence; MAJOR synthetic-`CallSite` source-span). These four are deferred
@@ -77,7 +77,7 @@ fixable (no costly refactor):
 
 ## Second-pass review (codex xhigh focus=data-flow/span + claude opus focus=seams/cache/tests) — 2026-06-14
 
-Record: `docs/prism-query-layer/s2-second-pass-review-2026-06-14.md`. claude verdict
+Record: `docs/archive/review-artifacts/prism-query-layer/s2-second-pass-review-2026-06-14.md`. claude verdict
 **ship** (0 new blockers); codex verdict **needs changes** (its 2 MAJORs are items 5 + 9
 below — both already-deferred, additive, NOT S2 regressions). One in-scope test (the
 different-name-same-line regression guard) was **added** this pass. New/raised deferrals:

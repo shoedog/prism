@@ -1,9 +1,13 @@
 # Incremental CPG Correctness Gate - Slice 2 Design
 
-Status: Draft for A2A review
+Status: Historical implemented design; updated 2026-07-01
 Date: 2026-06-24
 Branch: `codex/incremental-cpg-correctness-spec`, based on `origin/main` at `ce510d6`
-Predecessor: `docs/prism-query-layer/mcp-auto-refresh-incremental-correctness-design-2026-06-23.md`
+Predecessor: `docs/features/query-layer/mcp-refresh/mcp-auto-refresh-incremental-correctness-design-2026-06-23.md`
+
+> Current status: the incremental correctness work is implemented in the current codebase. `CallSiteOrigin`
+> exists, C/C++ synthetic indirect-resolution sites are distinguished, and MCP `AutoIncremental` is wired as a
+> refresh policy. This file is retained for the Slice 2 design and review history.
 
 ## 1. Goal
 

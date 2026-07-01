@@ -1,14 +1,18 @@
 # Indexing Policy Labels - Slice 1 Design
 
-Status: Draft, A2A architecture review findings folded
+Status: Historical implemented design; updated 2026-07-01
 Date: 2026-06-25
 Branch: `codex/indexing-policy-labels`, based on `origin/main` at `84cc3d2`
 Predecessors:
 
-- `docs/prism-query-layer/navigation-follow-on-roadmap-2026-06-23.md`
-- `docs/prism-query-layer/llm-evidence-shaping-design-2026-06-23.md`
+- `docs/features/query-layer/navigation/follow-on-roadmap-2026-06-23.md`
+- `docs/features/query-layer/evidence/llm-evidence-shaping-design-2026-06-23.md`
 - `docs/superpowers/specs/2026-06-23-prism-evidence-view-contract-design.md`
-- `docs/prism-query-layer/mcp-auto-incremental-refresh-slice-c-design-2026-06-24.md`
+- `docs/features/query-layer/mcp-refresh/mcp-auto-incremental-refresh-slice-c-design-2026-06-24.md`
+
+> Current status: production/test evidence labels are implemented in the current codebase via
+> `src/navigation/code_context.rs` and `src/mcp/evidence_view.rs`; agent views advertise
+> `prism/view_indexing_policy = code_role_v1`. This file is retained for the Slice 1 design.
 
 ## 1. Goal
 

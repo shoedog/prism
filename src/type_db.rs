@@ -14,7 +14,7 @@
 //! without it. Type information is only available for C/C++ files that appear in
 //! `compile_commands.json`.
 //!
-//! See `docs/cpg-architecture.md` §Layer 3 for the full design.
+//! See `docs/features/cpg/architecture.md` §Layer 3 for the full design.
 
 use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;

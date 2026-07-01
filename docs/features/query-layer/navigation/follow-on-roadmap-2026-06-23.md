@@ -1,8 +1,12 @@
 # Prism Query-Layer Follow-on Roadmap
 
-Status: draft after merged MCP/evidence profile slices
+Status: Historical roadmap with implementation status notes; updated 2026-07-01
 Date: 2026-06-23
 Branch: `evidence-view-spec`
+
+> Current status: several items in this roadmap have since landed. EvidenceView contract hardening, production/test
+> evidence labels, and MCP auto-refresh policy plumbing are implemented in the current codebase. Multi-repo stdio
+> and Tier-C agent-value work were not refreshed by this sweep and should be revalidated before implementation.
 
 ## Recommendation
 
@@ -40,10 +44,10 @@ Conflict surface:
 References:
 
 - `docs/superpowers/specs/2026-06-23-prism-evidence-view-contract-design.md`
-- `docs/prism-query-layer/llm-evidence-shaping-design-2026-06-23.md`
-- `docs/prism-query-layer/llm-evidence-shaping-implementation-plan-2026-06-23.md`
-- `docs/prism-query-layer/evidence-profile-quality-plan-2026-06-23.md`
-- `docs/prism-query-layer/evidence-profile-quality-implementation-handoff-2026-06-23.md`
+- `docs/features/query-layer/evidence/llm-evidence-shaping-design-2026-06-23.md`
+- `docs/features/query-layer/evidence/llm-evidence-shaping-implementation-plan-2026-06-23.md`
+- `docs/features/query-layer/evidence/evidence-profile-quality-plan-2026-06-23.md`
+- `docs/features/query-layer/evidence/evidence-profile-quality-implementation-handoff-2026-06-23.md`
 - `src/mcp/evidence_view.rs`
 
 ### 2. Indexing policy: production/test labels

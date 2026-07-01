@@ -8,7 +8,7 @@
 
 **Tech Stack:** Rust (tree-sitter, petgraph, serde), the prism CPG/CallGraph/resolution layers; Python Tier-A harness (`uv run tier-a`).
 
-**Spec:** `docs/superpowers/specs/2026-06-14-prism-exact-functionid-traversal-design.md` (rev 3). Second-round review record: `docs/prism-query-layer/eft-spec-review-2026-06-14.md`.
+**Spec:** `docs/superpowers/specs/2026-06-14-prism-exact-functionid-traversal-design.md` (rev 3). Second-round review record: `docs/archive/review-artifacts/prism-query-layer/eft-spec-review-2026-06-14.md`.
 
 ---
 

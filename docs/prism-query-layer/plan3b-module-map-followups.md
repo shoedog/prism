@@ -1,5 +1,7 @@
 # Plan 3b (module/repo map + ego envelope) — deferred follow-ups
 
+> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+
 Non-blocking findings intentionally deferred from Plan 3b. The in-scope fixes
 (the two holistic-review MAJORs — shared edge collector + correct call-site text)
 were applied in-branch. Items below need a larger change or carry real risk;

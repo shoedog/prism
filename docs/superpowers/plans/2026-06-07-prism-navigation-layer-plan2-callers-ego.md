@@ -645,7 +645,7 @@ Confirm each is deterministic (run 3×, identical) before committing — drop an
 
 - [ ] **Step 5: Run to verify it passes** — `cargo test --test cli_nav_compat` → all PASS.
 
-- [ ] **Step 6: Doc-sync + commit** — in `docs/prism-query-layer/roadmap.md`, mark Plan 1 review follow-up #3 (`QueryError` plumbing) **closed by Plan 2**; add a one-line note of the three new subcommands to `LLM.md`. Then `git add -A && git commit -m "test(nav): callees/ego goldens on a real call-graph fixture; doc-sync"`.
+- [ ] **Step 6: Doc-sync + commit** — in `docs/archive/review-artifacts/prism-query-layer/roadmap.md`, mark Plan 1 review follow-up #3 (`QueryError` plumbing) **closed by Plan 2**; add a one-line note of the three new subcommands to `LLM.md`. Then `git add -A && git commit -m "test(nav): callees/ego goldens on a real call-graph fixture; doc-sync"`.
 
 ---
 

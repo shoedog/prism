@@ -1,8 +1,12 @@
 # MCP Staleness Honesty and Freshness Probe Spec
 
-Status: A2A reviewed and approved; ready to implement
+Status: Historical implemented spec; updated 2026-07-01
 Date: 2026-06-23
 Branch: `mcp-staleness-freshness`, based on `origin/main`
+
+> Current status: MCP freshness warnings and manual refresh support are implemented in the current codebase.
+> This file is retained for the original contract and review rationale; use the sibling auto-refresh specs for
+> later refresh-policy design history.
 
 ## Goal
 

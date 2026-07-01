@@ -16,7 +16,7 @@ framework cell to `OnceLock` (Sync investigation), parallelizes parsing with ray
 acceptance profiling.
 
 **Source spec:** `docs/superpowers/specs/2026-06-11-prism-s1-perf-level4-index-design.md`
-(**rev 3**). Review records: `docs/prism-query-layer/s1-spec-review-MCP-2026-06-11.md`
+(**rev 3**). Review records: `docs/archive/review-artifacts/prism-query-layer/s1-spec-review-MCP-2026-06-11.md`
 (round 1), `…/s1-spec-review-r2-MCP-2026-06-11.md` (round 2), and
 `…/s1-plan-review-MCP-2026-06-11.md` (plan review; this plan is **rev 2**, folding its
 2 BLOCKERs / 3 MAJORs / 7 MINORs).

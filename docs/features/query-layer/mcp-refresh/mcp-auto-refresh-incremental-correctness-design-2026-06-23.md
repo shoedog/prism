@@ -1,9 +1,13 @@
 # MCP Auto-Refresh and Incremental Rebuild Correctness - Architecture Spec
 
-Status: A2A reviewed; Slice A implemented in `codex/mcp-auto-full-refresh`; Slices B/C future
+Status: Historical implemented architecture spec; updated 2026-07-01
 Date: 2026-06-23
 Branch: `main` at spec time
 Scope: three coordinated follow-on slices after MCP staleness honesty and manual `refresh_index`
+
+> Current status: Slices A, B, and C are implemented in the current codebase. `RefreshPolicy` includes
+> `AutoFull` and `AutoIncremental`; `refresh_index` uses the verified refresh path; `CallSiteOrigin` exists for
+> source versus synthetic indirect-resolution sites. This file is retained for architecture and review history.
 
 ## Review History
 
