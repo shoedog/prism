@@ -5,8 +5,8 @@
 > 9-commit shape). Gates: G1b/G2/G3/G5/G6/G7/G8 MET; **G1a NOT MET** (recall 0.89/0.70,
 > callers precision 0.89 after the 1:1-matching fix — recorded, not waived); G4 Rust+Go
 > anchored, **Python floor-failed** (pyright 31–36% err). Baseline + S3 work-list:
-> `docs/eval/tier-a/baseline.md`. Deferred: `docs/prism-query-layer/tier-a-followups.md`.
-> Next-session orientation: `docs/prism-query-layer/tier-a-handoff-2026-06-12.md`.
+> `docs/eval/tier-a/baseline.md`. Deferred: `docs/archive/plans/prism-query-layer/tier-a-followups.md`.
+> Next-session orientation: `docs/archive/plans/prism-query-layer/tier-a-handoff-2026-06-12.md`.
 
 **Date:** 2026-06-11 · **Status:** rev 4 — **owner-approved** (rev 3 + owner review:
 corpus swap to repeat-run-friendly set, `eval/`-vs-`agent-eval` separation contract).
@@ -14,9 +14,9 @@ Dual spec-review rounds 1 (5 BLOCKER, 11 MAJOR, 6 MINOR) and 2 (2 BLOCKER, 7 MAJ
 6 MINOR) folded; records: `docs/archive/review-artifacts/prism-query-layer/tier-a-spec-review-2026-06-11.md`,
 `...-r2-2026-06-11.md`; r2 verdict: "the architecture itself needs no rework, and
 planning can start immediately after rev 3"
-**Context docs:** `docs/prism-meta-analysis-2026-06-10.md` (§1 three-tier harness, §3 LSP
+**Context docs:** `docs/archive/analysis/prism/prism-meta-analysis-2026-06-10.md` (§1 three-tier harness, §3 LSP
 head-to-head prototype), `docs/features/cpg/substrate-analysis-2026-06-10.md` (S3 precision),
-`docs/prism-query-layer/s1-followups.md` (items 1 — B2 trigger, 4 — test wall time).
+`docs/archive/plans/prism-query-layer/s1-followups.md` (items 1 — B2 trigger, 4 — test wall time).
 
 ## 0. Why now
 

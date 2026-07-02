@@ -3,7 +3,7 @@
 **Date:** 2026-06-21
 **Status:** design-of-record
 **Branch:** `edition-anchoring-uniformity` (off `main` @ `64a0b1e`, post-#122)
-**Roadmap:** [`docs/ruff-typepath-recovery-roadmap-2026-06-21.md`](../../ruff-typepath-recovery-roadmap-2026-06-21.md)
+**Roadmap:** [`docs/archive/plans/prism/ruff-typepath-recovery-roadmap-2026-06-21.md`](../../archive/plans/prism/ruff-typepath-recovery-roadmap-2026-06-21.md)
 
 ## Problem
 

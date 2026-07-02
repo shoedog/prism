@@ -1,6 +1,6 @@
 # LLM Codebase Navigation & Understanding: What the Research Actually Shows
 
-> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+> **Status:** Archived query-layer note. See `docs/features/query-layer/README.md` for current docs and the local archive README for routing.
 
 ## TL;DR
 

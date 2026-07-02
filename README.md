@@ -606,7 +606,7 @@ to CVE identifiers.
 
 ## Language Coverage
 
-Two metrics track cross-language support. See `coverage/matrix.json` for the full matrix and `docs/cross-language-coverage.md` for the measurement methodology. Run `python3 scripts/generate_coverage_badges.py` after changing the matrix to update badges and tables.
+Two metrics track cross-language support. See `coverage/matrix.json` for the full matrix and `docs/features/language-coverage/cross-language-coverage.md` for the measurement methodology. Run `python3 scripts/generate_coverage_badges.py` after changing the matrix to update badges and tables.
 
 ### Language Feature Coverage
 

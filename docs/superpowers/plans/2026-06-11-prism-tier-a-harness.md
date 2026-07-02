@@ -4078,7 +4078,7 @@ git commit -m "feat(eval): Tier-A baseline — 5 corpora, adjudicated, gates G1-
 
 Write `docs/eval/tier-a/baseline.md` (per-language summary, matrix grid, pending
 counts, floor status) in the same commit. If any gate fails: record honestly in the
-report + `s1-followups.md`-style open-evidence note; do not waive (S1 row-C precedent).
+report + `docs/archive/plans/prism-query-layer/s1-followups.md`-style open-evidence note; do not waive (S1 row-C precedent).
 
 - [ ] **Step 6: Update persistent memory** (Tier-A live → B2 trigger armed; S3 next,
 measured against this baseline).

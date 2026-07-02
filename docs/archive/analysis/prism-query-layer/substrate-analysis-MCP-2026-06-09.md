@@ -1,4 +1,4 @@
-> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+> **Status:** Archived query-layer note. See `docs/features/query-layer/README.md` for current docs and the local archive README for routing.
 
 I'll merge these two designs. Both architects converge strongly, and most of their "disagreements" are actually one giving a sharper version of the other's claim. Before writing the merged design, let me adjudicate the three load-bearing factual claims the merge pivots on — these determine the central architectural recommendation.All three load-bearing facts are adjudicated. Results:
 

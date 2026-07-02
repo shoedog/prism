@@ -5,7 +5,7 @@
 > (`ParsedFile: Send+Sync` after the OnceLock swap). Acceptance: Slice A — `all_functions` at
 > 0 samples on cold tokio, prism 29→19 s, tokio 89→47 s; Slice B1 — legacy symbol at 0
 > samples on cold hugo, hugo 469→137 s, django TIMEOUT→909 s (pre-C numbers; final table in
-> the PR). Deferred work + execution findings: `docs/prism-query-layer/s1-followups.md`.
+> the PR). Deferred work + execution findings: `docs/archive/plans/prism-query-layer/s1-followups.md`.
 
 **Status:** Owner design, **revision 3 (2026-06-11)** — folded round-2 dual review
 (`docs/archive/review-artifacts/prism-query-layer/s1-spec-review-r2-MCP-2026-06-11.md`; verdict "fold 1–8 then
@@ -17,7 +17,7 @@ Revision 2 folded round 1 (`s1-spec-review-MCP-2026-06-11.md`, all 12 findings).
 `writing-plans`.
 **Context:** First slice of the substrate program in
 `docs/features/cpg/substrate-analysis-2026-06-10.md` (S1) plus the Level-4 inversion identified in
-`docs/prism-meta-analysis-2026-06-10.md` §5. Profiling evidence: prism-repo cold build is
+`docs/archive/analysis/prism/prism-meta-analysis-2026-06-10.md` §5. Profiling evidence: prism-repo cold build is
 dominated by repeated `ParsedFile::all_functions()` tree-sitter queries; at kubernetes scale
 100% of a sampled window sits in `CallGraph::build` → `ast::resolve_struct_field_assignment`
 (`call_graph.rs:312-360`). Measured baselines (this machine, release): prism 108k LOC / 29 s
@@ -272,7 +272,7 @@ in review). Outcome decides C2.
   and edge insertion order is bit-for-bit reproduced (§2a). Phase 3 and Step 5b stay serial
   (cheap after A+B). If Sync is not cheap, C2 is descoped without re-planning.
 - New dependency: `rayon` (already on the project roadmap,
-  `docs/language-expansion-plan.md` Phase 3).
+  `docs/features/language-coverage/language-expansion-plan.md` Phase 3).
 - If `ParsedFile` becomes `Sync`, optionally drop the
   `#[allow(clippy::arc_with_non_send_sync)]` in `mcp/session.rs` (hygiene, non-gating).
 
@@ -337,7 +337,7 @@ failure falls back to the direct query path (§3), never partial results.
 - **Tooling for agents:** reviewers get the **prism MCP server** (read-only; snapshot
   semantics acceptable for review). Implementors get the **prism CLI only, not the MCP
   server** — the MCP session serves a frozen at-launch snapshot
-  (`docs/prism-meta-analysis-2026-06-10.md` §4); implementors mutate the tree mid-task and
+  (`docs/archive/analysis/prism/prism-meta-analysis-2026-06-10.md` §4); implementors mutate the tree mid-task and
   would receive stale answers, while the CLI revalidates per invocation.
 - **Spec/plan review:** dual-bridge workflow (used for this spec's revision 2); codex
   single-reviewer acceptable for small follow-ups.

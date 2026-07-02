@@ -1,6 +1,6 @@
 # Clean-room constraints brief — Tier 2 Plan A: `taint_reaches`
 
-> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+> **Status:** Archived query-layer note. See `docs/features/query-layer/README.md` for current docs and the local archive README for routing.
 
 **For codex (clean-room).** This is a *constraints* brief, not a design. Produce your **own** analysis →
 architecture → component design → implementation-plan outline for `taint_reaches` v1, reading the actual

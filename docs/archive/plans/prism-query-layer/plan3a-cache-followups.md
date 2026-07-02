@@ -1,6 +1,6 @@
 # Plan 3a (nav cache) — deferred follow-ups
 
-> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+> **Status:** Archived query-layer note. See `docs/features/query-layer/README.md` for current docs and the local archive README for routing.
 
 Non-blocking findings from the Plan 3a final holistic review that were
 **intentionally deferred** (they need a larger refactor or carry real risk).

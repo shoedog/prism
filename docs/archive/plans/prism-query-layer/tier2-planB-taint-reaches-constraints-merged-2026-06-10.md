@@ -1,6 +1,6 @@
 # Clean-room constraints brief — Tier 2 Plan B: `taint_reaches` (on the MERGED substrate)
 
-> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+> **Status:** Archived query-layer note. See `docs/features/query-layer/README.md` for current docs and the local archive README for routing.
 
 **For codex + claude (clean-room, prism-equipped).** This is a *constraints* brief, not a design. Produce
 your **own** analysis → architecture → component design → implementation-plan outline for `taint_reaches`
@@ -21,7 +21,7 @@ these via prism — do not take this list as exhaustive; verify signatures/behav
   frontier + parents + a `boundary` set of cross-`(file,function)` `BoundaryEdge`s + `degraded` + warnings;
   `Relation { DataFlow, AssignmentPropagation, RecoveredDefUse }`. **Known v1 precision limit (documented):**
   `reachability` is tri-state and `NotReached` means "not reached within the seed function ∪ first-hop
-  boundaries," NOT proven absence (line-granular CFG scoping). Read `docs/prism-query-layer/planA-followups.md`.
+  boundaries," NOT proven absence (line-granular CFG scoping). Read `docs/archive/plans/prism-query-layer/planA-followups.md`.
 - **A4 cleansing:** a `pub(crate)` adapter that, given a source location, returns the sanitizer categories
   present in the source's function (presence keyed on the source, **not** path-proof). Find it.
 - **A7 reasoning scaffold:** `src/reasoning/{mod,seeds,shape}.rs`. `shape.rs` already has node-level

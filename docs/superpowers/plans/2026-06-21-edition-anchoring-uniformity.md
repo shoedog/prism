@@ -9,7 +9,7 @@
 **Tech Stack:** Rust; the `name_resolution` scope-graph engine; `cargo test`; the Tier-A accuracy harness (`eval/`, `uv run tier-a`).
 
 **Spec:** [`docs/superpowers/specs/2026-06-21-prism-edition-anchoring-uniformity-design.md`](../specs/2026-06-21-prism-edition-anchoring-uniformity-design.md) (design-of-record, codex xhigh SHIP).
-**Roadmap:** [`docs/ruff-typepath-recovery-roadmap-2026-06-21.md`](../../ruff-typepath-recovery-roadmap-2026-06-21.md).
+**Roadmap:** [`docs/archive/plans/prism/ruff-typepath-recovery-roadmap-2026-06-21.md`](../../archive/plans/prism/ruff-typepath-recovery-roadmap-2026-06-21.md).
 
 ---
 

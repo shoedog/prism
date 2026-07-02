@@ -2,6 +2,10 @@
 
 ## Status: Pre-Implementation Analysis — April 2026
 
+> **Archive note:** This analysis is retained for historical context. The core
+> arrow-function naming behavior has since landed; current language coverage
+> docs live in `docs/features/language-coverage/`.
+
 -----
 
 ## Problem Statement

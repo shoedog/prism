@@ -34,14 +34,14 @@ Gate: P2 < 8 min (G7).
 ## Finding: the 21-minute premise does not reproduce (recorded, not buried)
 
 The motivating observation — "full `cargo test` ≈ 21 min, compile-dominated"
-(`s1-followups.md` item 4) — is **unreproducible on a healthy machine**. Measured
+(`docs/archive/plans/prism-query-layer/s1-followups.md` item 4) — is **unreproducible on a healthy machine**. Measured
 breakdown at the pre-WP2 point: clean **build = 16.35 s** (cargo `Finished` line, 101
 crates, all 121 test-binary links included), with the remaining ~103 s being execution
 of 3,802 tests; the lib-touch loop is ~9 s rebuild/relink + execution.
 
 Probable cause of the original number: it was observed during the S1 session in the
 window when a wedged macOS `spindump` was parking every process launch at
-`_dyld_start` (documented in `s1-followups.md` item 5). 121 test binaries plus several
+`_dyld_start` (documented in `docs/archive/plans/prism-query-layer/s1-followups.md` item 5). 121 test binaries plus several
 hundred rustc/linker launches, each delayed seconds, inflates 2 minutes to ~21. The
 followups item is corrected alongside this file.
 

@@ -51,7 +51,7 @@ pub fn reachability_for_node(
     // first-hop callee boundaries recorded by `taint_trace` — NOT "proven unreachable." v1 does not
     // chase taint transitively through callee chains (`f → g → h`); the full interprocedural chase is
     // Plan B's `taint_reaches`. Consumers must not read `NotReached` as proof of absence. See
-    // docs/prism-query-layer/planA-followups.md (Round 4, one-hop boundary closure).
+    // docs/archive/plans/prism-query-layer/planA-followups.md (Round 4, one-hop boundary closure).
     //
     // BoundaryExited (indeterminate — taint exits to a callee we do not trace into in v1) iff the
     // sink IS a boundary target, OR is forward-reachable from one within the callee's function.

@@ -5,7 +5,7 @@
 **Branch:** `cross-crate-use-resolution` (off `main` after PR #123 / edition anchoring-class merged)
 **Predecessors:** #120 demote-not-drop · #121 scope-graph recovery · #122 (A) prune-through-`use` ·
 #123 edition anchoring-class uniformity. This is the next slice on the
-`docs/ruff-typepath-recovery-roadmap-2026-06-21.md` sequence (cross-crate **+428** → glob +304).
+`docs/archive/plans/prism/ruff-typepath-recovery-roadmap-2026-06-21.md` sequence (cross-crate **+428** → glob +304).
 
 ## 0. One-paragraph summary
 

@@ -12,7 +12,7 @@ Session-level resume doc. Pairs with the task-specific
   on branch `edition-anchoring-uniformity` (spec + plan both codex-xhigh SHIP). Verified +260 on
   ruff. → see the execution handoff.
 - **Sequenced follow-ons (not started):** cross-crate `use` resolution (+428 on ruff), then
-  glob-import resolution (+304). See [`docs/ruff-typepath-recovery-roadmap-2026-06-21.md`](../../ruff-typepath-recovery-roadmap-2026-06-21.md).
+  glob-import resolution (+304). See [`docs/archive/plans/prism/ruff-typepath-recovery-roadmap-2026-06-21.md`](../../archive/plans/prism/ruff-typepath-recovery-roadmap-2026-06-21.md).
 - **Nothing pushed beyond #122.** Edition branch is local-only; PR stays gated on the owner's ask.
 
 ## The arc this session (what happened + why it matters)
@@ -93,7 +93,7 @@ in flight; this session shipped (A) and then chased "why does ruff still recover
 
 ## Key references
 
-- Roadmap: `docs/ruff-typepath-recovery-roadmap-2026-06-21.md`
+- Roadmap: `docs/archive/plans/prism/ruff-typepath-recovery-roadmap-2026-06-21.md`
 - Edition spec: `docs/superpowers/specs/2026-06-21-prism-edition-anchoring-uniformity-design.md`
 - Edition plan: `docs/superpowers/plans/2026-06-21-edition-anchoring-uniformity.md`
 - Execution handoff: `docs/superpowers/handoffs/2026-06-21-edition-anchoring-uniformity-execution-handoff.md`

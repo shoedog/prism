@@ -36,7 +36,7 @@ A grep across all source files confirms zero references to any JSX-specific node
 
 ### Decision: Supplement, Not Replace
 
-Prism’s `docs/language-expansion-plan.md` identifies `oxc_parser` + `oxc_semantic` as a Phase 3 item for JS/TS. After analyzing both the Prism codebase and oxc’s current API, the recommendation is to **use oxc as a supplementary semantic analysis layer alongside tree-sitter**, not as a replacement.
+Prism’s `docs/features/language-coverage/language-expansion-plan.md` identifies `oxc_parser` + `oxc_semantic` as a Phase 3 item for JS/TS. After analyzing both the Prism codebase and oxc’s current API, the recommendation is to **use oxc as a supplementary semantic analysis layer alongside tree-sitter**, not as a replacement.
 
 ### What oxc Provides That tree-sitter Cannot
 
@@ -139,7 +139,7 @@ impl OxcAnalysis {
 
 Layers 1-3 are tree-sitter-only — oxc adds no value there. Layers 4-6 are where oxc’s scope resolution and reference tracking transform the analysis from heuristic to precise.
 
-### Relationship to `language-expansion-plan.md`
+### Relationship to `docs/features/language-coverage/language-expansion-plan.md`
 
 The expansion plan lists `oxc_parser` (0.123.0) and `oxc_semantic` (0.123.0) as Phase 3 items for “scope-aware analysis” and “JS/TS symbol resolution and type narrowing.” This plan is consistent: Layers 4-6 are the concrete implementation of that Phase 3 item, scoped to React hook analysis as the first consumer. Once `OxcAnalysis` exists, it becomes available to all JS/TS slicing algorithms — taint analysis can use import resolution to avoid false cross-module matches, and `find_variable_references_scoped` can delegate to oxc’s scope tree for precise shadowing.
 

@@ -3,7 +3,7 @@
 **Status:** design-of-record (approved 2026-06-20), PLAN-READY
 **Branch (design + diagnostic):** `precision-multitarget-counter`
 **Area:** `src/resolution.rs` (`owner_lookup_in_modules`)
-**Companion analysis:** [`docs/owner-key-identity-analysis-2026-06-20.md`](../../owner-key-identity-analysis-2026-06-20.md)
+**Companion analysis:** [`docs/archive/analysis/prism/owner-key-identity-analysis-2026-06-20.md`](../../archive/analysis/prism/owner-key-identity-analysis-2026-06-20.md)
 
 ## 1. Problem
 

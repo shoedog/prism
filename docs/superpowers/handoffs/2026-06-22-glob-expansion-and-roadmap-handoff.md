@@ -3,7 +3,7 @@
 Resume doc for the prism owner-key-collision precision arc after the **cross-crate `use`
 resolution** slice. Pairs with the memory record
 `~/.claude/.../memory/project_prism_owner_key_collision.md` (the authoritative arc log) and
-`docs/ruff-typepath-recovery-roadmap-2026-06-21.md` (now partly superseded — see §4).
+`docs/archive/plans/prism/ruff-typepath-recovery-roadmap-2026-06-21.md` (now partly superseded — see §4).
 
 ---
 
@@ -110,7 +110,7 @@ name_resolution` (where `build_wiring_test` lives).
 
 ## 4. The roadmap reframing (IMPORTANT — supersedes the per-bucket sizing)
 
-`docs/ruff-typepath-recovery-roadmap-2026-06-21.md` sized the post-edition 1326 residue as
+`docs/archive/plans/prism/ruff-typepath-recovery-roadmap-2026-06-21.md` sized the post-edition 1326 residue as
 independent buckets: cross-crate `use` **+428**, glob-import **+304**, plus correct-keep-all /
 poison / downstream / minor. **Two slices now show this sizing is wrong:**
 - #122 (A) prune-through-`use`: projected ~1,586 → realized **+0** on ruff (cross-crate-gated).
@@ -203,7 +203,7 @@ unresolved/drops) are the reliable value signal, not the narrow collision counts
   (authoritative arc log) + `MEMORY.md` index.
 - Cross-crate spec/plan: `docs/superpowers/specs/2026-06-21-prism-cross-crate-use-resolution-design.md`,
   `docs/superpowers/plans/2026-06-22-cross-crate-use-resolution.md`.
-- Roadmap (partly superseded — see §4): `docs/ruff-typepath-recovery-roadmap-2026-06-21.md`.
+- Roadmap (partly superseded — see §4): `docs/archive/plans/prism/ruff-typepath-recovery-roadmap-2026-06-21.md`.
 - Glob seam: `walk/items.rs` (`UseItem::Glob` → deferred poison edge), `engine.rs` `glob_lookup` /
   `GlobOutcome` / `scope_member_lookup`. Cross-crate machinery (the prerequisite):
   `crate_deps_by_root` (`graph.rs`), `extern_crate_root` + `crate_root_of` (`rust_policy.rs`),

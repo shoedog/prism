@@ -681,7 +681,7 @@ impl CodePropertyGraph {
         // A seed with no CFG statement node — e.g. a parameter def at the function-start line, or a
         // continuation line — falls back to pure taint: an over-approximation (no CFG pruning for
         // this seed's flow, the conservative/safe direction). CFG-precise parameter body-entry
-        // handling is a tracked follow-up (docs/prism-query-layer/planA-followups.md).
+        // handling is a tracked follow-up (docs/archive/plans/prism-query-layer/planA-followups.md).
         trace.degraded = true;
         trace.warnings.push(format!(
             "No CFG statement node at {file}:{line}; using pure-taint fallback for this seed"

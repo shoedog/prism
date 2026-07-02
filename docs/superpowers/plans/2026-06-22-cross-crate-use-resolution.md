@@ -9,7 +9,7 @@
 **Tech Stack:** Rust; the `name_resolution` scope-graph engine + Rust policy; `cargo test`; the Tier-A accuracy harness (`eval/`, `uv run tier-a`).
 
 **Spec:** [`docs/superpowers/specs/2026-06-21-prism-cross-crate-use-resolution-design.md`](../specs/2026-06-21-prism-cross-crate-use-resolution-design.md) (design-of-record, codex xhigh SHIP).
-**Roadmap:** [`docs/ruff-typepath-recovery-roadmap-2026-06-21.md`](../../ruff-typepath-recovery-roadmap-2026-06-21.md) (cross-crate **+428** → glob +304).
+**Roadmap:** [`docs/archive/plans/prism/ruff-typepath-recovery-roadmap-2026-06-21.md`](../../archive/plans/prism/ruff-typepath-recovery-roadmap-2026-06-21.md) (cross-crate **+428** → glob +304).
 **Predecessors (merged):** #120 demote-not-drop · #121 scope-graph recovery · #122 (A) prune-through-`use` · #123 edition anchoring-class uniformity.
 
 ---

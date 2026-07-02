@@ -12,7 +12,7 @@
 
 **Tech Stack:** Rust, the merged Plan A substrate, `serde_json`, the MCP adapter (`src/mcp/*`, cargo `mcp` feature).
 
-**Source spec:** `…/2026-06-09-prism-tier2-taint-reaches-design.md` (rev 3); **clean-room** `…/taint-reaches-cleanroom-merged-MCP-2026-06-10.md`; **plan-review** `…/planB-plan-review-MCP-2026-06-10.md`; **followups** `…/planA-followups.md` (the contracted-to-Plan-B list).
+**Source spec:** `…/2026-06-09-prism-tier2-taint-reaches-design.md` (rev 3); **clean-room** `…/taint-reaches-cleanroom-merged-MCP-2026-06-10.md`; **plan-review** `…/planB-plan-review-MCP-2026-06-10.md`; **followups** `docs/archive/plans/prism-query-layer/planA-followups.md` (the contracted-to-Plan-B list).
 
 ## Substrate surface (verified on merged `main` + plan-review)
 *(unchanged from rev 2 — see git history of this file for the full table; key facts repeated where a slice depends on them.)*

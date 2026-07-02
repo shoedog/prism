@@ -52,7 +52,7 @@ should be treated as a separate compatibility decision with golden updates.
 
 ## Research Takeaways
 
-The repo already contains a research note at `docs/prism-query-layer/research-llm-codebase-navigation.md`.
+The repo already contains a research note at `docs/archive/analysis/prism-query-layer/research-llm-codebase-navigation.md`.
 The parts that matter for evidence shaping are:
 
 1. Structure-first navigation is the highest-confidence substrate. The strongest studies and deployed

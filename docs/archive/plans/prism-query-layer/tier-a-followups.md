@@ -1,6 +1,6 @@
 # Tier-A Followups (post-final-review, 2026-06-12)
 
-> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+> **Status:** Archived query-layer note. See `docs/features/query-layer/README.md` for current docs and the local archive README for routing.
 
 Final whole-branch review record: `docs/archive/review-artifacts/prism-query-layer/tier-a-final-review-2026-06-12.md` (8 MAJOR fixed
 pre-merge; these are the MINORs + corrections carried forward).

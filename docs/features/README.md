@@ -8,8 +8,11 @@ review iterations and provenance records live under `docs/archive/`.
 | Feature area | Current docs |
 |--------------|--------------|
 | CPG | `docs/features/cpg/` |
+| Documentation organization | `docs/features/documentation/` |
+| Language coverage | `docs/features/language-coverage/` |
 | Query-layer navigation and resolution | `docs/features/query-layer/` |
 | Superpowers slice index | `docs/features/superpowers/` |
+| Type system | `docs/features/type-system/` |
 
 ## 2026-07-01 Move Map
 
@@ -32,3 +35,10 @@ review iterations and provenance records live under `docs/archive/`.
 | `docs/prism-query-layer/mcp-auto-refresh-incremental-correctness-design-2026-06-23.md` | `docs/features/query-layer/mcp-refresh/mcp-auto-refresh-incremental-correctness-design-2026-06-23.md` |
 | `docs/prism-query-layer/mcp-auto-incremental-refresh-slice-c-design-2026-06-24.md` | `docs/features/query-layer/mcp-refresh/mcp-auto-incremental-refresh-slice-c-design-2026-06-24.md` |
 | `docs/prism-query-layer/*review*.md`, selected cleanroom records, and `docs/prism-query-layer/provenance/` | `docs/archive/review-artifacts/prism-query-layer/` |
+
+## 2026-07-01 Second Pass
+
+The second pass moved remaining query-layer legacy notes and mixed root-level
+docs into feature and archive buckets. See
+`docs/features/documentation/docs-inventory-2026-07-01.md` for the full move
+inventory.

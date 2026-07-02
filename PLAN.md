@@ -120,19 +120,19 @@ Last updated: 2026-04-24 (T1-006 handoff, three new algorithms, pre-handoff base
 |------|--------|----------|--------|-------|
 | ~~**Rust** (`tree-sitter-rust`)~~ | — | — | **Done** | Full algorithm coverage: taint, provenance, absence, membrane, quantum, echo |
 | ~~**Lua** (`tree-sitter-lua`)~~ | — | — | **Done** | Full algorithm coverage: taint, provenance, absence, membrane, quantum, echo |
-| **Terraform / HCL** (`tree-sitter-hcl` + `hcl-rs`) | 2-3 weeks | Must-have — team's own repos | Analysis complete | Taint through `var.`/`local.` to sensitive resource attrs; module membrane; provenance for `var.`/`data.`/`module.` origins. `hcl-rs` for reference resolution. Full plan: `docs/terraform-hcl-plan.md`. Test fixtures ready. |
-| **Shell / Bash** (`tree-sitter-bash`) | 1-2 weeks | Should-have — firmware scripts | Analysis complete | Killer use case: command injection via unquoted `$var`. Covers Busybox/OpenWrt firmware scripts. Full plan: `docs/shell-bash-plan.md`. Test fixtures ready. |
+| **Terraform / HCL** (`tree-sitter-hcl` + `hcl-rs`) | 2-3 weeks | Must-have — team's own repos | Analysis complete | Taint through `var.`/`local.` to sensitive resource attrs; module membrane; provenance for `var.`/`data.`/`module.` origins. `hcl-rs` for reference resolution. Full plan: `docs/features/language-coverage/terraform-hcl-plan.md`. Test fixtures ready. |
+| **Shell / Bash** (`tree-sitter-bash`) | 1-2 weeks | Should-have — firmware scripts | Analysis complete | Killer use case: command injection via unquoted `$var`. Covers Busybox/OpenWrt firmware scripts. Full plan: `docs/features/language-coverage/shell-bash-plan.md`. Test fixtures ready. |
 
 ### P4 — Declarative Format Context Extraction
 
-These formats need a different analysis model: parse → find touched units → trace references → emit context. Not full slicing, but serves the same purpose of reducing what the LLM reviewer reads. Architecture decision: single binary with `prism slice` / `prism context` subcommands and Cargo feature flags. See `docs/language-expansion-plan.md` §4, §6.
+These formats need a different analysis model: parse → find touched units → trace references → emit context. Not full slicing, but serves the same purpose of reducing what the LLM reviewer reads. Architecture decision: single binary with `prism slice` / `prism context` subcommands and Cargo feature flags. See `docs/features/language-coverage/language-expansion-plan.md` §4, §6.
 
 | Item | Effort | Priority | Notes |
 |------|--------|----------|-------|
 | **Dockerfiles** (`dockerfile-parser-rs` + `docker-compose-types`) | 1-2 weeks | High — team's own repos | Multi-stage build dependency tracking, compose service graph, `ARG`/`ENV` propagation |
 | **Protocol Buffers** (`tree-sitter-proto` + `protobuf-parse`) | 1 week | Medium — if gRPC IPC in firmware | Message reference graph, field number stability detection, service endpoint context |
-| **YANG / NETCONF** (pyang + JSON tree) | 2-3 weeks | Medium-High — ROLT, RPD, CIN | Re-evaluated: critical for DOCSIS 4.0/WiFi 7 model changes. Shell out to pyang for resolution. Backward compat, leafref integrity, augmentation conflict detection. See `docs/access-network-analysis-evaluation.md` §2 |
-| **Device Tree Source** (dtc + tree-sitter-devicetree) | 2-3 weeks | Medium — RPD, CPE | Re-evaluated: needed for WiFi 7 radio config and DOCSIS 4.0 FPGA config. Register overlap, interrupt conflict, compatible string validation. See `docs/access-network-analysis-evaluation.md` §3 |
+| **YANG / NETCONF** (pyang + JSON tree) | 2-3 weeks | Medium-High — ROLT, RPD, CIN | Re-evaluated: critical for DOCSIS 4.0/WiFi 7 model changes. Shell out to pyang for resolution. Backward compat, leafref integrity, augmentation conflict detection. See `docs/archive/analysis/language-coverage/access-network-analysis-evaluation.md` §2 |
+| **Device Tree Source** (dtc + tree-sitter-devicetree) | 2-3 weeks | Medium — RPD, CPE | Re-evaluated: needed for WiFi 7 radio config and DOCSIS 4.0 FPGA config. Register overlap, interrupt conflict, compatible string validation. See `docs/archive/analysis/language-coverage/access-network-analysis-evaluation.md` §3 |
 | **Protocol Buffers** (`tree-sitter-proto` + `protobuf-parse`) | 1 week | Medium — vCMTS gRPC IPC | Message reference graph, field number stability detection, service endpoint context |
 | Makefiles / CMake | — | Skip for now | Security flag auditing is rule-based, not context extraction |
 
@@ -208,7 +208,7 @@ The eval team's CWE coverage handoff (`~/code/agent-eval/analysis/prism-cwe-cove
 
 ### Known Limitations (C/C++)
 - Pointer aliasing: local must-alias (Phase 3) handles `ptr = dev` intraprocedurally; interprocedural aliasing not yet tracked
-- Function pointers: Level 0 (field-access), Level 1 (local fptr variable), Level 2 (dispatch tables), Level 3 (parameter-passed, 1-hop) resolved; Level 4 (full points-to) not implemented — see `docs/c-cpp/function-pointer-resolution.md`
+- Function pointers: Level 0 (field-access), Level 1 (local fptr variable), Level 2 (dispatch tables), Level 3 (parameter-passed, 1-hop) resolved; Level 4 (full points-to) not implemented — see `docs/features/language-coverage/c-cpp/function-pointer-resolution.md`
 - `static` function scope: disambiguated via `resolve_callees()` and `callers_of_in_file()`
 - Interrupt handlers: detected by naming heuristic AND cross-file registration analysis (`signal()`, `pthread_create()`, `request_irq()`, `.sa_handler`, `std::thread`)
 - Struct field flow: field-sensitive via AccessPath (CPG Phase 1-2 done). Phase 2 eliminates cross-field taint leakage. Phase 3 resolves pointer aliases.
@@ -245,10 +245,10 @@ The eval team's CWE coverage handoff (`~/code/agent-eval/analysis/prism-cwe-cove
 - **CPG architecture:** `docs/features/cpg/architecture.md` (AccessPath, Code Property Graph, type enrichment — design, phases 1-6 all done)
 - **CPG Phase 6 plan:** `docs/features/cpg/cfg-plan.md` (control flow graph edges — completed, 3-PR summary)
 - **CPG improvements:** `docs/features/cpg/improvements.md` (post-Phase 6: CpgContext build-once, JS/TS destructuring, tree-sitter struct fallback, RTA, Lua colon fix)
-- **Terraform/HCL plan:** `docs/terraform-hcl-plan.md` (TerraformRefGraph architecture, algorithm mapping, dual-parser approach)
-- **Shell/Bash plan:** `docs/shell-bash-plan.md` (taint sinks, unquoted variable detection, firmware-specific patterns)
-- **Access network evaluation:** `docs/access-network-analysis-evaluation.md` (YANG/NETCONF, Device Tree, Busybox for ROLT/vCMTS/RPD/CIN/CPE, DOCSIS 4.0, WiFi 7)
-- Language expansion plan: `docs/language-expansion-plan.md` (detailed analysis of all candidate languages, crates, architecture decisions)
-- Gap analysis: `docs/prism-ccpp-gap-analysis.md`
+- **Terraform/HCL plan:** `docs/features/language-coverage/terraform-hcl-plan.md` (TerraformRefGraph architecture, algorithm mapping, dual-parser approach)
+- **Shell/Bash plan:** `docs/features/language-coverage/shell-bash-plan.md` (taint sinks, unquoted variable detection, firmware-specific patterns)
+- **Access network evaluation:** `docs/archive/analysis/language-coverage/access-network-analysis-evaluation.md` (YANG/NETCONF, Device Tree, Busybox for ROLT/vCMTS/RPD/CIN/CPE, DOCSIS 4.0, WiFi 7)
+- Language expansion plan: `docs/features/language-coverage/language-expansion-plan.md` (detailed analysis of all candidate languages, crates, architecture decisions)
+- Gap analysis: `docs/features/language-coverage/c-cpp/gap-analysis.md`
 - Algorithm taxonomy: `SLICING_METHODS.md`
 - Paper: arXiv:2505.17928

@@ -19,7 +19,7 @@ edge**, or **macro wildcard poison**), and ②B proves directness from the
 `Candidate`.
 **Area:** `src/repo_loader.rs`, `src/resolution.rs`, new `src/resolution_disproof.rs`, `src/cpg_cache.rs`
 **Predecessor:** [`2026-06-20-prism-owner-collision-demote-design.md`](2026-06-20-prism-owner-collision-demote-design.md) (#120, shipped the same-name-collision demote-not-drop; this is its §14 recovery path)
-**Companion analysis:** [`docs/owner-key-identity-analysis-2026-06-20.md`](../../owner-key-identity-analysis-2026-06-20.md)
+**Companion analysis:** [`docs/archive/analysis/prism/owner-key-identity-analysis-2026-06-20.md`](../../archive/analysis/prism/owner-key-identity-analysis-2026-06-20.md)
 
 ## 1. Goal & premises
 

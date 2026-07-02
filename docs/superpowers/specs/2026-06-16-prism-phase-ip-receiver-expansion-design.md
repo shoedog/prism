@@ -2,7 +2,7 @@
 
 > **rev 2 (2026-06-16) — dual spec-review folded (codex gpt-5.5 xhigh + claude opus).** Both:
 > strategically sound (engine-vs-recovery split right; no-build/no-SCIP posture aligned with
-> `docs/features/cpg/substrate-analysis-2026-06-10.md` / `prism-meta-analysis-2026-06-10.md`; S3 receiver-recovery
+> `docs/features/cpg/substrate-analysis-2026-06-10.md` / `docs/archive/analysis/prism/prism-meta-analysis-2026-06-10.md`; S3 receiver-recovery
 > component, not a parallel layer), with buildability/spec gaps now fixed. Key folds: **recover-and-route**
 > (recover the receiver's static type by syntactic fact; the existing `owner_lookup → interface_impls →
 > drop` ladder routes it — no `GoTypeProvider` at extraction, no interface-set predicate; resolves the
@@ -221,7 +221,7 @@ Each form is independently revertable to `legacy` via the config (§13).
 `S1→S2→S3→S4` floor (`docs/features/cpg/substrate-analysis-2026-06-10.md`): it tightens the **shared** resolver
 (benefiting diff-review, nav — verified nav is always whole-repo — and Tier-2 Step-5b together), extends
 the existing `ReceiverRecovery` vocabulary (not a parallel one), and feeds Phase-IP dispatch. It honors the
-no-build/all-text load-bearing property (`prism-meta-analysis-2026-06-10.md`): recovery is **syntactic**,
+no-build/all-text load-bearing property (`docs/archive/analysis/prism/prism-meta-analysis-2026-06-10.md`): recovery is **syntactic**,
 never compiler-dependent; `Source::ExternalIndex`/SCIP stays a *future* arbitration seam, not a PR-2
 dependency. "Label confidence, don't delete edges" is preserved (kept-Exact fallback; concrete misses drop
 exactly as today).

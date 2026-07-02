@@ -261,7 +261,7 @@ maintaining the oracle).
   measurably hurts agent workflows (Plan B followups note it; keep it there).
 - **Basic-block CFG restructure**: no current consumer needs it; statement-level + dominators
   suffice.
-- (Reinforced by `docs/prism-query-layer/research-llm-codebase-navigation.md`: the value of
+- (Reinforced by `docs/archive/analysis/prism-query-layer/research-llm-codebase-navigation.md`: the value of
   graph navigation to LLM agents is **precision** — RepoGraph/LocAgent-class gains assume
   true edges, and the research flags that wrong context actively degrades agents. S3 buys
   more agent-visible accuracy per day than any modeling expansion.)

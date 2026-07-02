@@ -1,6 +1,6 @@
 # LLM Codebase Navigation: Prism Extension Analysis
 
-> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+> **Status:** Archived query-layer note. See `docs/features/query-layer/README.md` for current docs and the local archive README for routing.
 
 **Status:** Analysis  
 **Date:** 2026-06-06  

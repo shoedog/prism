@@ -8,7 +8,7 @@ P2-only fallback) after a lite-vs-full comparison, adding the std-wrapper peel l
 and the §7.4 S3.1 field-index candidate.
 **Context docs:** `docs/eval/tier-a/baseline.md` (the measured S3 work-list — the
 anchor), `docs/features/cpg/substrate-analysis-2026-06-10.md` §3 S3 row (prescribed fix shape),
-`docs/prism-query-layer/tier-a-handoff-2026-06-12.md` (sequencing: S3 → S2 → Plan B).
+`docs/archive/plans/prism-query-layer/tier-a-handoff-2026-06-12.md` (sequencing: S3 → S2 → Plan B).
 
 ## 0. Why now
 

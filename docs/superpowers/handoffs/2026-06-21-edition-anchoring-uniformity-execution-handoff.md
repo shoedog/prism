@@ -39,7 +39,7 @@ mixed workspaces. **Verified buy: +260 sound collision recoveries on ruff, 0 new
   `[workspace.package]` editions into a `BTreeSet workspace_editions` and gate on the two-term AND
   `anchoring_class_uniform(editions_seen) && anchoring_class_uniform(workspace_editions)`. No
   residual hole (all three 2015 sources caught; codex re-review SHIP).
-- **Follow-on slices** (NOT this one; see [`docs/ruff-typepath-recovery-roadmap-2026-06-21.md`](../../ruff-typepath-recovery-roadmap-2026-06-21.md)):
+- **Follow-on slices** (NOT this one; see [`docs/archive/plans/prism/ruff-typepath-recovery-roadmap-2026-06-21.md`](../../archive/plans/prism/ruff-typepath-recovery-roadmap-2026-06-21.md)):
   cross-crate `use` resolution (+428 on ruff, the largest residue bucket — needs the crate-name→root
   map persisted into `ScopeGraph`), then glob-import resolution (+304). The other ~594 of ruff's
   1,586 are correct keep-all shadows / poison / downstream-method / minor.

@@ -87,7 +87,7 @@ What language-specific patterns does each language have, and does Prism handle t
         "languages": ["javascript", "typescript"],
         "status": "gap",
         "gap_id": 3,
-        "tracking": "docs/language-analysis-gaps.md"
+        "tracking": "docs/features/language-coverage/language-analysis-gaps.md"
       },
       "with_as_binding": {
         "languages": ["python"],

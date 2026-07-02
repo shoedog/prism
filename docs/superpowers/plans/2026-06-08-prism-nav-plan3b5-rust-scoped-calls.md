@@ -36,7 +36,7 @@
 - `src/navigation/queries.rs` — `direct_callees` and `direct_callers` use the nav resolver (`direct_callers` also scans scoped caller keys).
 - `src/navigation/module_graph.rs` — `collect_module_edges` uses the nav resolver.
 - `Cargo.toml` — `[[test]] navigation_scoped_calls`.
-- `CLAUDE.md` / `docs/prism-query-layer/plan3b-module-map-followups.md` — note `::`-scoped support (Rust + C++), the ego divergence, and the remaining language-agnostic gaps.
+- `CLAUDE.md` / `docs/archive/plans/prism-query-layer/plan3b-module-map-followups.md` — note `::`-scoped support (Rust + C++), the ego divergence, and the remaining language-agnostic gaps.
 
 ---
 
@@ -466,7 +466,7 @@ git commit -m "feat(nav): resolve scoped callers with stem-collision guard (Plan
 ## Task 4: Live-repo dogfood confirmation + docs
 
 **Files:**
-- Modify: `tests/cli/nav_compat_test.rs`, `CLAUDE.md`, `docs/prism-query-layer/plan3b-module-map-followups.md`
+- Modify: `tests/cli/nav_compat_test.rs`, `CLAUDE.md`, `docs/archive/plans/prism-query-layer/plan3b-module-map-followups.md`
 
 - [ ] **Step 1: Add the dogfood confirmation/regression test**
 
@@ -502,12 +502,12 @@ Expected: PASS. If it fails, the Task 2 `direct_callees` swap is incomplete — 
 - [ ] **Step 3: Doc-sync**
 
 - In `CLAUDE.md`, update the nav note: call resolution now covers (a) `.`-qualified package/module calls for Python/JS/TS/Go (existing), (b) unqualified/`use`-imported calls, and (c) **`::`-scoped module/namespace free functions for Rust and C++** (new). Note the remaining gaps: `Type::method` where type ≠ file stem, and cross-file **method/receiver** calls (need type info) — language-agnostic.
-- In `docs/prism-query-layer/plan3b-module-map-followups.md`, mark `::`-scoped `mod::fn`/`Ns::func` resolution **delivered (Plan 3b.5, Rust + C++)** and refine the remaining items to: **`Type::method` associated functions** (need type→file map), **`ego` scoped edges** (need nav-index CPG augmentation — *explicitly warn that `ego` now returns a strictly smaller neighborhood than `callees`+`callers` for scoped-dispatch symbols*), and the language-agnostic **method/receiver resolution** (needs `type_db`).
+- In `docs/archive/plans/prism-query-layer/plan3b-module-map-followups.md`, mark `::`-scoped `mod::fn`/`Ns::func` resolution **delivered (Plan 3b.5, Rust + C++)** and refine the remaining items to: **`Type::method` associated functions** (need type→file map), **`ego` scoped edges** (need nav-index CPG augmentation — *explicitly warn that `ego` now returns a strictly smaller neighborhood than `callees`+`callers` for scoped-dispatch symbols*), and the language-agnostic **method/receiver resolution** (needs `type_db`).
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add tests/cli/nav_compat_test.rs CLAUDE.md docs/prism-query-layer/plan3b-module-map-followups.md
+git add tests/cli/nav_compat_test.rs CLAUDE.md docs/archive/plans/prism-query-layer/plan3b-module-map-followups.md
 git commit -m "test(nav): scoped-dispatch dogfood + docs (Plan 3b.5 T4)"
 ```
 

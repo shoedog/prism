@@ -5,7 +5,7 @@
 //! TypeScript). The `TypeRegistry` collects per-language providers and routes
 //! queries by `Language`.
 //!
-//! See `docs/E12-type-system.md` for the full design.
+//! See `docs/features/type-system/e12-type-system.md` for the full design.
 
 use crate::call_graph::FunctionId;
 use crate::languages::Language;

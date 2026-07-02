@@ -1,6 +1,6 @@
 # Prism Tier 2 Plan A Follow-ups
 
-> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+> **Status:** Archived query-layer note. See `docs/features/query-layer/README.md` for current docs and the local archive README for routing.
 
 Tracked follow-ups intentionally deferred from the Plan A substrate review fixes.
 

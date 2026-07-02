@@ -2733,7 +2733,7 @@ git push -u origin claude/cwe-phase1-go
 gh pr create --title "Phase 1: Go CWE-78/22 + framework detection + sanitizers" --body "$(cat <<'EOF'
 ## Summary
 
-Phase 1 of the CWE coverage handoff (per [ACK](../../ACK-prism-cwe-coverage-handoff.md) §2). Adds Go CWE-78 + CWE-22 detection with framework-aware sources (net/http + gin + gorilla/mux) and category-aware sanitizer recognition (shell-escape + path-validation).
+Phase 1 of the CWE coverage handoff (per [ACK](../../../ACK-prism-cwe-coverage-handoff.md) §2). Adds Go CWE-78 + CWE-22 detection with framework-aware sources (net/http + gin + gorilla/mux) and category-aware sanitizer recognition (shell-escape + path-validation).
 
 Three commits:
 1. **Framework detection layer** — `src/frameworks/{nethttp,gin,gorilla_mux}.rs` with `FrameworkSpec` const data, lazy `OnceCell` detection on `ParsedFile`, ordered registry (gin > gorilla/mux > nethttp), 14 tests.

@@ -8,11 +8,15 @@ artifacts separated into `docs/archive/`.
 | Area | Location | Use |
 |------|----------|-----|
 | CPG | `docs/features/cpg/` | Current CPG architecture, implementation status, and retained design history. |
-| Query layer | `docs/features/query-layer/` | Active navigation, import-resolution, evidence, and MCP refresh plans/designs. |
+| Query layer | `docs/features/query-layer/` | Active navigation, import-resolution, evidence, MCP refresh, and MCP serving plans/designs. |
+| Language coverage | `docs/features/language-coverage/` | Current language expansion, coverage, and language-specific analysis plans. |
+| Type system | `docs/features/type-system/` | Current multi-language type-system design material. |
+| Documentation organization | `docs/features/documentation/` | Documentation routing rules, cleanup plans, and move inventories. |
 | Accuracy harness | `docs/eval/tier-a/` | Committed Tier-A baselines and run artifacts. |
 | Superpowers specs/plans | `docs/superpowers/specs/`, `docs/superpowers/plans/` | Canonical final specs and implementation plans per slice. |
 | How-to docs | `docs/how-to/` | Operational documentation for maintainers. |
-| Historical review artifacts | `docs/archive/review-artifacts/` | Code-review, plan-review, spec-review, and provenance records. |
+| MCP guide | `docs/MCP.md` | Stable agent-facing setup and user guide. |
+| Archive | `docs/archive/` | Historical analysis, plans, review artifacts, and operational incident notes. |
 
 ## Status Conventions
 

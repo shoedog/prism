@@ -69,7 +69,7 @@ Why it matters:
 
 References:
 
-- `docs/prism-meta-analysis-2026-06-10.md` section 7, "Indexing policy - tests, fixtures, vendored and
+- `docs/archive/analysis/prism/prism-meta-analysis-2026-06-10.md` section 7, "Indexing policy - tests, fixtures, vendored and
   generated code"
 - `src/repo_loader.rs`
 - `src/navigation/types.rs`
@@ -94,7 +94,7 @@ Why it matters:
 
 References:
 
-- `docs/mcp-http-multi-repo-evaluation.md`, "Ask 2 - multi-repo serving"
+- `docs/features/query-layer/mcp-serving/mcp-http-multi-repo-evaluation.md`, "Ask 2 - multi-repo serving"
 - `src/mcp/session.rs`
 - `src/mcp/transport.rs`
 - `src/mcp/input.rs`
@@ -118,7 +118,7 @@ Why it matters:
 
 References:
 
-- `docs/prism-meta-analysis-2026-06-10.md` section 8, "Priority synthesis across all seven"
+- `docs/archive/analysis/prism/prism-meta-analysis-2026-06-10.md` section 8, "Priority synthesis across all seven"
 - `docs/eval/tier-a/`
 - `eval/README.md`
 
@@ -139,7 +139,7 @@ Why it matters:
 
 References:
 
-- `docs/prism-meta-analysis-2026-06-10.md` section 4, "Mid-session staleness"
+- `docs/archive/analysis/prism/prism-meta-analysis-2026-06-10.md` section 4, "Mid-session staleness"
 - `src/mcp/freshness.rs`
 - `src/mcp/session.rs`
 - `src/mcp/transport.rs`

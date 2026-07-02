@@ -32,7 +32,7 @@ The file has two main sections:
 - `languages`: which languages have this feature (not which languages Prism supports — only languages where the pattern exists)
 - `status`: `"handled"` or `"gap"`
 - `tests`: glob patterns matching test function names that verify the feature works. The validation test scans all test files (integration, CLI, and unit) for matches.
-- `gap_id`: (gaps only) sequential number matching `docs/language-analysis-gaps.md`
+- `gap_id`: (gaps only) sequential number matching `docs/features/language-coverage/language-analysis-gaps.md`
 - `tracking`: (gaps only) path to the tracking document
 - `notes`: (optional) explanation of limitations or partial support
 
@@ -126,7 +126,7 @@ The `language-coverage` CI job will:
 1. Change the feature's status from `"gap"` to `"handled"`
 2. Add the `tests` field with patterns matching the new tests
 3. Remove `gap_id` and `tracking` fields
-4. Update `docs/language-analysis-gaps.md` to mark the gap as fixed
+4. Update `docs/features/language-coverage/language-analysis-gaps.md` to mark the gap as fixed
 
 ```json
 // Before:
@@ -134,7 +134,7 @@ The `language-coverage` CI job will:
   "languages": ["python"],
   "status": "gap",
   "gap_id": 4,
-  "tracking": "docs/language-analysis-gaps.md"
+  "tracking": "docs/features/language-coverage/language-analysis-gaps.md"
 }
 
 // After:
@@ -156,7 +156,7 @@ The `language-coverage` CI job will:
   "languages": ["python"],
   "status": "gap",
   "gap_id": 10,
-  "tracking": "docs/language-analysis-gaps.md",
+  "tracking": "docs/features/language-coverage/language-analysis-gaps.md",
   "notes": "Python 3.10+ structural pattern matching"
 }
 ```
@@ -171,5 +171,5 @@ The `language-coverage` CI job will:
 | `coverage/table.md` | Generated algorithm table | No (gitignored) |
 | `scripts/generate_coverage_badges.py` | Generator script | Yes |
 | `README.md` | Updated between marker comments | Yes |
-| `docs/cross-language-coverage.md` | Design doc | Yes |
-| `docs/language-analysis-gaps.md` | Gap tracking | Yes |
+| `docs/features/language-coverage/cross-language-coverage.md` | Design doc | Yes |
+| `docs/features/language-coverage/language-analysis-gaps.md` | Gap tracking | Yes |

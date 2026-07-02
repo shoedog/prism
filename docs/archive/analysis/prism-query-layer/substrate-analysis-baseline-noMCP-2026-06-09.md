@@ -1,4 +1,4 @@
-> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+> **Status:** Archived query-layer note. See `docs/features/query-layer/README.md` for current docs and the local archive README for routing.
 
 Looking at these two designs, I'll synthesize them now — reading specific code points only where the two architects diverge on factual claims.The key divergence is confirmed. Now I have enough to synthesize.
 

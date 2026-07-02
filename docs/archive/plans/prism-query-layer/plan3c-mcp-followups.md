@@ -1,6 +1,6 @@
 # Plan 3c (MCP adapter) — deferred follow-ups
 
-> **Status:** Legacy query-layer note. See `docs/prism-query-layer/README.md` for current routing.
+> **Status:** Archived query-layer note. See `docs/features/query-layer/README.md` for current docs and the local archive README for routing.
 
 Holistic-review findings intentionally **deferred** (current behavior is correct; these are
 architectural/robustness refactors the verdict said to "tighten before the adapter grows"). The four
