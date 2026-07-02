@@ -27,6 +27,76 @@ fn callers_reports_caller_and_call_site_line() {
 }
 
 #[test]
+fn callers_uses_incoming_index_not_reversed_outgoing_calls() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("a.py"),
+        "def target():\n    return 1\n\ndef caller():\n    return target()\n",
+    )
+    .unwrap();
+    let repo = Arc::new(load_repo(dir.path()).unwrap());
+    let index = NavigationIndex::build(&repo).with_modified_cpg_for_testing(|cpg| {
+        cpg.call_graph.calls.clear();
+    });
+    let s = NavigationSession {
+        repo,
+        index: Arc::new(index),
+    };
+
+    let callers = queries::callers(&s, Some("target"), None, None, 1).unwrap();
+    assert!(
+        callers.items.iter().any(|i| matches!(&i.symbol,
+            Some(SymbolRef::Function { name, .. }) if name == "caller")),
+        "callers should still use the incoming callers map when outgoing calls are absent"
+    );
+
+    let callees = queries::callees(&s, Some("caller"), None, None, 1).unwrap();
+    assert!(
+        !callees.items.iter().any(|i| matches!(&i.symbol,
+            Some(SymbolRef::Function { name, .. }) if name == "target")),
+        "callees should reflect the empty outgoing calls map in this fixture"
+    );
+}
+
+#[test]
+fn callers_preserves_duplicate_incoming_sites_from_callers_map() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("a.py"),
+        "def target():\n    return 1\n\ndef caller():\n    return target()\n",
+    )
+    .unwrap();
+    let repo = Arc::new(load_repo(dir.path()).unwrap());
+    let index = NavigationIndex::build(&repo).with_modified_cpg_for_testing(|cpg| {
+        let sites = cpg
+            .call_graph
+            .callers
+            .get_mut("target")
+            .expect("target caller bucket");
+        let duplicate = sites[0].clone();
+        sites.push(duplicate);
+    });
+    let s = NavigationSession {
+        repo,
+        index: Arc::new(index),
+    };
+
+    let callers = queries::callers(&s, Some("target"), None, None, 1).unwrap();
+    let caller_count = callers
+        .items
+        .iter()
+        .filter(|i| {
+            matches!(&i.symbol,
+            Some(SymbolRef::Function { name, .. }) if name == "caller")
+        })
+        .count();
+    assert_eq!(
+        caller_count, 2,
+        "incoming index must preserve callers-map multiplicity even when resolution is memoized"
+    );
+}
+
+#[test]
 fn callers_direct_hit_scores_1_0_and_hop2_decays() {
     // A() called by B() called by C() — transitive (R3-M5).
     let s = session(&[(

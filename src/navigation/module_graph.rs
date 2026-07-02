@@ -93,27 +93,23 @@ struct GraphImportDeps {
 /// lib/utils.py and src/utils.py. Deterministic over-reporting is acceptable for
 /// the v1 map.
 fn collect_module_edges(s: &NavigationSession) -> BTreeMap<(String, String), EdgeReasons> {
-    let cg = &s.index.cpg.call_graph;
     let mut edges: BTreeMap<(String, String), EdgeReasons> = BTreeMap::new();
-    for (caller, sites) in &cg.calls {
-        for site in sites {
-            let resolved = crate::navigation::call_resolve::resolve_site_nav(cg, site);
-            for edge in resolved {
-                let def = edge.target;
-                if def.file != caller.file {
-                    let score = confidence_score(edge.confidence);
-                    let entry = edges
-                        .entry((caller.file.clone(), def.file.clone()))
-                        .or_default();
-                    entry.max_score = entry.max_score.max(score);
-                    entry.reasons.insert(ModuleCallReason {
-                        callee: site.callee_name.clone(),
-                        call_site_line: site.line,
-                        qualifier: edge.qualifier,
-                        score,
-                        kind: edge.kind.as_str().to_string(),
-                    });
-                }
+    for (caller, site) in s.index.outgoing_call_edges() {
+        for edge in &site.resolved {
+            let def = &edge.target;
+            if def.file != caller.file {
+                let score = confidence_score(edge.confidence);
+                let entry = edges
+                    .entry((caller.file.clone(), def.file.clone()))
+                    .or_default();
+                entry.max_score = entry.max_score.max(score);
+                entry.reasons.insert(ModuleCallReason {
+                    callee: site.callee_name.clone(),
+                    call_site_line: site.call_site_line,
+                    qualifier: site.qualifier.clone(),
+                    score,
+                    kind: edge.kind.as_str().to_string(),
+                });
             }
         }
     }
@@ -128,7 +124,7 @@ fn authoritative_rust_scope_graph<'a>(
     if !matches!(parsed.language, crate::languages::Language::Rust) {
         return None;
     }
-    let graph = s.index.cpg.call_graph.scope_graph.as_ref()?;
+    let graph = s.index.call_graph().scope_graph.as_ref()?;
     if !graph.complete || !graph.file_paths.contains_key(file) {
         return None;
     }
@@ -227,7 +223,7 @@ pub fn module_deps(s: &NavigationSession, file: &str) -> Evidence {
         };
     }
 
-    let cg = &s.index.cpg.call_graph;
+    let cg = s.index.call_graph();
     // Project the shared edge collector to edges whose SOURCE is the queried file;
     // each distinct target file becomes one PrismCpg item carrying its Calls reasons.
     let mut items = Vec::new();
@@ -369,7 +365,7 @@ pub fn module_deps(s: &NavigationSession, file: &str) -> Evidence {
 /// Whole-repo module graph: one file node per indexed file (isolated files
 /// included) + distinct call-derived `ModuleDep` file->file edges. Spec §10.
 pub fn repo_map(s: &NavigationSession) -> Evidence {
-    let cg = &s.index.cpg.call_graph;
+    let cg = s.index.call_graph();
     // Shared edge collector: distinct (source_file, target_file) keys are the edges.
     let mut edges_map = collect_module_edges(s);
     let mut graph_external_modules = BTreeSet::new();

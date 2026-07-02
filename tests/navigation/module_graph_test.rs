@@ -141,8 +141,9 @@ fn module_deps_non_rust_is_byte_identical_when_scope_graph_is_present() {
     ]);
     let baseline = serde_json::to_string(&module_deps(&s, "main.py")).unwrap();
 
-    let mut index = NavigationIndex::build(&s.repo);
-    index.cpg.call_graph.scope_graph = Some(ScopeGraph::new());
+    let index = NavigationIndex::build(&s.repo).with_modified_cpg_for_testing(|cpg| {
+        cpg.call_graph.scope_graph = Some(ScopeGraph::new());
+    });
     let with_graph = NavigationSession {
         repo: Arc::clone(&s.repo),
         index: Arc::new(index),
@@ -230,8 +231,9 @@ fn module_deps_rust_without_authoritative_scope_graph_keeps_existing_fallback() 
             "mod util;\nuse util::helper;\nfn run() -> i32 { helper() }\n",
         ),
     ]);
-    let mut index = NavigationIndex::build(&s.repo);
-    index.cpg.call_graph.scope_graph = None;
+    let index = NavigationIndex::build(&s.repo).with_modified_cpg_for_testing(|cpg| {
+        cpg.call_graph.scope_graph = None;
+    });
     let no_graph = NavigationSession {
         repo: Arc::clone(&s.repo),
         index: Arc::new(index),

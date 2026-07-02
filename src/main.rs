@@ -455,15 +455,14 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
         }
         NavQuery::CallStats { repo } => {
             let session = build_session(repo, nav.no_cache, nav.cache_dir.as_deref())?;
-            let stats = prism::navigation::queries::call_stats(&session.index.cpg.call_graph);
+            let stats = prism::navigation::queries::call_stats(session.index.call_graph());
             println!("{}", serde_json::to_string_pretty(&stats)?);
             Ok(())
         }
         NavQuery::InterfaceManifest { repo } => {
             let session = build_session(repo, nav.no_cache, nav.cache_dir.as_deref())?;
-            let manifest = prism::navigation::queries::interface_dispatch_manifest(
-                &session.index.cpg.call_graph,
-            );
+            let manifest =
+                prism::navigation::queries::interface_dispatch_manifest(session.index.call_graph());
             println!("{}", serde_json::to_string_pretty(&manifest)?);
             Ok(())
         }
