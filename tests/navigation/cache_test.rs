@@ -1,11 +1,43 @@
 use prism::navigation::{
-    cache::nav_cache_subdir, queries, types::SymbolRef, NavigationIndex, NavigationSession,
+    cache::nav_cache_subdir,
+    module_graph::{module_deps, repo_map},
+    queries,
+    types::{SymbolRef, WarningKind},
+    NavigationIndex, NavigationSession,
 };
 use prism::repo_loader::load_repo;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
+
+const DIRTY_LOAD_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
+
+static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 fn write(dir: &std::path::Path, name: &str, src: &str) {
     std::fs::write(dir.join(name), src).unwrap();
+}
+
+struct EnvRestore {
+    key: &'static str,
+    old: Option<std::ffi::OsString>,
+}
+
+impl Drop for EnvRestore {
+    fn drop(&mut self) {
+        match self.old.take() {
+            Some(value) => std::env::set_var(self.key, value),
+            None => std::env::remove_var(self.key),
+        }
+    }
+}
+
+fn with_dirty_sidecar_load_override<T>(f: impl FnOnce() -> T) -> T {
+    let _guard = ENV_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap();
+    let _restore = EnvRestore {
+        key: DIRTY_LOAD_OVERRIDE,
+        old: std::env::var_os(DIRTY_LOAD_OVERRIDE),
+    };
+    std::env::set_var(DIRTY_LOAD_OVERRIDE, "1");
+    f()
 }
 
 #[test]
@@ -25,6 +57,18 @@ fn fingerprint_has_real_grammar_input() {
         .filter(|l| l.trim().starts_with("name = \"tree-sitter"))
         .count();
     assert!(n >= 1, "expected >=1 tree-sitter-* crate in Cargo.lock");
+}
+
+#[test]
+fn binary_input_cache_identity_is_present() {
+    assert!(
+        !env!("PRISM_CACHE_BUILD_IDENTITY").is_empty(),
+        "build.rs must emit PRISM_CACHE_BUILD_IDENTITY"
+    );
+    assert!(
+        matches!(env!("PRISM_BINARY_INPUT_DIRTY"), "0" | "1"),
+        "build.rs must emit PRISM_BINARY_INPUT_DIRTY as 0 or 1"
+    );
 }
 
 #[test]
@@ -80,6 +124,245 @@ fn build_cached_writes_then_hits_with_equal_query_output() {
         queries::ego_graph(&s_miss, Some("run"), None, None, 1, &["Call"]).unwrap(),
         queries::ego_graph(&s_hit, Some("run"), None, None, 1, &["Call"]).unwrap()
     );
+}
+
+#[test]
+fn call_edge_sidecar_is_lazy_then_hits() {
+    with_dirty_sidecar_load_override(|| {
+        let repo_d = tempfile::tempdir().unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        write(repo_d.path(), "api.py", "def helper():\n    return 1\n");
+        write(
+            repo_d.path(),
+            "app.py",
+            "from api import helper\n\ndef run():\n    return helper()\n",
+        );
+        let repo = Arc::new(load_repo(repo_d.path()).unwrap());
+        let cache_dir = nav_cache_subdir(cache.path(), &repo);
+        let sidecar = cache_dir.join("resolved-call-edge-index.bin");
+
+        let idx_miss = Arc::new(NavigationIndex::build_cached_under(&repo, cache.path()));
+        assert!(cache_dir.join("cpg-cache.bin").exists());
+        assert!(
+            !sidecar.exists(),
+            "CPG build/cache should not eagerly write call-edge sidecar"
+        );
+        let s_miss = NavigationSession {
+            repo: repo.clone(),
+            index: idx_miss,
+        };
+        let cold_edges = queries::callees(&s_miss, Some("run"), Some("app.py"), None, 1).unwrap();
+        assert!(
+            sidecar.exists(),
+            "first call-edge query should write sidecar"
+        );
+
+        let idx_hit = Arc::new(NavigationIndex::build_cached_under(&repo, cache.path()));
+        let s_hit = NavigationSession {
+            repo: repo.clone(),
+            index: idx_hit,
+        };
+        let warm_edges = queries::callees(&s_hit, Some("run"), Some("app.py"), None, 1).unwrap();
+        assert_eq!(cold_edges, warm_edges);
+    });
+}
+
+#[test]
+fn cpg_hit_non_call_edge_query_does_not_touch_sidecar() {
+    let repo_d = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    write(
+        repo_d.path(),
+        "a.py",
+        "def helper():\n    return 1\n\ndef run():\n    return helper()\n",
+    );
+    let repo = Arc::new(load_repo(repo_d.path()).unwrap());
+    let cache_dir = nav_cache_subdir(cache.path(), &repo);
+    let sidecar = cache_dir.join("resolved-call-edge-index.bin");
+
+    let _ = NavigationIndex::build_cached_under(&repo, cache.path());
+    assert!(!sidecar.exists());
+
+    let cpg_hit = Arc::new(NavigationIndex::build_cached_under(&repo, cache.path()));
+    let session = NavigationSession {
+        repo,
+        index: cpg_hit,
+    };
+    let ev = queries::nodes_at(&session, "a.py", 4);
+    assert!(!ev.items.is_empty());
+    assert!(
+        !sidecar.exists(),
+        "non-call-edge query on a CPG cache hit must not load/build/write sidecar"
+    );
+}
+
+#[test]
+fn module_deps_and_repo_map_match_after_sidecar_warmup() {
+    with_dirty_sidecar_load_override(|| {
+        let repo_d = tempfile::tempdir().unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        write(repo_d.path(), "util.py", "def helper():\n    return 1\n");
+        write(
+            repo_d.path(),
+            "main.py",
+            "from util import helper\n\ndef run():\n    return helper()\n",
+        );
+        let repo = Arc::new(load_repo(repo_d.path()).unwrap());
+        let cache_dir = nav_cache_subdir(cache.path(), &repo);
+        let sidecar = cache_dir.join("resolved-call-edge-index.bin");
+
+        let cold = NavigationSession {
+            repo: repo.clone(),
+            index: Arc::new(NavigationIndex::build_cached_under(&repo, cache.path())),
+        };
+        let cold_module = module_deps(&cold, "main.py");
+        let cold_map = repo_map(&cold);
+        assert!(
+            sidecar.exists(),
+            "module-deps/repo-map should create the lazy sidecar through outgoing call edges"
+        );
+
+        let warm = NavigationSession {
+            repo,
+            index: Arc::new(NavigationIndex::build_cached_under(
+                &cold.repo,
+                cache.path(),
+            )),
+        };
+        assert_eq!(cold_module, module_deps(&warm, "main.py"));
+        assert_eq!(cold_map, repo_map(&warm));
+    });
+}
+
+#[test]
+fn collision_warning_matches_after_sidecar_warmup() {
+    with_dirty_sidecar_load_override(|| {
+        let repo_d = tempfile::tempdir().unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        write(
+            repo_d.path(),
+            "a.py",
+            "class A:\n    def poll(self):\n        return 1\n",
+        );
+        write(
+            repo_d.path(),
+            "b.py",
+            "class B:\n    def poll(self):\n        return 2\n",
+        );
+        write(
+            repo_d.path(),
+            "main.py",
+            "def drive(x):\n    return x.poll()\n",
+        );
+        let repo = Arc::new(load_repo(repo_d.path()).unwrap());
+        let sidecar = nav_cache_subdir(cache.path(), &repo).join("resolved-call-edge-index.bin");
+
+        let cold = NavigationSession {
+            repo: repo.clone(),
+            index: Arc::new(NavigationIndex::build_cached_under(&repo, cache.path())),
+        };
+        let cold_ev = queries::callers(&cold, Some("poll"), Some("a.py"), None, 1).unwrap();
+        assert!(
+            cold_ev
+                .warnings
+                .iter()
+                .any(|w| matches!(w.kind, WarningKind::Collision) && w.message.contains('1')),
+            "fixture should emit one collision warning before sidecar load"
+        );
+        assert!(sidecar.exists());
+
+        let warm = NavigationSession {
+            repo,
+            index: Arc::new(NavigationIndex::build_cached_under(
+                &cold.repo,
+                cache.path(),
+            )),
+        };
+        assert_eq!(
+            cold_ev,
+            queries::callers(&warm, Some("poll"), Some("a.py"), None, 1).unwrap()
+        );
+    });
+}
+
+#[test]
+fn corrupt_call_edge_sidecar_rebuilds_successfully() {
+    with_dirty_sidecar_load_override(|| {
+        let repo_d = tempfile::tempdir().unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        write(
+            repo_d.path(),
+            "a.py",
+            "def helper():\n    return 1\n\ndef run():\n    return helper()\n",
+        );
+        let repo = Arc::new(load_repo(repo_d.path()).unwrap());
+        let cache_dir = nav_cache_subdir(cache.path(), &repo);
+        let sidecar = cache_dir.join("resolved-call-edge-index.bin");
+
+        let idx = Arc::new(NavigationIndex::build_cached_under(&repo, cache.path()));
+        let session = NavigationSession {
+            repo: repo.clone(),
+            index: idx,
+        };
+        let expected = queries::callees(&session, Some("run"), Some("a.py"), None, 1).unwrap();
+        assert!(sidecar.exists());
+
+        std::fs::write(&sidecar, b"not a bincode sidecar").unwrap();
+        let idx_rebuilt = Arc::new(NavigationIndex::build_cached_under(&repo, cache.path()));
+        let rebuilt = NavigationSession {
+            repo,
+            index: idx_rebuilt,
+        };
+        assert_eq!(
+            expected,
+            queries::callees(&rebuilt, Some("run"), Some("a.py"), None, 1).unwrap()
+        );
+    });
+}
+
+#[test]
+fn mutation_helper_drops_sidecar_store() {
+    with_dirty_sidecar_load_override(|| {
+        let repo_d = tempfile::tempdir().unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        write(
+            repo_d.path(),
+            "a.py",
+            "def helper():\n    return 1\n\ndef run():\n    return helper()\n",
+        );
+        let repo = Arc::new(load_repo(repo_d.path()).unwrap());
+        let sidecar = nav_cache_subdir(cache.path(), &repo).join("resolved-call-edge-index.bin");
+
+        let priming = Arc::new(NavigationIndex::build_cached_under(&repo, cache.path()));
+        let priming_session = NavigationSession {
+            repo: repo.clone(),
+            index: priming,
+        };
+        assert!(
+            !queries::callees(&priming_session, Some("run"), Some("a.py"), None, 1)
+                .unwrap()
+                .items
+                .is_empty()
+        );
+        assert!(sidecar.exists());
+
+        let cached = NavigationIndex::build_cached_under(&repo, cache.path())
+            .with_modified_cpg_for_testing(|cpg| {
+                cpg.call_graph.calls.clear();
+                cpg.call_graph.callers.clear();
+            });
+        let mutated = NavigationSession {
+            repo,
+            index: Arc::new(cached),
+        };
+        assert!(
+            queries::callees(&mutated, Some("run"), Some("a.py"), None, 1)
+                .unwrap()
+                .items
+                .is_empty(),
+            "mutated cached index must rebuild from mutated CPG instead of reloading stale sidecar"
+        );
+    });
 }
 
 #[test]

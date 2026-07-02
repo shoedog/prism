@@ -18,6 +18,7 @@
 
 use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
+use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::process::Command;
@@ -187,6 +188,59 @@ pub struct TypeDatabase {
 }
 
 impl TypeDatabase {
+    /// Deterministic content fingerprint for cache invalidation.
+    ///
+    /// This intentionally fingerprints the extracted database rather than only
+    /// `compile_commands.json`, so flag/include/header changes that alter the
+    /// resulting type facts invalidate CPG and navigation sidecar caches.
+    pub fn cache_fingerprint(&self) -> String {
+        let mut hasher = Sha256::new();
+        for (name, record) in &self.records {
+            hash_str(&mut hasher, "record");
+            hash_str(&mut hasher, name);
+            hash_str(&mut hasher, &record.name);
+            hash_str(
+                &mut hasher,
+                match record.kind {
+                    RecordKind::Struct => "struct",
+                    RecordKind::Class => "class",
+                    RecordKind::Union => "union",
+                },
+            );
+            hash_opt_usize(&mut hasher, record.size);
+            hash_str(&mut hasher, &record.file);
+            for field in &record.fields {
+                hash_str(&mut hasher, "field");
+                hash_str(&mut hasher, &field.name);
+                hash_str(&mut hasher, &field.type_str);
+                hash_opt_usize(&mut hasher, field.offset);
+            }
+            for base in &record.bases {
+                hash_str(&mut hasher, "base");
+                hash_str(&mut hasher, base);
+            }
+            for (method, return_type) in &record.virtual_methods {
+                hash_str(&mut hasher, "virtual");
+                hash_str(&mut hasher, method);
+                hash_str(&mut hasher, return_type);
+            }
+        }
+        for (name, typedef) in &self.typedefs {
+            hash_str(&mut hasher, "typedef");
+            hash_str(&mut hasher, name);
+            hash_str(&mut hasher, &typedef.name);
+            hash_str(&mut hasher, &typedef.underlying);
+        }
+        for (name, bases) in &self.class_hierarchy {
+            hash_str(&mut hasher, "hierarchy");
+            hash_str(&mut hasher, name);
+            for base in bases {
+                hash_str(&mut hasher, base);
+            }
+        }
+        format!("{:x}", hasher.finalize())
+    }
+
     /// Build a TypeDatabase from a `compile_commands.json` file.
     ///
     /// For each translation unit in the compile commands:
@@ -1007,6 +1061,21 @@ impl TypeDatabase {
     }
 }
 
+fn hash_str(hasher: &mut Sha256, value: &str) {
+    hasher.update(value.as_bytes());
+    hasher.update([0]);
+}
+
+fn hash_opt_usize(hasher: &mut Sha256, value: Option<usize>) {
+    match value {
+        Some(value) => {
+            hasher.update([1]);
+            hasher.update(value.to_le_bytes());
+        }
+        None => hasher.update([0]),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Clang invocation
 // ---------------------------------------------------------------------------
@@ -1428,6 +1497,33 @@ mod tests {
         assert!(TypeDatabase::is_pointer_type("int *"));
         assert!(!TypeDatabase::is_pointer_type("int"));
         assert!(!TypeDatabase::is_pointer_type("struct device"));
+    }
+
+    #[test]
+    fn cache_fingerprint_changes_with_type_facts() {
+        let mut db = TypeDatabase::default();
+        let empty = db.cache_fingerprint();
+        db.records.insert(
+            "device".to_string(),
+            RecordInfo {
+                name: "device".to_string(),
+                kind: RecordKind::Struct,
+                fields: vec![FieldInfo {
+                    name: "id".to_string(),
+                    type_str: "int".to_string(),
+                    offset: Some(0),
+                }],
+                bases: vec![],
+                virtual_methods: BTreeMap::new(),
+                size: Some(4),
+                file: "device.h".to_string(),
+            },
+        );
+        let with_record = db.cache_fingerprint();
+        assert_ne!(empty, with_record);
+
+        db.records.get_mut("device").unwrap().fields[0].type_str = "long".to_string();
+        assert_ne!(with_record, db.cache_fingerprint());
     }
 
     #[test]

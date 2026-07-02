@@ -1,4 +1,5 @@
 pub mod cache;
+pub mod call_edge_cache;
 pub mod call_resolve;
 pub mod code_context;
 pub mod inventory;
@@ -16,7 +17,7 @@ use petgraph::graph::NodeIndex;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, OnceLock};
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 struct CallSiteKey {
     caller: FunctionId,
     callee_name: String,
@@ -55,7 +56,7 @@ impl From<&CallSite> for CallSiteKey {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct IndexedResolvedTarget {
     pub target: FunctionId,
     pub confidence: ResolutionConfidence,
@@ -68,7 +69,7 @@ struct ResolvedCallSiteOutcome {
     drop: Option<DropReason>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct IndexedOutgoingCallSite {
     pub callee_name: String,
     pub call_site_line: usize,
@@ -78,7 +79,7 @@ pub(crate) struct IndexedOutgoingCallSite {
     pub resolved: Vec<IndexedResolvedTarget>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct IndexedIncomingCall {
     pub caller: FunctionId,
     pub callee_name: String,
@@ -90,7 +91,7 @@ pub(crate) struct IndexedIncomingCall {
     pub kind: ResolutionKind,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct NavigationCallEdgeIndex {
     outgoing_by_caller: BTreeMap<FunctionId, Vec<IndexedOutgoingCallSite>>,
     incoming_by_target: BTreeMap<FunctionId, Vec<IndexedIncomingCall>>,
@@ -105,6 +106,7 @@ pub struct NavigationIndex {
     pub line_range_index: BTreeMap<String, Vec<(usize, usize, NodeIndex)>>,
     pub name_index: BTreeMap<(String, String), Vec<NodeIndex>>,
     resolved_call_edges: OnceLock<NavigationCallEdgeIndex>,
+    call_edge_cache_store: Option<call_edge_cache::NavigationCallEdgeCacheStore>,
 }
 
 pub struct NavigationSession {
@@ -152,6 +154,13 @@ impl NavigationIndex {
     }
 
     pub(crate) fn from_ctx(ctx: CpgContext<'_>) -> Self {
+        Self::from_ctx_with_call_edge_cache(ctx, None)
+    }
+
+    pub(crate) fn from_ctx_with_call_edge_cache(
+        ctx: CpgContext<'_>,
+        call_edge_cache_store: Option<call_edge_cache::NavigationCallEdgeCacheStore>,
+    ) -> Self {
         debug_assert!(ctx.scope.is_none(), "nav index must be whole-repo");
         let (mut line_range_index, mut name_index) = (
             BTreeMap::<String, Vec<(usize, usize, NodeIndex)>>::new(),
@@ -187,6 +196,7 @@ impl NavigationIndex {
             line_range_index,
             name_index,
             resolved_call_edges: OnceLock::new(),
+            call_edge_cache_store,
         }
     }
 
@@ -205,12 +215,23 @@ impl NavigationIndex {
     pub fn with_modified_cpg_for_testing(mut self, f: impl FnOnce(&mut CodePropertyGraph)) -> Self {
         f(&mut self.cpg);
         self.resolved_call_edges = OnceLock::new();
+        self.call_edge_cache_store = None;
         self
     }
 
     pub(crate) fn resolved_call_edges(&self) -> &NavigationCallEdgeIndex {
-        self.resolved_call_edges
-            .get_or_init(|| self.build_resolved_call_edges())
+        self.resolved_call_edges.get_or_init(|| {
+            if let Some(store) = &self.call_edge_cache_store {
+                if let Some(index) = store.load_best_effort() {
+                    return index;
+                }
+            }
+            let index = self.build_resolved_call_edges();
+            if let Some(store) = &self.call_edge_cache_store {
+                store.save_best_effort(&index);
+            }
+            index
+        })
     }
 
     pub(crate) fn direct_callers(&self, target: &FunctionId) -> &[IndexedIncomingCall] {

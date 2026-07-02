@@ -704,7 +704,15 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
             None
         };
         let topology_key = file_hashes.as_ref().map(|hashes| {
-            cpg_cache::compute_topology_key(hashes, &scope_graph_inputs.manifest_hashes)
+            let mut key =
+                cpg_cache::compute_topology_key(hashes, &scope_graph_inputs.manifest_hashes);
+            if let Some(type_db) = type_db.as_ref() {
+                key.insert(
+                    "type_db:fingerprint".to_string(),
+                    type_db.cache_fingerprint(),
+                );
+            }
+            key
         });
 
         // Try loading from cache.

@@ -72,7 +72,8 @@ use std::path::{Path, PathBuf};
 /// - v28: CallSite.origin for source vs indirect-resolution provenance.
 /// - v29: JS/TS R4c export and function-local shadow facts on CallGraph.
 /// - v30: clean_class_spans for Python recovered inherited receiver resolution.
-const CACHE_VERSION: u32 = 30; // 30: Python inherited recovered-receiver class spans.
+/// - v31: cache_build_identity replaces raw git_sha as cache validity key.
+const CACHE_VERSION: u32 = 31; // 31: binary-input cache identity.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -85,9 +86,11 @@ struct CpgCache {
     prism_version: String,
     /// Build-time fingerprint of tree-sitter grammar versions.
     grammar_fingerprint: String,
-    /// Build git SHA (env `GIT_SHA`). Any rebuild at a new commit invalidates, so a
-    /// resolver-behavior change auto-invalidates warm caches without a manual
-    /// `CACHE_VERSION` bump (S3-deferred #4).
+    /// Binary-input cache identity (env `PRISM_CACHE_BUILD_IDENTITY`).
+    /// This intentionally ignores docs/eval-only churn while changing when the
+    /// analyzer binary inputs change, including dirty implementation edits.
+    cache_build_identity: String,
+    /// Build git SHA (env `GIT_SHA`) retained for metadata/debugging.
     git_sha: String,
     /// Version of parser skip-policy behavior included in the cache key.
     skip_policy_version: u32,
@@ -133,6 +136,8 @@ struct CacheMeta {
     edge_count: usize,
     cache_size_bytes: u64,
     has_type_db: bool,
+    cache_build_identity: String,
+    git_sha: String,
     created: String,
 }
 
@@ -163,6 +168,14 @@ pub fn compute_topology_key(
         key.insert(format!("manifest:{path}"), hash.clone());
     }
     key
+}
+
+pub fn current_cache_build_identity() -> &'static str {
+    env!("PRISM_CACHE_BUILD_IDENTITY")
+}
+
+pub fn binary_input_dirty() -> bool {
+    env!("PRISM_BINARY_INPUT_DIRTY") == "1"
 }
 
 /// Path to the binary cache file within the cache directory.
@@ -225,6 +238,7 @@ pub fn save_cache_with_topology(
         version: CACHE_VERSION,
         prism_version: env!("CARGO_PKG_VERSION").to_string(),
         grammar_fingerprint: env!("GRAMMAR_FINGERPRINT").to_string(),
+        cache_build_identity: current_cache_build_identity().to_string(),
         git_sha: env!("GIT_SHA").to_string(),
         skip_policy_version: SKIP_POLICY_VERSION,
         file_hashes: file_hashes.clone(),
@@ -260,6 +274,8 @@ pub fn save_cache_with_topology(
         edge_count: cache.graph.edges.len(),
         cache_size_bytes: encoded.len() as u64,
         has_type_db,
+        cache_build_identity: cache.cache_build_identity.clone(),
+        git_sha: cache.git_sha.clone(),
         created: chrono_free_timestamp(),
     };
     let meta_json = serde_json::to_string_pretty(&meta).unwrap_or_default();
@@ -358,15 +374,13 @@ pub fn load_cache_with_topology(
         return CacheResult::Miss;
     }
 
-    // Resolver/binary identity: a rebuild at a new commit (or a clean<->dirty flip)
-    // invalidates, so a resolver-behavior change auto-invalidates warm nav/CPG caches
-    // without a manual CACHE_VERSION bump (S3-deferred #4). Dirty-vs-dirty dev iteration
-    // shares a `-dirty` git_sha — that path relies on --no-cache.
-    if cache.git_sha != env!("GIT_SHA") {
+    // Resolver/binary identity: cache validity is tied to the analyzer's binary
+    // inputs, not repo-wide docs/eval churn. Raw git_sha is metadata only.
+    if cache.cache_build_identity != current_cache_build_identity() {
         eprintln!(
-            "Cache git_sha mismatch (cached: {}, current: {}), rebuilding",
-            cache.git_sha,
-            env!("GIT_SHA")
+            "Cache build identity mismatch (cached: {}, current: {}), rebuilding",
+            cache.cache_build_identity,
+            current_cache_build_identity()
         );
         return CacheResult::Miss;
     }
@@ -577,9 +591,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_30_for_python_inherited_receiver_class_spans() {
-        // v30: clean_class_spans for Python recovered inherited receiver resolution.
-        assert_eq!(super::CACHE_VERSION, 30);
+    fn cache_version_is_31_for_binary_input_cache_identity() {
+        // v31: cache_build_identity replaces raw git_sha as cache validity key.
+        assert_eq!(super::CACHE_VERSION, 31);
     }
 
     #[test]
@@ -745,6 +759,7 @@ mod tests {
             version: CACHE_VERSION,
             prism_version: env!("CARGO_PKG_VERSION").into(),
             grammar_fingerprint: "deadbeef".into(),
+            cache_build_identity: current_cache_build_identity().into(),
             git_sha: env!("GIT_SHA").into(),
             skip_policy_version: SKIP_POLICY_VERSION,
             file_hashes: hashes.clone(),
@@ -769,16 +784,16 @@ mod tests {
     }
 
     #[test]
-    fn wrong_git_sha_misses() {
-        // A warm cache built at a different prism commit must NOT be served — this is
-        // what auto-invalidates a resolver change (Phase-IP etc.) with no CACHE_VERSION bump.
+    fn wrong_cache_build_identity_misses() {
+        // A warm cache built from different analyzer binary inputs must NOT be served.
         let dir = tempfile::tempdir().unwrap();
         let hashes: BTreeMap<String, String> = BTreeMap::from([("a.py".into(), "h".into())]);
         let bad = CpgCache {
             version: CACHE_VERSION,
             prism_version: env!("CARGO_PKG_VERSION").into(),
             grammar_fingerprint: env!("GRAMMAR_FINGERPRINT").into(),
-            git_sha: "0000000000000000-stale".into(),
+            cache_build_identity: "stale-binary-inputs".into(),
+            git_sha: env!("GIT_SHA").into(),
             skip_policy_version: SKIP_POLICY_VERSION,
             file_hashes: hashes.clone(),
             topology_key: compute_topology_key(&hashes, &BTreeMap::new()),
