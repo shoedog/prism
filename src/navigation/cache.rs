@@ -1,5 +1,6 @@
 use crate::cpg::CpgContext;
 use crate::cpg_cache::{self, CacheResult};
+use crate::navigation::call_edge_cache::NavigationCallEdgeCacheStore;
 use crate::navigation::NavigationIndex;
 use crate::repo_loader::LoadedRepo;
 use sha2::{Digest, Sha256};
@@ -42,19 +43,30 @@ impl NavigationIndex {
             );
         }
         let has_type_db = repo.type_db.is_some();
-        let topology_key =
+        let mut topology_key =
             cpg_cache::compute_topology_key(&repo.file_hashes, &repo.manifest_hashes);
+        if let Some(type_db) = repo.type_db.as_ref() {
+            topology_key.insert(
+                "type_db:fingerprint".to_string(),
+                type_db.cache_fingerprint(),
+            );
+        }
         match cpg_cache::load_cache_with_topology(
             &repo.file_hashes,
             &topology_key,
             has_type_db,
             cache_dir,
         ) {
-            CacheResult::Hit(cpg) => Self::from_ctx(CpgContext::build_with_cached_cpg(
-                &repo.files,
-                cpg,
-                repo.type_db.as_ref(),
-            )),
+            CacheResult::Hit(cpg) => Self::from_ctx_with_call_edge_cache(
+                CpgContext::build_with_cached_cpg(&repo.files, cpg, repo.type_db.as_ref()),
+                Some(NavigationCallEdgeCacheStore::new(
+                    cache_dir,
+                    &repo.file_hashes,
+                    &topology_key,
+                    has_type_db,
+                    true,
+                )),
+            ),
             CacheResult::PartialHit { .. } => {
                 // Nav caching is exact-hit-only in v1 (spec section 9), so partial hits are
                 // intentionally treated as misses instead of reusing an incomplete CPG.
@@ -79,7 +91,16 @@ impl NavigationIndex {
                         cache_dir.display()
                     );
                 }
-                Self::from_ctx(ctx)
+                Self::from_ctx_with_call_edge_cache(
+                    ctx,
+                    Some(NavigationCallEdgeCacheStore::new(
+                        cache_dir,
+                        &repo.file_hashes,
+                        &topology_key,
+                        has_type_db,
+                        false,
+                    )),
+                )
             }
             CacheResult::Miss => {
                 eprintln!(
@@ -103,7 +124,16 @@ impl NavigationIndex {
                         cache_dir.display()
                     );
                 }
-                Self::from_ctx(ctx)
+                Self::from_ctx_with_call_edge_cache(
+                    ctx,
+                    Some(NavigationCallEdgeCacheStore::new(
+                        cache_dir,
+                        &repo.file_hashes,
+                        &topology_key,
+                        has_type_db,
+                        false,
+                    )),
+                )
             }
         }
     }

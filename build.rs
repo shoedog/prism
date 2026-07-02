@@ -1,3 +1,8 @@
+use sha2::{Digest, Sha256};
+use std::collections::BTreeSet;
+use std::path::Path;
+use std::process::Command;
+
 fn main() {
     println!("cargo:rerun-if-changed=Cargo.lock");
     let manifest = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".into());
@@ -50,8 +55,10 @@ fn main() {
     // repo's HEAD and dirtiness directly at run time — the embedded identity is the
     // binary's claim about what it was built from, not the sole source of truth.
     println!("cargo:rerun-if-changed={manifest}/src");
+    println!("cargo:rerun-if-changed={manifest}/build.rs");
+    println!("cargo:rerun-if-changed={manifest}/Cargo.toml");
     let git = |args: &[&str]| {
-        std::process::Command::new("git")
+        Command::new("git")
             .args(args)
             .current_dir(&manifest)
             .output()
@@ -85,4 +92,122 @@ fn main() {
             ""
         }
     );
+
+    let manifest_path = Path::new(&manifest);
+    let binary_inputs = binary_input_paths(manifest_path);
+    let binary_input_dirty = git_binary_input_dirty(&manifest).unwrap_or(false);
+    println!(
+        "cargo:rustc-env=PRISM_BINARY_INPUT_DIRTY={}",
+        if binary_input_dirty { "1" } else { "0" }
+    );
+    println!(
+        "cargo:rustc-env=PRISM_CACHE_BUILD_IDENTITY={}",
+        binary_input_fingerprint(manifest_path, &binary_inputs)
+    );
+}
+
+fn binary_input_paths(manifest: &Path) -> Vec<String> {
+    let mut paths = BTreeSet::new();
+    if let Some(listed) = git(
+        &manifest.to_string_lossy(),
+        &[
+            "ls-files",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "--",
+            "src",
+            "build.rs",
+            "Cargo.toml",
+            "Cargo.lock",
+        ],
+    ) {
+        for line in listed.lines() {
+            let path = line.trim();
+            if !path.is_empty() {
+                paths.insert(path.to_string());
+            }
+        }
+    }
+
+    if paths.is_empty() {
+        collect_fallback_inputs(manifest, &mut paths);
+    }
+
+    paths.into_iter().collect()
+}
+
+fn collect_fallback_inputs(root: &Path, paths: &mut BTreeSet<String>) {
+    for name in ["build.rs", "Cargo.toml", "Cargo.lock"] {
+        if root.join(name).is_file() {
+            paths.insert(name.to_string());
+        }
+    }
+    let src = root.join("src");
+    if !src.exists() {
+        return;
+    }
+    collect_src_tree(root, &src, paths);
+}
+
+fn collect_src_tree(root: &Path, dir: &Path, paths: &mut BTreeSet<String>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_src_tree(root, &path, paths);
+        } else if path.is_file() {
+            insert_relative(root, &path, paths);
+        }
+    }
+}
+
+fn insert_relative(root: &Path, path: &Path, paths: &mut BTreeSet<String>) {
+    if let Ok(rel) = path.strip_prefix(root) {
+        paths.insert(rel.to_string_lossy().replace('\\', "/"));
+    }
+}
+
+fn git_binary_input_dirty(manifest: &str) -> Option<bool> {
+    git(
+        manifest,
+        &[
+            "status",
+            "--porcelain",
+            "--untracked-files=all",
+            "--",
+            "src",
+            "build.rs",
+            "Cargo.toml",
+            "Cargo.lock",
+        ],
+    )
+    .map(|s| !s.is_empty())
+}
+
+fn binary_input_fingerprint(manifest: &Path, paths: &[String]) -> String {
+    let mut hasher = Sha256::new();
+    for rel in paths {
+        hasher.update(rel.as_bytes());
+        hasher.update([0]);
+        let path = manifest.join(rel);
+        match std::fs::read(&path) {
+            Ok(bytes) => hasher.update(bytes),
+            Err(_) => hasher.update(b"<missing>"),
+        }
+        hasher.update([0xff]);
+    }
+    format!("{:x}", hasher.finalize())
+}
+
+fn git(manifest: &str, args: &[&str]) -> Option<String> {
+    Command::new("git")
+        .args(args)
+        .current_dir(manifest)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
 }

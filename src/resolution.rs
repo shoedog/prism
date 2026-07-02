@@ -28,7 +28,7 @@ pub enum ResolutionConfidence {
     NameOnly,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ResolutionKind {
     StaticLinkage,
     QualifiedOwner,
