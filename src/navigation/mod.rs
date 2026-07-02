@@ -7,20 +7,104 @@ pub mod queries;
 pub mod seed;
 pub mod types;
 
+use crate::call_graph::{CallGraph, CallKind, CallSite, CallSiteOrigin, FunctionId};
 use crate::cpg::{CodePropertyGraph, CpgContext, CpgNode};
 use crate::repo_loader::LoadedRepo;
+use crate::resolution::{DropReason, ResolutionConfidence, ResolutionKind};
 use crate::type_provider::TypeRegistry;
 use petgraph::graph::NodeIndex;
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct CallSiteKey {
+    caller: FunctionId,
+    callee_name: String,
+    line: usize,
+    kind: CallKind,
+    start_byte: usize,
+    end_byte: usize,
+    qualifier: Option<String>,
+    receiver_type: Option<String>,
+    receiver_recovery: Option<String>,
+    receiver_materialized: bool,
+    arg_count: Option<usize>,
+    arg_spread: bool,
+    receiver_outcome: Option<String>,
+    origin: CallSiteOrigin,
+}
+
+impl From<&CallSite> for CallSiteKey {
+    fn from(site: &CallSite) -> Self {
+        Self {
+            caller: site.caller.clone(),
+            callee_name: site.callee_name.clone(),
+            line: site.line,
+            kind: site.kind,
+            start_byte: site.start_byte,
+            end_byte: site.end_byte,
+            qualifier: site.qualifier.clone(),
+            receiver_type: site.receiver_type.clone(),
+            receiver_recovery: site.receiver_recovery.map(|r| format!("{r:?}")),
+            receiver_materialized: site.receiver_materialized,
+            arg_count: site.arg_count,
+            arg_spread: site.arg_spread,
+            receiver_outcome: site.receiver_outcome.as_ref().map(|o| format!("{o:?}")),
+            origin: site.origin,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct IndexedResolvedTarget {
+    pub target: FunctionId,
+    pub confidence: ResolutionConfidence,
+    pub kind: ResolutionKind,
+}
+
+#[derive(Debug, Clone)]
+struct ResolvedCallSiteOutcome {
+    resolved: Vec<IndexedResolvedTarget>,
+    drop: Option<DropReason>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct IndexedOutgoingCallSite {
+    pub callee_name: String,
+    pub call_site_line: usize,
+    pub start_byte: usize,
+    pub end_byte: usize,
+    pub qualifier: Option<String>,
+    pub resolved: Vec<IndexedResolvedTarget>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct IndexedIncomingCall {
+    pub caller: FunctionId,
+    pub callee_name: String,
+    pub call_site_line: usize,
+    pub start_byte: usize,
+    pub end_byte: usize,
+    pub qualifier: Option<String>,
+    pub confidence: ResolutionConfidence,
+    pub kind: ResolutionKind,
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct NavigationCallEdgeIndex {
+    outgoing_by_caller: BTreeMap<FunctionId, Vec<IndexedOutgoingCallSite>>,
+    incoming_by_target: BTreeMap<FunctionId, Vec<IndexedIncomingCall>>,
+    multi_owner_collision_sites: BTreeSet<CallSiteKey>,
+}
 
 pub struct NavigationIndex {
-    pub cpg: CodePropertyGraph,
+    pub(crate) cpg: CodePropertyGraph,
     pub types: TypeRegistry,
     pub live_types: BTreeSet<String>,
     // nav-local, derived from CpgNode::Function (spec section 3):
     pub line_range_index: BTreeMap<String, Vec<(usize, usize, NodeIndex)>>,
     pub name_index: BTreeMap<(String, String), Vec<NodeIndex>>,
+    resolved_call_edges: OnceLock<NavigationCallEdgeIndex>,
 }
 
 pub struct NavigationSession {
@@ -102,7 +186,156 @@ impl NavigationIndex {
             live_types: ctx.live_types,
             line_range_index,
             name_index,
+            resolved_call_edges: OnceLock::new(),
         }
+    }
+
+    pub fn cpg(&self) -> &CodePropertyGraph {
+        &self.cpg
+    }
+
+    pub fn call_graph(&self) -> &CallGraph {
+        &self.cpg.call_graph
+    }
+
+    /// Test-only escape hatch for call graph/scope graph mutations. This resets
+    /// the lazy call-edge index; it must not be used to mutate CPG function nodes
+    /// because `line_range_index` and `name_index` would need rebuilding too.
+    #[doc(hidden)]
+    pub fn with_modified_cpg_for_testing(mut self, f: impl FnOnce(&mut CodePropertyGraph)) -> Self {
+        f(&mut self.cpg);
+        self.resolved_call_edges = OnceLock::new();
+        self
+    }
+
+    pub(crate) fn resolved_call_edges(&self) -> &NavigationCallEdgeIndex {
+        self.resolved_call_edges
+            .get_or_init(|| self.build_resolved_call_edges())
+    }
+
+    pub(crate) fn direct_callers(&self, target: &FunctionId) -> &[IndexedIncomingCall] {
+        self.resolved_call_edges()
+            .incoming_by_target
+            .get(target)
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
+    }
+
+    pub(crate) fn direct_callees(&self, caller: &FunctionId) -> &[IndexedOutgoingCallSite] {
+        self.resolved_call_edges()
+            .outgoing_by_caller
+            .get(caller)
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
+    }
+
+    pub(crate) fn outgoing_call_edges(
+        &self,
+    ) -> impl Iterator<Item = (&FunctionId, &IndexedOutgoingCallSite)> {
+        self.resolved_call_edges()
+            .outgoing_by_caller
+            .iter()
+            .flat_map(|(caller, sites)| sites.iter().map(move |site| (caller, site)))
+    }
+
+    pub(crate) fn collision_dropped_sites(&self, seed_name: &str) -> usize {
+        let idx = self.resolved_call_edges();
+        crate::navigation::call_resolve::scoped_caller_sites(&self.cpg.call_graph, seed_name)
+            .into_iter()
+            .filter(|site| {
+                idx.multi_owner_collision_sites
+                    .contains(&CallSiteKey::from(*site))
+            })
+            .count()
+    }
+
+    fn build_resolved_call_edges(&self) -> NavigationCallEdgeIndex {
+        let cg = &self.cpg.call_graph;
+        let mut idx = NavigationCallEdgeIndex::default();
+        let mut resolved_by_site: BTreeMap<CallSiteKey, ResolvedCallSiteOutcome> = BTreeMap::new();
+
+        for (bucket_key, sites) in &cg.callers {
+            for site in sites {
+                let key = CallSiteKey::from(site);
+                let outcome = resolved_by_site.entry(key.clone()).or_insert_with(|| {
+                    let outcome = cg.resolve_call_site_full(site);
+                    ResolvedCallSiteOutcome {
+                        resolved: outcome
+                            .resolved
+                            .into_iter()
+                            .map(|resolved| IndexedResolvedTarget {
+                                target: resolved.target.clone(),
+                                confidence: resolved.confidence,
+                                kind: resolved.kind,
+                            })
+                            .collect(),
+                        drop: outcome.drop,
+                    }
+                });
+                if outcome.drop == Some(DropReason::MultiOwnerCollision) {
+                    idx.multi_owner_collision_sites.insert(key);
+                }
+                for resolved in &outcome.resolved {
+                    let suffix = format!("::{}", resolved.target.name);
+                    let count = crate::navigation::call_resolve::scoped_caller_site_match_count(
+                        cg,
+                        bucket_key,
+                        site,
+                        &resolved.target.name,
+                        &suffix,
+                    );
+                    for _ in 0..count {
+                        idx.incoming_by_target
+                            .entry(resolved.target.clone())
+                            .or_default()
+                            .push(IndexedIncomingCall {
+                                caller: site.caller.clone(),
+                                callee_name: site.callee_name.clone(),
+                                call_site_line: site.line,
+                                start_byte: site.start_byte,
+                                end_byte: site.end_byte,
+                                qualifier: site.qualifier.clone(),
+                                confidence: resolved.confidence,
+                                kind: resolved.kind,
+                            });
+                    }
+                }
+            }
+        }
+
+        for (caller, sites) in &cg.calls {
+            for site in sites {
+                let key = CallSiteKey::from(site);
+                let outcome = resolved_by_site.entry(key).or_insert_with(|| {
+                    let outcome = cg.resolve_call_site_full(site);
+                    ResolvedCallSiteOutcome {
+                        resolved: outcome
+                            .resolved
+                            .into_iter()
+                            .map(|resolved| IndexedResolvedTarget {
+                                target: resolved.target.clone(),
+                                confidence: resolved.confidence,
+                                kind: resolved.kind,
+                            })
+                            .collect(),
+                        drop: outcome.drop,
+                    }
+                });
+                idx.outgoing_by_caller
+                    .entry(caller.clone())
+                    .or_default()
+                    .push(IndexedOutgoingCallSite {
+                        callee_name: site.callee_name.clone(),
+                        call_site_line: site.line,
+                        start_byte: site.start_byte,
+                        end_byte: site.end_byte,
+                        qualifier: site.qualifier.clone(),
+                        resolved: outcome.resolved.clone(),
+                    });
+            }
+        }
+
+        idx
     }
 
     /// Innermost enclosing function (smallest [start,end] containing `line`).
@@ -144,6 +377,34 @@ mod tests {
         let repo = Arc::new(load_repo(root).unwrap());
         let index = Arc::new(NavigationIndex::build(&repo));
         NavigationSession { repo, index }
+    }
+
+    #[test]
+    fn test_cpg_mutation_helper_resets_lazy_call_edge_index() {
+        let dir = tempfile::tempdir().unwrap();
+        write_files(
+            dir.path(),
+            &[(
+                "a.py",
+                "def target():\n    return 1\n\ndef caller():\n    return target()\n",
+            )],
+        );
+        let repo = Arc::new(load_repo(dir.path()).unwrap());
+        let index = NavigationIndex::build(&repo);
+        let caller = index
+            .call_graph()
+            .functions
+            .get("caller")
+            .and_then(|ids| ids.first())
+            .cloned()
+            .unwrap();
+        assert!(!index.direct_callees(&caller).is_empty());
+
+        let index = index.with_modified_cpg_for_testing(|cpg| {
+            cpg.call_graph.calls.clear();
+            cpg.call_graph.callers.clear();
+        });
+        assert!(index.direct_callees(&caller).is_empty());
     }
 
     fn incremental_session(

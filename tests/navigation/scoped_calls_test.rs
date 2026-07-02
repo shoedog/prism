@@ -27,7 +27,7 @@ fn resolved_targets(
     caller_file: &str,
     qualifier: Option<&str>,
 ) -> Vec<(String, String)> {
-    let cg = &s.index.cpg.call_graph;
+    let cg = s.index.call_graph();
     let site = cg
         .calls
         .values()

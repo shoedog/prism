@@ -307,7 +307,7 @@ fn macro_invocations_do_not_create_call_graph_or_nav_edges_in_pr2() {
     ]);
     let repo = Arc::new(load_repo(repo_dir.path()).unwrap());
     let index = NavigationIndex::build(&repo);
-    let cg = &index.cpg.call_graph;
+    let cg = index.call_graph();
     let g = cg.functions.get("g").unwrap().first().unwrap();
     let sites = cg.calls.get(g).expect("g should have call sites");
 
@@ -467,8 +467,9 @@ fn module_deps_consumes_scope_graph_but_resolution_output_stays_inert() {
     let repo = load_repo(repo_dir.path()).unwrap();
     let repo = Arc::new(repo);
     let nav_with = NavigationIndex::build(&repo);
-    let mut nav_without = NavigationIndex::build(&repo);
-    nav_without.cpg.call_graph.scope_graph = None;
+    let nav_without = NavigationIndex::build(&repo).with_modified_cpg_for_testing(|cpg| {
+        cpg.call_graph.scope_graph = None;
+    });
     let s_with = NavigationSession {
         repo: Arc::clone(&repo),
         index: Arc::new(nav_with),
@@ -504,8 +505,7 @@ fn module_deps_consumes_scope_graph_but_resolution_output_stays_inert() {
 
     let site_with = s_with
         .index
-        .cpg
-        .call_graph
+        .call_graph()
         .calls
         .values()
         .flat_map(|s| s.iter())
@@ -513,8 +513,7 @@ fn module_deps_consumes_scope_graph_but_resolution_output_stays_inert() {
         .unwrap();
     let site_without = s_without
         .index
-        .cpg
-        .call_graph
+        .call_graph()
         .calls
         .values()
         .flat_map(|s| s.iter())
@@ -523,18 +522,13 @@ fn module_deps_consumes_scope_graph_but_resolution_output_stays_inert() {
     assert_eq!(
         format!(
             "{:?}",
-            s_with
-                .index
-                .cpg
-                .call_graph
-                .resolve_call_site_full(site_with)
+            s_with.index.call_graph().resolve_call_site_full(site_with)
         ),
         format!(
             "{:?}",
             s_without
                 .index
-                .cpg
-                .call_graph
+                .call_graph()
                 .resolve_call_site_full(site_without)
         ),
         "resolution output must be unchanged while scope_graph is inert"

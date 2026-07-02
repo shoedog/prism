@@ -622,18 +622,35 @@ fn fid_of(sym: &SymbolRef) -> FunctionId {
 fn direct_callers<'a>(
     s: &'a NavigationSession,
     target: &FunctionId,
-) -> Vec<(FunctionId, crate::navigation::call_resolve::NavCallEdge<'a>)> {
-    let mut out = Vec::new();
-    let cg = &s.index.cpg.call_graph;
-    for site in crate::navigation::call_resolve::scoped_caller_sites(cg, &target.name) {
-        let resolved = crate::navigation::call_resolve::resolve_site_nav(cg, site);
-        for edge in resolved {
-            if *edge.target == *target {
-                out.push((site.caller.clone(), edge));
-            }
-        }
-    }
-    out
+) -> &'a [crate::navigation::IndexedIncomingCall] {
+    s.index.direct_callers(target)
+}
+
+struct SortableEvidenceItem {
+    item: EvidenceItem,
+    call_site_line: usize,
+    call_site_start_byte: usize,
+    call_site_end_byte: usize,
+    resolution_kind: &'static str,
+    name: String,
+    qualifier: Option<String>,
+}
+
+fn sort_evidence_items(items: &mut [SortableEvidenceItem]) {
+    items.sort_by(|a, b| {
+        b.item
+            .score
+            .partial_cmp(&a.item.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.item.location.file.cmp(&b.item.location.file))
+            .then(a.item.location.start_line.cmp(&b.item.location.start_line))
+            .then(a.call_site_line.cmp(&b.call_site_line))
+            .then(a.call_site_start_byte.cmp(&b.call_site_start_byte))
+            .then(a.call_site_end_byte.cmp(&b.call_site_end_byte))
+            .then(a.resolution_kind.cmp(&b.resolution_kind))
+            .then(a.name.cmp(&b.name))
+            .then(a.qualifier.cmp(&b.qualifier))
+    });
 }
 
 pub fn callers(
@@ -666,59 +683,60 @@ pub fn callers_with_confidence(
         // hop 0 = direct hit → score 1.0 (R3-M2); depth=2 → hops 0,1
         let mut next = Vec::new();
         for fid in &frontier {
-            for (caller, edge) in direct_callers(s, fid) {
+            for edge in direct_callers(s, fid) {
                 if exact_only && edge.confidence != ResolutionConfidence::Exact {
                     continue;
                 }
-                let (start_byte, end_byte) = function_bytes(s, &caller);
+                let caller = &edge.caller;
+                let (start_byte, end_byte) = function_bytes(s, caller);
                 // One item PER CALL SITE (m7 symmetry with callees); `visited` only gates BFS recursion.
-                items.push(EvidenceItem {
-                    symbol: Some(SymbolRef::Function {
-                        file: caller.file.clone(),
-                        name: caller.name.clone(),
-                        start_line: caller.start_line,
-                        end_line: caller.end_line,
-                        start_byte,
-                        end_byte,
-                        ordinal: 0,
-                    }),
-                    location: Location {
-                        file: caller.file.clone(),
-                        start_line: caller.start_line,
-                        end_line: caller.end_line,
-                        start_byte,
-                        end_byte,
+                items.push(SortableEvidenceItem {
+                    item: EvidenceItem {
+                        symbol: Some(SymbolRef::Function {
+                            file: caller.file.clone(),
+                            name: caller.name.clone(),
+                            start_line: caller.start_line,
+                            end_line: caller.end_line,
+                            start_byte,
+                            end_byte,
+                            ordinal: 0,
+                        }),
+                        location: Location {
+                            file: caller.file.clone(),
+                            start_line: caller.start_line,
+                            end_line: caller.end_line,
+                            start_byte,
+                            end_byte,
+                        },
+                        score: confidence_score(edge.confidence) / (1.0 + hop as f32),
+                        source: Source::PrismCpg,
+                        fallback: false,
+                        why: vec![Reason::CalledBy {
+                            caller: caller.name.clone(),
+                            call_site_line: edge.call_site_line,
+                        }]
+                        .into_iter()
+                        .chain(std::iter::once(resolution_reason(edge.kind)))
+                        .collect(),
+                        snippet: None,
                     },
-                    score: confidence_score(edge.confidence) / (1.0 + hop as f32),
-                    source: Source::PrismCpg,
-                    fallback: false,
-                    why: vec![Reason::CalledBy {
-                        caller: caller.name.clone(),
-                        call_site_line: edge.call_site_line,
-                    }]
-                    .into_iter()
-                    .chain(std::iter::once(resolution_reason(edge.kind)))
-                    .collect(),
-                    snippet: None,
+                    call_site_line: edge.call_site_line,
+                    call_site_start_byte: edge.start_byte,
+                    call_site_end_byte: edge.end_byte,
+                    resolution_kind: edge.kind.as_str(),
+                    name: edge.callee_name.clone(),
+                    qualifier: edge.qualifier.clone(),
                 });
-                if visited.insert(caller.clone()) {
-                    next.push(caller);
+                if visited.insert((*caller).clone()) {
+                    next.push((*caller).clone());
                 }
             }
         }
         frontier = next;
     }
-    items.sort_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap()
-            .then(a.location.file.cmp(&b.location.file))
-            .then(a.location.start_line.cmp(&b.location.start_line))
-    });
-    let dropped = crate::navigation::call_resolve::collision_dropped_sites(
-        &s.index.cpg.call_graph,
-        &target_for_warning.name,
-    );
+    sort_evidence_items(&mut items);
+    let items = items.into_iter().map(|i| i.item).collect();
+    let dropped = s.index.collision_dropped_sites(&target_for_warning.name);
     let warnings = if dropped > 0 {
         vec![collision_warning(dropped)]
     } else {
@@ -737,37 +755,8 @@ pub fn callers_with_confidence(
 fn direct_callees<'a>(
     s: &'a NavigationSession,
     caller: &FunctionId,
-) -> Vec<(
-    Option<crate::navigation::call_resolve::NavCallEdge<'a>>,
-    String,
-    usize,
-    Option<String>,
-)> {
-    let mut out = Vec::new();
-    if let Some(sites) = s.index.cpg.call_graph.calls.get(caller) {
-        for site in sites {
-            let resolved =
-                crate::navigation::call_resolve::resolve_site_nav(&s.index.cpg.call_graph, site);
-            if resolved.is_empty() {
-                out.push((
-                    None,
-                    site.callee_name.clone(),
-                    site.line,
-                    site.qualifier.clone(),
-                ));
-            } else {
-                for edge in resolved {
-                    out.push((
-                        Some(edge),
-                        site.callee_name.clone(),
-                        site.line,
-                        site.qualifier.clone(),
-                    ));
-                }
-            }
-        }
-    }
-    out
+) -> &'a [crate::navigation::IndexedOutgoingCallSite] {
+    s.index.direct_callees(caller)
 }
 
 pub fn callees(
@@ -799,88 +788,97 @@ pub fn callees_with_confidence(
         // hop 0 = direct hit → score 1.0 (R3-M2); depth=2 → hops 0,1
         let mut next = Vec::new();
         for fid in &frontier {
-            for (edge, callee_name, line, qualifier) in direct_callees(s, fid) {
-                if exact_only
-                    && !matches!(
-                        edge.as_ref(),
-                        Some(e) if e.confidence == ResolutionConfidence::Exact
-                    )
-                {
+            for site in direct_callees(s, fid) {
+                if site.resolved.is_empty() {
+                    if exact_only {
+                        continue;
+                    }
+                    items.push(SortableEvidenceItem {
+                        item: EvidenceItem {
+                            symbol: None,
+                            location: Location {
+                                file: fid.file.clone(),
+                                start_line: site.call_site_line,
+                                end_line: site.call_site_line,
+                                start_byte: 0,
+                                end_byte: 0,
+                            },
+                            score: 1.0 / (1.0 + hop as f32),
+                            source: Source::PrismCpg,
+                            fallback: false,
+                            why: vec![Reason::Calls {
+                                callee: site.callee_name.clone(),
+                                call_site_line: site.call_site_line,
+                                qualifier: site.qualifier.clone(),
+                            }],
+                            snippet: None,
+                        },
+                        call_site_line: site.call_site_line,
+                        call_site_start_byte: site.start_byte,
+                        call_site_end_byte: site.end_byte,
+                        resolution_kind: "",
+                        name: site.callee_name.clone(),
+                        qualifier: site.qualifier.clone(),
+                    });
                     continue;
                 }
-                let def = edge.as_ref().map(|e| e.target);
-                let (sym, loc) = match &def {
-                    Some(d) => {
-                        let (start_byte, end_byte) = function_bytes(s, d);
-                        (
-                            Some(SymbolRef::Function {
-                                file: d.file.clone(),
-                                name: d.name.clone(),
-                                start_line: d.start_line,
-                                end_line: d.end_line,
-                                start_byte,
-                                end_byte,
-                                ordinal: 0,
-                            }),
-                            Location {
-                                file: d.file.clone(),
-                                start_line: d.start_line,
-                                end_line: d.end_line,
-                                start_byte,
-                                end_byte,
-                            },
-                        )
+
+                for edge in &site.resolved {
+                    if exact_only && edge.confidence != ResolutionConfidence::Exact {
+                        continue;
                     }
-                    None => (
-                        None,
-                        Location {
-                            file: fid.file.clone(),
-                            start_line: line,
-                            end_line: line,
-                            start_byte: 0,
-                            end_byte: 0,
+                    let d = &edge.target;
+                    let (start_byte, end_byte) = function_bytes(s, d);
+                    let sym = Some(SymbolRef::Function {
+                        file: d.file.clone(),
+                        name: d.name.clone(),
+                        start_line: d.start_line,
+                        end_line: d.end_line,
+                        start_byte,
+                        end_byte,
+                        ordinal: 0,
+                    });
+                    let loc = Location {
+                        file: d.file.clone(),
+                        start_line: d.start_line,
+                        end_line: d.end_line,
+                        start_byte,
+                        end_byte,
+                    };
+                    items.push(SortableEvidenceItem {
+                        item: EvidenceItem {
+                            symbol: sym,
+                            location: loc,
+                            score: confidence_score(edge.confidence) / (1.0 + hop as f32),
+                            source: Source::PrismCpg,
+                            fallback: false,
+                            why: vec![
+                                Reason::Calls {
+                                    callee: site.callee_name.clone(),
+                                    call_site_line: site.call_site_line,
+                                    qualifier: site.qualifier.clone(),
+                                },
+                                resolution_reason(edge.kind),
+                            ],
+                            snippet: None,
                         },
-                    ),
-                };
-                items.push(EvidenceItem {
-                    symbol: sym,
-                    location: loc,
-                    score: edge
-                        .as_ref()
-                        .map(|e| confidence_score(e.confidence))
-                        .unwrap_or(1.0)
-                        / (1.0 + hop as f32),
-                    source: Source::PrismCpg,
-                    fallback: false,
-                    why: {
-                        let mut why = vec![Reason::Calls {
-                            callee: callee_name,
-                            call_site_line: line,
-                            qualifier,
-                        }];
-                        if let Some(edge) = &edge {
-                            why.push(resolution_reason(edge.kind));
-                        }
-                        why
-                    },
-                    snippet: None,
-                });
-                if let Some(d) = def {
-                    if visited.insert((*d).clone()) {
-                        next.push((*d).clone());
+                        call_site_line: site.call_site_line,
+                        call_site_start_byte: site.start_byte,
+                        call_site_end_byte: site.end_byte,
+                        resolution_kind: edge.kind.as_str(),
+                        name: d.name.clone(),
+                        qualifier: site.qualifier.clone(),
+                    });
+                    if visited.insert(d.clone()) {
+                        next.push(d.clone());
                     }
                 }
             }
         }
         frontier = next;
     }
-    items.sort_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap()
-            .then(a.location.file.cmp(&b.location.file))
-            .then(a.location.start_line.cmp(&b.location.start_line))
-    });
+    sort_evidence_items(&mut items);
+    let items = items.into_iter().map(|i| i.item).collect();
     Ok(Evidence {
         query,
         items,
@@ -1133,12 +1131,7 @@ pub fn ego_graph(
                 CpgNode::Function { name, .. } => Some(name.as_str()),
                 _ => None,
             })
-            .map(|name| {
-                crate::navigation::call_resolve::collision_dropped_sites(
-                    &s.index.cpg.call_graph,
-                    name,
-                )
-            })
+            .map(|name| s.index.collision_dropped_sites(name))
             .sum()
     } else {
         0
