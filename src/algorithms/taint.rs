@@ -10841,6 +10841,12 @@ pub fn slice(
 
     if taint_config.taint_from_diff {
         for diff_info in &diff.files {
+            // Files prism cannot parse (e.g. Cargo.toml, .md) are never keys
+            // of `ctx.files`, so they can never be traced; seeding them only
+            // produces an untraceable `taint_source` finding (P1 Change 1).
+            if !ctx.files.contains_key(&diff_info.file_path) {
+                continue;
+            }
             for &line in &diff_info.diff_lines {
                 taint_seeds.push(TaintSeed::line(diff_info.file_path.clone(), line));
             }
@@ -11166,22 +11172,12 @@ pub fn slice(
         all_tainted.entry(file.clone()).or_default().insert(*line);
     }
 
-    // Emit findings for each taint source
-    for (file, line) in &taint_sources {
-        result.findings.push(SliceFinding {
-            algorithm: "taint".to_string(),
-            file: file.clone(),
-            line: *line,
-            severity: "info".to_string(),
-            description: format!("taint source: origin of tainted data at line {}", line),
-            function_name: None,
-            related_lines: vec![],
-            related_files: vec![],
-            category: Some("taint_source".to_string()),
-            parse_quality: None,
-            diagrams: vec![],
-        });
-    }
+    // Sources whose location was actually selected as the reported origin of
+    // an emitted sink finding (P1 Change 2). `taint_source` findings are only
+    // emitted for members of this set — built up below as each sink finding's
+    // `source_location` is resolved — instead of unconditionally for every
+    // seed (most diff-line seeds never reach a sink and are noise).
+    let mut sources_with_emitted_sinks: BTreeSet<(String, usize)> = BTreeSet::new();
 
     // Emit findings for each taint sink reached
     for (file, line) in &sink_lines {
@@ -11224,6 +11220,24 @@ pub fn slice(
                         .map(|(sf, sl)| (sf.as_str(), *sl))
                 })
         });
+        // Record the exact source location chosen for this sink finding:
+        // the path-derived source unconditionally if available, otherwise
+        // the fallback source only if it is itself a member of
+        // `taint_sources` (the ipc/nearest-in-file fallbacks all resolve to
+        // members of `taint_sources`, but guard explicitly per spec).
+        match path_derived_source {
+            Some((sf, sl)) => {
+                sources_with_emitted_sinks.insert((sf.to_string(), sl));
+            }
+            None => {
+                if let Some((sf, sl)) = source_location {
+                    if taint_sources.iter().any(|(f, l)| f == sf && *l == sl) {
+                        sources_with_emitted_sinks.insert((sf.to_string(), sl));
+                    }
+                }
+            }
+        }
+
         let source_desc = source_location
             .map(|(_, sl)| format!("line {}", sl))
             .unwrap_or_else(|| "diff lines".to_string());
@@ -11271,6 +11285,31 @@ pub fn slice(
         };
         finding.diagrams.push(diagram);
         result.findings.push(finding);
+    }
+
+    // Emit findings for each taint source that reaches an emitted sink
+    // finding (P1 Change 2). Runs AFTER sink emission so
+    // `sources_with_emitted_sinks` is fully populated; a source that reaches
+    // nothing contributes no finding. Applies uniformly to diff-seeded,
+    // explicit `--taint-source`, IPC, and framework sources alike, since all
+    // of them flow through the shared `taint_sources` collection.
+    for (file, line) in &taint_sources {
+        if !sources_with_emitted_sinks.contains(&(file.clone(), *line)) {
+            continue;
+        }
+        result.findings.push(SliceFinding {
+            algorithm: "taint".to_string(),
+            file: file.clone(),
+            line: *line,
+            severity: "info".to_string(),
+            description: format!("taint source: origin of tainted data at line {}", line),
+            function_name: None,
+            related_lines: vec![],
+            related_files: vec![],
+            category: Some("taint_source".to_string()),
+            parse_quality: None,
+            diagrams: vec![],
+        });
     }
 
     // Bash-specific: detect unquoted variable expansions on tainted lines.
