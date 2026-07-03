@@ -23,7 +23,7 @@ Algorithms that need a CPG (DFG + CFG + call graph) are marked **CPG-required**;
 
 ## Paper algorithms (arXiv:2505.17928)
 
-The four baseline algorithms from the paper. Cheap, AST-only. Use these when you need a predictable, well-understood baseline.
+The four baseline algorithms from the paper. `originaldiff` and `parentfunction` are cheap and AST-only; `leftflow` and `fullflow` require the CPG. Use these when you need a predictable, well-understood baseline.
 
 ### 1. OriginalDiff
 

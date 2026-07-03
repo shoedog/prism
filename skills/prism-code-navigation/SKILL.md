@@ -64,10 +64,12 @@ prism **`slicing` CLI**. You want *literal* text, comments, strings, or config �
 
 ## Gotchas (don't skip)
 
-- **Read the `score` field.** `1.0` = exact resolution — act on it. `0.6` = name-only candidate — read
-  the cited site before relying on it. A warning like `N same-name receiver call site(s) with unknown
-  receiver type across multiple owner types; not attributed as callers` means real callers may be
-  missing: treat "no callers" plus that warning as *unknown*, not *none*.
+- **Read the `score` field.** Scores start from resolution confidence (`1.0` exact, `0.6` name-only);
+  callers/callees decay that by hop, so a lower score means farther-away exact evidence or weaker
+  name-only evidence. Read the cited site before relying on any score below `1.0`. A warning like
+  `N same-name receiver call site(s) with unknown receiver type across multiple owner types; not
+  attributed as callers` means real callers may be missing: treat "no callers" plus that warning as
+  *unknown*, not *none*.
 - **One repo only.** The server sees only its `--repo` tree — not sibling repos, dependencies, or std.
   "No callers" outside the tree means *out of scope*, not *none*.
 - **Lines are 1-indexed; `nav_nodes_at` matches the exact line.** Empty result ⇒ aim at the definition

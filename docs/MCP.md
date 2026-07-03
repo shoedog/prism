@@ -133,7 +133,7 @@ returns a refresh summary instead of `Evidence`.
 | `nav_callees` | What does this symbol / location call? (*what X depends on*) | symbol or location |
 | `nav_ego_graph` | The local call/dependency graph around a seed. | symbol or location |
 | `nav_module_deps` | Outbound module dependencies for one file. | `{file}` |
-| `taint_reaches` | Forward taint reachability from a seed. (read-only, returns `Evidence`) | symbol or location |
+| `taint_reaches` | Forward taint reachability from a seed. (read-only, returns `Evidence`) | `sources[]`: symbol or location; optional `sinks[]`: symbol or location |
 | `refresh_index` | Re-indexes the repo snapshot for this server session. (local state change, not read-only; returns a refresh summary) | *(none)* |
 
 **Seeding.** Most tools accept either `{kind: "symbol", name: "X"}` (optionally `{file}` to disambiguate)
@@ -151,10 +151,12 @@ symbol's *definition* or *call* line, not a blank/comment line.
 - **Graphs truncate.** `nav_ego_graph` / `nav_repo_map` cap at 50 items by default (`max_results`, up
   to 1000), with an 80 KB result byte cap. A truncated graph is a partial view, not the whole story —
   narrow the seed if you need completeness.
-- **Scores carry resolution confidence, not certainty.** `1.0` = exact resolution — act on it. `0.6` =
-  a name-only candidate — read the cited site before relying on it. A warning like `N same-name receiver
-  call site(s) with unknown receiver type across multiple owner types; not attributed as callers` means
-  real callers may be missing: treat "no callers" plus that warning as *unknown*, not *none*.
+- **Scores carry resolution confidence, not certainty.** Scores start from resolution confidence
+  (`1.0` exact, `0.6` name-only); callers/callees decay that by hop, so a lower score means
+  farther-away exact evidence or weaker name-only evidence. Read the cited site before relying on
+  any score below `1.0`. A warning like `N same-name receiver call site(s) with unknown receiver
+  type across multiple owner types; not attributed as callers` means real callers may be missing:
+  treat "no callers" plus that warning as *unknown*, not *none*.
 - **Read-only.** The server never modifies the repo. It also never executes code.
 - **Cold first call.** If you didn't pre-warm and the first tool call stalls, the server is building the
   whole-repo CPG (~30 s on a large repo). It's fast after that.

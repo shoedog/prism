@@ -49,7 +49,7 @@ query. Prism answers these questions statically and fast — typically under
 
 **How it works:**
 
-1. Parse all source files into ASTs (tree-sitter, 12 languages)
+1. Parse all source files into ASTs (tree-sitter — 11 languages, 12 grammar variants; TSX parsed separately from TypeScript)
 2. Build a unified CPG: call graph + data flow graph + control flow graph
 3. Enrich with type information (per-language providers, RTA for dispatch)
 4. Accept a diff (unified patch or JSON)
@@ -509,8 +509,8 @@ Source files ──→ tree-sitter ──→ AST per file
                   ▼        ▼        ▼
             Diff → Algorithm → SliceResult
                     dispatch
-              30 algorithms, all operating
-              on the shared CPG graph
+         data/control-flow algorithms share this CPG;
+         simpler algorithms run on the AST only
 ```
 
 **Key design decisions:**
@@ -519,13 +519,16 @@ Source files ──→ tree-sitter ──→ AST per file
   typed edges (call, data flow, CFG) and typed nodes (function, variable,
   statement). All algorithms query the same graph structure.
 
-- **tree-sitter for parsing** — zero-dependency, incremental, supports 12
-  languages with a single unified AST query interface. No language-specific
+- **tree-sitter for parsing** — zero-dependency, incremental, supports 11
+  languages (12 tree-sitter grammar variants — TSX parsed separately from
+  TypeScript) with a single unified AST query interface. No language-specific
   parsers to maintain.
 
-- **CPG built once, queried many times** — algorithms are graph traversals,
-  not re-analyses. Running all 30 algorithms costs ~10% more than running one,
-  because the expensive step (CPG construction) is shared.
+- **CPG built once, queried many times** — the data/control-flow algorithms
+  run graph traversals over the shared CPG (simpler algorithms are AST-only;
+  see `SlicingAlgorithm::needs_cpg()`), so running many CPG-required
+  algorithms together costs ~10% more than running one, because the expensive
+  step (CPG construction) is shared.
 
 - **Diff-aware by default** — algorithms receive the diff as input and focus
   analysis on changed code. Unchanged code is included only when it's

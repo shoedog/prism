@@ -230,8 +230,8 @@ the adapter disabled.
 absent so existing navigation and diff-review output remains byte-compatible.
 
 Algorithms fall into two categories:
-1. **Simple** (use `ctx.files` only): `original_diff`, `parent_function`, `left_flow`, `full_flow`, `thin_slice`, `relevant_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`
-2. **Graph-based** (use `ctx.cpg` or full context): `barrier_slice`, `taint`, `spiral_slice`, `circular_slice`, `vertical_slice`, `threed_slice`, `delta_slice`, `conditioned_slice`, `gradient_slice`, `provenance_slice`, `phantom_slice`, `resonance_slice`, `membrane_slice`, `echo_slice`
+1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`
+2. **Graph-based** (require the CPG; source of truth `SlicingAlgorithm::needs_cpg()`, src/slice.rs:210): `left_flow`, `full_flow`, `relevant_slice`, `conditioned_slice`, `barrier_slice`, `chop`, `taint`, `delta_slice`, `spiral_slice`, `circular_slice`, `vertical_slice`, `threed_slice`, `gradient_slice`, `provenance_slice`, `membrane_slice`, `echo_slice`
 
 ### Algorithm Dispatch
 
