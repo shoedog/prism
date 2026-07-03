@@ -6607,6 +6607,49 @@ mod framework_entry_tests {
         assert_eq!(rec.caller.name, MODULE_PSEUDO_CALLER_NAME);
     }
 
+    // ---- M-B (codex re-review of fix wave 2): `require("express").Router()`
+    // constructor grounding-id peel ------------------------------------------
+
+    #[test]
+    fn express_require_dot_router_constructor_receiver_shadowed_by_enclosing_parameter_is_skipped_and_counted(
+    ) {
+        // `require` is REBOUND as a parameter of `setup`, shadowing the
+        // global Node.js `require` -- `require("express").Router()` inside
+        // `setup` calls the non-grounded PARAMETER, not the real module
+        // loader, so this must not mint an edge. The grounding-identifier
+        // peel previously only handled a bare-identifier member-expression
+        // object (`express.Router()`); a require-CALL object
+        // (`require("express").Router()`) fell through and returned `None`,
+        // silently skipping the shadow check entirely (M-B).
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nfunction setup(require) {\n    require(\"express\").Router().get(\"/x\", handler);\n}\n",
+        )]);
+        assert!(
+            cg.framework_entries.is_empty(),
+            "shadowed require-constructor receiver must not be recorded"
+        );
+        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
+    }
+
+    #[test]
+    fn express_require_dot_router_constructor_receiver_not_shadowed_at_module_level_still_records()
+    {
+        // Non-shadowed control: a module-level
+        // `require("express").Router().get(...)` (no enclosing function to
+        // shadow `require` at all) must still record normally.
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nrequire(\"express\").Router().get(\"/x\", handler);\n",
+        )]);
+        let handler = fid(&cg, "handler").clone();
+        assert!(
+            cg.framework_entries.iter().any(|r| r.handler == handler),
+            "non-shadowed module-level require-constructor receiver must still record"
+        );
+        assert_eq!(cg.framework_entry_unresolved_handlers, 0);
+    }
+
     // ---- F3: method-aware arg positioning for `app.use(...)` ----------------
 
     #[test]

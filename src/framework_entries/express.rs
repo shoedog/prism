@@ -315,22 +315,46 @@ fn express_constructor_grounding_identifier(
         "identifier" => Some(parsed.node_text(&callee).to_string()),
         // `express.Router()` / `new express.Router()` — the SHADOWABLE
         // grounding identifier is the member expression's OBJECT
-        // (`express`), not the property (`Router`).
+        // (`express`), not the property (`Router`). M-B: the object can
+        // ALSO be a require-CALL (`require("express").Router()`) rather
+        // than a bare identifier — taint.rs's own
+        // `js_ts_expr_resolves_to_framework_module` (the matcher that
+        // decided THIS receiver constructs a framework instance in the
+        // first place) already accepts that shape, so the grounding-id
+        // peel must too, or the shadow check silently no-ops (returns
+        // `None`, treated as "not shadowed") for exactly this shape.
         "member_expression" => {
             let object = callee.child_by_field_name("object")?;
             let object = crate::algorithms::taint::unwrap_parenthesized(object);
-            (object.kind() == "identifier").then(|| parsed.node_text(&object).to_string())
+            if object.kind() == "identifier" {
+                return Some(parsed.node_text(&object).to_string());
+            }
+            require_call_callee_identifier(parsed, object)
         }
         // `require("express")()` — the grounding identifier is `require`
         // itself, the inner call's own callee.
         kind if parsed.language.is_call_node(kind) => {
-            let inner_function = callee.child_by_field_name("function")?;
-            let inner_function = crate::algorithms::taint::unwrap_parenthesized(inner_function);
-            (inner_function.kind() == "identifier")
-                .then(|| parsed.node_text(&inner_function).to_string())
+            require_call_callee_identifier(parsed, callee)
         }
         _ => None,
     }
+}
+
+/// M-B: shared by both `require("express")()` (the outer constructor call's
+/// own callee IS the require-call) and `require("express").Router()` (the
+/// member expression's object is the require-call) shapes — peel a
+/// require-call node down to its own callee identifier (`require`), the
+/// SHADOWABLE grounding identifier in both cases.
+fn require_call_callee_identifier(
+    parsed: &ParsedFile,
+    node: tree_sitter::Node<'_>,
+) -> Option<String> {
+    if !parsed.language.is_call_node(node.kind()) {
+        return None;
+    }
+    let inner_function = node.child_by_field_name("function")?;
+    let inner_function = crate::algorithms::taint::unwrap_parenthesized(inner_function);
+    (inner_function.kind() == "identifier").then(|| parsed.node_text(&inner_function).to_string())
 }
 
 /// M3: whether `name` is bound as a parameter or local variable in any
@@ -595,5 +619,39 @@ mod express_candidate_tests {
         );
         let cands = express_route_candidates(&parsed);
         assert!(cands.is_empty());
+    }
+
+    #[test]
+    fn require_dot_router_constructor_receiver_shadowed_by_enclosing_parameter_is_flagged() {
+        // M-B: `require("express").Router()` -- the member expression's
+        // object is itself the require-CALL, not a bare identifier. The
+        // grounding-identifier peel must still extract `require` (mirroring
+        // the require-call shape taint.rs's
+        // `js_ts_expr_resolves_to_framework_module` already accepts when
+        // deciding this receiver constructs a framework instance), so a
+        // local `require` parameter shadow is caught.
+        let parsed = parse(
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nfunction setup(require) {\n    require(\"express\").Router().get(\"/x\", handler);\n}\n",
+        );
+        let cands = express_route_candidates(&parsed);
+        assert_eq!(cands.len(), 1);
+        assert!(
+            cands[0].shadowed,
+            "shadowed require-constructor receiver must be flagged"
+        );
+    }
+
+    #[test]
+    fn require_dot_router_constructor_receiver_not_shadowed_at_module_level() {
+        // Control: no enclosing `require` shadow -- must not be flagged.
+        let parsed = parse(
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nrequire(\"express\").Router().get(\"/x\", handler);\n",
+        );
+        let cands = express_route_candidates(&parsed);
+        assert_eq!(cands.len(), 1);
+        assert!(
+            !cands[0].shadowed,
+            "non-shadowed require-constructor receiver must not be flagged"
+        );
     }
 }
