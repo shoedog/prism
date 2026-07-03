@@ -740,6 +740,22 @@ impl ParsedFile {
             if !is_root && this.language.function_node_types().contains(&node.kind()) {
                 return None; // same convention as walk_receiver_bindings.
             }
+            // B1 (codex impl-review BLOCKER): `Language::function_node_types()`
+            // omits Go function literals (closures), so the check above never
+            // fences a closure body. Without this, a sibling closure's OWN
+            // `x := newT()` binding — already closed by the time an unrelated
+            // later call executes — would still be found here and misreported
+            // as this call's qualifying statement. Same lexical-scope fence as
+            // `walk_receiver_bindings`'s `func_literal` arm: skip this
+            // closure's entire subtree unless the call site actually lies
+            // within its span.
+            if !is_root && node.kind() == "func_literal" {
+                let call_inside =
+                    call_start_byte >= node.start_byte() && call_start_byte < node.end_byte();
+                if !call_inside {
+                    return None;
+                }
+            }
             if node.kind() == "short_var_declaration" {
                 if let (Some(left), Some(right)) = (
                     node.child_by_field_name("left"),
@@ -6148,26 +6164,41 @@ impl ParsedFile {
             }
             // P11 (S2 fail-closed requirement, the P9 lesson in Go form):
             // `Language::function_node_types()` omits Go function literals
-            // (closures), so without this arm the walk scans straight
-            // through a closure body as if it were still the enclosing
-            // function's own scope — a closure PARAMETER of the same name
-            // would silently shadow-and-vanish (invisible to `bindings`),
-            // letting a stale outer recovery leak into the closure's own
-            // call sites. Treat a same-name closure parameter as an
-            // unrecoverable rebinding, same shape as the existing
-            // shadow-only arms above (`bindings += 1; found = None`), then
-            // fall through to the generic recursion below so an internal
-            // `:=` rebinding inside the closure is ALSO caught.
-            // Only a rebinding shadow when the call is actually reached
-            // FROM WITHIN this closure's own span — a sibling closure
-            // earlier in the function (already closed by the time the call
-            // executes) must not falsely shadow an unrelated outer use of
-            // the same name.
-            (Language::Go, "func_literal")
-                if !is_root
-                    && call_start_byte >= node.start_byte()
-                    && call_start_byte < node.end_byte() =>
-            {
+            // (closures), so without a lexical-scope fence the walk scans
+            // straight through EVERY closure body in the enclosing function
+            // as if it were still that function's own scope. Two distinct
+            // hazards follow from that, both fixed here (B1, codex
+            // impl-review BLOCKER):
+            //   1. a closure PARAMETER of the same name would silently
+            //      shadow-and-vanish (invisible to `bindings`), letting a
+            //      stale outer recovery leak into the closure's own call
+            //      sites — the call is INSIDE this closure;
+            //   2. a closure-LOCAL `:=`/`var` binding (e.g. `x := newT()`)
+            //      would be visible to a call OUTSIDE this closure entirely
+            //      (a sibling closure, already closed by the time an
+            //      unrelated later statement runs) and could mint a false
+            //      Exact edge for that unrelated call — the call is OUTSIDE
+            //      this closure.
+            //
+            // Fence by lexical scope: when the call site does not lie
+            // within this literal's own byte span, this closure's ENTIRE
+            // subtree is out of scope for `receiver` — `return` immediately,
+            // skipping the generic recursion below (never `continue`/fall
+            // through, or a sibling-closure local would still leak via that
+            // trailing walk). Only when the call IS inside do we treat a
+            // same-name closure parameter as an unrecoverable rebinding
+            // (same shape as the shadow-only arms above) and fall through
+            // to the generic recursion, which then correctly scans ONLY
+            // this literal's own body for the call's real binding — nearest
+            // (innermost) binding wins, enclosing-scope bindings seen
+            // earlier in the same top-level walk are still visible per
+            // normal Go shadowing.
+            (Language::Go, "func_literal") if !is_root => {
+                let call_inside =
+                    call_start_byte >= node.start_byte() && call_start_byte < node.end_byte();
+                if !call_inside {
+                    return;
+                }
                 if let Some(params) = self.find_parameters_node(&node) {
                     let mut pcursor = params.walk();
                     for param in params.children(&mut pcursor) {

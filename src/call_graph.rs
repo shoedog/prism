@@ -5951,6 +5951,74 @@ mod go_receiver_typing_tests {
         assert_eq!(site.receiver_type, None);
     }
 
+    // ---- B1 (codex impl-review BLOCKER): func_literal lexical-scope fence -
+
+    #[test]
+    fn b1_s1_sibling_closure_short_var_does_not_leak_across_lexical_scope() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Demux struct{}\n\
+             func (d *Demux) Init(n int) {}\n\
+             func newDemux(a, b int) *Demux { return &Demux{} }\n\
+             func run() {\n\
+             \tfn := func() {\n\t\td := newDemux(16, 16)\n\t\t_ = d\n\t}\n\
+             \t_ = fn\n\
+             \td.Init(1)\n\
+             }\n",
+        )]);
+        // `d` in `run`'s OWN scope has no binding at all -- only the SIBLING
+        // closure's `d := newDemux(...)` does, and that closure does not
+        // contain this call. Without the lexical-scope fence, the walk
+        // descends into the sibling closure anyway and finds `d`'s binding
+        // there, minting a false `ReturnTyped` recovery for an unrelated
+        // (undefined-here) `d`. Must NOT recover.
+        let site = site_in(&cg, "run", "Init");
+        assert_eq!(site.receiver_type, None);
+    }
+
+    #[test]
+    fn b1_s1_call_inside_closure_recovers_from_its_own_binding() {
+        // Positive control: the call IS inside the closure, so the closure's
+        // OWN `d := newDemux(...)` binding is genuinely in scope and must
+        // still recover (proves the fence doesn't over-suppress).
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Demux struct{}\n\
+             func (d *Demux) Init(n int) {}\n\
+             func newDemux(a, b int) *Demux { return &Demux{} }\n\
+             func run() {\n\
+             \tfn := func() {\n\t\td := newDemux(16, 16)\n\t\td.Init(1)\n\t}\n\
+             \tfn()\n\
+             }\n",
+        )]);
+        let site = site_in(&cg, "run", "Init");
+        assert_eq!(site.receiver_type.as_deref(), Some("Demux"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::ReturnTyped));
+    }
+
+    #[test]
+    fn b1_s2_sibling_closure_base_short_var_does_not_leak_across_lexical_scope() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Inner struct{}\n\
+             func (i *Inner) M() {}\n\
+             type Outer struct {\n\tField *Inner\n}\n\
+             func newOuter() *Outer { return &Outer{} }\n\
+             func run() {\n\
+             \tfn := func() {\n\t\to := newOuter()\n\t\t_ = o\n\t}\n\
+             \t_ = fn\n\
+             \to.Field.M()\n\
+             }\n",
+        )]);
+        // Same lexical-scope leak, via S2's base recovery (which recurses
+        // through the SAME S1 machinery for the base identifier `o`).
+        let site = site_in(&cg, "run", "M");
+        assert_eq!(site.receiver_type, None);
+    }
+
     // ---- S3: package-level var receivers ---------------------------------
 
     #[test]
