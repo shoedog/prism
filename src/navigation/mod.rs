@@ -306,14 +306,27 @@ impl NavigationIndex {
                     idx.multi_owner_collision_sites.insert(key);
                 }
                 for resolved in &outcome.resolved {
-                    let suffix = format!("::{}", resolved.target.name);
-                    let count = crate::navigation::call_resolve::scoped_caller_site_match_count(
-                        cg,
-                        bucket_key,
-                        site,
-                        &resolved.target.name,
-                        &suffix,
-                    );
+                    // P5 S3: `func_value_field` deliberately breaks the
+                    // name-correlation invariant every other `ResolutionKind`
+                    // upholds (`cmd.Run()` legitimately resolves to a target
+                    // named `helper`, not `Run`) — `scoped_caller_site_match_count`
+                    // exists to disambiguate MODULE-SCOPED variants of the SAME
+                    // callee name (`bucket_key == target_name` / a `::name`
+                    // suffix), which does not apply here. The site is already
+                    // fully precise (one CallSite -> its resolved targets), so
+                    // count it directly rather than gating on name match.
+                    let count = if resolved.kind == ResolutionKind::FuncValueField {
+                        1
+                    } else {
+                        let suffix = format!("::{}", resolved.target.name);
+                        crate::navigation::call_resolve::scoped_caller_site_match_count(
+                            cg,
+                            bucket_key,
+                            site,
+                            &resolved.target.name,
+                            &suffix,
+                        )
+                    };
                     for _ in 0..count {
                         idx.incoming_by_target
                             .entry(resolved.target.clone())
@@ -363,6 +376,45 @@ impl NavigationIndex {
                         resolved: outcome.resolved.clone(),
                     });
             }
+        }
+
+        // P5 S2 (re-review MINOR-3): merge Go function-value registrations in
+        // deterministically (`cg.go_registrations` is a `BTreeSet`, so this
+        // loop's insertion order is already deterministic). Registrations are
+        // NOT `CallSite`s — see the architecture note on
+        // `CallGraph::go_registrations` — so they never appear in the
+        // `cg.callers`/`cg.calls` loops above; this is the only place they
+        // reach `direct_callers`/`direct_callees` (`queries::{callers,callees}`
+        // read those unchanged).
+        for reg in &cg.go_registrations {
+            idx.incoming_by_target
+                .entry(reg.target.clone())
+                .or_default()
+                .push(IndexedIncomingCall {
+                    caller: reg.enclosing.clone(),
+                    callee_name: reg.target.name.clone(),
+                    call_site_line: reg.site.line,
+                    start_byte: reg.site.start_byte,
+                    end_byte: reg.site.end_byte,
+                    qualifier: None,
+                    confidence: ResolutionConfidence::NameOnly,
+                    kind: ResolutionKind::CallbackRegistration,
+                });
+            idx.outgoing_by_caller
+                .entry(reg.enclosing.clone())
+                .or_default()
+                .push(IndexedOutgoingCallSite {
+                    callee_name: reg.target.name.clone(),
+                    call_site_line: reg.site.line,
+                    start_byte: reg.site.start_byte,
+                    end_byte: reg.site.end_byte,
+                    qualifier: None,
+                    resolved: vec![IndexedResolvedTarget {
+                        target: reg.target.clone(),
+                        confidence: ResolutionConfidence::NameOnly,
+                        kind: ResolutionKind::CallbackRegistration,
+                    }],
+                });
         }
 
         idx

@@ -144,6 +144,17 @@ pub struct GoTypeData {
     dispatch_gaps: Vec<GoDispatchGap>,
     /// Over-approximations admitted during canonical satisfaction.
     dispatch_overapprox: Vec<GoDispatchOverApprox>,
+    /// P5 S1: every package-scoped struct identity extracted, regardless of
+    /// whether it has any func-typed field. Lets a caller distinguish "struct
+    /// known, field not func-typed" from "struct unknown entirely" (the S2
+    /// registration scan's per-form fallback/counting depends on this).
+    struct_identities: BTreeSet<crate::resolution::GoOwnerIdentity>,
+    /// P5 S1: `(owner_identity, field_name)` pairs whose declared type begins
+    /// with `func(` (named-type indirection, e.g. `type Handler func()`, is
+    /// out of scope — noted, not attempted). Package-scoped so a registration
+    /// in one package cannot donate a false hit to a same-named struct in
+    /// another (spec-review MAJOR-1).
+    func_typed_fields: BTreeSet<(crate::resolution::GoOwnerIdentity, String)>,
 }
 
 #[derive(Debug, Clone)]
@@ -180,6 +191,8 @@ impl GoTypeProvider {
             sat_keys: BTreeMap::new(),
             dispatch_gaps: Vec::new(),
             dispatch_overapprox: Vec::new(),
+            struct_identities: BTreeSet::new(),
+            func_typed_fields: BTreeSet::new(),
         };
 
         for (path, parsed) in files {
@@ -205,6 +218,20 @@ impl GoTypeProvider {
             .values()
             .flat_map(|iface| iface.methods.keys().cloned())
             .collect()
+    }
+
+    /// P5 S1: every package-scoped struct identity extracted (regardless of
+    /// func-typed fields). Captured onto `CallGraph.go_known_struct_identities`
+    /// in `apply_go_func_value_fields`.
+    pub fn go_known_struct_identities(&self) -> BTreeSet<crate::resolution::GoOwnerIdentity> {
+        self.data.struct_identities.clone()
+    }
+
+    /// P5 S1: `(owner_identity, field_name)` pairs whose declared field type
+    /// begins with `func(`. Captured onto `CallGraph.go_func_typed_fields` in
+    /// `apply_go_func_value_fields`.
+    pub fn go_func_typed_fields(&self) -> BTreeSet<(crate::resolution::GoOwnerIdentity, String)> {
+        self.data.func_typed_fields.clone()
     }
 
     /// Param arity for every Go method extracted from the parsed files.  Keyed by
@@ -339,6 +366,19 @@ impl GoTypeProvider {
         match type_node.kind() {
             "struct_type" => {
                 let (fields, embedded) = Self::extract_struct_fields(&type_node, parsed);
+                // P5 S1: package-scoped owner identity, distinct from the bare
+                // `name` key `data.structs` uses (spec-review MAJOR-1).
+                let owner = crate::resolution::GoOwnerIdentity {
+                    package_dir: crate::resolution::dir_of(path).to_string(),
+                    name: name.clone(),
+                };
+                data.struct_identities.insert(owner.clone());
+                for (field_name, field_type) in &fields {
+                    if field_type.trim_start().starts_with("func(") {
+                        data.func_typed_fields
+                            .insert((owner.clone(), field_name.clone()));
+                    }
+                }
                 data.structs.insert(
                     name.clone(),
                     GoStruct {
@@ -1948,5 +1988,113 @@ mod canon_tests {
         let paren = "package p\ntype T struct{}\nfunc (t T) C(c chan (int)) {}\n";
         let plain = "package p\ntype I interface { C(c chan int) }\n";
         assert_eq!(sig_of(paren, "C").unwrap(), sig_of(plain, "C").unwrap());
+    }
+}
+
+// ---------------------------------------------------------------------------
+// P5 S1: func-typed-field index (package-scoped owner identity)
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod func_typed_field_tests {
+    use super::*;
+    use crate::ast::ParsedFile;
+    use crate::languages::Language;
+    use crate::resolution::GoOwnerIdentity;
+    use std::collections::BTreeMap;
+
+    fn provider_at(path: &str, src: &str) -> GoTypeProvider {
+        let mut files = BTreeMap::new();
+        files.insert(
+            path.to_string(),
+            ParsedFile::parse(path, src, Language::Go).unwrap(),
+        );
+        GoTypeProvider::from_parsed_files(&files)
+    }
+
+    fn owner(dir: &str, name: &str) -> GoOwnerIdentity {
+        GoOwnerIdentity {
+            package_dir: dir.to_string(),
+            name: name.to_string(),
+        }
+    }
+
+    #[test]
+    fn func_typed_field_detected() {
+        let p = provider_at(
+            "main.go",
+            "package main\ntype Command struct {\n\tRun func()\n}\n",
+        );
+        let fields = p.go_func_typed_fields();
+        assert!(fields.contains(&(owner("", "Command"), "Run".to_string())));
+    }
+
+    #[test]
+    fn non_func_field_not_recorded() {
+        let p = provider_at(
+            "main.go",
+            "package main\ntype Command struct {\n\tName string\n}\n",
+        );
+        let fields = p.go_func_typed_fields();
+        assert!(!fields.iter().any(|(_, f)| f == "Name"));
+    }
+
+    #[test]
+    fn multi_name_declaration_types_each_field() {
+        // `a, b func()` — extract_struct_fields already pushes the type for
+        // each name; S1 must record BOTH as func-typed.
+        let p = provider_at(
+            "main.go",
+            "package main\ntype Hooks struct {\n\tBefore, After func()\n}\n",
+        );
+        let fields = p.go_func_typed_fields();
+        assert!(fields.contains(&(owner("", "Hooks"), "Before".to_string())));
+        assert!(fields.contains(&(owner("", "Hooks"), "After".to_string())));
+    }
+
+    #[test]
+    fn known_struct_identity_recorded_regardless_of_func_fields() {
+        let p = provider_at(
+            "main.go",
+            "package main\ntype Config struct {\n\tName string\n}\n",
+        );
+        assert!(p
+            .go_known_struct_identities()
+            .contains(&owner("", "Config")));
+    }
+
+    #[test]
+    fn package_scoped_identity_distinguishes_same_named_structs() {
+        // Two `Command` structs in different packages (directories) must get
+        // DISTINCT owner identities — a bare-name-only key would collide them
+        // (spec-review MAJOR-1).
+        let mut files = BTreeMap::new();
+        files.insert(
+            "pkga/a.go".to_string(),
+            ParsedFile::parse(
+                "pkga/a.go",
+                "package pkga\ntype Command struct {\n\tRun func()\n}\n",
+                Language::Go,
+            )
+            .unwrap(),
+        );
+        files.insert(
+            "pkgb/b.go".to_string(),
+            ParsedFile::parse(
+                "pkgb/b.go",
+                "package pkgb\ntype Command struct {\n\tName string\n}\n",
+                Language::Go,
+            )
+            .unwrap(),
+        );
+        let p = GoTypeProvider::from_parsed_files(&files);
+        let fields = p.go_func_typed_fields();
+        assert!(fields.contains(&(owner("pkga", "Command"), "Run".to_string())));
+        // pkgb's Command has no func-typed field at all, and critically is a
+        // DIFFERENT owner identity from pkga's Command despite the same bare name.
+        assert!(!fields.contains(&(owner("pkgb", "Command"), "Run".to_string())));
+        let known = p.go_known_struct_identities();
+        assert!(known.contains(&owner("pkga", "Command")));
+        assert!(known.contains(&owner("pkgb", "Command")));
     }
 }
