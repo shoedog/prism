@@ -285,12 +285,19 @@ pub fn extract_calls<'a>(
     (out, facts)
 }
 
-fn find_token_tree_child<'a>(node: Node<'a>) -> Option<Node<'a>> {
+// clippy's `manual_find` suggestion (`node.children(&mut cursor).find(...)`
+// returned directly) does NOT compile here: the temporary iterator's
+// lifetime-extension in tail position collides with `cursor`'s scope
+// (rustc E0597). The explicit loop is required, not a style choice.
+#[allow(clippy::manual_find)]
+fn find_token_tree_child(node: Node<'_>) -> Option<Node<'_>> {
     let mut cursor = node.walk();
-    let found = node
-        .children(&mut cursor)
-        .find(|c| c.kind() == "token_tree");
-    found
+    for child in node.children(&mut cursor) {
+        if child.kind() == "token_tree" {
+            return Some(child);
+        }
+    }
+    None
 }
 
 /// Scan one `token_tree`'s direct children for call-shaped token patterns,

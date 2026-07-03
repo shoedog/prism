@@ -413,3 +413,14 @@ fn inner_attribute_token_tree_is_not_scanned() {
     assert!(!sites.iter().any(|(name, _)| name == "foo"));
     assert!(sites.contains(&("check".to_string(), None)));
 }
+
+// ---- F6 cosmetic: find_token_tree_child returns directly ----
+
+#[test]
+fn find_token_tree_child_locates_the_args_token_tree() {
+    let pf = parse_one_macro("fn f() { assert!(check(x)); }");
+    let root = pf.tree.root_node();
+    let macro_node = find_macro_invocation(root).unwrap();
+    let tt = find_token_tree_child(macro_node).expect("token_tree child");
+    assert_eq!(tt.kind(), "token_tree");
+}
