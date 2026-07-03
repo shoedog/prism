@@ -41,6 +41,38 @@ fn is_js_ts_function_like(kind: &str) -> bool {
     )
 }
 
+/// Metadata for one extracted call site.
+///
+/// Threading this struct through the extraction paths that feed
+/// `CallGraph::CallSite` construction (`function_calls_with_spans_on_lines`,
+/// `function_calls_with_qualifier_and_spans_on_lines`) replaces the previous
+/// unlabeled positional tuples and gives a non-grammar extraction path (Rust
+/// macro-argument calls — see `crate::rust_macro_args`) a way to override
+/// `kind`/`origin` without going through `CallGraph::call_kind_at`'s ancestor
+/// walk. That walk classifies ANY span nested under a `macro_invocation` as
+/// `CallKind::MacroInvocation` — correct for the macro's own name/args as a
+/// whole, but wrong for an ordinary value call minted from *inside* those
+/// arguments (it must route through `NS_VALUE`, not `NS_MACRO`).
+///
+/// `kind_override`/`origin_override` are `None` for every grammar-parsed call
+/// site: the caller derives `kind` via `call_kind_at` and leaves `origin` at
+/// its `Source` default, exactly as before this struct existed.
+#[derive(Debug, Clone)]
+pub struct CallSiteMeta<'a> {
+    pub callee_name: String,
+    pub line: usize,
+    pub qualifier: Option<String>,
+    pub start_byte: usize,
+    pub end_byte: usize,
+    /// The selector operand (S3 `ReceiverClassifier` input). `None` for the
+    /// simple (no-qualifier) extraction path and for manual-fallback languages.
+    pub receiver_node: Option<Node<'a>>,
+    pub arg_count: Option<usize>,
+    pub arg_spread: bool,
+    pub kind_override: Option<crate::call_graph::CallKind>,
+    pub origin_override: Option<crate::call_graph::CallSiteOrigin>,
+}
+
 /// Information about a single return statement within a function.
 #[derive(Debug, Clone)]
 pub struct ReturnInfo {

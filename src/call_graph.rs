@@ -58,6 +58,10 @@ pub enum CallSiteOrigin {
     #[default]
     Source,
     IndirectResolution,
+    /// Minted from a Rust macro argument (transparency-allowlisted, e.g.
+    /// `assert!(check(x))`) rather than from the grammar's own call/method
+    /// node. See `crate::rust_macro_args`.
+    MacroArg,
 }
 
 /// A call site: where a function is called from.
