@@ -119,7 +119,7 @@ def ctx(lines: list[str] | None, line: int, before: int, after: int, mark: bool)
 def hydrate_record(r: dict, idx: int, root: str, seed_ctx: int, site_ctx: int) -> dict:
     sfile, sline = r["seed_def"].rsplit(":", 1)
     cfile, cline = r["site"].rsplit(":", 1)
-    return {
+    out = {
         "id": idx,
         "corpus": r["corpus"],
         "measurement": r["measurement"],
@@ -129,6 +129,12 @@ def hydrate_record(r: dict, idx: int, root: str, seed_ctx: int, site_ctx: int) -
         "site": r["site"],
         "site_context": ctx(read_lines(root, cfile), int(cline), site_ctx, site_ctx, mark=True),
     }
+    # P6a: candidate-tier pendings carry an optional "tier" key (see
+    # cli._pending_for_probe) -- preserve it so downstream adjudication can still
+    # filter by tier after hydration.
+    if "tier" in r:
+        out["tier"] = r["tier"]
+    return out
 
 
 def main() -> int:
