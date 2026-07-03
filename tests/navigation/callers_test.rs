@@ -128,11 +128,17 @@ fn callers_depth_zero_has_no_expansion() {
     assert!(ev.items.is_empty());
 }
 
+// P3: `poll` must stay OVER the R6 fanout cap (4 owners: A/B/C/D) so these
+// fixtures keep exercising the still-dropped + warned collision path — a
+// 2-owner pool now resolves to a labeled candidate edge instead (see
+// r6_candidate_test::python_two_owner_untyped_receiver_yields_candidate_hit).
 #[test]
 fn callers_query_emits_collision_warning_for_dropped_sites() {
     let s = session(&[
         ("a.py", "class A:\n    def poll(self):\n        return 1\n"),
         ("b.py", "class B:\n    def poll(self):\n        return 2\n"),
+        ("c.py", "class C:\n    def poll(self):\n        return 3\n"),
+        ("d.py", "class D:\n    def poll(self):\n        return 4\n"),
         ("main.py", "def drive(x):\n    return x.poll()\n"),
     ]);
     let ev = queries::callers(&s, Some("poll"), Some("a.py"), None, 1).unwrap();
@@ -155,6 +161,8 @@ fn ego_graph_emits_collision_warning_for_seed() {
     let s = session(&[
         ("a.py", "class A:\n    def poll(self):\n        return 1\n"),
         ("b.py", "class B:\n    def poll(self):\n        return 2\n"),
+        ("c.py", "class C:\n    def poll(self):\n        return 3\n"),
+        ("d.py", "class D:\n    def poll(self):\n        return 4\n"),
         ("main.py", "def drive(x):\n    return x.poll()\n"),
     ]);
     let ev = queries::ego_graph(&s, Some("poll"), Some("a.py"), None, 1, &["Call"]).unwrap();
@@ -171,6 +179,8 @@ fn ego_graph_does_not_emit_collision_warning_when_call_edges_not_collected() {
     let s = session(&[
         ("a.py", "class A:\n    def poll(self):\n        return 1\n"),
         ("b.py", "class B:\n    def poll(self):\n        return 2\n"),
+        ("c.py", "class C:\n    def poll(self):\n        return 3\n"),
+        ("d.py", "class D:\n    def poll(self):\n        return 4\n"),
         ("main.py", "def drive(x):\n    return x.poll()\n"),
     ]);
     let dataflow_only =
@@ -185,6 +195,74 @@ fn ego_graph_does_not_emit_collision_warning_when_call_edges_not_collected() {
         .warnings
         .iter()
         .any(|w| matches!(w.kind, WarningKind::Collision)));
+}
+
+#[test]
+fn collision_warning_names_up_to_five_sites_sorted_deterministically() {
+    // P3 item 3: 6 dropped call sites (over the R6 fanout cap: A/B/C/D all
+    // define `poll`), added out of lexicographic order, to prove the warning
+    // both caps the named sites at 5 and sorts them deterministically.
+    let mut files: Vec<(String, String)> = vec![
+        (
+            "a.py".into(),
+            "class A:\n    def poll(self):\n        return 1\n".into(),
+        ),
+        (
+            "b.py".into(),
+            "class B:\n    def poll(self):\n        return 2\n".into(),
+        ),
+        (
+            "c.py".into(),
+            "class C:\n    def poll(self):\n        return 3\n".into(),
+        ),
+        (
+            "d.py".into(),
+            "class D:\n    def poll(self):\n        return 4\n".into(),
+        ),
+    ];
+    for name in [
+        "f_caller.py",
+        "b_caller.py",
+        "e_caller.py",
+        "a_caller.py",
+        "d_caller.py",
+        "c_caller.py",
+    ] {
+        files.push((name.into(), "def drive(x):\n    return x.poll()\n".into()));
+    }
+    let files: Vec<(&str, &str)> = files
+        .iter()
+        .map(|(n, s)| (n.as_str(), s.as_str()))
+        .collect();
+    let s = session(&files);
+    let ev = queries::callers(&s, Some("poll"), Some("a.py"), None, 1).unwrap();
+    let warning = ev
+        .warnings
+        .iter()
+        .find(|w| matches!(w.kind, WarningKind::Collision))
+        .expect("collision warning");
+    assert!(
+        warning
+            .message
+            .starts_with("6 same-name receiver call site(s)"),
+        "{}",
+        warning.message
+    );
+    let expected_named = [
+        "a_caller.py:2",
+        "b_caller.py:2",
+        "c_caller.py:2",
+        "d_caller.py:2",
+        "e_caller.py:2",
+    ];
+    for site in expected_named {
+        assert!(warning.message.contains(site), "{}", warning.message);
+    }
+    assert!(
+        !warning.message.contains("f_caller.py"),
+        "must cap at 5 named sites: {}",
+        warning.message
+    );
 }
 
 #[test]

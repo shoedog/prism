@@ -236,6 +236,9 @@ fn module_deps_and_repo_map_match_after_sidecar_warmup() {
 
 #[test]
 fn collision_warning_matches_after_sidecar_warmup() {
+    // P3: `poll` must stay OVER the R6 fanout cap (4 owners: A/B/C/D) so this
+    // still exercises the drop + warning cache round-trip — a 2-owner pool
+    // now resolves to a labeled candidate edge instead.
     with_dirty_sidecar_load_override(|| {
         let repo_d = tempfile::tempdir().unwrap();
         let cache = tempfile::tempdir().unwrap();
@@ -248,6 +251,16 @@ fn collision_warning_matches_after_sidecar_warmup() {
             repo_d.path(),
             "b.py",
             "class B:\n    def poll(self):\n        return 2\n",
+        );
+        write(
+            repo_d.path(),
+            "c.py",
+            "class C:\n    def poll(self):\n        return 3\n",
+        );
+        write(
+            repo_d.path(),
+            "d.py",
+            "class D:\n    def poll(self):\n        return 4\n",
         );
         write(
             repo_d.path(),
