@@ -1,0 +1,19 @@
+[case]
+language = "rust"
+capability = "macro_arg_nontransparent_guard"
+# The transparency pin: stringify!(check(x)) (raw-token-arg macro) and
+# my_macro!(check(x)) (an undefined/unknown macro) are both OUTSIDE the
+# transparency allowlist -- neither may mint a call to `check`, even though
+# an in-repo `fn check` exists and the token shape is identical to the
+# allowlisted-macro case in macro_arg_call/. Precision gate: minting here
+# would be a wrong-macro-semantics false edge (stringify!'s argument is raw
+# tokens, not an evaluated expression; an unknown macro's expansion is
+# unknowable).
+status = "pass"
+[seed]
+symbol = "check"
+file = "main.rs"
+line = 1
+[expect]
+callers = []
+exact = true
