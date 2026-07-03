@@ -1,9 +1,10 @@
 # Prism MCP server — whole-repo navigation for coding agents
 
-`prism-mcp` is a local **stdio MCP server** that exposes read-only, whole-repo code navigation to
-MCP-capable coding agents (Claude Code, Codex, Kiro, …). It serves a Code Property Graph of **one**
-repository and answers structural questions an agent would otherwise grep for — who calls a symbol,
-what it calls, what breaks if you change it, the module dependency graph.
+`prism-mcp` is a local **stdio MCP server** that exposes whole-repo code navigation (read-only
+except `refresh_index`) to MCP-capable coding agents (Claude Code, Codex, Kiro, …). It serves a
+Code Property Graph of **one** repository and answers structural questions an agent would
+otherwise grep for — who calls a symbol, what it calls, what breaks if you change it, the
+module dependency graph.
 
 This is separate from the `slicing` diff-CLI (see the [README](../README.md)). Same engine, different
 surface: the CLI slices a *diff*; the MCP server navigates a *whole repo*.

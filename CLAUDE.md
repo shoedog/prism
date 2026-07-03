@@ -346,7 +346,7 @@ Key algorithm-specific flags:
 
 ## Dependencies
 
-- `tree-sitter` + 9 language grammars for AST parsing
+- `tree-sitter` + 11 language grammar crates (12 parsed language variants) for AST parsing
 - `petgraph` for graph data structures (CFG, CPG)
 - `clap` for CLI
 - `dirs` for prism-owned cache directory discovery
