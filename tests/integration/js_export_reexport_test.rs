@@ -111,6 +111,82 @@ fn destructured_require_resolves_import_member() {
     );
 }
 
+// F1 (review-fix wave, codex BLOCKER 1): `let`/`var` destructured `require`
+// bindings are extraction-ineligible entirely, not just when reassigned --
+// this branch deliberately does NOT attempt assignment-rebind tracking; it
+// fails closed at extraction instead (ADJUDICATION: const-only).
+
+#[test]
+fn let_destructured_require_binding_is_not_extracted() {
+    let parsed = ParsedFile::parse(
+        "app.js",
+        "let { process } = require('./util');\n",
+        Language::JavaScript,
+    )
+    .unwrap();
+    let bindings = parsed.extract_import_bindings();
+    assert!(bindings.iter().all(|b| b.local != "process"));
+}
+
+#[test]
+fn var_destructured_require_binding_is_not_extracted() {
+    let parsed = ParsedFile::parse(
+        "app.js",
+        "var { process } = require('./util');\n",
+        Language::JavaScript,
+    )
+    .unwrap();
+    let bindings = parsed.extract_import_bindings();
+    assert!(bindings.iter().all(|b| b.local != "process"));
+}
+
+#[test]
+fn let_destructured_require_without_reassignment_does_not_resolve_import_member() {
+    // Plain `let { f } = require(...)`, never reassigned, still refuses --
+    // that's the point of restricting extraction to `const`, not building
+    // assignment-rebind tracking.
+    let fs = files(&[
+        (
+            "util.js",
+            "function process() { return 1; }\nmodule.exports = { process };\n",
+            Language::JavaScript,
+        ),
+        (
+            "app.js",
+            "let { process } = require('./util');\nfunction run() { process(); }\n",
+            Language::JavaScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    let resolved = resolve_kind(&cg, "app.js", "run", "process");
+    assert!(resolved
+        .iter()
+        .all(|(_, k)| *k != ResolutionKind::ImportMember));
+}
+
+#[test]
+fn let_destructured_require_reassigned_does_not_resolve_import_member() {
+    // The exact F1 blocker scenario: `let { f } = require(...); f = localFn;`
+    // must not mint a false Exact import_member edge to the require target.
+    let fs = files(&[
+        (
+            "util.js",
+            "function process() { return 1; }\nmodule.exports = { process };\n",
+            Language::JavaScript,
+        ),
+        (
+            "app.js",
+            "function localFn() { return 2; }\nlet { process } = require('./util');\nprocess = localFn;\nfunction run() { process(); }\n",
+            Language::JavaScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    let resolved = resolve_kind(&cg, "app.js", "run", "process");
+    assert!(resolved
+        .iter()
+        .all(|(_, k)| *k != ResolutionKind::ImportMember));
+}
+
 // -----------------------------------------------------------------------
 // 1e. Re-export chains / barrels (whole-program, via CallGraph)
 // -----------------------------------------------------------------------

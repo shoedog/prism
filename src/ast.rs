@@ -1300,11 +1300,29 @@ impl ParsedFile {
             // CommonJS destructured `require`: `const { a, b: c } = require('./y')`.
             // Whole-module requires (`const g = require('./y')`) stay out of
             // scope here — no member name to bind against R4c.
-            "lexical_declaration" | "variable_declaration" => {
+            //
+            // F1 (review-fix wave, codex BLOCKER 1): `const` only. A `let`/`var`
+            // destructured require can be reassigned after the binding
+            // (`let { f } = require('./m'); f = localFn;`), and this layer does
+            // not track reassignment -- extracting it anyway risks R4c minting
+            // a false Exact edge to the require target even after a rebind.
+            // ADJUDICATION: fail closed by never extracting `let`/`var`
+            // destructured requires at all (not just when later reassigned) --
+            // deliberately not building assignment-rebind tracking this slice.
+            "lexical_declaration" if self.js_ts_lexical_declaration_is_const(node) => {
                 self.collect_js_require_import_bindings(node, out)
             }
+            "lexical_declaration" | "variable_declaration" => {}
             _ => {}
         }
+    }
+
+    /// Whether a `lexical_declaration` node (`const x = ...` / `let x = ...`)
+    /// is the `const` form. `variable_declaration` (`var`) has no `kind`
+    /// field and is handled by its own match arm.
+    fn js_ts_lexical_declaration_is_const(&self, node: Node<'_>) -> bool {
+        node.child_by_field_name("kind")
+            .is_some_and(|k| k.kind() == "const")
     }
 
     fn collect_js_import_statement_bindings(
