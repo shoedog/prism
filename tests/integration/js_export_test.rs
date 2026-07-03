@@ -214,6 +214,57 @@ fn named_export_list_rename_resolves_import_member() {
     assert_eq!(out.resolved[0].target.name, "b");
 }
 
+// F3 (review-fix wave, codex MAJOR 1): duplicate exported names are
+// last-writer-wins today (`facts.named.insert` overwrites). ADJUDICATION: any
+// duplicate insertion of the same exported name into a file's export facts
+// (re-export lists, local named lists, or a mix) poisons that name -- it must
+// resolve to NO binding. The extraction layer preserves the duplicate (marks
+// it conflicted) rather than overwriting, since the conflict decision belongs
+// where both facts are visible (whole-program resolution in `js_exports.rs`).
+
+#[test]
+fn duplicate_local_named_export_marks_conflicted() {
+    let parsed = ParsedFile::parse(
+        "util.ts",
+        "function a() { return 1; }\nfunction b() { return 2; }\nexport { a as f };\nexport { b as f };\n",
+        Language::TypeScript,
+    )
+    .unwrap();
+    let facts = parsed.extract_js_ts_export_facts();
+    assert!(!facts.named.contains_key("f"));
+    assert!(facts.conflicted.contains("f"));
+}
+
+#[test]
+fn duplicate_local_and_reexport_same_name_marks_conflicted() {
+    let parsed = ParsedFile::parse(
+        "index.ts",
+        "export function f(): number { return 1; }\nexport { f } from './other';\n",
+        Language::TypeScript,
+    )
+    .unwrap();
+    let facts = parsed.extract_js_ts_export_facts();
+    assert!(!facts.named.contains_key("f"));
+    assert!(facts.conflicted.contains("f"));
+}
+
+#[test]
+fn identical_duplicate_reexport_still_marks_conflicted() {
+    // Documented choice: we poison ANY duplicate raw insertion, even when the
+    // two facts are textually identical (e.g. re-exporting the same file
+    // twice), trading a rare false negative for simplicity/consistency --
+    // real code essentially never writes this intentionally.
+    let parsed = ParsedFile::parse(
+        "index.ts",
+        "export { f } from './a';\nexport { f } from './a';\n",
+        Language::TypeScript,
+    )
+    .unwrap();
+    let facts = parsed.extract_js_ts_export_facts();
+    assert!(!facts.named.contains_key("f"));
+    assert!(facts.conflicted.contains("f"));
+}
+
 // -----------------------------------------------------------------------
 // 1c. Exported const-arrow / function-expression
 // -----------------------------------------------------------------------

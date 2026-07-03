@@ -230,3 +230,39 @@ fn call_stats_reports_js_export_reexport_telemetry() {
     assert_eq!(v["js_export_chain_unresolved"], 1);
     assert_eq!(v["js_export_barrel_conflicts"], 0);
 }
+
+#[test]
+fn call_stats_reports_js_export_star_only_reexport_telemetry() {
+    // F5 (review-fix wave, codex MINOR = opus Minor 1): mirrors
+    // `call_stats_reports_js_export_reexport_telemetry` above, but the 3-hop
+    // chain is `export * from` barrels the whole way instead of named
+    // re-export lists -- previously this star-only form escaped
+    // `js_export_chain_unresolved` telemetry entirely.
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("impl.ts"),
+        "export function process(): number { return 1; }\n",
+    )
+    .unwrap();
+    std::fs::write(dir.path().join("mid2.ts"), "export * from './impl';\n").unwrap();
+    std::fs::write(dir.path().join("mid.ts"), "export * from './mid2';\n").unwrap();
+    std::fs::write(dir.path().join("index.ts"), "export * from './mid';\n").unwrap();
+    std::fs::write(
+        dir.path().join("app.ts"),
+        "import { process } from './index';\nfunction run() { process(); }\n",
+    )
+    .unwrap();
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--repo"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(v["js_export_chain_unresolved"].as_u64().unwrap() > 0);
+}

@@ -303,6 +303,37 @@ fn barrel_depth_3_chain_fails_closed() {
 }
 
 #[test]
+fn barrel_depth_3_star_only_chain_fails_closed_and_counts() {
+    // F5 (review-fix wave, codex MINOR = opus Minor 1): mirrors
+    // `barrel_depth_3_chain_fails_closed` above but with `export * from`
+    // barrels the whole way instead of named re-export lists -- previously
+    // this star-only form escaped `js_export_chain_unresolved` telemetry
+    // entirely, since a too-deep star chain never even produced a candidate
+    // name for `resolve_one` to attempt (and count).
+    let fs = files(&[
+        (
+            "impl.ts",
+            "export function process(): number { return 1; }\n",
+            Language::TypeScript,
+        ),
+        ("mid2.ts", "export * from './impl';\n", Language::TypeScript),
+        ("mid.ts", "export * from './mid2';\n", Language::TypeScript),
+        ("index.ts", "export * from './mid';\n", Language::TypeScript),
+        (
+            "app.ts",
+            "import { process } from './index';\nfunction run() { process(); }\n",
+            Language::TypeScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    let resolved = resolve_kind(&cg, "app.ts", "run", "process");
+    assert!(resolved
+        .iter()
+        .all(|(_, k)| *k != ResolutionKind::ImportMember));
+    assert!(cg.js_export_chain_unresolved > 0);
+}
+
+#[test]
 fn star_reexport_barrel_resolves() {
     let fs = files(&[
         (
@@ -359,6 +390,68 @@ fn conflicting_star_reexports_fail_closed_end_to_end() {
         .iter()
         .all(|(_, k)| *k != ResolutionKind::ImportMember));
     assert!(cg.js_export_barrel_conflicts > 0);
+}
+
+// F3 (review-fix wave, codex MAJOR 1): duplicate exported names poison the
+// name -- fail-closed before target emission, counted via the (reused)
+// `js_export_barrel_conflicts` mechanism.
+
+#[test]
+fn duplicate_reexport_from_two_modules_fails_closed_end_to_end() {
+    let fs = files(&[
+        (
+            "a.ts",
+            "export function f(): number { return 1; }\n",
+            Language::TypeScript,
+        ),
+        (
+            "b.ts",
+            "export function f(): number { return 2; }\n",
+            Language::TypeScript,
+        ),
+        (
+            "index.ts",
+            "export { f } from './a';\nexport { f } from './b';\n",
+            Language::TypeScript,
+        ),
+        (
+            "app.ts",
+            "import { f } from './index';\nfunction run() { f(); }\n",
+            Language::TypeScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    let resolved = resolve_kind(&cg, "app.ts", "run", "f");
+    assert!(resolved
+        .iter()
+        .all(|(_, k)| *k != ResolutionKind::ImportMember));
+    assert!(cg.js_export_barrel_conflicts > 0);
+}
+
+#[test]
+fn duplicate_local_plus_reexport_same_name_fails_closed_end_to_end() {
+    let fs = files(&[
+        (
+            "other.ts",
+            "export function f(): number { return 1; }\n",
+            Language::TypeScript,
+        ),
+        (
+            "index.ts",
+            "export function f(): number { return 2; }\nexport { f } from './other';\n",
+            Language::TypeScript,
+        ),
+        (
+            "app.ts",
+            "import { f } from './index';\nfunction run() { f(); }\n",
+            Language::TypeScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    let resolved = resolve_kind(&cg, "app.ts", "run", "f");
+    assert!(resolved
+        .iter()
+        .all(|(_, k)| *k != ResolutionKind::ImportMember));
 }
 
 // -----------------------------------------------------------------------

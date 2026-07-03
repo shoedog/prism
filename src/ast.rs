@@ -1670,7 +1670,7 @@ impl ParsedFile {
                     },
                     None => JsExportTarget::Local(name),
                 };
-                facts.named.insert(exported_as, target);
+                facts.insert_named(exported_as, target);
             }
             return;
         }
@@ -1678,7 +1678,7 @@ impl ParsedFile {
         // `export default <expr>;` (no `declaration` field — a bare value).
         if let Some(value) = node.child_by_field_name("value") {
             if value.kind() == "identifier" {
-                facts.named.insert(
+                facts.insert_named(
                     "default".to_string(),
                     JsExportTarget::Local(self.node_text(&value).to_string()),
                 );
@@ -1701,9 +1701,7 @@ impl ParsedFile {
                         } else {
                             name_text.clone()
                         };
-                        facts
-                            .named
-                            .insert(exported_as, JsExportTarget::Local(name_text));
+                        facts.insert_named(exported_as, JsExportTarget::Local(name_text));
                     }
                 }
                 "lexical_declaration" | "variable_declaration" => {
@@ -1730,9 +1728,10 @@ impl ParsedFile {
                         // the declarator's own name, not a verified function.
                         match d.child_by_field_name("value").map(|v| v.kind()) {
                             Some("arrow_function") | Some("function_expression") => {
-                                facts
-                                    .named
-                                    .insert(name_text.clone(), JsExportTarget::Local(name_text));
+                                facts.insert_named(
+                                    name_text.clone(),
+                                    JsExportTarget::Local(name_text),
+                                );
                             }
                             _ => facts.skipped_expr_count += 1,
                         }
@@ -1798,7 +1797,7 @@ impl ParsedFile {
         if is_module_exports_member || is_exports_member {
             // `module.exports.f = f;` or `exports.f = f;`
             if right.kind() == "identifier" {
-                facts.named.insert(
+                facts.insert_named(
                     property_name,
                     crate::js_exports::JsExportTarget::Local(self.node_text(&right).to_string()),
                 );
@@ -1819,7 +1818,7 @@ impl ParsedFile {
         use crate::js_exports::JsExportTarget;
         match rhs.kind() {
             "identifier" => {
-                facts.named.insert(
+                facts.insert_named(
                     "default".to_string(),
                     JsExportTarget::Local(self.node_text(&rhs).to_string()),
                 );
@@ -1846,9 +1845,7 @@ impl ParsedFile {
                     match prop.kind() {
                         "shorthand_property_identifier" => {
                             let name = self.node_text(&prop).to_string();
-                            facts
-                                .named
-                                .insert(name.clone(), JsExportTarget::Local(name));
+                            facts.insert_named(name.clone(), JsExportTarget::Local(name));
                         }
                         "pair" => {
                             let key = prop.child_by_field_name("key").map(|k| {
@@ -1859,7 +1856,7 @@ impl ParsedFile {
                             let value = prop.child_by_field_name("value");
                             match (key, value) {
                                 (Some(key), Some(value)) if value.kind() == "identifier" => {
-                                    facts.named.insert(
+                                    facts.insert_named(
                                         key,
                                         JsExportTarget::Local(self.node_text(&value).to_string()),
                                     );
