@@ -2092,11 +2092,15 @@ impl ParsedFile {
         None
     }
 
-    /// P7 (F2, codex MAJOR 2): whether `func_node` (as returned by
-    /// `all_functions()`) is a genuine Python instance method whose first
-    /// positional parameter is literally named `self` — gates tier-1
-    /// same-class property narrowing for `self.attr` in
-    /// `call_graph.rs::self_property_owner_getters`.
+    /// P7 (F2, codex MAJOR 2; re-fixed per codex re-review): whether
+    /// `func_node` (as returned by `all_functions()`) is a genuine Python
+    /// instance method whose first POSITIONAL parameter is literally named
+    /// `self` — gates tier-1 same-class property narrowing for `self.attr`
+    /// in `call_graph.rs::self_property_owner_getters`. (Tier-1 eligibility
+    /// ALSO requires `method_owners.contains_key(&caller_id)`, checked in
+    /// `call_graph.rs` before this gate is even consulted — a `self`
+    /// receiver in a non-method has no owner and must route straight to
+    /// tier-3, never tier-1-then-drop.)
     ///
     /// `method_owner` (`languages/mod.rs`) marks ANY class-contained
     /// function as owned by its class, including `@staticmethod`/
@@ -2128,9 +2132,50 @@ impl ParsedFile {
                 }
             }
         }
-        self.function_parameter_names(func_node)
-            .first()
-            .is_some_and(|name| name == "self")
+        self.python_first_positional_param_is_self(func_node)
+    }
+
+    /// P7 (F2 re-fix, codex MAJOR re-review): whether the FIRST POSITIONAL
+    /// parameter of a Python function node is literally named `self`.
+    ///
+    /// Unlike the generic `function_parameter_names` extractor (which
+    /// flattens every parameter into a bare name list with no
+    /// separator/splat context — the exact gap the re-review flagged),
+    /// this walks the `parameters` node's named children directly, in
+    /// declaration order:
+    /// - A bare `*` (`keyword_separator`), `*args` (`list_splat_pattern`),
+    ///   or `**kwargs` (`dictionary_splat_pattern`) encountered before any
+    ///   plain parameter FAILS the gate outright — there is no positional
+    ///   receiver at all (a keyword-only or splat-only signature).
+    /// - A bare `/` (`positional_separator`) is transparent: a `self`
+    ///   preceding it is still the first positional parameter
+    ///   (`def m(self, /)`).
+    /// - The first plain parameter encountered — `identifier`,
+    ///   `typed_parameter` (`self: T`), `default_parameter`/
+    ///   `typed_default_parameter` (`self=...`) — must be named `self` to
+    ///   pass; anything else (including a `tuple_pattern`, which can never
+    ///   resolve to a plain name) fails.
+    ///
+    /// Scoped to the P7 property-access path only via
+    /// `python_is_self_instance_method` — never consulted by method-CALL
+    /// resolution or `method_owner`.
+    fn python_first_positional_param_is_self(&self, func_node: &Node<'_>) -> bool {
+        let Some(params) = self.find_parameters_node(func_node) else {
+            return false;
+        };
+        let mut cursor = params.walk();
+        for child in params.named_children(&mut cursor) {
+            match child.kind() {
+                "keyword_separator" | "list_splat_pattern" | "dictionary_splat_pattern" => {
+                    return false;
+                }
+                "positional_separator" => continue,
+                _ => {
+                    return self.extract_param_name(&child).as_deref() == Some("self");
+                }
+            }
+        }
+        false
     }
 
     /// P7 S2: candidate `@property`/`@cached_property` LOAD access sites

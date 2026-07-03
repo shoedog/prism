@@ -2732,11 +2732,19 @@ impl CallGraph {
                     start_line: start,
                     end_line: end,
                 };
-                // F2 (codex MAJOR 2): tier-1 same-class narrowing requires a
-                // genuine instance method (not `@staticmethod`/`@classmethod`,
-                // first param literally `self`) — computed once per function,
-                // not per candidate.
-                let is_instance_method = parsed.python_is_self_instance_method(&func_node);
+                // F2 (codex MAJOR 2; re-fixed per codex re-review): tier-1
+                // same-class narrowing requires a genuine instance method —
+                // not `@staticmethod`/`@classmethod`, first POSITIONAL param
+                // literally `self` (`python_is_self_instance_method`), AND
+                // owned by a class at all (`method_owners.contains_key`). A
+                // `self`-named parameter in a function `method_owners` has
+                // no entry for (e.g. a top-level `def f(self)`) is not a
+                // genuine receiver — it must route straight to the tier-3
+                // fanout below, not enter tier-1 only to drop when
+                // `self_property_owner_getters` finds no owner. Computed
+                // once per function, not per candidate.
+                let is_instance_method = parsed.python_is_self_instance_method(&func_node)
+                    && self.method_owners.contains_key(&caller_id);
                 let scan = parsed.python_attribute_load_candidates(&func_node, &attr_names);
                 // F5: every store/delete-context access of an indexed
                 // property name is telemetry, whole-program derived like the
@@ -5340,6 +5348,105 @@ class B:\n    @property\n    def text(self):\n        return 2\n",
     }
 
     #[test]
+    fn top_level_self_param_routes_to_tier3_fanout_not_drop() {
+        // Item 1 (MAJOR, codex re-review): a top-level `def f(self)` is not
+        // contained in any class, so `method_owners` has no entry for it.
+        // Tier-1 eligibility now requires `method_owners.contains_key`, so
+        // this must NOT enter tier-1 (and then drop when
+        // `self_property_owner_getters` finds no owner) — it must route to
+        // tier-3 unknown-receiver fanout, same as any other unrecognized
+        // receiver. With exactly one class defining `text`, that fanout
+        // yields a single edge, not a drop.
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(self):\n    return self.text\n",
+        )]);
+        let getter = fid_named(&cg, "text").clone();
+        let enclosing = fid_named(&cg, "f").clone();
+        assert!(
+            cg.property_accesses
+                .iter()
+                .any(|a| a.getter == getter && a.enclosing == enclosing),
+            "top-level def f(self) reading self.text must fan out to Response's getter, not drop"
+        );
+        assert_eq!(cg.property_access_fanout_skips, 0);
+    }
+
+    #[test]
+    fn keyword_only_self_param_does_not_narrow_to_owning_class() {
+        // Item 1 (MAJOR): `def make(*, self)` inside class A — `self` is
+        // keyword-only (appears after the bare `*` separator), so it is NOT
+        // the first positional parameter and must fail the instance-method
+        // gate even though `make` IS owned by A (`method_owners` has an
+        // entry). Must NOT narrow to A alone; must fan out to both A and B,
+        // proving the keyword-only receiver gets no special treatment.
+        let cg = build_py(&[(
+            "resp.py",
+            "class A:\n    @property\n    def text(self):\n        return 1\n\n    def make(*, self):\n        return self.text\n\n\n\
+class B:\n    @property\n    def text(self):\n        return 2\n",
+        )]);
+        let a_getter = cg
+            .property_getters
+            .get(&("A".to_string(), "text".to_string()))
+            .unwrap()[0]
+            .clone();
+        let b_getter = cg
+            .property_getters
+            .get(&("B".to_string(), "text".to_string()))
+            .unwrap()[0]
+            .clone();
+        let enclosing = fid_named(&cg, "make").clone();
+        assert!(
+            cg.property_accesses
+                .iter()
+                .any(|a| a.getter == a_getter && a.enclosing == enclosing),
+            "keyword-only self.text must still fan out to A's getter"
+        );
+        assert!(
+            cg.property_accesses
+                .iter()
+                .any(|a| a.getter == b_getter && a.enclosing == enclosing),
+            "keyword-only self.text must fan out to B's getter too, not narrow to A alone"
+        );
+    }
+
+    #[test]
+    fn positional_only_self_param_is_still_tier1_narrowed() {
+        // Item 1 (c): `self` before a bare `/` positional-only separator
+        // still counts as the first positional parameter (`def m(self, /)`)
+        // — must still get tier-1 same-class narrowing, not fan out to an
+        // unrelated class's getter of the same name.
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n    def dump(self, /):\n        return self.text\n\n\n\
+class Other:\n    @property\n    def text(self):\n        return 2\n",
+        )]);
+        let response_getter = cg
+            .property_getters
+            .get(&("Response".to_string(), "text".to_string()))
+            .unwrap()[0]
+            .clone();
+        let other_getter = cg
+            .property_getters
+            .get(&("Other".to_string(), "text".to_string()))
+            .unwrap()[0]
+            .clone();
+        let enclosing = fid_named(&cg, "dump").clone();
+        assert!(
+            cg.property_accesses
+                .iter()
+                .any(|a| a.getter == response_getter && a.enclosing == enclosing),
+            "positional-only self.text must narrow to Response's own getter"
+        );
+        assert!(
+            !cg.property_accesses
+                .iter()
+                .any(|a| a.getter == other_getter && a.enclosing == enclosing),
+            "positional-only self must NOT fan out to Other's unrelated getter"
+        );
+    }
+
+    #[test]
     fn property_getter_reading_self_other_prop_is_still_tier1_narrowed() {
         // F2: the enclosing function MAY legitimately carry other
         // decorators, including `@property` itself — a getter reading
@@ -5462,14 +5569,30 @@ class Child(Base):\n    def dump(self):\n        return self.text\n",
         // recorded against the OUTER method's FunctionId (misattribution +
         // double-scan, since `all_functions()` visits the nested def
         // separately anyway).
+        //
+        // Item 2 (MINOR, codex re-review): this pin is only load-bearing if
+        // it also proves the access isn't dropped entirely — the nested
+        // def's OWN walk must record it under the nested FunctionId (via
+        // tier-3: `helper` has no `self` parameter of its own, so it never
+        // qualifies for tier-1 in the first place — this is unaffected by
+        // which routing failure sends it to tier-3). With exactly one class
+        // defining `text`, tier-3 fanout yields a single owner edge.
         let cg = build_py(&[(
             "resp.py",
             "class Response:\n    @property\n    def text(self):\n        return self._text\n\n    def dump(self):\n        def helper():\n            return self.text\n        return helper()\n",
         )]);
         let dump = fid_named(&cg, "dump").clone();
+        let helper = fid_named(&cg, "helper").clone();
+        let getter = fid_named(&cg, "text").clone();
         assert!(
             !cg.property_accesses.iter().any(|a| a.enclosing == dump),
             "self.text inside a nested def must not be attributed to the outer method"
+        );
+        assert!(
+            cg.property_accesses
+                .iter()
+                .any(|a| a.getter == getter && a.enclosing == helper),
+            "self.text inside the nested def must be recorded under the nested function's own FunctionId, not dropped"
         );
     }
 
