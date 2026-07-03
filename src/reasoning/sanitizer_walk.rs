@@ -12,16 +12,23 @@
 //! This module proves the narrower, sound claim instead: chain window `[node[i], node[i+1]]` is a
 //! genuine `x = sanitizer(y)` transition IFF
 //!   (a) `node[i]`'s byte span sits inside the RHS/value of an assignment or declaration whose
-//!       value IS a recognizer-matched, non-`paired_check` sanitizer call, AND
-//!   (b) `node[i+1]`'s byte span is EXACTLY that SAME assignment's target/declared-name span.
+//!       value IS a recognizer-matched, non-`paired_check` sanitizer call,
+//!   (b) `node[i+1]`'s byte span is EXACTLY that SAME assignment's target/declared-name span, AND
+//!   (c) `node[i]`'s byte span sits inside the call's FIRST (data) argument specifically — NOT
+//!       merely somewhere in the call expression. `ast.rs::rvalue_identifier_spans_on_lines` records
+//!       BOTH the callee/function-name identifier and EVERY call argument as a Use, so (a) alone
+//!       would also accept the callee span or a non-data argument at index > 0 (e.g. `escape(other,
+//!       user)` with `user` untouched at arg[1], or a tainted local shadowing the callee name in
+//!       `escape = input(); safe = escape(other)`). See `sanitizer_site_for_assignment`'s doc
+//!       comment for which recognizers this first-argument assumption is verified against.
 //!
 //! Reconstructing "same assignment" from byte spans (via `descendant_for_byte_range` + a parent
 //! walk to the nearest enclosing assignment/declaration node), rather than trusting the `Relation`
 //! label on the edge, is what makes this sound against the over-approximating
 //! `AssignmentPropagation` edges. Paired-check recognizers (Go's `Clean`→`HasPrefix` path family,
 //! `src/sanitizers/path.rs`) are excluded by `taint::sanitizer_call_site` itself — see that
-//! function's doc comment for the any-category-cut and paired-check-exclusion divergences from the
-//! CWE engine.
+//! function's doc comment for the any-category-cut, paired-check-exclusion, and
+//! language-applicability divergences from the CWE engine.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -143,6 +150,28 @@ fn sanitizer_site_for_assignment(
         return None;
     }
     let call = sanitizer_call_site(parsed, &rhs)?;
+    // F1 BLOCKER: `ast.rs::rvalue_identifier_spans_on_lines` records BOTH the callee/function-name
+    // identifier AND every call argument as a Use — so "Use sits inside the call's overall span" is
+    // not enough; the sanitizer transform must actually run ON `use_loc`'s value. That means
+    // `use_loc` must sit inside the call's FIRST (data) argument specifically, never the callee span
+    // and never an argument at index > 0.
+    //
+    // VERIFIED against the recognizer tables this feeds (`sanitizer_call_site` already excludes
+    // `paired_check` recognizers, i.e. `PATH_RECOGNIZERS`; `SHELL_RECOGNIZERS` is empty): every
+    // remaining active recognizer — `JS_TS_RECOGNIZERS` (`DOMPurify.sanitize`, `escapeHtml`,
+    // `escape`) and `PYTHON_RECOGNIZERS` (`html.escape`, `markupsafe.escape`, `escape`,
+    // `bleach.clean`, `bleach.linkify`) — is a plain value-transform call that takes the tainted
+    // data as its first positional argument, e.g. `escape(data)` / `html.escape(data)`. NONE are
+    // receiver-style (`data.transform()`, where `data` itself is the call's receiver rather than an
+    // argument). If a future recognizer IS receiver-style, this check needs a per-recognizer
+    // exception that accepts the receiver span (via `call_function_qualifier`) instead of arg[0] for
+    // that recognizer specifically — see `src/sanitizers/{js_ts.rs,python.rs}`.
+    let args = parsed.language.call_arguments(&rhs)?;
+    let mut arg_cursor = args.walk();
+    let first_arg = args.named_children(&mut arg_cursor).next()?;
+    if !(first_arg.start_byte() <= use_loc.start_byte && use_loc.end_byte <= first_arg.end_byte()) {
+        return None;
+    }
     Some((
         SanitizerSite {
             category: sanitizer_category_str(call.category).to_string(),

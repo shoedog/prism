@@ -696,3 +696,62 @@ fn go_paired_check_recognizer_is_excluded_from_verdict() {
         "paired-check recognizers must not produce a Sanitized verdict"
     );
 }
+
+// --- F1 BLOCKER: the Use must be inside the sanitizer's DATA-ARGUMENT span, not merely inside
+// the call expression -----------------------------------------------------------------------
+
+#[test]
+fn second_argument_use_is_not_a_sanitizer_transition() {
+    // `ast.rs::rvalue_identifier_spans_on_lines` records EVERY call argument as a Use, not just
+    // the first. `user` sits in the SECOND argument position of `escape(other, user)` — the
+    // recognizer's data argument is arg[0] (`other`), so the transform never runs on `user`.
+    // Pre-fix, any Use inside the RHS call span (including arg[1]) matched the window, producing
+    // a false `Sanitized`. Must stay Reached.
+    let fixture = fixture(&[(
+        "app.py",
+        "def f():\n    user = input()\n    other = 'x'\n    safe = escape(other, user)\n    sink(safe)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 5,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Reached);
+    assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+}
+
+#[test]
+fn tainted_callee_identifier_is_not_a_sanitizer_transition() {
+    // `escape` is a local variable holding tainted input, then CALLED as `escape(other)` — the DFG
+    // records the callee identifier itself as a Use, and pre-fix that Use sat inside the RHS call
+    // span too. The callee span is never the data argument, so this must not flip to Sanitized.
+    let fixture = fixture(&[(
+        "app.py",
+        "def f():\n    escape = input()\n    safe = escape(other)\n    sink(safe)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 4,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Reached);
+    assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+}
