@@ -328,6 +328,77 @@ void init_system(void) {
 }
 
 #[test]
+fn test_echo_go_two_target_func_value_field_produces_no_finding() {
+    // F1 (review-fix wave): Command.Run has TWO registered targets (h1, h2) —
+    // the adjudicated `Command.Run = safe` / `Command.Run = sink` scenario.
+    // EchoSlice must not name `invoke` as a caller of h1 through this call
+    // site: the fanout is filtered out of resolve_call_site (both CPG Call
+    // edges and resolved_caller_edges), so there is no caller edge to flag,
+    // even though the diff touches h1's return statement (which would
+    // otherwise trip EchoSlice's missing-return-check heuristic).
+    let callee_source = r#"
+package main
+
+type Command struct {
+	Run func()
+}
+
+func h1() {
+	return
+}
+
+func h2() {
+	return
+}
+
+func register_a() *Command { return &Command{Run: h1} }
+func register_b() *Command { return &Command{Run: h2} }
+"#;
+    let caller_source = r#"
+package main
+
+func invoke(cmd *Command) {
+	cmd.Run()
+}
+"#;
+    let callee_path = "callee.go";
+    let caller_path = "caller.go";
+    let callee_parsed = ParsedFile::parse(callee_path, callee_source, Language::Go).unwrap();
+    let caller_parsed = ParsedFile::parse(caller_path, caller_source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(callee_path.to_string(), callee_parsed);
+    files.insert(caller_path.to_string(), caller_parsed);
+
+    // Diff touches h1's `return` statement.
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: callee_path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([9]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+        None,
+    )
+    .unwrap();
+
+    assert!(
+        result.findings.is_empty(),
+        "EchoSlice must not attribute a 2-target func_value_field fanout to either \
+         registrant as a caller finding, got: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn test_echo_go_caller_with_errors_is() {
     // Go caller uses errors.Is — should NOT flag missing error handling.
     let callee_source = r#"

@@ -117,6 +117,49 @@ func invoke(cmd *Command) {\n\tcmd.Run()\n}\n",
     )));
 }
 
+/// F1 (review-fix wave) nav-level companion: the 2-target case is a NAV
+/// invariant, not a fix target — `resolve_call_site_full` (which nav's
+/// `build_resolved_call_edges` calls) keeps ALL 1..=3 registered targets
+/// unfiltered. Only non-nav consumers (`resolve_call_site`, the thin
+/// wrapper) gate `FuncValueField` to singleton-only; see
+/// `resolution::go_func_value_field_resolution_tests::two_target_func_value_field_is_filtered_from_resolve_call_site_but_not_from_full`
+/// for that consumer-side assertion. This test pins that nav still shows
+/// BOTH h1 and h2 as callers of `invoke` at the same shape as the existing
+/// singleton test above.
+#[test]
+fn two_target_func_value_field_both_surface_in_nav_callers() {
+    let s = session(&[(
+        "main.go",
+        "package main\n\
+type Command struct {\n\tRun func()\n}\n\
+func h1() {}\n\
+func h2() {}\n\
+func register_a() *Command { return &Command{Run: h1} }\n\
+func register_b() *Command { return &Command{Run: h2} }\n\
+func invoke(cmd *Command) {\n\tcmd.Run()\n}\n",
+    )]);
+    for target in ["h1", "h2"] {
+        let ev = queries::callers(&s, Some(target), None, None, 1).unwrap();
+        let hit = ev
+            .items
+            .iter()
+            .find(
+                |i| matches!(&i.symbol, Some(SymbolRef::Function { name, .. }) if name == "invoke"),
+            )
+            .unwrap_or_else(|| {
+                panic!("invoke() should surface as a caller of {target} via func_value_field")
+            });
+        assert!(
+            (hit.score - 0.6).abs() < 1e-6,
+            "func_value_field is NameOnly -> score 0.6, got {}",
+            hit.score
+        );
+        assert!(hit.why.iter().any(|r| matches!(r,
+            prism::navigation::types::Reason::Resolution { kind } if kind == "func_value_field"
+        )));
+    }
+}
+
 #[test]
 fn func_value_fanout_is_not_attributed_to_any_single_registrant() {
     let s = session(&[(
