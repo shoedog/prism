@@ -87,7 +87,7 @@ def extract_callers(seed: FunctionDef, ev: dict) -> list[CallEdge]:
         name = _symbol_name(it.get("symbol")) or called_by.get("caller")
         res = _why(it, "Resolution")
         rkind = res.get("kind") if res else None
-        edges.append(CallEdge("caller", seed, other, name, site, rkind))
+        edges.append(CallEdge("caller", seed, other, name, site, rkind, it.get("score")))
     return edges
 
 
@@ -105,7 +105,9 @@ def extract_callees(seed: FunctionDef, ev: dict) -> list[CallEdge]:
             other = None
         res = _why(it, "Resolution")
         rkind = res.get("kind") if res else None
-        edges.append(CallEdge("callee", seed, other, calls.get("callee"), site, rkind))
+        edges.append(
+            CallEdge("callee", seed, other, calls.get("callee"), site, rkind, it.get("score"))
+        )
     return edges
 
 
