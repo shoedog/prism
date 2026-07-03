@@ -50,6 +50,7 @@ class Case:
     expect_reachability: str | None = None
     expect_warning_kinds_present: list = field(default_factory=list)
     expect_sanitizers_present: bool | None = None
+    frontier_count_min: int | None = None
 
     # probe == "module_deps"
     module_file: str | None = None
@@ -136,6 +137,7 @@ def load_case(toml_path: Path) -> Case:
             expect_reachability=expect.get("reachability"),
             expect_warning_kinds_present=list(expect.get("warning_kinds_present", [])),
             expect_sanitizers_present=expect.get("sanitizers_present"),
+            frontier_count_min=expect.get("frontier_count_min"),
         )
 
     # probe == "module_deps"
@@ -217,27 +219,58 @@ def _sanitizers_present(reasoning: dict) -> bool:
     return False
 
 
-def _format_taint_summary(reachability, warning_kinds, sanitizers_present) -> str:
+def _format_taint_summary(reachability, warning_kinds, sanitizers_present, frontier=None) -> str:
     """Deterministic, triage-useful got/expected string for taint probes, e.g.
     "BoundaryExited|warnings=InterproceduralBoundary|sanitizers=false". Any
     field left unconstrained on the expected side renders "any" so a
     regression line shows exactly what was (and wasn't) being asserted
-    without needing to re-run anything."""
+    without needing to re-run anything. `frontier` is only appended when the
+    case actually asserts on it (frontier_count_min), to keep the format
+    byte-identical for every fixture that doesn't -- see F1(c)."""
     r = "any" if reachability is None else reachability
     w = ",".join(sorted(warning_kinds)) if warning_kinds else "none"
     if sanitizers_present is None:
         s = "any"
     else:
         s = "true" if sanitizers_present else "false"
-    return f"{r}|warnings={w}|sanitizers={s}"
+    base = f"{r}|warnings={w}|sanitizers={s}"
+    if frontier is not None:
+        base += f"|frontier={frontier}"
+    return base
 
 
 def _run_taint_case(case: Case, lang: str, sut) -> CaseResult:
+    """F1 (codex BLOCKER 1): a taint probe must not report `ok` when the wire
+    evidence doesn't actually carry a taint_reaches reasoning payload. Missing
+    `query`, missing/null `reasoning`, or a `reasoning` dict without a
+    `reachability` key are all hard mismatches -- never coerced to `{}` and
+    never compared as "null equals the None sentinel". Only once evidence is
+    confirmed to actually be reasoning-bearing taint_reaches output do the
+    per-field comparisons (including the optional frontier_count_min floor)
+    run."""
     ev = sut.taint_reaches(str(case.path), case.taint_sources, case.taint_sinks or None)
-    reasoning = ev.get("reasoning") or {}
+    reasoning = ev.get("reasoning")
+    reasoning_ok = isinstance(reasoning, dict) and "reachability" in reasoning
+    query_ok = ev.get("query") == "taint_reaches"
+
+    if not (query_ok and reasoning_ok):
+        reasons = []
+        if not query_ok:
+            reasons.append(f"query={ev.get('query')!r} (expected 'taint_reaches')")
+        if not reasoning_ok:
+            reasons.append("reasoning absent/null/missing-reachability-key")
+        got = "MISSING_EVIDENCE|" + ";".join(reasons)
+        expected = _format_taint_summary(
+            case.expect_reachability, case.expect_warning_kinds_present,
+            case.expect_sanitizers_present, case.frontier_count_min,
+        )
+        outcome = _status_outcome(case.status, False)
+        return CaseResult(case.capability, lang, outcome, got, expected, {}, None, None, probe="taint")
+
     got_reachability = reasoning.get("reachability")
     got_warnings = sorted({_kind_discriminant(w.get("kind")) for w in ev.get("warnings", [])})
     got_sanitizers = _sanitizers_present(reasoning)
+    got_frontier_count = reasoning.get("frontier_count")
 
     if case.expect_reachability is None:
         reachability_ok = True
@@ -250,12 +283,20 @@ def _run_taint_case(case: Case, lang: str, sut) -> CaseResult:
         case.expect_sanitizers_present is None
         or case.expect_sanitizers_present == got_sanitizers
     )
-    matched = reachability_ok and warnings_ok and sanitizers_ok
+    frontier_ok = (
+        case.frontier_count_min is None
+        or (isinstance(got_frontier_count, int) and got_frontier_count >= case.frontier_count_min)
+    )
+    matched = reachability_ok and warnings_ok and sanitizers_ok and frontier_ok
 
     got_reachability_str = "None" if got_reachability is None else got_reachability
-    got = _format_taint_summary(got_reachability_str, got_warnings, got_sanitizers)
+    got = _format_taint_summary(
+        got_reachability_str, got_warnings, got_sanitizers,
+        got_frontier_count if case.frontier_count_min is not None else None,
+    )
     expected = _format_taint_summary(
-        case.expect_reachability, case.expect_warning_kinds_present, case.expect_sanitizers_present
+        case.expect_reachability, case.expect_warning_kinds_present, case.expect_sanitizers_present,
+        f">={case.frontier_count_min}" if case.frontier_count_min is not None else None,
     )
     outcome = _status_outcome(case.status, matched)
     return CaseResult(case.capability, lang, outcome, got, expected, {}, None, None, probe="taint")

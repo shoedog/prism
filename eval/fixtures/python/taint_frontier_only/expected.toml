@@ -12,6 +12,14 @@
 # `reachability = "None"` is this harness's schema sentinel for "assert the
 # wire reachability is JSON null" (there is no Rust `Reachability::None`
 # variant -- frontier mode's aggregate is `Option<Reachability> = None`).
+#
+# `frontier_count_min = 1` (F1 fix wave, P6bc review): asserts
+# `reasoning["frontier_count"] >= 1` -- a floor, not the exact observed value
+# (2), so this fixture doesn't need updating every time frontier sizing
+# shifts for unrelated reasons. This is also this fixture's only OTHER
+# assertion beside the reachability sentinel; without it (or some other
+# `[expect]` key), a `reasoning` key present-but-absent bug could otherwise
+# still slip past a bare `reachability = "None"` check in degenerate cases.
 [case]
 language = "python"
 capability = "taint_frontier_only"
@@ -21,3 +29,4 @@ probe = "taint"
 sources = ["app.py:2"]
 [expect]
 reachability = "None"
+frontier_count_min = 1

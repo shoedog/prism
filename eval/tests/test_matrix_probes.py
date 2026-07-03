@@ -65,6 +65,7 @@ reachability = "None"
     assert case.taint_sinks == []
     assert case.expect_warning_kinds_present == []
     assert case.expect_sanitizers_present is None
+    assert case.frontier_count_min is None
 
 
 def test_load_case_taint_probe_rejects_seed_section(tmp_path):
@@ -265,7 +266,11 @@ sinks = ["app.py:4"]
 [expect]
 reachability = "Reached"
 """)
-    sut = FakeTaintSut({"reasoning": {"reachability": "Reached", "per_sink": []}, "warnings": []})
+    sut = FakeTaintSut({
+        "query": "taint_reaches",
+        "reasoning": {"reachability": "Reached", "per_sink": []},
+        "warnings": [],
+    })
     results = run_matrix(tmp_path / "fixtures", sut, languages=["python"])
     assert results[0].outcome == "ok"
     assert results[0].probe == "taint"
@@ -285,7 +290,11 @@ sinks = ["app.py:4"]
 [expect]
 reachability = "Reached"
 """)
-    sut = FakeTaintSut({"reasoning": {"reachability": "NotReached", "per_sink": []}, "warnings": []})
+    sut = FakeTaintSut({
+        "query": "taint_reaches",
+        "reasoning": {"reachability": "NotReached", "per_sink": []},
+        "warnings": [],
+    })
     results = run_matrix(tmp_path / "fixtures", sut, languages=["python"])
     assert results[0].outcome == "regression"
     assert "NotReached" in results[0].got
@@ -307,6 +316,7 @@ warning_kinds_present = ["Cleansed"]
 sanitizers_present = true
 """)
     evidence = {
+        "query": "taint_reaches",
         "reasoning": {
             "reachability": "Reached",
             "per_sink": [
@@ -319,6 +329,7 @@ sanitizers_present = true
     assert ok[0].outcome == "ok"
 
     evidence_no_warning = {
+        "query": "taint_reaches",
         "reasoning": {
             "reachability": "Reached",
             "per_sink": [{"sources": [{"sanitizers_present_in_source_fn": []}]}],
@@ -341,9 +352,114 @@ sources = ["app.py:2"]
 [expect]
 reachability = "None"
 """)
-    sut = FakeTaintSut({"reasoning": {"reachability": None, "per_sink": []}, "warnings": []})
+    sut = FakeTaintSut({
+        "query": "taint_reaches",
+        "reasoning": {"reachability": None, "per_sink": []},
+        "warnings": [],
+    })
     results = run_matrix(tmp_path / "fixtures", sut, languages=["python"])
     assert results[0].outcome == "ok"
+
+
+def _frontier_case_toml() -> str:
+    return """
+[case]
+language = "python"
+capability = "taint_frontier_case"
+status = "pass"
+probe = "taint"
+[taint]
+sources = ["app.py:2"]
+[expect]
+reachability = "None"
+"""
+
+
+def test_run_matrix_taint_probe_missing_reasoning_key_is_regression(tmp_path):
+    """F1 (codex BLOCKER 1): `reasoning` entirely absent from the wire JSON --
+    e.g. a bug that drops the field, or a query that never ran -- must be a
+    hard mismatch (regression on a `pass` fixture), never null-equals-None.
+    This is the literal reported bug: `{"items":[],"warnings":[]}` with no
+    `reasoning` key was reported `ok` against the frontier fixture's
+    `reachability = "None"` sentinel."""
+    _write(tmp_path, "python", "taint_frontier_case", _frontier_case_toml())
+    sut = FakeTaintSut({"query": "taint_reaches", "items": [], "warnings": []})
+    results = run_matrix(tmp_path / "fixtures", sut, languages=["python"])
+    assert results[0].outcome == "regression"
+
+
+def test_run_matrix_taint_probe_null_reasoning_is_regression(tmp_path):
+    """`"reasoning": null` (explicit JSON null, not just an absent key) must
+    also be treated as a hard mismatch, not `got_reachability is None`."""
+    _write(tmp_path, "python", "taint_frontier_case", _frontier_case_toml())
+    sut = FakeTaintSut({"query": "taint_reaches", "reasoning": None, "warnings": []})
+    results = run_matrix(tmp_path / "fixtures", sut, languages=["python"])
+    assert results[0].outcome == "regression"
+
+
+def test_run_matrix_taint_probe_reasoning_without_reachability_key_is_regression(tmp_path):
+    """`reasoning` present as a dict but missing the `reachability` key
+    entirely (distinct from `reachability: null`) must also be a hard
+    mismatch."""
+    _write(tmp_path, "python", "taint_frontier_case", _frontier_case_toml())
+    sut = FakeTaintSut({"query": "taint_reaches", "reasoning": {"frontier_count": 2}, "warnings": []})
+    results = run_matrix(tmp_path / "fixtures", sut, languages=["python"])
+    assert results[0].outcome == "regression"
+
+
+def test_run_matrix_taint_probe_wrong_query_is_regression(tmp_path):
+    """F1(a): evidence from the wrong query (or with `query` missing) must not
+    be accepted as a taint result, even if it happens to carry a
+    reasoning-shaped payload."""
+    _write(tmp_path, "python", "taint_frontier_case", _frontier_case_toml())
+    sut = FakeTaintSut({
+        "query": "callers",
+        "reasoning": {"reachability": None, "per_sink": []},
+        "warnings": [],
+    })
+    results = run_matrix(tmp_path / "fixtures", sut, languages=["python"])
+    assert results[0].outcome == "regression"
+
+
+def test_run_matrix_taint_probe_frontier_count_min_enforced(tmp_path):
+    """F1(c): `frontier_count_min` asserts `reasoning["frontier_count"] >= N`.
+    Mirrors the by-construction `taint_frontier_only` fixture semantics
+    (observed frontier_count == 2 against the real binary)."""
+    path = _write(tmp_path, "python", "taint_frontier_min", """
+[case]
+language = "python"
+capability = "taint_frontier_min"
+status = "pass"
+probe = "taint"
+[taint]
+sources = ["app.py:2"]
+[expect]
+reachability = "None"
+frontier_count_min = 2
+""")
+    case = load_case(path)
+    assert case.frontier_count_min == 2
+
+    below = run_matrix(tmp_path / "fixtures", FakeTaintSut({
+        "query": "taint_reaches",
+        "reasoning": {"reachability": None, "frontier_count": 1, "per_sink": []},
+        "warnings": [],
+    }), languages=["python"])
+    assert below[0].outcome == "regression"
+
+    at_min = run_matrix(tmp_path / "fixtures", FakeTaintSut({
+        "query": "taint_reaches",
+        "reasoning": {"reachability": None, "frontier_count": 2, "per_sink": []},
+        "warnings": [],
+    }), languages=["python"])
+    assert at_min[0].outcome == "ok"
+
+    missing_key = run_matrix(tmp_path / "fixtures", FakeTaintSut({
+        "query": "taint_reaches",
+        "reasoning": {"reachability": None, "per_sink": []},
+        "warnings": [],
+    }), languages=["python"])
+    assert missing_key[0].outcome == "regression"
 
 
 def test_run_matrix_dispatches_module_probe_subset_default(tmp_path):
