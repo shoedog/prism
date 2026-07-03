@@ -6,6 +6,7 @@
 pub mod mermaid;
 pub mod navigation;
 pub mod review;
+pub mod review_compact;
 
 pub use mermaid::{format_mermaid_report, render};
 
@@ -14,4 +15,8 @@ pub use review::{
     format_block, format_slice_result, render_review_block, to_callers_output, to_paper_format,
     to_review_output, CallerRef, CallersOutput, FunctionCallerEntry, MultiReviewOutput,
     ReviewBlock, ReviewOutput,
+};
+pub use review_compact::{
+    severity_rank, to_compact_review_output, CompactMultiReviewOutput, CompactReviewBlock,
+    CompactReviewOutput,
 };
