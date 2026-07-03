@@ -107,9 +107,10 @@ fn serialized_len(value: &serde_json::Value) -> usize {
     serde_json::to_vec(value).unwrap().len()
 }
 
-/// S2 test entry point: fixes BOTH the cap and the structured-content mode explicitly (never via
-/// env var mutation, which would race across parallel test threads) so `omit-default-path`
-/// behavior can be exercised deterministically alongside the existing `Always`-mode tests.
+/// S2/S3 test entry point: fixes the cap, structured-content mode, AND concise-shape mode
+/// explicitly (never via env var mutation, which would race across parallel test threads) so
+/// `omit-default-path` / `slim` behavior can be exercised deterministically alongside the existing
+/// default-mode tests.
 fn call_tool_at_cap_with_mode(
     runtime: &mut impl SessionRuntime,
     registry: &ToolRegistry,
@@ -117,10 +118,36 @@ fn call_tool_at_cap_with_mode(
     cap: usize,
     mode: crate::mcp::output::StructuredContentMode,
 ) -> serde_json::Value {
+    call_tool_at_cap_with_modes(
+        runtime,
+        registry,
+        request,
+        cap,
+        mode,
+        crate::mcp::concise_shape::ConciseShapeMode::Legacy,
+    )
+}
+
+fn call_tool_at_cap_with_modes(
+    runtime: &mut impl SessionRuntime,
+    registry: &ToolRegistry,
+    request: &str,
+    cap: usize,
+    mode: crate::mcp::output::StructuredContentMode,
+    concise_shape_mode: crate::mcp::concise_shape::ConciseShapeMode,
+) -> serde_json::Value {
     let message: serde_json::Value = serde_json::from_str(request).unwrap();
     let obj = message.as_object().unwrap();
     let id = obj.get("id").cloned().unwrap_or(serde_json::Value::Null);
-    match call_tool_response_with_cap_and_mode(obj, id, runtime, registry, cap, mode) {
+    match call_tool_response_with_cap_and_mode(
+        obj,
+        id,
+        runtime,
+        registry,
+        cap,
+        mode,
+        concise_shape_mode,
+    ) {
         Dispatch::Response(response) => response,
         Dispatch::NoResponse => panic!("tools/call must return a response"),
     }

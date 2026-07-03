@@ -1,14 +1,27 @@
+use crate::mcp::concise_shape::ConciseShapeMode;
 use crate::mcp::output::McpToolResult;
 use crate::navigation::NavigationSession;
 
 pub struct ToolContext<'a> {
     pub session: &'a NavigationSession,
     pub cap: usize,
+    /// S3: resolved ONCE per request in `transport.rs` (mirroring `cap`) and threaded down so
+    /// handlers never read `PRISM_MCP_CONCISE_SHAPE` themselves. Defaults to `Legacy` in
+    /// `for_test` so the ~150 existing `ToolContext::for_test` call sites are unaffected.
+    pub concise_shape_mode: ConciseShapeMode,
 }
 
 impl<'a> ToolContext<'a> {
-    pub fn new(session: &'a NavigationSession, cap: usize) -> Self {
-        Self { session, cap }
+    pub fn new(
+        session: &'a NavigationSession,
+        cap: usize,
+        concise_shape_mode: ConciseShapeMode,
+    ) -> Self {
+        Self {
+            session,
+            cap,
+            concise_shape_mode,
+        }
     }
 
     #[cfg(test)]
@@ -16,6 +29,7 @@ impl<'a> ToolContext<'a> {
         Self {
             session,
             cap: crate::mcp::output::resolve_cap(),
+            concise_shape_mode: ConciseShapeMode::default(),
         }
     }
 }

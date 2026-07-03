@@ -188,10 +188,19 @@ pub fn shape_navigation_result(
     cap: usize,
     view: ViewOptions,
     kind: NavigationViewKind,
+    concise_shape_mode: super::concise_shape::ConciseShapeMode,
 ) -> McpToolResult {
     let canonical_result = shape_result(canonical, total, max_results_clipped, verbosity, cap);
     if !view.agent_requested() || canonical_result.is_error {
-        return canonical_result;
+        // S3: apply the Concise item-slimming transform ONLY here, on the copy that becomes the
+        // FINAL default-path response — never on `canonical_result` itself before this branch,
+        // since the agent-view path below clones it (`clone_like`) into structuredContent, which
+        // must stay the full canonical shape regardless of `PRISM_MCP_CONCISE_SHAPE`.
+        return super::concise_shape::apply_concise_shape(
+            canonical_result,
+            verbosity,
+            concise_shape_mode,
+        );
     }
 
     let budget = super::transport::payload_budget(cap);

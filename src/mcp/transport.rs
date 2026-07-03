@@ -1,3 +1,4 @@
+use super::concise_shape::{resolve_concise_shape_mode, ConciseShapeMode};
 use super::freshness::{
     apply_freshness_report, FreshnessProbe, FreshnessReport, FRESHNESS_RESERVE_BYTES,
 };
@@ -359,6 +360,7 @@ fn call_tool_response(
 ) -> Dispatch {
     let original_cap = resolve_cap();
     let structured_content_mode = resolve_structured_content_mode();
+    let concise_shape_mode = resolve_concise_shape_mode();
     call_tool_response_with_cap_and_mode(
         obj,
         id,
@@ -366,12 +368,14 @@ fn call_tool_response(
         registry,
         original_cap,
         structured_content_mode,
+        concise_shape_mode,
     )
 }
 
-/// Test-only entry point that fixes the cap but not the structured-content mode (always
-/// `StructuredContentMode::Always`, i.e. today's unconditional-inclusion behavior) — existing
-/// `transport_tests.rs` callers inject a deterministic `cap` this way without touching the S2 gate.
+/// Test-only entry point that fixes the cap but not the S2/S3 env-gated modes (always
+/// `StructuredContentMode::Always` and `ConciseShapeMode::Legacy`, i.e. today's unconditional
+/// behavior) — existing `transport_tests.rs` callers inject a deterministic `cap` this way without
+/// touching either gate.
 #[cfg(test)]
 fn call_tool_response_with_cap(
     obj: &Map<String, Value>,
@@ -387,6 +391,7 @@ fn call_tool_response_with_cap(
         registry,
         original_cap,
         StructuredContentMode::Always,
+        ConciseShapeMode::Legacy,
     )
 }
 
@@ -397,6 +402,7 @@ fn call_tool_response_with_cap_and_mode(
     registry: &ToolRegistry,
     original_cap: usize,
     structured_content_mode: StructuredContentMode,
+    concise_shape_mode: ConciseShapeMode,
 ) -> Dispatch {
     let Some(params) = obj.get("params").and_then(Value::as_object) else {
         return Dispatch::Response(error_response(id, -32602, "Invalid params"));
@@ -456,6 +462,7 @@ fn call_tool_response_with_cap_and_mode(
             report,
             original_cap,
             structured_content_mode,
+            concise_shape_mode,
         );
     }
     let cap = if stale {
@@ -463,7 +470,7 @@ fn call_tool_response_with_cap_and_mode(
     } else {
         original_cap
     };
-    let ctx = ToolContext::new(runtime.session(), cap);
+    let ctx = ToolContext::new(runtime.session(), cap, concise_shape_mode);
     let mut result = (tool.handler)(&ctx, &arguments);
     if stale && !result.is_error && result.structured.is_some() {
         if let Some(report) = &report {
@@ -485,6 +492,7 @@ fn auto_refresh_tool_response(
     initial_report: Option<FreshnessReport>,
     original_cap: usize,
     structured_content_mode: StructuredContentMode,
+    concise_shape_mode: ConciseShapeMode,
 ) -> Dispatch {
     match runtime.auto_refresh_index() {
         Ok(summary) => {
@@ -498,7 +506,11 @@ fn auto_refresh_tool_response(
                 } else {
                     0
                 };
-            let ctx = ToolContext::new(runtime.session(), cap_after_reserve(original_cap, reserve));
+            let ctx = ToolContext::new(
+                runtime.session(),
+                cap_after_reserve(original_cap, reserve),
+                concise_shape_mode,
+            );
             let mut result = handler(&ctx, arguments);
             if result.is_error {
                 return Dispatch::Response(success_response(
@@ -523,7 +535,11 @@ fn auto_refresh_tool_response(
         }
         Err(error) => {
             let reserve = AUTO_REFRESH_RESERVE_BYTES + FRESHNESS_RESERVE_BYTES;
-            let ctx = ToolContext::new(runtime.session(), cap_after_reserve(original_cap, reserve));
+            let ctx = ToolContext::new(
+                runtime.session(),
+                cap_after_reserve(original_cap, reserve),
+                concise_shape_mode,
+            );
             let mut result = handler(&ctx, arguments);
             if result.is_error {
                 return Dispatch::Response(success_response(

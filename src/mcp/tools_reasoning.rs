@@ -61,13 +61,11 @@ fn taint_reaches(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResu
         Err(error) => return query_error_result(error),
     };
     let (evidence, total, max_results_clipped) = clip_taint_reaches(evidence, input.max_results);
-    shape_result(
-        evidence,
-        total,
-        max_results_clipped,
-        output_verbosity(input.verbosity),
-        ctx.cap,
-    )
+    let verbosity = output_verbosity(input.verbosity);
+    let result = shape_result(evidence, total, max_results_clipped, verbosity, ctx.cap);
+    // S3: taint_reaches has no agent-view branch (no `format` argument), so this IS always the
+    // final default-path return — safe to apply the Concise item-slimming transform directly.
+    super::concise_shape::apply_concise_shape(result, verbosity, ctx.concise_shape_mode)
 }
 
 fn seed_spec(seed: &SeedInput) -> SeedSpec {
@@ -253,6 +251,31 @@ mod tests {
                 .any(|e| e["kind"] == "SanitizedBy"),
             "{value}"
         );
+    }
+
+    #[test]
+    fn taint_reaches_default_verbosity_slim_mode_slims_frontier_items() {
+        // S3: taint_reaches has no `format`/agent-view branch, so its default-path (Concise)
+        // result is always the terminal response — safe to apply the slim transform directly.
+        let s = crate::mcp::tools::test_support::session(&[(
+            "app.py",
+            "def f():\n    user = input()\n    a = user\n    b = a\n",
+        )]);
+        let ctx = ToolContext::new(
+            &s,
+            crate::mcp::output::resolve_cap(),
+            crate::mcp::concise_shape::ConciseShapeMode::Slim,
+        );
+        let out = (ToolRegistry::all_v1().get("taint_reaches").unwrap().handler)(
+            &ctx,
+            &json!({"sources":[{"kind":"loc","file":"app.py","line":2}]}),
+        );
+        assert!(!out.is_error);
+        let value: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
+        let item = &value["items"][0];
+        assert!(item["symbol"]["Variable"].get("start_byte").is_none());
+        assert!(item["symbol"]["Variable"].get("ordinal").is_none());
+        assert!(!item.as_object().unwrap().contains_key("snippet"));
     }
 
     #[test]
