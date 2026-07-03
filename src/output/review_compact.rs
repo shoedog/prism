@@ -73,8 +73,15 @@ impl From<ReviewBlock> for CompactReviewBlock {
             rvalues: rb.rvalues,
             callees: rb.callees,
             cross_file_refs: rb.cross_file_refs,
-            source_lines: rb.source_lines,
-            sink_lines: rb.sink_lines,
+            // `render_review_block` always leaves these empty (see
+            // review.rs); the real values are derived from the full finding
+            // set and assigned by `to_compact_review_output` right after
+            // this `From` call. Start empty here rather than copying
+            // `rb.source_lines`/`rb.sink_lines` (which are already empty) so
+            // it's clear at this call site that these fields are not yet
+            // populated.
+            source_lines: vec![],
+            sink_lines: vec![],
         }
     }
 }
