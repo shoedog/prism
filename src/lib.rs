@@ -45,6 +45,7 @@ pub mod cpg;
 pub mod cpg_cache;
 pub mod data_flow;
 pub mod diff;
+pub mod framework_entries;
 pub mod frameworks;
 pub mod js_exports;
 pub mod languages;

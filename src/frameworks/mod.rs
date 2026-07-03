@@ -148,6 +148,18 @@ impl<'a> CallSite<'a> {
     }
 }
 
+/// P9 S1: the site of one recognized route-decorator match, returned by the
+/// site-returning `route_decorator_sites` variants in `python::flask` /
+/// `python::fastapi` (as opposed to the boolean
+/// `function_has_route_decorator_with_receivers`, which stops at the first
+/// match — a handler decorated with two route decorators needs both sites).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RouteDecoratorSite {
+    pub line: usize,
+    pub start_byte: usize,
+    pub end_byte: usize,
+}
+
 /// Ordered registry of all known frameworks. Ordering matters: more specific frameworks
 /// (gin, gorilla/mux) take precedence over net/http per spec §2.3.
 pub const ALL_FRAMEWORKS: &[&FrameworkSpec] = &[
