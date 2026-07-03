@@ -7,6 +7,9 @@
 
 use super::SanitizerRecognizer;
 use crate::frameworks::SanitizerCategory;
+use crate::languages::Language;
+
+const JS_TS_LANGUAGES: &[Language] = &[Language::JavaScript, Language::TypeScript, Language::Tsx];
 
 pub const JS_TS_RECOGNIZERS: &[SanitizerRecognizer] = &[
     SanitizerRecognizer {
@@ -14,17 +17,26 @@ pub const JS_TS_RECOGNIZERS: &[SanitizerRecognizer] = &[
         category: SanitizerCategory::Xss,
         semantic_check: None,
         paired_check: None,
+        languages: JS_TS_LANGUAGES,
+        // JS/TS calls have no keyword-argument syntax, so `data_param` is never consulted for
+        // these entries (`src/reasoning/sanitizer_walk.rs` only checks it for Python
+        // `keyword_argument` nodes); `None` here documents "not applicable", not "unverified".
+        data_param: None,
     },
     SanitizerRecognizer {
         call_path: "escapeHtml",
         category: SanitizerCategory::Xss,
         semantic_check: None,
         paired_check: None,
+        languages: JS_TS_LANGUAGES,
+        data_param: None,
     },
     SanitizerRecognizer {
         call_path: "escape",
         category: SanitizerCategory::Xss,
         semantic_check: None,
         paired_check: None,
+        languages: JS_TS_LANGUAGES,
+        data_param: None,
     },
 ];

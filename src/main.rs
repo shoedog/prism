@@ -338,7 +338,9 @@ enum NavQuery {
     /// Tier-2 forward taint reachability from source seeds, optionally to sink
     /// seeds. Omit `--sink` for frontier mode (no verdict, just the tainted
     /// frontier); pass one or more `--sink` for witness mode (per-sink
-    /// Reached/NotReached/BoundaryExited verdicts + witness graph).
+    /// Reached/NotReached/BoundaryExited/Sanitized verdicts + witness graph).
+    /// Sanitized means a recognized sanitizer call is proven to sit ON the
+    /// witness chain (not just present somewhere in the source function).
     TaintReaches {
         #[arg(long)]
         repo: std::path::PathBuf,

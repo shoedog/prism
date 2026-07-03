@@ -59,6 +59,12 @@ pub enum Reachability {
     Reached,
     NotReached,
     BoundaryExited,
+    /// P10: the raw trace connects source to sink (`Reached`), but the witness chain proves a
+    /// contiguous transition through a recognized, non-`paired_check` sanitizer call — see
+    /// `src/reasoning/sanitizer_walk.rs`. This is a DOWNGRADE computed after raw reachability, never
+    /// a value `reachability_for_node_from_ordered`/`shape.rs` produce directly (source of truth:
+    /// `taint_reaches.rs`'s witness_mode, after the chain walk and before the witness-graph gate).
+    Sanitized,
 }
 
 impl Reachability {
@@ -66,10 +72,14 @@ impl Reachability {
         match self {
             Self::Reached => 0,
             Self::BoundaryExited => 1,
-            Self::NotReached => 2,
+            Self::Sanitized => 2,
+            Self::NotReached => 3,
         }
     }
 
+    /// Priority order (most to least severe): `Reached` > `BoundaryExited` > `Sanitized` >
+    /// `NotReached`. Spelled out per-variant (not a generic `min_by_key(severity_rank)`) so a future
+    /// 5th variant is a non-exhaustive-match compile error here, not a silent aggregate mis-rank.
     pub fn aggregate<I>(values: I) -> Option<Self>
     where
         I: IntoIterator<Item = Self>,
@@ -79,6 +89,7 @@ impl Reachability {
             best = Some(match (best, value) {
                 (Some(Self::Reached), _) | (_, Self::Reached) => Self::Reached,
                 (Some(Self::BoundaryExited), _) | (_, Self::BoundaryExited) => Self::BoundaryExited,
+                (Some(Self::Sanitized), _) | (_, Self::Sanitized) => Self::Sanitized,
                 (Some(Self::NotReached), Self::NotReached) | (None, Self::NotReached) => {
                     Self::NotReached
                 }
@@ -86,6 +97,18 @@ impl Reachability {
         }
         best
     }
+}
+
+/// P10's discriminating fact: a sanitizer call site the witness chain-window walk proved sits ON
+/// the source->sink path (not just present somewhere in the source function's body — see
+/// `src/reasoning/sanitizer_walk.rs`). `category` is the lowercase `SanitizerCategory` string (same
+/// vocabulary as `sanitizers_present_in_source_fn`, e.g. `"xss"`).
+#[derive(Debug, Clone, serde::Serialize, PartialEq)]
+pub struct SanitizerSite {
+    pub category: String,
+    pub callee_text: String,
+    pub file: String,
+    pub line: usize,
 }
 
 #[derive(Debug, Clone, serde::Serialize, PartialEq)]
@@ -96,6 +119,12 @@ pub struct SinkSourceResult {
     /// source node; `merge_witness` returns the witness path's terminal sink node after remapping.
     pub graph_node: Option<usize>,
     pub sanitizers_present_in_source_fn: Vec<String>,
+    /// Path-proven sanitizer sites (P10) — populated ONLY when `reachability == Sanitized`.
+    /// Additive/verdict-bearing: `compact_non_verdict_detail` must NOT clear this (unlike the
+    /// advisory `sanitizers_present_in_source_fn`). Skip-if-empty keeps non-sanitized wire output
+    /// byte-identical to pre-P10.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub sanitized_by: Vec<SanitizerSite>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -362,6 +391,66 @@ mod tests {
     }
 
     #[test]
+    fn severity_rank_order_is_reached_boundary_sanitized_not_reached() {
+        assert!(
+            Reachability::Reached.severity_rank() < Reachability::BoundaryExited.severity_rank()
+        );
+        assert!(
+            Reachability::BoundaryExited.severity_rank() < Reachability::Sanitized.severity_rank()
+        );
+        assert!(Reachability::Sanitized.severity_rank() < Reachability::NotReached.severity_rank());
+    }
+
+    #[test]
+    fn aggregate_every_mix_with_sanitized() {
+        use Reachability::*;
+        // Reached + anything -> Reached.
+        assert_eq!(Reachability::aggregate([Reached, Sanitized]), Some(Reached));
+        assert_eq!(Reachability::aggregate([Sanitized, Reached]), Some(Reached));
+        assert_eq!(
+            Reachability::aggregate([Reached, BoundaryExited]),
+            Some(Reached)
+        );
+        assert_eq!(
+            Reachability::aggregate([Reached, NotReached]),
+            Some(Reached)
+        );
+        assert_eq!(Reachability::aggregate([Reached, Reached]), Some(Reached));
+
+        // Sanitized + BoundaryExited -> BoundaryExited (BoundaryExited outranks Sanitized).
+        assert_eq!(
+            Reachability::aggregate([Sanitized, BoundaryExited]),
+            Some(BoundaryExited)
+        );
+        assert_eq!(
+            Reachability::aggregate([BoundaryExited, Sanitized]),
+            Some(BoundaryExited)
+        );
+
+        // Sanitized + NotReached -> Sanitized (Sanitized outranks NotReached).
+        assert_eq!(
+            Reachability::aggregate([Sanitized, NotReached]),
+            Some(Sanitized)
+        );
+        assert_eq!(
+            Reachability::aggregate([NotReached, Sanitized]),
+            Some(Sanitized)
+        );
+
+        // all-Sanitized -> Sanitized.
+        assert_eq!(
+            Reachability::aggregate([Sanitized, Sanitized, Sanitized]),
+            Some(Sanitized)
+        );
+
+        // all-NotReached -> NotReached (baseline, unaffected by the new variant).
+        assert_eq!(
+            Reachability::aggregate([NotReached, NotReached]),
+            Some(NotReached)
+        );
+    }
+
+    #[test]
     fn truncate_sources_keeps_most_severe_source_verdicts() {
         let mut summary = ReasoningSummary {
             reachability: Some(Reachability::Reached),
@@ -374,18 +463,21 @@ mod tests {
                         reachability: Reachability::NotReached,
                         graph_node: None,
                         sanitizers_present_in_source_fn: vec![],
+                        sanitized_by: vec![],
                     },
                     SinkSourceResult {
                         source: sym("boundary"),
                         reachability: Reachability::BoundaryExited,
                         graph_node: None,
                         sanitizers_present_in_source_fn: vec![],
+                        sanitized_by: vec![],
                     },
                     SinkSourceResult {
                         source: sym("culprit"),
                         reachability: Reachability::Reached,
                         graph_node: Some(0),
                         sanitizers_present_in_source_fn: vec![],
+                        sanitized_by: vec![],
                     },
                 ],
                 sources_omitted: 0,
@@ -421,12 +513,14 @@ mod tests {
                         reachability: Reachability::NotReached,
                         graph_node: None,
                         sanitizers_present_in_source_fn: vec![],
+                        sanitized_by: vec![],
                     },
                     SinkSourceResult {
                         source: sym("first"),
                         reachability: Reachability::Reached,
                         graph_node: Some(0),
                         sanitizers_present_in_source_fn: vec![],
+                        sanitized_by: vec![],
                     },
                 ],
                 sources_omitted: 0,
@@ -461,6 +555,7 @@ mod tests {
                     reachability: Reachability::Reached,
                     graph_node: Some(3),
                     sanitizers_present_in_source_fn: vec!["html".into()],
+                    sanitized_by: vec![],
                 }],
                 sources_omitted: 0,
             }],

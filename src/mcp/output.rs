@@ -403,6 +403,14 @@ fn prune_graph_to_reasoning(shaped: &mut Evidence) {
             if keep.contains(&edge.to) && keep.insert(edge.from) {
                 changed = true;
             }
+            // P10: a `"SanitizedBy"` edge attaches a sanitizer-call step as a LEAF hanging
+            // FORWARD off an already-kept witness node (not backward toward the sink like the
+            // ordinary DataFlow/AssignmentPropagation/RecoveredDefUse witness edges) — the
+            // ancestor-of-sink walk above would never reach it, so keep it explicitly whenever
+            // its attachment point survives.
+            if edge.kind == "SanitizedBy" && keep.contains(&edge.from) && keep.insert(edge.to) {
+                changed = true;
+            }
         }
     }
 
@@ -616,6 +624,12 @@ mod tests {
                             reachability: Reachability::Reached,
                             graph_node: Some(1),
                             sanitizers_present_in_source_fn: vec!["html".into()],
+                            sanitized_by: vec![SanitizerSite {
+                                category: "xss".into(),
+                                callee_text: "html.escape".into(),
+                                file: "a.py".into(),
+                                line: 2,
+                            }],
                         }],
                         sources_omitted: 0,
                     },
@@ -627,6 +641,7 @@ mod tests {
                             reachability: Reachability::Reached,
                             graph_node: Some(3),
                             sanitizers_present_in_source_fn: vec![],
+                            sanitized_by: vec![],
                         }],
                         sources_omitted: 0,
                     },
@@ -676,6 +691,7 @@ mod tests {
                             reachability: Reachability::Reached,
                             graph_node: Some(i * 2 + 1),
                             sanitizers_present_in_source_fn: vec![format!("sanitizer_{i}")],
+                            sanitized_by: vec![],
                         }],
                         sources_omitted: 0,
                     })
@@ -727,6 +743,7 @@ mod tests {
                             sanitizers_present_in_source_fn: vec![format!(
                                 "sanitizer_{i}_with_extra_context"
                             )],
+                            sanitized_by: vec![],
                         })
                         .collect(),
                     sources_omitted: 0,
@@ -964,6 +981,110 @@ mod tests {
     }
 
     #[test]
+    fn prune_graph_to_reasoning_keeps_forward_hanging_sanitizer_step() {
+        // P10 regression pin: `prune_graph_to_reasoning`'s ancestor-of-sink walk is backward-only
+        // (kept BEFORE this fix, unchanged for ordinary witness edges); a `"SanitizedBy"` step
+        // hangs FORWARD off an already-kept node instead, so the untouched backward walk silently
+        // dropped it from every non-concise, non-clipped `taint_reaches` MCP response.
+        let ev = Evidence {
+            query: "taint_reaches".into(),
+            items: vec![],
+            truncated: false,
+            warnings: vec![],
+            graph: Some(GraphPayload {
+                nodes: vec![
+                    GraphNode {
+                        symbol: None,
+                        location: Location {
+                            file: "a.py".into(),
+                            start_line: 1,
+                            end_line: 1,
+                            start_byte: 0,
+                            end_byte: 1,
+                        },
+                    },
+                    GraphNode {
+                        symbol: None,
+                        location: Location {
+                            file: "a.py".into(),
+                            start_line: 2,
+                            end_line: 2,
+                            start_byte: 1,
+                            end_byte: 2,
+                        },
+                    },
+                    GraphNode {
+                        symbol: Some(SymbolRef::Statement {
+                            file: "a.py".into(),
+                            line: 1,
+                            kind: "SanitizerCall".into(),
+                            start_byte: 5,
+                            end_byte: 6,
+                            ordinal: 0,
+                        }),
+                        location: Location {
+                            file: "a.py".into(),
+                            start_line: 1,
+                            end_line: 1,
+                            start_byte: 5,
+                            end_byte: 6,
+                        },
+                    },
+                ],
+                edges: vec![
+                    GraphEdge {
+                        from: 0,
+                        to: 1,
+                        kind: "DataFlow".into(),
+                    },
+                    GraphEdge {
+                        from: 0,
+                        to: 2,
+                        kind: "SanitizedBy".into(),
+                    },
+                ],
+            }),
+            reasoning: Some(ReasoningSummary {
+                reachability: Some(Reachability::Sanitized),
+                per_sink: vec![SinkResult {
+                    sink: sym("sink"),
+                    reachability: Reachability::Sanitized,
+                    sources: vec![SinkSourceResult {
+                        source: sym("source"),
+                        reachability: Reachability::Sanitized,
+                        graph_node: Some(1),
+                        sanitizers_present_in_source_fn: vec!["xss".into()],
+                        sanitized_by: vec![SanitizerSite {
+                            category: "xss".into(),
+                            callee_text: "escape".into(),
+                            file: "a.py".into(),
+                            line: 1,
+                        }],
+                    }],
+                    sources_omitted: 0,
+                }],
+                source_count: 1,
+                frontier_count: 2,
+                sinks_omitted: 0,
+            }),
+        };
+        // No clip/omission on this fixture (`retained == total == 1`), so `prune_graph_to_reasoning`
+        // (not the sink/byte-cap clip paths) is the one exercised.
+        let r = shape_result(ev, 1, false, Verbosity::Detailed, 100_000);
+        let v: serde_json::Value = serde_json::from_str(&r.content_text).unwrap();
+        let nodes = v["graph"]["nodes"].as_array().unwrap();
+        assert_eq!(nodes.len(), 3, "{nodes:?}");
+        assert!(nodes
+            .iter()
+            .any(|n| n["symbol"]["Statement"]["kind"] == "SanitizerCall"));
+        assert!(v["graph"]["edges"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["kind"] == "SanitizedBy"));
+    }
+
+    #[test]
     fn reasoning_byte_cap_truncates_sinks_and_prunes_witness_graph() {
         let r = shape_result(
             large_reasoning_graph(60),
@@ -1150,6 +1271,12 @@ mod tests {
                 .as_array()
                 .unwrap()
                 .is_empty()
+        );
+        // P10: `sanitized_by` is verdict-bearing (not advisory detail) — concise compaction must
+        // NOT clear it, unlike `graph_node`/`sanitizers_present_in_source_fn` above.
+        assert_eq!(
+            v["reasoning"]["per_sink"][0]["sources"][0]["sanitized_by"][0]["callee_text"],
+            "html.escape"
         );
     }
 

@@ -9,6 +9,7 @@
 
 use super::SanitizerRecognizer;
 use crate::frameworks::SanitizerCategory;
+use crate::languages::Language;
 
 pub const PATH_RECOGNIZERS: &[SanitizerRecognizer] = &[
     SanitizerRecognizer {
@@ -16,11 +17,17 @@ pub const PATH_RECOGNIZERS: &[SanitizerRecognizer] = &[
         category: SanitizerCategory::PathTraversal,
         semantic_check: None,
         paired_check: Some("strings.HasPrefix"),
+        languages: &[Language::Go],
+        // paired_check recognizers are excluded from `sanitizer_call_site` (the only consumer of
+        // `data_param`) entirely — see that function's doc comment — so this is never read.
+        data_param: None,
     },
     SanitizerRecognizer {
         call_path: "filepath.Rel",
         category: SanitizerCategory::PathTraversal,
         semantic_check: None,
         paired_check: Some("strings.HasPrefix"),
+        languages: &[Language::Go],
+        data_param: None,
     },
 ];

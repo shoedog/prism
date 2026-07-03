@@ -1,22 +1,32 @@
-# By-construction taint_reaches fixture (P6b): the source function `f`
-# contains a recognized sanitizer call (`html.escape`, matches the "xss"
-# SanitizerCategory recognizer active for Python -- see
-# src/algorithms/taint.rs::cleansed_categories_for_source and its
-# test_cleansed_categories_for_source_python_xss unit test).
+# By-construction taint_reaches fixture (P6b, flipped by P10): the source
+# function `f` contains a recognized sanitizer call (`html.escape`, matches
+# the "xss" SanitizerCategory recognizer active for Python), and the witness
+# chain from `user` (line 2) to `sink(safe)` (line 4) passes THROUGH the
+# `safe = html.escape(user)` transition on line 3 -- a path-proven sanitizer
+# cut, not just function-body presence.
 #
-# TODAY's contract (src/reasoning/taint_reaches.rs:184-198): a sanitizer in
-# the source function only pushes a Cleansed warning -- it does NOT change
-# `reachability`, which stays "Reached" independent of the sanitizer. Verified
-# against the built binary:
+# P10's contract (src/reasoning/taint_reaches.rs, src/reasoning/sanitizer_walk.rs):
+# a sanitizer becomes verdict-affecting ONLY when the witness chain-window walk
+# proves a contiguous `x = sanitizer(y)` transition sits ON the specific
+# source->sink path (byte-span reconstruction of "same assignment", not mere
+# node-presence in the trace). When that holds, `reachability` downgrades from
+# "Reached" to "Sanitized" and the source's `sanitized_by` carries the site
+# (callee/file/line); the `Cleansed` warning discriminant is UNCHANGED (pinned
+# by this fixture) but its message upgrades to name the site. Body-presence-only
+# sanitizing (the sanitizer exists in the function but the RAW value still
+# reaches the sink) stays "Reached" + advisory-only -- see the sibling
+# `taint_sanitizer_bypass` fixture for that false-negative guard pin.
+#
+# Verified against the built binary:
 # `prism nav taint-reaches --repo eval/fixtures/python/taint_sanitized_current
 #  --source app.py:2 --sink app.py:4 --format json` ->
-# reasoning.reachability == "Reached",
+# reasoning.reachability == "Sanitized",
 # warnings[].kind == {"Reasoning": {"Cleansed": {"source_function": "f"}}},
-# sanitizers_present_in_source_fn == ["xss"] (non-empty).
+# sanitizers_present_in_source_fn == ["xss"] (non-empty, still advisory),
+# sanitized_by == [{"category":"xss","callee_text":"html.escape","file":"app.py","line":3}].
 #
-# P10 (sanitizer verdicts) is expected to flip this fixture's reachability
-# expectation once cleansing becomes verdict-affecting -- do not "fix" this
-# fixture without updating P10's status first.
+# P14 (interprocedural taint descent) must preserve this fixture's contract --
+# do not "fix" this fixture without updating P14's status first.
 [case]
 language = "python"
 capability = "taint_sanitized_current"
@@ -26,6 +36,6 @@ probe = "taint"
 sources = ["app.py:2"]
 sinks = ["app.py:4"]
 [expect]
-reachability = "Reached"
+reachability = "Sanitized"
 warning_kinds_present = ["Cleansed"]
 sanitizers_present = true

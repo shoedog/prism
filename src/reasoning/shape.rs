@@ -244,12 +244,15 @@ pub fn witness_graph_for_node(
     Some(GraphPayload { nodes, edges })
 }
 
-pub fn witness_graph_for(
-    cpg: &CodePropertyGraph,
+/// Ordered witness chain `root..=sink` (root/source first, sink last), or `None` if `sink` is not
+/// in `root`'s frontier. Shared by [`witness_graph_for`] (builds the wire graph) and P10's
+/// sanitizer-window walk (`reasoning::sanitizer_walk`, proves a path-specific sanitizing
+/// transition) — both need the SAME chain a verdict is derived from.
+pub fn witness_chain_for(
     trace: &Trace,
     root: NodeIndex,
     sink: NodeIndex,
-) -> Option<GraphPayload> {
+) -> Option<Vec<NodeIndex>> {
     if !trace
         .frontier_by_root
         .get(&root)
@@ -270,15 +273,41 @@ pub fn witness_graph_for(
         chain.push(cur);
     }
     chain.reverse();
+    Some(chain)
+}
 
+/// Deduplicated `GraphNode`s for a chain plus each `NodeIndex`'s position in that node list.
+/// Exposed so callers that need to attach MORE nodes/edges to a chain-derived witness graph (P10's
+/// sanitizer step) can find a chain node's index without re-deriving the dedup order themselves.
+pub fn chain_nodes(
+    cpg: &CodePropertyGraph,
+    chain: &[NodeIndex],
+) -> (Vec<GraphNode>, BTreeMap<NodeIndex, usize>) {
     let mut idx_of: BTreeMap<NodeIndex, usize> = BTreeMap::new();
     let mut nodes = Vec::new();
-    for &n in &chain {
+    for &n in chain {
         idx_of.entry(n).or_insert_with(|| {
             nodes.push(node_of(cpg, n));
             nodes.len() - 1
         });
     }
+    (nodes, idx_of)
+}
+
+/// `GraphPayload` for an already-computed witness `chain` (root first, sink last), plus the
+/// `chain_nodes`-derived `idx_of` map used to build it. `root` is only used to look up each edge's
+/// `Relation` label in `trace.parents_by_root`.
+///
+/// Returning `idx_of` (F3) lets callers that need to attach MORE nodes/edges to this SAME witness
+/// graph afterward (P10's sanitizer-step attachment in `taint_reaches.rs::witness_mode`) reuse the
+/// dedup mapping this function already computed, instead of calling `chain_nodes` a second time.
+pub fn witness_graph_for_chain(
+    cpg: &CodePropertyGraph,
+    trace: &Trace,
+    root: NodeIndex,
+    chain: &[NodeIndex],
+) -> (GraphPayload, BTreeMap<NodeIndex, usize>) {
+    let (nodes, idx_of) = chain_nodes(cpg, chain);
 
     let mut edges = Vec::new();
     for w in chain.windows(2) {
@@ -298,7 +327,17 @@ pub fn witness_graph_for(
             kind: kind.to_string(),
         });
     }
-    Some(GraphPayload { nodes, edges })
+    (GraphPayload { nodes, edges }, idx_of)
+}
+
+pub fn witness_graph_for(
+    cpg: &CodePropertyGraph,
+    trace: &Trace,
+    root: NodeIndex,
+    sink: NodeIndex,
+) -> Option<GraphPayload> {
+    let chain = witness_chain_for(trace, root, sink)?;
+    Some(witness_graph_for_chain(cpg, trace, root, &chain).0)
 }
 
 pub fn node_to_graph_node(cpg: &CodePropertyGraph, n: NodeIndex) -> GraphNode {
@@ -758,5 +797,32 @@ mod tests {
         let cpg = build_python_cpg("def f():\n    a = input()\n    b = 1\n    sink(b)\n");
         let trace = cpg.taint_trace(&[("test.py".to_string(), 2usize)]);
         assert!(witness_graph(&cpg, &trace, "test.py", 4).is_none());
+    }
+
+    #[test]
+    fn test_witness_graph_for_chain_returns_same_idx_of_as_chain_nodes() {
+        // F3: `witness_graph_for_chain` now returns its own `idx_of` mapping so callers (P10's
+        // sanitizer-step attachment in `taint_reaches.rs::witness_mode`) don't need to call
+        // `chain_nodes` a second time on the same chain. Pin that the returned mapping — and the
+        // `GraphPayload` it built the edges from — are IDENTICAL to what an independent
+        // `chain_nodes` call on the same chain produces (byte-identical output requirement).
+        let cpg = build_python_cpg("def f():\n    a = input()\n    b = a\n    sink(b)\n");
+        let trace = cpg.taint_trace(&[("test.py".to_string(), 2usize)]);
+        let root_node = var_node(&cpg, "test.py", 2, "a");
+        let sink_node = cpg
+            .nodes_at("test.py", 4)
+            .into_iter()
+            .find(|&n| {
+                cpg.to_var_location(n)
+                    .is_some_and(|l| l.path.to_string() == "b")
+            })
+            .expect("b use in sink");
+        let chain = witness_chain_for(&trace, root_node, sink_node).expect("chain exists");
+
+        let (payload, idx_of) = witness_graph_for_chain(&cpg, &trace, root_node, &chain);
+        let (nodes, idx_of_expected) = chain_nodes(&cpg, &chain);
+
+        assert_eq!(idx_of, idx_of_expected);
+        assert_eq!(payload.nodes, nodes);
     }
 }

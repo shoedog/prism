@@ -12,7 +12,7 @@ pub fn register_all(r: &mut ToolRegistry) {
     r.register(tool_with_handler(
         "taint_reaches",
         "Taint Reaches",
-        "Traces tainted variable flow from source seeds. Use without sinks to inspect the frontier; use with sinks to get per-sink Reached, BoundaryExited, or NotReached verdicts and witness graphs. Sink seed resolution is all-or-nothing; unresolved source seeds warn and continue when at least one source resolves. Do NOT use this for call hierarchy or module dependency questions. Seed grammar is {\"kind\":\"symbol\",\"name\":\"handler\",\"file\":\"src/app.py\"} for function parameters or {\"kind\":\"loc\",\"file\":\"src/app.py\",\"line\":42} for variable nodes at a line. Inputs are sources array, optional sinks array, optional max_results 1..1000, and optional verbosity concise or detailed. Example: {\"sources\":[{\"kind\":\"loc\",\"file\":\"app.py\",\"line\":2}],\"sinks\":[{\"kind\":\"loc\",\"file\":\"app.py\",\"line\":4}],\"verbosity\":\"detailed\"}.",
+        "Traces tainted variable flow from source seeds. Use without sinks to inspect the frontier; use with sinks to get per-sink Reached, BoundaryExited, Sanitized, or NotReached verdicts and witness graphs. Sanitized means the witness chain proves a recognized sanitizer call sits ON this specific path (see the sanitized_by site); a sanitizer merely present elsewhere in the source function only produces an advisory Cleansed warning and leaves the verdict Reached. Sink seed resolution is all-or-nothing; unresolved source seeds warn and continue when at least one source resolves. Do NOT use this for call hierarchy or module dependency questions. Seed grammar is {\"kind\":\"symbol\",\"name\":\"handler\",\"file\":\"src/app.py\"} for function parameters or {\"kind\":\"loc\",\"file\":\"src/app.py\",\"line\":42} for variable nodes at a line. Inputs are sources array, optional sinks array, optional max_results 1..1000, and optional verbosity concise or detailed. Example: {\"sources\":[{\"kind\":\"loc\",\"file\":\"app.py\",\"line\":2}],\"sinks\":[{\"kind\":\"loc\",\"file\":\"app.py\",\"line\":4}],\"verbosity\":\"detailed\"}.",
         taint_reaches_schema(),
         Box::new(taint_reaches),
     ));
@@ -201,6 +201,38 @@ mod tests {
         assert!(value["graph"]["nodes"]
             .as_array()
             .is_some_and(|nodes| !nodes.is_empty()));
+    }
+
+    #[test]
+    fn taint_reaches_witness_sanitized_verdict_carries_site_and_witness_step() {
+        let s = crate::mcp::tools::test_support::session(&[(
+            "app.py",
+            "def f():\n    user = input()\n    safe = html.escape(user)\n    sink(safe)\n",
+        )]);
+        let out = (ToolRegistry::all_v1().get("taint_reaches").unwrap().handler)(
+            &ToolContext::for_test(&s),
+            &json!({
+                "sources":[{"kind":"loc","file":"app.py","line":2}],
+                "sinks":[{"kind":"loc","file":"app.py","line":4}],
+                "verbosity":"detailed"
+            }),
+        );
+        assert!(!out.is_error);
+        let value: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
+        assert_eq!(value["reasoning"]["reachability"], "Sanitized");
+        let source = &value["reasoning"]["per_sink"][0]["sources"][0];
+        assert_eq!(source["reachability"], "Sanitized");
+        assert_eq!(source["sanitized_by"][0]["callee_text"], "html.escape");
+        assert_eq!(source["sanitized_by"][0]["category"], "xss");
+        assert_eq!(source["sanitized_by"][0]["line"], 3);
+        assert!(
+            value["graph"]["edges"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|e| e["kind"] == "SanitizedBy"),
+            "{value}"
+        );
     }
 
     #[test]
