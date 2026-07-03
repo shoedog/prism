@@ -38,6 +38,76 @@ pub enum SeedRole {
     Sink,
 }
 
+/// Repo-relative path normalization shared between the MCP loc-seed parser
+/// (`mcp::input::parse_seed`, behind the `mcp` feature) and the CLI
+/// `nav taint-reaches` `file:line` parser (`main.rs::parse_loc_seeds`, built
+/// unconditionally). Lives on this ungated side of the F3 fix wave (P6bc
+/// review) so both call sites share one implementation of `./`-prefix and
+/// `..`-collapsing normalization instead of drifting: `./app.py` and
+/// `app.py` must resolve to the same `session.repo.files` key.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NormalizedPath {
+    RepoRelative(String),
+    EscapesRoot,
+}
+
+pub fn normalize_path(path: &str) -> NormalizedPath {
+    if path.starts_with('/') {
+        return NormalizedPath::EscapesRoot;
+    }
+
+    let mut parts = Vec::new();
+    for part in path.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                if parts.pop().is_none() {
+                    return NormalizedPath::EscapesRoot;
+                }
+            }
+            segment => parts.push(segment),
+        }
+    }
+
+    NormalizedPath::RepoRelative(parts.join("/"))
+}
+
+pub fn normalize_file_arg(file: String) -> String {
+    match normalize_path(&file) {
+        NormalizedPath::RepoRelative(path) => path,
+        NormalizedPath::EscapesRoot => file,
+    }
+}
+
+/// Normalize a loc-seed file path and validate its line number, shared
+/// between the MCP loc-seed parser and the CLI `file:line` parser so both
+/// reject line `0` and normalize `./`-prefixed / `..`-containing relative
+/// paths identically (F3 fix wave).
+pub fn normalize_loc_seed(file: String, line: usize) -> Result<(String, usize), String> {
+    if line < 1 {
+        return Err("seed loc line must be at least 1".to_string());
+    }
+    Ok((normalize_file_arg(file), line))
+}
+
+/// Parse a CLI `file:line` seed spec into a `SeedSpec::Loc`, applying the
+/// same path normalization and minimum-line validation as the MCP loc-seed
+/// parser (`normalize_loc_seed` above) so `./app.py:2` and `app.py:2` resolve
+/// identically from the CLI, and line `0` is rejected here -- before
+/// `build_session` -- rather than only surfacing later, deep inside
+/// `resolve_loc`, as `QueryError::LocationOutOfRange`.
+pub fn parse_file_line_spec(spec: &str) -> Result<SeedSpec, String> {
+    let (file, line_str) = spec
+        .rsplit_once(':')
+        .ok_or_else(|| format!("seed must be file:line (got {spec:?})"))?;
+    let line: usize = line_str
+        .parse()
+        .map_err(|_| format!("seed must be file:line (got {spec:?})"))?;
+    let (file, line) = normalize_loc_seed(file.to_string(), line)
+        .map_err(|msg| format!("{msg} (got {spec:?})"))?;
+    Ok(SeedSpec::Loc { file, line })
+}
+
 pub fn resolve(
     session: &NavigationSession,
     specs: &[SeedSpec],

@@ -353,22 +353,22 @@ enum NavQuery {
     },
 }
 
-/// Parse `file:line` CLI seed specs into `SeedSpec::Loc`. This is a small
-/// parallel parser rather than reusing `mcp::input::parse_taint_reaches`: that
-/// helper (and the whole `mcp` module) lives behind the `mcp` feature, while
-/// `nav` subcommands (and the `reasoning` layer they call into) are built by
-/// default with no feature flag. See CLAUDE.md's MCP Adapter section.
+/// Parse `file:line` CLI seed specs into `SeedSpec::Loc`, delegating to
+/// `reasoning::seeds::parse_file_line_spec` for the actual normalization and
+/// minimum-line validation. This stays a small wrapper here (rather than
+/// calling `mcp::input::parse_taint_reaches` directly) because the whole
+/// `mcp` module lives behind the `mcp` feature, while `nav` subcommands (and
+/// the `reasoning` layer they call into) are built by default with no
+/// feature flag -- but `parse_file_line_spec` itself is the single
+/// implementation MCP's loc-seed parser also calls into, so `./app.py:2` and
+/// line `0` are handled identically on both paths (F3, P6bc review). See
+/// CLAUDE.md's MCP Adapter section.
 fn parse_loc_seeds(
     specs: &[String],
 ) -> std::result::Result<Vec<prism::reasoning::seeds::SeedSpec>, String> {
     specs
         .iter()
-        .map(|spec| {
-            spec.rsplit_once(':')
-                .and_then(|(f, l)| l.parse::<usize>().ok().map(|n| (f.to_string(), n)))
-                .map(|(file, line)| prism::reasoning::seeds::SeedSpec::Loc { file, line })
-                .ok_or_else(|| format!("seed must be file:line (got {spec:?})"))
-        })
+        .map(|spec| prism::reasoning::seeds::parse_file_line_spec(spec))
         .collect()
 }
 
