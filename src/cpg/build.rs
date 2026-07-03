@@ -6,7 +6,7 @@ use crate::access_path::AccessPath;
 use crate::call_graph::{CallGraph, CallSite, FunctionId, ScopeGraphBuildInputs};
 use crate::cfg;
 use crate::data_flow::{DataFlowGraph, VarAccessKind};
-use crate::resolution::ResolutionConfidence;
+use crate::resolution::{ResolutionConfidence, ResolutionKind};
 use crate::type_db::TypeDatabase;
 
 use petgraph::graph::{DiGraph, NodeIndex};
@@ -781,6 +781,14 @@ impl CodePropertyGraph {
             BTreeMap::new();
         for site in sites {
             for resolved in cg.resolve_call_site(site) {
+                // P3 (F1): R6MultiOwnerCandidate is an unverified, capped NameOnly
+                // maybe-edge (nav-only). DataFlow carries no confidence/kind and
+                // taint consumes it directly, so wiring an arg->param edge here
+                // would leak taint into an unconfirmed owner. The Call/Return CPG
+                // edges (Step 5) are untouched — nav still sees the candidate.
+                if resolved.kind == ResolutionKind::R6MultiOwnerCandidate {
+                    continue;
+                }
                 let callee_id = resolved.target;
                 let caller_parsed = match files.get(&caller_id.file) {
                     Some(p) => p,
@@ -890,6 +898,11 @@ impl CodePropertyGraph {
         for (caller_id, sites) in &cg.calls {
             for site in sites {
                 for resolved in cg.resolve_call_site(site) {
+                    // P3 (F1): mirrors step5b_edges_for_caller's skip so this serial
+                    // oracle stays byte-identical to the parallel production path.
+                    if resolved.kind == ResolutionKind::R6MultiOwnerCandidate {
+                        continue;
+                    }
                     let callee_id = resolved.target;
                     let caller_parsed = match files.get(&caller_id.file) {
                         Some(p) => p,
