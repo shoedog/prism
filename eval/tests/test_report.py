@@ -216,6 +216,9 @@ def test_matrix_result_json_uses_sorted_arrays():
             outcome="regression",
             got={("b.rs", 2), ("a.rs", 1)},
             expected={("c.rs", 3)},
+            got_kinds={("b.rs", 2): "exact", ("a.rs", 1): "name_only"},
+            expected_resolution_kind="exact",
+            forbid_resolution_kind=None,
         )
     )
     assert got["got"] == [["a.rs", 1], ["b.rs", 2]]
