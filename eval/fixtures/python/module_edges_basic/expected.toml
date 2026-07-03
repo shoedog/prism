@@ -1,0 +1,22 @@
+# By-construction module-deps fixture (P6c): `a.py` does `from b import
+# helper` and calls it, so `nav module-deps --file a.py` must report an edge
+# to `b.py`. Verified against the built binary:
+# `prism nav module-deps --repo eval/fixtures/python/module_edges_basic
+#  --file a.py --format json` -> items[].location.file == {"a.py", "b.py"}.
+#
+# "a.py" also appears in `items` (the import-extraction heuristic labels the
+# `from b import helper` statement itself as an UnresolvedImport anchored at
+# the importing file, even though the call graph resolves `helper()` to
+# `b.py` cleanly -- same self-referencing-import-marker behavior as the
+# nav_compat golden fixture, see tests/cli/nav_compat_test.rs::module_deps_golden).
+# Use the default subset match (not `exact`) so that heuristic-layer noise
+# doesn't make this fixture brittle to unrelated import-extraction changes.
+[case]
+language = "python"
+capability = "module_edges_basic"
+status = "pass"
+probe = "module_deps"
+[module]
+file = "a.py"
+[[expect.module_edges]]
+to = "b.py"

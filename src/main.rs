@@ -335,6 +335,41 @@ enum NavQuery {
         #[arg(long, default_value = "json", value_parser = ["text", "json"])]
         format: String,
     },
+    /// Tier-2 forward taint reachability from source seeds, optionally to sink
+    /// seeds. Omit `--sink` for frontier mode (no verdict, just the tainted
+    /// frontier); pass one or more `--sink` for witness mode (per-sink
+    /// Reached/NotReached/BoundaryExited verdicts + witness graph).
+    TaintReaches {
+        #[arg(long)]
+        repo: std::path::PathBuf,
+        /// `file:line` source seed, repeatable.
+        #[arg(long = "source")]
+        source: Vec<String>,
+        /// `file:line` sink seed, repeatable. Omit for frontier mode.
+        #[arg(long = "sink")]
+        sink: Vec<String>,
+        #[arg(long, default_value = "text", value_parser = ["text", "json"])]
+        format: String,
+    },
+}
+
+/// Parse `file:line` CLI seed specs into `SeedSpec::Loc`, delegating to
+/// `reasoning::seeds::parse_file_line_spec` for the actual normalization and
+/// minimum-line validation. This stays a small wrapper here (rather than
+/// calling `mcp::input::parse_taint_reaches` directly) because the whole
+/// `mcp` module lives behind the `mcp` feature, while `nav` subcommands (and
+/// the `reasoning` layer they call into) are built by default with no
+/// feature flag -- but `parse_file_line_spec` itself is the single
+/// implementation MCP's loc-seed parser also calls into, so `./app.py:2` and
+/// line `0` are handled identically on both paths (F3, P6bc review). See
+/// CLAUDE.md's MCP Adapter section.
+fn parse_loc_seeds(
+    specs: &[String],
+) -> std::result::Result<Vec<prism::reasoning::seeds::SeedSpec>, String> {
+    specs
+        .iter()
+        .map(|spec| prism::reasoning::seeds::parse_file_line_spec(spec))
+        .collect()
 }
 
 fn main() -> Result<()> {
@@ -499,6 +534,47 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                 }
             }
             Ok(())
+        }
+        NavQuery::TaintReaches {
+            repo,
+            source,
+            sink,
+            format,
+        } => {
+            let session = build_session(repo, nav.no_cache, nav.cache_dir.as_deref())?;
+            let sources = match parse_loc_seeds(source) {
+                Ok(seeds) => seeds,
+                Err(msg) => {
+                    eprintln!("error: {msg}");
+                    std::process::exit(2);
+                }
+            };
+            let sinks = if sink.is_empty() {
+                None
+            } else {
+                match parse_loc_seeds(sink) {
+                    Ok(seeds) => Some(seeds),
+                    Err(msg) => {
+                        eprintln!("error: {msg}");
+                        std::process::exit(2);
+                    }
+                }
+            };
+            match prism::reasoning::taint_reaches::taint_reaches(
+                &session,
+                &sources,
+                sinks.as_deref(),
+            ) {
+                Ok(ev) => {
+                    println!("{}", prism::output::navigation::render(&ev, format));
+                    Ok(())
+                }
+                Err(e) => {
+                    let (s, code) = prism::output::navigation::render_err(&e, format);
+                    println!("{s}");
+                    std::process::exit(code);
+                }
+            }
         }
     }
 }

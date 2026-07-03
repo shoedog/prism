@@ -1,0 +1,31 @@
+# By-construction taint_reaches fixture (P6b): the source function `f`
+# contains a recognized sanitizer call (`html.escape`, matches the "xss"
+# SanitizerCategory recognizer active for Python -- see
+# src/algorithms/taint.rs::cleansed_categories_for_source and its
+# test_cleansed_categories_for_source_python_xss unit test).
+#
+# TODAY's contract (src/reasoning/taint_reaches.rs:184-198): a sanitizer in
+# the source function only pushes a Cleansed warning -- it does NOT change
+# `reachability`, which stays "Reached" independent of the sanitizer. Verified
+# against the built binary:
+# `prism nav taint-reaches --repo eval/fixtures/python/taint_sanitized_current
+#  --source app.py:2 --sink app.py:4 --format json` ->
+# reasoning.reachability == "Reached",
+# warnings[].kind == {"Reasoning": {"Cleansed": {"source_function": "f"}}},
+# sanitizers_present_in_source_fn == ["xss"] (non-empty).
+#
+# P10 (sanitizer verdicts) is expected to flip this fixture's reachability
+# expectation once cleansing becomes verdict-affecting -- do not "fix" this
+# fixture without updating P10's status first.
+[case]
+language = "python"
+capability = "taint_sanitized_current"
+status = "pass"
+probe = "taint"
+[taint]
+sources = ["app.py:2"]
+sinks = ["app.py:4"]
+[expect]
+reachability = "Reached"
+warning_kinds_present = ["Cleansed"]
+sanitizers_present = true

@@ -1,0 +1,16 @@
+# By-construction taint_reaches fixture (P6b): `user` (source, line 3) flows
+# through `value = user` into `sink(value)` (line 9) within ONE function, so
+# reachability must be "Reached". Verified against the built binary:
+# `prism nav taint-reaches --repo eval/fixtures/python/taint_reach_positive
+#  --source app.py:3 --sink app.py:9 --format json` -> reasoning.reachability
+# == "Reached".
+[case]
+language = "python"
+capability = "taint_reach_positive"
+status = "pass"
+probe = "taint"
+[taint]
+sources = ["app.py:3"]
+sinks = ["app.py:9"]
+[expect]
+reachability = "Reached"

@@ -1,4 +1,5 @@
 use super::error::ToolError;
+use crate::reasoning::seeds::{normalize_file_arg, normalize_loc_seed};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
@@ -35,12 +36,6 @@ impl SeedInput {
             SeedInput::Loc { file, line } => (None, None, Some(format!("{file}:{line}"))),
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum NormalizedPath {
-    RepoRelative(String),
-    EscapesRoot,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -171,27 +166,6 @@ pub struct TaintReachesInput {
     pub sinks: Option<Vec<SeedInput>>,
     pub max_results: usize,
     pub verbosity: Verbosity,
-}
-
-pub fn normalize_path(path: &str) -> NormalizedPath {
-    if path.starts_with('/') {
-        return NormalizedPath::EscapesRoot;
-    }
-
-    let mut parts = Vec::new();
-    for part in path.split('/') {
-        match part {
-            "" | "." => {}
-            ".." => {
-                if parts.pop().is_none() {
-                    return NormalizedPath::EscapesRoot;
-                }
-            }
-            segment => parts.push(segment),
-        }
-    }
-
-    NormalizedPath::RepoRelative(parts.join("/"))
 }
 
 pub fn parse_nodes_at(args: &Value) -> Result<NodesAtInput, ToolError> {
@@ -479,10 +453,10 @@ fn parse_seed(value: &Value) -> Result<SeedInput, ToolError> {
         }
         SeedInput::Symbol { file: None, .. } => {}
         SeedInput::Loc { file, line } => {
-            if *line < 1 {
-                return bad_args("seed loc line must be at least 1");
-            }
-            *file = normalize_file_arg(file.clone());
+            let (norm_file, norm_line) =
+                normalize_loc_seed(file.clone(), *line).map_err(ToolError::BadArguments)?;
+            *file = norm_file;
+            *line = norm_line;
         }
     }
     Ok(seed)
@@ -685,13 +659,6 @@ fn parse_edges(value: Option<&Value>) -> Result<Vec<String>, ToolError> {
     Ok(out)
 }
 
-fn normalize_file_arg(file: String) -> String {
-    match normalize_path(&file) {
-        NormalizedPath::RepoRelative(path) => path,
-        NormalizedPath::EscapesRoot => file,
-    }
-}
-
 fn bad_args<T>(message: impl Into<String>) -> Result<T, ToolError> {
     Err(ToolError::BadArguments(message.into()))
 }
@@ -699,6 +666,7 @@ fn bad_args<T>(message: impl Into<String>) -> Result<T, ToolError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::reasoning::seeds::{normalize_path, NormalizedPath};
     use serde_json::json;
 
     #[test]

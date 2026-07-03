@@ -1,0 +1,32 @@
+# By-construction taint_reaches fixture (P6b): source-only (no `sinks`) runs
+# frontier mode (src/reasoning/taint_reaches.rs::frontier_mode), which has no
+# per-sink verdict to aggregate. TODAY's contract: the top-level
+# `reasoning.reachability` is `null` in frontier mode (ReasoningSummary
+# comment: "None means frontier mode or an indeterminate aggregate"). Verified
+# against the built binary:
+# `prism nav taint-reaches --repo eval/fixtures/python/taint_frontier_only
+#  --source app.py:2 --format json` -> reasoning.reachability == null,
+# reasoning.frontier_count == 2 (nonzero -- the query does run and produces a
+# tainted frontier).
+#
+# `reachability = "None"` is this harness's schema sentinel for "assert the
+# wire reachability is JSON null" (there is no Rust `Reachability::None`
+# variant -- frontier mode's aggregate is `Option<Reachability> = None`).
+#
+# `frontier_count_min = 1` (F1 fix wave, P6bc review): asserts
+# `reasoning["frontier_count"] >= 1` -- a floor, not the exact observed value
+# (2), so this fixture doesn't need updating every time frontier sizing
+# shifts for unrelated reasons. This is also this fixture's only OTHER
+# assertion beside the reachability sentinel; without it (or some other
+# `[expect]` key), a `reasoning` key present-but-absent bug could otherwise
+# still slip past a bare `reachability = "None"` check in degenerate cases.
+[case]
+language = "python"
+capability = "taint_frontier_only"
+status = "pass"
+probe = "taint"
+[taint]
+sources = ["app.py:2"]
+[expect]
+reachability = "None"
+frontier_count_min = 1

@@ -223,6 +223,49 @@ def test_matrix_result_json_uses_sorted_arrays():
     )
     assert got["got"] == [["a.rs", 1], ["b.rs", 2]]
     assert got["expected"] == [["c.rs", 3]]
+    assert got["probe"] == "callers"
+
+
+def test_matrix_result_json_passes_through_taint_and_module_strings():
+    """taint/module CaseResults carry deterministic triage-useful strings
+    (not caller-site tuples), so matrix_result_to_json must pass them through
+    unchanged rather than applying the callers-probe tuple-sorting transform."""
+    from tier_a.cli import matrix_result_to_json
+    from tier_a.matrix import CaseResult
+
+    taint_result = CaseResult(
+        capability="taint_case",
+        language="python",
+        outcome="regression",
+        got="NotReached|warnings=none|sanitizers=false",
+        expected="Reached|warnings=none|sanitizers=any",
+        got_kinds={},
+        expected_resolution_kind=None,
+        forbid_resolution_kind=None,
+        probe="taint",
+    )
+    got = matrix_result_to_json(taint_result)
+    assert got["got"] == "NotReached|warnings=none|sanitizers=false"
+    assert got["expected"] == "Reached|warnings=none|sanitizers=any"
+    assert got["probe"] == "taint"
+    assert got["got_kinds"] == {}
+    # deterministic: repeated calls on the same result produce identical JSON
+    assert matrix_result_to_json(taint_result) == got
+
+    module_result = CaseResult(
+        capability="module_case",
+        language="python",
+        outcome="ok",
+        got="b.py",
+        expected="b.py",
+        got_kinds={},
+        expected_resolution_kind=None,
+        forbid_resolution_kind=None,
+        probe="module_deps",
+    )
+    got2 = matrix_result_to_json(module_result)
+    assert got2["got"] == "b.py"
+    assert got2["probe"] == "module_deps"
 
 
 def test_python_package_dirs_feed_q_scoped_classification(tmp_path):

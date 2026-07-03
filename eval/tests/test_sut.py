@@ -254,3 +254,24 @@ def test_public_edge_methods_map_seed_miss_to_empty(monkeypatch):
     assert cli.callers("/repo", SEED) == []
     assert cli.callees("/repo", SEED) == []
     assert cli.callers_by_symbol("/repo", "missing") == []
+
+
+def test_taint_reaches_and_module_deps_wire_flags_to_run(monkeypatch):
+    calls = []
+
+    def fake_run(self, args):
+        calls.append(args)
+        return {"reasoning": None} if args[0] == "taint-reaches" else {"items": []}
+
+    monkeypatch.setattr(PrismCli, "_run", fake_run)
+    cli = PrismCli.__new__(PrismCli)
+
+    cli.taint_reaches("/repo", ["app.py:2"], ["app.py:4"])
+    cli.taint_reaches("/repo", ["app.py:2"])  # frontier mode: no --sink
+    cli.module_deps("/repo", "a.py")
+
+    assert calls == [
+        ["taint-reaches", "--repo", "/repo", "--source", "app.py:2", "--sink", "app.py:4"],
+        ["taint-reaches", "--repo", "/repo", "--source", "app.py:2"],
+        ["module-deps", "--repo", "/repo", "--file", "a.py"],
+    ]
