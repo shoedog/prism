@@ -6,11 +6,7 @@ Cold-start map for continuing the execution of `docs/analysis/prism-llm-and-accu
 
 **Merged to main** (tip at handoff: `900adf6` + one docs commit): P1 #149 (review-output collapse, probe 13.49 MB→552 KB), P2 #150 (docs truth pass, LLM.md deleted), P6a #151 (confidence-stratified M2: `exact_tier` gates / `candidate_tier` informational), #152 (CaseResult test drift), P3 #153 (R6MultiOwnerCandidate: capped ≤3-target NameOnly candidates for Py/JS/TS/Tsx unknown receivers; black `dropped_multi_owner` 230→30), P5 #154 (Go `callback_registration` table + `func_value_field`; cobra `emptyRun` 0→288). Plan doc status blocks record all of it + as-shipped corrections.
 
-**IN FLIGHT (two Sonnet implementer subagents, running in parallel):**
-- **P4** JS/TS export modeling — branch `p4-js-export-modeling`, worktree `/private/tmp/prism-p4-js-exports`, brief `docs/superpowers/specs/2026-07-03-prism-p4-js-export-modeling-spec.md` (= scratchpad `task-p4-brief.md`), report will land at scratchpad `task-p4-report.md`.
-- **P7** Python property edges — branch `p7-python-property-edges`, worktree `/private/tmp/prism-p7-property-edges`, brief `docs/superpowers/specs/2026-07-03-prism-p7-python-property-edges-spec.md`, report at scratchpad `task-p7-report.md`.
-- Scratchpad root: `/private/tmp/claude-501/-Users-wesleyjinks-code-slicing/73fbee07-2241-4f0a-8f99-923e29dc04ef/scratchpad`.
-- Both branches will bump CPG `CACHE_VERSION` 33→34 and nav sidecar 3→4; **whichever merges second rebases and increments FROM the landed value** (+ updates the two version-pin tests). Build-identity hashing prevents actual blob collisions meanwhile.
+**ROUND 3 COMPLETE (2026-07-03):** P7 merged as PR #155 (main `c9e0243`, cache 34/4), P4 merged as PR #156 (main `2b58aa5`, cache re-bumped 35/5 post-#155 rebase; conflict resolutions were pure unions — both whole-program re-apply calls in `cpg/build.rs`/`call_graph.rs`, both counter blocks in call-stats). As-shipped deltas are recorded in each spec's status header (`docs/superpowers/specs/2026-07-03-prism-p{4,7}-*-spec.md`) and the plan doc's round-3 status block. Worktrees/branches cleaned. The pipeline track record held a third round: codex impl reviews found 2 BLOCKERs (P4) + 4 MAJORs (P7) that all claude-family gates missed; both fix-delta re-reviews caught a further real defect (P7 positional-`self` gate; P4 star-cycle telemetry).
 
 ## The pipeline (owner-approved, applied per task)
 
