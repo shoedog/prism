@@ -212,11 +212,21 @@ impl CodePropertyGraph {
         // Run the whole build (DFG + call-graph + assemble, all recursive AST
         // walks) on the large-stack pool so deep ASTs don't overflow a default
         // ~2 MiB rayon worker. install() makes every nested par_iter use it.
-        build_pool().install(|| {
-            let dfg = DataFlowGraph::build(files);
-            let cg = CallGraph::build_with_scope_graph_inputs(files, scope_inputs);
-            Self::assemble_graph(cg, dfg, files, type_db)
-        })
+        build_pool().install(|| Self::build_impl_inner(files, type_db, scope_inputs))
+    }
+
+    /// The body of `build_impl`, split out so a full-rebuild fallback that is
+    /// ALREADY running inside a `build_pool().install()` closure (e.g. the
+    /// P8 macro-shadow mismatch guard in `build_incremental_with_scope_graph_inputs`
+    /// below) can call it directly instead of re-entering `install()`.
+    fn build_impl_inner(
+        files: &BTreeMap<String, ParsedFile>,
+        type_db: Option<TypeDatabase>,
+        scope_inputs: Option<&ScopeGraphBuildInputs>,
+    ) -> Self {
+        let dfg = DataFlowGraph::build(files);
+        let cg = CallGraph::build_with_scope_graph_inputs(files, scope_inputs);
+        Self::assemble_graph(cg, dfg, files, type_db)
     }
 
     /// Build a CPG with type enrichment from a TypeDatabase.
@@ -244,6 +254,11 @@ impl CodePropertyGraph {
     /// Indirect call resolution (Phase 3: function pointers, struct callbacks)
     /// is recomputed over the merged whole call graph because derived indirect
     /// edges can depend on unchanged callers and changed targets/assignments.
+    ///
+    /// Rust macro-argument call extraction (P8) is similarly whole-program
+    /// dependent — see `build_incremental_with_scope_graph_inputs`'s internal
+    /// macro-shadow mismatch guard, which falls back to a full rebuild instead
+    /// of attempting a partial recompute.
     pub fn build_incremental(
         cached_cg: CallGraph,
         cached_dfg: DataFlowGraph,
@@ -274,6 +289,37 @@ impl CodePropertyGraph {
         // assemble below are the same recursive AST walks (install() routes every
         // nested par_iter onto big-stack workers).
         build_pool().install(move || {
+            // P8 F1 fix (codex re-review BLOCKER): Rust macro-arg call
+            // extraction (`rust_macro_args::is_transparent_arg_macro`)
+            // depends on the repo-wide macro shadow set, but this
+            // incremental path only re-extracts `changed_files` below —
+            // `remove_files` RETAINS every unchanged file's call sites and
+            // `macro_arg_facts` as-is (see its P8 comment). If a
+            // `macro_rules!` definition was added to, or removed from, ANY
+            // file in the repo (changed or not) such that the ALLOWLISTED
+            // shadow intersection differs from what it was at
+            // `cached_cg`'s last build, an unchanged file's retained
+            // macro-arg call sites can be silently stale (a suppressed
+            // site that should now be minted, or vice versa). Detect this
+            // BEFORE any of the mutation below by comparing the persisted
+            // intersection against a fresh whole-`files` computation, and
+            // fall back to a full rebuild on mismatch. This is the
+            // simplest sound option: selective re-extraction of just the
+            // unchanged files whose extraction depended on the OLD shadow
+            // value would need a reverse index of "which files' extraction
+            // used this shadowed name," which doesn't exist and isn't
+            // worth building for what should be a rare event (adding or
+            // removing a std-named `macro_rules!` definition). The full
+            // rebuild seam (`build_impl_inner`) is directly reachable from
+            // here (same `impl` block), so there is no reason to avoid it.
+            let fresh_macro_shadow_intersection =
+                crate::rust_macro_args::transparent_shadow_intersection(
+                    &crate::rust_macro_args::collect_macro_shadow_set(files),
+                );
+            if fresh_macro_shadow_intersection != cached_cg.macro_shadow_intersection {
+                return Self::build_impl_inner(files, type_db, scope_inputs);
+            }
+
             // Step 1: Remove stale data for changed files.
             cached_cg.remove_files(changed_files);
             cached_dfg.remove_files(changed_files);

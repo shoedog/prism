@@ -145,6 +145,28 @@ pub fn collect_macro_shadow_set(files: &BTreeMap<String, ParsedFile>) -> BTreeSe
     shadow
 }
 
+/// Narrow a shadow set (as returned by [`collect_macro_shadow_set`]) down to
+/// the subset that can actually change [`is_transparent_arg_macro`]'s
+/// verdict for ANY call site — the intersection with [`TRANSPARENT_ARG_MACROS`].
+/// A `macro_rules!` definition for some other name (e.g. `my_helper`) is
+/// harmless noise for transparency purposes; only a shadowed name that also
+/// appears in the allowlist can flip a call site from minted to suppressed
+/// (or vice versa).
+///
+/// This is the value persisted on `CallGraph::macro_shadow_intersection`
+/// (P8 F1 fix, codex re-review BLOCKER): a REPO-WIDE fact, so an incremental
+/// rebuild that only re-extracts `changed_files` must detect when this
+/// narrowed set drifts from its last-persisted value and fall back to a full
+/// rebuild rather than silently leaving an unchanged file's macro-arg call
+/// sites stale. See `CodePropertyGraph::build_incremental_with_scope_graph_inputs`.
+pub fn transparent_shadow_intersection(shadow: &BTreeSet<String>) -> BTreeSet<String> {
+    shadow
+        .iter()
+        .filter(|name| TRANSPARENT_ARG_MACROS.contains(&name.as_str()))
+        .cloned()
+        .collect()
+}
+
 fn collect_macro_defs(parsed: &ParsedFile, node: Node, out: &mut BTreeSet<String>) {
     if node.kind() == "macro_definition" {
         if let Some(name_node) = node.child_by_field_name("name") {

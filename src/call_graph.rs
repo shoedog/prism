@@ -517,6 +517,27 @@ pub struct CallGraph {
     /// files with at least one non-default fact are present.
     #[serde(default)]
     pub macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts>,
+    /// P8 F1 fix (BLOCKER, codex re-review): the repo-wide macro shadow set
+    /// (`rust_macro_args::collect_macro_shadow_set`), narrowed to its
+    /// intersection with `TRANSPARENT_ARG_MACROS`
+    /// (`rust_macro_args::transparent_shadow_intersection`) — the only part
+    /// of the shadow set that can change macro-arg call-extraction behavior.
+    /// Unlike `macro_arg_facts` above, this is whole-program derived (like
+    /// `interface_impls`/`js_ts_resolved_exports`): recomputed from scratch
+    /// on every full build and on every `build_direct_subset` call (which
+    /// always scans the COMPLETE `files` map for this, not just its
+    /// `only_files` subset — see its call site). `merge` overwrites (not
+    /// extends) this field from the incoming graph for exactly that reason:
+    /// the incoming `build_direct_subset` graph already carries the fresh,
+    /// correct whole-program value. `build_incremental_with_scope_graph_inputs`
+    /// compares the value persisted here (from the PREVIOUS build) against a
+    /// fresh computation before doing any incremental work, and falls back to
+    /// a full rebuild on mismatch — without this guard, an unchanged file's
+    /// retained call sites/macro-arg facts (see `remove_files`'s P8 comment)
+    /// would go stale whenever a `macro_rules!` definition anywhere in the
+    /// repo flips an allowlisted macro name's shadowed status.
+    #[serde(default)]
+    pub macro_shadow_intersection: BTreeSet<String>,
 }
 
 impl CallGraph {
@@ -571,6 +592,7 @@ impl CallGraph {
             property_access_fanout_skips: 0,
             property_access_store_skips: 0,
             macro_arg_facts: BTreeMap::new(),
+            macro_shadow_intersection: BTreeSet::new(),
         }
     }
 
@@ -768,6 +790,9 @@ impl CallGraph {
             property_access_fanout_skips: 0,
             property_access_store_skips: 0,
             macro_arg_facts: BTreeMap::new(),
+            macro_shadow_intersection: crate::rust_macro_args::transparent_shadow_intersection(
+                &macro_shadow,
+            ),
         }
     }
 
@@ -1120,6 +1145,9 @@ impl CallGraph {
             property_access_fanout_skips: 0,
             property_access_store_skips: 0,
             macro_arg_facts,
+            macro_shadow_intersection: crate::rust_macro_args::transparent_shadow_intersection(
+                &macro_shadow,
+            ),
         };
         cg.recompute_indirect_calls(files);
         cg.refresh_rust_receiver_state(files);
@@ -1334,11 +1362,30 @@ impl CallGraph {
         // indexed_files tracks the file set; removed files are no longer indexed.
         self.indexed_files.retain(|f| !exclude.contains(f));
 
-        // P8: macro-arg extraction telemetry is per-file-derived (a pure
-        // function of that file's own AST, no cross-file index needed) —
-        // unlike the whole-program-derived facts below, retain-by-file here
-        // is exactly correct with no recompute step needed after merge.
+        // P8: macro-arg extraction telemetry (`macro_arg_facts`) retains by
+        // file here, same as `js_ts_exports`/`import_bindings` above. BUT
+        // (F1 fix, codex re-review BLOCKER) whether an unchanged file's
+        // RETAINED call sites/facts are still valid depends on the
+        // repo-wide `macro_shadow_intersection` (below) staying unchanged
+        // across this rebuild — a `macro_rules!` def added/removed
+        // anywhere in the repo can flip an allowlisted macro name's
+        // shadowed status and make a retained site (or a retained skip)
+        // wrong even though the file it lives in never changed. Verifying
+        // that is NOT this method's job: the guard lives in
+        // `build_incremental_with_scope_graph_inputs`, which compares the
+        // intersection persisted on `macro_shadow_intersection` against a
+        // fresh whole-files computation BEFORE calling `remove_files`/
+        // `merge` at all, and falls back to a full rebuild on any
+        // mismatch. So retain-by-file here is exactly correct only because
+        // that caller-side guard guarantees the shadow set never actually
+        // drifts underneath an incremental rebuild.
         self.macro_arg_facts.retain(|f, _| !exclude.contains(f));
+
+        // `macro_shadow_intersection` itself is deliberately left untouched
+        // here (no per-file breakdown exists to retain-by-file) — `merge`
+        // below unconditionally overwrites it with the fresh value the
+        // incoming `build_direct_subset` graph always carries; see that
+        // field's doc comment.
 
         // P4: JS/TS resolved export facts are whole-program derived, same
         // rationale as the Go func-value state below — a barrel/re-export
@@ -1422,8 +1469,20 @@ impl CallGraph {
             .extend(other.js_ts_function_locals);
         // P8: per-file macro-arg facts extend directly -- `other` only ever
         // carries entries for files it (re)built, so this can never
-        // double-count a file that remove_files didn't first drop.
+        // double-count a file that remove_files didn't first drop. (This
+        // is safe from stale drift ONLY because
+        // `build_incremental_with_scope_graph_inputs` already verified the
+        // repo-wide shadow set is unchanged before reaching this call --
+        // see `macro_shadow_intersection`'s doc comment and the guard
+        // immediately below.)
         self.macro_arg_facts.extend(other.macro_arg_facts);
+        // P8 F1 fix: `macro_shadow_intersection` is OVERWRITTEN, not
+        // extended/unioned -- `other` (a `build_direct_subset` graph)
+        // always computed it from the COMPLETE `files` map (not its
+        // `only_files` subset), so `other`'s value is already the fresh,
+        // correct whole-program fact and simply replaces whatever `self`
+        // was carrying from its own last build.
+        self.macro_shadow_intersection = other.macro_shadow_intersection;
 
         // P4 (JS/TS resolved export facts): deliberately NOT merged here,
         // same rationale as the Go func-value callbacks note below — the
@@ -3328,6 +3387,15 @@ impl CallGraph {
             property_access_fanout_skips: 0,
             property_access_store_skips: 0,
             macro_arg_facts,
+            // P8: like the JS/Go/Python whole-program facts left empty above,
+            // this is NOT left empty — `build_direct_subset` scans the FULL
+            // `files` map (not `only_files`) for the macro shadow set (see
+            // `macro_shadow` above), so this is always the fresh, correct
+            // whole-program value. `merge` overwrites the retained graph's
+            // field with this one for exactly that reason.
+            macro_shadow_intersection: crate::rust_macro_args::transparent_shadow_intersection(
+                &macro_shadow,
+            ),
         }
     }
 
@@ -4706,10 +4774,18 @@ mod tests {
         assert_eq!(callers_once, indirect_caller_dump(&full));
     }
 
-    /// P8: `macro_arg_facts` is per-file-derived, so `remove_files` retaining
-    /// by file and `merge` extending the map (the same `js_ts_exports`
-    /// pattern) is exactly correct -- no whole-program recompute step is
-    /// needed, unlike `property_access_fanout_skips`/friends.
+    /// P8: at the CallGraph-internal mechanics level, `remove_files`
+    /// retaining `macro_arg_facts` by file and `merge` extending the map
+    /// (the same `js_ts_exports` pattern) is exactly correct in isolation --
+    /// this test pins that low-level plumbing. It does NOT by itself prove
+    /// the extracted facts stay valid: `macro_arg_facts`' CONTENT depends on
+    /// the repo-wide macro shadow set (F1 fix, codex re-review BLOCKER), so
+    /// the higher-level `build_incremental_with_scope_graph_inputs` caller
+    /// must additionally guard against that set drifting underneath an
+    /// incremental rebuild and fall back to a full rebuild when it does --
+    /// see `macro_shadow_intersection` and the
+    /// `incremental_from_previous_falls_back_to_full_rebuild_on_*_macro_shadow`
+    /// tests in `src/navigation/mod.rs`.
     #[test]
     fn macro_arg_facts_remove_files_retains_by_file_and_merge_extends() {
         let files = build_complete(&[
