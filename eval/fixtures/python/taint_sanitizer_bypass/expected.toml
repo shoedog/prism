@@ -1,0 +1,32 @@
+# By-construction taint_reaches fixture (P10): the FALSE-NEGATIVE GUARD PIN for
+# path-proven sanitizer verdicts. `f` contains the exact same recognized
+# sanitizer call as the `taint_sanitized_current` sibling fixture
+# (`safe = html.escape(user)`, "xss" category), but the sink consumes the RAW
+# `user` -- NOT `safe`. The sanitizer is present in the function body (so
+# `sanitizers_present_in_source_fn` stays non-empty and the advisory `Cleansed`
+# warning still fires) but it is NOT on the source->sink path, so the witness
+# chain-window walk (src/reasoning/sanitizer_walk.rs) must find no proven
+# transition and `reachability` must stay "Reached".
+#
+# Making function-body presence alone verdict-affecting (rather than
+# path-proven) would mint exactly this false negative -- this fixture pins
+# that it does not. `sanitized_by` must be empty.
+#
+# Verified against the built binary:
+# `prism nav taint-reaches --repo eval/fixtures/python/taint_sanitizer_bypass
+#  --source app.py:2 --sink app.py:4 --format json` ->
+# reasoning.reachability == "Reached",
+# warnings[].kind == {"Reasoning": {"Cleansed": {"source_function": "f"}}},
+# sanitizers_present_in_source_fn == ["xss"] (non-empty, body presence only).
+[case]
+language = "python"
+capability = "taint_sanitizer_bypass"
+status = "pass"
+probe = "taint"
+[taint]
+sources = ["app.py:2"]
+sinks = ["app.py:4"]
+[expect]
+reachability = "Reached"
+warning_kinds_present = ["Cleansed"]
+sanitizers_present = true

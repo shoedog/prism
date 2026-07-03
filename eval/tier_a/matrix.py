@@ -94,8 +94,10 @@ EXPECT_KEYS_BY_PROBE = {
 }
 # Controller adjudication (e): the only wire `Reachability` variants plus this
 # harness's own "None" (JSON null / frontier mode) sentinel. Anything else is
-# a typo'd sentinel that would otherwise silently never match.
-VALID_REACHABILITY_VALUES = {"Reached", "NotReached", "BoundaryExited", "None"}
+# a typo'd sentinel that would otherwise silently never match. "Sanitized" (P10)
+# is a witness-mode-only downgrade of "Reached", proven path-specific by a
+# chain-window walk -- see src/reasoning/sanitizer_walk.rs.
+VALID_REACHABILITY_VALUES = {"Reached", "NotReached", "BoundaryExited", "Sanitized", "None"}
 
 
 def _reject_unknown_keys(toml_path: Path, probe: str, section: str, present: dict, allowed: set) -> None:
