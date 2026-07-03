@@ -196,3 +196,16 @@ def test_jsonl_accepts_optional_site_fingerprint(tmp_path):
     r1, r2 = load_records(p)
     assert r1.site_fingerprint is None
     assert r2.site_fingerprint == "sha256:abc"
+
+
+def test_jsonl_accepts_optional_tier_key(tmp_path):
+    # P6a: a candidate-tier pending record (dict with a "tier" key) copied verbatim
+    # into adjudications.jsonl must not crash Adjudication(**json.loads(line)).
+    p = tmp_path / "adj.jsonl"
+    with_tier = dataclasses.asdict(rec(site="src/b.rs:12"))
+    with_tier["tier"] = "candidate"
+    p.write_text(json.dumps(dataclasses.asdict(rec())) + "\n" + json.dumps(with_tier) + "\n")
+
+    r1, r2 = load_records(p)
+    assert r1.tier is None
+    assert r2.tier == "candidate"

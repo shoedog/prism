@@ -29,7 +29,7 @@ from .corpus import (
 from .lsp_client import LspError
 from .matrix import MATRIX_LANGUAGES, run_matrix
 from .metrics import precision_recall
-from .model import CallEdge, FunctionDef, Location, match_by_selection
+from .model import CallEdge, FunctionDef, Location, edge_tier, match_by_selection
 from .oracles import OracleError
 from .report import write_reports
 from .spotcheck import classify_site, find_call_position
@@ -70,6 +70,7 @@ def _edges(sites: list, direction: str) -> list[CallEdge]:
             None,
             Location(f, s, e),
             meta.get("resolution_kind"),
+            meta.get("score"),
         )
         for f, s, e, meta in (_site_parts(site) for site in sites)
     ]
@@ -81,6 +82,18 @@ def _dispatch_kind_for_site(sites: list, file: str, line: int) -> str | None:
             dispatch = meta.get("dispatch_kind") or meta.get("resolution_kind")
             if dispatch:
                 return dispatch
+    return None
+
+
+def _tier_for_site(edges: list[CallEdge], file: str, line: int) -> str | None:
+    """P6a: the edge_tier of the prism edge at (file, line), or None if absent.
+
+    Reuses the CallEdges _edges() already rebuilt (with score restored per item 2b)
+    so the exact/candidate cutoff is decided in exactly one place (model.edge_tier).
+    """
+    for e in edges:
+        if e.call_site.file == file and e.call_site.start_line == line:
+            return edge_tier(e)
     return None
 
 
@@ -140,8 +153,9 @@ def _pending_for_probe(
         # interface-method declaration seeds)
         return []
     direction = probe["direction"]
+    prism_edges = _edges(probe["prism_sites"], direction)
     diff = site_compare(
-        _edges(probe["prism_sites"], direction),
+        prism_edges,
         _edges(probe["oracle_sites"], direction),
     )
     scoped = [
@@ -170,6 +184,10 @@ def _pending_for_probe(
             dispatch_kind = _dispatch_kind_for_site(probe.get("prism_sites", []), file, line)
             if dispatch_kind:
                 record["dispatch_kind"] = dispatch_kind
+            # P6a: tag candidate-tier prism_only pendings so adjudication can filter
+            # them; exact-tier ones keep their existing shape (no "tier" key at all).
+            if _tier_for_site(prism_edges, file, line) == "candidate":
+                record["tier"] = "candidate"
             pending.append(record)
     for file, line in sorted(diff.fn):
         key = ("oracle_only", _site_key(file, line))
@@ -216,10 +234,18 @@ def _compute_m2_and_pending(
                 or p.get("direction") != direction
             ):
                 continue
-            r = site_compare(
-                _edges(p["prism_sites"], direction),
-                _edges(p["oracle_sites"], direction),
-            )
+            prism_edges = _edges(p["prism_sites"], direction)
+            oracle_edges = _edges(p["oracle_sites"], direction)
+            r = site_compare(prism_edges, oracle_edges)
+            # P6a stratification: the legacy raw/corrected fields above stay computed
+            # over ALL prism edges (candidates included) for baseline comparability;
+            # exact_tier/candidate_tier below are informational additions computed
+            # over a tier-filtered prism edge set against the SAME (unfiltered)
+            # oracle set. score is None (legacy/old-run replay) -> "exact" (model.edge_tier).
+            exact_edges = [e for e in prism_edges if edge_tier(e) == "exact"]
+            candidate_edges = [e for e in prism_edges if edge_tier(e) == "candidate"]
+            r_exact = site_compare(exact_edges, oracle_edges)
+            r_candidate = site_compare(candidate_edges, oracle_edges)
             prism_functions = {tuple(v) for v in p.get("prism_functions", [])}
             oracle_functions = {tuple(v) for v in p.get("oracle_functions", [])}
             function_raw = _pair_metrics(prism_functions, oracle_functions)
@@ -236,11 +262,23 @@ def _compute_m2_and_pending(
                     "function_tp": 0,
                     "function_fp": 0,
                     "function_fn": 0,
+                    "exact_tp": 0,
+                    "exact_fp": 0,
+                    "exact_fn": 0,
+                    "candidate_count": 0,
+                    "candidate_confirmed": 0,
+                    "candidate_unconfirmed": 0,
                 },
             )
             s["tp"] += len(r.tp)
             s["fp"] += len(r.fp)
             s["fn"] += len(r.fn)
+            s["exact_tp"] += len(r_exact.tp)
+            s["exact_fp"] += len(r_exact.fp)
+            s["exact_fn"] += len(r_exact.fn)
+            s["candidate_count"] += len(r_candidate.tp) + len(r_candidate.fp)
+            s["candidate_confirmed"] += len(r_candidate.tp)
+            s["candidate_unconfirmed"] += len(r_candidate.fp)
             c = apply_verdicts(
                 tp=len(r.tp),
                 fp_sites=r.fp,
@@ -280,6 +318,17 @@ def _compute_m2_and_pending(
                 },
                 "pending": s["pending"],
                 "shortfall": shortfalls.get(name, 0),
+                # P6a additive fields (never read for baseline comparison; the P3
+                # gate reads exact_tier only, candidate_tier is informational +
+                # adjudication-fed — see eval/README.md).
+                "exact_tier": {
+                    "raw": precision_recall(s["exact_tp"], s["exact_fp"], s["exact_fn"]),
+                },
+                "candidate_tier": {
+                    "count": s["candidate_count"],
+                    "oracle_confirmed": s["candidate_confirmed"],
+                    "oracle_unconfirmed": s["candidate_unconfirmed"],
+                },
             }
     return out, pending_records, stale_adjudications
 
@@ -356,6 +405,8 @@ def _stored_sites(edges: list[CallEdge], direction: str) -> list[list]:
         meta = {}
         if e.resolution_kind is not None:
             meta["resolution_kind"] = e.resolution_kind
+        if e.score is not None:
+            meta["score"] = e.score
         dispatch_kind = getattr(e, "dispatch_kind", None)
         if dispatch_kind is not None:
             meta["dispatch_kind"] = dispatch_kind

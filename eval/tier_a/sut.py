@@ -75,6 +75,22 @@ def _symbol_name(symbol: dict | None) -> str | None:
     return symbol.get("name")
 
 
+def _score(item: dict) -> float:
+    """Require a numeric `score` on a *live* evidence item.
+
+    `score: f32` is a mandatory Evidence field (src/navigation/types.rs:87), so a
+    missing/null/non-numeric score here means the wire JSON is malformed -- fail
+    fast rather than silently defaulting. This is deliberately stricter than
+    ``cli._edges()``'s stored-site replay path, which tolerates an absent score
+    (legacy stored sites recorded before P6a, or replays of old run JSON, carry
+    no score at all and must keep classifying as "exact" via model.edge_tier).
+    """
+    score = item.get("score")
+    if not isinstance(score, (int, float)) or isinstance(score, bool):
+        raise SutError(f"prism nav item missing numeric score: {item!r}")
+    return float(score)
+
+
 def extract_callers(seed: FunctionDef, ev: dict) -> list[CallEdge]:
     edges = []
     for it in ev.get("items", []):
@@ -87,7 +103,7 @@ def extract_callers(seed: FunctionDef, ev: dict) -> list[CallEdge]:
         name = _symbol_name(it.get("symbol")) or called_by.get("caller")
         res = _why(it, "Resolution")
         rkind = res.get("kind") if res else None
-        edges.append(CallEdge("caller", seed, other, name, site, rkind))
+        edges.append(CallEdge("caller", seed, other, name, site, rkind, _score(it)))
     return edges
 
 
@@ -105,7 +121,9 @@ def extract_callees(seed: FunctionDef, ev: dict) -> list[CallEdge]:
             other = None
         res = _why(it, "Resolution")
         rkind = res.get("kind") if res else None
-        edges.append(CallEdge("callee", seed, other, calls.get("callee"), site, rkind))
+        edges.append(
+            CallEdge("callee", seed, other, calls.get("callee"), site, rkind, _score(it))
+        )
     return edges
 
 

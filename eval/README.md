@@ -86,6 +86,20 @@ uv run tier-a --matrix-only --allow-stale-sut
 run JSON `probes` block; corrected metrics additionally apply the current
 `adjudications.jsonl`. If `probes` is absent, the JSON is rendered unchanged.
 
+### Confidence-stratified M2 (P3 gating)
+
+Each M2 direction x stratum entry carries two additive fields alongside the
+legacy `raw`/`corrected`/`function`/`pending`/`shortfall` (which stay computed
+over ALL edges, exactly as before, so existing baselines remain comparable):
+`exact_tier` (raw P/R + tp/fp/fn over prism edges at Exact confidence only,
+oracle set unchanged) and `candidate_tier` (`count`/`oracle_confirmed`/
+`oracle_unconfirmed` over labeled NameOnly candidate edges — e.g. the capped
+Python/JS/TS unknown-receiver edges P3 emits instead of silently dropping).
+A P3-style change is gated on **exact-tier P/R being unchanged vs. the
+pre-change run; candidate tier is informational and adjudication-fed only**,
+never a pass/fail input — compare `exact_tier` across two run JSONs, no new
+CLI needed.
+
 ## Adjudication
 
 Pending diffs are triaged into `eval/adjudications.jsonl`. Each record is keyed by

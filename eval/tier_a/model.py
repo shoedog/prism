@@ -40,6 +40,28 @@ class CallEdge:
     other_name: str | None
     call_site: Location
     resolution_kind: str | None = None
+    score: float | None = None   # Evidence item score at M2's depth-1 hop:
+                                  # Exact=1.0, NameOnly=0.6 (P6a confidence tiers)
+
+
+# P3 will emit capped NameOnly "candidate" edges for Python/JS/TS unknown
+# receivers instead of silently dropping them. Score is the tier signal (see
+# CallEdge.score above); this is the single place the exact/candidate
+# threshold is decided so callers never re-implement the cutoff inline.
+EXACT_SCORE_THRESHOLD = 0.999
+
+
+def edge_tier(edge: "CallEdge") -> str:
+    """Classify one CallEdge as "exact" or "candidate" confidence (P6a).
+
+    score is None for legacy stored sites recorded before this change (and for
+    any replay of an old run JSON that predates score capture) -- treat those
+    as "exact" so old runs keep today's all-together counting instead of being
+    silently reclassified as candidates.
+    """
+    if edge.score is None:
+        return "exact"
+    return "exact" if edge.score >= EXACT_SCORE_THRESHOLD else "candidate"
 
 
 def from_lsp_line(line0: int) -> int:

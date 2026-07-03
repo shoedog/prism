@@ -1,5 +1,5 @@
 from tier_a.model import (CallEdge, DefTarget, FunctionDef, Location,
-                          from_lsp_line, match_by_selection, tie_break)
+                          edge_tier, from_lsp_line, match_by_selection, tie_break)
 
 
 def fd(name, file, start, end, sel, kind="function", container=None):
@@ -32,3 +32,26 @@ def test_match_by_selection_requires_name_equality():
     oracle = fd("build", "src/x.rs", 5, 20, 9)
     other = fd("rebuild", "src/x.rs", 9, 20, 9)
     assert match_by_selection(oracle, [other]) is None
+
+
+def _edge(score):
+    seed = fd("seed", "src/x.py", 1, 3, 1)
+    return CallEdge("caller", seed, None, "run", Location("src/x.py", 2, 2), None, score)
+
+
+def test_edge_tier_none_score_is_exact():
+    # legacy stored sites (recorded before P6a, or replayed from an old run JSON)
+    # carry no score -- preserve today's all-together counting.
+    assert edge_tier(_edge(None)) == "exact"
+
+
+def test_edge_tier_full_confidence_is_exact():
+    assert edge_tier(_edge(1.0)) == "exact"
+
+
+def test_edge_tier_name_only_confidence_is_candidate():
+    assert edge_tier(_edge(0.6)) == "candidate"
+
+
+def test_edge_tier_threshold_is_inclusive_of_near_one():
+    assert edge_tier(_edge(0.999)) == "exact"
