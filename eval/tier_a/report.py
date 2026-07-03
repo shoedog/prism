@@ -45,6 +45,31 @@ def render_markdown(run: dict) -> str:
                 f"| {d['shortfall']} |"
             )
         lines.append("")
+        # P6a confidence-stratified block: exact_tier is the P3 gate input (compare
+        # vs the pre-change run); candidate_tier is informational + adjudication-fed
+        # only (see eval/README.md). `.get` defaults so a --report-only replay of an
+        # old (pre-P6a) run JSON that lacks these keys still renders, not crashes.
+        if any("exact_tier" in d or "candidate_tier" in d for d in strata.values()):
+            lines += [
+                "_exact/candidate tier (P3 gate reads exact_tier only; "
+                "candidate_tier is informational)_",
+                "",
+                "| stratum | exact P | exact R | exact tp/fp/fn | candidate count"
+                " | oracle-confirmed | oracle-unconfirmed |",
+                "|---|---|---|---|---|---|---|",
+            ]
+            for s, d in strata.items():
+                et = d.get("exact_tier", {}).get("raw")
+                ct = d.get("candidate_tier", {})
+                et_counts = f"{et['tp']}/{et['fp']}/{et['fn']}" if et else ""
+                lines.append(
+                    f"| {s} | {fmt_wilson(et['precision']) if et else ''} "
+                    f"| {fmt_wilson(et['recall']) if et else ''} "
+                    f"| {et_counts} "
+                    f"| {ct.get('count', 0)} | {ct.get('oracle_confirmed', 0)} "
+                    f"| {ct.get('oracle_unconfirmed', 0)} |"
+                )
+            lines.append("")
     for key, title in (
         ("m1", "M1 inventory diff"),
         ("m3", "M3 spot-check"),
