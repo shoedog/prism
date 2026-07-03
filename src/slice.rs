@@ -205,7 +205,7 @@ impl SlicingAlgorithm {
 
     /// Whether this algorithm requires a CPG (DFG + CallGraph + CFG).
     ///
-    /// AST-only algorithms (OriginalDiff, ParentFunction, LeftFlow, etc.) only
+    /// AST-only algorithms (OriginalDiff, ParentFunction, ThinSlice, etc.) only
     /// need parsed files. Skipping CPG construction for these saves significant
     /// time, especially in test suites where many algorithms are exercised.
     pub fn needs_cpg(&self) -> bool {

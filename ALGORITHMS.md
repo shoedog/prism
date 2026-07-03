@@ -23,7 +23,7 @@ Algorithms that need a CPG (DFG + CFG + call graph) are marked **CPG-required**;
 
 ## Paper algorithms (arXiv:2505.17928)
 
-The four baseline algorithms from the paper. Cheap, AST-only. Use these when you need a predictable, well-understood baseline.
+The four baseline algorithms from the paper. `originaldiff` and `parentfunction` are cheap and AST-only; `leftflow` and `fullflow` require the CPG. Use these when you need a predictable, well-understood baseline.
 
 ### 1. OriginalDiff
 
@@ -647,6 +647,25 @@ Use `SlicingAlgorithm::needs_cpg()` (`src/slice.rs:209`) as the source of truth.
 - **AST-only**: `originaldiff`, `parentfunction`, `thin`, `quantum`, `horizontal`, `angle`, `absence`, `resonance`, `symmetry`, `phantom`, `contract`, `peer`, `callback`, `primitive`.
 
 For test suites that exercise many algorithms, AST-only ones can be batched without CPG construction overhead.
+
+## Recommended prompt structure
+
+When feeding a slice into an LLM review prompt:
+
+```
+You are reviewing a code change. Below is the relevant code slice
+extracted via static analysis. Lines prefixed with + are changed lines.
+Other lines are context derived from data-flow analysis.
+
+[SLICED CODE HERE]
+
+Identify any defects, considering:
+- Variable misuse or uninitialized values
+- Off-by-one errors
+- Resource leaks
+- Null/undefined access
+- Logic errors in control flow
+```
 
 ## See also
 

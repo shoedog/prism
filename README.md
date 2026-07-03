@@ -38,7 +38,7 @@
 Prism is a Code Property Graph (CPG) engine for diff-aware program slicing.
 It builds a unified graph — call graph, data flow graph, and control flow
 graph — from source code using [tree-sitter](https://tree-sitter.github.io/)
-and [petgraph](https://docs.rs/petgraph/), then runs 27 slicing algorithms
+and [petgraph](https://docs.rs/petgraph/), then runs 30 slicing algorithms
 against diffs to extract exactly the context a code reviewer needs.
 
 **The problem:** Raw diffs show *what* changed but not *why it matters*.
@@ -49,7 +49,7 @@ query. Prism answers these questions statically and fast — typically under
 
 **How it works:**
 
-1. Parse all source files into ASTs (tree-sitter, 12 languages)
+1. Parse all source files into ASTs (tree-sitter — 11 languages, 12 grammar variants; TSX parsed separately from TypeScript)
 2. Build a unified CPG: call graph + data flow graph + control flow graph
 3. Enrich with type information (per-language providers, RTA for dispatch)
 4. Accept a diff (unified patch or JSON)
@@ -63,7 +63,7 @@ query. Prism answers these questions statically and fast — typically under
 - Firmware/embedded review: detect missing resource cleanup, absent error handling
 - Refactoring safety: verify that signature changes don't break callers
 
-Implements 27 slicing algorithms spanning the paper
+Implements 30 slicing algorithms spanning the paper
 [Towards Practical Defect-Focused Automated Code Review](https://arxiv.org/abs/2505.17928),
 the established program slicing taxonomy, and several novel theoretical
 extensions including spiral, quantum, horizontal, vertical, angle, and 3D slices.
@@ -509,8 +509,8 @@ Source files ──→ tree-sitter ──→ AST per file
                   ▼        ▼        ▼
             Diff → Algorithm → SliceResult
                     dispatch
-              30 algorithms, all operating
-              on the shared CPG graph
+         data/control-flow algorithms share this CPG;
+         simpler algorithms run on the AST only
 ```
 
 **Key design decisions:**
@@ -519,13 +519,16 @@ Source files ──→ tree-sitter ──→ AST per file
   typed edges (call, data flow, CFG) and typed nodes (function, variable,
   statement). All algorithms query the same graph structure.
 
-- **tree-sitter for parsing** — zero-dependency, incremental, supports 12
-  languages with a single unified AST query interface. No language-specific
+- **tree-sitter for parsing** — zero-dependency, incremental, supports 11
+  languages (12 tree-sitter grammar variants — TSX parsed separately from
+  TypeScript) with a single unified AST query interface. No language-specific
   parsers to maintain.
 
-- **CPG built once, queried many times** — algorithms are graph traversals,
-  not re-analyses. Running all 30 algorithms costs ~10% more than running one,
-  because the expensive step (CPG construction) is shared.
+- **CPG built once, queried many times** — the data/control-flow algorithms
+  run graph traversals over the shared CPG (simpler algorithms are AST-only;
+  see `SlicingAlgorithm::needs_cpg()`), so running many CPG-required
+  algorithms together costs ~10% more than running one, because the expensive
+  step (CPG construction) is shared.
 
 - **Diff-aware by default** — algorithms receive the diff as input and focus
   analysis on changed code. Unchanged code is included only when it's

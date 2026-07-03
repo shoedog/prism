@@ -1,9 +1,10 @@
 # Prism MCP server — whole-repo navigation for coding agents
 
-`prism-mcp` is a local **stdio MCP server** that exposes read-only, whole-repo code navigation to
-MCP-capable coding agents (Claude Code, Codex, Kiro, …). It serves a Code Property Graph of **one**
-repository and answers structural questions an agent would otherwise grep for — who calls a symbol,
-what it calls, what breaks if you change it, the module dependency graph.
+`prism-mcp` is a local **stdio MCP server** that exposes whole-repo code navigation (read-only
+except `refresh_index`) to MCP-capable coding agents (Claude Code, Codex, Kiro, …). It serves a
+Code Property Graph of **one** repository and answers structural questions an agent would
+otherwise grep for — who calls a symbol, what it calls, what breaks if you change it, the
+module dependency graph.
 
 This is separate from the `slicing` diff-CLI (see the [README](../README.md)). Same engine, different
 surface: the CLI slices a *diff*; the MCP server navigates a *whole repo*.
@@ -118,7 +119,11 @@ Kiro names the tools **bare** (`nav_repo_map`), not `mcp__prism__*`.
 
 ---
 
-## Tools (all read-only, all return a Prism `Evidence` JSON envelope)
+## Tools
+
+The six navigation tools plus `taint_reaches` are read-only and return a Prism `Evidence` JSON
+envelope. `refresh_index` is the exception — it changes local server state (not the repo) and
+returns a refresh summary instead of `Evidence`.
 
 | Tool | Answers | Seed |
 |---|---|---|
@@ -128,6 +133,8 @@ Kiro names the tools **bare** (`nav_repo_map`), not `mcp__prism__*`.
 | `nav_callees` | What does this symbol / location call? (*what X depends on*) | symbol or location |
 | `nav_ego_graph` | The local call/dependency graph around a seed. | symbol or location |
 | `nav_module_deps` | Outbound module dependencies for one file. | `{file}` |
+| `taint_reaches` | Forward taint reachability from a seed. (read-only, returns `Evidence`) | `sources[]`: symbol or location; optional `sinks[]`: symbol or location |
+| `refresh_index` | Re-indexes the repo snapshot for this server session. (local state change, not read-only; returns a refresh summary) | *(none)* |
 
 **Seeding.** Most tools accept either `{kind: "symbol", name: "X"}` (optionally `{file}` to disambiguate)
 or a node returned by `nav_nodes_at`. `nav_nodes_at` is **exact-line** — if it returns empty, aim at the
@@ -141,12 +148,15 @@ symbol's *definition* or *call* line, not a blank/comment line.
   means you aimed a line or two off the definition/call site.
 - **One repo per server.** The server knows only the repo it was launched with (`--repo`). It cannot see
   sibling repos, dependencies outside the tree, or the standard library.
-- **Graphs truncate.** `nav_ego_graph` / `nav_repo_map` cap at roughly `max_results` (~200) nodes. A
-  truncated graph is a partial view, not the whole story — narrow the seed if you need completeness.
-- **Call resolution is name-based, not type-based.** Prism resolves dot/`::`-qualified and `use`-imported
-  calls, but the remaining gaps are `Type::method` where the type name differs from the file stem, and
-  cross-file method/receiver calls — these need type information and may resolve incompletely or to the
-  wrong target. Treat `callers`/`callees` as high-recall, not guaranteed-precise, for method dispatch.
+- **Graphs truncate.** `nav_ego_graph` / `nav_repo_map` cap at 50 items by default (`max_results`, up
+  to 1000), with an 80 KB result byte cap. A truncated graph is a partial view, not the whole story —
+  narrow the seed if you need completeness.
+- **Scores carry resolution confidence, not certainty.** Scores start from resolution confidence
+  (`1.0` exact, `0.6` name-only); callers/callees decay that by hop, so a lower score means
+  farther-away exact evidence or weaker name-only evidence. Read the cited site before relying on
+  any score below `1.0`. A warning like `N same-name receiver call site(s) with unknown receiver
+  type across multiple owner types; not attributed as callers` means real callers may be missing:
+  treat "no callers" plus that warning as *unknown*, not *none*.
 - **Read-only.** The server never modifies the repo. It also never executes code.
 - **Cold first call.** If you didn't pre-warm and the first tool call stalls, the server is building the
   whole-repo CPG (~30 s on a large repo). It's fast after that.

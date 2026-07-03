@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Rust implementation of 26 code slicing algorithms for defect-focused automated
+Rust implementation of 30 code slicing algorithms for defect-focused automated
 code review. Based on arXiv:2505.17928 plus the established program slicing
 taxonomy and novel theoretical extensions.
 
@@ -13,7 +13,7 @@ cargo build          # Build the project
 cargo test           # Run all tests (unit + integration)
 cargo fmt --check    # Check formatting (must pass before PR)
 cargo run -- --help  # Show CLI usage
-cargo run -- --list-algorithms  # List all 26 algorithms
+cargo run -- --list-algorithms  # List all 30 algorithms
 cargo build --bin prism-mcp --features mcp  # Build the MCP stdio server
 cargo test --features mcp                   # Run tests with MCP enabled
 ```
@@ -68,10 +68,10 @@ cargo test --test integration coverage_test::      # Coverage matrix
 - `type_db.rs` — Optional C/C++ type enrichment from `compile_commands.json` + clang. Provides struct definitions, field types, typedefs, and class hierarchy.
 - `languages/mod.rs` — Language-specific node type mappings. Add new languages here.
 - `diff.rs` — Diff parsing and `DiffInput`/`DiffInfo` types.
-- `slice.rs` — `SlicingAlgorithm` enum (26 variants), `SliceConfig`, and `SliceResult`.
-- `output.rs` — Output formatters (text, JSON, paper-compatible, review).
+- `slice.rs` — `SlicingAlgorithm` enum (30 variants), `SliceConfig`, and `SliceResult`.
+- `output/` — Output formatters (`mod.rs`, `navigation.rs`, `review.rs`, `mermaid.rs`).
 - `main.rs` — CLI entry point using clap with 22+ algorithm-specific flags.
-- `algorithms/` — All 26 slicing algorithms. Each is self-contained.
+- `algorithms/` — All 30 slicing algorithms. Each is self-contained.
 - `reasoning/` — Tier-2 reasoning layer: `taint_trace` consumer, `SeedSet`, output shaper.
 
 ### Test Structure (`tests/`)
@@ -149,6 +149,10 @@ copies must be updated or the matrix will under-report coverage. Run
 - `phantom_slice.rs` → Recently deleted code surfacing (requires git history)
 - `membrane_slice.rs` → Module boundary impact (cross-file callers of changed APIs)
 - `echo_slice.rs` → Ripple effect modeling (callers missing error handling)
+- `contract_slice.rs` → Implicit behavioral contract extraction and violation detection (guard clauses, postconditions)
+- `peer_consistency_slice.rs` → Peer-signature guard divergence — sibling functions sharing a first-parameter name where some/all lack a NULL guard
+- `callback_dispatcher_slice.rs` → Resolve function-pointer-in-struct registrations to their dispatcher invocation sites; flags NULL argument passing
+- `primitive_slice.rs` → Deterministic security-primitive fingerprint sweep (hash truncation, weak-hash-for-identity, shell=True interpolation, disabled cert validation, hardcoded secrets)
 
 ## Architecture
 
@@ -205,8 +209,10 @@ interface-dispatch manifest (the §8a denominator for the precision gate report)
 cargo run --bin prism-mcp --features mcp -- --repo /path/to/repo
 ```
 
-The server exposes six read-only navigation tools returning Prism `Evidence`
-JSON:
+The server exposes eight tools: six read-only navigation tools returning Prism
+`Evidence` JSON, one read-only reasoning tool `taint_reaches` (also Evidence),
+and one non-destructive local-state-changing tool `refresh_index` (returns a
+refresh summary).
 
 - `nav_nodes_at` — evidence for a repository file and 1-indexed line.
 - `nav_callers` — incoming callers for a symbol or location seed.
@@ -214,6 +220,8 @@ JSON:
 - `nav_ego_graph` — local graph around a symbol or location seed.
 - `nav_module_deps` — outbound module dependencies for one file.
 - `nav_repo_map` — whole-repository module dependency graph.
+- `taint_reaches` — forward taint reachability from a seed.
+- `refresh_index` — re-indexes the repo snapshot for this server session.
 
 Build, test, or lint MCP code with `--features mcp`; the default build keeps
 the adapter disabled.
@@ -222,8 +230,8 @@ the adapter disabled.
 absent so existing navigation and diff-review output remains byte-compatible.
 
 Algorithms fall into two categories:
-1. **Simple** (use `ctx.files` only): `original_diff`, `parent_function`, `left_flow`, `full_flow`, `thin_slice`, `relevant_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`
-2. **Graph-based** (use `ctx.cpg` or full context): `barrier_slice`, `taint`, `spiral_slice`, `circular_slice`, `vertical_slice`, `threed_slice`, `delta_slice`, `conditioned_slice`, `gradient_slice`, `provenance_slice`, `phantom_slice`, `resonance_slice`, `membrane_slice`, `echo_slice`
+1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`
+2. **Graph-based** (require the CPG; source of truth `SlicingAlgorithm::needs_cpg()`, src/slice.rs:210): `left_flow`, `full_flow`, `relevant_slice`, `conditioned_slice`, `barrier_slice`, `chop`, `taint`, `delta_slice`, `spiral_slice`, `circular_slice`, `vertical_slice`, `threed_slice`, `gradient_slice`, `provenance_slice`, `membrane_slice`, `echo_slice`
 
 ### Algorithm Dispatch
 
@@ -260,7 +268,8 @@ Algorithms fall into two categories:
 
 ## Supported Languages
 
-11 languages with dedicated tree-sitter grammars:
+11 languages (12 tree-sitter grammar variants — TSX is parsed separately from
+TypeScript):
 Python, JavaScript, TypeScript, Go, Java, C, C++, Rust, Lua, Terraform/HCL, Bash.
 
 ## CLI Usage
@@ -274,7 +283,7 @@ cargo run -- --repo /path/to/repo --diff diff.patch --algorithm "leftflow,fullfl
 
 # Preset suites
 cargo run -- --repo /path/to/repo --diff diff.patch --algorithm review  # review suite
-cargo run -- --repo /path/to/repo --diff diff.patch --algorithm all     # all 26
+cargo run -- --repo /path/to/repo --diff diff.patch --algorithm all     # all 30
 
 # Output formats: text (default), json, paper, review
 cargo run -- --repo /path/to/repo --diff diff.patch --format json
@@ -337,7 +346,7 @@ Key algorithm-specific flags:
 
 ## Dependencies
 
-- `tree-sitter` + 9 language grammars for AST parsing
+- `tree-sitter` + 11 language grammar crates (12 parsed language variants) for AST parsing
 - `petgraph` for graph data structures (CFG, CPG)
 - `clap` for CLI
 - `dirs` for prism-owned cache directory discovery
