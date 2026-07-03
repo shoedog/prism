@@ -2813,6 +2813,71 @@ func invoke(cmd *Command) {\n\tcmd.Run()\n}\n",
                 && c.confidence == ResolutionConfidence::NameOnly));
     }
 
+    /// F1 (BLOCKER fix): binding adjudication — nav (`resolve_call_site_full`)
+    /// keeps all 1..=3 registered targets unfiltered (asserted above, byte
+    /// unchanged), but non-nav consumers going through the thin
+    /// `resolve_call_site` wrapper must accept a `FuncValueField` hit only
+    /// when there is exactly ONE registered target. Two registered targets on
+    /// the same field (the `Command.Run = safe` / `Command.Run = sink`
+    /// scenario) must not create a Call/DataFlow edge into EITHER target for
+    /// non-nav consumers, even though nav still shows both.
+    #[test]
+    fn two_target_func_value_field_is_filtered_from_resolve_call_site_but_not_from_full() {
+        let cg = build(&[(
+            "main.go",
+            "package main\n\
+type Command struct {\n\tRun func()\n}\n\
+func h1() {}\n\
+func h2() {}\n\
+func register_a() *Command { return &Command{Run: h1} }\n\
+func register_b() *Command { return &Command{Run: h2} }\n\
+func invoke(cmd *Command) {\n\tcmd.Run()\n}\n",
+        )]);
+        let site = qualified_site(&cg, "invoke", "Run");
+
+        // Nav path (resolve_call_site_full) is UNCHANGED: both targets, unfiltered.
+        let full = cg.resolve_call_site_full(site);
+        assert_eq!(full.resolved.len(), 2, "nav path must keep both targets");
+
+        // Non-nav consumer path (resolve_call_site, the thin wrapper): the
+        // fanout must be filtered out entirely, since every resolved entry
+        // here is FuncValueField.
+        let consumer = cg.resolve_call_site(site);
+        assert!(
+            consumer.is_empty(),
+            "resolve_call_site must drop a 2-target FuncValueField fanout for non-nav \
+             consumers, got {consumer:?}"
+        );
+    }
+
+    /// F1 companion: the singleton case must be UNCHANGED end-to-end — all
+    /// consumers (nav and non-nav) still see the edge when there is exactly
+    /// one registered target.
+    #[test]
+    fn single_target_func_value_field_survives_resolve_call_site() {
+        let cg = build(&[(
+            "main.go",
+            "package main\n\
+type Command struct {\n\tRun func()\n}\n\
+func helper() {}\n\
+func register() *Command {\n\treturn &Command{Run: helper}\n}\n\
+func invoke(cmd *Command) {\n\tcmd.Run()\n}\n",
+        )]);
+        let site = qualified_site(&cg, "invoke", "Run");
+
+        let full = cg.resolve_call_site_full(site);
+        assert_eq!(full.resolved.len(), 1);
+
+        let consumer = cg.resolve_call_site(site);
+        assert_eq!(
+            consumer.len(),
+            1,
+            "resolve_call_site must keep the singleton FuncValueField hit"
+        );
+        assert_eq!(consumer[0].kind, ResolutionKind::FuncValueField);
+        assert_eq!(consumer[0].target.name, "helper");
+    }
+
     #[test]
     fn more_than_three_registration_targets_drops_as_fanout() {
         let cg = build(&[(
