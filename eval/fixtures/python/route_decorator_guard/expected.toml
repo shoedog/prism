@@ -1,0 +1,17 @@
+[case]
+language = "python"
+capability = "framework_entry"
+# P9 precision pin: `@property` is NOT a route decorator (not
+# `@receiver.method(...)` shaped against a recognized Flask/FastAPI
+# receiver) -- must never mint a framework_entry edge even though a Flask
+# app exists elsewhere in the file.
+status = "pass"
+
+[seed]
+symbol = "value"
+file = "app.py"
+line = 8
+
+[expect]
+exact = true
+forbid_resolution_kind = "framework_entry"

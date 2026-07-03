@@ -1,0 +1,19 @@
+[case]
+language = "python"
+capability = "framework_entry"
+# P9: FastAPI variant of route_handler_entry -- `@app.get("/x")` decorator
+# recorded via the same site-returning route-decorator helper as Flask.
+status = "pass"
+
+[seed]
+symbol = "handler"
+file = "app.py"
+line = 7
+
+[[expect.callers]]
+file = "app.py"
+line = 6
+
+[expect]
+exact = true
+resolution_kind = "framework_entry"

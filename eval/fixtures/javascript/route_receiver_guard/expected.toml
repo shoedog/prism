@@ -1,0 +1,16 @@
+[case]
+language = "javascript"
+capability = "framework_entry"
+# P9 precision pin (JS analog of route_decorator_guard): `x` is a plain
+# object literal with its own `get` method, not an express instance/router
+# -- `x.get("/y", handler)` must never mint a framework_entry edge.
+status = "pass"
+
+[seed]
+symbol = "handler"
+file = "app.js"
+line = 1
+
+[expect]
+exact = true
+forbid_resolution_kind = "framework_entry"

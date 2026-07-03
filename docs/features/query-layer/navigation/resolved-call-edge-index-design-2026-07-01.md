@@ -144,6 +144,14 @@ pub struct IndexedIncomingCall {
 }
 ```
 
+**`ResolutionKind` has grown nav-only synthetic kinds since this design was written**, each surfaced directly from
+a dedicated whole-program `CallGraph` table rather than from `resolve_call_site_full` (no CPG `Call`/`Return` edge,
+no resolve-time consult path): `callback_registration`/`func_value_field` (P5, Go function-value callbacks),
+`property_access` (P7, Python `@property`/`@cached_property` access), and `framework_entry` (P9, Flask/FastAPI/
+Express route registrations — see `CallGraph::apply_framework_entries`, `src/framework_entries.rs`). All three
+merge into `NavigationCallEdgeIndex` the same way: a loop over the dedicated `BTreeSet` beside the `cg.calls`/
+`cg.callers` loops in `NavigationIndex::build_resolved_call_edges`.
+
 `CallSiteKey` must be a whole-index key, not just `CallSite::cmp_key`. `CallSite::cmp_key` is only safe inside a
 `calls[FunctionId]` bucket because it includes `caller.name` but not the caller file or span. The navigation
 memo/drop-set key must include the full caller `FunctionId` plus every call-site field that can affect resolver

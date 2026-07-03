@@ -1,0 +1,21 @@
+[case]
+language = "javascript"
+capability = "framework_entry"
+# P9: Express `app.get("/x", handler)` registration -- registration-first
+# extraction (taint.rs's existing handler-first boolean never extracts a
+# FunctionId). Module-level registration -> `<module>` synthetic
+# incoming-only caller.
+status = "pass"
+
+[seed]
+symbol = "handler"
+file = "app.js"
+line = 4
+
+[[expect.callers]]
+file = "app.js"
+line = 6
+
+[expect]
+exact = true
+resolution_kind = "framework_entry"
