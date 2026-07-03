@@ -7,7 +7,11 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 1;
+// v1: initial cache (#148).
+// v2: P3 R6MultiOwnerCandidate — Python/JS/TS/Tsx unknown-receiver multi-owner
+// collisions resolve to a capped NameOnly candidate edge instead of a drop,
+// changing which sites appear in incoming/outgoing indexes.
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 2;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -330,8 +334,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_1() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 1);
+    fn sidecar_version_is_2() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 2);
     }
 
     #[test]
