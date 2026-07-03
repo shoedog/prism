@@ -310,21 +310,47 @@ fn js_ts_enclosing_chain(parsed: &ParsedFile, site_line: usize) -> Vec<Enclosing
 /// same false-edge shape as a `method_definition`, just spelled as a field
 /// instead of shorthand-method syntax, so it's just as unreachable by a bare
 /// `handler` reference.
+///
+/// M1 (review-fix wave 2): the same problem also applies to two OTHER
+/// name-inference patterns in `languages::mod::function_name` that this
+/// function previously let through by defaulting to `true` for anything
+/// that wasn't a `method_definition`/class-field: Pattern 2 (`{ handler: ()
+/// => {} }`, an object-literal property arrow — the function's parent is a
+/// `pair`) and Pattern 5's member-expression-LHS case (`exports.handler = ()
+/// => {}` — the function's parent is an `assignment_expression` whose LHS is
+/// a `member_expression`, and the inferred name is the property, not a
+/// binding). Neither is reachable by a bare `handler` identifier (only via a
+/// receiver: `api.handler`/`exports.handler`), so both must be excluded too.
+///
+/// Rewritten as a definition-site AST-shape ALLOW-list rather than a
+/// deny-list, since the old deny-list's "anything else defaults to true" is
+/// exactly what let Patterns 2 and 5's member form leak through. The only
+/// shapes a bare identifier can actually reach: a hoisted `function`
+/// declaration, a `variable_declarator`-bound function/arrow
+/// (`const handler = () => {}`, Pattern 1), and a plain identifier
+/// assignment (`handler = () => {}`, Pattern 5's identifier-LHS case).
 pub(crate) fn is_bare_binding_function(node: &tree_sitter::Node<'_>) -> bool {
-    if node.kind() == "method_definition" {
-        return false;
+    match node.kind() {
+        "method_definition" => false,
+        "function_declaration" | "generator_function_declaration" => true,
+        "arrow_function" | "function_expression" => match node.parent() {
+            Some(parent) => match parent.kind() {
+                "variable_declarator" => true,
+                "assignment_expression" => parent
+                    .child_by_field_name("left")
+                    .is_some_and(|left| left.kind() == "identifier"),
+                // Excludes: `pair` (object-literal property, Pattern 2),
+                // `field_definition`/`public_field_definition` (class field,
+                // Pattern 4), `arguments` (Pattern 3's
+                // `React.memo(() => {})` wrapper — the function's OWN
+                // immediate parent isn't a `variable_declarator`, only its
+                // grandparent's call is), and anything else.
+                _ => false,
+            },
+            None => false,
+        },
+        _ => true,
     }
-    if matches!(node.kind(), "arrow_function" | "function_expression") {
-        if let Some(parent) = node.parent() {
-            if matches!(
-                parent.kind(),
-                "field_definition" | "public_field_definition"
-            ) {
-                return false;
-            }
-        }
-    }
-    true
 }
 
 fn js_ts_enclosing_facts(

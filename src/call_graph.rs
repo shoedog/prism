@@ -6376,6 +6376,66 @@ mod framework_entry_tests {
         assert_eq!(cg.framework_entry_unresolved_handlers, 0);
     }
 
+    #[test]
+    fn express_identifier_matching_object_property_arrow_only_is_unresolved() {
+        // M1 (a): `handler` exists ONLY as an object-literal property arrow
+        // (`{ handler: () => {} }`) -- `languages::function_name` Pattern 2
+        // still infers the name `handler` for it (so it enters
+        // `CallGraph::functions`), but a bare `handler` identifier can never
+        // reach a `pair` value (only `api.handler` can), so this must be
+        // unresolved, not a false edge into the object property.
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nconst api = { handler: () => {} };\n\napp.get(\"/x\", handler);\n",
+        )]);
+        assert!(
+            !cg.framework_entries
+                .iter()
+                .any(|r| r.framework == "express"),
+            "object-property arrow must not mint a framework_entry edge"
+        );
+        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
+    }
+
+    #[test]
+    fn express_identifier_matching_member_expression_assignment_only_is_unresolved() {
+        // M1 (b): `handler` exists ONLY as `exports.handler = () => {}` --
+        // Pattern 5 name inference (`languages::function_name`) names it
+        // `handler` via the assignment's member-expression LHS property, but
+        // a bare `handler` identifier can never reach `exports.handler`
+        // (only the qualified reference can), so this must be unresolved.
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nexports.handler = () => {};\n\napp.get(\"/x\", handler);\n",
+        )]);
+        assert!(
+            !cg.framework_entries
+                .iter()
+                .any(|r| r.framework == "express"),
+            "member-expression-LHS assignment must not mint a framework_entry edge"
+        );
+        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
+    }
+
+    #[test]
+    fn express_identifier_matching_variable_declarator_arrow_resolves() {
+        // M1 (c) positive: `const handler = () => {}` -- Pattern 1 name
+        // inference (bound via a `variable_declarator`) IS a genuine bare
+        // binding (a bare `handler` reference really does reach it), so it
+        // must keep resolving under the rewritten allow-list-based
+        // `is_bare_binding_function`.
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nconst handler = (req, res) => {};\n\napp.get(\"/x\", handler);\n",
+        )]);
+        let handler = fid(&cg, "handler").clone();
+        assert!(
+            cg.framework_entries.iter().any(|r| r.handler == handler),
+            "variable-declarator-bound arrow must still resolve"
+        );
+        assert_eq!(cg.framework_entry_unresolved_handlers, 0);
+    }
+
     // ---- F2: Express receiver local-shadow guard ----------------------------
 
     #[test]
