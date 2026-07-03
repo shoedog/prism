@@ -1,0 +1,20 @@
+[case]
+language = "go"
+capability = "return_typed_recovery"
+# P11 S1: `d := newDemux(16, 16)` is a call-RHS short-var binding; `newDemux`'s
+# declared return type is recovered via the go_return_types index (S1) and used
+# to resolve `d.Init(1)` -- the adjudicated etcd `demux` flip in miniature.
+status = "pass"
+
+[seed]
+symbol = "Init"
+file = "main.go"
+line = 5
+
+[[expect.callers]]
+file = "main.go"
+line = 13
+
+[expect]
+exact = true
+resolution_kind = "return_typed"

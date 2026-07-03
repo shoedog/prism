@@ -1,0 +1,17 @@
+[case]
+language = "go"
+capability = "field_typed_depth_guard"
+# P11 S2 NEGATIVE: `o.Next.Next.Next.M()` is a 3-hop field-selector chain --
+# beyond the spec's 1-2 hop depth guard -- so go_field_types must NOT recover
+# it (no partial recovery at hop 1 or 2 either). `M` is deliberately ALSO
+# declared on a second unrelated type (`Other`) so the unrecovered receiver
+# hits R6's multi-owner-collision drop -- zero callers, not a NameOnly edge.
+status = "pass"
+
+[seed]
+symbol = "M"
+file = "main.go"
+line = 5
+
+[expect]
+exact = true
