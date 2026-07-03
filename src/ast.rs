@@ -1809,6 +1809,22 @@ impl ParsedFile {
                 );
             }
             "object" => {
+                // F2 (review-fix wave, codex BLOCKER 2): a spread can shadow
+                // any named member with a value prism cannot see (`{ f,
+                // ...override }` -- `override` may itself define `f`). Fail
+                // closed for the WHOLE object literal when ANY spread is
+                // present, rather than only the members after it: record
+                // zero facts from this literal, counted once via the
+                // existing skip counter. (Possible future refinement: only
+                // poison names after the last spread -- not done this slice.)
+                let mut probe = rhs.walk();
+                if rhs
+                    .children(&mut probe)
+                    .any(|c| c.kind() == "spread_element")
+                {
+                    facts.skipped_expr_count += 1;
+                    return;
+                }
                 let mut cursor = rhs.walk();
                 for prop in rhs.children(&mut cursor) {
                     match prop.kind() {
@@ -1836,7 +1852,7 @@ impl ParsedFile {
                                 _ => {}
                             }
                         }
-                        "spread_element" | "method_definition" => {
+                        "method_definition" => {
                             facts.skipped_expr_count += 1;
                         }
                         _ => {}

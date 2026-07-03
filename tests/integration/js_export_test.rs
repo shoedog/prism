@@ -329,6 +329,43 @@ fn extract_cjs_arbitrary_expression_is_skipped_and_counted() {
     assert_eq!(facts.skipped_expr_count, 1);
 }
 
+// F2 (review-fix wave, codex BLOCKER 2): a spread in a `module.exports`
+// object literal can shadow any named member with a value prism cannot see
+// (`module.exports = { f, ...override }` -- `override` may itself define
+// `f`). ADJUDICATION: fail closed for the WHOLE object literal when ANY
+// `spread_element` is present -- record zero facts from that literal, not
+// just from the spread's position onward. (Possible future refinement:
+// only poison names textually after the last spread, once field-write
+// ordering matters enough to implement precisely -- not done this slice.)
+
+#[test]
+fn cjs_module_exports_spread_poisons_whole_literal() {
+    let parsed = ParsedFile::parse(
+        "util.js",
+        "function f() { return 1; }\nmodule.exports = { f, ...override };\n",
+        Language::JavaScript,
+    )
+    .unwrap();
+    let facts = parsed.extract_js_ts_export_facts();
+    assert!(!facts.named.contains_key("f"));
+    assert_eq!(facts.skipped_expr_count, 1);
+}
+
+#[test]
+fn cjs_module_exports_spread_before_member_also_poisons() {
+    // Order-independent: a spread earlier in the literal poisons a member
+    // written after it too.
+    let parsed = ParsedFile::parse(
+        "util.js",
+        "function f() { return 1; }\nmodule.exports = { ...override, f };\n",
+        Language::JavaScript,
+    )
+    .unwrap();
+    let facts = parsed.extract_js_ts_export_facts();
+    assert!(!facts.named.contains_key("f"));
+    assert_eq!(facts.skipped_expr_count, 1);
+}
+
 #[test]
 fn cjs_named_object_export_resolves_import_member() {
     let fs = files(&[
