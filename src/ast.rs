@@ -1712,13 +1712,29 @@ impl ParsedFile {
                         if d.kind() != "variable_declarator" {
                             continue;
                         }
-                        if let Some(name_node) = d.child_by_field_name("name") {
-                            if name_node.kind() == "identifier" {
-                                let name_text = self.node_text(&name_node).to_string();
+                        let Some(name_node) = d.child_by_field_name("name") else {
+                            continue;
+                        };
+                        if name_node.kind() != "identifier" {
+                            continue;
+                        }
+                        let name_text = self.node_text(&name_node).to_string();
+                        // F4 (review-fix wave, codex MAJOR 2): only the
+                        // spec's 1c forms (arrow function / function
+                        // expression initializer) are in scope. Any other
+                        // initializer (identifier, ternary, call, literal,
+                        // ...) is skipped + counted -- recording it would
+                        // let R4c bind the export to an unrelated same-named
+                        // declaration elsewhere in the file (e.g. a nested
+                        // function), since the "local" target here is just
+                        // the declarator's own name, not a verified function.
+                        match d.child_by_field_name("value").map(|v| v.kind()) {
+                            Some("arrow_function") | Some("function_expression") => {
                                 facts
                                     .named
                                     .insert(name_text.clone(), JsExportTarget::Local(name_text));
                             }
+                            _ => facts.skipped_expr_count += 1,
                         }
                     }
                 }

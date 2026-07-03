@@ -248,6 +248,72 @@ fn extract_const_function_expression_export() {
     );
 }
 
+// F4 (review-fix wave, codex MAJOR 2): a variable-declarator export fact must
+// only be recorded when the initializer is an arrow function or function
+// expression (the spec's 1c forms). Any other initializer (identifier,
+// ternary, call, literal, ...) is out of scope: recording it risks R4c
+// binding the export to an unrelated same-named declaration elsewhere in the
+// file (e.g. a nested function), since the "local" target here is just the
+// declarator's own name, not a verified function.
+
+#[test]
+fn extract_const_ternary_export_is_skipped_and_counted() {
+    let parsed = ParsedFile::parse(
+        "util.ts",
+        "function a(): number { return 1; }\nfunction b(): number { return 2; }\nexport const f = Math.random() > 0.5 ? a : b;\n",
+        Language::TypeScript,
+    )
+    .unwrap();
+    let facts = parsed.extract_js_ts_export_facts();
+    assert!(!facts.named.contains_key("f"));
+    assert_eq!(facts.skipped_expr_count, 1);
+}
+
+#[test]
+fn extract_const_identifier_export_is_skipped_and_counted() {
+    // `export const f = otherName;` is an alias, not a declaration -- the
+    // named-list rename path (`export { otherName as f }`) is the modeled
+    // way to express this; a bare identifier initializer here is skipped.
+    let parsed = ParsedFile::parse(
+        "util.ts",
+        "function g(): number { return 1; }\nexport const f = g;\n",
+        Language::TypeScript,
+    )
+    .unwrap();
+    let facts = parsed.extract_js_ts_export_facts();
+    assert!(!facts.named.contains_key("f"));
+    assert_eq!(facts.skipped_expr_count, 1);
+}
+
+#[test]
+fn exported_const_ternary_does_not_resolve_to_nested_same_name_function() {
+    // The exact F4 blocker scenario: a nested function named `f` elsewhere
+    // in the same file must not become the target of the unrelated
+    // `export const f = cond ? a : b;` fact.
+    let fs = files(&[
+        (
+            "util.ts",
+            "function outer(): number { function f(): number { return 99; } return f(); }\nconst a = 1;\nconst b = 2;\nexport const f = a > 0 ? a : b;\n",
+            Language::TypeScript,
+        ),
+        (
+            "app.ts",
+            "import { f } from './util';\nfunction run() { f(); }\n",
+            Language::TypeScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    let resolved = resolve_kind(&cg, "app.ts", "run", "f");
+    // Assert on RESOLUTION KIND, not emptiness: R4c's ImportMember rung must
+    // not fire (that's the false fact this fix removes). A separate,
+    // pre-existing, out-of-scope R5 cross-file free-function rung may still
+    // independently match the nested `f` as the sole global free function of
+    // that name -- that's not the false-fact mechanism this finding is about.
+    assert!(resolved
+        .iter()
+        .all(|(_, k)| *k != ResolutionKind::ImportMember));
+}
+
 // -----------------------------------------------------------------------
 // 1d. CommonJS
 // -----------------------------------------------------------------------
