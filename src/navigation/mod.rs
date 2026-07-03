@@ -417,6 +417,43 @@ impl NavigationIndex {
                 });
         }
 
+        // P7 S3: merge Python property-access records in beside the P5
+        // registration loop above (same rationale — `cg.property_accesses`
+        // is a `BTreeSet`, so insertion order is already deterministic;
+        // these are NOT `CallSite`s, so they never appear in the
+        // `cg.callers`/`cg.calls` loops above either — this is the only
+        // place they reach `direct_callers`/`direct_callees`).
+        for acc in &cg.property_accesses {
+            idx.incoming_by_target
+                .entry(acc.getter.clone())
+                .or_default()
+                .push(IndexedIncomingCall {
+                    caller: acc.enclosing.clone(),
+                    callee_name: acc.getter.name.clone(),
+                    call_site_line: acc.site.line,
+                    start_byte: acc.site.start_byte,
+                    end_byte: acc.site.end_byte,
+                    qualifier: None,
+                    confidence: ResolutionConfidence::NameOnly,
+                    kind: ResolutionKind::PropertyAccess,
+                });
+            idx.outgoing_by_caller
+                .entry(acc.enclosing.clone())
+                .or_default()
+                .push(IndexedOutgoingCallSite {
+                    callee_name: acc.getter.name.clone(),
+                    call_site_line: acc.site.line,
+                    start_byte: acc.site.start_byte,
+                    end_byte: acc.site.end_byte,
+                    qualifier: None,
+                    resolved: vec![IndexedResolvedTarget {
+                        target: acc.getter.clone(),
+                        confidence: ResolutionConfidence::NameOnly,
+                        kind: ResolutionKind::PropertyAccess,
+                    }],
+                });
+        }
+
         idx
     }
 
@@ -768,6 +805,65 @@ mod tests {
             .expect("invoke() surfaces as a caller of helper via func_value_field resolution");
         assert!(hit.why.iter().any(|r| matches!(r,
             Reason::Resolution { kind } if kind == "func_value_field"
+        )));
+    }
+
+    /// P7 plumbing: the S1 property-getter index + S2 access-site table are
+    /// whole-program derived (mirroring the P5 Go func-value state above), so
+    /// `build_incremental_with_scope_graph_inputs` must explicitly clear +
+    /// re-apply them (`apply_python_property_accesses`) rather than leaving
+    /// stale/empty state after `remove_files` + `merge`. Changes an UNRELATED
+    /// file (the getter stays declared in the untouched `resp.py`) and
+    /// confirms the property_access edge still surfaces — a missing re-apply
+    /// call would silently drop it, since `remove_files` unconditionally
+    /// clears this whole-program state.
+    #[test]
+    fn incremental_from_previous_recomputes_python_property_accesses() {
+        let dir = tempfile::tempdir().unwrap();
+        write_files(
+            dir.path(),
+            &[
+                (
+                    "resp.py",
+                    "class Response:\n    @property\n    def text(self):\n        return self._text\n",
+                ),
+                (
+                    "main.py",
+                    "def unrelated():\n    return 1\n\n\ndef f(r):\n    return r.text\n",
+                ),
+            ],
+        );
+        let v1 = full_session(dir.path());
+
+        write_files(
+            dir.path(),
+            &[(
+                "main.py",
+                "def unrelated():\n    return 2\n\n\ndef f(r):\n    return r.text\n",
+            )],
+        );
+        let v2_incremental = incremental_session(&v1, dir.path(), &["main.py"]);
+        let v2_full = full_session(dir.path());
+
+        assert_eq!(
+            queries::callers(&v2_full, Some("text"), None, None, 1).unwrap(),
+            queries::callers(&v2_incremental, Some("text"), None, None, 1).unwrap()
+        );
+        let callers = function_names_for_callers(&v2_incremental, "text", None, 1);
+        assert!(
+            callers.contains(&"f".to_string()),
+            "incremental rebuild must recompute the property_access edge for a \
+             getter declared in an unchanged file, not leave it cleared"
+        );
+
+        let evidence = queries::callers(&v2_incremental, Some("text"), None, None, 1).unwrap();
+        let hit = evidence
+            .items
+            .iter()
+            .find(|i| matches!(&i.symbol, Some(SymbolRef::Function { name, .. }) if name == "f"))
+            .expect("f() surfaces as a caller of text via property_access resolution");
+        assert!(hit.why.iter().any(|r| matches!(r,
+            Reason::Resolution { kind } if kind == "property_access"
         )));
     }
 }

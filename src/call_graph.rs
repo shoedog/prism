@@ -265,6 +265,37 @@ pub struct RegistrationRecord {
     pub field_key: Option<(crate::resolution::GoOwnerIdentity, String)>,
 }
 
+/// P7 S2: the source location of a recognized Python `@property`/
+/// `@cached_property` LOAD access (mirrors `RegistrationSite`, kept as a
+/// separate type so the two features' wire shapes can evolve independently).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+pub struct PropertyAccessSite {
+    pub file: String,
+    pub line: usize,
+    pub start_byte: usize,
+    pub end_byte: usize,
+}
+
+/// P7 S2: one recognized Python `@property`/`@cached_property` LOAD access.
+///
+/// Deliberately NOT a `CallSite` — mirrors the architecture note on
+/// `CallGraph::go_registrations`: minting a synthetic CallSite here would
+/// resolve through the ordinary call ladder and could mint a wrong-kind/
+/// Exact edge (the exact hole P5's spec review caught). Surfaced as NameOnly
+/// `property_access` nav edges at query time
+/// (`NavigationIndex::build_resolved_call_edges`). Nav-only per the
+/// consumer-visibility doctrine — never consulted by CPG Call/Return edges,
+/// Step-5b DataFlow, or any non-nav consumer (there is no S3 resolve-time
+/// consult path at all, unlike `go_func_typed_fields`/`FuncValueField`).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+pub struct PropertyAccessRecord {
+    /// The function whose body contains the access.
+    pub enclosing: FunctionId,
+    /// The `@property`/`@cached_property`-decorated getter.
+    pub getter: FunctionId,
+    pub site: PropertyAccessSite,
+}
+
 /// The call graph for a set of parsed files.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CallGraph {
@@ -418,6 +449,38 @@ pub struct CallGraph {
     /// but counted separately per spec.
     #[serde(default)]
     pub go_registration_unknown_owner_recorded: usize,
+    /// P7 S1: python `@property`/`@cached_property` getter definitions.
+    /// Key mirrors `methods`: (owner_key, method_name) -> defining
+    /// FunctionIds. Only exact-match decorated getters are indexed;
+    /// `@x.setter`/`@x.deleter`-decorated methods (and everything else) are
+    /// excluded by construction (see `ParsedFile::python_property_kind`).
+    /// Whole-program derived like `go_registrations`; recomputed from
+    /// scratch by `apply_python_property_accesses`.
+    #[serde(default)]
+    pub property_getters: BTreeMap<(String, String), Vec<FunctionId>>,
+    /// P7 S1: subset of `property_getters` values decorated
+    /// `@cached_property`/`@functools.cached_property` (vs. plain
+    /// `@property`) — S3 telemetry counts property-access records
+    /// attributed to a cached_property getter separately.
+    #[serde(default)]
+    pub cached_property_getters: BTreeSet<FunctionId>,
+    /// P7 S2: recognized Python property/cached_property LOAD access sites.
+    /// Whole-program derived (unknown-receiver fanout needs the complete S1
+    /// index across every file); recomputed from scratch, never
+    /// incrementally patched — mirrors `go_registrations`.
+    #[serde(default)]
+    pub property_accesses: BTreeSet<PropertyAccessRecord>,
+    /// P7 S2 telemetry: unknown-receiver (incl. `cls`) accesses skipped
+    /// because more than 3 distinct classes define the accessed property
+    /// name (P3 fanout doctrine — cap is on distinct getter TARGETS).
+    #[serde(default)]
+    pub property_access_fanout_skips: usize,
+    /// P7 S2 telemetry (F5): store/delete-context attribute accesses whose
+    /// name is S1-indexed, skipped because a store/delete is never a getter
+    /// load — assignment/augmented_assignment LHS, `del` targets, `for`/
+    /// comprehension targets, and `with ... as` alias targets (F4).
+    #[serde(default)]
+    pub property_access_store_skips: usize,
 }
 
 impl CallGraph {
@@ -463,6 +526,11 @@ impl CallGraph {
             go_registration_shadowed_skips: 0,
             go_registration_ambiguous_owner_skips: 0,
             go_registration_unknown_owner_recorded: 0,
+            property_getters: BTreeMap::new(),
+            cached_property_getters: BTreeSet::new(),
+            property_accesses: BTreeSet::new(),
+            property_access_fanout_skips: 0,
+            property_access_store_skips: 0,
         }
     }
 
@@ -633,6 +701,11 @@ impl CallGraph {
             go_registration_shadowed_skips: 0,
             go_registration_ambiguous_owner_skips: 0,
             go_registration_unknown_owner_recorded: 0,
+            property_getters: BTreeMap::new(),
+            cached_property_getters: BTreeSet::new(),
+            property_accesses: BTreeSet::new(),
+            property_access_fanout_skips: 0,
+            property_access_store_skips: 0,
         }
     }
 
@@ -955,6 +1028,11 @@ impl CallGraph {
             go_registration_shadowed_skips: 0,
             go_registration_ambiguous_owner_skips: 0,
             go_registration_unknown_owner_recorded: 0,
+            property_getters: BTreeMap::new(),
+            cached_property_getters: BTreeSet::new(),
+            property_accesses: BTreeSet::new(),
+            property_access_fanout_skips: 0,
+            property_access_store_skips: 0,
         };
         cg.recompute_indirect_calls(files);
         cg.refresh_rust_receiver_state(files);
@@ -964,6 +1042,10 @@ impl CallGraph {
         // already applied — registrations are keyed against it).
         cg.apply_go_func_value_fields(files);
         cg.apply_go_registrations(files);
+        // P7: python property-access state — needs the complete method_owners
+        // / method_class_span / class_bases indexes already populated above,
+        // so it runs last, same rationale as the Go passes.
+        cg.apply_python_property_accesses(files);
         cg
     }
 
@@ -1146,6 +1228,14 @@ impl CallGraph {
         // `apply_go_registrations` repopulate from the merged graph.
         self.clear_go_func_value_fields();
         self.clear_go_registrations();
+
+        // P7: Python property-access state is ALSO whole-program derived —
+        // same rationale as the Go func-value state directly above: a
+        // getter's owner class can live in an unchanged file, and unknown-
+        // receiver fanout needs the complete S1 index across every file.
+        // Drop it all; `apply_python_property_accesses` repopulates from the
+        // merged graph.
+        self.clear_python_property_accesses();
     }
 
     /// Merge another CallGraph into this one.
@@ -1212,6 +1302,11 @@ impl CallGraph {
         // re-applies `apply_go_func_value_fields` / `apply_go_registrations`
         // on the merged graph immediately after, exactly like the embedding/
         // interface passes. Extending here would just be overwritten.
+        //
+        // P7 (Python property accesses): deliberately NOT merged here either,
+        // same reasoning — `apply_python_property_accesses` re-applies on the
+        // merged graph right after `apply_go_registrations` in
+        // `build_incremental_with_scope_graph_inputs`.
     }
 
     pub(crate) fn recompute_indirect_calls(&mut self, files: &BTreeMap<String, ParsedFile>) {
@@ -2538,6 +2633,258 @@ impl CallGraph {
         });
     }
 
+    fn clear_python_property_accesses(&mut self) {
+        self.property_getters.clear();
+        self.cached_property_getters.clear();
+        self.property_accesses.clear();
+        self.property_access_fanout_skips = 0;
+        self.property_access_store_skips = 0;
+    }
+
+    /// P7: scan `files` for Python `@property`/`@cached_property` getters
+    /// (S1) and the LOAD access sites that reach them (S2). Whole-program
+    /// derived (S2's unknown-receiver fanout tier needs S1's complete
+    /// cross-file index) — clears and recomputes from scratch, mirroring
+    /// `apply_go_registrations`. Must run after `method_owners` /
+    /// `method_class_span` / `class_bases` are already populated (S1/S2 both
+    /// read them instead of re-deriving owner/class-span facts).
+    pub fn apply_python_property_accesses(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        self.clear_python_property_accesses();
+        if !files
+            .values()
+            .any(|p| p.language == crate::languages::Language::Python)
+        {
+            return;
+        }
+        self.apply_python_property_getters(files);
+        self.apply_python_property_access_sites(files);
+    }
+
+    /// S1: index every exact-match `@property`/`@cached_property`-decorated
+    /// method by `(owner_key, method_name)`. Reuses the already-populated
+    /// `method_owners` index (Phase 1 records an owner for every method
+    /// regardless of decoration) rather than re-deriving the owner from the
+    /// AST — the FunctionId built here matches Phase 1's exactly (same
+    /// `all_functions()` node, same name/line-range calls), so the lookup is
+    /// a guaranteed hit whenever an owner exists at all.
+    fn apply_python_property_getters(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        for (file_path, parsed) in files {
+            if parsed.language != crate::languages::Language::Python {
+                continue;
+            }
+            for func_node in parsed.all_functions() {
+                let Some(kind) = parsed.python_property_kind(&func_node) else {
+                    continue;
+                };
+                let Some(name_node) = parsed.language.function_name(&func_node) else {
+                    continue;
+                };
+                let name = parsed.node_text(&name_node).to_string();
+                let (start, end) = parsed.node_line_range(&func_node);
+                let fid = FunctionId {
+                    file: file_path.clone(),
+                    name: name.clone(),
+                    start_line: start,
+                    end_line: end,
+                };
+                let Some(owner) = self.method_owners.get(&fid).cloned() else {
+                    continue;
+                };
+                self.property_getters
+                    .entry((owner, name))
+                    .or_default()
+                    .push(fid.clone());
+                if kind == crate::ast::PythonPropertyKind::CachedProperty {
+                    self.cached_property_getters.insert(fid);
+                }
+            }
+        }
+    }
+
+    /// S2: walk every Python function body for LOAD accesses of an S1-indexed
+    /// property name and record them, narrowed per the receiver tiers (see
+    /// `self_property_owner_getters` for tier 1; tier 2 — persisted receiver-
+    /// type recovery — is deliberately never consulted here, since there is
+    /// no `CallSite` to recover a type onto; tier 3 is the capped unknown-
+    /// receiver fanout below).
+    fn apply_python_property_access_sites(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        if self.property_getters.is_empty() {
+            return;
+        }
+        let attr_names: BTreeSet<String> = self
+            .property_getters
+            .keys()
+            .map(|(_, name)| name.clone())
+            .collect();
+        for (file_path, parsed) in files {
+            if parsed.language != crate::languages::Language::Python {
+                continue;
+            }
+            for func_node in parsed.all_functions() {
+                let Some(name_node) = parsed.language.function_name(&func_node) else {
+                    continue;
+                };
+                let func_name = parsed.node_text(&name_node).to_string();
+                let (start, end) = parsed.node_line_range(&func_node);
+                let caller_id = FunctionId {
+                    file: file_path.clone(),
+                    name: func_name,
+                    start_line: start,
+                    end_line: end,
+                };
+                // F2 (codex MAJOR 2; re-fixed per codex re-review): tier-1
+                // same-class narrowing requires a genuine instance method —
+                // not `@staticmethod`/`@classmethod`, first POSITIONAL param
+                // literally `self` (`python_is_self_instance_method`), AND
+                // owned by a class at all (`method_owners.contains_key`). A
+                // `self`-named parameter in a function `method_owners` has
+                // no entry for (e.g. a top-level `def f(self)`) is not a
+                // genuine receiver — it must route straight to the tier-3
+                // fanout below, not enter tier-1 only to drop when
+                // `self_property_owner_getters` finds no owner. Computed
+                // once per function, not per candidate.
+                let is_instance_method = parsed.python_is_self_instance_method(&func_node)
+                    && self.method_owners.contains_key(&caller_id);
+                let scan = parsed.python_attribute_load_candidates(&func_node, &attr_names);
+                // F5: every store/delete-context access of an indexed
+                // property name is telemetry, whole-program derived like the
+                // rest of this table (recomputed from scratch each build).
+                self.property_access_store_skips += scan.store_skips;
+                for cand in scan.candidates {
+                    self.apply_python_property_access_candidate(
+                        &caller_id,
+                        is_instance_method,
+                        cand,
+                    );
+                }
+            }
+        }
+    }
+
+    /// One raw S2 candidate -> zero or more `PropertyAccessRecord`s (fanout
+    /// tier can mint up to 3).
+    fn apply_python_property_access_candidate(
+        &mut self,
+        caller_id: &FunctionId,
+        is_instance_method: bool,
+        cand: crate::ast::PythonAttributeLoadCandidate,
+    ) {
+        let getters: BTreeSet<FunctionId> =
+            if is_instance_method && cand.receiver_identifier.as_deref() == Some("self") {
+                // Tier 1: `self.attr` narrows to the enclosing class's own
+                // getter (or its single same-file base's). A known, non-matching
+                // receiver type is a NEGATIVE result, not "unknown" — it must
+                // NOT fall through to the tier-3 fanout (that would misattribute
+                // the access to unrelated classes we positively know it isn't).
+                match self.self_property_owner_getters(caller_id, &cand.attr_name) {
+                    Some(fids) => fids,
+                    None => return,
+                }
+            } else {
+                // Tier 3: unknown receiver, `cls` INCLUDED (spec-review MAJOR —
+                // no cls-like-self shortcut here; class access returns the
+                // descriptor object, not the getter, so `cls` gets no narrowing
+                // privilege over any other unrecognized receiver). Also reached
+                // by `self.attr` when `is_instance_method` is false (F2:
+                // `@staticmethod`/`@classmethod` — `self` there is an ordinary
+                // parameter of unknown type, not a receiver). All classes
+                // defining the property name, capped.
+                self.property_getters
+                    .iter()
+                    .filter(|((_, name), _)| name == &cand.attr_name)
+                    .flat_map(|(_, fids)| fids.iter().cloned())
+                    .collect()
+            };
+        if getters.is_empty() {
+            return;
+        }
+        if getters.len() > 3 {
+            self.property_access_fanout_skips += 1;
+            return;
+        }
+        let site = PropertyAccessSite {
+            file: caller_id.file.clone(),
+            line: cand.line,
+            start_byte: cand.start_byte,
+            end_byte: cand.end_byte,
+        };
+        for getter in getters {
+            self.property_accesses.insert(PropertyAccessRecord {
+                enclosing: caller_id.clone(),
+                getter,
+                site: site.clone(),
+            });
+        }
+    }
+
+    /// Tier-1 owner lookup for `self.attr`: the enclosing method's own class,
+    /// falling back to its single same-file base (mirrors
+    /// `inherited_direct_base`'s depth-1, single-inheritance-only limits).
+    /// `None` means neither the class nor its base defines the property —
+    /// the caller must NOT fall through to the unknown-receiver fanout tier.
+    fn self_property_owner_getters(
+        &self,
+        caller: &FunctionId,
+        attr: &str,
+    ) -> Option<BTreeSet<FunctionId>> {
+        let owner = self.method_owners.get(caller)?;
+        // F1 (codex MAJOR 1): the ambiguity check must gate the OWN-CLASS
+        // hit too, not just the inherited-base fallback below — checked
+        // before either lookup.
+        if self.method_class_span_ambiguous.contains(caller) {
+            return None;
+        }
+        let caller_span = *self.method_class_span.get(caller)?;
+        if let Some(fids) = self
+            .property_getters
+            .get(&(owner.clone(), attr.to_string()))
+        {
+            // The bare `(owner, attr)` key collides across files (two
+            // same-named classes in different files both defining the
+            // property) — filter to getters in the CALLER's own file whose
+            // class span equals the caller's, the same discipline the
+            // inherited-base fallback below already applies.
+            let same_class: BTreeSet<FunctionId> = fids
+                .iter()
+                .filter(|fid| {
+                    fid.file == caller.file
+                        && self.method_class_span.get(*fid) == Some(&caller_span)
+                        && !self.method_class_span_ambiguous.contains(*fid)
+                })
+                .cloned()
+                .collect();
+            if !same_class.is_empty() {
+                return Some(same_class);
+            }
+        }
+
+        let bases = self.class_bases.get(&(caller.file.clone(), caller_span))?;
+        if bases.len() != 1 {
+            return None;
+        }
+        let (base_span, base_owner) = match &bases[0] {
+            ClassBaseLink::SameFile { span, owner } => (*span, owner.as_str()),
+            ClassBaseLink::Barrier => return None,
+        };
+        let ids = self
+            .property_getters
+            .get(&(base_owner.to_string(), attr.to_string()))?;
+        let in_base: BTreeSet<FunctionId> = ids
+            .iter()
+            .filter(|fid| {
+                fid.file == caller.file
+                    && self.method_class_span.get(*fid) == Some(&base_span)
+                    && !self.method_class_span_ambiguous.contains(*fid)
+            })
+            .cloned()
+            .collect();
+        if in_base.is_empty() {
+            None
+        } else {
+            Some(in_base)
+        }
+    }
+
     /// Build a call graph from only the specified files (Phases 1+2: direct calls only).
     ///
     /// Unlike `build()`, this skips Phase 3 (indirect call resolution) because
@@ -2808,6 +3155,15 @@ impl CallGraph {
             go_registration_shadowed_skips: 0,
             go_registration_ambiguous_owner_skips: 0,
             go_registration_unknown_owner_recorded: 0,
+            // P7: whole-program Python property-access state — left empty
+            // here for the same reason as the Go func-value state above;
+            // the caller re-applies `apply_python_property_accesses` on the
+            // merged graph.
+            property_getters: BTreeMap::new(),
+            cached_property_getters: BTreeSet::new(),
+            property_accesses: BTreeSet::new(),
+            property_access_fanout_skips: 0,
+            property_access_store_skips: 0,
         }
     }
 
@@ -4606,5 +4962,652 @@ func main() {\n\thelper := func() {}\n\t_ = helper\n\tRegister(helper)\n}\n",
         assert_eq!(cg.go_registration_shadowed_skips, 0);
         assert_eq!(cg.go_registration_ambiguous_owner_skips, 0);
         assert_eq!(cg.go_registration_unknown_owner_recorded, 0);
+    }
+}
+
+#[cfg(test)]
+mod python_property_access_tests {
+    use super::*;
+    use crate::languages::Language::{JavaScript, Python};
+    use std::collections::BTreeMap;
+
+    fn build_py(files: &[(&str, &str)]) -> CallGraph {
+        let mut map = BTreeMap::new();
+        for (path, src) in files {
+            map.insert(
+                path.to_string(),
+                ParsedFile::parse(path, src, Python).unwrap(),
+            );
+        }
+        CallGraph::build(&map)
+    }
+
+    fn fid_named<'a>(cg: &'a CallGraph, name: &str) -> &'a FunctionId {
+        cg.functions
+            .get(name)
+            .unwrap_or_else(|| panic!("no function named {name}"))
+            .first()
+            .unwrap()
+    }
+
+    // ---- S1: property getter index -----------------------------------
+
+    #[test]
+    fn property_getter_is_recorded_in_index() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n",
+        )]);
+        let getters = cg
+            .property_getters
+            .get(&("Response".to_string(), "text".to_string()))
+            .expect("@property getter recorded");
+        assert_eq!(getters.len(), 1);
+        assert!(cg.cached_property_getters.is_empty());
+    }
+
+    #[test]
+    fn cached_property_getter_is_recorded_and_tracked_separately() {
+        let cg = build_py(&[(
+            "resp.py",
+            "import functools\n\nclass Response:\n    @functools.cached_property\n    def text(self):\n        return self._text\n",
+        )]);
+        let getters = cg
+            .property_getters
+            .get(&("Response".to_string(), "text".to_string()))
+            .expect("@functools.cached_property getter recorded");
+        assert_eq!(getters.len(), 1);
+        assert_eq!(cg.cached_property_getters.len(), 1);
+        assert!(cg.cached_property_getters.contains(&getters[0]));
+    }
+
+    #[test]
+    fn bare_cached_property_decorator_is_recorded_and_tracked_separately() {
+        let cg = build_py(&[(
+            "resp.py",
+            "from functools import cached_property\n\nclass Response:\n    @cached_property\n    def text(self):\n        return self._text\n",
+        )]);
+        let getters = cg
+            .property_getters
+            .get(&("Response".to_string(), "text".to_string()))
+            .expect("@cached_property getter recorded");
+        assert_eq!(cg.cached_property_getters.len(), 1);
+        assert!(cg.cached_property_getters.contains(&getters[0]));
+    }
+
+    #[test]
+    fn setter_decorated_method_never_pollutes_getter_index() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n    @text.setter\n    def text(self, value):\n        self._text = value\n",
+        )]);
+        let getters = cg
+            .property_getters
+            .get(&("Response".to_string(), "text".to_string()))
+            .expect("getter recorded");
+        // Exactly the getter, never the `@text.setter`-decorated definition.
+        assert_eq!(getters.len(), 1);
+        assert_eq!(getters[0].start_line, 2);
+    }
+
+    #[test]
+    fn non_decorated_same_name_method_is_not_indexed() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    def text(self):\n        return self._text\n",
+        )]);
+        assert!(cg
+            .property_getters
+            .get(&("Response".to_string(), "text".to_string()))
+            .is_none());
+    }
+
+    #[test]
+    fn non_python_files_leave_property_state_empty() {
+        let mut files = BTreeMap::new();
+        files.insert(
+            "resp.js".to_string(),
+            ParsedFile::parse(
+                "resp.js",
+                "class Response {\n  get text() { return this._text; }\n}\nfunction f(r) {\n  return r.text;\n}\n",
+                JavaScript,
+            )
+            .unwrap(),
+        );
+        let cg = CallGraph::build(&files);
+        assert!(cg.property_getters.is_empty());
+        assert!(cg.cached_property_getters.is_empty());
+        assert!(cg.property_accesses.is_empty());
+        assert_eq!(cg.property_access_fanout_skips, 0);
+        assert_eq!(cg.property_access_store_skips, 0);
+    }
+
+    // ---- S2: access-site extraction ------------------------------------
+
+    #[test]
+    fn self_attr_records_against_own_class_getter() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n    def dump(self):\n        return self.text\n",
+        )]);
+        let getter = fid_named(&cg, "text").clone();
+        let enclosing = fid_named(&cg, "dump").clone();
+        assert!(cg
+            .property_accesses
+            .iter()
+            .any(|a| a.getter == getter && a.enclosing == enclosing));
+    }
+
+    #[test]
+    fn unknown_receiver_single_owner_is_recorded() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    return r.text\n",
+        )]);
+        let getter = fid_named(&cg, "text").clone();
+        let enclosing = fid_named(&cg, "f").clone();
+        assert!(cg
+            .property_accesses
+            .iter()
+            .any(|a| a.getter == getter && a.enclosing == enclosing));
+        assert_eq!(cg.property_access_fanout_skips, 0);
+    }
+
+    #[test]
+    fn plain_assignment_target_is_not_recorded() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    r.text = \"v\"\n",
+        )]);
+        assert!(cg.property_accesses.is_empty());
+    }
+
+    #[test]
+    fn augmented_assignment_target_is_not_recorded() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    r.text += \"v\"\n",
+        )]);
+        assert!(cg.property_accesses.is_empty());
+    }
+
+    // ---- F5: property_access_store_skips telemetry ---------------------
+
+    #[test]
+    fn store_target_with_indexed_name_increments_store_skip_counter() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    r.text = \"v\"\n",
+        )]);
+        assert_eq!(cg.property_access_store_skips, 1);
+    }
+
+    #[test]
+    fn store_target_with_non_indexed_name_does_not_increment_store_skip_counter() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    r.other = \"v\"\n",
+        )]);
+        assert_eq!(cg.property_access_store_skips, 0);
+    }
+
+    #[test]
+    fn delete_for_and_with_alias_store_skips_are_all_counted() {
+        // F4 + F5 together: every one of the store/delete contexts F4 fences
+        // (assignment/augmented left, del target, for target, with-alias)
+        // increments the same counter when the name is indexed.
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\n\
+def f(r, xs, cm):\n    r.text = \"v\"\n    r.text += \"v\"\n    del r.text\n    for r.text in xs:\n        pass\n    with cm() as r.text:\n        pass\n",
+        )]);
+        assert_eq!(cg.property_access_store_skips, 5);
+    }
+
+    // ---- F4: delete/for/with-target store contexts ---------------------
+
+    #[test]
+    fn delete_statement_target_is_not_recorded() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    del r.text\n",
+        )]);
+        assert!(cg.property_accesses.is_empty());
+    }
+
+    #[test]
+    fn for_target_attribute_is_not_recorded() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r, xs):\n    for r.text in xs:\n        pass\n",
+        )]);
+        assert!(cg.property_accesses.is_empty());
+    }
+
+    #[test]
+    fn comprehension_for_target_attribute_is_not_recorded() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r, xs):\n    return [x for r.text in xs]\n",
+        )]);
+        assert!(cg.property_accesses.is_empty());
+    }
+
+    #[test]
+    fn for_iterable_attribute_load_is_still_recorded() {
+        // The right-hand/iterable side of a `for` remains LOAD context.
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    for x in r.text:\n        pass\n",
+        )]);
+        let getter = fid_named(&cg, "text").clone();
+        let enclosing = fid_named(&cg, "f").clone();
+        assert!(cg
+            .property_accesses
+            .iter()
+            .any(|a| a.getter == getter && a.enclosing == enclosing));
+    }
+
+    #[test]
+    fn with_alias_target_attribute_is_not_recorded() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r, cm):\n    with cm() as r.text:\n        pass\n",
+        )]);
+        assert!(cg.property_accesses.is_empty());
+    }
+
+    #[test]
+    fn with_item_value_attribute_load_is_still_recorded() {
+        // The context-manager-expression side of `with ... as x:` remains
+        // LOAD context, even though the alias target does not.
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    with r.text as x:\n        pass\n",
+        )]);
+        let getter = fid_named(&cg, "text").clone();
+        let enclosing = fid_named(&cg, "f").clone();
+        assert!(cg
+            .property_accesses
+            .iter()
+            .any(|a| a.getter == getter && a.enclosing == enclosing));
+    }
+
+    #[test]
+    fn call_of_attribute_is_not_double_recorded() {
+        // `r.text()` — the attribute is the function child of a call, not a
+        // load; the property-access table must not record it (the ordinary
+        // call-resolution path, independent of this table, is what handles
+        // `r.text()` syntactically as a method call).
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    return r.text()\n",
+        )]);
+        assert!(cg.property_accesses.is_empty());
+    }
+
+    #[test]
+    fn fanout_at_cap_records_all_three() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class A:\n    @property\n    def text(self):\n        return 1\n\n\n\
+class B:\n    @property\n    def text(self):\n        return 2\n\n\n\
+class C:\n    @property\n    def text(self):\n        return 3\n\n\n\
+def f(r):\n    return r.text\n",
+        )]);
+        assert_eq!(cg.property_accesses.len(), 3);
+        assert_eq!(cg.property_access_fanout_skips, 0);
+    }
+
+    #[test]
+    fn fanout_over_cap_is_skipped_and_counted() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class A:\n    @property\n    def text(self):\n        return 1\n\n\n\
+class B:\n    @property\n    def text(self):\n        return 2\n\n\n\
+class C:\n    @property\n    def text(self):\n        return 3\n\n\n\
+class D:\n    @property\n    def text(self):\n        return 4\n\n\n\
+def f(r):\n    return r.text\n",
+        )]);
+        assert!(cg.property_accesses.is_empty());
+        assert_eq!(cg.property_access_fanout_skips, 1);
+    }
+
+    #[test]
+    fn cls_attr_does_not_narrow_to_its_own_class() {
+        // `cls.text` inside a classmethod of `A` must NOT be narrowed to just
+        // A's getter (the self-like shortcut is explicitly excluded) — with
+        // 2 classes defining `text`, it must fan out to BOTH (under cap),
+        // pinning that `cls` gets no special treatment vs. any other
+        // unrecognized receiver.
+        let cg = build_py(&[(
+            "resp.py",
+            "class A:\n    @property\n    def text(self):\n        return 1\n\n    @classmethod\n    def make(cls):\n        return cls.text\n\n\n\
+class B:\n    @property\n    def text(self):\n        return 2\n",
+        )]);
+        let a_getter = cg
+            .property_getters
+            .get(&("A".to_string(), "text".to_string()))
+            .unwrap()[0]
+            .clone();
+        let b_getter = cg
+            .property_getters
+            .get(&("B".to_string(), "text".to_string()))
+            .unwrap()[0]
+            .clone();
+        let enclosing = fid_named(&cg, "make").clone();
+        assert!(cg
+            .property_accesses
+            .iter()
+            .any(|a| a.getter == a_getter && a.enclosing == enclosing));
+        assert!(
+            cg.property_accesses
+                .iter()
+                .any(|a| a.getter == b_getter && a.enclosing == enclosing),
+            "cls.text must fan out to B's getter too, not narrow to A alone"
+        );
+    }
+
+    #[test]
+    fn staticmethod_self_param_does_not_get_same_class_narrowing() {
+        // F2 (codex MAJOR 2): `@staticmethod def make(self)` — Python's
+        // generic `method_owner` marks it as owned by `A` (any
+        // class-contained function), but `self` here is an ordinary
+        // parameter of unknown type, not a receiver. It must NOT get tier-1
+        // same-class narrowing; it must route to tier-3 (unknown-receiver,
+        // capped fanout) like any other unrecognized receiver — so with
+        // A and B both defining `text`, it must fan out to BOTH.
+        let cg = build_py(&[(
+            "resp.py",
+            "class A:\n    @property\n    def text(self):\n        return 1\n\n    @staticmethod\n    def make(self):\n        return self.text\n\n\n\
+class B:\n    @property\n    def text(self):\n        return 2\n",
+        )]);
+        let a_getter = cg
+            .property_getters
+            .get(&("A".to_string(), "text".to_string()))
+            .unwrap()[0]
+            .clone();
+        let b_getter = cg
+            .property_getters
+            .get(&("B".to_string(), "text".to_string()))
+            .unwrap()[0]
+            .clone();
+        let enclosing = fid_named(&cg, "make").clone();
+        assert!(
+            cg.property_accesses
+                .iter()
+                .any(|a| a.getter == a_getter && a.enclosing == enclosing),
+            "staticmethod self.text must still fan out to A's getter"
+        );
+        assert!(
+            cg.property_accesses
+                .iter()
+                .any(|a| a.getter == b_getter && a.enclosing == enclosing),
+            "staticmethod self.text must fan out to B's getter too, not narrow to A alone"
+        );
+    }
+
+    #[test]
+    fn top_level_self_param_routes_to_tier3_fanout_not_drop() {
+        // Item 1 (MAJOR, codex re-review): a top-level `def f(self)` is not
+        // contained in any class, so `method_owners` has no entry for it.
+        // Tier-1 eligibility now requires `method_owners.contains_key`, so
+        // this must NOT enter tier-1 (and then drop when
+        // `self_property_owner_getters` finds no owner) — it must route to
+        // tier-3 unknown-receiver fanout, same as any other unrecognized
+        // receiver. With exactly one class defining `text`, that fanout
+        // yields a single edge, not a drop.
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(self):\n    return self.text\n",
+        )]);
+        let getter = fid_named(&cg, "text").clone();
+        let enclosing = fid_named(&cg, "f").clone();
+        assert!(
+            cg.property_accesses
+                .iter()
+                .any(|a| a.getter == getter && a.enclosing == enclosing),
+            "top-level def f(self) reading self.text must fan out to Response's getter, not drop"
+        );
+        assert_eq!(cg.property_access_fanout_skips, 0);
+    }
+
+    #[test]
+    fn keyword_only_self_param_does_not_narrow_to_owning_class() {
+        // Item 1 (MAJOR): `def make(*, self)` inside class A — `self` is
+        // keyword-only (appears after the bare `*` separator), so it is NOT
+        // the first positional parameter and must fail the instance-method
+        // gate even though `make` IS owned by A (`method_owners` has an
+        // entry). Must NOT narrow to A alone; must fan out to both A and B,
+        // proving the keyword-only receiver gets no special treatment.
+        let cg = build_py(&[(
+            "resp.py",
+            "class A:\n    @property\n    def text(self):\n        return 1\n\n    def make(*, self):\n        return self.text\n\n\n\
+class B:\n    @property\n    def text(self):\n        return 2\n",
+        )]);
+        let a_getter = cg
+            .property_getters
+            .get(&("A".to_string(), "text".to_string()))
+            .unwrap()[0]
+            .clone();
+        let b_getter = cg
+            .property_getters
+            .get(&("B".to_string(), "text".to_string()))
+            .unwrap()[0]
+            .clone();
+        let enclosing = fid_named(&cg, "make").clone();
+        assert!(
+            cg.property_accesses
+                .iter()
+                .any(|a| a.getter == a_getter && a.enclosing == enclosing),
+            "keyword-only self.text must still fan out to A's getter"
+        );
+        assert!(
+            cg.property_accesses
+                .iter()
+                .any(|a| a.getter == b_getter && a.enclosing == enclosing),
+            "keyword-only self.text must fan out to B's getter too, not narrow to A alone"
+        );
+    }
+
+    #[test]
+    fn positional_only_self_param_is_still_tier1_narrowed() {
+        // Item 1 (c): `self` before a bare `/` positional-only separator
+        // still counts as the first positional parameter (`def m(self, /)`)
+        // — must still get tier-1 same-class narrowing, not fan out to an
+        // unrelated class's getter of the same name.
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n    def dump(self, /):\n        return self.text\n\n\n\
+class Other:\n    @property\n    def text(self):\n        return 2\n",
+        )]);
+        let response_getter = cg
+            .property_getters
+            .get(&("Response".to_string(), "text".to_string()))
+            .unwrap()[0]
+            .clone();
+        let other_getter = cg
+            .property_getters
+            .get(&("Other".to_string(), "text".to_string()))
+            .unwrap()[0]
+            .clone();
+        let enclosing = fid_named(&cg, "dump").clone();
+        assert!(
+            cg.property_accesses
+                .iter()
+                .any(|a| a.getter == response_getter && a.enclosing == enclosing),
+            "positional-only self.text must narrow to Response's own getter"
+        );
+        assert!(
+            !cg.property_accesses
+                .iter()
+                .any(|a| a.getter == other_getter && a.enclosing == enclosing),
+            "positional-only self must NOT fan out to Other's unrelated getter"
+        );
+    }
+
+    #[test]
+    fn property_getter_reading_self_other_prop_is_still_tier1_narrowed() {
+        // F2: the enclosing function MAY legitimately carry other
+        // decorators, including `@property` itself — a getter reading
+        // `self.other_prop` is a genuine instance method and must still get
+        // tier-1 same-class narrowing (not fan out to an unrelated class
+        // that also happens to define `other_prop`).
+        let cg = build_py(&[(
+            "resp.py",
+            "class A:\n    @property\n    def other_prop(self):\n        return 1\n\n    @property\n    def text(self):\n        return self.other_prop\n\n\n\
+class B:\n    @property\n    def other_prop(self):\n        return 2\n",
+        )]);
+        let a_other_prop = cg
+            .property_getters
+            .get(&("A".to_string(), "other_prop".to_string()))
+            .unwrap()[0]
+            .clone();
+        let b_other_prop = cg
+            .property_getters
+            .get(&("B".to_string(), "other_prop".to_string()))
+            .unwrap()[0]
+            .clone();
+        let enclosing = fid_named(&cg, "text").clone();
+        assert!(
+            cg.property_accesses
+                .iter()
+                .any(|a| a.getter == a_other_prop && a.enclosing == enclosing),
+            "text() reading self.other_prop must narrow to A's own other_prop getter"
+        );
+        assert!(
+            !cg.property_accesses
+                .iter()
+                .any(|a| a.getter == b_other_prop && a.enclosing == enclosing),
+            "must NOT fan out to B's unrelated other_prop getter"
+        );
+    }
+
+    #[test]
+    fn self_attr_with_no_matching_class_does_not_fan_out() {
+        // `self.text` inside `A` (which does NOT define `text`) must not be
+        // attributed to `B`'s unrelated getter, even though the name is
+        // indexed globally — a known non-matching receiver is a negative
+        // result, not "unknown".
+        let cg = build_py(&[(
+            "resp.py",
+            "class A:\n    def dump(self):\n        return self.text\n\n\n\
+class B:\n    @property\n    def text(self):\n        return 2\n",
+        )]);
+        assert!(cg.property_accesses.is_empty());
+    }
+
+    #[test]
+    fn self_attr_own_class_hit_filtered_by_caller_file_and_span() {
+        // F1 (codex MAJOR 1): two files each define `class Response` with
+        // `@property def text`. The bare `(owner, attr)` index key collides
+        // across files, so an unfiltered own-class hit would fan out to
+        // BOTH getters when a method in file A's Response reads `self.text`.
+        // The own-class hit must be filtered to the caller's own file AND
+        // class span, exactly like the inherited-base fallback already is.
+        let cg = build_py(&[
+            (
+                "resp_a.py",
+                "class Response:\n    @property\n    def text(self):\n        return self._text\n\n    def dump(self):\n        return self.text\n",
+            ),
+            (
+                "resp_b.py",
+                "class Response:\n    @property\n    def text(self):\n        return self._text\n",
+            ),
+        ]);
+        let getter_a = cg
+            .property_getters
+            .get(&("Response".to_string(), "text".to_string()))
+            .expect("text getters indexed")
+            .iter()
+            .find(|fid| fid.file == "resp_a.py")
+            .expect("resp_a.py getter present")
+            .clone();
+        let enclosing = cg
+            .functions
+            .get("dump")
+            .expect("dump indexed")
+            .iter()
+            .find(|fid| fid.file == "resp_a.py")
+            .expect("dump in resp_a.py")
+            .clone();
+        let matches: Vec<_> = cg
+            .property_accesses
+            .iter()
+            .filter(|a| a.enclosing == enclosing)
+            .collect();
+        assert_eq!(
+            matches.len(),
+            1,
+            "self.text in resp_a.py's Response.dump must produce exactly one edge, got {:?}",
+            matches
+        );
+        assert_eq!(matches[0].getter, getter_a);
+    }
+
+    #[test]
+    fn self_attr_narrows_via_same_file_single_base() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Base:\n    @property\n    def text(self):\n        return self._text\n\n\n\
+class Child(Base):\n    def dump(self):\n        return self.text\n",
+        )]);
+        let getter = fid_named(&cg, "text").clone();
+        let enclosing = fid_named(&cg, "dump").clone();
+        assert!(cg
+            .property_accesses
+            .iter()
+            .any(|a| a.getter == getter && a.enclosing == enclosing));
+    }
+
+    // ---- F3: nested callable/class scope fencing -----------------------
+
+    #[test]
+    fn nested_def_self_attr_not_attributed_to_outer_method() {
+        // F3 (codex MAJOR 3): a nested `def` has the SAME kind as the outer
+        // function but its own scope — `self.text` inside it must not be
+        // recorded against the OUTER method's FunctionId (misattribution +
+        // double-scan, since `all_functions()` visits the nested def
+        // separately anyway).
+        //
+        // Item 2 (MINOR, codex re-review): this pin is only load-bearing if
+        // it also proves the access isn't dropped entirely — the nested
+        // def's OWN walk must record it under the nested FunctionId (via
+        // tier-3: `helper` has no `self` parameter of its own, so it never
+        // qualifies for tier-1 in the first place — this is unaffected by
+        // which routing failure sends it to tier-3). With exactly one class
+        // defining `text`, tier-3 fanout yields a single owner edge.
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n    def dump(self):\n        def helper():\n            return self.text\n        return helper()\n",
+        )]);
+        let dump = fid_named(&cg, "dump").clone();
+        let helper = fid_named(&cg, "helper").clone();
+        let getter = fid_named(&cg, "text").clone();
+        assert!(
+            !cg.property_accesses.iter().any(|a| a.enclosing == dump),
+            "self.text inside a nested def must not be attributed to the outer method"
+        );
+        assert!(
+            cg.property_accesses
+                .iter()
+                .any(|a| a.getter == getter && a.enclosing == helper),
+            "self.text inside the nested def must be recorded under the nested function's own FunctionId, not dropped"
+        );
+    }
+
+    #[test]
+    fn lambda_body_self_attr_is_not_scanned() {
+        // F3: lambda bodies are fenced out of the walk entirely (accepted
+        // recall gap — no other scanner covers lambda bodies either, since
+        // lambdas never get their own FunctionId from `all_functions()`).
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n    def dump(self):\n        f = lambda: self.text\n        return f()\n",
+        )]);
+        assert!(
+            cg.property_accesses.is_empty(),
+            "self.text inside a lambda body must not surface any edge"
+        );
     }
 }

@@ -286,6 +286,21 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         demoted += 1;
     }
 
+    // P7 S3: Python property-access records are NOT `CallSite`s either (same
+    // rationale as the go_registrations loop above) — count them explicitly
+    // into the same `kinds`/`kind_nameonly`/`demoted` telemetry, plus
+    // dedicated counters for the S1/S2 build-time facts that have no other
+    // way to reach call-stats.
+    let mut property_access_cached_property_recorded = 0usize;
+    for acc in &cg.property_accesses {
+        *kinds.entry("property_access").or_default() += 1;
+        *kind_nameonly.entry("property_access").or_default() += 1;
+        demoted += 1;
+        if cg.cached_property_getters.contains(&acc.getter) {
+            property_access_cached_property_recorded += 1;
+        }
+    }
+
     serde_json::json!({
         "total_call_sites": total,
         "kinds": kinds,
@@ -299,6 +314,10 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "callback_registration_shadowed_skips": cg.go_registration_shadowed_skips,
         "callback_registration_ambiguous_owner_skips": cg.go_registration_ambiguous_owner_skips,
         "callback_registration_unknown_owner_recorded": cg.go_registration_unknown_owner_recorded,
+        "property_accesses_recorded": cg.property_accesses.len(),
+        "property_access_fanout_skips": cg.property_access_fanout_skips,
+        "property_access_store_skips": cg.property_access_store_skips,
+        "property_access_cached_property_recorded": property_access_cached_property_recorded,
         "embedding_gaps": cg.embedding_gaps,
         "interface_gaps": cg.interface_gaps,
         "interface_overapprox": cg.interface_overapprox,

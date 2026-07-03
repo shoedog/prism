@@ -67,6 +67,18 @@ pub enum ResolutionKind {
     /// gated inside the interface-consult miss path. NameOnly — the target is
     /// one of 1..=3 distinct registration targets recorded for the field.
     FuncValueField,
+    /// P7 S2: a Python `@property`/`@cached_property` LOAD access
+    /// (`self.attr` same-class/single-base narrowed, or an unknown/`cls`
+    /// receiver capped fanout) surfaced as a NameOnly nav edge. Never
+    /// produced by `resolve_call_site_full` — mirrors `CallbackRegistration`:
+    /// property accesses are not `CallSite`s (a synthetic CallSite here could
+    /// mint a wrong-kind/Exact edge through the ordinary call ladder); this
+    /// kind labels edges synthesized directly from
+    /// `CallGraph::property_accesses` in
+    /// `NavigationIndex::build_resolved_call_edges`. Unlike `FuncValueField`,
+    /// there is no S3 resolve-time consult path at all (nav-only, no CPG/
+    /// DataFlow consumer ever sees it).
+    PropertyAccess,
 }
 
 impl ResolutionKind {
@@ -94,6 +106,7 @@ impl ResolutionKind {
             ResolutionKind::R6MultiOwnerCandidate => "r6_multi_owner_candidate",
             ResolutionKind::CallbackRegistration => "callback_registration",
             ResolutionKind::FuncValueField => "func_value_field",
+            ResolutionKind::PropertyAccess => "property_access",
         }
     }
 }

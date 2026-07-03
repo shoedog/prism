@@ -1,0 +1,17 @@
+[case]
+language = "python"
+capability = "property_self_access"
+# P7 tier 1: `self.attr` narrows to the enclosing class's own getter — the
+# strongest (self/same-class) receiver tier, ahead of the unknown-receiver
+# fanout `property_access` fixture exercises.
+status = "pass"
+[seed]
+symbol = "text"
+file = "app.py"
+line = 3
+[[expect.callers]]
+file = "app.py"
+line = 7
+[expect]
+exact = true
+resolution_kind = "property_access"
