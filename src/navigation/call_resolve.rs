@@ -41,12 +41,31 @@ pub(crate) fn scoped_caller_site_match_count(
 
     if let Some(bindings) = cg.import_bindings.get(&site.caller.file) {
         for b in bindings {
-            if b.eligible
-                && matches!(b.kind, crate::call_graph::ImportBindingKind::MemberImport)
-                && b.local != target_name
-                && b.local == bucket_key
-                && b.member.as_deref() == Some(target_name)
+            if !b.eligible
+                || !matches!(b.kind, crate::call_graph::ImportBindingKind::MemberImport)
+                || b.local != bucket_key
+                || b.local == target_name
             {
+                continue;
+            }
+            let member = b.member.as_deref().unwrap_or(&b.local);
+            // Python: `member` IS the real declared name R4c resolved against
+            // (Python has no export renaming), so a direct match suffices.
+            // JS/TS (P4): `member` is the EXPORTED name, which can diverge
+            // from the real declared name via default exports, `export { a as
+            // b }` renames, CommonJS assignments, and re-export chains/
+            // barrels — resolve it through `js_ts_resolved_exports` (the same
+            // typed facts R4c itself consults) to the real local name before
+            // comparing, instead of assuming member == target_name.
+            let js_ts_resolved_match = crate::call_graph::resolve_js_ts_relative_module(
+                &b.module_path,
+                &site.caller.file,
+                &cg.indexed_files,
+            )
+            .and_then(|candidate_file| cg.js_ts_resolved_exports.get(&candidate_file))
+            .and_then(|exports| exports.get(member))
+            .is_some_and(|resolved| resolved.local_name == target_name);
+            if member == target_name || js_ts_resolved_match {
                 count += 1;
             }
         }

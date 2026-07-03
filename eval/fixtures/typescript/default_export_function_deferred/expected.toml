@@ -6,7 +6,9 @@ status = "pass"
 symbol = "process"
 file = "util.ts"
 line = 1
+[[expect.callers]]
+file = "app.ts"
+line = 4
 [expect]
-callers = []
-exact = false
-forbid_resolution_kind = "import_member"
+exact = true
+resolution_kind = "import_member"

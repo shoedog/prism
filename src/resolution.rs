@@ -1779,63 +1779,57 @@ impl CallGraph {
                                 // local name; do not mint an exact import edge.
                             } else {
                                 let member = binding.member.as_deref().unwrap_or(name);
-                                if let Some(ids) = self.functions.get(member) {
-                                    // Filter to free functions in matching files.
-                                    // Python `from m import f` imports a module-level
-                                    // name, so methods (class-scoped) are excluded.
-                                    let matched: Vec<&FunctionId> = ids
-                                    .iter()
-                                    .filter(|fid| {
-                                        if self.method_owners.contains_key(*fid) {
-                                            return false;
-                                        }
-                                        if is_js_ts {
-                                            crate::call_graph::file_matches_js_ts_relative_module_exact(
-                                                &fid.file,
-                                                &binding.module_path,
-                                                &caller.file,
-                                                &self.indexed_files,
-                                            )
-                                                && self
-                                                    .js_ts_exported_functions
-                                                    .get(&fid.file)
-                                                    .is_some_and(|exports| exports.contains(member))
-                                        } else {
-                                            crate::call_graph::file_matches_module(
-                                                &fid.file,
-                                                &binding.module_path,
-                                                &caller.file,
-                                                &self.indexed_files,
-                                            )
+                                // JS/TS: resolve through the typed, whole-program-
+                                // resolved export facts (P4) — `member` is the raw
+                                // imported/exported NAME, which for a rename/
+                                // default/CJS/barrel form differs from the
+                                // declaring function's actual name, so this can't
+                                // start from `self.functions.get(member)` the way
+                                // the Python arm below does.
+                                let matched: Vec<&FunctionId> = if is_js_ts {
+                                    self.js_ts_import_member_candidates(caller, binding, member)
+                                } else if let Some(ids) = self.functions.get(member) {
+                                    // Python: filter to free, module-level
+                                    // functions in matching files.
+                                    ids.iter()
+                                        .filter(|fid| {
+                                            !self.method_owners.contains_key(*fid)
+                                                && crate::call_graph::file_matches_module(
+                                                    &fid.file,
+                                                    &binding.module_path,
+                                                    &caller.file,
+                                                    &self.indexed_files,
+                                                )
                                                 // Only accept module-level functions, not nested defs.
                                                 && self
-                                                .module_bindings
-                                                .get(&fid.file)
-                                                .and_then(|mb| mb.get(member))
-                                                .map_or(false, |k| {
-                                                    matches!(
-                                                        k,
-                                                        crate::call_graph::ModuleBindingKind::FunctionDef
-                                                    )
-                                                })
-                                        }
-                                    })
-                                    .collect();
-                                    match matched.len() {
-                                        1 => {
-                                            return ResolutionOutcome::hit(exact(
-                                                matched,
-                                                ResolutionKind::ImportMember,
-                                            ))
-                                        }
-                                        n if n > 1 => {
-                                            return ResolutionOutcome::hit(demoted(
-                                                matched,
-                                                ResolutionKind::ImportMember,
-                                            ))
-                                        }
-                                        _ => {} // fall through to R5
+                                                    .module_bindings
+                                                    .get(&fid.file)
+                                                    .and_then(|mb| mb.get(member))
+                                                    .map_or(false, |k| {
+                                                        matches!(
+                                                            k,
+                                                            crate::call_graph::ModuleBindingKind::FunctionDef
+                                                        )
+                                                    })
+                                        })
+                                        .collect()
+                                } else {
+                                    Vec::new()
+                                };
+                                match matched.len() {
+                                    1 => {
+                                        return ResolutionOutcome::hit(exact(
+                                            matched,
+                                            ResolutionKind::ImportMember,
+                                        ))
                                     }
+                                    n if n > 1 => {
+                                        return ResolutionOutcome::hit(demoted(
+                                            matched,
+                                            ResolutionKind::ImportMember,
+                                        ))
+                                    }
+                                    _ => {} // fall through to R5
                                 }
                             }
                         }
@@ -1932,6 +1926,43 @@ impl CallGraph {
                     _ => ResolutionOutcome::hit(demoted(nonstatic, ResolutionKind::FreeMulti)),
                 }
             }
+        }
+    }
+
+    /// P4: JS/TS R4c import-member candidates via the typed, whole-program-
+    /// resolved export facts (`js_ts_resolved_exports`). Those facts already
+    /// followed any re-export chain to the concrete declaring file and local
+    /// name, so — unlike the Python arm in `resolve_call_site_full` — this
+    /// does NOT start from `self.functions.get(member)`: `member` is the raw
+    /// imported/exported name, which for a rename, default export, CommonJS
+    /// assignment, or barrel differs from the declaring function's actual
+    /// name entirely.
+    fn js_ts_import_member_candidates(
+        &self,
+        caller: &FunctionId,
+        binding: &crate::call_graph::ImportBinding,
+        member: &str,
+    ) -> Vec<&FunctionId> {
+        let Some(candidate_file) = crate::call_graph::resolve_js_ts_relative_module(
+            &binding.module_path,
+            &caller.file,
+            &self.indexed_files,
+        ) else {
+            return Vec::new();
+        };
+        let Some(resolved) = self
+            .js_ts_resolved_exports
+            .get(&candidate_file)
+            .and_then(|exports| exports.get(member))
+        else {
+            return Vec::new();
+        };
+        match self.functions.get(&resolved.local_name) {
+            Some(ids) => ids
+                .iter()
+                .filter(|fid| fid.file == resolved.file && !self.method_owners.contains_key(*fid))
+                .collect(),
+            None => Vec::new(),
         }
     }
 

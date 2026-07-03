@@ -311,6 +311,10 @@ impl CodePropertyGraph {
             // ordering (this repopulates `method_owners`/`method_class_span`/
             // `class_bases`-dependent state fresh from the merged graph).
             cached_cg.apply_python_property_accesses(files);
+            // P4: JS/TS export-fact resolution (re-export chains/barrels) is
+            // ALSO whole-program derived — recompute after merge, same
+            // rationale as the Go passes above.
+            cached_cg.apply_js_export_resolution();
 
             Self::assemble_graph(cached_cg, cached_dfg, files, type_db)
         })

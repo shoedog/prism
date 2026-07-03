@@ -1,0 +1,12 @@
+[case]
+language = "typescript"
+capability = "default_import_named_export_mismatch"
+status = "pass"
+[seed]
+symbol = "process"
+file = "util.ts"
+line = 1
+[expect]
+callers = []
+exact = false
+forbid_resolution_kind = "import_member"

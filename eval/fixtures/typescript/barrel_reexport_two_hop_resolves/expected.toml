@@ -1,0 +1,16 @@
+# Barrel chain: index.ts -> mid.ts -> impl.ts (2 re-export hops). Within
+# MAX_REEXPORT_DEPTH (js_exports::MAX_REEXPORT_DEPTH = 2), so this resolves.
+[case]
+language = "typescript"
+capability = "barrel_reexport_two_hop_resolves"
+status = "pass"
+[seed]
+symbol = "process"
+file = "impl.ts"
+line = 1
+[[expect.callers]]
+file = "app.ts"
+line = 4
+[expect]
+exact = true
+resolution_kind = "import_member"

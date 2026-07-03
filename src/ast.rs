@@ -1295,11 +1295,42 @@ impl ParsedFile {
         node: Node<'_>,
         out: &mut Vec<crate::call_graph::ImportBinding>,
     ) {
-        use crate::call_graph::{ImportBinding, ImportBindingKind};
-        // Only process top-level import_statement nodes.
-        if node.kind() != "import_statement" {
-            return;
+        match node.kind() {
+            "import_statement" => self.collect_js_import_statement_bindings(node, out),
+            // CommonJS destructured `require`: `const { a, b: c } = require('./y')`.
+            // Whole-module requires (`const g = require('./y')`) stay out of
+            // scope here — no member name to bind against R4c.
+            //
+            // F1 (review-fix wave, codex BLOCKER 1): `const` only. A `let`/`var`
+            // destructured require can be reassigned after the binding
+            // (`let { f } = require('./m'); f = localFn;`), and this layer does
+            // not track reassignment -- extracting it anyway risks R4c minting
+            // a false Exact edge to the require target even after a rebind.
+            // ADJUDICATION: fail closed by never extracting `let`/`var`
+            // destructured requires at all (not just when later reassigned) --
+            // deliberately not building assignment-rebind tracking this slice.
+            "lexical_declaration" if self.js_ts_lexical_declaration_is_const(node) => {
+                self.collect_js_require_import_bindings(node, out)
+            }
+            "lexical_declaration" | "variable_declaration" => {}
+            _ => {}
         }
+    }
+
+    /// Whether a `lexical_declaration` node (`const x = ...` / `let x = ...`)
+    /// is the `const` form. `variable_declaration` (`var`) has no `kind`
+    /// field and is handled by its own match arm.
+    fn js_ts_lexical_declaration_is_const(&self, node: Node<'_>) -> bool {
+        node.child_by_field_name("kind")
+            .is_some_and(|k| k.kind() == "const")
+    }
+
+    fn collect_js_import_statement_bindings(
+        &self,
+        node: Node<'_>,
+        out: &mut Vec<crate::call_graph::ImportBinding>,
+    ) {
+        use crate::call_graph::{ImportBinding, ImportBindingKind};
         if self.js_ts_import_statement_is_type_only(node) {
             return;
         }
@@ -1319,13 +1350,90 @@ impl ParsedFile {
                         out.push(ImportBinding {
                             local: name,
                             module_path: module_path.clone(),
-                            member: None,
-                            kind: ImportBindingKind::ModuleImport,
-                            eligible: false, // default import = module
+                            member: Some("default".to_string()),
+                            kind: ImportBindingKind::MemberImport,
+                            eligible: false, // eligibility set later
                         });
                     }
                     _ => {}
                 }
+            }
+        }
+    }
+
+    /// `const { a, b: c } = require('./y')` — a destructured require binds
+    /// each destructured property as a `MemberImport`, mirroring
+    /// `import { a, b as c } from './y'`. Only object-pattern destructuring is
+    /// in scope; `const g = require('./y')` (whole module) is a `ModuleImport`
+    /// handled separately (framework/sink detection), not R4c member
+    /// resolution.
+    fn collect_js_require_import_bindings(
+        &self,
+        node: Node<'_>,
+        out: &mut Vec<crate::call_graph::ImportBinding>,
+    ) {
+        let mut cursor = node.walk();
+        for decl in node.children(&mut cursor) {
+            if decl.kind() != "variable_declarator" {
+                continue;
+            }
+            let (Some(name_node), Some(value)) = (
+                decl.child_by_field_name("name"),
+                decl.child_by_field_name("value"),
+            ) else {
+                continue;
+            };
+            if name_node.kind() != "object_pattern" {
+                continue;
+            }
+            let Some(module_path) = self.js_require_call_module_path(&value) else {
+                continue;
+            };
+            self.collect_js_require_pattern_import_bindings(&name_node, &module_path, out);
+        }
+    }
+
+    fn collect_js_require_pattern_import_bindings(
+        &self,
+        pattern: &Node<'_>,
+        module_path: &str,
+        out: &mut Vec<crate::call_graph::ImportBinding>,
+    ) {
+        use crate::call_graph::{ImportBinding, ImportBindingKind};
+        let mut cursor = pattern.walk();
+        for child in pattern.children(&mut cursor) {
+            match child.kind() {
+                "shorthand_property_identifier_pattern" => {
+                    let name = self.node_text(&child).to_string();
+                    out.push(ImportBinding {
+                        local: name.clone(),
+                        module_path: module_path.to_string(),
+                        member: Some(name),
+                        kind: ImportBindingKind::MemberImport,
+                        eligible: false, // eligibility set later
+                    });
+                }
+                "pair_pattern" => {
+                    let key = child
+                        .child_by_field_name("key")
+                        .map(|k| self.node_text(&k).to_string());
+                    let value = child.child_by_field_name("value");
+                    if let (Some(key), Some(value)) = (key, value) {
+                        if value.kind() == "identifier" {
+                            out.push(ImportBinding {
+                                local: self.node_text(&value).to_string(),
+                                module_path: module_path.to_string(),
+                                member: Some(key),
+                                kind: ImportBindingKind::MemberImport,
+                                eligible: false, // eligibility set later
+                            });
+                        }
+                        // Nested destructuring patterns are out of scope.
+                    }
+                }
+                // Rest patterns (`...rest`) are out of scope: no single
+                // member name to bind.
+                _ => {}
             }
         }
     }
@@ -1341,13 +1449,18 @@ impl ParsedFile {
         for child in node.children(&mut cursor) {
             match child.kind() {
                 "identifier" => {
+                    // `import X from './y'` — a default import. Eligible for
+                    // R4c member-import consultation like a named import; it
+                    // only actually resolves when the target module has a
+                    // `"default"` export fact (js_ts_resolved_exports), so an
+                    // ordinary named-export-only module still falls through.
                     let name = self.node_text(&child).to_string();
                     out.push(ImportBinding {
                         local: name.clone(),
                         module_path: module_path.to_string(),
                         member: Some("default".to_string()),
-                        kind: ImportBindingKind::ModuleImport,
-                        eligible: false,
+                        kind: ImportBindingKind::MemberImport,
+                        eligible: false, // eligibility set later
                     });
                 }
                 "named_imports" => {
@@ -1445,36 +1558,47 @@ impl ParsedFile {
         out
     }
 
-    /// Extract JS/TS module-level exported function declarations.
+    /// Extract JS/TS module-level export facts: exported name (what an
+    /// importer writes — `"default"`, `"process"`, a rename target, ...) ->
+    /// either a local declaration in this file or a re-export target in
+    /// another module, plus `export * from` barrel module paths.
     ///
-    /// This deliberately accepts only `export function name(...)` declarations.
-    /// Default exports, re-export lists, CommonJS exports, and exported
-    /// const-arrow functions need separate modeling before they can support exact
-    /// import-member resolution.
-    pub fn extract_js_ts_exported_functions(&self) -> BTreeSet<String> {
+    /// Covers: `export default function name() {}` / `export default name;`,
+    /// named export lists incl. renames (`export { a, b as c };`), exported
+    /// const-arrow / function-expression declarations
+    /// (`export const f = () => {};`), CommonJS `module.exports`/`exports`
+    /// assignments, and re-export chains (`export { x } from './y'`,
+    /// `export * from './y'`). Re-export chains are resolved whole-program,
+    /// depth-bounded and cycle-safe, in
+    /// `CallGraph::apply_js_export_resolution` (`js_exports::resolve_js_exports`)
+    /// — this method only extracts the raw, per-file, un-resolved facts.
+    ///
+    /// Out of scope (skipped, counted in `skipped_expr_count` where the
+    /// syntax is otherwise a recognized export/CJS-assignment shape but the
+    /// value isn't a plain identifier): dynamic `require(expr)`/`import(expr)`,
+    /// TS `export =` CJS interop, class exports, anonymous default
+    /// function/arrow exports, spread in `module.exports = { ...x }`.
+    pub fn extract_js_ts_export_facts(&self) -> crate::js_exports::JsExportFacts {
+        let mut facts = crate::js_exports::JsExportFacts::default();
         if !matches!(
             self.language,
             Language::JavaScript | Language::TypeScript | Language::Tsx
         ) {
-            return BTreeSet::new();
+            return facts;
         }
 
-        let mut out = BTreeSet::new();
         let root = self.tree.root_node();
         let mut cursor = root.walk();
         for child in root.children(&mut cursor) {
-            if child.kind() != "export_statement" {
-                continue;
-            }
-            if self.js_ts_export_statement_is_default(child) {
-                continue;
-            }
-            let mut ec = child.walk();
-            for inner in child.children(&mut ec) {
-                self.collect_exported_function_name(inner, &mut out);
+            match child.kind() {
+                "export_statement" => self.collect_js_ts_export_statement(child, &mut facts),
+                "expression_statement" => {
+                    self.collect_js_ts_cjs_export_statement(child, &mut facts)
+                }
+                _ => {}
             }
         }
-        out
+        facts
     }
 
     fn js_ts_export_statement_is_default(&self, node: Node<'_>) -> bool {
@@ -1485,10 +1609,271 @@ impl ParsedFile {
         found
     }
 
-    fn collect_exported_function_name(&self, node: Node<'_>, out: &mut BTreeSet<String>) {
-        if node.kind() == "function_declaration" {
-            if let Some(name) = self.language.function_name(&node) {
-                out.insert(self.node_text(&name).to_string());
+    /// Handle a single top-level `export_statement` node: default exports,
+    /// named export lists (local or re-export), direct declaration exports
+    /// (`export function`/`export const`), and `export * [from]`.
+    fn collect_js_ts_export_statement(
+        &self,
+        node: Node<'_>,
+        facts: &mut crate::js_exports::JsExportFacts,
+    ) {
+        use crate::js_exports::JsExportTarget;
+
+        let source = node.child_by_field_name("source").map(|n| {
+            self.node_text(&n)
+                .trim_matches(|c| c == '\'' || c == '"')
+                .to_string()
+        });
+
+        let mut export_clause = None;
+        let mut has_namespace_export = false;
+        let mut ec = node.walk();
+        for child in node.children(&mut ec) {
+            match child.kind() {
+                "export_clause" => export_clause = Some(child),
+                "namespace_export" => has_namespace_export = true,
+                _ => {}
+            }
+        }
+
+        // `export * from './y'` (bare barrel re-export-all). `export * as ns
+        // from './y'` creates a namespace export object instead — out of scope.
+        if let Some(module_path) = &source {
+            if export_clause.is_none() && !has_namespace_export {
+                facts.star_reexports.insert(module_path.clone());
+                return;
+            }
+        }
+
+        // `export { a, b as c };` (local) or `export { a, b as c } from './y'`
+        // (re-export list).
+        if let Some(clause) = export_clause {
+            let mut cc = clause.walk();
+            for spec in clause.children(&mut cc) {
+                if spec.kind() != "export_specifier" {
+                    continue;
+                }
+                let Some(name) = spec
+                    .child_by_field_name("name")
+                    .map(|n| self.node_text(&n).to_string())
+                else {
+                    continue;
+                };
+                let alias = spec
+                    .child_by_field_name("alias")
+                    .map(|n| self.node_text(&n).to_string());
+                let exported_as = alias.unwrap_or_else(|| name.clone());
+                let target = match &source {
+                    Some(module_path) => JsExportTarget::ReExport {
+                        module_path: module_path.clone(),
+                        imported: name,
+                    },
+                    None => JsExportTarget::Local(name),
+                };
+                facts.insert_named(exported_as, target);
+            }
+            return;
+        }
+
+        // `export default <expr>;` (no `declaration` field — a bare value).
+        if let Some(value) = node.child_by_field_name("value") {
+            if value.kind() == "identifier" {
+                facts.insert_named(
+                    "default".to_string(),
+                    JsExportTarget::Local(self.node_text(&value).to_string()),
+                );
+            } else {
+                facts.skipped_expr_count += 1;
+            }
+            return;
+        }
+
+        // `export function name() {}` / `export default function name() {}` /
+        // `export const f = () => {};` / `export class Foo {}` (skipped).
+        if let Some(decl) = node.child_by_field_name("declaration") {
+            let is_default = self.js_ts_export_statement_is_default(node);
+            match decl.kind() {
+                "function_declaration" | "generator_function_declaration" => {
+                    if let Some(name) = self.language.function_name(&decl) {
+                        let name_text = self.node_text(&name).to_string();
+                        let exported_as = if is_default {
+                            "default".to_string()
+                        } else {
+                            name_text.clone()
+                        };
+                        facts.insert_named(exported_as, JsExportTarget::Local(name_text));
+                    }
+                }
+                "lexical_declaration" | "variable_declaration" => {
+                    let mut vc = decl.walk();
+                    for d in decl.children(&mut vc) {
+                        if d.kind() != "variable_declarator" {
+                            continue;
+                        }
+                        let Some(name_node) = d.child_by_field_name("name") else {
+                            continue;
+                        };
+                        if name_node.kind() != "identifier" {
+                            continue;
+                        }
+                        let name_text = self.node_text(&name_node).to_string();
+                        // F4 (review-fix wave, codex MAJOR 2): only the
+                        // spec's 1c forms (arrow function / function
+                        // expression initializer) are in scope. Any other
+                        // initializer (identifier, ternary, call, literal,
+                        // ...) is skipped + counted -- recording it would
+                        // let R4c bind the export to an unrelated same-named
+                        // declaration elsewhere in the file (e.g. a nested
+                        // function), since the "local" target here is just
+                        // the declarator's own name, not a verified function.
+                        match d.child_by_field_name("value").map(|v| v.kind()) {
+                            Some("arrow_function") | Some("function_expression") => {
+                                facts.insert_named(
+                                    name_text.clone(),
+                                    JsExportTarget::Local(name_text),
+                                );
+                            }
+                            _ => facts.skipped_expr_count += 1,
+                        }
+                    }
+                }
+                // Class exports are deliberately out of scope.
+                _ => {}
+            }
+        }
+    }
+
+    /// Handle a single top-level `expression_statement`, looking for CommonJS
+    /// `module.exports = ...` / `module.exports.f = ...` / `exports.f = ...`
+    /// assignments.
+    fn collect_js_ts_cjs_export_statement(
+        &self,
+        node: Node<'_>,
+        facts: &mut crate::js_exports::JsExportFacts,
+    ) {
+        let mut cursor = node.walk();
+        let Some(assign) = node
+            .children(&mut cursor)
+            .find(|c| c.kind() == "assignment_expression")
+        else {
+            return;
+        };
+        let (Some(left), Some(right)) = (
+            assign.child_by_field_name("left"),
+            assign.child_by_field_name("right"),
+        ) else {
+            return;
+        };
+        if left.kind() != "member_expression" {
+            return;
+        }
+        let (Some(object), Some(property)) = (
+            left.child_by_field_name("object"),
+            left.child_by_field_name("property"),
+        ) else {
+            return;
+        };
+        let property_name = self.node_text(&property).to_string();
+
+        if object.kind() == "identifier"
+            && self.node_text(&object) == "module"
+            && property_name == "exports"
+        {
+            // `module.exports = <rhs>;`
+            self.collect_js_ts_cjs_module_exports_rhs(right, facts);
+            return;
+        }
+
+        let is_module_exports_member = object.kind() == "member_expression"
+            && object
+                .child_by_field_name("object")
+                .is_some_and(|o| o.kind() == "identifier" && self.node_text(&o) == "module")
+            && object
+                .child_by_field_name("property")
+                .is_some_and(|p| self.node_text(&p) == "exports");
+        let is_exports_member =
+            object.kind() == "identifier" && self.node_text(&object) == "exports";
+
+        if is_module_exports_member || is_exports_member {
+            // `module.exports.f = f;` or `exports.f = f;`
+            if right.kind() == "identifier" {
+                facts.insert_named(
+                    property_name,
+                    crate::js_exports::JsExportTarget::Local(self.node_text(&right).to_string()),
+                );
+            } else {
+                facts.skipped_expr_count += 1;
+            }
+        }
+    }
+
+    /// `module.exports = <rhs>;` — either a single identifier (the module's
+    /// whole export value, consumed like a default export) or an object
+    /// literal of named members (`{ a, x: b }`).
+    fn collect_js_ts_cjs_module_exports_rhs(
+        &self,
+        rhs: Node<'_>,
+        facts: &mut crate::js_exports::JsExportFacts,
+    ) {
+        use crate::js_exports::JsExportTarget;
+        match rhs.kind() {
+            "identifier" => {
+                facts.insert_named(
+                    "default".to_string(),
+                    JsExportTarget::Local(self.node_text(&rhs).to_string()),
+                );
+            }
+            "object" => {
+                // F2 (review-fix wave, codex BLOCKER 2): a spread can shadow
+                // any named member with a value prism cannot see (`{ f,
+                // ...override }` -- `override` may itself define `f`). Fail
+                // closed for the WHOLE object literal when ANY spread is
+                // present, rather than only the members after it: record
+                // zero facts from this literal, counted once via the
+                // existing skip counter. (Possible future refinement: only
+                // poison names after the last spread -- not done this slice.)
+                let mut probe = rhs.walk();
+                if rhs
+                    .children(&mut probe)
+                    .any(|c| c.kind() == "spread_element")
+                {
+                    facts.skipped_expr_count += 1;
+                    return;
+                }
+                let mut cursor = rhs.walk();
+                for prop in rhs.children(&mut cursor) {
+                    match prop.kind() {
+                        "shorthand_property_identifier" => {
+                            let name = self.node_text(&prop).to_string();
+                            facts.insert_named(name.clone(), JsExportTarget::Local(name));
+                        }
+                        "pair" => {
+                            let key = prop.child_by_field_name("key").map(|k| {
+                                self.node_text(&k)
+                                    .trim_matches(|c| c == '\'' || c == '"')
+                                    .to_string()
+                            });
+                            let value = prop.child_by_field_name("value");
+                            match (key, value) {
+                                (Some(key), Some(value)) if value.kind() == "identifier" => {
+                                    facts.insert_named(
+                                        key,
+                                        JsExportTarget::Local(self.node_text(&value).to_string()),
+                                    );
+                                }
+                                (Some(_), Some(_)) => facts.skipped_expr_count += 1,
+                                _ => {}
+                            }
+                        }
+                        "method_definition" => {
+                            facts.skipped_expr_count += 1;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ => {
+                facts.skipped_expr_count += 1;
             }
         }
     }
