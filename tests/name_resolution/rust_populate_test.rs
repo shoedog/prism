@@ -916,6 +916,54 @@ fn test_macro_wildcard_poison() {
     );
 }
 
+/// P8 scope-graph BLOCKER regression pin: a transparent allowlisted macro
+/// (`assert!`) must NOT install a wildcard poison -- a bare name after it in
+/// the same scope resolves exactly as if the macro weren't there. Without
+/// this exemption, `assert!(check(x))`'s own minted call to `check` would be
+/// poisoned by the very macro that contains it.
+#[test]
+fn test_transparent_macro_does_not_poison() {
+    let src = concat!(
+        "pub fn f(){}\n",
+        "fn host(){\n",
+        "    assert!(true);\n",
+        "    f();\n", // AFTER the transparent macro: must still resolve.
+        "}\n",
+    );
+    let fs = files(&[("src/lib.rs", src)]);
+    let g = populate_rust(&fs, &convention(&fs), None);
+
+    let post = byte_of(src, "    f();");
+    let res_post = resolve_bare_at(&g, &fs, 2015, "src/lib.rs", post, "f", NS_VALUE);
+    assert_resolved_item(&res_post);
+}
+
+/// Companion pin: a NON-allowlisted macro invocation in expression position
+/// still poisons exactly as before this change (no regression from the new
+/// gate on `walk_macro_invocation`'s call site).
+#[test]
+fn test_nonallowlisted_expression_macro_still_poisons() {
+    let src = concat!(
+        "pub fn f(){}\n",
+        "macro_rules! m { () => {}; }\n",
+        "fn host(){\n",
+        "    m!();\n",
+        "    f();\n", // AFTER the non-allowlisted macro: poisoned.
+        "}\n",
+    );
+    let fs = files(&[("src/lib.rs", src)]);
+    let g = populate_rust(&fs, &convention(&fs), None);
+
+    let post = byte_of(src, "    f();");
+    let res_post = resolve_bare_at(&g, &fs, 2015, "src/lib.rs", post, "f", NS_VALUE);
+    assert_eq!(
+        res_post.status,
+        ResStatus::Poisoned,
+        "a non-allowlisted macro must still poison, got {:?}",
+        res_post.status
+    );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // REAL GLOB EXPANSION
 // ═══════════════════════════════════════════════════════════════════════════

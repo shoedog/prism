@@ -127,7 +127,24 @@ fn walk_expr(b: &mut Builder<'_>, path: &str, nid: &NodeId, scope: ScopeId, ctx:
             return;
         }
         "macro_invocation" => {
-            walk_macro_invocation(b, path, nid, scope, ctx);
+            // P8 scope-graph BLOCKER: a transparent allowlisted macro
+            // (assert!/vec!/format!/...) introduces NO bindings into the
+            // enclosing scope -- that is precisely what makes it transparent
+            // for the token-pattern call extractor (`crate::rust_macro_args`).
+            // Installing the ordinary name-introducing-macro wildcard poison
+            // here would poison the very call names the extractor mints from
+            // this macro's own arguments (`assert!(check(x))`'s `check`
+            // falls inside [inv_lo, scope_end)). Non-allowlisted macros keep
+            // the poison exactly as before -- they really can emit an
+            // unknowable name.
+            let is_transparent = with_node(b, path, nid, |pf, n| {
+                n.child_by_field_name("macro")
+                    .map(|m| crate::rust_macro_args::is_transparent_arg_macro(pf.node_text(&m)))
+                    .unwrap_or(false)
+            });
+            if !is_transparent {
+                walk_macro_invocation(b, path, nid, scope, ctx);
+            }
             // fall through to descend (args may contain more)
         }
         "closure_expression" => {
