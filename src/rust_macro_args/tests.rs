@@ -390,3 +390,26 @@ fn simple_receiver_preceded_by_non_dot_token_still_derives_qualifier() {
     let (_pf, sites, _facts) = extract("fn f() { assert!(check(a.m(x))); }");
     assert!(sites.contains(&("m".to_string(), Some("a".to_string()))));
 }
+
+// ---- F3 MAJOR: attribute token trees must not be scanned ----
+
+#[test]
+fn outer_attribute_token_tree_is_not_scanned() {
+    let (_pf, sites, _facts) =
+        extract(r#"fn f() { assert!(#[cfg_attr(feature = "x", path(foo()))] check(1)); }"#);
+    assert!(!sites.iter().any(|(name, _)| name == "cfg_attr"));
+    assert!(!sites.iter().any(|(name, _)| name == "path"));
+    assert!(!sites.iter().any(|(name, _)| name == "foo"));
+    // The real call outside the attribute must still mint.
+    assert!(sites.contains(&("check".to_string(), None)));
+}
+
+#[test]
+fn inner_attribute_token_tree_is_not_scanned() {
+    let (_pf, sites, _facts) =
+        extract(r#"fn f() { assert!(#![cfg_attr(feature = "x", path(foo()))] check(1)); }"#);
+    assert!(!sites.iter().any(|(name, _)| name == "cfg_attr"));
+    assert!(!sites.iter().any(|(name, _)| name == "path"));
+    assert!(!sites.iter().any(|(name, _)| name == "foo"));
+    assert!(sites.contains(&("check".to_string(), None)));
+}

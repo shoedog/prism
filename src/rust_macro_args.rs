@@ -300,11 +300,15 @@ fn find_token_tree_child<'a>(node: Node<'a>) -> Option<Node<'a>> {
 ///
 /// Recurses into every nested `token_tree` (call args, method args, bare
 /// grouping parens, struct-literal braces, array brackets, ...) so a call
-/// nested arbitrarily deep in the arguments is still found — EXCEPT the
-/// argument tree of a nested macro invocation, which is walked only if that
-/// nested macro is itself allowlisted. Transparency is not viral:
-/// `stringify!` INSIDE `assert!` stays a token-soup boundary even though
-/// `assert!` itself is transparent.
+/// nested arbitrarily deep in the arguments is still found — EXCEPT:
+/// - the argument tree of a nested macro invocation, which is walked only if
+///   that nested macro is itself allowlisted. Transparency is not viral:
+///   `stringify!` INSIDE `assert!` stays a token-soup boundary even though
+///   `assert!` itself is transparent;
+/// - an attribute token tree (`#[...]` / `#![...]`), which is NEVER scanned
+///   (F3 codex MAJOR) — `#[cfg_attr(feature = "x", path(foo()))]`-shaped
+///   tokens inside a transparent macro's arguments must not mint
+///   `cfg_attr`/`path`/`foo` as if they were real calls.
 fn scan_token_tree<'a>(
     parsed: &'a ParsedFile,
     tt: Node<'a>,
@@ -316,6 +320,22 @@ fn scan_token_tree<'a>(
     let mut i = 0;
     while i < seq.len() {
         match seq[i] {
+            Tok::Other("#") => {
+                // `#` `[...]` (outer attribute) or `#` `!` `[...]` (inner
+                // attribute): skip the bracket token_tree entirely, no scan,
+                // no mint.
+                let bracket_idx = match seq.get(i + 1) {
+                    Some(Tok::Other("!")) => i + 2,
+                    _ => i + 1,
+                };
+                if let Some(Tok::TokenTree(attr)) = seq.get(bracket_idx) {
+                    if parsed.node_text(attr).starts_with('[') {
+                        i = bracket_idx + 1;
+                        continue;
+                    }
+                }
+                i += 1;
+            }
             Tok::Ident(id) => {
                 // Try to extend a maximal `Ident (:: Ident)*` chain (mirrors
                 // how ordinary extraction represents `mod::f`/`T::m` in
