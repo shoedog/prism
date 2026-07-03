@@ -345,6 +345,18 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         // for R4c to count).
         "js_export_chain_unresolved": cg.js_export_chain_unresolved,
         "js_export_barrel_conflicts": cg.js_export_barrel_conflicts,
+        // F6 (opus Minor 2, review-fix wave): aggregate per-file
+        // `JsExportFacts::skipped_expr_count` -- populated but never
+        // surfaced before this fix, and load-bearing now that F1-F4 added
+        // more fail-closed skip paths (mutable destructured require is a
+        // structural skip elsewhere, not counted here; spread-poisoned
+        // literals, non-arrow/function-expr initializers, and arbitrary
+        // default-export/CJS-assignment RHS all count here).
+        "js_export_skipped_exprs": cg
+            .js_ts_exports
+            .values()
+            .map(|f| f.skipped_expr_count)
+            .sum::<usize>(),
         "embedding_gaps": cg.embedding_gaps,
         "interface_gaps": cg.interface_gaps,
         "interface_overapprox": cg.interface_overapprox,

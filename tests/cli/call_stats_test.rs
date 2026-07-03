@@ -266,3 +266,30 @@ fn call_stats_reports_js_export_star_only_reexport_telemetry() {
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert!(v["js_export_chain_unresolved"].as_u64().unwrap() > 0);
 }
+
+#[test]
+fn call_stats_reports_js_export_skipped_exprs() {
+    // F6 (opus Minor 2, controller-adjudicated: do it -- `skipped_expr_count`
+    // becomes load-bearing once F1-F4 add more skip paths). Aggregated across
+    // all files' `JsExportFacts::skipped_expr_count` and surfaced as
+    // `js_export_skipped_exprs`, alongside the other two P4 counters.
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("util.js"),
+        "function helper() { return 1; }\nmodule.exports = helper();\n",
+    )
+    .unwrap();
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--repo"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(v["js_export_skipped_exprs"].as_u64().unwrap() > 0);
+}
