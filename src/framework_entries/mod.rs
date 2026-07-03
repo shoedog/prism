@@ -151,6 +151,41 @@ pub fn apply(
                     .collect();
 
                 for cand in express::express_route_candidates(parsed) {
+                    // F2: reject the WHOLE candidate when the RECEIVER
+                    // identifier is locally shadowed in ANY enclosing scope
+                    // (parameters or local declarations) — `receivers` in
+                    // `express::express_route_candidates` is collected
+                    // file-wide with no scope awareness, so a same-named
+                    // parameter in an enclosing function
+                    // (`function setup(app) { app.get(...) }`) would
+                    // otherwise mint an edge against the non-grounded
+                    // parameter instead of the real express instance.
+                    // `receiver_name` is already `None` for a directly
+                    // grounded constructor receiver (e.g.
+                    // `express().get(...)`), so `is_some_and` short-circuits
+                    // and this never rejects that case (the "unless the
+                    // receiver expression is itself a direct grounded
+                    // constructor form" carve-out). Conservative
+                    // shadow-bail — the same house pattern P6-lite's
+                    // receiver typing uses — rejects rather than guesses.
+                    let receiver_shadowed = cand.receiver_name.as_ref().is_some_and(|rname| {
+                        cand.enclosing_chain.iter().any(|ef| {
+                            let fid = FunctionId {
+                                file: file_path.clone(),
+                                name: ef.name.clone(),
+                                start_line: ef.start_line,
+                                end_line: ef.end_line,
+                            };
+                            js_ts_function_locals
+                                .get(&fid)
+                                .is_some_and(|locals| locals.contains(rname))
+                        })
+                    });
+                    if receiver_shadowed {
+                        unresolved += cand.args.len();
+                        continue;
+                    }
+
                     let caller = build_caller(file_path, parsed, cand.enclosing.clone());
                     // The shadow guard reads `js_ts_function_locals` keyed by
                     // the REAL enclosing function's FunctionId — the module

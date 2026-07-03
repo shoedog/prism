@@ -6344,6 +6344,46 @@ mod framework_entry_tests {
         assert_eq!(cg.framework_entry_unresolved_handlers, 0);
     }
 
+    // ---- F2: Express receiver local-shadow guard ----------------------------
+
+    #[test]
+    fn express_receiver_shadowed_by_enclosing_parameter_is_skipped_and_counted() {
+        // `app` is REBOUND as a parameter of `setup`, shadowing the
+        // module-level `const app = express()` -- the receiver in
+        // `app.get("/x", handler)` inside `setup` names the non-grounded
+        // PARAMETER, not the express instance, so this must not mint an
+        // edge even though `app` is a recognized express receiver name
+        // file-wide.
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nfunction setup(app) {\n    app.get(\"/x\", handler);\n}\n",
+        )]);
+        assert!(
+            cg.framework_entries.is_empty(),
+            "shadowed receiver must not be recorded"
+        );
+        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
+    }
+
+    #[test]
+    fn express_receiver_not_shadowed_when_setup_does_not_rebind_app() {
+        // Non-shadowed control: `setup` does NOT take an `app` parameter, so
+        // the receiver inside it is still the module-level express
+        // instance -- must record normally. (Distinct from the pre-existing
+        // `express_registration_inside_setup_function_has_enclosing_caller`
+        // in that it asserts the unresolved counter stays at 0.)
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nfunction setup() {\n    app.get(\"/x\", handler);\n}\n",
+        )]);
+        let handler = fid(&cg, "handler").clone();
+        assert!(
+            cg.framework_entries.iter().any(|r| r.handler == handler),
+            "non-shadowed receiver must still record"
+        );
+        assert_eq!(cg.framework_entry_unresolved_handlers, 0);
+    }
+
     // ---- Non-target-language guard -----------------------------------------
 
     #[test]
