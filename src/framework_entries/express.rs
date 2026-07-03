@@ -79,6 +79,10 @@ pub fn express_route_candidates(parsed: &ParsedFile) -> Vec<ExpressRouteCandidat
 
     let mut calls = Vec::new();
     crate::algorithms::taint::collect_js_ts_call_nodes(parsed.tree.root_node(), parsed, &mut calls);
+    // F6 (opus nit): hoisted out of the per-arg loop below — it's a `Vec`
+    // allocated fresh per call, and doesn't depend on anything but
+    // `parsed.language`, which is fixed for the whole file.
+    let function_kinds = parsed.language.function_node_types();
 
     for call in calls {
         let Some(is_route_builder) = express_call_match_kind(parsed, &call, &receivers, &imports)
@@ -120,7 +124,7 @@ pub fn express_route_candidates(parsed: &ParsedFile) -> Vec<ExpressRouteCandidat
                 args.push(ExpressHandlerArg::Identifier(
                     parsed.node_text(arg).to_string(),
                 ));
-            } else if parsed.language.function_node_types().contains(&arg.kind()) {
+            } else if function_kinds.contains(&arg.kind()) {
                 args.push(ExpressHandlerArg::InlineAnonymous);
             }
             // Any other argument shape (member expression, call, literal,

@@ -148,6 +148,14 @@ fn python_enclosing_facts(
 fn first_function_definition_child<'a>(
     node: tree_sitter::Node<'a>,
 ) -> Option<tree_sitter::Node<'a>> {
+    // F6 (opus nit) asked to return directly instead of let-binding, but
+    // that doesn't compile: `children()`'s returned iterator borrows
+    // `cursor` for `'cursor`, and in tail position the compiler extends that
+    // temporary's lifetime past `cursor`'s own scope ("temporary value
+    // dropped while still borrowed") -- the `let` binding here forces the
+    // iterator to drop before the function returns, which is why the
+    // original code has it. Kept as-is; not a nit worth papering over with
+    // an `#[allow]`.
     let mut cursor = node.walk();
     let found = node
         .children(&mut cursor)
@@ -187,6 +195,20 @@ mod python_candidate_tests {
         assert_eq!(cands[0].handler_name, "handler");
         assert_eq!(cands[0].framework, "fastapi");
         assert_eq!(cands[0].site_line, 4);
+    }
+
+    #[test]
+    fn flask_route_with_kwargs_is_still_recorded() {
+        // F6 pin: `decorator_receiver_and_method` matches on the decorator's
+        // `function` field only (`app.route`), never its call arguments, so
+        // kwargs like `methods=["GET", "POST"]` must not break the match.
+        let parsed = parse(
+            "from flask import Flask\napp = Flask(__name__)\n\n@app.route(\"/x\", methods=[\"GET\", \"POST\"])\ndef handler():\n    return \"ok\"\n",
+        );
+        let cands = python_route_candidates(&parsed);
+        assert_eq!(cands.len(), 1);
+        assert_eq!(cands[0].handler_name, "handler");
+        assert_eq!(cands[0].framework, "flask");
     }
 
     #[test]

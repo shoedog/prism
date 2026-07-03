@@ -1,15 +1,18 @@
 [case]
 language = "javascript"
 capability = "framework_entry"
-# P9 precision pin (JS analog of route_decorator_guard): `x` is a plain
+# P9 precision pin (JS analog of route_decorator_guard): the file IS
+# express-bearing (`app` is a real express instance), but `x` is a plain
 # object literal with its own `get` method, not an express instance/router
-# -- `x.get("/y", handler)` must never mint a framework_entry edge.
+# -- `x.get("/y", handler)` must never mint a framework_entry edge. F5:
+# strengthened from an express-free file (which only pinned the early
+# receivers-empty return) to actually exercise the receiver-instance guard.
 status = "pass"
 
 [seed]
 symbol = "handler"
 file = "app.js"
-line = 1
+line = 4
 
 [expect]
 exact = true

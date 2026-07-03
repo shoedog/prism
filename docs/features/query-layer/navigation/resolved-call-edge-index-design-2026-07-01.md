@@ -148,7 +148,8 @@ pub struct IndexedIncomingCall {
 a dedicated whole-program `CallGraph` table rather than from `resolve_call_site_full` (no CPG `Call`/`Return` edge,
 no resolve-time consult path): `callback_registration`/`func_value_field` (P5, Go function-value callbacks),
 `property_access` (P7, Python `@property`/`@cached_property` access), and `framework_entry` (P9, Flask/FastAPI/
-Express route registrations — see `CallGraph::apply_framework_entries`, `src/framework_entries.rs`). All three
+Express route registrations — see `CallGraph::apply_framework_entries`, `src/framework_entries/` (directory
+module: `mod.rs`, `python.rs`, `express.rs`)). All three
 merge into `NavigationCallEdgeIndex` the same way: a loop over the dedicated `BTreeSet` beside the `cg.calls`/
 `cg.callers` loops in `NavigationIndex::build_resolved_call_edges`.
 
