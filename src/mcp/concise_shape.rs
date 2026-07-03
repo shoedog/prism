@@ -160,7 +160,7 @@ fn location_matches_span(location: &Value, span: &SymbolSpan) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mcp::output::{shape_result, Verbosity as OutVerbosity};
+    use crate::mcp::output::{shape_result, StructuredContentMode, Verbosity as OutVerbosity};
     use crate::navigation::types::*;
     use serde_json::json;
 
@@ -227,7 +227,14 @@ mod tests {
 
     fn result_for(items: Vec<EvidenceItem>, verbosity: OutVerbosity) -> McpToolResult {
         let n = items.len();
-        shape_result(evidence_with(items), n, false, verbosity, 100_000)
+        shape_result(
+            evidence_with(items),
+            n,
+            false,
+            verbosity,
+            100_000,
+            StructuredContentMode::Always,
+        )
     }
 
     #[test]

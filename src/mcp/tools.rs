@@ -102,6 +102,7 @@ fn nav_nodes_at(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResul
         input.view,
         NavigationViewKind::NodesAt,
         ctx.concise_shape_mode,
+        ctx.structured_content_mode,
     )
 }
 
@@ -128,6 +129,7 @@ fn nav_callers(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResult
         input.view,
         NavigationViewKind::Callers,
         ctx.concise_shape_mode,
+        ctx.structured_content_mode,
     )
 }
 
@@ -158,6 +160,7 @@ fn nav_callees(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResult
         input.view,
         view_kind,
         ctx.concise_shape_mode,
+        ctx.structured_content_mode,
     )
 }
 
@@ -191,6 +194,7 @@ fn nav_ego_graph(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResu
         input.view,
         NavigationViewKind::EgoGraph,
         ctx.concise_shape_mode,
+        ctx.structured_content_mode,
     )
 }
 
@@ -214,6 +218,7 @@ fn nav_module_deps(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolRe
             file: input.file.clone(),
         },
         ctx.concise_shape_mode,
+        ctx.structured_content_mode,
     )
 }
 
@@ -235,6 +240,7 @@ fn nav_repo_map(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResul
         input.view,
         NavigationViewKind::RepoMap,
         ctx.concise_shape_mode,
+        ctx.structured_content_mode,
     )
 }
 
@@ -1156,7 +1162,12 @@ mod tests {
         session: &crate::navigation::NavigationSession,
         mode: crate::mcp::concise_shape::ConciseShapeMode,
     ) -> ToolContext<'_> {
-        ToolContext::new(session, crate::mcp::output::resolve_cap(), mode)
+        ToolContext::new(
+            session,
+            crate::mcp::output::resolve_cap(),
+            mode,
+            crate::mcp::output::StructuredContentMode::default(),
+        )
     }
 
     #[test]

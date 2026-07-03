@@ -632,6 +632,13 @@ mod tests {
                     result.content_text = "# Evidence\n\ncontent\n".into();
                 }
             }
+            // F1 (controller-adjudicated): this growth check intentionally stays on the
+            // conservative Always-mode `serialized_len()` rather than the resolved
+            // `StructuredContentMode` — it measures the byte delta `apply_freshness_report` adds
+            // (meta + warning growth), which is identical in both modes since neither mode strips
+            // `structuredContent` from a result that already carries it going in; sizing `before`
+            // and `after` with the same (any) mode is what matters, and `Always` keeps this
+            // independent of `shape_result`'s resolved-mode threading elsewhere.
             let before = result.serialized_len();
             let paths = vec![
                 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.py",

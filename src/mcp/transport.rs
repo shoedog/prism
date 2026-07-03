@@ -470,7 +470,12 @@ fn call_tool_response_with_cap_and_mode(
     } else {
         original_cap
     };
-    let ctx = ToolContext::new(runtime.session(), cap, concise_shape_mode);
+    let ctx = ToolContext::new(
+        runtime.session(),
+        cap,
+        concise_shape_mode,
+        structured_content_mode,
+    );
     let mut result = (tool.handler)(&ctx, &arguments);
     if stale && !result.is_error && result.structured.is_some() {
         if let Some(report) = &report {
@@ -510,6 +515,7 @@ fn auto_refresh_tool_response(
                 runtime.session(),
                 cap_after_reserve(original_cap, reserve),
                 concise_shape_mode,
+                structured_content_mode,
             );
             let mut result = handler(&ctx, arguments);
             if result.is_error {
@@ -539,6 +545,7 @@ fn auto_refresh_tool_response(
                 runtime.session(),
                 cap_after_reserve(original_cap, reserve),
                 concise_shape_mode,
+                structured_content_mode,
             );
             let mut result = handler(&ctx, arguments);
             if result.is_error {

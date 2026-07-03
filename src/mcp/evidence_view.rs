@@ -2,7 +2,7 @@ use super::input::{
     parse_callees, parse_callers, parse_module_deps, parse_nodes_at, EvidenceProfile, GroupPolicy,
     SnippetPolicy, ViewFormat, ViewOptions,
 };
-use super::output::{shape_result, McpToolResult, Verbosity};
+use super::output::{shape_result, McpToolResult, StructuredContentMode, Verbosity};
 use crate::navigation::code_context::{classify_file, CodeRole};
 use crate::navigation::types::{
     Evidence, EvidenceItem, GraphNode, Location, Reason, ReasoningReason, Source, SymbolRef,
@@ -178,6 +178,7 @@ struct ViewMeta {
     indexing_policy: &'static str,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn shape_navigation_result(
     session: &NavigationSession,
     full: &Evidence,
@@ -189,8 +190,29 @@ pub fn shape_navigation_result(
     view: ViewOptions,
     kind: NavigationViewKind,
     concise_shape_mode: super::concise_shape::ConciseShapeMode,
+    structured_content_mode: StructuredContentMode,
 ) -> McpToolResult {
-    let canonical_result = shape_result(canonical, total, max_results_clipped, verbosity, cap);
+    // F1 (controller-adjudicated): size the canonical cap-fit against whichever mode this
+    // PARTICULAR `canonical_result` will actually reach the wire as. An agent-view request keeps
+    // `canonical_result` only as the BASIS for `structuredContent` — which agent views always emit
+    // regardless of the live env setting (their only canonical-Evidence carrier once `content_text`
+    // is rewritten into prose) — so its sizing must stay `Always`. The non-agent-view branch below
+    // returns `canonical_result` (after Concise slimming) AS the final default-path response, so
+    // that sizing must use the RESOLVED mode or the omit-default-path item-retention win never
+    // materializes.
+    let canonical_sizing_mode = if view.agent_requested() {
+        StructuredContentMode::Always
+    } else {
+        structured_content_mode
+    };
+    let canonical_result = shape_result(
+        canonical,
+        total,
+        max_results_clipped,
+        verbosity,
+        cap,
+        canonical_sizing_mode,
+    );
     if !view.agent_requested() || canonical_result.is_error {
         // S3: apply the Concise item-slimming transform ONLY here, on the copy that becomes the
         // FINAL default-path response — never on `canonical_result` itself before this branch,
@@ -222,8 +244,12 @@ pub fn shape_navigation_result(
             canonical_items,
             mid < full_count,
         );
+        // F1: agent-view results always keep `structuredContent` on the wire regardless of
+        // `StructuredContentMode` (it's their only canonical-Evidence carrier once `content_text` is
+        // rewritten into prose — see `McpToolResult::emit_structured_content_on_wire`), so sizing
+        // with `Always` here is not merely conservative but exactly the real wire shape.
         if candidate.content_text.len() <= view.max_view_bytes
-            && candidate.serialized_len() <= budget
+            && candidate.wire_len(StructuredContentMode::Always) <= budget
         {
             best = Some(candidate);
             lo = mid + 1;

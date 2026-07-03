@@ -62,7 +62,17 @@ fn taint_reaches(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResu
     };
     let (evidence, total, max_results_clipped) = clip_taint_reaches(evidence, input.max_results);
     let verbosity = output_verbosity(input.verbosity);
-    let result = shape_result(evidence, total, max_results_clipped, verbosity, ctx.cap);
+    // F1: taint_reaches has no agent-view branch, so this result IS always the final default-path
+    // response — size the cap-fit against the RESOLVED mode (not the frozen `Always`) so the
+    // omit-default-path item-retention win applies here too.
+    let result = shape_result(
+        evidence,
+        total,
+        max_results_clipped,
+        verbosity,
+        ctx.cap,
+        ctx.structured_content_mode,
+    );
     // S3: taint_reaches has no agent-view branch (no `format` argument), so this IS always the
     // final default-path return — safe to apply the Concise item-slimming transform directly.
     super::concise_shape::apply_concise_shape(result, verbosity, ctx.concise_shape_mode)
@@ -265,6 +275,7 @@ mod tests {
             &s,
             crate::mcp::output::resolve_cap(),
             crate::mcp::concise_shape::ConciseShapeMode::Slim,
+            crate::mcp::output::StructuredContentMode::default(),
         );
         let out = (ToolRegistry::all_v1().get("taint_reaches").unwrap().handler)(
             &ctx,

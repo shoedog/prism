@@ -1,5 +1,5 @@
 use crate::mcp::concise_shape::ConciseShapeMode;
-use crate::mcp::output::McpToolResult;
+use crate::mcp::output::{McpToolResult, StructuredContentMode};
 use crate::navigation::NavigationSession;
 
 pub struct ToolContext<'a> {
@@ -9,6 +9,13 @@ pub struct ToolContext<'a> {
     /// handlers never read `PRISM_MCP_CONCISE_SHAPE` themselves. Defaults to `Legacy` in
     /// `for_test` so the ~150 existing `ToolContext::for_test` call sites are unaffected.
     pub concise_shape_mode: ConciseShapeMode,
+    /// F1 (controller-adjudicated): resolved ONCE per request in `transport.rs` (mirroring `cap`
+    /// and `concise_shape_mode`) and threaded down so cap-fitting sizing (`output::shape_result`,
+    /// `evidence_view::shape_navigation_result`) can size against the mode that will ACTUALLY reach
+    /// the wire, instead of the frozen `StructuredContentMode::Always` that made the
+    /// `omit-default-path` item-retention win never materialize. Defaults to `Always` (via
+    /// `StructuredContentMode::default()`) in `for_test`, matching the live env default.
+    pub structured_content_mode: StructuredContentMode,
 }
 
 impl<'a> ToolContext<'a> {
@@ -16,11 +23,13 @@ impl<'a> ToolContext<'a> {
         session: &'a NavigationSession,
         cap: usize,
         concise_shape_mode: ConciseShapeMode,
+        structured_content_mode: StructuredContentMode,
     ) -> Self {
         Self {
             session,
             cap,
             concise_shape_mode,
+            structured_content_mode,
         }
     }
 
@@ -30,6 +39,7 @@ impl<'a> ToolContext<'a> {
             session,
             cap: crate::mcp::output::resolve_cap(),
             concise_shape_mode: ConciseShapeMode::default(),
+            structured_content_mode: StructuredContentMode::default(),
         }
     }
 }
@@ -175,6 +185,13 @@ mod tests {
             assert!(
                 !desc.contains("repository snapshot loaded when prism-mcp started"),
                 "tool {} description must NOT duplicate the full snapshot notice text (moved to initialize instructions): {desc}",
+                d.name
+            );
+            // F2 (codex MINOR): the S1 move-to-`instructions` applies to BOTH notices — pin the
+            // view-notice absence too, not just the snapshot notice above.
+            assert!(
+                !desc.contains("Optional LLM views are opt-in"),
+                "tool {} description must NOT duplicate the full view notice text (moved to initialize instructions): {desc}",
                 d.name
             );
         }
