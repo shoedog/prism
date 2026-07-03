@@ -498,10 +498,18 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             // first so this manifest's implementer set matches what
             // `resolve_call_site_full` actually mints for these sites
             // (otherwise they'd under-report `implementers: []` here while
-            // resolving Exact at query time).
-            let impls: &[FunctionId] = cg
-                .go_embedded_interface_methods
-                .get(recv_ty)
+            // resolving Exact at query time). Package-scoped (B2 fix): the
+            // route map is keyed by the receiver struct's `GoOwnerIdentity`,
+            // same resolution `resolve_call_site_full` performs.
+            let go_owner = crate::resolution::resolve_go_owner_identity(
+                recv_ty,
+                &site.caller.file,
+                &cg.imports,
+                &cg.go_package_basenames,
+            );
+            let impls: &[FunctionId] = go_owner
+                .as_ref()
+                .and_then(|owner| cg.go_embedded_interface_methods.get(owner))
                 .and_then(|m| m.get(&site.callee_name))
                 .and_then(|iface_name| {
                     cg.interface_impls

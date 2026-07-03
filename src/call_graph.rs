@@ -574,14 +574,18 @@ pub struct CallGraph {
     /// same package); recomputed from scratch by `apply_go_receiver_indices`.
     #[serde(default)]
     pub go_package_vars: BTreeMap<(String, String), String>,
-    /// P11 S4: `struct_bare_name -> method_name -> interface_bare_name` for a
-    /// method supplied ONLY by exactly one directly-embedded in-repo
+    /// P11 S4: `GoOwnerIdentity (struct) -> method_name -> interface_bare_name`
+    /// for a method supplied ONLY by exactly one directly-embedded in-repo
     /// interface (no own/promoted concrete method or field shadows it).
-    /// Captured in `apply_go_interface_dispatch` (signature-only —
-    /// deliberately carries no FunctionId; see
+    /// Package-scoped by the STRUCT's identity (B2 fix, codex impl-review
+    /// BLOCKER: a bare-struct-name key let one package's struct donate its
+    /// embedded-interface methods to an unrelated same-named struct in
+    /// another package). Captured in `apply_go_interface_dispatch`
+    /// (signature-only — deliberately carries no FunctionId; see
     /// `type_providers::go::GoTypeProvider::embedded_interface_method_routes`).
     #[serde(default)]
-    pub go_embedded_interface_methods: BTreeMap<String, BTreeMap<String, String>>,
+    pub go_embedded_interface_methods:
+        BTreeMap<crate::resolution::GoOwnerIdentity, BTreeMap<String, String>>,
 }
 
 impl CallGraph {
@@ -5665,8 +5669,19 @@ func main() {\n\thelper := func() {}\n\t_ = helper\n\tRegister(helper)\n}\n",
 mod go_receiver_typing_tests {
     use super::*;
     use crate::languages::Language::Go;
-    use crate::resolution::{ReceiverRecovery, ResolutionConfidence, ResolutionKind};
+    use crate::resolution::{
+        GoOwnerIdentity, ReceiverRecovery, ResolutionConfidence, ResolutionKind,
+    };
     use std::collections::BTreeMap;
+
+    /// `GoOwnerIdentity` for a single-file `"main.go"` fixture (package_dir
+    /// `dir_of("main.go")` == `""`).
+    fn main_owner(name: &str) -> GoOwnerIdentity {
+        GoOwnerIdentity {
+            package_dir: String::new(),
+            name: name.to_string(),
+        }
+    }
 
     fn build_go(files: &[(&str, &str)]) -> CallGraph {
         let mut map = BTreeMap::new();
@@ -6105,7 +6120,7 @@ mod go_receiver_typing_tests {
         );
         assert_eq!(
             cg.go_embedded_interface_methods
-                .get("Holder")
+                .get(&main_owner("Holder"))
                 .and_then(|m| m.get("Do")),
             Some(&"Doer".to_string())
         );
@@ -6128,7 +6143,7 @@ mod go_receiver_typing_tests {
         // owner_lookup already resolves it).
         assert!(cg
             .go_embedded_interface_methods
-            .get("Holder")
+            .get(&main_owner("Holder"))
             .and_then(|m| m.get("Do"))
             .is_none());
         let site = site_in(&cg, "run", "Do");
@@ -6155,9 +6170,82 @@ mod go_receiver_typing_tests {
         assert!(out.resolved.is_empty());
         assert!(cg
             .go_embedded_interface_methods
-            .get("Wrap")
+            .get(&main_owner("Wrap"))
             .and_then(|m| m.get("Accept"))
             .is_none());
+    }
+
+    // ---- B2/M1 (codex impl-review): S4 package scoping + gate-failure drop
+
+    #[test]
+    fn b2_embedded_interface_route_is_package_scoped_not_bare_name() {
+        // Two packages each define `Holder`; only the SECOND-inserted one
+        // (by path order -- `BTreeMap<String, ParsedFile>` iterates
+        // lexicographically, and `zzz_embed/...` sorts after
+        // `aaa_plain/...`) embeds `Doer`. Pre-fix, the bare-keyed
+        // `data.structs["Holder"]` extraction collapses to whichever file's
+        // struct is processed LAST, so `zzz_embed`'s embedding data
+        // overwrites `aaa_plain`'s (non-embedding) entry entirely --
+        // `aaa_plain`'s `Holder.Do()` call site then incorrectly inherits
+        // `zzz_embed`'s `Doer` donation and routes to `Concrete.Do`.
+        let cg = build_go(&[
+            (
+                "zzz_embed/holder.go",
+                "package zzzembed\n\
+                 type Doer interface { Do() }\n\
+                 type Concrete struct{}\n\
+                 func (c Concrete) Do() {}\n\
+                 type Holder struct {\n\tDoer\n}\n",
+            ),
+            (
+                "aaa_plain/holder.go",
+                "package aaaplain\n\
+                 type Holder struct{}\n\
+                 func run(h Holder) {\n\th.Do()\n}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Do");
+        let out = cg.resolve_call_site_full(site);
+        assert!(
+            out.resolved.is_empty(),
+            "aaa_plain's non-embedding Holder must not route via zzz_embed's \
+             Doer donation, got {:?}",
+            out
+        );
+    }
+
+    #[test]
+    fn m1_s4_gate_failure_drops_not_falls_through_to_alternate_route() {
+        let cg = build_go(&[
+            (
+                "holder/holder.go",
+                "package holder\n\
+                 type Doer interface { Do(x int) }\n\
+                 type Concrete struct{}\n\
+                 func (c Concrete) Do(x int) {}\n\
+                 type Holder struct {\n\tDoer\n}\n\
+                 func run(h Holder) {\n\th.Do()\n}\n",
+            ),
+            (
+                "other/other.go",
+                "package other\n\
+                 type Holder interface { Do() }\n\
+                 type OtherImpl struct{}\n\
+                 func (o OtherImpl) Do() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Do");
+        let out = cg.resolve_call_site_full(site);
+        // S4 routes `h.Do()` to the embedded `Doer.Do(x int)`, but the call
+        // has 0 args -- arity-rejected. Without the M1 fix this falls
+        // through to the bare `iface_key("Holder")` ladder and picks up the
+        // UNRELATED `other.Holder` interface's `OtherImpl.Do` (a bare-name
+        // collision with the STRUCT `holder.Holder`) -- must drop instead.
+        assert!(
+            out.resolved.is_empty(),
+            "arity-rejected S4 route must drop, not mint an alternate-route edge: {:?}",
+            out
+        );
     }
 
     #[test]
@@ -6174,7 +6262,7 @@ mod go_receiver_typing_tests {
         )]);
         assert!(cg
             .go_embedded_interface_methods
-            .get("Holder")
+            .get(&main_owner("Holder"))
             .and_then(|m| m.get("M"))
             .is_none());
     }

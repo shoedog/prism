@@ -1637,36 +1637,66 @@ impl CallGraph {
                                 // interface (owner_lookup already missed here,
                                 // meaning `recv_ty` has no own/promoted
                                 // concrete method `name`). The strict gates
-                                // (exactly-one-supplier, no shadowing
-                                // direct method/field, existing struct
-                                // promotion wins) are enforced upstream when
-                                // `go_embedded_interface_methods` is built
-                                // (type_providers/go.rs). Purely additive: a
-                                // miss here falls through to the existing
-                                // iface_key/interface_impls/func-value-field
-                                // ladder unchanged.
-                                if let Some(iface_name) = self
-                                    .go_embedded_interface_methods
-                                    .get(recv_ty)
+                                // (exactly-one-supplier, no shadowing direct
+                                // method/field, existing struct promotion
+                                // wins, package-scoping) are enforced upstream
+                                // when `go_embedded_interface_methods` is
+                                // built (type_providers/go.rs, B2 fix) — the
+                                // map is keyed by the receiver's OWN
+                                // `GoOwnerIdentity`, resolved the same way
+                                // `func_value_field_or_external_drop`'s S2
+                                // field lookups resolve it, so a same-named
+                                // struct in an unrelated package can never
+                                // donate its embedded-interface methods here.
+                                //
+                                // M1 fix (codex impl-review MAJOR): once this
+                                // route MATCHES (the receiver's struct has an
+                                // embedded-interface entry for `name`), a gate
+                                // failure below (no `interface_impls` entry,
+                                // or the arity filter empties the candidate
+                                // set) must DROP, not fall through to the
+                                // ordinary `iface_key`/func-value ladder — an
+                                // arity-rejected embedded-interface call could
+                                // otherwise mint an unrelated edge from that
+                                // ladder (e.g. a same-bare-name interface
+                                // declared in a different, unrelated package).
+                                let go_owner = crate::resolution::resolve_go_owner_identity(
+                                    recv_ty,
+                                    &site.caller.file,
+                                    &self.imports,
+                                    &self.go_package_basenames,
+                                );
+                                if let Some(iface_name) = go_owner
+                                    .as_ref()
+                                    .and_then(|owner| self.go_embedded_interface_methods.get(owner))
                                     .and_then(|m| m.get(name))
                                 {
-                                    if let Some(ids) = self
+                                    return match self
                                         .interface_impls
                                         .get(&(iface_name.clone(), name.to_string()))
                                     {
-                                        let kept = crate::resolution::arity_filter(
-                                            ids,
-                                            site.arg_count,
-                                            site.arg_spread,
-                                            &self.method_arity,
-                                        );
-                                        if !kept.is_empty() {
-                                            return ResolutionOutcome::hit(exact(
-                                                kept,
-                                                ResolutionKind::InterfaceDispatch,
-                                            ));
+                                        Some(ids) => {
+                                            let kept = crate::resolution::arity_filter(
+                                                ids,
+                                                site.arg_count,
+                                                site.arg_spread,
+                                                &self.method_arity,
+                                            );
+                                            if kept.is_empty() {
+                                                ResolutionOutcome::dropped(
+                                                    DropReason::ExternalReceiver,
+                                                )
+                                            } else {
+                                                ResolutionOutcome::hit(exact(
+                                                    kept,
+                                                    ResolutionKind::InterfaceDispatch,
+                                                ))
+                                            }
                                         }
-                                    }
+                                        None => {
+                                            ResolutionOutcome::dropped(DropReason::ExternalReceiver)
+                                        }
+                                    };
                                 }
                                 match crate::resolution::iface_key(recv_ty) {
                                     Some(k) => {

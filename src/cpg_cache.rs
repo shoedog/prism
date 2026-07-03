@@ -112,7 +112,12 @@ use std::path::{Path, PathBuf};
 ///   a struct receiver whose method comes only from a directly embedded
 ///   in-repo interface; new `ResolutionKind::{ReturnTyped, FieldTyped}`
 ///   (resolution behavior change: new Go Exact/NameOnly edges).
-const CACHE_VERSION: u32 = 38; // 38: P11 Go receiver typing.
+/// - v39: P11 fix-wave (B1/B2/M1, codex impl-review) — `go_embedded_interface_
+///   methods` is now keyed by `GoOwnerIdentity` (package-scoped) instead of a
+///   bare struct name (bincode layout change: same field, different key
+///   type); the func_literal lexical-scope fence (B1) and the S4
+///   gate-failure drop (M1) also change which Go call sites recover/resolve.
+const CACHE_VERSION: u32 = 39; // 39: P11 fix-wave (B1/B2/M1).
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -630,12 +635,11 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_38_for_go_receiver_typing() {
-        // v38: P11 Go receiver typing (go_return_types/go_field_types/
-        // go_package_vars/go_embedded_interface_methods + the post-merge Go
-        // receiver rematerialization pass + ResolutionKind::{ReturnTyped,
-        // FieldTyped}), on top of v37 (P9 framework-entry edges).
-        assert_eq!(super::CACHE_VERSION, 38);
+    fn cache_version_is_39_for_p11_fix_wave() {
+        // v39: P11 fix-wave (B1 func_literal lexical-scope fence / B2
+        // package-scoped S4 routing map / M1 gate-failure drop), on top of
+        // v38 (P11 Go receiver typing).
+        assert_eq!(super::CACHE_VERSION, 39);
     }
 
     #[test]
