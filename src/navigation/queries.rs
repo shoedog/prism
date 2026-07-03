@@ -451,12 +451,24 @@ fn function_bytes(s: &NavigationSession, fid: &FunctionId) -> (usize, usize) {
         .unwrap_or((0, 0))
 }
 
-fn collision_warning(count: usize) -> Warning {
+/// `sites` is a deterministic (sorted), capped-at-5 sample of the dropped
+/// `(file, line)` locations (P3) so a consumer can jump straight to a
+/// site instead of only seeing a count.
+fn collision_warning(count: usize, sites: &[(String, usize)]) -> Warning {
+    let mut message = format!(
+        "{count} same-name receiver call site(s) with unknown receiver type across multiple owner types; not attributed as callers"
+    );
+    if !sites.is_empty() {
+        let named: Vec<String> = sites
+            .iter()
+            .take(5)
+            .map(|(file, line)| format!("{file}:{line}"))
+            .collect();
+        message.push_str(&format!(" ({})", named.join(", ")));
+    }
     Warning {
         kind: WarningKind::Collision,
-        message: format!(
-            "{count} same-name receiver call site(s) with unknown receiver type across multiple owner types; not attributed as callers"
-        ),
+        message,
         location: None,
     }
 }
@@ -736,9 +748,11 @@ pub fn callers_with_confidence(
     }
     sort_evidence_items(&mut items);
     let items = items.into_iter().map(|i| i.item).collect();
-    let dropped = s.index.collision_dropped_sites(&target_for_warning.name);
-    let warnings = if dropped > 0 {
-        vec![collision_warning(dropped)]
+    let dropped_sites = s
+        .index
+        .collision_dropped_site_locations(&target_for_warning.name);
+    let warnings = if !dropped_sites.is_empty() {
+        vec![collision_warning(dropped_sites.len(), &dropped_sites)]
     } else {
         vec![]
     };
@@ -1124,20 +1138,23 @@ pub fn ego_graph(
     }
     ego_edges.sort_by(|x, y| (x.from, x.to, &x.kind).cmp(&(y.from, y.to, &y.kind)));
     ego_edges.dedup();
-    let dropped: usize = if hops > 0 && edge_filter.contains("Call") {
-        seed.nodes
+    let dropped_sites: Vec<(String, usize)> = if hops > 0 && edge_filter.contains("Call") {
+        let mut sites: Vec<(String, usize)> = seed
+            .nodes
             .iter()
             .filter_map(|ni| match s.index.cpg.node(*ni) {
                 CpgNode::Function { name, .. } => Some(name.as_str()),
                 _ => None,
             })
-            .map(|name| s.index.collision_dropped_sites(name))
-            .sum()
+            .flat_map(|name| s.index.collision_dropped_site_locations(name))
+            .collect();
+        sites.sort();
+        sites
     } else {
-        0
+        Vec::new()
     };
-    let warnings = if dropped > 0 {
-        vec![collision_warning(dropped)]
+    let warnings = if !dropped_sites.is_empty() {
+        vec![collision_warning(dropped_sites.len(), &dropped_sites)]
     } else {
         vec![]
     };

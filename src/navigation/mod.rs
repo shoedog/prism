@@ -259,15 +259,24 @@ impl NavigationIndex {
             .flat_map(|(caller, sites)| sites.iter().map(move |site| (caller, site)))
     }
 
-    pub(crate) fn collision_dropped_sites(&self, seed_name: &str) -> usize {
+    /// Deterministic, sorted `(file, line)` locations for the R6
+    /// multi-owner-collision sites still dropped for `seed_name` (P3): lets
+    /// the nav warning name a few sites instead of only a bare count. The
+    /// count consumers want is simply `.len()` on the result — not
+    /// deduplicated, so it matches the prior count-only helper exactly.
+    pub(crate) fn collision_dropped_site_locations(&self, seed_name: &str) -> Vec<(String, usize)> {
         let idx = self.resolved_call_edges();
-        crate::navigation::call_resolve::scoped_caller_sites(&self.cpg.call_graph, seed_name)
-            .into_iter()
-            .filter(|site| {
-                idx.multi_owner_collision_sites
-                    .contains(&CallSiteKey::from(*site))
-            })
-            .count()
+        let mut locations: Vec<(String, usize)> =
+            crate::navigation::call_resolve::scoped_caller_sites(&self.cpg.call_graph, seed_name)
+                .into_iter()
+                .filter(|site| {
+                    idx.multi_owner_collision_sites
+                        .contains(&CallSiteKey::from(*site))
+                })
+                .map(|site| (site.caller.file.clone(), site.line))
+                .collect();
+        locations.sort();
+        locations
     }
 
     fn build_resolved_call_edges(&self) -> NavigationCallEdgeIndex {
