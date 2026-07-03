@@ -165,6 +165,44 @@ fn literal_element_identifier<'a>(node: &Node<'a>) -> Option<Node<'a>> {
     (inner.kind() == "identifier").then_some(inner)
 }
 
+/// Byte-span identity check between two nodes, used instead of `Node`'s own
+/// `PartialEq` (both are well-defined, but comparing the span explicitly
+/// keeps the identity check obviously robust regardless of `tree_sitter`
+/// internals — the same defensive style as `reconstruct_function_node`'s
+/// span comparisons above).
+fn byte_range_eq(a: &Node<'_>, b: &Node<'_>) -> bool {
+    a.start_byte() == b.start_byte() && a.end_byte() == b.end_byte()
+}
+
+/// P7 S1: which `@property`-family decorator classifies a Python getter —
+/// `cached_property` is tracked separately so S3 call-stats can report a
+/// dedicated "cached_property recorded" count.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PythonPropertyKind {
+    Property,
+    CachedProperty,
+}
+
+/// P7 S2: one candidate `@property`/`@cached_property` LOAD access
+/// (`recv.attr`) found by `python_attribute_load_candidates`. Raw/unresolved
+/// — `call_graph.rs` applies the receiver-narrowing tiers (self/same-class,
+/// same-file single base, or capped unknown-receiver fanout) and the S1
+/// index membership check.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PythonAttributeLoadCandidate {
+    pub attr_name: String,
+    /// `Some(text)` when the receiver ("object") is a plain identifier —
+    /// lets the caller test for an exact `self` (the only narrowing
+    /// receiver) vs. everything else, `cls` included (spec-review MAJOR:
+    /// `cls.attr` must NOT get the same-class narrowing `self.attr` gets —
+    /// class access returns the descriptor, not the getter — so it is
+    /// deliberately treated the same as any other unrecognized receiver).
+    pub receiver_identifier: Option<String>,
+    pub line: usize,
+    pub start_byte: usize,
+    pub end_byte: usize,
+}
+
 /// Wraps a tree-sitter parse tree with helpers for slicing analysis.
 #[derive(Clone)]
 pub struct ParsedFile {
@@ -1999,6 +2037,138 @@ impl ParsedFile {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             self.collect_go_registration_candidates(child, lines, out);
+        }
+    }
+
+    /// P7 S1: which `@property`-family decorator (if any, exact-match only)
+    /// decorates a Python function node from `all_functions()`. Reads
+    /// decorator expressions on the raw `decorated_definition` wrapper BEFORE
+    /// `unwrap_decorated` strips it (mirrors the existing
+    /// `type_providers::python::has_decorator` / flask decorator-reading
+    /// convention: iterate `decorated_definition`'s `decorator` children and
+    /// read each one's source text directly — no compiled query exists for
+    /// `decorator` nodes).
+    ///
+    /// Exact full-expression match only: `property`, `cached_property`, or
+    /// `functools.cached_property`. This is deliberately not a last-segment
+    /// match (unlike `has_decorator`'s dataclass check) — `@x.setter` /
+    /// `@x.deleter` (whatever `x` is) and any other decorator never match,
+    /// so the setter/deleter exclusion falls out of the exact-match rule
+    /// itself rather than needing a separate reject list.
+    pub(crate) fn python_property_kind(&self, func_node: &Node<'_>) -> Option<PythonPropertyKind> {
+        if self.language != Language::Python || func_node.kind() != "decorated_definition" {
+            return None;
+        }
+        let mut cursor = func_node.walk();
+        for child in func_node.children(&mut cursor) {
+            if child.kind() != "decorator" {
+                continue;
+            }
+            let text = self.node_text(&child).trim();
+            let Some(expr) = text.strip_prefix('@') else {
+                continue;
+            };
+            match expr.trim() {
+                "property" => return Some(PythonPropertyKind::Property),
+                "cached_property" | "functools.cached_property" => {
+                    return Some(PythonPropertyKind::CachedProperty)
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    /// P7 S2: candidate `@property`/`@cached_property` LOAD access sites
+    /// (`recv.attr`) within a function body, restricted to `attr_names`
+    /// (S1's indexed property names — the "zero cost for normal attribute
+    /// traffic" gate: an empty/non-matching `attr_names` short-circuits
+    /// before any receiver/store analysis). Excludes:
+    /// - a call's function child (`x.attr(...)` — `x.attr` is being CALLED,
+    ///   not read; call_graph.rs documents why this must not double-record
+    ///   against the ordinary call-resolution path for the same site).
+    /// - any attribute node that is (a descendant of) the `left` field of an
+    ///   `assignment` or `augmented_assignment` (`x.attr = v` / `x.attr += v`
+    ///   — a STORE, never a load; both grammars put the target under `left`).
+    ///   Scope note: `for`/`with`/`del` targets are NOT covered (not in the
+    ///   reviewed spec) — a rare residual false-load gap, not a soundness hole
+    ///   (call_graph.rs's receiver narrowing still requires an indexed name).
+    pub(crate) fn python_attribute_load_candidates(
+        &self,
+        func_node: &Node<'_>,
+        attr_names: &BTreeSet<String>,
+    ) -> Vec<PythonAttributeLoadCandidate> {
+        if self.language != Language::Python || attr_names.is_empty() {
+            return Vec::new();
+        }
+        let def_node = if func_node.kind() == "decorated_definition" {
+            func_node
+                .child_by_field_name("definition")
+                .unwrap_or(*func_node)
+        } else {
+            *func_node
+        };
+        let Some(body) = def_node.child_by_field_name("body") else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        self.collect_python_attribute_loads(body, attr_names, false, &mut out);
+        out
+    }
+
+    fn collect_python_attribute_loads(
+        &self,
+        node: Node<'_>,
+        attr_names: &BTreeSet<String>,
+        in_store_target: bool,
+        out: &mut Vec<PythonAttributeLoadCandidate>,
+    ) {
+        if matches!(node.kind(), "assignment" | "augmented_assignment") {
+            if let Some(left) = node.child_by_field_name("left") {
+                self.collect_python_attribute_loads(left, attr_names, true, out);
+            }
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                let is_left = node
+                    .child_by_field_name("left")
+                    .is_some_and(|l| byte_range_eq(&l, &child));
+                if is_left {
+                    continue; // already walked above with in_store_target = true.
+                }
+                self.collect_python_attribute_loads(child, attr_names, in_store_target, out);
+            }
+            return;
+        }
+
+        if node.kind() == "attribute" && !in_store_target {
+            if let Some(attr_field) = node.child_by_field_name("attribute") {
+                let name = self.node_text(&attr_field);
+                if attr_names.contains(name) {
+                    let is_call_function = node
+                        .parent()
+                        .filter(|p| p.kind() == "call")
+                        .and_then(|p| p.child_by_field_name("function"))
+                        .is_some_and(|f| byte_range_eq(&f, &node));
+                    if !is_call_function {
+                        let receiver_identifier = node
+                            .child_by_field_name("object")
+                            .filter(|o| o.kind() == "identifier")
+                            .map(|o| self.node_text(&o).to_string());
+                        out.push(PythonAttributeLoadCandidate {
+                            attr_name: name.to_string(),
+                            receiver_identifier,
+                            line: node.start_position().row + 1,
+                            start_byte: node.start_byte(),
+                            end_byte: node.end_byte(),
+                        });
+                    }
+                }
+            }
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_python_attribute_loads(child, attr_names, in_store_target, out);
         }
     }
 
