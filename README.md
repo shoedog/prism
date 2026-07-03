@@ -38,7 +38,7 @@
 Prism is a Code Property Graph (CPG) engine for diff-aware program slicing.
 It builds a unified graph — call graph, data flow graph, and control flow
 graph — from source code using [tree-sitter](https://tree-sitter.github.io/)
-and [petgraph](https://docs.rs/petgraph/), then runs 27 slicing algorithms
+and [petgraph](https://docs.rs/petgraph/), then runs 30 slicing algorithms
 against diffs to extract exactly the context a code reviewer needs.
 
 **The problem:** Raw diffs show *what* changed but not *why it matters*.
@@ -63,7 +63,7 @@ query. Prism answers these questions statically and fast — typically under
 - Firmware/embedded review: detect missing resource cleanup, absent error handling
 - Refactoring safety: verify that signature changes don't break callers
 
-Implements 27 slicing algorithms spanning the paper
+Implements 30 slicing algorithms spanning the paper
 [Towards Practical Defect-Focused Automated Code Review](https://arxiv.org/abs/2505.17928),
 the established program slicing taxonomy, and several novel theoretical
 extensions including spiral, quantum, horizontal, vertical, angle, and 3D slices.

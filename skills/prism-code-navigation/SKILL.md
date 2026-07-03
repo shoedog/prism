@@ -64,13 +64,14 @@ prism **`slicing` CLI**. You want *literal* text, comments, strings, or config �
 
 ## Gotchas (don't skip)
 
-- **Call resolution is name-based, not type-based — high recall, not precise for dispatch.** Known gaps:
-  `Type::method` where the type name differs from the file stem, and cross-file method calls
-  (`obj.method()` where `obj`'s type lives elsewhere). **Verify a method-dispatch edge by reading the
-  site** before relying on it for a refactor.
+- **Read the `score` field.** `1.0` = exact resolution — act on it. `0.6` = name-only candidate — read
+  the cited site before relying on it. A warning like `N same-name receiver call site(s) with unknown
+  receiver type across multiple owner types; not attributed as callers` means real callers may be
+  missing: treat "no callers" plus that warning as *unknown*, not *none*.
 - **One repo only.** The server sees only its `--repo` tree — not sibling repos, dependencies, or std.
   "No callers" outside the tree means *out of scope*, not *none*.
 - **Lines are 1-indexed; `nav_nodes_at` matches the exact line.** Empty result ⇒ aim at the definition
   or a call line, not a blank/comment/brace line.
-- **Graphs truncate (~200 nodes)** and the **first call can take ~30 s** (building the CPG); instant after.
+- **Graphs truncate (50 items by default, raise with `max_results` up to 1000; 80 KB byte cap)** and the
+  **first call can take ~30 s** (building the CPG); instant after.
 - **Read-only.** These tools never edit or run code. Make changes with your normal file tools.

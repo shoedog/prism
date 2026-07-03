@@ -118,7 +118,11 @@ Kiro names the tools **bare** (`nav_repo_map`), not `mcp__prism__*`.
 
 ---
 
-## Tools (all read-only, all return a Prism `Evidence` JSON envelope)
+## Tools
+
+The six navigation tools plus `taint_reaches` are read-only and return a Prism `Evidence` JSON
+envelope. `refresh_index` is the exception — it changes local server state (not the repo) and
+returns a refresh summary instead of `Evidence`.
 
 | Tool | Answers | Seed |
 |---|---|---|
@@ -128,6 +132,8 @@ Kiro names the tools **bare** (`nav_repo_map`), not `mcp__prism__*`.
 | `nav_callees` | What does this symbol / location call? (*what X depends on*) | symbol or location |
 | `nav_ego_graph` | The local call/dependency graph around a seed. | symbol or location |
 | `nav_module_deps` | Outbound module dependencies for one file. | `{file}` |
+| `taint_reaches` | Forward taint reachability from a seed. (read-only, returns `Evidence`) | symbol or location |
+| `refresh_index` | Re-indexes the repo snapshot for this server session. (local state change, not read-only; returns a refresh summary) | *(none)* |
 
 **Seeding.** Most tools accept either `{kind: "symbol", name: "X"}` (optionally `{file}` to disambiguate)
 or a node returned by `nav_nodes_at`. `nav_nodes_at` is **exact-line** — if it returns empty, aim at the
@@ -141,8 +147,9 @@ symbol's *definition* or *call* line, not a blank/comment line.
   means you aimed a line or two off the definition/call site.
 - **One repo per server.** The server knows only the repo it was launched with (`--repo`). It cannot see
   sibling repos, dependencies outside the tree, or the standard library.
-- **Graphs truncate.** `nav_ego_graph` / `nav_repo_map` cap at roughly `max_results` (~200) nodes. A
-  truncated graph is a partial view, not the whole story — narrow the seed if you need completeness.
+- **Graphs truncate.** `nav_ego_graph` / `nav_repo_map` cap at 50 items by default (`max_results`, up
+  to 1000), with an 80 KB result byte cap. A truncated graph is a partial view, not the whole story —
+  narrow the seed if you need completeness.
 - **Call resolution is name-based, not type-based.** Prism resolves dot/`::`-qualified and `use`-imported
   calls, but the remaining gaps are `Type::method` where the type name differs from the file stem, and
   cross-file method/receiver calls — these need type information and may resolve incompletely or to the
