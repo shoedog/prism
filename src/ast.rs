@@ -2131,9 +2131,17 @@ impl ParsedFile {
     /// - any attribute node that is (a descendant of) the `left` field of an
     ///   `assignment` or `augmented_assignment` (`x.attr = v` / `x.attr += v`
     ///   — a STORE, never a load; both grammars put the target under `left`).
-    ///   Scope note: `for`/`with`/`del` targets are NOT covered (not in the
-    ///   reviewed spec) — a rare residual false-load gap, not a soundness hole
-    ///   (call_graph.rs's receiver narrowing still requires an indexed name).
+    /// - (F4) `del`-statement targets, `for`/comprehension targets, and
+    ///   `with ... as` alias targets — see `collect_python_attribute_loads`.
+    /// - (F3, codex MAJOR 3) anything inside a nested `function_definition`/
+    ///   `decorated_definition`/`class_definition`: the walk fences at those
+    ///   boundaries so a nested def's body is scanned exactly once, by its
+    ///   OWN entry in `all_functions()` — never misattributed to the
+    ///   enclosing function. Nested `lambda` bodies are fenced too, but
+    ///   (unlike nested defs) nothing else ever scans them: lambdas never
+    ///   get their own `FunctionId` from `all_functions()`, so any
+    ///   `self.attr`/property access inside a lambda body is an accepted,
+    ///   deliberate recall gap (never recorded against anything).
     pub(crate) fn python_attribute_load_candidates(
         &self,
         func_node: &Node<'_>,
@@ -2164,6 +2172,22 @@ impl ParsedFile {
         in_store_target: bool,
         out: &mut Vec<PythonAttributeLoadCandidate>,
     ) {
+        // F3 (codex MAJOR 3): fence nested callable/class scopes. The walk
+        // starts at a function's OWN body (never at the function node
+        // itself — see `python_attribute_load_candidates`), so any of these
+        // kinds encountered here is necessarily a NESTED one. The nested
+        // def/class gets its own separate scan via its own `all_functions()`
+        // entry; recursing into it here would misattribute its accesses to
+        // the outer function AND double-scan it. Lambda bodies are fenced
+        // too but are never scanned by anything else (lambdas have no
+        // `FunctionId`) — an accepted, deliberate recall gap.
+        if matches!(
+            node.kind(),
+            "function_definition" | "decorated_definition" | "lambda" | "class_definition"
+        ) {
+            return;
+        }
+
         if matches!(node.kind(), "assignment" | "augmented_assignment") {
             if let Some(left) = node.child_by_field_name("left") {
                 self.collect_python_attribute_loads(left, attr_names, true, out);

@@ -5333,4 +5333,39 @@ class Child(Base):\n    def dump(self):\n        return self.text\n",
             .iter()
             .any(|a| a.getter == getter && a.enclosing == enclosing));
     }
+
+    // ---- F3: nested callable/class scope fencing -----------------------
+
+    #[test]
+    fn nested_def_self_attr_not_attributed_to_outer_method() {
+        // F3 (codex MAJOR 3): a nested `def` has the SAME kind as the outer
+        // function but its own scope — `self.text` inside it must not be
+        // recorded against the OUTER method's FunctionId (misattribution +
+        // double-scan, since `all_functions()` visits the nested def
+        // separately anyway).
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n    def dump(self):\n        def helper():\n            return self.text\n        return helper()\n",
+        )]);
+        let dump = fid_named(&cg, "dump").clone();
+        assert!(
+            !cg.property_accesses.iter().any(|a| a.enclosing == dump),
+            "self.text inside a nested def must not be attributed to the outer method"
+        );
+    }
+
+    #[test]
+    fn lambda_body_self_attr_is_not_scanned() {
+        // F3: lambda bodies are fenced out of the walk entirely (accepted
+        // recall gap — no other scanner covers lambda bodies either, since
+        // lambdas never get their own FunctionId from `all_functions()`).
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n    def dump(self):\n        f = lambda: self.text\n        return f()\n",
+        )]);
+        assert!(
+            cg.property_accesses.is_empty(),
+            "self.text inside a lambda body must not surface any edge"
+        );
+    }
 }
