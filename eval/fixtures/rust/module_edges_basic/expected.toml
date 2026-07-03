@@ -1,0 +1,19 @@
+# By-construction module-deps fixture (P6c): `main.rs` declares `mod util;`
+# and calls `util::helper()`, so `nav module-deps --file main.rs` must report
+# exactly one edge, to `util.rs`. Verified against the built binary:
+# `prism nav module-deps --repo eval/fixtures/rust/module_edges_basic
+#  --file main.rs --format json` -> items[].location.file == {"util.rs"}
+# (no self-reference noise here, unlike the Python heuristic-import fixture --
+# Rust `mod` resolution goes straight through the call graph), so this
+# fixture can safely assert `exact = true`.
+[case]
+language = "rust"
+capability = "module_edges_basic"
+status = "pass"
+probe = "module_deps"
+[module]
+file = "main.rs"
+[[expect.module_edges]]
+to = "util.rs"
+[expect]
+exact = true
