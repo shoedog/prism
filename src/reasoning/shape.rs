@@ -244,12 +244,15 @@ pub fn witness_graph_for_node(
     Some(GraphPayload { nodes, edges })
 }
 
-pub fn witness_graph_for(
-    cpg: &CodePropertyGraph,
+/// Ordered witness chain `root..=sink` (root/source first, sink last), or `None` if `sink` is not
+/// in `root`'s frontier. Shared by [`witness_graph_for`] (builds the wire graph) and P10's
+/// sanitizer-window walk (`reasoning::sanitizer_walk`, proves a path-specific sanitizing
+/// transition) — both need the SAME chain a verdict is derived from.
+pub fn witness_chain_for(
     trace: &Trace,
     root: NodeIndex,
     sink: NodeIndex,
-) -> Option<GraphPayload> {
+) -> Option<Vec<NodeIndex>> {
     if !trace
         .frontier_by_root
         .get(&root)
@@ -270,15 +273,36 @@ pub fn witness_graph_for(
         chain.push(cur);
     }
     chain.reverse();
+    Some(chain)
+}
 
+/// Deduplicated `GraphNode`s for a chain plus each `NodeIndex`'s position in that node list.
+/// Exposed so callers that need to attach MORE nodes/edges to a chain-derived witness graph (P10's
+/// sanitizer step) can find a chain node's index without re-deriving the dedup order themselves.
+pub fn chain_nodes(
+    cpg: &CodePropertyGraph,
+    chain: &[NodeIndex],
+) -> (Vec<GraphNode>, BTreeMap<NodeIndex, usize>) {
     let mut idx_of: BTreeMap<NodeIndex, usize> = BTreeMap::new();
     let mut nodes = Vec::new();
-    for &n in &chain {
+    for &n in chain {
         idx_of.entry(n).or_insert_with(|| {
             nodes.push(node_of(cpg, n));
             nodes.len() - 1
         });
     }
+    (nodes, idx_of)
+}
+
+/// `GraphPayload` for an already-computed witness `chain` (root first, sink last). `root` is only
+/// used to look up each edge's `Relation` label in `trace.parents_by_root`.
+pub fn witness_graph_for_chain(
+    cpg: &CodePropertyGraph,
+    trace: &Trace,
+    root: NodeIndex,
+    chain: &[NodeIndex],
+) -> GraphPayload {
+    let (nodes, idx_of) = chain_nodes(cpg, chain);
 
     let mut edges = Vec::new();
     for w in chain.windows(2) {
@@ -298,7 +322,17 @@ pub fn witness_graph_for(
             kind: kind.to_string(),
         });
     }
-    Some(GraphPayload { nodes, edges })
+    GraphPayload { nodes, edges }
+}
+
+pub fn witness_graph_for(
+    cpg: &CodePropertyGraph,
+    trace: &Trace,
+    root: NodeIndex,
+    sink: NodeIndex,
+) -> Option<GraphPayload> {
+    let chain = witness_chain_for(trace, root, sink)?;
+    Some(witness_graph_for_chain(cpg, trace, root, &chain))
 }
 
 pub fn node_to_graph_node(cpg: &CodePropertyGraph, n: NodeIndex) -> GraphNode {

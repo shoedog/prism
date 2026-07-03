@@ -13,13 +13,15 @@ use crate::navigation::types::{
 };
 use crate::navigation::NavigationSession;
 use crate::reasoning::order::AstOrderView;
+use crate::reasoning::sanitizer_walk::{sanitized_hits_on_chain, SanitizerHit};
 use crate::reasoning::scope_honesty;
 use crate::reasoning::seeds::{resolve, ResolvedSeed, SeedRole, SeedSpec};
 use crate::reasoning::shape::{
-    node_to_graph_node, reachability_for_node_from_ordered, witness_graph_for,
+    chain_nodes, node_to_graph_node, reachability_for_node_from_ordered, witness_chain_for,
+    witness_graph_for_chain,
 };
 use crate::reasoning::types::{
-    Reachability, ReasoningReason, ReasoningSummary, ReasoningWarning, SinkResult,
+    Reachability, ReasoningReason, ReasoningSummary, ReasoningWarning, SanitizerSite, SinkResult,
     SinkSourceResult, SourceWarningKey,
 };
 
@@ -162,7 +164,7 @@ fn witness_mode(
         let mut source_results = Vec::new();
         for source in sources {
             let mut ordering_warnings = Vec::new();
-            let reachability = reachability_for_node_from_ordered(
+            let raw_reachability = reachability_for_node_from_ordered(
                 &session.index.cpg,
                 trace,
                 source.node,
@@ -171,11 +173,28 @@ fn witness_mode(
                 &mut ordering_warnings,
             );
             warnings.extend(ordering_warnings.iter().map(ordering_warning));
+
+            // P10: derive the ordered chain first, run the sanitizer-window check and settle the
+            // FINAL verdict BEFORE the witness-graph gate below — the graph (for Reached|Sanitized)
+            // then carries the sanitizer step for whichever verdict actually won.
+            let mut reachability = raw_reachability;
             let mut graph_node = None;
-            if reachability == Reachability::Reached {
-                if let Some(witness) =
-                    witness_graph_for(&session.index.cpg, trace, source.node, sink.node)
-                {
+            let mut sanitized_by: Vec<SanitizerSite> = Vec::new();
+            if raw_reachability == Reachability::Reached {
+                if let Some(chain) = witness_chain_for(trace, source.node, sink.node) {
+                    let hits =
+                        sanitized_hits_on_chain(&session.repo.files, &session.index.cpg, &chain);
+                    if !hits.is_empty() {
+                        reachability = Reachability::Sanitized;
+                    }
+                    sanitized_by = hits.iter().map(|hit| hit.site.clone()).collect();
+
+                    let mut witness =
+                        witness_graph_for_chain(&session.index.cpg, trace, source.node, &chain);
+                    if !hits.is_empty() {
+                        let (_, idx_of) = chain_nodes(&session.index.cpg, &chain);
+                        attach_sanitizer_steps(&mut witness, &idx_of, &hits);
+                    }
                     let sink_key =
                         graph_node_key(&node_to_graph_node(&session.index.cpg, sink.node));
                     graph_node = merge_witness(&mut union, &mut node_map, witness, &sink_key);
@@ -184,15 +203,24 @@ fn witness_mode(
             let sanitizers = sanitizers_for_source(session, &source.loc);
             if !sanitizers.is_empty() {
                 let source_key = SourceWarningKey::from_var_location(&source.loc);
-                warnings.push(Warning {
-                    kind: WarningKind::Reasoning(ReasoningWarning::Cleansed {
-                        source_function: source_key.function.clone(),
-                    }),
-                    message: format!(
+                // Path-proven cases name the site (the discriminant stays `Cleansed` — pinned by
+                // eval fixtures); function-body-presence-only cases keep the original message.
+                let message = match sanitized_by.first() {
+                    Some(site) => format!(
+                        "{} sanitizes this path via {} at {}:{}",
+                        source_key.function, site.callee_text, site.file, site.line
+                    ),
+                    None => format!(
                         "{} contains sanitizer categories: {}",
                         source_key.function,
                         sanitizers.join(", ")
                     ),
+                };
+                warnings.push(Warning {
+                    kind: WarningKind::Reasoning(ReasoningWarning::Cleansed {
+                        source_function: source_key.function.clone(),
+                    }),
+                    message,
                     location: Some(source_key.location()),
                 });
             }
@@ -201,6 +229,7 @@ fn witness_mode(
                 reachability,
                 graph_node,
                 sanitizers_present_in_source_fn: sanitizers,
+                sanitized_by,
             });
         }
         let reachability =
@@ -281,6 +310,49 @@ fn depth(trace: &Trace, root: NodeIndex, node: NodeIndex) -> Option<usize> {
         cur = *parent;
     }
     None
+}
+
+/// P10: append a `"SanitizedBy"` witness step for each proven sanitizer hit — a new `GraphNode` for
+/// the sanitizer call site, wired from the chain node whose value flows into it. Attached to the
+/// per-source witness graph BEFORE `merge_witness` folds it into the union (so the union's node/edge
+/// dedup handles the synthetic node identically to any other witness node).
+fn attach_sanitizer_steps(
+    witness: &mut GraphPayload,
+    idx_of: &BTreeMap<NodeIndex, usize>,
+    hits: &[SanitizerHit],
+) {
+    for hit in hits {
+        let Some(&from_idx) = idx_of.get(&hit.use_node) else {
+            continue;
+        };
+        let new_idx = witness.nodes.len();
+        witness.nodes.push(sanitizer_graph_node(hit));
+        witness.edges.push(GraphEdge {
+            from: from_idx,
+            to: new_idx,
+            kind: "SanitizedBy".to_string(),
+        });
+    }
+}
+
+fn sanitizer_graph_node(hit: &SanitizerHit) -> GraphNode {
+    GraphNode {
+        symbol: Some(SymbolRef::Statement {
+            file: hit.site.file.clone(),
+            line: hit.site.line,
+            kind: "SanitizerCall".into(),
+            start_byte: hit.call_start_byte,
+            end_byte: hit.call_end_byte,
+            ordinal: 0,
+        }),
+        location: Location {
+            file: hit.site.file.clone(),
+            start_line: hit.site.line,
+            end_line: hit.site.line,
+            start_byte: hit.call_start_byte,
+            end_byte: hit.call_end_byte,
+        },
+    }
 }
 
 fn merge_witness(

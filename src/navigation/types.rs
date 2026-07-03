@@ -2,7 +2,7 @@ use serde::Serialize;
 
 pub use crate::cpg::OrderingUnavailableReason;
 pub use crate::reasoning::types::{
-    Reachability, ReasoningReason, ReasoningSummary, ReasoningWarning,
+    Reachability, ReasoningReason, ReasoningSummary, ReasoningWarning, SanitizerSite,
     ScopeHonestyUnavailableReason, SinkResult, SinkSourceResult,
 };
 

@@ -424,3 +424,275 @@ fn sink_resolution_errors_are_hard_failures() {
 
     assert!(matches!(error, QueryError::LocationOutOfRange { .. }));
 }
+
+// --- P10: path-proven sanitizer verdicts -----------------------------------------------------
+
+fn sink_source<'a>(
+    evidence: &'a prism::navigation::types::Evidence,
+) -> &'a prism::navigation::types::SinkSourceResult {
+    evidence
+        .reasoning
+        .as_ref()
+        .expect("reasoning summary")
+        .per_sink
+        .first()
+        .expect("one sink")
+        .sources
+        .first()
+        .expect("one source")
+}
+
+#[test]
+fn path_proven_sanitizer_downgrades_verdict_to_sanitized() {
+    let fixture = fixture(&[(
+        "app.py",
+        "def f():\n    user = input()\n    safe = html.escape(user)\n    sink(safe)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 4,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Sanitized);
+    assert_eq!(source.sanitized_by.len(), 1, "{:?}", source.sanitized_by);
+    let site = &source.sanitized_by[0];
+    assert_eq!(site.callee_text, "html.escape");
+    assert_eq!(site.file, "app.py");
+    assert_eq!(site.line, 3);
+
+    let graph = evidence.graph.as_ref().expect("witness graph");
+    assert!(
+        graph.nodes.iter().any(|n| matches!(
+            &n.symbol,
+            Some(SymbolRef::Statement { kind, line, .. }) if kind == "SanitizerCall" && *line == 3
+        )),
+        "witness graph must contain the sanitizer call site node: {:?}",
+        graph.nodes
+    );
+    assert!(
+        graph.edges.iter().any(|e| e.kind == "SanitizedBy"),
+        "witness graph must contain a SanitizedBy edge: {:?}",
+        graph.edges
+    );
+
+    assert!(evidence.warnings.iter().any(|warning| {
+        matches!(
+            &warning.kind,
+            WarningKind::Reasoning(ReasoningWarning::Cleansed { .. })
+        ) && warning
+            .message
+            .contains("sanitizes this path via html.escape")
+    }));
+}
+
+#[test]
+fn raw_variable_bypassing_sanitizer_stays_reached() {
+    // `safe` is sanitized, but the sink consumes the RAW `user` — the sanitizer sits in the
+    // function body but not on THIS path. Must not be a false negative (verdict stays Reached).
+    let fixture = fixture(&[(
+        "app.py",
+        "def f():\n    user = input()\n    safe = html.escape(user)\n    sink(user)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 4,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Reached);
+    assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+    // Function-body presence still fires the advisory Cleansed warning (unchanged behavior).
+    assert!(evidence.warnings.iter().any(|warning| {
+        matches!(
+            &warning.kind,
+            WarningKind::Reasoning(ReasoningWarning::Cleansed { .. })
+        )
+    }));
+}
+
+#[test]
+fn multi_hop_assignment_chain_through_sanitizer_is_sanitized() {
+    // `a = escape(u); b = a; sink(b)` — the sanitizer transition is one hop back from the sink;
+    // the rest of the chain is plain AssignmentPropagation. Verdict must still flip via chain
+    // transitivity.
+    let fixture = fixture(&[(
+        "app.py",
+        "def f():\n    u = input()\n    a = html.escape(u)\n    b = a\n    sink(b)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 5,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Sanitized);
+    assert_eq!(source.sanitized_by.len(), 1, "{:?}", source.sanitized_by);
+    assert_eq!(source.sanitized_by[0].callee_text, "html.escape");
+}
+
+#[test]
+fn sanitizer_in_a_different_function_does_not_affect_verdict() {
+    // The sanitizer call lives in `helper`, not `f` (the source's own function) — body-presence
+    // detection itself misses it (scoped to the source's enclosing function), so behavior is
+    // completely unchanged: no Cleansed warning, no sanitized_by, ordinary Reached.
+    let fixture = fixture(&[(
+        "app.py",
+        "def helper(x):\n    return html.escape(x)\n\ndef f():\n    user = input()\n    sink(user)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 5,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 6,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Reached);
+    assert!(source.sanitized_by.is_empty());
+    assert!(!evidence.warnings.iter().any(|warning| {
+        matches!(
+            &warning.kind,
+            WarningKind::Reasoning(ReasoningWarning::Cleansed { .. })
+        )
+    }));
+}
+
+#[test]
+fn frontier_mode_has_no_sanitized_verdict() {
+    // Frontier mode (no sinks) has no verdict at all — Sanitized is a witness-mode-only concept.
+    let fixture = fixture(&[(
+        "app.py",
+        "def f():\n    user = input()\n    safe = html.escape(user)\n    sink(safe)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }],
+        None,
+    )
+    .expect("taint_reaches");
+
+    let reasoning = evidence.reasoning.as_ref().expect("reasoning summary");
+    assert!(reasoning.reachability.is_none());
+    assert!(reasoning.per_sink.is_empty());
+}
+
+#[test]
+fn js_declaration_form_path_proven_sanitizer_is_sanitized() {
+    // `const safe = escape(user)` — the JS/TS `variable_declarator` declaration form (not an
+    // `assignment_expression`); codex catch: the generic assignment helpers alone don't cover
+    // this, `declaration_value`/`declaration_name` must.
+    let fixture = fixture(&[(
+        "app.js",
+        "function f() {\n  var user = input();\n  const safe = escape(user);\n  sink(safe);\n}\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.js".into(),
+            line: 2,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.js".into(),
+            line: 4,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Sanitized);
+    assert_eq!(source.sanitized_by.len(), 1, "{:?}", source.sanitized_by);
+    assert_eq!(source.sanitized_by[0].callee_text, "escape");
+    assert_eq!(source.sanitized_by[0].file, "app.js");
+    assert_eq!(source.sanitized_by[0].line, 3);
+}
+
+#[test]
+fn js_declaration_form_bypass_stays_reached() {
+    let fixture = fixture(&[(
+        "app.js",
+        "function f() {\n  var user = input();\n  const safe = escape(user);\n  sink(user);\n}\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.js".into(),
+            line: 2,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.js".into(),
+            line: 4,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Reached);
+    assert!(source.sanitized_by.is_empty());
+}
+
+#[test]
+fn go_paired_check_recognizer_is_excluded_from_verdict() {
+    // `filepath.Clean` (Go path-traversal family) carries a `paired_check` — the BLOCKER ruling
+    // excludes paired-check recognizers from verdict-affecting `Sanitized` entirely, even when
+    // `strings.HasPrefix` is textually present too. Verdict must stay Reached (advisory-only).
+    let fixture = fixture(&[(
+        "app.go",
+        "package m\n\nfunc f(base string, p string) string {\n\tclean := filepath.Clean(p)\n\tif strings.HasPrefix(clean, base) {\n\t\tsink(clean)\n\t}\n\treturn clean\n}\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Symbol {
+            name: "f".into(),
+            file: Some("app.go".into()),
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.go".into(),
+            line: 6,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let reasoning = evidence.reasoning.as_ref().expect("reasoning summary");
+    assert!(
+        reasoning.per_sink.iter().any(|sink| sink
+            .sources
+            .iter()
+            .any(|source| source.reachability == Reachability::Reached
+                && source.sanitized_by.is_empty())),
+        "paired-check recognizers must not produce a Sanitized verdict"
+    );
+}
