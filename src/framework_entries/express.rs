@@ -88,9 +88,28 @@ pub fn express_route_candidates(parsed: &ParsedFile) -> Vec<ExpressRouteCandidat
         let Some(args_node) = parsed.language.call_arguments(&call) else {
             continue;
         };
-        let start_idx: usize = if is_route_builder { 0 } else { 1 };
         let mut cursor = args_node.walk();
         let arg_nodes: Vec<tree_sitter::Node<'_>> = args_node.named_children(&mut cursor).collect();
+        // F3: method-aware arg positioning. Direct-instance `.use(...)`
+        // uniquely allows OMITTING the mount path (`app.use(middlewareFn)`
+        // mounts globally) -- the uniform "always skip arg 0" rule used to
+        // drop that single-arg form entirely. Only treat arg 0 as a handler
+        // candidate for `use` when it ISN'T a string/template path (a real
+        // mount-path arg 0 keeps the pre-existing skip-arg-0 behavior); every
+        // other route method (`get`/`post`/`all`/...) keeps the path-at-0
+        // rule unchanged, and the `.route(path).get(...)` builder form
+        // (`is_route_builder`) already scans from 0 regardless of method.
+        let start_idx: usize = if is_route_builder {
+            0
+        } else if express_call_method_name(parsed, &call).as_deref() == Some("use") {
+            match arg_nodes.first() {
+                Some(first) if is_js_ts_string_like_node(first.kind()) => 1,
+                Some(_) => 0,
+                None => 1,
+            }
+        } else {
+            1
+        };
         if arg_nodes.len() <= start_idx {
             continue;
         }
@@ -164,6 +183,34 @@ fn express_call_match_kind(
         return Some(true);
     }
     None
+}
+
+/// F3: recover the matched call's own method name (`get`/`use`/`post`/...)
+/// for the method-aware arg-positioning decision — recomputed independently
+/// from `express_call_match_kind`'s internal `method` local (which isn't
+/// returned) rather than threading it through that function's signature;
+/// this is the same minimal-duplication choice as
+/// `express_receiver_identifier_name` (F2).
+fn express_call_method_name(parsed: &ParsedFile, call: &tree_sitter::Node<'_>) -> Option<String> {
+    let function = call.child_by_field_name("function")?;
+    let function = crate::algorithms::taint::unwrap_parenthesized(function);
+    if function.kind() != "member_expression" {
+        return None;
+    }
+    let property = function.child_by_field_name("property")?;
+    Some(
+        parsed
+            .node_text(&property)
+            .trim_matches(|c| c == '\'' || c == '"' || c == '`')
+            .to_string(),
+    )
+}
+
+/// F3: a JS/TS string or template-literal node — used to decide whether
+/// `app.use(arg0, ...)`'s arg 0 is a mount path (keep the skip-arg-0 rule)
+/// vs. a handler candidate (function-valued or identifier).
+fn is_js_ts_string_like_node(kind: &str) -> bool {
+    matches!(kind, "string" | "template_string")
 }
 
 /// F2: recover the bare identifier receiver name backing a matched Express

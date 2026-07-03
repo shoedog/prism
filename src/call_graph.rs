@@ -6384,6 +6384,68 @@ mod framework_entry_tests {
         assert_eq!(cg.framework_entry_unresolved_handlers, 0);
     }
 
+    // ---- F3: method-aware arg positioning for `app.use(...)` ----------------
+
+    #[test]
+    fn express_use_single_identifier_arg_is_recorded() {
+        // `app.use(loggerFn)` -- no path argument at all; arg 0 IS the
+        // handler. The uniform "always skip arg 0" rule used to drop this
+        // entirely.
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nfunction loggerFn(req, res, next) {}\n\napp.use(loggerFn);\n",
+        )]);
+        let logger_fn = fid(&cg, "loggerFn").clone();
+        let rec = cg
+            .framework_entries
+            .iter()
+            .find(|r| r.handler == logger_fn)
+            .expect("app.use(loggerFn) must record the single identifier arg");
+        assert_eq!(rec.site.line, 6);
+    }
+
+    #[test]
+    fn express_use_with_path_arg_still_skips_the_path() {
+        // `app.use('/api', mw)` -- arg 0 IS a string path, so the existing
+        // skip-arg-0 behavior must still apply; only `mw` is recorded.
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nfunction mw(req, res, next) {}\n\napp.use(\"/api\", mw);\n",
+        )]);
+        let mw = fid(&cg, "mw").clone();
+        assert!(
+            cg.framework_entries.iter().any(|r| r.handler == mw),
+            "mw must be recorded"
+        );
+        assert_eq!(
+            cg.framework_entries
+                .iter()
+                .filter(|r| r.framework == "express")
+                .count(),
+            1,
+            "the path argument itself must not be recorded as a handler"
+        );
+    }
+
+    #[test]
+    fn express_use_identifier_router_var_fails_bare_binding_resolution() {
+        // `app.use(routerVar)` where `routerVar` is bound to
+        // `express.Router()` -- arg 0 is method-aware-scanned as a handler
+        // candidate, but `routerVar` is never a function/method definition
+        // at all, so it fails resolution (0 matches) and must not record.
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\nconst routerVar = express.Router();\n\napp.use(routerVar);\n",
+        )]);
+        assert!(
+            !cg.framework_entries
+                .iter()
+                .any(|r| r.framework == "express"),
+            "a router/config identifier must not resolve to a handler"
+        );
+        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
+    }
+
     // ---- Non-target-language guard -----------------------------------------
 
     #[test]
