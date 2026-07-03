@@ -755,3 +755,38 @@ fn tainted_callee_identifier_is_not_a_sanitizer_transition() {
     assert_eq!(source.reachability, Reachability::Reached);
     assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
 }
+// --- F2 BLOCKER: language applicability in the VERDICT path --------------------------------
+
+#[test]
+fn go_cross_language_recognizer_name_does_not_produce_sanitized_verdict() {
+    // Go is `sanitizer_supported` (via the paired-check path family), but `escape` is a bare-name
+    // recognizer registered for Python/JS in `active_recognizers()`. `call_path_matches`'s
+    // exact-match branch is NOT gated by language, so pre-fix `sanitizer_call_site` matched a Go
+    // `escape(user)` call against the Python/JS entry, producing a false Sanitized verdict.
+    let fixture = fixture(&[(
+        "app.go",
+        "package m\n\nfunc f(user string) string {\n\tsafe := escape(user)\n\tsink(safe)\n\treturn safe\n}\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Symbol {
+            name: "f".into(),
+            file: Some("app.go".into()),
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.go".into(),
+            line: 5,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let reasoning = evidence.reasoning.as_ref().expect("reasoning summary");
+    assert!(
+        reasoning.per_sink.iter().any(|sink| sink
+            .sources
+            .iter()
+            .any(|source| source.reachability == Reachability::Reached
+                && source.sanitized_by.is_empty())),
+        "a same-name recognizer from another language's table must not produce a Sanitized verdict for Go"
+    );
+}

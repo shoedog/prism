@@ -7,6 +7,9 @@
 
 use super::SanitizerRecognizer;
 use crate::frameworks::SanitizerCategory;
+use crate::languages::Language;
+
+const JS_TS_LANGUAGES: &[Language] = &[Language::JavaScript, Language::TypeScript, Language::Tsx];
 
 pub const JS_TS_RECOGNIZERS: &[SanitizerRecognizer] = &[
     SanitizerRecognizer {
@@ -14,17 +17,20 @@ pub const JS_TS_RECOGNIZERS: &[SanitizerRecognizer] = &[
         category: SanitizerCategory::Xss,
         semantic_check: None,
         paired_check: None,
+        languages: JS_TS_LANGUAGES,
     },
     SanitizerRecognizer {
         call_path: "escapeHtml",
         category: SanitizerCategory::Xss,
         semantic_check: None,
         paired_check: None,
+        languages: JS_TS_LANGUAGES,
     },
     SanitizerRecognizer {
         call_path: "escape",
         category: SanitizerCategory::Xss,
         semantic_check: None,
         paired_check: None,
+        languages: JS_TS_LANGUAGES,
     },
 ];

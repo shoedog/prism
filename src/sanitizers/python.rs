@@ -7,6 +7,9 @@
 
 use super::SanitizerRecognizer;
 use crate::frameworks::SanitizerCategory;
+use crate::languages::Language;
+
+const PYTHON_LANGUAGES: &[Language] = &[Language::Python];
 
 pub const PYTHON_RECOGNIZERS: &[SanitizerRecognizer] = &[
     SanitizerRecognizer {
@@ -14,29 +17,34 @@ pub const PYTHON_RECOGNIZERS: &[SanitizerRecognizer] = &[
         category: SanitizerCategory::Xss,
         semantic_check: None,
         paired_check: None,
+        languages: PYTHON_LANGUAGES,
     },
     SanitizerRecognizer {
         call_path: "markupsafe.escape",
         category: SanitizerCategory::Xss,
         semantic_check: None,
         paired_check: None,
+        languages: PYTHON_LANGUAGES,
     },
     SanitizerRecognizer {
         call_path: "escape",
         category: SanitizerCategory::Xss,
         semantic_check: None,
         paired_check: None,
+        languages: PYTHON_LANGUAGES,
     },
     SanitizerRecognizer {
         call_path: "bleach.clean",
         category: SanitizerCategory::Xss,
         semantic_check: None,
         paired_check: None,
+        languages: PYTHON_LANGUAGES,
     },
     SanitizerRecognizer {
         call_path: "bleach.linkify",
         category: SanitizerCategory::Xss,
         semantic_check: None,
         paired_check: None,
+        languages: PYTHON_LANGUAGES,
     },
 ];

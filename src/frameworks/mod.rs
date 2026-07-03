@@ -8,6 +8,7 @@
 //! full design.
 
 use crate::ast::ParsedFile;
+use crate::languages::Language;
 
 pub mod gin;
 pub mod gorilla_mux;
@@ -88,6 +89,13 @@ pub struct SanitizerRecognizer {
     /// half*; the second-half check name is resolved at suppression time by textual
     /// co-occurrence in the same function body.
     pub paired_check: Option<&'static str>,
+    /// P10 F2: the language(s) this recognizer's `call_path` is meaningful for (e.g. bare `escape`
+    /// means something different in Python vs. JS/TS, and means nothing in Go). Consumed ONLY by
+    /// `taint::sanitizer_call_site` (the P10 verdict-path matcher) — the advisory tier
+    /// (`function_body_cleansed_for` / `cleansed_categories_for_source`) intentionally does NOT
+    /// filter by this field; see that function's doc comment for why its cross-language matching
+    /// stays unchanged.
+    pub languages: &'static [Language],
 }
 
 /// Call-site reflection helper. Wraps a tree-sitter call expression node + the

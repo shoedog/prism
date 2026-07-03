@@ -10759,6 +10759,18 @@ pub(crate) struct SanitizerCallSite {
 /// shapes, which this single-call-node check cannot replicate. They stay advisory-only via the
 /// unchanged `Cleansed` warning / `sanitizers_present_in_source_fn` path.
 ///
+/// F2 BLOCKER (also filters by `recognizer.languages`): `call_path_matches`'s exact-match branch is
+/// NOT gated by language, and `sanitizer_supported` (the file-language gate one layer up) admits
+/// Go — so an unqualified name shared across tables (bare `escape` is registered by BOTH
+/// `JS_TS_RECOGNIZERS` and `PYTHON_RECOGNIZERS`) would otherwise match a same-named Go call and
+/// produce a false path-proven `Sanitized` verdict. This filter is intentionally scoped to THIS
+/// verdict-path matcher only — `function_body_cleansed_for` / `cleansed_categories_for_source`
+/// (the advisory tier feeding `sanitizers_present_in_source_fn` / the `Cleansed` warning, and the
+/// CWE sink-suppression engine) deliberately keep iterating `active_recognizers()` unfiltered by
+/// language, matching their existing (pre-P10) behavior byte-for-byte. Narrowing the advisory tier
+/// the same way is a plausible follow-up but out of P10's scope here — it risks fixture
+/// regressions that weren't part of this BLOCKER.
+///
 /// Returns the matched category plus the discriminating fact (rendered callee text, call's own
 /// file/line) — NOT proof that this specific call sits on any particular taint path. Chain-window
 /// proof (is this call reached from a specific source and does its result feed a specific def) is
@@ -10770,6 +10782,9 @@ pub(crate) fn sanitizer_call_site(
     let actual = call_path_text(parsed, call_node)?;
     for recognizer in crate::sanitizers::active_recognizers() {
         if recognizer.paired_check.is_some() {
+            continue;
+        }
+        if !recognizer.languages.contains(&parsed.language) {
             continue;
         }
         if !call_path_matches(parsed, &actual, recognizer.call_path) {
@@ -11669,5 +11684,25 @@ func handler(input string) {
             .find(|c| c.start_position().row + 1 == 2)
             .expect("str(u) call on line 2");
         assert!(sanitizer_call_site(&parsed, call).is_none());
+    }
+
+    #[test]
+    fn test_sanitizer_call_site_rejects_wrong_language_recognizer() {
+        // F2 BLOCKER: `escape` is registered by BOTH `JS_TS_RECOGNIZERS` and `PYTHON_RECOGNIZERS`,
+        // and `call_path_matches`'s exact-match branch is not gated by language — a Go `escape(u)`
+        // call must not match either table's entry in the verdict-path matcher, even though Go is
+        // `sanitizer_supported` (via the paired-check path family).
+        let src = "package m\nfunc f(u string) string {\n\treturn escape(u)\n}\n";
+        let parsed = ParsedFile::parse("t.go", src, Language::Go).unwrap();
+        let mut calls = Vec::new();
+        collect_calls(&parsed, parsed.tree.root_node(), &mut calls);
+        let call = calls
+            .iter()
+            .find(|c| c.start_position().row + 1 == 3)
+            .expect("escape(u) call on line 3");
+        assert!(
+            sanitizer_call_site(&parsed, call).is_none(),
+            "a same-name recognizer from another language's table must not match Go"
+        );
     }
 }
