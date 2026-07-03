@@ -56,12 +56,11 @@ pub struct JsExportFacts {
     /// the RHS was not a plain identifier referencing an in-file declaration
     /// (e.g. `module.exports = someExpression()`). Telemetry only.
     pub skipped_expr_count: usize,
-    /// Exported names that received 2+ raw fact insertions in this file
-    /// (F3, review-fix wave: re-export lists, local named lists, or a mix --
-    /// e.g. `export { f } from './a'; export { f } from './b';`). Populated
-    /// by `insert_named` instead of silently overwriting `named`, so
-    /// whole-program resolution (which sees both facts) can fail closed
-    /// rather than the extraction layer picking a last-writer-wins winner.
+    /// Exported names with 2+ raw fact insertions in this file (F3: re-export
+    /// lists, local named lists, or a mix -- e.g. `export { f } from './a';
+    /// export { f } from './b';`). Populated by `insert_named` instead of
+    /// silently overwriting `named`, so whole-program resolution (which sees
+    /// both facts) can fail closed instead of picking a last-writer winner.
     pub conflicted: BTreeSet<String>,
 }
 
@@ -73,15 +72,11 @@ impl JsExportFacts {
             && self.conflicted.is_empty()
     }
 
-    /// Record a single named-export raw fact, poisoning (marking
-    /// conflicted) a name that an earlier raw fact in this same file already
-    /// claimed, rather than silently overwriting it (F3, review-fix wave).
-    /// ANY duplicate insertion for a given exported name -- from two
-    /// re-export lists, a local declaration plus a re-export, or even two
-    /// textually identical re-exports of the same target -- poisons that
-    /// name for this file: whole-program resolution refuses to bind it.
-    /// (We chose to poison identical duplicates too, rather than special-case
-    /// them, trading a rare false negative for simplicity/consistency.)
+    /// Record a named-export raw fact, poisoning (marking conflicted) a name
+    /// an earlier fact in this file already claimed, instead of silently
+    /// overwriting it (F3). ANY duplicate insertion -- two re-export lists, a
+    /// local declaration plus a re-export, even two identical re-exports of
+    /// the same target -- poisons the name: resolution refuses to bind it.
     pub fn insert_named(&mut self, name: String, target: JsExportTarget) {
         if self.conflicted.contains(&name) {
             return; // already poisoned; nothing more to do
@@ -110,15 +105,12 @@ pub struct JsExportResolution {
     /// resolved to exactly one target within the depth bound).
     pub resolved: BTreeMap<String, BTreeMap<String, ResolvedJsExport>>,
     /// Re-export chains that exceeded `MAX_REEXPORT_DEPTH` or hit a cycle
-    /// (named chains AND star-only barrel chains — F5, review-fix wave: a
-    /// star-only chain that never even produces a candidate name to attempt
-    /// previously escaped this counter entirely).
+    /// (named chains AND star-only barrel chains — F5).
     pub chain_unresolved: usize,
     /// Barrel names contributed by 2+ conflicting chains (different resolved
     /// targets for the same exported name), OR a name with 2+ raw fact
-    /// insertions in a single file (F3, review-fix wave: duplicate exported
-    /// names — reuses this counter rather than adding a sibling one) —
-    /// fail-closed, no binding emitted either way.
+    /// insertions in a single file (F3 — reuses this counter rather than
+    /// adding a sibling one) — fail-closed, no binding emitted either way.
     pub barrel_conflicts: usize,
 }
 
@@ -191,13 +183,12 @@ fn collect_candidate_names(
                     }
                 }
             } else {
-                // F5 (review-fix wave, codex MINOR = opus Minor 1): a
-                // star-only chain that needs a hop beyond MAX_REEXPORT_DEPTH
-                // to even discover its candidate names previously vanished
-                // here with no telemetry trace -- a named chain at least
-                // gets attempted (and counted) once `resolve_one` sees the
-                // candidate name, but a too-deep star-only chain never
-                // produces one to attempt. Count it the same way.
+                // F5: a star-only chain needing a hop beyond
+                // MAX_REEXPORT_DEPTH to even discover its candidate names
+                // previously vanished with no telemetry trace -- a named
+                // chain at least gets attempted (and counted) once
+                // `resolve_one` sees the candidate name; count this the
+                // same way.
                 telemetry.chain_unresolved += 1;
             }
         }
@@ -558,8 +549,7 @@ mod tests {
         assert_eq!(out.barrel_conflicts, 0);
     }
 
-    // F3 (review-fix wave, codex MAJOR 1): a name marked `conflicted` (2+ raw
-    // fact insertions in the same file) must resolve to nothing, counted via
+    // F3: a name marked `conflicted` must resolve to nothing, counted via
     // the (reused) `barrel_conflicts` counter.
     #[test]
     fn conflicted_name_fails_closed() {
@@ -588,10 +578,9 @@ mod tests {
         assert!(!f.named.contains_key("f"));
     }
 
-    // F5 (review-fix wave, codex MINOR = opus Minor 1): a star-only chain
-    // that needs a 3rd hop to discover its candidate names must still count
-    // `chain_unresolved`, mirroring the named 3-hop case above
-    // (`three_hop_reexport_fails_closed`).
+    // F5: a star-only chain needing a 3rd hop to discover its candidate
+    // names must still count `chain_unresolved` (mirrors
+    // `three_hop_reexport_fails_closed` above).
     #[test]
     fn three_hop_star_only_chain_fails_closed_and_counts() {
         let mut raw = BTreeMap::new();
