@@ -77,6 +77,36 @@ def _expect_callers(expect: dict) -> set:
     return {(c["file"], c["line"]) for c in callers}
 
 
+# F2 (codex BLOCKER 2 + opus m2 + controller finding): schema whitelists, so a
+# typo'd or foreign key is a load_case ValueError rather than a silently
+# ignored key that leaves a fixture assert-nothing or empty-subset (which
+# trivially "passes"). `KNOWN_TOP_SECTIONS` catches any top-level TOML table
+# outside the whole known vocabulary; the per-probe checks further reject a
+# *known* section that belongs to a different probe (e.g. [module] on a taint
+# fixture) -- "both directions" per finding (a).
+KNOWN_TOP_SECTIONS = {"case", "seed", "taint", "module", "expect"}
+TAINT_SECTION_KEYS = {"sources", "sinks"}
+MODULE_SECTION_KEYS = {"file"}
+EXPECT_KEYS_BY_PROBE = {
+    "callers": {"callers", "exact", "resolution_kind", "forbid_resolution_kind"},
+    "taint": {"reachability", "warning_kinds_present", "sanitizers_present", "frontier_count_min"},
+    "module_deps": {"module_edges", "forbid_to", "exact"},
+}
+# Controller adjudication (e): the only wire `Reachability` variants plus this
+# harness's own "None" (JSON null / frontier mode) sentinel. Anything else is
+# a typo'd sentinel that would otherwise silently never match.
+VALID_REACHABILITY_VALUES = {"Reached", "NotReached", "BoundaryExited", "None"}
+
+
+def _reject_unknown_keys(toml_path: Path, probe: str, section: str, present: dict, allowed: set) -> None:
+    unknown = set(present) - allowed
+    if unknown:
+        raise ValueError(
+            f'{toml_path}: probe="{probe}" [{section}] has unknown key(s) {sorted(unknown)} '
+            f"(allowed: {sorted(allowed)})"
+        )
+
+
 def load_case(toml_path: Path) -> Case:
     d = tomllib.loads(toml_path.read_text())
     probe = d["case"].get("probe", "callers")
@@ -85,10 +115,20 @@ def load_case(toml_path: Path) -> Case:
             f"{toml_path}: unknown [case] probe {probe!r} (expected one of {PROBE_TYPES})"
         )
 
+    unknown_sections = set(d) - KNOWN_TOP_SECTIONS
+    if unknown_sections:
+        raise ValueError(
+            f"{toml_path}: unknown top-level section(s) {sorted(unknown_sections)} "
+            f"(allowed: {sorted(KNOWN_TOP_SECTIONS)})"
+        )
+
     has_seed = "seed" in d
     has_taint = "taint" in d
     has_module = "module" in d
-    has_expect_callers = bool(d.get("expect", {}).get("callers"))
+    # (d): key PRESENCE, not `bool(...)` -- an empty `callers = []` on a
+    # taint/module_deps probe must still be rejected as expect.callers defined
+    # where it must not be.
+    has_expect_callers = "callers" in d.get("expect", {})
 
     common = dict(
         path=toml_path.parent,
@@ -105,8 +145,12 @@ def load_case(toml_path: Path) -> Case:
             )
         if not has_seed:
             raise ValueError(f"{toml_path}: probe=\"callers\" requires [seed]")
-        expect_callers = _expect_callers(d["expect"])
-        expected_resolution_kind = d["expect"].get("resolution_kind")
+        if "expect" not in d:
+            raise ValueError(f'{toml_path}: probe="callers" requires [expect]')
+        expect = d["expect"]
+        _reject_unknown_keys(toml_path, probe, "expect", expect, EXPECT_KEYS_BY_PROBE["callers"])
+        expect_callers = _expect_callers(expect)
+        expected_resolution_kind = expect.get("resolution_kind")
         if expected_resolution_kind is not None and not expect_callers:
             raise ValueError(
                 f"{toml_path}: expect.resolution_kind requires at least one expect.callers entry"
@@ -117,9 +161,9 @@ def load_case(toml_path: Path) -> Case:
             seed_file=d["seed"]["file"],
             seed_line=d["seed"]["line"],
             expect_callers=expect_callers,
-            exact=d["expect"].get("exact", True),
+            exact=expect.get("exact", True),
             expected_resolution_kind=expected_resolution_kind,
-            forbid_resolution_kind=d["expect"].get("forbid_resolution_kind"),
+            forbid_resolution_kind=expect.get("forbid_resolution_kind"),
         )
 
     if probe == "taint":
@@ -127,17 +171,44 @@ def load_case(toml_path: Path) -> Case:
             raise ValueError(
                 f"{toml_path}: probe=\"taint\" must not define [seed] or expect.callers"
             )
+        if has_module:
+            raise ValueError(f'{toml_path}: probe="taint" must not define [module]')
         if not has_taint:
             raise ValueError(f"{toml_path}: probe=\"taint\" requires [taint]")
+
+        taint = d["taint"]
+        _reject_unknown_keys(toml_path, probe, "taint", taint, TAINT_SECTION_KEYS)
         expect = d.get("expect", {})
+        _reject_unknown_keys(toml_path, probe, "expect", expect, EXPECT_KEYS_BY_PROBE["taint"])
+
+        expect_reachability = expect.get("reachability")
+        if expect_reachability is not None and expect_reachability not in VALID_REACHABILITY_VALUES:
+            raise ValueError(
+                f"{toml_path}: expect.reachability {expect_reachability!r} is not one of "
+                f"{sorted(VALID_REACHABILITY_VALUES)}"
+            )
+        warning_kinds_present = list(expect.get("warning_kinds_present", []))
+        sanitizers_present = expect.get("sanitizers_present")
+        frontier_count_min = expect.get("frontier_count_min")
+        if (
+            expect_reachability is None
+            and not warning_kinds_present
+            and sanitizers_present is None
+            and frontier_count_min is None
+        ):
+            raise ValueError(
+                f'{toml_path}: probe="taint" [expect] asserts nothing -- provide at least one of '
+                "reachability, warning_kinds_present, sanitizers_present, frontier_count_min"
+            )
+
         return Case(
             **common,
-            taint_sources=list(d["taint"]["sources"]),
-            taint_sinks=list(d["taint"].get("sinks", [])),
-            expect_reachability=expect.get("reachability"),
-            expect_warning_kinds_present=list(expect.get("warning_kinds_present", [])),
-            expect_sanitizers_present=expect.get("sanitizers_present"),
-            frontier_count_min=expect.get("frontier_count_min"),
+            taint_sources=list(taint["sources"]),
+            taint_sinks=list(taint.get("sinks", [])),
+            expect_reachability=expect_reachability,
+            expect_warning_kinds_present=warning_kinds_present,
+            expect_sanitizers_present=sanitizers_present,
+            frontier_count_min=frontier_count_min,
         )
 
     # probe == "module_deps"
@@ -145,15 +216,28 @@ def load_case(toml_path: Path) -> Case:
         raise ValueError(
             f"{toml_path}: probe=\"module_deps\" must not define [seed] or expect.callers"
         )
+    if has_taint:
+        raise ValueError(f'{toml_path}: probe="module_deps" must not define [taint]')
     if not has_module:
         raise ValueError(f"{toml_path}: probe=\"module_deps\" requires [module]")
+
+    module = d["module"]
+    _reject_unknown_keys(toml_path, probe, "module", module, MODULE_SECTION_KEYS)
     expect = d.get("expect", {})
+    _reject_unknown_keys(toml_path, probe, "expect", expect, EXPECT_KEYS_BY_PROBE["module_deps"])
+
     module_edges = expect.get("module_edges", [])
+    forbid_to = set(expect.get("forbid_to", []))
+    if not module_edges and not forbid_to:
+        raise ValueError(
+            f'{toml_path}: probe="module_deps" [expect] asserts nothing -- provide at least one of '
+            "module_edges, forbid_to"
+        )
     return Case(
         **common,
-        module_file=d["module"]["file"],
+        module_file=module["file"],
         expect_module_to={e["to"] for e in module_edges},
-        expect_module_forbid_to=set(expect.get("forbid_to", [])),
+        expect_module_forbid_to=forbid_to,
         module_exact=expect.get("exact", False),
     )
 

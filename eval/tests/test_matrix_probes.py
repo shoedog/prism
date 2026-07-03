@@ -237,6 +237,223 @@ callers = []
         load_case(path)
 
 
+# F2 (codex BLOCKER 2 + opus m2 + controller finding): schema must reject
+# assert-nothing and typo'd fixtures instead of silently loading them
+# unconstrained (or with an empty/no-op expectation).
+
+
+def test_load_case_taint_probe_rejects_module_section(tmp_path):
+    """Both-directions coverage: a taint probe must not define [module] either
+    (the pre-existing check only forbade [seed]/expect.callers)."""
+    path = _write(tmp_path, "python", "bad_taint_module", """
+[case]
+language = "python"
+capability = "bad_taint_module"
+status = "pass"
+probe = "taint"
+[taint]
+sources = ["app.py:2"]
+[module]
+file = "app.py"
+[expect]
+reachability = "Reached"
+""")
+    with pytest.raises(ValueError, match=r"must not define \[module\]"):
+        load_case(path)
+
+
+def test_load_case_module_probe_rejects_taint_section(tmp_path):
+    """Both-directions coverage: a module_deps probe must not define [taint]
+    either (the pre-existing check only forbade [seed]/expect.callers)."""
+    path = _write(tmp_path, "python", "bad_module_taint", """
+[case]
+language = "python"
+capability = "bad_module_taint"
+status = "pass"
+probe = "module_deps"
+[module]
+file = "a.py"
+[taint]
+sources = ["app.py:2"]
+[[expect.module_edges]]
+to = "b.py"
+""")
+    with pytest.raises(ValueError, match=r"must not define \[taint\]"):
+        load_case(path)
+
+
+def test_load_case_rejects_unknown_top_level_section(tmp_path):
+    path = _write(tmp_path, "python", "bogus_section", """
+[case]
+language = "python"
+capability = "bogus_section"
+status = "pass"
+probe = "taint"
+[taint]
+sources = ["app.py:2"]
+[bogus]
+whatever = 1
+[expect]
+reachability = "Reached"
+""")
+    with pytest.raises(ValueError, match=r"unknown top-level section"):
+        load_case(path)
+
+
+def test_load_case_taint_probe_rejects_unknown_expect_key(tmp_path):
+    """Repro of the reported typo: `reachabilty` (missing an 'i') silently
+    dropped into an ignored key, leaving the fixture fully unconstrained."""
+    path = _write(tmp_path, "python", "typo_reachabilty", """
+[case]
+language = "python"
+capability = "typo_reachabilty"
+status = "pass"
+probe = "taint"
+[taint]
+sources = ["app.py:2"]
+[expect]
+reachabilty = "Reached"
+""")
+    with pytest.raises(ValueError, match=r"unknown key.*reachabilty"):
+        load_case(path)
+
+
+def test_load_case_module_probe_rejects_unknown_expect_key(tmp_path):
+    """Repro of the reported typo: `module_edge` (missing the trailing 's')
+    left the module expectation empty, and an empty-subset check passes
+    against zero items."""
+    path = _write(tmp_path, "python", "typo_module_edge", """
+[case]
+language = "python"
+capability = "typo_module_edge"
+status = "pass"
+probe = "module_deps"
+[module]
+file = "a.py"
+[expect]
+module_edge = "b.py"
+""")
+    with pytest.raises(ValueError, match=r"unknown key.*module_edge"):
+        load_case(path)
+
+
+def test_load_case_taint_probe_rejects_unknown_taint_key(tmp_path):
+    path = _write(tmp_path, "python", "typo_sources", """
+[case]
+language = "python"
+capability = "typo_sources"
+status = "pass"
+probe = "taint"
+[taint]
+soruces = ["app.py:2"]
+[expect]
+reachability = "Reached"
+""")
+    with pytest.raises(ValueError, match=r"unknown key.*soruces"):
+        load_case(path)
+
+
+def test_load_case_module_probe_rejects_unknown_module_key(tmp_path):
+    path = _write(tmp_path, "python", "typo_file", """
+[case]
+language = "python"
+capability = "typo_file"
+status = "pass"
+probe = "module_deps"
+[module]
+filee = "a.py"
+[[expect.module_edges]]
+to = "b.py"
+""")
+    with pytest.raises(ValueError, match=r"unknown key.*filee"):
+        load_case(path)
+
+
+def test_load_case_taint_probe_requires_at_least_one_assertion(tmp_path):
+    path = _write(tmp_path, "python", "assert_nothing_taint", """
+[case]
+language = "python"
+capability = "assert_nothing_taint"
+status = "pass"
+probe = "taint"
+[taint]
+sources = ["app.py:2"]
+[expect]
+""")
+    with pytest.raises(ValueError, match=r"asserts nothing"):
+        load_case(path)
+
+
+def test_load_case_taint_probe_requires_at_least_one_assertion_missing_expect(tmp_path):
+    """No `[expect]` table at all is the same as an empty one."""
+    path = _write(tmp_path, "python", "assert_nothing_taint_no_expect", """
+[case]
+language = "python"
+capability = "assert_nothing_taint_no_expect"
+status = "pass"
+probe = "taint"
+[taint]
+sources = ["app.py:2"]
+""")
+    with pytest.raises(ValueError, match=r"asserts nothing"):
+        load_case(path)
+
+
+def test_load_case_module_probe_requires_at_least_one_assertion(tmp_path):
+    path = _write(tmp_path, "python", "assert_nothing_module", """
+[case]
+language = "python"
+capability = "assert_nothing_module"
+status = "pass"
+probe = "module_deps"
+[module]
+file = "a.py"
+[expect]
+""")
+    with pytest.raises(ValueError, match=r"asserts nothing"):
+        load_case(path)
+
+
+def test_load_case_taint_probe_rejects_bad_reachability_value(tmp_path):
+    """Controller adjudication (e): validate `expect.reachability` at load
+    time against the known sentinel set -- kills the typo'd-sentinel class
+    (e.g. "Reachd", "none" lowercase) instead of letting it silently fail to
+    match at run time with no clear diagnosis."""
+    path = _write(tmp_path, "python", "bad_reachability_value", """
+[case]
+language = "python"
+capability = "bad_reachability_value"
+status = "pass"
+probe = "taint"
+[taint]
+sources = ["app.py:2"]
+[expect]
+reachability = "Reachd"
+""")
+    with pytest.raises(ValueError, match=r"reachability.*Reachd"):
+        load_case(path)
+
+
+def test_load_case_taint_probe_rejects_empty_callers_list(tmp_path):
+    """(d): key PRESENCE, not `bool(...)`, must gate the expect.callers forbid
+    check -- an empty `callers = []` on a taint probe is still `expect.callers`
+    defined where it must not be."""
+    path = _write(tmp_path, "python", "empty_callers_on_taint", """
+[case]
+language = "python"
+capability = "empty_callers_on_taint"
+status = "pass"
+probe = "taint"
+[taint]
+sources = ["app.py:2"]
+[expect]
+reachability = "Reached"
+callers = []
+""")
+    with pytest.raises(ValueError, match=r"must not define \[seed\] or expect.callers"):
+        load_case(path)
+
+
 class FakeTaintSut:
     def __init__(self, evidence):
         self.evidence = evidence
