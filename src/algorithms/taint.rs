@@ -10841,6 +10841,12 @@ pub fn slice(
 
     if taint_config.taint_from_diff {
         for diff_info in &diff.files {
+            // Files prism cannot parse (e.g. Cargo.toml, .md) are never keys
+            // of `ctx.files`, so they can never be traced; seeding them only
+            // produces an untraceable `taint_source` finding (P1 Change 1).
+            if !ctx.files.contains_key(&diff_info.file_path) {
+                continue;
+            }
             for &line in &diff_info.diff_lines {
                 taint_seeds.push(TaintSeed::line(diff_info.file_path.clone(), line));
             }
@@ -11166,22 +11172,12 @@ pub fn slice(
         all_tainted.entry(file.clone()).or_default().insert(*line);
     }
 
-    // Emit findings for each taint source
-    for (file, line) in &taint_sources {
-        result.findings.push(SliceFinding {
-            algorithm: "taint".to_string(),
-            file: file.clone(),
-            line: *line,
-            severity: "info".to_string(),
-            description: format!("taint source: origin of tainted data at line {}", line),
-            function_name: None,
-            related_lines: vec![],
-            related_files: vec![],
-            category: Some("taint_source".to_string()),
-            parse_quality: None,
-            diagrams: vec![],
-        });
-    }
+    // Sources whose location was actually selected as the reported origin of
+    // an emitted sink finding (P1 Change 2). `taint_source` findings are only
+    // emitted for members of this set — built up below as each sink finding's
+    // `source_location` is resolved — instead of unconditionally for every
+    // seed (most diff-line seeds never reach a sink and are noise).
+    let mut sources_with_emitted_sinks: BTreeSet<(String, usize)> = BTreeSet::new();
 
     // Emit findings for each taint sink reached
     for (file, line) in &sink_lines {
@@ -11224,6 +11220,37 @@ pub fn slice(
                         .map(|(sf, sl)| (sf.as_str(), *sl))
                 })
         });
+        // Every path-derived source recorded for this sink genuinely reached
+        // it via a real FlowPath — including cross-file ones. `path_derived_source`
+        // above is filtered to the same file as the sink (a reviewer-friendly
+        // "nearest in this file" pick for `source_desc`); it must not gate
+        // which sources earn a `taint_source` finding, or a source that
+        // reaches a sink in a *different* file (e.g. a cross-file call chain)
+        // is silently dropped (P1 review-fix F1). Union in the whole set.
+        if let Some(set) = sink_to_path_sources.get(&(file.clone(), *line)) {
+            for (sf, sl) in set {
+                sources_with_emitted_sinks.insert((sf.clone(), *sl));
+            }
+        }
+
+        // Record the exact source location chosen for this sink finding:
+        // the path-derived source unconditionally if available, otherwise
+        // the fallback source only if it is itself a member of
+        // `taint_sources` (the ipc/nearest-in-file fallbacks all resolve to
+        // members of `taint_sources`, but guard explicitly per spec).
+        match path_derived_source {
+            Some((sf, sl)) => {
+                sources_with_emitted_sinks.insert((sf.to_string(), sl));
+            }
+            None => {
+                if let Some((sf, sl)) = source_location {
+                    if taint_sources.iter().any(|(f, l)| f == sf && *l == sl) {
+                        sources_with_emitted_sinks.insert((sf.to_string(), sl));
+                    }
+                }
+            }
+        }
+
         let source_desc = source_location
             .map(|(_, sl)| format!("line {}", sl))
             .unwrap_or_else(|| "diff lines".to_string());
@@ -11274,12 +11301,34 @@ pub fn slice(
     }
 
     // Bash-specific: detect unquoted variable expansions on tainted lines.
-    // In shell, unquoted $VAR in command arguments is a word-splitting / injection vector.
+    // In shell, unquoted $VAR in command arguments is a word-splitting /
+    // injection vector. Runs BEFORE the gated source-emission loop below
+    // (P1 review-fix F2): an unquoted-expansion finding is itself a
+    // sink-style finding, so — like a sink finding — it must license its
+    // reaching source into `sources_with_emitted_sinks` before that loop
+    // decides which `taint_source` findings to emit. Without this, a bash
+    // flow whose only sink-style finding is an unquoted expansion would
+    // license no source and silently drop that source's `taint_source`
+    // finding (a regression vs. the pre-Change-2 behavior of emitting every
+    // source unconditionally).
     let unquoted = detect_unquoted_expansions(ctx.files, &all_tainted);
     for (file, line, var_name) in &unquoted {
         // Avoid duplicate findings if line is already flagged as a sink
         if !sink_lines.contains(&(file.clone(), *line)) {
             sink_lines.insert((file.clone(), *line));
+
+            // License the nearest preceding same-file taint source (the
+            // member of `taint_sources` with the same file and the largest
+            // line <= this finding's line, if any) as having reached an
+            // emitted sink-style finding.
+            if let Some((sf, sl)) = taint_sources
+                .iter()
+                .filter(|(sf, sl)| sf == file && *sl <= *line)
+                .max_by_key(|(_, sl)| *sl)
+            {
+                sources_with_emitted_sinks.insert((sf.clone(), *sl));
+            }
+
             result.findings.push(SliceFinding {
                 algorithm: "taint".to_string(),
                 file: file.clone(),
@@ -11301,6 +11350,32 @@ pub fn slice(
                 diagrams: vec![],
             });
         }
+    }
+
+    // Emit findings for each taint source that reaches an emitted sink-style
+    // finding (P1 Change 2). Runs AFTER sink emission AND the
+    // unquoted-expansion block above so `sources_with_emitted_sinks` is
+    // fully populated; a source that reaches nothing contributes no finding.
+    // Applies uniformly to diff-seeded, explicit `--taint-source`, IPC, and
+    // framework sources alike, since all of them flow through the shared
+    // `taint_sources` collection.
+    for (file, line) in &taint_sources {
+        if !sources_with_emitted_sinks.contains(&(file.clone(), *line)) {
+            continue;
+        }
+        result.findings.push(SliceFinding {
+            algorithm: "taint".to_string(),
+            file: file.clone(),
+            line: *line,
+            severity: "info".to_string(),
+            description: format!("taint source: origin of tainted data at line {}", line),
+            function_name: None,
+            related_lines: vec![],
+            related_files: vec![],
+            category: Some("taint_source".to_string()),
+            parse_quality: None,
+            diagrams: vec![],
+        });
     }
 
     // Build output blocks

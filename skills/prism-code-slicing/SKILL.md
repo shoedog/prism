@@ -59,12 +59,30 @@ When unsure, run a small set (`leftflow,fullflow,absence`) and read the union �
 
 ## Output formats
 
-`--format text` (default, human) · `json` (machine — pipe to `jq` or an LLM) · `paper` (arXiv-comparable)
-· `review` (grouped findings with severities — use this when producing a code review).
+`--format text` (default, human) · `json` (machine — pipe to `jq` or an LLM, full uncompacted shape)
+· `paper` (arXiv-comparable) · `review` (grouped findings with severities — use this when producing a
+code review; compact by default, see below).
 
 ```bash
 slicing --repo . --diff /tmp/change.patch --algorithm review --format json | jq '.findings[]'
 ```
+
+`--format review` is compact by default: findings below `warning` severity (`info`, `suggestion`) are
+dropped, `slice_lines`/`diff_lines` are omitted from each slice block (keeps `slice_text`), and any block
+whose lines don't intersect a retained finding is dropped too. Each restore flag undoes only its own part
+— neither restores the full pre-compaction shape by itself:
+
+```bash
+slicing --repo . --diff /tmp/change.patch --algorithm review --format review --review-min-severity info
+slicing --repo . --diff /tmp/change.patch --algorithm review --format review --review-full-slices
+```
+
+`--review-min-severity <info|suggestion|warning|concern>` (default `warning`) lowers/raises the severity
+floor; `--review-full-slices` restores BLOCK retention only (keeps every block regardless of whether it
+has a retained finding) — it does not lower the severity floor, and neither flag restores `slice_lines`/
+`diff_lines` in review output. Both flags only affect `--format review` — `--format json`/`text`/`paper`
+are unaffected. For the full old (uncompacted) shape — every block plus `slice_lines`/`diff_lines` plus
+every severity — use `--format json`.
 
 ## Gotchas
 
@@ -77,6 +95,13 @@ slicing --repo . --diff /tmp/change.patch --algorithm review --format json | jq 
   enrich struct fields, typedefs, and class hierarchy; without it, C/C++ slices are field-insensitive.
 - **`review`/`all` are aggregates** — convenient, but the combined output is large and (for `review`)
   not byte-stable across runs. For a reproducible single answer, name one algorithm.
+- **`--format review`'s default floor can hide what you're looking for.** If you expect an `info`-severity
+  finding (e.g. a `taint_source` origin) and don't see it, that's by design — either it didn't reach a
+  sink (see below) or it's below the default `warning` floor. Pass `--review-min-severity info` to see
+  everything, or `--format json` for the always-uncompacted shape.
+- **Taint `taint_source` findings are gated on reaching a sink.** A diff-seeded source that never flows
+  into a sink no longer gets its own finding (this shrank the taint-heavy firehose considerably) — this is
+  independent of the severity floor above; it happens at generation time, in all formats.
 - **A slice is high-recall, not a verdict.** It's the code *relevant* to the change, surfaced for a human
   (or you) to review — not a proof of a bug. Read the surfaced sites; don't report a finding you haven't
   traced to a concrete failure.

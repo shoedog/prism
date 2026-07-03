@@ -149,6 +149,28 @@ pub fn render_review_block(block: &DiffBlock, sources: &BTreeMap<String, String>
     }
 }
 
+/// Populate taint source/sink line annotations for `file` from `findings`
+/// (taint algorithm only; other algorithms' findings have no matching
+/// category so contribute nothing). Shared by `to_review_output` and the
+/// compact review-only path in `review_compact.rs`.
+pub(crate) fn taint_line_annotations(
+    file: &str,
+    findings: &[SliceFinding],
+) -> (Vec<usize>, Vec<usize>) {
+    let mut source_lines = Vec::new();
+    let mut sink_lines = Vec::new();
+    for finding in findings {
+        if finding.file == file {
+            match finding.category.as_deref() {
+                Some("taint_source") => source_lines.push(finding.line),
+                Some("taint_sink") => sink_lines.push(finding.line),
+                _ => {}
+            }
+        }
+    }
+    (source_lines, sink_lines)
+}
+
 /// Convert a SliceResult into a ReviewOutput.
 pub fn to_review_output(result: &SliceResult, sources: &BTreeMap<String, String>) -> ReviewOutput {
     let slices = result
@@ -156,16 +178,9 @@ pub fn to_review_output(result: &SliceResult, sources: &BTreeMap<String, String>
         .iter()
         .map(|b| {
             let mut rb = render_review_block(b, sources);
-            // Annotate taint source/sink lines from findings (taint algorithm only).
-            for finding in &result.findings {
-                if finding.file == b.file {
-                    match finding.category.as_deref() {
-                        Some("taint_source") => rb.source_lines.push(finding.line),
-                        Some("taint_sink") => rb.sink_lines.push(finding.line),
-                        _ => {}
-                    }
-                }
-            }
+            let (source_lines, sink_lines) = taint_line_annotations(&b.file, &result.findings);
+            rb.source_lines = source_lines;
+            rb.sink_lines = sink_lines;
             rb
         })
         .collect();

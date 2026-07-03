@@ -149,6 +149,22 @@ struct ReviewArgs {
     #[arg(long, default_value = "5")]
     caller_depth: usize,
 
+    /// --format review only: minimum finding severity to include (findings
+    /// below this floor are dropped, along with any block that then has no
+    /// remaining finding on one of its lines). Does not affect --format
+    /// json/text/paper.
+    #[arg(long, default_value = "warning", value_parser = ["info", "suggestion", "warning", "concern"])]
+    review_min_severity: String,
+
+    /// --format review only: keep every block regardless of whether it has
+    /// a retained finding. This restores block retention ONLY — it does not
+    /// lower the severity floor (pair with --review-min-severity info to
+    /// also see low-severity findings) and it does not restore slice_lines/
+    /// diff_lines in review output; for the full pre-compaction shape use
+    /// --format json. Does not affect --format json/text/paper.
+    #[arg(long, default_value_t = false)]
+    review_full_slices: bool,
+
     /// Only process these files from the diff (comma-separated paths).
     /// If omitted, process all files in the diff.
     #[arg(long)]
@@ -875,19 +891,35 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
 
         match cli.format.as_str() {
             "review" => {
+                // Compact review-only path (P1 Change 3): severity floor +
+                // block retention + dropped slice_lines/diff_lines. Distinct
+                // from "json" below, which keeps the old byte-pinned shape.
+                let min_rank = output::severity_rank(&cli.review_min_severity);
                 let all_diagram_warnings: Vec<_> = results
                     .iter()
                     .flat_map(|r| r.diagram_warnings.iter().cloned())
                     .collect();
                 let review_results: Vec<_> = results
                     .iter()
-                    .map(|r| output::to_review_output(r, &sources))
+                    .map(|r| {
+                        output::to_compact_review_output(
+                            r,
+                            &sources,
+                            min_rank,
+                            cli.review_full_slices,
+                        )
+                    })
                     .collect();
-                let out = output::MultiReviewOutput {
+                let filtered_all_findings: Vec<_> = all_findings
+                    .iter()
+                    .filter(|f| output::severity_rank(&f.severity) >= min_rank)
+                    .cloned()
+                    .collect();
+                let out = output::CompactMultiReviewOutput {
                     version: "1.0".to_string(),
                     algorithms_run,
                     results: review_results,
-                    all_findings,
+                    all_findings: filtered_all_findings,
                     errors: all_errors,
                     warnings: parse_warnings,
                     parse_quality: parse_quality.clone(),
@@ -975,9 +1007,26 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
         annotate_finding_parse_quality(&mut result.findings, &files);
 
         match cli.format.as_str() {
-            "json" | "review" => {
-                // json and review produce the same ReviewOutput structure so that
-                // slice_text (rendered source code) is always present in structured output.
+            "review" => {
+                // Compact review-only path (P1 Change 3): severity floor +
+                // block retention + dropped slice_lines/diff_lines.
+                let min_rank = output::severity_rank(&cli.review_min_severity);
+                let review = output::to_compact_review_output(
+                    &result,
+                    &sources,
+                    min_rank,
+                    cli.review_full_slices,
+                );
+                println!("{}", serde_json::to_string_pretty(&review)?);
+                emit_warnings_to_stderr(&result.diagram_warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
+                }
+            }
+            "json" => {
+                // json retains the old ReviewOutput structure byte-for-byte
+                // (compatibility tests pin this shape — see nav_compat_test.rs).
                 let review = output::to_review_output(&result, &sources);
                 println!("{}", serde_json::to_string_pretty(&review)?);
                 emit_warnings_to_stderr(&result.diagram_warnings);
