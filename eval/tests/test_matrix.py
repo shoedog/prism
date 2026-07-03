@@ -12,13 +12,27 @@ PRISM_BIN = os.environ.get("PRISM_BIN", str(Path(__file__).resolve().parents[2]
 
 
 class FakeSut:
-    """Resolves the rust free_fn_same_file case correctly; everything else empty."""
+    """Resolves the rust free_fn_same_file case correctly; everything else empty.
+
+    run_matrix() scans the REAL eval/fixtures/<lang> tree (not a tmp copy), so
+    this fake must also answer the P6bc taint/module_deps probes now living
+    alongside the callers fixtures -- otherwise _run_taint_case/_run_module_case
+    raise AttributeError on those fixtures. Neither stub is designed to match
+    (this test only asserts specific `callers`-probe capability outcomes), it
+    just needs to not blow up.
+    """
 
     def callers(self, root, seed):
         if seed.name == "helper" and root.endswith("free_fn_same_file"):
             return [CallEdge("caller", seed, Location("main.rs", 3, 5), "run",
                              Location("main.rs", 4, 4))]
         return []
+
+    def taint_reaches(self, root, sources, sinks):
+        return {"reasoning": None, "warnings": []}
+
+    def module_deps(self, root, file):
+        return {"items": []}
 
 
 class KindSut:
