@@ -2791,19 +2791,36 @@ impl CallGraph {
         attr: &str,
     ) -> Option<BTreeSet<FunctionId>> {
         let owner = self.method_owners.get(caller)?;
-        if let Some(fids) = self
-            .property_getters
-            .get(&(owner.clone(), attr.to_string()))
-        {
-            if !fids.is_empty() {
-                return Some(fids.iter().cloned().collect());
-            }
-        }
-
+        // F1 (codex MAJOR 1): the ambiguity check must gate the OWN-CLASS
+        // hit too, not just the inherited-base fallback below — checked
+        // before either lookup.
         if self.method_class_span_ambiguous.contains(caller) {
             return None;
         }
         let caller_span = *self.method_class_span.get(caller)?;
+        if let Some(fids) = self
+            .property_getters
+            .get(&(owner.clone(), attr.to_string()))
+        {
+            // The bare `(owner, attr)` key collides across files (two
+            // same-named classes in different files both defining the
+            // property) — filter to getters in the CALLER's own file whose
+            // class span equals the caller's, the same discipline the
+            // inherited-base fallback below already applies.
+            let same_class: BTreeSet<FunctionId> = fids
+                .iter()
+                .filter(|fid| {
+                    fid.file == caller.file
+                        && self.method_class_span.get(*fid) == Some(&caller_span)
+                        && !self.method_class_span_ambiguous.contains(*fid)
+                })
+                .cloned()
+                .collect();
+            if !same_class.is_empty() {
+                return Some(same_class);
+            }
+        }
+
         let bases = self.class_bases.get(&(caller.file.clone(), caller_span))?;
         if bases.len() != 1 {
             return None;
@@ -5162,6 +5179,54 @@ class B:\n    @property\n    def text(self):\n        return 2\n",
 class B:\n    @property\n    def text(self):\n        return 2\n",
         )]);
         assert!(cg.property_accesses.is_empty());
+    }
+
+    #[test]
+    fn self_attr_own_class_hit_filtered_by_caller_file_and_span() {
+        // F1 (codex MAJOR 1): two files each define `class Response` with
+        // `@property def text`. The bare `(owner, attr)` index key collides
+        // across files, so an unfiltered own-class hit would fan out to
+        // BOTH getters when a method in file A's Response reads `self.text`.
+        // The own-class hit must be filtered to the caller's own file AND
+        // class span, exactly like the inherited-base fallback already is.
+        let cg = build_py(&[
+            (
+                "resp_a.py",
+                "class Response:\n    @property\n    def text(self):\n        return self._text\n\n    def dump(self):\n        return self.text\n",
+            ),
+            (
+                "resp_b.py",
+                "class Response:\n    @property\n    def text(self):\n        return self._text\n",
+            ),
+        ]);
+        let getter_a = cg
+            .property_getters
+            .get(&("Response".to_string(), "text".to_string()))
+            .expect("text getters indexed")
+            .iter()
+            .find(|fid| fid.file == "resp_a.py")
+            .expect("resp_a.py getter present")
+            .clone();
+        let enclosing = cg
+            .functions
+            .get("dump")
+            .expect("dump indexed")
+            .iter()
+            .find(|fid| fid.file == "resp_a.py")
+            .expect("dump in resp_a.py")
+            .clone();
+        let matches: Vec<_> = cg
+            .property_accesses
+            .iter()
+            .filter(|a| a.enclosing == enclosing)
+            .collect();
+        assert_eq!(
+            matches.len(),
+            1,
+            "self.text in resp_a.py's Response.dump must produce exactly one edge, got {:?}",
+            matches
+        );
+        assert_eq!(matches[0].getter, getter_a);
     }
 
     #[test]
