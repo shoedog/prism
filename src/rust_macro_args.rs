@@ -363,8 +363,27 @@ fn scan_token_tree<'a>(
                     (seq.get(i + 1), seq.get(i + 2))
                 {
                     if parsed.node_text(args).starts_with('(') {
+                        // The qualifier is `Some(recv)` ONLY when the
+                        // receiver token is a single bare identifier NOT
+                        // itself preceded by a `.` atom (F2 codex MAJOR) —
+                        // i.e. exactly `recv.method(...)` with nothing
+                        // before `recv` except a non-`.` token or the start
+                        // of the stream. `a.b.c(x)` must NOT derive `b` as
+                        // c's qualifier: `b` is itself a chained receiver, so
+                        // a local `b: B` could otherwise falsely resolve
+                        // `.c()` via receiver recovery.
                         let qualifier = match i.checked_sub(1).and_then(|p| seq.get(p)) {
-                            Some(Tok::Ident(q)) => Some(parsed.node_text(q).to_string()),
+                            Some(Tok::Ident(q)) => {
+                                let chained = i
+                                    .checked_sub(2)
+                                    .and_then(|p| seq.get(p))
+                                    .is_some_and(|t| matches!(t, Tok::Other(".")));
+                                if chained {
+                                    None
+                                } else {
+                                    Some(parsed.node_text(q).to_string())
+                                }
+                            }
                             _ => None,
                         };
                         handle_method_call_candidate(parsed, qualifier, *m, *args, out, facts);

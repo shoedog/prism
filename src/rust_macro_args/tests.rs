@@ -355,3 +355,38 @@ fn minted_sites_carry_call_kind_and_macro_arg_origin() {
     assert_eq!(sites[0].arg_count, None);
     assert!(!sites[0].arg_spread);
 }
+
+// ---- F2 MAJOR: qualifier derivation must not truncate chained receivers ----
+
+#[test]
+fn chained_receiver_method_call_mints_with_no_qualifier() {
+    // a.b.c(x): `b` is itself a chained receiver, NOT a simple identifier
+    // receiver -- deriving qualifier=Some("b") would let a local `b: B`
+    // falsely resolve `.c()` via receiver recovery. Must be qualifier=None.
+    let (_pf, sites, _facts) = extract("fn f() { assert!(a.b.c(x)); }");
+    assert_eq!(sites, vec![("c".to_string(), None)]);
+}
+
+#[test]
+fn simple_receiver_method_call_still_derives_qualifier() {
+    let (_pf, sites, _facts) = extract("fn f() { assert!(x.m(1)); }");
+    assert_eq!(sites, vec![("m".to_string(), Some("x".to_string()))]);
+}
+
+#[test]
+fn method_call_on_call_result_still_has_no_qualifier() {
+    let (_pf, sites, facts) = extract("fn f() { assert!(f(x).is_none()); }");
+    assert_eq!(
+        sites,
+        vec![("f".to_string(), None), ("is_none".to_string(), None)]
+    );
+    assert_eq!(facts.calls_recorded, 2);
+}
+
+#[test]
+fn simple_receiver_preceded_by_non_dot_token_still_derives_qualifier() {
+    // check(a.m(x)): `a` is a simple receiver -- nothing but the opening
+    // paren of check's own arg list precedes it, so qualifier=Some("a").
+    let (_pf, sites, _facts) = extract("fn f() { assert!(check(a.m(x))); }");
+    assert!(sites.contains(&("m".to_string(), Some("a".to_string()))));
+}
