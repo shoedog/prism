@@ -17,7 +17,7 @@ use crate::reasoning::sanitizer_walk::{sanitized_hits_on_chain, SanitizerHit};
 use crate::reasoning::scope_honesty;
 use crate::reasoning::seeds::{resolve, ResolvedSeed, SeedRole, SeedSpec};
 use crate::reasoning::shape::{
-    chain_nodes, node_to_graph_node, reachability_for_node_from_ordered, witness_chain_for,
+    node_to_graph_node, reachability_for_node_from_ordered, witness_chain_for,
     witness_graph_for_chain,
 };
 use crate::reasoning::types::{
@@ -189,10 +189,9 @@ fn witness_mode(
                     }
                     sanitized_by = hits.iter().map(|hit| hit.site.clone()).collect();
 
-                    let mut witness =
+                    let (mut witness, idx_of) =
                         witness_graph_for_chain(&session.index.cpg, trace, source.node, &chain);
                     if !hits.is_empty() {
-                        let (_, idx_of) = chain_nodes(&session.index.cpg, &chain);
                         attach_sanitizer_steps(&mut witness, &idx_of, &hits);
                     }
                     let sink_key =
