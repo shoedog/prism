@@ -6189,6 +6189,38 @@ mod framework_entry_tests {
         assert_eq!(rec.caller.name, "create_app");
     }
 
+    #[test]
+    fn python_decorated_factory_enclosing_caller_matches_canonical_function_id() {
+        // The factory `make_app` is ITSELF decorated -- `CallGraph::functions`
+        // keys decorated Python functions by the `decorated_definition`
+        // WRAPPER range (the Functions query captures `decorated_definition`;
+        // `all_functions_via_tree` filters out the inner `function_definition`
+        // for a decorated function), so the nested registration's `caller`
+        // FunctionId must match that SAME wrapper range exactly, or
+        // `nav callees(make_app)` can never find the outgoing edge (F4).
+        let cg = build_py(&[(
+            "app.py",
+            "from flask import Flask\n\napp = Flask(__name__)\n\n\n@some_decorator\ndef make_app():\n    @app.route(\"/x\")\n    def handler():\n        return \"ok\"\n    return app\n",
+        )]);
+        let canonical_make_app = cg
+            .functions
+            .get("make_app")
+            .and_then(|v| v.first())
+            .expect("make_app indexed")
+            .clone();
+        let handler = fid(&cg, "handler").clone();
+        let rec = cg
+            .framework_entries
+            .iter()
+            .find(|r| r.handler == handler)
+            .expect("nested route recorded");
+        assert_eq!(
+            rec.caller, canonical_make_app,
+            "caller FunctionId must match the canonical (decorated-wrapper) range"
+        );
+        assert_eq!(rec.caller.start_line, 6);
+    }
+
     // ---- Express -----------------------------------------------------------
 
     #[test]

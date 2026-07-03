@@ -119,7 +119,21 @@ fn python_enclosing_facts(
         if let Some(fd) = fd_node {
             let name_node = parsed.language.function_name(&fd)?;
             let name = parsed.node_text(&name_node).to_string();
-            let (start_line, end_line) = parsed.node_line_range(&fd);
+            // F4: if the enclosing function is ITSELF decorated, key the
+            // range to the `decorated_definition` WRAPPER (keeping the name
+            // from `fd`) rather than the inner `function_definition` — this
+            // is how Python functions are keyed everywhere else (the
+            // Functions query captures `decorated_definition`;
+            // `ParsedFile::all_functions` filters out the inner
+            // `function_definition` for a decorated function), so using the
+            // inner range here would produce an `outgoing_by_caller` key
+            // that `nav callees` can never match against the canonical
+            // FunctionId.
+            let range_node = fd
+                .parent()
+                .filter(|p| p.kind() == "decorated_definition")
+                .unwrap_or(fd);
+            let (start_line, end_line) = parsed.node_line_range(&range_node);
             return Some(EnclosingFacts {
                 name,
                 start_line,
@@ -209,5 +223,31 @@ mod python_candidate_tests {
             .as_ref()
             .expect("registration nested inside create_app must have an enclosing function");
         assert_eq!(enclosing.name, "create_app");
+    }
+
+    #[test]
+    fn decorated_factory_enclosing_uses_the_decorated_definition_wrapper_range() {
+        // `make_app` is ITSELF decorated -- the enclosing FunctionId must use
+        // the `decorated_definition` WRAPPER's range (starting at the
+        // decorator line), not the inner `function_definition`'s range,
+        // because that's how Python functions are keyed everywhere else
+        // (queries.rs's Functions query captures `decorated_definition`;
+        // `ParsedFile::all_functions` filters out the inner
+        // `function_definition` for a decorated function) -- see F4.
+        let parsed = parse(
+            "from flask import Flask\n\napp = Flask(__name__)\n\n\n@some_decorator\ndef make_app():\n    @app.route(\"/x\")\n    def handler():\n        return \"ok\"\n    return app\n",
+        );
+        let cands = python_route_candidates(&parsed);
+        assert_eq!(cands.len(), 1);
+        let enclosing = cands[0]
+            .enclosing
+            .as_ref()
+            .expect("registration nested inside make_app must have an enclosing function");
+        assert_eq!(enclosing.name, "make_app");
+        assert_eq!(
+            enclosing.start_line, 6,
+            "must start at the decorator line (the decorated_definition wrapper), not the `def` line"
+        );
+        assert_eq!(enclosing.end_line, 11);
     }
 }

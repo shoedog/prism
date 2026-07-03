@@ -96,3 +96,23 @@ fn registration_inside_setup_function_surfaces_symmetrically_in_callees() {
         "callees(setup) should include handler via the framework_entry edge (real enclosing function)"
     );
 }
+
+#[test]
+fn decorated_factory_registration_surfaces_in_callees_at_the_wrapper_range() {
+    // F4: `make_app` is ITSELF decorated -- if the nested registration's
+    // `caller` FunctionId used the inner `function_definition`'s range
+    // instead of the `decorated_definition` WRAPPER's range, it would never
+    // match the canonical FunctionId `nav callees` resolves `make_app` to,
+    // and this outgoing edge would silently vanish.
+    let s = session(&[(
+        "app.py",
+        "from flask import Flask\n\napp = Flask(__name__)\n\n\n@some_decorator\ndef make_app():\n    @app.route(\"/x\")\n    def handler():\n        return \"ok\"\n    return app\n",
+    )]);
+    let callees_ev = queries::callees(&s, Some("make_app"), None, None, 1).unwrap();
+    assert!(
+        callees_ev.items.iter().any(
+            |i| matches!(&i.symbol, Some(SymbolRef::Function { name, .. }) if name == "handler")
+        ),
+        "callees(make_app) should include handler via the framework_entry edge, keyed to the decorated_definition wrapper range"
+    );
+}
