@@ -517,3 +517,49 @@ void init_system(void) {
         &g.mermaid[..g.mermaid.len().min(40)]
     );
 }
+
+// F2 (P3 review-fix wave): an unknown-receiver, multi-owner candidate edge
+// (`R6MultiOwnerCandidate`) is an unverified maybe-caller — nav-only. EchoSlice
+// must not assert it as a finding fact (it traverses `ConfidenceFilter::All`,
+// so the candidate Call edge is otherwise visible to it).
+#[test]
+fn echo_slice_skips_multi_owner_candidate_caller() {
+    let api_source = "class A:\n    def handle(self):\n        return 1\n\n\nclass B:\n    def handle(self):\n        return 2\n";
+    let caller_source = "def run(x):\n    x.handle()\n";
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "api.py".to_string(),
+        ParsedFile::parse("api.py", api_source, Language::Python).unwrap(),
+    );
+    files.insert(
+        "caller.py".to_string(),
+        ParsedFile::parse("caller.py", caller_source, Language::Python).unwrap(),
+    );
+
+    // Touch A.handle's `return 1` so EchoSlice treats it as a changed function
+    // whose return-value handling at call sites is worth checking.
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "api.py".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice);
+    let result = algorithms::run_slicing_compat(&files, &diff, &config, None).unwrap();
+
+    assert!(
+        !result
+            .findings
+            .iter()
+            .any(|f| f.function_name.as_deref() == Some("run")),
+        "EchoSlice must not name the candidate-only caller 'run' as fact: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}

@@ -97,11 +97,19 @@ enum RecoveredDirectMethod<'a> {
 }
 
 /// A resolved caller edge: who calls the seed, with what confidence, at which line.
+///
+/// Carries the resolution `kind` (not just `confidence`) so a consumer that
+/// needs to tell an unverified maybe-edge (e.g. `R6MultiOwnerCandidate`) apart
+/// from a "normal" NameOnly demotion doesn't have to re-derive it from
+/// confidence alone (F2, P3 review-fix wave). This struct is internal-only
+/// (no Serialize) and not otherwise cached, so a plain enum field is the
+/// simplest option — no derived `is_candidate: bool` needed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedCallEdge {
     pub caller: FunctionId,
     pub call_site_line: usize,
     pub confidence: ResolutionConfidence,
+    pub kind: ResolutionKind,
 }
 
 /// Normalize an owner type's source text to its bare index key:
@@ -1734,6 +1742,7 @@ impl CallGraph {
                             caller: site.caller.clone(),
                             call_site_line: site.line,
                             confidence: r.confidence,
+                            kind: r.kind,
                         });
                     }
                 }

@@ -14,6 +14,7 @@ use crate::cpg::query::ConfidenceFilter;
 use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::output::mermaid::safe_node_id;
+use crate::resolution::ResolutionKind;
 use crate::slice::{
     EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeKind, SliceFinding, SliceGraph, SliceResult,
     SlicingAlgorithm,
@@ -172,7 +173,16 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                 .collect();
 
             // resolved_caller_edges scans every repo call site — compute once, not per caller.
-            let caller_edges = ctx.cpg.call_graph.resolved_caller_edges(func_id);
+            // P3 (F2): R6MultiOwnerCandidate is an unverified, capped NameOnly maybe-edge
+            // (nav-only) — exclude it so EchoSlice doesn't assert an unconfirmed caller as
+            // fact. Other NameOnly kinds are untouched (pre-existing recall).
+            let caller_edges: Vec<_> = ctx
+                .cpg
+                .call_graph
+                .resolved_caller_edges(func_id)
+                .into_iter()
+                .filter(|edge| edge.kind != ResolutionKind::R6MultiOwnerCandidate)
+                .collect();
             for (caller_id, _depth) in &callers {
                 let caller_parsed = match ctx.files.get(&caller_id.file) {
                     Some(f) => f,
