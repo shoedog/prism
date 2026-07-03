@@ -92,7 +92,15 @@ fn extract_one_return_type(decl: &Node, parsed: &ParsedFile) -> Option<(String, 
         "parameter_list" => {
             let elems = expand_go_result_list(&result, parsed);
             if elems.len() != 2 {
-                return None; // multi-return beyond (T, error): out of scope, drop.
+                // Multi-return beyond (T, error): out of scope, drop. Known
+                // asymmetry (Opus impl-review minor): a single NAMED return
+                // like `func f() (d *Demux)` also lands here (parenthesized
+                // `parameter_list` of one), producing `elems.len() == 1` and
+                // dropping even though it's semantically identical to the
+                // unparenthesized `func f() *Demux` the `_ =>` arm below
+                // recovers fine. Safe (favor drop over a guess), just a
+                // missed opportunity — not attempted here.
+                return None;
             }
             let second_bare = elems[1]
                 .trim()
@@ -306,6 +314,19 @@ pub struct GoReceiverCtx<'a> {
 /// conditionally skipped when already `Some`) so a type-defining file edited
 /// elsewhere in the package can never leave a stale recovery behind —
 /// required for the bidirectional incremental-parity guarantee.
+///
+/// Classifier-seam note (Opus impl-review, controller-adjudicated INTENDED,
+/// no behavior change): S1 (call-RHS `ReturnTyped`) and S2 (nested-selector
+/// `FieldTyped`) below fire regardless of `base_classifier`/
+/// `ReceiverRecoveryConfig.mode` — even under `Legacy` — while S3 (package
+/// `var`) and the base-identifier `var r T` recovery respect the caller's
+/// `var_local` flag explicitly. This mirrors the EXISTING un-gated
+/// `ConstructorLocal` precedent: S1/S2 are grounded, AST-shape-derived
+/// recoveries (a call's own declared return type; a struct's own declared
+/// field type) with no heuristic ambiguity for a config toggle to gate,
+/// whereas `var_local`/`type_assertion` gate recoveries that trade off
+/// precision more heuristically. `Legacy` mode is a parity/fall-back mode
+/// for THOSE forms, not a request to disable grounded ones.
 pub fn classify_go_receiver_expanded(
     ctx: &GoReceiverCtx<'_>,
     base_classifier: &dyn ReceiverClassifier,

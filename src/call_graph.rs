@@ -5769,15 +5769,46 @@ mod go_receiver_typing_tests {
     }
 
     #[test]
-    fn s1_non_first_lhs_position_does_not_recover() {
+    fn s1_paired_error_return_type_recovers() {
+        // Opus impl-review Important 1: the mandated `(T, error)` POSITIVE
+        // test — a well-formed 2-tuple return with `error` correctly in the
+        // second position must still recover T (pins the take-T branch of
+        // `extract_one_return_type`'s `parameter_list` match arm; the
+        // existing negative tests only cover the 3-tuple-drop and
+        // wrong-position-drop shapes, never this one actually recovering).
         let cg = build_go(&[(
             "main.go",
             "package main\n\
              type Demux struct{}\n\
              func (d *Demux) Init() {}\n\
-             func newDemux() (*Demux, error) { return nil, nil }\n\
-             func run() {\n\terr, d := newDemux2()\n\t_ = err\n\td.Init()\n}\n\
-             func newDemux2() (error, *Demux) { return nil, nil }\n",
+             func newDemux() (*Demux, error) { return &Demux{}, nil }\n\
+             func run() {\n\td, err := newDemux()\n\t_ = err\n\td.Init()\n}\n",
+        )]);
+        let site = site_in(&cg, "run", "Init");
+        assert_eq!(site.receiver_type.as_deref(), Some("Demux"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::ReturnTyped));
+    }
+
+    #[test]
+    fn s1_non_first_lhs_position_does_not_recover() {
+        // Opus impl-review minor: strengthened to ISOLATE the first-LHS-
+        // position guard. `newDemux2`'s return is a WELL-FORMED `(*Demux,
+        // error)` pair (error correctly in the second position) -- if it
+        // were instead the wrong-order `(error, *Demux)` shape (the
+        // original fixture), `extract_one_return_type`'s OWN
+        // `second_bare != "error"` gate would already reject it, so the
+        // test would keep passing even if the first-LHS-position check were
+        // weakened/removed (a false sense of coverage). With a
+        // well-formed pair, a weakened guard would flip this to
+        // `Some("Demux")`, so the assertion is now tied directly to the
+        // position check.
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Demux struct{}\n\
+             func (d *Demux) Init() {}\n\
+             func newDemux2() (*Demux, error) { return nil, nil }\n\
+             func run() {\n\terr, d := newDemux2()\n\t_ = err\n\td.Init()\n}\n",
         )]);
         // `d` is bound at LHS position 1 (not first) -> S1 must not recover it,
         // regardless of what the callee returns.
@@ -5819,6 +5850,37 @@ mod go_receiver_typing_tests {
         let site = site_in(&cg, "run", "Use");
         assert_eq!(site.receiver_type.as_deref(), Some("Widget"));
         assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::ReturnTyped));
+    }
+
+    #[test]
+    fn s1_cross_package_same_name_constructor_pins_own_package_type() {
+        // Two UNRELATED packages each declare a bare (same-name, unqualified)
+        // `New()` constructor returning their OWN package's type. S1's index
+        // is keyed by `(package_dir, func_name)` (`extract_go_return_types`),
+        // so this must not collide -- each package's `x := New()` recovers
+        // to ITS OWN type, never the other's.
+        let cg = build_go(&[
+            (
+                "pkg1/pkg1.go",
+                "package pkg1\n\
+                 type T1 struct{}\n\
+                 func (t *T1) M() {}\n\
+                 func New() *T1 { return &T1{} }\n\
+                 func run1() {\n\tx := New()\n\tx.M()\n}\n",
+            ),
+            (
+                "pkg2/pkg2.go",
+                "package pkg2\n\
+                 type T2 struct{}\n\
+                 func (t *T2) M() {}\n\
+                 func New() *T2 { return &T2{} }\n\
+                 func run2() {\n\tx := New()\n\tx.M()\n}\n",
+            ),
+        ]);
+        let site1 = site_in(&cg, "run1", "M");
+        assert_eq!(site1.receiver_type.as_deref(), Some("T1"));
+        let site2 = site_in(&cg, "run2", "M");
+        assert_eq!(site2.receiver_type.as_deref(), Some("T2"));
     }
 
     // ---- S2: nested-selector field-typed recovery -----------------------
@@ -6073,6 +6135,34 @@ mod go_receiver_typing_tests {
         // `run2` has no local `r` -- package var recovers.
         let site2 = site_in(&cg, "run2", "Go");
         assert_eq!(site2.receiver_type.as_deref(), Some("Runner"));
+    }
+
+    #[test]
+    fn s3_same_function_local_binding_shadows_package_var() {
+        // Minor (both reviews): the test above isn't a REAL shadow test --
+        // `run2` has no local `r` binding AT ALL, so it only proves S3
+        // recovers in the ABSENCE of a local, not that a local correctly
+        // shadows the package var. This is the real same-function case: `r`
+        // is bound locally IN THE SAME function that calls `r.Go()` -- the
+        // local (`Other`) must win, never falling back to the package var's
+        // `Runner` type.
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Runner interface { Go() }\n\
+             type Impl struct{}\n\
+             func (i Impl) Go() {}\n\
+             type Other struct{}\n\
+             func (o Other) Go() {}\n\
+             var r Runner\n\
+             func run() {\n\tr := Other{}\n\tr.Go()\n}\n",
+        )]);
+        let site = site_in(&cg, "run", "Go");
+        assert_eq!(
+            site.receiver_type.as_deref(),
+            Some("Other"),
+            "local `r := Other{{}}` must shadow the package `var r Runner`"
+        );
     }
 
     #[test]
