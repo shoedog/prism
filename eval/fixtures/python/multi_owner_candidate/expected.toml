@@ -1,0 +1,18 @@
+[case]
+language = "python"
+capability = "multi_owner_candidate"
+# P3: x.handle() has an unrecoverable (untyped) receiver and `handle` is
+# defined on 2 owner classes (A, B) — at/under the fanout cap (method_ids.len()
+# <= 3), so Python emits a labeled NameOnly candidate edge instead of the
+# Rust/Go silent drop (see rust/r6_multi_owner_drop for the guard).
+status = "pass"
+[seed]
+symbol = "handle"
+file = "app.py"
+line = 2
+[[expect.callers]]
+file = "app.py"
+line = 12
+[expect]
+exact = false
+resolution_kind = "r6_multi_owner_candidate"

@@ -1,0 +1,15 @@
+[case]
+language = "python"
+capability = "multi_owner_over_cap"
+# P3 fanout cap: 4 distinct owner classes (A/B/C/D) each define `handle`, so
+# method_ids.len() == 4 > 3 — over the cap, so this stays a silent drop
+# (same as Rust/Go) even though the language gate (Python) would otherwise
+# allow a candidate edge. See python/multi_owner_candidate for the <=3 case.
+status = "pass"
+[seed]
+symbol = "handle"
+file = "app.py"
+line = 2
+[expect]
+callers = []
+exact = true
