@@ -135,9 +135,7 @@ pub fn express_route_candidates(parsed: &ParsedFile) -> Vec<ExpressRouteCandidat
         }
 
         let site_line = call.start_position().row + 1;
-        let enclosing = parsed
-            .enclosing_function(site_line)
-            .and_then(|node| js_ts_enclosing_facts(parsed, node));
+        let enclosing = enclosing_named_function_facts(parsed, &call);
         let shadowed = express_receiver_is_shadowed(parsed, &call);
 
         out.push(ExpressRouteCandidate {
@@ -430,6 +428,48 @@ pub(crate) fn is_bare_binding_function(node: &tree_sitter::Node<'_>) -> bool {
     }
 }
 
+/// M-A (codex re-review of fix wave 2): find the nearest NAMED enclosing
+/// function for `call`, walking its actual AST ancestor chain and skipping
+/// over anonymous function-like ancestors instead of stopping at them.
+///
+/// Before this fix, the caller used `ParsedFile::enclosing_function` (a
+/// top-down smallest-containing-node search keyed by `site_line`), which
+/// always returns the DEEPEST enclosing function/method node regardless of
+/// whether it can be named. When the deepest one is an anonymous
+/// arrow/IIFE, `js_ts_enclosing_facts` returns `None` for it and the
+/// candidate was misattributed to the `<module>` pseudo-caller even though a
+/// real named function encloses the anonymous wrapper
+/// (`function setup(){ (() => { app.get(...) })(); }` must attribute to
+/// `setup`, not `<module>`). Walking `.parent()` from the call node itself
+/// and continuing past any function-like ancestor whose
+/// `js_ts_enclosing_facts` is `None` (anonymous) restores the
+/// pre-restructure `enclosing_chain` behavior of walking PAST unnamed
+/// functions to the outer named caller. A top-level IIFE with no named
+/// ancestor anywhere in the chain still yields `None` here (unchanged
+/// `<module>` control case).
+///
+/// This is a SEPARATE walk from `is_identifier_shadowed_in_enclosing_scopes`
+/// (M3): that one must still see anonymous scopes (a parameter shadow in an
+/// anonymous wrapper is real), so it collects bindings from every
+/// function-like ancestor, named or not. This walk only cares which
+/// ancestor can be named as the caller-attribution `EnclosingFacts`.
+fn enclosing_named_function_facts(
+    parsed: &ParsedFile,
+    call: &tree_sitter::Node<'_>,
+) -> Option<EnclosingFacts> {
+    let function_kinds = parsed.language.function_node_types();
+    let mut current = call.parent();
+    while let Some(node) = current {
+        if function_kinds.contains(&node.kind()) {
+            if let Some(facts) = js_ts_enclosing_facts(parsed, node) {
+                return Some(facts);
+            }
+        }
+        current = node.parent();
+    }
+    None
+}
+
 fn js_ts_enclosing_facts(
     parsed: &ParsedFile,
     node: tree_sitter::Node<'_>,
@@ -504,6 +544,37 @@ mod express_candidate_tests {
             .as_ref()
             .expect("registration inside setup() must have an enclosing function");
         assert_eq!(enclosing.name, "setup");
+    }
+
+    #[test]
+    fn registration_inside_named_function_wrapping_anonymous_iife_has_enclosing_setup() {
+        // M-A (codex re-review of fix wave 2): the call's deepest enclosing
+        // function node is an anonymous IIFE (no `FunctionId`) -- must walk
+        // PAST it to the outer named `setup`, not fall back to `<module>`.
+        let parsed = parse(
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nfunction setup() {\n    (() => {\n        app.get(\"/x\", handler);\n    })();\n}\n",
+        );
+        let cands = express_route_candidates(&parsed);
+        assert_eq!(cands.len(), 1);
+        let enclosing = cands[0].enclosing.as_ref().expect(
+            "registration must attribute past the anonymous IIFE to the named setup() function",
+        );
+        assert_eq!(enclosing.name, "setup");
+    }
+
+    #[test]
+    fn registration_inside_top_level_iife_with_no_named_ancestor_has_no_enclosing() {
+        // Control: no named function anywhere in the ancestor chain -- must
+        // still yield `None` (module-level attribution), unchanged.
+        let parsed = parse(
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\n(() => {\n    app.get(\"/x\", handler);\n})();\n",
+        );
+        let cands = express_route_candidates(&parsed);
+        assert_eq!(cands.len(), 1);
+        assert!(
+            cands[0].enclosing.is_none(),
+            "top-level IIFE with no named ancestor must still attribute to <module>"
+        );
     }
 
     #[test]

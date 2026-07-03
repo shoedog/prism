@@ -98,6 +98,61 @@ fn registration_inside_setup_function_surfaces_symmetrically_in_callees() {
 }
 
 #[test]
+fn registration_inside_anonymous_iife_nested_in_named_function_attributes_outer_function() {
+    // M-A (codex re-review of fix wave 2): `setup`'s registration is nested
+    // inside an anonymous IIFE. Before the fix, `enclosing_function` (line-
+    // keyed, returns the deepest match) landed on the anonymous IIFE, which
+    // has no `FunctionId`, so the candidate was misattributed to the
+    // `<module>` pseudo-caller instead of `setup` -- both the caller-side
+    // (nav_callees(setup)) and callee-side (nav_callers(handler)) edges must
+    // reflect the real enclosing function.
+    let s = session(&[(
+        "app.js",
+        "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nfunction setup() {\n    (() => {\n        app.get(\"/x\", handler);\n    })();\n}\n",
+    )]);
+    let callers_ev = queries::callers(&s, Some("handler"), None, None, 1).unwrap();
+    assert!(
+        callers_ev.items.iter().any(
+            |i| matches!(&i.symbol, Some(SymbolRef::Function { name, .. }) if name == "setup")
+        ),
+        "callers(handler) should include setup(), not <module>: {:?}",
+        callers_ev.items
+    );
+    assert!(
+        !callers_ev.items.iter().any(
+            |i| matches!(&i.symbol, Some(SymbolRef::Function { name, .. }) if name == "<module>")
+        ),
+        "callers(handler) must NOT include <module> once a real named enclosing function exists"
+    );
+
+    let callees_ev = queries::callees(&s, Some("setup"), None, None, 1).unwrap();
+    assert!(
+        callees_ev.items.iter().any(
+            |i| matches!(&i.symbol, Some(SymbolRef::Function { name, .. }) if name == "handler")
+        ),
+        "callees(setup) should include handler via the framework_entry edge"
+    );
+}
+
+#[test]
+fn registration_inside_top_level_iife_with_no_named_ancestor_surfaces_as_module_caller() {
+    // Control: a top-level IIFE with no named function anywhere in its
+    // ancestor chain must still surface `<module>` as the caller
+    // (incoming-only), unchanged by the M-A ancestor-walk rewrite.
+    let s = session(&[(
+        "app.js",
+        "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\n(() => {\n    app.get(\"/x\", handler);\n})();\n",
+    )]);
+    let callers_ev = queries::callers(&s, Some("handler"), None, None, 1).unwrap();
+    assert!(
+        callers_ev.items.iter().any(
+            |i| matches!(&i.symbol, Some(SymbolRef::Function { name, .. }) if name == "<module>")
+        ),
+        "callers(handler) should include <module> for a top-level IIFE with no named ancestor"
+    );
+}
+
+#[test]
 fn decorated_factory_registration_surfaces_in_callees_at_the_wrapper_range() {
     // F4: `make_app` is ITSELF decorated -- if the nested registration's
     // `caller` FunctionId used the inner `function_definition`'s range

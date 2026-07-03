@@ -6561,6 +6561,52 @@ mod framework_entry_tests {
         assert_eq!(cg.framework_entry_unresolved_handlers, 0);
     }
 
+    // ---- M-A (codex re-review of fix wave 2): caller attribution walks past
+    // anonymous scopes to the nearest NAMED enclosing function ---------------
+
+    #[test]
+    fn express_registration_inside_anonymous_iife_nested_in_named_function_attributes_outer_function(
+    ) {
+        // The registration's DEEPEST enclosing function/method node is an
+        // anonymous IIFE with no `FunctionId` -- the pre-fix
+        // `enclosing_function(site_line)` (a top-down smallest-containing-
+        // node search) stopped at that deepest node and returned `None`,
+        // misattributing the caller to `<module>` even though `setup` truly
+        // encloses the registration. The fix walks the call node's ACTUAL
+        // AST ancestor chain and skips past anonymous function-like
+        // ancestors to the nearest one that can be named.
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nfunction setup() {\n    (() => {\n        app.get(\"/x\", handler);\n    })();\n}\n",
+        )]);
+        let handler = fid(&cg, "handler").clone();
+        let rec = cg
+            .framework_entries
+            .iter()
+            .find(|r| r.handler == handler)
+            .expect("registration inside the IIFE nested in setup() must still record");
+        assert_eq!(rec.caller.name, "setup");
+        assert_ne!(rec.caller.name, MODULE_PSEUDO_CALLER_NAME);
+    }
+
+    #[test]
+    fn express_registration_inside_top_level_iife_with_no_named_ancestor_attributes_module() {
+        // Control: a top-level IIFE with NO named function anywhere in its
+        // ancestor chain must still attribute to the `<module>` pseudo-
+        // caller, unchanged by the M-A ancestor-walk rewrite.
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\n(() => {\n    app.get(\"/x\", handler);\n})();\n",
+        )]);
+        let handler = fid(&cg, "handler").clone();
+        let rec = cg
+            .framework_entries
+            .iter()
+            .find(|r| r.handler == handler)
+            .expect("top-level IIFE registration must still record");
+        assert_eq!(rec.caller.name, MODULE_PSEUDO_CALLER_NAME);
+    }
+
     // ---- F3: method-aware arg positioning for `app.use(...)` ----------------
 
     #[test]
