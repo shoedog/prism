@@ -9,6 +9,7 @@ mod cwe_phase2_suppression_test;
 mod cwe_phase3_suppression_test;
 mod hapi_regression_test;
 mod import_binding_test;
+mod r6_candidate_test;
 mod resolution_test;
 mod scoped_cpg_test;
 mod umbrella_completeness_test;
