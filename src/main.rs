@@ -157,8 +157,11 @@ struct ReviewArgs {
     review_min_severity: String,
 
     /// --format review only: keep every block regardless of whether it has
-    /// a retained finding (restores the pre-compaction firehose). Does not
-    /// affect --format json/text/paper.
+    /// a retained finding. This restores block retention ONLY — it does not
+    /// lower the severity floor (pair with --review-min-severity info to
+    /// also see low-severity findings) and it does not restore slice_lines/
+    /// diff_lines in review output; for the full pre-compaction shape use
+    /// --format json. Does not affect --format json/text/paper.
     #[arg(long, default_value_t = false)]
     review_full_slices: bool,
 

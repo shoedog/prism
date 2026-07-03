@@ -69,16 +69,20 @@ slicing --repo . --diff /tmp/change.patch --algorithm review --format json | jq 
 
 `--format review` is compact by default: findings below `warning` severity (`info`, `suggestion`) are
 dropped, `slice_lines`/`diff_lines` are omitted from each slice block (keeps `slice_text`), and any block
-whose lines don't intersect a retained finding is dropped too. Restore the firehose with:
+whose lines don't intersect a retained finding is dropped too. Each restore flag undoes only its own part
+— neither restores the full pre-compaction shape by itself:
 
 ```bash
 slicing --repo . --diff /tmp/change.patch --algorithm review --format review --review-min-severity info
 slicing --repo . --diff /tmp/change.patch --algorithm review --format review --review-full-slices
 ```
 
-`--review-min-severity <info|suggestion|warning|concern>` (default `warning`) lowers/raises the floor;
-`--review-full-slices` keeps every block regardless of whether it has a retained finding. Both flags only
-affect `--format review` — `--format json`/`text`/`paper` are unaffected.
+`--review-min-severity <info|suggestion|warning|concern>` (default `warning`) lowers/raises the severity
+floor; `--review-full-slices` restores BLOCK retention only (keeps every block regardless of whether it
+has a retained finding) — it does not lower the severity floor, and neither flag restores `slice_lines`/
+`diff_lines` in review output. Both flags only affect `--format review` — `--format json`/`text`/`paper`
+are unaffected. For the full old (uncompacted) shape — every block plus `slice_lines`/`diff_lines` plus
+every severity — use `--format json`.
 
 ## Gotchas
 
