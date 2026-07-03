@@ -1316,6 +1316,12 @@ impl CallGraph {
         // indexed_files tracks the file set; removed files are no longer indexed.
         self.indexed_files.retain(|f| !exclude.contains(f));
 
+        // P8: macro-arg extraction telemetry is per-file-derived (a pure
+        // function of that file's own AST, no cross-file index needed) —
+        // unlike the whole-program-derived facts below, retain-by-file here
+        // is exactly correct with no recompute step needed after merge.
+        self.macro_arg_facts.retain(|f, _| !exclude.contains(f));
+
         // P4: JS/TS resolved export facts are whole-program derived, same
         // rationale as the Go func-value state below — a barrel/re-export
         // chain's resolution can depend on an unchanged file elsewhere.
@@ -1396,6 +1402,10 @@ impl CallGraph {
         self.js_ts_exports.extend(other.js_ts_exports);
         self.js_ts_function_locals
             .extend(other.js_ts_function_locals);
+        // P8: per-file macro-arg facts extend directly -- `other` only ever
+        // carries entries for files it (re)built, so this can never
+        // double-count a file that remove_files didn't first drop.
+        self.macro_arg_facts.extend(other.macro_arg_facts);
 
         // P4 (JS/TS resolved export facts): deliberately NOT merged here,
         // same rationale as the Go func-value callbacks note below — the
@@ -4656,6 +4666,53 @@ mod tests {
         let full = CallGraph::build(&files_v2);
         assert_eq!(once, indirect_call_dump(&full));
         assert_eq!(callers_once, indirect_caller_dump(&full));
+    }
+
+    /// P8: `macro_arg_facts` is per-file-derived, so `remove_files` retaining
+    /// by file and `merge` extending the map (the same `js_ts_exports`
+    /// pattern) is exactly correct -- no whole-program recompute step is
+    /// needed, unlike `property_access_fanout_skips`/friends.
+    #[test]
+    fn macro_arg_facts_remove_files_retains_by_file_and_merge_extends() {
+        let files = build_complete(&[
+            (
+                "a.rs",
+                "fn check(x: i32) -> bool { x > 0 }\nfn host() { assert!(check(1)); }\n",
+            ),
+            ("b.rs", "fn other() {}\n"),
+        ]);
+        let mut files_map: std::collections::BTreeMap<String, ParsedFile> = Default::default();
+        for (path, source) in [
+            (
+                "a.rs",
+                "fn check(x: i32) -> bool { x > 0 }\nfn host() { assert!(check(1)); }\n",
+            ),
+            ("b.rs", "fn other() {}\n"),
+        ] {
+            files_map.insert(
+                path.to_string(),
+                ParsedFile::parse(path, source, crate::languages::Language::Rust).unwrap(),
+            );
+        }
+
+        assert!(files.macro_arg_facts.contains_key("a.rs"));
+        assert!(!files.macro_arg_facts.contains_key("b.rs"));
+        assert_eq!(files.macro_arg_facts["a.rs"].calls_recorded, 1);
+
+        let mut merged = files;
+        let changed = BTreeSet::from(["a.rs".to_string()]);
+        merged.remove_files(&changed);
+        assert!(
+            !merged.macro_arg_facts.contains_key("a.rs"),
+            "remove_files must retain by file, dropping the removed file's facts"
+        );
+
+        merged.merge(CallGraph::build_direct_subset(&files_map, &changed));
+        assert!(
+            merged.macro_arg_facts.contains_key("a.rs"),
+            "merge must extend the map from the rebuilt subset"
+        );
+        assert_eq!(merged.macro_arg_facts["a.rs"].calls_recorded, 1);
     }
 
     #[test]
