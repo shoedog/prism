@@ -13,7 +13,8 @@ pub struct NavCallEdge<'a> {
 }
 
 pub fn resolve_site_nav<'a>(cg: &'a CallGraph, site: &'a CallSite) -> Vec<NavCallEdge<'a>> {
-    cg.resolve_call_site(site)
+    cg.resolve_call_site_full(site)
+        .resolved
         .into_iter()
         .map(|r: ResolvedCallee<'a>| NavCallEdge {
             target: r.target,
