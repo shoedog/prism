@@ -2,6 +2,8 @@
 
 Date: 2026-07-02. Grounded in code at main `fae6240`; probe diff = commit `36429d7`.
 
+> **Status 2026-07-02:** P1 shipped as PR #149 (probe 13.49 MB → 552 KB; residual = diagram payloads) and P2 as PR #150 — both through codex-xhigh spec review → Sonnet implementation → task review → codex-xhigh implementation review → fix wave → SHIP. Corrections vs the specs below, found in review: severity vocabulary is `info < suggestion < warning < concern` (PrimitiveSlice emits `suggestion`); `--format json` shares the review serializer and is byte-pinned, so compaction is a review-only path (`src/output/review_compact.rs`); source findings are licensed by emitted sink findings' chosen source **plus** all `sink_to_path_sources` entries and bash unquoted-expansion sinks; ground truth is 11 languages / **12** tree-sitter grammar variants (TSX); `refresh_index` is not read-only, so blanket read-only claims were scoped, and the Simple/Graph-based doc split was corrected to `needs_cpg()` (16 CPG / 14 AST-only). Framework target-scoped seeds still emit no `taint_source` finding (pre-existing; belongs to P9).
+
 ## 1. Goal restatement
 
 - **LLM-leverageable** = every tool result is compact, `file:line`-anchored, confidence-labeled resolved facts an agent can act on without re-derivation; procedure lives in the skills, not the payload.
