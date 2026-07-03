@@ -150,6 +150,43 @@ fn express_call_match_kind(
     None
 }
 
+/// F1: discriminate a "bare binding" function-like definition (a hoisted
+/// `function` declaration, or a variable/assignment-bound function
+/// expression/arrow) from a class or object-literal METHOD. Needed because
+/// `CallGraph::functions` (the whole-program name index consulted for
+/// identifier-arg resolution in `super::apply`) is built from
+/// `ParsedFile::all_functions()`, which folds in every JS/TS function-like
+/// node regardless of context: per the tree-sitter-javascript grammar, a
+/// class method (`class C { handler() {} }`) and an object-literal shorthand
+/// method (`{ handler() {} }`) both use the SAME `method_definition` node
+/// kind (distinguished only by parent: `class_body` vs `object`), so
+/// excluding that one kind excludes both shapes with a single check. A bare
+/// identifier reference (`app.get(path, handler)`) can only ever mean a free
+/// variable/function binding reachable by that exact name — never a method,
+/// which is reachable only via a receiver (`this.handler`/`obj.handler`).
+///
+/// Also excludes a class-field arrow/function-expression binding (`class C {
+/// handler = () => {} }`, Pattern 4 in `languages::mod::function_name`) —
+/// same false-edge shape as a `method_definition`, just spelled as a field
+/// instead of shorthand-method syntax, so it's just as unreachable by a bare
+/// `handler` reference.
+pub(crate) fn is_bare_binding_function(node: &tree_sitter::Node<'_>) -> bool {
+    if node.kind() == "method_definition" {
+        return false;
+    }
+    if matches!(node.kind(), "arrow_function" | "function_expression") {
+        if let Some(parent) = node.parent() {
+            if matches!(
+                parent.kind(),
+                "field_definition" | "public_field_definition"
+            ) {
+                return false;
+            }
+        }
+    }
+    true
+}
+
 fn js_ts_enclosing_facts(
     parsed: &ParsedFile,
     node: tree_sitter::Node<'_>,

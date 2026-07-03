@@ -126,6 +126,30 @@ pub fn apply(
                 }
             }
             Language::JavaScript | Language::TypeScript | Language::Tsx => {
+                // F1: restrict identifier-arg resolution to BARE BINDINGS —
+                // `functions` (passed in from `CallGraph`) indexes every
+                // JS/TS function-like node including class/object methods
+                // (see `express::is_bare_binding_function`'s doc comment),
+                // so an unfiltered name-only lookup can mint a false edge to
+                // an unrelated same-named method. Computed once per file
+                // (not per candidate) since it only depends on `parsed`.
+                let bare_binding_ids: BTreeSet<FunctionId> = parsed
+                    .all_functions()
+                    .into_iter()
+                    .filter(express::is_bare_binding_function)
+                    .filter_map(|node| {
+                        let name_node = parsed.language.function_name(&node)?;
+                        let name = parsed.node_text(&name_node).to_string();
+                        let (start_line, end_line) = parsed.node_line_range(&node);
+                        Some(FunctionId {
+                            file: file_path.clone(),
+                            name,
+                            start_line,
+                            end_line,
+                        })
+                    })
+                    .collect();
+
                 for cand in express::express_route_candidates(parsed) {
                     let caller = build_caller(file_path, parsed, cand.enclosing.clone());
                     // The shadow guard reads `js_ts_function_locals` keyed by
@@ -151,7 +175,9 @@ pub fn apply(
                                     .get(&name)
                                     .into_iter()
                                     .flatten()
-                                    .filter(|f| f.file == *file_path)
+                                    .filter(|f| {
+                                        f.file == *file_path && bare_binding_ids.contains(f)
+                                    })
                                     .collect();
                                 if matches.len() != 1 {
                                     unresolved += 1;

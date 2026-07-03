@@ -6296,6 +6296,54 @@ mod framework_entry_tests {
         assert_ne!(rec.caller.name, MODULE_PSEUDO_CALLER_NAME);
     }
 
+    // ---- F1: bare-binding-only identifier resolution ------------------------
+
+    #[test]
+    fn express_identifier_matching_method_only_is_unresolved() {
+        // `handler` exists ONLY as a class METHOD in this file -- a bare
+        // identifier reference (`app.get("/x", handler)`) can never mean a
+        // method (methods need a receiver), so this must be unresolved, not
+        // a false edge to `C.handler`.
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nclass C {\n    handler() {}\n}\n\napp.get(\"/x\", handler);\n",
+        )]);
+        assert!(
+            !cg.framework_entries
+                .iter()
+                .any(|r| r.framework == "express"),
+            "method-only same-name match must not mint a framework_entry edge"
+        );
+        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
+    }
+
+    #[test]
+    fn express_identifier_matching_prefers_bare_binding_over_same_name_method() {
+        // A top-level function AND a same-name class method both named
+        // `handler` -- the bare-binding filter must exclude the method,
+        // leaving exactly one match (the top-level function) instead of
+        // dropping the identifier for false ambiguity.
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nclass C {\n    handler() {}\n}\n\napp.get(\"/x\", handler);\n",
+        )]);
+        let free_handler = cg
+            .functions
+            .get("handler")
+            .expect("handler name indexed")
+            .iter()
+            .find(|f| !cg.method_owners.contains_key(*f))
+            .expect("free function handler must exist")
+            .clone();
+        let rec = cg
+            .framework_entries
+            .iter()
+            .find(|r| r.framework == "express")
+            .expect("express route recorded against the free function");
+        assert_eq!(rec.handler, free_handler);
+        assert_eq!(cg.framework_entry_unresolved_handlers, 0);
+    }
+
     // ---- Non-target-language guard -----------------------------------------
 
     #[test]
