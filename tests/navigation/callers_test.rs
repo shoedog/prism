@@ -394,3 +394,67 @@ fn callers_alias_arm_excludes_qualified_method_sites() {
         ev.items
     );
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P8: RUST MACRO-ARGUMENT CALLS
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn callers_of_check_includes_the_assert_site_with_a_normal_resolution_reason() {
+    // The adjudicated case (mirrors eval/fixtures/rust/macro_arg_call): a
+    // value call written inside `assert!`'s arguments must appear as a
+    // caller with an ordinary (non-macro) resolution reason.
+    let s = session(&[(
+        "main.rs",
+        "fn check(x: i32) -> bool {\n    x > 0\n}\n\nfn run() {\n    assert!(check(1));\n}\n",
+    )]);
+    let ev = queries::callers(&s, Some("check"), Some("main.rs"), None, 1).unwrap();
+    let item = ev
+        .items
+        .iter()
+        .find(|i| matches!(&i.symbol, Some(SymbolRef::Function { name, .. }) if name == "run"))
+        .unwrap_or_else(|| {
+            panic!(
+                "assert!(check(1)) must surface `run` as a caller; got {:?}",
+                ev.items
+            )
+        });
+    assert_eq!(item.score, 1.0);
+    assert!(item
+        .why
+        .iter()
+        .any(|r| matches!(r, Reason::CalledBy { call_site_line, .. } if *call_site_line == 6)));
+    assert!(
+        item.why
+            .iter()
+            .any(|r| matches!(r, Reason::Resolution { kind } if kind == "local_def")),
+        "expected a normal (non-macro) resolution reason; got {:?}",
+        item.why
+    );
+}
+
+#[test]
+fn macro_arg_method_call_hits_the_existing_r6_multi_owner_drop_floor() {
+    // Mirrors eval/fixtures/rust/r6_multi_owner_drop, but the unknown-
+    // receiver method call is written INSIDE assert!'s arguments instead of
+    // bare: `poll` is a method on two owner types (A, B) and the receiver
+    // `x`'s type is unrecoverable, so the multi-owner collision must still be
+    // DROPPED -- no false edge, even though the site was minted via the new
+    // macro-arg extractor rather than the grammar's call_expression path.
+    let s = session(&[
+        ("a.rs", "struct A;\nimpl A {\n    fn poll(&self) {}\n}\n"),
+        ("b.rs", "struct B;\nimpl B {\n    fn poll(&self) {}\n}\n"),
+        (
+            "m.rs",
+            "fn drive() {\n    let x = mystery();\n    assert!(x.poll());\n}\n",
+        ),
+    ]);
+    let ev = queries::callers(&s, Some("poll"), Some("a.rs"), None, 1).unwrap();
+    assert!(
+        !ev.items.iter().any(
+            |i| matches!(&i.symbol, Some(SymbolRef::Function { name, .. }) if name == "drive")
+        ),
+        "unrecoverable-receiver multi-owner poll() inside assert! must be dropped, not attributed; got {:?}",
+        ev.items
+    );
+}

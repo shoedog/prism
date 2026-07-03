@@ -63,6 +63,7 @@ pub mod resolution;
 pub mod resolution_disproof;
 pub mod resolution_identity;
 pub mod resolution_receiver;
+pub mod rust_macro_args;
 pub mod sanitizers;
 pub mod slice;
 pub mod terraform;

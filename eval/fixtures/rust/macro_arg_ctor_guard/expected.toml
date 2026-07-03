@@ -1,0 +1,21 @@
+[case]
+language = "rust"
+capability = "macro_arg_ctor_guard"
+# The uppercase-constructor guard pin: `Foo(1)` inside `assert!(Foo(1).0 == 1)`
+# is token-shaped exactly like a tuple-struct/enum-variant constructor call
+# (starts_uppercase), which the extractor deliberately skips minting
+# (MacroArgFacts::ctor_skips) REGARDLESS of whether an in-repo `fn Foo` also
+# exists -- an incomplete graph could otherwise mint a wrong Exact edge to an
+# unrelated same-named `fn Foo` (rust_macro_args.rs handle_call_candidate's
+# starts_uppercase guard). This fixture deliberately defines a non-idiomatic
+# `fn Foo` (uppercase free function) alongside the assert!-wrapped call --
+# that IS the point: even with a real, resolvable target present, the
+# precision-floor guard still withholds the mint.
+status = "pass"
+[seed]
+symbol = "Foo"
+file = "main.rs"
+line = 1
+[expect]
+callers = []
+exact = true

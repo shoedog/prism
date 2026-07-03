@@ -92,7 +92,13 @@ use std::path::{Path, PathBuf};
 ///   `extract_import_bindings` (resolution behavior change: default exports,
 ///   named-export-list renames, const-arrow exports, CommonJS exports, and
 ///   depth-2-bounded re-export chains now resolve via R4c `ImportMember`).
-const CACHE_VERSION: u32 = 35; // 35: P4 JS/TS export modeling.
+/// - v36: P8 Rust macro-argument call extraction — CallSite gains
+///   `CallSiteOrigin::MacroArg`; CallGraph gains `macro_arg_facts` (S1/S2
+///   telemetry); value calls inside a transparency-allowlisted macro's
+///   arguments (`assert!(check(x))`, `vec![f(1), f(2)]`, ...) now mint real
+///   CallSite entries with `kind: Call` (resolution behavior change: these
+///   sites are new, Exact-capable via the normal Rust ladder).
+const CACHE_VERSION: u32 = 36; // 36: P8 Rust macro-argument call extraction.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -610,11 +616,12 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_35_for_js_ts_export_modeling() {
-        // v35: P4 JS/TS export modeling (typed export facts + resolved
-        // barrel index + import-side default/require binding changes), on
-        // top of v34 (P7 Python property-access edges).
-        assert_eq!(super::CACHE_VERSION, 35);
+    fn cache_version_is_36_for_rust_macro_arg_calls() {
+        // v36: P8 Rust macro-argument call extraction (CallSiteOrigin::MacroArg
+        // + CallGraph.macro_arg_facts; assert!/vec!/format!/... argument calls
+        // now mint real CallSite entries), on top of v35 (P4 JS/TS export
+        // modeling).
+        assert_eq!(super::CACHE_VERSION, 36);
     }
 
     #[test]

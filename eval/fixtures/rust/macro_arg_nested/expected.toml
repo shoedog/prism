@@ -1,0 +1,19 @@
+[case]
+language = "rust"
+capability = "macro_arg_nested"
+# vec![compute(1), compute(2)] mints TWO independent free-call sites (each
+# `compute(N)` is its own identifier+paren-token_tree match separated by the
+# anonymous "," atom) -- both attributed and Exact.
+status = "pass"
+[seed]
+symbol = "compute"
+file = "main.rs"
+line = 1
+[[expect.callers]]
+file = "main.rs"
+line = 7
+[[expect.callers]]
+file = "main.rs"
+line = 8
+[expect]
+exact = true

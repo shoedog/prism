@@ -1,0 +1,18 @@
+[case]
+language = "rust"
+capability = "macro_arg_qualified"
+# Qualified path call inside a transparent macro's arguments
+# (assert_eq!(util::compute(1), 2)): the extractor joins the "::"-separated
+# identifier chain into "util::compute" exactly like ordinary qualified-call
+# extraction, and it resolves cross-file via the existing file-stem fallback
+# rung (module-qualified free functions -> file-stem match).
+status = "pass"
+[seed]
+symbol = "compute"
+file = "util.rs"
+line = 1
+[[expect.callers]]
+file = "main.rs"
+line = 2
+[expect]
+exact = true

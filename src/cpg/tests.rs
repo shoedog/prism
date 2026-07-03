@@ -1164,6 +1164,49 @@ fn step5b_param_binding_first_wins_parity() {
     ));
 }
 
+/// P8: a macro-arg-minted CallSite's `start_byte` points at the identifier
+/// inside a `macro_invocation`'s token-soup arguments, not a real
+/// `call_expression`/`call_arguments` node — `call_argument_texts_at`
+/// (`ast.rs`, backed by `build_call_args_index`, which only indexes
+/// `is_call_node` kinds and never visits `macro_invocation`'s children as
+/// such) therefore returns `Vec::new()` for it, and `step5b_edges_for_caller`
+/// takes its existing `if arg_texts.is_empty() { continue; }` branch. CPG
+/// build must not panic and must produce the coarser Step-5 Call edge (built
+/// from `resolve_call_site`, independent of AST argument nodes) while
+/// grounding no Step-5b arg->param DataFlow edge for that site.
+#[test]
+fn macro_arg_call_step5b_degrades_gracefully_no_panic_no_arg_param_edge() {
+    let src = "fn check(p: i32) {\n    let _ = p;\n}\n\nfn run() {\n    let x = 5;\n    assert!(check(x));\n}\n";
+    let mut files = BTreeMap::new();
+    files.insert(
+        "m.rs".to_string(),
+        ParsedFile::parse("m.rs", src, Language::Rust).unwrap(),
+    );
+
+    // Build must not panic even though the macro-arg call site has no AST
+    // call_expression/argument nodes to ground Step 5b's arg->param binding.
+    let ctx = CpgContext::build(&files, None);
+
+    // Step 5 (resolved-call-site-based, not AST-argument-dependent): the
+    // Call edge still forms for the macro-arg-minted site.
+    let caller_idx = ctx.cpg.function_node("m.rs", "run").unwrap();
+    let callee_idx = ctx.cpg.function_node("m.rs", "check").unwrap();
+    let call_reachable = ctx
+        .cpg
+        .reachable_forward(caller_idx, &|e| matches!(e, CpgEdge::Call(_)));
+    assert!(
+        call_reachable.contains(&callee_idx),
+        "Call edge should still form for the macro-arg-minted site"
+    );
+
+    // Step 5b needs a real AST call_expression's argument nodes — token soup
+    // has none, so no arg->param DataFlow edge is (or ever could be) grounded.
+    assert!(
+        !has_df_path_edge(&ctx.cpg, ("m.rs", 6, "x"), ("m.rs", 1, "p")),
+        "macro-arg call site must not ground an arg->param DataFlow edge (no AST argument nodes)"
+    );
+}
+
 #[test]
 fn test_cpg_call_edges() {
     let source = r#"

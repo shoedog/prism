@@ -1,0 +1,18 @@
+[case]
+language = "rust"
+capability = "macro_arg_call"
+# P8 BLOCKER regression pin: assert!(check(x)) mints a real value-call
+# CallSite for `check` (transparency-allowlisted macro), and it resolves
+# Exact under the complete Rust scope graph -- the scope-graph populator must
+# NOT install its ordinary name-introducing-macro wildcard poison over
+# assert!'s arguments (that poison would otherwise cover `check`'s own name).
+status = "pass"
+[seed]
+symbol = "check"
+file = "main.rs"
+line = 1
+[[expect.callers]]
+file = "main.rs"
+line = 6
+[expect]
+exact = true

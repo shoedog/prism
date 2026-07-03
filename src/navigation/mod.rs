@@ -866,4 +866,96 @@ mod tests {
             Reason::Resolution { kind } if kind == "property_access"
         )));
     }
+
+    /// P8 F1 fix (codex re-review BLOCKER): Rust macro-arg call extraction
+    /// depends on the repo-wide macro shadow set
+    /// (`rust_macro_args::collect_macro_shadow_set`), but this incremental
+    /// path only re-extracts `changed_files` — an unchanged file's call
+    /// sites/`macro_arg_facts` are RETAINED as-is (see `remove_files`'s P8
+    /// comment). Adding a `macro_rules! vec` definition in a brand-new file
+    /// (`b.rs`) must suppress the pre-existing `vec![check()]` macro-arg
+    /// call site in the UNCHANGED `a.rs`, exactly like a full rebuild would
+    /// — a naive incremental rebuild that never re-examines `a.rs` would
+    /// leave that site stale (still minted). This pins the
+    /// `build_incremental_with_scope_graph_inputs` mismatch guard that falls
+    /// back to a full rebuild instead.
+    #[test]
+    fn incremental_from_previous_falls_back_to_full_rebuild_on_new_macro_shadow() {
+        let dir = tempfile::tempdir().unwrap();
+        write_files(
+            dir.path(),
+            &[(
+                "a.rs",
+                "fn check() -> bool {\n    true\n}\nfn host() {\n    let _ = vec![check()];\n}\n",
+            )],
+        );
+        let v1 = full_session(dir.path());
+        let v1_callers = function_names_for_callers(&v1, "check", None, 1);
+        assert!(
+            v1_callers.contains(&"host".to_string()),
+            "v1 (no macro_rules! vec anywhere) must mint the vec![check()] macro-arg call site"
+        );
+
+        write_files(dir.path(), &[("b.rs", "macro_rules! vec { () => {}; }\n")]);
+        let v2_incremental = incremental_session(&v1, dir.path(), &["b.rs"]);
+        let v2_full = full_session(dir.path());
+
+        assert_eq!(
+            queries::callers(&v2_full, Some("check"), None, None, 1).unwrap(),
+            queries::callers(&v2_incremental, Some("check"), None, None, 1).unwrap(),
+            "incremental and full rebuilds must agree once a shadowing macro_rules! \
+             appears anywhere in the repo, even in a brand-new unrelated file"
+        );
+        let v2_callers = function_names_for_callers(&v2_incremental, "check", None, 1);
+        assert!(
+            !v2_callers.contains(&"host".to_string()),
+            "adding a repo-wide shadowing macro_rules! vec must fall back to a full \
+             rebuild and drop the now-suppressed vec! macro-arg call site in the \
+             unchanged a.rs, not retain it stale"
+        );
+    }
+
+    /// Reverse direction of the test above: REMOVING the shadowing file must
+    /// also trigger the full-rebuild fallback so the previously-suppressed
+    /// `vec![check()]` site in the unchanged `a.rs` reappears, matching a
+    /// full rebuild — not stay suppressed because `a.rs` was never
+    /// re-examined.
+    #[test]
+    fn incremental_from_previous_falls_back_to_full_rebuild_on_removed_macro_shadow() {
+        let dir = tempfile::tempdir().unwrap();
+        write_files(
+            dir.path(),
+            &[
+                (
+                    "a.rs",
+                    "fn check() -> bool {\n    true\n}\nfn host() {\n    let _ = vec![check()];\n}\n",
+                ),
+                ("b.rs", "macro_rules! vec { () => {}; }\n"),
+            ],
+        );
+        let v1 = full_session(dir.path());
+        let v1_callers = function_names_for_callers(&v1, "check", None, 1);
+        assert!(
+            !v1_callers.contains(&"host".to_string()),
+            "v1 (macro_rules! vec shadowed repo-wide) must suppress the vec![check()] site"
+        );
+
+        std::fs::remove_file(dir.path().join("b.rs")).unwrap();
+        let v2_incremental = incremental_session(&v1, dir.path(), &["b.rs"]);
+        let v2_full = full_session(dir.path());
+
+        assert_eq!(
+            queries::callers(&v2_full, Some("check"), None, None, 1).unwrap(),
+            queries::callers(&v2_incremental, Some("check"), None, None, 1).unwrap(),
+            "incremental and full rebuilds must agree once the shadowing macro_rules! \
+             is removed from the repo"
+        );
+        let v2_callers = function_names_for_callers(&v2_incremental, "check", None, 1);
+        assert!(
+            v2_callers.contains(&"host".to_string()),
+            "removing the shadowing macro_rules! vec must fall back to a full rebuild \
+             and reinstate the vec! macro-arg call site in the unchanged a.rs, not \
+             leave it suppressed"
+        );
+    }
 }

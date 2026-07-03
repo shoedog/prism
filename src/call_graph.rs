@@ -58,6 +58,10 @@ pub enum CallSiteOrigin {
     #[default]
     Source,
     IndirectResolution,
+    /// Minted from a Rust macro argument (transparency-allowlisted, e.g.
+    /// `assert!(check(x))`) rather than from the grammar's own call/method
+    /// node. See `crate::rust_macro_args`.
+    MacroArg,
 }
 
 /// A call site: where a function is called from.
@@ -503,6 +507,37 @@ pub struct CallGraph {
     /// comprehension targets, and `with ... as` alias targets (F4).
     #[serde(default)]
     pub property_access_store_skips: usize,
+    /// P8: Rust macro-argument call-extraction telemetry, keyed by file path.
+    /// Unlike the whole-program-derived P5/P7 facts above, this is purely
+    /// per-file/per-function derived (a pure function of that file's own
+    /// AST, no cross-file index needed) — `remove_files` retains by file and
+    /// `merge` extends the map directly (no incremental drift risk), and
+    /// callers sum `.values()` on demand (see `js_ts_exports`/
+    /// `js_export_skipped_exprs` for the same on-demand-sum pattern). Only
+    /// files with at least one non-default fact are present.
+    #[serde(default)]
+    pub macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts>,
+    /// P8 F1 fix (BLOCKER, codex re-review): the repo-wide macro shadow set
+    /// (`rust_macro_args::collect_macro_shadow_set`), narrowed to its
+    /// intersection with `TRANSPARENT_ARG_MACROS`
+    /// (`rust_macro_args::transparent_shadow_intersection`) — the only part
+    /// of the shadow set that can change macro-arg call-extraction behavior.
+    /// Unlike `macro_arg_facts` above, this is whole-program derived (like
+    /// `interface_impls`/`js_ts_resolved_exports`): recomputed from scratch
+    /// on every full build and on every `build_direct_subset` call (which
+    /// always scans the COMPLETE `files` map for this, not just its
+    /// `only_files` subset — see its call site). `merge` overwrites (not
+    /// extends) this field from the incoming graph for exactly that reason:
+    /// the incoming `build_direct_subset` graph already carries the fresh,
+    /// correct whole-program value. `build_incremental_with_scope_graph_inputs`
+    /// compares the value persisted here (from the PREVIOUS build) against a
+    /// fresh computation before doing any incremental work, and falls back to
+    /// a full rebuild on mismatch — without this guard, an unchanged file's
+    /// retained call sites/macro-arg facts (see `remove_files`'s P8 comment)
+    /// would go stale whenever a `macro_rules!` definition anywhere in the
+    /// repo flips an allowlisted macro name's shadowed status.
+    #[serde(default)]
+    pub macro_shadow_intersection: BTreeSet<String>,
 }
 
 impl CallGraph {
@@ -556,6 +591,8 @@ impl CallGraph {
             property_accesses: BTreeSet::new(),
             property_access_fanout_skips: 0,
             property_access_store_skips: 0,
+            macro_arg_facts: BTreeMap::new(),
+            macro_shadow_intersection: BTreeSet::new(),
         }
     }
 
@@ -576,6 +613,10 @@ impl CallGraph {
         let mut method_class_span_ambiguous: BTreeSet<FunctionId> = BTreeSet::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
+        // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once
+        // from the full `files` map, mirroring the existing per-build
+        // whole-program-fact pattern (e.g. `extract_js_ts_resolution_facts`).
+        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
 
         // Phase 1: Collect all function definitions
         for (file_path, parsed) in files {
@@ -651,16 +692,30 @@ impl CallGraph {
                 };
 
                 let all_lines: BTreeSet<usize> = (start..=end).collect();
-                let call_sites = parsed.function_calls_with_spans_on_lines(&func_node, &all_lines);
+                let call_sites = parsed.function_calls_with_spans_on_lines(
+                    &func_node,
+                    &all_lines,
+                    &macro_shadow,
+                );
 
-                for (callee_name, line, start_byte, end_byte) in call_sites {
+                for meta in call_sites {
+                    let callee_name = meta.callee_name;
+                    let start_byte = meta.start_byte;
+                    let end_byte = meta.end_byte;
+                    let line = meta.line;
                     let site = CallSite {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
                         line,
-                        kind: Self::call_kind_at(parsed, start_byte, end_byte),
+                        kind: meta
+                            .kind_override
+                            .unwrap_or_else(|| Self::call_kind_at(parsed, start_byte, end_byte)),
                         start_byte,
                         end_byte,
+                        // build_skeleton is a lightweight scope-computation pass;
+                        // preserve its pre-existing behavior of ignoring the
+                        // extraction-time qualifier (None input) and falling back
+                        // to the self/this/cls line-text heuristic only.
                         qualifier: Self::recover_self_receiver_qualifier(
                             parsed,
                             &callee_name,
@@ -673,7 +728,7 @@ impl CallGraph {
                         arg_count: None,
                         arg_spread: false,
                         receiver_outcome: None,
-                        origin: CallSiteOrigin::Source,
+                        origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                     };
                     calls
                         .entry(caller_id.clone())
@@ -734,6 +789,10 @@ impl CallGraph {
             property_accesses: BTreeSet::new(),
             property_access_fanout_skips: 0,
             property_access_store_skips: 0,
+            macro_arg_facts: BTreeMap::new(),
+            macro_shadow_intersection: crate::rust_macro_args::transparent_shadow_intersection(
+                &macro_shadow,
+            ),
         }
     }
 
@@ -789,6 +848,12 @@ impl CallGraph {
         let mut method_class_span_ambiguous: BTreeSet<FunctionId> = BTreeSet::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
+        // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once
+        // from the full `files` map, mirroring the existing per-build
+        // whole-program-fact pattern (e.g. `extract_js_ts_resolution_facts`
+        // below). `BTreeSet<String>` is `Sync`, so it can be captured by
+        // reference into the `par_iter` closure below.
+        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
 
         // Collect per-file import maps for import-aware call resolution.
         let mut imports: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
@@ -907,7 +972,9 @@ impl CallGraph {
         }
 
         struct FileCallSites {
+            file_path: String,
             call_sites: Vec<(FunctionId, CallSite)>,
+            macro_arg_facts: crate::rust_macro_args::MacroArgFacts,
         }
 
         // Phase 2: Find all call sites within each function in parallel, then
@@ -917,6 +984,7 @@ impl CallGraph {
             .map(|entry| {
                 let (file_path, parsed) = *entry;
                 let mut file_call_sites = Vec::new();
+                let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
                 let file_imports_ref = imports.get(file_path);
 
                 for func_node in parsed.all_functions() {
@@ -933,32 +1001,33 @@ impl CallGraph {
                     };
 
                     let all_lines: BTreeSet<usize> = (start..=end).collect();
-                    let call_sites = parsed
-                        .function_calls_with_qualifier_and_spans_on_lines(&func_node, &all_lines);
+                    let (call_sites, facts) = parsed
+                        .function_calls_with_qualifier_and_spans_on_lines(
+                            &func_node,
+                            &all_lines,
+                            &macro_shadow,
+                        );
+                    file_macro_arg_facts.calls_recorded += facts.calls_recorded;
+                    file_macro_arg_facts.skipped_macros += facts.skipped_macros;
+                    file_macro_arg_facts.ctor_skips += facts.ctor_skips;
                     let recv_var = parsed
                         .language
                         .go_receiver_var(&func_node)
                         .map(|n| parsed.node_text(&n).to_string());
 
-                    for (
-                        callee_name,
-                        line,
-                        qualifier,
-                        start_byte,
-                        end_byte,
-                        receiver_expr,
-                        arg_count,
-                        arg_spread,
-                    ) in call_sites
-                    {
+                    for meta in call_sites {
+                        let callee_name = meta.callee_name;
+                        let line = meta.line;
+                        let start_byte = meta.start_byte;
+                        let end_byte = meta.end_byte;
                         let qualifier = Self::recover_self_receiver_qualifier(
                             parsed,
                             &callee_name,
                             line,
-                            qualifier,
+                            meta.qualifier,
                         );
                         let classification = classifier.classify(crate::resolution::ReceiverCtx {
-                            receiver_expr,
+                            receiver_expr: meta.receiver_node,
                             qualifier: qualifier.as_deref(),
                             fn_node: func_node,
                             call_line: line,
@@ -972,27 +1041,39 @@ impl CallGraph {
                             caller: caller_id.clone(),
                             callee_name,
                             line,
-                            kind: Self::call_kind_at(parsed, start_byte, end_byte),
+                            kind: meta.kind_override.unwrap_or_else(|| {
+                                Self::call_kind_at(parsed, start_byte, end_byte)
+                            }),
                             start_byte,
                             end_byte,
                             qualifier,
                             receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
                             receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                             receiver_materialized: classification.materialized,
-                            arg_count,
-                            arg_spread,
+                            arg_count: meta.arg_count,
+                            arg_spread: meta.arg_spread,
                             receiver_outcome: None,
-                            origin: CallSiteOrigin::Source,
+                            origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                         };
                         file_call_sites.push((caller_id.clone(), site));
                     }
                 }
 
                 FileCallSites {
+                    file_path: file_path.clone(),
                     call_sites: file_call_sites,
+                    macro_arg_facts: file_macro_arg_facts,
                 }
             })
             .collect();
+
+        let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =
+            BTreeMap::new();
+        for file_calls in &per_file_calls {
+            if file_calls.macro_arg_facts != crate::rust_macro_args::MacroArgFacts::default() {
+                macro_arg_facts.insert(file_calls.file_path.clone(), file_calls.macro_arg_facts);
+            }
+        }
 
         for file_calls in per_file_calls {
             for (caller_id, site) in file_calls.call_sites {
@@ -1063,6 +1144,10 @@ impl CallGraph {
             property_accesses: BTreeSet::new(),
             property_access_fanout_skips: 0,
             property_access_store_skips: 0,
+            macro_arg_facts,
+            macro_shadow_intersection: crate::rust_macro_args::transparent_shadow_intersection(
+                &macro_shadow,
+            ),
         };
         cg.recompute_indirect_calls(files);
         cg.refresh_rust_receiver_state(files);
@@ -1277,6 +1362,31 @@ impl CallGraph {
         // indexed_files tracks the file set; removed files are no longer indexed.
         self.indexed_files.retain(|f| !exclude.contains(f));
 
+        // P8: macro-arg extraction telemetry (`macro_arg_facts`) retains by
+        // file here, same as `js_ts_exports`/`import_bindings` above. BUT
+        // (F1 fix, codex re-review BLOCKER) whether an unchanged file's
+        // RETAINED call sites/facts are still valid depends on the
+        // repo-wide `macro_shadow_intersection` (below) staying unchanged
+        // across this rebuild — a `macro_rules!` def added/removed
+        // anywhere in the repo can flip an allowlisted macro name's
+        // shadowed status and make a retained site (or a retained skip)
+        // wrong even though the file it lives in never changed. Verifying
+        // that is NOT this method's job: the guard lives in
+        // `build_incremental_with_scope_graph_inputs`, which compares the
+        // intersection persisted on `macro_shadow_intersection` against a
+        // fresh whole-files computation BEFORE calling `remove_files`/
+        // `merge` at all, and falls back to a full rebuild on any
+        // mismatch. So retain-by-file here is exactly correct only because
+        // that caller-side guard guarantees the shadow set never actually
+        // drifts underneath an incremental rebuild.
+        self.macro_arg_facts.retain(|f, _| !exclude.contains(f));
+
+        // `macro_shadow_intersection` itself is deliberately left untouched
+        // here (no per-file breakdown exists to retain-by-file) — `merge`
+        // below unconditionally overwrites it with the fresh value the
+        // incoming `build_direct_subset` graph always carries; see that
+        // field's doc comment.
+
         // P4: JS/TS resolved export facts are whole-program derived, same
         // rationale as the Go func-value state below — a barrel/re-export
         // chain's resolution can depend on an unchanged file elsewhere.
@@ -1357,6 +1467,22 @@ impl CallGraph {
         self.js_ts_exports.extend(other.js_ts_exports);
         self.js_ts_function_locals
             .extend(other.js_ts_function_locals);
+        // P8: per-file macro-arg facts extend directly -- `other` only ever
+        // carries entries for files it (re)built, so this can never
+        // double-count a file that remove_files didn't first drop. (This
+        // is safe from stale drift ONLY because
+        // `build_incremental_with_scope_graph_inputs` already verified the
+        // repo-wide shadow set is unchanged before reaching this call --
+        // see `macro_shadow_intersection`'s doc comment and the guard
+        // immediately below.)
+        self.macro_arg_facts.extend(other.macro_arg_facts);
+        // P8 F1 fix: `macro_shadow_intersection` is OVERWRITTEN, not
+        // extended/unioned -- `other` (a `build_direct_subset` graph)
+        // always computed it from the COMPLETE `files` map (not its
+        // `only_files` subset), so `other`'s value is already the fresh,
+        // correct whole-program fact and simply replaces whatever `self`
+        // was carrying from its own last build.
+        self.macro_shadow_intersection = other.macro_shadow_intersection;
 
         // P4 (JS/TS resolved export facts): deliberately NOT merged here,
         // same rationale as the Go func-value callbacks note below — the
@@ -2235,11 +2361,16 @@ impl CallGraph {
         use rayon::prelude::*;
 
         let typer = crate::resolution_receiver::RustReceiverTyper::new(self);
+        // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once,
+        // shared (by reference) across every parallel per-caller task below.
+        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
         let ordered: Vec<(&FunctionId, &BTreeSet<CallSite>)> = self.calls.iter().collect();
         ordered
             .par_iter()
             .copied() // (&FunctionId, &BTreeSet) is Copy -> avoid &&-destructuring
-            .map(|(caller, sites)| Self::receiver_updates_for_caller(caller, sites, &typer, files))
+            .map(|(caller, sites)| {
+                Self::receiver_updates_for_caller(caller, sites, &typer, files, &macro_shadow)
+            })
             .collect::<Vec<Vec<_>>>()
             .into_iter()
             .flatten()
@@ -2254,6 +2385,7 @@ impl CallGraph {
         sites: &BTreeSet<CallSite>,
         typer: &crate::resolution_receiver::RustReceiverTyper<'_>,
         files: &BTreeMap<String, ParsedFile>,
+        macro_shadow: &BTreeSet<String>,
     ) -> Vec<(
         FunctionId,
         CallSite,
@@ -2270,29 +2402,29 @@ impl CallGraph {
             return out;
         };
         let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
-        let ast_calls =
-            parsed.function_calls_with_qualifier_and_spans_on_lines(&fn_node, &all_lines);
+        let (ast_calls, _facts) = parsed.function_calls_with_qualifier_and_spans_on_lines(
+            &fn_node,
+            &all_lines,
+            macro_shadow,
+        );
         for site in sites {
-            let Some((_, _, qualifier, start_byte, _, receiver_expr, _, _)) = ast_calls
-                .iter()
-                .find(|(callee_name, _, _, start_byte, end_byte, _, _, _)| {
-                    callee_name == &site.callee_name
-                        && *start_byte == site.start_byte
-                        && *end_byte == site.end_byte
-                })
-            else {
+            let Some(meta) = ast_calls.iter().find(|meta| {
+                meta.callee_name == site.callee_name
+                    && meta.start_byte == site.start_byte
+                    && meta.end_byte == site.end_byte
+            }) else {
                 continue;
             };
-            if receiver_expr.is_none() && qualifier.is_none() {
+            if meta.receiver_node.is_none() && meta.qualifier.is_none() {
                 continue;
             }
             let outcome = typer.type_of_receiver(crate::resolution_receiver::ReceiverTypeCtx {
                 parsed,
                 caller,
                 fn_node,
-                receiver_expr: *receiver_expr,
-                qualifier: qualifier.as_deref(),
-                call_start_byte: *start_byte,
+                receiver_expr: meta.receiver_node,
+                qualifier: meta.qualifier.as_deref(),
+                call_start_byte: meta.start_byte,
             });
             out.push((caller.clone(), site.clone(), outcome));
         }
@@ -2312,6 +2444,7 @@ impl CallGraph {
     )> {
         let mut updates = Vec::new();
         let typer = crate::resolution_receiver::RustReceiverTyper::new(self);
+        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
         for (caller, sites) in &self.calls {
             let Some(parsed) = files.get(&caller.file) else {
                 continue;
@@ -2323,29 +2456,29 @@ impl CallGraph {
                 continue;
             };
             let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
-            let ast_calls =
-                parsed.function_calls_with_qualifier_and_spans_on_lines(&fn_node, &all_lines);
+            let (ast_calls, _facts) = parsed.function_calls_with_qualifier_and_spans_on_lines(
+                &fn_node,
+                &all_lines,
+                &macro_shadow,
+            );
             for site in sites {
-                let Some((_, _, qualifier, start_byte, _, receiver_expr, _, _)) = ast_calls
-                    .iter()
-                    .find(|(callee_name, _, _, start_byte, end_byte, _, _, _)| {
-                        callee_name == &site.callee_name
-                            && *start_byte == site.start_byte
-                            && *end_byte == site.end_byte
-                    })
-                else {
+                let Some(meta) = ast_calls.iter().find(|meta| {
+                    meta.callee_name == site.callee_name
+                        && meta.start_byte == site.start_byte
+                        && meta.end_byte == site.end_byte
+                }) else {
                     continue;
                 };
-                if receiver_expr.is_none() && qualifier.is_none() {
+                if meta.receiver_node.is_none() && meta.qualifier.is_none() {
                     continue;
                 }
                 let outcome = typer.type_of_receiver(crate::resolution_receiver::ReceiverTypeCtx {
                     parsed,
                     caller,
                     fn_node,
-                    receiver_expr: *receiver_expr,
-                    qualifier: qualifier.as_deref(),
-                    call_start_byte: *start_byte,
+                    receiver_expr: meta.receiver_node,
+                    qualifier: meta.qualifier.as_deref(),
+                    call_start_byte: meta.start_byte,
                 });
                 updates.push((caller.clone(), site.clone(), outcome));
             }
@@ -2990,6 +3123,10 @@ impl CallGraph {
         let mut method_class_span_ambiguous: BTreeSet<FunctionId> = BTreeSet::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
+        // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — deliberately
+        // scanned over the FULL `files` map (not `only_files`): a
+        // `macro_rules!` def outside the changed subset must still shadow.
+        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
 
         for (file_path, parsed) in files {
             if !only_files.contains(file_path) {
@@ -3063,10 +3200,13 @@ impl CallGraph {
         }
 
         // Phase 2: Find call sites from subset.
+        let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =
+            BTreeMap::new();
         for (file_path, parsed) in files {
             if !only_files.contains(file_path) {
                 continue;
             }
+            let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
             for func_node in parsed.all_functions() {
                 let func_name = match parsed.language.function_name(&func_node) {
                     Some(n) => parsed.node_text(&n).to_string(),
@@ -3080,33 +3220,33 @@ impl CallGraph {
                     end_line: end,
                 };
                 let all_lines: BTreeSet<usize> = (start..=end).collect();
-                let call_sites =
-                    parsed.function_calls_with_qualifier_and_spans_on_lines(&func_node, &all_lines);
+                let (call_sites, facts) = parsed.function_calls_with_qualifier_and_spans_on_lines(
+                    &func_node,
+                    &all_lines,
+                    &macro_shadow,
+                );
+                file_macro_arg_facts.calls_recorded += facts.calls_recorded;
+                file_macro_arg_facts.skipped_macros += facts.skipped_macros;
+                file_macro_arg_facts.ctor_skips += facts.ctor_skips;
                 let recv_var = parsed
                     .language
                     .go_receiver_var(&func_node)
                     .map(|n| parsed.node_text(&n).to_string());
                 let file_imports_ref = imports.get(file_path);
 
-                for (
-                    callee_name,
-                    line,
-                    qualifier,
-                    start_byte,
-                    end_byte,
-                    receiver_expr,
-                    arg_count,
-                    arg_spread,
-                ) in call_sites
-                {
+                for meta in call_sites {
+                    let callee_name = meta.callee_name;
+                    let line = meta.line;
+                    let start_byte = meta.start_byte;
+                    let end_byte = meta.end_byte;
                     let qualifier = Self::recover_self_receiver_qualifier(
                         parsed,
                         &callee_name,
                         line,
-                        qualifier,
+                        meta.qualifier,
                     );
                     let classification = classifier.classify(crate::resolution::ReceiverCtx {
-                        receiver_expr,
+                        receiver_expr: meta.receiver_node,
                         qualifier: qualifier.as_deref(),
                         fn_node: func_node,
                         call_line: line,
@@ -3120,17 +3260,19 @@ impl CallGraph {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
                         line,
-                        kind: Self::call_kind_at(parsed, start_byte, end_byte),
+                        kind: meta
+                            .kind_override
+                            .unwrap_or_else(|| Self::call_kind_at(parsed, start_byte, end_byte)),
                         start_byte,
                         end_byte,
                         qualifier,
                         receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
                         receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                         receiver_materialized: classification.materialized,
-                        arg_count,
-                        arg_spread,
+                        arg_count: meta.arg_count,
+                        arg_spread: meta.arg_spread,
                         receiver_outcome: None,
-                        origin: CallSiteOrigin::Source,
+                        origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                     };
                     calls
                         .entry(caller_id.clone())
@@ -3138,6 +3280,9 @@ impl CallGraph {
                         .insert(site.clone());
                     callers.entry(callee_name).or_default().push(site);
                 }
+            }
+            if file_macro_arg_facts != crate::rust_macro_args::MacroArgFacts::default() {
+                macro_arg_facts.insert(file_path.clone(), file_macro_arg_facts);
             }
         }
 
@@ -3241,6 +3386,16 @@ impl CallGraph {
             property_accesses: BTreeSet::new(),
             property_access_fanout_skips: 0,
             property_access_store_skips: 0,
+            macro_arg_facts,
+            // P8: like the JS/Go/Python whole-program facts left empty above,
+            // this is NOT left empty — `build_direct_subset` scans the FULL
+            // `files` map (not `only_files`) for the macro shadow set (see
+            // `macro_shadow` above), so this is always the fresh, correct
+            // whole-program value. `merge` overwrites the retained graph's
+            // field with this one for exactly that reason.
+            macro_shadow_intersection: crate::rust_macro_args::transparent_shadow_intersection(
+                &macro_shadow,
+            ),
         }
     }
 
@@ -4429,6 +4584,51 @@ mod tests {
         assert_eq!(a, back);
     }
 
+    /// P8: a macro-arg-minted call site carries `kind: Call` / `origin:
+    /// MacroArg` -- NOT `call_kind_at`'s ancestor-walk classification, which
+    /// would otherwise tag any span nested under a `macro_invocation` as
+    /// `MacroInvocation` (routing it to the wrong NS_MACRO namespace).
+    #[test]
+    fn macro_arg_call_site_carries_call_kind_and_macro_arg_origin() {
+        let cg = build_rust_call_graph(
+            "fn check(x: i32) -> bool { x > 0 }\nfn host() { assert!(check(1)); }\n",
+        );
+        let site = site_in(&cg, "host", "check");
+        assert_eq!(site.kind, CallKind::Call);
+        assert_eq!(site.origin, CallSiteOrigin::MacroArg);
+        assert_eq!(site.arg_count, None);
+        assert!(!site.arg_spread);
+    }
+
+    /// Companion pin: an ordinary (non-macro) call site's `kind`/`origin`
+    /// derivation is byte-for-byte unchanged by the P8 plumbing -- still
+    /// `Call`/`Source` via the pre-existing `call_kind_at` path.
+    #[test]
+    fn ordinary_call_site_kind_and_origin_unchanged() {
+        let cg =
+            build_rust_call_graph("fn check(x: i32) -> bool { x > 0 }\nfn host() { check(1); }\n");
+        let site = site_in(&cg, "host", "check");
+        assert_eq!(site.kind, CallKind::Call);
+        assert_eq!(site.origin, CallSiteOrigin::Source);
+    }
+
+    /// A macro invocation that mints nothing (non-allowlisted, or allowlisted
+    /// but with no call-shaped args) still produces zero `CallSite`s for the
+    /// macro name itself -- `call_kind_at`'s classification of the macro's
+    /// OWN span is never exercised by a real CallSite because no site is ever
+    /// minted at that span (pre-existing PR-2 behavior, unchanged).
+    #[test]
+    fn nonallowlisted_macro_still_mints_nothing_for_its_own_name() {
+        let cg = build_rust_call_graph("fn host() { my_undefined_macro!(check(1)); }\n");
+        assert!(
+            !cg.calls
+                .values()
+                .flat_map(|s| s.iter())
+                .any(|s| s.callee_name == "my_undefined_macro" || s.callee_name == "check"),
+            "non-allowlisted macro must not mint any call site"
+        );
+    }
+
     fn site_in(cg: &CallGraph, caller: &str, callee: &str) -> CallSite {
         cg.calls
             .iter()
@@ -4572,6 +4772,61 @@ mod tests {
         let full = CallGraph::build(&files_v2);
         assert_eq!(once, indirect_call_dump(&full));
         assert_eq!(callers_once, indirect_caller_dump(&full));
+    }
+
+    /// P8: at the CallGraph-internal mechanics level, `remove_files`
+    /// retaining `macro_arg_facts` by file and `merge` extending the map
+    /// (the same `js_ts_exports` pattern) is exactly correct in isolation --
+    /// this test pins that low-level plumbing. It does NOT by itself prove
+    /// the extracted facts stay valid: `macro_arg_facts`' CONTENT depends on
+    /// the repo-wide macro shadow set (F1 fix, codex re-review BLOCKER), so
+    /// the higher-level `build_incremental_with_scope_graph_inputs` caller
+    /// must additionally guard against that set drifting underneath an
+    /// incremental rebuild and fall back to a full rebuild when it does --
+    /// see `macro_shadow_intersection` and the
+    /// `incremental_from_previous_falls_back_to_full_rebuild_on_*_macro_shadow`
+    /// tests in `src/navigation/mod.rs`.
+    #[test]
+    fn macro_arg_facts_remove_files_retains_by_file_and_merge_extends() {
+        let files = build_complete(&[
+            (
+                "a.rs",
+                "fn check(x: i32) -> bool { x > 0 }\nfn host() { assert!(check(1)); }\n",
+            ),
+            ("b.rs", "fn other() {}\n"),
+        ]);
+        let mut files_map: std::collections::BTreeMap<String, ParsedFile> = Default::default();
+        for (path, source) in [
+            (
+                "a.rs",
+                "fn check(x: i32) -> bool { x > 0 }\nfn host() { assert!(check(1)); }\n",
+            ),
+            ("b.rs", "fn other() {}\n"),
+        ] {
+            files_map.insert(
+                path.to_string(),
+                ParsedFile::parse(path, source, crate::languages::Language::Rust).unwrap(),
+            );
+        }
+
+        assert!(files.macro_arg_facts.contains_key("a.rs"));
+        assert!(!files.macro_arg_facts.contains_key("b.rs"));
+        assert_eq!(files.macro_arg_facts["a.rs"].calls_recorded, 1);
+
+        let mut merged = files;
+        let changed = BTreeSet::from(["a.rs".to_string()]);
+        merged.remove_files(&changed);
+        assert!(
+            !merged.macro_arg_facts.contains_key("a.rs"),
+            "remove_files must retain by file, dropping the removed file's facts"
+        );
+
+        merged.merge(CallGraph::build_direct_subset(&files_map, &changed));
+        assert!(
+            merged.macro_arg_facts.contains_key("a.rs"),
+            "merge must extend the map from the rebuilt subset"
+        );
+        assert_eq!(merged.macro_arg_facts["a.rs"].calls_recorded, 1);
     }
 
     #[test]
@@ -5701,5 +5956,44 @@ class Child(Base):\n    def dump(self):\n        return self.text\n",
             cg.property_accesses.is_empty(),
             "self.text inside a lambda body must not surface any edge"
         );
+    }
+
+    /// P8 non-Rust guard: the macro-arg extractor is gated on
+    /// `self.language == Language::Rust` AND a real `macro_invocation` node
+    /// kind (which only tree-sitter-rust ever produces) -- literal
+    /// `assert!(f())`-shaped TEXT sitting inside a JS template literal or a
+    /// Python string must never mint a call for `f`/`assert`/`check`.
+    #[test]
+    fn non_rust_assert_bang_text_in_string_or_template_literal_mints_nothing() {
+        let py = build_py(&[(
+            "notes.py",
+            "def host():\n    s = \"assert!(check(1))\"\n    return s\n",
+        )]);
+        assert!(
+            !py.functions.contains_key("check"),
+            "a Python string literal containing assert!(check(1)) text must not mint a call"
+        );
+        assert!(py
+            .calls
+            .values()
+            .flat_map(|s| s.iter())
+            .all(|s| s.callee_name != "check" && s.callee_name != "assert"));
+
+        let mut js_map = BTreeMap::new();
+        js_map.insert(
+            "notes.js".to_string(),
+            ParsedFile::parse(
+                "notes.js",
+                "function host() {\n    const s = `assert!(check(1))`;\n    return s;\n}\n",
+                JavaScript,
+            )
+            .unwrap(),
+        );
+        let js = CallGraph::build(&js_map);
+        assert!(js
+            .calls
+            .values()
+            .flat_map(|s| s.iter())
+            .all(|s| s.callee_name != "check" && s.callee_name != "assert"));
     }
 }

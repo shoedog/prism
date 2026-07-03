@@ -47,17 +47,19 @@ fn ty(
             .is_some_and(|name| parsed.node_text(&name) == function)
     })?;
     let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
-    let (_, _, qualifier, start_byte, _, receiver_expr, _, _) = parsed
-        .function_calls_with_qualifier_and_spans_on_lines(&func_node, &all_lines)
-        .into_iter()
-        .find(|(name, _, _, _, _, _, _, _)| name == callee)?;
+    let (metas, _facts) = parsed.function_calls_with_qualifier_and_spans_on_lines(
+        &func_node,
+        &all_lines,
+        &BTreeSet::new(),
+    );
+    let meta = metas.into_iter().find(|meta| meta.callee_name == callee)?;
     super::RustReceiverTyper::new(cg).type_of_receiver(super::ReceiverTypeCtx {
         parsed,
         caller: &caller,
         fn_node: func_node,
-        receiver_expr,
-        qualifier: qualifier.as_deref(),
-        call_start_byte: start_byte,
+        receiver_expr: meta.receiver_node,
+        qualifier: meta.qualifier.as_deref(),
+        call_start_byte: meta.start_byte,
     })
 }
 
@@ -143,12 +145,16 @@ fn method_call_parts_decomposes_nested_arg_chain_from_ast() {
         })
         .expect("drive function");
     let all_lines: BTreeSet<usize> = (1..=3).collect();
-    let (_, _, _, _, _, receiver_expr, _, _) = parsed
-        .function_calls_with_qualifier_and_spans_on_lines(&func_node, &all_lines)
+    let (metas, _facts) = parsed.function_calls_with_qualifier_and_spans_on_lines(
+        &func_node,
+        &all_lines,
+        &BTreeSet::new(),
+    );
+    let meta = metas
         .into_iter()
-        .find(|(name, _, _, _, _, _, _, _)| name == "d")
+        .find(|meta| meta.callee_name == "d")
         .expect("d call");
-    let c_call = receiver_expr.expect("receiver for d is the c call");
+    let c_call = meta.receiver_node.expect("receiver for d is the c call");
     assert_eq!(c_call.kind(), "call_expression");
 
     let c = super::method_call_parts(parsed, c_call).expect("c method call");

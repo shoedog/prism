@@ -293,3 +293,37 @@ fn call_stats_reports_js_export_skipped_exprs() {
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert!(v["js_export_skipped_exprs"].as_u64().unwrap() > 0);
 }
+
+#[test]
+fn call_stats_reports_macro_arg_telemetry() {
+    // P8: rust_macro_args -- one allowlisted-macro-minted free call
+    // (`check(1)` inside `assert!`), one non-allowlisted skipped macro
+    // (`stringify!(check(x))`, call-shaped -> counted), and one
+    // uppercase-constructor skip (`Foo(1)` inside `assert!`).
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("a.rs"),
+        "fn check(x: i32) -> bool { x > 0 }\n\
+         fn host() {\n    \
+             assert!(check(1));\n    \
+             stringify!(check(2));\n    \
+             assert!(Foo(3));\n\
+         }\n",
+    )
+    .unwrap();
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--repo"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["macro_arg_calls_recorded"].as_u64().unwrap(), 1);
+    assert_eq!(v["macro_arg_skipped_macros"].as_u64().unwrap(), 1);
+    assert_eq!(v["macro_arg_ctor_skips"].as_u64().unwrap(), 1);
+}

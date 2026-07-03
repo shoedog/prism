@@ -41,6 +41,38 @@ fn is_js_ts_function_like(kind: &str) -> bool {
     )
 }
 
+/// Metadata for one extracted call site.
+///
+/// Threading this struct through the extraction paths that feed
+/// `CallGraph::CallSite` construction (`function_calls_with_spans_on_lines`,
+/// `function_calls_with_qualifier_and_spans_on_lines`) replaces the previous
+/// unlabeled positional tuples and gives a non-grammar extraction path (Rust
+/// macro-argument calls — see `crate::rust_macro_args`) a way to override
+/// `kind`/`origin` without going through `CallGraph::call_kind_at`'s ancestor
+/// walk. That walk classifies ANY span nested under a `macro_invocation` as
+/// `CallKind::MacroInvocation` — correct for the macro's own name/args as a
+/// whole, but wrong for an ordinary value call minted from *inside* those
+/// arguments (it must route through `NS_VALUE`, not `NS_MACRO`).
+///
+/// `kind_override`/`origin_override` are `None` for every grammar-parsed call
+/// site: the caller derives `kind` via `call_kind_at` and leaves `origin` at
+/// its `Source` default, exactly as before this struct existed.
+#[derive(Debug, Clone)]
+pub struct CallSiteMeta<'a> {
+    pub callee_name: String,
+    pub line: usize,
+    pub qualifier: Option<String>,
+    pub start_byte: usize,
+    pub end_byte: usize,
+    /// The selector operand (S3 `ReceiverClassifier` input). `None` for the
+    /// simple (no-qualifier) extraction path and for manual-fallback languages.
+    pub receiver_node: Option<Node<'a>>,
+    pub arg_count: Option<usize>,
+    pub arg_spread: bool,
+    pub kind_override: Option<crate::call_graph::CallKind>,
+    pub origin_override: Option<crate::call_graph::CallSiteOrigin>,
+}
+
 /// Information about a single return statement within a function.
 #[derive(Debug, Clone)]
 pub struct ReturnInfo {
@@ -5326,11 +5358,20 @@ impl ParsedFile {
 
     /// Find function calls on the given lines and return the called function
     /// names plus the call node's byte range.
-    pub fn function_calls_with_spans_on_lines(
-        &self,
+    ///
+    /// Rust also mints value calls found INSIDE a transparent macro's
+    /// arguments (`assert!(check(x))`) — see `crate::rust_macro_args`. Those
+    /// entries carry `kind_override`/`origin_override` (`Call`/`MacroArg`);
+    /// every grammar-parsed entry leaves both `None`, unchanged from before
+    /// this struct existed. `macro_shadow` is the repo-wide macro-name shadow
+    /// set (`crate::rust_macro_args::collect_macro_shadow_set`) — pass
+    /// `&BTreeSet::new()` for non-Rust callers or callers with no shadow facts.
+    pub fn function_calls_with_spans_on_lines<'a>(
+        &'a self,
         func_node: &Node<'_>,
         lines: &BTreeSet<usize>,
-    ) -> Vec<(String, usize, usize, usize)> {
+        macro_shadow: &BTreeSet<String>,
+    ) -> Vec<CallSiteMeta<'a>> {
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
 
@@ -5344,20 +5385,35 @@ impl ParsedFile {
             let mut calls = Vec::new();
             while let Some(m) = matches.next() {
                 for capture in m.captures {
-                    if capture.index == call_idx {
-                        let line = capture.node.start_position().row + 1;
-                        if lines.contains(&line) {
-                            if let Some(name_node) = self.language.call_function_name(&capture.node)
-                            {
-                                let name = self.node_text(&name_node).to_string();
-                                calls.push((
-                                    name,
-                                    line,
-                                    capture.node.start_byte(),
-                                    capture.node.end_byte(),
-                                ));
-                            }
-                        }
+                    if capture.index != call_idx {
+                        continue;
+                    }
+                    let line = capture.node.start_position().row + 1;
+                    if !lines.contains(&line) {
+                        continue;
+                    }
+                    if self.language == crate::languages::Language::Rust
+                        && capture.node.kind() == "macro_invocation"
+                    {
+                        let (sites, _facts) =
+                            crate::rust_macro_args::extract_calls(self, capture.node, macro_shadow);
+                        calls.extend(sites);
+                        continue;
+                    }
+                    if let Some(name_node) = self.language.call_function_name(&capture.node) {
+                        let name = self.node_text(&name_node).to_string();
+                        calls.push(CallSiteMeta {
+                            callee_name: name,
+                            line,
+                            qualifier: None,
+                            start_byte: capture.node.start_byte(),
+                            end_byte: capture.node.end_byte(),
+                            receiver_node: None,
+                            arg_count: None,
+                            arg_spread: false,
+                            kind_override: None,
+                            origin_override: None,
+                        });
                     }
                 }
             }
@@ -5414,28 +5470,31 @@ impl ParsedFile {
     }
 
     /// Like `function_calls_on_lines_with_qualifier`, but also returns the call
-    /// node's byte range plus the qualifier/receiver node as
-    /// `(callee_name, line, qualifier, start_byte, end_byte, receiver_node)`.
-    /// `receiver_node` (the selector operand — e.g. the `type_assertion_expression`
-    /// in `x.(Module).M()`) feeds the S3 `ReceiverClassifier`. It is surfaced on the
-    /// query path only; the manual fallback yields `None` (type-assertion recovery is
-    /// Go-only, and Go uses the query path).
+    /// node's byte range plus the qualifier/receiver node, wrapped in
+    /// `CallSiteMeta`. `receiver_node` (the selector operand — e.g. the
+    /// `type_assertion_expression` in `x.(Module).M()`) feeds the S3
+    /// `ReceiverClassifier`. It is surfaced on the query path only; the
+    /// manual fallback yields `None` (type-assertion recovery is Go-only, and
+    /// Go uses the query path).
+    ///
+    /// Rust also mints value calls found INSIDE a transparent macro's
+    /// arguments (`assert!(check(x))` / `assert!(v.contains(x))`) — see
+    /// `crate::rust_macro_args`. The returned `MacroArgFacts` aggregates
+    /// telemetry for every macro invocation encountered on `lines` in this
+    /// one call (the caller sums these per file). `macro_shadow` is the
+    /// repo-wide macro-name shadow set
+    /// (`crate::rust_macro_args::collect_macro_shadow_set`) — pass
+    /// `&BTreeSet::new()` for non-Rust callers or callers with no shadow facts.
     pub fn function_calls_with_qualifier_and_spans_on_lines<'a>(
         &'a self,
         func_node: &Node<'_>,
         lines: &BTreeSet<usize>,
-    ) -> Vec<(
-        String,
-        usize,
-        Option<String>,
-        usize,
-        usize,
-        Option<Node<'a>>,
-        Option<usize>, // arg_count
-        bool,          // arg_spread
-    )> {
+        macro_shadow: &BTreeSet<String>,
+    ) -> (Vec<CallSiteMeta<'a>>, crate::rust_macro_args::MacroArgFacts) {
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
+
+        let mut facts = crate::rust_macro_args::MacroArgFacts::default();
 
         if let Some(query) = get_query(self.language, QueryKind::Calls) {
             let call_idx = query
@@ -5447,72 +5506,75 @@ impl ParsedFile {
             let mut calls = Vec::new();
             while let Some(m) = matches.next() {
                 for capture in m.captures {
-                    if capture.index == call_idx {
-                        let line = capture.node.start_position().row + 1;
-                        if lines.contains(&line) {
-                            if let Some(name_node) = self.language.call_function_name(&capture.node)
-                            {
-                                let name = self.node_text(&name_node).to_string();
-                                let qualifier_node =
-                                    self.language.call_function_qualifier(&capture.node);
-                                let qualifier =
-                                    qualifier_node.map(|q| self.node_text(&q).to_string());
-                                let (arg_count, arg_spread) = self
-                                    .language
-                                    .call_arguments(&capture.node)
-                                    .map(|args| {
-                                        let mut count = 0usize;
-                                        let mut spread = false;
-                                        let mut cursor2 = args.walk();
-                                        for child in args.children(&mut cursor2) {
-                                            if !child.is_named() {
-                                                continue; // skip punctuation (, )
-                                            }
-                                            if child.kind() == "variadic_argument" {
-                                                spread = true;
-                                            }
-                                            count += 1;
-                                        }
-                                        (Some(count), spread)
-                                    })
-                                    .unwrap_or((None, false));
-                                calls.push((
-                                    name,
-                                    line,
-                                    qualifier,
-                                    capture.node.start_byte(),
-                                    capture.node.end_byte(),
-                                    qualifier_node,
-                                    arg_count,
-                                    arg_spread,
-                                ));
-                            }
-                        }
+                    if capture.index != call_idx {
+                        continue;
+                    }
+                    let line = capture.node.start_position().row + 1;
+                    if !lines.contains(&line) {
+                        continue;
+                    }
+                    if self.language == crate::languages::Language::Rust
+                        && capture.node.kind() == "macro_invocation"
+                    {
+                        let (sites, site_facts) =
+                            crate::rust_macro_args::extract_calls(self, capture.node, macro_shadow);
+                        calls.extend(sites);
+                        facts.calls_recorded += site_facts.calls_recorded;
+                        facts.skipped_macros += site_facts.skipped_macros;
+                        facts.ctor_skips += site_facts.ctor_skips;
+                        continue;
+                    }
+                    if let Some(name_node) = self.language.call_function_name(&capture.node) {
+                        let name = self.node_text(&name_node).to_string();
+                        let qualifier_node = self.language.call_function_qualifier(&capture.node);
+                        let qualifier = qualifier_node.map(|q| self.node_text(&q).to_string());
+                        let (arg_count, arg_spread) = self
+                            .language
+                            .call_arguments(&capture.node)
+                            .map(|args| {
+                                let mut count = 0usize;
+                                let mut spread = false;
+                                let mut cursor2 = args.walk();
+                                for child in args.children(&mut cursor2) {
+                                    if !child.is_named() {
+                                        continue; // skip punctuation (, )
+                                    }
+                                    if child.kind() == "variadic_argument" {
+                                        spread = true;
+                                    }
+                                    count += 1;
+                                }
+                                (Some(count), spread)
+                            })
+                            .unwrap_or((None, false));
+                        calls.push(CallSiteMeta {
+                            callee_name: name,
+                            line,
+                            qualifier,
+                            start_byte: capture.node.start_byte(),
+                            end_byte: capture.node.end_byte(),
+                            receiver_node: qualifier_node,
+                            arg_count,
+                            arg_spread,
+                            kind_override: None,
+                            origin_override: None,
+                        });
                     }
                 }
             }
-            return calls;
+            return (calls, facts);
         }
 
         let mut calls = Vec::new();
         self.collect_calls_manual_with_qualifier_and_spans(*func_node, lines, &mut calls);
-        calls
+        (calls, facts)
     }
 
     fn collect_calls_manual_with_qualifier_and_spans<'a>(
         &'a self,
         node: Node<'_>,
         lines: &BTreeSet<usize>,
-        out: &mut Vec<(
-            String,
-            usize,
-            Option<String>,
-            usize,
-            usize,
-            Option<Node<'a>>,
-            Option<usize>, // arg_count (None for manual fallback)
-            bool,          // arg_spread (false for manual fallback)
-        )>,
+        out: &mut Vec<CallSiteMeta<'a>>,
     ) {
         let line = node.start_position().row + 1;
 
@@ -5526,16 +5588,18 @@ impl ParsedFile {
                 // Manual fallback surfaces no receiver node (None); type-assertion
                 // recovery is Go-only and Go uses the query path above.
                 // arg_count/arg_spread left as None/false — arity filter treats None as keep.
-                out.push((
-                    name,
+                out.push(CallSiteMeta {
+                    callee_name: name,
                     line,
                     qualifier,
-                    node.start_byte(),
-                    node.end_byte(),
-                    None,
-                    None,
-                    false,
-                ));
+                    start_byte: node.start_byte(),
+                    end_byte: node.end_byte(),
+                    receiver_node: None,
+                    arg_count: None,
+                    arg_spread: false,
+                    kind_override: None,
+                    origin_override: None,
+                });
             }
         }
 
@@ -5570,18 +5634,29 @@ impl ParsedFile {
         }
     }
 
-    fn collect_calls_manual_with_spans(
-        &self,
+    fn collect_calls_manual_with_spans<'a>(
+        &'a self,
         node: Node<'_>,
         lines: &BTreeSet<usize>,
-        out: &mut Vec<(String, usize, usize, usize)>,
+        out: &mut Vec<CallSiteMeta<'a>>,
     ) {
         let line = node.start_position().row + 1;
 
         if lines.contains(&line) && self.language.is_call_node(node.kind()) {
             if let Some(name_node) = self.language.call_function_name(&node) {
                 let name = self.node_text(&name_node).to_string();
-                out.push((name, line, node.start_byte(), node.end_byte()));
+                out.push(CallSiteMeta {
+                    callee_name: name,
+                    line,
+                    qualifier: None,
+                    start_byte: node.start_byte(),
+                    end_byte: node.end_byte(),
+                    receiver_node: None,
+                    arg_count: None,
+                    arg_spread: false,
+                    kind_override: None,
+                    origin_override: None,
+                });
             }
         }
 

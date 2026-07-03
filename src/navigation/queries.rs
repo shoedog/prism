@@ -336,6 +336,27 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "property_access_fanout_skips": cg.property_access_fanout_skips,
         "property_access_store_skips": cg.property_access_store_skips,
         "property_access_cached_property_recorded": property_access_cached_property_recorded,
+        // P8: Rust macro-argument call-extraction telemetry (rust_macro_args)
+        // -- per-file facts summed on demand, same pattern as
+        // `js_export_skipped_exprs` below (`macro_arg_facts` is per-file-
+        // derivable, so remove_files/merge keep it exactly correct with no
+        // separate whole-program recompute step, unlike property_access_*
+        // above).
+        "macro_arg_calls_recorded": cg
+            .macro_arg_facts
+            .values()
+            .map(|f| f.calls_recorded)
+            .sum::<usize>(),
+        "macro_arg_skipped_macros": cg
+            .macro_arg_facts
+            .values()
+            .map(|f| f.skipped_macros)
+            .sum::<usize>(),
+        "macro_arg_ctor_skips": cg
+            .macro_arg_facts
+            .values()
+            .map(|f| f.ctor_skips)
+            .sum::<usize>(),
         // P4: JS/TS export-fact re-export chain/barrel telemetry (js_exports::
         // resolve_js_exports, depth-bounded at MAX_REEXPORT_DEPTH). The primary
         // signal is `kinds`/`kind_exact`/`kind_nameonly`'s "import_member" count

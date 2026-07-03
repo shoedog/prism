@@ -916,6 +916,109 @@ fn test_macro_wildcard_poison() {
     );
 }
 
+/// P8 scope-graph BLOCKER regression pin: a transparent allowlisted macro
+/// (`assert!`) must NOT install a wildcard poison -- a bare name after it in
+/// the same scope resolves exactly as if the macro weren't there. Without
+/// this exemption, `assert!(check(x))`'s own minted call to `check` would be
+/// poisoned by the very macro that contains it.
+#[test]
+fn test_transparent_macro_does_not_poison() {
+    let src = concat!(
+        "pub fn f(){}\n",
+        "fn host(){\n",
+        "    assert!(true);\n",
+        "    f();\n", // AFTER the transparent macro: must still resolve.
+        "}\n",
+    );
+    let fs = files(&[("src/lib.rs", src)]);
+    let g = populate_rust(&fs, &convention(&fs), None);
+
+    let post = byte_of(src, "    f();");
+    let res_post = resolve_bare_at(&g, &fs, 2015, "src/lib.rs", post, "f", NS_VALUE);
+    assert_resolved_item(&res_post);
+}
+
+/// Companion pin: a NON-allowlisted macro invocation in expression position
+/// still poisons exactly as before this change (no regression from the new
+/// gate on `walk_macro_invocation`'s call site).
+#[test]
+fn test_nonallowlisted_expression_macro_still_poisons() {
+    let src = concat!(
+        "pub fn f(){}\n",
+        "macro_rules! m { () => {}; }\n",
+        "fn host(){\n",
+        "    m!();\n",
+        "    f();\n", // AFTER the non-allowlisted macro: poisoned.
+        "}\n",
+    );
+    let fs = files(&[("src/lib.rs", src)]);
+    let g = populate_rust(&fs, &convention(&fs), None);
+
+    let post = byte_of(src, "    f();");
+    let res_post = resolve_bare_at(&g, &fs, 2015, "src/lib.rs", post, "f", NS_VALUE);
+    assert_eq!(
+        res_post.status,
+        ResStatus::Poisoned,
+        "a non-allowlisted macro must still poison, got {:?}",
+        res_post.status
+    );
+}
+
+/// F1 BLOCKER: a user `macro_rules! assert` shares its name with the real
+/// std `assert!` but is NOT known to be argument-transparent -- the
+/// repo-wide shadow set (`Builder::macro_shadow`) must withhold the
+/// wildcard-poison exemption for it, same-file case.
+#[test]
+fn test_shadowed_std_macro_name_still_poisons_same_file() {
+    let src = concat!(
+        "pub fn f(){}\n",
+        "macro_rules! assert { () => {}; }\n",
+        "fn host(){\n",
+        "    assert!(true);\n",
+        "    f();\n", // AFTER the shadowed macro: poisoned.
+        "}\n",
+    );
+    let fs = files(&[("src/lib.rs", src)]);
+    let g = populate_rust(&fs, &convention(&fs), None);
+
+    let post = byte_of(src, "    f();");
+    let res_post = resolve_bare_at(&g, &fs, 2015, "src/lib.rs", post, "f", NS_VALUE);
+    assert_eq!(
+        res_post.status,
+        ResStatus::Poisoned,
+        "a same-named user macro_rules! must withhold the transparency exemption, got {:?}",
+        res_post.status
+    );
+}
+
+/// F1 BLOCKER, cross-file: `macro_rules! vec` defined in a DIFFERENT file
+/// than its use -- the shadow set is repo-wide (collected across all
+/// indexed files regardless of module reachability), so this must poison
+/// exactly like the same-file case. Mirrors
+/// `test_nonallowlisted_expression_macro_still_poisons`'s shape.
+#[test]
+fn test_shadowed_macro_name_still_poisons_cross_file() {
+    let lib = concat!(
+        "pub fn f(){}\n",
+        "fn host(){\n",
+        "    vec![1];\n",
+        "    f();\n", // AFTER the cross-file-shadowed macro: poisoned.
+        "}\n",
+    );
+    let other = "macro_rules! vec { ($($x:expr),*) => {}; }\n";
+    let fs = files(&[("src/lib.rs", lib), ("src/other.rs", other)]);
+    let g = populate_rust(&fs, &convention(&fs), None);
+
+    let post = byte_of(lib, "    f();");
+    let res_post = resolve_bare_at(&g, &fs, 2015, "src/lib.rs", post, "f", NS_VALUE);
+    assert_eq!(
+        res_post.status,
+        ResStatus::Poisoned,
+        "a macro_rules! def in another file must still shadow repo-wide, got {:?}",
+        res_post.status
+    );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // REAL GLOB EXPANSION
 // ═══════════════════════════════════════════════════════════════════════════
