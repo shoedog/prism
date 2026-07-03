@@ -6,7 +6,9 @@ status = "pass"
 symbol = "process"
 file = "util.js"
 line = 1
+[[expect.callers]]
+file = "app.js"
+line = 4
 [expect]
-callers = []
-exact = false
-forbid_resolution_kind = "import_member"
+exact = true
+resolution_kind = "import_member"

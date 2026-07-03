@@ -1,0 +1,15 @@
+# Barrel chain: index.ts -> mid.ts -> mid2.ts -> impl.ts (3 re-export hops).
+# Exceeds MAX_REEXPORT_DEPTH (js_exports::MAX_REEXPORT_DEPTH = 2), so this
+# fails closed (no binding) rather than resolving unboundedly.
+[case]
+language = "typescript"
+capability = "barrel_reexport_three_hop_fails"
+status = "pass"
+[seed]
+symbol = "process"
+file = "impl.ts"
+line = 1
+[expect]
+callers = []
+exact = false
+forbid_resolution_kind = "import_member"
