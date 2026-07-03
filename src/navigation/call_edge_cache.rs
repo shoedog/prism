@@ -24,7 +24,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // ladder, changing which sites appear in incoming/outgoing indexes.
 // v7: P9 — `framework_entry` nav edges added to `build_resolved_call_edges`
 // (Flask/FastAPI/Express route-registration edges).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 7;
+// v8: P11 — Go receiver typing (S1 call-RHS/S2 nested-selector/S3
+// package-var recoveries via the post-merge rematerialization pass, plus S4's
+// additive embedded-interface Exact dispatch route) changes which Go call
+// sites resolve and at what kind, changing nav topology.
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 8;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -347,8 +351,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_7() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 7);
+    fn sidecar_version_is_8() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 8);
     }
 
     #[test]
