@@ -505,3 +505,99 @@ fn membrane_slice_skips_multi_owner_candidate_caller() {
             .collect::<Vec<_>>()
     );
 }
+
+// Review-fix (post-F2): the F2 candidate-exclusion gate was derived ONLY from
+// resolved_caller_edges (a scan of literal, text-based call sites) and used to
+// gate cross_file_callers wholesale. That over-filters: a CPG-graph-only Call
+// edge — e.g. the type-enriched CHA virtual-dispatch fan-out minted directly
+// onto the CPG graph in cpg/build.rs (C/C++ with a TypeDatabase) — never
+// appears in resolved_caller_edges at all (it bypasses CallGraph::calls
+// entirely), so the old gate silently dropped a legitimate cross-file caller
+// that has zero raw-edge evidence, not just candidate-only evidence.
+//
+// Fixture: `drive()` in caller.cpp makes one literal, qualified call —
+// `D::Handle();` — which resolves (Exact) straight to `D::Handle`. CHA then
+// fans out an additional CPG-graph-only Exact edge `drive -> E::Handle` (same
+// virtual method name, sibling override), since caller.cpp and types.cpp are
+// both type_db-owned files. `E::Handle` therefore has a caller (`drive`)
+// visible only via ConfidenceFilter::All graph traversal, with NO entry at all
+// in resolved_caller_edges(E::Handle) — the "no raw edges" case the fix must
+// pass through unfiltered.
+#[test]
+fn membrane_includes_graph_only_cha_caller_with_no_raw_edge() {
+    use prism::type_db::{RecordInfo, RecordKind, TypeDatabase};
+
+    let types_source = r#"
+struct Base { virtual void Handle(); };
+struct D : Base { void Handle() override {} };
+struct E : Base { void Handle() override {} };
+"#;
+    let caller_source = r#"
+void drive() {
+    D::Handle();
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/types.cpp".to_string(),
+        ParsedFile::parse("src/types.cpp", types_source, Language::Cpp).unwrap(),
+    );
+    files.insert(
+        "src/caller.cpp".to_string(),
+        ParsedFile::parse("src/caller.cpp", caller_source, Language::Cpp).unwrap(),
+    );
+
+    let mut tdb = TypeDatabase::default();
+    tdb.records.insert(
+        "Base".to_string(),
+        RecordInfo {
+            name: "Base".to_string(),
+            kind: RecordKind::Struct,
+            fields: vec![],
+            bases: vec![],
+            virtual_methods: BTreeMap::from([("Handle".to_string(), "void()".to_string())]),
+            size: None,
+            file: "src/types.cpp".to_string(),
+        },
+    );
+    // Marks caller.cpp as type_db-owned too (by file path only — no relation to
+    // Base needed), so the CHA fan-out isn't suppressed at the caller's file
+    // boundary (see `cha_does_not_seed_from_unowned_cpp_caller` in cpg_test.rs
+    // for the inverse case).
+    tdb.records.insert(
+        "CallerMarker".to_string(),
+        RecordInfo {
+            name: "CallerMarker".to_string(),
+            kind: RecordKind::Struct,
+            fields: vec![],
+            bases: vec![],
+            virtual_methods: BTreeMap::new(),
+            size: None,
+            file: "src/caller.cpp".to_string(),
+        },
+    );
+
+    // E::Handle is line 4 of types_source (leading blank line from the raw string).
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/types.cpp".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice);
+    let result = algorithms::run_slicing_compat(&files, &diff, &config, Some(&tdb)).unwrap();
+
+    let has_caller = result
+        .blocks
+        .iter()
+        .any(|b| b.file_line_map.contains_key("src/caller.cpp"));
+    assert!(
+        has_caller,
+        "MembraneSlice must include the graph-only CHA caller (drive) even though \
+         it has no raw call-site edge to E::Handle, got blocks: {:?}",
+        result.blocks
+    );
+}

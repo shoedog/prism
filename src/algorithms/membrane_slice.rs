@@ -14,10 +14,10 @@ use crate::call_graph::FunctionId;
 use crate::cpg::query::ConfidenceFilter;
 use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
-use crate::resolution::ResolutionKind;
+use crate::resolution::{ResolutionKind, ResolvedCallEdge};
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::MembraneSlice);
@@ -51,25 +51,42 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                 .collect();
 
             // resolved_caller_edges scans every repo call site — compute once, not per caller.
+            let all_caller_edges = ctx.cpg.call_graph.resolved_caller_edges(func_id);
             // P3 (F2): R6MultiOwnerCandidate is an unverified, capped NameOnly maybe-edge
             // (nav-only) — exclude it so Membrane doesn't assert an unconfirmed cross-module
             // caller as fact. Other NameOnly kinds are untouched (pre-existing recall).
-            let caller_edges: Vec<_> = ctx
-                .cpg
-                .call_graph
-                .resolved_caller_edges(func_id)
-                .into_iter()
+            let caller_edges: Vec<_> = all_caller_edges
+                .iter()
                 .filter(|edge| edge.kind != ResolutionKind::R6MultiOwnerCandidate)
+                .cloned()
                 .collect();
-            // A caller whose ONLY edge to func_id is a candidate is not attributed at
-            // all (matches pre-P3, where the site was dropped and never became a
-            // caller in the first place) — not just findings-suppressed.
-            let attributed_callers: BTreeSet<&FunctionId> =
-                caller_edges.iter().map(|edge| &edge.caller).collect();
+            // Review-fix (F2 was too broad): only exclude a caller when it HAS raw
+            // CallGraph evidence (a literal call site scanned by resolved_caller_edges)
+            // AND every one of those raw edges is R6MultiOwnerCandidate. A caller with
+            // NO raw edges at all — e.g. a CPG-graph-only CHA virtual-dispatch edge
+            // minted in cpg/build.rs (C/C++ with a TypeDatabase), which never appears
+            // in resolved_caller_edges since it bypasses CallGraph::calls entirely —
+            // must pass through unfiltered, exactly as before the P3 candidate fix.
+            let mut raw_edges_by_caller: BTreeMap<&FunctionId, Vec<&ResolvedCallEdge>> =
+                BTreeMap::new();
+            for edge in &all_caller_edges {
+                raw_edges_by_caller
+                    .entry(&edge.caller)
+                    .or_default()
+                    .push(edge);
+            }
             let cross_file_callers: Vec<_> = callers
                 .iter()
                 .filter(|(caller_id, _)| {
-                    caller_id.file != diff_info.file_path && attributed_callers.contains(caller_id)
+                    if caller_id.file == diff_info.file_path {
+                        return false;
+                    }
+                    match raw_edges_by_caller.get(caller_id) {
+                        Some(edges) => edges
+                            .iter()
+                            .any(|e| e.kind != ResolutionKind::R6MultiOwnerCandidate),
+                        None => true,
+                    }
                 })
                 .collect();
 
