@@ -190,6 +190,25 @@ def load_case(toml_path: Path) -> Case:
         warning_kinds_present = list(expect.get("warning_kinds_present", []))
         sanitizers_present = expect.get("sanitizers_present")
         frontier_count_min = expect.get("frontier_count_min")
+        # F1(b) (codex MAJOR): `bool` is a subclass of `int` in Python, so an
+        # unchecked `frontier_count_min = true` typo would silently load and
+        # then (via the runtime `type(...) is int` check below) never match
+        # -- a confusing schema-adjacent failure mode. Reject at load time,
+        # same tier as the other schema checks. A floor of 0 is likewise
+        # rejected: `frontier_count >= 0` is always true for a present int
+        # field, so it asserts nothing (consistent with this harness's
+        # >=1-assertion doctrine for optional expect fields).
+        if frontier_count_min is not None:
+            if type(frontier_count_min) is not int:
+                raise ValueError(
+                    f"{toml_path}: expect.frontier_count_min must be an int, "
+                    f"got {frontier_count_min!r} ({type(frontier_count_min).__name__})"
+                )
+            if frontier_count_min < 1:
+                raise ValueError(
+                    f"{toml_path}: expect.frontier_count_min must be >= 1 "
+                    f"(a floor of 0 asserts nothing), got {frontier_count_min}"
+                )
         if (
             expect_reachability is None
             and not warning_kinds_present
@@ -336,6 +355,12 @@ def _run_taint_case(case: Case, lang: str, sut) -> CaseResult:
     reasoning = ev.get("reasoning")
     reasoning_ok = isinstance(reasoning, dict) and "reachability" in reasoning
     query_ok = ev.get("query") == "taint_reaches"
+    # F2/Item 2: shared triage formatting for the frontier floor -- reused by
+    # both the missing-evidence branch (below) and the normal mismatch branch
+    # so a reader sees "frontier=>=N" consistently in either case.
+    frontier_expected = (
+        f">={case.frontier_count_min}" if case.frontier_count_min is not None else None
+    )
 
     if not (query_ok and reasoning_ok):
         reasons = []
@@ -346,7 +371,7 @@ def _run_taint_case(case: Case, lang: str, sut) -> CaseResult:
         got = "MISSING_EVIDENCE|" + ";".join(reasons)
         expected = _format_taint_summary(
             case.expect_reachability, case.expect_warning_kinds_present,
-            case.expect_sanitizers_present, case.frontier_count_min,
+            case.expect_sanitizers_present, frontier_expected,
         )
         outcome = _status_outcome(case.status, False)
         return CaseResult(case.capability, lang, outcome, got, expected, {}, None, None, probe="taint")
@@ -367,9 +392,14 @@ def _run_taint_case(case: Case, lang: str, sut) -> CaseResult:
         case.expect_sanitizers_present is None
         or case.expect_sanitizers_present == got_sanitizers
     )
+    # F1(a) (codex MAJOR): `bool` is a subclass of `int` in Python
+    # (`isinstance(True, int) is True`), so a malformed wire payload
+    # `frontier_count: true` would satisfy `isinstance(..., int) and True >=
+    # N` for any N <= 1. Require the exact type so a bool value is always a
+    # mismatch, never coerced into a passing int comparison.
     frontier_ok = (
         case.frontier_count_min is None
-        or (isinstance(got_frontier_count, int) and got_frontier_count >= case.frontier_count_min)
+        or (type(got_frontier_count) is int and got_frontier_count >= case.frontier_count_min)
     )
     matched = reachability_ok and warnings_ok and sanitizers_ok and frontier_ok
 
@@ -380,7 +410,7 @@ def _run_taint_case(case: Case, lang: str, sut) -> CaseResult:
     )
     expected = _format_taint_summary(
         case.expect_reachability, case.expect_warning_kinds_present, case.expect_sanitizers_present,
-        f">={case.frontier_count_min}" if case.frontier_count_min is not None else None,
+        frontier_expected,
     )
     outcome = _status_outcome(case.status, matched)
     return CaseResult(case.capability, lang, outcome, got, expected, {}, None, None, probe="taint")

@@ -68,6 +68,48 @@ reachability = "None"
     assert case.frontier_count_min is None
 
 
+def test_load_case_taint_probe_rejects_boolean_frontier_count_min(tmp_path):
+    """Item 1(b) (codex MAJOR): `bool` is a subclass of `int` in Python, so a
+    fixture author's typo `frontier_count_min = true` would otherwise load
+    silently and then (per 1(a)) coerce into a meaningless comparison. Reject
+    it at load time as a schema error, same tier as the "asserts nothing"
+    checks below."""
+    path = _write(tmp_path, "python", "bad_taint_frontier_bool", """
+[case]
+language = "python"
+capability = "bad_taint_frontier_bool"
+status = "pass"
+probe = "taint"
+[taint]
+sources = ["app.py:2"]
+[expect]
+reachability = "None"
+frontier_count_min = true
+""")
+    with pytest.raises(ValueError, match=r"frontier_count_min must be an int"):
+        load_case(path)
+
+
+def test_load_case_taint_probe_rejects_zero_frontier_count_min(tmp_path):
+    """Item 1(b): a floor of 0 asserts nothing (`frontier_count >= 0` is
+    always true for a present int field) -- consistent with the harness's
+    existing >=1-assertion doctrine, reject at load time."""
+    path = _write(tmp_path, "python", "bad_taint_frontier_zero", """
+[case]
+language = "python"
+capability = "bad_taint_frontier_zero"
+status = "pass"
+probe = "taint"
+[taint]
+sources = ["app.py:2"]
+[expect]
+reachability = "None"
+frontier_count_min = 0
+""")
+    with pytest.raises(ValueError, match=r"frontier_count_min must be >= 1"):
+        load_case(path)
+
+
 def test_load_case_taint_probe_rejects_seed_section(tmp_path):
     path = _write(tmp_path, "python", "bad_taint_seed", """
 [case]
@@ -589,6 +631,7 @@ probe = "taint"
 sources = ["app.py:2"]
 [expect]
 reachability = "None"
+frontier_count_min = 1
 """
 
 
@@ -603,6 +646,10 @@ def test_run_matrix_taint_probe_missing_reasoning_key_is_regression(tmp_path):
     sut = FakeTaintSut({"query": "taint_reaches", "items": [], "warnings": []})
     results = run_matrix(tmp_path / "fixtures", sut, languages=["python"])
     assert results[0].outcome == "regression"
+    # Item 2 (codex MINOR): the missing-evidence branch must format the
+    # frontier floor the same way as the normal mismatch branch (">=N"), not
+    # the bare int -- so a triage reader sees "frontier=>=1" consistently.
+    assert "frontier=>=1" in results[0].expected
 
 
 def test_run_matrix_taint_probe_null_reasoning_is_regression(tmp_path):
@@ -677,6 +724,32 @@ frontier_count_min = 2
         "warnings": [],
     }), languages=["python"])
     assert missing_key[0].outcome == "regression"
+
+
+def test_run_matrix_taint_probe_boolean_frontier_count_is_regression(tmp_path):
+    """Item 1(a) (codex MAJOR): `bool` is a subclass of `int` in Python, so
+    `isinstance(got_frontier_count, int)` would let a malformed wire payload
+    `reasoning.frontier_count = true` satisfy `frontier_count_min = 1` (since
+    `True >= 1`). Must be a hard mismatch -- the runtime check requires
+    `type(got_frontier_count) is int`, not merely `isinstance`."""
+    _write(tmp_path, "python", "taint_frontier_min", """
+[case]
+language = "python"
+capability = "taint_frontier_min"
+status = "pass"
+probe = "taint"
+[taint]
+sources = ["app.py:2"]
+[expect]
+reachability = "None"
+frontier_count_min = 1
+""")
+    results = run_matrix(tmp_path / "fixtures", FakeTaintSut({
+        "query": "taint_reaches",
+        "reasoning": {"reachability": None, "frontier_count": True, "per_sink": []},
+        "warnings": [],
+    }), languages=["python"])
+    assert results[0].outcome == "regression"
 
 
 def test_run_matrix_dispatches_module_probe_subset_default(tmp_path):
