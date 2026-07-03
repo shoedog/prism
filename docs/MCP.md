@@ -150,10 +150,10 @@ symbol's *definition* or *call* line, not a blank/comment line.
 - **Graphs truncate.** `nav_ego_graph` / `nav_repo_map` cap at 50 items by default (`max_results`, up
   to 1000), with an 80 KB result byte cap. A truncated graph is a partial view, not the whole story —
   narrow the seed if you need completeness.
-- **Call resolution is name-based, not type-based.** Prism resolves dot/`::`-qualified and `use`-imported
-  calls, but the remaining gaps are `Type::method` where the type name differs from the file stem, and
-  cross-file method/receiver calls — these need type information and may resolve incompletely or to the
-  wrong target. Treat `callers`/`callees` as high-recall, not guaranteed-precise, for method dispatch.
+- **Scores carry resolution confidence, not certainty.** `1.0` = exact resolution — act on it. `0.6` =
+  a name-only candidate — read the cited site before relying on it. A warning like `N same-name receiver
+  call site(s) with unknown receiver type across multiple owner types; not attributed as callers` means
+  real callers may be missing: treat "no callers" plus that warning as *unknown*, not *none*.
 - **Read-only.** The server never modifies the repo. It also never executes code.
 - **Cold first call.** If you didn't pre-warm and the first tool call stalls, the server is building the
   whole-repo CPG (~30 s on a large repo). It's fast after that.
