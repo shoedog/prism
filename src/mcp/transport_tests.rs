@@ -302,6 +302,47 @@ fn omit_default_path_still_emits_freshness_warnings_and_metadata() {
 }
 
 #[test]
+fn omit_default_path_refresh_index_keeps_content_text_and_drops_structured_content() {
+    // F3: `refresh_index` builds its `McpToolResult` directly (`tools_refresh::refresh_result`),
+    // never going through `shape_result` — so the S2 wire gate here is exercised purely at the
+    // transport boundary (`to_call_tool_result_value`). Pin that `omit-default-path` drops
+    // `structuredContent` for `refresh_index` too, without losing any information (`content_text`
+    // still carries the identical JSON) and without panicking.
+    let (_dir, mut always_provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
+    let (_dir2, mut omitted_provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
+    let request = r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"refresh_index","arguments":{}}}"#;
+
+    let always = call_tool_at_cap_with_mode(
+        &mut always_provider,
+        &ToolRegistry::all_v1(),
+        request,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::Always,
+    );
+    let omitted = call_tool_at_cap_with_mode(
+        &mut omitted_provider,
+        &ToolRegistry::all_v1(),
+        request,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::OmitDefaultPath,
+    );
+
+    assert_eq!(always["result"]["isError"], false);
+    assert_eq!(omitted["result"]["isError"], false);
+    assert!(always["result"].get("structuredContent").is_some());
+    assert!(
+        omitted["result"].get("structuredContent").is_none(),
+        "refresh_index under omit-default-path must drop structuredContent: {omitted}"
+    );
+    let content_text = omitted["result"]["content"][0]["text"].as_str().unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(content_text).unwrap();
+    assert_eq!(
+        parsed, always["result"]["structuredContent"],
+        "content_text JSON must be identical to the omitted structuredContent — no information loss"
+    );
+}
+
+#[test]
 fn stale_index_metadata_warning_and_text_are_visible_after_edit() {
     let (dir, mut provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
     std::fs::write(dir.path().join("a.py"), "def f():\n    return 12345\n").unwrap();
