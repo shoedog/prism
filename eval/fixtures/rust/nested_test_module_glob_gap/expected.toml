@@ -1,0 +1,32 @@
+[case]
+language = "rust"
+capability = "nested_test_module_glob_gap"
+# DURABLE gap diagnosis (opus Minor + codex-confirmed independently, P8 fix
+# wave 2026-07-03): a bare (unqualified) call from inside a nested module
+# that relies on `use super::*` (a glob import) to bring the callee into
+# scope does not resolve through the bare-name lookup ladder, regardless of
+# `#[cfg(test)]`/`#[test]`/macro-wrapping -- this is PRE-EXISTING and
+# orthogonal to the P8 macro-argument-call-extraction work (confirmed
+# identical on unmodified pre-P8 `main`). Root cause, three anchors:
+#   - scopes.rs:256 ("use_wildcard" => ...) -- `use super::*` flattens to a
+#     glob UseItem whose path can be empty (bare `super::*` with no further
+#     segments);
+#   - engine.rs:551 (`if let BindTarget::Pending(path, _) = &e.to`) -- the
+#     engine POISONS an empty-path pending glob rather than expanding it;
+#   - rust_policy.rs:182 (`fn ascend_to_parent`) -- Rust's bare-name lookup
+#     already stops at the enclosing Module/Root boundary, so even a
+#     non-poisoned glob only has one rib to search.
+# TODAY this reports "expected_gap" (does not match expect.callers below).
+# When the glob-expansion gap is fixed, this fixture flips to
+# "flip_candidate" -- that flip IS the durable follow-up signal; update
+# `status` to "pass" at that point.
+status = "known_fail"
+[seed]
+symbol = "target"
+file = "main.rs"
+line = 1
+[[expect.callers]]
+file = "main.rs"
+line = 11
+[expect]
+exact = true
