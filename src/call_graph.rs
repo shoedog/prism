@@ -402,9 +402,31 @@ pub struct CallGraph {
     /// R4c: authority flag — which files prism has actually indexed.
     #[serde(default)]
     pub indexed_files: BTreeSet<String>,
-    /// JS/TS R4c: file -> exported function declarations.
+    /// P4: JS/TS raw (per-file, un-resolved) export facts — default exports,
+    /// named export lists (incl. renames), exported const-arrow/
+    /// function-expression declarations, CommonJS assignments, and re-export
+    /// records. Incrementally maintained per file like `import_bindings`.
     #[serde(default)]
-    pub js_ts_exported_functions: BTreeMap<String, BTreeSet<String>>,
+    pub js_ts_exports: BTreeMap<String, crate::js_exports::JsExportFacts>,
+    /// P4: whole-program resolved JS/TS export facts — file -> exported name
+    /// -> the concrete `(file, local_name)` it refers to after following
+    /// re-export chains (depth-bounded, cycle-safe). Derived from
+    /// `js_ts_exports`; recomputed by `apply_js_export_resolution` the same
+    /// way `interface_impls`/`go_registrations` are (whole-program derived —
+    /// a barrel's resolution can depend on an unchanged file elsewhere).
+    #[serde(default)]
+    pub js_ts_resolved_exports:
+        BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>,
+    /// P4 telemetry: re-export chains that exceeded the depth bound or hit a
+    /// cycle while resolving `js_ts_resolved_exports`. Whole-program derived,
+    /// recomputed alongside `js_ts_resolved_exports`.
+    #[serde(default)]
+    pub js_export_chain_unresolved: usize,
+    /// P4 telemetry: barrel names contributed by 2+ conflicting re-export
+    /// chains (fail-closed — no binding emitted for that name). Whole-program
+    /// derived, recomputed alongside `js_ts_resolved_exports`.
+    #[serde(default)]
+    pub js_export_barrel_conflicts: usize,
     /// JS/TS R4c: caller function -> conservative parameter/local binding names.
     #[serde(default)]
     pub js_ts_function_locals: BTreeMap<FunctionId, BTreeSet<String>>,
@@ -517,7 +539,10 @@ impl CallGraph {
             import_bindings: BTreeMap::new(),
             module_bindings: BTreeMap::new(),
             indexed_files: BTreeSet::new(),
-            js_ts_exported_functions: BTreeMap::new(),
+            js_ts_exports: BTreeMap::new(),
+            js_ts_resolved_exports: BTreeMap::new(),
+            js_export_chain_unresolved: 0,
+            js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
@@ -692,7 +717,10 @@ impl CallGraph {
             import_bindings: BTreeMap::new(),
             module_bindings: BTreeMap::new(),
             indexed_files: BTreeSet::new(),
-            js_ts_exported_functions: BTreeMap::new(),
+            js_ts_exports: BTreeMap::new(),
+            js_ts_resolved_exports: BTreeMap::new(),
+            js_export_chain_unresolved: 0,
+            js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
@@ -984,8 +1012,7 @@ impl CallGraph {
 
         // R4c: populate import bindings for Python/JS/TS import-member resolution.
         let (import_bindings, module_bindings) = Self::extract_all_import_bindings(files);
-        let (js_ts_exported_functions, js_ts_function_locals) =
-            Self::extract_js_ts_resolution_facts(files);
+        let (js_ts_exports, js_ts_function_locals) = Self::extract_js_ts_resolution_facts(files);
         let indexed_files: BTreeSet<String> = files.keys().cloned().collect();
 
         let mut cg = CallGraph {
@@ -1019,7 +1046,10 @@ impl CallGraph {
             import_bindings,
             module_bindings,
             indexed_files,
-            js_ts_exported_functions,
+            js_ts_exports,
+            js_ts_resolved_exports: BTreeMap::new(),
+            js_export_chain_unresolved: 0,
+            js_export_barrel_conflicts: 0,
             js_ts_function_locals,
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
@@ -1046,6 +1076,9 @@ impl CallGraph {
         // / method_class_span / class_bases indexes already populated above,
         // so it runs last, same rationale as the Go passes.
         cg.apply_python_property_accesses(files);
+        // P4: JS/TS export-fact resolution (re-export chains/barrels) is ALSO
+        // whole-program derived, same rationale as the Go passes above.
+        cg.apply_js_export_resolution();
         cg
     }
 
@@ -1089,7 +1122,7 @@ impl CallGraph {
     fn extract_js_ts_resolution_facts(
         files: &BTreeMap<String, ParsedFile>,
     ) -> (
-        BTreeMap<String, BTreeSet<String>>,
+        BTreeMap<String, crate::js_exports::JsExportFacts>,
         BTreeMap<FunctionId, BTreeSet<String>>,
     ) {
         Self::extract_js_ts_resolution_facts_from_iter(files.iter())
@@ -1098,13 +1131,13 @@ impl CallGraph {
     fn extract_js_ts_resolution_facts_from_iter<'a, I>(
         files: I,
     ) -> (
-        BTreeMap<String, BTreeSet<String>>,
+        BTreeMap<String, crate::js_exports::JsExportFacts>,
         BTreeMap<FunctionId, BTreeSet<String>>,
     )
     where
         I: IntoIterator<Item = (&'a String, &'a ParsedFile)>,
     {
-        let mut exported_functions: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        let mut export_facts: BTreeMap<String, crate::js_exports::JsExportFacts> = BTreeMap::new();
         let mut function_locals: BTreeMap<FunctionId, BTreeSet<String>> = BTreeMap::new();
 
         for (file_path, parsed) in files {
@@ -1117,9 +1150,9 @@ impl CallGraph {
                 continue;
             }
 
-            let exports = parsed.extract_js_ts_exported_functions();
+            let exports = parsed.extract_js_ts_export_facts();
             if !exports.is_empty() {
-                exported_functions.insert(file_path.clone(), exports);
+                export_facts.insert(file_path.clone(), exports);
             }
 
             for func_node in parsed.all_functions() {
@@ -1141,7 +1174,33 @@ impl CallGraph {
             }
         }
 
-        (exported_functions, function_locals)
+        (export_facts, function_locals)
+    }
+
+    /// P4: whole-program resolution of JS/TS export facts — recomputed from
+    /// `js_ts_exports` (raw, per-file) into `js_ts_resolved_exports`
+    /// (following re-export chains/barrels, depth-bounded, cycle-safe), the
+    /// same "recompute from scratch on the merged graph" pattern as
+    /// `apply_go_registrations`/`apply_go_interface_dispatch`: a barrel's
+    /// resolution can depend on an unchanged file elsewhere, so it can't be
+    /// incrementally patched per changed file.
+    pub fn apply_js_export_resolution(&mut self) {
+        self.clear_js_export_resolution();
+        let indexed_files = &self.indexed_files;
+        let resolve_module = |from: &str, module_path: &str| {
+            resolve_js_ts_relative_module(module_path, from, indexed_files)
+        };
+        let resolution =
+            crate::js_exports::resolve_js_exports(&self.js_ts_exports, &resolve_module);
+        self.js_ts_resolved_exports = resolution.resolved;
+        self.js_export_chain_unresolved = resolution.chain_unresolved;
+        self.js_export_barrel_conflicts = resolution.barrel_conflicts;
+    }
+
+    fn clear_js_export_resolution(&mut self) {
+        self.js_ts_resolved_exports.clear();
+        self.js_export_chain_unresolved = 0;
+        self.js_export_barrel_conflicts = 0;
     }
 
     // -----------------------------------------------------------------------
@@ -1212,12 +1271,18 @@ impl CallGraph {
         // R4c: remove import/module bindings for excluded files.
         self.import_bindings.retain(|f, _| !exclude.contains(f));
         self.module_bindings.retain(|f, _| !exclude.contains(f));
-        self.js_ts_exported_functions
-            .retain(|f, _| !exclude.contains(f));
+        self.js_ts_exports.retain(|f, _| !exclude.contains(f));
         self.js_ts_function_locals
             .retain(|fid, _| !exclude.contains(&fid.file));
         // indexed_files tracks the file set; removed files are no longer indexed.
         self.indexed_files.retain(|f| !exclude.contains(f));
+
+        // P4: JS/TS resolved export facts are whole-program derived, same
+        // rationale as the Go func-value state below — a barrel/re-export
+        // chain's resolution can depend on an unchanged file elsewhere.
+        // `apply_js_export_resolution` repopulates from the merged
+        // `js_ts_exports` after remove_files + merge.
+        self.clear_js_export_resolution();
 
         // P5: Go func-value state (S1 field-typing index + S2 registration
         // table) is whole-program derived, same rationale as the promoted
@@ -1289,10 +1354,15 @@ impl CallGraph {
         self.import_bindings.extend(other.import_bindings);
         self.module_bindings.extend(other.module_bindings);
         self.indexed_files.extend(other.indexed_files);
-        self.js_ts_exported_functions
-            .extend(other.js_ts_exported_functions);
+        self.js_ts_exports.extend(other.js_ts_exports);
         self.js_ts_function_locals
             .extend(other.js_ts_function_locals);
+
+        // P4 (JS/TS resolved export facts): deliberately NOT merged here,
+        // same rationale as the Go func-value callbacks note below — the
+        // caller (`build_incremental_with_scope_graph_inputs`) re-applies
+        // `apply_js_export_resolution` on the merged graph, which repopulates
+        // `js_ts_resolved_exports` from `js_ts_exports` above.
 
         // P5 (Go func-value callbacks): deliberately NOT merged here, same as
         // `interface_impls`/`promoted_aliases`/`interface_method_names` above
@@ -3103,10 +3173,9 @@ impl CallGraph {
             }
         }
         mark_import_binding_eligibility(&mut import_bindings_map, &module_bindings_map);
-        let (js_ts_exported_functions, js_ts_function_locals) =
-            Self::extract_js_ts_resolution_facts_from_iter(
-                subset_files.iter().map(|(fp, parsed)| (fp, *parsed)),
-            );
+        let (js_ts_exports, js_ts_function_locals) = Self::extract_js_ts_resolution_facts_from_iter(
+            subset_files.iter().map(|(fp, parsed)| (fp, *parsed)),
+        );
         let indexed_files: BTreeSet<String> = files.keys().cloned().collect();
 
         CallGraph {
@@ -3140,7 +3209,15 @@ impl CallGraph {
             import_bindings: import_bindings_map,
             module_bindings: module_bindings_map,
             indexed_files,
-            js_ts_exported_functions,
+            js_ts_exports,
+            // P4: whole-program resolved export facts — left empty here,
+            // exactly like the Go whole-program state below:
+            // `build_direct_subset` never computes whole-program facts
+            // itself; the caller re-applies `apply_js_export_resolution` on
+            // the merged graph.
+            js_ts_resolved_exports: BTreeMap::new(),
+            js_export_chain_unresolved: 0,
+            js_export_barrel_conflicts: 0,
             js_ts_function_locals,
             // P5: whole-program Go func-value state — left empty here, exactly
             // like `interface_impls`/`interface_dispatch_computed: false`
@@ -4000,20 +4077,23 @@ pub fn file_matches_module(
     false
 }
 
-/// Exact relative JS/TS module match for R4c `ImportMember` resolution.
+/// Resolve a JS/TS relative import (`./util`, `../pkg/util`) to its single
+/// exact candidate file, if indexed. Unlike `file_matches_module`, this has
+/// no stem fallback: `./util` from `pkg/app.ts` can match `pkg/util.ts` or
+/// `pkg/util/index.ts`, but never an unrelated `elsewhere/util.ts`.
 ///
-/// Unlike `file_matches_module`, this helper deliberately has no stem fallback:
-/// `./util` from `pkg/app.ts` can match `pkg/util.ts` or `pkg/util/index.ts`,
-/// but never an unrelated `elsewhere/util.ts`.
-pub fn file_matches_js_ts_relative_module_exact(
-    file: &str,
+/// Shared by `file_matches_js_ts_relative_module_exact` (a membership test
+/// against one candidate `file`) and P4's JS/TS export-fact chain resolution
+/// (`CallGraph::apply_js_export_resolution`), which needs the actual target
+/// file, not just a yes/no match against a proposed one.
+pub fn resolve_js_ts_relative_module(
     module_path: &str,
     caller_file: &str,
     indexed_files: &BTreeSet<String>,
-) -> bool {
+) -> Option<String> {
     let module_path = module_path.trim();
     if !(module_path.starts_with("./") || module_path.starts_with("../")) {
-        return false;
+        return None;
     }
 
     let caller_dir = caller_file.rsplit_once('/').map(|(d, _)| d).unwrap_or("");
@@ -4024,14 +4104,12 @@ pub fn file_matches_js_ts_relative_module_exact(
         caller_dir.split('/').collect()
     };
     while let Some(rest) = rel.strip_prefix("../") {
-        if base_parts.pop().is_none() {
-            return false;
-        }
+        base_parts.pop()?;
         rel = rest;
     }
     rel = rel.strip_prefix("./").unwrap_or(rel);
     if rel.is_empty() {
-        return false;
+        return None;
     }
     let base = base_parts.join("/");
 
@@ -4041,8 +4119,8 @@ pub fn file_matches_js_ts_relative_module_exact(
         } else {
             format!("{base}/{rel}{ext}")
         };
-        if indexed_files.contains(&candidate) && candidate == file {
-            return true;
+        if indexed_files.contains(&candidate) {
+            return Some(candidate);
         }
     }
 
@@ -4059,12 +4137,26 @@ pub fn file_matches_js_ts_relative_module_exact(
         } else {
             format!("{base}/{rel}/{index}")
         };
-        if indexed_files.contains(&candidate) && candidate == file {
-            return true;
+        if indexed_files.contains(&candidate) {
+            return Some(candidate);
         }
     }
 
-    false
+    None
+}
+
+/// Exact relative JS/TS module match for R4c `ImportMember` resolution.
+///
+/// Unlike `file_matches_module`, this helper deliberately has no stem fallback:
+/// `./util` from `pkg/app.ts` can match `pkg/util.ts` or `pkg/util/index.ts`,
+/// but never an unrelated `elsewhere/util.ts`.
+pub fn file_matches_js_ts_relative_module_exact(
+    file: &str,
+    module_path: &str,
+    caller_file: &str,
+    indexed_files: &BTreeSet<String>,
+) -> bool {
+    resolve_js_ts_relative_module(module_path, caller_file, indexed_files).as_deref() == Some(file)
 }
 
 /// Check if a C/C++ function definition has a `static` storage class specifier.

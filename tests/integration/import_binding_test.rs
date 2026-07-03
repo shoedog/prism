@@ -408,8 +408,9 @@ fn method_not_resolved_via_r4c() {
 }
 
 #[test]
-fn js_commonjs_named_import_stays_negative() {
-    // CommonJS export detection is out of scope for JS/TS R4c.
+fn js_commonjs_named_object_export_resolves_import_member() {
+    // P4: `module.exports = { process }` is modeled (js_exports::JsExportFacts),
+    // so a named ESM-style import of a CJS-exported object member resolves.
     let fs = files(&[
         (
             "utils.js",
@@ -423,7 +424,9 @@ fn js_commonjs_named_import_stays_negative() {
         ),
     ]);
     let cg = CallGraph::build(&fs);
-    assert_not_import_member(&cg, "app.js", "run", "process");
+    let (conf, kind) = resolve_kind(&cg, "app.js", "run", "process");
+    assert_eq!(conf, ResolutionConfidence::Exact);
+    assert_eq!(kind, ResolutionKind::ImportMember);
 }
 
 #[test]
@@ -687,7 +690,9 @@ fn ts_import_member_rejects_arrow_param_shadow() {
 }
 
 #[test]
-fn ts_import_member_rejects_arrow_const_export() {
+fn ts_import_member_resolves_arrow_const_export() {
+    // P4: exported const-arrow declarations are modeled, so a renamed named
+    // import of one resolves like any other named function export.
     let fs = files(&[
         (
             "utils.ts",
@@ -701,7 +706,9 @@ fn ts_import_member_rejects_arrow_const_export() {
         ),
     ]);
     let cg = CallGraph::build(&fs);
-    assert_not_import_member(&cg, "app.ts", "run", "runProcess");
+    let (conf, kind) = resolve_kind(&cg, "app.ts", "run", "runProcess");
+    assert_eq!(conf, ResolutionConfidence::Exact);
+    assert_eq!(kind, ResolutionKind::ImportMember);
 }
 
 #[test]
@@ -1086,8 +1093,9 @@ fn test_import_binding_relative_single_component_no_stem() {
 }
 
 #[test]
-fn test_import_binding_js_not_resolved() {
-    // CommonJS exports are out of scope for JS/TS R4c exact resolution.
+fn test_import_binding_js_cjs_object_export_resolves() {
+    // P4: CommonJS `module.exports = { f }` is modeled — a named import of a
+    // CJS-exported object member now resolves via ImportMember.
     let fs = files(&[
         (
             "m.js",
@@ -1101,5 +1109,7 @@ fn test_import_binding_js_not_resolved() {
         ),
     ]);
     let cg = CallGraph::build(&fs);
-    assert_not_import_member(&cg, "app.js", "run", "f");
+    let (conf, kind) = resolve_kind(&cg, "app.js", "run", "f");
+    assert_eq!(conf, ResolutionConfidence::Exact);
+    assert_eq!(kind, ResolutionKind::ImportMember);
 }
