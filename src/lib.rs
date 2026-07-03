@@ -29,6 +29,12 @@
 //! - **AngleSlice**: Cross-cutting concern trace
 //! - **ThreeDSlice**: Temporal-structural risk integration
 
+// P7: `navigation::queries::call_stats`'s `serde_json::json!({...})` literal grew
+// past the default macro recursion limit (128) with the new property-access
+// telemetry keys (three more object entries alongside P5's Go func-value
+// counters). Bump rather than restructure the call-stats literal.
+#![recursion_limit = "256"]
+
 pub mod access_path;
 pub mod algorithms;
 pub mod ast;

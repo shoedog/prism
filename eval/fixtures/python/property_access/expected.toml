@@ -1,0 +1,19 @@
+[case]
+language = "python"
+capability = "property_access"
+# P7: pyright counts `r.text` as an incoming call to the `@property` getter;
+# prism's resolution is call-syntax-only, so this was a silent gap
+# (adjudicated recall class — httpx `response.text`/flask
+# `max_cookie_size`/black `prev_sibling`). Unknown receiver, single owner ->
+# tier-3 fanout of exactly 1, well under the P3 cap.
+status = "pass"
+[seed]
+symbol = "text"
+file = "app.py"
+line = 3
+[[expect.callers]]
+file = "app.py"
+line = 8
+[expect]
+exact = true
+resolution_kind = "property_access"

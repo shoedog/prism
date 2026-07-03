@@ -1,0 +1,15 @@
+[case]
+language = "python"
+capability = "property_fanout"
+# P7 / P3 fanout cap: 4 distinct classes (A/B/C/D) each define `text`, so the
+# distinct-getter-target count is 4 > 3 — over the cap, so the unknown-receiver
+# access is skipped entirely (property_access_fanout_skips), not attributed to
+# any single getter. See python/property_access for the <=3 (here, ==1) case.
+status = "pass"
+[seed]
+symbol = "text"
+file = "app.py"
+line = 3
+[expect]
+callers = []
+exact = true

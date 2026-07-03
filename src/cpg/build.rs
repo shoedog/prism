@@ -305,6 +305,12 @@ impl CodePropertyGraph {
             // against S1's index), mirroring the embedding/interface ordering.
             cached_cg.apply_go_func_value_fields(files);
             cached_cg.apply_go_registrations(files);
+            // P7: Python property accesses are ALSO whole-program derived
+            // (S2's unknown-receiver fanout needs the complete cross-file S1
+            // index) — recompute after the Go passes, mirroring their
+            // ordering (this repopulates `method_owners`/`method_class_span`/
+            // `class_bases`-dependent state fresh from the merged graph).
+            cached_cg.apply_python_property_accesses(files);
 
             Self::assemble_graph(cached_cg, cached_dfg, files, type_db)
         })

@@ -81,7 +81,11 @@ use std::path::{Path, PathBuf};
 ///   go_registrations + registration telemetry counters (S2); new
 ///   ResolutionKind::CallbackRegistration/FuncValueField and
 ///   DropReason::FuncValueFanout (S3, resolution behavior change).
-const CACHE_VERSION: u32 = 33; // 33: P5 Go func-value callbacks.
+/// - v34: P7 Python `@property`/`@cached_property` access edges —
+///   CallGraph.property_getters / cached_property_getters (S1) +
+///   property_accesses + property_access_fanout_skips (S2); new
+///   ResolutionKind::PropertyAccess (S3, nav-only — no CPG/DataFlow change).
+const CACHE_VERSION: u32 = 34; // 34: P7 Python property-access edges.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -599,10 +603,11 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_33_for_go_func_value_callbacks() {
-        // v33: P5 Go func-value callbacks (S1/S2/S3 CallGraph state + new
-        // ResolutionKind/DropReason variants), on top of v32 (P3 candidates).
-        assert_eq!(super::CACHE_VERSION, 33);
+    fn cache_version_is_34_for_python_property_access_edges() {
+        // v34: P7 Python property-access edges (S1/S2 CallGraph state + new
+        // ResolutionKind::PropertyAccess), on top of v33 (P5 Go func-value
+        // callbacks).
+        assert_eq!(super::CACHE_VERSION, 34);
     }
 
     #[test]

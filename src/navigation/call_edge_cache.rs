@@ -13,7 +13,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // changing which sites appear in incoming/outgoing indexes.
 // v3: P5 — `callback_registration`/`func_value_field` nav edges added to
 // `build_resolved_call_edges` (Go function-value callbacks).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 3;
+// v4: P7 — `property_access` nav edges added to `build_resolved_call_edges`
+// (Python `@property`/`@cached_property` access edges).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 4;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -336,8 +338,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_3() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 3);
+    fn sidecar_version_is_4() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 4);
     }
 
     #[test]
