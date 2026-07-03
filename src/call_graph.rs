@@ -2722,8 +2722,17 @@ impl CallGraph {
                     start_line: start,
                     end_line: end,
                 };
+                // F2 (codex MAJOR 2): tier-1 same-class narrowing requires a
+                // genuine instance method (not `@staticmethod`/`@classmethod`,
+                // first param literally `self`) — computed once per function,
+                // not per candidate.
+                let is_instance_method = parsed.python_is_self_instance_method(&func_node);
                 for cand in parsed.python_attribute_load_candidates(&func_node, &attr_names) {
-                    self.apply_python_property_access_candidate(&caller_id, cand);
+                    self.apply_python_property_access_candidate(
+                        &caller_id,
+                        is_instance_method,
+                        cand,
+                    );
                 }
             }
         }
@@ -2734,30 +2743,35 @@ impl CallGraph {
     fn apply_python_property_access_candidate(
         &mut self,
         caller_id: &FunctionId,
+        is_instance_method: bool,
         cand: crate::ast::PythonAttributeLoadCandidate,
     ) {
-        let getters: BTreeSet<FunctionId> = if cand.receiver_identifier.as_deref() == Some("self") {
-            // Tier 1: `self.attr` narrows to the enclosing class's own
-            // getter (or its single same-file base's). A known, non-matching
-            // receiver type is a NEGATIVE result, not "unknown" — it must
-            // NOT fall through to the tier-3 fanout (that would misattribute
-            // the access to unrelated classes we positively know it isn't).
-            match self.self_property_owner_getters(caller_id, &cand.attr_name) {
-                Some(fids) => fids,
-                None => return,
-            }
-        } else {
-            // Tier 3: unknown receiver, `cls` INCLUDED (spec-review MAJOR —
-            // no cls-like-self shortcut here; class access returns the
-            // descriptor object, not the getter, so `cls` gets no narrowing
-            // privilege over any other unrecognized receiver). All classes
-            // defining the property name, capped.
-            self.property_getters
-                .iter()
-                .filter(|((_, name), _)| name == &cand.attr_name)
-                .flat_map(|(_, fids)| fids.iter().cloned())
-                .collect()
-        };
+        let getters: BTreeSet<FunctionId> =
+            if is_instance_method && cand.receiver_identifier.as_deref() == Some("self") {
+                // Tier 1: `self.attr` narrows to the enclosing class's own
+                // getter (or its single same-file base's). A known, non-matching
+                // receiver type is a NEGATIVE result, not "unknown" — it must
+                // NOT fall through to the tier-3 fanout (that would misattribute
+                // the access to unrelated classes we positively know it isn't).
+                match self.self_property_owner_getters(caller_id, &cand.attr_name) {
+                    Some(fids) => fids,
+                    None => return,
+                }
+            } else {
+                // Tier 3: unknown receiver, `cls` INCLUDED (spec-review MAJOR —
+                // no cls-like-self shortcut here; class access returns the
+                // descriptor object, not the getter, so `cls` gets no narrowing
+                // privilege over any other unrecognized receiver). Also reached
+                // by `self.attr` when `is_instance_method` is false (F2:
+                // `@staticmethod`/`@classmethod` — `self` there is an ordinary
+                // parameter of unknown type, not a receiver). All classes
+                // defining the property name, capped.
+                self.property_getters
+                    .iter()
+                    .filter(|((_, name), _)| name == &cand.attr_name)
+                    .flat_map(|(_, fids)| fids.iter().cloned())
+                    .collect()
+            };
         if getters.is_empty() {
             return;
         }
@@ -5164,6 +5178,82 @@ class B:\n    @property\n    def text(self):\n        return 2\n",
                 .iter()
                 .any(|a| a.getter == b_getter && a.enclosing == enclosing),
             "cls.text must fan out to B's getter too, not narrow to A alone"
+        );
+    }
+
+    #[test]
+    fn staticmethod_self_param_does_not_get_same_class_narrowing() {
+        // F2 (codex MAJOR 2): `@staticmethod def make(self)` — Python's
+        // generic `method_owner` marks it as owned by `A` (any
+        // class-contained function), but `self` here is an ordinary
+        // parameter of unknown type, not a receiver. It must NOT get tier-1
+        // same-class narrowing; it must route to tier-3 (unknown-receiver,
+        // capped fanout) like any other unrecognized receiver — so with
+        // A and B both defining `text`, it must fan out to BOTH.
+        let cg = build_py(&[(
+            "resp.py",
+            "class A:\n    @property\n    def text(self):\n        return 1\n\n    @staticmethod\n    def make(self):\n        return self.text\n\n\n\
+class B:\n    @property\n    def text(self):\n        return 2\n",
+        )]);
+        let a_getter = cg
+            .property_getters
+            .get(&("A".to_string(), "text".to_string()))
+            .unwrap()[0]
+            .clone();
+        let b_getter = cg
+            .property_getters
+            .get(&("B".to_string(), "text".to_string()))
+            .unwrap()[0]
+            .clone();
+        let enclosing = fid_named(&cg, "make").clone();
+        assert!(
+            cg.property_accesses
+                .iter()
+                .any(|a| a.getter == a_getter && a.enclosing == enclosing),
+            "staticmethod self.text must still fan out to A's getter"
+        );
+        assert!(
+            cg.property_accesses
+                .iter()
+                .any(|a| a.getter == b_getter && a.enclosing == enclosing),
+            "staticmethod self.text must fan out to B's getter too, not narrow to A alone"
+        );
+    }
+
+    #[test]
+    fn property_getter_reading_self_other_prop_is_still_tier1_narrowed() {
+        // F2: the enclosing function MAY legitimately carry other
+        // decorators, including `@property` itself — a getter reading
+        // `self.other_prop` is a genuine instance method and must still get
+        // tier-1 same-class narrowing (not fan out to an unrelated class
+        // that also happens to define `other_prop`).
+        let cg = build_py(&[(
+            "resp.py",
+            "class A:\n    @property\n    def other_prop(self):\n        return 1\n\n    @property\n    def text(self):\n        return self.other_prop\n\n\n\
+class B:\n    @property\n    def other_prop(self):\n        return 2\n",
+        )]);
+        let a_other_prop = cg
+            .property_getters
+            .get(&("A".to_string(), "other_prop".to_string()))
+            .unwrap()[0]
+            .clone();
+        let b_other_prop = cg
+            .property_getters
+            .get(&("B".to_string(), "other_prop".to_string()))
+            .unwrap()[0]
+            .clone();
+        let enclosing = fid_named(&cg, "text").clone();
+        assert!(
+            cg.property_accesses
+                .iter()
+                .any(|a| a.getter == a_other_prop && a.enclosing == enclosing),
+            "text() reading self.other_prop must narrow to A's own other_prop getter"
+        );
+        assert!(
+            !cg.property_accesses
+                .iter()
+                .any(|a| a.getter == b_other_prop && a.enclosing == enclosing),
+            "must NOT fan out to B's unrelated other_prop getter"
         );
     }
 

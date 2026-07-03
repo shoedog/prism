@@ -2079,6 +2079,47 @@ impl ParsedFile {
         None
     }
 
+    /// P7 (F2, codex MAJOR 2): whether `func_node` (as returned by
+    /// `all_functions()`) is a genuine Python instance method whose first
+    /// positional parameter is literally named `self` — gates tier-1
+    /// same-class property narrowing for `self.attr` in
+    /// `call_graph.rs::self_property_owner_getters`.
+    ///
+    /// `method_owner` (`languages/mod.rs`) marks ANY class-contained
+    /// function as owned by its class, including `@staticmethod`/
+    /// `@classmethod`-decorated ones — a `@staticmethod def f(self)` has
+    /// `self` as an ordinary parameter of unknown type, not a receiver, so
+    /// it must not get same-class narrowing. This check is scoped to the P7
+    /// property-access path only; it does NOT change `method_owner`'s
+    /// semantics or method-CALL resolution's existing behavior.
+    ///
+    /// The enclosing function MAY legitimately carry other decorators,
+    /// including `@property` itself: a getter reading `self.other_prop` is
+    /// still a genuine instance method.
+    pub(crate) fn python_is_self_instance_method(&self, func_node: &Node<'_>) -> bool {
+        if self.language != Language::Python {
+            return false;
+        }
+        if func_node.kind() == "decorated_definition" {
+            let mut cursor = func_node.walk();
+            for child in func_node.children(&mut cursor) {
+                if child.kind() != "decorator" {
+                    continue;
+                }
+                let text = self.node_text(&child).trim();
+                let Some(expr) = text.strip_prefix('@') else {
+                    continue;
+                };
+                if matches!(expr.trim(), "staticmethod" | "classmethod") {
+                    return false;
+                }
+            }
+        }
+        self.function_parameter_names(func_node)
+            .first()
+            .is_some_and(|name| name == "self")
+    }
+
     /// P7 S2: candidate `@property`/`@cached_property` LOAD access sites
     /// (`recv.attr`) within a function body, restricted to `attr_names`
     /// (S1's indexed property names — the "zero cost for normal attribute
