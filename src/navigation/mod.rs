@@ -708,4 +708,66 @@ mod tests {
              for a struct declared in an unchanged file, not leave it cleared"
         );
     }
+
+    /// F2 (review-fix wave, MINOR — coverage gap): the test above only pins
+    /// the S2 `callback_registration` edge surviving an incremental rebuild.
+    /// The S3 `func_value_field` INVOCATION edge (a separate function calling
+    /// through the registered field, not the registration site itself) needs
+    /// its own coverage of the same clear+re-apply plumbing — same fixture
+    /// shape (an unrelated file edit; `Command` stays declared in the
+    /// untouched `types.go`), but with a `register`/`invoke` split so the
+    /// surviving caller is reached via `apply_go_func_value_fields` +
+    /// `CallGraph::resolve_call_site` rather than the registration-site edge
+    /// synthesized directly from `go_registrations`.
+    #[test]
+    fn incremental_from_previous_recomputes_go_func_value_field_invocation() {
+        let dir = tempfile::tempdir().unwrap();
+        write_files(
+            dir.path(),
+            &[
+                (
+                    "types.go",
+                    "package main\ntype Command struct {\n\tRun func()\n}\n",
+                ),
+                (
+                    "main.go",
+                    "package main\nfunc helper() {}\nfunc unrelated() {}\nfunc register() *Command { return &Command{Run: helper} }\nfunc invoke(cmd *Command) {\n\tcmd.Run()\n}\n",
+                ),
+            ],
+        );
+        let v1 = full_session(dir.path());
+
+        write_files(
+            dir.path(),
+            &[(
+                "main.go",
+                "package main\nfunc helper() {}\nfunc unrelated() { _ = 1 }\nfunc register() *Command { return &Command{Run: helper} }\nfunc invoke(cmd *Command) {\n\tcmd.Run()\n}\n",
+            )],
+        );
+        let v2_incremental = incremental_session(&v1, dir.path(), &["main.go"]);
+        let v2_full = full_session(dir.path());
+
+        assert_eq!(
+            queries::callers(&v2_full, Some("helper"), None, None, 1).unwrap(),
+            queries::callers(&v2_incremental, Some("helper"), None, None, 1).unwrap()
+        );
+        let callers = function_names_for_callers(&v2_incremental, "helper", None, 1);
+        assert!(
+            callers.contains(&"invoke".to_string()),
+            "incremental rebuild must recompute the func_value_field invocation edge \
+             for a struct declared in an unchanged file, not leave it cleared"
+        );
+
+        let evidence = queries::callers(&v2_incremental, Some("helper"), None, None, 1).unwrap();
+        let hit = evidence
+            .items
+            .iter()
+            .find(
+                |i| matches!(&i.symbol, Some(SymbolRef::Function { name, .. }) if name == "invoke"),
+            )
+            .expect("invoke() surfaces as a caller of helper via func_value_field resolution");
+        assert!(hit.why.iter().any(|r| matches!(r,
+            Reason::Resolution { kind } if kind == "func_value_field"
+        )));
+    }
 }
