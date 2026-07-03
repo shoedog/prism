@@ -153,8 +153,8 @@ fn sanitizer_site_for_assignment(
     // F1 BLOCKER: `ast.rs::rvalue_identifier_spans_on_lines` records BOTH the callee/function-name
     // identifier AND every call argument as a Use — so "Use sits inside the call's overall span" is
     // not enough; the sanitizer transform must actually run ON `use_loc`'s value. That means
-    // `use_loc` must sit inside the call's FIRST (data) argument specifically, never the callee span
-    // and never an argument at index > 0.
+    // `use_loc` must sit inside the call's data-argument span specifically, never the callee span
+    // and never a non-data argument.
     //
     // VERIFIED against the recognizer tables this feeds (`sanitizer_call_site` already excludes
     // `paired_check` recognizers, i.e. `PATH_RECOGNIZERS`; `SHELL_RECOGNIZERS` is empty): every
@@ -166,10 +166,24 @@ fn sanitizer_site_for_assignment(
     // argument). If a future recognizer IS receiver-style, this check needs a per-recognizer
     // exception that accepts the receiver span (via `call_function_qualifier`) instead of arg[0] for
     // that recognizer specifically — see `src/sanitizers/{js_ts.rs,python.rs}`.
+    //
+    // F3 BLOCKER: JS/TS has no keyword-argument call syntax, so for those languages the FIRST
+    // named child of the argument list is always the positional data argument — unchanged. Python
+    // can pass the data value BY NAME instead, e.g. `html.escape(s=user)`, and the argument list's
+    // first named child can then be a `keyword_argument` node spanning `name=value` as a whole.
+    // `collect_identifier_path_spans` (ast.rs) recurses into BOTH sides of a `keyword_argument`, so
+    // a Use can sit in the NAME (label) identifier — which can coincidentally share text with a
+    // real tainted variable, see `python_keyword_label_use_is_not_a_sanitizer_transition` — or in a
+    // DIFFERENT, non-data keyword argument's value, see
+    // `python_tainted_non_data_kwarg_is_not_a_sanitizer_transition`. Accepting "somewhere in the
+    // first named child" for a keyword form would launder either case into a false `Sanitized`.
+    // `use_in_data_argument` scans every argument and only accepts (a) a non-keyword first
+    // argument (unchanged positional behavior) or (b) the VALUE span of the `keyword_argument`
+    // whose NAME matches the matched recognizer's `data_param` — never the label, never an
+    // unrelated kwarg. A keyword form with `data_param == None` always rejects (conservative:
+    // missed-`Sanitized` is the safe direction).
     let args = parsed.language.call_arguments(&rhs)?;
-    let mut arg_cursor = args.walk();
-    let first_arg = args.named_children(&mut arg_cursor).next()?;
-    if !(first_arg.start_byte() <= use_loc.start_byte && use_loc.end_byte <= first_arg.end_byte()) {
+    if !use_in_data_argument(parsed, &args, call.data_param, use_loc) {
         return None;
     }
     Some((
@@ -182,4 +196,52 @@ fn sanitizer_site_for_assignment(
         rhs.start_byte(),
         rhs.end_byte(),
     ))
+}
+
+/// F3: does `use_loc` sit inside the call's DATA-ARGUMENT span? `args` is the call's argument-list
+/// node. Scans every named argument in order:
+///   - a `keyword_argument` node (Python `name=value`) is accepted ONLY via its VALUE span, and
+///     ONLY when its NAME text equals `data_param` — the label identifier and any other keyword
+///     argument are never a match, regardless of position;
+///   - any other (positional) argument is accepted only at position 0 — this is the pre-F3
+///     behavior, unchanged, and is the only form JS/TS (no keyword-argument syntax) ever produces.
+/// `data_param == None` means the matched recognizer has no verified data-parameter name, so every
+/// keyword form is rejected for it (conservative: stays `Reached`, never a false `Sanitized`).
+fn use_in_data_argument(
+    parsed: &ParsedFile,
+    args: &Node<'_>,
+    data_param: Option<&'static str>,
+    use_loc: &VarLocation,
+) -> bool {
+    let mut cursor = args.walk();
+    for (index, arg) in args.named_children(&mut cursor).enumerate() {
+        if arg.kind() == "keyword_argument" {
+            let Some(data_param) = data_param else {
+                continue;
+            };
+            let name_matches = arg
+                .child_by_field_name("name")
+                .is_some_and(|n| parsed.node_text(&n) == data_param);
+            if !name_matches {
+                continue;
+            }
+            let value = arg
+                .child_by_field_name("value")
+                .or_else(|| arg.named_child(1));
+            if let Some(value) = value {
+                if value.start_byte() <= use_loc.start_byte && use_loc.end_byte <= value.end_byte()
+                {
+                    return true;
+                }
+            }
+            continue;
+        }
+        if index == 0
+            && arg.start_byte() <= use_loc.start_byte
+            && use_loc.end_byte <= arg.end_byte()
+        {
+            return true;
+        }
+    }
+    false
 }

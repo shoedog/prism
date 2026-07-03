@@ -96,6 +96,14 @@ pub struct SanitizerRecognizer {
     /// filter by this field; see that function's doc comment for why its cross-language matching
     /// stays unchanged.
     pub languages: &'static [Language],
+    /// P10 F3: the name of the call's data-carrying parameter (e.g. `"s"` for `html.escape(s,
+    /// quote=True)`, `"text"` for `bleach.clean(text, ...)`), used ONLY by
+    /// `src/reasoning/sanitizer_walk.rs` to accept a Python `keyword_argument`'s VALUE span as the
+    /// sanitizer's data argument. Positional-only languages (JS/TS have no keyword-argument call
+    /// syntax) never consult this field. `None` when the recognizer's call has no known/verified
+    /// data-parameter name — the walk then conservatively rejects any keyword form for that
+    /// recognizer (missed-`Sanitized` is the safe direction; verdict stays `Reached`).
+    pub data_param: Option<&'static str>,
 }
 
 /// Call-site reflection helper. Wraps a tree-sitter call expression node + the

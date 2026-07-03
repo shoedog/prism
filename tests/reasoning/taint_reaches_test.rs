@@ -790,3 +790,95 @@ fn go_cross_language_recognizer_name_does_not_produce_sanitized_verdict() {
         "a same-name recognizer from another language's table must not produce a Sanitized verdict for Go"
     );
 }
+
+// --- F3 BLOCKER: Python `keyword_argument` must not be treated as the data-argument span ---------
+//
+// `ast.rs::rvalue_identifier_spans_on_lines` records EVERY identifier under a call's argument list
+// as a Use — including BOTH the `name` (label) and `value` sides of a Python `keyword_argument`
+// node. Pre-fix, "first named child of the argument list" accepted the WHOLE `keyword_argument`
+// span, so a Use sitting in the keyword LABEL (which can coincidentally share text with a real
+// variable name) or in an unrelated tainted keyword argument would still flip the verdict to
+// `Sanitized`. The fix requires: for a keyword form, the Use must sit inside the VALUE span of the
+// keyword_argument whose NAME equals the recognizer's `data_param` (`"s"` for `html.escape`).
+
+#[test]
+fn python_keyword_label_use_is_not_a_sanitizer_transition() {
+    // The tainted variable is named `s` — the SAME text as `html.escape`'s data-parameter name.
+    // `html.escape(s=other)` passes untainted `other` as the data value; the only "s"-shaped Use
+    // near the call is the keyword LABEL itself, not a reference to the tainted variable. Must stay
+    // Reached.
+    let fixture = fixture(&[(
+        "app.py",
+        "def f():\n    s = input()\n    other = 'x'\n    safe = html.escape(s=other)\n    sink(safe)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 5,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Reached);
+    assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+}
+
+#[test]
+fn python_tainted_non_data_kwarg_is_not_a_sanitizer_transition() {
+    // `html.escape(quote=quote, s=other)` — the tainted value flows into `quote`, the CONFIG kwarg
+    // (controls quote-character escaping), not `s`, the data kwarg. `other` (the actual `s=` value)
+    // is untainted. The sanitizer transform never runs on the tainted value on this path.
+    let fixture = fixture(&[(
+        "app.py",
+        "def f():\n    quote = input()\n    other = 'x'\n    safe = html.escape(quote=quote, s=other)\n    sink(safe)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 5,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Reached);
+    assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+}
+
+#[test]
+fn python_keyword_data_arg_is_a_sanitizer_transition() {
+    // `html.escape(s=user)` — the tainted value IS passed via the data kwarg by name. This is a
+    // genuine sanitizer transition and must flip to Sanitized, symmetric with the positional form.
+    let fixture = fixture(&[(
+        "app.py",
+        "def f():\n    user = input()\n    safe = html.escape(s=user)\n    sink(safe)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 4,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Sanitized);
+    assert_eq!(source.sanitized_by.len(), 1, "{:?}", source.sanitized_by);
+    assert_eq!(source.sanitized_by[0].callee_text, "html.escape");
+}

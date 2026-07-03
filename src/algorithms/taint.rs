@@ -10745,6 +10745,11 @@ pub(crate) struct SanitizerCallSite {
     pub callee_text: String,
     pub file: String,
     pub line: usize,
+    /// P10 F3: the matched recognizer's `data_param` (see `SanitizerRecognizer::data_param`),
+    /// threaded through so `src/reasoning/sanitizer_walk.rs` can accept a Python
+    /// `keyword_argument`'s VALUE span (name == this) as the sanitizer's data argument, distinct
+    /// from the keyword LABEL identifier or an unrelated tainted kwarg.
+    pub data_param: Option<&'static str>,
 }
 
 /// P10 node-scoped matcher: does `call_node` match an active sanitizer recognizer? Checked across
@@ -10804,6 +10809,7 @@ pub(crate) fn sanitizer_call_site(
             callee_text: actual,
             file: parsed.path.clone(),
             line: call_node.start_position().row + 1,
+            data_param: recognizer.data_param,
         });
     }
     None
@@ -11651,6 +11657,10 @@ func handler(input string) {
         assert_eq!(site.callee_text, "html.escape");
         assert_eq!(site.file, "t.py");
         assert_eq!(site.line, 2);
+        // P10 F3: `data_param` must be threaded through from the matched recognizer so
+        // `src/reasoning/sanitizer_walk.rs` can distinguish `html.escape`'s data kwarg (`s`) from
+        // its non-data kwarg (`quote`) and from an unrelated keyword's label identifier.
+        assert_eq!(site.data_param, Some("s"));
     }
 
     #[test]

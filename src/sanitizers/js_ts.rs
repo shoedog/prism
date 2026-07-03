@@ -18,6 +18,10 @@ pub const JS_TS_RECOGNIZERS: &[SanitizerRecognizer] = &[
         semantic_check: None,
         paired_check: None,
         languages: JS_TS_LANGUAGES,
+        // JS/TS calls have no keyword-argument syntax, so `data_param` is never consulted for
+        // these entries (`src/reasoning/sanitizer_walk.rs` only checks it for Python
+        // `keyword_argument` nodes); `None` here documents "not applicable", not "unverified".
+        data_param: None,
     },
     SanitizerRecognizer {
         call_path: "escapeHtml",
@@ -25,6 +29,7 @@ pub const JS_TS_RECOGNIZERS: &[SanitizerRecognizer] = &[
         semantic_check: None,
         paired_check: None,
         languages: JS_TS_LANGUAGES,
+        data_param: None,
     },
     SanitizerRecognizer {
         call_path: "escape",
@@ -32,5 +37,6 @@ pub const JS_TS_RECOGNIZERS: &[SanitizerRecognizer] = &[
         semantic_check: None,
         paired_check: None,
         languages: JS_TS_LANGUAGES,
+        data_param: None,
     },
 ];
