@@ -335,6 +335,41 @@ enum NavQuery {
         #[arg(long, default_value = "json", value_parser = ["text", "json"])]
         format: String,
     },
+    /// Tier-2 forward taint reachability from source seeds, optionally to sink
+    /// seeds. Omit `--sink` for frontier mode (no verdict, just the tainted
+    /// frontier); pass one or more `--sink` for witness mode (per-sink
+    /// Reached/NotReached/BoundaryExited verdicts + witness graph).
+    TaintReaches {
+        #[arg(long)]
+        repo: std::path::PathBuf,
+        /// `file:line` source seed, repeatable.
+        #[arg(long = "source")]
+        source: Vec<String>,
+        /// `file:line` sink seed, repeatable. Omit for frontier mode.
+        #[arg(long = "sink")]
+        sink: Vec<String>,
+        #[arg(long, default_value = "text", value_parser = ["text", "json"])]
+        format: String,
+    },
+}
+
+/// Parse `file:line` CLI seed specs into `SeedSpec::Loc`. This is a small
+/// parallel parser rather than reusing `mcp::input::parse_taint_reaches`: that
+/// helper (and the whole `mcp` module) lives behind the `mcp` feature, while
+/// `nav` subcommands (and the `reasoning` layer they call into) are built by
+/// default with no feature flag. See CLAUDE.md's MCP Adapter section.
+fn parse_loc_seeds(
+    specs: &[String],
+) -> std::result::Result<Vec<prism::reasoning::seeds::SeedSpec>, String> {
+    specs
+        .iter()
+        .map(|spec| {
+            spec.rsplit_once(':')
+                .and_then(|(f, l)| l.parse::<usize>().ok().map(|n| (f.to_string(), n)))
+                .map(|(file, line)| prism::reasoning::seeds::SeedSpec::Loc { file, line })
+                .ok_or_else(|| format!("seed must be file:line (got {spec:?})"))
+        })
+        .collect()
 }
 
 fn main() -> Result<()> {
@@ -499,6 +534,47 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                 }
             }
             Ok(())
+        }
+        NavQuery::TaintReaches {
+            repo,
+            source,
+            sink,
+            format,
+        } => {
+            let session = build_session(repo, nav.no_cache, nav.cache_dir.as_deref())?;
+            let sources = match parse_loc_seeds(source) {
+                Ok(seeds) => seeds,
+                Err(msg) => {
+                    eprintln!("error: {msg}");
+                    std::process::exit(2);
+                }
+            };
+            let sinks = if sink.is_empty() {
+                None
+            } else {
+                match parse_loc_seeds(sink) {
+                    Ok(seeds) => Some(seeds),
+                    Err(msg) => {
+                        eprintln!("error: {msg}");
+                        std::process::exit(2);
+                    }
+                }
+            };
+            match prism::reasoning::taint_reaches::taint_reaches(
+                &session,
+                &sources,
+                sinks.as_deref(),
+            ) {
+                Ok(ev) => {
+                    println!("{}", prism::output::navigation::render(&ev, format));
+                    Ok(())
+                }
+                Err(e) => {
+                    let (s, code) = prism::output::navigation::render_err(&e, format);
+                    println!("{s}");
+                    std::process::exit(code);
+                }
+            }
         }
     }
 }
