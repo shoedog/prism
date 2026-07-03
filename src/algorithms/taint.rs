@@ -1929,7 +1929,13 @@ fn js_ts_framework_source_params(
     out
 }
 
-fn js_ts_framework_receiver_names(parsed: &ParsedFile, framework: &str) -> BTreeSet<String> {
+/// `pub(crate)` (P9): reused as-is by `framework_entries::express_route_candidates`
+/// to compute the express receiver set for registration-first extraction —
+/// no logic change, just visibility.
+pub(crate) fn js_ts_framework_receiver_names(
+    parsed: &ParsedFile,
+    framework: &str,
+) -> BTreeSet<String> {
     let imports = parsed.extract_imports();
     let mut receivers = BTreeSet::new();
     let mut assignments = Vec::new();
@@ -2014,7 +2020,14 @@ fn js_ts_registered_route_references_handler(
     })
 }
 
-fn collect_js_ts_call_nodes<'a>(node: Node<'a>, parsed: &ParsedFile, out: &mut Vec<Node<'a>>) {
+/// `pub(crate)` (P9): reused by `framework_entries::express_route_candidates`
+/// to collect every call node in a file before filtering to route
+/// registrations.
+pub(crate) fn collect_js_ts_call_nodes<'a>(
+    node: Node<'a>,
+    parsed: &ParsedFile,
+    out: &mut Vec<Node<'a>>,
+) {
     if parsed.language.is_call_node(node.kind()) {
         out.push(node);
     }
@@ -2121,7 +2134,9 @@ fn js_ts_route_call_matches_framework(
     )
 }
 
-fn js_ts_framework_route_method(framework: &str, method: &str) -> bool {
+/// `pub(crate)` (P9): reused by `framework_entries` to test a call's method
+/// name against the express route-method set.
+pub(crate) fn js_ts_framework_route_method(framework: &str, method: &str) -> bool {
     match framework {
         "express" => matches!(
             method,
@@ -2139,7 +2154,9 @@ fn js_ts_framework_route_method(framework: &str, method: &str) -> bool {
     }
 }
 
-fn js_ts_receiver_expr_is_framework_instance(
+/// `pub(crate)` (P9): reused by `framework_entries` to test whether a route
+/// call's receiver is a direct express instance (vs. a `.route()` builder).
+pub(crate) fn js_ts_receiver_expr_is_framework_instance(
     parsed: &ParsedFile,
     receiver: Node<'_>,
     framework: &str,
@@ -2153,7 +2170,10 @@ fn js_ts_receiver_expr_is_framework_instance(
     js_ts_expr_constructs_framework_receiver(parsed, receiver, framework, imports)
 }
 
-fn js_ts_receiver_expr_is_route_builder(
+/// `pub(crate)` (P9): reused by `framework_entries` to detect the
+/// `.route(path).get(handler)` builder shape (arg positioning differs from
+/// the direct-instance shape — see `framework_entries::express_route_candidates`).
+pub(crate) fn js_ts_receiver_expr_is_route_builder(
     parsed: &ParsedFile,
     receiver: Node<'_>,
     framework: &str,
@@ -6587,7 +6607,9 @@ fn classify_guard_control(
     None
 }
 
-fn unwrap_parenthesized(mut node: Node<'_>) -> Node<'_> {
+/// `pub(crate)` (P9): reused by `framework_entries` for the same
+/// parenthesized-expression unwrapping this module already does.
+pub(crate) fn unwrap_parenthesized(mut node: Node<'_>) -> Node<'_> {
     loop {
         if node.kind() != "parenthesized_expression" {
             return node;

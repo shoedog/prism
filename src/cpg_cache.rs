@@ -98,7 +98,12 @@ use std::path::{Path, PathBuf};
 ///   arguments (`assert!(check(x))`, `vec![f(1), f(2)]`, ...) now mint real
 ///   CallSite entries with `kind: Call` (resolution behavior change: these
 ///   sites are new, Exact-capable via the normal Rust ladder).
-const CACHE_VERSION: u32 = 36; // 36: P8 Rust macro-argument call extraction.
+/// - v37: P9 framework-entry edges — CallGraph gains `framework_entries`
+///   (Flask/FastAPI/Express route-registration records) +
+///   `framework_entry_unresolved_handlers` telemetry; new
+///   `ResolutionKind::FrameworkEntry` (S3, nav-only — no CPG/DataFlow
+///   change, mirrors `PropertyAccess`).
+const CACHE_VERSION: u32 = 37; // 37: P9 framework-entry edges.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -616,12 +621,12 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_36_for_rust_macro_arg_calls() {
-        // v36: P8 Rust macro-argument call extraction (CallSiteOrigin::MacroArg
-        // + CallGraph.macro_arg_facts; assert!/vec!/format!/... argument calls
-        // now mint real CallSite entries), on top of v35 (P4 JS/TS export
-        // modeling).
-        assert_eq!(super::CACHE_VERSION, 36);
+    fn cache_version_is_37_for_framework_entry_edges() {
+        // v37: P9 framework-entry edges (CallGraph.framework_entries +
+        // framework_entry_unresolved_handlers; new
+        // ResolutionKind::FrameworkEntry), on top of v36 (P8 Rust
+        // macro-argument call extraction).
+        assert_eq!(super::CACHE_VERSION, 37);
     }
 
     #[test]

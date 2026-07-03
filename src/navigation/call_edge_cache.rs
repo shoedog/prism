@@ -22,7 +22,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v6: P8 — Rust macro-argument call extraction mints new CallSite entries
 // (assert!/vec!/format!/... argument calls) that resolve through the normal
 // ladder, changing which sites appear in incoming/outgoing indexes.
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 6;
+// v7: P9 — `framework_entry` nav edges added to `build_resolved_call_edges`
+// (Flask/FastAPI/Express route-registration edges).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 7;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -345,8 +347,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_6() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 6);
+    fn sidecar_version_is_7() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 7);
     }
 
     #[test]

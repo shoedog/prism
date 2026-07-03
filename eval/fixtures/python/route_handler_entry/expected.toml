@@ -1,0 +1,21 @@
+[case]
+language = "python"
+capability = "framework_entry"
+# P9: a Flask route decorator is a REAL entrypoint edge -- today it only feeds
+# the taint algorithm's source detection, so `nav_callers` on the handler
+# returns 0 by design (a false "no callers" for blast-radius). module-level
+# registration -> `<module>` synthetic incoming-only caller.
+status = "pass"
+
+[seed]
+symbol = "handler"
+file = "app.py"
+line = 7
+
+[[expect.callers]]
+file = "app.py"
+line = 6
+
+[expect]
+exact = true
+resolution_kind = "framework_entry"

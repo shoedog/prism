@@ -70,6 +70,40 @@ pub fn function_has_route_decorator_with_receivers(
     false
 }
 
+/// P9 S1: like `function_has_route_decorator_with_receivers`, but returns
+/// EVERY matching decorator's site instead of stopping at the first match —
+/// a handler decorated with two route decorators (`@app.route("/a")` +
+/// `@app.route("/b")`) mints two registration records.
+pub fn route_decorator_sites(
+    parsed: &ParsedFile,
+    func: &Node<'_>,
+    receivers: &BTreeSet<String>,
+) -> Vec<super::super::RouteDecoratorSite> {
+    let mut sites = Vec::new();
+    if receivers.is_empty() {
+        return sites;
+    }
+    let Some(decorated) = decorated_definition_node(*func) else {
+        return sites;
+    };
+    let mut cursor = decorated.walk();
+    for child in decorated.children(&mut cursor) {
+        if child.kind() != "decorator" {
+            continue;
+        }
+        if let Some((receiver, method)) = decorator_receiver_and_method(parsed, child) {
+            if ROUTE_METHODS.contains(&method.as_str()) && receivers.contains(&receiver) {
+                sites.push(super::super::RouteDecoratorSite {
+                    line: child.start_position().row + 1,
+                    start_byte: child.start_byte(),
+                    end_byte: child.end_byte(),
+                });
+            }
+        }
+    }
+    sites
+}
+
 fn collect_route_receivers(
     parsed: &ParsedFile,
     imports: &BTreeMap<String, String>,

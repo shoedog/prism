@@ -76,6 +76,11 @@ prism **`slicing` CLI**. You want *literal* text, comments, strings, or config �
   and reported in the warning above.
 - **One repo only.** The server sees only its `--repo` tree — not sibling repos, dependencies, or std.
   "No callers" outside the tree means *out of scope*, not *none*.
+- **Framework route handlers now show a caller.** A Flask/FastAPI/Express route handler
+  (`@app.route(...)`, `app.get(path, handler)`) surfaces a `nav_callers` edge (kind
+  `framework_entry`, name-only) at the registration site — the registration is a real
+  entrypoint even though it isn't itself a call. A module-level registration's caller is the
+  synthetic `<module>` symbol (not independently navigable); it never appears in `nav_callees`.
 - **Lines are 1-indexed; `nav_nodes_at` matches the exact line.** Empty result ⇒ aim at the definition
   or a call line, not a blank/comment/brace line.
 - **Graphs truncate (50 items by default, raise with `max_results` up to 1000; 80 KB byte cap)** and the

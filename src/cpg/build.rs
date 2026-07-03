@@ -357,6 +357,12 @@ impl CodePropertyGraph {
             // ordering (this repopulates `method_owners`/`method_class_span`/
             // `class_bases`-dependent state fresh from the merged graph).
             cached_cg.apply_python_property_accesses(files);
+            // P9: framework-entry edges (Flask/FastAPI/Express route
+            // registrations) are ALSO whole-program derived (Express
+            // identifier-arg resolution needs the complete `functions`/
+            // `js_ts_function_locals` index) — recompute after the Python
+            // pass, same rationale as the Go/Python passes above.
+            cached_cg.apply_framework_entries(files);
             // P4: JS/TS export-fact resolution (re-export chains/barrels) is
             // ALSO whole-program derived — recompute after merge, same
             // rationale as the Go passes above.
