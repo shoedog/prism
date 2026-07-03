@@ -316,6 +316,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "callback_registration_unknown_owner_recorded": cg.go_registration_unknown_owner_recorded,
         "property_accesses_recorded": cg.property_accesses.len(),
         "property_access_fanout_skips": cg.property_access_fanout_skips,
+        "property_access_store_skips": cg.property_access_store_skips,
         "property_access_cached_property_recorded": property_access_cached_property_recorded,
         "embedding_gaps": cg.embedding_gaps,
         "interface_gaps": cg.interface_gaps,

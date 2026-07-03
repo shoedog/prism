@@ -475,6 +475,12 @@ pub struct CallGraph {
     /// name (P3 fanout doctrine — cap is on distinct getter TARGETS).
     #[serde(default)]
     pub property_access_fanout_skips: usize,
+    /// P7 S2 telemetry (F5): store/delete-context attribute accesses whose
+    /// name is S1-indexed, skipped because a store/delete is never a getter
+    /// load — assignment/augmented_assignment LHS, `del` targets, `for`/
+    /// comprehension targets, and `with ... as` alias targets (F4).
+    #[serde(default)]
+    pub property_access_store_skips: usize,
 }
 
 impl CallGraph {
@@ -524,6 +530,7 @@ impl CallGraph {
             cached_property_getters: BTreeSet::new(),
             property_accesses: BTreeSet::new(),
             property_access_fanout_skips: 0,
+            property_access_store_skips: 0,
         }
     }
 
@@ -698,6 +705,7 @@ impl CallGraph {
             cached_property_getters: BTreeSet::new(),
             property_accesses: BTreeSet::new(),
             property_access_fanout_skips: 0,
+            property_access_store_skips: 0,
         }
     }
 
@@ -1024,6 +1032,7 @@ impl CallGraph {
             cached_property_getters: BTreeSet::new(),
             property_accesses: BTreeSet::new(),
             property_access_fanout_skips: 0,
+            property_access_store_skips: 0,
         };
         cg.recompute_indirect_calls(files);
         cg.refresh_rust_receiver_state(files);
@@ -2629,6 +2638,7 @@ impl CallGraph {
         self.cached_property_getters.clear();
         self.property_accesses.clear();
         self.property_access_fanout_skips = 0;
+        self.property_access_store_skips = 0;
     }
 
     /// P7: scan `files` for Python `@property`/`@cached_property` getters
@@ -2727,7 +2737,12 @@ impl CallGraph {
                 // first param literally `self`) — computed once per function,
                 // not per candidate.
                 let is_instance_method = parsed.python_is_self_instance_method(&func_node);
-                for cand in parsed.python_attribute_load_candidates(&func_node, &attr_names) {
+                let scan = parsed.python_attribute_load_candidates(&func_node, &attr_names);
+                // F5: every store/delete-context access of an indexed
+                // property name is telemetry, whole-program derived like the
+                // rest of this table (recomputed from scratch each build).
+                self.property_access_store_skips += scan.store_skips;
+                for cand in scan.candidates {
                     self.apply_python_property_access_candidate(
                         &caller_id,
                         is_instance_method,
@@ -3140,6 +3155,7 @@ impl CallGraph {
             cached_property_getters: BTreeSet::new(),
             property_accesses: BTreeSet::new(),
             property_access_fanout_skips: 0,
+            property_access_store_skips: 0,
         }
     }
 
@@ -5055,6 +5071,7 @@ mod python_property_access_tests {
         assert!(cg.cached_property_getters.is_empty());
         assert!(cg.property_accesses.is_empty());
         assert_eq!(cg.property_access_fanout_skips, 0);
+        assert_eq!(cg.property_access_store_skips, 0);
     }
 
     // ---- S2: access-site extraction ------------------------------------
@@ -5104,6 +5121,39 @@ mod python_property_access_tests {
             "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    r.text += \"v\"\n",
         )]);
         assert!(cg.property_accesses.is_empty());
+    }
+
+    // ---- F5: property_access_store_skips telemetry ---------------------
+
+    #[test]
+    fn store_target_with_indexed_name_increments_store_skip_counter() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    r.text = \"v\"\n",
+        )]);
+        assert_eq!(cg.property_access_store_skips, 1);
+    }
+
+    #[test]
+    fn store_target_with_non_indexed_name_does_not_increment_store_skip_counter() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    r.other = \"v\"\n",
+        )]);
+        assert_eq!(cg.property_access_store_skips, 0);
+    }
+
+    #[test]
+    fn delete_for_and_with_alias_store_skips_are_all_counted() {
+        // F4 + F5 together: every one of the store/delete contexts F4 fences
+        // (assignment/augmented left, del target, for target, with-alias)
+        // increments the same counter when the name is indexed.
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\n\
+def f(r, xs, cm):\n    r.text = \"v\"\n    r.text += \"v\"\n    del r.text\n    for r.text in xs:\n        pass\n    with cm() as r.text:\n        pass\n",
+        )]);
+        assert_eq!(cg.property_access_store_skips, 5);
     }
 
     // ---- F4: delete/for/with-target store contexts ---------------------
