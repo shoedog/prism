@@ -70,6 +70,7 @@ def _edges(sites: list, direction: str) -> list[CallEdge]:
             None,
             Location(f, s, e),
             meta.get("resolution_kind"),
+            meta.get("score"),
         )
         for f, s, e, meta in (_site_parts(site) for site in sites)
     ]
@@ -356,6 +357,8 @@ def _stored_sites(edges: list[CallEdge], direction: str) -> list[list]:
         meta = {}
         if e.resolution_kind is not None:
             meta["resolution_kind"] = e.resolution_kind
+        if e.score is not None:
+            meta["score"] = e.score
         dispatch_kind = getattr(e, "dispatch_kind", None)
         if dispatch_kind is not None:
             meta["dispatch_kind"] = dispatch_kind

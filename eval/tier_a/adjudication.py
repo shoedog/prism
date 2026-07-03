@@ -43,6 +43,9 @@ class Adjudication:
     date: str
     site_fingerprint: str | None = None
     dispatch_kind: str | None = None
+    tier: str | None = None   # "candidate" for P6a candidate-tier pending records
+                              # copied verbatim into adjudications.jsonl; unknown
+                              # keys would otherwise crash Adjudication(**json.loads(line))
 
 
 def validate(r: Adjudication) -> Adjudication:
