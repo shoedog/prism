@@ -538,6 +538,21 @@ pub struct CallGraph {
     /// repo flips an allowlisted macro name's shadowed status.
     #[serde(default)]
     pub macro_shadow_intersection: BTreeSet<String>,
+    /// P9 S1/S2: recognized Flask/FastAPI/Express route-registration edges
+    /// (framework-entry). Whole-program derived like `go_registrations`/
+    /// `property_accesses` — Express identifier-arg resolution needs the
+    /// complete `functions`/`js_ts_function_locals` index — so this clears
+    /// and recomputes from scratch via `apply_framework_entries` rather than
+    /// being incrementally patched.
+    #[serde(default)]
+    pub framework_entries: BTreeSet<crate::framework_entries::FrameworkEntryRecord>,
+    /// P9 S1 telemetry: Express handler-argument positions identified but
+    /// left unresolved — an inline arrow/function-expression argument
+    /// (grounding-verified to never receive an inferred FunctionId), or a
+    /// bare identifier with zero, multiple, or a locally-shadowed same-file
+    /// function match.
+    #[serde(default)]
+    pub framework_entry_unresolved_handlers: usize,
 }
 
 impl CallGraph {
@@ -593,6 +608,8 @@ impl CallGraph {
             property_access_store_skips: 0,
             macro_arg_facts: BTreeMap::new(),
             macro_shadow_intersection: BTreeSet::new(),
+            framework_entries: BTreeSet::new(),
+            framework_entry_unresolved_handlers: 0,
         }
     }
 
@@ -793,6 +810,11 @@ impl CallGraph {
             macro_shadow_intersection: crate::rust_macro_args::transparent_shadow_intersection(
                 &macro_shadow,
             ),
+            // P9: whole-program framework-entry state — left empty here, same
+            // reason as the Go/Python whole-program facts above:
+            // `build_skeleton` never computes whole-program derived state.
+            framework_entries: BTreeSet::new(),
+            framework_entry_unresolved_handlers: 0,
         }
     }
 
@@ -1148,6 +1170,12 @@ impl CallGraph {
             macro_shadow_intersection: crate::rust_macro_args::transparent_shadow_intersection(
                 &macro_shadow,
             ),
+            // P9: whole-program framework-entry state — left empty here,
+            // same reason as the Go/Python whole-program facts below:
+            // `apply_framework_entries` populates it after `functions` /
+            // `js_ts_function_locals` are already complete.
+            framework_entries: BTreeSet::new(),
+            framework_entry_unresolved_handlers: 0,
         };
         cg.recompute_indirect_calls(files);
         cg.refresh_rust_receiver_state(files);
@@ -1161,6 +1189,12 @@ impl CallGraph {
         // / method_class_span / class_bases indexes already populated above,
         // so it runs last, same rationale as the Go passes.
         cg.apply_python_property_accesses(files);
+        // P9: framework-entry state (Flask/FastAPI/Express route
+        // registrations) needs the complete `functions`/
+        // `js_ts_function_locals` index already populated above (Express
+        // identifier-arg resolution reads both) — runs after the Go/Python
+        // whole-program passes, same rationale.
+        cg.apply_framework_entries(files);
         // P4: JS/TS export-fact resolution (re-export chains/barrels) is ALSO
         // whole-program derived, same rationale as the Go passes above.
         cg.apply_js_export_resolution();
@@ -1411,6 +1445,13 @@ impl CallGraph {
         // Drop it all; `apply_python_property_accesses` repopulates from the
         // merged graph.
         self.clear_python_property_accesses();
+
+        // P9: framework-entry state is ALSO whole-program derived — same
+        // rationale: an Express handler identifier's resolution can depend
+        // on the complete `functions`/`js_ts_function_locals` index across
+        // every file. Drop it all; `apply_framework_entries` repopulates
+        // from the merged graph.
+        self.clear_framework_entries();
     }
 
     /// Merge another CallGraph into this one.
@@ -1502,6 +1543,13 @@ impl CallGraph {
         // P7 (Python property accesses): deliberately NOT merged here either,
         // same reasoning — `apply_python_property_accesses` re-applies on the
         // merged graph right after `apply_go_registrations` in
+        // `build_incremental_with_scope_graph_inputs`.
+        //
+        // P9 (framework-entry edges): deliberately NOT merged here either,
+        // same reasoning — Express identifier-arg resolution needs the
+        // complete `functions`/`js_ts_function_locals` index, so
+        // `apply_framework_entries` re-applies on the merged graph right
+        // after `apply_python_property_accesses` in
         // `build_incremental_with_scope_graph_inputs`.
     }
 
@@ -2863,6 +2911,27 @@ impl CallGraph {
         self.apply_python_property_access_sites(files);
     }
 
+    fn clear_framework_entries(&mut self) {
+        self.framework_entries.clear();
+        self.framework_entry_unresolved_handlers = 0;
+    }
+
+    /// P9: scan `files` for recognized Flask/FastAPI/Express route
+    /// registrations and record them in `framework_entries`. Whole-program
+    /// derived (Express identifier-arg resolution needs the complete
+    /// `functions`/`js_ts_function_locals` index) — clears and recomputes
+    /// from scratch, mirroring `apply_go_registrations`/
+    /// `apply_python_property_accesses`. Candidate detection itself lives in
+    /// `crate::framework_entries` (kept out of this already-large module);
+    /// this method only orchestrates it against the CallGraph's own state.
+    pub fn apply_framework_entries(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        self.clear_framework_entries();
+        let (entries, unresolved) =
+            crate::framework_entries::apply(files, &self.functions, &self.js_ts_function_locals);
+        self.framework_entries = entries;
+        self.framework_entry_unresolved_handlers = unresolved;
+    }
+
     /// S1: index every exact-match `@property`/`@cached_property`-decorated
     /// method by `(owner_key, method_name)`. Reuses the already-populated
     /// `method_owners` index (Phase 1 records an owner for every method
@@ -3396,6 +3465,12 @@ impl CallGraph {
             macro_shadow_intersection: crate::rust_macro_args::transparent_shadow_intersection(
                 &macro_shadow,
             ),
+            // P9: whole-program framework-entry state — left empty here for
+            // the same reason as the Go/Python whole-program facts above; the
+            // caller re-applies `apply_framework_entries` on the merged
+            // graph.
+            framework_entries: BTreeSet::new(),
+            framework_entry_unresolved_handlers: 0,
         }
     }
 
@@ -5995,5 +6070,243 @@ class Child(Base):\n    def dump(self):\n        return self.text\n",
             .values()
             .flat_map(|s| s.iter())
             .all(|s| s.callee_name != "check" && s.callee_name != "assert"));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// P9: framework-entry (Flask/FastAPI/Express route registration) tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod framework_entry_tests {
+    use super::*;
+    use crate::framework_entries::MODULE_PSEUDO_CALLER_NAME;
+    use crate::languages::Language::{Go, JavaScript, Python};
+    use std::collections::BTreeMap;
+
+    fn build_py(files: &[(&str, &str)]) -> CallGraph {
+        let mut map = BTreeMap::new();
+        for (path, src) in files {
+            map.insert(
+                path.to_string(),
+                ParsedFile::parse(path, src, Python).unwrap(),
+            );
+        }
+        CallGraph::build(&map)
+    }
+
+    fn build_js(files: &[(&str, &str)]) -> CallGraph {
+        let mut map = BTreeMap::new();
+        for (path, src) in files {
+            map.insert(
+                path.to_string(),
+                ParsedFile::parse(path, src, JavaScript).unwrap(),
+            );
+        }
+        CallGraph::build(&map)
+    }
+
+    fn fid<'a>(cg: &'a CallGraph, name: &str) -> &'a FunctionId {
+        cg.functions
+            .get(name)
+            .unwrap_or_else(|| panic!("no function named {name}"))
+            .first()
+            .unwrap()
+    }
+
+    // ---- Python: Flask / FastAPI ------------------------------------------
+
+    #[test]
+    fn flask_route_recorded_with_decorator_line() {
+        let cg = build_py(&[(
+            "app.py",
+            "from flask import Flask\napp = Flask(__name__)\n\n@app.route(\"/x\")\ndef handler():\n    return \"ok\"\n",
+        )]);
+        let handler = fid(&cg, "handler").clone();
+        let rec = cg
+            .framework_entries
+            .iter()
+            .find(|r| r.handler == handler)
+            .expect("flask route recorded");
+        assert_eq!(rec.site.line, 4);
+        assert_eq!(rec.framework, "flask");
+        assert_eq!(rec.caller.name, MODULE_PSEUDO_CALLER_NAME);
+        assert_eq!(rec.caller.start_line, 1);
+    }
+
+    #[test]
+    fn fastapi_route_recorded() {
+        let cg = build_py(&[(
+            "app.py",
+            "from fastapi import FastAPI\napp = FastAPI()\n\n@app.get(\"/x\")\ndef handler():\n    return \"ok\"\n",
+        )]);
+        let handler = fid(&cg, "handler").clone();
+        let rec = cg
+            .framework_entries
+            .iter()
+            .find(|r| r.handler == handler)
+            .expect("fastapi route recorded");
+        assert_eq!(rec.framework, "fastapi");
+        assert_eq!(rec.site.line, 4);
+    }
+
+    #[test]
+    fn two_route_decorators_yield_two_records() {
+        let cg = build_py(&[(
+            "app.py",
+            "from flask import Flask\napp = Flask(__name__)\n\n@app.route(\"/a\")\n@app.route(\"/b\")\ndef handler():\n    return \"ok\"\n",
+        )]);
+        let handler = fid(&cg, "handler").clone();
+        let recs: Vec<_> = cg
+            .framework_entries
+            .iter()
+            .filter(|r| r.handler == handler)
+            .collect();
+        assert_eq!(recs.len(), 2, "two route decorators -> two records");
+    }
+
+    #[test]
+    fn non_route_decorator_not_recorded() {
+        let cg = build_py(&[(
+            "app.py",
+            "from flask import Flask\napp = Flask(__name__)\n\nclass Foo:\n    @property\n    def value(self):\n        return 1\n",
+        )]);
+        assert!(cg.framework_entries.is_empty());
+    }
+
+    #[test]
+    fn python_nested_registration_enclosing_is_factory_function() {
+        let cg = build_py(&[(
+            "app.py",
+            "from flask import Flask\n\n\ndef create_app():\n    app = Flask(__name__)\n\n    @app.route(\"/x\")\n    def handler():\n        return \"ok\"\n\n    return app\n",
+        )]);
+        let handler = fid(&cg, "handler").clone();
+        let rec = cg
+            .framework_entries
+            .iter()
+            .find(|r| r.handler == handler)
+            .expect("nested route recorded");
+        assert_eq!(rec.caller.name, "create_app");
+    }
+
+    // ---- Express -----------------------------------------------------------
+
+    #[test]
+    fn express_named_handler_recorded_at_module_level() {
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\napp.get(\"/x\", handler);\n",
+        )]);
+        let handler = fid(&cg, "handler").clone();
+        let rec = cg
+            .framework_entries
+            .iter()
+            .find(|r| r.handler == handler)
+            .expect("express handler recorded");
+        assert_eq!(rec.framework, "express");
+        assert_eq!(rec.caller.name, MODULE_PSEUDO_CALLER_NAME);
+        assert_eq!(rec.caller.start_line, 1);
+        assert_eq!(rec.site.line, 6);
+    }
+
+    #[test]
+    fn express_multi_arg_middleware_and_handler_both_recorded() {
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nfunction mw(req, res, next) {}\nfunction handler(req, res) {}\n\napp.get(\"/x\", mw, handler);\n",
+        )]);
+        let mw = fid(&cg, "mw").clone();
+        let handler = fid(&cg, "handler").clone();
+        assert!(
+            cg.framework_entries.iter().any(|r| r.handler == mw),
+            "middleware arg must be recorded"
+        );
+        assert!(
+            cg.framework_entries.iter().any(|r| r.handler == handler),
+            "handler arg must be recorded"
+        );
+    }
+
+    #[test]
+    fn express_shadowed_identifier_is_skipped_and_counted() {
+        // `handler` is a PARAMETER of `setup`, locally shadowing the
+        // top-level `handler` function -- the reference inside `setup` names
+        // the local, not the free function, so it must be skipped even
+        // though exactly one same-file function named `handler` exists.
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nfunction setup(handler) {\n    app.get(\"/x\", handler);\n}\n",
+        )]);
+        assert!(
+            cg.framework_entries.is_empty(),
+            "shadowed identifier must not be recorded"
+        );
+        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
+    }
+
+    #[test]
+    fn express_inline_arrow_arg_is_skipped_and_counted() {
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\napp.get(\"/x\", (req, res) => {});\n",
+        )]);
+        assert!(cg.framework_entries.is_empty());
+        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
+    }
+
+    #[test]
+    fn express_zero_match_identifier_is_skipped_and_counted() {
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\napp.get(\"/x\", missingHandler);\n",
+        )]);
+        assert!(cg.framework_entries.is_empty());
+        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
+    }
+
+    #[test]
+    fn express_multi_match_identifier_is_skipped_and_counted() {
+        // Two same-named `handler` function declarations in the same file
+        // (annex-B block-scoped `function` inside `if`) -- ambiguous, must
+        // not record, must count.
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nif (true) {\n    function handler() {}\n}\n\napp.get(\"/x\", handler);\n",
+        )]);
+        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
+        assert!(!cg
+            .framework_entries
+            .iter()
+            .any(|r| r.framework == "express"));
+    }
+
+    #[test]
+    fn express_registration_inside_setup_function_has_enclosing_caller() {
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nfunction setup() {\n    app.get(\"/x\", handler);\n}\n",
+        )]);
+        let handler = fid(&cg, "handler").clone();
+        let rec = cg
+            .framework_entries
+            .iter()
+            .find(|r| r.handler == handler)
+            .expect("recorded");
+        assert_eq!(rec.caller.name, "setup");
+        assert_ne!(rec.caller.name, MODULE_PSEUDO_CALLER_NAME);
+    }
+
+    // ---- Non-target-language guard -----------------------------------------
+
+    #[test]
+    fn non_target_language_go_file_never_mints() {
+        let mut map = BTreeMap::new();
+        map.insert(
+            "main.go".to_string(),
+            ParsedFile::parse("main.go", "package main\n\nfunc main() {}\n", Go).unwrap(),
+        );
+        let cg = CallGraph::build(&map);
+        assert!(cg.framework_entries.is_empty());
+        assert_eq!(cg.framework_entry_unresolved_handlers, 0);
     }
 }
