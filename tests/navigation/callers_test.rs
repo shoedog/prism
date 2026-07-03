@@ -314,6 +314,63 @@ fn callers_alias_resolves_correct_target_not_same_named_other() {
 }
 
 #[test]
+fn callers_finds_default_import_call_site() {
+    // P4: `import runProcess from './util'` — the imported local name
+    // ("runProcess") differs from BOTH the call-site bucket key it's stored
+    // under in cg.callers (also "runProcess") AND the target's real declared
+    // name ("process"), via the sentinel member="default" rather than a
+    // literal rename. `resolve_call_site_full` resolves this correctly
+    // in-process (see js_export_test.rs), but the nav-layer resolved-edge
+    // index (`build_resolved_call_edges` -> `scoped_caller_site_match_count`)
+    // used to assume `binding.member` always equals the target's real name —
+    // true for the old flat exported-name set, false for a default import —
+    // so it silently dropped this site's multiplicity to 0 and `callers`
+    // returned empty even though R4c resolved it Exact.
+    let s = session(&[
+        (
+            "util.ts",
+            "export default function process(): number {\n    return 1;\n}\n",
+        ),
+        (
+            "app.ts",
+            "import runProcess from './util';\n\nfunction run(): number {\n    return runProcess();\n}\n",
+        ),
+    ]);
+    let ev = queries::callers(&s, Some("process"), Some("util.ts"), None, 1).unwrap();
+    assert!(
+        ev.items.iter().any(|i| matches!(&i.symbol,
+            Some(SymbolRef::Function { name, file, .. }) if name == "run" && file == "app.ts")),
+        "callers of default-exported process must include the default-import `runProcess()` call in app.ts::run; got {:?}",
+        ev.items
+    );
+}
+
+#[test]
+fn callers_finds_renamed_named_export_call_site() {
+    // P4: `export { b as c };` (named-list rename) then `import { c } from
+    // './util'` — the imported member ("c") differs from the real declared
+    // name ("b"), same class of bug as the default-import case above but via
+    // an explicit rename instead of the "default" sentinel.
+    let s = session(&[
+        (
+            "util.ts",
+            "function a(): number {\n    return 1;\n}\nfunction b(): number {\n    return 2;\n}\nexport { a, b as c };\n",
+        ),
+        (
+            "app.ts",
+            "import { c } from './util';\n\nfunction run(): number {\n    return c();\n}\n",
+        ),
+    ]);
+    let ev = queries::callers(&s, Some("b"), Some("util.ts"), None, 1).unwrap();
+    assert!(
+        ev.items.iter().any(|i| matches!(&i.symbol,
+            Some(SymbolRef::Function { name, file, .. }) if name == "run" && file == "app.ts")),
+        "callers of b (exported as c) must include the `c()` call in app.ts::run; got {:?}",
+        ev.items
+    );
+}
+
+#[test]
 fn callers_alias_arm_excludes_qualified_method_sites() {
     // `poll` is a method on two classes (multi-owner) AND the alias target name.
     // The qualified `x.poll()` site lives under callers key "poll"; the alias arm
