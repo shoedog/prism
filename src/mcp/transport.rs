@@ -313,9 +313,24 @@ fn initialize_response(obj: &Map<String, Value>, id: Value) -> Dispatch {
             "serverInfo": {
                 "name": "prism-mcp",
                 "version": env!("CARGO_PKG_VERSION")
-            }
+            },
+            "instructions": server_instructions()
         }),
     ))
+}
+
+/// S1: the snapshot + view notices, stated ONCE here (the protocol-legal home for state-once
+/// server text) instead of being repeated in full on every nav tool description. Each tool
+/// description keeps only a short hedge (`crate::mcp::tools::SNAPSHOT_VIEW_HEDGE` and
+/// `tools_reasoning`'s equivalent) pointing back here, since client ingestion of `instructions`
+/// is unverified (codex MAJOR) — the hedge preserves discoverability even for a client that never
+/// surfaces it.
+fn server_instructions() -> String {
+    format!(
+        "{} {}",
+        crate::mcp::tools::SNAPSHOT_NOTICE,
+        crate::mcp::tools::VIEW_NOTICE
+    )
 }
 
 fn list_tools(registry: &ToolRegistry) -> Value {

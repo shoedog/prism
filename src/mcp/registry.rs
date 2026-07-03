@@ -149,9 +149,18 @@ mod tests {
                 "tool {} description must front-load when/when-NOT + a worked Example: {desc}",
                 d.name
             );
+            // S1: the full snapshot/view notice text moved to `initialize`'s `instructions`
+            // (stated once for the whole session); each tool description keeps only a short
+            // hedge pointing there, so a client that never surfaces `instructions` still learns
+            // the notices exist without re-paying ~592 B/tool on every `tools/list`.
             assert!(
-                desc.contains("repository snapshot loaded when prism-mcp started"),
-                "tool {} description must disclose MCP snapshot semantics: {desc}",
+                desc.contains("see server instructions"),
+                "tool {} description must hedge to server instructions instead of repeating the full notice: {desc}",
+                d.name
+            );
+            assert!(
+                !desc.contains("repository snapshot loaded when prism-mcp started"),
+                "tool {} description must NOT duplicate the full snapshot notice text (moved to initialize instructions): {desc}",
                 d.name
             );
         }

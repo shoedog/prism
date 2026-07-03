@@ -111,6 +111,29 @@ const INIT: &str = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"p
 const INITED: &str = r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#;
 
 #[test]
+fn initialize_result_carries_snapshot_and_view_instructions_once() {
+    // S1: the notices formerly appended to every nav tool description now live ONCE in
+    // `initialize`'s `instructions` (the protocol-legal home for state-once text).
+    let o = run(vec![INIT]);
+    let instructions = o[0]["result"]["instructions"]
+        .as_str()
+        .expect("initialize result must carry an instructions string");
+    assert!(
+        instructions.contains("repository snapshot loaded when prism-mcp started"),
+        "instructions must state the snapshot notice: {instructions}"
+    );
+    assert!(
+        instructions.contains("Optional LLM views are opt-in"),
+        "instructions must state the view notice: {instructions}"
+    );
+    // Stated ONCE, not once per tool.
+    assert_eq!(
+        instructions.matches("repository snapshot loaded").count(),
+        1
+    );
+}
+
+#[test]
 fn lifecycle_list_and_call() {
     let o = run(vec![
         INIT,

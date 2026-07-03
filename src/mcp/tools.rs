@@ -10,8 +10,17 @@ use crate::navigation::types::Evidence;
 use crate::navigation::{module_graph, queries};
 use serde_json::json;
 
-const SNAPSHOT_NOTICE: &str = "Results reflect the repository snapshot loaded when prism-mcp started or last refreshed. If indexed files change during the server session, Prism marks tool results with stale-index metadata and warnings; restart/re-add the MCP server or use CLI nav for a fresh snapshot.";
-const VIEW_NOTICE: &str = "Optional LLM views are opt-in: set format to agent_markdown or agent_json. Agent views change only content text and view metadata; structuredContent remains canonical Evidence. agent_json includes normalized locations, canonical symbol_ref handles, deterministic reasons, group summaries, and parser-valid next_queries.";
+// S1: these two notices are stated ONCE, in `initialize`'s `instructions` field
+// (`transport::initialize_response`) — the protocol-legal home for state-once server text —
+// instead of being appended in full to every nav tool description on every `tools/list` (they
+// were ~592 B/tool of pure repetition across 6 tools). Kept `pub(crate)` so `transport.rs` can
+// compose them into `instructions` without duplicating the wording. Each tool description below
+// keeps only `SNAPSHOT_VIEW_HEDGE`, a ~50 B pointer, since client ingestion of `instructions` is
+// unverified (codex MAJOR) — the hedge preserves discoverability even for a client that never
+// surfaces it.
+pub(crate) const SNAPSHOT_NOTICE: &str = "Results reflect the repository snapshot loaded when prism-mcp started or last refreshed. If indexed files change during the server session, Prism marks tool results with stale-index metadata and warnings; restart/re-add the MCP server or use CLI nav for a fresh snapshot.";
+pub(crate) const VIEW_NOTICE: &str = "Optional LLM views are opt-in: set format to agent_markdown or agent_json. Agent views change only content text and view metadata; structuredContent remains canonical Evidence. agent_json includes normalized locations, canonical symbol_ref handles, deterministic reasons, group summaries, and parser-valid next_queries.";
+const SNAPSHOT_VIEW_HEDGE: &str = "Snapshot/view details: see server instructions.";
 
 pub fn register_all(r: &mut ToolRegistry) {
     r.register(tool_with_handler(
@@ -67,7 +76,7 @@ fn tool_with_handler(
 ) -> ToolDescriptor {
     ToolDescriptor {
         name,
-        description: format!("{description} {SNAPSHOT_NOTICE} {VIEW_NOTICE}"),
+        description: format!("{description} {SNAPSHOT_VIEW_HEDGE}"),
         input_schema,
         annotations: ToolAnnotations::read_only(title),
         runtime_behavior: None,
@@ -1160,10 +1169,14 @@ mod tests {
             schema["properties"]["profile"]["enum"],
             json!(["impact", "edit_context", "audit"])
         );
+        // S1: the agent_json shape detail (mentioning symbol_ref) moved from the per-tool
+        // description into `initialize`'s `instructions` (see `VIEW_NOTICE`); the description
+        // itself now only hedges to it.
+        assert!(VIEW_NOTICE.contains("symbol_ref"));
         assert!(registry
             .get("nav_callers")
             .unwrap()
             .description
-            .contains("symbol_ref"));
+            .contains("see server instructions"));
     }
 }

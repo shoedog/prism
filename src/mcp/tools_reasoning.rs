@@ -6,7 +6,10 @@ use crate::navigation::types::{Evidence, Warning, WarningKind};
 use crate::reasoning::seeds::SeedSpec;
 use serde_json::json;
 
-const SNAPSHOT_NOTICE: &str = "Results reflect the repository snapshot loaded when prism-mcp started or last refreshed. If indexed files change during the server session, Prism marks tool results with stale-index metadata and warnings; restart/re-add the MCP server or use CLI nav for a fresh snapshot.";
+// S1: see `crate::mcp::tools`'s notice consts — the full snapshot notice now lives once in
+// `initialize`'s `instructions`; `taint_reaches` (no `format` argument, so the view notice never
+// applied here) keeps only a short hedge.
+const SNAPSHOT_HEDGE: &str = "Snapshot details: see server instructions.";
 
 pub fn register_all(r: &mut ToolRegistry) {
     r.register(tool_with_handler(
@@ -27,7 +30,7 @@ fn tool_with_handler(
 ) -> ToolDescriptor {
     ToolDescriptor {
         name,
-        description: format!("{description} {SNAPSHOT_NOTICE}"),
+        description: format!("{description} {SNAPSHOT_HEDGE}"),
         input_schema,
         annotations: ToolAnnotations::read_only(title),
         runtime_behavior: None,
@@ -180,6 +183,23 @@ fn taint_reaches_schema() -> serde_json::Value {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn taint_reaches_description_hedges_to_instructions_not_full_notice() {
+        // S1: the full snapshot notice moved to `initialize`'s `instructions`; the tool
+        // description keeps only a short hedge (taint_reaches has no agent-view notice, unlike
+        // the nav tools, since it never accepts a `format` argument).
+        let registry = ToolRegistry::all_v1();
+        let desc = &registry.get("taint_reaches").unwrap().description;
+        assert!(
+            desc.contains("see server instructions"),
+            "taint_reaches description must hedge to server instructions: {desc}"
+        );
+        assert!(
+            !desc.contains("repository snapshot loaded when prism-mcp started"),
+            "taint_reaches description must NOT duplicate the full snapshot notice text: {desc}"
+        );
+    }
 
     #[test]
     fn taint_reaches_witness_ok() {
