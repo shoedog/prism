@@ -1,5 +1,6 @@
 use super::*;
 use crate::languages::Language;
+use std::collections::BTreeSet;
 
 /// Parse `src` (must contain exactly one top-level `macro_invocation` in
 /// a function body) and return the parsed file plus that node.
@@ -21,13 +22,20 @@ fn find_macro_invocation<'a>(node: Node<'a>) -> Option<Node<'a>> {
 }
 
 fn extract(src: &str) -> (ParsedFile, Vec<(String, Option<String>)>, MacroArgFacts) {
+    extract_with_shadow(src, &BTreeSet::new())
+}
+
+fn extract_with_shadow(
+    src: &str,
+    shadow: &BTreeSet<String>,
+) -> (ParsedFile, Vec<(String, Option<String>)>, MacroArgFacts) {
     let pf = parse_one_macro(src);
     // Leak-free indirection: re-run extract_calls with a fresh borrow
     // scope so callers can inspect owned (name, qualifier) pairs without
     // fighting the `CallSiteMeta<'a>` lifetime.
     let root = pf.tree.root_node();
     let macro_node = find_macro_invocation(root).expect("must contain a macro_invocation");
-    let (sites, facts) = extract_calls(&pf, macro_node);
+    let (sites, facts) = extract_calls(&pf, macro_node, shadow);
     let simplified: Vec<(String, Option<String>)> = sites
         .iter()
         .map(|s| (s.callee_name.clone(), s.qualifier.clone()))
@@ -45,13 +53,93 @@ fn last_segment_strips_leading_path() {
 
 #[test]
 fn allowlist_matches_on_last_segment() {
-    assert!(is_transparent_arg_macro("assert"));
-    assert!(is_transparent_arg_macro("std::assert"));
-    assert!(!is_transparent_arg_macro("matches"));
-    assert!(!is_transparent_arg_macro("stringify"));
-    assert!(!is_transparent_arg_macro("quote"));
-    assert!(!is_transparent_arg_macro("lazy_static"));
-    assert!(!is_transparent_arg_macro("select")); // tokio::select!
+    let shadow = BTreeSet::new();
+    assert!(is_transparent_arg_macro("assert", &shadow));
+    assert!(is_transparent_arg_macro("std::assert", &shadow));
+    assert!(!is_transparent_arg_macro("matches", &shadow));
+    assert!(!is_transparent_arg_macro("stringify", &shadow));
+    assert!(!is_transparent_arg_macro("quote", &shadow));
+    assert!(!is_transparent_arg_macro("lazy_static", &shadow));
+    assert!(!is_transparent_arg_macro("select", &shadow)); // tokio::select!
+}
+
+// ---- F1 BLOCKER: definition-aware transparency (shadow set + qualifier) ----
+
+#[test]
+fn shadow_set_blocks_transparency_for_shadowed_name() {
+    // A user `macro_rules! assert` shares its name with the real std macro
+    // but is NOT known to be argument-transparent -- the shadow set must
+    // withhold transparency even though "assert" is in the allowlist.
+    let shadow: BTreeSet<String> = ["assert".to_string()].into_iter().collect();
+    assert!(!is_transparent_arg_macro("assert", &shadow));
+}
+
+#[test]
+fn shadow_set_does_not_block_unrelated_names() {
+    let shadow: BTreeSet<String> = ["assert".to_string()].into_iter().collect();
+    assert!(is_transparent_arg_macro("vec", &shadow));
+}
+
+#[test]
+fn qualified_by_std_core_alloc_is_still_transparent() {
+    let shadow = BTreeSet::new();
+    assert!(is_transparent_arg_macro("std::assert", &shadow));
+    assert!(is_transparent_arg_macro("core::assert", &shadow));
+    assert!(is_transparent_arg_macro("alloc::vec", &shadow));
+}
+
+#[test]
+fn qualified_by_arbitrary_path_is_not_transparent() {
+    // `my::assert!`/`crate::assert!` are a DIFFERENT macro than the real
+    // `std::assert!` (name resolution is out of scope here) -- any
+    // qualifier other than std/core/alloc is NOT transparent, regardless of
+    // the last segment or the shadow set.
+    let shadow = BTreeSet::new();
+    assert!(!is_transparent_arg_macro("my::assert", &shadow));
+    assert!(!is_transparent_arg_macro("crate::assert", &shadow));
+}
+
+#[test]
+fn user_defined_vec_macro_in_another_file_mints_nothing() {
+    // The shadow set is repo-wide: a `macro_rules! vec` defined in ANY
+    // indexed file must withhold transparency for `vec![...]` anywhere,
+    // even in a different file. Simulated here by constructing the shadow
+    // set directly (the cross-file plumbing is exercised at the
+    // `collect_macro_shadow_set`/populator level in separate tests).
+    let shadow: BTreeSet<String> = ["vec".to_string()].into_iter().collect();
+    let (_pf, sites, facts) = extract_with_shadow("fn f() { vec![check(1)]; }", &shadow);
+    assert!(sites.is_empty());
+    assert_eq!(facts.skipped_macros, 1);
+}
+
+#[test]
+fn qualified_my_assert_mints_nothing() {
+    let (_pf, sites, _facts) = extract("fn f() { my::assert!(check(x)); }");
+    assert!(sites.is_empty());
+}
+
+#[test]
+fn qualified_std_assert_still_mints() {
+    let (_pf, sites, facts) = extract("fn f() { std::assert!(check(x)); }");
+    assert_eq!(sites, vec![("check".to_string(), None)]);
+    assert_eq!(facts.calls_recorded, 1);
+}
+
+#[test]
+fn collect_macro_shadow_set_finds_macro_rules_across_files() {
+    use std::collections::BTreeMap;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "a.rs".to_string(),
+        ParsedFile::parse("a.rs", "fn f() {}\n", Language::Rust).unwrap(),
+    );
+    files.insert(
+        "b.rs".to_string(),
+        ParsedFile::parse("b.rs", "macro_rules! vec { () => {}; }\n", Language::Rust).unwrap(),
+    );
+    let shadow = collect_macro_shadow_set(&files);
+    assert!(shadow.contains("vec"));
+    assert_eq!(shadow.len(), 1);
 }
 
 // ---- punctuation-atom splitter (pure function; spec-review MAJOR) ----
@@ -260,7 +348,7 @@ fn minted_sites_carry_call_kind_and_macro_arg_origin() {
     let pf = parse_one_macro("fn f() { assert!(check(x)); }");
     let root = pf.tree.root_node();
     let macro_node = find_macro_invocation(root).unwrap();
-    let (sites, _facts) = extract_calls(&pf, macro_node);
+    let (sites, _facts) = extract_calls(&pf, macro_node, &BTreeSet::new());
     assert_eq!(sites.len(), 1);
     assert_eq!(sites[0].kind_override, Some(CallKind::Call));
     assert_eq!(sites[0].origin_override, Some(CallSiteOrigin::MacroArg));

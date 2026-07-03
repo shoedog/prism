@@ -47,8 +47,11 @@ fn ty(
             .is_some_and(|name| parsed.node_text(&name) == function)
     })?;
     let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
-    let (metas, _facts) =
-        parsed.function_calls_with_qualifier_and_spans_on_lines(&func_node, &all_lines);
+    let (metas, _facts) = parsed.function_calls_with_qualifier_and_spans_on_lines(
+        &func_node,
+        &all_lines,
+        &BTreeSet::new(),
+    );
     let meta = metas.into_iter().find(|meta| meta.callee_name == callee)?;
     super::RustReceiverTyper::new(cg).type_of_receiver(super::ReceiverTypeCtx {
         parsed,
@@ -142,8 +145,11 @@ fn method_call_parts_decomposes_nested_arg_chain_from_ast() {
         })
         .expect("drive function");
     let all_lines: BTreeSet<usize> = (1..=3).collect();
-    let (metas, _facts) =
-        parsed.function_calls_with_qualifier_and_spans_on_lines(&func_node, &all_lines);
+    let (metas, _facts) = parsed.function_calls_with_qualifier_and_spans_on_lines(
+        &func_node,
+        &all_lines,
+        &BTreeSet::new(),
+    );
     let meta = metas
         .into_iter()
         .find(|meta| meta.callee_name == "d")

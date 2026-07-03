@@ -137,11 +137,23 @@ fn walk_expr(b: &mut Builder<'_>, path: &str, nid: &NodeId, scope: ScopeId, ctx:
             // falls inside [inv_lo, scope_end)). Non-allowlisted macros keep
             // the poison exactly as before -- they really can emit an
             // unknowable name.
-            let is_transparent = with_node(b, path, nid, |pf, n| {
+            //
+            // F1 BLOCKER: transparency is definition-aware. A user
+            // `macro_rules! assert`/`vec` (itself recorded in NS_MACRO by
+            // `walk_macro_def`, see `walk/types.rs`) is NOT known to be
+            // argument-transparent, so `Builder::macro_shadow` (the
+            // repo-wide shadow set) must withhold the exemption for its
+            // name -- shared decision logic with the extractor via
+            // `is_transparent_arg_macro`, never a second copy.
+            let macro_name = with_node(b, path, nid, |pf, n| {
                 n.child_by_field_name("macro")
-                    .map(|m| crate::rust_macro_args::is_transparent_arg_macro(pf.node_text(&m)))
-                    .unwrap_or(false)
+                    .map(|m| pf.node_text(&m).to_string())
             });
+            let is_transparent = macro_name
+                .map(|name| {
+                    crate::rust_macro_args::is_transparent_arg_macro(&name, b.macro_shadow())
+                })
+                .unwrap_or(false);
             if !is_transparent {
                 walk_macro_invocation(b, path, nid, scope, ctx);
             }

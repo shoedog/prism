@@ -55,6 +55,13 @@ pub(crate) struct Builder<'f> {
     /// depended-on in-repo library `Root`). Built at `finish()` from
     /// `config.member_in_repo_deps` + `lib_root_by_member_dir`; moved onto the graph.
     crate_deps_by_root: BTreeMap<ScopeId, BTreeMap<String, ScopeId>>,
+    /// Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once from
+    /// `files` at construction time (the same whole-program `files` the
+    /// extractor's `CallGraph::build_*` entry points independently derive
+    /// their own copy from via `rust_macro_args::collect_macro_shadow_set`).
+    /// Consumed by `walk/locals.rs`'s wildcard-poison exemption via
+    /// [`Builder::macro_shadow`].
+    macro_shadow: BTreeSet<String>,
 }
 
 impl<'f> Builder<'f> {
@@ -70,8 +77,10 @@ impl<'f> Builder<'f> {
             .collect();
         let mut graph = ScopeGraph::new();
         graph.file_paths = file_paths;
+        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
         Builder {
             graph,
+            macro_shadow,
             files,
             config,
             only_files,
@@ -258,6 +267,12 @@ impl<'f> Builder<'f> {
 
     pub(crate) fn files(&self) -> &'f BTreeMap<String, ParsedFile> {
         self.files
+    }
+
+    /// Repo-wide macro-name shadow set (P8 F1 BLOCKER) — see the field doc
+    /// on `Builder::macro_shadow`.
+    pub(crate) fn macro_shadow(&self) -> &BTreeSet<String> {
+        &self.macro_shadow
     }
 
     pub(crate) fn config(&self) -> &'f RustCrateConfig {

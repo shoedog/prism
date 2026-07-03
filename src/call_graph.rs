@@ -591,6 +591,10 @@ impl CallGraph {
         let mut method_class_span_ambiguous: BTreeSet<FunctionId> = BTreeSet::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
+        // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once
+        // from the full `files` map, mirroring the existing per-build
+        // whole-program-fact pattern (e.g. `extract_js_ts_resolution_facts`).
+        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
 
         // Phase 1: Collect all function definitions
         for (file_path, parsed) in files {
@@ -666,7 +670,11 @@ impl CallGraph {
                 };
 
                 let all_lines: BTreeSet<usize> = (start..=end).collect();
-                let call_sites = parsed.function_calls_with_spans_on_lines(&func_node, &all_lines);
+                let call_sites = parsed.function_calls_with_spans_on_lines(
+                    &func_node,
+                    &all_lines,
+                    &macro_shadow,
+                );
 
                 for meta in call_sites {
                     let callee_name = meta.callee_name;
@@ -815,6 +823,12 @@ impl CallGraph {
         let mut method_class_span_ambiguous: BTreeSet<FunctionId> = BTreeSet::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
+        // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once
+        // from the full `files` map, mirroring the existing per-build
+        // whole-program-fact pattern (e.g. `extract_js_ts_resolution_facts`
+        // below). `BTreeSet<String>` is `Sync`, so it can be captured by
+        // reference into the `par_iter` closure below.
+        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
 
         // Collect per-file import maps for import-aware call resolution.
         let mut imports: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
@@ -963,7 +977,11 @@ impl CallGraph {
 
                     let all_lines: BTreeSet<usize> = (start..=end).collect();
                     let (call_sites, facts) = parsed
-                        .function_calls_with_qualifier_and_spans_on_lines(&func_node, &all_lines);
+                        .function_calls_with_qualifier_and_spans_on_lines(
+                            &func_node,
+                            &all_lines,
+                            &macro_shadow,
+                        );
                     file_macro_arg_facts.calls_recorded += facts.calls_recorded;
                     file_macro_arg_facts.skipped_macros += facts.skipped_macros;
                     file_macro_arg_facts.ctor_skips += facts.ctor_skips;
@@ -2284,11 +2302,16 @@ impl CallGraph {
         use rayon::prelude::*;
 
         let typer = crate::resolution_receiver::RustReceiverTyper::new(self);
+        // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once,
+        // shared (by reference) across every parallel per-caller task below.
+        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
         let ordered: Vec<(&FunctionId, &BTreeSet<CallSite>)> = self.calls.iter().collect();
         ordered
             .par_iter()
             .copied() // (&FunctionId, &BTreeSet) is Copy -> avoid &&-destructuring
-            .map(|(caller, sites)| Self::receiver_updates_for_caller(caller, sites, &typer, files))
+            .map(|(caller, sites)| {
+                Self::receiver_updates_for_caller(caller, sites, &typer, files, &macro_shadow)
+            })
             .collect::<Vec<Vec<_>>>()
             .into_iter()
             .flatten()
@@ -2303,6 +2326,7 @@ impl CallGraph {
         sites: &BTreeSet<CallSite>,
         typer: &crate::resolution_receiver::RustReceiverTyper<'_>,
         files: &BTreeMap<String, ParsedFile>,
+        macro_shadow: &BTreeSet<String>,
     ) -> Vec<(
         FunctionId,
         CallSite,
@@ -2319,8 +2343,11 @@ impl CallGraph {
             return out;
         };
         let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
-        let (ast_calls, _facts) =
-            parsed.function_calls_with_qualifier_and_spans_on_lines(&fn_node, &all_lines);
+        let (ast_calls, _facts) = parsed.function_calls_with_qualifier_and_spans_on_lines(
+            &fn_node,
+            &all_lines,
+            macro_shadow,
+        );
         for site in sites {
             let Some(meta) = ast_calls.iter().find(|meta| {
                 meta.callee_name == site.callee_name
@@ -2358,6 +2385,7 @@ impl CallGraph {
     )> {
         let mut updates = Vec::new();
         let typer = crate::resolution_receiver::RustReceiverTyper::new(self);
+        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
         for (caller, sites) in &self.calls {
             let Some(parsed) = files.get(&caller.file) else {
                 continue;
@@ -2369,8 +2397,11 @@ impl CallGraph {
                 continue;
             };
             let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
-            let (ast_calls, _facts) =
-                parsed.function_calls_with_qualifier_and_spans_on_lines(&fn_node, &all_lines);
+            let (ast_calls, _facts) = parsed.function_calls_with_qualifier_and_spans_on_lines(
+                &fn_node,
+                &all_lines,
+                &macro_shadow,
+            );
             for site in sites {
                 let Some(meta) = ast_calls.iter().find(|meta| {
                     meta.callee_name == site.callee_name
@@ -3033,6 +3064,10 @@ impl CallGraph {
         let mut method_class_span_ambiguous: BTreeSet<FunctionId> = BTreeSet::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
+        // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — deliberately
+        // scanned over the FULL `files` map (not `only_files`): a
+        // `macro_rules!` def outside the changed subset must still shadow.
+        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
 
         for (file_path, parsed) in files {
             if !only_files.contains(file_path) {
@@ -3126,8 +3161,11 @@ impl CallGraph {
                     end_line: end,
                 };
                 let all_lines: BTreeSet<usize> = (start..=end).collect();
-                let (call_sites, facts) =
-                    parsed.function_calls_with_qualifier_and_spans_on_lines(&func_node, &all_lines);
+                let (call_sites, facts) = parsed.function_calls_with_qualifier_and_spans_on_lines(
+                    &func_node,
+                    &all_lines,
+                    &macro_shadow,
+                );
                 file_macro_arg_facts.calls_recorded += facts.calls_recorded;
                 file_macro_arg_facts.skipped_macros += facts.skipped_macros;
                 file_macro_arg_facts.ctor_skips += facts.ctor_skips;

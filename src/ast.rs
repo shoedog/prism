@@ -5363,11 +5363,14 @@ impl ParsedFile {
     /// arguments (`assert!(check(x))`) — see `crate::rust_macro_args`. Those
     /// entries carry `kind_override`/`origin_override` (`Call`/`MacroArg`);
     /// every grammar-parsed entry leaves both `None`, unchanged from before
-    /// this struct existed.
+    /// this struct existed. `macro_shadow` is the repo-wide macro-name shadow
+    /// set (`crate::rust_macro_args::collect_macro_shadow_set`) — pass
+    /// `&BTreeSet::new()` for non-Rust callers or callers with no shadow facts.
     pub fn function_calls_with_spans_on_lines<'a>(
         &'a self,
         func_node: &Node<'_>,
         lines: &BTreeSet<usize>,
+        macro_shadow: &BTreeSet<String>,
     ) -> Vec<CallSiteMeta<'a>> {
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
@@ -5393,7 +5396,7 @@ impl ParsedFile {
                         && capture.node.kind() == "macro_invocation"
                     {
                         let (sites, _facts) =
-                            crate::rust_macro_args::extract_calls(self, capture.node);
+                            crate::rust_macro_args::extract_calls(self, capture.node, macro_shadow);
                         calls.extend(sites);
                         continue;
                     }
@@ -5478,11 +5481,15 @@ impl ParsedFile {
     /// arguments (`assert!(check(x))` / `assert!(v.contains(x))`) — see
     /// `crate::rust_macro_args`. The returned `MacroArgFacts` aggregates
     /// telemetry for every macro invocation encountered on `lines` in this
-    /// one call (the caller sums these per file).
+    /// one call (the caller sums these per file). `macro_shadow` is the
+    /// repo-wide macro-name shadow set
+    /// (`crate::rust_macro_args::collect_macro_shadow_set`) — pass
+    /// `&BTreeSet::new()` for non-Rust callers or callers with no shadow facts.
     pub fn function_calls_with_qualifier_and_spans_on_lines<'a>(
         &'a self,
         func_node: &Node<'_>,
         lines: &BTreeSet<usize>,
+        macro_shadow: &BTreeSet<String>,
     ) -> (Vec<CallSiteMeta<'a>>, crate::rust_macro_args::MacroArgFacts) {
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
@@ -5510,7 +5517,7 @@ impl ParsedFile {
                         && capture.node.kind() == "macro_invocation"
                     {
                         let (sites, site_facts) =
-                            crate::rust_macro_args::extract_calls(self, capture.node);
+                            crate::rust_macro_args::extract_calls(self, capture.node, macro_shadow);
                         calls.extend(sites);
                         facts.calls_recorded += site_facts.calls_recorded;
                         facts.skipped_macros += site_facts.skipped_macros;

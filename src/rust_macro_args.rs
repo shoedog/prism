@@ -24,6 +24,8 @@
 //! We extract ordinary value calls appearing in macro ARGUMENTS only;
 //! derive/proc-macro-generated bodies stay out (adjudicated `oracle_artifact`).
 
+use std::collections::{BTreeMap, BTreeSet};
+
 use crate::ast::{CallSiteMeta, ParsedFile};
 use crate::call_graph::{CallKind, CallSiteOrigin};
 use tree_sitter::Node;
@@ -75,14 +77,84 @@ const KEYWORD_GUARD: &[&str] = &[
     "self", "super", "crate", "Self",
 ];
 
+/// Qualifiers under which a transparent macro name may be path-qualified and
+/// still count as the REAL std/core/alloc macro (`std::assert!`). Any other
+/// qualifier (`my::assert!`, `crate::assert!`) is a different macro entirely
+/// (name resolution — deliberately not attempted here) and is NOT transparent
+/// (F1 codex BLOCKER).
+const TRANSPARENT_QUALIFIERS: &[&str] = &["std", "core", "alloc"];
+
 /// Returns the last `::`-separated path segment (`std::assert` -> `assert`).
 pub fn last_path_segment(name: &str) -> &str {
     name.rsplit("::").next().unwrap_or(name)
 }
 
-/// Is `macro_name`'s last path segment in the transparent allowlist?
-pub fn is_transparent_arg_macro(macro_name: &str) -> bool {
-    TRANSPARENT_ARG_MACROS.contains(&last_path_segment(macro_name))
+/// Is `macro_name` transparent for macro-argument call extraction AND for the
+/// scope-graph populator's wildcard-poison exemption? THE single shared
+/// decision function for both consumers (F1 BLOCKER: two independently
+/// maintained copies could drift).
+///
+/// ALL of the following must hold:
+/// 1. the last path segment is in [`TRANSPARENT_ARG_MACROS`];
+/// 2. that last segment is NOT in `shadow` — the repo-wide set of names
+///    introduced by a `macro_rules!` definition anywhere in the indexed files
+///    ([`collect_macro_shadow_set`]). A user `macro_rules! assert`/`vec`
+///    shares its name with a real std macro but is not known to be
+///    argument-transparent, so its name is withheld from transparency
+///    EVERYWHERE in the repo — fail-closed over-suppression, adjudicated
+///    acceptable (custom std-named macros are rare);
+/// 3. the macro path is either unqualified (`assert!`) or qualified by
+///    EXACTLY `std`/`core`/`alloc` (`std::assert!`) — any other qualifier
+///    (`my::assert!`, `crate::assert!`) is a different macro and is not
+///    transparent, regardless of its last segment or the shadow set.
+pub fn is_transparent_arg_macro(macro_name: &str, shadow: &BTreeSet<String>) -> bool {
+    let last = last_path_segment(macro_name);
+    if !TRANSPARENT_ARG_MACROS.contains(&last) {
+        return false;
+    }
+    if shadow.contains(last) {
+        return false;
+    }
+    match macro_name.rsplit_once("::") {
+        None => true,
+        Some((qualifier, _)) => TRANSPARENT_QUALIFIERS.contains(&qualifier),
+    }
+}
+
+/// Collect the repo-wide set of names introduced by `macro_rules! NAME { .. }`
+/// across every Rust file in `files` — the "shadow set" consumed by
+/// [`is_transparent_arg_macro`] (P8 F1 BLOCKER).
+///
+/// Scanned over ALL indexed files regardless of module reachability or
+/// `only_files` scoping — a `macro_rules!` definition need not be
+/// `mod`-visible from a given call site for this repo-wide gate to apply
+/// (fail-closed over-suppression is the adjudicated posture, not precision
+/// tuning). Callers compute this once per build from the same
+/// `files: &BTreeMap<String, ParsedFile>` already in scope at each of this
+/// extractor's/the populator's whole-program entry points (mirrors the
+/// existing per-build whole-program-fact pattern, e.g.
+/// `CallGraph::extract_js_ts_resolution_facts`).
+pub fn collect_macro_shadow_set(files: &BTreeMap<String, ParsedFile>) -> BTreeSet<String> {
+    let mut shadow = BTreeSet::new();
+    for parsed in files.values() {
+        if parsed.language != crate::languages::Language::Rust {
+            continue;
+        }
+        collect_macro_defs(parsed, parsed.tree.root_node(), &mut shadow);
+    }
+    shadow
+}
+
+fn collect_macro_defs(parsed: &ParsedFile, node: Node, out: &mut BTreeSet<String>) {
+    if node.kind() == "macro_definition" {
+        if let Some(name_node) = node.child_by_field_name("name") {
+            out.insert(parsed.node_text(&name_node).to_string());
+        }
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_macro_defs(parsed, child, out);
+    }
 }
 
 /// Per-file macro-argument extraction telemetry (P8 call-stats).
@@ -185,14 +257,16 @@ fn flatten<'a>(parsed: &'a ParsedFile, tt: Node<'a>) -> Vec<Tok<'a>> {
 
 /// Extract macro-argument calls from a Rust `macro_invocation` node.
 ///
-/// Returns minted call sites (empty if the macro's last path segment isn't
-/// in [`TRANSPARENT_ARG_MACROS`]) plus per-invocation telemetry. `macro_node`
+/// Returns minted call sites (empty if `macro_name` isn't transparent per
+/// [`is_transparent_arg_macro`]) plus per-invocation telemetry. `macro_node`
 /// must be a `macro_invocation` node (the Rust `Calls` tree-sitter query
 /// already matches `[(call_expression) (macro_invocation)] @call`, so the
-/// caller has one in hand for every macro call in scope).
+/// caller has one in hand for every macro call in scope). `shadow` is the
+/// repo-wide macro-name shadow set from [`collect_macro_shadow_set`].
 pub fn extract_calls<'a>(
     parsed: &'a ParsedFile,
     macro_node: Node<'a>,
+    shadow: &BTreeSet<String>,
 ) -> (Vec<CallSiteMeta<'a>>, MacroArgFacts) {
     let mut out = Vec::new();
     let mut facts = MacroArgFacts::default();
@@ -203,8 +277,8 @@ pub fn extract_calls<'a>(
     let Some(args) = find_token_tree_child(macro_node) else {
         return (out, facts);
     };
-    if is_transparent_arg_macro(macro_name) {
-        scan_token_tree(parsed, args, &mut out, &mut facts);
+    if is_transparent_arg_macro(macro_name, shadow) {
+        scan_token_tree(parsed, args, shadow, &mut out, &mut facts);
     } else if contains_call_shape(parsed, args) {
         facts.skipped_macros += 1;
     }
@@ -220,7 +294,9 @@ fn find_token_tree_child<'a>(node: Node<'a>) -> Option<Node<'a>> {
 }
 
 /// Scan one `token_tree`'s direct children for call-shaped token patterns,
-/// minting `CallSiteMeta` entries into `out` and updating `facts`.
+/// minting `CallSiteMeta` entries into `out` and updating `facts`. `shadow`
+/// is the repo-wide macro-name shadow set (threaded through every recursive
+/// call and every nested-macro transparency check).
 ///
 /// Recurses into every nested `token_tree` (call args, method args, bare
 /// grouping parens, struct-literal braces, array brackets, ...) so a call
@@ -232,6 +308,7 @@ fn find_token_tree_child<'a>(node: Node<'a>) -> Option<Node<'a>> {
 fn scan_token_tree<'a>(
     parsed: &'a ParsedFile,
     tt: Node<'a>,
+    shadow: &BTreeSet<String>,
     out: &mut Vec<CallSiteMeta<'a>>,
     facts: &mut MacroArgFacts,
 ) {
@@ -258,7 +335,7 @@ fn scan_token_tree<'a>(
                 if let Some(Tok::TokenTree(args)) = seq.get(j) {
                     if parsed.node_text(args).starts_with('(') {
                         handle_call_candidate(parsed, &chain, *args, out, facts);
-                        scan_token_tree(parsed, *args, out, facts);
+                        scan_token_tree(parsed, *args, shadow, out, facts);
                         i = j + 1;
                         continue;
                     }
@@ -270,8 +347,8 @@ fn scan_token_tree<'a>(
                         (seq.get(i + 1), seq.get(i + 2))
                     {
                         let macro_name = parsed.node_text(&id);
-                        if is_transparent_arg_macro(macro_name) {
-                            scan_token_tree(parsed, *margs, out, facts);
+                        if is_transparent_arg_macro(macro_name, shadow) {
+                            scan_token_tree(parsed, *margs, shadow, out, facts);
                         } else if contains_call_shape(parsed, *margs) {
                             facts.skipped_macros += 1;
                         }
@@ -291,7 +368,7 @@ fn scan_token_tree<'a>(
                             _ => None,
                         };
                         handle_method_call_candidate(parsed, qualifier, *m, *args, out, facts);
-                        scan_token_tree(parsed, *args, out, facts);
+                        scan_token_tree(parsed, *args, shadow, out, facts);
                         i += 3;
                         continue;
                     }
@@ -303,7 +380,7 @@ fn scan_token_tree<'a>(
                 // braces, bare grouping parens, array brackets, the args of
                 // an uppercase-ctor-guarded/keyword-guarded callee, ...):
                 // still recurse — it may itself contain further calls.
-                scan_token_tree(parsed, tt2, out, facts);
+                scan_token_tree(parsed, tt2, shadow, out, facts);
                 i += 1;
             }
             Tok::Other(_) => {

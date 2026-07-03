@@ -964,6 +964,61 @@ fn test_nonallowlisted_expression_macro_still_poisons() {
     );
 }
 
+/// F1 BLOCKER: a user `macro_rules! assert` shares its name with the real
+/// std `assert!` but is NOT known to be argument-transparent -- the
+/// repo-wide shadow set (`Builder::macro_shadow`) must withhold the
+/// wildcard-poison exemption for it, same-file case.
+#[test]
+fn test_shadowed_std_macro_name_still_poisons_same_file() {
+    let src = concat!(
+        "pub fn f(){}\n",
+        "macro_rules! assert { () => {}; }\n",
+        "fn host(){\n",
+        "    assert!(true);\n",
+        "    f();\n", // AFTER the shadowed macro: poisoned.
+        "}\n",
+    );
+    let fs = files(&[("src/lib.rs", src)]);
+    let g = populate_rust(&fs, &convention(&fs), None);
+
+    let post = byte_of(src, "    f();");
+    let res_post = resolve_bare_at(&g, &fs, 2015, "src/lib.rs", post, "f", NS_VALUE);
+    assert_eq!(
+        res_post.status,
+        ResStatus::Poisoned,
+        "a same-named user macro_rules! must withhold the transparency exemption, got {:?}",
+        res_post.status
+    );
+}
+
+/// F1 BLOCKER, cross-file: `macro_rules! vec` defined in a DIFFERENT file
+/// than its use -- the shadow set is repo-wide (collected across all
+/// indexed files regardless of module reachability), so this must poison
+/// exactly like the same-file case. Mirrors
+/// `test_nonallowlisted_expression_macro_still_poisons`'s shape.
+#[test]
+fn test_shadowed_macro_name_still_poisons_cross_file() {
+    let lib = concat!(
+        "pub fn f(){}\n",
+        "fn host(){\n",
+        "    vec![1];\n",
+        "    f();\n", // AFTER the cross-file-shadowed macro: poisoned.
+        "}\n",
+    );
+    let other = "macro_rules! vec { ($($x:expr),*) => {}; }\n";
+    let fs = files(&[("src/lib.rs", lib), ("src/other.rs", other)]);
+    let g = populate_rust(&fs, &convention(&fs), None);
+
+    let post = byte_of(lib, "    f();");
+    let res_post = resolve_bare_at(&g, &fs, 2015, "src/lib.rs", post, "f", NS_VALUE);
+    assert_eq!(
+        res_post.status,
+        ResStatus::Poisoned,
+        "a macro_rules! def in another file must still shadow repo-wide, got {:?}",
+        res_post.status
+    );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // REAL GLOB EXPANSION
 // ═══════════════════════════════════════════════════════════════════════════
