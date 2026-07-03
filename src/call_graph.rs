@@ -507,6 +507,16 @@ pub struct CallGraph {
     /// comprehension targets, and `with ... as` alias targets (F4).
     #[serde(default)]
     pub property_access_store_skips: usize,
+    /// P8: Rust macro-argument call-extraction telemetry, keyed by file path.
+    /// Unlike the whole-program-derived P5/P7 facts above, this is purely
+    /// per-file/per-function derived (a pure function of that file's own
+    /// AST, no cross-file index needed) — `remove_files` retains by file and
+    /// `merge` extends the map directly (no incremental drift risk), and
+    /// callers sum `.values()` on demand (see `js_ts_exports`/
+    /// `js_export_skipped_exprs` for the same on-demand-sum pattern). Only
+    /// files with at least one non-default fact are present.
+    #[serde(default)]
+    pub macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts>,
 }
 
 impl CallGraph {
@@ -560,6 +570,7 @@ impl CallGraph {
             property_accesses: BTreeSet::new(),
             property_access_fanout_skips: 0,
             property_access_store_skips: 0,
+            macro_arg_facts: BTreeMap::new(),
         }
     }
 
@@ -657,14 +668,24 @@ impl CallGraph {
                 let all_lines: BTreeSet<usize> = (start..=end).collect();
                 let call_sites = parsed.function_calls_with_spans_on_lines(&func_node, &all_lines);
 
-                for (callee_name, line, start_byte, end_byte) in call_sites {
+                for meta in call_sites {
+                    let callee_name = meta.callee_name;
+                    let start_byte = meta.start_byte;
+                    let end_byte = meta.end_byte;
+                    let line = meta.line;
                     let site = CallSite {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
                         line,
-                        kind: Self::call_kind_at(parsed, start_byte, end_byte),
+                        kind: meta
+                            .kind_override
+                            .unwrap_or_else(|| Self::call_kind_at(parsed, start_byte, end_byte)),
                         start_byte,
                         end_byte,
+                        // build_skeleton is a lightweight scope-computation pass;
+                        // preserve its pre-existing behavior of ignoring the
+                        // extraction-time qualifier (None input) and falling back
+                        // to the self/this/cls line-text heuristic only.
                         qualifier: Self::recover_self_receiver_qualifier(
                             parsed,
                             &callee_name,
@@ -677,7 +698,7 @@ impl CallGraph {
                         arg_count: None,
                         arg_spread: false,
                         receiver_outcome: None,
-                        origin: CallSiteOrigin::Source,
+                        origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                     };
                     calls
                         .entry(caller_id.clone())
@@ -738,6 +759,7 @@ impl CallGraph {
             property_accesses: BTreeSet::new(),
             property_access_fanout_skips: 0,
             property_access_store_skips: 0,
+            macro_arg_facts: BTreeMap::new(),
         }
     }
 
@@ -911,7 +933,9 @@ impl CallGraph {
         }
 
         struct FileCallSites {
+            file_path: String,
             call_sites: Vec<(FunctionId, CallSite)>,
+            macro_arg_facts: crate::rust_macro_args::MacroArgFacts,
         }
 
         // Phase 2: Find all call sites within each function in parallel, then
@@ -921,6 +945,7 @@ impl CallGraph {
             .map(|entry| {
                 let (file_path, parsed) = *entry;
                 let mut file_call_sites = Vec::new();
+                let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
                 let file_imports_ref = imports.get(file_path);
 
                 for func_node in parsed.all_functions() {
@@ -937,32 +962,29 @@ impl CallGraph {
                     };
 
                     let all_lines: BTreeSet<usize> = (start..=end).collect();
-                    let call_sites = parsed
+                    let (call_sites, facts) = parsed
                         .function_calls_with_qualifier_and_spans_on_lines(&func_node, &all_lines);
+                    file_macro_arg_facts.calls_recorded += facts.calls_recorded;
+                    file_macro_arg_facts.skipped_macros += facts.skipped_macros;
+                    file_macro_arg_facts.ctor_skips += facts.ctor_skips;
                     let recv_var = parsed
                         .language
                         .go_receiver_var(&func_node)
                         .map(|n| parsed.node_text(&n).to_string());
 
-                    for (
-                        callee_name,
-                        line,
-                        qualifier,
-                        start_byte,
-                        end_byte,
-                        receiver_expr,
-                        arg_count,
-                        arg_spread,
-                    ) in call_sites
-                    {
+                    for meta in call_sites {
+                        let callee_name = meta.callee_name;
+                        let line = meta.line;
+                        let start_byte = meta.start_byte;
+                        let end_byte = meta.end_byte;
                         let qualifier = Self::recover_self_receiver_qualifier(
                             parsed,
                             &callee_name,
                             line,
-                            qualifier,
+                            meta.qualifier,
                         );
                         let classification = classifier.classify(crate::resolution::ReceiverCtx {
-                            receiver_expr,
+                            receiver_expr: meta.receiver_node,
                             qualifier: qualifier.as_deref(),
                             fn_node: func_node,
                             call_line: line,
@@ -976,27 +998,39 @@ impl CallGraph {
                             caller: caller_id.clone(),
                             callee_name,
                             line,
-                            kind: Self::call_kind_at(parsed, start_byte, end_byte),
+                            kind: meta.kind_override.unwrap_or_else(|| {
+                                Self::call_kind_at(parsed, start_byte, end_byte)
+                            }),
                             start_byte,
                             end_byte,
                             qualifier,
                             receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
                             receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                             receiver_materialized: classification.materialized,
-                            arg_count,
-                            arg_spread,
+                            arg_count: meta.arg_count,
+                            arg_spread: meta.arg_spread,
                             receiver_outcome: None,
-                            origin: CallSiteOrigin::Source,
+                            origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                         };
                         file_call_sites.push((caller_id.clone(), site));
                     }
                 }
 
                 FileCallSites {
+                    file_path: file_path.clone(),
                     call_sites: file_call_sites,
+                    macro_arg_facts: file_macro_arg_facts,
                 }
             })
             .collect();
+
+        let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =
+            BTreeMap::new();
+        for file_calls in &per_file_calls {
+            if file_calls.macro_arg_facts != crate::rust_macro_args::MacroArgFacts::default() {
+                macro_arg_facts.insert(file_calls.file_path.clone(), file_calls.macro_arg_facts);
+            }
+        }
 
         for file_calls in per_file_calls {
             for (caller_id, site) in file_calls.call_sites {
@@ -1067,6 +1101,7 @@ impl CallGraph {
             property_accesses: BTreeSet::new(),
             property_access_fanout_skips: 0,
             property_access_store_skips: 0,
+            macro_arg_facts,
         };
         cg.recompute_indirect_calls(files);
         cg.refresh_rust_receiver_state(files);
@@ -2274,29 +2309,26 @@ impl CallGraph {
             return out;
         };
         let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
-        let ast_calls =
+        let (ast_calls, _facts) =
             parsed.function_calls_with_qualifier_and_spans_on_lines(&fn_node, &all_lines);
         for site in sites {
-            let Some((_, _, qualifier, start_byte, _, receiver_expr, _, _)) = ast_calls
-                .iter()
-                .find(|(callee_name, _, _, start_byte, end_byte, _, _, _)| {
-                    callee_name == &site.callee_name
-                        && *start_byte == site.start_byte
-                        && *end_byte == site.end_byte
-                })
-            else {
+            let Some(meta) = ast_calls.iter().find(|meta| {
+                meta.callee_name == site.callee_name
+                    && meta.start_byte == site.start_byte
+                    && meta.end_byte == site.end_byte
+            }) else {
                 continue;
             };
-            if receiver_expr.is_none() && qualifier.is_none() {
+            if meta.receiver_node.is_none() && meta.qualifier.is_none() {
                 continue;
             }
             let outcome = typer.type_of_receiver(crate::resolution_receiver::ReceiverTypeCtx {
                 parsed,
                 caller,
                 fn_node,
-                receiver_expr: *receiver_expr,
-                qualifier: qualifier.as_deref(),
-                call_start_byte: *start_byte,
+                receiver_expr: meta.receiver_node,
+                qualifier: meta.qualifier.as_deref(),
+                call_start_byte: meta.start_byte,
             });
             out.push((caller.clone(), site.clone(), outcome));
         }
@@ -2327,29 +2359,26 @@ impl CallGraph {
                 continue;
             };
             let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
-            let ast_calls =
+            let (ast_calls, _facts) =
                 parsed.function_calls_with_qualifier_and_spans_on_lines(&fn_node, &all_lines);
             for site in sites {
-                let Some((_, _, qualifier, start_byte, _, receiver_expr, _, _)) = ast_calls
-                    .iter()
-                    .find(|(callee_name, _, _, start_byte, end_byte, _, _, _)| {
-                        callee_name == &site.callee_name
-                            && *start_byte == site.start_byte
-                            && *end_byte == site.end_byte
-                    })
-                else {
+                let Some(meta) = ast_calls.iter().find(|meta| {
+                    meta.callee_name == site.callee_name
+                        && meta.start_byte == site.start_byte
+                        && meta.end_byte == site.end_byte
+                }) else {
                     continue;
                 };
-                if receiver_expr.is_none() && qualifier.is_none() {
+                if meta.receiver_node.is_none() && meta.qualifier.is_none() {
                     continue;
                 }
                 let outcome = typer.type_of_receiver(crate::resolution_receiver::ReceiverTypeCtx {
                     parsed,
                     caller,
                     fn_node,
-                    receiver_expr: *receiver_expr,
-                    qualifier: qualifier.as_deref(),
-                    call_start_byte: *start_byte,
+                    receiver_expr: meta.receiver_node,
+                    qualifier: meta.qualifier.as_deref(),
+                    call_start_byte: meta.start_byte,
                 });
                 updates.push((caller.clone(), site.clone(), outcome));
             }
@@ -3067,10 +3096,13 @@ impl CallGraph {
         }
 
         // Phase 2: Find call sites from subset.
+        let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =
+            BTreeMap::new();
         for (file_path, parsed) in files {
             if !only_files.contains(file_path) {
                 continue;
             }
+            let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
             for func_node in parsed.all_functions() {
                 let func_name = match parsed.language.function_name(&func_node) {
                     Some(n) => parsed.node_text(&n).to_string(),
@@ -3084,33 +3116,30 @@ impl CallGraph {
                     end_line: end,
                 };
                 let all_lines: BTreeSet<usize> = (start..=end).collect();
-                let call_sites =
+                let (call_sites, facts) =
                     parsed.function_calls_with_qualifier_and_spans_on_lines(&func_node, &all_lines);
+                file_macro_arg_facts.calls_recorded += facts.calls_recorded;
+                file_macro_arg_facts.skipped_macros += facts.skipped_macros;
+                file_macro_arg_facts.ctor_skips += facts.ctor_skips;
                 let recv_var = parsed
                     .language
                     .go_receiver_var(&func_node)
                     .map(|n| parsed.node_text(&n).to_string());
                 let file_imports_ref = imports.get(file_path);
 
-                for (
-                    callee_name,
-                    line,
-                    qualifier,
-                    start_byte,
-                    end_byte,
-                    receiver_expr,
-                    arg_count,
-                    arg_spread,
-                ) in call_sites
-                {
+                for meta in call_sites {
+                    let callee_name = meta.callee_name;
+                    let line = meta.line;
+                    let start_byte = meta.start_byte;
+                    let end_byte = meta.end_byte;
                     let qualifier = Self::recover_self_receiver_qualifier(
                         parsed,
                         &callee_name,
                         line,
-                        qualifier,
+                        meta.qualifier,
                     );
                     let classification = classifier.classify(crate::resolution::ReceiverCtx {
-                        receiver_expr,
+                        receiver_expr: meta.receiver_node,
                         qualifier: qualifier.as_deref(),
                         fn_node: func_node,
                         call_line: line,
@@ -3124,17 +3153,19 @@ impl CallGraph {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
                         line,
-                        kind: Self::call_kind_at(parsed, start_byte, end_byte),
+                        kind: meta
+                            .kind_override
+                            .unwrap_or_else(|| Self::call_kind_at(parsed, start_byte, end_byte)),
                         start_byte,
                         end_byte,
                         qualifier,
                         receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
                         receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                         receiver_materialized: classification.materialized,
-                        arg_count,
-                        arg_spread,
+                        arg_count: meta.arg_count,
+                        arg_spread: meta.arg_spread,
                         receiver_outcome: None,
-                        origin: CallSiteOrigin::Source,
+                        origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                     };
                     calls
                         .entry(caller_id.clone())
@@ -3142,6 +3173,9 @@ impl CallGraph {
                         .insert(site.clone());
                     callers.entry(callee_name).or_default().push(site);
                 }
+            }
+            if file_macro_arg_facts != crate::rust_macro_args::MacroArgFacts::default() {
+                macro_arg_facts.insert(file_path.clone(), file_macro_arg_facts);
             }
         }
 
@@ -3245,6 +3279,7 @@ impl CallGraph {
             property_accesses: BTreeSet::new(),
             property_access_fanout_skips: 0,
             property_access_store_skips: 0,
+            macro_arg_facts,
         }
     }
 
@@ -4431,6 +4466,51 @@ mod tests {
 
         let back: CallSite = bincode::deserialize(&bincode::serialize(&a).unwrap()).unwrap();
         assert_eq!(a, back);
+    }
+
+    /// P8: a macro-arg-minted call site carries `kind: Call` / `origin:
+    /// MacroArg` -- NOT `call_kind_at`'s ancestor-walk classification, which
+    /// would otherwise tag any span nested under a `macro_invocation` as
+    /// `MacroInvocation` (routing it to the wrong NS_MACRO namespace).
+    #[test]
+    fn macro_arg_call_site_carries_call_kind_and_macro_arg_origin() {
+        let cg = build_rust_call_graph(
+            "fn check(x: i32) -> bool { x > 0 }\nfn host() { assert!(check(1)); }\n",
+        );
+        let site = site_in(&cg, "host", "check");
+        assert_eq!(site.kind, CallKind::Call);
+        assert_eq!(site.origin, CallSiteOrigin::MacroArg);
+        assert_eq!(site.arg_count, None);
+        assert!(!site.arg_spread);
+    }
+
+    /// Companion pin: an ordinary (non-macro) call site's `kind`/`origin`
+    /// derivation is byte-for-byte unchanged by the P8 plumbing -- still
+    /// `Call`/`Source` via the pre-existing `call_kind_at` path.
+    #[test]
+    fn ordinary_call_site_kind_and_origin_unchanged() {
+        let cg =
+            build_rust_call_graph("fn check(x: i32) -> bool { x > 0 }\nfn host() { check(1); }\n");
+        let site = site_in(&cg, "host", "check");
+        assert_eq!(site.kind, CallKind::Call);
+        assert_eq!(site.origin, CallSiteOrigin::Source);
+    }
+
+    /// A macro invocation that mints nothing (non-allowlisted, or allowlisted
+    /// but with no call-shaped args) still produces zero `CallSite`s for the
+    /// macro name itself -- `call_kind_at`'s classification of the macro's
+    /// OWN span is never exercised by a real CallSite because no site is ever
+    /// minted at that span (pre-existing PR-2 behavior, unchanged).
+    #[test]
+    fn nonallowlisted_macro_still_mints_nothing_for_its_own_name() {
+        let cg = build_rust_call_graph("fn host() { my_undefined_macro!(check(1)); }\n");
+        assert!(
+            !cg.calls
+                .values()
+                .flat_map(|s| s.iter())
+                .any(|s| s.callee_name == "my_undefined_macro" || s.callee_name == "check"),
+            "non-allowlisted macro must not mint any call site"
+        );
     }
 
     fn site_in(cg: &CallGraph, caller: &str, callee: &str) -> CallSite {
