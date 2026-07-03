@@ -306,14 +306,27 @@ impl NavigationIndex {
                     idx.multi_owner_collision_sites.insert(key);
                 }
                 for resolved in &outcome.resolved {
-                    let suffix = format!("::{}", resolved.target.name);
-                    let count = crate::navigation::call_resolve::scoped_caller_site_match_count(
-                        cg,
-                        bucket_key,
-                        site,
-                        &resolved.target.name,
-                        &suffix,
-                    );
+                    // P5 S3: `func_value_field` deliberately breaks the
+                    // name-correlation invariant every other `ResolutionKind`
+                    // upholds (`cmd.Run()` legitimately resolves to a target
+                    // named `helper`, not `Run`) — `scoped_caller_site_match_count`
+                    // exists to disambiguate MODULE-SCOPED variants of the SAME
+                    // callee name (`bucket_key == target_name` / a `::name`
+                    // suffix), which does not apply here. The site is already
+                    // fully precise (one CallSite -> its resolved targets), so
+                    // count it directly rather than gating on name match.
+                    let count = if resolved.kind == ResolutionKind::FuncValueField {
+                        1
+                    } else {
+                        let suffix = format!("::{}", resolved.target.name);
+                        crate::navigation::call_resolve::scoped_caller_site_match_count(
+                            cg,
+                            bucket_key,
+                            site,
+                            &resolved.target.name,
+                            &suffix,
+                        )
+                    };
                     for _ in 0..count {
                         idx.incoming_by_target
                             .entry(resolved.target.clone())
@@ -363,6 +376,45 @@ impl NavigationIndex {
                         resolved: outcome.resolved.clone(),
                     });
             }
+        }
+
+        // P5 S2 (re-review MINOR-3): merge Go function-value registrations in
+        // deterministically (`cg.go_registrations` is a `BTreeSet`, so this
+        // loop's insertion order is already deterministic). Registrations are
+        // NOT `CallSite`s — see the architecture note on
+        // `CallGraph::go_registrations` — so they never appear in the
+        // `cg.callers`/`cg.calls` loops above; this is the only place they
+        // reach `direct_callers`/`direct_callees` (`queries::{callers,callees}`
+        // read those unchanged).
+        for reg in &cg.go_registrations {
+            idx.incoming_by_target
+                .entry(reg.target.clone())
+                .or_default()
+                .push(IndexedIncomingCall {
+                    caller: reg.enclosing.clone(),
+                    callee_name: reg.target.name.clone(),
+                    call_site_line: reg.site.line,
+                    start_byte: reg.site.start_byte,
+                    end_byte: reg.site.end_byte,
+                    qualifier: None,
+                    confidence: ResolutionConfidence::NameOnly,
+                    kind: ResolutionKind::CallbackRegistration,
+                });
+            idx.outgoing_by_caller
+                .entry(reg.enclosing.clone())
+                .or_default()
+                .push(IndexedOutgoingCallSite {
+                    callee_name: reg.target.name.clone(),
+                    call_site_line: reg.site.line,
+                    start_byte: reg.site.start_byte,
+                    end_byte: reg.site.end_byte,
+                    qualifier: None,
+                    resolved: vec![IndexedResolvedTarget {
+                        target: reg.target.clone(),
+                        confidence: ResolutionConfidence::NameOnly,
+                        kind: ResolutionKind::CallbackRegistration,
+                    }],
+                });
         }
 
         idx
@@ -606,5 +658,116 @@ mod tests {
         let old_handler_callers =
             function_names_for_callers(&v2_incremental, "old_handler", Some("setup.c"), 1);
         assert!(!old_handler_callers.contains(&"run".to_string()));
+    }
+
+    /// P5 plumbing: the S1 func-typed-field index + S2 registration table are
+    /// whole-program derived (mirroring Go embedding/interface dispatch), so
+    /// `build_incremental_with_scope_graph_inputs` must explicitly clear +
+    /// re-apply them (`apply_go_func_value_fields` / `apply_go_registrations`)
+    /// rather than leaving stale/empty state after `remove_files` + `merge`.
+    /// Changes an UNRELATED file (`Command` stays declared in the untouched
+    /// `types.go`) and confirms the registration edge still surfaces — a
+    /// missing re-apply call would silently drop it, since `remove_files`
+    /// unconditionally clears this whole-program state.
+    #[test]
+    fn incremental_from_previous_recomputes_go_func_value_registrations() {
+        let dir = tempfile::tempdir().unwrap();
+        write_files(
+            dir.path(),
+            &[
+                (
+                    "types.go",
+                    "package main\ntype Command struct {\n\tRun func()\n}\n",
+                ),
+                (
+                    "main.go",
+                    "package main\nfunc helper() {}\nfunc unrelated() {}\nfunc main() {\n\tc := Command{Run: helper}\n\t_ = c\n}\n",
+                ),
+            ],
+        );
+        let v1 = full_session(dir.path());
+
+        write_files(
+            dir.path(),
+            &[(
+                "main.go",
+                "package main\nfunc helper() {}\nfunc unrelated() { _ = 1 }\nfunc main() {\n\tc := Command{Run: helper}\n\t_ = c\n}\n",
+            )],
+        );
+        let v2_incremental = incremental_session(&v1, dir.path(), &["main.go"]);
+        let v2_full = full_session(dir.path());
+
+        assert_eq!(
+            queries::callers(&v2_full, Some("helper"), None, None, 1).unwrap(),
+            queries::callers(&v2_incremental, Some("helper"), None, None, 1).unwrap()
+        );
+        let callers = function_names_for_callers(&v2_incremental, "helper", None, 1);
+        assert!(
+            callers.contains(&"main".to_string()),
+            "incremental rebuild must recompute the callback_registration edge \
+             for a struct declared in an unchanged file, not leave it cleared"
+        );
+    }
+
+    /// F2 (review-fix wave, MINOR — coverage gap): the test above only pins
+    /// the S2 `callback_registration` edge surviving an incremental rebuild.
+    /// The S3 `func_value_field` INVOCATION edge (a separate function calling
+    /// through the registered field, not the registration site itself) needs
+    /// its own coverage of the same clear+re-apply plumbing — same fixture
+    /// shape (an unrelated file edit; `Command` stays declared in the
+    /// untouched `types.go`), but with a `register`/`invoke` split so the
+    /// surviving caller is reached via `apply_go_func_value_fields` +
+    /// `CallGraph::resolve_call_site` rather than the registration-site edge
+    /// synthesized directly from `go_registrations`.
+    #[test]
+    fn incremental_from_previous_recomputes_go_func_value_field_invocation() {
+        let dir = tempfile::tempdir().unwrap();
+        write_files(
+            dir.path(),
+            &[
+                (
+                    "types.go",
+                    "package main\ntype Command struct {\n\tRun func()\n}\n",
+                ),
+                (
+                    "main.go",
+                    "package main\nfunc helper() {}\nfunc unrelated() {}\nfunc register() *Command { return &Command{Run: helper} }\nfunc invoke(cmd *Command) {\n\tcmd.Run()\n}\n",
+                ),
+            ],
+        );
+        let v1 = full_session(dir.path());
+
+        write_files(
+            dir.path(),
+            &[(
+                "main.go",
+                "package main\nfunc helper() {}\nfunc unrelated() { _ = 1 }\nfunc register() *Command { return &Command{Run: helper} }\nfunc invoke(cmd *Command) {\n\tcmd.Run()\n}\n",
+            )],
+        );
+        let v2_incremental = incremental_session(&v1, dir.path(), &["main.go"]);
+        let v2_full = full_session(dir.path());
+
+        assert_eq!(
+            queries::callers(&v2_full, Some("helper"), None, None, 1).unwrap(),
+            queries::callers(&v2_incremental, Some("helper"), None, None, 1).unwrap()
+        );
+        let callers = function_names_for_callers(&v2_incremental, "helper", None, 1);
+        assert!(
+            callers.contains(&"invoke".to_string()),
+            "incremental rebuild must recompute the func_value_field invocation edge \
+             for a struct declared in an unchanged file, not leave it cleared"
+        );
+
+        let evidence = queries::callers(&v2_incremental, Some("helper"), None, None, 1).unwrap();
+        let hit = evidence
+            .items
+            .iter()
+            .find(
+                |i| matches!(&i.symbol, Some(SymbolRef::Function { name, .. }) if name == "invoke"),
+            )
+            .expect("invoke() surfaces as a caller of helper via func_value_field resolution");
+        assert!(hit.why.iter().any(|r| matches!(r,
+            Reason::Resolution { kind } if kind == "func_value_field"
+        )));
     }
 }

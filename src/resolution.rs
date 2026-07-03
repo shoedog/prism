@@ -54,6 +54,19 @@ pub enum ResolutionKind {
     /// 2+ owner classes, emitted as a capped, labeled NameOnly edge instead of
     /// a silent drop. Gated to Python/JS/TS/Tsx (P3); Rust/Go keep the drop.
     R6MultiOwnerCandidate,
+    /// P5 S2: a Go function-value registration site (composite-literal keyed
+    /// field, field assignment, or bare call argument) surfaced as a NameOnly
+    /// nav edge. Never produced by `resolve_call_site_full` — registrations
+    /// are not `CallSite`s (architecture note: a synthetic CallSite here would
+    /// resolve Exact via `free_single`, a soundness hole); this kind labels
+    /// edges synthesized directly from `CallGraph::go_registrations` in
+    /// `NavigationIndex::build_resolved_call_edges`.
+    CallbackRegistration,
+    /// P5 S3: a Go invocation `recv.Field(...)` resolved via the func-typed
+    /// struct-field registration index (S1 field-typing + S2 registrations),
+    /// gated inside the interface-consult miss path. NameOnly — the target is
+    /// one of 1..=3 distinct registration targets recorded for the field.
+    FuncValueField,
 }
 
 impl ResolutionKind {
@@ -79,6 +92,8 @@ impl ResolutionKind {
             ResolutionKind::InterfaceDispatch => "interface_dispatch",
             ResolutionKind::ImportMember => "import_member",
             ResolutionKind::R6MultiOwnerCandidate => "r6_multi_owner_candidate",
+            ResolutionKind::CallbackRegistration => "callback_registration",
+            ResolutionKind::FuncValueField => "func_value_field",
         }
     }
 }
@@ -155,6 +170,116 @@ pub fn iface_key(text: &str) -> Option<String> {
     } else {
         Some(bare.to_string())
     }
+}
+
+/// P5 (Go func-value callbacks): package-scoped owner identity for a Go
+/// struct type. Deliberately distinct from the bare-name indices used
+/// elsewhere (`GoTypeProvider`'s `structs`/`methods`, `CallGraph::methods` /
+/// `interface_impls`) — those collapse same-named types across packages,
+/// which is an existing, accepted approximation for method/interface
+/// dispatch. The S1 func-typed-field index must NOT inherit that collision:
+/// a callback registration in one package must never feed an S3 hit for a
+/// same-named struct in another (spec-review MAJOR-1).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+pub struct GoOwnerIdentity {
+    /// The struct's declaring directory (dir-as-package convention, matching
+    /// `ResolutionKind::SamePackage` / R4.5 and `dir_of`).
+    pub package_dir: String,
+    /// Bare struct/type name (no package qualifier).
+    pub name: String,
+}
+
+/// Resolve a Go type reference (`T` or `pkg.T`, as written at `file`) to a
+/// package-scoped owner identity, for the S1 func-value-field index (S2
+/// registration scan + S3 gated invocation).
+///
+/// - Bare `T` is unambiguous: Go scoping rules mean it names a type in the
+///   SAME package as `file`, i.e. the same directory — no lookup needed.
+/// - Qualified `pkg.T` resolves `pkg` via `file`'s import map to a Go import
+///   path, then narrows to an indexed directory whose basename matches the
+///   import path's last segment (the same dir-as-package convention `dir_of`
+///   already encodes elsewhere in this ladder). Zero or multiple matching
+///   directories is ambiguous -> `None` (fail closed): per spec, an
+///   unknown/ambiguous owner identity may feed a nav-only registration
+///   record at most, and NEVER S3.
+/// - A generic instantiation (`T[X]`) is out of scope (named-type
+///   indirection) -> `None`.
+pub fn resolve_go_owner_identity(
+    type_text: &str,
+    file: &str,
+    imports: &BTreeMap<String, BTreeMap<String, String>>,
+    package_basenames: &BTreeMap<String, BTreeSet<String>>,
+) -> Option<GoOwnerIdentity> {
+    let t = type_text
+        .trim()
+        .trim_start_matches('&')
+        .trim_start_matches('*')
+        .trim();
+    if t.is_empty() || t.contains('[') {
+        return None;
+    }
+    match t.rsplit_once('.') {
+        None => Some(GoOwnerIdentity {
+            package_dir: dir_of(file).to_string(),
+            name: t.to_string(),
+        }),
+        Some((pkg, name)) => {
+            if pkg.is_empty() || name.is_empty() {
+                return None;
+            }
+            let import_path = imports.get(file)?.get(pkg)?;
+            let seg = import_path.rsplit('/').next().unwrap_or(import_path);
+            let dirs = package_basenames.get(seg)?;
+            if dirs.len() != 1 {
+                return None; // ambiguous basename -> fail closed
+            }
+            Some(GoOwnerIdentity {
+                package_dir: dirs.iter().next().unwrap().clone(),
+                name: name.to_string(),
+            })
+        }
+    }
+}
+
+/// P5 (Go func-value callbacks, S2): resolve a bare identifier used as a
+/// VALUE (not a call) to the unique in-repo free function it names, using the
+/// SAME same-package/import conventions as ordinary Go name resolution
+/// (R4/R4.5) — same-file wins, else a single same-directory (package) free
+/// function. Deliberately stops there: "NEVER bare cross-package name
+/// matching" (spec-review MAJOR) means we do not fall through to a
+/// repo-wide/FreeMulti search the way R5 does for calls.
+pub fn resolve_go_bare_value_ref(
+    functions: &BTreeMap<String, Vec<FunctionId>>,
+    method_owners: &BTreeMap<FunctionId, String>,
+    caller_file: &str,
+    name: &str,
+) -> Option<FunctionId> {
+    let ids = functions.get(name)?;
+    let free: Vec<&FunctionId> = ids
+        .iter()
+        .filter(|fid| !method_owners.contains_key(*fid))
+        .collect();
+    let local: Vec<&FunctionId> = free
+        .iter()
+        .copied()
+        .filter(|f| f.file == caller_file)
+        .collect();
+    if local.len() == 1 {
+        return Some(local[0].clone());
+    }
+    if !local.is_empty() {
+        return None; // >1 same-file free fn of this name: ambiguous, not our problem to disambiguate
+    }
+    let dir = dir_of(caller_file);
+    let same_pkg: Vec<&FunctionId> = free
+        .iter()
+        .copied()
+        .filter(|f| dir_of(&f.file) == dir)
+        .collect();
+    if same_pkg.len() == 1 {
+        return Some(same_pkg[0].clone());
+    }
+    None
 }
 
 /// Admission key (Go method-set asymmetry): a value-receiver satisfier admits as
@@ -522,6 +647,12 @@ pub enum DropReason {
     ImportExternal,
     /// Name not defined in-repo at all (ordinary unresolved call).
     UnknownName,
+    /// P5 S3: `(recovered_recv_type, call_name)` is a known Go func-typed
+    /// struct field, but its recorded registration targets exceed the fan-out
+    /// cap (>3 distinct callees) — too diffuse for a useful NameOnly edge.
+    /// Kept dropped (not resolved), but classified separately from
+    /// `ExternalReceiver` for call-stats telemetry.
+    FuncValueFanout,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -800,6 +931,55 @@ impl CallGraph {
             }
         }
         Some(resolved)
+    }
+
+    /// P5 S3 (Go func-value callbacks): consulted from the Go interface-consult
+    /// miss path (resolve_call_site_full), ONLY after concrete `owner_lookup`
+    /// AND `interface_impls` have both missed or arity-filtered to empty.
+    /// `(recv_ty, name)` is the receiver's recovered static type and the
+    /// called method/field name at the call site being resolved — e.g.
+    /// `cmd.Run()` with `recv_ty = "Command"`, `name = "Run"`.
+    ///
+    /// If S1 (`go_func_typed_fields`) confirms `(owner, name)` is a func-typed
+    /// struct field, resolve to the DISTINCT S2 registration targets recorded
+    /// for that field: 1..=3 -> `demoted(.., FuncValueField)` (NameOnly);
+    /// >3 -> keep dropped, but reclassified `DropReason::FuncValueFanout`
+    /// (too diffuse for a useful edge). Zero known registrations, an
+    /// unresolvable/ambiguous owner identity, or a field that isn't
+    /// func-typed all fall through to the existing `ExternalReceiver` drop —
+    /// unchanged behavior for every case S1/S2 can't confirm.
+    fn func_value_field_or_external_drop(
+        &self,
+        recv_ty: &str,
+        name: &str,
+        caller_file: &str,
+    ) -> ResolutionOutcome<'_> {
+        let Some(owner) = resolve_go_owner_identity(
+            recv_ty,
+            caller_file,
+            &self.imports,
+            &self.go_package_basenames,
+        ) else {
+            return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+        };
+        if !self
+            .go_func_typed_fields
+            .contains(&(owner.clone(), name.to_string()))
+        {
+            return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+        }
+        let field_key = (owner, name.to_string());
+        let targets: BTreeSet<&FunctionId> = self
+            .go_registrations
+            .iter()
+            .filter(|r| r.field_key.as_ref() == Some(&field_key))
+            .map(|r| &r.target)
+            .collect();
+        match targets.len() {
+            0 => ResolutionOutcome::dropped(DropReason::ExternalReceiver),
+            1..=3 => ResolutionOutcome::hit(demoted(targets, ResolutionKind::FuncValueField)),
+            _ => ResolutionOutcome::dropped(DropReason::FuncValueFanout),
+        }
     }
 
     fn self_owner_lookup_same_class(
@@ -1417,8 +1597,13 @@ impl CallGraph {
                                                     &self.method_arity,
                                                 );
                                                 if kept.is_empty() {
-                                                    return ResolutionOutcome::dropped(
-                                                        DropReason::ExternalReceiver,
+                                                    // P5 S3: interface dispatch arity-filtered to
+                                                    // empty — try the func-typed-field registration
+                                                    // index before the ExternalReceiver drop.
+                                                    return self.func_value_field_or_external_drop(
+                                                        recv_ty,
+                                                        name,
+                                                        &site.caller.file,
                                                     );
                                                 } else {
                                                     return ResolutionOutcome::hit(exact(
@@ -1428,16 +1613,27 @@ impl CallGraph {
                                                 }
                                             }
                                             _ => {
-                                                return ResolutionOutcome::dropped(
-                                                    DropReason::ExternalReceiver,
-                                                )
+                                                // P5 S3: no interface impls at all for this
+                                                // (interface, method) — try the func-typed-field
+                                                // registration index before the drop.
+                                                return self.func_value_field_or_external_drop(
+                                                    recv_ty,
+                                                    name,
+                                                    &site.caller.file,
+                                                );
                                             }
                                         }
                                     }
                                     None => {
-                                        return ResolutionOutcome::dropped(
-                                            DropReason::ExternalReceiver,
-                                        )
+                                        // `recv_ty` had no bare name at all (`iface_key` returns
+                                        // `None` only for a generic instantiation, e.g. `Foo[T]`) —
+                                        // still worth an S3 attempt since func-value-field owner
+                                        // resolution works directly off `recv_ty`, not `iface_key`.
+                                        return self.func_value_field_or_external_drop(
+                                            recv_ty,
+                                            name,
+                                            &site.caller.file,
+                                        );
                                     }
                                 }
                             }
@@ -1727,7 +1923,7 @@ impl CallGraph {
     }
 
     pub fn resolve_call_site(&self, site: &CallSite) -> Vec<ResolvedCallee<'_>> {
-        self.resolve_call_site_full(site).resolved
+        filter_func_value_fanout(self.resolve_call_site_full(site).resolved)
     }
 
     /// All call sites that resolve to `callee`, with caller, line, and confidence.
@@ -1749,6 +1945,39 @@ impl CallGraph {
             }
         }
         out
+    }
+}
+
+/// F1 (review-fix wave, binding adjudication): non-nav consumers — CPG Step 5
+/// Call/Return edges, Step 5b arg->param DataFlow edges, `resolved_caller_edges`
+/// (echo_slice/membrane_slice), and the other `CallGraph` traversal helpers
+/// (`callers_of`/`callees_of`/cycle detection) — accept a `FuncValueField` hit
+/// only when the site resolved to exactly ONE registered target. Two or three
+/// registered targets on the same func-typed field (e.g. `Command.Run = safe`
+/// and `Command.Run = sink` both registered) must not create a taint/CPG edge
+/// into ANY of them for these consumers, since which one actually runs is a
+/// runtime fact prism cannot see.
+///
+/// Nav (`resolve_call_site_full`, via `build_resolved_call_edges` / call-stats)
+/// is UNCHANGED and keeps the full 1..=3 unfiltered — this filtering happens
+/// only in the `resolve_call_site` wrapper that calls this helper.
+///
+/// Kind-gated: only `FuncValueField` entries are ever removed. No other
+/// `ResolutionKind` is touched, even if (hypothetically) mixed into the same
+/// `Vec` — `resolve_call_site_full` currently never mixes kinds in one
+/// resolution, but this helper does not assume that.
+fn filter_func_value_fanout(resolved: Vec<ResolvedCallee<'_>>) -> Vec<ResolvedCallee<'_>> {
+    let func_value_count = resolved
+        .iter()
+        .filter(|r| r.kind == ResolutionKind::FuncValueField)
+        .count();
+    if func_value_count > 1 {
+        resolved
+            .into_iter()
+            .filter(|r| r.kind != ResolutionKind::FuncValueField)
+            .collect()
+    } else {
+        resolved
     }
 }
 
@@ -2004,7 +2233,11 @@ fn span_covers(s: &Span, at: &SourceLoc) -> bool {
 
 /// The directory component of a path (`a/b/c.go` -> `a/b`; `c.go` -> ``). For
 /// Go, a package occupies exactly one directory.
-fn dir_of(path: &str) -> &str {
+///
+/// `pub(crate)` (widened from private for P5): `GoOwnerIdentity` resolution
+/// and the S1 package-basename index (`call_graph.rs`) reuse this exact
+/// dir-as-package convention rather than inventing a second one.
+pub(crate) fn dir_of(path: &str) -> &str {
     path.rsplit_once('/').map(|(d, _)| d).unwrap_or("")
 }
 
@@ -2518,5 +2751,227 @@ mod scope_resolution_predicate_tests {
             !pred.disproves(&cand, &site("CliTest::with_file"), &cx),
             "non-uniform edition must disprove nothing (keep-all)"
         );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// P5 S3: gated func-value-field invocation resolution
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod go_func_value_field_resolution_tests {
+    use crate::ast::ParsedFile;
+    use crate::call_graph::CallGraph;
+    use crate::languages::Language::Go;
+    use crate::resolution::{DropReason, ResolutionConfidence, ResolutionKind};
+    use std::collections::BTreeMap;
+
+    fn build(files: &[(&str, &str)]) -> CallGraph {
+        let mut map = BTreeMap::new();
+        for (path, src) in files {
+            map.insert(path.to_string(), ParsedFile::parse(path, src, Go).unwrap());
+        }
+        CallGraph::build(&map)
+    }
+
+    /// The ORIGINAL (qualified, receiver-typed) call site for `fn_name`'s
+    /// invocation — as opposed to any Level-4 struct-callback synthetic site
+    /// `recompute_indirect_calls` may ALSO add alongside it (pre-existing,
+    /// unrelated to P5: Level-4 is a language-general text scan over `.field =
+    /// value` assignment syntax, so it also fires on Go's field-assignment
+    /// registration form; see the P5 report for detail). Selecting the
+    /// qualified site directly makes this test immune to that interaction.
+    fn qualified_site<'a>(
+        cg: &'a CallGraph,
+        caller_fn: &str,
+        callee: &str,
+    ) -> &'a crate::call_graph::CallSite {
+        let caller_id = cg.functions.get(caller_fn).unwrap().first().unwrap();
+        cg.calls
+            .get(caller_id)
+            .unwrap()
+            .iter()
+            .find(|s| s.callee_name == callee && s.qualifier.is_some())
+            .expect("qualified call site present")
+    }
+
+    #[test]
+    fn unique_registration_target_demotes_to_func_value_field() {
+        let cg = build(&[(
+            "main.go",
+            "package main\n\
+type Command struct {\n\tRun func()\n}\n\
+func helper() {}\n\
+func register() *Command {\n\treturn &Command{Run: helper}\n}\n\
+func invoke(cmd *Command) {\n\tcmd.Run()\n}\n",
+        )]);
+        let site = qualified_site(&cg, "invoke", "Run");
+        let outcome = cg.resolve_call_site_full(site);
+        assert_eq!(outcome.drop, None);
+        assert_eq!(outcome.resolved.len(), 1);
+        assert_eq!(outcome.resolved[0].kind, ResolutionKind::FuncValueField);
+        assert_eq!(
+            outcome.resolved[0].confidence,
+            ResolutionConfidence::NameOnly
+        );
+        assert_eq!(outcome.resolved[0].target.name, "helper");
+    }
+
+    #[test]
+    fn two_registration_targets_both_demote_to_func_value_field() {
+        let cg = build(&[(
+            "main.go",
+            "package main\n\
+type Command struct {\n\tRun func()\n}\n\
+func h1() {}\n\
+func h2() {}\n\
+func register_a() *Command { return &Command{Run: h1} }\n\
+func register_b() *Command { return &Command{Run: h2} }\n\
+func invoke(cmd *Command) {\n\tcmd.Run()\n}\n",
+        )]);
+        let site = qualified_site(&cg, "invoke", "Run");
+        let outcome = cg.resolve_call_site_full(site);
+        assert_eq!(outcome.drop, None);
+        assert_eq!(outcome.resolved.len(), 2);
+        let names: std::collections::BTreeSet<&str> = outcome
+            .resolved
+            .iter()
+            .map(|c| c.target.name.as_str())
+            .collect();
+        assert!(names.contains("h1") && names.contains("h2"));
+        assert!(outcome
+            .resolved
+            .iter()
+            .all(|c| c.kind == ResolutionKind::FuncValueField
+                && c.confidence == ResolutionConfidence::NameOnly));
+    }
+
+    /// F1 (BLOCKER fix): binding adjudication — nav (`resolve_call_site_full`)
+    /// keeps all 1..=3 registered targets unfiltered (asserted above, byte
+    /// unchanged), but non-nav consumers going through the thin
+    /// `resolve_call_site` wrapper must accept a `FuncValueField` hit only
+    /// when there is exactly ONE registered target. Two registered targets on
+    /// the same field (the `Command.Run = safe` / `Command.Run = sink`
+    /// scenario) must not create a Call/DataFlow edge into EITHER target for
+    /// non-nav consumers, even though nav still shows both.
+    #[test]
+    fn two_target_func_value_field_is_filtered_from_resolve_call_site_but_not_from_full() {
+        let cg = build(&[(
+            "main.go",
+            "package main\n\
+type Command struct {\n\tRun func()\n}\n\
+func h1() {}\n\
+func h2() {}\n\
+func register_a() *Command { return &Command{Run: h1} }\n\
+func register_b() *Command { return &Command{Run: h2} }\n\
+func invoke(cmd *Command) {\n\tcmd.Run()\n}\n",
+        )]);
+        let site = qualified_site(&cg, "invoke", "Run");
+
+        // Nav path (resolve_call_site_full) is UNCHANGED: both targets, unfiltered.
+        let full = cg.resolve_call_site_full(site);
+        assert_eq!(full.resolved.len(), 2, "nav path must keep both targets");
+
+        // Non-nav consumer path (resolve_call_site, the thin wrapper): the
+        // fanout must be filtered out entirely, since every resolved entry
+        // here is FuncValueField.
+        let consumer = cg.resolve_call_site(site);
+        assert!(
+            consumer.is_empty(),
+            "resolve_call_site must drop a 2-target FuncValueField fanout for non-nav \
+             consumers, got {consumer:?}"
+        );
+    }
+
+    /// F1 companion: the singleton case must be UNCHANGED end-to-end — all
+    /// consumers (nav and non-nav) still see the edge when there is exactly
+    /// one registered target.
+    #[test]
+    fn single_target_func_value_field_survives_resolve_call_site() {
+        let cg = build(&[(
+            "main.go",
+            "package main\n\
+type Command struct {\n\tRun func()\n}\n\
+func helper() {}\n\
+func register() *Command {\n\treturn &Command{Run: helper}\n}\n\
+func invoke(cmd *Command) {\n\tcmd.Run()\n}\n",
+        )]);
+        let site = qualified_site(&cg, "invoke", "Run");
+
+        let full = cg.resolve_call_site_full(site);
+        assert_eq!(full.resolved.len(), 1);
+
+        let consumer = cg.resolve_call_site(site);
+        assert_eq!(
+            consumer.len(),
+            1,
+            "resolve_call_site must keep the singleton FuncValueField hit"
+        );
+        assert_eq!(consumer[0].kind, ResolutionKind::FuncValueField);
+        assert_eq!(consumer[0].target.name, "helper");
+    }
+
+    #[test]
+    fn more_than_three_registration_targets_drops_as_fanout() {
+        let cg = build(&[(
+            "main.go",
+            "package main\n\
+type Command struct {\n\tRun func()\n}\n\
+func h1() {}\n\
+func h2() {}\n\
+func h3() {}\n\
+func h4() {}\n\
+func register_a() *Command { return &Command{Run: h1} }\n\
+func register_b() *Command { return &Command{Run: h2} }\n\
+func register_c() *Command { return &Command{Run: h3} }\n\
+func register_d() *Command { return &Command{Run: h4} }\n\
+func invoke(cmd *Command) {\n\tcmd.Run()\n}\n",
+        )]);
+        let site = qualified_site(&cg, "invoke", "Run");
+        let outcome = cg.resolve_call_site_full(site);
+        assert!(outcome.resolved.is_empty());
+        assert_eq!(outcome.drop, Some(DropReason::FuncValueFanout));
+    }
+
+    #[test]
+    fn zero_known_registrations_keeps_external_receiver_drop() {
+        let cg = build(&[(
+            "main.go",
+            "package main\n\
+type Command struct {\n\tRun func()\n}\n\
+func invoke(cmd *Command) {\n\tcmd.Run()\n}\n",
+        )]);
+        let site = qualified_site(&cg, "invoke", "Run");
+        let outcome = cg.resolve_call_site_full(site);
+        assert!(outcome.resolved.is_empty());
+        assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
+    }
+
+    #[test]
+    fn non_go_caller_unaffected() {
+        // A Rust receiver-typed call must never consult the Go-only
+        // func-value-field index (mirrors the existing interface-consult
+        // language gate).
+        let mut map = BTreeMap::new();
+        map.insert(
+            "a.rs".to_string(),
+            ParsedFile::parse(
+                "a.rs",
+                "struct Command { run: fn() }\nfn helper() {}\nfn invoke(cmd: &Command) { cmd.run(); }\n",
+                crate::languages::Language::Rust,
+            )
+            .unwrap(),
+        );
+        let cg = CallGraph::build(&map);
+        // No panics, and definitely no FuncValueField kind anywhere.
+        for sites in cg.calls.values() {
+            for site in sites {
+                let outcome = cg.resolve_call_site_full(site);
+                assert!(outcome
+                    .resolved
+                    .iter()
+                    .all(|c| c.kind != ResolutionKind::FuncValueField));
+            }
+        }
     }
 }

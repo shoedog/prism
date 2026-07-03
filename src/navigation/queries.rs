@@ -164,6 +164,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     let mut demoted = 0usize;
     let mut total = 0usize;
     let (mut multi, mut external, mut import_ext, mut unknown) = (0usize, 0usize, 0usize, 0usize);
+    let mut func_value_fanout = 0usize;
     // Phase-3 stratification (re-measure for slice scoping): split each kind by
     // confidence, and stratify NameOnly demotes by (recovery, method-kind). This
     // isolates the #2-addressable universe — a NameOnly demote from `combine_kind`'s
@@ -206,6 +207,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 Some(DropReason::ExternalReceiver) => external += 1,
                 Some(DropReason::ImportExternal) => import_ext += 1,
                 Some(DropReason::UnknownName) => unknown += 1,
+                Some(DropReason::FuncValueFanout) => func_value_fanout += 1,
                 None => {}
             }
             if site.callee_name.contains("::") {
@@ -271,6 +273,19 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     for ids in cg.interface_impls.values() {
         *interface_fanout.entry(ids.len()).or_default() += 1;
     }
+
+    // P5 S2 (re-review MAJOR-3): registrations are NOT `CallSite`s, so they
+    // never flow through the `cg.calls`/`cg.calls` resolver-outcome loop
+    // above. Count them explicitly into the same `kinds`/`kind_nameonly`/
+    // `demoted` telemetry so callback_registration shows up in the standard
+    // buckets, plus dedicated counters for the registration-build-time facts
+    // that have no other way to reach call-stats.
+    for _ in &cg.go_registrations {
+        *kinds.entry("callback_registration").or_default() += 1;
+        *kind_nameonly.entry("callback_registration").or_default() += 1;
+        demoted += 1;
+    }
+
     serde_json::json!({
         "total_call_sites": total,
         "kinds": kinds,
@@ -279,6 +294,11 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "dropped_external_receiver": external,
         "dropped_import_external": import_ext,
         "unresolved_unknown_name": unknown,
+        "dropped_func_value_fanout": func_value_fanout,
+        "callback_registrations_recorded": cg.go_registrations.len(),
+        "callback_registration_shadowed_skips": cg.go_registration_shadowed_skips,
+        "callback_registration_ambiguous_owner_skips": cg.go_registration_ambiguous_owner_skips,
+        "callback_registration_unknown_owner_recorded": cg.go_registration_unknown_owner_recorded,
         "embedding_gaps": cg.embedding_gaps,
         "interface_gaps": cg.interface_gaps,
         "interface_overapprox": cg.interface_overapprox,

@@ -5,6 +5,7 @@ use prism::navigation::queries;
 use prism::navigation::types::SymbolRef;
 use prism::navigation::{NavigationIndex, NavigationSession};
 use prism::repo_loader::load_repo;
+use prism::resolution::ResolutionKind;
 use std::sync::Arc;
 
 fn session(files: &[(&str, &str)]) -> NavigationSession {
@@ -282,5 +283,48 @@ fn callers_excludes_other_stem_scoped_call() {
             ))
             .unwrap_or(false)),
         "callers(run@algo.rs) must exclude a dispatcher that calls other::run"
+    );
+}
+
+/// Review-fix wave regression: `resolve_site_nav` must call
+/// `resolve_call_site_full`, not the non-nav `resolve_call_site` wrapper --
+/// the latter gates `FuncValueField` to singleton targets only (see
+/// `resolution::go_func_value_field_resolution_tests::
+/// two_target_func_value_field_is_filtered_from_resolve_call_site_but_not_from_full`).
+/// A 2-target func-typed-field registration exercised directly through
+/// `resolve_site_nav` must keep BOTH targets.
+#[test]
+fn resolve_site_nav_keeps_two_target_func_value_field_fanout() {
+    let s = session(&[(
+        "main.go",
+        "package main\n\
+type Command struct {\n\tRun func()\n}\n\
+func h1() {}\n\
+func h2() {}\n\
+func register_a() *Command { return &Command{Run: h1} }\n\
+func register_b() *Command { return &Command{Run: h2} }\n\
+func invoke(cmd *Command) {\n\tcmd.Run()\n}\n",
+    )]);
+    let cg = s.index.call_graph();
+    let caller_id = cg.functions.get("invoke").unwrap().first().unwrap();
+    let site = cg
+        .calls
+        .get(caller_id)
+        .unwrap()
+        .iter()
+        .find(|site| site.callee_name == "Run" && site.qualifier.is_some())
+        .expect("qualified Run() call site present");
+
+    let edges = resolve_site_nav(cg, site);
+    let names: Vec<&str> = edges.iter().map(|e| e.target.name.as_str()).collect();
+    assert!(
+        names.contains(&"h1") && names.contains(&"h2"),
+        "resolve_site_nav must keep both func_value_field targets, got {names:?}"
+    );
+    assert!(
+        edges
+            .iter()
+            .all(|e| e.kind == ResolutionKind::FuncValueField),
+        "expected both edges to be FuncValueField, got {edges:?}"
     );
 }

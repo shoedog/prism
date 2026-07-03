@@ -2268,3 +2268,137 @@ fn load_and_context_build_survive_deep_c_initializer() {
     // 0 nodes, which is fine — the point is no overflow).
     let _ = ctx.cpg.node_indices().count();
 }
+
+/// F1 (review-fix wave): CPG-level consumer-side proof that a 2-target Go
+/// `func_value_field` fanout (the `Command.Run = safe` / `Command.Run = sink`
+/// adjudicated scenario) produces NEITHER a Step-5 Call/Return edge NOR a
+/// Step-5b arg->param DataFlow edge into either registered target, even
+/// though `resolve_call_site_full` (the nav path, unit-tested directly in
+/// `resolution::go_func_value_field_resolution_tests`) still resolves both.
+#[test]
+fn func_value_field_two_targets_produce_no_cpg_call_or_dataflow_edges() {
+    let src = "package main\n\
+type Command struct {\n\tRun func(int)\n}\n\
+func h1(x int) { use(x) }\n\
+func h2(x int) { use(x) }\n\
+func register_a() *Command { return &Command{Run: h1} }\n\
+func register_b() *Command { return &Command{Run: h2} }\n\
+func invoke(cmd *Command, v int) {\n\tcmd.Run(v)\n}\n";
+    let path = "main.go";
+    let parsed = ParsedFile::parse(path, src, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let ctx = CpgContext::build(&files, None);
+    let cpg = &ctx.cpg;
+
+    let invoke_idx = cpg.function_node(path, "invoke").unwrap();
+    let h1_idx = cpg.function_node(path, "h1").unwrap();
+    let h2_idx = cpg.function_node(path, "h2").unwrap();
+
+    let call_reachable = cpg.reachable_forward(invoke_idx, &|e| matches!(e, CpgEdge::Call(_)));
+    assert!(
+        !call_reachable.contains(&h1_idx),
+        "2-target func_value_field fanout must not create a Call edge into h1"
+    );
+    assert!(
+        !call_reachable.contains(&h2_idx),
+        "2-target func_value_field fanout must not create a Call edge into h2"
+    );
+
+    let return_from_h1 = cpg.reachable_forward(h1_idx, &|e| matches!(e, CpgEdge::Return(_)));
+    let return_from_h2 = cpg.reachable_forward(h2_idx, &|e| matches!(e, CpgEdge::Return(_)));
+    assert!(
+        !return_from_h1.contains(&invoke_idx),
+        "2-target func_value_field fanout must not create a Return edge from h1 back to invoke"
+    );
+    assert!(
+        !return_from_h2.contains(&invoke_idx),
+        "2-target func_value_field fanout must not create a Return edge from h2 back to invoke"
+    );
+
+    fn node_matches(n: &CpgNode, (file, line, base): (&str, usize, &str)) -> bool {
+        matches!(n, CpgNode::Variable { file: f, line: l, path, .. }
+            if f == file && *l == line && path.base == base)
+    }
+    fn has_dataflow_edge(
+        cpg: &CodePropertyGraph,
+        from: (&str, usize, &str),
+        to: (&str, usize, &str),
+    ) -> bool {
+        cpg.graph.edge_indices().any(|e| {
+            cpg.graph[e] == CpgEdge::DataFlow
+                && cpg
+                    .graph
+                    .edge_endpoints(e)
+                    .map(|(source, target)| {
+                        node_matches(cpg.node(source), from) && node_matches(cpg.node(target), to)
+                    })
+                    .unwrap_or(false)
+        })
+    }
+    assert!(
+        !has_dataflow_edge(cpg, (path, 10, "v"), (path, 5, "x")),
+        "2-target func_value_field fanout must not create an arg->param DataFlow edge into h1's x"
+    );
+    assert!(
+        !has_dataflow_edge(cpg, (path, 10, "v"), (path, 6, "x")),
+        "2-target func_value_field fanout must not create an arg->param DataFlow edge into h2's x"
+    );
+}
+
+/// F1 companion: the singleton case closes the loop end-to-end — a lone
+/// registered target still produces a real Call/Return edge AND an
+/// arg->param DataFlow edge, so the fix does not overcorrect.
+#[test]
+fn func_value_field_singleton_produces_cpg_call_and_dataflow_edges() {
+    let src = "package main\n\
+type Command struct {\n\tRun func(int)\n}\n\
+func helper(x int) { use(x) }\n\
+func register() *Command { return &Command{Run: helper} }\n\
+func invoke(cmd *Command, v int) {\n\tcmd.Run(v)\n}\n";
+    let path = "main.go";
+    let parsed = ParsedFile::parse(path, src, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let ctx = CpgContext::build(&files, None);
+    let cpg = &ctx.cpg;
+
+    let invoke_idx = cpg.function_node(path, "invoke").unwrap();
+    let helper_idx = cpg.function_node(path, "helper").unwrap();
+
+    let call_reachable = cpg.reachable_forward(invoke_idx, &|e| matches!(e, CpgEdge::Call(_)));
+    assert!(
+        call_reachable.contains(&helper_idx),
+        "singleton func_value_field must still create a Call edge into helper"
+    );
+    let return_reachable = cpg.reachable_forward(helper_idx, &|e| matches!(e, CpgEdge::Return(_)));
+    assert!(
+        return_reachable.contains(&invoke_idx),
+        "singleton func_value_field must still create a Return edge from helper back to invoke"
+    );
+
+    fn node_matches(n: &CpgNode, (file, line, base): (&str, usize, &str)) -> bool {
+        matches!(n, CpgNode::Variable { file: f, line: l, path, .. }
+            if f == file && *l == line && path.base == base)
+    }
+    fn has_dataflow_edge(
+        cpg: &CodePropertyGraph,
+        from: (&str, usize, &str),
+        to: (&str, usize, &str),
+    ) -> bool {
+        cpg.graph.edge_indices().any(|e| {
+            cpg.graph[e] == CpgEdge::DataFlow
+                && cpg
+                    .graph
+                    .edge_endpoints(e)
+                    .map(|(source, target)| {
+                        node_matches(cpg.node(source), from) && node_matches(cpg.node(target), to)
+                    })
+                    .unwrap_or(false)
+        })
+    }
+    assert!(
+        has_dataflow_edge(cpg, (path, 8, "v"), (path, 5, "x")),
+        "singleton func_value_field must still create an arg->param DataFlow edge into helper's x"
+    );
+}

@@ -1,0 +1,21 @@
+[case]
+language = "go"
+capability = "func_value_invocation"
+status = "pass"
+
+[seed]
+symbol = "helper"
+file = "main.go"
+line = 7
+
+# `register()`'s composite-literal registration site (line 10) is ALSO a true
+# caller of `helper` (callback_registration) — subset mode lets this fixture
+# assert just the invocation site; `func_value_registration` covers the
+# registration site itself.
+[[expect.callers]]
+file = "main.go"
+line = 14
+
+[expect]
+exact = false
+resolution_kind = "func_value_field"

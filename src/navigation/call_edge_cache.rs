@@ -11,7 +11,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v2: P3 R6MultiOwnerCandidate — Python/JS/TS/Tsx unknown-receiver multi-owner
 // collisions resolve to a capped NameOnly candidate edge instead of a drop,
 // changing which sites appear in incoming/outgoing indexes.
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 2;
+// v3: P5 — `callback_registration`/`func_value_field` nav edges added to
+// `build_resolved_call_edges` (Go function-value callbacks).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 3;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -334,8 +336,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_2() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 2);
+    fn sidecar_version_is_3() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 3);
     }
 
     #[test]

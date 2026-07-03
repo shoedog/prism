@@ -227,6 +227,44 @@ pub enum ClassBaseLink {
     Barrier,
 }
 
+/// P5 S2 (Go func-value callbacks): the source location of a recognized
+/// registration reference (composite-literal keyed field value, field
+/// assignment RHS, or bare call argument). Byte range included so distinct
+/// registrations at the same line still get distinct, deterministic identity
+/// (re-review MINOR-2).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+pub struct RegistrationSite {
+    pub file: String,
+    pub line: usize,
+    pub start_byte: usize,
+    pub end_byte: usize,
+}
+
+/// P5 S2: one recognized Go function-value registration.
+///
+/// Deliberately NOT a `CallSite` — see the architecture note on
+/// `CallGraph::go_registrations`: minting a synthetic CallSite here would
+/// resolve Exact via `free_single`, a soundness hole. Surfaced as NameOnly
+/// `callback_registration` nav edges at query time
+/// (`NavigationIndex::build_resolved_call_edges`), and consulted by S3
+/// (`resolve_call_site_full`'s Go interface-consult miss path) via
+/// `field_key` only.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+pub struct RegistrationRecord {
+    /// The function whose body contains the registration reference.
+    pub enclosing: FunctionId,
+    /// The registered (bare-identifier) function value.
+    pub target: FunctionId,
+    pub site: RegistrationSite,
+    /// Package-scoped `(owner_identity, field_name)` key, when knowable —
+    /// forms (a)/(b) with a uniquely-recovered owner. `None` for form (c)
+    /// (bare call-argument registration, which carries no field) and for
+    /// form (a)'s unknown-struct/ambiguous-owner fallback. A `None`-keyed
+    /// registration surfaces in nav but NEVER feeds S3 (spec: "ambiguous-owner
+    /// records likewise never feed S3").
+    pub field_key: Option<(crate::resolution::GoOwnerIdentity, String)>,
+}
+
 /// The call graph for a set of parsed files.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CallGraph {
@@ -339,6 +377,47 @@ pub struct CallGraph {
     /// JS/TS R4c: caller function -> conservative parameter/local binding names.
     #[serde(default)]
     pub js_ts_function_locals: BTreeMap<FunctionId, BTreeSet<String>>,
+    /// P5 S1 (Go func-value callbacks): directory basename -> set of
+    /// directories containing Go files sharing that basename. Used to resolve
+    /// a qualified `pkg.T` reference's import path to a package-scoped owner
+    /// identity (`resolve_go_owner_identity`); ambiguous (>1) or absent (0) is
+    /// unresolved, which the S1/S2/S3 pipeline treats as an unknown/ambiguous
+    /// owner (never feeds S3). Whole-program derived like
+    /// `interface_impls`/`promoted_aliases`; recomputed by
+    /// `apply_go_func_value_fields`.
+    #[serde(default)]
+    pub go_package_basenames: BTreeMap<String, BTreeSet<String>>,
+    /// P5 S1: every package-scoped struct identity the Go type provider
+    /// extracted (regardless of func-typed fields). Whole-program derived;
+    /// recomputed by `apply_go_func_value_fields`.
+    #[serde(default)]
+    pub go_known_struct_identities: BTreeSet<crate::resolution::GoOwnerIdentity>,
+    /// P5 S1: `(owner_identity, field_name)` pairs whose declared type begins
+    /// with `func(`. Whole-program derived; recomputed by
+    /// `apply_go_func_value_fields`.
+    #[serde(default)]
+    pub go_func_typed_fields: BTreeSet<(crate::resolution::GoOwnerIdentity, String)>,
+    /// P5 S2: recognized Go function-value registration sites. Whole-program
+    /// derived (needs S1's package-scoped field-typing, and target resolution
+    /// must see the complete function index) — like
+    /// `interface_impls`/`promoted_aliases`, recomputed from scratch by
+    /// `apply_go_registrations` rather than incrementally patched.
+    #[serde(default)]
+    pub go_registrations: BTreeSet<RegistrationRecord>,
+    /// P5 S2 telemetry: registration candidates skipped because the target
+    /// identifier was shadowed by a local binding in the enclosing function.
+    #[serde(default)]
+    pub go_registration_shadowed_skips: usize,
+    /// P5 S2 telemetry: form-(b) (field assignment) candidates skipped
+    /// because the LHS operand's owner type could not be uniquely recovered.
+    #[serde(default)]
+    pub go_registration_ambiguous_owner_skips: usize,
+    /// P5 S2 telemetry: form-(a) (composite-literal) fallback registrations
+    /// recorded WITHOUT a field key because S1 could not type the literal's
+    /// struct (unknown/ambiguous owner) — recorded (nav-only), not skipped,
+    /// but counted separately per spec.
+    #[serde(default)]
+    pub go_registration_unknown_owner_recorded: usize,
 }
 
 impl CallGraph {
@@ -377,6 +456,13 @@ impl CallGraph {
             indexed_files: BTreeSet::new(),
             js_ts_exported_functions: BTreeMap::new(),
             js_ts_function_locals: BTreeMap::new(),
+            go_package_basenames: BTreeMap::new(),
+            go_known_struct_identities: BTreeSet::new(),
+            go_func_typed_fields: BTreeSet::new(),
+            go_registrations: BTreeSet::new(),
+            go_registration_shadowed_skips: 0,
+            go_registration_ambiguous_owner_skips: 0,
+            go_registration_unknown_owner_recorded: 0,
         }
     }
 
@@ -540,6 +626,13 @@ impl CallGraph {
             indexed_files: BTreeSet::new(),
             js_ts_exported_functions: BTreeMap::new(),
             js_ts_function_locals: BTreeMap::new(),
+            go_package_basenames: BTreeMap::new(),
+            go_known_struct_identities: BTreeSet::new(),
+            go_func_typed_fields: BTreeSet::new(),
+            go_registrations: BTreeSet::new(),
+            go_registration_shadowed_skips: 0,
+            go_registration_ambiguous_owner_skips: 0,
+            go_registration_unknown_owner_recorded: 0,
         }
     }
 
@@ -855,11 +948,22 @@ impl CallGraph {
             indexed_files,
             js_ts_exported_functions,
             js_ts_function_locals,
+            go_package_basenames: BTreeMap::new(),
+            go_known_struct_identities: BTreeSet::new(),
+            go_func_typed_fields: BTreeSet::new(),
+            go_registrations: BTreeSet::new(),
+            go_registration_shadowed_skips: 0,
+            go_registration_ambiguous_owner_skips: 0,
+            go_registration_unknown_owner_recorded: 0,
         };
         cg.recompute_indirect_calls(files);
         cg.refresh_rust_receiver_state(files);
         cg.apply_go_embedding_promotion(files);
         cg.apply_go_interface_dispatch(files);
+        // P5: S1 func-typed-field index, then S2 registration scan (needs S1
+        // already applied — registrations are keyed against it).
+        cg.apply_go_func_value_fields(files);
+        cg.apply_go_registrations(files);
         cg
     }
 
@@ -1032,6 +1136,16 @@ impl CallGraph {
             .retain(|fid, _| !exclude.contains(&fid.file));
         // indexed_files tracks the file set; removed files are no longer indexed.
         self.indexed_files.retain(|f| !exclude.contains(f));
+
+        // P5: Go func-value state (S1 field-typing index + S2 registration
+        // table) is whole-program derived, same rationale as the promoted
+        // embedding aliases above — a registration's field-key validity can
+        // depend on a struct declared in an UNCHANGED file, and a
+        // registration's target FunctionId resolution can depend on the
+        // complete function index. Drop it all; `apply_go_func_value_fields` /
+        // `apply_go_registrations` repopulate from the merged graph.
+        self.clear_go_func_value_fields();
+        self.clear_go_registrations();
     }
 
     /// Merge another CallGraph into this one.
@@ -1089,6 +1203,15 @@ impl CallGraph {
             .extend(other.js_ts_exported_functions);
         self.js_ts_function_locals
             .extend(other.js_ts_function_locals);
+
+        // P5 (Go func-value callbacks): deliberately NOT merged here, same as
+        // `interface_impls`/`promoted_aliases`/`interface_method_names` above
+        // (also absent from this method) — these are whole-program derived,
+        // `other` (a `build_direct_subset` graph) always carries them empty,
+        // and the sole caller (`build_incremental_with_scope_graph_inputs`)
+        // re-applies `apply_go_func_value_fields` / `apply_go_registrations`
+        // on the merged graph immediately after, exactly like the embedding/
+        // interface passes. Extending here would just be overwritten.
     }
 
     pub(crate) fn recompute_indirect_calls(&mut self, files: &BTreeMap<String, ParsedFile>) {
@@ -2194,6 +2317,227 @@ impl CallGraph {
         }
     }
 
+    fn clear_go_func_value_fields(&mut self) {
+        self.go_package_basenames.clear();
+        self.go_known_struct_identities.clear();
+        self.go_func_typed_fields.clear();
+    }
+
+    /// P5 S1: recompute the Go func-typed-field index (package-scoped owner
+    /// identity -> which struct fields are func-typed) over `files`.
+    /// Whole-program derived, same shape as `apply_go_embedding_promotion` /
+    /// `apply_go_interface_dispatch`: clears first (idempotent), then
+    /// recomputes from scratch — never incrementally patched.
+    pub fn apply_go_func_value_fields(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        self.clear_go_func_value_fields();
+        if !files
+            .values()
+            .any(|p| p.language == crate::languages::Language::Go)
+        {
+            return;
+        }
+        // Directory-basename index for qualified `pkg.T` owner resolution
+        // (`resolve_go_owner_identity`) — one basename can map to multiple
+        // directories, which is deliberately treated as ambiguous downstream.
+        for (path, parsed) in files {
+            if parsed.language != crate::languages::Language::Go {
+                continue;
+            }
+            let dir = crate::resolution::dir_of(path).to_string();
+            let basename = dir.rsplit('/').next().unwrap_or(&dir).to_string();
+            self.go_package_basenames
+                .entry(basename)
+                .or_default()
+                .insert(dir);
+        }
+        let provider = crate::type_providers::go::GoTypeProvider::from_parsed_files(files);
+        self.go_known_struct_identities = provider.go_known_struct_identities();
+        self.go_func_typed_fields = provider.go_func_typed_fields();
+    }
+
+    fn clear_go_registrations(&mut self) {
+        self.go_registrations.clear();
+        self.go_registration_shadowed_skips = 0;
+        self.go_registration_ambiguous_owner_skips = 0;
+        self.go_registration_unknown_owner_recorded = 0;
+    }
+
+    /// P5 S2: scan `files` for recognized Go function-value registrations
+    /// (composite-literal keyed field, field assignment, bare call argument)
+    /// and record them in `go_registrations`. Whole-program derived (needs
+    /// `go_func_typed_fields`/`go_known_struct_identities` already applied by
+    /// `apply_go_func_value_fields`, and target resolution needs the complete
+    /// `functions`/`method_owners` index) — clears and recomputes from
+    /// scratch, never incrementally patched.
+    ///
+    /// Walks `parsed.all_functions()` per file (the same per-function
+    /// iteration convention Phase 1/2 and `apply_go_embedding_promotion` use)
+    /// so `caller_id` falls out naturally — no line-based `enclosing_function`
+    /// lookup (spec: prefer the existing per-function extraction convention).
+    pub fn apply_go_registrations(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        self.clear_go_registrations();
+        if !files
+            .values()
+            .any(|p| p.language == crate::languages::Language::Go)
+        {
+            return;
+        }
+        for (file_path, parsed) in files {
+            if parsed.language != crate::languages::Language::Go {
+                continue;
+            }
+            for func_node in parsed.all_functions() {
+                let func_name = match parsed.language.function_name(&func_node) {
+                    Some(n) => parsed.node_text(&n).to_string(),
+                    None => continue,
+                };
+                let (start, end) = parsed.node_line_range(&func_node);
+                let caller_id = FunctionId {
+                    file: file_path.clone(),
+                    name: func_name,
+                    start_line: start,
+                    end_line: end,
+                };
+                let all_lines: BTreeSet<usize> = (start..=end).collect();
+                for cand in parsed.go_registration_candidates(&func_node, &all_lines) {
+                    self.apply_go_registration_candidate(parsed, &func_node, &caller_id, cand);
+                }
+            }
+        }
+    }
+
+    /// One raw S2 candidate -> zero or one `RegistrationRecord`, applying the
+    /// shared gates (target resolution, shadow check) and the per-form owner
+    /// recovery / field-typing gate.
+    fn apply_go_registration_candidate(
+        &mut self,
+        parsed: &ParsedFile,
+        func_node: &tree_sitter::Node,
+        caller_id: &FunctionId,
+        cand: crate::ast::GoRegistrationCandidate,
+    ) {
+        use crate::ast::GoRegistrationForm;
+        use crate::resolution::{resolve_go_bare_value_ref, resolve_go_owner_identity};
+
+        // Shared gate (ALL forms): the value must resolve to a known in-repo
+        // free function via same-package/import helpers (never bare
+        // cross-package matching), and must not be shadowed by a local
+        // binding in the enclosing function (checked with the SAME Go
+        // binding machinery `receiver_type_in_fn` uses for receiver recovery,
+        // src/ast.rs — a real local-binding check, not a same-file/package
+        // substitute; spec-review MAJOR).
+        let Some(target) = resolve_go_bare_value_ref(
+            &self.functions,
+            &self.method_owners,
+            &caller_id.file,
+            &cand.value_name,
+        ) else {
+            return;
+        };
+        let (_, binding_count) = parsed.receiver_type_in_fn(
+            func_node,
+            &cand.value_name,
+            cand.line,
+            cand.start_byte,
+            true,
+        );
+        if binding_count > 0 {
+            self.go_registration_shadowed_skips += 1;
+            return;
+        }
+
+        let site = RegistrationSite {
+            file: caller_id.file.clone(),
+            line: cand.line,
+            start_byte: cand.start_byte,
+            end_byte: cand.end_byte,
+        };
+
+        let field_key = match &cand.form {
+            GoRegistrationForm::CompositeLiteralField {
+                struct_type_text,
+                field_name,
+            } => {
+                match resolve_go_owner_identity(
+                    struct_type_text,
+                    &caller_id.file,
+                    &self.imports,
+                    &self.go_package_basenames,
+                ) {
+                    Some(owner) if self.go_known_struct_identities.contains(&owner) => {
+                        if self
+                            .go_func_typed_fields
+                            .contains(&(owner.clone(), field_name.clone()))
+                        {
+                            Some((owner, field_name.clone()))
+                        } else {
+                            // Known struct, field not func-typed: not a
+                            // registration candidate at all — silently skip
+                            // (not a "fallback", not a "skip" to count).
+                            return;
+                        }
+                    }
+                    _ => {
+                        // Unknown/ambiguous struct: fall back to recording
+                        // WITHOUT a field key (nav-only, never feeds S3),
+                        // since the shared gate above already established the
+                        // value resolves unambiguously and isn't shadowed.
+                        self.go_registration_unknown_owner_recorded += 1;
+                        None
+                    }
+                }
+            }
+            GoRegistrationForm::FieldAssignment {
+                operand_name,
+                field_name,
+                assign_line,
+                assign_start_byte,
+            } => {
+                let (type_found, op_bindings) = parsed.receiver_type_in_fn(
+                    func_node,
+                    operand_name,
+                    *assign_line,
+                    *assign_start_byte,
+                    true,
+                );
+                let Some((operand_type, _)) = type_found else {
+                    self.go_registration_ambiguous_owner_skips += 1;
+                    return;
+                };
+                if op_bindings != 1 {
+                    self.go_registration_ambiguous_owner_skips += 1;
+                    return;
+                }
+                match resolve_go_owner_identity(
+                    &operand_type,
+                    &caller_id.file,
+                    &self.imports,
+                    &self.go_package_basenames,
+                ) {
+                    Some(owner)
+                        if self
+                            .go_func_typed_fields
+                            .contains(&(owner.clone(), field_name.clone())) =>
+                    {
+                        Some((owner, field_name.clone()))
+                    }
+                    _ => {
+                        self.go_registration_ambiguous_owner_skips += 1;
+                        return;
+                    }
+                }
+            }
+            GoRegistrationForm::CallArgument => None,
+        };
+
+        self.go_registrations.insert(RegistrationRecord {
+            enclosing: caller_id.clone(),
+            target,
+            site,
+            field_key,
+        });
+    }
+
     /// Build a call graph from only the specified files (Phases 1+2: direct calls only).
     ///
     /// Unlike `build()`, this skips Phase 3 (indirect call resolution) because
@@ -2451,6 +2795,19 @@ impl CallGraph {
             indexed_files,
             js_ts_exported_functions,
             js_ts_function_locals,
+            // P5: whole-program Go func-value state — left empty here, exactly
+            // like `interface_impls`/`interface_dispatch_computed: false`
+            // above: `build_direct_subset` never computes whole-program Go
+            // facts itself; the caller re-applies `apply_go_func_value_fields`
+            // / `apply_go_registrations` on the merged graph (mirrors
+            // `apply_go_embedding_promotion` / `apply_go_interface_dispatch`).
+            go_package_basenames: BTreeMap::new(),
+            go_known_struct_identities: BTreeSet::new(),
+            go_func_typed_fields: BTreeSet::new(),
+            go_registrations: BTreeSet::new(),
+            go_registration_shadowed_skips: 0,
+            go_registration_ambiguous_owner_skips: 0,
+            go_registration_unknown_owner_recorded: 0,
         }
     }
 
@@ -4051,5 +4408,203 @@ mod tests {
                 assert_eq!(from_index, legacy, "miss: field={field} file={path}");
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// P5 S2: Go func-value registration index tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod go_registration_tests {
+    use super::*;
+    use crate::languages::Language::{Go, C};
+    use std::collections::BTreeMap;
+
+    fn build_go(files: &[(&str, &str)]) -> CallGraph {
+        let mut map = BTreeMap::new();
+        for (path, src) in files {
+            map.insert(path.to_string(), ParsedFile::parse(path, src, Go).unwrap());
+        }
+        CallGraph::build(&map)
+    }
+
+    fn fid<'a>(cg: &'a CallGraph, name: &str) -> &'a FunctionId {
+        cg.functions
+            .get(name)
+            .unwrap_or_else(|| panic!("no function named {name}"))
+            .first()
+            .unwrap()
+    }
+
+    #[test]
+    fn form_a_composite_literal_field_recorded_with_field_key() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+type Command struct {\n\tRun func()\n}\n\
+func helper() {}\n\
+func main() {\n\tc := Command{Run: helper}\n\t_ = c\n}\n",
+        )]);
+        let target = fid(&cg, "helper").clone();
+        let enclosing = fid(&cg, "main").clone();
+        let reg = cg
+            .go_registrations
+            .iter()
+            .find(|r| r.target == target && r.enclosing == enclosing)
+            .expect("form (a) registration recorded");
+        assert!(reg.field_key.is_some(), "known struct+field -> field-keyed");
+        assert_eq!(reg.field_key.as_ref().unwrap().1, "Run");
+        assert_eq!(reg.site.line, 7); // `c := Command{Run: helper}` line
+        assert_eq!(cg.go_registration_unknown_owner_recorded, 0);
+    }
+
+    #[test]
+    fn form_b_field_assignment_recorded_with_field_key() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+type Command struct {\n\tRun func()\n}\n\
+func helper() {}\n\
+func register() {\n\tvar cmd Command\n\tcmd.Run = helper\n}\n",
+        )]);
+        let target = fid(&cg, "helper").clone();
+        let enclosing = fid(&cg, "register").clone();
+        let reg = cg
+            .go_registrations
+            .iter()
+            .find(|r| r.target == target && r.enclosing == enclosing)
+            .expect("form (b) registration recorded");
+        assert!(reg.field_key.is_some());
+        assert_eq!(reg.field_key.as_ref().unwrap().1, "Run");
+        assert_eq!(cg.go_registration_ambiguous_owner_skips, 0);
+    }
+
+    #[test]
+    fn form_b_unrecoverable_owner_type_is_skipped_and_counted() {
+        // `cmd := getCommand()` — a short var decl whose RHS is a plain call
+        // (not the `New*` constructor-name heuristic Go recovery uses), so
+        // the owner type is NOT recoverable at all. Form (b) must skip
+        // (never fall back the way form (a) does), and count it.
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+type Command struct {\n\tRun func()\n}\n\
+func helper() {}\n\
+func getCommand() Command { return Command{} }\n\
+func register() {\n\tcmd := getCommand()\n\tcmd.Run = helper\n}\n",
+        )]);
+        let target = fid(&cg, "helper").clone();
+        assert!(
+            !cg.go_registrations.iter().any(|r| r.target == target),
+            "unrecoverable owner type must not be recorded"
+        );
+        assert_eq!(cg.go_registration_ambiguous_owner_skips, 1);
+    }
+
+    #[test]
+    fn form_b_multiple_bindings_before_assignment_is_ambiguous() {
+        // Two `var cmd Command` bindings of the SAME name before the
+        // assignment (tree-sitter doesn't enforce Go's real "no redeclare"
+        // rule) forces `receiver_type_in_fn`'s existing shadow-bail
+        // (`bindings > 1 -> None`) — the owner type is not UNIQUELY
+        // recovered, so form (b) must skip and count, not record.
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+type Command struct {\n\tRun func()\n}\n\
+func helper() {}\n\
+func register() {\n\tvar cmd Command\n\tvar cmd Command\n\tcmd.Run = helper\n}\n",
+        )]);
+        let target = fid(&cg, "helper").clone();
+        assert!(
+            !cg.go_registrations.iter().any(|r| r.target == target),
+            "ambiguous (multiply-bound) owner must not be recorded"
+        );
+        assert_eq!(cg.go_registration_ambiguous_owner_skips, 1);
+    }
+
+    #[test]
+    fn form_c_call_argument_recorded_without_field_key() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+func helper() {}\n\
+func Register(f func()) {}\n\
+func main() {\n\tRegister(helper)\n}\n",
+        )]);
+        let target = fid(&cg, "helper").clone();
+        let enclosing = fid(&cg, "main").clone();
+        let reg = cg
+            .go_registrations
+            .iter()
+            .find(|r| r.target == target && r.enclosing == enclosing)
+            .expect("form (c) registration recorded");
+        assert!(
+            reg.field_key.is_none(),
+            "form (c) never carries a field key"
+        );
+    }
+
+    #[test]
+    fn shadowed_identifier_is_skipped_and_counted() {
+        // `helper` is locally re-bound inside `main`, so the reference at the
+        // call-argument site names the LOCAL, not the free function -> must
+        // be skipped, not recorded.
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+func helper() {}\n\
+func Register(f func()) {}\n\
+func main() {\n\thelper := func() {}\n\t_ = helper\n\tRegister(helper)\n}\n",
+        )]);
+        let target = fid(&cg, "helper").clone();
+        assert!(
+            !cg.go_registrations.iter().any(|r| r.target == target),
+            "shadowed identifier must not be recorded as a registration"
+        );
+        assert_eq!(cg.go_registration_shadowed_skips, 1);
+    }
+
+    #[test]
+    fn cross_package_bare_name_is_never_matched() {
+        // `helper` exists only in package `other` (a different directory);
+        // package `main`'s `Register(helper)` must NOT resolve cross-package
+        // by bare name (spec-review MAJOR: never bare cross-package matching).
+        // Since `helper` isn't in-repo from `main`'s package/file perspective,
+        // no registration should be recorded at all (no false cross-package
+        // hit, and no false-negative panic either).
+        let cg = build_go(&[
+            ("other/helper.go", "package other\nfunc helper() {}\n"),
+            (
+                "main/main.go",
+                "package main\nfunc Register(f func()) {}\nfunc main() {\n\tRegister(helper)\n}\n",
+            ),
+        ]);
+        assert!(
+            cg.go_registrations.is_empty(),
+            "cross-package bare name must never resolve into a registration"
+        );
+    }
+
+    #[test]
+    fn non_go_files_leave_registration_state_empty() {
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.c".to_string(),
+            ParsedFile::parse(
+                "main.c",
+                "struct Command { void (*run)(); };\nvoid helper() {}\nvoid main() { struct Command c = { .run = helper }; }\n",
+                C,
+            )
+            .unwrap(),
+        );
+        let cg = CallGraph::build(&files);
+        assert!(cg.go_registrations.is_empty());
+        assert!(cg.go_known_struct_identities.is_empty());
+        assert!(cg.go_func_typed_fields.is_empty());
+        assert_eq!(cg.go_registration_shadowed_skips, 0);
+        assert_eq!(cg.go_registration_ambiguous_owner_skips, 0);
+        assert_eq!(cg.go_registration_unknown_owner_recorded, 0);
     }
 }

@@ -1,0 +1,17 @@
+[case]
+language = "go"
+capability = "func_value_registration"
+status = "pass"
+
+[seed]
+symbol = "helper"
+file = "main.go"
+line = 7
+
+[[expect.callers]]
+file = "main.go"
+line = 10
+
+[expect]
+exact = false
+resolution_kind = "callback_registration"
