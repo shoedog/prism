@@ -2188,20 +2188,26 @@ impl ParsedFile {
             return;
         }
 
-        if matches!(node.kind(), "assignment" | "augmented_assignment") {
-            if let Some(left) = node.child_by_field_name("left") {
-                self.collect_python_attribute_loads(left, attr_names, true, out);
-            }
-            let mut cursor = node.walk();
-            for child in node.children(&mut cursor) {
-                let is_left = node
-                    .child_by_field_name("left")
-                    .is_some_and(|l| byte_range_eq(&l, &child));
-                if is_left {
-                    continue; // already walked above with in_store_target = true.
-                }
-                self.collect_python_attribute_loads(child, attr_names, in_store_target, out);
-            }
+        // (F4) `assignment`/`augmented_assignment` LHS and `for`/
+        // `for_in_clause` (incl. comprehensions) loop targets share the same
+        // shape: the `left` field is a store, every other child keeps the
+        // ambient load/store context (the right-hand/iterable side is a
+        // LOAD — e.g. `for x in r.text:` — `r.text` IS a load).
+        if matches!(
+            node.kind(),
+            "assignment" | "augmented_assignment" | "for_statement" | "for_in_clause"
+        ) {
+            self.collect_left_field_as_store(node, attr_names, in_store_target, out);
+            return;
+        }
+
+        // (F4) `del` targets and `with ... as TARGET:` alias targets are
+        // always store/delete context, never a load, regardless of the
+        // ambient context or internal shape (single attribute, tuple,
+        // expression_list, ...). `as_pattern_target` also covers
+        // except/match `as` bindings, which is harmless here (same rule).
+        if matches!(node.kind(), "delete_statement" | "as_pattern_target") {
+            self.collect_all_children_as_store(node, attr_names, out);
             return;
         }
 
@@ -2234,6 +2240,48 @@ impl ParsedFile {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             self.collect_python_attribute_loads(child, attr_names, in_store_target, out);
+        }
+    }
+
+    /// (F4) Shared shape for `assignment`/`augmented_assignment` and
+    /// `for`/`for_in_clause`: recurse into `node`'s `left` field as a store
+    /// target, and every other child with the ambient `in_store_target`
+    /// flag unchanged (so the right-hand/iterable side stays LOAD context
+    /// unless it was already nested inside an outer store target).
+    fn collect_left_field_as_store(
+        &self,
+        node: Node<'_>,
+        attr_names: &BTreeSet<String>,
+        in_store_target: bool,
+        out: &mut Vec<PythonAttributeLoadCandidate>,
+    ) {
+        if let Some(left) = node.child_by_field_name("left") {
+            self.collect_python_attribute_loads(left, attr_names, true, out);
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            let is_left = node
+                .child_by_field_name("left")
+                .is_some_and(|l| byte_range_eq(&l, &child));
+            if is_left {
+                continue; // already walked above with in_store_target = true.
+            }
+            self.collect_python_attribute_loads(child, attr_names, in_store_target, out);
+        }
+    }
+
+    /// (F4) Shared shape for `delete_statement`/`as_pattern_target`: every
+    /// child is unconditionally a store/delete target, regardless of the
+    /// ambient context.
+    fn collect_all_children_as_store(
+        &self,
+        node: Node<'_>,
+        attr_names: &BTreeSet<String>,
+        out: &mut Vec<PythonAttributeLoadCandidate>,
+    ) {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_python_attribute_loads(child, attr_names, true, out);
         }
     }
 

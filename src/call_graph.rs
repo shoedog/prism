@@ -5106,6 +5106,75 @@ mod python_property_access_tests {
         assert!(cg.property_accesses.is_empty());
     }
 
+    // ---- F4: delete/for/with-target store contexts ---------------------
+
+    #[test]
+    fn delete_statement_target_is_not_recorded() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    del r.text\n",
+        )]);
+        assert!(cg.property_accesses.is_empty());
+    }
+
+    #[test]
+    fn for_target_attribute_is_not_recorded() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r, xs):\n    for r.text in xs:\n        pass\n",
+        )]);
+        assert!(cg.property_accesses.is_empty());
+    }
+
+    #[test]
+    fn comprehension_for_target_attribute_is_not_recorded() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r, xs):\n    return [x for r.text in xs]\n",
+        )]);
+        assert!(cg.property_accesses.is_empty());
+    }
+
+    #[test]
+    fn for_iterable_attribute_load_is_still_recorded() {
+        // The right-hand/iterable side of a `for` remains LOAD context.
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    for x in r.text:\n        pass\n",
+        )]);
+        let getter = fid_named(&cg, "text").clone();
+        let enclosing = fid_named(&cg, "f").clone();
+        assert!(cg
+            .property_accesses
+            .iter()
+            .any(|a| a.getter == getter && a.enclosing == enclosing));
+    }
+
+    #[test]
+    fn with_alias_target_attribute_is_not_recorded() {
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r, cm):\n    with cm() as r.text:\n        pass\n",
+        )]);
+        assert!(cg.property_accesses.is_empty());
+    }
+
+    #[test]
+    fn with_item_value_attribute_load_is_still_recorded() {
+        // The context-manager-expression side of `with ... as x:` remains
+        // LOAD context, even though the alias target does not.
+        let cg = build_py(&[(
+            "resp.py",
+            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    with r.text as x:\n        pass\n",
+        )]);
+        let getter = fid_named(&cg, "text").clone();
+        let enclosing = fid_named(&cg, "f").clone();
+        assert!(cg
+            .property_accesses
+            .iter()
+            .any(|a| a.getter == getter && a.enclosing == enclosing));
+    }
+
     #[test]
     fn call_of_attribute_is_not_double_recorded() {
         // `r.text()` — the attribute is the function child of a call, not a
