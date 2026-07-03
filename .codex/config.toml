@@ -1,0 +1,4 @@
+[mcp_servers.prism]
+command = "/Users/wesleyjinks/code/slicing/target/release/prism-mcp"
+args = ["--repo", "/Users/wesleyjinks/code/slicing"]
+startup_timeout_sec = 60
