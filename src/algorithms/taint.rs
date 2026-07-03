@@ -10725,7 +10725,7 @@ pub(crate) fn cleansed_categories_for_source(
     out
 }
 
-fn sanitizer_category_str(c: crate::frameworks::SanitizerCategory) -> &'static str {
+pub(crate) fn sanitizer_category_str(c: crate::frameworks::SanitizerCategory) -> &'static str {
     use crate::frameworks::SanitizerCategory::*;
     match c {
         Xss => "xss",
@@ -10735,6 +10735,63 @@ fn sanitizer_category_str(c: crate::frameworks::SanitizerCategory) -> &'static s
         OsCommand => "os_command",
         PathTraversal => "path_traversal",
     }
+}
+
+// P10: node-scoped sanitizer matcher, beside `cleansed_categories_for_source` — same temporary
+// reasoning->taint.rs layering inversion noted above (not relocated this slice).
+/// A candidate call node recognized as an active, non-`paired_check` sanitizer.
+pub(crate) struct SanitizerCallSite {
+    pub category: crate::frameworks::SanitizerCategory,
+    pub callee_text: String,
+    pub file: String,
+    pub line: usize,
+}
+
+/// P10 node-scoped matcher: does `call_node` match an active sanitizer recognizer? Checked across
+/// ALL categories (first match wins by `active_recognizers()` order) — a deliberate divergence from
+/// the CWE engine's PER-CATEGORY sink cut (`path.cleansed_for.contains(&sink_pat.category)` near
+/// :5996): `taint_reaches`'s honesty tier proves "a recognized sanitizer transform sits on this
+/// path" without needing to know the specific sink category, so any-category is the right cut here.
+///
+/// Excludes `paired_check` recognizers (the Go path-traversal family, `src/sanitizers/path.rs`)
+/// entirely: those need the CWE engine's sink-time AST+CFG guard validation (see
+/// `go_path_traversal_cleansed_for_sink` near :5986) to rule out inverted or guard-after-sink
+/// shapes, which this single-call-node check cannot replicate. They stay advisory-only via the
+/// unchanged `Cleansed` warning / `sanitizers_present_in_source_fn` path.
+///
+/// Returns the matched category plus the discriminating fact (rendered callee text, call's own
+/// file/line) — NOT proof that this specific call sits on any particular taint path. Chain-window
+/// proof (is this call reached from a specific source and does its result feed a specific def) is
+/// the reasoning layer's job: see `src/reasoning/sanitizer_walk.rs`.
+pub(crate) fn sanitizer_call_site(
+    parsed: &ParsedFile,
+    call_node: &Node<'_>,
+) -> Option<SanitizerCallSite> {
+    let actual = call_path_text(parsed, call_node)?;
+    for recognizer in crate::sanitizers::active_recognizers() {
+        if recognizer.paired_check.is_some() {
+            continue;
+        }
+        if !call_path_matches(parsed, &actual, recognizer.call_path) {
+            continue;
+        }
+        if let Some(check) = recognizer.semantic_check {
+            let cs = CallSite {
+                call_node: *call_node,
+                source: parsed.source.as_str(),
+            };
+            if !check(&cs) {
+                continue;
+            }
+        }
+        return Some(SanitizerCallSite {
+            category: recognizer.category,
+            callee_text: actual,
+            file: parsed.path.clone(),
+            line: call_node.start_position().row + 1,
+        });
+    }
+    None
 }
 
 /// Build a Chain-shaped `SliceGraph` representing one source-to-sink taint path.
@@ -11561,5 +11618,56 @@ func handler(input string) {
             kind: VarAccessKind::Use,
         };
         assert!(cleansed_categories_for_source(&files, &s).is_empty());
+    }
+
+    #[test]
+    fn test_sanitizer_call_site_python_xss_match() {
+        let src = "def f(u):\n    safe = html.escape(u)\n    return safe\n";
+        let parsed = ParsedFile::parse("t.py", src, Language::Python).unwrap();
+        let mut calls = Vec::new();
+        collect_calls(&parsed, parsed.tree.root_node(), &mut calls);
+        let call = calls
+            .iter()
+            .find(|c| c.start_position().row + 1 == 2)
+            .expect("html.escape(u) call on line 2");
+        let site =
+            sanitizer_call_site(&parsed, call).expect("html.escape recognized as a sanitizer");
+        assert_eq!(site.category, crate::frameworks::SanitizerCategory::Xss);
+        assert_eq!(site.callee_text, "html.escape");
+        assert_eq!(site.file, "t.py");
+        assert_eq!(site.line, 2);
+    }
+
+    #[test]
+    fn test_sanitizer_call_site_excludes_paired_check_recognizer() {
+        // BLOCKER ruling: Go's path-traversal family (`filepath.Clean` / `filepath.Rel`) carries a
+        // `paired_check` and must be excluded from the node-scoped matcher entirely — the CWE engine
+        // validates those with sink-time AST+CFG guard analysis this single-call check cannot
+        // replicate.
+        let src = "package m\nfunc f(p string) string {\n\treturn filepath.Clean(p)\n}\n";
+        let parsed = ParsedFile::parse("t.go", src, Language::Go).unwrap();
+        let mut calls = Vec::new();
+        collect_calls(&parsed, parsed.tree.root_node(), &mut calls);
+        let call = calls
+            .iter()
+            .find(|c| c.start_position().row + 1 == 3)
+            .expect("filepath.Clean(p) call on line 3");
+        assert!(
+            sanitizer_call_site(&parsed, call).is_none(),
+            "paired_check recognizers must be excluded from the node-scoped matcher"
+        );
+    }
+
+    #[test]
+    fn test_sanitizer_call_site_no_match_returns_none() {
+        let src = "def f(u):\n    return str(u)\n";
+        let parsed = ParsedFile::parse("t.py", src, Language::Python).unwrap();
+        let mut calls = Vec::new();
+        collect_calls(&parsed, parsed.tree.root_node(), &mut calls);
+        let call = calls
+            .iter()
+            .find(|c| c.start_position().row + 1 == 2)
+            .expect("str(u) call on line 2");
+        assert!(sanitizer_call_site(&parsed, call).is_none());
     }
 }
