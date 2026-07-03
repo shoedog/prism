@@ -454,6 +454,53 @@ impl NavigationIndex {
                 });
         }
 
+        // P9 S3: merge framework-entry (Flask/FastAPI/Express route
+        // registration) records in beside the P7 loop above — same
+        // rationale: `cg.framework_entries` is a `BTreeSet` (deterministic
+        // insertion order), records are NOT `CallSite`s, so they never
+        // appear in the `cg.callers`/`cg.calls` loops above either.
+        //
+        // Module-level incoming-only rule (codex-adjudicated): every record
+        // feeds `incoming_by_target[handler]` regardless of `caller`, but
+        // `outgoing_by_caller[caller]` is populated ONLY when `caller` is a
+        // REAL enclosing function — the `<module>` pseudo-caller
+        // (`framework_entries::MODULE_PSEUDO_CALLER_NAME`) is not navigable
+        // (no CPG node, no Module symbol kind in nav — navigation/types.rs)
+        // and must never appear as an outgoing/callees entry.
+        for entry in &cg.framework_entries {
+            idx.incoming_by_target
+                .entry(entry.handler.clone())
+                .or_default()
+                .push(IndexedIncomingCall {
+                    caller: entry.caller.clone(),
+                    callee_name: entry.handler.name.clone(),
+                    call_site_line: entry.site.line,
+                    start_byte: entry.site.start_byte,
+                    end_byte: entry.site.end_byte,
+                    qualifier: None,
+                    confidence: ResolutionConfidence::NameOnly,
+                    kind: ResolutionKind::FrameworkEntry,
+                });
+            if entry.caller.name == crate::framework_entries::MODULE_PSEUDO_CALLER_NAME {
+                continue;
+            }
+            idx.outgoing_by_caller
+                .entry(entry.caller.clone())
+                .or_default()
+                .push(IndexedOutgoingCallSite {
+                    callee_name: entry.handler.name.clone(),
+                    call_site_line: entry.site.line,
+                    start_byte: entry.site.start_byte,
+                    end_byte: entry.site.end_byte,
+                    qualifier: None,
+                    resolved: vec![IndexedResolvedTarget {
+                        target: entry.handler.clone(),
+                        confidence: ResolutionConfidence::NameOnly,
+                        kind: ResolutionKind::FrameworkEntry,
+                    }],
+                });
+        }
+
         idx
     }
 
@@ -865,6 +912,91 @@ mod tests {
         assert!(hit.why.iter().any(|r| matches!(r,
             Reason::Resolution { kind } if kind == "property_access"
         )));
+    }
+
+    /// P9 plumbing: framework-entry state (Flask/FastAPI/Express route
+    /// registrations) is whole-program derived exactly like the P5/P7 state
+    /// above, so `build_incremental_with_scope_graph_inputs` must explicitly
+    /// clear + re-apply it (`apply_framework_entries`) rather than leaving
+    /// stale/empty state after `remove_files` + `merge`. Changes an
+    /// UNRELATED file (the route decorator stays declared in the untouched
+    /// `app.py`) and confirms the framework_entry edge still surfaces — a
+    /// missing re-apply call would silently drop it.
+    #[test]
+    fn incremental_from_previous_recomputes_framework_entries() {
+        let dir = tempfile::tempdir().unwrap();
+        write_files(
+            dir.path(),
+            &[
+                (
+                    "app.py",
+                    "from flask import Flask\napp = Flask(__name__)\n\n@app.route(\"/x\")\ndef handler():\n    return \"ok\"\n",
+                ),
+                ("main.py", "def unrelated():\n    return 1\n"),
+            ],
+        );
+        let v1 = full_session(dir.path());
+
+        write_files(
+            dir.path(),
+            &[("main.py", "def unrelated():\n    return 2\n")],
+        );
+        let v2_incremental = incremental_session(&v1, dir.path(), &["main.py"]);
+        let v2_full = full_session(dir.path());
+
+        assert_eq!(
+            queries::callers(&v2_full, Some("handler"), None, None, 1).unwrap(),
+            queries::callers(&v2_incremental, Some("handler"), None, None, 1).unwrap()
+        );
+        let callers = function_names_for_callers(&v2_incremental, "handler", None, 1);
+        assert!(
+            callers.contains(&"<module>".to_string()),
+            "incremental rebuild must recompute the framework_entry edge for a \
+             route decorator declared in an unchanged file, not leave it cleared"
+        );
+
+        let evidence = queries::callers(&v2_incremental, Some("handler"), None, None, 1).unwrap();
+        let hit = evidence
+            .items
+            .iter()
+            .find(
+                |i| matches!(&i.symbol, Some(SymbolRef::Function { name, .. }) if name == "<module>"),
+            )
+            .expect("<module> surfaces as a caller of handler via framework_entry resolution");
+        assert!(hit.why.iter().any(|r| matches!(r,
+            Reason::Resolution { kind } if kind == "framework_entry"
+        )));
+    }
+
+    /// Whitebox pin (same-crate access to `outgoing_by_caller`) for the
+    /// module-level incoming-only rule: a module-level registration's
+    /// `<module>` pseudo-caller must NEVER become an `outgoing_by_caller`
+    /// key. `<module>` has no CPG node and is never a valid nav seed (no
+    /// Module symbol kind exists), so a leaked key can't be observed via
+    /// `nav_callees`; it's also invisible to `nav module-deps`/`nav
+    /// repo-map` (`collect_module_edges`, src/navigation/module_graph.rs,
+    /// unconditionally drops same-file edges, and a framework-entry
+    /// handler is always in the same file as its registration) — this
+    /// whitebox test is the ONLY place that can pin the invariant at all.
+    #[test]
+    fn module_level_framework_entry_never_populates_outgoing_by_caller() {
+        let dir = tempfile::tempdir().unwrap();
+        write_files(
+            dir.path(),
+            &[(
+                "app.py",
+                "from flask import Flask\napp = Flask(__name__)\n\n@app.route(\"/x\")\ndef handler():\n    return \"ok\"\n",
+            )],
+        );
+        let session = full_session(dir.path());
+        assert!(
+            !session
+                .index
+                .outgoing_call_edges()
+                .any(|(caller, _)| caller.name
+                    == crate::framework_entries::MODULE_PSEUDO_CALLER_NAME),
+            "the <module> pseudo-caller must never appear as an outgoing_by_caller key"
+        );
     }
 
     /// P8 F1 fix (codex re-review BLOCKER): Rust macro-arg call extraction

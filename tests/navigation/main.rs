@@ -2,6 +2,7 @@ mod cache_test;
 mod callees_test;
 mod callers_test;
 mod ego_test;
+mod framework_entry_test;
 mod func_value_test;
 mod index_test;
 mod inventory_test;

@@ -301,6 +301,16 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         }
     }
 
+    // P9 S3: framework-entry (Flask/FastAPI/Express route registration)
+    // records are NOT `CallSite`s either (same rationale as the
+    // go_registrations/property_accesses loops above) — count them
+    // explicitly into the same `kinds`/`kind_nameonly`/`demoted` telemetry.
+    for _ in &cg.framework_entries {
+        *kinds.entry("framework_entry").or_default() += 1;
+        *kind_nameonly.entry("framework_entry").or_default() += 1;
+        demoted += 1;
+    }
+
     // Built as its own value (not inlined) so the outer json!() call below stays
     // under the macro's recursion limit now that P4 added 2 more top-level keys.
     let glob_expand = serde_json::json!({
@@ -336,6 +346,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "property_access_fanout_skips": cg.property_access_fanout_skips,
         "property_access_store_skips": cg.property_access_store_skips,
         "property_access_cached_property_recorded": property_access_cached_property_recorded,
+        "framework_entries_recorded": cg.framework_entries.len(),
+        "framework_entry_unresolved_handlers": cg.framework_entry_unresolved_handlers,
         // P8: Rust macro-argument call-extraction telemetry (rust_macro_args)
         // -- per-file facts summed on demand, same pattern as
         // `js_export_skipped_exprs` below (`macro_arg_facts` is per-file-

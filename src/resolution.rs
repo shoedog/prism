@@ -79,6 +79,18 @@ pub enum ResolutionKind {
     /// there is no S3 resolve-time consult path at all (nav-only, no CPG/
     /// DataFlow consumer ever sees it).
     PropertyAccess,
+    /// P9 S3: a Flask/FastAPI/Express route registration
+    /// (`@app.route("/x")`, `app.get("/x", handler)`) surfaced as a NameOnly
+    /// nav edge. Never produced by `resolve_call_site_full` — mirrors
+    /// `PropertyAccess`: a route registration is not a `CallSite` (the
+    /// registration line does not itself invoke the handler — it is an
+    /// entrypoint/discoverability fact, not dataflow), so this kind labels
+    /// edges synthesized directly from `CallGraph::framework_entries` in
+    /// `NavigationIndex::build_resolved_call_edges`. Nav-only per the
+    /// consumer-visibility doctrine — no S3 resolve-time consult path,
+    /// never fed to taint/slice consumers (feeding these edges there would
+    /// assert dataflow that doesn't exist at the registration line).
+    FrameworkEntry,
 }
 
 impl ResolutionKind {
@@ -107,6 +119,7 @@ impl ResolutionKind {
             ResolutionKind::CallbackRegistration => "callback_registration",
             ResolutionKind::FuncValueField => "func_value_field",
             ResolutionKind::PropertyAccess => "property_access",
+            ResolutionKind::FrameworkEntry => "framework_entry",
         }
     }
 }
