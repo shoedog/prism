@@ -76,7 +76,12 @@ use std::path::{Path, PathBuf};
 /// - v32: P3 R6MultiOwnerCandidate — Python/JS/TS/Tsx unknown-receiver
 ///   multi-owner collisions resolve via `resolve_call_site` to a capped
 ///   NameOnly candidate instead of dropping, changing CPG Call/Return edges.
-const CACHE_VERSION: u32 = 32; // 32: P3 candidate edges (resolution behavior change).
+/// - v33: P5 Go func-value callbacks — CallGraph.go_package_basenames /
+///   go_known_struct_identities / go_func_typed_fields (S1) +
+///   go_registrations + registration telemetry counters (S2); new
+///   ResolutionKind::CallbackRegistration/FuncValueField and
+///   DropReason::FuncValueFanout (S3, resolution behavior change).
+const CACHE_VERSION: u32 = 33; // 33: P5 Go func-value callbacks.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -594,10 +599,10 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_32_for_p3_candidate_edges() {
-        // v32: P3 R6MultiOwnerCandidate changes resolve_call_site output for
-        // Python/JS/TS/Tsx unknown-receiver multi-owner collisions.
-        assert_eq!(super::CACHE_VERSION, 32);
+    fn cache_version_is_33_for_go_func_value_callbacks() {
+        // v33: P5 Go func-value callbacks (S1/S2/S3 CallGraph state + new
+        // ResolutionKind/DropReason variants), on top of v32 (P3 candidates).
+        assert_eq!(super::CACHE_VERSION, 33);
     }
 
     #[test]

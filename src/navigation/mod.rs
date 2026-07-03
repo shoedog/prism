@@ -659,4 +659,53 @@ mod tests {
             function_names_for_callers(&v2_incremental, "old_handler", Some("setup.c"), 1);
         assert!(!old_handler_callers.contains(&"run".to_string()));
     }
+
+    /// P5 plumbing: the S1 func-typed-field index + S2 registration table are
+    /// whole-program derived (mirroring Go embedding/interface dispatch), so
+    /// `build_incremental_with_scope_graph_inputs` must explicitly clear +
+    /// re-apply them (`apply_go_func_value_fields` / `apply_go_registrations`)
+    /// rather than leaving stale/empty state after `remove_files` + `merge`.
+    /// Changes an UNRELATED file (`Command` stays declared in the untouched
+    /// `types.go`) and confirms the registration edge still surfaces — a
+    /// missing re-apply call would silently drop it, since `remove_files`
+    /// unconditionally clears this whole-program state.
+    #[test]
+    fn incremental_from_previous_recomputes_go_func_value_registrations() {
+        let dir = tempfile::tempdir().unwrap();
+        write_files(
+            dir.path(),
+            &[
+                (
+                    "types.go",
+                    "package main\ntype Command struct {\n\tRun func()\n}\n",
+                ),
+                (
+                    "main.go",
+                    "package main\nfunc helper() {}\nfunc unrelated() {}\nfunc main() {\n\tc := Command{Run: helper}\n\t_ = c\n}\n",
+                ),
+            ],
+        );
+        let v1 = full_session(dir.path());
+
+        write_files(
+            dir.path(),
+            &[(
+                "main.go",
+                "package main\nfunc helper() {}\nfunc unrelated() { _ = 1 }\nfunc main() {\n\tc := Command{Run: helper}\n\t_ = c\n}\n",
+            )],
+        );
+        let v2_incremental = incremental_session(&v1, dir.path(), &["main.go"]);
+        let v2_full = full_session(dir.path());
+
+        assert_eq!(
+            queries::callers(&v2_full, Some("helper"), None, None, 1).unwrap(),
+            queries::callers(&v2_incremental, Some("helper"), None, None, 1).unwrap()
+        );
+        let callers = function_names_for_callers(&v2_incremental, "helper", None, 1);
+        assert!(
+            callers.contains(&"main".to_string()),
+            "incremental rebuild must recompute the callback_registration edge \
+             for a struct declared in an unchanged file, not leave it cleared"
+        );
+    }
 }

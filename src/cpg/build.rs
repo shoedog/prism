@@ -298,6 +298,13 @@ impl CodePropertyGraph {
             // after scope/Rust receiver state to mirror full-build derived ordering.
             cached_cg.apply_go_embedding_promotion(files);
             cached_cg.apply_go_interface_dispatch(files);
+            // P5: Go func-value callbacks are ALSO whole-program derived (S1
+            // field-typing needs every Go file's struct declarations; S2
+            // registration target resolution needs the complete function
+            // index) — recompute here too, S1 before S2 (S2 keys registrations
+            // against S1's index), mirroring the embedding/interface ordering.
+            cached_cg.apply_go_func_value_fields(files);
+            cached_cg.apply_go_registrations(files);
 
             Self::assemble_graph(cached_cg, cached_dfg, files, type_db)
         })
