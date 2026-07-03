@@ -249,5 +249,21 @@ class PrismCli:
             return []
         return extract_callers(seed, ev)
 
+    def taint_reaches(
+        self, corpus_root: str, sources: list[str], sinks: list[str] | None = None,
+    ) -> dict:
+        """Shell `prism nav taint-reaches`. `sources`/`sinks` are `file:line`
+        strings; omitting/emptying `sinks` runs frontier mode (matches the
+        CLI's own `--sink` omission contract)."""
+        args = ["taint-reaches", "--repo", corpus_root]
+        for source in sources:
+            args += ["--source", source]
+        for sink in sinks or []:
+            args += ["--sink", sink]
+        return self._run(args)
+
+    def module_deps(self, corpus_root: str, file: str) -> dict:
+        return self._run(["module-deps", "--repo", corpus_root, "--file", file])
+
     def version(self) -> str:
         return f"prism {self.sha}{'-dirty' if self.dirty else ''}"

@@ -446,16 +446,31 @@ def match_snapshot_to_prism(
 
 
 def matrix_result_to_json(result) -> dict:
+    # "callers" probes carry got/expected as sets of (file, line) call-site
+    # tuples -- sort them into deterministic JSON arrays. "taint"/"module_deps"
+    # probes already carry deterministic, triage-useful strings (P6bc) built
+    # by tier_a.matrix's _format_taint_summary / module-edge join -- pass
+    # those through unchanged rather than treating them as tuple sets.
+    probe = getattr(result, "probe", "callers")
+    if probe == "callers":
+        got = [list(site) for site in sorted(result.got)]
+        expected = [list(site) for site in sorted(result.expected)]
+        got_kinds = {
+            f"{file}:{line}": kind
+            for (file, line), kind in sorted(result.got_kinds.items())
+        }
+    else:
+        got = result.got
+        expected = result.expected
+        got_kinds = {}
     return {
         "capability": result.capability,
         "language": result.language,
         "outcome": result.outcome,
-        "got": [list(site) for site in sorted(result.got)],
-        "expected": [list(site) for site in sorted(result.expected)],
-        "got_kinds": {
-            f"{file}:{line}": kind
-            for (file, line), kind in sorted(result.got_kinds.items())
-        },
+        "probe": probe,
+        "got": got,
+        "expected": expected,
+        "got_kinds": got_kinds,
         "expected_resolution_kind": result.expected_resolution_kind,
         "forbid_resolution_kind": result.forbid_resolution_kind,
     }
