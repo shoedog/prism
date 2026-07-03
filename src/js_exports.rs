@@ -160,7 +160,8 @@ fn collect_candidate_names(
 ) -> BTreeSet<String> {
     let mut names = BTreeSet::new();
     if !visited_files.insert(file.to_string()) {
-        return names; // cycle in the barrel graph
+        telemetry.chain_unresolved += 1; // cycle in the barrel graph
+        return names;
     }
     if let Some(facts) = raw.get(file) {
         names.extend(facts.named.keys().cloned());

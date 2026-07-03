@@ -334,6 +334,31 @@ fn barrel_depth_3_star_only_chain_fails_closed_and_counts() {
 }
 
 #[test]
+fn star_only_reexport_cycle_fails_closed_and_counts() {
+    // Codex MINOR (fix wave 2): a pure `export * from` cycle (a.ts <-> b.ts,
+    // no named export anywhere in the cycle) previously vanished from
+    // `js_export_chain_unresolved` telemetry entirely -- the cycle guard in
+    // candidate-name collection returned silently instead of counting,
+    // unlike the depth-exceeded branch right next to it (see
+    // `barrel_depth_3_star_only_chain_fails_closed_and_counts` above).
+    let fs = files(&[
+        ("a.ts", "export * from './b';\n", Language::TypeScript),
+        ("b.ts", "export * from './a';\n", Language::TypeScript),
+        (
+            "app.ts",
+            "import { process } from './a';\nfunction run() { process(); }\n",
+            Language::TypeScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    let resolved = resolve_kind(&cg, "app.ts", "run", "process");
+    assert!(resolved
+        .iter()
+        .all(|(_, k)| *k != ResolutionKind::ImportMember));
+    assert!(cg.js_export_chain_unresolved > 0);
+}
+
+#[test]
 fn star_reexport_barrel_resolves() {
     let fs = files(&[
         (
