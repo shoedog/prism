@@ -301,6 +301,24 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         }
     }
 
+    // Built as its own value (not inlined) so the outer json!() call below stays
+    // under the macro's recursion limit now that P4 added 2 more top-level keys.
+    let glob_expand = serde_json::json!({
+        "resolved_l1": ge.resolved_l1,
+        "resolved_l2": ge.resolved_l2,
+        "depth_exceeded": ge.depth_exceeded,
+        "cycle": ge.cycle,
+        "external": ge.external,
+        "multi_target": ge.multi_target,
+        "vis_unknown": ge.vis_unknown,
+        "member_multi": ge.member_multi,
+        "member_undecidable": ge.member_undecidable,
+        "member_hidden_continued": ge.member_hidden_continued,
+        "member_hidden_continue_hit": ge.member_hidden_continue_hit,
+        "member_hidden_continue_empty": ge.member_hidden_continue_empty,
+        "member_hidden_continue_poison": ge.member_hidden_continue_poison,
+    });
+
     serde_json::json!({
         "total_call_sites": total,
         "kinds": kinds,
@@ -318,6 +336,15 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "property_access_fanout_skips": cg.property_access_fanout_skips,
         "property_access_store_skips": cg.property_access_store_skips,
         "property_access_cached_property_recorded": property_access_cached_property_recorded,
+        // P4: JS/TS export-fact re-export chain/barrel telemetry (js_exports::
+        // resolve_js_exports, depth-bounded at MAX_REEXPORT_DEPTH). The primary
+        // signal is `kinds`/`kind_exact`/`kind_nameonly`'s "import_member" count
+        // rising and `unresolved_unknown_name` dropping (no new ResolutionKind/
+        // DropReason needed); these two counters cover the fail-closed cases
+        // that leave no other trace (a chain that never resolves emits nothing
+        // for R4c to count).
+        "js_export_chain_unresolved": cg.js_export_chain_unresolved,
+        "js_export_barrel_conflicts": cg.js_export_barrel_conflicts,
         "embedding_gaps": cg.embedding_gaps,
         "interface_gaps": cg.interface_gaps,
         "interface_overapprox": cg.interface_overapprox,
@@ -333,21 +360,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "multi_target_exact_shape": multi_target_exact_shape,
         "shadow_typepath_narrow": shadow_typepath_narrow,
         "recovery_typepath": recovery_typepath,
-        "glob_expand": {
-            "resolved_l1": ge.resolved_l1,
-            "resolved_l2": ge.resolved_l2,
-            "depth_exceeded": ge.depth_exceeded,
-            "cycle": ge.cycle,
-            "external": ge.external,
-            "multi_target": ge.multi_target,
-            "vis_unknown": ge.vis_unknown,
-            "member_multi": ge.member_multi,
-            "member_undecidable": ge.member_undecidable,
-            "member_hidden_continued": ge.member_hidden_continued,
-            "member_hidden_continue_hit": ge.member_hidden_continue_hit,
-            "member_hidden_continue_empty": ge.member_hidden_continue_empty,
-            "member_hidden_continue_poison": ge.member_hidden_continue_poison,
-        },
+        "glob_expand": glob_expand,
     })
 }
 

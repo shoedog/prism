@@ -183,3 +183,50 @@ fn call_stats_reports_embedded_promotion_and_ambiguity() {
     assert!(v["interface_overapprox"].is_object());
     assert!(v["interface_fanout"].is_object());
 }
+
+#[test]
+fn call_stats_reports_js_export_reexport_telemetry() {
+    // P4: a 3-hop re-export chain exceeds js_exports::MAX_REEXPORT_DEPTH (2)
+    // and fails closed -- js_export_chain_unresolved must count it (the chain
+    // never emits an import_member edge, so there's no other trace of it).
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("impl.ts"),
+        "export function process(): number { return 1; }\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("mid2.ts"),
+        "export { process } from './impl';\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("mid.ts"),
+        "export { process } from './mid2';\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("index.ts"),
+        "export { process } from './mid';\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("app.ts"),
+        "import { process } from './index';\nfunction run() { process(); }\n",
+    )
+    .unwrap();
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--repo"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["js_export_chain_unresolved"], 1);
+    assert_eq!(v["js_export_barrel_conflicts"], 0);
+}
