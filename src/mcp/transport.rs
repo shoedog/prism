@@ -2,7 +2,8 @@ use super::freshness::{
     apply_freshness_report, FreshnessProbe, FreshnessReport, FRESHNESS_RESERVE_BYTES,
 };
 use super::output::{
-    clamp_user_text, resolve_cap, McpToolResult, MAX_RESULT_CHARS_FLOOR, SCHEMA_VERSION,
+    clamp_user_text, resolve_cap, resolve_structured_content_mode, McpToolResult,
+    StructuredContentMode, MAX_RESULT_CHARS_FLOOR, SCHEMA_VERSION,
 };
 use super::registry::{ToolContext, ToolRegistry, ToolRuntimeBehavior};
 use super::{
@@ -357,15 +358,45 @@ fn call_tool_response(
     registry: &ToolRegistry,
 ) -> Dispatch {
     let original_cap = resolve_cap();
-    call_tool_response_with_cap(obj, id, runtime, registry, original_cap)
+    let structured_content_mode = resolve_structured_content_mode();
+    call_tool_response_with_cap_and_mode(
+        obj,
+        id,
+        runtime,
+        registry,
+        original_cap,
+        structured_content_mode,
+    )
 }
 
+/// Test-only entry point that fixes the cap but not the structured-content mode (always
+/// `StructuredContentMode::Always`, i.e. today's unconditional-inclusion behavior) — existing
+/// `transport_tests.rs` callers inject a deterministic `cap` this way without touching the S2 gate.
+#[cfg(test)]
 fn call_tool_response_with_cap(
     obj: &Map<String, Value>,
     id: Value,
     runtime: &mut impl SessionRuntime,
     registry: &ToolRegistry,
     original_cap: usize,
+) -> Dispatch {
+    call_tool_response_with_cap_and_mode(
+        obj,
+        id,
+        runtime,
+        registry,
+        original_cap,
+        StructuredContentMode::Always,
+    )
+}
+
+fn call_tool_response_with_cap_and_mode(
+    obj: &Map<String, Value>,
+    id: Value,
+    runtime: &mut impl SessionRuntime,
+    registry: &ToolRegistry,
+    original_cap: usize,
+    structured_content_mode: StructuredContentMode,
 ) -> Dispatch {
     let Some(params) = obj.get("params").and_then(Value::as_object) else {
         return Dispatch::Response(error_response(id, -32602, "Invalid params"));
@@ -390,7 +421,7 @@ fn call_tool_response_with_cap(
     let Some(tool) = registry.get(name) else {
         return Dispatch::Response(success_response(
             id,
-            unknown_tool_result(name, registry).to_call_tool_result_value(),
+            unknown_tool_result(name, registry).to_call_tool_result_value(structured_content_mode),
         ));
     };
 
@@ -403,7 +434,10 @@ fn call_tool_response_with_cap(
         } else {
             tools_refresh::invalid_arguments_result()
         };
-        return Dispatch::Response(success_response(id, result.to_call_tool_result_value()));
+        return Dispatch::Response(success_response(
+            id,
+            result.to_call_tool_result_value(structured_content_mode),
+        ));
     }
 
     let report = effective_stale_report(runtime);
@@ -421,6 +455,7 @@ fn call_tool_response_with_cap(
             &arguments,
             report,
             original_cap,
+            structured_content_mode,
         );
     }
     let cap = if stale {
@@ -436,7 +471,10 @@ fn call_tool_response_with_cap(
         }
     }
 
-    Dispatch::Response(success_response(id, result.to_call_tool_result_value()))
+    Dispatch::Response(success_response(
+        id,
+        result.to_call_tool_result_value(structured_content_mode),
+    ))
 }
 
 fn auto_refresh_tool_response(
@@ -446,6 +484,7 @@ fn auto_refresh_tool_response(
     arguments: &Value,
     initial_report: Option<FreshnessReport>,
     original_cap: usize,
+    structured_content_mode: StructuredContentMode,
 ) -> Dispatch {
     match runtime.auto_refresh_index() {
         Ok(summary) => {
@@ -464,7 +503,7 @@ fn auto_refresh_tool_response(
             if result.is_error {
                 return Dispatch::Response(success_response(
                     id,
-                    result.to_call_tool_result_value(),
+                    result.to_call_tool_result_value(structured_content_mode),
                 ));
             }
             let status = match &summary.verification {
@@ -477,7 +516,10 @@ fn auto_refresh_tool_response(
                     apply_freshness_report(&mut result, report, original_cap);
                 }
             }
-            Dispatch::Response(success_response(id, result.to_call_tool_result_value()))
+            Dispatch::Response(success_response(
+                id,
+                result.to_call_tool_result_value(structured_content_mode),
+            ))
         }
         Err(error) => {
             let reserve = AUTO_REFRESH_RESERVE_BYTES + FRESHNESS_RESERVE_BYTES;
@@ -486,7 +528,7 @@ fn auto_refresh_tool_response(
             if result.is_error {
                 return Dispatch::Response(success_response(
                     id,
-                    result.to_call_tool_result_value(),
+                    result.to_call_tool_result_value(structured_content_mode),
                 ));
             }
             if let Some(report) = initial_report.as_ref().filter(|report| report.stale) {
@@ -495,7 +537,10 @@ fn auto_refresh_tool_response(
                 }
             }
             apply_auto_refresh_failure_metadata(&mut result, &error, original_cap);
-            Dispatch::Response(success_response(id, result.to_call_tool_result_value()))
+            Dispatch::Response(success_response(
+                id,
+                result.to_call_tool_result_value(structured_content_mode),
+            ))
         }
     }
 }

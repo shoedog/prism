@@ -163,6 +163,22 @@ symbol's *definition* or *call* line, not a blank/comment line.
 
 ---
 
+## Environment variables (experimental)
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PRISM_MCP_MAX_RESULT_CHARS` | `80000` | Wire byte cap per tool result (floor `12000`). |
+| `PRISM_MCP_STRUCTURED_CONTENT` | `always` | `always` repeats canonical Evidence in both `content[0].text` and `structuredContent` (today's shape, on by default). `omit-default-path` drops `structuredContent` from the wire on the default (`canonical_json`) path — `content[0].text` already carries the identical JSON, so nothing is lost, only a redundant second copy. Agent views (`format: agent_markdown` / `agent_json`) always keep `structuredContent`; it is their only canonical-Evidence carrier once `content_text` has been rewritten into prose. **Defaults to `always`**: no trace exists yet of a real MCP host (e.g. Claude Code) reading `content[0].text` over `structuredContent`, so the trim ships opt-in pending a live-verification pass. |
+| `PRISM_MCP_CONCISE_SHAPE` | `legacy` | Shape of items in `Verbosity::Concise` results (Concise is the MCP default when a tool call omits `verbosity`). `legacy` is today's item shape, byte-unchanged. `slim` drops each item's `symbol` byte-offset/`ordinal` fields, drops the separate `location` field when it duplicates the symbol's file/line span, and omits `snippet` when null (instead of serializing `"snippet": null`). `Verbosity::Detailed` and agent views are never affected. **Defaults to `legacy`** for the same reason as above — opt in to `slim` once you've confirmed your client tolerates the smaller item shape. |
+
+Both new variables are **env-gated DEFAULT-OFF this release** (no behavior change unless you set
+them). A post-merge live-verification session (a few probes from `eval/adoption/goldens/probes.toml`
+through a real `claude -p` run with each variable flipped) gates changing either default in a future
+release — see the P12 plan for the current status. The `initialize` response's `instructions` field
+(added alongside these) states the snapshot-freshness and agent-view notices once for the whole
+session; each tool description keeps only a one-line pointer to it, since client ingestion of
+`instructions` is itself unverified.
+
 ## Skills (the judgment layer)
 
 The MCP server gives an agent the *access* (tools + data); the bundled **skills** give it the *judgment*

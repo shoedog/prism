@@ -46,6 +46,54 @@ pub enum Verbosity {
     Detailed,
 }
 
+/// S2: whether the wire response repeats canonical Evidence in BOTH `content[0].text` (always
+/// required) AND `structuredContent` (protocol-OPTIONAL — no tool declares `outputSchema`), or
+/// omits the latter on the default (non-agent-view) path since `content_text` already carries the
+/// identical JSON there. Gated by `PRISM_MCP_STRUCTURED_CONTENT`.
+///
+/// `Always` is the DEFAULT (codex-adjudicated rollout): no client trace exists proving a real MCP
+/// host (e.g. Claude Code) reads `content[0].text` rather than `structuredContent`, so the trim
+/// ships opt-in behind `omit-default-path` pending a post-merge live-verification session (2-3
+/// probes from `eval/adoption/goldens/probes.toml` through `claude -p`, owner-gated). See
+/// `docs/MCP.md`'s environment-variables section for the rollout note.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum StructuredContentMode {
+    #[default]
+    Always,
+    OmitDefaultPath,
+}
+
+/// Meta key that marks a result as having gone through the agent-view composition
+/// (`evidence_view::compose_view_result` / its clipped-fallback branch), which rewrites
+/// `content_text` into markdown/agent_json prose. Only those results carry this key; the
+/// default/canonical-json path never does. `structuredContent` is the ONLY canonical-Evidence
+/// carrier once `content_text` has been rewritten, so agent-view results always keep it regardless
+/// of `StructuredContentMode` — this key is how the wire-serialization gate (below) tells the two
+/// paths apart without threading an extra bool through every tool handler.
+pub(crate) const CONTENT_TEXT_FORMAT_META_KEY: &str = "prism/content_text_format";
+
+pub fn resolve_structured_content_mode() -> StructuredContentMode {
+    resolve_structured_content_mode_from(
+        std::env::var("PRISM_MCP_STRUCTURED_CONTENT")
+            .ok()
+            .as_deref(),
+    )
+}
+
+pub fn resolve_structured_content_mode_from(value: Option<&str>) -> StructuredContentMode {
+    match value {
+        None => StructuredContentMode::Always,
+        Some("always") => StructuredContentMode::Always,
+        Some("omit-default-path") => StructuredContentMode::OmitDefaultPath,
+        Some(other) => {
+            eprintln!(
+                "PRISM_MCP_STRUCTURED_CONTENT={other:?} is not \"always\" or \"omit-default-path\"; using \"always\""
+            );
+            StructuredContentMode::Always
+        }
+    }
+}
+
 pub struct McpToolResult {
     pub content_text: String,
     pub structured: Option<serde_json::Value>,
@@ -54,22 +102,48 @@ pub struct McpToolResult {
 }
 
 impl McpToolResult {
-    pub fn to_call_tool_result_value(&self) -> serde_json::Value {
+    /// Builds the wire `CallToolResult` value. `mode` gates ONLY whether `structuredContent` is
+    /// written to the wire (S2) — the internal `self.structured` field is never cleared by this
+    /// (transport freshness checks `structured.is_some()`, and `structured_count` reads it; both
+    /// must see it regardless of the wire gate). Agent-view results (`CONTENT_TEXT_FORMAT_META_KEY`
+    /// present in `meta`) always keep `structuredContent` — it is their only canonical-Evidence
+    /// carrier once `content_text` has been rewritten into markdown/agent_json prose.
+    pub fn to_call_tool_result_value(&self, mode: StructuredContentMode) -> serde_json::Value {
         let mut value = Map::new();
         value.insert(
             "content".into(),
             serde_json::json!([{ "type": "text", "text": self.content_text }]),
         );
-        if let Some(structured) = &self.structured {
-            value.insert("structuredContent".into(), structured.clone());
+        if self.emit_structured_content_on_wire(mode) {
+            if let Some(structured) = &self.structured {
+                value.insert("structuredContent".into(), structured.clone());
+            }
         }
         value.insert("isError".into(), Value::Bool(self.is_error));
         value.insert("_meta".into(), Value::Object(self.meta.clone()));
         Value::Object(value)
     }
 
+    fn emit_structured_content_on_wire(&self, mode: StructuredContentMode) -> bool {
+        match mode {
+            StructuredContentMode::Always => true,
+            StructuredContentMode::OmitDefaultPath => {
+                self.meta.contains_key(CONTENT_TEXT_FORMAT_META_KEY)
+            }
+        }
+    }
+
+    /// Sizing used by the internal cap-fitting binary searches (`shape_result`,
+    /// `compose_view_result`, freshness growth checks). Deliberately ALWAYS uses
+    /// `StructuredContentMode::Always` (the conservative/worst-case wire size), independent of the
+    /// live `PRISM_MCP_STRUCTURED_CONTENT` setting, so those searches stay pure functions of their
+    /// arguments rather than ambient env state (and so parallel tests can never race on it). The
+    /// real env-gated omission is applied only where the transport builds the FINAL wire response,
+    /// via `to_call_tool_result_value` called with the resolved mode.
     pub fn serialized_len(&self) -> usize {
-        self.to_call_tool_result_value().to_string().len()
+        self.to_call_tool_result_value(StructuredContentMode::Always)
+            .to_string()
+            .len()
     }
 }
 
@@ -1307,6 +1381,105 @@ mod tests {
         assert_eq!(resolve_cap_from(Some("bad")), 80_000); // warn + default
         assert_eq!(resolve_cap_from(Some("100")), 80_000); // < FLOOR -> default
         assert_eq!(resolve_cap_from(Some("50000")), 50_000);
+    }
+
+    #[test]
+    fn resolve_structured_content_mode_branches() {
+        // S2 env parse: DEFAULT (unset, or explicit "always") is `Always` — codex-adjudicated
+        // rollout (no client trace exists that Claude Code reads content_text over
+        // structuredContent), so the trim ships opt-in via "omit-default-path".
+        assert_eq!(
+            resolve_structured_content_mode_from(None),
+            StructuredContentMode::Always
+        );
+        assert_eq!(
+            resolve_structured_content_mode_from(Some("always")),
+            StructuredContentMode::Always
+        );
+        assert_eq!(
+            resolve_structured_content_mode_from(Some("omit-default-path")),
+            StructuredContentMode::OmitDefaultPath
+        );
+        assert_eq!(
+            resolve_structured_content_mode_from(Some("bogus")),
+            StructuredContentMode::Always
+        ); // warn + default
+    }
+
+    #[test]
+    fn structured_content_omitted_only_under_omit_default_path_for_default_path_result() {
+        let r = shape_result(flat(2), 2, false, Verbosity::Detailed, 100_000);
+
+        let always = r.to_call_tool_result_value(StructuredContentMode::Always);
+        assert!(always.get("structuredContent").is_some());
+
+        let omitted = r.to_call_tool_result_value(StructuredContentMode::OmitDefaultPath);
+        assert!(
+            omitted.get("structuredContent").is_none(),
+            "default-path result must drop structuredContent under omit-default-path"
+        );
+        // `content[0].text` still carries the identical JSON — nothing is lost.
+        let content_text = omitted["content"][0]["text"].as_str().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(content_text).unwrap();
+        assert_eq!(parsed, *r.structured.as_ref().unwrap());
+    }
+
+    #[test]
+    fn structured_content_always_kept_for_agent_view_marked_result() {
+        // Agent-view results carry `CONTENT_TEXT_FORMAT_META_KEY`; they must keep
+        // structuredContent (their only canonical-Evidence carrier) even under
+        // `OmitDefaultPath` — the gate is default-path-only.
+        let mut r = shape_result(flat(2), 2, false, Verbosity::Detailed, 100_000);
+        r.meta.insert(
+            CONTENT_TEXT_FORMAT_META_KEY.into(),
+            Value::String("agent_json".into()),
+        );
+        let omitted = r.to_call_tool_result_value(StructuredContentMode::OmitDefaultPath);
+        assert!(omitted.get("structuredContent").is_some());
+    }
+
+    #[test]
+    fn serialized_len_uses_env_independent_conservative_sizing() {
+        // The internal cap-fitting binary search (`shape_result`) must stay a pure function of
+        // its arguments, not ambient env state — `serialized_len` always assumes
+        // `StructuredContentMode::Always` regardless of the live `PRISM_MCP_STRUCTURED_CONTENT`
+        // setting.
+        let r = shape_result(flat(2), 2, false, Verbosity::Detailed, 100_000);
+        assert_eq!(
+            r.serialized_len(),
+            r.to_call_tool_result_value(StructuredContentMode::Always)
+                .to_string()
+                .len()
+        );
+    }
+
+    #[test]
+    fn omit_default_path_wire_bytes_meaningfully_shrink_for_identical_result() {
+        // S2 cap-math check: for the SAME shaped Evidence (same item count, same everything else),
+        // dropping the redundant structuredContent copy from the wire must meaningfully shrink the
+        // response. Evidence recall over the full test suite's env-independent sizing.
+        let r = shape_result(flat(20), 20, false, Verbosity::Detailed, 100_000);
+        let always_len = r
+            .to_call_tool_result_value(StructuredContentMode::Always)
+            .to_string()
+            .len();
+        let omitted_len = r
+            .to_call_tool_result_value(StructuredContentMode::OmitDefaultPath)
+            .to_string()
+            .len();
+        assert!(
+            omitted_len < always_len,
+            "omitted={omitted_len} always={always_len}"
+        );
+        // `content_text` is pretty-printed (indentation/newlines) while the omitted
+        // `structuredContent` copy would have been compact, so the reduction is substantial but
+        // less than a full 50% (measured ~31% on this fixture: 22225 -> 15326 B). Threshold is
+        // deliberately loose (not a brittle exact-ratio pin) — it only guards "meaningful", not
+        // "marginal".
+        assert!(
+            (omitted_len as f64) <= (always_len as f64) * 0.85,
+            "expected a substantial (not marginal) shrink: omitted={omitted_len} always={always_len}"
+        );
     }
 
     #[test]
