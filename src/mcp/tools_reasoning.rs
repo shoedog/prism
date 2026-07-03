@@ -6,7 +6,10 @@ use crate::navigation::types::{Evidence, Warning, WarningKind};
 use crate::reasoning::seeds::SeedSpec;
 use serde_json::json;
 
-const SNAPSHOT_NOTICE: &str = "Results reflect the repository snapshot loaded when prism-mcp started or last refreshed. If indexed files change during the server session, Prism marks tool results with stale-index metadata and warnings; restart/re-add the MCP server or use CLI nav for a fresh snapshot.";
+// S1: see `crate::mcp::tools`'s notice consts — the full snapshot notice now lives once in
+// `initialize`'s `instructions`; `taint_reaches` (no `format` argument, so the view notice never
+// applied here) keeps only a short hedge.
+const SNAPSHOT_HEDGE: &str = "Snapshot details: see server instructions.";
 
 pub fn register_all(r: &mut ToolRegistry) {
     r.register(tool_with_handler(
@@ -27,7 +30,7 @@ fn tool_with_handler(
 ) -> ToolDescriptor {
     ToolDescriptor {
         name,
-        description: format!("{description} {SNAPSHOT_NOTICE}"),
+        description: format!("{description} {SNAPSHOT_HEDGE}"),
         input_schema,
         annotations: ToolAnnotations::read_only(title),
         runtime_behavior: None,
@@ -58,13 +61,21 @@ fn taint_reaches(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResu
         Err(error) => return query_error_result(error),
     };
     let (evidence, total, max_results_clipped) = clip_taint_reaches(evidence, input.max_results);
-    shape_result(
+    let verbosity = output_verbosity(input.verbosity);
+    // F1: taint_reaches has no agent-view branch, so this result IS always the final default-path
+    // response — size the cap-fit against the RESOLVED mode (not the frozen `Always`) so the
+    // omit-default-path item-retention win applies here too.
+    let result = shape_result(
         evidence,
         total,
         max_results_clipped,
-        output_verbosity(input.verbosity),
+        verbosity,
         ctx.cap,
-    )
+        ctx.structured_content_mode,
+    );
+    // S3: taint_reaches has no agent-view branch (no `format` argument), so this IS always the
+    // final default-path return — safe to apply the Concise item-slimming transform directly.
+    super::concise_shape::apply_concise_shape(result, verbosity, ctx.concise_shape_mode)
 }
 
 fn seed_spec(seed: &SeedInput) -> SeedSpec {
@@ -182,6 +193,23 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn taint_reaches_description_hedges_to_instructions_not_full_notice() {
+        // S1: the full snapshot notice moved to `initialize`'s `instructions`; the tool
+        // description keeps only a short hedge (taint_reaches has no agent-view notice, unlike
+        // the nav tools, since it never accepts a `format` argument).
+        let registry = ToolRegistry::all_v1();
+        let desc = &registry.get("taint_reaches").unwrap().description;
+        assert!(
+            desc.contains("see server instructions"),
+            "taint_reaches description must hedge to server instructions: {desc}"
+        );
+        assert!(
+            !desc.contains("repository snapshot loaded when prism-mcp started"),
+            "taint_reaches description must NOT duplicate the full snapshot notice text: {desc}"
+        );
+    }
+
+    #[test]
     fn taint_reaches_witness_ok() {
         let s = crate::mcp::tools::test_support::session(&[(
             "app.py",
@@ -233,6 +261,32 @@ mod tests {
                 .any(|e| e["kind"] == "SanitizedBy"),
             "{value}"
         );
+    }
+
+    #[test]
+    fn taint_reaches_default_verbosity_slim_mode_slims_frontier_items() {
+        // S3: taint_reaches has no `format`/agent-view branch, so its default-path (Concise)
+        // result is always the terminal response — safe to apply the slim transform directly.
+        let s = crate::mcp::tools::test_support::session(&[(
+            "app.py",
+            "def f():\n    user = input()\n    a = user\n    b = a\n",
+        )]);
+        let ctx = ToolContext::new(
+            &s,
+            crate::mcp::output::resolve_cap(),
+            crate::mcp::concise_shape::ConciseShapeMode::Slim,
+            crate::mcp::output::StructuredContentMode::default(),
+        );
+        let out = (ToolRegistry::all_v1().get("taint_reaches").unwrap().handler)(
+            &ctx,
+            &json!({"sources":[{"kind":"loc","file":"app.py","line":2}]}),
+        );
+        assert!(!out.is_error);
+        let value: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
+        let item = &value["items"][0];
+        assert!(item["symbol"]["Variable"].get("start_byte").is_none());
+        assert!(item["symbol"]["Variable"].get("ordinal").is_none());
+        assert!(!item.as_object().unwrap().contains_key("snippet"));
     }
 
     #[test]

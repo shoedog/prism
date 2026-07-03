@@ -107,8 +107,77 @@ fn serialized_len(value: &serde_json::Value) -> usize {
     serde_json::to_vec(value).unwrap().len()
 }
 
+/// S2/S3 test entry point: fixes the cap, structured-content mode, AND concise-shape mode
+/// explicitly (never via env var mutation, which would race across parallel test threads) so
+/// `omit-default-path` / `slim` behavior can be exercised deterministically alongside the existing
+/// default-mode tests.
+fn call_tool_at_cap_with_mode(
+    runtime: &mut impl SessionRuntime,
+    registry: &ToolRegistry,
+    request: &str,
+    cap: usize,
+    mode: crate::mcp::output::StructuredContentMode,
+) -> serde_json::Value {
+    call_tool_at_cap_with_modes(
+        runtime,
+        registry,
+        request,
+        cap,
+        mode,
+        crate::mcp::concise_shape::ConciseShapeMode::Legacy,
+    )
+}
+
+fn call_tool_at_cap_with_modes(
+    runtime: &mut impl SessionRuntime,
+    registry: &ToolRegistry,
+    request: &str,
+    cap: usize,
+    mode: crate::mcp::output::StructuredContentMode,
+    concise_shape_mode: crate::mcp::concise_shape::ConciseShapeMode,
+) -> serde_json::Value {
+    let message: serde_json::Value = serde_json::from_str(request).unwrap();
+    let obj = message.as_object().unwrap();
+    let id = obj.get("id").cloned().unwrap_or(serde_json::Value::Null);
+    match call_tool_response_with_cap_and_mode(
+        obj,
+        id,
+        runtime,
+        registry,
+        cap,
+        mode,
+        concise_shape_mode,
+    ) {
+        Dispatch::Response(response) => response,
+        Dispatch::NoResponse => panic!("tools/call must return a response"),
+    }
+}
+
 const INIT: &str = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}"#;
 const INITED: &str = r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#;
+
+#[test]
+fn initialize_result_carries_snapshot_and_view_instructions_once() {
+    // S1: the notices formerly appended to every nav tool description now live ONCE in
+    // `initialize`'s `instructions` (the protocol-legal home for state-once text).
+    let o = run(vec![INIT]);
+    let instructions = o[0]["result"]["instructions"]
+        .as_str()
+        .expect("initialize result must carry an instructions string");
+    assert!(
+        instructions.contains("repository snapshot loaded when prism-mcp started"),
+        "instructions must state the snapshot notice: {instructions}"
+    );
+    assert!(
+        instructions.contains("Optional LLM views are opt-in"),
+        "instructions must state the view notice: {instructions}"
+    );
+    // Stated ONCE, not once per tool.
+    assert_eq!(
+        instructions.matches("repository snapshot loaded").count(),
+        1
+    );
+}
 
 #[test]
 fn lifecycle_list_and_call() {
@@ -142,6 +211,135 @@ fn freshness_probe_does_not_mark_unedited_session_stale() {
     assert!(o[1]["result"]["_meta"]
         .get("prism/index_freshness")
         .is_none());
+}
+
+#[test]
+fn omit_default_path_wire_omits_structured_content_but_keeps_content_text_intact() {
+    // S2: default (canonical_json) path under `omit-default-path` drops `structuredContent` from
+    // the wire; `content[0].text` still carries the identical JSON (nothing is lost, only the
+    // redundant second copy).
+    let (_dir, mut provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
+    let always = call_tool_at_cap_with_mode(
+        &mut provider,
+        &ToolRegistry::nav_v1(),
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::Always,
+    );
+    let omitted = call_tool_at_cap_with_mode(
+        &mut provider,
+        &ToolRegistry::nav_v1(),
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::OmitDefaultPath,
+    );
+
+    assert!(always["result"].get("structuredContent").is_some());
+    assert!(
+        omitted["result"].get("structuredContent").is_none(),
+        "omit-default-path must drop structuredContent from the default-path wire: {omitted}"
+    );
+    assert_eq!(
+        omitted["result"]["content"][0]["text"], always["result"]["content"][0]["text"],
+        "content_text must be unaffected by the structuredContent gate"
+    );
+    let content_text = omitted["result"]["content"][0]["text"].as_str().unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(content_text).unwrap();
+    assert_eq!(
+        parsed, always["result"]["structuredContent"],
+        "content_text JSON must be identical to the omitted structuredContent"
+    );
+    assert_eq!(omitted["result"]["isError"], false);
+}
+
+#[test]
+fn omit_default_path_agent_view_keeps_structured_content() {
+    // S2: agent-format results are unaffected by the gate — structuredContent stays on the wire
+    // regardless of mode, since it is the only canonical-Evidence carrier once content_text has
+    // been rewritten into agent_json prose.
+    let (_dir, mut provider) = provider(&[
+        ("util.py", "def helper():\n    return 1\n"),
+        (
+            "main.py",
+            "from util import helper\n\ndef run():\n    return helper()\n",
+        ),
+    ]);
+    let response = call_tool_at_cap_with_mode(
+        &mut provider,
+        &ToolRegistry::nav_v1(),
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_callees","arguments":{"seed":{"kind":"symbol","name":"run","file":"main.py"},"format":"agent_json","profile":"dependencies"}}}"#,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::OmitDefaultPath,
+    );
+    assert_eq!(response["result"]["isError"], false);
+    assert!(
+        response["result"].get("structuredContent").is_some(),
+        "agent view must keep structuredContent even under omit-default-path: {response}"
+    );
+}
+
+#[test]
+fn omit_default_path_still_emits_freshness_warnings_and_metadata() {
+    // S2: the freshness/stale-index contract (metadata + warnings) must survive the wire gate —
+    // only `structuredContent`'s presence changes, never the freshness signal itself.
+    let (dir, mut provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
+    std::fs::write(dir.path().join("a.py"), "def f():\n    return 12345\n").unwrap();
+    let response = call_tool_at_cap_with_mode(
+        &mut provider,
+        &ToolRegistry::nav_v1(),
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::OmitDefaultPath,
+    );
+    let result = &response["result"];
+    assert_eq!(result["_meta"]["prism/index_freshness"], "stale");
+    assert_eq!(result["_meta"]["prism/stale_index_total"], 1);
+    assert!(result.get("structuredContent").is_none());
+    assert!(result["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("StaleIndex"));
+}
+
+#[test]
+fn omit_default_path_refresh_index_keeps_content_text_and_drops_structured_content() {
+    // F3: `refresh_index` builds its `McpToolResult` directly (`tools_refresh::refresh_result`),
+    // never going through `shape_result` — so the S2 wire gate here is exercised purely at the
+    // transport boundary (`to_call_tool_result_value`). Pin that `omit-default-path` drops
+    // `structuredContent` for `refresh_index` too, without losing any information (`content_text`
+    // still carries the identical JSON) and without panicking.
+    let (_dir, mut always_provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
+    let (_dir2, mut omitted_provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
+    let request = r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"refresh_index","arguments":{}}}"#;
+
+    let always = call_tool_at_cap_with_mode(
+        &mut always_provider,
+        &ToolRegistry::all_v1(),
+        request,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::Always,
+    );
+    let omitted = call_tool_at_cap_with_mode(
+        &mut omitted_provider,
+        &ToolRegistry::all_v1(),
+        request,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::OmitDefaultPath,
+    );
+
+    assert_eq!(always["result"]["isError"], false);
+    assert_eq!(omitted["result"]["isError"], false);
+    assert!(always["result"].get("structuredContent").is_some());
+    assert!(
+        omitted["result"].get("structuredContent").is_none(),
+        "refresh_index under omit-default-path must drop structuredContent: {omitted}"
+    );
+    let content_text = omitted["result"]["content"][0]["text"].as_str().unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(content_text).unwrap();
+    assert_eq!(
+        parsed, always["result"]["structuredContent"],
+        "content_text JSON must be identical to the omitted structuredContent — no information loss"
+    );
 }
 
 #[test]

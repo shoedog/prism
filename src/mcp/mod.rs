@@ -1,3 +1,4 @@
+pub mod concise_shape;
 pub mod error;
 pub mod evidence_view;
 pub mod freshness;

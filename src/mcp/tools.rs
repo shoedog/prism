@@ -10,8 +10,17 @@ use crate::navigation::types::Evidence;
 use crate::navigation::{module_graph, queries};
 use serde_json::json;
 
-const SNAPSHOT_NOTICE: &str = "Results reflect the repository snapshot loaded when prism-mcp started or last refreshed. If indexed files change during the server session, Prism marks tool results with stale-index metadata and warnings; restart/re-add the MCP server or use CLI nav for a fresh snapshot.";
-const VIEW_NOTICE: &str = "Optional LLM views are opt-in: set format to agent_markdown or agent_json. Agent views change only content text and view metadata; structuredContent remains canonical Evidence. agent_json includes normalized locations, canonical symbol_ref handles, deterministic reasons, group summaries, and parser-valid next_queries.";
+// S1: these two notices are stated ONCE, in `initialize`'s `instructions` field
+// (`transport::initialize_response`) — the protocol-legal home for state-once server text —
+// instead of being appended in full to every nav tool description on every `tools/list` (they
+// were ~592 B/tool of pure repetition across 6 tools). Kept `pub(crate)` so `transport.rs` can
+// compose them into `instructions` without duplicating the wording. Each tool description below
+// keeps only `SNAPSHOT_VIEW_HEDGE`, a ~50 B pointer, since client ingestion of `instructions` is
+// unverified (codex MAJOR) — the hedge preserves discoverability even for a client that never
+// surfaces it.
+pub(crate) const SNAPSHOT_NOTICE: &str = "Results reflect the repository snapshot loaded when prism-mcp started or last refreshed. If indexed files change during the server session, Prism marks tool results with stale-index metadata and warnings; restart/re-add the MCP server or use CLI nav for a fresh snapshot.";
+pub(crate) const VIEW_NOTICE: &str = "Optional LLM views are opt-in: set format to agent_markdown or agent_json. Agent views change only content text and view metadata; structuredContent remains canonical Evidence. agent_json includes normalized locations, canonical symbol_ref handles, deterministic reasons, group summaries, and parser-valid next_queries.";
+const SNAPSHOT_VIEW_HEDGE: &str = "Snapshot/view details: see server instructions.";
 
 pub fn register_all(r: &mut ToolRegistry) {
     r.register(tool_with_handler(
@@ -67,7 +76,7 @@ fn tool_with_handler(
 ) -> ToolDescriptor {
     ToolDescriptor {
         name,
-        description: format!("{description} {SNAPSHOT_NOTICE} {VIEW_NOTICE}"),
+        description: format!("{description} {SNAPSHOT_VIEW_HEDGE}"),
         input_schema,
         annotations: ToolAnnotations::read_only(title),
         runtime_behavior: None,
@@ -92,6 +101,8 @@ fn nav_nodes_at(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResul
         ctx.cap,
         input.view,
         NavigationViewKind::NodesAt,
+        ctx.concise_shape_mode,
+        ctx.structured_content_mode,
     )
 }
 
@@ -117,6 +128,8 @@ fn nav_callers(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResult
         ctx.cap,
         input.view,
         NavigationViewKind::Callers,
+        ctx.concise_shape_mode,
+        ctx.structured_content_mode,
     )
 }
 
@@ -146,6 +159,8 @@ fn nav_callees(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResult
         ctx.cap,
         input.view,
         view_kind,
+        ctx.concise_shape_mode,
+        ctx.structured_content_mode,
     )
 }
 
@@ -178,6 +193,8 @@ fn nav_ego_graph(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResu
         ctx.cap,
         input.view,
         NavigationViewKind::EgoGraph,
+        ctx.concise_shape_mode,
+        ctx.structured_content_mode,
     )
 }
 
@@ -200,6 +217,8 @@ fn nav_module_deps(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolRe
         NavigationViewKind::ModuleDeps {
             file: input.file.clone(),
         },
+        ctx.concise_shape_mode,
+        ctx.structured_content_mode,
     )
 }
 
@@ -220,6 +239,8 @@ fn nav_repo_map(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResul
         ctx.cap,
         input.view,
         NavigationViewKind::RepoMap,
+        ctx.concise_shape_mode,
+        ctx.structured_content_mode,
     )
 }
 
@@ -1137,6 +1158,103 @@ mod tests {
         assert_eq!(out.meta["prism/view_clipped"], json!(true));
     }
 
+    fn ctx_with_concise_shape(
+        session: &crate::navigation::NavigationSession,
+        mode: crate::mcp::concise_shape::ConciseShapeMode,
+    ) -> ToolContext<'_> {
+        ToolContext::new(
+            session,
+            crate::mcp::output::resolve_cap(),
+            mode,
+            crate::mcp::output::StructuredContentMode::default(),
+        )
+    }
+
+    #[test]
+    fn default_path_slim_mode_slims_default_concise_items() {
+        // S3: default verbosity is Concise (no `verbosity` argument), and the default-path
+        // (canonical_json) response is what `PRISM_MCP_CONCISE_SHAPE=slim` transforms.
+        let s = test_support::session(&[(
+            "a.py",
+            "def target():\n    return 1\n\ndef caller():\n    return target()\n",
+        )]);
+        let out = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
+            &ctx_with_concise_shape(&s, crate::mcp::concise_shape::ConciseShapeMode::Slim),
+            &json!({"seed":{"kind":"symbol","name":"target","file":"a.py"}}),
+        );
+        assert!(!out.is_error);
+        let v: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
+        let item = &v["items"][0];
+        assert!(item["symbol"]["Function"].get("start_byte").is_none());
+        assert!(item["symbol"]["Function"].get("ordinal").is_none());
+        assert!(
+            item.get("location").is_none(),
+            "location duplicating the symbol span must be dropped: {item}"
+        );
+        assert!(!item.as_object().unwrap().contains_key("snippet"));
+        // Structured (when present) mirrors the same slim projection.
+        assert_eq!(out.structured.as_ref(), Some(&v));
+    }
+
+    #[test]
+    fn default_path_legacy_mode_is_byte_unchanged() {
+        // Legacy is the DEFAULT PRISM_MCP_CONCISE_SHAPE value — must be byte-identical to a
+        // ToolContext that never mentions the mode at all (`for_test`'s default).
+        let s = test_support::session(&[(
+            "a.py",
+            "def target():\n    return 1\n\ndef caller():\n    return target()\n",
+        )]);
+        let args = json!({"seed":{"kind":"symbol","name":"target","file":"a.py"}});
+        let default_ctx_out = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
+            &ToolContext::for_test(&s),
+            &args,
+        );
+        let explicit_legacy_out = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
+            &ctx_with_concise_shape(&s, crate::mcp::concise_shape::ConciseShapeMode::Legacy),
+            &args,
+        );
+        assert_eq!(
+            default_ctx_out.content_text,
+            explicit_legacy_out.content_text
+        );
+    }
+
+    #[test]
+    fn agent_view_structured_content_is_unaffected_by_slim_mode() {
+        // Regression guard for the leakage risk identified during design: `nav_callers`'s default
+        // verbosity is Concise, and agent-view composition (`clone_like`) reuses the pre-transform
+        // canonical result's `structured` field. If the slim transform were ever applied BEFORE the
+        // agent-view branch (instead of only on the early non-agent-view return), the agent view's
+        // structuredContent would leak the slim shape — which must never happen (codex-adjudicated:
+        // agent views stay unchanged regardless of PRISM_MCP_CONCISE_SHAPE).
+        let s = test_support::session(&[(
+            "a.py",
+            "def target():\n    return 1\n\ndef caller():\n    return target()\n",
+        )]);
+        let args = json!({
+            "seed":{"kind":"symbol","name":"target","file":"a.py"},
+            "format":"agent_json",
+            "profile":"impact"
+        });
+        let legacy = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
+            &ctx_with_concise_shape(&s, crate::mcp::concise_shape::ConciseShapeMode::Legacy),
+            &args,
+        );
+        let slim = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
+            &ctx_with_concise_shape(&s, crate::mcp::concise_shape::ConciseShapeMode::Slim),
+            &args,
+        );
+        assert_eq!(
+            legacy.structured, slim.structured,
+            "agent-view structuredContent must be identical regardless of PRISM_MCP_CONCISE_SHAPE"
+        );
+        // And it must still carry the FULL (non-slim) item shape: byte fields present.
+        let structured = slim.structured.as_ref().unwrap();
+        let item = &structured["items"][0];
+        assert!(item["symbol"]["Function"]["start_byte"].is_number());
+        assert!(item["location"].is_object());
+    }
+
     #[test]
     fn view_controls_require_agent_format() {
         let s = test_support::session(&[("a.py", "def f():\n    return 1\n")]);
@@ -1160,10 +1278,14 @@ mod tests {
             schema["properties"]["profile"]["enum"],
             json!(["impact", "edit_context", "audit"])
         );
+        // S1: the agent_json shape detail (mentioning symbol_ref) moved from the per-tool
+        // description into `initialize`'s `instructions` (see `VIEW_NOTICE`); the description
+        // itself now only hedges to it.
+        assert!(VIEW_NOTICE.contains("symbol_ref"));
         assert!(registry
             .get("nav_callers")
             .unwrap()
             .description
-            .contains("symbol_ref"));
+            .contains("see server instructions"));
     }
 }

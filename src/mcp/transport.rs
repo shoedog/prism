@@ -1,8 +1,10 @@
+use super::concise_shape::{resolve_concise_shape_mode, ConciseShapeMode};
 use super::freshness::{
     apply_freshness_report, FreshnessProbe, FreshnessReport, FRESHNESS_RESERVE_BYTES,
 };
 use super::output::{
-    clamp_user_text, resolve_cap, McpToolResult, MAX_RESULT_CHARS_FLOOR, SCHEMA_VERSION,
+    clamp_user_text, resolve_cap, resolve_structured_content_mode, McpToolResult,
+    StructuredContentMode, MAX_RESULT_CHARS_FLOOR, SCHEMA_VERSION,
 };
 use super::registry::{ToolContext, ToolRegistry, ToolRuntimeBehavior};
 use super::{
@@ -313,9 +315,24 @@ fn initialize_response(obj: &Map<String, Value>, id: Value) -> Dispatch {
             "serverInfo": {
                 "name": "prism-mcp",
                 "version": env!("CARGO_PKG_VERSION")
-            }
+            },
+            "instructions": server_instructions()
         }),
     ))
+}
+
+/// S1: the snapshot + view notices, stated ONCE here (the protocol-legal home for state-once
+/// server text) instead of being repeated in full on every nav tool description. Each tool
+/// description keeps only a short hedge (`crate::mcp::tools::SNAPSHOT_VIEW_HEDGE` and
+/// `tools_reasoning`'s equivalent) pointing back here, since client ingestion of `instructions`
+/// is unverified (codex MAJOR) — the hedge preserves discoverability even for a client that never
+/// surfaces it.
+fn server_instructions() -> String {
+    format!(
+        "{} {}",
+        crate::mcp::tools::SNAPSHOT_NOTICE,
+        crate::mcp::tools::VIEW_NOTICE
+    )
 }
 
 fn list_tools(registry: &ToolRegistry) -> Value {
@@ -342,15 +359,50 @@ fn call_tool_response(
     registry: &ToolRegistry,
 ) -> Dispatch {
     let original_cap = resolve_cap();
-    call_tool_response_with_cap(obj, id, runtime, registry, original_cap)
+    let structured_content_mode = resolve_structured_content_mode();
+    let concise_shape_mode = resolve_concise_shape_mode();
+    call_tool_response_with_cap_and_mode(
+        obj,
+        id,
+        runtime,
+        registry,
+        original_cap,
+        structured_content_mode,
+        concise_shape_mode,
+    )
 }
 
+/// Test-only entry point that fixes the cap but not the S2/S3 env-gated modes (always
+/// `StructuredContentMode::Always` and `ConciseShapeMode::Legacy`, i.e. today's unconditional
+/// behavior) — existing `transport_tests.rs` callers inject a deterministic `cap` this way without
+/// touching either gate.
+#[cfg(test)]
 fn call_tool_response_with_cap(
     obj: &Map<String, Value>,
     id: Value,
     runtime: &mut impl SessionRuntime,
     registry: &ToolRegistry,
     original_cap: usize,
+) -> Dispatch {
+    call_tool_response_with_cap_and_mode(
+        obj,
+        id,
+        runtime,
+        registry,
+        original_cap,
+        StructuredContentMode::Always,
+        ConciseShapeMode::Legacy,
+    )
+}
+
+fn call_tool_response_with_cap_and_mode(
+    obj: &Map<String, Value>,
+    id: Value,
+    runtime: &mut impl SessionRuntime,
+    registry: &ToolRegistry,
+    original_cap: usize,
+    structured_content_mode: StructuredContentMode,
+    concise_shape_mode: ConciseShapeMode,
 ) -> Dispatch {
     let Some(params) = obj.get("params").and_then(Value::as_object) else {
         return Dispatch::Response(error_response(id, -32602, "Invalid params"));
@@ -375,7 +427,7 @@ fn call_tool_response_with_cap(
     let Some(tool) = registry.get(name) else {
         return Dispatch::Response(success_response(
             id,
-            unknown_tool_result(name, registry).to_call_tool_result_value(),
+            unknown_tool_result(name, registry).to_call_tool_result_value(structured_content_mode),
         ));
     };
 
@@ -388,7 +440,10 @@ fn call_tool_response_with_cap(
         } else {
             tools_refresh::invalid_arguments_result()
         };
-        return Dispatch::Response(success_response(id, result.to_call_tool_result_value()));
+        return Dispatch::Response(success_response(
+            id,
+            result.to_call_tool_result_value(structured_content_mode),
+        ));
     }
 
     let report = effective_stale_report(runtime);
@@ -406,6 +461,8 @@ fn call_tool_response_with_cap(
             &arguments,
             report,
             original_cap,
+            structured_content_mode,
+            concise_shape_mode,
         );
     }
     let cap = if stale {
@@ -413,7 +470,12 @@ fn call_tool_response_with_cap(
     } else {
         original_cap
     };
-    let ctx = ToolContext::new(runtime.session(), cap);
+    let ctx = ToolContext::new(
+        runtime.session(),
+        cap,
+        concise_shape_mode,
+        structured_content_mode,
+    );
     let mut result = (tool.handler)(&ctx, &arguments);
     if stale && !result.is_error && result.structured.is_some() {
         if let Some(report) = &report {
@@ -421,7 +483,10 @@ fn call_tool_response_with_cap(
         }
     }
 
-    Dispatch::Response(success_response(id, result.to_call_tool_result_value()))
+    Dispatch::Response(success_response(
+        id,
+        result.to_call_tool_result_value(structured_content_mode),
+    ))
 }
 
 fn auto_refresh_tool_response(
@@ -431,6 +496,8 @@ fn auto_refresh_tool_response(
     arguments: &Value,
     initial_report: Option<FreshnessReport>,
     original_cap: usize,
+    structured_content_mode: StructuredContentMode,
+    concise_shape_mode: ConciseShapeMode,
 ) -> Dispatch {
     match runtime.auto_refresh_index() {
         Ok(summary) => {
@@ -444,12 +511,17 @@ fn auto_refresh_tool_response(
                 } else {
                     0
                 };
-            let ctx = ToolContext::new(runtime.session(), cap_after_reserve(original_cap, reserve));
+            let ctx = ToolContext::new(
+                runtime.session(),
+                cap_after_reserve(original_cap, reserve),
+                concise_shape_mode,
+                structured_content_mode,
+            );
             let mut result = handler(&ctx, arguments);
             if result.is_error {
                 return Dispatch::Response(success_response(
                     id,
-                    result.to_call_tool_result_value(),
+                    result.to_call_tool_result_value(structured_content_mode),
                 ));
             }
             let status = match &summary.verification {
@@ -462,16 +534,24 @@ fn auto_refresh_tool_response(
                     apply_freshness_report(&mut result, report, original_cap);
                 }
             }
-            Dispatch::Response(success_response(id, result.to_call_tool_result_value()))
+            Dispatch::Response(success_response(
+                id,
+                result.to_call_tool_result_value(structured_content_mode),
+            ))
         }
         Err(error) => {
             let reserve = AUTO_REFRESH_RESERVE_BYTES + FRESHNESS_RESERVE_BYTES;
-            let ctx = ToolContext::new(runtime.session(), cap_after_reserve(original_cap, reserve));
+            let ctx = ToolContext::new(
+                runtime.session(),
+                cap_after_reserve(original_cap, reserve),
+                concise_shape_mode,
+                structured_content_mode,
+            );
             let mut result = handler(&ctx, arguments);
             if result.is_error {
                 return Dispatch::Response(success_response(
                     id,
-                    result.to_call_tool_result_value(),
+                    result.to_call_tool_result_value(structured_content_mode),
                 ));
             }
             if let Some(report) = initial_report.as_ref().filter(|report| report.stale) {
@@ -480,7 +560,10 @@ fn auto_refresh_tool_response(
                 }
             }
             apply_auto_refresh_failure_metadata(&mut result, &error, original_cap);
-            Dispatch::Response(success_response(id, result.to_call_tool_result_value()))
+            Dispatch::Response(success_response(
+                id,
+                result.to_call_tool_result_value(structured_content_mode),
+            ))
         }
     }
 }

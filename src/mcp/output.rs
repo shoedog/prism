@@ -46,6 +46,54 @@ pub enum Verbosity {
     Detailed,
 }
 
+/// S2: whether the wire response repeats canonical Evidence in BOTH `content[0].text` (always
+/// required) AND `structuredContent` (protocol-OPTIONAL — no tool declares `outputSchema`), or
+/// omits the latter on the default (non-agent-view) path since `content_text` already carries the
+/// identical JSON there. Gated by `PRISM_MCP_STRUCTURED_CONTENT`.
+///
+/// `Always` is the DEFAULT (codex-adjudicated rollout): no client trace exists proving a real MCP
+/// host (e.g. Claude Code) reads `content[0].text` rather than `structuredContent`, so the trim
+/// ships opt-in behind `omit-default-path` pending a post-merge live-verification session (2-3
+/// probes from `eval/adoption/goldens/probes.toml` through `claude -p`, owner-gated). See
+/// `docs/MCP.md`'s environment-variables section for the rollout note.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum StructuredContentMode {
+    #[default]
+    Always,
+    OmitDefaultPath,
+}
+
+/// Meta key that marks a result as having gone through the agent-view composition
+/// (`evidence_view::compose_view_result` / its clipped-fallback branch), which rewrites
+/// `content_text` into markdown/agent_json prose. Only those results carry this key; the
+/// default/canonical-json path never does. `structuredContent` is the ONLY canonical-Evidence
+/// carrier once `content_text` has been rewritten, so agent-view results always keep it regardless
+/// of `StructuredContentMode` — this key is how the wire-serialization gate (below) tells the two
+/// paths apart without threading an extra bool through every tool handler.
+pub(crate) const CONTENT_TEXT_FORMAT_META_KEY: &str = "prism/content_text_format";
+
+pub fn resolve_structured_content_mode() -> StructuredContentMode {
+    resolve_structured_content_mode_from(
+        std::env::var("PRISM_MCP_STRUCTURED_CONTENT")
+            .ok()
+            .as_deref(),
+    )
+}
+
+pub fn resolve_structured_content_mode_from(value: Option<&str>) -> StructuredContentMode {
+    match value {
+        None => StructuredContentMode::Always,
+        Some("always") => StructuredContentMode::Always,
+        Some("omit-default-path") => StructuredContentMode::OmitDefaultPath,
+        Some(other) => {
+            eprintln!(
+                "PRISM_MCP_STRUCTURED_CONTENT={other:?} is not \"always\" or \"omit-default-path\"; using \"always\""
+            );
+            StructuredContentMode::Always
+        }
+    }
+}
+
 pub struct McpToolResult {
     pub content_text: String,
     pub structured: Option<serde_json::Value>,
@@ -54,22 +102,58 @@ pub struct McpToolResult {
 }
 
 impl McpToolResult {
-    pub fn to_call_tool_result_value(&self) -> serde_json::Value {
+    /// Builds the wire `CallToolResult` value. `mode` gates ONLY whether `structuredContent` is
+    /// written to the wire (S2) — the internal `self.structured` field is never cleared by this
+    /// (transport freshness checks `structured.is_some()`, and `structured_count` reads it; both
+    /// must see it regardless of the wire gate). Agent-view results (`CONTENT_TEXT_FORMAT_META_KEY`
+    /// present in `meta`) always keep `structuredContent` — it is their only canonical-Evidence
+    /// carrier once `content_text` has been rewritten into markdown/agent_json prose.
+    pub fn to_call_tool_result_value(&self, mode: StructuredContentMode) -> serde_json::Value {
         let mut value = Map::new();
         value.insert(
             "content".into(),
             serde_json::json!([{ "type": "text", "text": self.content_text }]),
         );
-        if let Some(structured) = &self.structured {
-            value.insert("structuredContent".into(), structured.clone());
+        if self.emit_structured_content_on_wire(mode) {
+            if let Some(structured) = &self.structured {
+                value.insert("structuredContent".into(), structured.clone());
+            }
         }
         value.insert("isError".into(), Value::Bool(self.is_error));
         value.insert("_meta".into(), Value::Object(self.meta.clone()));
         Value::Object(value)
     }
 
+    fn emit_structured_content_on_wire(&self, mode: StructuredContentMode) -> bool {
+        match mode {
+            StructuredContentMode::Always => true,
+            StructuredContentMode::OmitDefaultPath => {
+                self.meta.contains_key(CONTENT_TEXT_FORMAT_META_KEY)
+            }
+        }
+    }
+
+    /// CONSERVATIVE (structuredContent-always-included) wire size, independent of the live
+    /// `PRISM_MCP_STRUCTURED_CONTENT` setting. Correct for callers whose FINAL wire response always
+    /// carries `structuredContent` regardless of mode — the agent-view cap-fit in
+    /// `evidence_view::compose_view_result` (agent views are its only canonical-Evidence carrier
+    /// once `content_text` is rewritten into prose, so `Always` there is not merely conservative but
+    /// exactly correct) and the freshness-growth check in `freshness.rs` (a bounded-reserve
+    /// assertion for which `Always` is a safe, if occasionally loose, upper bound).
+    ///
+    /// F1 (controller-adjudicated): the canonical/default-path cap-fit inside `shape_result` must
+    /// NOT use this — it needs the RESOLVED mode so the `omit-default-path` item-retention win
+    /// actually materializes (dropping the redundant structuredContent copy from the SIZING, not
+    /// just from the final wire bytes, lets more items survive the cap). Use `wire_len(mode)` there.
     pub fn serialized_len(&self) -> usize {
-        self.to_call_tool_result_value().to_string().len()
+        self.wire_len(StructuredContentMode::Always)
+    }
+
+    /// Sizes the result EXACTLY as `to_call_tool_result_value(mode)` will serialize it — a pure
+    /// function of `mode` (never an ambient env read), so callers can pass the RESOLVED
+    /// `StructuredContentMode` and get cap-fitting that matches the real wire shape for that mode.
+    pub fn wire_len(&self, mode: StructuredContentMode) -> usize {
+        self.to_call_tool_result_value(mode).to_string().len()
     }
 }
 
@@ -104,6 +188,7 @@ pub fn shape_result(
     max_results_clipped: bool,
     verbosity: Verbosity,
     cap: usize,
+    mode: StructuredContentMode,
 ) -> McpToolResult {
     // The transport wraps `to_call_tool_result_value()` in a JSON-RPC success envelope
     // (`{"jsonrpc","id","result":…}`) before writing, so the wire bytes exceed the McpToolResult's
@@ -113,16 +198,31 @@ pub fn shape_result(
     // (`resolve_cap_from` >= `MAX_RESULT_CHARS_FLOOR`); a sub-floor `cap` (only from tests) degrades
     // safely to the terminal `is_error` path rather than misbehaving. Enforcing the floor via a cap
     // newtype is a documented follow-up (holistic re-review MINOR).
+    //
+    // F1 (controller-adjudicated): `mode` must be the RESOLVED `StructuredContentMode` for whichever
+    // wire response this call's result actually becomes (the default/canonical path uses the live
+    // env-resolved mode; callers whose result always keeps structuredContent regardless of mode —
+    // agent-view's own basis, taint_reaches has no agent-view branch so is always the resolved mode
+    // — pass accordingly). Sizing with `wire_len(mode)` instead of the Always-only `serialized_len()`
+    // is what lets `omit-default-path` retain MORE items for the same cap: the redundant
+    // structuredContent copy never counts against budget in the first place.
     let budget = super::transport::payload_budget(cap);
     let n = retained_count(&ev);
     let full = build_result(&ev, n, total, max_results_clipped, verbosity, cap);
-    if full.serialized_len() <= budget {
+    if full.wire_len(mode) <= budget {
         return full;
     }
 
-    if let Some(candidate) =
-        fit_reasoning_source_cap(&ev, n, total, max_results_clipped, verbosity, cap, budget)
-    {
+    if let Some(candidate) = fit_reasoning_source_cap(
+        &ev,
+        n,
+        total,
+        max_results_clipped,
+        verbosity,
+        cap,
+        budget,
+        mode,
+    ) {
         return candidate;
     }
 
@@ -133,7 +233,7 @@ pub fn shape_result(
         while lo <= hi {
             let mid = lo + (hi - lo) / 2;
             let candidate = build_result(&ev, mid, total, max_results_clipped, verbosity, cap);
-            if candidate.serialized_len() <= budget {
+            if candidate.wire_len(mode) <= budget {
                 best = Some(mid);
                 lo = mid + 1;
             } else {
@@ -148,6 +248,7 @@ pub fn shape_result(
     terminal_over_cap_result()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn fit_reasoning_source_cap(
     ev: &Evidence,
     retained: usize,
@@ -156,6 +257,7 @@ fn fit_reasoning_source_cap(
     verbosity: Verbosity,
     cap: usize,
     budget: usize,
+    mode: StructuredContentMode,
 ) -> Option<McpToolResult> {
     let max_sources = max_sources_per_sink(ev)?;
     if max_sources > 1 {
@@ -174,7 +276,7 @@ fn fit_reasoning_source_cap(
                 Some(mid),
                 false,
             );
-            if candidate.serialized_len() <= budget {
+            if candidate.wire_len(mode) <= budget {
                 best = Some(mid);
                 lo = mid + 1;
             } else {
@@ -205,7 +307,7 @@ fn fit_reasoning_source_cap(
         Some(0),
         true,
     );
-    (verdict_only.serialized_len() <= budget).then_some(verdict_only)
+    (verdict_only.wire_len(mode) <= budget).then_some(verdict_only)
 }
 
 fn max_sources_per_sink(ev: &Evidence) -> Option<usize> {
@@ -871,7 +973,14 @@ mod tests {
 
     #[test]
     fn full_under_cap_untruncated() {
-        let r = shape_result(flat(2), 2, false, Verbosity::Detailed, 100_000);
+        let r = shape_result(
+            flat(2),
+            2,
+            false,
+            Verbosity::Detailed,
+            100_000,
+            StructuredContentMode::Always,
+        );
         let v: serde_json::Value = serde_json::from_str(&r.content_text).unwrap();
         assert_eq!(v["truncated"], false);
         assert!(!v["warnings"]
@@ -886,7 +995,14 @@ mod tests {
     #[test]
     fn phase1_max_results_clip_keeps_warning() {
         // M10 composed phase-1 truncation
-        let r = shape_result(flat(50), 500, true, Verbosity::Detailed, 100_000);
+        let r = shape_result(
+            flat(50),
+            500,
+            true,
+            Verbosity::Detailed,
+            100_000,
+            StructuredContentMode::Always,
+        );
         let v: serde_json::Value = serde_json::from_str(&r.content_text).unwrap();
         assert_eq!(v["truncated"], true);
         assert!(v["warnings"]
@@ -909,7 +1025,14 @@ mod tests {
             message: "query-side: showing 2 of 999".into(),
             location: None,
         });
-        let r = shape_result(ev, 2, false, Verbosity::Detailed, 100_000);
+        let r = shape_result(
+            ev,
+            2,
+            false,
+            Verbosity::Detailed,
+            100_000,
+            StructuredContentMode::Always,
+        );
         let v: serde_json::Value = serde_json::from_str(&r.content_text).unwrap();
         assert_eq!(v["truncated"], true, "query's own truncation must survive");
         assert!(
@@ -926,7 +1049,14 @@ mod tests {
     fn over_cap_truncates_under_cap() {
         // cap large enough to truncate (not hit the terminal path) once the §6.3 envelope reserve
         // is applied; flat(200) (~80KB) still vastly exceeds it, so it truncates.
-        let r = shape_result(flat(200), 200, false, Verbosity::Detailed, 8_000);
+        let r = shape_result(
+            flat(200),
+            200,
+            false,
+            Verbosity::Detailed,
+            8_000,
+            StructuredContentMode::Always,
+        );
         assert!(!r.is_error && r.serialized_len() <= 8_000);
         let v: serde_json::Value = serde_json::from_str(&r.content_text).unwrap();
         assert_eq!(v["truncated"], true);
@@ -934,13 +1064,27 @@ mod tests {
 
     #[test]
     fn terminal_over_cap_iserror_under_floor() {
-        let r = shape_result(flat(200), 200, false, Verbosity::Detailed, 300);
+        let r = shape_result(
+            flat(200),
+            200,
+            false,
+            Verbosity::Detailed,
+            300,
+            StructuredContentMode::Always,
+        );
         assert!(r.is_error && r.structured.is_none() && r.serialized_len() < 4_000);
     }
 
     #[test]
     fn graph_clip_edges_in_bounds() {
-        let r = shape_result(graph(50), 50, false, Verbosity::Detailed, 6_000);
+        let r = shape_result(
+            graph(50),
+            50,
+            false,
+            Verbosity::Detailed,
+            6_000,
+            StructuredContentMode::Always,
+        );
         let v: serde_json::Value = serde_json::from_str(&r.content_text).unwrap();
         let n = v["graph"]["nodes"].as_array().unwrap().len();
         assert!(v["graph"]["edges"]
@@ -963,7 +1107,14 @@ mod tests {
             location: None,
         });
 
-        let r = shape_result(ev, 2, false, Verbosity::Detailed, 100_000);
+        let r = shape_result(
+            ev,
+            2,
+            false,
+            Verbosity::Detailed,
+            100_000,
+            StructuredContentMode::Always,
+        );
         let v: serde_json::Value = serde_json::from_str(&r.content_text).unwrap();
         assert_eq!(v["reasoning"]["per_sink"].as_array().unwrap().len(), 1);
         assert_eq!(v["reasoning"]["sinks_omitted"], 1);
@@ -1070,7 +1221,14 @@ mod tests {
         };
         // No clip/omission on this fixture (`retained == total == 1`), so `prune_graph_to_reasoning`
         // (not the sink/byte-cap clip paths) is the one exercised.
-        let r = shape_result(ev, 1, false, Verbosity::Detailed, 100_000);
+        let r = shape_result(
+            ev,
+            1,
+            false,
+            Verbosity::Detailed,
+            100_000,
+            StructuredContentMode::Always,
+        );
         let v: serde_json::Value = serde_json::from_str(&r.content_text).unwrap();
         let nodes = v["graph"]["nodes"].as_array().unwrap();
         assert_eq!(nodes.len(), 3, "{nodes:?}");
@@ -1092,6 +1250,7 @@ mod tests {
             false,
             Verbosity::Detailed,
             8_000,
+            StructuredContentMode::Always,
         );
         assert!(!r.is_error && r.serialized_len() <= 8_000);
 
@@ -1122,6 +1281,7 @@ mod tests {
             false,
             Verbosity::Detailed,
             8_000,
+            StructuredContentMode::Always,
         );
         assert!(!r.is_error && r.serialized_len() <= 8_000);
 
@@ -1159,7 +1319,14 @@ mod tests {
     }
 
     fn assert_source_clip_warnings_match_retained_sources(ev: Evidence) {
-        let r = shape_result(ev, 1, false, Verbosity::Detailed, 8_000);
+        let r = shape_result(
+            ev,
+            1,
+            false,
+            Verbosity::Detailed,
+            8_000,
+            StructuredContentMode::Always,
+        );
         assert!(!r.is_error && r.serialized_len() <= 8_000);
 
         let v: serde_json::Value = serde_json::from_str(&r.content_text).unwrap();
@@ -1244,7 +1411,14 @@ mod tests {
             location: None,
         });
 
-        let r = shape_result(ev, 60, true, Verbosity::Detailed, 8_000);
+        let r = shape_result(
+            ev,
+            60,
+            true,
+            Verbosity::Detailed,
+            8_000,
+            StructuredContentMode::Always,
+        );
         let v: serde_json::Value = serde_json::from_str(&r.content_text).unwrap();
         assert_eq!(
             v["warnings"]
@@ -1259,7 +1433,14 @@ mod tests {
 
     #[test]
     fn concise_reasoning_compacts_non_verdict_detail() {
-        let r = shape_result(reasoning_graph(), 2, false, Verbosity::Concise, 100_000);
+        let r = shape_result(
+            reasoning_graph(),
+            2,
+            false,
+            Verbosity::Concise,
+            100_000,
+            StructuredContentMode::Always,
+        );
         let v: serde_json::Value = serde_json::from_str(&r.content_text).unwrap();
         assert!(v.get("graph").is_none());
         assert_eq!(
@@ -1283,7 +1464,15 @@ mod tests {
     #[test]
     fn concise_nulls_why() {
         let c: serde_json::Value = serde_json::from_str(
-            &shape_result(flat(1), 1, false, Verbosity::Concise, 100_000).content_text,
+            &shape_result(
+                flat(1),
+                1,
+                false,
+                Verbosity::Concise,
+                100_000,
+                StructuredContentMode::Always,
+            )
+            .content_text,
         )
         .unwrap();
         assert!(c["items"][0]["why"].as_array().unwrap().is_empty());
@@ -1293,7 +1482,14 @@ mod tests {
     fn detailed_content_is_render_byte_parity() {
         // M8 §13 golden
         let ev = flat(2);
-        let r = shape_result(ev.clone(), 2, false, Verbosity::Detailed, 100_000);
+        let r = shape_result(
+            ev.clone(),
+            2,
+            false,
+            Verbosity::Detailed,
+            100_000,
+            StructuredContentMode::Always,
+        );
         assert_eq!(
             r.content_text,
             crate::output::navigation::render(&ev, "json")
@@ -1307,6 +1503,187 @@ mod tests {
         assert_eq!(resolve_cap_from(Some("bad")), 80_000); // warn + default
         assert_eq!(resolve_cap_from(Some("100")), 80_000); // < FLOOR -> default
         assert_eq!(resolve_cap_from(Some("50000")), 50_000);
+    }
+
+    #[test]
+    fn resolve_structured_content_mode_branches() {
+        // S2 env parse: DEFAULT (unset, or explicit "always") is `Always` — codex-adjudicated
+        // rollout (no client trace exists that Claude Code reads content_text over
+        // structuredContent), so the trim ships opt-in via "omit-default-path".
+        assert_eq!(
+            resolve_structured_content_mode_from(None),
+            StructuredContentMode::Always
+        );
+        assert_eq!(
+            resolve_structured_content_mode_from(Some("always")),
+            StructuredContentMode::Always
+        );
+        assert_eq!(
+            resolve_structured_content_mode_from(Some("omit-default-path")),
+            StructuredContentMode::OmitDefaultPath
+        );
+        assert_eq!(
+            resolve_structured_content_mode_from(Some("bogus")),
+            StructuredContentMode::Always
+        ); // warn + default
+    }
+
+    #[test]
+    fn structured_content_omitted_only_under_omit_default_path_for_default_path_result() {
+        let r = shape_result(
+            flat(2),
+            2,
+            false,
+            Verbosity::Detailed,
+            100_000,
+            StructuredContentMode::Always,
+        );
+
+        let always = r.to_call_tool_result_value(StructuredContentMode::Always);
+        assert!(always.get("structuredContent").is_some());
+
+        let omitted = r.to_call_tool_result_value(StructuredContentMode::OmitDefaultPath);
+        assert!(
+            omitted.get("structuredContent").is_none(),
+            "default-path result must drop structuredContent under omit-default-path"
+        );
+        // `content[0].text` still carries the identical JSON — nothing is lost.
+        let content_text = omitted["content"][0]["text"].as_str().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(content_text).unwrap();
+        assert_eq!(parsed, *r.structured.as_ref().unwrap());
+    }
+
+    #[test]
+    fn structured_content_always_kept_for_agent_view_marked_result() {
+        // Agent-view results carry `CONTENT_TEXT_FORMAT_META_KEY`; they must keep
+        // structuredContent (their only canonical-Evidence carrier) even under
+        // `OmitDefaultPath` — the gate is default-path-only.
+        let mut r = shape_result(
+            flat(2),
+            2,
+            false,
+            Verbosity::Detailed,
+            100_000,
+            StructuredContentMode::Always,
+        );
+        r.meta.insert(
+            CONTENT_TEXT_FORMAT_META_KEY.into(),
+            Value::String("agent_json".into()),
+        );
+        let omitted = r.to_call_tool_result_value(StructuredContentMode::OmitDefaultPath);
+        assert!(omitted.get("structuredContent").is_some());
+    }
+
+    #[test]
+    fn wire_len_is_a_pure_mode_aware_mirror_of_the_real_wire_shape() {
+        // F1 (controller-adjudicated) pin, superseding the old frozen-Always contract: `shape_result`'s
+        // internal cap-fitting binary search must stay a pure function of its ARGUMENTS (never an
+        // ambient env read — `mode` is threaded in explicitly, exactly like `ConciseShapeMode`
+        // already flows through `ToolContext`), but it is no longer hard-wired to `Always`. `wire_len`
+        // mirrors `to_call_tool_result_value(mode)` exactly for BOTH modes; `serialized_len()` remains
+        // the Always-only convenience for callers that need the conservative/exact-agent-view size.
+        let r = shape_result(
+            flat(2),
+            2,
+            false,
+            Verbosity::Detailed,
+            100_000,
+            StructuredContentMode::Always,
+        );
+        for mode in [
+            StructuredContentMode::Always,
+            StructuredContentMode::OmitDefaultPath,
+        ] {
+            assert_eq!(
+                r.wire_len(mode),
+                r.to_call_tool_result_value(mode).to_string().len(),
+                "wire_len must exactly mirror to_call_tool_result_value for mode {mode:?}"
+            );
+        }
+        assert_eq!(
+            r.serialized_len(),
+            r.wire_len(StructuredContentMode::Always)
+        );
+    }
+
+    #[test]
+    fn omit_default_path_sizing_retains_more_items_than_always_for_identical_evidence() {
+        // F1 (controller-adjudicated MAJOR): the item-retention win is the whole point of S2 —
+        // dropping the redundant structuredContent copy from the SIZING (not merely from the final
+        // wire bytes after item selection is already fixed) must let strictly MORE items survive the
+        // cap for the identical input Evidence and cap. Before this fix, `shape_result` sized every
+        // candidate with `StructuredContentMode::Always` regardless of the mode that would actually
+        // reach the wire, so `omit-default-path` shrank bytes post-hoc without ever retaining more.
+        let ev = flat(60);
+        let cap = 9_000;
+        let always = shape_result(
+            ev.clone(),
+            60,
+            false,
+            Verbosity::Detailed,
+            cap,
+            StructuredContentMode::Always,
+        );
+        let omitted = shape_result(
+            ev,
+            60,
+            false,
+            Verbosity::Detailed,
+            cap,
+            StructuredContentMode::OmitDefaultPath,
+        );
+
+        let always_v: serde_json::Value = serde_json::from_str(&always.content_text).unwrap();
+        let omitted_v: serde_json::Value = serde_json::from_str(&omitted.content_text).unwrap();
+        let always_n = always_v["items"].as_array().unwrap().len();
+        let omitted_n = omitted_v["items"].as_array().unwrap().len();
+
+        assert!(!always.is_error && !omitted.is_error);
+        // Both stay on the wire under `cap` for their OWN mode (the real contract) — `Always` is
+        // sized/checked against `Always`, `OmitDefaultPath` against `OmitDefaultPath`, mirroring what
+        // `to_call_tool_result_value` will actually emit for each.
+        assert!(always.wire_len(StructuredContentMode::Always) <= cap);
+        assert!(omitted.wire_len(StructuredContentMode::OmitDefaultPath) <= cap);
+        assert!(
+            omitted_n > always_n,
+            "omit-default-path must retain MORE items than always for identical Evidence+cap: omitted={omitted_n} always={always_n}"
+        );
+    }
+
+    #[test]
+    fn omit_default_path_wire_bytes_meaningfully_shrink_for_identical_result() {
+        // S2 cap-math check: for the SAME shaped Evidence (same item count, same everything else),
+        // dropping the redundant structuredContent copy from the wire must meaningfully shrink the
+        // response. Evidence recall over the full test suite's env-independent sizing.
+        let r = shape_result(
+            flat(20),
+            20,
+            false,
+            Verbosity::Detailed,
+            100_000,
+            StructuredContentMode::Always,
+        );
+        let always_len = r
+            .to_call_tool_result_value(StructuredContentMode::Always)
+            .to_string()
+            .len();
+        let omitted_len = r
+            .to_call_tool_result_value(StructuredContentMode::OmitDefaultPath)
+            .to_string()
+            .len();
+        assert!(
+            omitted_len < always_len,
+            "omitted={omitted_len} always={always_len}"
+        );
+        // `content_text` is pretty-printed (indentation/newlines) while the omitted
+        // `structuredContent` copy would have been compact, so the reduction is substantial but
+        // less than a full 50% (measured ~31% on this fixture: 22225 -> 15326 B). Threshold is
+        // deliberately loose (not a brittle exact-ratio pin) — it only guards "meaningful", not
+        // "marginal".
+        assert!(
+            (omitted_len as f64) <= (always_len as f64) * 0.85,
+            "expected a substantial (not marginal) shrink: omitted={omitted_len} always={always_len}"
+        );
     }
 
     #[test]
