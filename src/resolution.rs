@@ -1960,9 +1960,7 @@ impl CallGraph {
         match self.functions.get(&resolved.local_name) {
             Some(ids) => ids
                 .iter()
-                .filter(|fid| {
-                    fid.file == resolved.file && !self.method_owners.contains_key(*fid)
-                })
+                .filter(|fid| fid.file == resolved.file && !self.method_owners.contains_key(*fid))
                 .collect(),
             None => Vec::new(),
         }

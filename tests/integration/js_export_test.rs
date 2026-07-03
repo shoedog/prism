@@ -43,7 +43,10 @@ fn resolve_kind(
         .and_then(|sites| sites.iter().find(|s| s.callee_name == callee))
         .expect("call site not found");
     let out = cg.resolve_call_site_full(site);
-    out.resolved.iter().map(|r| (r.confidence, r.kind)).collect()
+    out.resolved
+        .iter()
+        .map(|r| (r.confidence, r.kind))
+        .collect()
 }
 
 // -----------------------------------------------------------------------
@@ -555,7 +558,11 @@ fn star_reexport_barrel_resolves() {
             "export function process(): number { return 1; }\n",
             Language::TypeScript,
         ),
-        ("index.ts", "export * from './impl';\n", Language::TypeScript),
+        (
+            "index.ts",
+            "export * from './impl';\n",
+            Language::TypeScript,
+        ),
         (
             "app.ts",
             "import { process } from './index';\nfunction run() { process(); }\n",

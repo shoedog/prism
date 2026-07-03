@@ -85,7 +85,14 @@ use std::path::{Path, PathBuf};
 ///   CallGraph.property_getters / cached_property_getters (S1) +
 ///   property_accesses + property_access_fanout_skips (S2); new
 ///   ResolutionKind::PropertyAccess (S3, nav-only — no CPG/DataFlow change).
-const CACHE_VERSION: u32 = 34; // 34: P7 Python property-access edges.
+/// - v35: P4 JS/TS export modeling — CallGraph.js_ts_exported_functions (flat
+///   name set) replaced by js_ts_exports (typed JsExportFacts) +
+///   js_ts_resolved_exports + two barrel telemetry counters; default imports
+///   are now MemberImport bindings and destructured `require` is extracted in
+///   `extract_import_bindings` (resolution behavior change: default exports,
+///   named-export-list renames, const-arrow exports, CommonJS exports, and
+///   depth-2-bounded re-export chains now resolve via R4c `ImportMember`).
+const CACHE_VERSION: u32 = 35; // 35: P4 JS/TS export modeling.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -603,11 +610,11 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_34_for_python_property_access_edges() {
-        // v34: P7 Python property-access edges (S1/S2 CallGraph state + new
-        // ResolutionKind::PropertyAccess), on top of v33 (P5 Go func-value
-        // callbacks).
-        assert_eq!(super::CACHE_VERSION, 34);
+    fn cache_version_is_35_for_js_ts_export_modeling() {
+        // v35: P4 JS/TS export modeling (typed export facts + resolved
+        // barrel index + import-side default/require binding changes), on
+        // top of v34 (P7 Python property-access edges).
+        assert_eq!(super::CACHE_VERSION, 35);
     }
 
     #[test]

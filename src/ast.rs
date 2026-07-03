@@ -1742,7 +1742,9 @@ impl ParsedFile {
         };
         let property_name = self.node_text(&property).to_string();
 
-        if object.kind() == "identifier" && self.node_text(&object) == "module" && property_name == "exports"
+        if object.kind() == "identifier"
+            && self.node_text(&object) == "module"
+            && property_name == "exports"
         {
             // `module.exports = <rhs>;`
             self.collect_js_ts_cjs_module_exports_rhs(right, facts);
@@ -1794,7 +1796,9 @@ impl ParsedFile {
                     match prop.kind() {
                         "shorthand_property_identifier" => {
                             let name = self.node_text(&prop).to_string();
-                            facts.named.insert(name.clone(), JsExportTarget::Local(name));
+                            facts
+                                .named
+                                .insert(name.clone(), JsExportTarget::Local(name));
                         }
                         "pair" => {
                             let key = prop.child_by_field_name("key").map(|k| {

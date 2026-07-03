@@ -103,7 +103,8 @@ pub fn resolve_js_exports(
         let mut per_file = BTreeMap::new();
         for name in names {
             let mut visited = BTreeSet::new();
-            if let Some(hit) = resolve_one(raw, resolve_module, file, &name, 0, &mut visited, &mut out)
+            if let Some(hit) =
+                resolve_one(raw, resolve_module, file, &name, 0, &mut visited, &mut out)
             {
                 per_file.insert(name, hit);
             }
@@ -294,7 +295,10 @@ mod tests {
     #[test]
     fn direct_local_export_resolves() {
         let mut raw = BTreeMap::new();
-        raw.insert("util.ts".to_string(), facts(&[("process", local("process"))], &[]));
+        raw.insert(
+            "util.ts".to_string(),
+            facts(&[("process", local("process"))], &[]),
+        );
         let out = resolve_js_exports(&raw, &resolve_dot);
         assert_eq!(
             out.resolved["util.ts"]["process"],
@@ -310,7 +314,10 @@ mod tests {
     #[test]
     fn one_hop_reexport_resolves() {
         let mut raw = BTreeMap::new();
-        raw.insert("impl.ts".to_string(), facts(&[("process", local("process"))], &[]));
+        raw.insert(
+            "impl.ts".to_string(),
+            facts(&[("process", local("process"))], &[]),
+        );
         raw.insert(
             "index.ts".to_string(),
             facts(&[("process", reexport("./impl", "process"))], &[]),
@@ -329,7 +336,10 @@ mod tests {
     #[test]
     fn two_hop_reexport_resolves_at_depth_bound() {
         let mut raw = BTreeMap::new();
-        raw.insert("impl.ts".to_string(), facts(&[("process", local("process"))], &[]));
+        raw.insert(
+            "impl.ts".to_string(),
+            facts(&[("process", local("process"))], &[]),
+        );
         raw.insert(
             "mid.ts".to_string(),
             facts(&[("process", reexport("./impl", "process"))], &[]),
@@ -352,7 +362,10 @@ mod tests {
     #[test]
     fn three_hop_reexport_fails_closed() {
         let mut raw = BTreeMap::new();
-        raw.insert("impl.ts".to_string(), facts(&[("process", local("process"))], &[]));
+        raw.insert(
+            "impl.ts".to_string(),
+            facts(&[("process", local("process"))], &[]),
+        );
         raw.insert(
             "mid2.ts".to_string(),
             facts(&[("process", reexport("./impl", "process"))], &[]),
@@ -390,7 +403,10 @@ mod tests {
     #[test]
     fn star_reexport_surfaces_target_names() {
         let mut raw = BTreeMap::new();
-        raw.insert("impl.ts".to_string(), facts(&[("process", local("process"))], &[]));
+        raw.insert(
+            "impl.ts".to_string(),
+            facts(&[("process", local("process"))], &[]),
+        );
         raw.insert("index.ts".to_string(), facts(&[], &["./impl"]));
         let out = resolve_js_exports(&raw, &resolve_dot);
         assert_eq!(
@@ -405,7 +421,10 @@ mod tests {
     #[test]
     fn star_reexport_never_surfaces_default() {
         let mut raw = BTreeMap::new();
-        raw.insert("impl.ts".to_string(), facts(&[("default", local("process"))], &[]));
+        raw.insert(
+            "impl.ts".to_string(),
+            facts(&[("default", local("process"))], &[]),
+        );
         raw.insert("index.ts".to_string(), facts(&[], &["./impl"]));
         let out = resolve_js_exports(&raw, &resolve_dot);
         assert!(!out
@@ -417,7 +436,10 @@ mod tests {
     #[test]
     fn conflicting_star_reexports_fail_closed() {
         let mut raw = BTreeMap::new();
-        raw.insert("a.ts".to_string(), facts(&[("process", local("process"))], &[]));
+        raw.insert(
+            "a.ts".to_string(),
+            facts(&[("process", local("process"))], &[]),
+        );
         raw.insert(
             "b.ts".to_string(),
             facts(&[("process", local("otherProcess"))], &[]),
@@ -436,12 +458,18 @@ mod tests {
         // Two barrels that happen to agree on the same underlying target are
         // redundant, not conflicting.
         let mut raw = BTreeMap::new();
-        raw.insert("impl.ts".to_string(), facts(&[("process", local("process"))], &[]));
+        raw.insert(
+            "impl.ts".to_string(),
+            facts(&[("process", local("process"))], &[]),
+        );
         raw.insert(
             "reexport_a.ts".to_string(),
             facts(&[("process", reexport("./impl", "process"))], &[]),
         );
-        raw.insert("index.ts".to_string(), facts(&[], &["./impl", "./reexport_a"]));
+        raw.insert(
+            "index.ts".to_string(),
+            facts(&[], &["./impl", "./reexport_a"]),
+        );
         let out = resolve_js_exports(&raw, &resolve_dot);
         assert_eq!(
             out.resolved["index.ts"]["process"],
