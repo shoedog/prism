@@ -1923,7 +1923,7 @@ impl CallGraph {
     }
 
     pub fn resolve_call_site(&self, site: &CallSite) -> Vec<ResolvedCallee<'_>> {
-        self.resolve_call_site_full(site).resolved
+        filter_func_value_fanout(self.resolve_call_site_full(site).resolved)
     }
 
     /// All call sites that resolve to `callee`, with caller, line, and confidence.
@@ -1945,6 +1945,39 @@ impl CallGraph {
             }
         }
         out
+    }
+}
+
+/// F1 (review-fix wave, binding adjudication): non-nav consumers — CPG Step 5
+/// Call/Return edges, Step 5b arg->param DataFlow edges, `resolved_caller_edges`
+/// (echo_slice/membrane_slice), and the other `CallGraph` traversal helpers
+/// (`callers_of`/`callees_of`/cycle detection) — accept a `FuncValueField` hit
+/// only when the site resolved to exactly ONE registered target. Two or three
+/// registered targets on the same func-typed field (e.g. `Command.Run = safe`
+/// and `Command.Run = sink` both registered) must not create a taint/CPG edge
+/// into ANY of them for these consumers, since which one actually runs is a
+/// runtime fact prism cannot see.
+///
+/// Nav (`resolve_call_site_full`, via `build_resolved_call_edges` / call-stats)
+/// is UNCHANGED and keeps the full 1..=3 unfiltered — this filtering happens
+/// only in the `resolve_call_site` wrapper that calls this helper.
+///
+/// Kind-gated: only `FuncValueField` entries are ever removed. No other
+/// `ResolutionKind` is touched, even if (hypothetically) mixed into the same
+/// `Vec` — `resolve_call_site_full` currently never mixes kinds in one
+/// resolution, but this helper does not assume that.
+fn filter_func_value_fanout(resolved: Vec<ResolvedCallee<'_>>) -> Vec<ResolvedCallee<'_>> {
+    let func_value_count = resolved
+        .iter()
+        .filter(|r| r.kind == ResolutionKind::FuncValueField)
+        .count();
+    if func_value_count > 1 {
+        resolved
+            .into_iter()
+            .filter(|r| r.kind != ResolutionKind::FuncValueField)
+            .collect()
+    } else {
+        resolved
     }
 }
 
