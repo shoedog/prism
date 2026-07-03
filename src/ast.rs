@@ -701,6 +701,81 @@ impl ParsedFile {
         (found, bindings)
     }
 
+    /// P11 S1: locate the (at most one, per `receiver_type_in_fn`'s own
+    /// `bindings <= 1` shadow-safety gate) Go `short_var_declaration`
+    /// statement that binds `receiver` at the FIRST LHS position with a
+    /// single-call RHS, and return that call's raw callee text (`newDemux`,
+    /// `pkg.New` — resolution to a static type is the caller's job,
+    /// `go_receiver_index::resolve_go_return_type_call`). Returns `None` for
+    /// every other shape: `receiver` at a non-first LHS position (`_, err :=
+    /// f()` when probing `err`), a multi-expression RHS (`a, b := f(), g()`),
+    /// or a non-call RHS.
+    ///
+    /// Callers MUST already have confirmed
+    /// `receiver_type_in_fn(..., recover_var: true)` returned `(None, 1)` for
+    /// this exact `(receiver, call_line, call_start_byte)` — this function
+    /// does not itself re-derive the shadow/ambiguity count, only relocates
+    /// the single qualifying statement's RHS shape.
+    pub(crate) fn go_short_var_call_rhs(
+        &self,
+        func_node: &Node<'_>,
+        receiver: &str,
+        call_line: usize,
+        call_start_byte: usize,
+    ) -> Option<String> {
+        fn walk(
+            this: &ParsedFile,
+            node: Node<'_>,
+            is_root: bool,
+            receiver: &str,
+            call_line: usize,
+            call_start_byte: usize,
+        ) -> Option<String> {
+            if node.start_position().row + 1 > call_line {
+                return None;
+            }
+            if node.start_byte() >= call_start_byte {
+                return None;
+            }
+            if !is_root && this.language.function_node_types().contains(&node.kind()) {
+                return None; // same convention as walk_receiver_bindings.
+            }
+            if node.kind() == "short_var_declaration" {
+                if let (Some(left), Some(right)) = (
+                    node.child_by_field_name("left"),
+                    node.child_by_field_name("right"),
+                ) {
+                    let mut lcur = left.walk();
+                    let names: Vec<Node> = left.named_children(&mut lcur).collect();
+                    if names
+                        .first()
+                        .map(|n| this.node_text(n).trim() == receiver)
+                        .unwrap_or(false)
+                    {
+                        let mut rcur = right.walk();
+                        let rhs: Vec<Node> = right.named_children(&mut rcur).collect();
+                        if rhs.len() == 1 && rhs[0].kind() == "call_expression" {
+                            if let Some(func) = rhs[0].child_by_field_name("function") {
+                                if matches!(func.kind(), "identifier" | "selector_expression") {
+                                    return Some(this.node_text(&func).trim().to_string());
+                                }
+                            }
+                        }
+                        return None; // receiver IS first, but RHS doesn't qualify.
+                    }
+                }
+            }
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                if let Some(r) = walk(this, child, false, receiver, call_line, call_start_byte) {
+                    return Some(r);
+                }
+            }
+            None
+        }
+        walk(self, *func_node, true, receiver, call_line, call_start_byte)
+    }
+
     /// Manual recursive function collection (pre-query fallback).
     /// `pub(crate)` for dual-path consistency testing in `queries::tests`.
     pub(crate) fn collect_functions_manual<'a>(&self, node: Node<'a>, out: &mut Vec<Node<'a>>) {
@@ -6068,6 +6143,44 @@ impl ParsedFile {
                     } else if self.node_binds_name(pattern, receiver) {
                         *bindings += 1;
                         *found = None;
+                    }
+                }
+            }
+            // P11 (S2 fail-closed requirement, the P9 lesson in Go form):
+            // `Language::function_node_types()` omits Go function literals
+            // (closures), so without this arm the walk scans straight
+            // through a closure body as if it were still the enclosing
+            // function's own scope — a closure PARAMETER of the same name
+            // would silently shadow-and-vanish (invisible to `bindings`),
+            // letting a stale outer recovery leak into the closure's own
+            // call sites. Treat a same-name closure parameter as an
+            // unrecoverable rebinding, same shape as the existing
+            // shadow-only arms above (`bindings += 1; found = None`), then
+            // fall through to the generic recursion below so an internal
+            // `:=` rebinding inside the closure is ALSO caught.
+            // Only a rebinding shadow when the call is actually reached
+            // FROM WITHIN this closure's own span — a sibling closure
+            // earlier in the function (already closed by the time the call
+            // executes) must not falsely shadow an unrelated outer use of
+            // the same name.
+            (Language::Go, "func_literal")
+                if !is_root
+                    && call_start_byte >= node.start_byte()
+                    && call_start_byte < node.end_byte() =>
+            {
+                if let Some(params) = self.find_parameters_node(&node) {
+                    let mut pcursor = params.walk();
+                    for param in params.children(&mut pcursor) {
+                        if param.kind() != "parameter_declaration" {
+                            continue;
+                        }
+                        let Some(ty) = param.child_by_field_name("type") else {
+                            continue;
+                        };
+                        if self.go_parameter_binds_name(param, ty, receiver) {
+                            *bindings += 1;
+                            *found = None;
+                        }
                     }
                 }
             }

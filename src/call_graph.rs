@@ -553,6 +553,35 @@ pub struct CallGraph {
     /// function match.
     #[serde(default)]
     pub framework_entry_unresolved_handlers: usize,
+    /// P11 S1: `(package_dir, func_name) -> declared return type` for Go
+    /// free functions/methods whose `result` is a single type or `(T,
+    /// error)`. Whole-program derived (a consuming file's call-RHS receiver
+    /// recovery can depend on a function declared in a DIFFERENT file of the
+    /// same package) — recomputed from scratch by
+    /// `apply_go_receiver_indices` in the post-merge rematerialization pass,
+    /// never incrementally patched.
+    #[serde(default)]
+    pub go_return_types: BTreeMap<(String, String), String>,
+    /// P11 S2: `(GoOwnerIdentity, field_name) -> peeled field type`
+    /// re-projection of `GoStruct.fields` (package-scoped, including
+    /// embedded-field pseudo-entries), captured in `apply_go_interface_dispatch`
+    /// alongside the other Go type-provider captures. Whole-program derived.
+    #[serde(default)]
+    pub go_field_types: BTreeMap<(crate::resolution::GoOwnerIdentity, String), String>,
+    /// P11 S3: `(package_dir, var_name) -> declared type` for package-scope
+    /// (top-level) Go `var` declarations with an explicit type. Whole-program
+    /// derived (a package var can be declared in a different file of the
+    /// same package); recomputed from scratch by `apply_go_receiver_indices`.
+    #[serde(default)]
+    pub go_package_vars: BTreeMap<(String, String), String>,
+    /// P11 S4: `struct_bare_name -> method_name -> interface_bare_name` for a
+    /// method supplied ONLY by exactly one directly-embedded in-repo
+    /// interface (no own/promoted concrete method or field shadows it).
+    /// Captured in `apply_go_interface_dispatch` (signature-only —
+    /// deliberately carries no FunctionId; see
+    /// `type_providers::go::GoTypeProvider::embedded_interface_method_routes`).
+    #[serde(default)]
+    pub go_embedded_interface_methods: BTreeMap<String, BTreeMap<String, String>>,
 }
 
 impl CallGraph {
@@ -610,6 +639,10 @@ impl CallGraph {
             macro_shadow_intersection: BTreeSet::new(),
             framework_entries: BTreeSet::new(),
             framework_entry_unresolved_handlers: 0,
+            go_return_types: BTreeMap::new(),
+            go_field_types: BTreeMap::new(),
+            go_package_vars: BTreeMap::new(),
+            go_embedded_interface_methods: BTreeMap::new(),
         }
     }
 
@@ -815,6 +848,10 @@ impl CallGraph {
             // `build_skeleton` never computes whole-program derived state.
             framework_entries: BTreeSet::new(),
             framework_entry_unresolved_handlers: 0,
+            go_return_types: BTreeMap::new(),
+            go_field_types: BTreeMap::new(),
+            go_package_vars: BTreeMap::new(),
+            go_embedded_interface_methods: BTreeMap::new(),
         }
     }
 
@@ -1176,6 +1213,10 @@ impl CallGraph {
             // `js_ts_function_locals` are already complete.
             framework_entries: BTreeSet::new(),
             framework_entry_unresolved_handlers: 0,
+            go_return_types: BTreeMap::new(),
+            go_field_types: BTreeMap::new(),
+            go_package_vars: BTreeMap::new(),
+            go_embedded_interface_methods: BTreeMap::new(),
         };
         cg.recompute_indirect_calls(files);
         cg.refresh_rust_receiver_state(files);
@@ -1185,6 +1226,16 @@ impl CallGraph {
         // already applied — registrations are keyed against it).
         cg.apply_go_func_value_fields(files);
         cg.apply_go_registrations(files);
+        // P11: Go receiver-typing indices (S1 return-types, S3 package vars)
+        // + the post-merge rematerialization pass (S1 call-RHS, S2
+        // nested-selector, S3 package var). Needs `go_field_types`/
+        // `go_embedded_interface_methods`, already captured by
+        // `apply_go_interface_dispatch` above. Uses the SAME `receiver_config`
+        // this build used at extraction time (spec-parity fix: an earlier
+        // draft hardcoded `ReceiverRecoveryConfig::default()` here, silently
+        // re-enabling var_local/type_assertion recovery even when this build
+        // explicitly disabled them via `build_with_receiver_config`).
+        cg.apply_go_receiver_indices(files, receiver_config);
         // P7: python property-access state — needs the complete method_owners
         // / method_class_span / class_bases indexes already populated above,
         // so it runs last, same rationale as the Go passes.
@@ -1438,6 +1489,16 @@ impl CallGraph {
         self.clear_go_func_value_fields();
         self.clear_go_registrations();
 
+        // P11: Go receiver-typing indices (S1 return-types, S3 package vars)
+        // are ALSO whole-program derived — same rationale as the Go
+        // func-value state directly above: a return/package-var type can be
+        // declared in an unchanged file. Drop it all;
+        // `apply_go_receiver_indices` repopulates from the merged graph
+        // (`go_field_types`/`go_embedded_interface_methods` are cleared by
+        // `clear_interface_dispatch` above and repopulated by
+        // `apply_go_interface_dispatch`).
+        self.clear_go_receiver_indices();
+
         // P7: Python property-access state is ALSO whole-program derived —
         // same rationale as the Go func-value state directly above: a
         // getter's owner class can live in an unchanged file, and unknown-
@@ -1551,6 +1612,16 @@ impl CallGraph {
         // `apply_framework_entries` re-applies on the merged graph right
         // after `apply_python_property_accesses` in
         // `build_incremental_with_scope_graph_inputs`.
+        //
+        // P11 (Go receiver-typing indices `go_return_types`/`go_package_vars`,
+        // and the `go_field_types`/`go_embedded_interface_methods` captured
+        // alongside `interface_impls`): deliberately NOT merged here either,
+        // same reasoning as P5/P7/P9 above — `apply_go_interface_dispatch` +
+        // `apply_go_receiver_indices` re-apply on the merged graph, and the
+        // rematerialization pass itself patches every retained Go
+        // `CallSite`'s `receiver_type`/`receiver_recovery` in place (not just
+        // `other`'s), so extending here would be both redundant and
+        // insufficient.
     }
 
     pub(crate) fn recompute_indirect_calls(&mut self, files: &BTreeMap<String, ParsedFile>) {
@@ -2574,6 +2645,12 @@ impl CallGraph {
         self.interface_method_names.clear();
         self.interface_dispatch_computed = false;
         self.method_arity.clear();
+        // P11 S2/S4: captured alongside the fields above in
+        // `apply_go_interface_dispatch` — clear here too so the no-Go-files
+        // early return in that function (which runs AFTER this clear but
+        // BEFORE the fresh capture) leaves them empty rather than stale.
+        self.go_field_types.clear();
+        self.go_embedded_interface_methods.clear();
     }
 
     /// Recompute Go embedding promotions over `files` and write owner-index aliases.
@@ -2652,6 +2729,10 @@ impl CallGraph {
         self.interface_method_names = provider.interface_method_names();
         // Capture per-method arity for later arity-filtered dispatch (Task 2).
         self.method_arity = provider.method_arities();
+        // P11 S2/S4: capture the field re-projection and the embedded-interface
+        // routing map while the provider is live, same pattern as above.
+        self.go_field_types = provider.go_field_types();
+        self.go_embedded_interface_methods = provider.embedded_interface_method_routes();
         for g in &table.gaps {
             *self.interface_gaps.entry(format!("{g:?}")).or_insert(0) += 1;
         }
@@ -2882,6 +2963,195 @@ impl CallGraph {
             site,
             field_key,
         });
+    }
+
+    fn clear_go_receiver_indices(&mut self) {
+        self.go_return_types.clear();
+        self.go_package_vars.clear();
+    }
+
+    /// P11 S1/S2/S3: recompute the Go return-type (S1) and package-var (S3)
+    /// indices, then rematerialize every Go call site's receiver
+    /// classification against the fresh whole-program facts (S1 call-RHS,
+    /// S2 nested-selector via `go_field_types`/`go_embedded_interface_methods`
+    /// already captured by `apply_go_interface_dispatch`, S3 package var).
+    ///
+    /// Whole-program derived — MUST run after `apply_go_interface_dispatch`
+    /// (needs `go_field_types`) in both the full-build and incremental-rebuild
+    /// sequences (mirrors `apply_go_func_value_fields`/`apply_go_registrations`
+    /// ordering). Recomputes from scratch every time (never incrementally
+    /// patched) so an edit to a type/return/package-var-DEFINING file always
+    /// updates every retained CONSUMING file's recovery, even when the
+    /// consuming file itself did not change — the required bidirectional
+    /// incremental-parity guarantee.
+    ///
+    /// `receiver_config` MUST be the same config the caller used to build
+    /// this graph (`build_with_receiver_config[_and_scope_graph_inputs]`
+    /// passes its own `receiver_config` through; every other caller passes
+    /// `ReceiverRecoveryConfig::default()`, matching the config those build
+    /// paths already use) — otherwise a Legacy-mode build's intentionally
+    /// disabled `var_local`/`type_assertion` forms would be silently
+    /// re-enabled by this pass reusing a different classifier.
+    pub fn apply_go_receiver_indices(
+        &mut self,
+        files: &BTreeMap<String, ParsedFile>,
+        receiver_config: &crate::resolution::ReceiverRecoveryConfig,
+    ) {
+        self.clear_go_receiver_indices();
+        if !files
+            .values()
+            .any(|p| p.language == crate::languages::Language::Go)
+        {
+            return;
+        }
+        self.go_return_types = crate::go_receiver_index::extract_go_return_types(files);
+        self.go_package_vars = crate::go_receiver_index::extract_go_package_vars(files);
+        self.rematerialize_go_receiver_keys(files, receiver_config);
+    }
+
+    fn rematerialize_go_receiver_keys(
+        &mut self,
+        files: &BTreeMap<String, ParsedFile>,
+        receiver_config: &crate::resolution::ReceiverRecoveryConfig,
+    ) {
+        let updates = {
+            let facts = crate::go_receiver_index::GoReceiverFacts {
+                return_types: &self.go_return_types,
+                package_vars: &self.go_package_vars,
+                field_types: &self.go_field_types,
+                package_basenames: &self.go_package_basenames,
+                imports: &self.imports,
+            };
+            self.compute_go_receiver_updates(files, &facts, receiver_config)
+        };
+        for (caller, old_site, classification) in updates {
+            let mut updated = old_site.clone();
+            updated.receiver_type = classification
+                .recovered
+                .as_ref()
+                .map(|r| r.static_type.clone());
+            updated.receiver_recovery = classification.recovered.as_ref().map(|r| r.recovery);
+            updated.receiver_materialized = classification.materialized;
+            if updated == old_site {
+                continue; // no change -- skip the take/insert churn.
+            }
+            if let Some(sites) = self.calls.get_mut(&caller) {
+                if sites.take(&old_site).is_some() {
+                    sites.insert(updated.clone());
+                }
+            }
+            if let Some(sites) = self.callers.get_mut(&old_site.callee_name) {
+                for site in sites {
+                    if site.caller == old_site.caller && site.cmp_key() == old_site.cmp_key() {
+                        site.receiver_type = updated.receiver_type.clone();
+                        site.receiver_recovery = updated.receiver_recovery;
+                        site.receiver_materialized = updated.receiver_materialized;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Parallel per-caller recompute, mirroring `compute_rust_receiver_updates`'s
+    /// shape exactly (rayon over the `self.calls`-ordered caller list).
+    pub(crate) fn compute_go_receiver_updates(
+        &self,
+        files: &BTreeMap<String, ParsedFile>,
+        facts: &crate::go_receiver_index::GoReceiverFacts<'_>,
+        receiver_config: &crate::resolution::ReceiverRecoveryConfig,
+    ) -> Vec<(
+        FunctionId,
+        CallSite,
+        crate::resolution::ReceiverClassification,
+    )> {
+        use rayon::prelude::*;
+
+        let classifier = receiver_config.classifier();
+        let ordered: Vec<(&FunctionId, &BTreeSet<CallSite>)> = self.calls.iter().collect();
+        ordered
+            .par_iter()
+            .copied()
+            .map(|(caller, sites)| {
+                Self::go_receiver_updates_for_caller(
+                    caller,
+                    sites,
+                    files,
+                    classifier.as_ref(),
+                    facts,
+                    receiver_config.var_local,
+                )
+            })
+            .collect::<Vec<Vec<_>>>()
+            .into_iter()
+            .flatten()
+            .collect()
+    }
+
+    fn go_receiver_updates_for_caller(
+        caller: &FunctionId,
+        sites: &BTreeSet<CallSite>,
+        files: &BTreeMap<String, ParsedFile>,
+        classifier: &dyn crate::resolution::ReceiverClassifier,
+        facts: &crate::go_receiver_index::GoReceiverFacts<'_>,
+        var_local: bool,
+    ) -> Vec<(
+        FunctionId,
+        CallSite,
+        crate::resolution::ReceiverClassification,
+    )> {
+        let mut out = Vec::new();
+        let Some(parsed) = files.get(&caller.file) else {
+            return out;
+        };
+        if parsed.language != crate::languages::Language::Go {
+            return out;
+        }
+        let Some(fn_node) = Self::function_node_for_id(parsed, caller) else {
+            return out;
+        };
+        let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
+        let macro_shadow: BTreeSet<String> = BTreeSet::new(); // Go has no macro-arg extraction.
+        let (ast_calls, _facts) = parsed.function_calls_with_qualifier_and_spans_on_lines(
+            &fn_node,
+            &all_lines,
+            &macro_shadow,
+        );
+        let recv_var = parsed
+            .language
+            .go_receiver_var(&fn_node)
+            .map(|n| parsed.node_text(&n).to_string());
+        let file_imports = facts.imports.get(&caller.file);
+        for site in sites {
+            let Some(qualifier) = site.qualifier.as_deref() else {
+                continue; // unqualified call -- nothing to retype.
+            };
+            let Some(meta) = ast_calls.iter().find(|meta| {
+                meta.callee_name == site.callee_name
+                    && meta.start_byte == site.start_byte
+                    && meta.end_byte == site.end_byte
+            }) else {
+                continue;
+            };
+            let Some(receiver_expr) = meta.receiver_node else {
+                continue;
+            };
+            let ctx = crate::go_receiver_index::GoReceiverCtx {
+                parsed,
+                fn_node,
+                qualifier,
+                receiver_expr,
+                call_line: meta.line,
+                call_start_byte: meta.start_byte,
+                recv_var: recv_var.as_deref(),
+                file_imports,
+                caller_file: &caller.file,
+            };
+            let classification = crate::go_receiver_index::classify_go_receiver_expanded(
+                &ctx, classifier, facts, var_local,
+            );
+            out.push((caller.clone(), site.clone(), classification));
+        }
+        out
     }
 
     fn clear_python_property_accesses(&mut self) {
@@ -3471,6 +3741,10 @@ impl CallGraph {
             // graph.
             framework_entries: BTreeSet::new(),
             framework_entry_unresolved_handlers: 0,
+            go_return_types: BTreeMap::new(),
+            go_field_types: BTreeMap::new(),
+            go_package_vars: BTreeMap::new(),
+            go_embedded_interface_methods: BTreeMap::new(),
         }
     }
 
@@ -5384,6 +5658,669 @@ func main() {\n\thelper := func() {}\n\t_ = helper\n\tRegister(helper)\n}\n",
         assert_eq!(cg.go_registration_shadowed_skips, 0);
         assert_eq!(cg.go_registration_ambiguous_owner_skips, 0);
         assert_eq!(cg.go_registration_unknown_owner_recorded, 0);
+    }
+}
+
+#[cfg(test)]
+mod go_receiver_typing_tests {
+    use super::*;
+    use crate::languages::Language::Go;
+    use crate::resolution::{ReceiverRecovery, ResolutionConfidence, ResolutionKind};
+    use std::collections::BTreeMap;
+
+    fn build_go(files: &[(&str, &str)]) -> CallGraph {
+        let mut map = BTreeMap::new();
+        for (path, src) in files {
+            map.insert(path.to_string(), ParsedFile::parse(path, src, Go).unwrap());
+        }
+        CallGraph::build(&map)
+    }
+
+    fn site_in<'a>(cg: &'a CallGraph, caller: &str, callee: &str) -> &'a CallSite {
+        cg.calls
+            .iter()
+            .find(|(fid, _)| fid.name == caller)
+            .and_then(|(_, sites)| sites.iter().find(|s| s.callee_name == callee))
+            .unwrap_or_else(|| panic!("no call site {caller} -> {callee}"))
+    }
+
+    // ---- S1: call-RHS return-typed recovery ----------------------------
+
+    #[test]
+    fn s1_call_rhs_bare_name_same_file_recovers_return_typed() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Demux struct{}\n\
+             func (d *Demux) Init(n int) {}\n\
+             func newDemux(a, b int) *Demux { return &Demux{} }\n\
+             func run() {\n\td := newDemux(16, 16)\n\td.Init(1)\n}\n",
+        )]);
+        let site = site_in(&cg, "run", "Init");
+        assert_eq!(site.receiver_type.as_deref(), Some("Demux"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::ReturnTyped));
+        let out = cg.resolve_call_site_full(site);
+        assert!(out.resolved.iter().any(|c| c.target.name == "Init"
+            && c.confidence == ResolutionConfidence::Exact
+            && c.kind == ResolutionKind::ReturnTyped));
+    }
+
+    #[test]
+    fn s1_call_rhs_cross_file_same_package_recovers() {
+        // The adjudicated etcd shape: the constructor and the receiver
+        // methods live in the SAME package (directory) but DIFFERENT files.
+        let cg = build_go(&[
+            (
+                "demux.go",
+                "package demux\n\
+                 type Demux struct{}\n\
+                 func (d *Demux) Init(n int) {}\n\
+                 func (d *Demux) Register(w int, id int) {}\n\
+                 func newDemux(a, b int) *Demux { return &Demux{} }\n",
+            ),
+            (
+                "demux_test.go",
+                "package demux\n\
+                 func run() {\n\td := newDemux(16, 16)\n\td.Init(1)\n\td.Register(2, 0)\n}\n",
+            ),
+        ]);
+        let init_site = site_in(&cg, "run", "Init");
+        assert_eq!(init_site.receiver_type.as_deref(), Some("Demux"));
+        assert_eq!(
+            init_site.receiver_recovery,
+            Some(ReceiverRecovery::ReturnTyped)
+        );
+        let reg_site = site_in(&cg, "run", "Register");
+        assert_eq!(reg_site.receiver_type.as_deref(), Some("Demux"));
+        let out = cg.resolve_call_site_full(reg_site);
+        assert!(out
+            .resolved
+            .iter()
+            .any(|c| c.target.name == "Register" && c.confidence == ResolutionConfidence::Exact));
+    }
+
+    #[test]
+    fn s1_multi_return_beyond_t_error_drops() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Demux struct{}\n\
+             func (d *Demux) Init() {}\n\
+             func newDemux() (*Demux, int, error) { return nil, 0, nil }\n\
+             func run() {\n\td := newDemux()\n\td.Init()\n}\n",
+        )]);
+        let site = site_in(&cg, "run", "Init");
+        assert_eq!(site.receiver_type, None);
+    }
+
+    #[test]
+    fn s1_non_first_lhs_position_does_not_recover() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Demux struct{}\n\
+             func (d *Demux) Init() {}\n\
+             func newDemux() (*Demux, error) { return nil, nil }\n\
+             func run() {\n\terr, d := newDemux2()\n\t_ = err\n\td.Init()\n}\n\
+             func newDemux2() (error, *Demux) { return nil, nil }\n",
+        )]);
+        // `d` is bound at LHS position 1 (not first) -> S1 must not recover it,
+        // regardless of what the callee returns.
+        let site = site_in(&cg, "run", "Init");
+        assert_eq!(site.receiver_type, None);
+    }
+
+    #[test]
+    fn s1_generic_function_return_drops() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Demux struct{}\n\
+             func (d *Demux) Init() {}\n\
+             func newDemux[T any]() *Demux { return &Demux{} }\n\
+             func run() {\n\td := newDemux[int]()\n\td.Init()\n}\n",
+        )]);
+        let site = site_in(&cg, "run", "Init");
+        assert_eq!(site.receiver_type, None);
+    }
+
+    #[test]
+    fn s1_import_qualified_call_rhs_resolves_via_package_dir() {
+        let cg = build_go(&[
+            (
+                "factory/factory.go",
+                "package factory\n\
+                 type Widget struct{}\n\
+                 func (w *Widget) Use() {}\n\
+                 func New() *Widget { return &Widget{} }\n",
+            ),
+            (
+                "main.go",
+                "package main\n\
+                 import \"example.com/repo/factory\"\n\
+                 func run() {\n\tw := factory.New()\n\tw.Use()\n}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Use");
+        assert_eq!(site.receiver_type.as_deref(), Some("Widget"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::ReturnTyped));
+    }
+
+    // ---- S2: nested-selector field-typed recovery -----------------------
+
+    #[test]
+    fn s2_one_hop_field_selector_recovers_field_typed() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Inner struct{}\n\
+             func (i *Inner) M() {}\n\
+             type Outer struct {\n\tField *Inner\n}\n\
+             func run(o *Outer) {\n\to.Field.M()\n}\n",
+        )]);
+        let site = site_in(&cg, "run", "M");
+        assert_eq!(site.receiver_type.as_deref(), Some("Inner"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+        let out = cg.resolve_call_site_full(site);
+        assert!(out.resolved.iter().any(|c| c.target.name == "M"
+            && c.confidence == ResolutionConfidence::Exact
+            && c.kind == ResolutionKind::FieldTyped));
+    }
+
+    #[test]
+    fn s2_two_hop_field_selector_recovers() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Innermost struct{}\n\
+             func (i *Innermost) M() {}\n\
+             type Middle struct {\n\tLeaf *Innermost\n}\n\
+             type Outer struct {\n\tMid *Middle\n}\n\
+             func run(o *Outer) {\n\to.Mid.Leaf.M()\n}\n",
+        )]);
+        let site = site_in(&cg, "run", "M");
+        assert_eq!(site.receiver_type.as_deref(), Some("Innermost"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+    }
+
+    #[test]
+    fn s2_three_hop_field_selector_drops() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type L4 struct{}\n\
+             func (l *L4) M() {}\n\
+             type L3 struct {\n\tNext *L4\n}\n\
+             type L2 struct {\n\tNext *L3\n}\n\
+             type L1 struct {\n\tNext *L2\n}\n\
+             func run(o *L1) {\n\to.Next.Next.Next.M()\n}\n",
+        )]);
+        let site = site_in(&cg, "run", "M");
+        assert_eq!(site.receiver_type, None, "3-hop chain must not recover");
+    }
+
+    #[test]
+    fn s2_embedded_field_selector_recovers() {
+        // A TRUE anonymous/embedded field (`Listener`, no field name,
+        // non-pointer) — its implicit field name is the bare type name
+        // `Listener` (`GoStruct::extract_one_field`), so
+        // `w.Listener.Accept()` is the correct accessor shape (mirrors the
+        // adjudicated caddy `l.Listener.Accept()` case, but with an IN-REPO
+        // `Listener` so this one DOES flip to a FieldTyped Exact edge).
+        //
+        // Non-pointer embedding deliberately, not `*Listener`: grounding
+        // (tree-sitter dump) found `extract_one_field` does not recognize a
+        // POINTER-embedded field at all (tree-sitter-go represents it as a
+        // bare `*` token sibling, not a `pointer_type` wrapper it expects) —
+        // a PRE-EXISTING gap in the already-shipped struct-embedding
+        // extraction, untouched by P11 and out of scope here; see the task
+        // report.
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Listener struct{}\n\
+             func (l *Listener) Accept() {}\n\
+             type Wrap struct {\n\tListener\n}\n\
+             func run(w *Wrap) {\n\tw.Listener.Accept()\n}\n",
+        )]);
+        let site = site_in(&cg, "run", "Accept");
+        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+    }
+
+    #[test]
+    fn s2_field_miss_at_any_hop_drops_entirely() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Outer struct {\n\tField int\n}\n\
+             func run(o *Outer) {\n\to.Missing.M()\n}\n",
+        )]);
+        // `Missing` is not a field of `Outer` at all -- the field_types
+        // lookup at this hop misses, so the whole chain must drop (no
+        // partial recovery), not panic.
+        let site = site_in(&cg, "run", "M");
+        assert_eq!(site.receiver_type, None);
+    }
+
+    #[test]
+    fn s2_closure_param_shadowing_base_does_not_leak_stale_recovery() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Inner struct{}\n\
+             func (i *Inner) M() {}\n\
+             type Outer struct {\n\tField *Inner\n}\n\
+             func run(o *Outer) {\n\
+             \tfn := func(o int) {\n\t\t_ = o\n\t}\n\
+             \tfn(1)\n\
+             \to.Field.M()\n\
+             }\n",
+        )]);
+        // The closure param `o int` does NOT shadow the OUTER `o.Field.M()`
+        // call (it's a sibling statement, not enclosing it) -- must still
+        // recover normally. This is the companion positive case to the
+        // fail-closed shadow test below (proves the closure fix doesn't
+        // over-suppress unrelated recoveries).
+        let site = site_in(&cg, "run", "M");
+        assert_eq!(site.receiver_type.as_deref(), Some("Inner"));
+    }
+
+    #[test]
+    fn s2_closure_param_rebinding_base_inside_closure_fails_closed() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Inner struct{}\n\
+             func (i *Inner) M() {}\n\
+             type Other struct{}\n\
+             func (x Other) M() {}\n\
+             type Outer struct {\n\tO *Inner\n}\n\
+             func run(o *Outer) {\n\
+             \tfn := func(o Other) {\n\t\to.M()\n\t}\n\
+             \t_ = fn\n\
+             }\n",
+        )]);
+        // The call site `o.M()` is INSIDE the closure, whose OWN parameter
+        // `o Other` shadows the outer `o *Outer`. Without the closure-shadow
+        // fix, the outer-function walk would see only the OUTER `o` binding
+        // (the closure's own param is invisible to `function_node_types()`)
+        // and could leak a stale/wrong recovery. Must fail closed (no
+        // recovery), not silently resolve against the wrong type.
+        let site = site_in(&cg, "run", "M");
+        assert_eq!(site.receiver_type, None);
+    }
+
+    // ---- S3: package-level var receivers ---------------------------------
+
+    #[test]
+    fn s3_package_level_var_recovers_var_decl() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Runner interface { Go() }\n\
+             type Impl struct{}\n\
+             func (i Impl) Go() {}\n\
+             var r Runner\n\
+             func run() {\n\tr.Go()\n}\n",
+        )]);
+        let site = site_in(&cg, "run", "Go");
+        assert_eq!(site.receiver_type.as_deref(), Some("Runner"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::VarDecl));
+        let out = cg.resolve_call_site_full(site);
+        assert!(out
+            .resolved
+            .iter()
+            .any(|c| c.target.name == "Go" && c.confidence == ResolutionConfidence::Exact));
+    }
+
+    #[test]
+    fn s3_function_local_binding_shadows_package_var() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Runner interface { Go() }\n\
+             type Impl struct{}\n\
+             func (i Impl) Go() {}\n\
+             type Other struct{}\n\
+             var r Runner\n\
+             func run() {\n\tr := Other{}\n\t_ = r\n}\n\
+             func run2() {\n\tr.Go()\n}\n",
+        )]);
+        // `run2` has no local `r` -- package var recovers.
+        let site2 = site_in(&cg, "run2", "Go");
+        assert_eq!(site2.receiver_type.as_deref(), Some("Runner"));
+    }
+
+    #[test]
+    fn s3_package_var_cross_file_in_same_package() {
+        let cg = build_go(&[
+            (
+                "vars.go",
+                "package main\n\
+                 type Runner interface { Go() }\n\
+                 var r Runner\n",
+            ),
+            (
+                "impl.go",
+                "package main\n\
+                 type Impl struct{}\n\
+                 func (i Impl) Go() {}\n\
+                 func run() {\n\tr.Go()\n}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Go");
+        assert_eq!(site.receiver_type.as_deref(), Some("Runner"));
+    }
+
+    // ---- S4: embedded-interface satisfaction/routing ---------------------
+
+    #[test]
+    fn s4_struct_embeds_interface_routes_to_concrete_implementer() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Doer interface { Do() }\n\
+             type Concrete struct{}\n\
+             func (c Concrete) Do() {}\n\
+             type Holder struct {\n\tDoer\n}\n\
+             func run(h Holder) {\n\th.Do()\n}\n",
+        )]);
+        let site = site_in(&cg, "run", "Do");
+        let out = cg.resolve_call_site_full(site);
+        assert!(
+            out.resolved.iter().any(|c| c.target.name == "Do"
+                && c.confidence == ResolutionConfidence::Exact
+                && c.kind == ResolutionKind::InterfaceDispatch),
+            "expected Exact InterfaceDispatch via embedded interface, got {:?}",
+            out
+        );
+        assert_eq!(
+            cg.go_embedded_interface_methods
+                .get("Holder")
+                .and_then(|m| m.get("Do")),
+            Some(&"Doer".to_string())
+        );
+    }
+
+    #[test]
+    fn s4_own_method_shadows_embedded_interface_promotion() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Doer interface { Do() }\n\
+             type Concrete struct{}\n\
+             func (c Concrete) Do() {}\n\
+             type Holder struct {\n\tDoer\n}\n\
+             func (h Holder) Do() {}\n\
+             func run(h Holder) {\n\th.Do()\n}\n",
+        )]);
+        // Holder has its OWN direct `Do` -- must NOT appear in the
+        // embedded-interface promotion map (own method wins, ordinary
+        // owner_lookup already resolves it).
+        assert!(cg
+            .go_embedded_interface_methods
+            .get("Holder")
+            .and_then(|m| m.get("Do"))
+            .is_none());
+        let site = site_in(&cg, "run", "Do");
+        let out = cg.resolve_call_site_full(site);
+        assert!(out.resolved.iter().any(|c| c.target.file == "main.go"
+            && c.confidence == ResolutionConfidence::Exact
+            && c.kind != ResolutionKind::InterfaceDispatch));
+    }
+
+    #[test]
+    fn s4_external_embedded_interface_drops_without_wrong_edge() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             import \"net\"\n\
+             type Wrap struct {\n\tnet.Listener\n}\n\
+             func run(w Wrap) {\n\tw.Accept()\n}\n",
+        )]);
+        // `net.Listener` is external (not in `data.interfaces`) -- no in-repo
+        // satisfier set. Must drop cleanly: no panic, no wrong edge, no
+        // Exact flip.
+        let site = site_in(&cg, "run", "Accept");
+        let out = cg.resolve_call_site_full(site);
+        assert!(out.resolved.is_empty());
+        assert!(cg
+            .go_embedded_interface_methods
+            .get("Wrap")
+            .and_then(|m| m.get("Accept"))
+            .is_none());
+    }
+
+    #[test]
+    fn s4_ambiguous_two_embedded_interfaces_supplying_same_method_drops() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type A interface { M() }\n\
+             type B interface { M() }\n\
+             type ImplA struct{}\n\
+             func (c ImplA) M() {}\n\
+             type Holder struct {\n\tA\n\tB\n}\n\
+             func run(h Holder) {\n\th.M()\n}\n",
+        )]);
+        assert!(cg
+            .go_embedded_interface_methods
+            .get("Holder")
+            .and_then(|m| m.get("M"))
+            .is_none());
+    }
+
+    // ---- S5: telemetry ----------------------------------------------------
+
+    #[test]
+    fn s5_resolution_kind_as_str_field_and_return_typed() {
+        assert_eq!(ResolutionKind::FieldTyped.as_str(), "field_typed");
+        assert_eq!(ResolutionKind::ReturnTyped.as_str(), "return_typed");
+    }
+
+    #[test]
+    fn s5_call_stats_reports_dropped_go_receiver_bucket() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Outer struct {\n\tField int\n}\n\
+             func run(o *Outer) {\n\to.Field.M()\n}\n",
+        )]);
+        let stats = crate::navigation::queries::call_stats(&cg);
+        let dropped = stats
+            .get("dropped_go_receiver")
+            .and_then(|v| v.as_object())
+            .expect("dropped_go_receiver present");
+        let total: u64 = dropped.values().filter_map(|v| v.as_u64()).sum();
+        assert!(
+            total > 0,
+            "expected at least one attributed Go drop: {stats}"
+        );
+    }
+
+    // ---- incremental parity (bidirectional) -------------------------------
+
+    #[test]
+    fn incremental_parity_edit_type_defining_file_updates_consumer() {
+        use crate::cpg::CodePropertyGraph;
+        use crate::data_flow::DataFlowGraph;
+        use std::collections::BTreeSet;
+
+        let mut files: BTreeMap<String, ParsedFile> = BTreeMap::new();
+        files.insert(
+            "demux.go".to_string(),
+            ParsedFile::parse(
+                "demux.go",
+                "package demux\n\
+                 type Demux struct{}\n\
+                 func (d *Demux) Init() {}\n\
+                 func newDemux() *Demux { return &Demux{} }\n",
+                Go,
+            )
+            .unwrap(),
+        );
+        files.insert(
+            "consumer.go".to_string(),
+            ParsedFile::parse(
+                "consumer.go",
+                "package demux\n\
+                 func run() {\n\td := newDemux()\n\td.Init()\n}\n",
+                Go,
+            )
+            .unwrap(),
+        );
+        let cg0 = CallGraph::build(&files);
+        let site0 = site_in(&cg0, "run", "Init");
+        assert_eq!(site0.receiver_type.as_deref(), Some("Demux"));
+
+        // Edit ONLY the type-defining file: `newDemux` now returns a
+        // DIFFERENT type. `consumer.go` is untouched.
+        files.insert(
+            "demux.go".to_string(),
+            ParsedFile::parse(
+                "demux.go",
+                "package demux\n\
+                 type Demux struct{}\n\
+                 func (d *Demux) Init() {}\n\
+                 type Other struct{}\n\
+                 func newDemux() *Other { return &Other{} }\n",
+                Go,
+            )
+            .unwrap(),
+        );
+        let changed: BTreeSet<String> = ["demux.go".to_string()].into_iter().collect();
+        let cpg = CodePropertyGraph::build_incremental(
+            cg0,
+            DataFlowGraph::build(&BTreeMap::new()),
+            &changed,
+            &files,
+            None,
+        );
+        let cg1 = &cpg.call_graph;
+        let site1 = site_in(cg1, "run", "Init");
+        // `consumer.go` never changed, but its recovery MUST update: `Demux`
+        // no longer has an `Init` method reachable from `d`'s new type.
+        assert_ne!(
+            site1.receiver_type.as_deref(),
+            Some("Demux"),
+            "consumer.go's retained call site kept a stale recovery after \
+             the type-defining file changed"
+        );
+    }
+
+    #[test]
+    fn incremental_parity_edit_consuming_file_recomputes() {
+        use crate::cpg::CodePropertyGraph;
+        use crate::data_flow::DataFlowGraph;
+        use std::collections::BTreeSet;
+
+        let mut files: BTreeMap<String, ParsedFile> = BTreeMap::new();
+        files.insert(
+            "demux.go".to_string(),
+            ParsedFile::parse(
+                "demux.go",
+                "package demux\n\
+                 type Demux struct{}\n\
+                 func (d *Demux) Init() {}\n\
+                 func newDemux() *Demux { return &Demux{} }\n",
+                Go,
+            )
+            .unwrap(),
+        );
+        files.insert(
+            "consumer.go".to_string(),
+            ParsedFile::parse("consumer.go", "package demux\nfunc run() {}\n", Go).unwrap(),
+        );
+        let cg0 = CallGraph::build(&files);
+        assert!(cg0
+            .calls
+            .iter()
+            .all(|(fid, sites)| fid.name != "run" || sites.is_empty()));
+
+        // Edit ONLY the consuming file: add the call-RHS receiver usage.
+        files.insert(
+            "consumer.go".to_string(),
+            ParsedFile::parse(
+                "consumer.go",
+                "package demux\n\
+                 func run() {\n\td := newDemux()\n\td.Init()\n}\n",
+                Go,
+            )
+            .unwrap(),
+        );
+        let changed: BTreeSet<String> = ["consumer.go".to_string()].into_iter().collect();
+        let cpg = CodePropertyGraph::build_incremental(
+            cg0,
+            DataFlowGraph::build(&BTreeMap::new()),
+            &changed,
+            &files,
+            None,
+        );
+        let cg1 = &cpg.call_graph;
+        let site1 = site_in(cg1, "run", "Init");
+        assert_eq!(site1.receiver_type.as_deref(), Some("Demux"));
+        assert_eq!(site1.receiver_recovery, Some(ReceiverRecovery::ReturnTyped));
+    }
+
+    #[test]
+    fn incremental_parity_edit_unrelated_file_survives() {
+        use crate::cpg::CodePropertyGraph;
+        use crate::data_flow::DataFlowGraph;
+        use std::collections::BTreeSet;
+
+        let mut files: BTreeMap<String, ParsedFile> = BTreeMap::new();
+        files.insert(
+            "demux.go".to_string(),
+            ParsedFile::parse(
+                "demux.go",
+                "package demux\n\
+                 type Demux struct{}\n\
+                 func (d *Demux) Init() {}\n\
+                 func newDemux() *Demux { return &Demux{} }\n",
+                Go,
+            )
+            .unwrap(),
+        );
+        files.insert(
+            "consumer.go".to_string(),
+            ParsedFile::parse(
+                "consumer.go",
+                "package demux\n\
+                 func run() {\n\td := newDemux()\n\td.Init()\n}\n",
+                Go,
+            )
+            .unwrap(),
+        );
+        files.insert(
+            "unrelated.go".to_string(),
+            ParsedFile::parse("unrelated.go", "package other\nfunc noop() {}\n", Go).unwrap(),
+        );
+        let cg0 = CallGraph::build(&files);
+        let site0 = site_in(&cg0, "run", "Init");
+        assert_eq!(site0.receiver_type.as_deref(), Some("Demux"));
+
+        files.insert(
+            "unrelated.go".to_string(),
+            ParsedFile::parse(
+                "unrelated.go",
+                "package other\nfunc noop() {}\nfunc noop2() {}\n",
+                Go,
+            )
+            .unwrap(),
+        );
+        let changed: BTreeSet<String> = ["unrelated.go".to_string()].into_iter().collect();
+        let cpg = CodePropertyGraph::build_incremental(
+            cg0,
+            DataFlowGraph::build(&BTreeMap::new()),
+            &changed,
+            &files,
+            None,
+        );
+        let cg1 = &cpg.call_graph;
+        let site1 = site_in(cg1, "run", "Init");
+        assert_eq!(site1.receiver_type.as_deref(), Some("Demux"));
+        assert_eq!(site1.receiver_recovery, Some(ReceiverRecovery::ReturnTyped));
     }
 }
 
