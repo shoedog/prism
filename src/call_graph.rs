@@ -5843,4 +5843,43 @@ class Child(Base):\n    def dump(self):\n        return self.text\n",
             "self.text inside a lambda body must not surface any edge"
         );
     }
+
+    /// P8 non-Rust guard: the macro-arg extractor is gated on
+    /// `self.language == Language::Rust` AND a real `macro_invocation` node
+    /// kind (which only tree-sitter-rust ever produces) -- literal
+    /// `assert!(f())`-shaped TEXT sitting inside a JS template literal or a
+    /// Python string must never mint a call for `f`/`assert`/`check`.
+    #[test]
+    fn non_rust_assert_bang_text_in_string_or_template_literal_mints_nothing() {
+        let py = build_py(&[(
+            "notes.py",
+            "def host():\n    s = \"assert!(check(1))\"\n    return s\n",
+        )]);
+        assert!(
+            !py.functions.contains_key("check"),
+            "a Python string literal containing assert!(check(1)) text must not mint a call"
+        );
+        assert!(py
+            .calls
+            .values()
+            .flat_map(|s| s.iter())
+            .all(|s| s.callee_name != "check" && s.callee_name != "assert"));
+
+        let mut js_map = BTreeMap::new();
+        js_map.insert(
+            "notes.js".to_string(),
+            ParsedFile::parse(
+                "notes.js",
+                "function host() {\n    const s = `assert!(check(1))`;\n    return s;\n}\n",
+                JavaScript,
+            )
+            .unwrap(),
+        );
+        let js = CallGraph::build(&js_map);
+        assert!(js
+            .calls
+            .values()
+            .flat_map(|s| s.iter())
+            .all(|s| s.callee_name != "check" && s.callee_name != "assert"));
+    }
 }
