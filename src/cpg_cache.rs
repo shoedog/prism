@@ -73,7 +73,10 @@ use std::path::{Path, PathBuf};
 /// - v29: JS/TS R4c export and function-local shadow facts on CallGraph.
 /// - v30: clean_class_spans for Python recovered inherited receiver resolution.
 /// - v31: cache_build_identity replaces raw git_sha as cache validity key.
-const CACHE_VERSION: u32 = 31; // 31: binary-input cache identity.
+/// - v32: P3 R6MultiOwnerCandidate — Python/JS/TS/Tsx unknown-receiver
+///   multi-owner collisions resolve via `resolve_call_site` to a capped
+///   NameOnly candidate instead of dropping, changing CPG Call/Return edges.
+const CACHE_VERSION: u32 = 32; // 32: P3 candidate edges (resolution behavior change).
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -591,9 +594,10 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_31_for_binary_input_cache_identity() {
-        // v31: cache_build_identity replaces raw git_sha as cache validity key.
-        assert_eq!(super::CACHE_VERSION, 31);
+    fn cache_version_is_32_for_p3_candidate_edges() {
+        // v32: P3 R6MultiOwnerCandidate changes resolve_call_site output for
+        // Python/JS/TS/Tsx unknown-receiver multi-owner collisions.
+        assert_eq!(super::CACHE_VERSION, 32);
     }
 
     #[test]

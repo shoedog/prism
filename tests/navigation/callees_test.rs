@@ -73,6 +73,41 @@ fn demoted_callee_scores_0_6_with_resolution_reason() {
         .any(|r| matches!(r, Reason::Resolution { kind } if kind == "r6_single_owner")));
 }
 
+// F4 (P3 review-fix wave): a 2-owner unknown-receiver collision must surface
+// as a nav-visible candidate edge — score 0.6 (NameOnly) with the
+// `r6_multi_owner_candidate` resolution reason, not a silent drop.
+#[test]
+fn multi_owner_candidate_callee_scores_0_6_with_resolution_reason() {
+    let s = session(&[
+        (
+            "a.py",
+            "class A:\n    def handle(self):\n        return 1\n",
+        ),
+        (
+            "b.py",
+            "class B:\n    def handle(self):\n        return 2\n",
+        ),
+        ("main.py", "def run(x):\n    return x.handle()\n"),
+    ]);
+    let ev = queries::callees(&s, Some("run"), Some("main.py"), None, 1).unwrap();
+    let item = ev
+        .items
+        .iter()
+        .find(|i| {
+            matches!(
+                &i.symbol,
+                Some(SymbolRef::Function { file, name, .. })
+                    if file == "a.py" && name == "handle"
+            )
+        })
+        .expect("R6 multi-owner candidate callee");
+    assert_eq!(item.score, 0.6);
+    assert!(item
+        .why
+        .iter()
+        .any(|r| matches!(r, Reason::Resolution { kind } if kind == "r6_multi_owner_candidate")));
+}
+
 #[test]
 fn exact_callee_scores_1_0_with_resolution_reason() {
     let s = session(&[(

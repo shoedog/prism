@@ -38,31 +38,57 @@ def test_load_case_parses_expected_toml():
     assert case.exact and case.status == "pass"
 
 
-def test_run_matrix_statuses():
+def _write_known_fail_case(tmp_path, capability="synthetic_known_fail"):
+    """A minimal standalone known_fail case (P3 review-fix F3): no real fixture
+    is currently known_fail (P3 flipped the prior exemplar, inherited_override,
+    to pass — see its expected.toml), so synthesize one instead of relying on
+    a capability whose status can drift out from under these tests again."""
+    case_dir = tmp_path / "fixtures" / "python" / capability
+    case_dir.mkdir(parents=True)
+    (case_dir / "expected.toml").write_text(f"""
+[case]
+language = "python"
+capability = "{capability}"
+status = "known_fail"
+[seed]
+symbol = "target"
+file = "util.py"
+line = 1
+[[expect.callers]]
+file = "main.py"
+line = 2
+[expect]
+exact = true
+""")
+    return case_dir
+
+
+def test_run_matrix_statuses(tmp_path):
     results = run_matrix(FIXTURES, FakeSut(), languages=["rust", "go", "python"])
     by_cap = {r.capability: r for r in results}
     assert by_cap["free_fn_same_file"].outcome == "ok"
     # a `pass` case the FakeSut can't resolve -> regression
     assert by_cap["free_fn_cross_file_use"].outcome == "regression"
-    # a `known_fail` case still failing -> expected_gap. S3 flipped
-    # type_method_qualified to pass, so the canonical known_fail exemplar is now a
-    # reconciled dispatch gap (spec §2.4 — needs Phase-IP type-confirmed dispatch).
-    assert by_cap["inherited_override"].outcome == "expected_gap"
+
+    # a `known_fail` case still failing -> expected_gap.
+    _write_known_fail_case(tmp_path)
+    gap_results = run_matrix(tmp_path / "fixtures", FakeSut(), languages=["python"])
+    by_cap_gap = {r.capability: r for r in gap_results}
+    assert by_cap_gap["synthetic_known_fail"].outcome == "expected_gap"
 
 
-def test_run_matrix_flags_flip_candidates():
-    class FlipSut(FakeSut):
+def test_run_matrix_flags_flip_candidates(tmp_path):
+    _write_known_fail_case(tmp_path)
+
+    class FlipSut:
         def callers(self, root, seed):
             # a known_fail case the SUT *can* resolve -> flip_candidate
-            if root.endswith("inherited_override"):
-                # expected.toml: caller at app.py:10
-                return [CallEdge("caller", seed, Location("app.py", 9, 11), "run",
-                                 Location("app.py", 10, 10))]
-            return super().callers(root, seed)
+            return [CallEdge("caller", seed, Location("main.py", 1, 3), "run",
+                             Location("main.py", 2, 2))]
 
-    results = run_matrix(FIXTURES, FlipSut(), languages=["rust", "go", "python"])
+    results = run_matrix(tmp_path / "fixtures", FlipSut(), languages=["python"])
     by_cap = {r.capability: r for r in results}
-    assert by_cap["inherited_override"].outcome == "flip_candidate"
+    assert by_cap["synthetic_known_fail"].outcome == "flip_candidate"
 
 
 def test_run_matrix_checks_expected_resolution_kind(tmp_path):

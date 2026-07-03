@@ -70,6 +70,10 @@ prism **`slicing` CLI**. You want *literal* text, comments, strings, or config �
   `N same-name receiver call site(s) with unknown receiver type across multiple owner types; not
   attributed as callers` means real callers may be missing: treat "no callers" plus that warning as
   *unknown*, not *none*.
+- **Candidate edges are labeled, not certain.** Python/JS/TS/Tsx unknown-receiver calls with a
+  same-name method on 2-3 owner classes surface as a caller/callee with kind `r6_multi_owner_candidate`
+  at name-only confidence — verify at the cited site; more than 3 same-name owners are still dropped
+  and reported in the warning above.
 - **One repo only.** The server sees only its `--repo` tree — not sibling repos, dependencies, or std.
   "No callers" outside the tree means *out of scope*, not *none*.
 - **Lines are 1-indexed; `nav_nodes_at` matches the exact line.** Empty result ⇒ aim at the definition

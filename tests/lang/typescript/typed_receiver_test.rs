@@ -32,8 +32,12 @@ fn site(cg: &CallGraph, caller: &str, callee: &str) -> CallSite {
 
 #[test]
 fn test_typescript_parameter_annotation_and_new_constructor_do_not_recover() {
+    // P3: `m` must stay OVER the R6 fanout cap (4 owners: Foo/Other/Other2/
+    // Other3) so this residue keeps testing what its name says — these
+    // receiver shapes do not recover — rather than the P3 candidate path a
+    // 2-owner pool would now hit instead.
     let cg = graph(
-        "class Foo { m() {} }\nclass Other { m() {} }\nfunction req(x: Foo) { x.m(); }\nfunction opt(x?: Foo) { x.m(); }\nfunction annotated() { const x: Foo = other(); x.m(); }\nfunction made() { const x = new Foo(); x.m(); }\n",
+        "class Foo { m() {} }\nclass Other { m() {} }\nclass Other2 { m() {} }\nclass Other3 { m() {} }\nfunction req(x: Foo) { x.m(); }\nfunction opt(x?: Foo) { x.m(); }\nfunction annotated() { const x: Foo = other(); x.m(); }\nfunction made() { const x = new Foo(); x.m(); }\n",
     );
     for caller in ["req", "opt", "annotated", "made"] {
         let s = site(&cg, caller, "m");
@@ -45,8 +49,11 @@ fn test_typescript_parameter_annotation_and_new_constructor_do_not_recover() {
 
 #[test]
 fn test_typescript_bare_factory_call_does_not_recover() {
+    // P3: `m` must stay OVER the R6 fanout cap (4 owners) so this residue
+    // keeps testing that a bare factory call does not recover, rather than
+    // the P3 candidate path a 2-owner pool would now hit instead.
     let cg = graph(
-        "class Foo { m() {} }\nclass Other { m() {} }\nfunction factory() { const x = Foo(); x.m(); }\n",
+        "class Foo { m() {} }\nclass Other { m() {} }\nclass Other2 { m() {} }\nclass Other3 { m() {} }\nfunction factory() { const x = Foo(); x.m(); }\n",
     );
     let s = site(&cg, "factory", "m");
     assert_eq!(s.receiver_type, None);

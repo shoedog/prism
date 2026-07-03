@@ -50,6 +50,10 @@ pub enum ResolutionKind {
     InterfaceDispatch,
     /// R4c: resolved via import-member binding (Python/JS/TS).
     ImportMember,
+    /// R6 residue candidate: unknown-receiver call with a same-name method on
+    /// 2+ owner classes, emitted as a capped, labeled NameOnly edge instead of
+    /// a silent drop. Gated to Python/JS/TS/Tsx (P3); Rust/Go keep the drop.
+    R6MultiOwnerCandidate,
 }
 
 impl ResolutionKind {
@@ -74,6 +78,7 @@ impl ResolutionKind {
             ResolutionKind::EmbeddedPromotion => "embedded_promotion",
             ResolutionKind::InterfaceDispatch => "interface_dispatch",
             ResolutionKind::ImportMember => "import_member",
+            ResolutionKind::R6MultiOwnerCandidate => "r6_multi_owner_candidate",
         }
     }
 }
@@ -92,11 +97,19 @@ enum RecoveredDirectMethod<'a> {
 }
 
 /// A resolved caller edge: who calls the seed, with what confidence, at which line.
+///
+/// Carries the resolution `kind` (not just `confidence`) so a consumer that
+/// needs to tell an unverified maybe-edge (e.g. `R6MultiOwnerCandidate`) apart
+/// from a "normal" NameOnly demotion doesn't have to re-derive it from
+/// confidence alone (F2, P3 review-fix wave). This struct is internal-only
+/// (no Serialize) and not otherwise cached, so a plain enum field is the
+/// simplest option — no derived `is_candidate: bool` needed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedCallEdge {
     pub caller: FunctionId,
     pub call_site_line: usize,
     pub confidence: ResolutionConfidence,
+    pub kind: ResolutionKind,
 }
 
 /// Normalize an owner type's source text to its bare index key:
@@ -1504,6 +1517,31 @@ impl CallGraph {
                         ResolutionKind::R6SingleOwner,
                     ));
                 }
+
+                // P3: unknown-receiver, multi-owner collision — a labeled
+                // maybe-edge beats a silent drop for Python/JS/TS/Tsx, where
+                // this is the dominant unresolved-rate driver. Rust/Go keep
+                // the precision-floor drop (fixture-pinned:
+                // r6_multi_owner_drop). Cap on per-site TARGET fanout
+                // (method_ids, after the deterministic filtering above), not
+                // owner count: 2 owners can still hold >3 same-name defs.
+                if owners.len() >= 2
+                    && method_ids.len() <= 3
+                    && matches!(
+                        crate::languages::Language::from_path(&caller.file),
+                        Some(
+                            crate::languages::Language::Python
+                                | crate::languages::Language::JavaScript
+                                | crate::languages::Language::TypeScript
+                                | crate::languages::Language::Tsx
+                        )
+                    )
+                {
+                    return ResolutionOutcome::hit(demoted(
+                        method_ids,
+                        ResolutionKind::R6MultiOwnerCandidate,
+                    ));
+                }
                 ResolutionOutcome::dropped(DropReason::MultiOwnerCollision)
             }
             None => {
@@ -1704,6 +1742,7 @@ impl CallGraph {
                             caller: site.caller.clone(),
                             call_site_line: site.line,
                             confidence: r.confidence,
+                            kind: r.kind,
                         });
                     }
                 }

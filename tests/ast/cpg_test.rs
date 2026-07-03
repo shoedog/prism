@@ -249,6 +249,54 @@ fn barrier_fanout_empty_live_fallback_exact_no_leak() {
     );
 }
 
+// F1 (P3 review-fix wave): an unknown-receiver call with a same-name method
+// on 2+ owner classes now resolves to a capped, labeled NameOnly
+// `R6MultiOwnerCandidate` hit instead of a silent drop (Python/JS/TS/Tsx).
+// Step-5b must NOT wire an arg->param DataFlow edge for that resolution —
+// DataFlow carries no confidence/kind, and taint consumes DataFlow directly,
+// so an unfiltered emission would leak taint into an unverified maybe-callee.
+// Candidates are nav-only in this slice: the Call edge (confidence-tagged,
+// nav-visible) still gets created; only the DataFlow (taint) edge is skipped.
+#[test]
+fn r6_multi_owner_candidate_yields_no_arg_to_param_dataflow_edge() {
+    let src = "class A:\n    def handle(self, val):\n        sink(val)\n\
+               \nclass B:\n    def handle(self, val):\n        sink(val)\n\
+               \ndef run(x, tainted):\n    x.handle(tainted)\n";
+    let mut files = BTreeMap::new();
+    files.insert(
+        "test.py".to_string(),
+        ParsedFile::parse("test.py", src, Language::Python).unwrap(),
+    );
+    let ctx = CpgContext::build(&files, None);
+
+    // Sanity: the site really is the P3 candidate (2 owners, at/under the
+    // fanout cap), not some other resolution outcome.
+    let site = ctx
+        .cpg
+        .call_graph
+        .calls
+        .iter()
+        .find(|(fid, _)| fid.name == "run")
+        .and_then(|(_, sites)| sites.iter().find(|s| s.callee_name == "handle"))
+        .expect("run -> handle call site")
+        .clone();
+    let resolved = ctx.cpg.call_graph.resolve_call_site(&site);
+    assert_eq!(
+        resolved.len(),
+        2,
+        "both A.handle/B.handle candidates: {resolved:?}"
+    );
+    assert!(resolved
+        .iter()
+        .all(|c| c.kind == prism::resolution::ResolutionKind::R6MultiOwnerCandidate));
+
+    let df = dataflow_callee_funcs(&ctx, "run");
+    assert!(
+        !df.contains("handle"),
+        "R6MultiOwnerCandidate must not leak an arg->param DataFlow edge into an unverified owner: {df:?}"
+    );
+}
+
 #[test]
 fn function_node_carries_real_byte_span() {
     let src = "fn alpha() {}\nfn beta() {}\n";

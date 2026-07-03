@@ -14,6 +14,7 @@ use crate::call_graph::FunctionId;
 use crate::cpg::query::ConfidenceFilter;
 use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
+use crate::resolution::{ResolutionKind, ResolvedCallEdge};
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::BTreeMap;
@@ -48,9 +49,45 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                 .into_iter()
                 .filter_map(|(idx, depth)| ctx.cpg.to_function_id(idx).map(|id| (id, depth)))
                 .collect();
+
+            // resolved_caller_edges scans every repo call site — compute once, not per caller.
+            let all_caller_edges = ctx.cpg.call_graph.resolved_caller_edges(func_id);
+            // P3 (F2): R6MultiOwnerCandidate is an unverified, capped NameOnly maybe-edge
+            // (nav-only) — exclude it so Membrane doesn't assert an unconfirmed cross-module
+            // caller as fact. Other NameOnly kinds are untouched (pre-existing recall).
+            let caller_edges: Vec<_> = all_caller_edges
+                .iter()
+                .filter(|edge| edge.kind != ResolutionKind::R6MultiOwnerCandidate)
+                .cloned()
+                .collect();
+            // Review-fix (F2 was too broad): only exclude a caller when it HAS raw
+            // CallGraph evidence (a literal call site scanned by resolved_caller_edges)
+            // AND every one of those raw edges is R6MultiOwnerCandidate. A caller with
+            // NO raw edges at all — e.g. a CPG-graph-only CHA virtual-dispatch edge
+            // minted in cpg/build.rs (C/C++ with a TypeDatabase), which never appears
+            // in resolved_caller_edges since it bypasses CallGraph::calls entirely —
+            // must pass through unfiltered, exactly as before the P3 candidate fix.
+            let mut raw_edges_by_caller: BTreeMap<&FunctionId, Vec<&ResolvedCallEdge>> =
+                BTreeMap::new();
+            for edge in &all_caller_edges {
+                raw_edges_by_caller
+                    .entry(&edge.caller)
+                    .or_default()
+                    .push(edge);
+            }
             let cross_file_callers: Vec<_> = callers
                 .iter()
-                .filter(|(caller_id, _)| caller_id.file != diff_info.file_path)
+                .filter(|(caller_id, _)| {
+                    if caller_id.file == diff_info.file_path {
+                        return false;
+                    }
+                    match raw_edges_by_caller.get(caller_id) {
+                        Some(edges) => edges
+                            .iter()
+                            .any(|e| e.kind != ResolutionKind::R6MultiOwnerCandidate),
+                        None => true,
+                    }
+                })
                 .collect();
 
             if cross_file_callers.is_empty() {
@@ -65,9 +102,6 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                 let is_diff = diff_info.diff_lines.contains(&line);
                 block.add_line(&diff_info.file_path, line, is_diff);
             }
-
-            // resolved_caller_edges scans every repo call site — compute once, not per caller.
-            let caller_edges = ctx.cpg.call_graph.resolved_caller_edges(func_id);
             // Include each cross-file caller with surrounding context
             for (caller_id, _) in &cross_file_callers {
                 if let Some(caller_parsed) = ctx.files.get(&caller_id.file) {

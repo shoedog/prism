@@ -32,8 +32,12 @@ fn site(cg: &CallGraph, caller: &str, callee: &str) -> CallSite {
 
 #[test]
 fn test_javascript_new_constructor_and_bare_call_do_not_recover() {
+    // P3: `m` must stay OVER the R6 fanout cap (4 owners: Foo/Other/Other2/
+    // Other3) so this residue keeps testing what its name says —
+    // constructor-local recovery does not engage for JS `new`/bare calls —
+    // rather than the P3 candidate path a 2-owner pool would now hit instead.
     let cg = graph(
-        "class Foo { m() {} }\nclass Other { m() {} }\nfunction made() { const x = new Foo(); x.m(); }\nfunction factory() { const x = Foo(); x.m(); }\n",
+        "class Foo { m() {} }\nclass Other { m() {} }\nclass Other2 { m() {} }\nclass Other3 { m() {} }\nfunction made() { const x = new Foo(); x.m(); }\nfunction factory() { const x = Foo(); x.m(); }\n",
     );
     let made = site(&cg, "made", "m");
     assert_eq!(made.receiver_type, None);
