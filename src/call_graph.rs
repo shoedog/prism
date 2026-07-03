@@ -6476,6 +6476,91 @@ mod framework_entry_tests {
         assert_eq!(cg.framework_entry_unresolved_handlers, 0);
     }
 
+    // ---- M2: direct-constructor receiver local-shadow guard -----------------
+
+    #[test]
+    fn express_direct_constructor_receiver_shadowed_by_enclosing_parameter_is_skipped_and_counted()
+    {
+        // `express` is REBOUND as a parameter of `setup`, shadowing the
+        // module-level `express` import -- `express()` inside `setup` calls
+        // the non-grounded PARAMETER, not the express factory, so this must
+        // not mint an edge even though the receiver is a direct-constructor
+        // form (`express().get(...)`), which the old
+        // `express_receiver_identifier_name` returned `None` for and so
+        // never shadow-checked at all.
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nfunction setup(express) {\n    express().get(\"/x\", handler);\n}\n",
+        )]);
+        assert!(
+            cg.framework_entries.is_empty(),
+            "direct constructor receiver shadowed by enclosing param must not record"
+        );
+        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
+    }
+
+    #[test]
+    fn express_direct_constructor_receiver_not_shadowed_at_module_level_still_records() {
+        // Non-shadowed control: a module-level direct-constructor receiver
+        // (no enclosing function to shadow `express` at all) must still
+        // record normally.
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nexpress().get(\"/x\", handler);\n",
+        )]);
+        let handler = fid(&cg, "handler").clone();
+        assert!(
+            cg.framework_entries.iter().any(|r| r.handler == handler),
+            "non-shadowed module-level direct constructor receiver must still record"
+        );
+        assert_eq!(cg.framework_entry_unresolved_handlers, 0);
+    }
+
+    // ---- M3: shadow guard must see anonymous enclosing scopes ---------------
+
+    #[test]
+    fn express_receiver_shadowed_by_anonymous_iife_parameter_is_skipped_and_counted() {
+        // `app` is REBOUND as a parameter of an ANONYMOUS IIFE (no
+        // inferable name, so it can never be a `FunctionId` and is
+        // invisible to the FunctionId-keyed `js_ts_function_locals` index)
+        // -- the old shadow guard walked `enclosing_chain`, which only ever
+        // contains NAMED enclosing functions, so this shadow was missed
+        // entirely and a false edge was recorded.
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\n(function (app) {\n    app.get(\"/x\", handler);\n})(express());\n",
+        )]);
+        assert!(
+            cg.framework_entries.is_empty(),
+            "anonymous-scope receiver shadow must not be recorded"
+        );
+        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
+    }
+
+    #[test]
+    fn express_receiver_not_shadowed_by_anonymous_iife_without_param_records_at_module_caller() {
+        // Non-shadowed control: the anonymous IIFE does NOT rebind `app`, so
+        // the receiver inside it is still the module-level express
+        // instance -- must record normally. Because the wrapper is
+        // anonymous, `enclosing` is still `None` for it (name inference
+        // doesn't apply to an un-bound IIFE), so the caller stays the
+        // `<module>` pseudo-caller -- verifies the M3 AST-walk rewrite left
+        // the enclosing-CALLER determination for anonymous wrappers
+        // unchanged, only the shadow/binding collection moved.
+        let cg = build_js(&[(
+            "app.js",
+            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\n(function () {\n    app.get(\"/x\", handler);\n})();\n",
+        )]);
+        let handler = fid(&cg, "handler").clone();
+        let rec = cg
+            .framework_entries
+            .iter()
+            .find(|r| r.handler == handler)
+            .expect("non-shadowed anonymous-wrapper registration must still record");
+        assert_eq!(rec.caller.name, MODULE_PSEUDO_CALLER_NAME);
+        assert_eq!(cg.framework_entry_unresolved_handlers, 0);
+    }
+
     // ---- F3: method-aware arg positioning for `app.use(...)` ----------------
 
     #[test]

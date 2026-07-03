@@ -151,37 +151,26 @@ pub fn apply(
                     .collect();
 
                 for cand in express::express_route_candidates(parsed) {
-                    // F2: reject the WHOLE candidate when the RECEIVER
-                    // identifier is locally shadowed in ANY enclosing scope
-                    // (parameters or local declarations) — `receivers` in
+                    // F2+M2+M3: reject the WHOLE candidate when the
+                    // RECEIVER identifier — or, for a direct-constructor
+                    // receiver (M2), its constructor-grounding identifier —
+                    // is locally shadowed in ANY enclosing scope, named or
+                    // anonymous (M3). `receivers`/import-map grounding in
                     // `express::express_route_candidates` is collected
                     // file-wide with no scope awareness, so a same-named
-                    // parameter in an enclosing function
-                    // (`function setup(app) { app.get(...) }`) would
+                    // parameter in an enclosing function — including an
+                    // anonymous one (`(app) => { app.get(...) }`) — would
                     // otherwise mint an edge against the non-grounded
                     // parameter instead of the real express instance.
-                    // `receiver_name` is already `None` for a directly
-                    // grounded constructor receiver (e.g.
-                    // `express().get(...)`), so `is_some_and` short-circuits
-                    // and this never rejects that case (the "unless the
-                    // receiver expression is itself a direct grounded
-                    // constructor form" carve-out). Conservative
-                    // shadow-bail — the same house pattern P6-lite's
-                    // receiver typing uses — rejects rather than guesses.
-                    let receiver_shadowed = cand.receiver_name.as_ref().is_some_and(|rname| {
-                        cand.enclosing_chain.iter().any(|ef| {
-                            let fid = FunctionId {
-                                file: file_path.clone(),
-                                name: ef.name.clone(),
-                                start_line: ef.start_line,
-                                end_line: ef.end_line,
-                            };
-                            js_ts_function_locals
-                                .get(&fid)
-                                .is_some_and(|locals| locals.contains(rname))
-                        })
-                    });
-                    if receiver_shadowed {
+                    // `cand.shadowed` is computed by `express.rs` itself via
+                    // an AST-ancestor walk from the actual call node (see
+                    // `express::express_receiver_is_shadowed`), not this
+                    // module's FunctionId-keyed `js_ts_function_locals` —
+                    // that index only covers NAMED functions, which is
+                    // exactly the M3 gap. Conservative shadow-bail — the
+                    // same house pattern P6-lite's receiver typing uses —
+                    // rejects rather than guesses.
+                    if cand.shadowed {
                         unresolved += cand.args.len();
                         continue;
                     }

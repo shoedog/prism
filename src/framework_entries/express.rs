@@ -33,20 +33,19 @@ pub enum ExpressHandlerArg {
 #[derive(Debug, Clone)]
 pub struct ExpressRouteCandidate {
     pub enclosing: Option<EnclosingFacts>,
-    /// F2: every named function-like ancestor scope enclosing the
-    /// registration call site, nearest first (`enclosing` is always
-    /// `enclosing_chain.first().cloned()`). Lets the caller (`super::apply`,
-    /// which owns `js_ts_function_locals`) walk outward from the
-    /// registration site and check EVERY enclosing scope — not just the
-    /// immediate one — for a local shadow of the receiver name.
-    pub enclosing_chain: Vec<EnclosingFacts>,
-    /// F2: the bare identifier backing this call's matched receiver, when
-    /// the match came from `receivers` set-membership on a plain identifier
-    /// (`app.get(...)`, or the `app` in `app.route(...).get(...)`). `None`
-    /// when the receiver is itself a direct grounded constructor expression
-    /// (e.g. `express().get(...)`) — there is no identifier to shadow, so
-    /// the shadow guard is inapplicable by construction.
-    pub receiver_name: Option<String>,
+    /// M2+M3 (review-fix wave 2): whether this call's grounding is
+    /// invalidated by a local shadow of either the bare receiver identifier
+    /// (`app` in `app.get(...)`) or, for a direct-constructor receiver, its
+    /// M2 constructor-grounding identifier (`express` in `express()` /
+    /// `express.Router()` / `new express.Router()`; `require` in
+    /// `require("express")()`). Computed HERE — not deferred to
+    /// `super::apply` via a name + enclosing-chain pair, as F2 originally
+    /// did — because the M3 fix requires walking the call node's ACTUAL AST
+    /// ancestor chain (to see anonymous enclosing scopes, which have no
+    /// `FunctionId` and so can't be represented in `enclosing`/an
+    /// `EnclosingFacts` chain at all), and this module is the one that still
+    /// has the real `tree_sitter::Node` in hand.
+    pub shadowed: bool,
     pub site_line: usize,
     pub site_start_byte: usize,
     pub site_end_byte: usize,
@@ -136,14 +135,14 @@ pub fn express_route_candidates(parsed: &ParsedFile) -> Vec<ExpressRouteCandidat
         }
 
         let site_line = call.start_position().row + 1;
-        let enclosing_chain = js_ts_enclosing_chain(parsed, site_line);
-        let enclosing = enclosing_chain.first().cloned();
-        let receiver_name = express_receiver_identifier_name(parsed, &call);
+        let enclosing = parsed
+            .enclosing_function(site_line)
+            .and_then(|node| js_ts_enclosing_facts(parsed, node));
+        let shadowed = express_receiver_is_shadowed(parsed, &call);
 
         out.push(ExpressRouteCandidate {
             enclosing,
-            enclosing_chain,
-            receiver_name,
+            shadowed,
             site_line,
             site_start_byte: call.start_byte(),
             site_end_byte: call.end_byte(),
@@ -217,20 +216,28 @@ fn is_js_ts_string_like_node(kind: &str) -> bool {
     matches!(kind, "string" | "template_string")
 }
 
-/// F2: recover the bare identifier receiver name backing a matched Express
-/// call — needed only for the local-shadow guard in `super::apply` (which
-/// owns `js_ts_function_locals`); does not change matching behavior or
-/// touch `taint.rs`. Duplicates the minimal structural peel
+/// M2+M3 (review-fix wave 2): whether this matched Express call's grounding
+/// is invalidated by a local shadow — the single entry point both the
+/// receiver-identifier guard (F2) and the constructor-grounding-identifier
+/// guard (M2) now share. `express_shadow_check_identifier` returning `None`
+/// (nothing to check — shouldn't happen for an already-matched call) is
+/// treated as "not shadowed" defensively.
+fn express_receiver_is_shadowed(parsed: &ParsedFile, call: &tree_sitter::Node<'_>) -> bool {
+    express_shadow_check_identifier(parsed, call)
+        .is_some_and(|name| is_identifier_shadowed_in_enclosing_scopes(parsed, call, &name))
+}
+
+/// F2+M2: recover the ONE identifier whose local shadowing would invalidate
+/// this matched Express call's receiver grounding — either the bare receiver
+/// identifier (`app` in `app.get(...)`) or, when the receiver is itself a
+/// direct grounded constructor expression (M2: `express()`,
+/// `express.Router()`, `new express.Router()`, `require("express")()`), its
+/// constructor-grounding identifier. Duplicates the minimal structural peel
 /// `js_ts_receiver_expr_is_framework_instance`/
 /// `js_ts_receiver_expr_is_route_builder` already do (those return `bool`
 /// only, never the receiver node) rather than changing those functions'
-/// signatures. Returns `None` when the receiver is a direct grounded
-/// constructor expression (e.g. `express().get(...)`, or `new
-/// express.Router().get(...)`) rather than a plain identifier — there is no
-/// name for anything to shadow, so the shadow guard is inapplicable by
-/// construction (the "unless the receiver expression is itself a direct
-/// grounded constructor form" carve-out).
-fn express_receiver_identifier_name(
+/// signatures.
+fn express_shadow_check_identifier(
     parsed: &ParsedFile,
     call: &tree_sitter::Node<'_>,
 ) -> Option<String> {
@@ -240,13 +247,29 @@ fn express_receiver_identifier_name(
         return None;
     }
     let receiver = function.child_by_field_name("object")?;
+    express_receiver_shadow_identifier(parsed, receiver)
+}
+
+/// F2+M2: peel a receiver expression down to its shadow-check identifier.
+/// Recurses through the `.route(path).get(...)` builder form to whichever of
+/// the two shapes backs `.route()`'s own object, so a builder receiver whose
+/// object is ITSELF a direct constructor (`express().route('/x').get(...)`)
+/// is handled uniformly with the direct-instance case.
+fn express_receiver_shadow_identifier(
+    parsed: &ParsedFile,
+    receiver: tree_sitter::Node<'_>,
+) -> Option<String> {
     let receiver = crate::algorithms::taint::unwrap_parenthesized(receiver);
     if receiver.kind() == "identifier" {
         return Some(parsed.node_text(&receiver).to_string());
     }
+    if matches!(receiver.kind(), "call_expression" | "new_expression") {
+        if let Some(name) = express_constructor_grounding_identifier(parsed, receiver) {
+            return Some(name);
+        }
+    }
     // `.route(path).get(...)` builder form: peel one level to the object the
-    // `.route()` call itself was invoked on, and check THAT for a bare
-    // identifier.
+    // `.route()` call itself was invoked on, and recurse.
     if parsed.language.is_call_node(receiver.kind()) {
         let inner_function = receiver.child_by_field_name("function")?;
         let inner_function = crate::algorithms::taint::unwrap_parenthesized(inner_function);
@@ -254,40 +277,94 @@ fn express_receiver_identifier_name(
             let property = inner_function.child_by_field_name("property")?;
             if parsed.node_text(&property) == "route" {
                 let object = inner_function.child_by_field_name("object")?;
-                let object = crate::algorithms::taint::unwrap_parenthesized(object);
-                if object.kind() == "identifier" {
-                    return Some(parsed.node_text(&object).to_string());
-                }
+                return express_receiver_shadow_identifier(parsed, object);
             }
         }
     }
     None
 }
 
-/// F2: every named function-like ancestor scope enclosing `site_line`,
-/// nearest first — the "enclosing function chain" the shadow guard in
-/// `super::apply` walks. An anonymous enclosing scope (no inferable name,
-/// e.g. an un-bound IIFE) can't be represented as a `FunctionId` and is
-/// skipped, matching the pre-existing limitation of the single-`enclosing`
-/// lookup below.
-fn js_ts_enclosing_chain(parsed: &ParsedFile, site_line: usize) -> Vec<EnclosingFacts> {
-    let mut chain = Vec::new();
-    let Some(nearest) = parsed.enclosing_function(site_line) else {
-        return chain;
-    };
-    if let Some(facts) = js_ts_enclosing_facts(parsed, nearest) {
-        chain.push(facts);
+/// M2: peel a direct grounded constructor receiver expression (`express()`,
+/// `express.Router()`, `new express.Router()`, `require("express")()`) down
+/// to its SHADOWABLE grounding identifier — mirrors the same peel
+/// `js_ts_callee_constructs_framework_receiver`/
+/// `js_ts_expr_resolves_to_framework_module` (taint.rs) use to decide the
+/// receiver constructs a framework instance, but returns the identifier
+/// itself (rather than a bool) so the caller can shadow-check it. Those
+/// taint.rs functions ground the identifier PURELY against the whole-file
+/// import map, with no local-shadow awareness at all — this is exactly the
+/// M2 bug (`function setup(express) { express().get(...) }` still minted a
+/// false edge because the direct-constructor exception in
+/// `express_receiver_shadow_identifier` short-circuited BEFORE any shadow
+/// check ran).
+fn express_constructor_grounding_identifier(
+    parsed: &ParsedFile,
+    expr: tree_sitter::Node<'_>,
+) -> Option<String> {
+    let expr = crate::algorithms::taint::unwrap_parenthesized(expr);
+    if !matches!(expr.kind(), "call_expression" | "new_expression") {
+        return None;
     }
-    let mut current = nearest.parent();
+    let callee = expr
+        .child_by_field_name("function")
+        .or_else(|| expr.child_by_field_name("constructor"))
+        .or_else(|| expr.child_by_field_name("name"))
+        .or_else(|| expr.named_child(0))?;
+    let callee = crate::algorithms::taint::unwrap_parenthesized(callee);
+    match callee.kind() {
+        // `express()`, or the callee of `new express.Router()`/
+        // `express.Router()` once already peeled to `express` below.
+        "identifier" => Some(parsed.node_text(&callee).to_string()),
+        // `express.Router()` / `new express.Router()` — the SHADOWABLE
+        // grounding identifier is the member expression's OBJECT
+        // (`express`), not the property (`Router`).
+        "member_expression" => {
+            let object = callee.child_by_field_name("object")?;
+            let object = crate::algorithms::taint::unwrap_parenthesized(object);
+            (object.kind() == "identifier").then(|| parsed.node_text(&object).to_string())
+        }
+        // `require("express")()` — the grounding identifier is `require`
+        // itself, the inner call's own callee.
+        kind if parsed.language.is_call_node(kind) => {
+            let inner_function = callee.child_by_field_name("function")?;
+            let inner_function = crate::algorithms::taint::unwrap_parenthesized(inner_function);
+            (inner_function.kind() == "identifier")
+                .then(|| parsed.node_text(&inner_function).to_string())
+        }
+        _ => None,
+    }
+}
+
+/// M3: whether `name` is bound as a parameter or local variable in any
+/// function-like scope enclosing `call` — walks the call node's ACTUAL AST
+/// ancestor chain (repeated `.parent()`) and collects bindings DIRECTLY from
+/// every enclosing function-like node, named or anonymous, via
+/// `ParsedFile::js_ts_function_local_bindings` (which operates on any
+/// function-like node regardless of whether it can be named). This
+/// deliberately does NOT go through the FunctionId-keyed
+/// `CallGraph::js_ts_function_locals` index (`call_graph.rs`), which only
+/// ever has entries for NAMED functions — an anonymous arrow/IIFE scope has
+/// no `FunctionId` and so is invisible to that index, which is exactly why
+/// `(app) => { app.get(...) }`'s parameter shadow was missed before this
+/// fix. Serves BOTH the receiver-identifier (F2) and (M2) the
+/// constructor-grounding-identifier shadow checks via
+/// `express_receiver_is_shadowed`.
+fn is_identifier_shadowed_in_enclosing_scopes(
+    parsed: &ParsedFile,
+    call: &tree_sitter::Node<'_>,
+    name: &str,
+) -> bool {
+    let function_kinds = parsed.language.function_node_types();
+    let mut current = call.parent();
     while let Some(node) = current {
-        if parsed.language.function_node_types().contains(&node.kind()) {
-            if let Some(facts) = js_ts_enclosing_facts(parsed, node) {
-                chain.push(facts);
-            }
+        if function_kinds.contains(&node.kind())
+            && parsed.js_ts_function_local_bindings(&node).contains(name)
+        {
+            return true;
         }
         current = node.parent();
     }
-    chain
+    false
 }
 
 /// F1: discriminate a "bare binding" function-like definition (a hoisted
