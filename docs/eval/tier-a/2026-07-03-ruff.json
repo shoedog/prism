@@ -16,7 +16,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 0,
+     "fn": 5,
      "fp": 0,
      "precision": [
       1.0,
@@ -24,9 +24,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.2065493117918027,
-      1.0
+      0.16666666666666666,
+      0.030053369411815023,
+      0.5635028250257673
      ],
      "tp": 1
     },
@@ -79,7 +79,7 @@
       "tp": 4
      }
     },
-    "pending": 5,
+    "pending": 0,
     "raw": {
      "fn": 5,
      "fp": 0,
@@ -104,19 +104,19 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 0,
+     "fn": 5,
      "fp": 0,
      "precision": [
       1.0,
-      0.6456695613241317,
+      0.700854948272956,
       1.0
      ],
      "recall": [
-      1.0,
-      0.6456695613241317,
-      1.0
+      0.6428571428571429,
+      0.38764422924295516,
+      0.8365526834990504
      ],
-     "tp": 7
+     "tp": 9
     },
     "exact_tier": {
      "raw": {
@@ -167,7 +167,7 @@
       "tp": 6
      }
     },
-    "pending": 7,
+    "pending": 0,
     "raw": {
      "fn": 5,
      "fp": 2,
@@ -192,19 +192,19 @@
      "oracle_unconfirmed": 1
     },
     "corrected": {
-     "fn": 0,
+     "fn": 3,
      "fp": 0,
      "precision": [
       1.0,
-      0.7846891945970195,
-      0.9999999999999999
+      0.8156818626193445,
+      1.0
      ],
      "recall": [
-      1.0,
-      0.7846891945970195,
-      0.9999999999999999
+      0.85,
+      0.6395811333571357,
+      0.9476312545132735
      ],
-     "tp": 14
+     "tp": 17
     },
     "exact_tier": {
      "raw": {
@@ -255,7 +255,7 @@
       "tp": 6
      }
     },
-    "pending": 6,
+    "pending": 0,
     "raw": {
      "fn": 3,
      "fp": 3,
@@ -280,7 +280,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 0,
+     "fn": 3,
      "fp": 0,
      "precision": [
       1.0,
@@ -288,9 +288,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.6456695613241317,
-      1.0
+      0.7,
+      0.3967781453459709,
+      0.892208733443606
      ],
      "tp": 7
     },
@@ -343,7 +343,7 @@
       "tp": 3
      }
     },
-    "pending": 3,
+    "pending": 0,
     "raw": {
      "fn": 3,
      "fp": 0,
@@ -370,17 +370,17 @@
      "oracle_unconfirmed": 21
     },
     "corrected": {
-     "fn": 1,
-     "fp": 0,
+     "fn": 9,
+     "fp": 20,
      "precision": [
-      1.0,
-      0.5655175313406071,
-      1.0
+      0.2,
+      0.08860584630746873,
+      0.39130950534876585
      ],
      "recall": [
-      0.8333333333333334,
-      0.4364971749742326,
-      0.969946630588185
+      0.35714285714285715,
+      0.16344731650094954,
+      0.6123557707570447
      ],
      "tp": 5
     },
@@ -433,7 +433,7 @@
       "tp": 5
      }
     },
-    "pending": 28,
+    "pending": 0,
     "raw": {
      "fn": 9,
      "fp": 21,
@@ -458,17 +458,17 @@
      "oracle_unconfirmed": 43
     },
     "corrected": {
-     "fn": 0,
-     "fp": 1,
+     "fn": 2,
+     "fp": 43,
      "precision": [
-      0.9791666666666666,
-      0.8910078189694375,
-      0.9963128890632689
+      0.5222222222222223,
+      0.4202456383503146,
+      0.6223794449304108
      ],
      "recall": [
-      1.0,
-      0.9244423947340892,
-      1.0
+      0.9591836734693877,
+      0.8628696758610322,
+      0.9887343667353087
      ],
      "tp": 47
     },
@@ -521,7 +521,7 @@
       "tp": 46
      }
     },
-    "pending": 44,
+    "pending": 0,
     "raw": {
      "fn": 2,
      "fp": 43,
@@ -546,7 +546,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 0,
+     "fn": 1,
      "fp": 0,
      "precision": [
       1.0,
@@ -554,9 +554,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.43850296436068037,
-      1.0
+      0.75,
+      0.3006418400969081,
+      0.954412739704631
      ],
      "tp": 3
     },
@@ -609,7 +609,7 @@
       "tp": 3
      }
     },
-    "pending": 1,
+    "pending": 0,
     "raw": {
      "fn": 1,
      "fp": 0,
@@ -634,7 +634,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 0,
+     "fn": 7,
      "fp": 0,
      "precision": [
       1.0,
@@ -642,9 +642,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.9162012079230888,
-      1.0
+      0.8571428571428571,
+      0.7333229366148868,
+      0.9290357631822672
      ],
      "tp": 42
     },
@@ -697,7 +697,7 @@
       "tp": 34
      }
     },
-    "pending": 7,
+    "pending": 0,
     "raw": {
      "fn": 7,
      "fp": 0,
@@ -877,947 +877,7 @@
    "oracle_start": 165.422
   }
  },
- "pending": [
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/analysis_options.rs:8",
-   "site_fingerprint": "e136744b2526525f",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/config_option.rs:7",
-   "site_fingerprint": "e4f5654d4d0539f0",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/config_option.rs:98",
-   "site_fingerprint": "1908b51120d8544a",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/config_option.rs:120",
-   "site_fingerprint": "24ca3f9eeae08b95",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/exit_code.rs:7",
-   "site_fingerprint": "b2f06beec836accc",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/exit_code.rs:30",
-   "site_fingerprint": "a41119e6a6e740d9",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/exit_code.rs:59",
-   "site_fingerprint": "2f593d656abe73ef",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/exit_code.rs:88",
-   "site_fingerprint": "53ee5fd182b278ff",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/exit_code.rs:143",
-   "site_fingerprint": "379e6278c5f2e665",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/exit_code.rs:179",
-   "site_fingerprint": "8ffc8599d1ee4c2c",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/exit_code.rs:215",
-   "site_fingerprint": "3ce631d28f693a67",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/fixes.rs:10",
-   "site_fingerprint": "e7795274aaec40aa",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/fixes.rs:116",
-   "site_fingerprint": "a7f97b16401101ef",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/fixes.rs:187",
-   "site_fingerprint": "cf64f5e7f8a181c4",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/main.rs:23",
-   "site_fingerprint": "3dbcc0d7903c4a22",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/main.rs:44",
-   "site_fingerprint": "6853d1f886fbb72f",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/main.rs:99",
-   "site_fingerprint": "87128f7580c22e93",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/main.rs:590",
-   "site_fingerprint": "a21b7ffe8dd95cbb",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/main.rs:616",
-   "site_fingerprint": "2a35b495b53e7f79",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/main.rs:636",
-   "site_fingerprint": "cfd356fd8111862f",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/main.rs:660",
-   "site_fingerprint": "3c14b02963f88457",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/main.rs:761",
-   "site_fingerprint": "aba1000199bd179a",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/main.rs:795",
-   "site_fingerprint": "8e6431c59d764e92",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/main.rs:831",
-   "site_fingerprint": "977838316b60cf12",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/python_environment.rs:1131",
-   "site_fingerprint": "50e606c91d0a8eb1",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/rule_selection.rs:8",
-   "site_fingerprint": "74837d47102e72f8",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/rule_selection.rs:72",
-   "site_fingerprint": "360366244476d4cb",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/rule_selection.rs:166",
-   "site_fingerprint": "9129d5116932c07f",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/rule_selection.rs:265",
-   "site_fingerprint": "68dddd6913fd4201",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/rule_selection.rs:870",
-   "site_fingerprint": "0eb67e93800e3e40",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/rule_selection.rs:903",
-   "site_fingerprint": "bc77c92618a37799",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/rule_selection.rs:950",
-   "site_fingerprint": "977e1d0198fc6e74",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "qualified_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff/tests/cli/main.rs:124",
-   "site": "crates/ty/tests/cli/rule_selection.rs:996",
-   "site_fingerprint": "1f90a52d31cd1559",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_db/src/lib.rs:163",
-   "site": "crates/ty_module_resolver/src/list.rs:1056",
-   "site_fingerprint": "38ff9c88d2953aba",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_db/src/lib.rs:163",
-   "site": "crates/ty_module_resolver/src/list.rs:1082",
-   "site_fingerprint": "c2d8d437666d4818",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_db/src/lib.rs:163",
-   "site": "crates/ty_module_resolver/src/list.rs:1175",
-   "site_fingerprint": "3aa0f8c9ffdac7f5",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_db/src/lib.rs:163",
-   "site": "crates/ty_module_resolver/src/list.rs:1425",
-   "site_fingerprint": "7703209035b1127f",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_db/src/lib.rs:163",
-   "site": "crates/ty_module_resolver/src/resolve.rs:2509",
-   "site_fingerprint": "7703209035b1127f",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_db/src/lib.rs:163",
-   "site": "crates/ty_module_resolver/src/resolve.rs:2616",
-   "site_fingerprint": "3aa0f8c9ffdac7f5",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_db/src/lib.rs:163",
-   "site": "crates/ty_module_resolver/src/resolve.rs:2875",
-   "site_fingerprint": "953d7c37a0b2dcaa",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_db/src/lib.rs:163",
-   "site": "crates/ty_module_resolver/src/resolve.rs:2906",
-   "site_fingerprint": "2af7820efae9bbb1",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
-   "site": "crates/ruff_server/tests/e2e/code_action.rs:88",
-   "site_fingerprint": "15425b4c150f03d1",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
-   "site": "crates/ruff_server/tests/e2e/code_action.rs:104",
-   "site_fingerprint": "5e41c6e80c11be2c",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
-   "site": "crates/ruff_server/tests/e2e/main.rs:255",
-   "site_fingerprint": "b2b3da0c3b463ee8",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
-   "site": "crates/ruff_server/tests/e2e/main.rs:1006",
-   "site_fingerprint": "9062898167d80e35",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
-   "site": "crates/ruff_server/tests/e2e/main.rs:1010",
-   "site_fingerprint": "f1ac405b9aceac4c",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
-   "site": "crates/ruff_server/tests/e2e/main.rs:1012",
-   "site_fingerprint": "7f273bc9c8001f10",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
-   "site": "crates/ty_server/tests/e2e/main.rs:302",
-   "site_fingerprint": "7f273bc9c8001f10",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
-   "site": "crates/ty_server/tests/e2e/main.rs:1209",
-   "site_fingerprint": "f1ac405b9aceac4c",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
-   "site": "crates/ty_server/tests/e2e/main.rs:1211",
-   "site_fingerprint": "7f273bc9c8001f10",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
-   "site": "crates/ruff_dev/src/format_dev.rs:938",
-   "site_fingerprint": "84111557bf921a6c"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_linter/src/rules/flake8_async/helpers.rs:172",
-   "site": "crates/ruff_db/src/display.rs:34",
-   "site_fingerprint": "e4279ca15222abb9",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_linter/src/rules/perflint/rules/try_except_in_loop.rs:85",
-   "site": "crates/ruff_linter/src/violation.rs:73",
-   "site_fingerprint": "6e397e7f52ffcaa7",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/generated.rs:10764",
-   "site": "crates/ruff_python_ast/src/generated.rs:4762",
-   "site_fingerprint": "4fcdb41a617ab5be"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/generated.rs:10764",
-   "site": "crates/ruff_python_ast/src/generated.rs:7241",
-   "site_fingerprint": "cdd6b3f523f59d9e"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/generated.rs:10764",
-   "site": "crates/ruff_python_ast/src/visitor/source_order.rs:282",
-   "site_fingerprint": "799bdbb148f7062d"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/generated.rs:2606",
-   "site": "crates/ruff_linter/src/rules/flake8_pytest_style/rules/fixture.rs:829",
-   "site_fingerprint": "ebc33fffbadfe097"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/generated.rs:2606",
-   "site": "crates/ruff_linter/src/rules/pyupgrade/rules/non_pep646_unpack.rs:108",
-   "site_fingerprint": "b435f7f30fbb63db"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/generated.rs:2606",
-   "site": "crates/ruff_linter/src/rules/pyupgrade/rules/non_pep646_unpack.rs:150",
-   "site_fingerprint": "48ffdc1de5e56dcf"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/generated.rs:2606",
-   "site": "crates/ruff_linter/src/rules/refurb/rules/reimplemented_operator.rs:313",
-   "site_fingerprint": "34d62cfc951b66c1"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/generated.rs:2606",
-   "site": "crates/ruff_python_semantic/src/model.rs:1681",
-   "site_fingerprint": "b978acf970322183"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/generated.rs:2606",
-   "site": "crates/ruff_python_semantic/src/model.rs:1716",
-   "site_fingerprint": "a648738869c85425"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
-   "site": "crates/ruff_db/src/diagnostic/mod.rs:97",
-   "site_fingerprint": "44d67e29eeed86ff",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
-   "site": "crates/ruff_linter/src/checkers/ast/mod.rs:3740",
-   "site_fingerprint": "b08d2308f81af0ce",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
-   "site": "crates/ruff_linter/src/checkers/ast/mod.rs:3752",
-   "site_fingerprint": "bbb0ef0fd8b049e4",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
-   "site": "crates/ruff_python_formatter/src/verbatim.rs:700",
-   "site_fingerprint": "059293d8b4335b8e",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
-   "site": "crates/ruff_text_size/src/traits.rs:47",
-   "site_fingerprint": "bb2099f0c2935538",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
-   "site": "crates/ruff_text_size/src/traits.rs:52",
-   "site_fingerprint": "c346e5a4a9b06a04",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
-   "site": "crates/ruff_text_size/src/traits.rs:97",
-   "site_fingerprint": "3300d8c52456986c",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
-   "site": "crates/ty_ide/src/semantic_tokens.rs:229",
-   "site_fingerprint": "1c3098e0c72e0360",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
-   "site": "crates/ty_python_semantic/src/types/bool.rs:399",
-   "site_fingerprint": "790839523ec34d28",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
-   "site": "crates/ty_python_semantic/src/types/infer/builder.rs:652",
-   "site_fingerprint": "2ea461e490158071",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
-   "site": "crates/ruff_linter/src/fix/edits.rs:218",
-   "site_fingerprint": "4367d29292337a40"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
-   "site": "crates/ruff_linter/src/fix/edits.rs:224",
-   "site_fingerprint": "7aa01785fc4547c0"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
-   "site": "crates/ruff_linter/src/fix/edits.rs:281",
-   "site_fingerprint": "010b6947d53f28fc"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
-   "site": "crates/ruff_linter/src/rules/ruff/rules/falsy_dict_get_fallback.rs:104",
-   "site_fingerprint": "a4e6679e90f747bb"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
-   "site": "crates/ty_ide/src/inlay_hints.rs:515",
-   "site_fingerprint": "e0bf887a47f58309"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_formatter/src/comments/map.rs:517",
-   "site": "crates/ruff_python_formatter/src/comments/map.rs:323",
-   "site_fingerprint": "7980838d071b0677"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_python_stdlib/src/typing.rs:341",
-   "site": "crates/ty_python_semantic/src/types/infer/builder.rs:9791",
-   "site_fingerprint": "a927a5b50a675b65"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/ruff_wasm/src/lib.rs:194",
-   "site": "crates/ruff_wasm/src/lib.rs:437",
-   "site_fingerprint": "4f51dfd95101c193"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "crates/mdtest/src/parser.rs:1926",
-   "site": "crates/mdtest/src/parser.rs:1946",
-   "site_fingerprint": "a2fe40ec6fa71092",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/mdtest/src/parser.rs:1926",
-   "site": "crates/mdtest/src/parser.rs:1937",
-   "site_fingerprint": "aa1607c387250dcc"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/ruff/tests/cli/lint.rs:1521",
-   "site": "crates/ruff/tests/cli/lint.rs:1523",
-   "site_fingerprint": "a854417a21b18bac"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/ruff/tests/cli/lint.rs:1521",
-   "site": "crates/ruff/tests/cli/lint.rs:1531",
-   "site_fingerprint": "ae81edf2fa39fb06"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "local_def",
-   "measurement": "callees",
-   "seed_def": "crates/ruff_annotate_snippets/src/renderer/display_list.rs:1187",
-   "site": "crates/ruff_annotate_snippets/src/renderer/display_list.rs:1198",
-   "site_fingerprint": "1f8601351a57c006"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/ruff_annotate_snippets/src/renderer/display_list.rs:1187",
-   "site": "crates/ruff_annotate_snippets/src/renderer/display_list.rs:1194",
-   "site_fingerprint": "ad3072c9af58ea43"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:304",
-   "site": "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:315",
-   "site_fingerprint": "c604c92c079df505"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:304",
-   "site": "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:318",
-   "site_fingerprint": "67abe960a21fab34"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:304",
-   "site": "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:320",
-   "site_fingerprint": "d37f4cf8443b0544"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "local_def",
-   "measurement": "callees",
-   "seed_def": "crates/ruff_linter/src/rules/pylint/helpers.rs:623",
-   "site": "crates/ruff_linter/src/rules/pylint/helpers.rs:634",
-   "site_fingerprint": "bbcaa9e7b966313d"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/ruff_python_ast/src/generated.rs:10764",
-   "site": "crates/ruff_python_ast/src/generated.rs:10775",
-   "site_fingerprint": "d726294e9b5d93ac"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/ruff_python_ast/src/generated.rs:10764",
-   "site": "crates/ruff_python_ast/src/generated.rs:10778",
-   "site_fingerprint": "86cf35b3b5c9fe2c"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "constructor_local",
-   "measurement": "callees",
-   "seed_def": "crates/ruff_python_ast/src/name.rs:695",
-   "site": "crates/ruff_python_ast/src/name.rs:697",
-   "site_fingerprint": "6ad924d0e4f93705",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
-   "site": "crates/ruff_python_ast/src/nodes.rs:3518",
-   "site_fingerprint": "3a1c6f8652e3825e"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
-   "site": "crates/ruff_python_ast/src/nodes.rs:3519",
-   "site_fingerprint": "05d87838198d43ad"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/ruff_python_formatter/src/generated.rs:525",
-   "site": "crates/ruff_python_formatter/src/generated.rs:526",
-   "site_fingerprint": "305fb9642604f9ca"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/ruff_server/src/session/index.rs:565",
-   "site": "crates/ruff_server/src/session/index.rs:571",
-   "site_fingerprint": "50ddc01bdd428094"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "prism_only",
-   "dispatch_kind": "constructor_local",
-   "measurement": "callees",
-   "seed_def": "crates/ty_project/src/db/ignore.rs:324",
-   "site": "crates/ty_project/src/db/ignore.rs:329",
-   "site_fingerprint": "2066f5b4f242c579"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/ty_python_semantic/src/types/diagnostic.rs:1480",
-   "site": "crates/ty_python_semantic/src/types/diagnostic.rs:1485",
-   "site_fingerprint": "a6ec52dd47d80b35"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/ty_python_semantic/src/types/infer/builder.rs:5177",
-   "site": "crates/ty_python_semantic/src/types/infer/builder.rs:5189",
-   "site_fingerprint": "b9e687d1bb0ccfb6"
-  },
-  {
-   "corpus": "ruff",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/ty_test/src/db.rs:344",
-   "site": "crates/ty_test/src/db.rs:348",
-   "site_fingerprint": "3fedde2528314cb4"
-  }
- ],
+ "pending": [],
  "probes": {
   "_corpus": "ruff",
   "_strata": {

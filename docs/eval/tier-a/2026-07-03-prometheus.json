@@ -16,19 +16,19 @@
      "oracle_unconfirmed": 1
     },
     "corrected": {
-     "fn": 0,
+     "fn": 2,
      "fp": 0,
      "precision": [
       1.0,
-      0.7961166964035129,
+      0.8241207740667156,
       1.0
      ],
      "recall": [
-      1.0,
-      0.7961166964035129,
-      1.0
+      0.9,
+      0.6989663528135878,
+      0.9721335190383086
      ],
-     "tp": 15
+     "tp": 18
     },
     "exact_tier": {
      "raw": {
@@ -79,7 +79,7 @@
       "tp": 6
      }
     },
-    "pending": 5,
+    "pending": 0,
     "raw": {
      "fn": 2,
      "fp": 3,
@@ -104,19 +104,19 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 0,
+     "fn": 7,
      "fp": 0,
      "precision": [
       1.0,
-      0.7224671969739421,
-      0.9999999999999999
+      0.7575059904469021,
+      1.0
      ],
      "recall": [
-      1.0,
-      0.7224671969739421,
-      0.9999999999999999
+      0.631578947368421,
+      0.4103953300354444,
+      0.8085048735804599
      ],
-     "tp": 10
+     "tp": 12
     },
     "exact_tier": {
      "raw": {
@@ -167,7 +167,7 @@
       "tp": 4
      }
     },
-    "pending": 9,
+    "pending": 0,
     "raw": {
      "fn": 7,
      "fp": 2,
@@ -192,7 +192,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 1,
+     "fn": 18,
      "fp": 0,
      "precision": [
       1.0,
@@ -200,9 +200,9 @@
       1.0
      ],
      "recall": [
-      0.9473684210526315,
-      0.7536126862526763,
-      0.9906480060413981
+      0.5,
+      0.3447432529897015,
+      0.6552567470102986
      ],
      "tp": 18
     },
@@ -255,7 +255,7 @@
       "tp": 4
      }
     },
-    "pending": 17,
+    "pending": 0,
     "raw": {
      "fn": 18,
      "fp": 0,
@@ -280,7 +280,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 0,
+     "fn": 5,
      "fp": 0,
      "precision": [
       1.0,
@@ -288,9 +288,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.8241207740667156,
-      1.0
+      0.782608695652174,
+      0.5809651681324879,
+      0.9033602203455142
      ],
      "tp": 18
     },
@@ -343,7 +343,7 @@
       "tp": 5
      }
     },
-    "pending": 6,
+    "pending": 0,
     "raw": {
      "fn": 5,
      "fp": 1,
@@ -370,17 +370,17 @@
      "oracle_unconfirmed": 20
     },
     "corrected": {
-     "fn": 2,
-     "fp": 1,
+     "fn": 5,
+     "fp": 20,
      "precision": [
-      0.875,
-      0.5291118149439162,
-      0.9775825088000281
+      0.25925925925925924,
+      0.13170374490590095,
+      0.44678571468694817
      ],
      "recall": [
-      0.7777777777777778,
-      0.4525889666922117,
-      0.9367748934594303
+      0.5833333333333334,
+      0.31951131084242423,
+      0.8067396875653928
      ],
      "tp": 7
     },
@@ -433,7 +433,7 @@
       "tp": 6
      }
     },
-    "pending": 44,
+    "pending": 2,
     "raw": {
      "fn": 27,
      "fp": 20,
@@ -634,7 +634,7 @@
      "oracle_unconfirmed": 8
     },
     "corrected": {
-     "fn": 1,
+     "fn": 9,
      "fp": 0,
      "precision": [
       1.0,
@@ -642,9 +642,9 @@
       1.0
      ],
      "recall": [
-      0.9791666666666666,
-      0.8910078189694375,
-      0.9963128890632689
+      0.8392857142857143,
+      0.7219379322388899,
+      0.913073324344583
      ],
      "tp": 47
     },
@@ -697,7 +697,7 @@
       "tp": 21
      }
     },
-    "pending": 16,
+    "pending": 0,
     "raw": {
      "fn": 9,
      "fp": 8,
@@ -877,829 +877,7 @@
    "oracle_start": 6.615
   }
  },
- "pending": [
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "return_typed",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/dns/dns_test.go:270",
-   "site_fingerprint": "c193e17636bc445e",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "return_typed",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/eureka/eureka_test.go:59",
-   "site_fingerprint": "1ad7801cb754d916",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "self_receiver",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/file/file.go:249",
-   "site_fingerprint": "1def8e52da607a92",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "self_receiver",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/file/file.go:278",
-   "site_fingerprint": "2d6301a702cf8a50",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "return_typed",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/linode/linode_test.go:251",
-   "site_fingerprint": "8dbae7c7fd50bee4",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "return_typed",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/moby/nodes_test.go:59",
-   "site_fingerprint": "8d8ef591395b4050",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "return_typed",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/moby/services_test.go:59",
-   "site_fingerprint": "8d8ef591395b4050",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "return_typed",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/moby/services_test.go:364",
-   "site_fingerprint": "8d8ef591395b4050",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "return_typed",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/moby/tasks_test.go:59",
-   "site_fingerprint": "8d8ef591395b4050",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "return_typed",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/nomad/nomad_test.go:195",
-   "site_fingerprint": "8dbae7c7fd50bee4",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "return_typed",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/puppetdb/puppetdb_test.go:109",
-   "site_fingerprint": "8d8ef591395b4050",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "return_typed",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/puppetdb/puppetdb_test.go:161",
-   "site_fingerprint": "8d8ef591395b4050",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "return_typed",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/puppetdb/puppetdb_test.go:224",
-   "site_fingerprint": "558b2568870fa3b7",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "return_typed",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/puppetdb/puppetdb_test.go:256",
-   "site_fingerprint": "6651807c423b47ab",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "self_receiver",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/refresh/refresh.go:69",
-   "site_fingerprint": "1594af472460bb9e",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "self_receiver",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/refresh/refresh.go:88",
-   "site_fingerprint": "7936ad624cde8556",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "return_typed",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/uyuni/uyuni_test.go:59",
-   "site_fingerprint": "1ad7801cb754d916",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "return_typed",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/uyuni/uyuni_test.go:149",
-   "site_fingerprint": "3dbe8f313b2dd727",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "return_typed",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/vultr/vultr_test.go:71",
-   "site_fingerprint": "8d8ef591395b4050",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/marathon/marathon.go:174",
-   "site_fingerprint": "15fce3bf8e2eb869"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "discovery/stackit/server.go:114",
-   "site": "discovery/stackit/stackit.go:146",
-   "site_fingerprint": "2de152f685eec3ff"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "model/textparse/openmetricsparse.go:290",
-   "site": "model/textparse/benchmark_test.go:209",
-   "site_fingerprint": "74487fbf58fb3c9f"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "model/textparse/openmetricsparse.go:290",
-   "site": "model/textparse/benchmark_test.go:304",
-   "site_fingerprint": "728b829ce82dce99"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "model/textparse/openmetricsparse.go:290",
-   "site": "model/textparse/benchmark_test.go:334",
-   "site_fingerprint": "bd120576f48a5375"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "model/textparse/openmetricsparse.go:290",
-   "site": "model/textparse/interface_test.go:259",
-   "site_fingerprint": "40aa3b33c7572fa8"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "model/textparse/openmetricsparse.go:290",
-   "site": "model/textparse/nhcbparse.go:166",
-   "site_fingerprint": "9fc33e0e546437c0"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "model/textparse/openmetricsparse.go:290",
-   "site": "model/textparse/nhcbparse.go:321",
-   "site_fingerprint": "a3c1343065d1ee48"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "model/textparse/openmetricsparse.go:290",
-   "site": "scrape/scrape_append_v2.go:261",
-   "site_fingerprint": "3e61a7704f9b0979"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "model/textparse/openmetricsparse.go:290",
-   "site": "util/fuzzing/fuzz_test.go:327",
-   "site_fingerprint": "ebd4eb914c9112b5"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "model/textparse/openmetricsparse.go:290",
-   "site": "util/fuzzing/fuzz_test.go:335",
-   "site_fingerprint": "95797218a2efd67a"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "prompb/io/prometheus/client/metrics.pb.go:1139",
-   "site": "prompb/io/prometheus/client/metrics.pb.go:1730",
-   "site_fingerprint": "3e9d13165a99e3d0"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "storage/remote/read.go:219",
-   "site": "storage/merge.go:262",
-   "site_fingerprint": "e89d0b3a87e15586"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "storage/remote/read.go:219",
-   "site": "storage/merge_test.go:1636",
-   "site_fingerprint": "8f5c33edaac183af"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "storage/remote/read.go:219",
-   "site": "storage/secondary.go:64",
-   "site_fingerprint": "07d97db1ad965a6c"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "storage/remote/read.go:219",
-   "site": "tsdb/db_append_v2_test.go:1779",
-   "site_fingerprint": "c72b3ec7598eaf47"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "storage/remote/read.go:219",
-   "site": "tsdb/db_test.go:2499",
-   "site_fingerprint": "c72b3ec7598eaf47"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "storage/remote/read.go:219",
-   "site": "tsdb/head_append_v2_test.go:1618",
-   "site_fingerprint": "c3870789bfb75cbf"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "storage/remote/read.go:219",
-   "site": "tsdb/head_test.go:4309",
-   "site_fingerprint": "c3870789bfb75cbf"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "storage/remote/read.go:219",
-   "site": "tsdb/ooo_head_read.go:595",
-   "site_fingerprint": "b0ca2f094e6158e7"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "storage/remote/read.go:219",
-   "site": "tsdb/ooo_head_read.go:669",
-   "site_fingerprint": "b0ca2f094e6158e7"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "storage/remote/read.go:219",
-   "site": "web/api/v1/api.go:813",
-   "site_fingerprint": "e422ef62d6ade252"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "storage/remote/read.go:219",
-   "site": "web/api/v1/api.go:835",
-   "site_fingerprint": "320b6e425d6468b5"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "web/api/testhelpers/openapi.go:98",
-   "site": "web/api/v1/api_scenarios_test.go:47",
-   "site_fingerprint": "d40340de0d79267e",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "web/api/testhelpers/openapi.go:98",
-   "site": "web/api/v1/api_scenarios_test.go:58",
-   "site_fingerprint": "3c477a80a6319add",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "web/api/testhelpers/openapi.go:98",
-   "site": "web/api/v1/api_scenarios_test.go:164",
-   "site_fingerprint": "f2fb829e33822a1b",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "web/api/testhelpers/openapi.go:98",
-   "site": "web/api/v1/api_scenarios_test.go:202",
-   "site_fingerprint": "51c64c422c352114",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "web/api/testhelpers/openapi.go:98",
-   "site": "web/api/v1/api_scenarios_test.go:310",
-   "site_fingerprint": "5c4b2fcfb7aa960d",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "web/api/testhelpers/openapi.go:98",
-   "site": "web/api/v1/api_scenarios_test.go:321",
-   "site_fingerprint": "6e445b7226a22d29",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "web/api/testhelpers/openapi.go:98",
-   "site": "web/api/v1/api_scenarios_test.go:391",
-   "site_fingerprint": "68c9a9ec21bad887",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "web/api/testhelpers/openapi.go:98",
-   "site": "web/api/v1/api_scenarios_test.go:410",
-   "site_fingerprint": "a2b8058d314a0034",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "web/api/testhelpers/openapi.go:98",
-   "site": "web/api/v1/api_scenarios_test.go:53",
-   "site_fingerprint": "8b833d563937ae54"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "web/api/testhelpers/openapi.go:98",
-   "site": "web/api/v1/api_scenarios_test.go:63",
-   "site_fingerprint": "d81029253d8e1732"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "web/api/testhelpers/openapi.go:98",
-   "site": "web/api/v1/api_scenarios_test.go:170",
-   "site_fingerprint": "8b833d563937ae54"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "web/api/testhelpers/openapi.go:98",
-   "site": "web/api/v1/api_scenarios_test.go:207",
-   "site_fingerprint": "e6030ee7bdd9a8e9"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "web/api/testhelpers/openapi.go:98",
-   "site": "web/api/v1/api_scenarios_test.go:326",
-   "site_fingerprint": "26c41e3e081b83ec"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "web/api/testhelpers/openapi.go:98",
-   "site": "web/api/v1/api_scenarios_test.go:397",
-   "site_fingerprint": "8b833d563937ae54"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "web/api/testhelpers/openapi.go:98",
-   "site": "web/api/v1/api_scenarios_test.go:415",
-   "site_fingerprint": "e6030ee7bdd9a8e9"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "web/api/v1/api.go:2064",
-   "site": "web/api/v1/api.go:477",
-   "site_fingerprint": "15ed316862c2067c"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "cmd/promtool/main.go:1369",
-   "site": "cmd/promtool/main.go:1377",
-   "site_fingerprint": "b9b39f692d0f4e70"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "cmd/promtool/main.go:1369",
-   "site": "cmd/promtool/main.go:1379",
-   "site_fingerprint": "94b83b8c689ad367"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "cmd/promtool/main.go:1369",
-   "site": "cmd/promtool/main.go:1381",
-   "site_fingerprint": "386648c76e7adeb1"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "cmd/promtool/main.go:1369",
-   "site": "cmd/promtool/main.go:1383",
-   "site_fingerprint": "5cc98dcd8cf609e6"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "cmd/promtool/main.go:1369",
-   "site": "cmd/promtool/main.go:1410",
-   "site_fingerprint": "d6769598618a6dc0"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "config/config.go:1547",
-   "site": "config/config.go:1549",
-   "site_fingerprint": "f58e0cd7a16d55e5"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "free_single",
-   "measurement": "callees",
-   "seed_def": "discovery/stackit/server.go:114",
-   "site": "discovery/stackit/server.go:136",
-   "site_fingerprint": "22312ef1d99faf29"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "discovery/stackit/server.go:114",
-   "site": "discovery/stackit/server.go:151",
-   "site_fingerprint": "3f181aad8830c8ed",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "model/labels/labels_test.go:967",
-   "site": "model/labels/labels_test.go:977",
-   "site_fingerprint": "e4c816a2dcf6c5eb"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "free_single",
-   "measurement": "callees",
-   "seed_def": "prompb/io/prometheus/client/metrics.pb.go:1139",
-   "site": "prompb/io/prometheus/client/metrics.pb.go:1146",
-   "site_fingerprint": "1361f27583afe3dc"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "prompb/io/prometheus/client/metrics.pb.go:1139",
-   "site": "prompb/io/prometheus/client/metrics.pb.go:1162",
-   "site_fingerprint": "940bad2dc080122d"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "free_single",
-   "measurement": "callees",
-   "seed_def": "storage/buffer.go:620",
-   "site": "storage/buffer.go:629",
-   "site_fingerprint": "2b9659a4149a8964"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "free_single",
-   "measurement": "callees",
-   "seed_def": "storage/buffer.go:620",
-   "site": "storage/buffer.go:630",
-   "site_fingerprint": "e52a0e4bdaec0180"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "storage/buffer.go:620",
-   "site": "storage/buffer.go:648",
-   "site_fingerprint": "ecf07f212d2cf482"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "storage/remote/codec.go:491",
-   "site": "storage/remote/codec.go:508",
-   "site_fingerprint": "433b9ab2deb68952"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "storage/remote/codec.go:491",
-   "site": "storage/remote/codec.go:513",
-   "site_fingerprint": "d5749de58dbcbd3b"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "storage/remote/codec.go:491",
-   "site": "storage/remote/codec.go:526",
-   "site_fingerprint": "6d1b7dff19a56921"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "storage/remote/codec.go:491",
-   "site": "storage/remote/codec.go:531",
-   "site_fingerprint": "b3c446696e9d1550"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/chunkenc/float_histogram_test.go:1252",
-   "site": "tsdb/chunkenc/float_histogram_test.go:1257",
-   "site_fingerprint": "e96f12d36c120973"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/chunkenc/float_histogram_test.go:1252",
-   "site": "tsdb/chunkenc/float_histogram_test.go:1262",
-   "site_fingerprint": "c62c34700b8de6ee"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/chunkenc/float_histogram_test.go:1252",
-   "site": "tsdb/chunkenc/float_histogram_test.go:1268",
-   "site_fingerprint": "78bbf1ca93b88c4c"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/chunkenc/float_histogram_test.go:1252",
-   "site": "tsdb/chunkenc/float_histogram_test.go:1270",
-   "site_fingerprint": "aa4bcc8949b52d2e"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/chunkenc/float_histogram_test.go:1252",
-   "site": "tsdb/chunkenc/float_histogram_test.go:1284",
-   "site_fingerprint": "c62c34700b8de6ee"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/chunkenc/float_histogram_test.go:1252",
-   "site": "tsdb/chunkenc/float_histogram_test.go:1290",
-   "site_fingerprint": "746e3a138c1e72c0"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/chunkenc/float_histogram_test.go:1252",
-   "site": "tsdb/chunkenc/float_histogram_test.go:1292",
-   "site_fingerprint": "317bb9a93656adfa"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/chunkenc/float_histogram_test.go:1252",
-   "site": "tsdb/chunkenc/float_histogram_test.go:1301",
-   "site_fingerprint": "e96f12d36c120973"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/chunkenc/float_histogram_test.go:1252",
-   "site": "tsdb/chunkenc/float_histogram_test.go:1306",
-   "site_fingerprint": "c62c34700b8de6ee"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/chunkenc/float_histogram_test.go:1252",
-   "site": "tsdb/chunkenc/float_histogram_test.go:1312",
-   "site_fingerprint": "53bb7a9cedacc966"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/chunkenc/float_histogram_test.go:1252",
-   "site": "tsdb/chunkenc/float_histogram_test.go:1314",
-   "site_fingerprint": "347cba9b891eb6cd"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "interface_dispatch",
-   "measurement": "callees",
-   "seed_def": "tsdb/head_read.go:559",
-   "site": "tsdb/head_read.go:590",
-   "site_fingerprint": "b41c3cc937a42fda"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/head_read.go:559",
-   "site": "tsdb/head_read.go:578",
-   "site_fingerprint": "4af5f1465bb9bb3a"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/record/bench_test.go:36",
-   "site": "tsdb/record/bench_test.go:54",
-   "site_fingerprint": "1f72607669ea104d"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/record/bench_test.go:36",
-   "site": "tsdb/record/bench_test.go:68",
-   "site_fingerprint": "f6f191e822457d00"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/record/bench_test.go:36",
-   "site": "tsdb/record/bench_test.go:81",
-   "site_fingerprint": "a32c46b3c7d6ced7"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/record/bench_test.go:36",
-   "site": "tsdb/record/bench_test.go:92",
-   "site_fingerprint": "c763f7f7b004d4b5"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/record/bench_test.go:36",
-   "site": "tsdb/record/bench_test.go:96",
-   "site_fingerprint": "969fe83cbdb68fca"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/record/bench_test.go:36",
-   "site": "tsdb/record/bench_test.go:102",
-   "site_fingerprint": "35d781224257cfe6"
-  }
- ],
+ "pending": [],
  "probes": {
   "_corpus": "prometheus",
   "_strata": {

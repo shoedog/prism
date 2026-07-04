@@ -16,19 +16,19 @@
      "oracle_unconfirmed": 5
     },
     "corrected": {
-     "fn": 1,
-     "fp": 0,
+     "fn": 6,
+     "fp": 2,
      "precision": [
-      1.0,
-      0.889744602991977,
-      1.0
+      0.9459459459459459,
+      0.822953455158113,
+      0.9850490233016582
      ],
      "recall": [
-      0.96875,
-      0.8425573603233156,
-      0.9944621398972968
+      0.8536585365853658,
+      0.7155654182993241,
+      0.9311575189888808
      ],
-     "tp": 31
+     "tp": 35
     },
     "exact_tier": {
      "raw": {
@@ -79,7 +79,7 @@
       "tp": 7
      }
     },
-    "pending": 23,
+    "pending": 12,
     "raw": {
      "fn": 11,
      "fp": 14,
@@ -104,7 +104,7 @@
      "oracle_unconfirmed": 2
     },
     "corrected": {
-     "fn": 0,
+     "fn": 1,
      "fp": 1,
      "precision": [
       0.975,
@@ -112,9 +112,9 @@
       0.9955731685462955
      ],
      "recall": [
-      1.0,
-      0.9103331450047065,
-      1.0
+      0.975,
+      0.8711863091181636,
+      0.9955731685462955
      ],
      "tp": 39
     },
@@ -167,7 +167,7 @@
       "tp": 7
      }
     },
-    "pending": 3,
+    "pending": 2,
     "raw": {
      "fn": 2,
      "fp": 2,
@@ -192,17 +192,17 @@
      "oracle_unconfirmed": 7
     },
     "corrected": {
-     "fn": 2,
-     "fp": 0,
+     "fn": 5,
+     "fp": 6,
      "precision": [
-      1.0,
-      0.8984854444077807,
-      0.9999999999999999
+      0.85,
+      0.7092767550401498,
+      0.9293881232389256
      ],
      "recall": [
-      0.9444444444444444,
-      0.8185534265532164,
-      0.9846300134744463
+      0.8717948717948718,
+      0.7329425648904853,
+      0.9439718249848092
      ],
      "tp": 34
     },
@@ -255,7 +255,7 @@
       "tp": 10
      }
     },
-    "pending": 16,
+    "pending": 7,
     "raw": {
      "fn": 10,
      "fp": 8,
@@ -458,7 +458,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 0,
+     "fn": 2,
      "fp": 0,
      "precision": [
       1.0,
@@ -466,9 +466,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.866807747239609,
-      1.0
+      0.9259259259259259,
+      0.7663040715188113,
+      0.9794453461246099
      ],
      "tp": 25
     },
@@ -521,7 +521,7 @@
       "tp": 17
      }
     },
-    "pending": 3,
+    "pending": 1,
     "raw": {
      "fn": 3,
      "fp": 0,
@@ -722,7 +722,7 @@
      "oracle_unconfirmed": 4
     },
     "corrected": {
-     "fn": 0,
+     "fn": 1,
      "fp": 0,
      "precision": [
       1.0,
@@ -730,9 +730,9 @@
       0.9999999999999999
      ],
      "recall": [
-      1.0,
-      0.921348400123914,
-      0.9999999999999999
+      0.9782608695652174,
+      0.8866470536689368,
+      0.99615214578451
      ],
      "tp": 45
     },
@@ -785,7 +785,7 @@
       "tp": 21
      }
     },
-    "pending": 5,
+    "pending": 3,
     "raw": {
      "fn": 1,
      "fp": 4,
@@ -866,32 +866,8 @@
    "direction": "oracle_only",
    "measurement": "callers",
    "seed_def": "src/black/__init__.py:1700",
-   "site": "src/black/__init__.py:1712",
-   "site_fingerprint": "fe8c65f3b0bb147f"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/black/__init__.py:1700",
    "site": "src/black/__main__.py:3",
    "site_fingerprint": "6d3e0fa23d4f54db"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/black/trans.py:376",
-   "site": "src/black/trans.py:1598",
-   "site_fingerprint": "c5105bb58d58f019"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/blib2to3/pgen2/driver.py:299",
-   "site": "src/blib2to3/pgen2/driver.py:313",
-   "site_fingerprint": "b706be6f5ed842cb"
   },
   {
    "corpus": "black",
@@ -925,16 +901,6 @@
   },
   {
    "corpus": "black",
-   "direction": "prism_only",
-   "dispatch_kind": "property_access",
-   "measurement": "callers",
-   "seed_def": "src/blib2to3/pytree.py:197",
-   "site": "tests/data/cases/empty_lines.py:170",
-   "site_fingerprint": "a943e6891e91546a",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "black",
    "direction": "oracle_only",
    "measurement": "callees",
    "seed_def": "src/black/__init__.py:1081",
@@ -958,60 +924,6 @@
    "seed_def": "src/black/__init__.py:544",
    "site": "src/black/__init__.py:659",
    "site_fingerprint": "9728d4bcbc271933"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "src/black/__init__.py:544",
-   "site": "src/black/__init__.py:698",
-   "site_fingerprint": "fa3a8862a73e3f7f"
-  },
-  {
-   "corpus": "black",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callees",
-   "seed_def": "src/black/comments.py:420",
-   "site": "src/black/comments.py:450",
-   "site_fingerprint": "6b627ebdcca0bc40",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "black",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callees",
-   "seed_def": "src/black/comments.py:420",
-   "site": "src/black/comments.py:473",
-   "site_fingerprint": "a3f9f232c410c720",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "black",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callees",
-   "seed_def": "src/black/comments.py:420",
-   "site": "src/black/comments.py:475",
-   "site_fingerprint": "e1bc4f3df1a06644",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "src/black/comments.py:420",
-   "site": "src/black/comments.py:434",
-   "site_fingerprint": "45ca0919507909e3"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "src/black/comments.py:420",
-   "site": "src/black/comments.py:436",
-   "site_fingerprint": "297c9c352a78bb1d"
   },
   {
    "corpus": "black",
@@ -1043,38 +955,8 @@
    "dispatch_kind": "r6_multi_owner_candidate",
    "measurement": "callees",
    "seed_def": "src/black/linegen.py:975",
-   "site": "src/black/linegen.py:995",
-   "site_fingerprint": "52068b02674d2c63",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "black",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callees",
-   "seed_def": "src/black/linegen.py:975",
-   "site": "src/black/linegen.py:1029",
-   "site_fingerprint": "88ddda633774f6bf",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "black",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callees",
-   "seed_def": "src/black/linegen.py:975",
    "site": "src/black/linegen.py:1031",
    "site_fingerprint": "37bf1bb608219970",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "black",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "src/black/linegen.py:975",
-   "site": "src/black/linegen.py:1032",
-   "site_fingerprint": "0b2a3cb5aa2c6f8a",
    "tier": "candidate"
   },
   {
@@ -1108,28 +990,8 @@
    "dispatch_kind": "r6_multi_owner_candidate",
    "measurement": "callees",
    "seed_def": "src/black/trans.py:2231",
-   "site": "src/black/trans.py:2251",
-   "site_fingerprint": "d5cd7143fd55061b",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "black",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callees",
-   "seed_def": "src/black/trans.py:2231",
    "site": "src/black/trans.py:2263",
    "site_fingerprint": "1992e37b2ff5d0b8",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "black",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callees",
-   "seed_def": "src/black/trans.py:2231",
-   "site": "src/black/trans.py:2273",
-   "site_fingerprint": "1308008c4c2b3dc0",
    "tier": "candidate"
   },
   {
@@ -1145,30 +1007,11 @@
   {
    "corpus": "black",
    "direction": "prism_only",
-   "dispatch_kind": "local_def",
-   "measurement": "callees",
-   "seed_def": "src/black/trans.py:2231",
-   "site": "src/black/trans.py:2300",
-   "site_fingerprint": "7a2ecb929e281d4e"
-  },
-  {
-   "corpus": "black",
-   "direction": "prism_only",
    "dispatch_kind": "r6_single_owner",
    "measurement": "callees",
    "seed_def": "src/black/trans.py:2231",
    "site": "src/black/trans.py:2303",
    "site_fingerprint": "9e7283b13fe086b3",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "black",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "src/black/trans.py:2231",
-   "site": "src/black/trans.py:2310",
-   "site_fingerprint": "a65f9d085aa1ed77",
    "tier": "candidate"
   },
   {
@@ -1180,14 +1023,6 @@
    "site": "src/black/trans.py:2343",
    "site_fingerprint": "8e486f70602dd7c3",
    "tier": "candidate"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "src/black/trans.py:2231",
-   "site": "src/black/trans.py:2282",
-   "site_fingerprint": "1bcc4641c03a6d13"
   },
   {
    "corpus": "black",
@@ -1210,24 +1045,8 @@
    "direction": "oracle_only",
    "measurement": "callees",
    "seed_def": "src/black/trans.py:2231",
-   "site": "src/black/trans.py:2335",
-   "site_fingerprint": "81ed2c090270c097"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "src/black/trans.py:2231",
    "site": "src/black/trans.py:2338",
    "site_fingerprint": "b5dc21ea55122250"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "src/black/trans.py:2231",
-   "site": "src/black/trans.py:2348",
-   "site_fingerprint": "afa77979f0af8d1f"
   },
   {
    "corpus": "black",
@@ -1243,26 +1062,8 @@
    "dispatch_kind": "local_def",
    "measurement": "callees",
    "seed_def": "src/black/trans.py:903",
-   "site": "src/black/trans.py:941",
-   "site_fingerprint": "d5ccc0d12c44eb49"
-  },
-  {
-   "corpus": "black",
-   "direction": "prism_only",
-   "dispatch_kind": "local_def",
-   "measurement": "callees",
-   "seed_def": "src/black/trans.py:903",
    "site": "src/black/trans.py:957",
    "site_fingerprint": "e89e07024f11c2a6"
-  },
-  {
-   "corpus": "black",
-   "direction": "prism_only",
-   "dispatch_kind": "free_single",
-   "measurement": "callees",
-   "seed_def": "src/black/trans.py:903",
-   "site": "src/black/trans.py:988",
-   "site_fingerprint": "4a71fa07084ef519"
   },
   {
    "corpus": "black",
@@ -1282,30 +1083,6 @@
    "site": "src/black/trans.py:1000",
    "site_fingerprint": "5c87e57d55280c39",
    "tier": "candidate"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "src/black/trans.py:903",
-   "site": "src/black/trans.py:951",
-   "site_fingerprint": "cae9f6205d5cddc9"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "src/black/trans.py:903",
-   "site": "src/black/trans.py:1006",
-   "site_fingerprint": "3055e4d4a9532216"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "src/blib2to3/pytree.py:525",
-   "site": "src/blib2to3/pytree.py:540",
-   "site_fingerprint": "380134b08d6fecc7"
   },
   {
    "corpus": "black",

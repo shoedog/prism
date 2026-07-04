@@ -104,7 +104,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 0,
+     "fn": 14,
      "fp": 0,
      "precision": [
       1.0,
@@ -112,9 +112,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.8568833796149266,
-      1.0
+      0.6216216216216216,
+      0.46100430315639773,
+      0.7593600091508126
      ],
      "tp": 23
     },
@@ -167,7 +167,7 @@
       "tp": 6
      }
     },
-    "pending": 14,
+    "pending": 0,
     "raw": {
      "fn": 14,
      "fp": 0,
@@ -192,19 +192,19 @@
      "oracle_unconfirmed": 1
     },
     "corrected": {
-     "fn": 0,
+     "fn": 7,
      "fp": 0,
      "precision": [
       1.0,
-      0.9258998692515198,
-      1.0
+      0.9388706285678009,
+      0.9999999999999999
      ],
      "recall": [
-      1.0,
-      0.9258998692515198,
-      1.0
+      0.8939393939393939,
+      0.7968769115520864,
+      0.9476665277305936
      ],
-     "tp": 48
+     "tp": 59
     },
     "exact_tier": {
      "raw": {
@@ -255,7 +255,7 @@
       "tp": 6
      }
     },
-    "pending": 18,
+    "pending": 0,
     "raw": {
      "fn": 7,
      "fp": 12,
@@ -280,7 +280,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 1,
+     "fn": 4,
      "fp": 0,
      "precision": [
       1.0,
@@ -288,9 +288,9 @@
       0.9999999999999999
      ],
      "recall": [
-      0.9333333333333333,
-      0.7018346989112435,
-      0.9881331046384677
+      0.7777777777777778,
+      0.5478541549399641,
+      0.9099907195415445
      ],
      "tp": 14
     },
@@ -343,7 +343,7 @@
       "tp": 6
      }
     },
-    "pending": 3,
+    "pending": 0,
     "raw": {
      "fn": 4,
      "fp": 0,
@@ -458,7 +458,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 0,
+     "fn": 4,
      "fp": 0,
      "precision": [
       1.0,
@@ -466,9 +466,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.700854948272956,
-      1.0
+      0.6923076923076923,
+      0.42369342985078007,
+      0.8731929643292967
      ],
      "tp": 9
     },
@@ -521,7 +521,7 @@
       "tp": 9
      }
     },
-    "pending": 58,
+    "pending": 0,
     "raw": {
      "fn": 61,
      "fp": 0,
@@ -550,15 +550,15 @@
      "fp": 0,
      "precision": [
       1.0,
-      0.9704142350648727,
-      0.9999999999999999
+      0.9723320475580691,
+      1.0
      ],
      "recall": [
       1.0,
-      0.9704142350648727,
-      0.9999999999999999
+      0.9723320475580691,
+      1.0
      ],
-     "tp": 126
+     "tp": 135
     },
     "exact_tier": {
      "raw": {
@@ -609,7 +609,7 @@
       "tp": 66
      }
     },
-    "pending": 9,
+    "pending": 0,
     "raw": {
      "fn": 0,
      "fp": 10,
@@ -634,7 +634,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 1,
+     "fn": 10,
      "fp": 0,
      "precision": [
       1.0,
@@ -642,9 +642,9 @@
       1.0
      ],
      "recall": [
-      0.5,
-      0.09453120463920084,
-      0.9054687953607992
+      0.09090909090909091,
+      0.016232172705325593,
+      0.3773584391082959
      ],
      "tp": 1
     },
@@ -697,7 +697,7 @@
       "tp": 1
      }
     },
-    "pending": 11,
+    "pending": 0,
     "raw": {
      "fn": 10,
      "fp": 2,
@@ -722,7 +722,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 1,
+     "fn": 2,
      "fp": 0,
      "precision": [
       1.0,
@@ -730,9 +730,9 @@
       1.0
      ],
      "recall": [
-      0.9473684210526315,
-      0.7536126862526763,
-      0.9906480060413981
+      0.9,
+      0.6989663528135878,
+      0.9721335190383086
      ],
      "tp": 18
     },
@@ -785,7 +785,7 @@
       "tp": 13
      }
     },
-    "pending": 1,
+    "pending": 0,
     "raw": {
      "fn": 2,
      "fp": 0,
@@ -988,942 +988,7 @@
    "oracle_start": 5.605
   }
  },
- "pending": [
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "field.go:63",
-   "site": "field.go:501",
-   "site_fingerprint": "abd9de1eea40c83f"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "level_test.go:48",
-   "site_fingerprint": "2b7ccf6c98b264a5"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "logger.go:331",
-   "site_fingerprint": "d7d5624357f6020c"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "logger.go:368",
-   "site_fingerprint": "5c1fc787d37f3a76"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "sugar.go:349",
-   "site_fingerprint": "dfdd6008a411bbac"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "sugar.go:361",
-   "site_fingerprint": "c91aadbbca40971e"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapcore/core.go:88",
-   "site_fingerprint": "49a66b23c55afaeb"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapcore/core_test.go:63",
-   "site_fingerprint": "f8d65480ac9ea380"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapcore/increase_level.go:41",
-   "site_fingerprint": "2a27ca98deb82992"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapcore/increase_level.go:50",
-   "site_fingerprint": "d0a1d6c9d6f55cfc"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapcore/increase_level_test.go:107",
-   "site_fingerprint": "fb564a880cbecb69"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapcore/lazy_with.go:57",
-   "site_fingerprint": "5abf5d2440316873"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapcore/lazy_with.go:66",
-   "site_fingerprint": "a9a3e53f881aea6f"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapcore/lazy_with_test.go:208",
-   "site_fingerprint": "afc512f04113eb01"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapcore/lazy_with_test.go:209",
-   "site_fingerprint": "6063649324954e57"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapcore/level.go:104",
-   "site_fingerprint": "0467ce3374f9acb1"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapcore/tee.go:68",
-   "site_fingerprint": "15e9880f4a79b434"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapcore/tee_test.go:171",
-   "site_fingerprint": "ff3e8f324be3de74"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapgrpc/zapgrpc.go:132",
-   "site_fingerprint": "7e9d05ae66fdf6c8"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapgrpc/zapgrpc.go:175",
-   "site_fingerprint": "8863a8b7a57a536d"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapgrpc/zapgrpc.go:192",
-   "site_fingerprint": "42c69c484458ef94"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapgrpc/zapgrpc.go:209",
-   "site_fingerprint": "351040a9c8d32f74"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapgrpc/zapgrpc.go:236",
-   "site_fingerprint": "7588a50d561992d6"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapio/writer.go:77",
-   "site_fingerprint": "f3e0c5dbb4e72974"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zaptest/observer/observer.go:179",
-   "site_fingerprint": "a88707f83fef4949"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "sugar.go:191",
-   "site": "sugar_test.go:384",
-   "site_fingerprint": "4dca0712c3d3989d"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "writer_test.go:232",
-   "site": "sink_test.go:81",
-   "site_fingerprint": "548f900c3634e5a5"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "writer_test.go:232",
-   "site": "writer_test.go:257",
-   "site_fingerprint": "e2a6de0745d10ee4"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "writer_test.go:232",
-   "site": "zapcore/json_encoder_test.go:225",
-   "site_fingerprint": "d185828ac1942f4d"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "logger.go:185",
-   "site_fingerprint": "7b6fa8d86f3d7ae7"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "options.go:64",
-   "site_fingerprint": "bab7d96b9d0906eb"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "zapcore/core_test.go:61",
-   "site_fingerprint": "0f8d15b3920e6aa9"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "zapcore/core_test.go:83",
-   "site_fingerprint": "45db26d5077e6bac"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "zapcore/increase_level.go:58",
-   "site_fingerprint": "a913d15f4a9d238a"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "zapcore/increase_level_test.go:97",
-   "site_fingerprint": "5a5a2092b0e450bf"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "zapcore/lazy_with.go:44",
-   "site_fingerprint": "4da237e1d692bdab"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "zapcore/lazy_with.go:50",
-   "site_fingerprint": "748bde0c6f9a2c51"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "zapcore/lazy_with_test.go:46",
-   "site_fingerprint": "ec80773f5d16f663"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "zapcore/lazy_with_test.go:165",
-   "site_fingerprint": "e41c53522fe5dac4"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "zapcore/sampler.go:205",
-   "site_fingerprint": "cc93eb249b7692a6"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "zapcore/sampler_test.go:64",
-   "site_fingerprint": "684eb72dfee453fd"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "zapcore/tee.go:51",
-   "site_fingerprint": "2137a07cab19dad9"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "zapcore/tee_test.go:139",
-   "site_fingerprint": "00e81f047cdcc9b9"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "zaptest/observer/observer_test.go:82",
-   "site_fingerprint": "1257cd3c8aead7ca"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "zaptest/observer/observer_test.go:84",
-   "site_fingerprint": "2a008017e20be1ec"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "zaptest/observer/observer_test.go:85",
-   "site_fingerprint": "f77460953ef581d4"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "zaptest/observer/observer_test.go:86",
-   "site_fingerprint": "a679596daa4c82d8"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/encoder.go:288",
-   "site": "config.go:137",
-   "site_fingerprint": "0c6cecd75d48360d"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/encoder.go:288",
-   "site": "zapcore/encoder.go:300",
-   "site_fingerprint": "1fdfd7b39aa20e99"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/encoder.go:288",
-   "site": "zapcore/encoder_test.go:62",
-   "site_fingerprint": "6495ca451a144128"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/encoder.go:288",
-   "site": "zapcore/json_encoder_test.go:139",
-   "site_fingerprint": "50c717e9c6b6be43"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/encoder.go:288",
-   "site": "zapcore/json_encoder_test.go:164",
-   "site_fingerprint": "50c717e9c6b6be43"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "same_package",
-   "measurement": "callers",
-   "seed_def": "zapcore/encoder.go:63",
-   "site": "zapcore/console_encoder.go:84",
-   "site_fingerprint": "49b5c6014ca78a4e"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "same_package",
-   "measurement": "callers",
-   "seed_def": "zapcore/encoder.go:63",
-   "site": "zapcore/json_encoder.go:368",
-   "site_fingerprint": "6a23d5c8da817ce5"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/encoder.go:63",
-   "site": "config.go:211",
-   "site_fingerprint": "fd165315ec04dafa"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/encoder.go:63",
-   "site": "zapcore/encoder.go:84",
-   "site_fingerprint": "343118e1fbb77d69"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/encoder.go:63",
-   "site": "zapcore/encoder_test.go:69",
-   "site_fingerprint": "b15acde0a4a9598c"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/encoder.go:63",
-   "site": "zapcore/encoder_test.go:342",
-   "site_fingerprint": "96f91ea1699ec30c"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/memory_encoder.go:72",
-   "site": "zapcore/json_encoder_impl_test.go:126",
-   "site_fingerprint": "2821123a4c4b2849"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/memory_encoder.go:72",
-   "site": "zapcore/json_encoder_impl_test.go:127",
-   "site_fingerprint": "cbc4e66b9edf58ee"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/memory_encoder.go:72",
-   "site": "zapcore/memory_encoder_test.go:102",
-   "site_fingerprint": "ac0b22aa4c5b8c46"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/sampler_test.go:168",
-   "site": "logger.go:303",
-   "site_fingerprint": "600e335195c2110b"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/sampler_test.go:168",
-   "site": "zapcore/core_test.go:66",
-   "site_fingerprint": "4897890308601595"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/sampler_test.go:168",
-   "site": "zapcore/core_test.go:84",
-   "site_fingerprint": "469be25b091ce666"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/sampler_test.go:168",
-   "site": "zapcore/increase_level.go:74",
-   "site_fingerprint": "5e23f29f86855eb7"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/sampler_test.go:168",
-   "site": "zapcore/lazy_with.go:76",
-   "site_fingerprint": "4b8398995681259c"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/sampler_test.go:168",
-   "site": "zapcore/tee.go:93",
-   "site_fingerprint": "11909340f03ae045"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/sampler_test.go:168",
-   "site": "zapcore/tee_test.go:179",
-   "site_fingerprint": "798f3a33d361d3a0"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/sampler_test.go:168",
-   "site": "zapcore/tee_test.go:191",
-   "site_fingerprint": "e3fb0415e1db0ab7"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/sampler_test.go:168",
-   "site": "zaptest/observer/observer_test.go:50",
-   "site_fingerprint": "9602a80e560e186f"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "import_qualified",
-   "measurement": "callers",
-   "seed_def": "zaptest/observer/observer.go:155",
-   "site": "exp/zapslog/handler_test.go:44",
-   "site_fingerprint": "730210c746ff548c"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "import_qualified",
-   "measurement": "callers",
-   "seed_def": "zaptest/observer/observer.go:155",
-   "site": "exp/zapslog/handler_test.go:59",
-   "site_fingerprint": "8ac5c5bf4979919a"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "import_qualified",
-   "measurement": "callers",
-   "seed_def": "zaptest/observer/observer.go:155",
-   "site": "exp/zapslog/handler_test.go:79",
-   "site_fingerprint": "45c152449c4759fc"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "import_qualified",
-   "measurement": "callers",
-   "seed_def": "zaptest/observer/observer.go:155",
-   "site": "exp/zapslog/handler_test.go:95",
-   "site_fingerprint": "737aec7efa92c808"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "import_qualified",
-   "measurement": "callers",
-   "seed_def": "zaptest/observer/observer.go:155",
-   "site": "exp/zapslog/handler_test.go:136",
-   "site_fingerprint": "ee84786c669b3c81"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "import_qualified",
-   "measurement": "callers",
-   "seed_def": "zaptest/observer/observer.go:155",
-   "site": "exp/zapslog/handler_test.go:159",
-   "site_fingerprint": "273d7ce72b442d9f"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "import_qualified",
-   "measurement": "callers",
-   "seed_def": "zaptest/observer/observer.go:155",
-   "site": "exp/zapslog/handler_test.go:308",
-   "site_fingerprint": "b32973d2165bf2de"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "import_qualified",
-   "measurement": "callers",
-   "seed_def": "zaptest/observer/observer.go:155",
-   "site": "exp/zapslog/handler_test.go:350",
-   "site_fingerprint": "4315d326c7cacd14"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "import_qualified",
-   "measurement": "callers",
-   "seed_def": "zaptest/observer/observer.go:155",
-   "site": "zapgrpc/internal/test/grpc_test.go:36",
-   "site_fingerprint": "a4ba688c155f42fe"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "same_package",
-   "measurement": "callees",
-   "seed_def": "benchmarks/scenario_bench_test.go:583",
-   "site": "benchmarks/scenario_bench_test.go:590",
-   "site_fingerprint": "2eb295e192f69d06"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "same_package",
-   "measurement": "callees",
-   "seed_def": "benchmarks/scenario_bench_test.go:583",
-   "site": "benchmarks/scenario_bench_test.go:600",
-   "site_fingerprint": "e452bea005656b70"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "same_package",
-   "measurement": "callees",
-   "seed_def": "benchmarks/scenario_bench_test.go:583",
-   "site": "benchmarks/scenario_bench_test.go:623",
-   "site_fingerprint": "9e58a609ff489d03"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "same_package",
-   "measurement": "callees",
-   "seed_def": "benchmarks/scenario_bench_test.go:583",
-   "site": "benchmarks/scenario_bench_test.go:632",
-   "site_fingerprint": "140e49920015634a"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "same_package",
-   "measurement": "callees",
-   "seed_def": "benchmarks/scenario_bench_test.go:583",
-   "site": "benchmarks/scenario_bench_test.go:641",
-   "site_fingerprint": "bd6931a562d8e9fe"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "same_package",
-   "measurement": "callees",
-   "seed_def": "benchmarks/scenario_bench_test.go:583",
-   "site": "benchmarks/scenario_bench_test.go:652",
-   "site_fingerprint": "ec500b6a2cb4b243"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "same_package",
-   "measurement": "callees",
-   "seed_def": "benchmarks/scenario_bench_test.go:583",
-   "site": "benchmarks/scenario_bench_test.go:661",
-   "site_fingerprint": "c28ab3532eff8801"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "same_package",
-   "measurement": "callees",
-   "seed_def": "benchmarks/scenario_bench_test.go:583",
-   "site": "benchmarks/scenario_bench_test.go:670",
-   "site_fingerprint": "2740c7cafcce5b8e"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "same_package",
-   "measurement": "callees",
-   "seed_def": "benchmarks/scenario_bench_test.go:583",
-   "site": "benchmarks/scenario_bench_test.go:680",
-   "site_fingerprint": "0a2756988c565984"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "same_package",
-   "measurement": "callees",
-   "seed_def": "benchmarks/scenario_bench_test.go:583",
-   "site": "benchmarks/scenario_bench_test.go:690",
-   "site_fingerprint": "a4d9986873fca841"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "same_package",
-   "measurement": "callees",
-   "seed_def": "benchmarks/scenario_bench_test.go:583",
-   "site": "benchmarks/scenario_bench_test.go:699",
-   "site_fingerprint": "d4b6b823bef8a971"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "increase_level_test.go:68",
-   "site": "increase_level_test.go:74",
-   "site_fingerprint": "bfff7890c02878d3"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "increase_level_test.go:68",
-   "site": "increase_level_test.go:77",
-   "site_fingerprint": "ad77def09f0bb4d1"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "increase_level_test.go:68",
-   "site": "increase_level_test.go:78",
-   "site_fingerprint": "9992962bbf2a82bb"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "increase_level_test.go:68",
-   "site": "increase_level_test.go:79",
-   "site_fingerprint": "cf900377f5af52b2"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "increase_level_test.go:68",
-   "site": "increase_level_test.go:82",
-   "site_fingerprint": "8981738f27dbd2a0"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "increase_level_test.go:68",
-   "site": "increase_level_test.go:83",
-   "site_fingerprint": "e1671f6b9046fbf1"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "increase_level_test.go:68",
-   "site": "increase_level_test.go:84",
-   "site_fingerprint": "56f0449f5f1d032a"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "logger_test.go:375",
-   "site": "logger_test.go:381",
-   "site_fingerprint": "3da178da67a72abb"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "logger_test.go:375",
-   "site": "logger_test.go:382",
-   "site_fingerprint": "083e24ca7019f27f"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "logger_test.go:375",
-   "site": "logger_test.go:383",
-   "site_fingerprint": "81c5641d323604ef"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "zapcore/increase_level_test.go:36",
-   "site": "zapcore/increase_level_test.go:59",
-   "site_fingerprint": "75898217dfc07cec"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "zapcore/increase_level_test.go:36",
-   "site": "zapcore/increase_level_test.go:97",
-   "site_fingerprint": "5a5a2092b0e450bf"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "zapcore/increase_level_test.go:36",
-   "site": "zapcore/increase_level_test.go:107",
-   "site_fingerprint": "fb564a880cbecb69"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "zapcore/increase_level_test.go:36",
-   "site": "zapcore/increase_level_test.go:109",
-   "site_fingerprint": "6acf6e2d909c8f6a"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "zapcore/increase_level_test.go:36",
-   "site": "zapcore/increase_level_test.go:110",
-   "site_fingerprint": "d1c2553138dd62b0"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "zapcore/increase_level_test.go:36",
-   "site": "zapcore/increase_level_test.go:124",
-   "site_fingerprint": "e4860cd0223bc1fc"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "zapcore/increase_level_test.go:36",
-   "site": "zapcore/increase_level_test.go:125",
-   "site_fingerprint": "e8a6d2882707be2a"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "zapcore/write_syncer_test.go:127",
-   "site": "zapcore/write_syncer_test.go:133",
-   "site_fingerprint": "0c6d1e16d0ff5751"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "zaptest/observer/observer_test.go:42",
-   "site": "zaptest/observer/observer_test.go:50",
-   "site_fingerprint": "9602a80e560e186f"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "zaptest/observer/observer_test.go:42",
-   "site": "zaptest/observer/observer_test.go:52",
-   "site_fingerprint": "ad6526306bb3ce59"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "zaptest/observer/observer_test.go:42",
-   "site": "zaptest/observer/observer_test.go:53",
-   "site_fingerprint": "8e28abb16c2107c3"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "zaptest/observer/observer_test.go:42",
-   "site": "zaptest/observer/observer_test.go:54",
-   "site_fingerprint": "4480a40ffbc8282b"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "zaptest/observer/observer_test.go:42",
-   "site": "zaptest/observer/observer_test.go:57",
-   "site_fingerprint": "b53f47bea7e1aeed"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "zaptest/observer/observer_test.go:42",
-   "site": "zaptest/observer/observer_test.go:60",
-   "site_fingerprint": "625006a9d935de1f"
-  }
- ],
+ "pending": [],
  "probes": {
   "_corpus": "zap",
   "_strata": {

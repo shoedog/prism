@@ -17,11 +17,11 @@
     },
     "corrected": {
      "fn": 0,
-     "fp": 0,
+     "fp": 1,
      "precision": [
-      1.0,
-      0.5655175313406071,
-      1.0
+      0.8333333333333334,
+      0.4364971749742326,
+      0.969946630588185
      ],
      "recall": [
       1.0,
@@ -79,7 +79,7 @@
       "tp": 5
      }
     },
-    "pending": 3,
+    "pending": 2,
     "raw": {
      "fn": 1,
      "fp": 2,
@@ -281,11 +281,11 @@
     },
     "corrected": {
      "fn": 0,
-     "fp": 0,
+     "fp": 1,
      "precision": [
-      1.0,
-      0.6456695613241317,
-      1.0
+      0.875,
+      0.5291118149439162,
+      0.9775825088000281
      ],
      "recall": [
       1.0,
@@ -343,7 +343,7 @@
       "tp": 4
      }
     },
-    "pending": 6,
+    "pending": 5,
     "raw": {
      "fn": 2,
      "fp": 4,
@@ -371,18 +371,18 @@
     },
     "corrected": {
      "fn": 1,
-     "fp": 1,
+     "fp": 22,
      "precision": [
-      0.9696969696969697,
-      0.8468127447352589,
-      0.9946305895225589
+      0.6071428571428571,
+      0.47633402698507216,
+      0.7241958435149718
      ],
      "recall": [
-      0.9696969696969697,
-      0.8468127447352589,
-      0.9946305895225589
+      0.9714285714285714,
+      0.8546691262822592,
+      0.9949385082005704
      ],
-     "tp": 32
+     "tp": 34
     },
     "exact_tier": {
      "raw": {
@@ -433,7 +433,7 @@
       "tp": 10
      }
     },
-    "pending": 80,
+    "pending": 57,
     "raw": {
      "fn": 1,
      "fp": 81,
@@ -884,26 +884,6 @@
    "dispatch_kind": "r6_multi_owner_candidate",
    "measurement": "callers",
    "seed_def": "httpx/_client.py:1474",
-   "site": "tests/client/test_proxies.py:21",
-   "site_fingerprint": "b5d5377849fb552e",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callers",
-   "seed_def": "httpx/_client.py:1474",
-   "site": "tests/client/test_proxies.py:92",
-   "site_fingerprint": "31ad403d16af9b52",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callers",
-   "seed_def": "httpx/_client.py:1474",
    "site": "tests/client/test_proxies.py:231",
    "site_fingerprint": "440efeaf1940a2d6",
    "tier": "candidate"
@@ -1181,36 +1161,6 @@
   {
    "corpus": "httpx",
    "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:216",
-   "site": "httpx/_models.py:572",
-   "site_fingerprint": "0fabfe6a6c5fcb50",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:216",
-   "site": "httpx/_models.py:865",
-   "site_fingerprint": "eea9923d56ea80b1",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:216",
-   "site": "httpx/_models.py:870",
-   "site_fingerprint": "e63af4e4ef007d46",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
    "dispatch_kind": "r6_multi_owner_candidate",
    "measurement": "callers",
    "seed_def": "httpx/_models.py:216",
@@ -1226,16 +1176,6 @@
    "seed_def": "httpx/_models.py:216",
    "site": "httpx/_multipart.py:247",
    "site_fingerprint": "b138b710a7f07236",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:216",
-   "site": "httpx/_multipart.py:254",
-   "site_fingerprint": "31becb7adf835dcc",
    "tier": "candidate"
   },
   {
@@ -1274,16 +1214,6 @@
    "dispatch_kind": "r6_multi_owner_candidate",
    "measurement": "callers",
    "seed_def": "httpx/_models.py:216",
-   "site": "tests/client/test_proxies.py:89",
-   "site_fingerprint": "973c65ad6a91e0fc",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:216",
    "site": "tests/client/test_proxies.py:227",
    "site_fingerprint": "3a4f8eaca31ba9af",
    "tier": "candidate"
@@ -1314,16 +1244,6 @@
    "dispatch_kind": "r6_multi_owner_candidate",
    "measurement": "callers",
    "seed_def": "httpx/_models.py:216",
-   "site": "tests/models/test_cookies.py:85",
-   "site_fingerprint": "372b4608142009de",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:216",
    "site": "tests/models/test_queryparams.py:28",
    "site_fingerprint": "ba58049fbbaee913",
    "tier": "candidate"
@@ -1334,28 +1254,8 @@
    "dispatch_kind": "r6_multi_owner_candidate",
    "measurement": "callers",
    "seed_def": "httpx/_models.py:216",
-   "site": "tests/test_exceptions.py:21",
-   "site_fingerprint": "08c38c1e8c149cc2",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:216",
    "site": "tests/test_exceptions.py:29",
    "site_fingerprint": "57cc1e84ab70f907",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "property_access",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:463",
-   "site": "httpx/_main.py:186",
-   "site_fingerprint": "fe8e90a6fc43515e",
    "tier": "candidate"
   },
   {
@@ -1384,16 +1284,6 @@
    "dispatch_kind": "property_access",
    "measurement": "callers",
    "seed_def": "httpx/_models.py:463",
-   "site": "tests/client/test_async_client.py:89",
-   "site_fingerprint": "9b973178536a15f0",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "property_access",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:463",
    "site": "tests/client/test_async_client.py:179",
    "site_fingerprint": "b37b42649d96bc23",
    "tier": "candidate"
@@ -1404,38 +1294,8 @@
    "dispatch_kind": "property_access",
    "measurement": "callers",
    "seed_def": "httpx/_models.py:463",
-   "site": "tests/client/test_client.py:22",
-   "site_fingerprint": "2900ee715911a975",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "property_access",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:463",
-   "site": "tests/models/test_requests.py:186",
-   "site_fingerprint": "a8f8109751ba7bcd",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "property_access",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:463",
    "site": "tests/models/test_requests.py:204",
    "site_fingerprint": "302f97510e208e3c",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "property_access",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:463",
-   "site": "tests/models/test_requests.py:211",
-   "site_fingerprint": "9dab2ff3c4f23ca8",
    "tier": "candidate"
   },
   {
@@ -1464,47 +1324,7 @@
    "dispatch_kind": "property_access",
    "measurement": "callers",
    "seed_def": "httpx/_models.py:463",
-   "site": "tests/models/test_responses.py:332",
-   "site_fingerprint": "2b90b8706b701f04",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "property_access",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:463",
-   "site": "tests/models/test_responses.py:347",
-   "site_fingerprint": "0566a62b36da49c4",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "property_access",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:463",
    "site": "tests/models/test_responses.py:366",
-   "site_fingerprint": "2b90b8706b701f04",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "property_access",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:463",
-   "site": "tests/models/test_responses.py:382",
-   "site_fingerprint": "0566a62b36da49c4",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "property_access",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:463",
-   "site": "tests/models/test_responses.py:696",
    "site_fingerprint": "2b90b8706b701f04",
    "tier": "candidate"
   },
@@ -1554,16 +1374,6 @@
    "dispatch_kind": "property_access",
    "measurement": "callers",
    "seed_def": "httpx/_models.py:463",
-   "site": "tests/test_asgi.py:80",
-   "site_fingerprint": "69bc70edd067ca6b",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "property_access",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:463",
    "site": "tests/test_asgi.py:90",
    "site_fingerprint": "03f6fe2d6b2374b4",
    "tier": "candidate"
@@ -1604,16 +1414,6 @@
    "dispatch_kind": "property_access",
    "measurement": "callers",
    "seed_def": "httpx/_models.py:463",
-   "site": "tests/test_decoders.py:75",
-   "site_fingerprint": "0603f21f640bc807",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "property_access",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:463",
    "site": "tests/test_decoders.py:88",
    "site_fingerprint": "0603f21f640bc807",
    "tier": "candidate"
@@ -1636,16 +1436,6 @@
    "seed_def": "httpx/_models.py:463",
    "site": "tests/test_decoders.py:141",
    "site_fingerprint": "73b23c8d7866aafa",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "property_access",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:463",
-   "site": "tests/test_decoders.py:161",
-   "site_fingerprint": "0603f21f640bc807",
    "tier": "candidate"
   },
   {
@@ -1695,26 +1485,6 @@
    "measurement": "callers",
    "seed_def": "httpx/_models.py:463",
    "site": "tests/test_multipart.py:28",
-   "site_fingerprint": "6ade9b73a0bae781",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "property_access",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:463",
-   "site": "tests/test_multipart.py:67",
-   "site_fingerprint": "49ec17e7578a93ce",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "property_access",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:463",
-   "site": "tests/test_multipart.py:136",
    "site_fingerprint": "6ade9b73a0bae781",
    "tier": "candidate"
   },
@@ -1814,26 +1584,6 @@
    "seed_def": "httpx/_models.py:1192",
    "site": "httpx/_models.py:1203",
    "site_fingerprint": "e531ef11f8dc7e4e",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "httpx/_models.py:1257",
-   "site": "httpx/_models.py:1258",
-   "site_fingerprint": "c841ca11749d4ce6",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "httpx/_models.py:216",
-   "site": "httpx/_models.py:229",
-   "site_fingerprint": "280a6ad613fff1ce",
    "tier": "candidate"
   },
   {

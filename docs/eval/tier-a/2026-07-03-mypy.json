@@ -16,7 +16,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 0,
+     "fn": 1,
      "fp": 0,
      "precision": [
       1.0,
@@ -24,9 +24,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.5655175313406071,
-      1.0
+      0.8333333333333334,
+      0.4364971749742326,
+      0.969946630588185
      ],
      "tp": 5
     },
@@ -79,7 +79,7 @@
       "tp": 4
      }
     },
-    "pending": 1,
+    "pending": 0,
     "raw": {
      "fn": 1,
      "fp": 0,
@@ -104,17 +104,17 @@
      "oracle_unconfirmed": 17
     },
     "corrected": {
-     "fn": 0,
-     "fp": 2,
+     "fn": 2,
+     "fp": 6,
      "precision": [
+      0.7777777777777778,
+      0.5924307097600273,
+      0.8939276060943778
+     ],
+     "recall": [
       0.9130434782608695,
       0.7320401874258483,
       0.9758199957343082
-     ],
-     "recall": [
-      1.0,
-      0.8453609790128563,
-      1.0
      ],
      "tp": 21
     },
@@ -167,7 +167,7 @@
       "tp": 7
      }
     },
-    "pending": 29,
+    "pending": 22,
     "raw": {
      "fn": 3,
      "fp": 28,
@@ -193,18 +193,18 @@
     },
     "corrected": {
      "fn": 1,
-     "fp": 2,
+     "fp": 9,
      "precision": [
-      0.9444444444444444,
-      0.8185534265532164,
-      0.9846300134744463
+      0.8043478260869565,
+      0.668287409573304,
+      0.8934938991697985
      ],
      "recall": [
-      0.9714285714285714,
-      0.8546691262822592,
-      0.9949385082005704
+      0.9736842105263158,
+      0.8650512375427468,
+      0.9953394123657999
      ],
-     "tp": 34
+     "tp": 37
     },
     "exact_tier": {
      "raw": {
@@ -255,7 +255,7 @@
       "tp": 5
      }
     },
-    "pending": 23,
+    "pending": 13,
     "raw": {
      "fn": 3,
      "fp": 23,
@@ -281,18 +281,18 @@
     },
     "corrected": {
      "fn": 1,
-     "fp": 1,
+     "fp": 4,
      "precision": [
-      0.9285714285714286,
-      0.6853129533326209,
-      0.9872777848933957
+      0.7777777777777778,
+      0.5478541549399641,
+      0.9099907195415445
      ],
      "recall": [
-      0.9285714285714286,
-      0.6853129533326209,
-      0.9872777848933957
+      0.9333333333333333,
+      0.7018346989112435,
+      0.9881331046384677
      ],
-     "tp": 13
+     "tp": 14
     },
     "exact_tier": {
      "raw": {
@@ -343,7 +343,7 @@
       "tp": 4
      }
     },
-    "pending": 20,
+    "pending": 16,
     "raw": {
      "fn": 2,
      "fp": 20,
@@ -368,7 +368,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 0,
+     "fn": 1,
      "fp": 0,
      "precision": [
       1.0,
@@ -376,9 +376,9 @@
       0.9999999999999999
      ],
      "recall": [
-      1.0,
-      0.7224671969739421,
-      0.9999999999999999
+      0.9090909090909091,
+      0.6226415608917041,
+      0.9837678272946745
      ],
      "tp": 10
     },
@@ -431,7 +431,7 @@
       "tp": 6
      }
     },
-    "pending": 4,
+    "pending": 3,
     "raw": {
      "fn": 4,
      "fp": 0,
@@ -459,11 +459,11 @@
     },
     "corrected": {
      "fn": 0,
-     "fp": 0,
+     "fp": 2,
      "precision": [
-      1.0,
-      0.3423802239546494,
-      1.0
+      0.5,
+      0.15003898774401986,
+      0.8499610122559802
      ],
      "recall": [
       1.0,
@@ -521,7 +521,7 @@
       "tp": 2
      }
     },
-    "pending": 8,
+    "pending": 6,
     "raw": {
      "fn": 4,
      "fp": 5,
@@ -998,16 +998,6 @@
    "dispatch_kind": "r6_multi_owner_candidate",
    "measurement": "callers",
    "seed_def": "mypy/checker_shared.py:269",
-   "site": "mypy/checkexpr.py:3635",
-   "site_fingerprint": "8ea77368febfb48d",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callers",
-   "seed_def": "mypy/checker_shared.py:269",
    "site": "mypy/checkexpr.py:5397",
    "site_fingerprint": "bce38d33ea6cba68",
    "tier": "candidate"
@@ -1038,16 +1028,6 @@
    "seed_def": "mypy/partially_defined.py:276",
    "site": "mypy/partially_defined.py:279",
    "site_fingerprint": "f6f657e24f68c7b9",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callers",
-   "seed_def": "mypy/stubutil.py:719",
-   "site": "mypyc/codegen/emitfunc.py:133",
-   "site_fingerprint": "03fb7d11410f5f25",
    "tier": "candidate"
   },
   {
@@ -1103,15 +1083,6 @@
    "seed_def": "misc/diff-cache.py:101",
    "site": "misc/diff-cache.py:134",
    "site_fingerprint": "e4aebeca5f3ddcc9"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "local_def",
-   "measurement": "callees",
-   "seed_def": "misc/diff-cache.py:101",
-   "site": "misc/diff-cache.py:135",
-   "site_fingerprint": "19ce2d49d975752a"
   },
   {
    "corpus": "mypy",
@@ -1222,16 +1193,6 @@
   {
    "corpus": "mypy",
    "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "misc/diff-cache.py:154",
-   "site": "misc/diff-cache.py:163",
-   "site_fingerprint": "2bb63261d83c43d3",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
    "dispatch_kind": "r6_multi_owner_candidate",
    "measurement": "callees",
    "seed_def": "misc/diff-cache.py:154",
@@ -1272,26 +1233,6 @@
   {
    "corpus": "mypy",
    "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callees",
-   "seed_def": "misc/diff-cache.py:154",
-   "site": "misc/diff-cache.py:231",
-   "site_fingerprint": "6fa2e64461a4d8b9",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callees",
-   "seed_def": "misc/diff-cache.py:154",
-   "site": "misc/diff-cache.py:232",
-   "site_fingerprint": "4c747b6bd1b4d244",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
    "dispatch_kind": "free_single",
    "measurement": "callees",
    "seed_def": "misc/diff-cache.py:154",
@@ -1315,14 +1256,6 @@
    "seed_def": "misc/diff-cache.py:154",
    "site": "misc/diff-cache.py:239",
    "site_fingerprint": "26399c6b53b3af5a"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "misc/diff-cache.py:27",
-   "site": "misc/diff-cache.py:29",
-   "site_fingerprint": "97b8bc53706ec616"
   },
   {
    "corpus": "mypy",
@@ -1419,16 +1352,6 @@
   {
    "corpus": "mypy",
    "direction": "prism_only",
-   "dispatch_kind": "property_access",
-   "measurement": "callees",
-   "seed_def": "mypy/build.py:4053",
-   "site": "mypy/build.py:4103",
-   "site_fingerprint": "172d56dfb317c34a",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
    "dispatch_kind": "local_def",
    "measurement": "callees",
    "seed_def": "mypy/build.py:4053",
@@ -1448,16 +1371,6 @@
   {
    "corpus": "mypy",
    "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callees",
-   "seed_def": "mypy/build.py:4053",
-   "site": "mypy/build.py:4142",
-   "site_fingerprint": "dd608092de925333",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
    "dispatch_kind": "free_single",
    "measurement": "callees",
    "seed_def": "mypy/build.py:4053",
@@ -1466,28 +1379,11 @@
   },
   {
    "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "local_def",
-   "measurement": "callees",
-   "seed_def": "mypy/build.py:4053",
-   "site": "mypy/build.py:4148",
-   "site_fingerprint": "141595778d8dab5f"
-  },
-  {
-   "corpus": "mypy",
    "direction": "oracle_only",
    "measurement": "callees",
    "seed_def": "mypy/build.py:4053",
    "site": "mypy/build.py:4155",
    "site_fingerprint": "6fec2cd4b0c08b73"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "mypy/checkstrformat.py:945",
-   "site": "mypy/checkstrformat.py:946",
-   "site_fingerprint": "4c7cebd6d2dbeb8d"
   },
   {
    "corpus": "mypy",
@@ -1512,15 +1408,6 @@
    "dispatch_kind": "typed_param",
    "measurement": "callees",
    "seed_def": "mypy/inspections.py:614",
-   "site": "mypy/inspections.py:615",
-   "site_fingerprint": "43f2320c52c76360"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "typed_param",
-   "measurement": "callees",
-   "seed_def": "mypy/inspections.py:614",
    "site": "mypy/inspections.py:617",
    "site_fingerprint": "0db9a66b2096c570"
   },
@@ -1533,24 +1420,6 @@
    "site": "mypy/inspections.py:620",
    "site_fingerprint": "14236fb7b87cd220",
    "tier": "candidate"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callees",
-   "seed_def": "mypy/inspections.py:614",
-   "site": "mypy/inspections.py:624",
-   "site_fingerprint": "374a51c038f921da",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "mypy/nodes.py:1732",
-   "site": "mypy/nodes.py:1739",
-   "site_fingerprint": "f3347471c76741dc"
   },
   {
    "corpus": "mypy",
@@ -1579,14 +1448,6 @@
   },
   {
    "corpus": "mypy",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "mypy/stubgen.py:1154",
-   "site": "mypy/stubgen.py:1156",
-   "site_fingerprint": "16dc535bf03340c8"
-  },
-  {
-   "corpus": "mypy",
    "direction": "prism_only",
    "dispatch_kind": "free_single",
    "measurement": "callees",
@@ -1607,31 +1468,11 @@
   {
    "corpus": "mypy",
    "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "mypy/types.py:4267",
-   "site": "mypy/types.py:4290",
-   "site_fingerprint": "a17e7d346ec2328c",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
    "dispatch_kind": "local_def",
    "measurement": "callees",
    "seed_def": "mypy/types.py:4267",
    "site": "mypy/types.py:4291",
    "site_fingerprint": "2fa77840c9260d93"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "property_access",
-   "measurement": "callees",
-   "seed_def": "mypy/types.py:4267",
-   "site": "mypy/types.py:4292",
-   "site_fingerprint": "f0e7ad86e725bc73",
-   "tier": "candidate"
   },
   {
    "corpus": "mypy",
@@ -1642,25 +1483,6 @@
    "site": "mypy/types.py:4299",
    "site_fingerprint": "0e47ae48b64ceefb",
    "tier": "candidate"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_multi_owner_candidate",
-   "measurement": "callees",
-   "seed_def": "mypy/util.py:102",
-   "site": "mypy/util.py:106",
-   "site_fingerprint": "fa87e6287466c254",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "typed_param",
-   "measurement": "callees",
-   "seed_def": "mypy/util.py:102",
-   "site": "mypy/util.py:107",
-   "site_fingerprint": "d711ee639e1b2875"
   },
   {
    "corpus": "mypy",
@@ -1693,25 +1515,6 @@
   {
    "corpus": "mypy",
    "direction": "prism_only",
-   "dispatch_kind": "free_single",
-   "measurement": "callees",
-   "seed_def": "mypy/util.py:976",
-   "site": "mypy/util.py:1009",
-   "site_fingerprint": "a9a04fe0ee689dd9"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "mypyc/codegen/emitclass.py:574",
-   "site": "mypyc/codegen/emitclass.py:587",
-   "site_fingerprint": "2309f7316b31375d",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
    "dispatch_kind": "r6_multi_owner_candidate",
    "measurement": "callees",
    "seed_def": "mypyc/codegen/emitclass.py:574",
@@ -1736,43 +1539,6 @@
    "seed_def": "mypyc/irbuild/expression.py:1269",
    "site": "mypyc/irbuild/expression.py:1274",
    "site_fingerprint": "121b49ed0a8bdcc4"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "property_access",
-   "measurement": "callees",
-   "seed_def": "mypyc/irbuild/expression.py:591",
-   "site": "mypyc/irbuild/expression.py:595",
-   "site_fingerprint": "a9f1b02ebc31dea9",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "free_single",
-   "measurement": "callees",
-   "seed_def": "runtests.py:139",
-   "site": "runtests.py:142",
-   "site_fingerprint": "91ef8932edd074ca"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "free_single",
-   "measurement": "callees",
-   "seed_def": "runtests.py:139",
-   "site": "runtests.py:144",
-   "site_fingerprint": "6f70818290f0f4ee"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "free_single",
-   "measurement": "callees",
-   "seed_def": "runtests.py:139",
-   "site": "runtests.py:145",
-   "site_fingerprint": "9f7bcec117e644d1"
   },
   {
    "corpus": "mypy",

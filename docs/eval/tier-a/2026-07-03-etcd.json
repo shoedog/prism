@@ -104,19 +104,19 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 0,
+     "fn": 3,
      "fp": 0,
      "precision": [
       1.0,
-      0.6755924316585924,
+      0.700854948272956,
       1.0
      ],
      "recall": [
-      1.0,
-      0.6755924316585924,
-      1.0
+      0.75,
+      0.4676946629183366,
+      0.9110583323051143
      ],
-     "tp": 8
+     "tp": 9
     },
     "exact_tier": {
      "raw": {
@@ -167,7 +167,7 @@
       "tp": 3
      }
     },
-    "pending": 4,
+    "pending": 0,
     "raw": {
      "fn": 3,
      "fp": 1,
@@ -192,19 +192,19 @@
      "oracle_unconfirmed": 1
     },
     "corrected": {
-     "fn": 3,
+     "fn": 22,
      "fp": 0,
      "precision": [
       1.0,
-      0.933586410930963,
+      0.9347150979202339,
       1.0
      ],
      "recall": [
-      0.9473684210526315,
-      0.8563044950528215,
-      0.9819397045069381
+      0.7142857142857143,
+      0.605101569851323,
+      0.8031048190073408
      ],
-     "tp": 54
+     "tp": 55
     },
     "exact_tier": {
      "raw": {
@@ -255,7 +255,7 @@
       "tp": 6
      }
     },
-    "pending": 20,
+    "pending": 0,
     "raw": {
      "fn": 22,
      "fp": 1,
@@ -280,19 +280,19 @@
      "oracle_unconfirmed": 3
     },
     "corrected": {
-     "fn": 0,
+     "fn": 2,
      "fp": 0,
      "precision": [
       1.0,
-      0.7411670300055737,
+      0.7719046248681998,
       1.0
      ],
      "recall": [
-      1.0,
-      0.7411670300055737,
-      1.0
+      0.8666666666666667,
+      0.6211801694601944,
+      0.9626387412357151
      ],
-     "tp": 11
+     "tp": 13
     },
     "exact_tier": {
      "raw": {
@@ -343,7 +343,7 @@
       "tp": 5
      }
     },
-    "pending": 4,
+    "pending": 0,
     "raw": {
      "fn": 2,
      "fp": 3,
@@ -370,17 +370,17 @@
      "oracle_unconfirmed": 1
     },
     "corrected": {
-     "fn": 1,
-     "fp": 0,
+     "fn": 5,
+     "fp": 1,
      "precision": [
-      1.0,
-      0.6755924316585924,
-      1.0
-     ],
-     "recall": [
       0.8888888888888888,
       0.565000291629209,
       0.9801091125830901
+     ],
+     "recall": [
+      0.6153846153846154,
+      0.3552289133643685,
+      0.8229029231436777
      ],
      "tp": 8
     },
@@ -433,7 +433,7 @@
       "tp": 8
      }
     },
-    "pending": 11,
+    "pending": 4,
     "raw": {
      "fn": 12,
      "fp": 1,
@@ -459,11 +459,11 @@
     },
     "corrected": {
      "fn": 0,
-     "fp": 0,
+     "fp": 1,
      "precision": [
-      1.0,
-      0.8241207740667156,
-      1.0
+      0.9473684210526315,
+      0.7536126862526763,
+      0.9906480060413981
      ],
      "recall": [
       1.0,
@@ -521,7 +521,7 @@
       "tp": 15
      }
     },
-    "pending": 2,
+    "pending": 1,
     "raw": {
      "fn": 1,
      "fp": 2,
@@ -634,7 +634,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 0,
+     "fn": 3,
      "fp": 0,
      "precision": [
       1.0,
@@ -642,9 +642,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.8388748398148705,
-      1.0
+      0.8695652173913043,
+      0.6787251755146014,
+      0.9546234094181704
      ],
      "tp": 20
     },
@@ -697,7 +697,7 @@
       "tp": 13
      }
     },
-    "pending": 3,
+    "pending": 0,
     "raw": {
      "fn": 3,
      "fp": 0,
@@ -767,330 +767,7 @@
    "oracle_start": 7.461
   }
  },
- "pending": [
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "api/etcdserverpb/rpc.pb.go:1390",
-   "site": "client/v3/compare_test.go:44",
-   "site_fingerprint": "b9de8b4df8372129"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "api/etcdserverpb/rpc.pb.go:1390",
-   "site": "client/v3/leasing/cache.go:266",
-   "site_fingerprint": "460dc7acfc9e9a45"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "api/etcdserverpb/rpc.pb.go:1390",
-   "site": "client/v3/namespace/kv.go:203",
-   "site_fingerprint": "591f12f25d658db7"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "api/etcdserverpb/rpc.pb.go:1390",
-   "site": "client/v3/namespace/kv.go:205",
-   "site_fingerprint": "f79b556cc584d0ba"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "api/etcdserverpb/rpc_grpc.pb.go:583",
-   "site": "server/proxy/grpcproxy/adapter/lease_client_adapter.go:43",
-   "site_fingerprint": "389c7768f69ae372"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "pkg/adt/interval_tree.go:686",
-   "site": "server/etcdmain/config.go:261",
-   "site_fingerprint": "79efcd4a8a322bf4",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "server/embed/config.go:1171",
-   "site": "server/etcdmain/etcd.go:146",
-   "site_fingerprint": "280e6a5f5b7a07c7"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "server/embed/config.go:1171",
-   "site": "server/etcdmain/etcd.go:152",
-   "site_fingerprint": "d283c3c88db18523"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "server/etcdserver/api/membership/membership_test.go:72",
-   "site": "server/etcdserver/api/membership/cluster.go:614",
-   "site_fingerprint": "ee6c0070495eeb43"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "server/storage/mvcc/kvstore.go:156",
-   "site": "server/storage/mvcc/kv_test.go:647",
-   "site_fingerprint": "fcddd02df26a8f3b"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "prism_only",
-   "dispatch_kind": "free_single",
-   "measurement": "callers",
-   "seed_def": "tests/integration/clientv3/examples/example_cluster_test.go:84",
-   "site": "client/v3/concurrency/main_test.go:26",
-   "site_fingerprint": "f952556f3a8c31a2"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "api/etcdserverpb/gw/rpc.pb.gw.go:769",
-   "site": "api/etcdserverpb/gw/rpc.pb.gw.go:774",
-   "site_fingerprint": "628f9ae9fe8237fe",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "api/etcdserverpb/gw/rpc.pb.gw.go:769",
-   "site": "api/etcdserverpb/gw/rpc.pb.gw.go:780",
-   "site_fingerprint": "e6173be0f6e8595d"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "cache/demux_test.go:349",
-   "site": "cache/demux_test.go:363",
-   "site_fingerprint": "96baa361a307e572"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "cache/demux_test.go:349",
-   "site": "cache/demux_test.go:367",
-   "site_fingerprint": "8709578ca4344295"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "cache/demux_test.go:349",
-   "site": "cache/demux_test.go:400",
-   "site_fingerprint": "e9d1b8997a811c59"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "cache/store.go:149",
-   "site": "cache/store.go:167",
-   "site_fingerprint": "6015ea033159d1ca",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "client/v3/retry_interceptor.go:293",
-   "site": "client/v3/retry_interceptor.go:302",
-   "site_fingerprint": "9890cc1a9ee0ac40",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "server/etcdserver/server_test.go:665",
-   "site": "server/etcdserver/server_test.go:717",
-   "site_fingerprint": "9a0e198783cea70e"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "server/etcdserver/server_test.go:665",
-   "site": "server/etcdserver/server_test.go:718",
-   "site_fingerprint": "a371f904db84b7f1"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "server/etcdserver/server_test.go:665",
-   "site": "server/etcdserver/server_test.go:730",
-   "site_fingerprint": "702a3b99b45aec84"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "server/etcdserver/server_test.go:665",
-   "site": "server/etcdserver/server_test.go:735",
-   "site_fingerprint": "51f3ee25270d1499"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "server/etcdserver/server_test.go:665",
-   "site": "server/etcdserver/server_test.go:750",
-   "site_fingerprint": "c1bf233c18ec968b"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "server/etcdserver/server_test.go:665",
-   "site": "server/etcdserver/server_test.go:754",
-   "site_fingerprint": "8fefa38400b9f227"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "server/storage/mvcc/kvstore.go:156",
-   "site": "server/storage/mvcc/kvstore.go:160",
-   "site_fingerprint": "e333fd121b8137f7"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "server/storage/mvcc/kvstore.go:156",
-   "site": "server/storage/mvcc/kvstore.go:161",
-   "site_fingerprint": "5d3ebbbe789ad7a3"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "server/storage/mvcc/watcher_test.go:347",
-   "site": "server/storage/mvcc/watcher_test.go:356",
-   "site_fingerprint": "f1af2acc7d97f477"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "prism_only",
-   "dispatch_kind": "free_single",
-   "measurement": "callees",
-   "seed_def": "tests/common/user_test.go:181",
-   "site": "tests/common/user_test.go:183",
-   "site_fingerprint": "7f222f572dc3f875"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tests/common/user_test.go:181",
-   "site": "tests/common/user_test.go:182",
-   "site_fingerprint": "85b104e3468e04c3"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tests/common/user_test.go:181",
-   "site": "tests/common/user_test.go:188",
-   "site_fingerprint": "5aa33cde1c7d64e0"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tests/integration/clientv3/watch/v3_watch_test.go:825",
-   "site": "tests/integration/clientv3/watch/v3_watch_test.go:828",
-   "site_fingerprint": "f0104cc649ef593b"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tests/integration/clientv3/watch/v3_watch_test.go:825",
-   "site": "tests/integration/clientv3/watch/v3_watch_test.go:832",
-   "site_fingerprint": "e295ce008001dffe"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tests/integration/clientv3/watch/v3_watch_test.go:825",
-   "site": "tests/integration/clientv3/watch/v3_watch_test.go:835",
-   "site_fingerprint": "2698a78637f307b9"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tests/integration/clientv3/watch/v3_watch_test.go:825",
-   "site": "tests/integration/clientv3/watch/v3_watch_test.go:855",
-   "site_fingerprint": "e295ce008001dffe"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tests/integration/v3_grpc_test.go:1218",
-   "site": "tests/integration/v3_grpc_test.go:1221",
-   "site_fingerprint": "bf95ed36339577cd"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tests/integration/v3_grpc_test.go:1218",
-   "site": "tests/integration/v3_grpc_test.go:1230",
-   "site_fingerprint": "3d22cfa5572c9fad"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tests/integration/v3_grpc_test.go:1218",
-   "site": "tests/integration/v3_grpc_test.go:1231",
-   "site_fingerprint": "2588bc6400fda78a"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tests/integration/v3_grpc_test.go:1218",
-   "site": "tests/integration/v3_grpc_test.go:1232",
-   "site_fingerprint": "a4bf9d57e7d64678"
-  },
-  {
-   "corpus": "etcd",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tests/integration/v3_grpc_test.go:1597",
-   "site": "tests/integration/v3_grpc_test.go:1600",
-   "site_fingerprint": "6dca2d154f324301"
-  }
- ],
+ "pending": [],
  "probes": {
   "_corpus": "etcd",
   "_strata": {
