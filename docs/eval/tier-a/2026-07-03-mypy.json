@@ -1,0 +1,7708 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 91,
+  "matched": 8294,
+  "prism_extra": 79,
+  "prism_missing": 0,
+  "snapshot_prism_missing": 0
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "candidate_tier": {
+     "count": 3,
+     "oracle_confirmed": 3,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       0.5,
+       0.18761630498040816,
+       0.8123836950195918
+      ],
+      "tp": 3
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      0.8333333333333334,
+      0.4364971749742326,
+      0.969946630588185
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "candidate_tier": {
+     "count": 25,
+     "oracle_confirmed": 8,
+     "oracle_unconfirmed": 17
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 2,
+     "precision": [
+      0.9130434782608695,
+      0.7320401874258483,
+      0.9758199957343082
+     ],
+     "recall": [
+      1.0,
+      0.8453609790128563,
+      1.0
+     ],
+     "tp": 21
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 8,
+      "fp": 11,
+      "precision": [
+       0.5925925925925926,
+       0.4072670083159759,
+       0.7548524303021589
+      ],
+      "recall": [
+       0.6666666666666666,
+       0.46706316684738447,
+       0.8202780976355061
+      ],
+      "tp": 16
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.875,
+       0.5291118149439162,
+       0.9775825088000281
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.875,
+       0.5291118149439162,
+       0.9775825088000281
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     }
+    },
+    "pending": 29,
+    "raw": {
+     "fn": 3,
+     "fp": 28,
+     "precision": [
+      0.42857142857142855,
+      0.3002331898865981,
+      0.567295070153971
+     ],
+     "recall": [
+      0.875,
+      0.6899611855484453,
+      0.9565566595380588
+     ],
+     "tp": 21
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "candidate_tier": {
+     "count": 27,
+     "oracle_confirmed": 15,
+     "oracle_unconfirmed": 12
+    },
+    "corrected": {
+     "fn": 1,
+     "fp": 2,
+     "precision": [
+      0.9444444444444444,
+      0.8185534265532164,
+      0.9846300134744463
+     ],
+     "recall": [
+      0.9714285714285714,
+      0.8546691262822592,
+      0.9949385082005704
+     ],
+     "tp": 34
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 16,
+      "fp": 10,
+      "precision": [
+       0.6774193548387096,
+       0.5014100916911381,
+       0.8143057351769827
+      ],
+      "recall": [
+       0.5675675675675675,
+       0.4091418097222649,
+       0.7132828082261852
+      ],
+      "tp": 21
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.625,
+       0.30574239265377096,
+       0.8631557152608771
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.625,
+       0.30574239265377096,
+       0.8631557152608771
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 23,
+    "raw": {
+     "fn": 3,
+     "fp": 23,
+     "precision": [
+      0.5964912280701754,
+      0.4669729232041756,
+      0.7138248453283215
+     ],
+     "recall": [
+      0.918918918918919,
+      0.7869932051629003,
+      0.972039426117491
+     ],
+     "tp": 34
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "candidate_tier": {
+     "count": 11,
+     "oracle_confirmed": 2,
+     "oracle_unconfirmed": 9
+    },
+    "corrected": {
+     "fn": 1,
+     "fp": 1,
+     "precision": [
+      0.9285714285714286,
+      0.6853129533326209,
+      0.9872777848933957
+     ],
+     "recall": [
+      0.9285714285714286,
+      0.6853129533326209,
+      0.9872777848933957
+     ],
+     "tp": 13
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 3,
+      "fp": 12,
+      "precision": [
+       0.5,
+       0.3142742569328851,
+       0.6857257430671149
+      ],
+      "recall": [
+       0.8,
+       0.5481455107594471,
+       0.9295245070826608
+      ],
+      "tp": 12
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 4,
+      "precision": [
+       0.5,
+       0.21521606069626764,
+       0.7847839393037324
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 4,
+      "precision": [
+       0.5,
+       0.21521606069626764,
+       0.7847839393037324
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 20,
+    "raw": {
+     "fn": 2,
+     "fp": 20,
+     "precision": [
+      0.3939393939393939,
+      0.24683107337806381,
+      0.5631655930798483
+     ],
+     "recall": [
+      0.8666666666666667,
+      0.6211801694601944,
+      0.9626387412357151
+     ],
+     "tp": 13
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "candidate_tier": {
+     "count": 1,
+     "oracle_confirmed": 1,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "tp": 10
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 5,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "recall": [
+       0.6428571428571429,
+       0.38764422924295516,
+       0.8365526834990504
+      ],
+      "tp": 9
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 4,
+    "raw": {
+     "fn": 4,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "recall": [
+      0.7142857142857143,
+      0.45350915474002584,
+      0.8827862143729825
+     ],
+     "tp": 10
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "candidate_tier": {
+     "count": 7,
+     "oracle_confirmed": 2,
+     "oracle_unconfirmed": 5
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 6,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.39033429165637346
+      ],
+      "tp": 0
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 4,
+      "fp": 5,
+      "precision": [
+       0.2857142857142857,
+       0.08221892324928332,
+       0.6410655504689458
+      ],
+      "recall": [
+       0.3333333333333333,
+       0.09677141021353453,
+       0.7000066870052566
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 4,
+      "fp": 5,
+      "precision": [
+       0.2857142857142857,
+       0.08221892324928332,
+       0.6410655504689458
+      ],
+      "recall": [
+       0.3333333333333333,
+       0.09677141021353453,
+       0.7000066870052566
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 8,
+    "raw": {
+     "fn": 4,
+     "fp": 5,
+     "precision": [
+      0.2857142857142857,
+      0.08221892324928332,
+      0.6410655504689458
+     ],
+     "recall": [
+      0.3333333333333333,
+      0.09677141021353453,
+      0.7000066870052566
+     ],
+     "tp": 2
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "candidate_tier": {
+     "count": 2,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 2
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8568833796149266,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8568833796149266,
+      1.0
+     ],
+     "tp": 23
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8568833796149266,
+       1.0
+      ],
+      "recall": [
+       0.9583333333333334,
+       0.7975819334115467,
+       0.9926065439164028
+      ],
+      "tp": 23
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 2,
+      "precision": [
+       0.9090909090909091,
+       0.721850529721749,
+       0.9747045712376774
+      ],
+      "recall": [
+       0.9523809523809523,
+       0.7733063972991618,
+       0.9915440122838988
+      ],
+      "tp": 20
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 2,
+      "precision": [
+       0.9090909090909091,
+       0.721850529721749,
+       0.9747045712376774
+      ],
+      "recall": [
+       0.9523809523809523,
+       0.7733063972991618,
+       0.9915440122838988
+      ],
+      "tp": 20
+     }
+    },
+    "pending": 3,
+    "raw": {
+     "fn": 1,
+     "fp": 2,
+     "precision": [
+      0.92,
+      0.7503389087653979,
+      0.9777795989158738
+     ],
+     "recall": [
+      0.9583333333333334,
+      0.7975819334115467,
+      0.9926065439164028
+     ],
+     "tp": 23
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8063923170025951,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8063923170025951,
+      1.0
+     ],
+     "tp": 16
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8063923170025951,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.8063923170025951,
+       1.0
+      ],
+      "tp": 16
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "tp": 14
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "tp": 14
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8063923170025951,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8063923170025951,
+      1.0
+     ],
+     "tp": 16
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "tp": 11
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7411670300055737,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.7411670300055737,
+       1.0
+      ],
+      "tp": 11
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "tp": 9
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "tp": 9
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "tp": 11
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "candidate_tier": {
+     "count": 4,
+     "oracle_confirmed": 4,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8156818626193445,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8156818626193445,
+      1.0
+     ],
+     "tp": 17
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 4,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7719046248681998,
+       1.0
+      ],
+      "recall": [
+       0.7647058823529411,
+       0.5273820168822574,
+       0.9044495574456308
+      ],
+      "tp": 13
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7411670300055737,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.7411670300055737,
+       1.0
+      ],
+      "tp": 11
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7411670300055737,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.7411670300055737,
+       1.0
+      ],
+      "tp": 11
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8156818626193445,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8156818626193445,
+      1.0
+     ],
+     "tp": 17
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:misc/diff-cache.py:154",
+    "site": "mypy/api.py:73",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:misc/diff-cache.py:154",
+    "site": "mypy/api.py:90",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:mypy/checker_shared.py:269",
+    "site": "mypy/checkexpr.py:3635",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:mypy/checker_shared.py:269",
+    "site": "mypy/checkexpr.py:5397",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:mypy/checker_shared.py:269",
+    "site": "mypy/checkexpr.py:6393",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:mypy/partially_defined.py:276",
+    "site": "mypy/partially_defined.py:279",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:mypy/stubutil.py:719",
+    "site": "mypyc/codegen/emitfunc.py:133",
+    "verdict": "ambiguous"
+   }
+  ],
+  "counts": {
+   "alias_site": 0,
+   "ambiguous": 7,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": false,
+  "corpus": "mypy",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "5ef090270579",
+  "date": "2026-07-03",
+  "harness_sha": "555714da1991",
+  "invalid_reasons": [],
+  "oracle": "pyright-langserver",
+  "oracle_error_rate": 0.1625,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "555714da1991",
+  "seed": 42,
+  "stale_adjudications": 2,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 0.322,
+   "m2": 114.095,
+   "m3": 0.007,
+   "oracle_start": 5.14
+  }
+ },
+ "pending": [
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "misc/diff-cache.py:154",
+   "site": "mypy/api.py:73",
+   "site_fingerprint": "6def3c8b30879716",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "misc/diff-cache.py:154",
+   "site": "mypy/api.py:90",
+   "site_fingerprint": "c1cb4328d59be188",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "misc/diff-cache.py:154",
+   "site": "misc/diff-cache.py:246",
+   "site_fingerprint": "9797a209c9c0c94e"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callers",
+   "seed_def": "mypy/checker_shared.py:269",
+   "site": "mypy/checkexpr.py:3635",
+   "site_fingerprint": "8ea77368febfb48d",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callers",
+   "seed_def": "mypy/checker_shared.py:269",
+   "site": "mypy/checkexpr.py:5397",
+   "site_fingerprint": "bce38d33ea6cba68",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callers",
+   "seed_def": "mypy/checker_shared.py:269",
+   "site": "mypy/checkexpr.py:6393",
+   "site_fingerprint": "cbe9d1dcd0a8a125",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "mypy/nodes.py:1732",
+   "site": "mypy/nodes.py:4220",
+   "site_fingerprint": "5d89c129d6a34eab"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callers",
+   "seed_def": "mypy/partially_defined.py:276",
+   "site": "mypy/partially_defined.py:279",
+   "site_fingerprint": "f6f657e24f68c7b9",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callers",
+   "seed_def": "mypy/stubutil.py:719",
+   "site": "mypyc/codegen/emitfunc.py:133",
+   "site_fingerprint": "03fb7d11410f5f25",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "mypy/stubutil.py:719",
+   "site": "mypy/stubgen.py:858",
+   "site_fingerprint": "ad6493ad165570ee"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "mypy/stubutil.py:719",
+   "site": "mypy/stubgenc.py:825",
+   "site_fingerprint": "309ddd9ab5c53b41"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "misc/cherry-pick-typeshed.py:18",
+   "site": "misc/cherry-pick-typeshed.py:21",
+   "site_fingerprint": "28c3c53bf9ec8942",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "typed_param",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:101",
+   "site": "misc/diff-cache.py:110",
+   "site_fingerprint": "eec40f4692b99524"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:101",
+   "site": "misc/diff-cache.py:126",
+   "site_fingerprint": "f6aa64777f227ae8",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "typed_param",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:101",
+   "site": "misc/diff-cache.py:134",
+   "site_fingerprint": "e4aebeca5f3ddcc9"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:101",
+   "site": "misc/diff-cache.py:135",
+   "site_fingerprint": "19ce2d49d975752a"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "typed_param",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:101",
+   "site": "misc/diff-cache.py:136",
+   "site_fingerprint": "e16598e7c1136b77"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:101",
+   "site": "misc/diff-cache.py:138",
+   "site_fingerprint": "4ee68ad7eac0f106",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:101",
+   "site": "misc/diff-cache.py:139",
+   "site_fingerprint": "0eb698e1a5d93a2a",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:101",
+   "site": "misc/diff-cache.py:109",
+   "site_fingerprint": "c9ac5d8f5b40e51b"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:143",
+   "site": "misc/diff-cache.py:150",
+   "site_fingerprint": "18f0da3b181332d6",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "import_member",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:143",
+   "site": "misc/diff-cache.py:151",
+   "site_fingerprint": "998c94decabaabf5"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:154",
+   "site": "misc/diff-cache.py:156",
+   "site_fingerprint": "839a07cf020cb7fe",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:154",
+   "site": "misc/diff-cache.py:157",
+   "site_fingerprint": "fa543f74266d50cd",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:154",
+   "site": "misc/diff-cache.py:158",
+   "site_fingerprint": "63fa52f84f1404ce",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:154",
+   "site": "misc/diff-cache.py:161",
+   "site_fingerprint": "4bfdbc35ef830227",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:154",
+   "site": "misc/diff-cache.py:162",
+   "site_fingerprint": "990939c6e438dfb7",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:154",
+   "site": "misc/diff-cache.py:163",
+   "site_fingerprint": "2bb63261d83c43d3",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:154",
+   "site": "misc/diff-cache.py:211",
+   "site_fingerprint": "0b54a3d2b81b8426",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:154",
+   "site": "misc/diff-cache.py:212",
+   "site_fingerprint": "f37332892f5c6cac",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:154",
+   "site": "misc/diff-cache.py:214",
+   "site_fingerprint": "1d93b1e02366daf9",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:154",
+   "site": "misc/diff-cache.py:218",
+   "site_fingerprint": "398930340a2d3e95",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:154",
+   "site": "misc/diff-cache.py:231",
+   "site_fingerprint": "6fa2e64461a4d8b9",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:154",
+   "site": "misc/diff-cache.py:232",
+   "site_fingerprint": "4c747b6bd1b4d244",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:154",
+   "site": "misc/diff-cache.py:236",
+   "site_fingerprint": "c1a2bcdbd349a80a"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:154",
+   "site": "misc/diff-cache.py:238",
+   "site_fingerprint": "b4a821e068a2decc"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:154",
+   "site": "misc/diff-cache.py:239",
+   "site_fingerprint": "26399c6b53b3af5a"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:27",
+   "site": "misc/diff-cache.py:29",
+   "site_fingerprint": "97b8bc53706ec616"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "misc/diff-cache.py:27",
+   "site": "misc/diff-cache.py:31",
+   "site_fingerprint": "546df7e3bbe226ed"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "misc/gen_blog_post_html.py:160",
+   "site": "misc/gen_blog_post_html.py:164",
+   "site_fingerprint": "e03976b77ce2cdc2"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "misc/gen_blog_post_html.py:160",
+   "site": "misc/gen_blog_post_html.py:165",
+   "site_fingerprint": "aba6020fad528845",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "misc/gen_blog_post_html.py:160",
+   "site": "misc/gen_blog_post_html.py:171",
+   "site_fingerprint": "85093d0868f26524",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "misc/gen_blog_post_html.py:160",
+   "site": "misc/gen_blog_post_html.py:173",
+   "site_fingerprint": "b636b18cbcbeb5d5",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callees",
+   "seed_def": "misc/generate_changelog.py:126",
+   "site": "misc/generate_changelog.py:130",
+   "site_fingerprint": "9f26214cb4cf35a9"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "misc/perf_checker.py:20",
+   "site": "misc/perf_checker.py:21",
+   "site_fingerprint": "f79d4fda2fc3bd88"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "misc/perf_checker.py:20",
+   "site": "misc/perf_checker.py:22",
+   "site_fingerprint": "5d5f72f4f3c6cf52"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "misc/perf_checker.py:20",
+   "site": "misc/perf_checker.py:23",
+   "site_fingerprint": "c2c40a5a1a346bb0"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "mypy/build.py:4053",
+   "site": "mypy/build.py:4102",
+   "site_fingerprint": "03231e6c5ada5ff9"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "property_access",
+   "measurement": "callees",
+   "seed_def": "mypy/build.py:4053",
+   "site": "mypy/build.py:4103",
+   "site_fingerprint": "172d56dfb317c34a",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callees",
+   "seed_def": "mypy/build.py:4053",
+   "site": "mypy/build.py:4112",
+   "site_fingerprint": "cd4647802a236f09"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "mypy/build.py:4053",
+   "site": "mypy/build.py:4127",
+   "site_fingerprint": "c9cf9e49a9b2c0f1",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "mypy/build.py:4053",
+   "site": "mypy/build.py:4142",
+   "site_fingerprint": "dd608092de925333",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "mypy/build.py:4053",
+   "site": "mypy/build.py:4143",
+   "site_fingerprint": "5694cf6f398ff91b"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callees",
+   "seed_def": "mypy/build.py:4053",
+   "site": "mypy/build.py:4148",
+   "site_fingerprint": "141595778d8dab5f"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "mypy/build.py:4053",
+   "site": "mypy/build.py:4155",
+   "site_fingerprint": "6fec2cd4b0c08b73"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "mypy/checkstrformat.py:945",
+   "site": "mypy/checkstrformat.py:946",
+   "site_fingerprint": "4c7cebd6d2dbeb8d"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "typed_param",
+   "measurement": "callees",
+   "seed_def": "mypy/config_parser.py:387",
+   "site": "mypy/config_parser.py:389",
+   "site_fingerprint": "ee907e2b67021883"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "mypy/fastparse.py:1795",
+   "site": "mypy/fastparse.py:1804",
+   "site_fingerprint": "c4a5e023673cece6"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "typed_param",
+   "measurement": "callees",
+   "seed_def": "mypy/inspections.py:614",
+   "site": "mypy/inspections.py:615",
+   "site_fingerprint": "43f2320c52c76360"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "typed_param",
+   "measurement": "callees",
+   "seed_def": "mypy/inspections.py:614",
+   "site": "mypy/inspections.py:617",
+   "site_fingerprint": "0db9a66b2096c570"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "mypy/inspections.py:614",
+   "site": "mypy/inspections.py:620",
+   "site_fingerprint": "14236fb7b87cd220",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "mypy/inspections.py:614",
+   "site": "mypy/inspections.py:624",
+   "site_fingerprint": "374a51c038f921da",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "mypy/nodes.py:1732",
+   "site": "mypy/nodes.py:1739",
+   "site_fingerprint": "f3347471c76741dc"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "mypy/plugins/dataclasses.py:430",
+   "site": "mypy/plugins/dataclasses.py:440",
+   "site_fingerprint": "ffbd2d7ad135cef6"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "mypy/stats.py:475",
+   "site": "mypy/stats.py:477",
+   "site_fingerprint": "36e8fc6bec75d7a5"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "mypy/stubgen.py:1154",
+   "site": "mypy/stubgen.py:1155",
+   "site_fingerprint": "5e932342d7ee9589"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "mypy/stubgen.py:1154",
+   "site": "mypy/stubgen.py:1156",
+   "site_fingerprint": "16dc535bf03340c8"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "mypy/types.py:4267",
+   "site": "mypy/types.py:4271",
+   "site_fingerprint": "b80221a98985c86a"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "property_access",
+   "measurement": "callees",
+   "seed_def": "mypy/types.py:4267",
+   "site": "mypy/types.py:4283",
+   "site_fingerprint": "874c3050c5bd83b8",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "mypy/types.py:4267",
+   "site": "mypy/types.py:4290",
+   "site_fingerprint": "a17e7d346ec2328c",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callees",
+   "seed_def": "mypy/types.py:4267",
+   "site": "mypy/types.py:4291",
+   "site_fingerprint": "2fa77840c9260d93"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "property_access",
+   "measurement": "callees",
+   "seed_def": "mypy/types.py:4267",
+   "site": "mypy/types.py:4292",
+   "site_fingerprint": "f0e7ad86e725bc73",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "mypy/types.py:4267",
+   "site": "mypy/types.py:4299",
+   "site_fingerprint": "0e47ae48b64ceefb",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "mypy/util.py:102",
+   "site": "mypy/util.py:106",
+   "site_fingerprint": "fa87e6287466c254",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "typed_param",
+   "measurement": "callees",
+   "seed_def": "mypy/util.py:102",
+   "site": "mypy/util.py:107",
+   "site_fingerprint": "d711ee639e1b2875"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "mypy/util.py:102",
+   "site": "mypy/util.py:108",
+   "site_fingerprint": "8ec80bf881055384"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "mypy/util.py:102",
+   "site": "mypy/util.py:111",
+   "site_fingerprint": "1c77992cdd727e0d",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "mypy/util.py:976",
+   "site": "mypy/util.py:992",
+   "site_fingerprint": "141597780c13872c"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "mypy/util.py:976",
+   "site": "mypy/util.py:1009",
+   "site_fingerprint": "a9a04fe0ee689dd9"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "mypyc/codegen/emitclass.py:574",
+   "site": "mypyc/codegen/emitclass.py:587",
+   "site_fingerprint": "2309f7316b31375d",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "mypyc/codegen/emitclass.py:574",
+   "site": "mypyc/codegen/emitclass.py:598",
+   "site_fingerprint": "22f277be49144d03",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "property_access",
+   "measurement": "callees",
+   "seed_def": "mypyc/irbuild/expression.py:1269",
+   "site": "mypyc/irbuild/expression.py:1277",
+   "site_fingerprint": "bf4eb3be63be3154",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "mypyc/irbuild/expression.py:1269",
+   "site": "mypyc/irbuild/expression.py:1274",
+   "site_fingerprint": "121b49ed0a8bdcc4"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "property_access",
+   "measurement": "callees",
+   "seed_def": "mypyc/irbuild/expression.py:591",
+   "site": "mypyc/irbuild/expression.py:595",
+   "site_fingerprint": "a9f1b02ebc31dea9",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "runtests.py:139",
+   "site": "runtests.py:142",
+   "site_fingerprint": "91ef8932edd074ca"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "runtests.py:139",
+   "site": "runtests.py:144",
+   "site_fingerprint": "6f70818290f0f4ee"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "runtests.py:139",
+   "site": "runtests.py:145",
+   "site_fingerprint": "9f7bcec117e644d1"
+  },
+  {
+   "corpus": "mypy",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "runtests.py:139",
+   "site": "runtests.py:147",
+   "site_fingerprint": "8c4ca1285a34a62a"
+  }
+ ],
+ "probes": {
+  "_corpus": "mypy",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:misc/cherry-pick-typeshed.py:18": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/cherry-pick-typeshed.py",
+     "parse_commit_title"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "misc/cherry-pick-typeshed.py",
+     21,
+     21,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "misc/cherry-pick-typeshed.py:18",
+   "stratum": "U-free"
+  },
+  "callees:misc/diff-cache.py:101": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "misc/diff-cache.py",
+     "load"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "misc/diff-cache.py",
+     109,
+     109
+    ],
+    [
+     "misc/diff-cache.py",
+     113,
+     113
+    ],
+    [
+     "misc/diff-cache.py",
+     118,
+     118
+    ],
+    [
+     "misc/diff-cache.py",
+     119,
+     119
+    ],
+    [
+     "misc/diff-cache.py",
+     122,
+     122
+    ],
+    [
+     "misc/diff-cache.py",
+     129,
+     129
+    ],
+    [
+     "misc/diff-cache.py",
+     133,
+     133
+    ],
+    [
+     "misc/diff-cache.py",
+     135,
+     135
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/diff-cache.py",
+     "load"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "misc/diff-cache.py",
+     118,
+     118,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     119,
+     119,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     135,
+     135,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     133,
+     133,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     110,
+     110,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     120,
+     120,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     131,
+     131,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     134,
+     134,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     136,
+     136,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     126,
+     126,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     127,
+     127,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     139,
+     139,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     138,
+     138,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "misc/diff-cache.py:101",
+   "stratum": "U-free"
+  },
+  "callees:misc/diff-cache.py:143": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "misc/diff-cache.py",
+     "encode_for_diff"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "misc/diff-cache.py",
+     151,
+     151
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/diff-cache.py",
+     "encode_for_diff"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "misc/diff-cache.py",
+     151,
+     151,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     149,
+     149,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     150,
+     150,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     151,
+     151,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     150,
+     150,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     151,
+     151,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "misc/diff-cache.py:143",
+   "stratum": "U-free"
+  },
+  "callees:misc/diff-cache.py:154": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "misc/diff-cache.py",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "misc/diff-cache.py",
+     166,
+     166
+    ],
+    [
+     "misc/diff-cache.py",
+     167,
+     167
+    ],
+    [
+     "misc/diff-cache.py",
+     178,
+     178
+    ],
+    [
+     "misc/diff-cache.py",
+     208,
+     208
+    ],
+    [
+     "misc/diff-cache.py",
+     180,
+     180
+    ],
+    [
+     "misc/diff-cache.py",
+     182,
+     182
+    ],
+    [
+     "misc/diff-cache.py",
+     221,
+     221
+    ],
+    [
+     "misc/diff-cache.py",
+     195,
+     195
+    ],
+    [
+     "misc/diff-cache.py",
+     201,
+     201
+    ],
+    [
+     "misc/diff-cache.py",
+     202,
+     202
+    ],
+    [
+     "misc/diff-cache.py",
+     224,
+     224
+    ],
+    [
+     "misc/diff-cache.py",
+     210,
+     210
+    ],
+    [
+     "misc/diff-cache.py",
+     227,
+     227
+    ],
+    [
+     "misc/diff-cache.py",
+     242,
+     242
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/diff-cache.py",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "misc/diff-cache.py",
+     166,
+     166,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     167,
+     167,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     201,
+     201,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     202,
+     202,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     224,
+     224,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     180,
+     180,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     182,
+     182,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     221,
+     221,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     195,
+     195,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     227,
+     227,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     242,
+     242,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     236,
+     236,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     238,
+     238,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     239,
+     239,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     218,
+     218,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     218,
+     218,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     178,
+     178,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     208,
+     208,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     178,
+     178,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     208,
+     208,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     178,
+     178,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     208,
+     208,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     218,
+     218,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     218,
+     218,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     207,
+     207,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     218,
+     218,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     218,
+     218,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     207,
+     207,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     218,
+     218,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     218,
+     218,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     207,
+     207,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     218,
+     218,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     218,
+     218,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     156,
+     156,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     157,
+     157,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     158,
+     158,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     161,
+     161,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     162,
+     162,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     163,
+     163,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     186,
+     186,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     211,
+     211,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     212,
+     212,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     214,
+     214,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     227,
+     227,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     211,
+     211,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     212,
+     212,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     214,
+     214,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     227,
+     227,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     211,
+     211,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     231,
+     231,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     232,
+     232,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     231,
+     231,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     232,
+     232,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     231,
+     231,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     232,
+     232,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "misc/diff-cache.py:154",
+   "stratum": "C-name"
+  },
+  "callees:misc/diff-cache.py:27": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "misc/diff-cache.py",
+     "make_cache"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "misc/diff-cache.py",
+     29,
+     29
+    ],
+    [
+     "misc/diff-cache.py",
+     31,
+     31
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/diff-cache.py",
+     "make_cache"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "misc/diff-cache.py:27",
+   "stratum": "C-name"
+  },
+  "callees:misc/gen_blog_post_html.py:160": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/gen_blog_post_html.py",
+     "extract_version"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "misc/gen_blog_post_html.py",
+     161,
+     161,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/gen_blog_post_html.py",
+     164,
+     164,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/gen_blog_post_html.py",
+     165,
+     165,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/gen_blog_post_html.py",
+     173,
+     173,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/gen_blog_post_html.py",
+     171,
+     171,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/gen_blog_post_html.py",
+     173,
+     173,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/gen_blog_post_html.py",
+     171,
+     171,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/gen_blog_post_html.py",
+     173,
+     173,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "misc/gen_blog_post_html.py",
+     171,
+     171,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "misc/gen_blog_post_html.py:160",
+   "stratum": "U-free"
+  },
+  "callees:misc/generate_changelog.py:126": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "misc/generate_changelog.py",
+     "find_changes_between_releases"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "misc/generate_changelog.py",
+     127,
+     127
+    ],
+    [
+     "misc/generate_changelog.py",
+     129,
+     129
+    ],
+    [
+     "misc/generate_changelog.py",
+     130,
+     130
+    ],
+    [
+     "misc/generate_changelog.py",
+     133,
+     133
+    ],
+    [
+     "misc/generate_changelog.py",
+     136,
+     136
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/generate_changelog.py",
+     "find_changes_between_releases"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "misc/generate_changelog.py",
+     127,
+     127,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/generate_changelog.py",
+     129,
+     129,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/generate_changelog.py",
+     130,
+     130,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/generate_changelog.py",
+     133,
+     133,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/generate_changelog.py",
+     136,
+     136,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/generate_changelog.py",
+     128,
+     128,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "misc/generate_changelog.py:126",
+   "stratum": "U-free"
+  },
+  "callees:misc/incremental_checker.py:180": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "misc/incremental_checker.py",
+     "start_daemon"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "misc/incremental_checker.py",
+     189,
+     189
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/incremental_checker.py",
+     "start_daemon"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "misc/incremental_checker.py",
+     189,
+     189,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "misc/incremental_checker.py:180",
+   "stratum": "U-free"
+  },
+  "callees:misc/perf_checker.py:20": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/perf_checker.py",
+     "print_offset"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "misc/perf_checker.py",
+     21,
+     21,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/perf_checker.py",
+     22,
+     22,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/perf_checker.py",
+     23,
+     23,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "misc/perf_checker.py:20",
+   "stratum": "C-name"
+  },
+  "callees:misc/perf_compare.py:40": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/perf_compare.py",
+     "build_mypy"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "misc/perf_compare.py:40",
+   "stratum": "U-free"
+  },
+  "callees:mypy/binder.py:289": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypy/binder.py",
+     "cleanse"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/binder.py",
+     291,
+     291
+    ],
+    [
+     "mypy/binder.py",
+     293,
+     293
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/binder.py",
+     "cleanse"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/binder.py",
+     293,
+     293,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/binder.py",
+     291,
+     291,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypy/binder.py:289",
+   "stratum": "U-method"
+  },
+  "callees:mypy/build.py:4053": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypy/build.py",
+     "dispatch"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/build.py",
+     4059,
+     4059
+    ],
+    [
+     "mypy/build.py",
+     4074,
+     4074
+    ],
+    [
+     "mypy/build.py",
+     4085,
+     4085
+    ],
+    [
+     "mypy/build.py",
+     4082,
+     4082
+    ],
+    [
+     "mypy/build.py",
+     4121,
+     4121
+    ],
+    [
+     "mypy/build.py",
+     4139,
+     4139
+    ],
+    [
+     "mypy/build.py",
+     4083,
+     4083
+    ],
+    [
+     "mypy/build.py",
+     4110,
+     4110
+    ],
+    [
+     "mypy/build.py",
+     4131,
+     4131
+    ],
+    [
+     "mypy/build.py",
+     4133,
+     4133
+    ],
+    [
+     "mypy/build.py",
+     4101,
+     4101
+    ],
+    [
+     "mypy/build.py",
+     4124,
+     4124
+    ],
+    [
+     "mypy/build.py",
+     4112,
+     4112
+    ],
+    [
+     "mypy/build.py",
+     4123,
+     4123
+    ],
+    [
+     "mypy/build.py",
+     4134,
+     4134
+    ],
+    [
+     "mypy/build.py",
+     4146,
+     4146
+    ],
+    [
+     "mypy/build.py",
+     4148,
+     4148
+    ],
+    [
+     "mypy/build.py",
+     4155,
+     4155
+    ],
+    [
+     "mypy/build.py",
+     4157,
+     4157
+    ],
+    [
+     "mypy/build.py",
+     4158,
+     4158
+    ],
+    [
+     "mypy/build.py",
+     4164,
+     4164
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/build.py",
+     "dispatch"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/build.py",
+     4082,
+     4082,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4121,
+     4121,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4139,
+     4139,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4083,
+     4083,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4110,
+     4110,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4131,
+     4131,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4133,
+     4133,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4101,
+     4101,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4124,
+     4124,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4158,
+     4158,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4157,
+     4157,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4148,
+     4148,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4123,
+     4123,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4059,
+     4059,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4134,
+     4134,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4112,
+     4112,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4074,
+     4074,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4085,
+     4085,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4146,
+     4146,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4164,
+     4164,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4082,
+     4082,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4082,
+     4082,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4102,
+     4102,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4105,
+     4105,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4110,
+     4110,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4108,
+     4108,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4143,
+     4143,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4127,
+     4127,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/build.py",
+     4127,
+     4127,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/build.py",
+     4103,
+     4103,
+     {
+      "resolution_kind": "property_access",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/build.py",
+     4103,
+     4103,
+     {
+      "resolution_kind": "property_access",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/build.py",
+     4142,
+     4142,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/build.py",
+     4145,
+     4145,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/build.py",
+     4103,
+     4103,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/build.py",
+     4142,
+     4142,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/build.py",
+     4145,
+     4145,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/build.py",
+     4103,
+     4103,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/build.py",
+     4142,
+     4142,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/build.py",
+     4145,
+     4145,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/build.py",
+     4103,
+     4103,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/build.py",
+     4103,
+     4103,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/build.py",
+     4103,
+     4103,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/build.py",
+     4103,
+     4103,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/build.py",
+     4103,
+     4103,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/build.py",
+     4103,
+     4103,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypy/build.py:4053",
+   "stratum": "Q-scoped"
+  },
+  "callees:mypy/checkstrformat.py:945": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypy/checkstrformat.py",
+     "check_expr"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/checkstrformat.py",
+     946,
+     946
+    ],
+    [
+     "mypy/checkstrformat.py",
+     947,
+     947
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/checkstrformat.py",
+     "check_expr"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/checkstrformat.py",
+     947,
+     947,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/checkstrformat.py",
+     947,
+     947,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/checkstrformat.py",
+     947,
+     947,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypy/checkstrformat.py:945",
+   "stratum": "C-name"
+  },
+  "callees:mypy/config_parser.py:387": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypy/config_parser.py",
+     "get_prefix"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/config_parser.py",
+     388,
+     388
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/config_parser.py",
+     "get_prefix"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/config_parser.py",
+     388,
+     388,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/config_parser.py",
+     389,
+     389,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/config_parser.py",
+     389,
+     389,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/config_parser.py",
+     389,
+     389,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/config_parser.py",
+     389,
+     389,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypy/config_parser.py:387",
+   "stratum": "C-name"
+  },
+  "callees:mypy/dmypy_util.py:115": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypy/dmypy_util.py",
+     "writelines"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/dmypy_util.py",
+     117,
+     117
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/dmypy_util.py",
+     "writelines"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/dmypy_util.py",
+     117,
+     117,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypy/dmypy_util.py:115",
+   "stratum": "U-method"
+  },
+  "callees:mypy/fastparse.py:1795": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypy/fastparse.py",
+     "visit_MatchMapping"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/fastparse.py",
+     1796,
+     1796
+    ],
+    [
+     "mypy/fastparse.py",
+     1797,
+     1797
+    ],
+    [
+     "mypy/fastparse.py",
+     1802,
+     1802
+    ],
+    [
+     "mypy/fastparse.py",
+     1805,
+     1805
+    ],
+    [
+     "mypy/fastparse.py",
+     1802,
+     1802
+    ],
+    [
+     "mypy/fastparse.py",
+     1804,
+     1804
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/fastparse.py",
+     "visit_MatchMapping"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/fastparse.py",
+     1796,
+     1796,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/fastparse.py",
+     1797,
+     1797,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/fastparse.py",
+     1802,
+     1802,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/fastparse.py",
+     1805,
+     1805,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypy/fastparse.py:1795",
+   "stratum": "U-method"
+  },
+  "callees:mypy/inspections.py:614": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/inspections.py",
+     "parse_location"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/inspections.py",
+     617,
+     617,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/inspections.py",
+     615,
+     615,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/inspections.py",
+     622,
+     622,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/inspections.py",
+     620,
+     620,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/inspections.py",
+     624,
+     624,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/inspections.py",
+     620,
+     620,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/inspections.py",
+     624,
+     624,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypy/inspections.py:614",
+   "stratum": "Q-scoped"
+  },
+  "callees:mypy/nodes.py:1732": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypy/nodes.py",
+     "serialize"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/nodes.py",
+     1738,
+     1738
+    ],
+    [
+     "mypy/nodes.py",
+     1738,
+     1738
+    ],
+    [
+     "mypy/nodes.py",
+     1739,
+     1739
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/nodes.py",
+     "serialize"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/nodes.py",
+     1738,
+     1738,
+     {
+      "resolution_kind": "property_access",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypy/nodes.py:1732",
+   "stratum": "C-method"
+  },
+  "callees:mypy/partially_defined.py:276": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypy/partially_defined.py",
+     "is_possibly_undefined"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/partially_defined.py",
+     277,
+     277
+    ],
+    [
+     "mypy/partially_defined.py",
+     279,
+     279
+    ],
+    [
+     "mypy/partially_defined.py",
+     279,
+     279
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/partially_defined.py",
+     "is_possibly_undefined"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/partially_defined.py",
+     277,
+     277,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/partially_defined.py",
+     279,
+     279,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/partially_defined.py",
+     277,
+     277,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/partially_defined.py",
+     279,
+     279,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/partially_defined.py",
+     279,
+     279,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypy/partially_defined.py:276",
+   "stratum": "C-method"
+  },
+  "callees:mypy/plugins/dataclasses.py:430": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypy/plugins/dataclasses.py",
+     "_add_internal_post_init_method"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/plugins/dataclasses.py",
+     431,
+     431
+    ],
+    [
+     "mypy/plugins/dataclasses.py",
+     436,
+     436
+    ],
+    [
+     "mypy/plugins/dataclasses.py",
+     440,
+     440
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/plugins/dataclasses.py",
+     "_add_internal_post_init_method"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/plugins/dataclasses.py",
+     431,
+     431,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/plugins/dataclasses.py",
+     436,
+     436,
+     {
+      "resolution_kind": "property_access",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/plugins/dataclasses.py",
+     436,
+     436,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypy/plugins/dataclasses.py:430",
+   "stratum": "U-method"
+  },
+  "callees:mypy/semanal.py:893": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/semanal.py",
+     "adjust_public_exports"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "mypy/semanal.py:893",
+   "stratum": "U-method"
+  },
+  "callees:mypy/stats.py:475": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypy/stats.py",
+     "is_generic"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/stats.py",
+     476,
+     476
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/stats.py",
+     "is_generic"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/stats.py",
+     477,
+     477,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/stats.py",
+     476,
+     476,
+     {
+      "resolution_kind": "import_member",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/stats.py",
+     476,
+     476,
+     {
+      "resolution_kind": "import_member",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/stats.py",
+     476,
+     476,
+     {
+      "resolution_kind": "import_member",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/stats.py",
+     477,
+     477,
+     {
+      "resolution_kind": "property_access",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypy/stats.py:475",
+   "stratum": "C-name"
+  },
+  "callees:mypy/strconv.py:246": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypy/strconv.py",
+     "visit_operator_assignment_stmt"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/strconv.py",
+     247,
+     247
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/strconv.py",
+     "visit_operator_assignment_stmt"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/strconv.py",
+     247,
+     247,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypy/strconv.py:246",
+   "stratum": "C-method"
+  },
+  "callees:mypy/stubgen.py:1154": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypy/stubgen.py",
+     "annotate_as_incomplete"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/stubgen.py",
+     1155,
+     1155
+    ],
+    [
+     "mypy/stubgen.py",
+     1156,
+     1156
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/stubgen.py",
+     "annotate_as_incomplete"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "mypy/stubgen.py:1154",
+   "stratum": "U-method"
+  },
+  "callees:mypy/treetransform.py:164": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypy/treetransform.py",
+     "visit_import_all"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/treetransform.py",
+     165,
+     165
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/treetransform.py",
+     "visit_import_all"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/treetransform.py",
+     165,
+     165,
+     {
+      "resolution_kind": "property_access",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/treetransform.py",
+     165,
+     165,
+     {
+      "resolution_kind": "property_access",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypy/treetransform.py:164",
+   "stratum": "C-method"
+  },
+  "callees:mypy/types.py:4267": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypy/types.py",
+     "flatten_nested_unions"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/types.py",
+     4283,
+     4283
+    ],
+    [
+     "mypy/types.py",
+     4286,
+     4286
+    ],
+    [
+     "mypy/types.py",
+     4286,
+     4286
+    ],
+    [
+     "mypy/types.py",
+     4286,
+     4286
+    ],
+    [
+     "mypy/types.py",
+     4291,
+     4291
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/types.py",
+     "flatten_nested_unions"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/types.py",
+     4286,
+     4286,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/types.py",
+     4286,
+     4286,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/types.py",
+     4286,
+     4286,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/types.py",
+     4291,
+     4291,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/types.py",
+     4277,
+     4277,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/types.py",
+     4271,
+     4271,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/types.py",
+     4277,
+     4277,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/types.py",
+     4282,
+     4282,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/types.py",
+     4289,
+     4289,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/types.py",
+     4289,
+     4289,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/types.py",
+     4283,
+     4283,
+     {
+      "resolution_kind": "property_access",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/types.py",
+     4292,
+     4292,
+     {
+      "resolution_kind": "property_access",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/types.py",
+     4292,
+     4292,
+     {
+      "resolution_kind": "property_access",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/types.py",
+     4292,
+     4292,
+     {
+      "resolution_kind": "property_access",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/types.py",
+     4299,
+     4299,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/types.py",
+     4290,
+     4290,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypy/types.py:4267",
+   "stratum": "C-name"
+  },
+  "callees:mypy/util.py:102": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/util.py",
+     "split_target"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/util.py",
+     107,
+     107,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/util.py",
+     108,
+     108,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/util.py",
+     106,
+     106,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/util.py",
+     106,
+     106,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/util.py",
+     106,
+     106,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/util.py",
+     111,
+     111,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypy/util.py:102",
+   "stratum": "Q-scoped"
+  },
+  "callees:mypy/util.py:976": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/util.py",
+     "get_available_threads"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/util.py",
+     1009,
+     1009,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/util.py",
+     992,
+     992,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/util.py",
+     1009,
+     1009,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypy/util.py:976",
+   "stratum": "Q-scoped"
+  },
+  "callees:mypyc/codegen/emitclass.py:574": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypyc/codegen/emitclass.py",
+     "generate_vtable"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypyc/codegen/emitclass.py",
+     581,
+     581
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     583,
+     583
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     585,
+     585
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     590,
+     590
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     594,
+     594
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     604,
+     604
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     605,
+     605
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     606,
+     606
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     587,
+     587
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     596,
+     596
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     598,
+     598
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypyc/codegen/emitclass.py",
+     "generate_vtable"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypyc/codegen/emitclass.py",
+     586,
+     586,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     595,
+     595,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     606,
+     606,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     581,
+     581,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     583,
+     583,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     585,
+     585,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     590,
+     590,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     594,
+     594,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     604,
+     604,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     605,
+     605,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     606,
+     606,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     596,
+     596,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     587,
+     587,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     581,
+     581,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     583,
+     583,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     585,
+     585,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     590,
+     590,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     594,
+     594,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     604,
+     604,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     605,
+     605,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     606,
+     606,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     598,
+     598,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     598,
+     598,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     586,
+     586,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     595,
+     595,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     606,
+     606,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     586,
+     586,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     595,
+     595,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     606,
+     606,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypyc/codegen/emitclass.py:574",
+   "stratum": "Q-scoped"
+  },
+  "callees:mypyc/ir/class_ir.py:528": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypyc/ir/class_ir.py",
+     "deserialize_vtable_entry"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypyc/ir/class_ir.py",
+     530,
+     530
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypyc/ir/class_ir.py",
+     "deserialize_vtable_entry"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "mypyc/ir/class_ir.py:528",
+   "stratum": "Q-scoped"
+  },
+  "callees:mypyc/irbuild/expression.py:1269": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypyc/irbuild/expression.py",
+     "transform_dict_expr"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypyc/irbuild/expression.py",
+     1273,
+     1273
+    ],
+    [
+     "mypyc/irbuild/expression.py",
+     1274,
+     1274
+    ],
+    [
+     "mypyc/irbuild/expression.py",
+     1273,
+     1273
+    ],
+    [
+     "mypyc/irbuild/expression.py",
+     1274,
+     1274
+    ],
+    [
+     "mypyc/irbuild/expression.py",
+     1273,
+     1273
+    ],
+    [
+     "mypyc/irbuild/expression.py",
+     1274,
+     1274
+    ],
+    [
+     "mypyc/irbuild/expression.py",
+     1277,
+     1277
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypyc/irbuild/expression.py",
+     "transform_dict_expr"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypyc/irbuild/expression.py",
+     1272,
+     1272,
+     {
+      "resolution_kind": "property_access",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/irbuild/expression.py",
+     1272,
+     1272,
+     {
+      "resolution_kind": "property_access",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/irbuild/expression.py",
+     1272,
+     1272,
+     {
+      "resolution_kind": "property_access",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/irbuild/expression.py",
+     1277,
+     1277,
+     {
+      "resolution_kind": "property_access",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/irbuild/expression.py",
+     1277,
+     1277,
+     {
+      "resolution_kind": "property_access",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/irbuild/expression.py",
+     1277,
+     1277,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/irbuild/expression.py",
+     1275,
+     1275,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypyc/irbuild/expression.py:1269",
+   "stratum": "Q-scoped"
+  },
+  "callees:mypyc/irbuild/expression.py:591": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypyc/irbuild/expression.py",
+     "_get_vec_capacity"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypyc/irbuild/expression.py",
+     595,
+     595
+    ],
+    [
+     "mypyc/irbuild/expression.py",
+     595,
+     595
+    ],
+    [
+     "mypyc/irbuild/expression.py",
+     595,
+     595
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypyc/irbuild/expression.py",
+     "_get_vec_capacity"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypyc/irbuild/expression.py",
+     593,
+     593,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypyc/irbuild/expression.py",
+     595,
+     595,
+     {
+      "resolution_kind": "property_access",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/irbuild/expression.py",
+     593,
+     593,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/irbuild/expression.py",
+     593,
+     593,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypyc/irbuild/expression.py:591",
+   "stratum": "Q-scoped"
+  },
+  "callees:mypyc/irbuild/for_helpers.py:305": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypyc/irbuild/for_helpers.py",
+     "set_item"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypyc/irbuild/for_helpers.py",
+     306,
+     306
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypyc/irbuild/for_helpers.py",
+     "set_item"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypyc/irbuild/for_helpers.py",
+     306,
+     306,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/irbuild/for_helpers.py",
+     306,
+     306,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypyc/irbuild/for_helpers.py:305",
+   "stratum": "C-name"
+  },
+  "callees:mypyc/irbuild/ll_builder.py:319": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "mypyc/irbuild/ll_builder.py",
+     "load_mem"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypyc/irbuild/ll_builder.py",
+     320,
+     320
+    ],
+    [
+     "mypyc/irbuild/ll_builder.py",
+     320,
+     320
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypyc/irbuild/ll_builder.py",
+     "load_mem"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypyc/irbuild/ll_builder.py",
+     320,
+     320,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypyc/irbuild/ll_builder.py:319",
+   "stratum": "U-method"
+  },
+  "callees:runtests.py:139": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "runtests.py",
+     "wait_background_cmd"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "runtests.py",
+     142,
+     142,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "runtests.py",
+     144,
+     144,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "runtests.py",
+     145,
+     145,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "runtests.py",
+     147,
+     147,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "runtests.py",
+     144,
+     144,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "runtests.py",
+     144,
+     144,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "runtests.py",
+     144,
+     144,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "runtests.py:139",
+   "stratum": "U-free"
+  },
+  "callers:misc/cherry-pick-typeshed.py:18": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "misc/cherry-pick-typeshed.py",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "misc/cherry-pick-typeshed.py",
+     62,
+     62
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/cherry-pick-typeshed.py",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "misc/cherry-pick-typeshed.py",
+     62,
+     62,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "misc/cherry-pick-typeshed.py:18",
+   "stratum": "U-free"
+  },
+  "callers:misc/diff-cache.py:101": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "misc/diff-cache.py",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "misc/diff-cache.py",
+     180,
+     180
+    ],
+    [
+     "misc/diff-cache.py",
+     182,
+     182
+    ],
+    [
+     "misc/diff-cache.py",
+     221,
+     221
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/diff-cache.py",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "misc/diff-cache.py",
+     180,
+     180,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     182,
+     182,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     221,
+     221,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "misc/diff-cache.py:101",
+   "stratum": "U-free"
+  },
+  "callers:misc/diff-cache.py:143": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "misc/diff-cache.py",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "misc/diff-cache.py",
+     195,
+     195
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/diff-cache.py",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "misc/diff-cache.py",
+     195,
+     195,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "misc/diff-cache.py:143",
+   "stratum": "U-free"
+  },
+  "callers:misc/diff-cache.py:154": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "misc/diff-cache.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "misc/diff-cache.py",
+     246,
+     246
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/api.py",
+     "f"
+    ],
+    [
+     "mypy/api.py",
+     "run"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/api.py",
+     73,
+     73,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/api.py",
+     90,
+     90,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/api.py",
+     90,
+     90,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "misc/diff-cache.py:154",
+   "stratum": "C-name"
+  },
+  "callers:misc/diff-cache.py:27": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "misc/diff-cache.py",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "misc/diff-cache.py",
+     166,
+     166
+    ],
+    [
+     "misc/diff-cache.py",
+     167,
+     167
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/diff-cache.py",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "misc/diff-cache.py",
+     166,
+     166,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/diff-cache.py",
+     167,
+     167,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "misc/diff-cache.py:27",
+   "stratum": "C-name"
+  },
+  "callers:misc/gen_blog_post_html.py:160": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "misc/gen_blog_post_html.py",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "misc/gen_blog_post_html.py",
+     187,
+     187
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/gen_blog_post_html.py",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "misc/gen_blog_post_html.py",
+     187,
+     187,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "misc/gen_blog_post_html.py:160",
+   "stratum": "U-free"
+  },
+  "callers:misc/generate_changelog.py:126": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "misc/generate_changelog.py",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "misc/generate_changelog.py",
+     202,
+     202
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/generate_changelog.py",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "misc/generate_changelog.py",
+     202,
+     202,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "misc/generate_changelog.py:126",
+   "stratum": "U-free"
+  },
+  "callers:misc/incremental_checker.py:180": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "misc/incremental_checker.py",
+     "test_repo"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "misc/incremental_checker.py",
+     374,
+     374
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/incremental_checker.py",
+     "test_repo"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "misc/incremental_checker.py",
+     374,
+     374,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "misc/incremental_checker.py:180",
+   "stratum": "U-free"
+  },
+  "callers:misc/perf_checker.py:20": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "misc/perf_checker.py",
+     "execute"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "misc/perf_checker.py",
+     42,
+     42
+    ],
+    [
+     "misc/perf_checker.py",
+     44,
+     44
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/perf_checker.py",
+     "execute"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "misc/perf_checker.py",
+     42,
+     42,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/perf_checker.py",
+     44,
+     44,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "misc/perf_checker.py:20",
+   "stratum": "C-name"
+  },
+  "callers:misc/perf_compare.py:40": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "misc/log_trace_check.py",
+     "main"
+    ],
+    [
+     "misc/profile_check.py",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "misc/log_trace_check.py",
+     74,
+     74
+    ],
+    [
+     "misc/profile_check.py",
+     131,
+     131
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "misc/log_trace_check.py",
+     "main"
+    ],
+    [
+     "misc/profile_check.py",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "misc/log_trace_check.py",
+     74,
+     74,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "misc/profile_check.py",
+     131,
+     131,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "misc/perf_compare.py:40",
+   "stratum": "U-free"
+  },
+  "callers:mypy/binder.py:289": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypy/checker.py",
+     "visit_try_without_finally"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/checker.py",
+     5535,
+     5535
+    ],
+    [
+     "mypy/checker.py",
+     5535,
+     5535
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/checker.py",
+     "visit_try_without_finally"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/checker.py",
+     5535,
+     5535,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypy/binder.py:289",
+   "stratum": "U-method"
+  },
+  "callers:mypy/build.py:4053": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypy/build.py",
+     "build_inner"
+    ],
+    [
+     "mypy/build.py",
+     "dispatch"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/build.py",
+     537,
+     537
+    ],
+    [
+     "mypy/build.py",
+     4134,
+     4134
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/build.py",
+     "build_inner"
+    ],
+    [
+     "mypy/build.py",
+     "dispatch"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/build.py",
+     537,
+     537,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/build.py",
+     4134,
+     4134,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypy/build.py:4053",
+   "stratum": "Q-scoped"
+  },
+  "callers:mypy/checker_shared.py:269": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypy/checkpattern.py",
+     "visit_sequence_pattern"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/checkpattern.py",
+     320,
+     320
+    ],
+    [
+     "mypy/checkpattern.py",
+     320,
+     320
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/checkexpr.py",
+     "visit_op_expr"
+    ],
+    [
+     "mypy/checkexpr.py",
+     "visit_tuple_expr"
+    ],
+    [
+     "mypy/checkexpr.py",
+     "visit_yield_from_expr"
+    ],
+    [
+     "mypy/checkpattern.py",
+     "visit_sequence_pattern"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/checkexpr.py",
+     3635,
+     3635,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/checkexpr.py",
+     5397,
+     5397,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/checkexpr.py",
+     6393,
+     6393,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/checkpattern.py",
+     320,
+     320,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypy/checker_shared.py:269",
+   "stratum": "C-method"
+  },
+  "callers:mypy/config_parser.py:387": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypy/config_parser.py",
+     "parse_config_file"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/config_parser.py",
+     345,
+     345
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/config_parser.py",
+     "parse_config_file"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/config_parser.py",
+     345,
+     345,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypy/config_parser.py:387",
+   "stratum": "C-name"
+  },
+  "callers:mypy/inspections.py:614": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypy/inspections.py",
+     "run_inspection"
+    ],
+    [
+     "mypy/test/testutil.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/inspections.py",
+     570,
+     570
+    ],
+    [
+     "mypy/test/testutil.py",
+     21,
+     21
+    ],
+    [
+     "mypy/test/testutil.py",
+     22,
+     22
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/inspections.py",
+     "run_inspection"
+    ],
+    [
+     "mypy/test/testutil.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/inspections.py",
+     570,
+     570,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/test/testutil.py",
+     21,
+     21,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/test/testutil.py",
+     22,
+     22,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypy/inspections.py:614",
+   "stratum": "Q-scoped"
+  },
+  "callers:mypy/nodes.py:1732": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypy/nodes.py",
+     "serialize"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/nodes.py",
+     4220,
+     4220
+    ],
+    [
+     "mypy/nodes.py",
+     4220,
+     4220
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "mypy/nodes.py:1732",
+   "stratum": "C-method"
+  },
+  "callers:mypy/nodes.py:299": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypy/nodes.py",
+     "serialize"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/nodes.py",
+     5018,
+     5018
+    ],
+    [
+     "mypy/nodes.py",
+     5018,
+     5018
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "mypy/nodes.py:299",
+   "stratum": "C-method"
+  },
+  "callers:mypy/partially_defined.py:276": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypy/partially_defined.py",
+     "visit_name_expr"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/partially_defined.py",
+     643,
+     643
+    ],
+    [
+     "mypy/partially_defined.py",
+     643,
+     643
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/partially_defined.py",
+     "is_possibly_undefined"
+    ],
+    [
+     "mypy/partially_defined.py",
+     "visit_name_expr"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/partially_defined.py",
+     279,
+     279,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypy/partially_defined.py",
+     643,
+     643,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypy/partially_defined.py:276",
+   "stratum": "C-method"
+  },
+  "callers:mypy/plugins/dataclasses.py:430": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypy/plugins/dataclasses.py",
+     "transform"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/plugins/dataclasses.py",
+     392,
+     392
+    ],
+    [
+     "mypy/plugins/dataclasses.py",
+     392,
+     392
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/plugins/dataclasses.py",
+     "transform"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/plugins/dataclasses.py",
+     392,
+     392,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypy/plugins/dataclasses.py:430",
+   "stratum": "U-method"
+  },
+  "callers:mypy/semanal.py:893": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypy/semanal.py",
+     "refresh_top_level"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/semanal.py",
+     738,
+     738
+    ],
+    [
+     "mypy/semanal.py",
+     738,
+     738
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/semanal.py",
+     "refresh_top_level"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/semanal.py",
+     738,
+     738,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypy/semanal.py:893",
+   "stratum": "U-method"
+  },
+  "callers:mypy/stats.py:475": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypy/stats.py",
+     "is_complex"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/stats.py",
+     482,
+     482
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/stats.py",
+     "is_complex"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/stats.py",
+     482,
+     482,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypy/stats.py:475",
+   "stratum": "C-name"
+  },
+  "callers:mypy/stubgen.py:1154": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypy/stubgen.py",
+     "process_namedtuple"
+    ],
+    [
+     "mypy/stubgen.py",
+     "process_typeddict"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/stubgen.py",
+     1066,
+     1066
+    ],
+    [
+     "mypy/stubgen.py",
+     1066,
+     1066
+    ],
+    [
+     "mypy/stubgen.py",
+     1071,
+     1071
+    ],
+    [
+     "mypy/stubgen.py",
+     1071,
+     1071
+    ],
+    [
+     "mypy/stubgen.py",
+     1095,
+     1095
+    ],
+    [
+     "mypy/stubgen.py",
+     1095,
+     1095
+    ],
+    [
+     "mypy/stubgen.py",
+     1098,
+     1098
+    ],
+    [
+     "mypy/stubgen.py",
+     1098,
+     1098
+    ],
+    [
+     "mypy/stubgen.py",
+     1106,
+     1106
+    ],
+    [
+     "mypy/stubgen.py",
+     1106,
+     1106
+    ],
+    [
+     "mypy/stubgen.py",
+     1110,
+     1110
+    ],
+    [
+     "mypy/stubgen.py",
+     1110,
+     1110
+    ],
+    [
+     "mypy/stubgen.py",
+     1119,
+     1119
+    ],
+    [
+     "mypy/stubgen.py",
+     1119,
+     1119
+    ],
+    [
+     "mypy/stubgen.py",
+     1124,
+     1124
+    ],
+    [
+     "mypy/stubgen.py",
+     1124,
+     1124
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/stubgen.py",
+     "process_namedtuple"
+    ],
+    [
+     "mypy/stubgen.py",
+     "process_typeddict"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/stubgen.py",
+     1066,
+     1066,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/stubgen.py",
+     1071,
+     1071,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/stubgen.py",
+     1095,
+     1095,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/stubgen.py",
+     1098,
+     1098,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/stubgen.py",
+     1106,
+     1106,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/stubgen.py",
+     1110,
+     1110,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/stubgen.py",
+     1119,
+     1119,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/stubgen.py",
+     1124,
+     1124,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypy/stubgen.py:1154",
+   "stratum": "U-method"
+  },
+  "callers:mypy/stubutil.py:719": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypy/stubgen.py",
+     "visit_class_def"
+    ],
+    [
+     "mypy/stubgenc.py",
+     "generate_class_stub"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/stubgen.py",
+     858,
+     858
+    ],
+    [
+     "mypy/stubgen.py",
+     858,
+     858
+    ],
+    [
+     "mypy/stubgenc.py",
+     825,
+     825
+    ],
+    [
+     "mypy/stubgenc.py",
+     825,
+     825
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypyc/codegen/emitfunc.py",
+     "generate_native_function"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypyc/codegen/emitfunc.py",
+     133,
+     133,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypy/stubutil.py:719",
+   "stratum": "C-method"
+  },
+  "callers:mypy/types.py:4267": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypy/binder.py",
+     "assign_type"
+    ],
+    [
+     "mypy/checker.py",
+     "check_overlapping_op_methods"
+    ],
+    [
+     "mypy/checker.py",
+     "refine_parent_types"
+    ],
+    [
+     "mypy/checkexpr.py",
+     "check_op"
+    ],
+    [
+     "mypy/checkexpr.py",
+     "check_union_call_expr"
+    ],
+    [
+     "mypy/expandtype.py",
+     "visit_union_type"
+    ],
+    [
+     "mypy/messages.py",
+     "append_union_note"
+    ],
+    [
+     "mypy/plugins/ctypes.py",
+     "_autoconvertible_to_cdata"
+    ],
+    [
+     "mypy/plugins/ctypes.py",
+     "array_raw_callback"
+    ],
+    [
+     "mypy/plugins/ctypes.py",
+     "array_value_callback"
+    ],
+    [
+     "mypy/subtypes.py",
+     "_is_subtype"
+    ],
+    [
+     "mypy/typeops.py",
+     "make_simplified_union"
+    ],
+    [
+     "mypy/typeops.py",
+     "try_expanding_sum_type_to_union"
+    ],
+    [
+     "mypy/types.py",
+     "__init__"
+    ],
+    [
+     "mypy/types.py",
+     "flatten_nested_unions"
+    ],
+    [
+     "mypy/types_utils.py",
+     "get_bad_type_type_item"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/binder.py",
+     511,
+     511
+    ],
+    [
+     "mypy/checker.py",
+     2089,
+     2089
+    ],
+    [
+     "mypy/checker.py",
+     7367,
+     7367
+    ],
+    [
+     "mypy/checkexpr.py",
+     1521,
+     1521
+    ],
+    [
+     "mypy/checkexpr.py",
+     4322,
+     4322
+    ],
+    [
+     "mypy/checkexpr.py",
+     4365,
+     4365
+    ],
+    [
+     "mypy/expandtype.py",
+     581,
+     581
+    ],
+    [
+     "mypy/messages.py",
+     3446,
+     3446
+    ],
+    [
+     "mypy/subtypes.py",
+     342,
+     342
+    ],
+    [
+     "mypy/typeops.py",
+     638,
+     638
+    ],
+    [
+     "mypy/typeops.py",
+     1102,
+     1102
+    ],
+    [
+     "mypy/types.py",
+     3445,
+     3445
+    ],
+    [
+     "mypy/types.py",
+     4291,
+     4291
+    ],
+    [
+     "mypy/types_utils.py",
+     99,
+     99
+    ],
+    [
+     "mypy/plugins/ctypes.py",
+     57,
+     57
+    ],
+    [
+     "mypy/plugins/ctypes.py",
+     205,
+     205
+    ],
+    [
+     "mypy/plugins/ctypes.py",
+     230,
+     230
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/binder.py",
+     "assign_type"
+    ],
+    [
+     "mypy/checker.py",
+     "check_overlapping_op_methods"
+    ],
+    [
+     "mypy/checker.py",
+     "refine_parent_types"
+    ],
+    [
+     "mypy/checkexpr.py",
+     "check_op"
+    ],
+    [
+     "mypy/checkexpr.py",
+     "check_union_call_expr"
+    ],
+    [
+     "mypy/expandtype.py",
+     "visit_union_type"
+    ],
+    [
+     "mypy/messages.py",
+     "append_union_note"
+    ],
+    [
+     "mypy/plugins/ctypes.py",
+     "_autoconvertible_to_cdata"
+    ],
+    [
+     "mypy/plugins/ctypes.py",
+     "array_raw_callback"
+    ],
+    [
+     "mypy/plugins/ctypes.py",
+     "array_value_callback"
+    ],
+    [
+     "mypy/subtypes.py",
+     "_is_subtype"
+    ],
+    [
+     "mypy/typeops.py",
+     "make_simplified_union"
+    ],
+    [
+     "mypy/typeops.py",
+     "try_expanding_sum_type_to_union"
+    ],
+    [
+     "mypy/types.py",
+     "__init__"
+    ],
+    [
+     "mypy/types.py",
+     "flatten_nested_unions"
+    ],
+    [
+     "mypy/types_utils.py",
+     "get_bad_type_type_item"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/binder.py",
+     511,
+     511,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/checker.py",
+     2089,
+     2089,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/checker.py",
+     7367,
+     7367,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/checkexpr.py",
+     1521,
+     1521,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/checkexpr.py",
+     4322,
+     4322,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/checkexpr.py",
+     4365,
+     4365,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/expandtype.py",
+     581,
+     581,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/messages.py",
+     3446,
+     3446,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/plugins/ctypes.py",
+     57,
+     57,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/plugins/ctypes.py",
+     205,
+     205,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/plugins/ctypes.py",
+     230,
+     230,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/subtypes.py",
+     342,
+     342,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/typeops.py",
+     638,
+     638,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/typeops.py",
+     1102,
+     1102,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/types.py",
+     3445,
+     3445,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/types.py",
+     4291,
+     4291,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/types_utils.py",
+     99,
+     99,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypy/types.py:4267",
+   "stratum": "C-name"
+  },
+  "callers:mypy/util.py:102": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypy/server/update.py",
+     "_lookup_target_impl"
+    ],
+    [
+     "mypy/suggestions.py",
+     "find_node"
+    ],
+    [
+     "mypy/suggestions.py",
+     "visit_instance"
+    ],
+    [
+     "mypy/util.py",
+     "module_prefix"
+    ],
+    [
+     "mypyc/irbuild/builder.py",
+     "load_final_static"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/suggestions.py",
+     570,
+     570
+    ],
+    [
+     "mypy/suggestions.py",
+     851,
+     851
+    ],
+    [
+     "mypy/util.py",
+     96,
+     96
+    ],
+    [
+     "mypy/server/update.py",
+     1132,
+     1132
+    ],
+    [
+     "mypyc/irbuild/builder.py",
+     658,
+     658
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/server/update.py",
+     "_lookup_target_impl"
+    ],
+    [
+     "mypy/suggestions.py",
+     "find_node"
+    ],
+    [
+     "mypy/suggestions.py",
+     "visit_instance"
+    ],
+    [
+     "mypy/util.py",
+     "module_prefix"
+    ],
+    [
+     "mypyc/irbuild/builder.py",
+     "load_final_static"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/server/update.py",
+     1132,
+     1132,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/suggestions.py",
+     570,
+     570,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/suggestions.py",
+     851,
+     851,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypy/util.py",
+     96,
+     96,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypyc/irbuild/builder.py",
+     658,
+     658,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypy/util.py:102",
+   "stratum": "Q-scoped"
+  },
+  "callers:mypy/util.py:976": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypy/build.py",
+     "parse_files_threaded_raw"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypy/build.py",
+     1113,
+     1113
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypy/build.py",
+     "parse_files_threaded_raw"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypy/build.py",
+     1113,
+     1113,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypy/util.py:976",
+   "stratum": "Q-scoped"
+  },
+  "callers:mypyc/codegen/emitclass.py:574": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypyc/codegen/emitclass.py",
+     "generate_vtables"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypyc/codegen/emitclass.py",
+     546,
+     546
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     550,
+     550
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypyc/codegen/emitclass.py",
+     "generate_vtables"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypyc/codegen/emitclass.py",
+     546,
+     546,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypyc/codegen/emitclass.py",
+     550,
+     550,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypyc/codegen/emitclass.py:574",
+   "stratum": "Q-scoped"
+  },
+  "callers:mypyc/ir/class_ir.py:528": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypyc/ir/class_ir.py",
+     "deserialize_vtable"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypyc/ir/class_ir.py",
+     540,
+     540
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypyc/ir/class_ir.py",
+     "deserialize_vtable"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypyc/ir/class_ir.py",
+     540,
+     540,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypyc/ir/class_ir.py:528",
+   "stratum": "Q-scoped"
+  },
+  "callers:mypyc/irbuild/expression.py:1269": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypyc/irbuild/visitor.py",
+     "visit_dict_expr"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypyc/irbuild/visitor.py",
+     313,
+     313
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypyc/irbuild/visitor.py",
+     "visit_dict_expr"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypyc/irbuild/visitor.py",
+     313,
+     313,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypyc/irbuild/expression.py:1269",
+   "stratum": "Q-scoped"
+  },
+  "callers:mypyc/irbuild/expression.py:591": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypyc/irbuild/expression.py",
+     "transform_call_expr"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypyc/irbuild/expression.py",
+     387,
+     387
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypyc/irbuild/expression.py",
+     "transform_call_expr"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypyc/irbuild/expression.py",
+     387,
+     387,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "mypyc/irbuild/expression.py:591",
+   "stratum": "Q-scoped"
+  },
+  "callers:mypyc/irbuild/ll_builder.py:319": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "mypyc/irbuild/ll_builder.py",
+     "builtin_len"
+    ],
+    [
+     "mypyc/irbuild/ll_builder.py",
+     "get_type_of_obj"
+    ],
+    [
+     "mypyc/irbuild/ll_builder.py",
+     "load_struct_field"
+    ],
+    [
+     "mypyc/irbuild/vec.py",
+     "vec_load_mem_item"
+    ],
+    [
+     "mypyc/lower/list_ops.py",
+     "list_get_item_unsafe"
+    ],
+    [
+     "mypyc/lower/list_ops.py",
+     "list_items"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "mypyc/irbuild/ll_builder.py",
+     345,
+     345
+    ],
+    [
+     "mypyc/irbuild/ll_builder.py",
+     345,
+     345
+    ],
+    [
+     "mypyc/irbuild/ll_builder.py",
+     861,
+     861
+    ],
+    [
+     "mypyc/irbuild/ll_builder.py",
+     861,
+     861
+    ],
+    [
+     "mypyc/irbuild/ll_builder.py",
+     2669,
+     2669
+    ],
+    [
+     "mypyc/irbuild/ll_builder.py",
+     2669,
+     2669
+    ],
+    [
+     "mypyc/irbuild/vec.py",
+     271,
+     271
+    ],
+    [
+     "mypyc/irbuild/vec.py",
+     271,
+     271
+    ],
+    [
+     "mypyc/lower/list_ops.py",
+     45,
+     45
+    ],
+    [
+     "mypyc/lower/list_ops.py",
+     45,
+     45
+    ],
+    [
+     "mypyc/lower/list_ops.py",
+     71,
+     71
+    ],
+    [
+     "mypyc/lower/list_ops.py",
+     71,
+     71
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "mypyc/irbuild/ll_builder.py",
+     "builtin_len"
+    ],
+    [
+     "mypyc/irbuild/ll_builder.py",
+     "get_type_of_obj"
+    ],
+    [
+     "mypyc/irbuild/ll_builder.py",
+     "load_struct_field"
+    ],
+    [
+     "mypyc/irbuild/vec.py",
+     "vec_load_mem_item"
+    ],
+    [
+     "mypyc/lower/list_ops.py",
+     "list_get_item_unsafe"
+    ],
+    [
+     "mypyc/lower/list_ops.py",
+     "list_items"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "mypyc/irbuild/ll_builder.py",
+     345,
+     345,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypyc/irbuild/ll_builder.py",
+     861,
+     861,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypyc/irbuild/ll_builder.py",
+     2669,
+     2669,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "mypyc/irbuild/vec.py",
+     271,
+     271,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/lower/list_ops.py",
+     45,
+     45,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "mypyc/lower/list_ops.py",
+     71,
+     71,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "mypyc/irbuild/ll_builder.py:319",
+   "stratum": "U-method"
+  },
+  "callers:runtests.py:139": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "runtests.py",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "runtests.py",
+     183,
+     183
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "runtests.py",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "runtests.py",
+     183,
+     183,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "runtests.py:139",
+   "stratum": "U-free"
+  }
+ },
+ "site_fingerprints": {
+  "misc/cherry-pick-typeshed.py:21": "28c3c53bf9ec8942",
+  "misc/cherry-pick-typeshed.py:62": "25eb37d4805fc951",
+  "misc/diff-cache.py:109": "c9ac5d8f5b40e51b",
+  "misc/diff-cache.py:110": "eec40f4692b99524",
+  "misc/diff-cache.py:113": "3d44d9d78dd7e998",
+  "misc/diff-cache.py:118": "55e6ec4906d9b2fd",
+  "misc/diff-cache.py:119": "3436195cf5d497ea",
+  "misc/diff-cache.py:120": "f99143fac21d0f28",
+  "misc/diff-cache.py:122": "0646816bc206a647",
+  "misc/diff-cache.py:126": "f6aa64777f227ae8",
+  "misc/diff-cache.py:127": "4115638029dcada7",
+  "misc/diff-cache.py:129": "17757731a8924a0d",
+  "misc/diff-cache.py:131": "a44a0f517d7d1bca",
+  "misc/diff-cache.py:133": "d544e0b63e6d5d28",
+  "misc/diff-cache.py:134": "e4aebeca5f3ddcc9",
+  "misc/diff-cache.py:135": "19ce2d49d975752a",
+  "misc/diff-cache.py:136": "e16598e7c1136b77",
+  "misc/diff-cache.py:138": "4ee68ad7eac0f106",
+  "misc/diff-cache.py:139": "0eb698e1a5d93a2a",
+  "misc/diff-cache.py:149": "6c3d95428141eb36",
+  "misc/diff-cache.py:150": "18f0da3b181332d6",
+  "misc/diff-cache.py:151": "998c94decabaabf5",
+  "misc/diff-cache.py:156": "839a07cf020cb7fe",
+  "misc/diff-cache.py:157": "fa543f74266d50cd",
+  "misc/diff-cache.py:158": "63fa52f84f1404ce",
+  "misc/diff-cache.py:161": "4bfdbc35ef830227",
+  "misc/diff-cache.py:162": "990939c6e438dfb7",
+  "misc/diff-cache.py:163": "2bb63261d83c43d3",
+  "misc/diff-cache.py:166": "8fe7a4c854c4cf2c",
+  "misc/diff-cache.py:167": "cd01d4c7be9bb59a",
+  "misc/diff-cache.py:178": "ed4bddc5d7dfe403",
+  "misc/diff-cache.py:180": "a8a4ceb1cc2d8a8d",
+  "misc/diff-cache.py:182": "f61625420a11b2a3",
+  "misc/diff-cache.py:186": "f82b81b11dc54ed6",
+  "misc/diff-cache.py:195": "a4b9f56abf642b93",
+  "misc/diff-cache.py:201": "dcf8c15ad9c8d7e8",
+  "misc/diff-cache.py:202": "aba7d7df927e6457",
+  "misc/diff-cache.py:207": "52a72c849515ecdc",
+  "misc/diff-cache.py:208": "c3267e052b3a6ef4",
+  "misc/diff-cache.py:210": "26815f68c07d52c9",
+  "misc/diff-cache.py:211": "0b54a3d2b81b8426",
+  "misc/diff-cache.py:212": "f37332892f5c6cac",
+  "misc/diff-cache.py:214": "1d93b1e02366daf9",
+  "misc/diff-cache.py:218": "398930340a2d3e95",
+  "misc/diff-cache.py:221": "9cf29eb30550ee15",
+  "misc/diff-cache.py:224": "a32d596840e0c1a6",
+  "misc/diff-cache.py:227": "e2d6d5ab1196e547",
+  "misc/diff-cache.py:231": "6fa2e64461a4d8b9",
+  "misc/diff-cache.py:232": "4c747b6bd1b4d244",
+  "misc/diff-cache.py:236": "c1a2bcdbd349a80a",
+  "misc/diff-cache.py:238": "b4a821e068a2decc",
+  "misc/diff-cache.py:239": "26399c6b53b3af5a",
+  "misc/diff-cache.py:242": "42d663f0b6f6641e",
+  "misc/diff-cache.py:246": "9797a209c9c0c94e",
+  "misc/diff-cache.py:29": "97b8bc53706ec616",
+  "misc/diff-cache.py:31": "546df7e3bbe226ed",
+  "misc/gen_blog_post_html.py:161": "d29167067a412947",
+  "misc/gen_blog_post_html.py:164": "e03976b77ce2cdc2",
+  "misc/gen_blog_post_html.py:165": "aba6020fad528845",
+  "misc/gen_blog_post_html.py:171": "85093d0868f26524",
+  "misc/gen_blog_post_html.py:173": "b636b18cbcbeb5d5",
+  "misc/gen_blog_post_html.py:187": "93a6f04fc0e516ca",
+  "misc/generate_changelog.py:127": "6800fd74b56d9ccc",
+  "misc/generate_changelog.py:128": "19be60db012268e3",
+  "misc/generate_changelog.py:129": "a652315516c31382",
+  "misc/generate_changelog.py:130": "9f26214cb4cf35a9",
+  "misc/generate_changelog.py:133": "263501c412508068",
+  "misc/generate_changelog.py:136": "bceb00be62d4924f",
+  "misc/generate_changelog.py:202": "40d6b88c219e75b2",
+  "misc/incremental_checker.py:189": "17ea2282b8d51874",
+  "misc/incremental_checker.py:374": "ad9cf530226608b3",
+  "misc/log_trace_check.py:74": "4a938f6eada936c1",
+  "misc/perf_checker.py:21": "f79d4fda2fc3bd88",
+  "misc/perf_checker.py:22": "5d5f72f4f3c6cf52",
+  "misc/perf_checker.py:23": "c2c40a5a1a346bb0",
+  "misc/perf_checker.py:42": "d65729076af58fc8",
+  "misc/perf_checker.py:44": "8cf0630fa4bca045",
+  "misc/profile_check.py:131": "4f8c2fac340c164f",
+  "mypy/api.py:73": "6def3c8b30879716",
+  "mypy/api.py:90": "c1cb4328d59be188",
+  "mypy/binder.py:291": "9c2c8cfa9bae97bb",
+  "mypy/binder.py:293": "4fad6b4e25bd0769",
+  "mypy/binder.py:511": "a39a8aab4ce96d46",
+  "mypy/build.py:1113": "497a3f0a34f9fa5b",
+  "mypy/build.py:4059": "e0db640826ccae85",
+  "mypy/build.py:4074": "1a3bd43b0f24886a",
+  "mypy/build.py:4082": "8cef288bb46ae8f8",
+  "mypy/build.py:4083": "538ea66ed6148fab",
+  "mypy/build.py:4085": "5905f04b47b745c7",
+  "mypy/build.py:4101": "4d11c87ea6068e77",
+  "mypy/build.py:4102": "03231e6c5ada5ff9",
+  "mypy/build.py:4103": "172d56dfb317c34a",
+  "mypy/build.py:4105": "4a2bfdf67e33c390",
+  "mypy/build.py:4108": "e7fd22873c31a1d3",
+  "mypy/build.py:4110": "2e75582ec2fa6e98",
+  "mypy/build.py:4112": "cd4647802a236f09",
+  "mypy/build.py:4121": "d506befae6dc978e",
+  "mypy/build.py:4123": "08b50f3783118ceb",
+  "mypy/build.py:4124": "b1363c35b6741d24",
+  "mypy/build.py:4127": "c9cf9e49a9b2c0f1",
+  "mypy/build.py:4131": "20b46c0d94db96bb",
+  "mypy/build.py:4133": "0b1f1a9f4dfb1173",
+  "mypy/build.py:4134": "ce067284e6db5162",
+  "mypy/build.py:4139": "2c3b926671461b18",
+  "mypy/build.py:4142": "dd608092de925333",
+  "mypy/build.py:4143": "5694cf6f398ff91b",
+  "mypy/build.py:4145": "c2d88c8f6c63f16a",
+  "mypy/build.py:4146": "21d869f275179c29",
+  "mypy/build.py:4148": "141595778d8dab5f",
+  "mypy/build.py:4155": "6fec2cd4b0c08b73",
+  "mypy/build.py:4157": "6bd2c07da074e446",
+  "mypy/build.py:4158": "0237198b425fb823",
+  "mypy/build.py:4164": "a80ed00a9742876f",
+  "mypy/build.py:537": "cacdec9bd31cb23a",
+  "mypy/checker.py:2089": "e139988c13c25f5c",
+  "mypy/checker.py:5535": "9516c8c88216a76f",
+  "mypy/checker.py:7367": "b4acb6fdc725ca51",
+  "mypy/checkexpr.py:1521": "1578f9b3cd4a3a24",
+  "mypy/checkexpr.py:3635": "8ea77368febfb48d",
+  "mypy/checkexpr.py:4322": "9fa4a56c3a0396a9",
+  "mypy/checkexpr.py:4365": "2a8502d5589ceea8",
+  "mypy/checkexpr.py:5397": "bce38d33ea6cba68",
+  "mypy/checkexpr.py:6393": "cbe9d1dcd0a8a125",
+  "mypy/checkpattern.py:320": "6e7a83a010bcc797",
+  "mypy/checkstrformat.py:946": "4c7cebd6d2dbeb8d",
+  "mypy/checkstrformat.py:947": "d5c02cc8d35a5852",
+  "mypy/config_parser.py:345": "7335a677b50813ce",
+  "mypy/config_parser.py:388": "ce44455b08e00f2e",
+  "mypy/config_parser.py:389": "ee907e2b67021883",
+  "mypy/dmypy_util.py:117": "ec7a95307241e89b",
+  "mypy/expandtype.py:581": "985511aab301200a",
+  "mypy/fastparse.py:1796": "5215350a370e8d53",
+  "mypy/fastparse.py:1797": "941d6eed194b2f7b",
+  "mypy/fastparse.py:1802": "af1d2b4a8f5c696a",
+  "mypy/fastparse.py:1804": "c4a5e023673cece6",
+  "mypy/fastparse.py:1805": "b159ffceede3a196",
+  "mypy/inspections.py:570": "e6e3bdc93f3ac3e0",
+  "mypy/inspections.py:615": "43f2320c52c76360",
+  "mypy/inspections.py:617": "0db9a66b2096c570",
+  "mypy/inspections.py:620": "14236fb7b87cd220",
+  "mypy/inspections.py:622": "6926d337eb8e033b",
+  "mypy/inspections.py:624": "374a51c038f921da",
+  "mypy/messages.py:3446": "0cbc860927fe37e8",
+  "mypy/nodes.py:1738": "1be34253d1abac2f",
+  "mypy/nodes.py:1739": "f3347471c76741dc",
+  "mypy/nodes.py:4220": "5d89c129d6a34eab",
+  "mypy/nodes.py:5018": "dd880c7205949b77",
+  "mypy/partially_defined.py:277": "b07cfe19d9949267",
+  "mypy/partially_defined.py:279": "f6f657e24f68c7b9",
+  "mypy/partially_defined.py:643": "10c6cb18ca0a4e9b",
+  "mypy/plugins/ctypes.py:205": "f527a079bc017312",
+  "mypy/plugins/ctypes.py:230": "f527a079bc017312",
+  "mypy/plugins/ctypes.py:57": "7209bb46cf1415ae",
+  "mypy/plugins/dataclasses.py:392": "a451c77682828cd4",
+  "mypy/plugins/dataclasses.py:431": "9ba864543fc028c8",
+  "mypy/plugins/dataclasses.py:436": "073d48a325d8c4b6",
+  "mypy/plugins/dataclasses.py:440": "ffbd2d7ad135cef6",
+  "mypy/semanal.py:738": "300149efc6c41b71",
+  "mypy/server/update.py:1132": "03592d98697895d1",
+  "mypy/stats.py:476": "d7619169f68dee57",
+  "mypy/stats.py:477": "36e8fc6bec75d7a5",
+  "mypy/stats.py:482": "96b10f2c0d131c7c",
+  "mypy/strconv.py:247": "867cf092a86c3611",
+  "mypy/stubgen.py:1066": "b9ec1ec0543bf4cd",
+  "mypy/stubgen.py:1071": "853b8edefd143502",
+  "mypy/stubgen.py:1095": "b9ec1ec0543bf4cd",
+  "mypy/stubgen.py:1098": "cf9dd599e43d41d8",
+  "mypy/stubgen.py:1106": "2fd3c3a2690a13b0",
+  "mypy/stubgen.py:1110": "99582a6bc57d6328",
+  "mypy/stubgen.py:1119": "18c6166e0a0e26f6",
+  "mypy/stubgen.py:1124": "5693a023c6aab174",
+  "mypy/stubgen.py:1155": "5e932342d7ee9589",
+  "mypy/stubgen.py:1156": "16dc535bf03340c8",
+  "mypy/stubgen.py:858": "ad6493ad165570ee",
+  "mypy/stubgenc.py:825": "309ddd9ab5c53b41",
+  "mypy/subtypes.py:342": "7b029aa2cfd1ea74",
+  "mypy/suggestions.py:570": "41dbffe3f0ec721d",
+  "mypy/suggestions.py:851": "a9ad896f606dbc35",
+  "mypy/test/testutil.py:21": "881d2ed16b01795b",
+  "mypy/test/testutil.py:22": "05705da8e958296b",
+  "mypy/treetransform.py:165": "3f94891103a62dac",
+  "mypy/typeops.py:1102": "243b1e9ac37ea088",
+  "mypy/typeops.py:638": "045f75bd8e74a0a8",
+  "mypy/types.py:3445": "959fbbf775a926c2",
+  "mypy/types.py:4271": "b80221a98985c86a",
+  "mypy/types.py:4277": "578d5bedc1eaf0e4",
+  "mypy/types.py:4282": "a058d4c8b974d6c1",
+  "mypy/types.py:4283": "874c3050c5bd83b8",
+  "mypy/types.py:4286": "333a0d8f5e3479fc",
+  "mypy/types.py:4289": "23c698693d0c10df",
+  "mypy/types.py:4290": "a17e7d346ec2328c",
+  "mypy/types.py:4291": "2fa77840c9260d93",
+  "mypy/types.py:4292": "f0e7ad86e725bc73",
+  "mypy/types.py:4299": "0e47ae48b64ceefb",
+  "mypy/types_utils.py:99": "a0bdd85d1c15a784",
+  "mypy/util.py:1009": "a9a04fe0ee689dd9",
+  "mypy/util.py:106": "fa87e6287466c254",
+  "mypy/util.py:107": "d711ee639e1b2875",
+  "mypy/util.py:108": "8ec80bf881055384",
+  "mypy/util.py:111": "1c77992cdd727e0d",
+  "mypy/util.py:96": "fdb4f7f210d8c09d",
+  "mypy/util.py:992": "141597780c13872c",
+  "mypyc/codegen/emitclass.py:546": "42f65d028416ff7a",
+  "mypyc/codegen/emitclass.py:550": "a14ca9ddbaceef0d",
+  "mypyc/codegen/emitclass.py:581": "13a0c3c598a7dcb4",
+  "mypyc/codegen/emitclass.py:583": "fb05d96ad7d0b58d",
+  "mypyc/codegen/emitclass.py:585": "787f72838be24a27",
+  "mypyc/codegen/emitclass.py:586": "bdc0e4164ed72704",
+  "mypyc/codegen/emitclass.py:587": "2309f7316b31375d",
+  "mypyc/codegen/emitclass.py:590": "84582830cd049c72",
+  "mypyc/codegen/emitclass.py:594": "6ac07fbeb83e78f0",
+  "mypyc/codegen/emitclass.py:595": "124319f73c5fa7e4",
+  "mypyc/codegen/emitclass.py:596": "8ba0b30f92537c38",
+  "mypyc/codegen/emitclass.py:598": "22f277be49144d03",
+  "mypyc/codegen/emitclass.py:604": "ed01d1f31403aedc",
+  "mypyc/codegen/emitclass.py:605": "34f279660edc84de",
+  "mypyc/codegen/emitclass.py:606": "198a0540bc1841e2",
+  "mypyc/codegen/emitfunc.py:133": "03fb7d11410f5f25",
+  "mypyc/ir/class_ir.py:530": "f5a358cd7e9d2505",
+  "mypyc/ir/class_ir.py:540": "bdd561d4d33e1b0b",
+  "mypyc/irbuild/builder.py:658": "353c86015d791c3f",
+  "mypyc/irbuild/expression.py:1272": "b82fe65d16ff05ef",
+  "mypyc/irbuild/expression.py:1273": "5de22083958b3a96",
+  "mypyc/irbuild/expression.py:1274": "121b49ed0a8bdcc4",
+  "mypyc/irbuild/expression.py:1275": "5603e5ac856313e5",
+  "mypyc/irbuild/expression.py:1277": "bf4eb3be63be3154",
+  "mypyc/irbuild/expression.py:387": "0cf2aa208b2a765e",
+  "mypyc/irbuild/expression.py:593": "f6a4d8e6b11c3dca",
+  "mypyc/irbuild/expression.py:595": "a9f1b02ebc31dea9",
+  "mypyc/irbuild/for_helpers.py:306": "fe4bd98fdf00e733",
+  "mypyc/irbuild/ll_builder.py:2669": "420b455fbc7161f6",
+  "mypyc/irbuild/ll_builder.py:320": "9d424e66c324f6b1",
+  "mypyc/irbuild/ll_builder.py:345": "20e22e3e1cf87d83",
+  "mypyc/irbuild/ll_builder.py:861": "cb7008478aa408c9",
+  "mypyc/irbuild/vec.py:271": "e0f93e8e1a890d4b",
+  "mypyc/irbuild/visitor.py:313": "c82c7983c3502deb",
+  "mypyc/lower/list_ops.py:45": "0e6a4e3ff7525e7f",
+  "mypyc/lower/list_ops.py:71": "d8ccee83dc10f957",
+  "runtests.py:142": "91ef8932edd074ca",
+  "runtests.py:144": "6f70818290f0f4ee",
+  "runtests.py:145": "9f7bcec117e644d1",
+  "runtests.py:147": "8c4ca1285a34a62a",
+  "runtests.py:183": "1e178585e3a872f6"
+ }
+}

@@ -1,0 +1,6755 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 0,
+  "matched": 24346,
+  "prism_extra": 0,
+  "prism_missing": 289,
+  "snapshot_prism_missing": 289
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "candidate_tier": {
+     "count": 1,
+     "oracle_confirmed": 1,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 6,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.39033429165637346
+      ],
+      "tp": 0
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 5,
+    "raw": {
+     "fn": 5,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      0.16666666666666666,
+      0.030053369411815023,
+      0.5635028250257673
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "candidate_tier": {
+     "count": 5,
+     "oracle_confirmed": 5,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "tp": 7
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 9,
+      "fp": 1,
+      "precision": [
+       0.75,
+       0.3006418400969081,
+       0.954412739704631
+      ],
+      "recall": [
+       0.25,
+       0.08894166769488562,
+       0.5323053370816633
+      ],
+      "tp": 3
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 7,
+    "raw": {
+     "fn": 5,
+     "fp": 2,
+     "precision": [
+      0.7777777777777778,
+      0.4525889666922117,
+      0.9367748934594303
+     ],
+     "recall": [
+      0.5833333333333334,
+      0.31951131084242423,
+      0.8067396875653928
+     ],
+     "tp": 7
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "candidate_tier": {
+     "count": 3,
+     "oracle_confirmed": 2,
+     "oracle_unconfirmed": 1
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "tp": 14
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 5,
+      "fp": 2,
+      "precision": [
+       0.8571428571428571,
+       0.600586202762663,
+       0.959906079092351
+      ],
+      "recall": [
+       0.7058823529411765,
+       0.46866889751771845,
+       0.8672001047373057
+      ],
+      "tp": 12
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 6,
+    "raw": {
+     "fn": 3,
+     "fp": 3,
+     "precision": [
+      0.8235294117647058,
+      0.5897054122922163,
+      0.938088734108536
+     ],
+     "recall": [
+      0.8235294117647058,
+      0.5897054122922163,
+      0.938088734108536
+     ],
+     "tp": 14
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "candidate_tier": {
+     "count": 2,
+     "oracle_confirmed": 2,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "tp": 7
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 4,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       0.6,
+       0.3126737679211953,
+       0.831819671473593
+      ],
+      "tp": 6
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 4,
+      "precision": [
+       0.42857142857142855,
+       0.15821985399244537,
+       0.7495416372469643
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 4,
+      "precision": [
+       0.42857142857142855,
+       0.15821985399244537,
+       0.7495416372469643
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 3,
+    "raw": {
+     "fn": 3,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      0.7,
+      0.3967781453459709,
+      0.892208733443606
+     ],
+     "tp": 7
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "candidate_tier": {
+     "count": 25,
+     "oracle_confirmed": 4,
+     "oracle_unconfirmed": 21
+    },
+    "corrected": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      0.8333333333333334,
+      0.4364971749742326,
+      0.969946630588185
+     ],
+     "tp": 5
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 13,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       0.07142857142857142,
+       0.012722215106604151,
+       0.31468704666737907
+      ],
+      "tp": 1
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 6,
+      "fp": 21,
+      "precision": [
+       0.19230769230769232,
+       0.08507061095122731,
+       0.3787625728202114
+      ],
+      "recall": [
+       0.45454545454545453,
+       0.21271271487637833,
+       0.7199084642140241
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 6,
+      "fp": 21,
+      "precision": [
+       0.19230769230769232,
+       0.08507061095122731,
+       0.3787625728202114
+      ],
+      "recall": [
+       0.45454545454545453,
+       0.21271271487637833,
+       0.7199084642140241
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 28,
+    "raw": {
+     "fn": 9,
+     "fp": 21,
+     "precision": [
+      0.19230769230769232,
+      0.08507061095122731,
+      0.3787625728202114
+     ],
+     "recall": [
+      0.35714285714285715,
+      0.16344731650094954,
+      0.6123557707570447
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "candidate_tier": {
+     "count": 87,
+     "oracle_confirmed": 44,
+     "oracle_unconfirmed": 43
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 1,
+     "precision": [
+      0.9791666666666666,
+      0.8910078189694375,
+      0.9963128890632689
+     ],
+     "recall": [
+      1.0,
+      0.9244423947340892,
+      1.0
+     ],
+     "tp": 47
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 46,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       0.061224489795918366,
+       0.02104014650911014,
+       0.16520487945438622
+      ],
+      "tp": 3
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 2,
+      "fp": 39,
+      "precision": [
+       0.5411764705882353,
+       0.4357633598904255,
+       0.6430286825652588
+      ],
+      "recall": [
+       0.9583333333333334,
+       0.8602434401996508,
+       0.9884981066142424
+      ],
+      "tp": 46
+     },
+     "raw": {
+      "fn": 2,
+      "fp": 39,
+      "precision": [
+       0.5411764705882353,
+       0.4357633598904255,
+       0.6430286825652588
+      ],
+      "recall": [
+       0.9583333333333334,
+       0.8602434401996508,
+       0.9884981066142424
+      ],
+      "tp": 46
+     }
+    },
+    "pending": 44,
+    "raw": {
+     "fn": 2,
+     "fp": 43,
+     "precision": [
+      0.5222222222222223,
+      0.4202456383503146,
+      0.6223794449304108
+     ],
+     "recall": [
+      0.9591836734693877,
+      0.8628696758610322,
+      0.9887343667353087
+     ],
+     "tp": 47
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       0.75,
+       0.3006418400969081,
+       0.954412739704631
+      ],
+      "tp": 3
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       0.75,
+       0.3006418400969081,
+       0.954412739704631
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       0.75,
+       0.3006418400969081,
+       0.954412739704631
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      0.75,
+      0.3006418400969081,
+      0.954412739704631
+     ],
+     "tp": 3
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "candidate_tier": {
+     "count": 24,
+     "oracle_confirmed": 24,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.9162012079230888,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.9162012079230888,
+      1.0
+     ],
+     "tp": 42
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 31,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8241207740667156,
+       1.0
+      ],
+      "recall": [
+       0.3673469387755102,
+       0.2466517288693319,
+       0.507329325491725
+      ],
+      "tp": 18
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 6,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8984854444077807,
+       0.9999999999999999
+      ],
+      "recall": [
+       0.85,
+       0.7092767550401498,
+       0.9293881232389256
+      ],
+      "tp": 34
+     },
+     "raw": {
+      "fn": 6,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8984854444077807,
+       0.9999999999999999
+      ],
+      "recall": [
+       0.85,
+       0.7092767550401498,
+       0.9293881232389256
+      ],
+      "tp": 34
+     }
+    },
+    "pending": 7,
+    "raw": {
+     "fn": 7,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.9162012079230888,
+      1.0
+     ],
+     "recall": [
+      0.8571428571428571,
+      0.7333229366148868,
+      0.9290357631822672
+     ],
+     "tp": 42
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/analysis_options.rs:8",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/config_option.rs:7",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/config_option.rs:98",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/config_option.rs:120",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/exit_code.rs:7",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/exit_code.rs:30",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/exit_code.rs:59",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/exit_code.rs:88",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/exit_code.rs:143",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/exit_code.rs:179",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/exit_code.rs:215",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/fixes.rs:10",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/fixes.rs:116",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/fixes.rs:187",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/main.rs:23",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/main.rs:44",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/main.rs:99",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/main.rs:590",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/main.rs:616",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/main.rs:636",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/main.rs:660",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/main.rs:746",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/main.rs:761",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/main.rs:795",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ruff/tests/cli/main.rs:124",
+    "site": "crates/ty/tests/cli/main.rs:831",
+    "verdict": "ambiguous"
+   }
+  ],
+  "counts": {
+   "alias_site": 0,
+   "ambiguous": 25,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": false,
+  "corpus": "ruff",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "44f6d1865fd2",
+  "date": "2026-07-03",
+  "harness_sha": "555714da1991",
+  "invalid_reasons": [],
+  "oracle": "rust-analyzer 1.96.0 (ac68faa2 2026-05-25)",
+  "oracle_error_rate": 0.0,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "555714da1991",
+  "seed": 42,
+  "stale_adjudications": 7,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 81.605,
+   "m2": 467.283,
+   "m3": 0.138,
+   "oracle_start": 165.422
+  }
+ },
+ "pending": [
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/analysis_options.rs:8",
+   "site_fingerprint": "e136744b2526525f",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/config_option.rs:7",
+   "site_fingerprint": "e4f5654d4d0539f0",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/config_option.rs:98",
+   "site_fingerprint": "1908b51120d8544a",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/config_option.rs:120",
+   "site_fingerprint": "24ca3f9eeae08b95",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/exit_code.rs:7",
+   "site_fingerprint": "b2f06beec836accc",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/exit_code.rs:30",
+   "site_fingerprint": "a41119e6a6e740d9",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/exit_code.rs:59",
+   "site_fingerprint": "2f593d656abe73ef",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/exit_code.rs:88",
+   "site_fingerprint": "53ee5fd182b278ff",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/exit_code.rs:143",
+   "site_fingerprint": "379e6278c5f2e665",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/exit_code.rs:179",
+   "site_fingerprint": "8ffc8599d1ee4c2c",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/exit_code.rs:215",
+   "site_fingerprint": "3ce631d28f693a67",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/fixes.rs:10",
+   "site_fingerprint": "e7795274aaec40aa",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/fixes.rs:116",
+   "site_fingerprint": "a7f97b16401101ef",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/fixes.rs:187",
+   "site_fingerprint": "cf64f5e7f8a181c4",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/main.rs:23",
+   "site_fingerprint": "3dbcc0d7903c4a22",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/main.rs:44",
+   "site_fingerprint": "6853d1f886fbb72f",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/main.rs:99",
+   "site_fingerprint": "87128f7580c22e93",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/main.rs:590",
+   "site_fingerprint": "a21b7ffe8dd95cbb",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/main.rs:616",
+   "site_fingerprint": "2a35b495b53e7f79",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/main.rs:636",
+   "site_fingerprint": "cfd356fd8111862f",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/main.rs:660",
+   "site_fingerprint": "3c14b02963f88457",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/main.rs:761",
+   "site_fingerprint": "aba1000199bd179a",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/main.rs:795",
+   "site_fingerprint": "8e6431c59d764e92",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/main.rs:831",
+   "site_fingerprint": "977838316b60cf12",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/python_environment.rs:1131",
+   "site_fingerprint": "50e606c91d0a8eb1",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/rule_selection.rs:8",
+   "site_fingerprint": "74837d47102e72f8",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/rule_selection.rs:72",
+   "site_fingerprint": "360366244476d4cb",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/rule_selection.rs:166",
+   "site_fingerprint": "9129d5116932c07f",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/rule_selection.rs:265",
+   "site_fingerprint": "68dddd6913fd4201",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/rule_selection.rs:870",
+   "site_fingerprint": "0eb67e93800e3e40",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/rule_selection.rs:903",
+   "site_fingerprint": "bc77c92618a37799",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/rule_selection.rs:950",
+   "site_fingerprint": "977e1d0198fc6e74",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "site": "crates/ty/tests/cli/rule_selection.rs:996",
+   "site_fingerprint": "1f90a52d31cd1559",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_db/src/lib.rs:163",
+   "site": "crates/ty_module_resolver/src/list.rs:1056",
+   "site_fingerprint": "38ff9c88d2953aba",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_db/src/lib.rs:163",
+   "site": "crates/ty_module_resolver/src/list.rs:1082",
+   "site_fingerprint": "c2d8d437666d4818",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_db/src/lib.rs:163",
+   "site": "crates/ty_module_resolver/src/list.rs:1175",
+   "site_fingerprint": "3aa0f8c9ffdac7f5",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_db/src/lib.rs:163",
+   "site": "crates/ty_module_resolver/src/list.rs:1425",
+   "site_fingerprint": "7703209035b1127f",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_db/src/lib.rs:163",
+   "site": "crates/ty_module_resolver/src/resolve.rs:2509",
+   "site_fingerprint": "7703209035b1127f",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_db/src/lib.rs:163",
+   "site": "crates/ty_module_resolver/src/resolve.rs:2616",
+   "site_fingerprint": "3aa0f8c9ffdac7f5",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_db/src/lib.rs:163",
+   "site": "crates/ty_module_resolver/src/resolve.rs:2875",
+   "site_fingerprint": "953d7c37a0b2dcaa",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_db/src/lib.rs:163",
+   "site": "crates/ty_module_resolver/src/resolve.rs:2906",
+   "site_fingerprint": "2af7820efae9bbb1",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
+   "site": "crates/ruff_server/tests/e2e/code_action.rs:88",
+   "site_fingerprint": "15425b4c150f03d1",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
+   "site": "crates/ruff_server/tests/e2e/code_action.rs:104",
+   "site_fingerprint": "5e41c6e80c11be2c",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
+   "site": "crates/ruff_server/tests/e2e/main.rs:255",
+   "site_fingerprint": "b2b3da0c3b463ee8",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
+   "site": "crates/ruff_server/tests/e2e/main.rs:1006",
+   "site_fingerprint": "9062898167d80e35",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
+   "site": "crates/ruff_server/tests/e2e/main.rs:1010",
+   "site_fingerprint": "f1ac405b9aceac4c",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
+   "site": "crates/ruff_server/tests/e2e/main.rs:1012",
+   "site_fingerprint": "7f273bc9c8001f10",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
+   "site": "crates/ty_server/tests/e2e/main.rs:302",
+   "site_fingerprint": "7f273bc9c8001f10",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
+   "site": "crates/ty_server/tests/e2e/main.rs:1209",
+   "site_fingerprint": "f1ac405b9aceac4c",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
+   "site": "crates/ty_server/tests/e2e/main.rs:1211",
+   "site_fingerprint": "7f273bc9c8001f10",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
+   "site": "crates/ruff_dev/src/format_dev.rs:938",
+   "site_fingerprint": "84111557bf921a6c"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_linter/src/rules/flake8_async/helpers.rs:172",
+   "site": "crates/ruff_db/src/display.rs:34",
+   "site_fingerprint": "e4279ca15222abb9",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_linter/src/rules/perflint/rules/try_except_in_loop.rs:85",
+   "site": "crates/ruff_linter/src/violation.rs:73",
+   "site_fingerprint": "6e397e7f52ffcaa7",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/generated.rs:10764",
+   "site": "crates/ruff_python_ast/src/generated.rs:4762",
+   "site_fingerprint": "4fcdb41a617ab5be"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/generated.rs:10764",
+   "site": "crates/ruff_python_ast/src/generated.rs:7241",
+   "site_fingerprint": "cdd6b3f523f59d9e"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/generated.rs:10764",
+   "site": "crates/ruff_python_ast/src/visitor/source_order.rs:282",
+   "site_fingerprint": "799bdbb148f7062d"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/generated.rs:2606",
+   "site": "crates/ruff_linter/src/rules/flake8_pytest_style/rules/fixture.rs:829",
+   "site_fingerprint": "ebc33fffbadfe097"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/generated.rs:2606",
+   "site": "crates/ruff_linter/src/rules/pyupgrade/rules/non_pep646_unpack.rs:108",
+   "site_fingerprint": "b435f7f30fbb63db"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/generated.rs:2606",
+   "site": "crates/ruff_linter/src/rules/pyupgrade/rules/non_pep646_unpack.rs:150",
+   "site_fingerprint": "48ffdc1de5e56dcf"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/generated.rs:2606",
+   "site": "crates/ruff_linter/src/rules/refurb/rules/reimplemented_operator.rs:313",
+   "site_fingerprint": "34d62cfc951b66c1"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/generated.rs:2606",
+   "site": "crates/ruff_python_semantic/src/model.rs:1681",
+   "site_fingerprint": "b978acf970322183"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/generated.rs:2606",
+   "site": "crates/ruff_python_semantic/src/model.rs:1716",
+   "site_fingerprint": "a648738869c85425"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "site": "crates/ruff_db/src/diagnostic/mod.rs:97",
+   "site_fingerprint": "44d67e29eeed86ff",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "site": "crates/ruff_linter/src/checkers/ast/mod.rs:3740",
+   "site_fingerprint": "b08d2308f81af0ce",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "site": "crates/ruff_linter/src/checkers/ast/mod.rs:3752",
+   "site_fingerprint": "bbb0ef0fd8b049e4",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "site": "crates/ruff_python_formatter/src/verbatim.rs:700",
+   "site_fingerprint": "059293d8b4335b8e",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "site": "crates/ruff_text_size/src/traits.rs:47",
+   "site_fingerprint": "bb2099f0c2935538",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "site": "crates/ruff_text_size/src/traits.rs:52",
+   "site_fingerprint": "c346e5a4a9b06a04",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "site": "crates/ruff_text_size/src/traits.rs:97",
+   "site_fingerprint": "3300d8c52456986c",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "site": "crates/ty_ide/src/semantic_tokens.rs:229",
+   "site_fingerprint": "1c3098e0c72e0360",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "site": "crates/ty_python_semantic/src/types/bool.rs:399",
+   "site_fingerprint": "790839523ec34d28",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "site": "crates/ty_python_semantic/src/types/infer/builder.rs:652",
+   "site_fingerprint": "2ea461e490158071",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "site": "crates/ruff_linter/src/fix/edits.rs:218",
+   "site_fingerprint": "4367d29292337a40"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "site": "crates/ruff_linter/src/fix/edits.rs:224",
+   "site_fingerprint": "7aa01785fc4547c0"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "site": "crates/ruff_linter/src/fix/edits.rs:281",
+   "site_fingerprint": "010b6947d53f28fc"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "site": "crates/ruff_linter/src/rules/ruff/rules/falsy_dict_get_fallback.rs:104",
+   "site_fingerprint": "a4e6679e90f747bb"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "site": "crates/ty_ide/src/inlay_hints.rs:515",
+   "site_fingerprint": "e0bf887a47f58309"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_formatter/src/comments/map.rs:517",
+   "site": "crates/ruff_python_formatter/src/comments/map.rs:323",
+   "site_fingerprint": "7980838d071b0677"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_python_stdlib/src/typing.rs:341",
+   "site": "crates/ty_python_semantic/src/types/infer/builder.rs:9791",
+   "site_fingerprint": "a927a5b50a675b65"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/ruff_wasm/src/lib.rs:194",
+   "site": "crates/ruff_wasm/src/lib.rs:437",
+   "site_fingerprint": "4f51dfd95101c193"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "crates/mdtest/src/parser.rs:1926",
+   "site": "crates/mdtest/src/parser.rs:1946",
+   "site_fingerprint": "a2fe40ec6fa71092",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/mdtest/src/parser.rs:1926",
+   "site": "crates/mdtest/src/parser.rs:1937",
+   "site_fingerprint": "aa1607c387250dcc"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/ruff/tests/cli/lint.rs:1521",
+   "site": "crates/ruff/tests/cli/lint.rs:1523",
+   "site_fingerprint": "a854417a21b18bac"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/ruff/tests/cli/lint.rs:1521",
+   "site": "crates/ruff/tests/cli/lint.rs:1531",
+   "site_fingerprint": "ae81edf2fa39fb06"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callees",
+   "seed_def": "crates/ruff_annotate_snippets/src/renderer/display_list.rs:1187",
+   "site": "crates/ruff_annotate_snippets/src/renderer/display_list.rs:1198",
+   "site_fingerprint": "1f8601351a57c006"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/ruff_annotate_snippets/src/renderer/display_list.rs:1187",
+   "site": "crates/ruff_annotate_snippets/src/renderer/display_list.rs:1194",
+   "site_fingerprint": "ad3072c9af58ea43"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:304",
+   "site": "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:315",
+   "site_fingerprint": "c604c92c079df505"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:304",
+   "site": "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:318",
+   "site_fingerprint": "67abe960a21fab34"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:304",
+   "site": "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:320",
+   "site_fingerprint": "d37f4cf8443b0544"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callees",
+   "seed_def": "crates/ruff_linter/src/rules/pylint/helpers.rs:623",
+   "site": "crates/ruff_linter/src/rules/pylint/helpers.rs:634",
+   "site_fingerprint": "bbcaa9e7b966313d"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/ruff_python_ast/src/generated.rs:10764",
+   "site": "crates/ruff_python_ast/src/generated.rs:10775",
+   "site_fingerprint": "d726294e9b5d93ac"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/ruff_python_ast/src/generated.rs:10764",
+   "site": "crates/ruff_python_ast/src/generated.rs:10778",
+   "site_fingerprint": "86cf35b3b5c9fe2c"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "constructor_local",
+   "measurement": "callees",
+   "seed_def": "crates/ruff_python_ast/src/name.rs:695",
+   "site": "crates/ruff_python_ast/src/name.rs:697",
+   "site_fingerprint": "6ad924d0e4f93705",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "site": "crates/ruff_python_ast/src/nodes.rs:3518",
+   "site_fingerprint": "3a1c6f8652e3825e"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "site": "crates/ruff_python_ast/src/nodes.rs:3519",
+   "site_fingerprint": "05d87838198d43ad"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/ruff_python_formatter/src/generated.rs:525",
+   "site": "crates/ruff_python_formatter/src/generated.rs:526",
+   "site_fingerprint": "305fb9642604f9ca"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/ruff_server/src/session/index.rs:565",
+   "site": "crates/ruff_server/src/session/index.rs:571",
+   "site_fingerprint": "50ddc01bdd428094"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "prism_only",
+   "dispatch_kind": "constructor_local",
+   "measurement": "callees",
+   "seed_def": "crates/ty_project/src/db/ignore.rs:324",
+   "site": "crates/ty_project/src/db/ignore.rs:329",
+   "site_fingerprint": "2066f5b4f242c579"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/ty_python_semantic/src/types/diagnostic.rs:1480",
+   "site": "crates/ty_python_semantic/src/types/diagnostic.rs:1485",
+   "site_fingerprint": "a6ec52dd47d80b35"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/ty_python_semantic/src/types/infer/builder.rs:5177",
+   "site": "crates/ty_python_semantic/src/types/infer/builder.rs:5189",
+   "site_fingerprint": "b9e687d1bb0ccfb6"
+  },
+  {
+   "corpus": "ruff",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/ty_test/src/db.rs:344",
+   "site": "crates/ty_test/src/db.rs:348",
+   "site_fingerprint": "3fedde2528314cb4"
+  }
+ ],
+ "probes": {
+  "_corpus": "ruff",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 0,
+    "eligible_symbols": 0,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:crates/mdtest/src/parser.rs:1926": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/mdtest/src/parser.rs",
+     "separate_path"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/mdtest/src/parser.rs",
+     1927,
+     1927
+    ],
+    [
+     "crates/mdtest/src/parser.rs",
+     1937,
+     1937
+    ],
+    [
+     "crates/mdtest/src/parser.rs",
+     1939,
+     1939
+    ],
+    [
+     "crates/mdtest/src/parser.rs",
+     1942,
+     1942
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/mdtest/src/parser.rs",
+     "separate_path"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/mdtest/src/parser.rs",
+     1927,
+     1927,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/mdtest/src/parser.rs",
+     1939,
+     1939,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/mdtest/src/parser.rs",
+     1942,
+     1942,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/mdtest/src/parser.rs",
+     1946,
+     1946,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "crates/mdtest/src/parser.rs:1926",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/ruff/tests/cli/lint.rs:1521": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "add_noqa"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1522,
+     1522
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1523,
+     1523
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1531,
+     1531
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1557,
+     1557
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "add_noqa"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1522,
+     1522,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1557,
+     1557,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1522,
+     1522,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff/tests/cli/lint.rs:1521",
+   "stratum": "C-name"
+  },
+  "callees:crates/ruff/tests/cli/main.rs:124": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ruff/tests/cli/main.rs",
+     "with_file"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff/tests/cli/main.rs",
+     125,
+     125
+    ],
+    [
+     "crates/ruff/tests/cli/main.rs",
+     126,
+     126
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff/tests/cli/main.rs",
+     "with_file"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff/tests/cli/main.rs",
+     125,
+     125,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/main.rs",
+     126,
+     126,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/main.rs",
+     125,
+     125,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "stratum": "C-name"
+  },
+  "callees:crates/ruff_annotate_snippets/src/renderer/display_list.rs:1187": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ruff_annotate_snippets/src/renderer/display_list.rs",
+     "format_footer"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_annotate_snippets/src/renderer/display_list.rs",
+     1194,
+     1194
+    ],
+    [
+     "crates/ruff_annotate_snippets/src/renderer/display_list.rs",
+     1198,
+     1198
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_annotate_snippets/src/renderer/display_list.rs",
+     "format_footer"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_annotate_snippets/src/renderer/display_list.rs",
+     1196,
+     1196,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_annotate_snippets/src/renderer/display_list.rs",
+     1198,
+     1198,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_annotate_snippets/src/renderer/display_list.rs:1187",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/ruff_db/src/lib.rs:163": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ruff_db/src/lib.rs",
+     "clear_salsa_events"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_db/src/lib.rs",
+     164,
+     164
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_db/src/lib.rs",
+     "clear_salsa_events"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_db/src/lib.rs",
+     164,
+     164,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_db/src/lib.rs",
+     164,
+     164,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_db/src/lib.rs",
+     164,
+     164,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_db/src/lib.rs",
+     164,
+     164,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_db/src/lib.rs:163",
+   "stratum": "C-method"
+  },
+  "callees:crates/ruff_dev/src/format_dev.rs:899": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_dev/src/format_dev.rs",
+     "default"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
+   "stratum": "C-name"
+  },
+  "callees:crates/ruff_linter/src/rules/flake8_async/helpers.rs:172": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_linter/src/rules/flake8_async/helpers.rs:172",
+   "stratum": "C-method"
+  },
+  "callees:crates/ruff_linter/src/rules/flake8_datetimez/rules/call_date_fromtimestamp.rs:53": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_linter/src/rules/flake8_datetimez/rules/call_date_fromtimestamp.rs",
+     "message"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_linter/src/rules/flake8_datetimez/rules/call_date_fromtimestamp.rs:53",
+   "stratum": "C-method"
+  },
+  "callees:crates/ruff_linter/src/rules/flake8_pyi/rules/duplicate_literal_member.rs:54": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_linter/src/rules/flake8_pyi/rules/duplicate_literal_member.rs",
+     "fix_title"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_linter/src/rules/flake8_pyi/rules/duplicate_literal_member.rs:54",
+   "stratum": "C-method"
+  },
+  "callees:crates/ruff_linter/src/rules/perflint/rules/try_except_in_loop.rs:85": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_linter/src/rules/perflint/rules/try_except_in_loop.rs",
+     "message"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_linter/src/rules/perflint/rules/try_except_in_loop.rs:85",
+   "stratum": "C-method"
+  },
+  "callees:crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:304": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs",
+     "leading"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs",
+     315,
+     315
+    ],
+    [
+     "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs",
+     320,
+     320
+    ],
+    [
+     "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs",
+     318,
+     318
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs",
+     "leading"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:304",
+   "stratum": "C-name"
+  },
+  "callees:crates/ruff_linter/src/rules/pyflakes/mod.rs:3014": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ruff_linter/src/rules/pyflakes/mod.rs",
+     "aliased_submodule_import"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_linter/src/rules/pyflakes/mod.rs",
+     3015,
+     3015
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyflakes/mod.rs",
+     3024,
+     3024
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyflakes/mod.rs",
+     3033,
+     3033
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyflakes/mod.rs",
+     3042,
+     3042
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_linter/src/rules/pyflakes/mod.rs",
+     "aliased_submodule_import"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_linter/src/rules/pyflakes/mod.rs",
+     3015,
+     3015,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyflakes/mod.rs",
+     3024,
+     3024,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyflakes/mod.rs",
+     3033,
+     3033,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyflakes/mod.rs",
+     3042,
+     3042,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_linter/src/rules/pyflakes/mod.rs:3014",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/ruff_linter/src/rules/pylint/helpers.rs:623": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ruff_linter/src/rules/pylint/helpers.rs",
+     "try_except_else"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_linter/src/rules/pylint/helpers.rs",
+     633,
+     633
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_linter/src/rules/pylint/helpers.rs",
+     "try_except_else"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_linter/src/rules/pylint/helpers.rs",
+     634,
+     634,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/pylint/helpers.rs",
+     633,
+     633,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_linter/src/rules/pylint/helpers.rs:623",
+   "stratum": "C-name"
+  },
+  "callees:crates/ruff_linter/src/rules/ruff/mod.rs:706": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ruff_linter/src/rules/ruff/mod.rs",
+     "ruff_per_file_ignores_empty"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_linter/src/rules/ruff/mod.rs",
+     707,
+     707
+    ],
+    [
+     "crates/ruff_linter/src/rules/ruff/mod.rs",
+     710,
+     710
+    ],
+    [
+     "crates/ruff_linter/src/rules/ruff/mod.rs",
+     716,
+     716
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_linter/src/rules/ruff/mod.rs",
+     "ruff_per_file_ignores_empty"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_linter/src/rules/ruff/mod.rs",
+     716,
+     716,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/ruff/mod.rs",
+     710,
+     710,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/ruff/mod.rs",
+     710,
+     710,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/ruff/mod.rs",
+     707,
+     707,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_linter/src/rules/ruff/mod.rs:706",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/ruff_markdown/src/lib.rs:403": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_markdown/src/lib.rs:403",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/ruff_python_ast/src/generated.rs:10764": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ruff_python_ast/src/generated.rs",
+     "visit_source_order"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_python_ast/src/generated.rs",
+     10775,
+     10775
+    ],
+    [
+     "crates/ruff_python_ast/src/generated.rs",
+     10778,
+     10778
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_python_ast/src/generated.rs",
+     "visit_source_order"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_python_ast/src/generated.rs:10764",
+   "stratum": "C-method"
+  },
+  "callees:crates/ruff_python_ast/src/generated.rs:2606": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_python_ast/src/generated.rs",
+     "as_subscript_expr"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_python_ast/src/generated.rs:2606",
+   "stratum": "U-method"
+  },
+  "callees:crates/ruff_python_ast/src/generated.rs:428": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_python_ast/src/generated.rs",
+     "as_class_def_stmt_mut"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_python_ast/src/generated.rs:428",
+   "stratum": "U-method"
+  },
+  "callees:crates/ruff_python_ast/src/name.rs:695": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ruff_python_ast/src/name.rs",
+     "from_iter"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_python_ast/src/name.rs",
+     697,
+     697
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_python_ast/src/name.rs",
+     "from_iter"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_python_ast/src/name.rs",
+     696,
+     696,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_python_ast/src/name.rs",
+     697,
+     697,
+     {
+      "resolution_kind": "constructor_local",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_python_ast/src/name.rs:695",
+   "stratum": "C-name"
+  },
+  "callees:crates/ruff_python_ast/src/nodes.rs:3516": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ruff_python_ast/src/nodes.rs",
+     "range"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_python_ast/src/nodes.rs",
+     3518,
+     3518
+    ],
+    [
+     "crates/ruff_python_ast/src/nodes.rs",
+     3519,
+     3519
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_python_ast/src/nodes.rs",
+     "range"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "stratum": "C-method"
+  },
+  "callees:crates/ruff_python_formatter/src/comments/map.rs:517": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_python_formatter/src/comments/map.rs:517",
+   "stratum": "U-method"
+  },
+  "callees:crates/ruff_python_formatter/src/generated.rs:525": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ruff_python_formatter/src/generated.rs",
+     "fmt"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_python_formatter/src/generated.rs",
+     526,
+     526
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_python_formatter/src/generated.rs",
+     "fmt"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_python_formatter/src/generated.rs:525",
+   "stratum": "C-method"
+  },
+  "callees:crates/ruff_python_literal/src/cformat.rs:276": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ruff_python_literal/src/cformat.rs",
+     "parse_precision"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_python_literal/src/cformat.rs",
+     284,
+     284
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_python_literal/src/cformat.rs",
+     "parse_precision"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_python_literal/src/cformat.rs",
+     284,
+     284,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_python_literal/src/cformat.rs:276",
+   "stratum": "C-name"
+  },
+  "callees:crates/ruff_python_parser/src/parser/mod.rs:111": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_python_parser/src/parser/mod.rs",
+     "with_recursion"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_python_parser/src/parser/mod.rs:111",
+   "stratum": "U-method"
+  },
+  "callees:crates/ruff_python_stdlib/src/typing.rs:341": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_python_stdlib/src/typing.rs",
+     "as_pep_585_generic"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_python_stdlib/src/typing.rs:341",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/ruff_server/src/session/index.rs:565": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ruff_server/src/session/index.rs",
+     "make_python_source_kind"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_server/src/session/index.rs",
+     571,
+     571
+    ],
+    [
+     "crates/ruff_server/src/session/index.rs",
+     572,
+     572
+    ],
+    [
+     "crates/ruff_server/src/session/index.rs",
+     575,
+     575
+    ],
+    [
+     "crates/ruff_server/src/session/index.rs",
+     575,
+     575
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_server/src/session/index.rs",
+     "make_python_source_kind"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_server/src/session/index.rs",
+     575,
+     575,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_server/src/session/index.rs",
+     572,
+     572,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_server/src/session/index.rs",
+     575,
+     575,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_server/src/session/index.rs:565",
+   "stratum": "U-method"
+  },
+  "callees:crates/ruff_wasm/src/lib.rs:194": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_wasm/src/lib.rs:194",
+   "stratum": "C-name"
+  },
+  "callees:crates/ty_project/src/db/ignore.rs:324": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ty_project/src/db/ignore.rs",
+     "root_ignore_file_cannot_prune_deeper_file_match"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ty_project/src/db/ignore.rs",
+     325,
+     325
+    ],
+    [
+     "crates/ty_project/src/db/ignore.rs",
+     326,
+     326
+    ],
+    [
+     "crates/ty_project/src/db/ignore.rs",
+     327,
+     327
+    ],
+    [
+     "crates/ty_project/src/db/ignore.rs",
+     327,
+     327
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ty_project/src/db/ignore.rs",
+     "root_ignore_file_cannot_prune_deeper_file_match"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ty_project/src/db/ignore.rs",
+     325,
+     325,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ty_project/src/db/ignore.rs",
+     326,
+     326,
+     {
+      "resolution_kind": "constructor_local",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ty_project/src/db/ignore.rs",
+     327,
+     327,
+     {
+      "resolution_kind": "constructor_local",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ty_project/src/db/ignore.rs",
+     327,
+     327,
+     {
+      "resolution_kind": "constructor_local",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ty_project/src/db/ignore.rs",
+     329,
+     329,
+     {
+      "resolution_kind": "constructor_local",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "crates/ty_project/src/db/ignore.rs:324",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/ty_python_semantic/src/types/constraints.rs:1236": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     "materialized_lower"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/ty_python_semantic/src/types/constraints.rs:1236",
+   "stratum": "U-method"
+  },
+  "callees:crates/ty_python_semantic/src/types/diagnostic.rs:1480": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ty_python_semantic/src/types/diagnostic.rs",
+     "covariant_supertype_hint"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ty_python_semantic/src/types/diagnostic.rs",
+     1485,
+     1485
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ty_python_semantic/src/types/diagnostic.rs",
+     "covariant_supertype_hint"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/ty_python_semantic/src/types/diagnostic.rs:1480",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/ty_python_semantic/src/types/infer/builder.rs:5177": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     "infer_while_statement"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     5186,
+     5186
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     5188,
+     5188
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     5188,
+     5188
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     5189,
+     5189
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     5192,
+     5192
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     5193,
+     5193
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     "infer_while_statement"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     5188,
+     5188,
+     {
+      "resolution_kind": "return_typed",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     5188,
+     5188,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     5192,
+     5192,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     5193,
+     5193,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     5186,
+     5186,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "crates/ty_python_semantic/src/types/infer/builder.rs:5177",
+   "stratum": "U-method"
+  },
+  "callees:crates/ty_test/src/db.rs:344": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ty_test/src/db.rs",
+     "with_in_memory"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ty_test/src/db.rs",
+     346,
+     346
+    ],
+    [
+     "crates/ty_test/src/db.rs",
+     346,
+     346
+    ],
+    [
+     "crates/ty_test/src/db.rs",
+     348,
+     348
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ty_test/src/db.rs",
+     "with_in_memory"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ty_test/src/db.rs",
+     346,
+     346,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_test/src/db.rs",
+     346,
+     346,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "crates/ty_test/src/db.rs:344",
+   "stratum": "U-method"
+  },
+  "callers:crates/mdtest/src/parser.rs:1926": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/mdtest/src/parser.rs:1926",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/ruff/tests/cli/lint.rs:1521": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/ruff/tests/cli/lint.rs:1521",
+   "stratum": "C-name"
+  },
+  "callers:crates/ruff/tests/cli/main.rs:124": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "check_default_mode_shows_diagnostics_and_summary"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "check_quiet_mode_shows_diagnostics_only"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "check_silent_mode_no_output"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "config_doubly_overridden_via_cli"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "config_file_and_isolated"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "config_override_via_cli"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "conflicting_options_stdin"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "deduplicate_directory_and_explicit_file"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "deprecated_options"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "docstring_options"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "exclude_stdin"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "force_exclude_stdin"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "format_options"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "legacy_format_option"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "messages"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "syntax_error"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "cache_syntax_errors"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "complex_config_setting_overridden_via_cli"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "config_doubly_overridden_via_cli"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "config_expand"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "config_override_via_cli"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "exclude_stdin"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "extend_per_file_ignores_stdin"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "flake8_import_convention_invalid_aliases_config_alias_name"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "flake8_import_convention_invalid_aliases_config_extend_alias_name"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "flake8_import_convention_invalid_aliases_config_module_name"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "flake8_import_convention_nfkc_normalization"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "lint_options"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "output_format_show_fixes"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "per_file_ignores_stdin"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "required_version_bound_match"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "required_version_bound_mismatch"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "required_version_exact_match"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "required_version_exact_mismatch"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "required_version_fails_to_parse"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "required_version_precedes_rule_validation"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "requires_python"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "requires_python_equals"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "requires_python_equals_patch"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "requires_python_patch"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "semantic_syntax_errors"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "show_fixes_preview"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "unused_interaction"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     63,
+     63
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     279,
+     279
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     361,
+     361
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     402,
+     402
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     709,
+     709
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     936,
+     936
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     970,
+     970
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1080,
+     1080
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1111,
+     1111
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1147,
+     1147
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1185,
+     1185
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1223,
+     1223
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1262,
+     1262
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1293,
+     1293
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1426,
+     1426
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     2084,
+     2084
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     2111,
+     2111
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     2142,
+     2142
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     2175,
+     2175
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     2208,
+     2208
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     2745,
+     2745
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     2779,
+     2779
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     2813,
+     2813
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     2847,
+     2847
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     3423,
+     3423
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     3544,
+     3544
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     3735,
+     3735
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     3758,
+     3758
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     165,
+     165
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     189,
+     189
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     218,
+     218
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     247,
+     247
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     294,
+     294
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     465,
+     465
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     488,
+     488
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     512,
+     512
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     727,
+     727
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     742,
+     742
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     758,
+     758
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     831,
+     831
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     868,
+     868
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     963,
+     963
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     999,
+     999
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     1097,
+     1097
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "check_default_mode_shows_diagnostics_and_summary"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "check_quiet_mode_shows_diagnostics_only"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "check_silent_mode_no_output"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "config_doubly_overridden_via_cli"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "config_file_and_isolated"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "config_override_via_cli"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "conflicting_options_stdin"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "deduplicate_directory_and_explicit_file"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "deprecated_options"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "docstring_options"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "exclude_stdin"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "force_exclude_stdin"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "format_options"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "legacy_format_option"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "messages"
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     "syntax_error"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "cache_syntax_errors"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "complex_config_setting_overridden_via_cli"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "config_doubly_overridden_via_cli"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "config_expand"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "config_override_via_cli"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "exclude_stdin"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "extend_per_file_ignores_stdin"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "flake8_import_convention_invalid_aliases_config_alias_name"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "flake8_import_convention_invalid_aliases_config_extend_alias_name"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "flake8_import_convention_invalid_aliases_config_module_name"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "flake8_import_convention_nfkc_normalization"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "lint_options"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "output_format_show_fixes"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "per_file_ignores_stdin"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "required_version_bound_match"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "required_version_bound_mismatch"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "required_version_exact_match"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "required_version_exact_mismatch"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "required_version_fails_to_parse"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "required_version_precedes_rule_validation"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "requires_python"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "requires_python_equals"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "requires_python_equals_patch"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "requires_python_patch"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "semantic_syntax_errors"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "show_fixes_preview"
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     "unused_interaction"
+    ],
+    [
+     "crates/ty/tests/cli/analysis_options.rs",
+     "respect_type_ignore_comments_is_turned_off"
+    ],
+    [
+     "crates/ty/tests/cli/config_option.rs",
+     "cli_config_args_invalid_option"
+    ],
+    [
+     "crates/ty/tests/cli/config_option.rs",
+     "cli_config_args_later_overrides_earlier"
+    ],
+    [
+     "crates/ty/tests/cli/config_option.rs",
+     "cli_config_args_toml_string_basic"
+    ],
+    [
+     "crates/ty/tests/cli/exit_code.rs",
+     "both_warnings_and_errors"
+    ],
+    [
+     "crates/ty/tests/cli/exit_code.rs",
+     "both_warnings_and_errors_and_error_on_warning_is_true"
+    ],
+    [
+     "crates/ty/tests/cli/exit_code.rs",
+     "exit_zero_is_true"
+    ],
+    [
+     "crates/ty/tests/cli/exit_code.rs",
+     "no_errors_but_error_on_warning_is_true"
+    ],
+    [
+     "crates/ty/tests/cli/exit_code.rs",
+     "only_info"
+    ],
+    [
+     "crates/ty/tests/cli/exit_code.rs",
+     "only_info_and_error_on_warning_is_true"
+    ],
+    [
+     "crates/ty/tests/cli/exit_code.rs",
+     "only_warnings"
+    ],
+    [
+     "crates/ty/tests/cli/fixes.rs",
+     "add_ignore"
+    ],
+    [
+     "crates/ty/tests/cli/fixes.rs",
+     "fix"
+    ],
+    [
+     "crates/ty/tests/cli/fixes.rs",
+     "fix_clean_file"
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     "can_handle_large_binop_expressions"
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     "check_file_without_extension"
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     "check_file_without_extension_in_subfolder"
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     "concise_diagnostics"
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     "concise_revealed_type"
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     "github_diagnostics"
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     "gitlab_diagnostics"
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     "gitlab_empty_diagnostics"
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     "test_output_format_env"
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     "test_quiet_output"
+    ],
+    [
+     "crates/ty/tests/cli/python_environment.rs",
+     "cli_unsupported_python_version"
+    ],
+    [
+     "crates/ty/tests/cli/rule_selection.rs",
+     "cli_all_rules_ignore"
+    ],
+    [
+     "crates/ty/tests/cli/rule_selection.rs",
+     "cli_all_rules_precedence"
+    ],
+    [
+     "crates/ty/tests/cli/rule_selection.rs",
+     "cli_all_rules_warn"
+    ],
+    [
+     "crates/ty/tests/cli/rule_selection.rs",
+     "cli_rule_severity"
+    ],
+    [
+     "crates/ty/tests/cli/rule_selection.rs",
+     "cli_rule_severity_precedence"
+    ],
+    [
+     "crates/ty/tests/cli/rule_selection.rs",
+     "cli_specific_then_all"
+    ],
+    [
+     "crates/ty/tests/cli/rule_selection.rs",
+     "cli_unknown_rules"
+    ],
+    [
+     "crates/ty/tests/cli/rule_selection.rs",
+     "configuration_rule_severity"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff/tests/cli/format.rs",
+     165,
+     165,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     189,
+     189,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     218,
+     218,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     247,
+     247,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     294,
+     294,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     465,
+     465,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     488,
+     488,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     512,
+     512,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     727,
+     727,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     742,
+     742,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     758,
+     758,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     831,
+     831,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     868,
+     868,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     963,
+     963,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     999,
+     999,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/format.rs",
+     1097,
+     1097,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     63,
+     63,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     279,
+     279,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     361,
+     361,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     402,
+     402,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     709,
+     709,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     936,
+     936,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     970,
+     970,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1080,
+     1080,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1111,
+     1111,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1147,
+     1147,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1185,
+     1185,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1223,
+     1223,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1262,
+     1262,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1293,
+     1293,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     1426,
+     1426,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     2084,
+     2084,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     2111,
+     2111,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     2142,
+     2142,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     2175,
+     2175,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     2208,
+     2208,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     2745,
+     2745,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     2779,
+     2779,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     2813,
+     2813,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     2847,
+     2847,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     3423,
+     3423,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     3544,
+     3544,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     3735,
+     3735,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff/tests/cli/lint.rs",
+     3758,
+     3758,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/analysis_options.rs",
+     8,
+     8,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/config_option.rs",
+     7,
+     7,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/config_option.rs",
+     98,
+     98,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/config_option.rs",
+     120,
+     120,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/exit_code.rs",
+     7,
+     7,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/exit_code.rs",
+     30,
+     30,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/exit_code.rs",
+     59,
+     59,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/exit_code.rs",
+     88,
+     88,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/exit_code.rs",
+     143,
+     143,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/exit_code.rs",
+     179,
+     179,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/exit_code.rs",
+     215,
+     215,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/fixes.rs",
+     10,
+     10,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/fixes.rs",
+     116,
+     116,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/fixes.rs",
+     187,
+     187,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     23,
+     23,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     44,
+     44,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     99,
+     99,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     590,
+     590,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     616,
+     616,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     636,
+     636,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     660,
+     660,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     746,
+     746,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     761,
+     761,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     795,
+     795,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/main.rs",
+     831,
+     831,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/python_environment.rs",
+     1131,
+     1131,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/rule_selection.rs",
+     8,
+     8,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/rule_selection.rs",
+     72,
+     72,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/rule_selection.rs",
+     166,
+     166,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/rule_selection.rs",
+     265,
+     265,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/rule_selection.rs",
+     870,
+     870,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/rule_selection.rs",
+     903,
+     903,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/rule_selection.rs",
+     950,
+     950,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty/tests/cli/rule_selection.rs",
+     996,
+     996,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff/tests/cli/main.rs:124",
+   "stratum": "C-name"
+  },
+  "callers:crates/ruff_annotate_snippets/src/renderer/display_list.rs:1187": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ruff_annotate_snippets/src/renderer/display_list.rs",
+     "format_message"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_annotate_snippets/src/renderer/display_list.rs",
+     1130,
+     1130
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_annotate_snippets/src/renderer/display_list.rs",
+     "format_message"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_annotate_snippets/src/renderer/display_list.rs",
+     1130,
+     1130,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_annotate_snippets/src/renderer/display_list.rs:1187",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/ruff_db/src/lib.rs:163": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ruff_db/src/source.rs",
+     "text_is_cached_if_revision_is_unchanged"
+    ],
+    [
+     "crates/ruff_db/src/testing.rs",
+     "const_query_was_not_run_fails_if_query_was_run"
+    ],
+    [
+     "crates/ruff_db/src/testing.rs",
+     "query_was_not_run"
+    ],
+    [
+     "crates/ruff_db/src/testing.rs",
+     "query_was_not_run_fails_if_query_was_run"
+    ],
+    [
+     "crates/ruff_db/src/testing.rs",
+     "query_was_run_fails_if_query_was_not_run"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_db/src/source.rs",
+     259,
+     259
+    ],
+    [
+     "crates/ruff_db/src/testing.rs",
+     248,
+     248
+    ],
+    [
+     "crates/ruff_db/src/testing.rs",
+     281,
+     281
+    ],
+    [
+     "crates/ruff_db/src/testing.rs",
+     311,
+     311
+    ],
+    [
+     "crates/ruff_db/src/testing.rs",
+     346,
+     346
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_db/src/source.rs",
+     "text_is_cached_if_revision_is_unchanged"
+    ],
+    [
+     "crates/ruff_db/src/testing.rs",
+     "const_query_was_not_run_fails_if_query_was_run"
+    ],
+    [
+     "crates/ruff_db/src/testing.rs",
+     "query_was_not_run"
+    ],
+    [
+     "crates/ruff_db/src/testing.rs",
+     "query_was_not_run_fails_if_query_was_run"
+    ],
+    [
+     "crates/ruff_db/src/testing.rs",
+     "query_was_run_fails_if_query_was_not_run"
+    ],
+    [
+     "crates/ty_module_resolver/src/list.rs",
+     "adding_file_to_search_path_with_lower_priority_does_not_change_results"
+    ],
+    [
+     "crates/ty_module_resolver/src/list.rs",
+     "deeply_nested_file_does_not_invalidate_top_level_listing"
+    ],
+    [
+     "crates/ty_module_resolver/src/list.rs",
+     "module_resolution_paths_cached_between_different_module_resolutions"
+    ],
+    [
+     "crates/ty_module_resolver/src/list.rs",
+     "sibling_file_does_not_invalidate_package_submodules"
+    ],
+    [
+     "crates/ty_module_resolver/src/resolve.rs",
+     "adding_file_to_search_path_with_lower_priority_does_not_invalidate_query"
+    ],
+    [
+     "crates/ty_module_resolver/src/resolve.rs",
+     "deleting_file_from_different_directory_doesnt_change_module_resolution"
+    ],
+    [
+     "crates/ty_module_resolver/src/resolve.rs",
+     "module_resolution_paths_cached_between_different_module_resolutions"
+    ],
+    [
+     "crates/ty_module_resolver/src/resolve.rs",
+     "nested_site_packages_change_does_not_invalidate_dynamic_resolution_paths"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_db/src/source.rs",
+     259,
+     259,
+     {
+      "resolution_kind": "constructor_local",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_db/src/testing.rs",
+     248,
+     248,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_db/src/testing.rs",
+     281,
+     281,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_db/src/testing.rs",
+     311,
+     311,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_db/src/testing.rs",
+     346,
+     346,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_module_resolver/src/list.rs",
+     1056,
+     1056,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_module_resolver/src/list.rs",
+     1082,
+     1082,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_module_resolver/src/list.rs",
+     1175,
+     1175,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_module_resolver/src/list.rs",
+     1425,
+     1425,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_module_resolver/src/resolve.rs",
+     2509,
+     2509,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_module_resolver/src/resolve.rs",
+     2616,
+     2616,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_module_resolver/src/resolve.rs",
+     2875,
+     2875,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_module_resolver/src/resolve.rs",
+     2906,
+     2906,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_db/src/lib.rs:163",
+   "stratum": "C-method"
+  },
+  "callers:crates/ruff_dev/src/format_dev.rs:899": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ruff_dev/src/format_dev.rs",
+     "from_file"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_dev/src/format_dev.rs",
+     938,
+     938
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_server/tests/e2e/code_action.rs",
+     "code_action_without_valid_url_returns_unchanged_action"
+    ],
+    [
+     "crates/ruff_server/tests/e2e/code_action.rs",
+     "invalid_code_action_resolve_data_returns_unchanged_action"
+    ],
+    [
+     "crates/ruff_server/tests/e2e/main.rs",
+     "initialize"
+    ],
+    [
+     "crates/ruff_server/tests/e2e/main.rs",
+     "new"
+    ],
+    [
+     "crates/ty_server/tests/e2e/main.rs",
+     "initialize"
+    ],
+    [
+     "crates/ty_server/tests/e2e/main.rs",
+     "new"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_server/tests/e2e/code_action.rs",
+     88,
+     88,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_server/tests/e2e/code_action.rs",
+     104,
+     104,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_server/tests/e2e/main.rs",
+     255,
+     255,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_server/tests/e2e/main.rs",
+     1006,
+     1006,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_server/tests/e2e/main.rs",
+     1010,
+     1010,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_server/tests/e2e/main.rs",
+     1012,
+     1012,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_server/tests/e2e/main.rs",
+     302,
+     302,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_server/tests/e2e/main.rs",
+     1209,
+     1209,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_server/tests/e2e/main.rs",
+     1211,
+     1211,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_dev/src/format_dev.rs:899",
+   "stratum": "C-name"
+  },
+  "callers:crates/ruff_linter/src/rules/flake8_async/helpers.rs:172": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_db/src/display.rs",
+     "entry"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_db/src/display.rs",
+     34,
+     34,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_linter/src/rules/flake8_async/helpers.rs:172",
+   "stratum": "C-method"
+  },
+  "callers:crates/ruff_linter/src/rules/flake8_datetimez/rules/call_date_fromtimestamp.rs:53": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_linter/src/violation.rs",
+     "into_diagnostic"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_linter/src/violation.rs",
+     73,
+     73,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_linter/src/rules/flake8_datetimez/rules/call_date_fromtimestamp.rs:53",
+   "stratum": "C-method"
+  },
+  "callers:crates/ruff_linter/src/rules/flake8_pyi/rules/duplicate_literal_member.rs:54": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_linter/src/rules/flake8_pyi/rules/duplicate_literal_member.rs:54",
+   "stratum": "C-method"
+  },
+  "callers:crates/ruff_linter/src/rules/perflint/rules/try_except_in_loop.rs:85": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_linter/src/violation.rs",
+     "into_diagnostic"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_linter/src/violation.rs",
+     73,
+     73,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_linter/src/rules/perflint/rules/try_except_in_loop.rs:85",
+   "stratum": "C-method"
+  },
+  "callers:crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:304": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs",
+     "trailing_whitespace"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs",
+     199,
+     199
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs",
+     "trailing_whitespace"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs",
+     199,
+     199,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:304",
+   "stratum": "C-name"
+  },
+  "callers:crates/ruff_linter/src/rules/pyflakes/mod.rs:3014": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_linter/src/rules/pyflakes/mod.rs:3014",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/ruff_linter/src/rules/pylint/helpers.rs:623": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_linter/src/rules/pylint/helpers.rs:623",
+   "stratum": "C-name"
+  },
+  "callers:crates/ruff_linter/src/rules/ruff/mod.rs:706": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_linter/src/rules/ruff/mod.rs:706",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/ruff_markdown/src/lib.rs:403": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_markdown/src/lib.rs:403",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/ruff_python_ast/src/generated.rs:10764": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ruff_python_ast/src/generated.rs",
+     "visit_source_order"
+    ],
+    [
+     "crates/ruff_python_ast/src/visitor/source_order.rs",
+     "walk_expr"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_python_ast/src/visitor/source_order.rs",
+     282,
+     282
+    ],
+    [
+     "crates/ruff_python_ast/src/generated.rs",
+     4762,
+     4762
+    ],
+    [
+     "crates/ruff_python_ast/src/generated.rs",
+     7241,
+     7241
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_python_ast/src/generated.rs:10764",
+   "stratum": "C-method"
+  },
+  "callers:crates/ruff_python_ast/src/generated.rs:2606": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ruff_linter/src/rules/fastapi/rules/fastapi_unused_path_parameter.rs",
+     "from_parameter"
+    ],
+    [
+     "crates/ruff_linter/src/rules/flake8_pyi/rules/custom_type_var_for_self.rs",
+     "custom_typevar"
+    ],
+    [
+     "crates/ruff_linter/src/rules/flake8_pyi/rules/unnecessary_literal_union.rs",
+     "unnecessary_literal_union"
+    ],
+    [
+     "crates/ruff_linter/src/rules/flake8_pyi/rules/unnecessary_type_union.rs",
+     "unnecessary_type_union"
+    ],
+    [
+     "crates/ruff_linter/src/rules/flake8_pytest_style/rules/fixture.rs",
+     "check_fixture_returns"
+    ],
+    [
+     "crates/ruff_linter/src/rules/perflint/rules/unnecessary_list_cast.rs",
+     "match_mutation"
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyupgrade/rules/non_pep646_unpack.rs",
+     "in_subscript_index"
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyupgrade/rules/non_pep646_unpack.rs",
+     "in_vararg"
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyupgrade/rules/pep695/mod.rs",
+     "find_generic"
+    ],
+    [
+     "crates/ruff_linter/src/rules/refurb/rules/delete_full_slice.rs",
+     "match_full_slice"
+    ],
+    [
+     "crates/ruff_linter/src/rules/refurb/rules/list_reverse_copy.rs",
+     "extract_name_from_sliced_reversed"
+    ],
+    [
+     "crates/ruff_linter/src/rules/refurb/rules/reimplemented_operator.rs",
+     "itemgetter_op_tuple"
+    ],
+    [
+     "crates/ruff_linter/src/rules/refurb/rules/slice_to_remove_prefix_or_suffix.rs",
+     "affix_removal_data_expr"
+    ],
+    [
+     "crates/ruff_linter/src/rules/refurb/rules/slice_to_remove_prefix_or_suffix.rs",
+     "affix_removal_data_stmt"
+    ],
+    [
+     "crates/ruff_python_semantic/src/model.rs",
+     "in_nested_literal"
+    ],
+    [
+     "crates/ruff_python_semantic/src/model.rs",
+     "in_nested_union"
+    ],
+    [
+     "crates/ty_python_semantic/src/types/diagnostic.rs",
+     "report_invalid_type_param_order"
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     "try_narrow_dict_kwargs"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ty_python_semantic/src/types/diagnostic.rs",
+     3376,
+     3376
+    ],
+    [
+     "crates/ruff_linter/src/rules/flake8_pytest_style/rules/fixture.rs",
+     829,
+     829
+    ],
+    [
+     "crates/ruff_linter/src/rules/flake8_pyi/rules/unnecessary_literal_union.rs",
+     111,
+     111
+    ],
+    [
+     "crates/ruff_linter/src/rules/refurb/rules/delete_full_slice.rs",
+     87,
+     87
+    ],
+    [
+     "crates/ruff_python_semantic/src/model.rs",
+     1681,
+     1681
+    ],
+    [
+     "crates/ruff_python_semantic/src/model.rs",
+     1716,
+     1716
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyupgrade/rules/non_pep646_unpack.rs",
+     108,
+     108
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyupgrade/rules/non_pep646_unpack.rs",
+     117,
+     117
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyupgrade/rules/non_pep646_unpack.rs",
+     128,
+     128
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyupgrade/rules/non_pep646_unpack.rs",
+     150,
+     150
+    ],
+    [
+     "crates/ruff_linter/src/rules/flake8_pyi/rules/unnecessary_type_union.rs",
+     71,
+     71
+    ],
+    [
+     "crates/ruff_linter/src/rules/refurb/rules/reimplemented_operator.rs",
+     313,
+     313
+    ],
+    [
+     "crates/ruff_linter/src/rules/flake8_pyi/rules/custom_type_var_for_self.rs",
+     258,
+     258
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     8164,
+     8164
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     8167,
+     8167
+    ],
+    [
+     "crates/ruff_linter/src/rules/refurb/rules/list_reverse_copy.rs",
+     163,
+     163
+    ],
+    [
+     "crates/ruff_linter/src/rules/fastapi/rules/fastapi_unused_path_parameter.rs",
+     271,
+     271
+    ],
+    [
+     "crates/ruff_linter/src/rules/refurb/rules/slice_to_remove_prefix_or_suffix.rs",
+     166,
+     166
+    ],
+    [
+     "crates/ruff_linter/src/rules/refurb/rules/slice_to_remove_prefix_or_suffix.rs",
+     228,
+     228
+    ],
+    [
+     "crates/ruff_linter/src/rules/perflint/rules/unnecessary_list_cast.rs",
+     211,
+     211
+    ],
+    [
+     "crates/ruff_linter/src/rules/perflint/rules/unnecessary_list_cast.rs",
+     228,
+     228
+    ],
+    [
+     "crates/ruff_linter/src/rules/perflint/rules/unnecessary_list_cast.rs",
+     237,
+     237
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyupgrade/rules/pep695/mod.rs",
+     399,
+     399
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_linter/src/rules/fastapi/rules/fastapi_unused_path_parameter.rs",
+     "from_parameter"
+    ],
+    [
+     "crates/ruff_linter/src/rules/flake8_pyi/rules/custom_type_var_for_self.rs",
+     "custom_typevar"
+    ],
+    [
+     "crates/ruff_linter/src/rules/flake8_pyi/rules/unnecessary_literal_union.rs",
+     "unnecessary_literal_union"
+    ],
+    [
+     "crates/ruff_linter/src/rules/flake8_pyi/rules/unnecessary_type_union.rs",
+     "unnecessary_type_union"
+    ],
+    [
+     "crates/ruff_linter/src/rules/perflint/rules/unnecessary_list_cast.rs",
+     "match_mutation"
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyupgrade/rules/non_pep646_unpack.rs",
+     "in_subscript_index"
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyupgrade/rules/pep695/mod.rs",
+     "find_generic"
+    ],
+    [
+     "crates/ruff_linter/src/rules/refurb/rules/delete_full_slice.rs",
+     "match_full_slice"
+    ],
+    [
+     "crates/ruff_linter/src/rules/refurb/rules/list_reverse_copy.rs",
+     "extract_name_from_sliced_reversed"
+    ],
+    [
+     "crates/ruff_linter/src/rules/refurb/rules/slice_to_remove_prefix_or_suffix.rs",
+     "affix_removal_data_expr"
+    ],
+    [
+     "crates/ruff_linter/src/rules/refurb/rules/slice_to_remove_prefix_or_suffix.rs",
+     "affix_removal_data_stmt"
+    ],
+    [
+     "crates/ty_python_semantic/src/types/diagnostic.rs",
+     "report_invalid_type_param_order"
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     "try_narrow_dict_kwargs"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_linter/src/rules/flake8_pyi/rules/custom_type_var_for_self.rs",
+     258,
+     258,
+     {
+      "resolution_kind": "field_typed",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/flake8_pyi/rules/unnecessary_literal_union.rs",
+     111,
+     111,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/flake8_pyi/rules/unnecessary_type_union.rs",
+     71,
+     71,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/refurb/rules/delete_full_slice.rs",
+     87,
+     87,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/refurb/rules/list_reverse_copy.rs",
+     163,
+     163,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/fastapi/rules/fastapi_unused_path_parameter.rs",
+     271,
+     271,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/perflint/rules/unnecessary_list_cast.rs",
+     211,
+     211,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/perflint/rules/unnecessary_list_cast.rs",
+     228,
+     228,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/perflint/rules/unnecessary_list_cast.rs",
+     237,
+     237,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyupgrade/rules/non_pep646_unpack.rs",
+     115,
+     115,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyupgrade/rules/non_pep646_unpack.rs",
+     128,
+     128,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/pyupgrade/rules/pep695/mod.rs",
+     399,
+     399,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/refurb/rules/slice_to_remove_prefix_or_suffix.rs",
+     166,
+     166,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_linter/src/rules/refurb/rules/slice_to_remove_prefix_or_suffix.rs",
+     228,
+     228,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_python_semantic/src/types/diagnostic.rs",
+     3375,
+     3375,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     8164,
+     8164,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     8167,
+     8167,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_python_ast/src/generated.rs:2606",
+   "stratum": "U-method"
+  },
+  "callers:crates/ruff_python_ast/src/generated.rs:428": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_python_ast/src/generated.rs:428",
+   "stratum": "U-method"
+  },
+  "callers:crates/ruff_python_ast/src/name.rs:695": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ruff_python_ast/src/name.rs",
+     "from_iter"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_python_ast/src/name.rs",
+     333,
+     333
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_python_ast/src/name.rs",
+     "from_iter"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_python_ast/src/name.rs",
+     333,
+     333,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_python_ast/src/name.rs:695",
+   "stratum": "C-name"
+  },
+  "callers:crates/ruff_python_ast/src/nodes.rs:3516": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ruff_linter/src/fix/edits.rs",
+     "add_argument"
+    ],
+    [
+     "crates/ruff_linter/src/fix/edits.rs",
+     "remove_argument"
+    ],
+    [
+     "crates/ruff_linter/src/rules/ruff/rules/falsy_dict_get_fallback.rs",
+     "falsy_dict_get_fallback"
+    ],
+    [
+     "crates/ty_ide/src/inlay_hints.rs",
+     "visit_expr"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_linter/src/fix/edits.rs",
+     218,
+     218
+    ],
+    [
+     "crates/ruff_linter/src/fix/edits.rs",
+     224,
+     224
+    ],
+    [
+     "crates/ruff_linter/src/fix/edits.rs",
+     229,
+     229
+    ],
+    [
+     "crates/ruff_linter/src/fix/edits.rs",
+     281,
+     281
+    ],
+    [
+     "crates/ruff_linter/src/rules/ruff/rules/falsy_dict_get_fallback.rs",
+     104,
+     104
+    ],
+    [
+     "crates/ty_ide/src/inlay_hints.rs",
+     515,
+     515
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_db/src/diagnostic/mod.rs",
+     "invalid_syntax"
+    ],
+    [
+     "crates/ruff_linter/src/checkers/ast/mod.rs",
+     "secondary_annotation"
+    ],
+    [
+     "crates/ruff_linter/src/checkers/ast/mod.rs",
+     "secondary_annotation_without_message"
+    ],
+    [
+     "crates/ruff_python_formatter/src/verbatim.rs",
+     "trim_indent"
+    ],
+    [
+     "crates/ruff_text_size/src/traits.rs",
+     "end"
+    ],
+    [
+     "crates/ruff_text_size/src/traits.rs",
+     "slice"
+    ],
+    [
+     "crates/ruff_text_size/src/traits.rs",
+     "start"
+    ],
+    [
+     "crates/ty_ide/src/semantic_tokens.rs",
+     "add_token"
+    ],
+    [
+     "crates/ty_python_semantic/src/types/bool.rs",
+     "report_diagnostic"
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     "is_in_type_checking_block"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_db/src/diagnostic/mod.rs",
+     97,
+     97,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_linter/src/checkers/ast/mod.rs",
+     3740,
+     3740,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_linter/src/checkers/ast/mod.rs",
+     3752,
+     3752,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_python_formatter/src/verbatim.rs",
+     700,
+     700,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_text_size/src/traits.rs",
+     47,
+     47,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_text_size/src/traits.rs",
+     52,
+     52,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_text_size/src/traits.rs",
+     97,
+     97,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_ide/src/semantic_tokens.rs",
+     229,
+     229,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_python_semantic/src/types/bool.rs",
+     399,
+     399,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     652,
+     652,
+     {
+      "resolution_kind": "trait_cha",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_python_ast/src/nodes.rs:3516",
+   "stratum": "C-method"
+  },
+  "callers:crates/ruff_python_formatter/src/comments/map.rs:517": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ruff_python_formatter/src/comments/map.rs",
+     "from_entry"
+    ],
+    [
+     "crates/ruff_python_formatter/src/comments/map.rs",
+     "leading"
+    ],
+    [
+     "crates/ruff_python_formatter/src/comments/map.rs",
+     "leading_dangling_trailing"
+    ],
+    [
+     "crates/ruff_python_formatter/src/comments/map.rs",
+     "push_leading"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_python_formatter/src/comments/map.rs",
+     96,
+     96
+    ],
+    [
+     "crates/ruff_python_formatter/src/comments/map.rs",
+     103,
+     103
+    ],
+    [
+     "crates/ruff_python_formatter/src/comments/map.rs",
+     224,
+     224
+    ],
+    [
+     "crates/ruff_python_formatter/src/comments/map.rs",
+     265,
+     265
+    ],
+    [
+     "crates/ruff_python_formatter/src/comments/map.rs",
+     323,
+     323
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_python_formatter/src/comments/map.rs",
+     "leading"
+    ],
+    [
+     "crates/ruff_python_formatter/src/comments/map.rs",
+     "leading_dangling_trailing"
+    ],
+    [
+     "crates/ruff_python_formatter/src/comments/map.rs",
+     "push_leading"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_python_formatter/src/comments/map.rs",
+     96,
+     96,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_python_formatter/src/comments/map.rs",
+     103,
+     103,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_python_formatter/src/comments/map.rs",
+     224,
+     224,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ruff_python_formatter/src/comments/map.rs",
+     265,
+     265,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_python_formatter/src/comments/map.rs:517",
+   "stratum": "U-method"
+  },
+  "callers:crates/ruff_python_formatter/src/generated.rs:525": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_python_formatter/src/generated.rs:525",
+   "stratum": "C-method"
+  },
+  "callers:crates/ruff_python_literal/src/cformat.rs:276": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ruff_python_literal/src/cformat.rs",
+     "parse"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_python_literal/src/cformat.rs",
+     141,
+     141
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_python_literal/src/cformat.rs",
+     "parse"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_python_literal/src/cformat.rs",
+     141,
+     141,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_python_literal/src/cformat.rs:276",
+   "stratum": "C-name"
+  },
+  "callers:crates/ruff_python_parser/src/parser/mod.rs:111": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     "parse_binary_expression_or_higher_recursive"
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     "parse_if_expression"
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     "parse_interpolated_element"
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     "parse_lambda_expr"
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     "parse_lhs_expression"
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/pattern.rs",
+     "parse_match_pattern"
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/statement.rs",
+     "parse_async_statement"
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/statement.rs",
+     "parse_block"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_python_parser/src/parser/statement.rs",
+     2873,
+     2873
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/statement.rs",
+     3127,
+     3127
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/pattern.rs",
+     92,
+     92
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     310,
+     310
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     355,
+     355
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     1906,
+     1906
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     3009,
+     3009
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     3042,
+     3042
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     "parse_binary_expression_or_higher_recursive"
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     "parse_if_expression"
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     "parse_interpolated_element"
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     "parse_lambda_expr"
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     "parse_lhs_expression"
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/pattern.rs",
+     "parse_match_pattern"
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/statement.rs",
+     "parse_async_statement"
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/statement.rs",
+     "parse_block"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     310,
+     310,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     355,
+     355,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     1906,
+     1906,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     3009,
+     3009,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/expression.rs",
+     3042,
+     3042,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/pattern.rs",
+     92,
+     92,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/statement.rs",
+     2873,
+     2873,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_python_parser/src/parser/statement.rs",
+     3127,
+     3127,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_python_parser/src/parser/mod.rs:111",
+   "stratum": "U-method"
+  },
+  "callers:crates/ruff_python_stdlib/src/typing.rs:341": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ruff_python_semantic/src/analyze/typing.rs",
+     "to_pep585_generic"
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     "report_unresolved_reference"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_python_semantic/src/analyze/typing.rs",
+     139,
+     139
+    ],
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     9791,
+     9791
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_python_semantic/src/analyze/typing.rs",
+     "to_pep585_generic"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_python_semantic/src/analyze/typing.rs",
+     139,
+     139,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_python_stdlib/src/typing.rs:341",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/ruff_server/src/session/index.rs:565": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ruff_server/src/fix.rs",
+     "fix_all"
+    ],
+    [
+     "crates/ruff_server/src/lint.rs",
+     "check"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_server/src/lint.rs",
+     83,
+     83
+    ],
+    [
+     "crates/ruff_server/src/fix.rs",
+     36,
+     36
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ruff_server/src/fix.rs",
+     "fix_all"
+    ],
+    [
+     "crates/ruff_server/src/lint.rs",
+     "check"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ruff_server/src/fix.rs",
+     36,
+     36,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ruff_server/src/lint.rs",
+     83,
+     83,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "crates/ruff_server/src/session/index.rs:565",
+   "stratum": "U-method"
+  },
+  "callers:crates/ruff_wasm/src/lib.rs:194": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ruff_wasm/src/lib.rs",
+     "check"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ruff_wasm/src/lib.rs",
+     437,
+     437
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/ruff_wasm/src/lib.rs:194",
+   "stratum": "C-name"
+  },
+  "callers:crates/ty_project/src/db/ignore.rs:324": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/ty_project/src/db/ignore.rs:324",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/ty_python_semantic/src/types/constraints.rs:1236": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     "add_nested_typevar_sequents"
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     "add_pair_implication_with_provenance"
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     "add_sequents_for_single"
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     "fmt"
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     "implies"
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     "materialized"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     1245,
+     1245
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     1607,
+     1607
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     1608,
+     1608
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     4624,
+     4624
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     4882,
+     4882
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     4953,
+     4953
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     5349,
+     5349
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     5542,
+     5542
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     5545,
+     5545
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     "add_nested_typevar_sequents"
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     "add_pair_implication_with_provenance"
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     "add_sequents_for_single"
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     "fmt"
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     "implies"
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     "materialized"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     1245,
+     1245,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     1605,
+     1605,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     1608,
+     1608,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     4624,
+     4624,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     4624,
+     4624,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     4880,
+     4880,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     4953,
+     4953,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     5349,
+     5349,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     5542,
+     5542,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "crates/ty_python_semantic/src/types/constraints.rs",
+     5545,
+     5545,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "crates/ty_python_semantic/src/types/constraints.rs:1236",
+   "stratum": "U-method"
+  },
+  "callers:crates/ty_python_semantic/src/types/diagnostic.rs:1480": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ty_python_semantic/src/types/diagnostic.rs",
+     "add_invariant_generic_hints"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ty_python_semantic/src/types/diagnostic.rs",
+     1571,
+     1571
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ty_python_semantic/src/types/diagnostic.rs",
+     "add_invariant_generic_hints"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ty_python_semantic/src/types/diagnostic.rs",
+     1571,
+     1571,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "crates/ty_python_semantic/src/types/diagnostic.rs:1480",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/ty_python_semantic/src/types/infer/builder.rs:5177": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     "infer_statement"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     1790,
+     1790
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     "infer_statement"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ty_python_semantic/src/types/infer/builder.rs",
+     1790,
+     1790,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "crates/ty_python_semantic/src/types/infer/builder.rs:5177",
+   "stratum": "U-method"
+  },
+  "callers:crates/ty_test/src/db.rs:344": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ty_test/src/db.rs",
+     "use_in_memory_system"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ty_test/src/db.rs",
+     134,
+     134
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ty_test/src/db.rs",
+     "use_in_memory_system"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ty_test/src/db.rs",
+     134,
+     134,
+     {
+      "resolution_kind": "field_typed",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "crates/ty_test/src/db.rs:344",
+   "stratum": "U-method"
+  }
+ },
+ "site_fingerprints": {
+  "crates/mdtest/src/parser.rs:1927": "1cf059523eff8e41",
+  "crates/mdtest/src/parser.rs:1937": "aa1607c387250dcc",
+  "crates/mdtest/src/parser.rs:1939": "1dc48c109a4fc366",
+  "crates/mdtest/src/parser.rs:1942": "4bb5651ac64f6343",
+  "crates/mdtest/src/parser.rs:1946": "a2fe40ec6fa71092",
+  "crates/ruff/tests/cli/format.rs:1097": "9655560da4f64cda",
+  "crates/ruff/tests/cli/format.rs:165": "6a38f9e6bd6e9ba4",
+  "crates/ruff/tests/cli/format.rs:189": "e5ab2d2ed8d9bab7",
+  "crates/ruff/tests/cli/format.rs:218": "25e711008196f450",
+  "crates/ruff/tests/cli/format.rs:247": "24b4513f09bca84c",
+  "crates/ruff/tests/cli/format.rs:294": "bb9dd303a4ed8e51",
+  "crates/ruff/tests/cli/format.rs:465": "6d37cffac81c1a02",
+  "crates/ruff/tests/cli/format.rs:488": "bd9b80153b473170",
+  "crates/ruff/tests/cli/format.rs:512": "d6e46f6bd3597524",
+  "crates/ruff/tests/cli/format.rs:727": "3be451aa152bb2ba",
+  "crates/ruff/tests/cli/format.rs:742": "dc887a9970b44554",
+  "crates/ruff/tests/cli/format.rs:758": "5d9637613777c157",
+  "crates/ruff/tests/cli/format.rs:831": "77fdc37e984e2909",
+  "crates/ruff/tests/cli/format.rs:868": "934eb6c4cc5d74b8",
+  "crates/ruff/tests/cli/format.rs:963": "b9280e828fc7764b",
+  "crates/ruff/tests/cli/format.rs:999": "5138b4f94c1a2bbd",
+  "crates/ruff/tests/cli/lint.rs:1080": "bb4e0bfad63a3a18",
+  "crates/ruff/tests/cli/lint.rs:1111": "70c00d17ebd98b00",
+  "crates/ruff/tests/cli/lint.rs:1147": "70c00d17ebd98b00",
+  "crates/ruff/tests/cli/lint.rs:1185": "70c00d17ebd98b00",
+  "crates/ruff/tests/cli/lint.rs:1223": "70c00d17ebd98b00",
+  "crates/ruff/tests/cli/lint.rs:1262": "61669cb6f614c2d1",
+  "crates/ruff/tests/cli/lint.rs:1293": "18d89de78c4c4bbd",
+  "crates/ruff/tests/cli/lint.rs:1426": "19b5398245f40ccc",
+  "crates/ruff/tests/cli/lint.rs:1522": "e053a6ee501b1f40",
+  "crates/ruff/tests/cli/lint.rs:1523": "a854417a21b18bac",
+  "crates/ruff/tests/cli/lint.rs:1531": "ae81edf2fa39fb06",
+  "crates/ruff/tests/cli/lint.rs:1557": "fbb67dc9b45ad71b",
+  "crates/ruff/tests/cli/lint.rs:2084": "100be058cee5a615",
+  "crates/ruff/tests/cli/lint.rs:2111": "f83e1a1268346c96",
+  "crates/ruff/tests/cli/lint.rs:2142": "1333f37a1de4b59e",
+  "crates/ruff/tests/cli/lint.rs:2175": "5d4fc2c703006bee",
+  "crates/ruff/tests/cli/lint.rs:2208": "a00b11a6b2b4a05d",
+  "crates/ruff/tests/cli/lint.rs:2745": "d7af93702727dde7",
+  "crates/ruff/tests/cli/lint.rs:2779": "0f6d36bada61ab6d",
+  "crates/ruff/tests/cli/lint.rs:279": "ca72aa3745a7cc80",
+  "crates/ruff/tests/cli/lint.rs:2813": "d8ea48fde34780be",
+  "crates/ruff/tests/cli/lint.rs:2847": "edd1c1d2530f385a",
+  "crates/ruff/tests/cli/lint.rs:3423": "b636fe6c68fcb85a",
+  "crates/ruff/tests/cli/lint.rs:3544": "23262177fb86d0b7",
+  "crates/ruff/tests/cli/lint.rs:361": "495bd27267ed52fe",
+  "crates/ruff/tests/cli/lint.rs:3735": "05515f5155a9359e",
+  "crates/ruff/tests/cli/lint.rs:3758": "c8519871fb755701",
+  "crates/ruff/tests/cli/lint.rs:402": "080d86f3b7d23ffa",
+  "crates/ruff/tests/cli/lint.rs:63": "0137d7b94f1559b7",
+  "crates/ruff/tests/cli/lint.rs:709": "406ae336cee7808e",
+  "crates/ruff/tests/cli/lint.rs:936": "991ae3ea61d8c7d6",
+  "crates/ruff/tests/cli/lint.rs:970": "ffe25c447d1f3359",
+  "crates/ruff/tests/cli/main.rs:125": "50807c4ffa004ba4",
+  "crates/ruff/tests/cli/main.rs:126": "2c598bd94fa3a67c",
+  "crates/ruff_annotate_snippets/src/renderer/display_list.rs:1130": "d690178e13d6babc",
+  "crates/ruff_annotate_snippets/src/renderer/display_list.rs:1194": "ad3072c9af58ea43",
+  "crates/ruff_annotate_snippets/src/renderer/display_list.rs:1196": "187bad4e7c268b85",
+  "crates/ruff_annotate_snippets/src/renderer/display_list.rs:1198": "1f8601351a57c006",
+  "crates/ruff_db/src/diagnostic/mod.rs:97": "44d67e29eeed86ff",
+  "crates/ruff_db/src/display.rs:34": "e4279ca15222abb9",
+  "crates/ruff_db/src/lib.rs:164": "f9e5d5e794a09a7c",
+  "crates/ruff_db/src/source.rs:259": "9a46cd5ed1f35738",
+  "crates/ruff_db/src/testing.rs:248": "54fa061b2bdda319",
+  "crates/ruff_db/src/testing.rs:281": "8810e9ae227d3086",
+  "crates/ruff_db/src/testing.rs:311": "7d22240385c934c2",
+  "crates/ruff_db/src/testing.rs:346": "54fa061b2bdda319",
+  "crates/ruff_dev/src/format_dev.rs:938": "84111557bf921a6c",
+  "crates/ruff_linter/src/checkers/ast/mod.rs:3740": "b08d2308f81af0ce",
+  "crates/ruff_linter/src/checkers/ast/mod.rs:3752": "bbb0ef0fd8b049e4",
+  "crates/ruff_linter/src/fix/edits.rs:218": "4367d29292337a40",
+  "crates/ruff_linter/src/fix/edits.rs:224": "7aa01785fc4547c0",
+  "crates/ruff_linter/src/fix/edits.rs:229": "520e2fefd61a6ada",
+  "crates/ruff_linter/src/fix/edits.rs:281": "010b6947d53f28fc",
+  "crates/ruff_linter/src/rules/fastapi/rules/fastapi_unused_path_parameter.rs:271": "34895afe22d7fb7f",
+  "crates/ruff_linter/src/rules/flake8_pyi/rules/custom_type_var_for_self.rs:258": "4b49681df574d0ec",
+  "crates/ruff_linter/src/rules/flake8_pyi/rules/unnecessary_literal_union.rs:111": "ccd0ccd799dee178",
+  "crates/ruff_linter/src/rules/flake8_pyi/rules/unnecessary_type_union.rs:71": "356e7562fa69e760",
+  "crates/ruff_linter/src/rules/flake8_pytest_style/rules/fixture.rs:829": "ebc33fffbadfe097",
+  "crates/ruff_linter/src/rules/perflint/rules/unnecessary_list_cast.rs:211": "5aa4b432fc105b9e",
+  "crates/ruff_linter/src/rules/perflint/rules/unnecessary_list_cast.rs:228": "8ec46f8ce41d6a53",
+  "crates/ruff_linter/src/rules/perflint/rules/unnecessary_list_cast.rs:237": "ece14a723543fd59",
+  "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:199": "9da739ae0e07bd17",
+  "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:315": "c604c92c079df505",
+  "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:318": "67abe960a21fab34",
+  "crates/ruff_linter/src/rules/pycodestyle/rules/logical_lines/mod.rs:320": "d37f4cf8443b0544",
+  "crates/ruff_linter/src/rules/pyflakes/mod.rs:3015": "46ff126ecb416356",
+  "crates/ruff_linter/src/rules/pyflakes/mod.rs:3024": "3c0ae403e0b48139",
+  "crates/ruff_linter/src/rules/pyflakes/mod.rs:3033": "3c0ae403e0b48139",
+  "crates/ruff_linter/src/rules/pyflakes/mod.rs:3042": "3c0ae403e0b48139",
+  "crates/ruff_linter/src/rules/pylint/helpers.rs:633": "14d71546d5b5764c",
+  "crates/ruff_linter/src/rules/pylint/helpers.rs:634": "bbcaa9e7b966313d",
+  "crates/ruff_linter/src/rules/pyupgrade/rules/non_pep646_unpack.rs:108": "b435f7f30fbb63db",
+  "crates/ruff_linter/src/rules/pyupgrade/rules/non_pep646_unpack.rs:115": "00ba7c8d8ea3d510",
+  "crates/ruff_linter/src/rules/pyupgrade/rules/non_pep646_unpack.rs:117": "b60baf135fd23de8",
+  "crates/ruff_linter/src/rules/pyupgrade/rules/non_pep646_unpack.rs:128": "7400565831892e5d",
+  "crates/ruff_linter/src/rules/pyupgrade/rules/non_pep646_unpack.rs:150": "48ffdc1de5e56dcf",
+  "crates/ruff_linter/src/rules/pyupgrade/rules/pep695/mod.rs:399": "9be78e5240449f5c",
+  "crates/ruff_linter/src/rules/refurb/rules/delete_full_slice.rs:87": "e82930871d64b6cf",
+  "crates/ruff_linter/src/rules/refurb/rules/list_reverse_copy.rs:163": "bbe3104ac5b3bed2",
+  "crates/ruff_linter/src/rules/refurb/rules/reimplemented_operator.rs:313": "34d62cfc951b66c1",
+  "crates/ruff_linter/src/rules/refurb/rules/slice_to_remove_prefix_or_suffix.rs:166": "fbfaf5722f1d8070",
+  "crates/ruff_linter/src/rules/refurb/rules/slice_to_remove_prefix_or_suffix.rs:228": "43472bfe24854e0b",
+  "crates/ruff_linter/src/rules/ruff/mod.rs:707": "3f1d637dbaf9e83c",
+  "crates/ruff_linter/src/rules/ruff/mod.rs:710": "cee0f734d8471e05",
+  "crates/ruff_linter/src/rules/ruff/mod.rs:716": "c58566f2e1b16835",
+  "crates/ruff_linter/src/rules/ruff/rules/falsy_dict_get_fallback.rs:104": "a4e6679e90f747bb",
+  "crates/ruff_linter/src/violation.rs:73": "6e397e7f52ffcaa7",
+  "crates/ruff_python_ast/src/generated.rs:10775": "d726294e9b5d93ac",
+  "crates/ruff_python_ast/src/generated.rs:10778": "86cf35b3b5c9fe2c",
+  "crates/ruff_python_ast/src/generated.rs:4762": "4fcdb41a617ab5be",
+  "crates/ruff_python_ast/src/generated.rs:7241": "cdd6b3f523f59d9e",
+  "crates/ruff_python_ast/src/name.rs:333": "f00601645f3e141a",
+  "crates/ruff_python_ast/src/name.rs:696": "7cf0fa695d01ee5e",
+  "crates/ruff_python_ast/src/name.rs:697": "6ad924d0e4f93705",
+  "crates/ruff_python_ast/src/nodes.rs:3518": "3a1c6f8652e3825e",
+  "crates/ruff_python_ast/src/nodes.rs:3519": "05d87838198d43ad",
+  "crates/ruff_python_ast/src/visitor/source_order.rs:282": "799bdbb148f7062d",
+  "crates/ruff_python_formatter/src/comments/map.rs:103": "9a83be2e5eeca1fb",
+  "crates/ruff_python_formatter/src/comments/map.rs:224": "f3be775b1665eb59",
+  "crates/ruff_python_formatter/src/comments/map.rs:265": "33215ff8ca093b65",
+  "crates/ruff_python_formatter/src/comments/map.rs:323": "7980838d071b0677",
+  "crates/ruff_python_formatter/src/comments/map.rs:96": "030b8f2ccd0e0b87",
+  "crates/ruff_python_formatter/src/generated.rs:526": "305fb9642604f9ca",
+  "crates/ruff_python_formatter/src/verbatim.rs:700": "059293d8b4335b8e",
+  "crates/ruff_python_literal/src/cformat.rs:141": "4e63da98d83d8c81",
+  "crates/ruff_python_literal/src/cformat.rs:284": "3b38dceaab446c68",
+  "crates/ruff_python_parser/src/parser/expression.rs:1906": "eb680801031450b3",
+  "crates/ruff_python_parser/src/parser/expression.rs:3009": "ba957cb03b64582c",
+  "crates/ruff_python_parser/src/parser/expression.rs:3042": "1a0535f8f549cf19",
+  "crates/ruff_python_parser/src/parser/expression.rs:310": "aa84fa6d57aff75d",
+  "crates/ruff_python_parser/src/parser/expression.rs:355": "53ac87df3bc26ff7",
+  "crates/ruff_python_parser/src/parser/pattern.rs:92": "aa5ea193ef864ba6",
+  "crates/ruff_python_parser/src/parser/statement.rs:2873": "ea01e398b6e11bf4",
+  "crates/ruff_python_parser/src/parser/statement.rs:3127": "357c30fbe301763a",
+  "crates/ruff_python_semantic/src/analyze/typing.rs:139": "701afe10f9f745a1",
+  "crates/ruff_python_semantic/src/model.rs:1681": "b978acf970322183",
+  "crates/ruff_python_semantic/src/model.rs:1716": "a648738869c85425",
+  "crates/ruff_server/src/fix.rs:36": "ec5f532e9d77e6de",
+  "crates/ruff_server/src/lint.rs:83": "5d9850f79e2ae478",
+  "crates/ruff_server/src/session/index.rs:571": "50ddc01bdd428094",
+  "crates/ruff_server/src/session/index.rs:572": "7e464a1d9d117bfd",
+  "crates/ruff_server/src/session/index.rs:575": "25ddd61af8a55220",
+  "crates/ruff_server/tests/e2e/code_action.rs:104": "5e41c6e80c11be2c",
+  "crates/ruff_server/tests/e2e/code_action.rs:88": "15425b4c150f03d1",
+  "crates/ruff_server/tests/e2e/main.rs:1006": "9062898167d80e35",
+  "crates/ruff_server/tests/e2e/main.rs:1010": "f1ac405b9aceac4c",
+  "crates/ruff_server/tests/e2e/main.rs:1012": "7f273bc9c8001f10",
+  "crates/ruff_server/tests/e2e/main.rs:255": "b2b3da0c3b463ee8",
+  "crates/ruff_text_size/src/traits.rs:47": "bb2099f0c2935538",
+  "crates/ruff_text_size/src/traits.rs:52": "c346e5a4a9b06a04",
+  "crates/ruff_text_size/src/traits.rs:97": "3300d8c52456986c",
+  "crates/ruff_wasm/src/lib.rs:437": "4f51dfd95101c193",
+  "crates/ty/tests/cli/analysis_options.rs:8": "e136744b2526525f",
+  "crates/ty/tests/cli/config_option.rs:120": "24ca3f9eeae08b95",
+  "crates/ty/tests/cli/config_option.rs:7": "e4f5654d4d0539f0",
+  "crates/ty/tests/cli/config_option.rs:98": "1908b51120d8544a",
+  "crates/ty/tests/cli/exit_code.rs:143": "379e6278c5f2e665",
+  "crates/ty/tests/cli/exit_code.rs:179": "8ffc8599d1ee4c2c",
+  "crates/ty/tests/cli/exit_code.rs:215": "3ce631d28f693a67",
+  "crates/ty/tests/cli/exit_code.rs:30": "a41119e6a6e740d9",
+  "crates/ty/tests/cli/exit_code.rs:59": "2f593d656abe73ef",
+  "crates/ty/tests/cli/exit_code.rs:7": "b2f06beec836accc",
+  "crates/ty/tests/cli/exit_code.rs:88": "53ee5fd182b278ff",
+  "crates/ty/tests/cli/fixes.rs:10": "e7795274aaec40aa",
+  "crates/ty/tests/cli/fixes.rs:116": "a7f97b16401101ef",
+  "crates/ty/tests/cli/fixes.rs:187": "cf64f5e7f8a181c4",
+  "crates/ty/tests/cli/main.rs:23": "3dbcc0d7903c4a22",
+  "crates/ty/tests/cli/main.rs:44": "6853d1f886fbb72f",
+  "crates/ty/tests/cli/main.rs:590": "a21b7ffe8dd95cbb",
+  "crates/ty/tests/cli/main.rs:616": "2a35b495b53e7f79",
+  "crates/ty/tests/cli/main.rs:636": "cfd356fd8111862f",
+  "crates/ty/tests/cli/main.rs:660": "3c14b02963f88457",
+  "crates/ty/tests/cli/main.rs:746": "3b48dacbdf6e935b",
+  "crates/ty/tests/cli/main.rs:761": "aba1000199bd179a",
+  "crates/ty/tests/cli/main.rs:795": "8e6431c59d764e92",
+  "crates/ty/tests/cli/main.rs:831": "977838316b60cf12",
+  "crates/ty/tests/cli/main.rs:99": "87128f7580c22e93",
+  "crates/ty/tests/cli/python_environment.rs:1131": "50e606c91d0a8eb1",
+  "crates/ty/tests/cli/rule_selection.rs:166": "9129d5116932c07f",
+  "crates/ty/tests/cli/rule_selection.rs:265": "68dddd6913fd4201",
+  "crates/ty/tests/cli/rule_selection.rs:72": "360366244476d4cb",
+  "crates/ty/tests/cli/rule_selection.rs:8": "74837d47102e72f8",
+  "crates/ty/tests/cli/rule_selection.rs:870": "0eb67e93800e3e40",
+  "crates/ty/tests/cli/rule_selection.rs:903": "bc77c92618a37799",
+  "crates/ty/tests/cli/rule_selection.rs:950": "977e1d0198fc6e74",
+  "crates/ty/tests/cli/rule_selection.rs:996": "1f90a52d31cd1559",
+  "crates/ty_ide/src/inlay_hints.rs:515": "e0bf887a47f58309",
+  "crates/ty_ide/src/semantic_tokens.rs:229": "1c3098e0c72e0360",
+  "crates/ty_module_resolver/src/list.rs:1056": "38ff9c88d2953aba",
+  "crates/ty_module_resolver/src/list.rs:1082": "c2d8d437666d4818",
+  "crates/ty_module_resolver/src/list.rs:1175": "3aa0f8c9ffdac7f5",
+  "crates/ty_module_resolver/src/list.rs:1425": "7703209035b1127f",
+  "crates/ty_module_resolver/src/resolve.rs:2509": "7703209035b1127f",
+  "crates/ty_module_resolver/src/resolve.rs:2616": "3aa0f8c9ffdac7f5",
+  "crates/ty_module_resolver/src/resolve.rs:2875": "953d7c37a0b2dcaa",
+  "crates/ty_module_resolver/src/resolve.rs:2906": "2af7820efae9bbb1",
+  "crates/ty_project/src/db/ignore.rs:325": "2c4960d7c2b12b1c",
+  "crates/ty_project/src/db/ignore.rs:326": "1fdc8129153c2ec7",
+  "crates/ty_project/src/db/ignore.rs:327": "12b1d2c881fc94c1",
+  "crates/ty_project/src/db/ignore.rs:329": "2066f5b4f242c579",
+  "crates/ty_python_semantic/src/types/bool.rs:399": "790839523ec34d28",
+  "crates/ty_python_semantic/src/types/constraints.rs:1245": "9fd151b668aba013",
+  "crates/ty_python_semantic/src/types/constraints.rs:1605": "8d2b3b84cf77a482",
+  "crates/ty_python_semantic/src/types/constraints.rs:1607": "6324c5ca5c8ee325",
+  "crates/ty_python_semantic/src/types/constraints.rs:1608": "bc5bb5b6c81e151b",
+  "crates/ty_python_semantic/src/types/constraints.rs:4624": "7ca74bf60764f5d5",
+  "crates/ty_python_semantic/src/types/constraints.rs:4880": "15184ea8cd2315d5",
+  "crates/ty_python_semantic/src/types/constraints.rs:4882": "14763894dc02ff33",
+  "crates/ty_python_semantic/src/types/constraints.rs:4953": "95bd18d221899481",
+  "crates/ty_python_semantic/src/types/constraints.rs:5349": "7ad126894017907f",
+  "crates/ty_python_semantic/src/types/constraints.rs:5542": "ad80e3caf888509e",
+  "crates/ty_python_semantic/src/types/constraints.rs:5545": "7ad126894017907f",
+  "crates/ty_python_semantic/src/types/diagnostic.rs:1485": "a6ec52dd47d80b35",
+  "crates/ty_python_semantic/src/types/diagnostic.rs:1571": "a048a75f8a926800",
+  "crates/ty_python_semantic/src/types/diagnostic.rs:3375": "c01f2f29e151794f",
+  "crates/ty_python_semantic/src/types/diagnostic.rs:3376": "b9baac98973b6654",
+  "crates/ty_python_semantic/src/types/infer/builder.rs:1790": "bd5374ed69d4031a",
+  "crates/ty_python_semantic/src/types/infer/builder.rs:5186": "72ab952355c4201c",
+  "crates/ty_python_semantic/src/types/infer/builder.rs:5188": "75239b8ba019f764",
+  "crates/ty_python_semantic/src/types/infer/builder.rs:5189": "b9e687d1bb0ccfb6",
+  "crates/ty_python_semantic/src/types/infer/builder.rs:5192": "06ec7a39403b08cf",
+  "crates/ty_python_semantic/src/types/infer/builder.rs:5193": "01f6a69e65959ada",
+  "crates/ty_python_semantic/src/types/infer/builder.rs:652": "2ea461e490158071",
+  "crates/ty_python_semantic/src/types/infer/builder.rs:8164": "6c3dbb48f3824978",
+  "crates/ty_python_semantic/src/types/infer/builder.rs:8167": "f4c5a5ccefadd665",
+  "crates/ty_python_semantic/src/types/infer/builder.rs:9791": "a927a5b50a675b65",
+  "crates/ty_server/tests/e2e/main.rs:1209": "f1ac405b9aceac4c",
+  "crates/ty_server/tests/e2e/main.rs:1211": "7f273bc9c8001f10",
+  "crates/ty_server/tests/e2e/main.rs:302": "7f273bc9c8001f10",
+  "crates/ty_test/src/db.rs:134": "1154c58a9d3f5238",
+  "crates/ty_test/src/db.rs:346": "f267ccd264d90779",
+  "crates/ty_test/src/db.rs:348": "3fedde2528314cb4"
+ }
+}
