@@ -1,0 +1,13 @@
+[case]
+language = "go"
+capability = "build_suffix_partition"
+status = "pass"
+[seed]
+symbol = "TryLockFile"
+file = "lock_linux.go"
+line = 3
+[[expect.callers]]
+file = "use_linux.go"
+line = 3
+[expect]
+exact = true

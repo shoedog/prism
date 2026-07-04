@@ -1,0 +1,3 @@
+package zap
+
+func withLogger() {}
