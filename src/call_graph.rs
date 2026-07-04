@@ -6096,6 +6096,45 @@ mod go_receiver_typing_tests {
         assert_eq!(site.receiver_type, None);
     }
 
+    #[test]
+    fn b1_real_outer_binding_survives_sibling_closure_same_name_binding() {
+        // Pins the 903->939 anomaly mechanism (codex re-review MINOR): pre-fix,
+        // `walk_receiver_bindings`'s unfenced `func_literal` arm counted the
+        // sibling closure's OWN `d := other()` binding as a SECOND binding of
+        // `d` in `run`'s scope (on top of the genuine outer `d :=
+        // newDemux(...)`), inflating `bindings` from the correct 1 to 2.
+        // `go_receiver_index.rs`'s `classify_go_receiver_expanded` then bails
+        // at its `if bindings > 1 { return baseline; }` gate (~line 389)
+        // BEFORE ever attempting the S1 call-RHS retry -- so the outer,
+        // wholly unambiguous `d.Init(1)` lost its recovery entirely, not just
+        // a false one. Post-fix (B1 lexical-scope fence), the sibling
+        // closure's subtree is skipped outright, `bindings` is correctly 1,
+        // and the S1 call-RHS retry recovers `Demux`/`ReturnTyped` as it
+        // should.
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Demux struct{}\n\
+             func (d *Demux) Init(n int) {}\n\
+             func newDemux(a, b int) *Demux { return &Demux{} }\n\
+             func other() *Demux { return &Demux{} }\n\
+             func run() {\n\
+             \td := newDemux(16, 16)\n\
+             \tgo func() {\n\t\td := other()\n\t\t_ = d\n\t}()\n\
+             \td.Init(1)\n\
+             }\n",
+        )]);
+        let site = site_in(&cg, "run", "Init");
+        assert_eq!(
+            site.receiver_type.as_deref(),
+            Some("Demux"),
+            "the real outer `d := newDemux(...)` binding must recover \
+             despite the sibling closure's own same-name `d` binding: {:?}",
+            site
+        );
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::ReturnTyped));
+    }
+
     // ---- S3: package-level var receivers ---------------------------------
 
     #[test]
