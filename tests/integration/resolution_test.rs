@@ -324,6 +324,66 @@ fn interface_manifest_implementers_set() {
     );
 }
 
+// Codex re-review MAJOR: the query/manifest S4 consult must distinguish "no
+// S4 route" from "matched S4 route with a missing/empty implementer set" --
+// the latter must use the empty implementer slice and must NOT fall through
+// to the bare `iface_key(recv_ty)` ladder, mirroring the resolver's own fix
+// (resolution.rs's M1 gate-failure drop, ~1669). `holder.Holder` embeds
+// `Doer` (a TWO-method interface -- `Do()` + `Extra()` -- so `OtherImpl`
+// below does NOT structurally satisfy it; Go interface satisfaction is
+// structural, so a single-method `Doer` would spuriously collide with
+// `other.Holder`'s single-method shape too, which is a distinct, accepted
+// structural-overapprox concern, not the bug under test here). `Doer` has NO
+// in-repo implementer; an unrelated `other.Holder` interface (a bare-name
+// collision with the STRUCT `holder.Holder`, NOT with the embedded `Doer`)
+// declares its own single-method `Do()` with a live implementer `OtherImpl`.
+// Pre-fix, the manifest's `.or_else(iface_key(recv_ty))` fallback keys off
+// the RECEIVER STRUCT's own bare name ("Holder") and reports `OtherImpl` for
+// `h.Do()` -- must report empty instead.
+#[test]
+fn interface_manifest_s4_matched_route_empty_impls_does_not_fall_through() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[
+        (
+            "holder/holder.go",
+            "package holder\n\
+             type Doer interface {\n\tDo()\n\tExtra()\n}\n\
+             type Holder struct {\n\tDoer\n}\n\
+             func run(h Holder) { h.Do() }\n",
+            Go,
+        ),
+        (
+            "other/other.go",
+            "package other\n\
+             type Holder interface { Do() }\n\
+             type OtherImpl struct{}\n\
+             func (o OtherImpl) Do() {}\n\
+             func use() { _ = OtherImpl{} }\n",
+            Go,
+        ),
+    ]);
+    let m = prism::navigation::queries::interface_dispatch_manifest(&cg);
+    let sites = m["sites"].as_array().expect("sites array");
+    let site = sites
+        .iter()
+        .find(|s| s["method"] == "Do" && s["file"] == "holder/holder.go")
+        .expect("holder.Holder's h.Do() dispatch site present");
+    assert_eq!(
+        site["fanout"].as_u64(),
+        Some(0),
+        "Doer has no in-repo implementers -- must NOT inherit the unrelated \
+         other.Holder interface's OtherImpl via the iface_key fallback: {:?}",
+        site
+    );
+    assert_eq!(
+        site["implementers"].as_array().map(|a| a.len()),
+        Some(0),
+        "matched S4 route with empty impls must report empty, not fall \
+         through to an unrelated interface's implementers: {:?}",
+        site
+    );
+}
+
 // Slice F (sketch only): the reserved variant exists; the classifier returns None for it.
 #[test]
 #[ignore = "SliceElem is reserved (spec §5/§10); classifier returns None until a future slice"]

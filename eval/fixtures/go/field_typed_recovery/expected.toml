@@ -1,0 +1,20 @@
+[case]
+language = "go"
+capability = "field_typed_recovery"
+# P11 S2: `o.Field.M()` is a 1-hop field-selector chain; `Field`'s declared
+# type is recovered via the go_field_types index (S2) and used to resolve
+# `M()` on the field's struct type.
+status = "pass"
+
+[seed]
+symbol = "M"
+file = "main.go"
+line = 5
+
+[[expect.callers]]
+file = "main.go"
+line = 12
+
+[expect]
+exact = true
+resolution_kind = "field_typed"

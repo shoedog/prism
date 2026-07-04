@@ -198,6 +198,14 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     // (the demoted-NameOnly + recovered-Exact sites #120/this slice produce),
     // independent of the legacy >=2-Exact shadow guard.
     let mut recovery_typepath: BTreeMap<&'static str, usize> = BTreeMap::new();
+    // P11 S5: Go drop-attribution stratification. `call_stats`'s existing
+    // drop counters (multi/external/import_ext/unknown/func_value_fanout) are
+    // language-blind — a Go-caller site that drops still lands in exactly one
+    // of those buckets, but there's no way to tell "receiver recovered, then
+    // still dropped downstream" from "no receiver recovery at all" without
+    // this. Keyed by `site.receiver_recovery` (Debug-formatted; "none" when
+    // absent) so Go misses stop landing unattributed.
+    let mut dropped_go_receiver: BTreeMap<String, usize> = BTreeMap::new();
     for sites in cg.calls.values() {
         for site in sites {
             total += 1;
@@ -209,6 +217,13 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 Some(DropReason::UnknownName) => unknown += 1,
                 Some(DropReason::FuncValueFanout) => func_value_fanout += 1,
                 None => {}
+            }
+            if out.drop.is_some() && site.caller.file.ends_with(".go") {
+                let key = site
+                    .receiver_recovery
+                    .map(|r| format!("{r:?}"))
+                    .unwrap_or_else(|| "none".to_string());
+                *dropped_go_receiver.entry(key).or_default() += 1;
             }
             if site.callee_name.contains("::") {
                 let bucket = classify_recovery_typepath(cg, site);
@@ -338,6 +353,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "dropped_import_external": import_ext,
         "unresolved_unknown_name": unknown,
         "dropped_func_value_fanout": func_value_fanout,
+        "dropped_go_receiver": dropped_go_receiver,
         "callback_registrations_recorded": cg.go_registrations.len(),
         "callback_registration_shadowed_skips": cg.go_registration_shadowed_skips,
         "callback_registration_ambiguous_owner_skips": cg.go_registration_ambiguous_owner_skips,
@@ -440,10 +456,13 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
         ReceiverRecovery::TypeAssertion => "type_assertion",
         ReceiverRecovery::VarDecl => "var_local",
         ReceiverRecovery::SliceElem => "slice_elem",
-        ReceiverRecovery::FieldTyped
-        | ReceiverRecovery::ReturnTyped
-        | ReceiverRecovery::StdWrapperPeel
-        | ReceiverRecovery::TypedLet => "rust_receiver",
+        // P11 S5 (telemetry honesty fix): FieldTyped/ReturnTyped used to
+        // collapse into the catch-all "rust_receiver" bucket, hiding the new
+        // Go S1/S2 recoveries from this manifest entirely. Split out; only
+        // the genuinely Rust-only forms stay lumped.
+        ReceiverRecovery::FieldTyped => "field_typed",
+        ReceiverRecovery::ReturnTyped => "return_typed",
+        ReceiverRecovery::StdWrapperPeel | ReceiverRecovery::TypedLet => "rust_receiver",
     };
     let mut sites = Vec::new();
     for site_set in cg.calls.values() {
@@ -472,10 +491,51 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             // with no recorded owner is keyed by its file). Deduped + sorted so the wire
             // shape is deterministic and `fanout == implementers.len()`. A concrete
             // (fanout == 0) receiver yields the empty set.
-            let impls: &[FunctionId] = crate::resolution::iface_key(recv_ty)
-                .and_then(|k| cg.interface_impls.get(&(k, site.callee_name.clone())))
-                .map(|v| v.as_slice())
-                .unwrap_or(&[]);
+            // P11 S4: a struct-typed receiver whose method is supplied ONLY
+            // by a directly embedded in-repo interface routes through
+            // `go_embedded_interface_methods` instead of `iface_key` (the
+            // receiver's OWN type isn't an interface name) — consult it
+            // first so this manifest's implementer set matches what
+            // `resolve_call_site_full` actually mints for these sites
+            // (otherwise they'd under-report `implementers: []` here while
+            // resolving Exact at query time). Package-scoped (B2 fix): the
+            // route map is keyed by the receiver struct's `GoOwnerIdentity`,
+            // same resolution `resolve_call_site_full` performs.
+            let go_owner = crate::resolution::resolve_go_owner_identity(
+                recv_ty,
+                &site.caller.file,
+                &cg.imports,
+                &cg.go_package_basenames,
+            );
+            // M1 parity fix (codex re-review MAJOR): once the S4 route MATCHES
+            // (the receiver struct's `go_embedded_interface_methods` entry
+            // donates `callee_name` from exactly one embedded in-repo
+            // interface), that route's implementer set is authoritative --
+            // even when EMPTY (no `interface_impls` entry for the providing
+            // interface, or the interface genuinely has no live in-repo
+            // implementer) -- and must NEVER fall through to the bare
+            // `iface_key(recv_ty)` ladder below. Falling through there could
+            // pick up an unrelated same-named interface's implementers (e.g.
+            // `Holder` embeds `Doer` with no implementers, but an unrelated
+            // interface also named `Holder` in a different package has its
+            // own live implementers) and report a wrong implementer set.
+            // Mirrors the resolver's matched-route handling
+            // (`resolution.rs`'s `resolve_call_site` around the M1 fix).
+            let s4_iface_name: Option<&String> = go_owner
+                .as_ref()
+                .and_then(|owner| cg.go_embedded_interface_methods.get(owner))
+                .and_then(|m| m.get(&site.callee_name));
+            let impls: &[FunctionId] = if let Some(iface_name) = s4_iface_name {
+                cg.interface_impls
+                    .get(&(iface_name.clone(), site.callee_name.clone()))
+                    .map(|v| v.as_slice())
+                    .unwrap_or(&[])
+            } else {
+                crate::resolution::iface_key(recv_ty)
+                    .and_then(|k| cg.interface_impls.get(&(k, site.callee_name.clone())))
+                    .map(|v| v.as_slice())
+                    .unwrap_or(&[])
+            };
             // Arity-disambiguate the name-keyed candidate set BEFORE the owner-name
             // mapping, so `fanout` (= implementers cardinality) reflects the filtered
             // set the resolver would mint. Same shared helper as the resolution mint;

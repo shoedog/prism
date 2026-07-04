@@ -91,6 +91,19 @@ pub enum ResolutionKind {
     /// never fed to taint/slice consumers (feeding these edges there would
     /// assert dataflow that doesn't exist at the registration line).
     FrameworkEntry,
+    /// P11 S1/S5: a Go receiver recovered via a call-RHS short-var binding
+    /// resolved through the `go_return_types` index (`d := newDemux(...)`).
+    /// Split out of the generic `TypedParam` bucket so call-stats/nav telemetry
+    /// can tell it apart from Rust's Lane-A `ReceiverRecovery::ReturnTyped`
+    /// (scope-graph field/return-typed receivers), which this ALSO now labels
+    /// distinctly for the same reason (was previously collapsed to
+    /// `TypedParam`, hiding it from telemetry — S5 telemetry-honesty fix).
+    ReturnTyped,
+    /// P11 S2/S5: a Go receiver recovered via a 1-2 hop field-selector chain
+    /// (`l.Listener.Accept()`) resolved through the `go_field_types` index.
+    /// Also now the distinct label for Rust's Lane-A
+    /// `ReceiverRecovery::FieldTyped` (previously collapsed to `TypedParam`).
+    FieldTyped,
 }
 
 impl ResolutionKind {
@@ -120,6 +133,8 @@ impl ResolutionKind {
             ResolutionKind::FuncValueField => "func_value_field",
             ResolutionKind::PropertyAccess => "property_access",
             ResolutionKind::FrameworkEntry => "framework_entry",
+            ResolutionKind::ReturnTyped => "return_typed",
+            ResolutionKind::FieldTyped => "field_typed",
         }
     }
 }
@@ -733,12 +748,18 @@ fn demoted<'a>(
 fn receiver_resolution_kind(recovery: ReceiverRecovery) -> ResolutionKind {
     match recovery {
         ReceiverRecovery::ConstructorLocal => ResolutionKind::ConstructorLocal,
+        // P11 S5 (telemetry honesty): split out of the generic TypedParam
+        // bucket. Applies uniformly to both lanes that can produce these two
+        // recovery kinds — Lane A's Rust scope-graph receiver typer
+        // (`resolution_receiver.rs`) and Lane B's new Go post-merge pass
+        // (`go_receiver_index.rs`) — since both share this one mapping
+        // function; a pure label refinement, no confidence/target change.
+        ReceiverRecovery::FieldTyped => ResolutionKind::FieldTyped,
+        ReceiverRecovery::ReturnTyped => ResolutionKind::ReturnTyped,
         ReceiverRecovery::TypedParam
         | ReceiverRecovery::TypeAssertion
         | ReceiverRecovery::VarDecl
         | ReceiverRecovery::SliceElem
-        | ReceiverRecovery::FieldTyped
-        | ReceiverRecovery::ReturnTyped
         | ReceiverRecovery::StdWrapperPeel
         | ReceiverRecovery::TypedLet => ResolutionKind::TypedParam,
     }
@@ -1550,12 +1571,15 @@ impl CallGraph {
 
                 // R6 step 1: P6-lite recovered receiver.
                 if let Some(recv_ty) = site.receiver_type.as_deref() {
-                    let recovered_kind = match site.receiver_recovery {
-                        Some(ReceiverRecovery::ConstructorLocal) => {
-                            ResolutionKind::ConstructorLocal
-                        }
-                        _ => ResolutionKind::TypedParam,
-                    };
+                    // Single source of truth for the recovery->kind mapping
+                    // (shared with Lane A's `combine_kind` above) — P11 S5
+                    // fix: this used to be an ad-hoc two-way match
+                    // (ConstructorLocal vs "everything else -> TypedParam"),
+                    // silently collapsing FieldTyped/ReturnTyped too.
+                    let recovered_kind = receiver_resolution_kind(
+                        site.receiver_recovery
+                            .unwrap_or(ReceiverRecovery::TypedParam),
+                    );
                     if caller_lang == Some(crate::languages::Language::Python) {
                         let clean_key = (caller.file.clone(), recv_ty.to_string());
                         if self.clean_class_spans.contains_key(&clean_key) {
@@ -1608,6 +1632,72 @@ impl CallGraph {
                             // Rust `x.Go()` matching a Go interface named the same). Mirrors the
                             // language gate at the C-only free-fn fallback below.
                             None if caller_lang == Some(crate::languages::Language::Go) => {
+                                // P11 S4: struct receiver whose method is
+                                // supplied ONLY by a directly embedded in-repo
+                                // interface (owner_lookup already missed here,
+                                // meaning `recv_ty` has no own/promoted
+                                // concrete method `name`). The strict gates
+                                // (exactly-one-supplier, no shadowing direct
+                                // method/field, existing struct promotion
+                                // wins, package-scoping) are enforced upstream
+                                // when `go_embedded_interface_methods` is
+                                // built (type_providers/go.rs, B2 fix) — the
+                                // map is keyed by the receiver's OWN
+                                // `GoOwnerIdentity`, resolved the same way
+                                // `func_value_field_or_external_drop`'s S2
+                                // field lookups resolve it, so a same-named
+                                // struct in an unrelated package can never
+                                // donate its embedded-interface methods here.
+                                //
+                                // M1 fix (codex impl-review MAJOR): once this
+                                // route MATCHES (the receiver's struct has an
+                                // embedded-interface entry for `name`), a gate
+                                // failure below (no `interface_impls` entry,
+                                // or the arity filter empties the candidate
+                                // set) must DROP, not fall through to the
+                                // ordinary `iface_key`/func-value ladder — an
+                                // arity-rejected embedded-interface call could
+                                // otherwise mint an unrelated edge from that
+                                // ladder (e.g. a same-bare-name interface
+                                // declared in a different, unrelated package).
+                                let go_owner = crate::resolution::resolve_go_owner_identity(
+                                    recv_ty,
+                                    &site.caller.file,
+                                    &self.imports,
+                                    &self.go_package_basenames,
+                                );
+                                if let Some(iface_name) = go_owner
+                                    .as_ref()
+                                    .and_then(|owner| self.go_embedded_interface_methods.get(owner))
+                                    .and_then(|m| m.get(name))
+                                {
+                                    return match self
+                                        .interface_impls
+                                        .get(&(iface_name.clone(), name.to_string()))
+                                    {
+                                        Some(ids) => {
+                                            let kept = crate::resolution::arity_filter(
+                                                ids,
+                                                site.arg_count,
+                                                site.arg_spread,
+                                                &self.method_arity,
+                                            );
+                                            if kept.is_empty() {
+                                                ResolutionOutcome::dropped(
+                                                    DropReason::ExternalReceiver,
+                                                )
+                                            } else {
+                                                ResolutionOutcome::hit(exact(
+                                                    kept,
+                                                    ResolutionKind::InterfaceDispatch,
+                                                ))
+                                            }
+                                        }
+                                        None => {
+                                            ResolutionOutcome::dropped(DropReason::ExternalReceiver)
+                                        }
+                                    };
+                                }
                                 match crate::resolution::iface_key(recv_ty) {
                                     Some(k) => {
                                         match self.interface_impls.get(&(k, name.to_string())) {

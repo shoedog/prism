@@ -351,6 +351,20 @@ impl CodePropertyGraph {
             // against S1's index), mirroring the embedding/interface ordering.
             cached_cg.apply_go_func_value_fields(files);
             cached_cg.apply_go_registrations(files);
+            // P11: Go receiver-typing indices + post-merge rematerialization
+            // pass (S1/S2/S3) — needs `go_field_types`/
+            // `go_embedded_interface_methods`, already captured above by
+            // `apply_go_interface_dispatch`; recomputes from scratch every
+            // rebuild so a type/return/package-var-defining file edited
+            // elsewhere always updates a retained consuming file's recovery.
+            // This incremental path has no receiver-config seam of its own
+            // (`CallGraph::build_direct_subset` above already always uses
+            // the default config too — see its doc), so this matches the
+            // pre-existing incremental-rebuild behavior exactly.
+            cached_cg.apply_go_receiver_indices(
+                files,
+                &crate::resolution::ReceiverRecoveryConfig::default(),
+            );
             // P7: Python property accesses are ALSO whole-program derived
             // (S2's unknown-receiver fanout needs the complete cross-file S1
             // index) — recompute after the Go passes, mirroring their

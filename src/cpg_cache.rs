@@ -103,7 +103,19 @@ use std::path::{Path, PathBuf};
 ///   `framework_entry_unresolved_handlers` telemetry; new
 ///   `ResolutionKind::FrameworkEntry` (S3, nav-only — no CPG/DataFlow
 ///   change, mirrors `PropertyAccess`).
-const CACHE_VERSION: u32 = 37; // 37: P9 framework-entry edges.
+/// - v38: P11 Go receiver typing — CallGraph gains `go_return_types` (S1),
+///   `go_field_types` (S2), `go_package_vars` (S3),
+///   `go_embedded_interface_methods` (S4); a new post-merge Go receiver
+///   rematerialization pass changes which Go `CallSite`s carry a recovered
+///   `receiver_type`/`receiver_recovery` (S1 call-RHS, S2 nested-selector,
+///   S3 package var); S4 adds an additive Exact `InterfaceDispatch` route for
+///   a struct receiver whose method comes only from a directly embedded
+///   in-repo interface; new `ResolutionKind::{ReturnTyped, FieldTyped}`
+///   (resolution behavior change: new Go Exact/NameOnly edges).
+///   `go_embedded_interface_methods` is keyed by `GoOwnerIdentity`
+///   (package-scoped); Go binding walks are fenced by func_literal lexical
+///   scope; S4 gate failure drops instead of falling through.
+const CACHE_VERSION: u32 = 38; // 38: P11 Go receiver typing.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -621,12 +633,11 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_37_for_framework_entry_edges() {
-        // v37: P9 framework-entry edges (CallGraph.framework_entries +
-        // framework_entry_unresolved_handlers; new
-        // ResolutionKind::FrameworkEntry), on top of v36 (P8 Rust
-        // macro-argument call extraction).
-        assert_eq!(super::CACHE_VERSION, 37);
+    fn cache_version_is_38_for_go_receiver_typing() {
+        // v38: P11 Go receiver typing (S1-S4 indices + rematerialization
+        // pass, GoOwnerIdentity-keyed S4 routing, func_literal lexical-scope
+        // fence, S4 gate-failure drop). One transition ships per PR.
+        assert_eq!(super::CACHE_VERSION, 38);
     }
 
     #[test]

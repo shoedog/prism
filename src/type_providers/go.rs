@@ -155,6 +155,48 @@ pub struct GoTypeData {
     /// in one package cannot donate a false hit to a same-named struct in
     /// another (spec-review MAJOR-1).
     func_typed_fields: BTreeSet<(crate::resolution::GoOwnerIdentity, String)>,
+    /// P11 S2: `(owner_identity, field_name) -> raw declared field type`
+    /// re-projection of every struct's `fields` (including embedded-field
+    /// pseudo-entries — `GoStruct::extract_struct_fields` already names those
+    /// by the embedded type's bare name). Package-scoped, same rationale as
+    /// `func_typed_fields` above.
+    field_types: BTreeMap<(crate::resolution::GoOwnerIdentity, String), String>,
+    /// P11 S4: `struct_name -> method_name -> (interface_name, signature)` for
+    /// a method supplied ONLY by exactly one directly-embedded in-repo
+    /// interface, with no own/promoted concrete method or field shadowing it.
+    /// Deliberately keyed by NAME, never a `FunctionId` — see the doc on
+    /// `embedded_interface_promotions` for why a synthetic id must never
+    /// reach `insert_sat_keys`/`sat_keys`. Bare-keyed like `structs`/
+    /// `interfaces` — an ACCEPTED pre-existing approximation for the
+    /// satisfaction-MEMBERSHIP check only (`method_set_satisfies_with_embedded`,
+    /// consumed via `compute_satisfaction`'s `concrete_methods` iteration,
+    /// itself already bare-collapsed upstream). Never used for routing — see
+    /// `embedded_interface_routes` (package-scoped) for that (B2 fix).
+    embedded_interface_promotions: BTreeMap<String, BTreeMap<String, (String, String)>>,
+    /// P11 S4 (B2 fix, codex impl-review BLOCKER): package-scoped mirror of
+    /// `GoStruct.embedded`, captured alongside `field_types` at extraction
+    /// time (same rationale — `structs` collapses same-named structs across
+    /// packages via last-file-wins `insert`, which would otherwise let one
+    /// package's `Holder` donate its embedded-interface methods to an
+    /// unrelated same-named `Holder` in another package). Keyed by the
+    /// EMBEDDING struct's own `GoOwnerIdentity`.
+    struct_embeds: BTreeMap<crate::resolution::GoOwnerIdentity, Vec<GoEmbeddedField>>,
+    /// P11 S4 (B2 fix): bare interface name -> set of package dirs that
+    /// declare an interface with that name. `interfaces` collapses same-named
+    /// interfaces across packages (last-file-wins), so it alone cannot tell
+    /// "unique to this package" from "some other package's interface of the
+    /// same name happened to win the collapse". An embedded field is always
+    /// written BARE for a same-package interface (Go scoping) — a bare name
+    /// only ever safely routes through `interfaces.get(bare)` when this set
+    /// shows the name is package-unique repo-wide AND that one package is the
+    /// embedding struct's own; otherwise fail closed (B2's "not
+    /// package-unique" case).
+    interface_name_owners: BTreeMap<String, BTreeSet<String>>,
+    /// P11 S4 (B2 fix): the package-scoped ROUTING map computed by
+    /// `embedded_interface_routes`, captured onto `CallGraph.
+    /// go_embedded_interface_methods` via `embedded_interface_method_routes`.
+    embedded_interface_routes:
+        BTreeMap<crate::resolution::GoOwnerIdentity, BTreeMap<String, String>>,
 }
 
 #[derive(Debug, Clone)]
@@ -193,6 +235,11 @@ impl GoTypeProvider {
             dispatch_overapprox: Vec::new(),
             struct_identities: BTreeSet::new(),
             func_typed_fields: BTreeSet::new(),
+            field_types: BTreeMap::new(),
+            embedded_interface_promotions: BTreeMap::new(),
+            struct_embeds: BTreeMap::new(),
+            interface_name_owners: BTreeMap::new(),
+            embedded_interface_routes: BTreeMap::new(),
         };
 
         for (path, parsed) in files {
@@ -232,6 +279,25 @@ impl GoTypeProvider {
     /// `apply_go_func_value_fields`.
     pub fn go_func_typed_fields(&self) -> BTreeSet<(crate::resolution::GoOwnerIdentity, String)> {
         self.data.func_typed_fields.clone()
+    }
+
+    /// P11 S2: package-scoped struct-field re-projection. Captured onto
+    /// `CallGraph.go_field_types` in `apply_go_interface_dispatch`.
+    pub fn go_field_types(&self) -> BTreeMap<(crate::resolution::GoOwnerIdentity, String), String> {
+        self.data.field_types.clone()
+    }
+
+    /// P11 S4 routing map: `GoOwnerIdentity (struct) -> method_name ->
+    /// interface_bare_name` (signature dropped — routing only needs the
+    /// providing interface's name to consult `interface_impls`).
+    /// Package-scoped (B2 fix, codex impl-review BLOCKER) — see
+    /// `embedded_interface_routes`'s doc for why this must NOT be the bare
+    /// `embedded_interface_promotions` map. Captured onto `CallGraph.
+    /// go_embedded_interface_methods` in `apply_go_interface_dispatch`.
+    pub fn embedded_interface_method_routes(
+        &self,
+    ) -> BTreeMap<crate::resolution::GoOwnerIdentity, BTreeMap<String, String>> {
+        self.data.embedded_interface_routes.clone()
     }
 
     /// Param arity for every Go method extracted from the parsed files.  Keyed by
@@ -378,7 +444,16 @@ impl GoTypeProvider {
                         data.func_typed_fields
                             .insert((owner.clone(), field_name.clone()));
                     }
+                    // P11 S2: re-project every field (including embedded
+                    // pseudo-fields) as a package-scoped owner/field -> type
+                    // index, for the nested-selector receiver-recovery pass.
+                    data.field_types
+                        .insert((owner.clone(), field_name.clone()), field_type.clone());
                 }
+                // P11 S4 (B2 fix): package-scoped embed list, parallel to the
+                // bare `data.structs` insert below (which last-file-wins
+                // collapses same-named structs across packages).
+                data.struct_embeds.insert(owner, embedded.clone());
                 data.structs.insert(
                     name.clone(),
                     GoStruct {
@@ -396,6 +471,15 @@ impl GoTypeProvider {
                 let (methods, embedded, overapprox) =
                     Self::extract_interface_methods(&type_node, parsed);
                 data.dispatch_overapprox.extend(overapprox);
+                // P11 S4 (B2 fix): track which package dir(s) declare an
+                // interface with this bare name, so the routing computation
+                // can fail closed on a cross-package bare-name collision
+                // instead of trusting whichever file's entry the collapsing
+                // `interfaces.insert` below happens to keep.
+                data.interface_name_owners
+                    .entry(name.clone())
+                    .or_default()
+                    .insert(crate::resolution::dir_of(path).to_string());
                 data.interfaces.insert(
                     name.clone(),
                     GoInterface {
@@ -428,7 +512,10 @@ impl GoTypeProvider {
     /// parameters / parameters / result), never its body `block`. A generic
     /// instantiation *inside* a method body (`var _ Box[int]`) must NOT flag the method
     /// itself as generic — that would wrongly exclude it from satisfaction (review MAJOR).
-    fn signature_has_generic_syntax(node: &tree_sitter::Node) -> bool {
+    /// `pub(crate)` (P11 S1): reused by `go_receiver_index.rs`'s return-type
+    /// extraction so the generic-decl gate never drifts from the dispatch
+    /// provider's own signature-scoped definition of "generic".
+    pub(crate) fn signature_has_generic_syntax(node: &tree_sitter::Node) -> bool {
         let mut cursor = node.walk();
         let children: Vec<_> = node.children(&mut cursor).collect();
         children.iter().filter(|c| c.kind() != "block").any(|c| {
@@ -1013,6 +1100,13 @@ impl GoTypeProvider {
 
         let interface_methods = Self::resolve_all_interface_methods(data);
         let concrete_methods = Self::resolve_all_concrete_methods(data);
+        // P11 S4 (i): satisfaction-map MEMBERSHIP only — never feeds
+        // `insert_sat_keys` (no FunctionId exists for these methods).
+        data.embedded_interface_promotions =
+            Self::embedded_interface_promotions(data, &concrete_methods);
+        // P11 S4 (B2 fix): the package-scoped ROUTING computation, kept
+        // separate from the bare-keyed membership map above.
+        data.embedded_interface_routes = Self::embedded_interface_routes(data, &concrete_methods);
 
         for (iface_name, iface_methods) in &interface_methods {
             let Some(iface) = data.interfaces.get(iface_name) else {
@@ -1046,10 +1140,17 @@ impl GoTypeProvider {
 
             let mut satisfying = BTreeSet::new();
             for (type_name, method_set) in &concrete_methods {
-                let value_matches =
-                    Self::method_set_satisfies(&method_set.value, &canonical_iface_methods);
-                let pointer_matches =
-                    Self::method_set_satisfies(&method_set.pointer, &canonical_iface_methods);
+                let embedded = data.embedded_interface_promotions.get(type_name);
+                let value_matches = Self::method_set_satisfies_with_embedded(
+                    &method_set.value,
+                    embedded,
+                    &canonical_iface_methods,
+                );
+                let pointer_matches = Self::method_set_satisfies_with_embedded(
+                    &method_set.pointer,
+                    embedded,
+                    &canonical_iface_methods,
+                );
 
                 if value_matches || pointer_matches {
                     satisfying.insert(type_name.clone());
@@ -1268,16 +1369,230 @@ impl GoTypeProvider {
         })
     }
 
-    fn method_set_satisfies(
+    /// Whether `concrete`'s method set satisfies `iface`'s canonical method
+    /// set. A method missing from `concrete` may
+    /// still be covered by `embedded` (P11 S4: a directly-embedded in-repo
+    /// interface's signature-only promoted method) with a matching signature.
+    /// `concrete` still wins when both are present (checked first) — matches
+    /// Go's own-method-shadows-embedded rule and keeps `insert_sat_keys`
+    /// (which reads `concrete` only) in lockstep with what actually decided
+    /// satisfaction here.
+    fn method_set_satisfies_with_embedded(
         concrete: &BTreeMap<String, CanonMethod>,
+        embedded: Option<&BTreeMap<String, (String, String)>>,
         iface: &BTreeMap<String, String>,
     ) -> bool {
         iface.iter().all(|(method_name, iface_sig)| {
-            concrete
-                .get(method_name)
-                .map(|method| method.signature.as_str() == iface_sig.as_str())
+            if let Some(method) = concrete.get(method_name) {
+                return method.signature.as_str() == iface_sig.as_str();
+            }
+            embedded
+                .and_then(|e| e.get(method_name))
+                .map(|(_, sig)| sig.as_str() == iface_sig.as_str())
                 .unwrap_or(false)
         })
+    }
+
+    /// P11 S4: for every struct, the method set contributed by EXACTLY ONE
+    /// directly (depth-1) embedded in-repo interface, excluding any method
+    /// that:
+    /// - is supplied by more than one embedded interface (ambiguous
+    ///   promotion — Go itself would treat same-depth multi-interface
+    ///   promotion as an invalid selector, so contribute nothing rather than
+    ///   guess),
+    /// - is shadowed by the struct's own depth-0 field or method name (Go's
+    ///   selector-shadowing rule), or
+    /// - is already present in `concrete_methods[struct]` (own OR
+    ///   struct-embedding-promoted — that existing, FunctionId-backed path
+    ///   wins over this signature-only one).
+    ///
+    /// An embedded interface with a gapped (gen fail-closed) method signature
+    /// contributes none of its methods (conservative: no partial trust).
+    fn embedded_interface_promotions(
+        data: &GoTypeData,
+        concrete_methods: &BTreeMap<String, ReceiverMethodSet>,
+    ) -> BTreeMap<String, BTreeMap<String, (String, String)>> {
+        let mut out: BTreeMap<String, BTreeMap<String, (String, String)>> = BTreeMap::new();
+        for (struct_name, go_struct) in &data.structs {
+            let mut candidates: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
+            for embedded in &go_struct.embedded {
+                let bare = embedded.name.as_str();
+                let Some(iface) = data.interfaces.get(bare) else {
+                    continue; // not a known in-repo interface (struct embed, or external) -- skip.
+                };
+                if iface.generic {
+                    continue;
+                }
+                let methods =
+                    Self::collect_interface_methods_from(data, bare, &mut BTreeSet::new());
+                for (m, sig) in &methods {
+                    let Ok(sig) = sig else { continue };
+                    candidates
+                        .entry(m.clone())
+                        .or_default()
+                        .push((bare.to_string(), sig.clone()));
+                }
+            }
+            if candidates.is_empty() {
+                continue;
+            }
+            let own_fields: BTreeSet<&str> =
+                go_struct.fields.iter().map(|(n, _)| n.as_str()).collect();
+            let own_methods: BTreeSet<&str> = data
+                .methods
+                .get(struct_name)
+                .map(|ms| ms.iter().map(|m| m.name.as_str()).collect())
+                .unwrap_or_default();
+            let already = concrete_methods.get(struct_name);
+            let mut per_struct = BTreeMap::new();
+            for (method_name, ifaces) in candidates {
+                if ifaces.len() != 1 {
+                    continue;
+                }
+                if own_fields.contains(method_name.as_str())
+                    || own_methods.contains(method_name.as_str())
+                {
+                    continue;
+                }
+                let already_concrete = already
+                    .map(|rs| {
+                        rs.value.contains_key(&method_name) || rs.pointer.contains_key(&method_name)
+                    })
+                    .unwrap_or(false);
+                if already_concrete {
+                    continue;
+                }
+                per_struct.insert(method_name, ifaces.into_iter().next().unwrap());
+            }
+            if !per_struct.is_empty() {
+                out.insert(struct_name.clone(), per_struct);
+            }
+        }
+        out
+    }
+
+    /// P11 S4 (B2 fix, codex impl-review BLOCKER): package-scoped ROUTING
+    /// computation feeding `CallGraph.go_embedded_interface_methods` via
+    /// `embedded_interface_method_routes` — distinct from
+    /// `embedded_interface_promotions` above (bare-keyed, feeds ONLY the
+    /// interface-satisfaction MEMBERSHIP check, an existing accepted
+    /// approximation this fix does not touch). The routing map mints a
+    /// concrete Exact `InterfaceDispatch` edge at resolution time, so a
+    /// bare-name collision here is a real false-edge risk, not just an
+    /// approximation: a `Holder` in package A must never donate its embedded
+    /// interface's methods to an unrelated same-named `Holder` in package B.
+    ///
+    /// Iterates `data.struct_embeds` (package-scoped: `GoOwnerIdentity ->
+    /// embedded fields`) instead of the bare `data.structs`/`data.methods`,
+    /// so each package's struct is considered independently. An embedded
+    /// interface reference is trusted only when its bare name is BOTH
+    /// package-unique repo-wide and owned by the embedding struct's OWN
+    /// package (`interface_name_owners`) — Go requires a bare (unqualified)
+    /// embedded name to resolve within the SAME package, and a same-named
+    /// interface existing in some OTHER package as well means
+    /// `data.interfaces.get(bare)` (itself bare-collapsed) cannot be trusted
+    /// to be the RIGHT one; either case fails closed (skip this candidate).
+    fn embedded_interface_routes(
+        data: &GoTypeData,
+        concrete_methods: &BTreeMap<String, ReceiverMethodSet>,
+    ) -> BTreeMap<crate::resolution::GoOwnerIdentity, BTreeMap<String, String>> {
+        let mut out: BTreeMap<crate::resolution::GoOwnerIdentity, BTreeMap<String, String>> =
+            BTreeMap::new();
+        for (owner, embeds) in &data.struct_embeds {
+            let mut candidates: BTreeMap<String, Vec<String>> = BTreeMap::new();
+            for embedded in embeds {
+                let bare = embedded.name.as_str();
+                let package_unique_here = data
+                    .interface_name_owners
+                    .get(bare)
+                    .map(|dirs| dirs.len() == 1 && dirs.contains(&owner.package_dir))
+                    .unwrap_or(false);
+                if !package_unique_here {
+                    continue; // fail closed: not package-unique, or not this package's.
+                }
+                let Some(iface) = data.interfaces.get(bare) else {
+                    continue;
+                };
+                if iface.generic {
+                    continue;
+                }
+                let methods =
+                    Self::collect_interface_methods_from(data, bare, &mut BTreeSet::new());
+                for (m, sig) in &methods {
+                    if sig.is_err() {
+                        continue;
+                    }
+                    candidates
+                        .entry(m.clone())
+                        .or_default()
+                        .push(bare.to_string());
+                }
+            }
+            if candidates.is_empty() {
+                continue;
+            }
+            // Package-scoped shadow checks (own field / own method / already
+            // FunctionId-backed concrete method) -- filter the existing
+            // bare-collapsed indices down to entries whose OWN file lives in
+            // this struct's package, rather than trusting them wholesale.
+            let own_fields: BTreeSet<&str> = data
+                .field_types
+                .keys()
+                .filter(|(o, _)| o == owner)
+                .map(|(_, f)| f.as_str())
+                .collect();
+            let own_methods: BTreeSet<&str> = data
+                .methods
+                .get(&owner.name)
+                .map(|ms| {
+                    ms.iter()
+                        .filter(|m| crate::resolution::dir_of(&m.file) == owner.package_dir)
+                        .map(|m| m.name.as_str())
+                        .collect()
+                })
+                .unwrap_or_default();
+            let already = concrete_methods.get(&owner.name);
+            let mut per_struct = BTreeMap::new();
+            for (method_name, ifaces) in candidates {
+                if ifaces.len() != 1 {
+                    continue;
+                }
+                if own_fields.contains(method_name.as_str())
+                    || own_methods.contains(method_name.as_str())
+                {
+                    continue;
+                }
+                let already_concrete = already
+                    .map(|rs| {
+                        Self::method_in_package(&rs.value, &method_name, &owner.package_dir)
+                            || Self::method_in_package(
+                                &rs.pointer,
+                                &method_name,
+                                &owner.package_dir,
+                            )
+                    })
+                    .unwrap_or(false);
+                if already_concrete {
+                    continue;
+                }
+                per_struct.insert(method_name, ifaces.into_iter().next().unwrap());
+            }
+            if !per_struct.is_empty() {
+                out.insert(owner.clone(), per_struct);
+            }
+        }
+        out
+    }
+
+    fn method_in_package(
+        methods: &BTreeMap<String, CanonMethod>,
+        name: &str,
+        package_dir: &str,
+    ) -> bool {
+        methods
+            .get(name)
+            .map(|m| crate::resolution::dir_of(&m.func_id.file) == package_dir)
+            .unwrap_or(false)
     }
 
     fn insert_sat_keys(

@@ -1,0 +1,18 @@
+[case]
+language = "go"
+capability = "return_typed_multi_return_guard"
+# P11 S1 NEGATIVE: `newDemux` returns 3 values (`*Demux, int, error`), not the
+# ONLY in-scope shape `(T, error)` -- go_return_types must NOT record an entry
+# for it, so `d`'s type is never recovered. `Init` is deliberately ALSO
+# declared on a second unrelated type (`Other`) so the unrecovered receiver
+# hits R6's multi-owner-collision drop (not R6-single-owner demotion) --
+# zero callers, not a NameOnly edge.
+status = "pass"
+
+[seed]
+symbol = "Init"
+file = "main.go"
+line = 5
+
+[expect]
+exact = true

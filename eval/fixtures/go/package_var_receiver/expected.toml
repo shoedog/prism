@@ -1,0 +1,21 @@
+[case]
+language = "go"
+capability = "package_var_receiver"
+# P11 S3: `var r Runner` is a package-scope (top-level) declaration, invisible
+# to the existing function-local `receiver_type_in_fn` walk. The go_package_vars
+# index (S3) recovers `r`'s declared type so `r.Go()` inside `run` resolves via
+# the existing owner-miss -> iface_key -> interface_impls route.
+status = "pass"
+
+[seed]
+symbol = "Go"
+file = "main.go"
+line = 9
+
+[[expect.callers]]
+file = "main.go"
+line = 14
+
+[expect]
+exact = true
+resolution_kind = "interface_dispatch"

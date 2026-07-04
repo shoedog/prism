@@ -1,0 +1,23 @@
+[case]
+language = "go"
+capability = "embedded_interface_struct"
+# P11 S4 (codex-adjudicated, route (ii) ships): `Holder` directly embeds the
+# in-repo interface `Doer` and has no own/promoted concrete `Do` method or
+# shadowing field, so `h.Do()` routes through `go_embedded_interface_methods`
+# to `interface_impls[("Doer","Do")]` -- the same Exact InterfaceDispatch
+# route the shipped interface-dispatch exception already uses for a
+# directly interface-typed receiver.
+status = "pass"
+
+[seed]
+symbol = "Do"
+file = "main.go"
+line = 9
+
+[[expect.callers]]
+file = "main.go"
+line = 16
+
+[expect]
+exact = true
+resolution_kind = "interface_dispatch"
