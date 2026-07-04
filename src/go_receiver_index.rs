@@ -244,7 +244,8 @@ fn unique_visible_type(
     let caller_profile = go_file_profiles.get(caller_file);
     let mut tys = BTreeSet::new();
     for fact in facts {
-        let visible = match (caller_profile, go_file_profiles.get(&fact.defining_file)) {
+        let defining_profile = go_file_profiles.get(&fact.defining_file);
+        let visible = match (caller_profile, defining_profile) {
             (Some(caller), Some(defining)) => {
                 if crate::resolution::dir_of(caller_file)
                     == crate::resolution::dir_of(&fact.defining_file)
@@ -260,6 +261,9 @@ fn unique_visible_type(
             _ => true,
         };
         if visible {
+            if !crate::go_build_profile::profile_allows_exact(defining_profile) {
+                return None;
+            }
             tys.insert(fact.ty.clone());
         }
     }

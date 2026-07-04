@@ -325,11 +325,18 @@ pub fn resolve_go_bare_value_ref(
         .copied()
         .filter(|f| dir_of(&f.file) == dir)
         .collect();
-    if same_pkg.len() > 1 {
+    let raw_ambiguous = same_pkg.len() > 1;
+    if raw_ambiguous {
         *ambiguous_counter += 1;
     }
     let same_pkg = go_visible_value_candidates(caller_file, &same_pkg, go_file_profiles);
     if same_pkg.len() == 1 {
+        if !crate::go_build_profile::profile_allows_exact(go_file_profiles.get(&same_pkg[0].file)) {
+            if !raw_ambiguous {
+                *ambiguous_counter += 1;
+            }
+            return None;
+        }
         return Some(same_pkg[0].clone());
     }
     None
@@ -737,6 +744,13 @@ pub struct ResolutionTelemetry {
     pub go_same_pkg_all_filtered_drop: usize,
     pub go_bare_value_ref_ambiguous: usize,
     pub go_build_expr_unparsed: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GoSamePackagePartition {
+    None,
+    Namespace,
+    Build,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2043,7 +2057,7 @@ impl CallGraph {
                         .filter(|f| dir_of(&f.file) == dir)
                         .collect();
                     if !same_pkg.is_empty() {
-                        let (survivors, mut telemetry) =
+                        let (survivors, mut telemetry, partition) =
                             self.go_visible_same_package_candidates(&caller.file, &same_pkg);
                         match survivors.len() {
                             0 => {
@@ -2054,9 +2068,22 @@ impl CallGraph {
                                 );
                             }
                             1 => {
-                                let raw_packages = self.go_same_dir_package_count(&same_pkg);
-                                if telemetry.go_build_partition_exact == 0 && raw_packages > 1 {
-                                    telemetry.go_pkg_clause_partition_exact += 1;
+                                if !crate::go_build_profile::profile_allows_exact(
+                                    self.go_file_profiles.get(&survivors[0].file),
+                                ) {
+                                    return ResolutionOutcome::hit_with_telemetry(
+                                        demoted(survivors, ResolutionKind::SamePackage),
+                                        telemetry,
+                                    );
+                                }
+                                match partition {
+                                    GoSamePackagePartition::Build => {
+                                        telemetry.go_build_partition_exact += 1;
+                                    }
+                                    GoSamePackagePartition::Namespace => {
+                                        telemetry.go_pkg_clause_partition_exact += 1;
+                                    }
+                                    GoSamePackagePartition::None => {}
                                 }
                                 return ResolutionOutcome::hit_with_telemetry(
                                     exact(survivors, ResolutionKind::SamePackage),
@@ -2115,26 +2142,26 @@ impl CallGraph {
         self.go_file_profiles.get(file).cloned()
     }
 
-    fn go_same_dir_package_count(&self, candidates: &[&FunctionId]) -> usize {
-        candidates
-            .iter()
-            .filter_map(|fid| self.go_file_profiles.get(&fid.file))
-            .map(|p| p.package_clause.as_str())
-            .collect::<std::collections::BTreeSet<_>>()
-            .len()
-    }
-
     fn go_visible_same_package_candidates<'a>(
         &self,
         caller_file: &str,
         candidates: &[&'a FunctionId],
-    ) -> (Vec<&'a FunctionId>, ResolutionTelemetry) {
+    ) -> (
+        Vec<&'a FunctionId>,
+        ResolutionTelemetry,
+        GoSamePackagePartition,
+    ) {
         let Some(caller_profile) = self.go_profile_for(caller_file) else {
-            return (candidates.to_vec(), ResolutionTelemetry::default());
+            return (
+                candidates.to_vec(),
+                ResolutionTelemetry::default(),
+                GoSamePackagePartition::None,
+            );
         };
         let mut telemetry = ResolutionTelemetry::default();
         let mut survivors = Vec::new();
         let mut build_filtered = false;
+        let mut namespace_filtered = false;
         for fid in candidates {
             let Some(candidate_profile) = self.go_profile_for(&fid.file) else {
                 survivors.push(*fid);
@@ -2149,12 +2176,18 @@ impl CallGraph {
                 survivors.push(*fid);
             } else if vis.build_decisive {
                 build_filtered = true;
+            } else if vis.namespace_decisive {
+                namespace_filtered = true;
             }
         }
-        if build_filtered && survivors.len() == 1 {
-            telemetry.go_build_partition_exact += 1;
-        }
-        (survivors, telemetry)
+        let partition = if survivors.len() == 1 && build_filtered {
+            GoSamePackagePartition::Build
+        } else if survivors.len() == 1 && namespace_filtered {
+            GoSamePackagePartition::Namespace
+        } else {
+            GoSamePackagePartition::None
+        };
+        (survivors, telemetry, partition)
     }
 
     /// P4: JS/TS R4c import-member candidates via the typed, whole-program-

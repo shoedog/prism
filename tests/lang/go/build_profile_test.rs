@@ -53,9 +53,67 @@ fn multiple_go_build_lines_are_unparsed() {
 }
 
 #[test]
-fn build_line_after_header_blank_is_ignored() {
-    let p = parsed("x.go", "// license\n\n//go:build linux\npackage demo\n");
+fn build_line_after_license_blank_is_honored() {
+    let p = parsed(
+        "x.go",
+        "/* license */\n// copyright\n\n//go:build linux\n\npackage demo\n",
+    );
+    assert_eq!(p.build_expr, Some(BuildExpr::Tag("linux".into())));
+}
+
+#[test]
+fn go_build_after_blank_takes_precedence_over_legacy() {
+    let p = parsed(
+        "x.go",
+        "// +build linux\n\n//go:build windows\n\npackage demo\n",
+    );
+    assert_eq!(p.build_expr, Some(BuildExpr::Tag("windows".into())));
+}
+
+#[test]
+fn build_line_after_package_clause_is_ignored() {
+    let p = parsed("x.go", "package demo\n\n//go:build linux\n");
     assert!(p.build_expr.is_none());
+}
+
+#[test]
+fn directive_detection_matches_go_syntax() {
+    assert!(parsed("x.go", "// go:build windows\n\npackage demo\n")
+        .build_expr
+        .is_none());
+    assert!(parsed("x.go", "///go:build windows\n\npackage demo\n")
+        .build_expr
+        .is_none());
+    assert!(parsed("x.go", "//go:buildfoo\n\npackage demo\n")
+        .build_expr
+        .is_none());
+    assert_eq!(
+        parsed("x.go", "//go:build\tlinux\n\npackage demo\n").build_expr,
+        Some(BuildExpr::Tag("linux".into()))
+    );
+    assert_eq!(
+        parsed("x.go", "//   +build linux\n\npackage demo\n").build_expr,
+        Some(BuildExpr::Tag("linux".into()))
+    );
+    assert_eq!(
+        parsed("x.go", "//+build linux\n\npackage demo\n").build_expr,
+        Some(BuildExpr::Tag("linux".into()))
+    );
+    assert!(parsed("x.go", "// +buildfoo\n\npackage demo\n")
+        .build_expr
+        .is_none());
+}
+
+#[test]
+fn syslist_suffixes_are_recognized() {
+    assert_eq!(
+        parsed("x_zos.go", "package demo\n").goos.as_deref(),
+        Some("zos")
+    );
+    assert_eq!(
+        parsed("x_amd64p32.go", "package demo\n").goarch.as_deref(),
+        Some("amd64p32")
+    );
 }
 
 #[test]
@@ -91,5 +149,56 @@ fn sat_alias_and_custom_tag_cases() {
             "y.go",
             Some(BuildExpr::Not(Box::new(BuildExpr::Tag("X".into()))))
         )
+    ));
+}
+
+#[test]
+fn negation_only_constraints_have_fresh_values() {
+    assert!(go_same_package_visible(
+        &prof("p", "x.go", None),
+        &prof(
+            "p",
+            "y.go",
+            Some(BuildExpr::And(vec![
+                BuildExpr::Not(Box::new(BuildExpr::Tag("windows".into()))),
+                BuildExpr::Not(Box::new(BuildExpr::Tag("plan9".into()))),
+                BuildExpr::Not(Box::new(BuildExpr::Tag("solaris".into()))),
+            ]))
+        )
+    ));
+    assert!(go_same_package_visible(
+        &prof("p", "x.go", None),
+        &prof(
+            "p",
+            "y.go",
+            Some(BuildExpr::Not(Box::new(BuildExpr::Tag("amd64".into()))))
+        )
+    ));
+}
+
+#[test]
+fn unix_near_exhaustion_still_has_remaining_os() {
+    let excluded = [
+        "linux",
+        "darwin",
+        "android",
+        "freebsd",
+        "netbsd",
+        "openbsd",
+        "dragonfly",
+        "solaris",
+        "illumos",
+        "ios",
+        "hurd",
+    ];
+    let mut terms = vec![BuildExpr::Tag("unix".into())];
+    terms.extend(
+        excluded
+            .iter()
+            .map(|tag| BuildExpr::Not(Box::new(BuildExpr::Tag((*tag).into())))),
+    );
+    assert!(go_same_package_visible(
+        &prof("p", "x.go", None),
+        &prof("p", "y.go", Some(BuildExpr::And(terms)))
     ));
 }

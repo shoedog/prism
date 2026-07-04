@@ -16,6 +16,8 @@ pub struct GoBuildProfile {
     pub goos: Option<String>,
     pub goarch: Option<String>,
     pub build_expr: Option<BuildExpr>,
+    #[serde(default)]
+    pub build_unparsed: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,6 +36,7 @@ pub struct GoBuildDiagnostics {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GoBuildVisibility {
     pub visible: bool,
+    pub namespace_decisive: bool,
     pub build_decisive: bool,
     pub diagnostics: GoBuildDiagnostics,
 }
@@ -66,6 +69,7 @@ pub fn extract_go_file_profile(path: &str, parsed: &ParsedFile) -> (GoBuildProfi
             goos,
             goarch,
             build_expr,
+            build_unparsed: unparsed > 0,
         },
         unparsed,
     )
@@ -78,7 +82,12 @@ pub fn unconstrained_profile() -> GoBuildProfile {
         goos: None,
         goarch: None,
         build_expr: None,
+        build_unparsed: false,
     }
+}
+
+pub fn profile_allows_exact(profile: Option<&GoBuildProfile>) -> bool {
+    profile.is_some_and(|p| !p.build_unparsed && !p.package_clause.is_empty())
 }
 
 /// Can a bare Go call in `caller` legally bind to `candidate`?
@@ -90,25 +99,36 @@ pub fn go_same_package_visible_detailed(
     caller: &GoBuildProfile,
     candidate: &GoBuildProfile,
 ) -> GoBuildVisibility {
-    if caller.package_clause != candidate.package_clause {
+    let diagnostics = GoBuildDiagnostics {
+        unparsed: usize::from(candidate.build_unparsed),
+    };
+    if !caller.package_clause.is_empty()
+        && !candidate.package_clause.is_empty()
+        && caller.package_clause != candidate.package_clause
+    {
         return GoBuildVisibility {
             visible: false,
+            namespace_decisive: true,
             build_decisive: false,
-            diagnostics: GoBuildDiagnostics::default(),
+            diagnostics,
         };
     }
     if candidate.is_test_file && !caller.is_test_file {
         return GoBuildVisibility {
             visible: false,
+            namespace_decisive: true,
             build_decisive: false,
-            diagnostics: GoBuildDiagnostics::default(),
+            diagnostics,
         };
     }
     let sat = build_sat(caller, candidate);
     GoBuildVisibility {
         visible: sat.compatible,
+        namespace_decisive: false,
         build_decisive: !sat.compatible,
-        diagnostics: sat.diagnostics,
+        diagnostics: GoBuildDiagnostics {
+            unparsed: diagnostics.unparsed + sat.diagnostics.unparsed,
+        },
     }
 }
 
@@ -163,19 +183,38 @@ fn filename_constraints(path: &str) -> (Option<String>, Option<String>) {
 fn parse_build_header(source: &str) -> (Option<BuildExpr>, usize) {
     let mut go_build = Vec::new();
     let mut plus_build = Vec::new();
-    for line in source.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            break;
-        }
-        if !trimmed.starts_with("//") {
-            break;
-        }
-        let body = trimmed.trim_start_matches('/').trim();
-        if let Some(rest) = body.strip_prefix("go:build") {
-            go_build.push(rest.trim().to_string());
-        } else if let Some(rest) = body.strip_prefix("+build") {
-            plus_build.push(rest.trim().to_string());
+    let mut in_block = false;
+    'lines: for line in source.lines() {
+        let mut trimmed = line.trim();
+        loop {
+            if in_block {
+                let Some(end) = trimmed.find("*/") else {
+                    continue 'lines;
+                };
+                in_block = false;
+                trimmed = trimmed[end + 2..].trim_start();
+                continue;
+            }
+            if trimmed.is_empty() {
+                continue 'lines;
+            }
+            if let Some(rest) = trimmed.strip_prefix("/*") {
+                let Some(end) = rest.find("*/") else {
+                    in_block = true;
+                    continue 'lines;
+                };
+                trimmed = rest[end + 2..].trim_start();
+                continue;
+            }
+            if trimmed.starts_with("//") {
+                if let Some(expr) = split_go_build(trimmed) {
+                    go_build.push(expr);
+                } else if let Some(expr) = split_plus_build(trimmed) {
+                    plus_build.push(expr);
+                }
+                continue 'lines;
+            }
+            break 'lines;
         }
     }
     if go_build.len() > 1 {
@@ -220,6 +259,23 @@ fn parse_build_header(source: &str) -> (Option<BuildExpr>, usize) {
     (Some(fold_and(lines)), 0)
 }
 
+fn split_go_build(line: &str) -> Option<String> {
+    let rest = line.strip_prefix("//go:build")?;
+    if !rest.is_empty() && !rest.starts_with(char::is_whitespace) {
+        return None;
+    }
+    Some(rest.trim().to_string())
+}
+
+fn split_plus_build(line: &str) -> Option<String> {
+    let rest = line.strip_prefix("//")?.trim_start();
+    let rest = rest.strip_prefix("+build")?;
+    if !rest.is_empty() && !rest.starts_with(char::is_whitespace) {
+        return None;
+    }
+    Some(rest.trim().to_string())
+}
+
 struct SatResult {
     compatible: bool,
     diagnostics: GoBuildDiagnostics,
@@ -240,11 +296,9 @@ fn build_sat(a: &GoBuildProfile, b: &GoBuildProfile) -> SatResult {
             diagnostics: GoBuildDiagnostics { unparsed: 1 },
         };
     }
-    let gooses = candidate_gooses(a, b, &tags);
-    let goarches = candidate_goarches(a, b, &tags);
     let free_count = 1usize << free.len();
-    for goos in &gooses {
-        for goarch in &goarches {
+    for goos in GOOS {
+        for goarch in GOARCH {
             for mask in 0..free_count {
                 if profile_satisfied(a, goos, goarch, &free, mask)
                     && profile_satisfied(b, goos, goarch, &free, mask)
@@ -310,68 +364,6 @@ fn match_tag(tag: &str, goos: &str, goarch: &str) -> bool {
         || (tag == "solaris" && goos == "illumos")
         || (tag == "darwin" && goos == "ios")
         || (tag == "unix" && is_unix_goos(goos))
-}
-
-fn candidate_gooses(
-    a: &GoBuildProfile,
-    b: &GoBuildProfile,
-    tags: &BTreeSet<String>,
-) -> Vec<String> {
-    let mut out = BTreeSet::new();
-    for p in [a, b] {
-        if let Some(goos) = &p.goos {
-            out.insert(goos.clone());
-            add_alias_gooses(goos, &mut out);
-        }
-    }
-    for t in tags {
-        if is_goos(t) || t == "unix" {
-            out.insert(t.clone());
-            add_alias_gooses(t, &mut out);
-        }
-    }
-    out.insert("plan9".to_string());
-    out.into_iter().collect()
-}
-
-fn candidate_goarches(
-    a: &GoBuildProfile,
-    b: &GoBuildProfile,
-    tags: &BTreeSet<String>,
-) -> Vec<String> {
-    let mut out = BTreeSet::new();
-    for p in [a, b] {
-        if let Some(goarch) = &p.goarch {
-            out.insert(goarch.clone());
-        }
-    }
-    for t in tags {
-        if is_goarch(t) {
-            out.insert(t.clone());
-        }
-    }
-    out.insert("amd64".to_string());
-    out.into_iter().collect()
-}
-
-fn add_alias_gooses(tag: &str, out: &mut BTreeSet<String>) {
-    match tag {
-        "linux" => {
-            out.insert("android".to_string());
-        }
-        "solaris" => {
-            out.insert("illumos".to_string());
-        }
-        "darwin" => {
-            out.insert("ios".to_string());
-        }
-        "unix" => {
-            for os in UNIX_GOOS {
-                out.insert((*os).to_string());
-            }
-        }
-        _ => {}
-    }
 }
 
 fn collect_profile_tags(p: &GoBuildProfile, out: &mut BTreeSet<String>) {
@@ -504,9 +496,10 @@ fn is_unix_goos(s: &str) -> bool {
     UNIX_GOOS.contains(&s)
 }
 
+// Mirrors Go 1.26.2 $GOROOT/src/internal/syslist/syslist.go KnownOS/KnownArch.
 #[rustfmt::skip]
-const GOOS: &[&str] = &["aix", "android", "darwin", "dragonfly", "freebsd", "hurd", "illumos", "ios", "js", "linux", "netbsd", "openbsd", "plan9", "solaris", "wasip1", "windows"];
+const GOOS: &[&str] = &["aix", "android", "darwin", "dragonfly", "freebsd", "hurd", "illumos", "ios", "js", "linux", "nacl", "netbsd", "openbsd", "plan9", "solaris", "wasip1", "windows", "zos"];
 #[rustfmt::skip]
 const UNIX_GOOS: &[&str] = &["aix", "android", "darwin", "dragonfly", "freebsd", "hurd", "illumos", "ios", "linux", "netbsd", "openbsd", "solaris"];
 #[rustfmt::skip]
-const GOARCH: &[&str] = &["386", "amd64", "arm", "arm64", "loong64", "mips", "mips64", "mips64le", "mipsle", "ppc64", "ppc64le", "riscv64", "s390x", "wasm"];
+const GOARCH: &[&str] = &["386", "amd64", "amd64p32", "arm", "armbe", "arm64", "arm64be", "loong64", "mips", "mipsle", "mips64", "mips64le", "mips64p32", "mips64p32le", "ppc", "ppc64", "ppc64le", "riscv", "riscv64", "s390", "s390x", "sparc", "sparc64", "wasm"];
