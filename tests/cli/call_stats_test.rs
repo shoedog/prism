@@ -185,6 +185,56 @@ fn call_stats_reports_embedded_promotion_and_ambiguity() {
 }
 
 #[test]
+fn call_stats_counts_malformed_go_build_file_once_not_per_consult() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("bad.go"),
+        "//go:build linux &&
+
+package a
+func f() {}
+",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("other_windows.go"),
+        "package a
+func f() {}
+",
+    )
+    .unwrap();
+    let callers = (0..50)
+        .map(|i| {
+            format!(
+                "func use{i}() {{ f() }}
+"
+            )
+        })
+        .collect::<String>();
+    std::fs::write(
+        dir.path().join("use_linux.go"),
+        format!(
+            "package a
+{callers}"
+        ),
+    )
+    .unwrap();
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--repo"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["go_build_expr_unparsed"], 1);
+}
+
+#[test]
 fn call_stats_reports_js_export_reexport_telemetry() {
     // P4: a 3-hop re-export chain exceeds js_exports::MAX_REEXPORT_DEPTH (2)
     // and fails closed -- js_export_chain_unresolved must count it (the chain

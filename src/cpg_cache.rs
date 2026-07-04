@@ -115,7 +115,11 @@ use std::path::{Path, PathBuf};
 ///   `go_embedded_interface_methods` is keyed by `GoOwnerIdentity`
 ///   (package-scoped); Go binding walks are fenced by func_literal lexical
 ///   scope; S4 gate failure drops instead of falling through.
-const CACHE_VERSION: u32 = 38; // 38: P11 Go receiver typing.
+/// - v39: Go build-profile same-package partitioning. CallGraph gains
+///   per-file Go package/build profiles plus P13 telemetry counters; Go
+///   same-package free-function and receiver-fact recovery now partition by
+///   package clause and build constraints.
+const CACHE_VERSION: u32 = 39; // 39: Go build-profile same-package partitioning.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -633,11 +637,10 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_38_for_go_receiver_typing() {
-        // v38: P11 Go receiver typing (S1-S4 indices + rematerialization
-        // pass, GoOwnerIdentity-keyed S4 routing, func_literal lexical-scope
-        // fence, S4 gate-failure drop). One transition ships per PR.
-        assert_eq!(super::CACHE_VERSION, 38);
+    fn cache_version_is_39_for_go_build_profile_partitioning() {
+        // v39: P13 Go build-profile same-package partitioning. One
+        // transition ships per PR.
+        assert_eq!(super::CACHE_VERSION, 39);
     }
 
     #[test]

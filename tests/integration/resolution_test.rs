@@ -3899,6 +3899,556 @@ fn go_same_package_freefn_multi_def_demotes_not_exact() {
 }
 
 #[test]
+fn go_package_clause_partition_exact_for_whitebox_test_caller() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[
+        ("a/common_test.go", "package a\nfunc withLogger() {}\n", Go),
+        (
+            "a/blackbox_test.go",
+            "package a_test\nfunc withLogger() {}\n",
+            Go,
+        ),
+        (
+            "a/global_test.go",
+            "package a\nfunc TestIt() { withLogger() }\n",
+            Go,
+        ),
+    ]);
+    let site = site_in(&cg, "TestIt", "withLogger");
+    let out = cg.resolve_call_site_full(&site);
+    assert_eq!(
+        out.resolved.len(),
+        1,
+        "partition should leave one target: {out:?}"
+    );
+    assert_eq!(out.resolved[0].target.file, "a/common_test.go");
+    assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(out.resolved[0].kind, ResolutionKind::SamePackage);
+    assert_eq!(out.telemetry.go_pkg_clause_partition_exact, 1);
+}
+
+#[test]
+fn go_package_clause_only_candidates_drop_not_free_single() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[
+        (
+            "a/blackbox_test.go",
+            "package a_test\nfunc helper() {}\n",
+            Go,
+        ),
+        (
+            "a/use_test.go",
+            "package a\nfunc TestIt() { helper() }\n",
+            Go,
+        ),
+    ]);
+    let site = site_in(&cg, "TestIt", "helper");
+    let out = cg.resolve_call_site_full(&site);
+    assert_eq!(out.drop, Some(DropReason::GoSamePkgAllFiltered));
+    assert!(
+        out.resolved.is_empty(),
+        "must not fall through to FreeSingle: {out:?}"
+    );
+    assert_eq!(out.telemetry.go_same_pkg_all_filtered_drop, 1);
+}
+
+#[test]
+fn go_filename_suffix_partition_exact_for_suffixed_caller() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[
+        ("a/lock_linux.go", "package a\nfunc TryLockFile() {}\n", Go),
+        (
+            "a/lock_windows.go",
+            "package a\nfunc TryLockFile() {}\n",
+            Go,
+        ),
+        (
+            "a/use_linux.go",
+            "package a\nfunc use() { TryLockFile() }\n",
+            Go,
+        ),
+    ]);
+    let site = site_in(&cg, "use", "TryLockFile");
+    let out = cg.resolve_call_site_full(&site);
+    assert_eq!(
+        out.resolved.len(),
+        1,
+        "linux caller should see linux target: {out:?}"
+    );
+    assert_eq!(out.resolved[0].target.file, "a/lock_linux.go");
+    assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(out.telemetry.go_build_partition_exact, 1);
+}
+
+#[test]
+fn go_build_expr_complement_partition_exact() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[
+        (
+            "a/fast.go",
+            "//go:build fast\n\npackage a\nfunc hash() {}\n",
+            Go,
+        ),
+        (
+            "a/slow.go",
+            "//go:build !fast\n\npackage a\nfunc hash() {}\n",
+            Go,
+        ),
+        (
+            "a/use.go",
+            "//go:build fast\n\npackage a\nfunc use() { hash() }\n",
+            Go,
+        ),
+    ]);
+    let site = site_in(&cg, "use", "hash");
+    let out = cg.resolve_call_site_full(&site);
+    assert_eq!(
+        out.resolved.len(),
+        1,
+        "fast caller should see fast target: {out:?}"
+    );
+    assert_eq!(out.resolved[0].target.file, "a/fast.go");
+    assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(out.telemetry.go_build_partition_exact, 1);
+}
+
+#[test]
+fn go_sat_bound_uncertain_unique_survivor_demotes_not_exact() {
+    use prism::languages::Language::Go;
+    let uncertain = "//go:build !t0 && t1 && t2 && t3 && t4 && t5 && t6 && t7 && t8
+
+package a
+func f() {}
+";
+    let filtered = "//go:build !t0
+
+package a
+func f() {}
+";
+    let caller = "//go:build t0
+
+package a
+func use() { f() }
+";
+    let (cg, _) = build(&[
+        ("a/uncertain.go", uncertain, Go),
+        ("a/filtered.go", filtered, Go),
+        ("a/use.go", caller, Go),
+    ]);
+    let out = cg.resolve_call_site_full(&site_in(&cg, "use", "f"));
+    assert_eq!(out.resolved.len(), 1, "one fail-open survivor: {out:?}");
+    assert_eq!(out.resolved[0].target.file, "a/uncertain.go");
+    assert_eq!(out.resolved[0].confidence, ResolutionConfidence::NameOnly);
+    assert_eq!(out.telemetry.go_build_partition_exact, 0);
+    assert_eq!(out.telemetry.go_build_expr_unparsed, 1);
+}
+
+#[test]
+fn go_negation_only_build_expr_demotes_unconstrained_caller() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[
+        (
+            "a/b.go",
+            "//go:build !windows && !plan9 && !solaris\n\npackage a\nfunc f() {}\n",
+            Go,
+        ),
+        ("a/c_windows.go", "package a\nfunc f() {}\n", Go),
+        ("a/use.go", "package a\nfunc use() { f() }\n", Go),
+    ]);
+    let out = cg.resolve_call_site_full(&site_in(&cg, "use", "f"));
+    assert_eq!(
+        out.resolved.len(),
+        2,
+        "unconstrained caller sees both: {out:?}"
+    );
+    assert!(out
+        .resolved
+        .iter()
+        .all(|r| r.confidence == ResolutionConfidence::NameOnly));
+    assert_eq!(out.telemetry.go_build_partition_exact, 0);
+}
+
+#[test]
+fn goarch_negation_only_build_expr_demotes_unconstrained_caller() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[
+        (
+            "a/b.go",
+            "//go:build !amd64\n\npackage a\nfunc f() {}\n",
+            Go,
+        ),
+        ("a/c_amd64.go", "package a\nfunc f() {}\n", Go),
+        ("a/use.go", "package a\nfunc use() { f() }\n", Go),
+    ]);
+    let out = cg.resolve_call_site_full(&site_in(&cg, "use", "f"));
+    assert_eq!(
+        out.resolved.len(),
+        2,
+        "unconstrained caller sees both: {out:?}"
+    );
+    assert!(out
+        .resolved
+        .iter()
+        .all(|r| r.confidence == ResolutionConfidence::NameOnly));
+}
+
+#[test]
+fn go_syslist_suffix_zos_is_incompatible_with_linux() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[
+        ("a/x_zos.go", "package a\nfunc f() {}\n", Go),
+        ("a/x_linux.go", "package a\nfunc f() {}\n", Go),
+        ("a/use_linux.go", "package a\nfunc use() { f() }\n", Go),
+    ]);
+    let out = cg.resolve_call_site_full(&site_in(&cg, "use", "f"));
+    assert_eq!(
+        out.resolved.len(),
+        1,
+        "linux caller should exclude zos: {out:?}"
+    );
+    assert_eq!(out.resolved[0].target.file, "a/x_linux.go");
+    assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
+}
+
+#[test]
+fn go_malformed_build_unique_survivor_is_demoted() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[
+        (
+            "a/bad.go",
+            "//go:build linux &&\n\npackage a\nfunc f() {}\n",
+            Go,
+        ),
+        ("a/other_windows.go", "package a\nfunc f() {}\n", Go),
+        ("a/use_linux.go", "package a\nfunc use() { f() }\n", Go),
+    ]);
+    let out = cg.resolve_call_site_full(&site_in(&cg, "use", "f"));
+    assert_eq!(
+        out.resolved.len(),
+        1,
+        "malformed candidate stays visible: {out:?}"
+    );
+    assert_eq!(out.resolved[0].target.file, "a/bad.go");
+    assert_eq!(out.resolved[0].confidence, ResolutionConfidence::NameOnly);
+    assert_eq!(out.telemetry.go_build_partition_exact, 0);
+    assert_eq!(out.telemetry.go_build_expr_unparsed, 0);
+}
+
+#[test]
+fn go_empty_package_clause_candidate_survives_but_demotes() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[
+        ("a/invalid.go", "func f() {}\n", Go),
+        ("a/use.go", "package a\nfunc use() { f() }\n", Go),
+    ]);
+    let out = cg.resolve_call_site_full(&site_in(&cg, "use", "f"));
+    assert_eq!(
+        out.resolved.len(),
+        1,
+        "unknown package clause is compatible: {out:?}"
+    );
+    assert_eq!(out.resolved[0].target.file, "a/invalid.go");
+    assert_eq!(out.resolved[0].confidence, ResolutionConfidence::NameOnly);
+}
+
+#[test]
+fn go_test_visibility_partition_counts_pkg_clause_exact() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[
+        ("a/helper.go", "package a\nfunc helper() {}\n", Go),
+        ("a/helper_test.go", "package a\nfunc helper() {}\n", Go),
+        ("a/use.go", "package a\nfunc use() { helper() }\n", Go),
+    ]);
+    let out = cg.resolve_call_site_full(&site_in(&cg, "use", "helper"));
+    assert_eq!(out.resolved.len(), 1, "{out:?}");
+    assert_eq!(out.resolved[0].target.file, "a/helper.go");
+    assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(out.telemetry.go_pkg_clause_partition_exact, 1);
+    assert_eq!(out.telemetry.go_build_partition_exact, 0);
+}
+
+#[test]
+fn go_return_typed_fact_filters_by_build_profile() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[
+        ("a/t_linux.go", "package a\ntype LinuxT struct{}\nfunc (t *LinuxT) M() {}\nfunc newT() *LinuxT { return &LinuxT{} }\n", Go),
+        ("a/t_windows.go", "package a\ntype WindowsT struct{}\nfunc (t *WindowsT) M() {}\nfunc newT() *WindowsT { return &WindowsT{} }\n", Go),
+        ("a/use_linux.go", "package a\nfunc runLinux() { x := newT(); x.M() }\n", Go),
+        ("a/use.go", "package a\nfunc runAny() { x := newT(); x.M() }\n", Go),
+    ]);
+    let linux_site = site_in(&cg, "runLinux", "M");
+    assert_eq!(linux_site.receiver_type.as_deref(), Some("LinuxT"));
+    let any_site = site_in(&cg, "runAny", "M");
+    assert_eq!(
+        any_site.receiver_type, None,
+        "unsuffixed caller is compatible with both facts"
+    );
+}
+
+#[test]
+fn go_return_typed_fact_filters_by_package_clause() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[
+        (
+            "a/t_test.go",
+            "package a_test\ntype T struct{}\nfunc newT() *T { return &T{} }\n",
+            Go,
+        ),
+        (
+            "a/use_test.go",
+            "package a\nfunc TestIt() { x := newT(); x.M() }\n",
+            Go,
+        ),
+        (
+            "a/method.go",
+            "package a\ntype T struct{}\nfunc (t *T) M() {}\n",
+            Go,
+        ),
+    ]);
+    let site = site_in(&cg, "TestIt", "M");
+    assert_eq!(
+        site.receiver_type, None,
+        "foo caller must not consume foo_test newT fact"
+    );
+}
+
+#[test]
+fn go_return_typed_fact_negation_only_demotes_to_ambiguous() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[
+        ("a/t_unix.go", "//go:build !windows && !plan9 && !solaris\n\npackage a\ntype UnixT struct{}\nfunc (t *UnixT) M() {}\nfunc newT() *UnixT { return &UnixT{} }\n", Go),
+        ("a/t_windows.go", "package a\ntype WindowsT struct{}\nfunc (t *WindowsT) M() {}\nfunc newT() *WindowsT { return &WindowsT{} }\n", Go),
+        ("a/use.go", "package a\nfunc run() { x := newT(); x.M() }\n", Go),
+    ]);
+    assert_eq!(site_in(&cg, "run", "M").receiver_type, None);
+}
+
+#[test]
+fn go_return_typed_fact_sat_bound_uncertain_survivor_bails() {
+    use prism::languages::Language::Go;
+    let uncertain = "//go:build !t0 && t1 && t2 && t3 && t4 && t5 && t6 && t7 && t8
+
+package a
+type BadT struct{}
+func (t *BadT) M() {}
+func newT() *BadT { return &BadT{} }
+";
+    let filtered = "//go:build !t0
+
+package a
+type OtherT struct{}
+func (t *OtherT) M() {}
+func newT() *OtherT { return &OtherT{} }
+";
+    let caller = "//go:build t0
+
+package a
+func run() { x := newT(); x.M() }
+";
+    let (cg, _) = build(&[
+        ("a/t_uncertain.go", uncertain, Go),
+        ("a/t_filtered.go", filtered, Go),
+        ("a/use.go", caller, Go),
+    ]);
+    assert_eq!(site_in(&cg, "run", "M").receiver_type, None);
+}
+
+#[test]
+fn go_return_typed_fact_unparsed_survivor_bails() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[
+        ("a/t_bad.go", "//go:build linux &&\n\npackage a\ntype BadT struct{}\nfunc (t *BadT) M() {}\nfunc newT() *BadT { return &BadT{} }\n", Go),
+        ("a/t_windows.go", "package a\ntype WindowsT struct{}\nfunc (t *WindowsT) M() {}\nfunc newT() *WindowsT { return &WindowsT{} }\n", Go),
+        ("a/use_linux.go", "package a\nfunc run() { x := newT(); x.M() }\n", Go),
+    ]);
+    assert_eq!(site_in(&cg, "run", "M").receiver_type, None);
+}
+
+#[test]
+fn go_build_profile_incremental_parity_edit_and_revert() {
+    use prism::cpg::CodePropertyGraph;
+    use prism::data_flow::DataFlowGraph;
+    use prism::languages::Language::Go;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let parse_map = |defs: &[(&str, &str)]| -> BTreeMap<String, prism::ast::ParsedFile> {
+        defs.iter()
+            .map(|(p, src)| {
+                (
+                    p.to_string(),
+                    prism::ast::ParsedFile::parse(p, src, Go).unwrap(),
+                )
+            })
+            .collect()
+    };
+    let linux_def = "package a\ntype LinuxT struct{}\nfunc (t *LinuxT) M() {}\nfunc newT() *LinuxT { return &LinuxT{} }\n";
+    let linux_def_windows_tag = "//go:build windows\n\npackage a\ntype LinuxT struct{}\nfunc (t *LinuxT) M() {}\nfunc newT() *LinuxT { return &LinuxT{} }\n";
+    let windows_def = "package a\ntype WindowsT struct{}\nfunc (t *WindowsT) M() {}\nfunc newT() *WindowsT { return &WindowsT{} }\n";
+    let use_linux = "package a\nfunc run() { x := newT(); x.M() }\n";
+
+    let v1 = parse_map(&[
+        ("a/t_linux.go", linux_def),
+        ("a/t_windows.go", windows_def),
+        ("a/use_linux.go", use_linux),
+    ]);
+    let full_v1 = CallGraph::build(&v1);
+    assert_eq!(
+        site_in(&full_v1, "run", "M").receiver_type.as_deref(),
+        Some("LinuxT")
+    );
+
+    let v2 = parse_map(&[
+        ("a/t_linux.go", linux_def_windows_tag),
+        ("a/t_windows.go", windows_def),
+        ("a/use_linux.go", use_linux),
+    ]);
+    let changed: BTreeSet<String> = ["a/t_linux.go".to_string()].into_iter().collect();
+    let cpg_v2 = CodePropertyGraph::build_incremental(
+        full_v1,
+        DataFlowGraph::build(&v2),
+        &changed,
+        &v2,
+        None,
+    );
+    let full_v2 = CallGraph::build(&v2);
+    assert_eq!(
+        site_in(&cpg_v2.call_graph, "run", "M").receiver_type,
+        site_in(&full_v2, "run", "M").receiver_type
+    );
+    assert_eq!(site_in(&full_v2, "run", "M").receiver_type, None);
+
+    let v3 = v1;
+    let cpg_v3 = CodePropertyGraph::build_incremental(
+        cpg_v2.call_graph,
+        DataFlowGraph::build(&v3),
+        &changed,
+        &v3,
+        None,
+    );
+    let full_v3 = CallGraph::build(&v3);
+    assert_eq!(
+        site_in(&cpg_v3.call_graph, "run", "M").receiver_type,
+        site_in(&full_v3, "run", "M").receiver_type
+    );
+    assert_eq!(
+        site_in(&full_v3, "run", "M").receiver_type.as_deref(),
+        Some("LinuxT")
+    );
+}
+
+#[test]
+fn go_bare_value_ref_filters_and_counts_same_pkg_ambiguity() {
+    use prism::languages::Language::Go;
+    use prism::resolution::resolve_go_bare_value_ref;
+    let (cg, _) = build(&[
+        ("a/cb_test.go", "package a\nfunc cb() {}\n", Go),
+        ("a/cb_black_test.go", "package a_test\nfunc cb() {}\n", Go),
+        ("a/use_test.go", "package a\nfunc TestIt() { _ = cb }\n", Go),
+    ]);
+    let mut ambiguous = 0usize;
+    let target = resolve_go_bare_value_ref(
+        &cg.functions,
+        &cg.method_owners,
+        &cg.go_file_profiles,
+        &mut ambiguous,
+        "a/use_test.go",
+        "cb",
+    )
+    .expect("package profile should rescue one value target");
+    assert_eq!(target.file, "a/cb_test.go");
+    assert_eq!(ambiguous, 1);
+}
+
+#[test]
+fn go_bare_value_ref_negation_only_remains_ambiguous() {
+    use prism::languages::Language::Go;
+    use prism::resolution::resolve_go_bare_value_ref;
+    let (cg, _) = build(&[
+        (
+            "a/b.go",
+            "//go:build !windows && !plan9 && !solaris\n\npackage a\nfunc cb() {}\n",
+            Go,
+        ),
+        ("a/c_windows.go", "package a\nfunc cb() {}\n", Go),
+        ("a/use.go", "package a\nfunc use() { _ = cb }\n", Go),
+    ]);
+    let mut ambiguous = 0usize;
+    let target = resolve_go_bare_value_ref(
+        &cg.functions,
+        &cg.method_owners,
+        &cg.go_file_profiles,
+        &mut ambiguous,
+        "a/use.go",
+        "cb",
+    );
+    assert!(target.is_none());
+    assert_eq!(ambiguous, 1);
+}
+
+#[test]
+fn go_bare_value_ref_sat_bound_uncertain_unique_survivor_returns_none() {
+    use prism::languages::Language::Go;
+    use prism::resolution::resolve_go_bare_value_ref;
+    let uncertain = "//go:build !t0 && t1 && t2 && t3 && t4 && t5 && t6 && t7 && t8
+
+package a
+func cb() {}
+";
+    let filtered = "//go:build !t0
+
+package a
+func cb() {}
+";
+    let caller = "//go:build t0
+
+package a
+func use() { _ = cb }
+";
+    let (cg, _) = build(&[
+        ("a/uncertain.go", uncertain, Go),
+        ("a/filtered.go", filtered, Go),
+        ("a/use.go", caller, Go),
+    ]);
+    let mut ambiguous = 0usize;
+    let target = resolve_go_bare_value_ref(
+        &cg.functions,
+        &cg.method_owners,
+        &cg.go_file_profiles,
+        &mut ambiguous,
+        "a/use.go",
+        "cb",
+    );
+    assert!(target.is_none());
+    assert_eq!(ambiguous, 1);
+}
+
+#[test]
+fn go_bare_value_ref_unparsed_unique_survivor_returns_none() {
+    use prism::languages::Language::Go;
+    use prism::resolution::resolve_go_bare_value_ref;
+    let (cg, _) = build(&[
+        (
+            "a/bad.go",
+            "//go:build linux &&\n\npackage a\nfunc cb() {}\n",
+            Go,
+        ),
+        ("a/c_windows.go", "package a\nfunc cb() {}\n", Go),
+        ("a/use_linux.go", "package a\nfunc use() { _ = cb }\n", Go),
+    ]);
+    let mut ambiguous = 0usize;
+    let target = resolve_go_bare_value_ref(
+        &cg.functions,
+        &cg.method_owners,
+        &cg.go_file_profiles,
+        &mut ambiguous,
+        "a/use_linux.go",
+        "cb",
+    );
+    assert!(target.is_none());
+    assert_eq!(ambiguous, 1);
+}
+
+#[test]
 fn mixed_edition_workspace_recovers_intra_crate_collision() {
     use prism::repo_loader::load_repo;
     // A pure-2018+ MIXED-edition workspace driven end-to-end through the real loader:

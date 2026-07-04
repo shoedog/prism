@@ -28,7 +28,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // package-var recoveries via the post-merge rematerialization pass, plus S4's
 // additive embedded-interface Exact dispatch route) changes which Go call
 // sites resolve and at what kind, changing nav topology.
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 8;
+// v9: P13 — Go package/build profile partitioning changes same-package
+// free-function and receiver-fact resolution confidence/topology.
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 9;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -351,8 +353,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_8() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 8);
+    fn sidecar_version_is_9() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 9);
     }
 
     #[test]

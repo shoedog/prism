@@ -1,0 +1,13 @@
+[case]
+language = "go"
+capability = "gobuild_expr_partition"
+status = "pass"
+[seed]
+symbol = "stableHash"
+file = "hash_fast.go"
+line = 5
+[[expect.callers]]
+file = "use_fast.go"
+line = 5
+[expect]
+exact = true

@@ -221,6 +221,12 @@ pub fn iface_key(text: &str) -> Option<String> {
 /// dispatch. The S1 func-typed-field index must NOT inherit that collision:
 /// a callback registration in one package must never feed an S3 hit for a
 /// same-named struct in another (spec-review MAJOR-1).
+///
+/// P13 follow-up note: this identity intentionally remains `(package_dir,
+/// name)` and does not encode package-clause/build-profile partitions. The
+/// same-package consult sites and P11 S1/S3 receiver facts are profile-filtered,
+/// but GoOwnerIdentity-keyed field/interface lanes can still cross those
+/// partitions; `go_owner_identity_profile_conflict` measures that gap.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub struct GoOwnerIdentity {
     /// The struct's declaring directory (dir-as-package convention, matching
@@ -292,6 +298,8 @@ pub fn resolve_go_owner_identity(
 pub fn resolve_go_bare_value_ref(
     functions: &BTreeMap<String, Vec<FunctionId>>,
     method_owners: &BTreeMap<FunctionId, String>,
+    go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    ambiguous_counter: &mut usize,
     caller_file: &str,
     name: &str,
 ) -> Option<FunctionId> {
@@ -317,10 +325,61 @@ pub fn resolve_go_bare_value_ref(
         .copied()
         .filter(|f| dir_of(&f.file) == dir)
         .collect();
+    let raw_ambiguous = same_pkg.len() > 1;
+    if raw_ambiguous {
+        *ambiguous_counter += 1;
+    }
+    let same_pkg = go_visible_value_candidates(caller_file, &same_pkg, go_file_profiles);
     if same_pkg.len() == 1 {
-        return Some(same_pkg[0].clone());
+        let (target, exact_allowed) = same_pkg[0];
+        if !exact_allowed {
+            if !raw_ambiguous {
+                *ambiguous_counter += 1;
+            }
+            return None;
+        }
+        return Some(target.clone());
     }
     None
+}
+
+fn go_visible_value_candidates<'a>(
+    caller_file: &str,
+    candidates: &[&'a FunctionId],
+    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+) -> Vec<(&'a FunctionId, bool)> {
+    let Some(caller_profile) = profiles.get(caller_file) else {
+        return candidates
+            .iter()
+            .map(|fid| {
+                (
+                    *fid,
+                    crate::go_build_profile::profile_allows_exact(profiles.get(&fid.file)),
+                )
+            })
+            .collect();
+    };
+    candidates
+        .iter()
+        .filter_map(|fid| {
+            let Some(candidate_profile) = profiles.get(&fid.file) else {
+                return Some((*fid, false));
+            };
+            let visibility = crate::go_build_profile::go_same_package_visible_detailed(
+                caller_profile,
+                candidate_profile,
+            );
+            visibility.visible.then(|| {
+                (
+                    *fid,
+                    crate::go_build_profile::visibility_allows_exact(
+                        Some(candidate_profile),
+                        &visibility,
+                    ),
+                )
+            })
+        })
+        .collect()
 }
 
 /// Admission key (Go method-set asymmetry): a value-receiver satisfier admits as
@@ -694,6 +753,25 @@ pub enum DropReason {
     /// Kept dropped (not resolved), but classified separately from
     /// `ExternalReceiver` for call-stats telemetry.
     FuncValueFanout,
+    /// P13: same-directory Go candidates existed, but package/build profile
+    /// filtering proved none visible; do not fall through to FreeSingle.
+    GoSamePkgAllFiltered,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ResolutionTelemetry {
+    pub go_pkg_clause_partition_exact: usize,
+    pub go_build_partition_exact: usize,
+    pub go_same_pkg_all_filtered_drop: usize,
+    pub go_bare_value_ref_ambiguous: usize,
+    pub go_build_expr_unparsed: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GoSamePackagePartition {
+    None,
+    Namespace,
+    Build,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -701,6 +779,7 @@ pub struct ResolutionOutcome<'a> {
     pub resolved: Vec<ResolvedCallee<'a>>,
     /// Some(..) iff `resolved` is empty for a classified reason.
     pub drop: Option<DropReason>,
+    pub telemetry: ResolutionTelemetry,
 }
 
 impl<'a> ResolutionOutcome<'a> {
@@ -708,6 +787,18 @@ impl<'a> ResolutionOutcome<'a> {
         Self {
             resolved,
             drop: None,
+            telemetry: ResolutionTelemetry::default(),
+        }
+    }
+
+    pub fn hit_with_telemetry(
+        resolved: Vec<ResolvedCallee<'a>>,
+        telemetry: ResolutionTelemetry,
+    ) -> Self {
+        Self {
+            resolved,
+            drop: None,
+            telemetry,
         }
     }
 
@@ -715,6 +806,15 @@ impl<'a> ResolutionOutcome<'a> {
         Self {
             resolved: Vec::new(),
             drop: Some(reason),
+            telemetry: ResolutionTelemetry::default(),
+        }
+    }
+
+    pub fn dropped_with_telemetry(reason: DropReason, telemetry: ResolutionTelemetry) -> Self {
+        Self {
+            resolved: Vec::new(),
+            drop: Some(reason),
+            telemetry,
         }
     }
 }
@@ -1977,19 +2077,44 @@ impl CallGraph {
                         .copied()
                         .filter(|f| dir_of(&f.file) == dir)
                         .collect();
-                    match same_pkg.len() {
-                        0 => {}
-                        1 => {
-                            return ResolutionOutcome::hit(exact(
-                                same_pkg,
-                                ResolutionKind::SamePackage,
-                            ))
-                        }
-                        _ => {
-                            return ResolutionOutcome::hit(demoted(
-                                same_pkg,
-                                ResolutionKind::SamePackage,
-                            ))
+                    if !same_pkg.is_empty() {
+                        let (survivors, mut telemetry, partition, exact_allowed) =
+                            self.go_visible_same_package_candidates(&caller.file, &same_pkg);
+                        match survivors.len() {
+                            0 => {
+                                telemetry.go_same_pkg_all_filtered_drop += 1;
+                                return ResolutionOutcome::dropped_with_telemetry(
+                                    DropReason::GoSamePkgAllFiltered,
+                                    telemetry,
+                                );
+                            }
+                            1 => {
+                                if !exact_allowed {
+                                    return ResolutionOutcome::hit_with_telemetry(
+                                        demoted(survivors, ResolutionKind::SamePackage),
+                                        telemetry,
+                                    );
+                                }
+                                match partition {
+                                    GoSamePackagePartition::Build => {
+                                        telemetry.go_build_partition_exact += 1;
+                                    }
+                                    GoSamePackagePartition::Namespace => {
+                                        telemetry.go_pkg_clause_partition_exact += 1;
+                                    }
+                                    GoSamePackagePartition::None => {}
+                                }
+                                return ResolutionOutcome::hit_with_telemetry(
+                                    exact(survivors, ResolutionKind::SamePackage),
+                                    telemetry,
+                                );
+                            }
+                            _ => {
+                                return ResolutionOutcome::hit_with_telemetry(
+                                    demoted(survivors, ResolutionKind::SamePackage),
+                                    telemetry,
+                                );
+                            }
                         }
                     }
                 }
@@ -2030,6 +2155,69 @@ impl CallGraph {
                 }
             }
         }
+    }
+
+    fn go_profile_for(&self, file: &str) -> Option<crate::go_build_profile::GoBuildProfile> {
+        self.go_file_profiles.get(file).cloned()
+    }
+
+    fn go_visible_same_package_candidates<'a>(
+        &self,
+        caller_file: &str,
+        candidates: &[&'a FunctionId],
+    ) -> (
+        Vec<&'a FunctionId>,
+        ResolutionTelemetry,
+        GoSamePackagePartition,
+        bool,
+    ) {
+        let Some(caller_profile) = self.go_profile_for(caller_file) else {
+            let exact_allowed = candidates.iter().all(|fid| {
+                crate::go_build_profile::profile_allows_exact(self.go_file_profiles.get(&fid.file))
+            });
+            return (
+                candidates.to_vec(),
+                ResolutionTelemetry::default(),
+                GoSamePackagePartition::None,
+                exact_allowed,
+            );
+        };
+        let mut telemetry = ResolutionTelemetry::default();
+        let mut survivors = Vec::new();
+        let mut survivors_allow_exact = true;
+        let mut build_filtered = false;
+        let mut namespace_filtered = false;
+        for fid in candidates {
+            let Some(candidate_profile) = self.go_profile_for(&fid.file) else {
+                survivors.push(*fid);
+                survivors_allow_exact = false;
+                continue;
+            };
+            let vis = crate::go_build_profile::go_same_package_visible_detailed(
+                &caller_profile,
+                &candidate_profile,
+            );
+            telemetry.go_build_expr_unparsed += vis.diagnostics.unparsed;
+            if vis.visible {
+                if !crate::go_build_profile::visibility_allows_exact(Some(&candidate_profile), &vis)
+                {
+                    survivors_allow_exact = false;
+                }
+                survivors.push(*fid);
+            } else if vis.build_decisive {
+                build_filtered = true;
+            } else if vis.namespace_decisive {
+                namespace_filtered = true;
+            }
+        }
+        let partition = if survivors.len() == 1 && build_filtered {
+            GoSamePackagePartition::Build
+        } else if survivors.len() == 1 && namespace_filtered {
+            GoSamePackagePartition::Namespace
+        } else {
+            GoSamePackagePartition::None
+        };
+        (survivors, telemetry, partition, survivors_allow_exact)
     }
 
     /// P4: JS/TS R4c import-member candidates via the typed, whole-program-

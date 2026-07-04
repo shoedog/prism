@@ -47,6 +47,7 @@ pub mod data_flow;
 pub mod diff;
 pub mod framework_entries;
 pub mod frameworks;
+pub mod go_build_profile;
 mod go_receiver_index;
 pub mod js_exports;
 pub mod languages;

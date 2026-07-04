@@ -1,0 +1,13 @@
+[case]
+language = "go"
+capability = "pkg_clause_partition"
+status = "pass"
+[seed]
+symbol = "withLogger"
+file = "common_test.go"
+line = 3
+[[expect.callers]]
+file = "global_test.go"
+line = 3
+[expect]
+exact = true
