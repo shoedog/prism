@@ -507,20 +507,35 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                 &cg.imports,
                 &cg.go_package_basenames,
             );
-            let impls: &[FunctionId] = go_owner
+            // M1 parity fix (codex re-review MAJOR): once the S4 route MATCHES
+            // (the receiver struct's `go_embedded_interface_methods` entry
+            // donates `callee_name` from exactly one embedded in-repo
+            // interface), that route's implementer set is authoritative --
+            // even when EMPTY (no `interface_impls` entry for the providing
+            // interface, or the interface genuinely has no live in-repo
+            // implementer) -- and must NEVER fall through to the bare
+            // `iface_key(recv_ty)` ladder below. Falling through there could
+            // pick up an unrelated same-named interface's implementers (e.g.
+            // `Holder` embeds `Doer` with no implementers, but an unrelated
+            // interface also named `Holder` in a different package has its
+            // own live implementers) and report a wrong implementer set.
+            // Mirrors the resolver's matched-route handling
+            // (`resolution.rs`'s `resolve_call_site` around the M1 fix).
+            let s4_iface_name: Option<&String> = go_owner
                 .as_ref()
                 .and_then(|owner| cg.go_embedded_interface_methods.get(owner))
-                .and_then(|m| m.get(&site.callee_name))
-                .and_then(|iface_name| {
-                    cg.interface_impls
-                        .get(&(iface_name.clone(), site.callee_name.clone()))
-                })
-                .or_else(|| {
-                    crate::resolution::iface_key(recv_ty)
-                        .and_then(|k| cg.interface_impls.get(&(k, site.callee_name.clone())))
-                })
-                .map(|v| v.as_slice())
-                .unwrap_or(&[]);
+                .and_then(|m| m.get(&site.callee_name));
+            let impls: &[FunctionId] = if let Some(iface_name) = s4_iface_name {
+                cg.interface_impls
+                    .get(&(iface_name.clone(), site.callee_name.clone()))
+                    .map(|v| v.as_slice())
+                    .unwrap_or(&[])
+            } else {
+                crate::resolution::iface_key(recv_ty)
+                    .and_then(|k| cg.interface_impls.get(&(k, site.callee_name.clone())))
+                    .map(|v| v.as_slice())
+                    .unwrap_or(&[])
+            };
             // Arity-disambiguate the name-keyed candidate set BEFORE the owner-name
             // mapping, so `fanout` (= implementers cardinality) reflects the filtered
             // set the resolver would mint. Same shared helper as the resolution mint;
