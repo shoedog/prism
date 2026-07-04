@@ -168,19 +168,22 @@ symbol's *definition* or *call* line, not a blank/comment line.
 | Variable | Default | Meaning |
 |---|---|---|
 | `PRISM_MCP_MAX_RESULT_CHARS` | `80000` | Wire byte cap per tool result (floor `12000`). |
-| `PRISM_MCP_STRUCTURED_CONTENT` | `always` | `always` repeats canonical Evidence in both `content[0].text` and `structuredContent` (today's shape, on by default). `omit-default-path` drops `structuredContent` from the wire on the default (`canonical_json`) path — `content[0].text` already carries the identical JSON, so nothing is lost, only a redundant second copy. Agent views (`format: agent_markdown` / `agent_json`) always keep `structuredContent`; it is their only canonical-Evidence carrier once `content_text` has been rewritten into prose. **Defaults to `always`**: no trace exists yet of a real MCP host (e.g. Claude Code) reading `content[0].text` over `structuredContent`, so the trim ships opt-in pending a live-verification pass. |
-| `PRISM_MCP_CONCISE_SHAPE` | `legacy` | Shape of items in `Verbosity::Concise` results (Concise is the MCP default when a tool call omits `verbosity`). `legacy` is today's item shape, byte-unchanged. `slim` drops each item's `symbol` byte-offset/`ordinal` fields, drops the separate `location` field when it duplicates the symbol's file/line span, and omits `snippet` when null (instead of serializing `"snippet": null`). `Verbosity::Detailed` and agent views are never affected. **Defaults to `legacy`** for the same reason as above — opt in to `slim` once you've confirmed your client tolerates the smaller item shape. |
+| `PRISM_MCP_STRUCTURED_CONTENT` | `omit-default-path` | `omit-default-path` (the default) drops `structuredContent` from the wire on the default (`canonical_json`) path — `content[0].text` already carries the identical JSON, so nothing is lost, only a redundant second copy (~31% of the result). Agent views (`format: agent_markdown` / `agent_json`) always keep `structuredContent`; it is their only canonical-Evidence carrier once `content_text` has been rewritten into prose. `always` opts back into repeating canonical Evidence in both `content[0].text` and `structuredContent` (the pre-2026-07-03 shape) for clients that read only `structuredContent`. |
+| `PRISM_MCP_CONCISE_SHAPE` | `slim` | Shape of items in `Verbosity::Concise` results (Concise is the MCP default when a tool call omits `verbosity`). `slim` (the default) drops each item's `symbol` byte-offset/`ordinal` fields, drops the separate `location` field when it duplicates the symbol's file/line span, and omits `snippet` when null (instead of serializing `"snippet": null`). `Verbosity::Detailed` and agent views are never affected. `legacy` opts back into the pre-2026-07-03 item shape, byte-identical to historical output. |
 
 The `slim` transform only touches `items`; it never reaches graph-carried results —
 `nav_ego_graph` / `nav_repo_map` payloads live under `graph`, untouched by design.
 
-Both new variables are **env-gated DEFAULT-OFF this release** (no behavior change unless you set
-them). A post-merge live-verification session (a few probes from `eval/adoption/goldens/probes.toml`
-through a real `claude -p` run with each variable flipped) gates changing either default in a future
-release — see the P12 plan for the current status. The `initialize` response's `instructions` field
-(added alongside these) states the snapshot-freshness and agent-view notices once for the whole
-session; each tool description keeps only a one-line pointer to it, since client ingestion of
-`instructions` is itself unverified.
+Both trims are **on by default since 2026-07-03**, gated on an owner-approved live-verification
+pass: three probes from `eval/adoption/goldens/probes.toml` run through real `claude -p` sessions
+against this server — a bare default-path `nav_callers` call under `omit-default-path` (the wire
+carried no `structuredContent`; the Claude Code host surfaced `content[0].text` and the model
+reported the correct caller), a bare `nav_callees` call under `slim` (the model listed all callees
+correctly from the slim items, preserving the Exact-vs-NameOnly distinction), and a `nav_nodes_at`
+call with both flips combined (correct answer). Set the `always`/`legacy` values above to restore
+the pre-flip wire shapes. The `initialize` response's `instructions` field states the
+snapshot-freshness and agent-view notices once for the whole session; each tool description keeps
+only a one-line pointer to it.
 
 ## Skills (the judgment layer)
 

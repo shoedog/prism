@@ -7,14 +7,18 @@ pub struct ToolContext<'a> {
     pub cap: usize,
     /// S3: resolved ONCE per request in `transport.rs` (mirroring `cap`) and threaded down so
     /// handlers never read `PRISM_MCP_CONCISE_SHAPE` themselves. Defaults to `Legacy` in
-    /// `for_test` so the ~150 existing `ToolContext::for_test` call sites are unaffected.
+    /// `for_test` so the ~150 existing `ToolContext::for_test` call sites keep pinning the
+    /// legacy canonical shapes (the live env default is `slim` since 2026-07-03; the wire
+    /// default is decided only in `transport.rs`).
     pub concise_shape_mode: ConciseShapeMode,
     /// F1 (controller-adjudicated): resolved ONCE per request in `transport.rs` (mirroring `cap`
     /// and `concise_shape_mode`) and threaded down so cap-fitting sizing (`output::shape_result`,
     /// `evidence_view::shape_navigation_result`) can size against the mode that will ACTUALLY reach
     /// the wire, instead of the frozen `StructuredContentMode::Always` that made the
     /// `omit-default-path` item-retention win never materialize. Defaults to `Always` (via
-    /// `StructuredContentMode::default()`) in `for_test`, matching the live env default.
+    /// `StructuredContentMode::default()`) in `for_test`, pinning the always-shape for the
+    /// existing call sites (the live env default is `omit-default-path` since 2026-07-03; the
+    /// wire default is decided only in `transport.rs`).
     pub structured_content_mode: StructuredContentMode,
 }
 

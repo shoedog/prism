@@ -51,11 +51,13 @@ pub enum Verbosity {
 /// omits the latter on the default (non-agent-view) path since `content_text` already carries the
 /// identical JSON there. Gated by `PRISM_MCP_STRUCTURED_CONTENT`.
 ///
-/// `Always` is the DEFAULT (codex-adjudicated rollout): no client trace exists proving a real MCP
-/// host (e.g. Claude Code) reads `content[0].text` rather than `structuredContent`, so the trim
-/// ships opt-in behind `omit-default-path` pending a post-merge live-verification session (2-3
-/// probes from `eval/adoption/goldens/probes.toml` through `claude -p`, owner-gated). See
-/// `docs/MCP.md`'s environment-variables section for the rollout note.
+/// `OmitDefaultPath` is the live DEFAULT since the 2026-07-03 owner-approved `claude -p`
+/// verification pass (bare default-path `nav_callers` probe: `structuredContent` absent from the
+/// wire, the Claude Code host surfaced `content[0].text` and the model answered correctly; see
+/// `docs/MCP.md`'s environment-variables section). Opt out with
+/// `PRISM_MCP_STRUCTURED_CONTENT=always`. The `Default` derive stays `Always` deliberately: it
+/// feeds `ToolContext::for_test` and agent-view sizing, which pin the always-shape; the live wire
+/// default is decided only by `resolve_structured_content_mode` in `transport.rs`.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum StructuredContentMode {
     #[default]
@@ -82,14 +84,14 @@ pub fn resolve_structured_content_mode() -> StructuredContentMode {
 
 pub fn resolve_structured_content_mode_from(value: Option<&str>) -> StructuredContentMode {
     match value {
-        None => StructuredContentMode::Always,
+        None => StructuredContentMode::OmitDefaultPath,
         Some("always") => StructuredContentMode::Always,
         Some("omit-default-path") => StructuredContentMode::OmitDefaultPath,
         Some(other) => {
             eprintln!(
-                "PRISM_MCP_STRUCTURED_CONTENT={other:?} is not \"always\" or \"omit-default-path\"; using \"always\""
+                "PRISM_MCP_STRUCTURED_CONTENT={other:?} is not \"always\" or \"omit-default-path\"; using \"omit-default-path\""
             );
-            StructuredContentMode::Always
+            StructuredContentMode::OmitDefaultPath
         }
     }
 }
@@ -1507,12 +1509,12 @@ mod tests {
 
     #[test]
     fn resolve_structured_content_mode_branches() {
-        // S2 env parse: DEFAULT (unset, or explicit "always") is `Always` — codex-adjudicated
-        // rollout (no client trace exists that Claude Code reads content_text over
-        // structuredContent), so the trim ships opt-in via "omit-default-path".
+        // S2 env parse: DEFAULT (unset or unknown value) is `OmitDefaultPath` since the
+        // 2026-07-03 live `claude -p` verification (Claude Code reads content_text when
+        // structuredContent is absent on the default path); explicit "always" opts out.
         assert_eq!(
             resolve_structured_content_mode_from(None),
-            StructuredContentMode::Always
+            StructuredContentMode::OmitDefaultPath
         );
         assert_eq!(
             resolve_structured_content_mode_from(Some("always")),
@@ -1524,7 +1526,7 @@ mod tests {
         );
         assert_eq!(
             resolve_structured_content_mode_from(Some("bogus")),
-            StructuredContentMode::Always
+            StructuredContentMode::OmitDefaultPath
         ); // warn + default
     }
 

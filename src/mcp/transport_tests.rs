@@ -107,6 +107,22 @@ fn serialized_len(value: &serde_json::Value) -> usize {
     serde_json::to_vec(value).unwrap().len()
 }
 
+/// Canonical Evidence/summary of a REAL-path (env-default) tools/call response. Under the live
+/// default (`omit-default-path`, since 2026-07-03) the default path omits `structuredContent`
+/// from the wire and `content[0].text` is the canonical carrier; agent views and explicit
+/// `always`-mode tests still read `structuredContent` directly.
+fn evidence_of(result: &serde_json::Value) -> serde_json::Value {
+    result
+        .get("structuredContent")
+        .cloned()
+        .or_else(|| {
+            result["content"][0]["text"]
+                .as_str()
+                .and_then(|text| serde_json::from_str(text).ok())
+        })
+        .expect("tools/call response carries Evidence in structuredContent or content text")
+}
+
 /// S2/S3 test entry point: fixes the cap, structured-content mode, AND concise-shape mode
 /// explicitly (never via env var mutation, which would race across parallel test threads) so
 /// `omit-default-path` / `slim` behavior can be exercised deterministically alongside the existing
@@ -362,7 +378,7 @@ fn stale_index_metadata_warning_and_text_are_visible_after_edit() {
         result["_meta"]["prism/stale_index_paths"],
         serde_json::json!(["a.py"])
     );
-    assert!(result["structuredContent"]["warnings"]
+    assert!(evidence_of(&result)["warnings"]
         .as_array()
         .unwrap()
         .iter()
@@ -397,7 +413,7 @@ fn stale_agent_json_clipped_text_remains_bounded_notice() {
     assert_eq!(result["_meta"]["prism/index_freshness"], "stale");
     assert_eq!(result["_meta"]["prism/view_clipped"], true);
     assert!(result["content"][0]["text"].as_str().unwrap().len() <= 1);
-    assert!(result["structuredContent"]["warnings"]
+    assert!(evidence_of(&result)["warnings"]
         .as_array()
         .unwrap()
         .iter()
@@ -454,7 +470,7 @@ fn taint_reaches_receives_stale_warning() {
     );
     let result = &o[1]["result"];
     assert_eq!(result["_meta"]["prism/index_freshness"], "stale");
-    assert!(result["structuredContent"]["warnings"]
+    assert!(evidence_of(&result)["warnings"]
         .as_array()
         .unwrap()
         .iter()
@@ -479,7 +495,7 @@ fn refresh_index_rebuilds_session_and_clears_stale_warning() {
 
     let stale_result = &o[1]["result"];
     assert_eq!(stale_result["_meta"]["prism/index_freshness"], "stale");
-    assert!(stale_result["structuredContent"]["warnings"]
+    assert!(evidence_of(&stale_result)["warnings"]
         .as_array()
         .unwrap()
         .iter()
@@ -492,18 +508,18 @@ fn refresh_index_rebuilds_session_and_clears_stale_warning() {
     assert!(refresh["_meta"]
         .get("prism/refresh_fallback_reason")
         .is_none());
-    assert_eq!(refresh["structuredContent"]["status"], "refreshed");
-    assert_eq!(refresh["structuredContent"]["strategy"], "full");
-    assert!(refresh["structuredContent"]["fallback_reason"].is_null());
-    assert_eq!(refresh["structuredContent"]["generation"], 1);
-    assert_eq!(refresh["structuredContent"]["stale_before_refresh"], true);
+    assert_eq!(evidence_of(&refresh)["status"], "refreshed");
+    assert_eq!(evidence_of(&refresh)["strategy"], "full");
+    assert!(evidence_of(&refresh)["fallback_reason"].is_null());
+    assert_eq!(evidence_of(&refresh)["generation"], 1);
+    assert_eq!(evidence_of(&refresh)["stale_before_refresh"], true);
     assert_eq!(
-        refresh["structuredContent"]["stale_index_paths_before_refresh"],
+        evidence_of(&refresh)["stale_index_paths_before_refresh"],
         serde_json::json!(["a.py"])
     );
     let refresh_text: serde_json::Value =
         serde_json::from_str(refresh["content"][0]["text"].as_str().unwrap()).unwrap();
-    assert_eq!(refresh_text, refresh["structuredContent"]);
+    assert_eq!(refresh_text, evidence_of(&refresh));
 
     let fresh_result = &o[3]["result"];
     assert!(fresh_result["_meta"].get("prism/index_freshness").is_none());
@@ -511,7 +527,7 @@ fn refresh_index_rebuilds_session_and_clears_stale_warning() {
         .as_str()
         .unwrap()
         .contains("fresh"));
-    assert!(!fresh_result["structuredContent"]["warnings"]
+    assert!(!evidence_of(&fresh_result)["warnings"]
         .as_array()
         .unwrap()
         .iter()
@@ -532,14 +548,11 @@ fn refresh_index_without_edits_reports_fresh_prior_snapshot() {
     );
     let refresh = &o[1]["result"];
     assert_eq!(refresh["isError"], false);
-    assert_eq!(refresh["structuredContent"]["strategy"], "full");
-    assert!(refresh["structuredContent"]["fallback_reason"].is_null());
-    assert_eq!(refresh["structuredContent"]["generation"], 1);
-    assert_eq!(refresh["structuredContent"]["stale_before_refresh"], false);
-    assert_eq!(
-        refresh["structuredContent"]["stale_index_total_before_refresh"],
-        0
-    );
+    assert_eq!(evidence_of(&refresh)["strategy"], "full");
+    assert!(evidence_of(&refresh)["fallback_reason"].is_null());
+    assert_eq!(evidence_of(&refresh)["generation"], 1);
+    assert_eq!(evidence_of(&refresh)["stale_before_refresh"], false);
+    assert_eq!(evidence_of(&refresh)["stale_index_total_before_refresh"], 0);
 }
 
 #[test]
@@ -617,7 +630,7 @@ fn auto_full_refresh_rebuilds_before_tool_and_clears_stale_warning() {
         .as_str()
         .unwrap()
         .contains("fresh"));
-    assert!(!result["structuredContent"]["warnings"]
+    assert!(!evidence_of(&result)["warnings"]
         .as_array()
         .unwrap()
         .iter()
@@ -648,11 +661,19 @@ fn auto_full_refresh_uses_new_repo_map_after_file_addition() {
         .as_str()
         .unwrap()
         .contains("nodes-at:b.py:1"));
-    assert!(result["structuredContent"]["items"]
+    // Slim (the live default) drops `location` when it duplicates the symbol span, so accept
+    // the file from either carrier.
+    assert!(evidence_of(&result)["items"]
         .as_array()
         .unwrap()
         .iter()
-        .any(|item| item["location"]["file"] == "b.py"));
+        .any(|item| {
+            item["location"]["file"] == "b.py"
+                || item["symbol"]
+                    .as_object()
+                    .and_then(|s| s.values().next())
+                    .is_some_and(|inner| inner["file"] == "b.py")
+        }));
 }
 
 #[test]
@@ -683,7 +704,7 @@ fn auto_full_refresh_uses_new_callers_after_edit() {
         .as_str()
         .unwrap()
         .contains("caller"));
-    assert!(result["structuredContent"]["items"]
+    assert!(evidence_of(&result)["items"]
         .as_array()
         .unwrap()
         .iter()
@@ -721,7 +742,7 @@ fn auto_incremental_refresh_uses_new_callers_after_edit() {
         .as_str()
         .unwrap()
         .contains("caller"));
-    assert!(result["structuredContent"]["items"]
+    assert!(evidence_of(&result)["items"]
         .as_array()
         .unwrap()
         .iter()
@@ -763,7 +784,7 @@ fn auto_incremental_refresh_recomputes_c_indirect_callers_after_assignment_edit(
     assert!(result["_meta"]
         .get("prism/refresh_fallback_reason")
         .is_none());
-    assert!(result["structuredContent"]["items"]
+    assert!(evidence_of(&result)["items"]
         .as_array()
         .unwrap()
         .iter()
@@ -814,7 +835,7 @@ fn auto_incremental_refresh_uses_unbounded_changed_file_set() {
     let result = &o[1]["result"];
     assert_eq!(result["_meta"]["prism/auto_refresh"], "refreshed");
     assert_eq!(result["_meta"]["prism/refresh_strategy"], "incremental");
-    assert!(result["structuredContent"]["items"]
+    assert!(evidence_of(&result)["items"]
         .as_array()
         .unwrap()
         .iter()
@@ -942,7 +963,7 @@ fn auto_full_refresh_failure_keeps_old_session_and_stale_warning() {
         .as_str()
         .unwrap()
         .contains("old"));
-    assert!(result["structuredContent"]["warnings"]
+    assert!(evidence_of(&result)["warnings"]
         .as_array()
         .unwrap()
         .iter()
@@ -974,7 +995,7 @@ fn auto_full_raced_stale_refresh_retries_on_next_request_and_clears_warning() {
     assert_eq!(raced["_meta"]["prism/auto_refresh"], "raced_stale");
     assert_eq!(raced["_meta"]["prism/refresh_strategy"], "full");
     assert_eq!(raced["_meta"]["prism/index_freshness"], "stale");
-    assert!(raced["structuredContent"]["warnings"]
+    assert!(evidence_of(&raced)["warnings"]
         .as_array()
         .unwrap()
         .iter()
@@ -984,7 +1005,7 @@ fn auto_full_raced_stale_refresh_retries_on_next_request_and_clears_warning() {
     assert_eq!(retried["_meta"]["prism/auto_refresh"], "refreshed");
     assert_eq!(retried["_meta"]["prism/refresh_strategy"], "full");
     assert!(retried["_meta"].get("prism/index_freshness").is_none());
-    assert!(retried["structuredContent"]["warnings"]
+    assert!(evidence_of(&retried)["warnings"]
         .as_array()
         .unwrap()
         .is_empty());
@@ -1015,7 +1036,7 @@ fn auto_incremental_raced_stale_refresh_retries_and_clears_via_no_semantic_chang
     assert_eq!(raced["_meta"]["prism/auto_refresh"], "raced_stale");
     assert_eq!(raced["_meta"]["prism/refresh_strategy"], "incremental");
     assert_eq!(raced["_meta"]["prism/index_freshness"], "stale");
-    assert!(raced["structuredContent"]["warnings"]
+    assert!(evidence_of(&raced)["warnings"]
         .as_array()
         .unwrap()
         .iter()
@@ -1029,7 +1050,7 @@ fn auto_incremental_raced_stale_refresh_retries_and_clears_via_no_semantic_chang
         "no_semantic_change"
     );
     assert!(retried["_meta"].get("prism/index_freshness").is_none());
-    assert!(retried["structuredContent"]["warnings"]
+    assert!(evidence_of(&retried)["warnings"]
         .as_array()
         .unwrap()
         .is_empty());
@@ -1182,7 +1203,7 @@ fn auto_full_raced_stale_under_floor_cap_preserves_warning_metadata() {
     assert_eq!(result["_meta"]["prism/auto_refresh"], "raced_stale");
     assert_eq!(result["_meta"]["prism/refresh_strategy"], "full");
     assert_eq!(result["_meta"]["prism/index_freshness"], "stale");
-    assert!(result["structuredContent"]["warnings"]
+    assert!(evidence_of(&result)["warnings"]
         .as_array()
         .unwrap()
         .iter()
@@ -1206,7 +1227,7 @@ fn auto_full_refresh_failure_under_floor_cap_preserves_warning_metadata() {
     let result = &response["result"];
     assert_eq!(result["_meta"]["prism/auto_refresh"], "failed");
     assert_eq!(result["_meta"]["prism/index_freshness"], "stale");
-    assert!(result["structuredContent"]["warnings"]
+    assert!(evidence_of(&result)["warnings"]
         .as_array()
         .unwrap()
         .iter()
@@ -1228,7 +1249,7 @@ fn warn_only_stale_under_floor_cap_preserves_warning_metadata() {
     assert!(serialized_len(&response) <= crate::mcp::output::MAX_RESULT_CHARS_FLOOR);
     let result = &response["result"];
     assert_eq!(result["_meta"]["prism/index_freshness"], "stale");
-    assert!(result["structuredContent"]["warnings"]
+    assert!(evidence_of(&result)["warnings"]
         .as_array()
         .unwrap()
         .iter()

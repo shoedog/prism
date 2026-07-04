@@ -16,10 +16,14 @@
 use super::output::{McpToolResult, Verbosity};
 use serde_json::Value;
 
-/// Shape of items in a `Verbosity::Concise` result. `Legacy` (the default) is today's shape,
-/// byte-unchanged. `Slim` drops per-item redundancy: symbol byte-offset/ordinal fields, a
-/// `location` that duplicates the symbol's own file/line span, and a null `snippet` key.
-/// `Verbosity::Detailed` and agent views are never affected by this mode.
+/// Shape of items in a `Verbosity::Concise` result. `Slim` (the live default since the
+/// 2026-07-03 `claude -p` verification pass; opt out with `PRISM_MCP_CONCISE_SHAPE=legacy`)
+/// drops per-item redundancy: symbol byte-offset/ordinal fields, a `location` that duplicates
+/// the symbol's own file/line span, and a null `snippet` key. `Legacy` is the pre-flip shape,
+/// byte-identical to historical output. `Verbosity::Detailed` and agent views are never
+/// affected by this mode. The `Default` derive stays `Legacy` deliberately: it feeds
+/// `ToolContext::for_test`, whose ~150 call sites pin the legacy canonical shapes; the live
+/// wire default is decided only by `resolve_concise_shape_mode` in `transport.rs`.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum ConciseShapeMode {
     #[default]
@@ -33,14 +37,14 @@ pub fn resolve_concise_shape_mode() -> ConciseShapeMode {
 
 pub fn resolve_concise_shape_mode_from(value: Option<&str>) -> ConciseShapeMode {
     match value {
-        None => ConciseShapeMode::Legacy,
+        None => ConciseShapeMode::Slim,
         Some("legacy") => ConciseShapeMode::Legacy,
         Some("slim") => ConciseShapeMode::Slim,
         Some(other) => {
             eprintln!(
-                "PRISM_MCP_CONCISE_SHAPE={other:?} is not \"legacy\" or \"slim\"; using \"legacy\""
+                "PRISM_MCP_CONCISE_SHAPE={other:?} is not \"legacy\" or \"slim\"; using \"slim\""
             );
-            ConciseShapeMode::Legacy
+            ConciseShapeMode::Slim
         }
     }
 }
@@ -168,7 +172,7 @@ mod tests {
     fn resolve_concise_shape_mode_branches() {
         assert_eq!(
             resolve_concise_shape_mode_from(None),
-            ConciseShapeMode::Legacy
+            ConciseShapeMode::Slim
         );
         assert_eq!(
             resolve_concise_shape_mode_from(Some("legacy")),
@@ -180,7 +184,7 @@ mod tests {
         );
         assert_eq!(
             resolve_concise_shape_mode_from(Some("bogus")),
-            ConciseShapeMode::Legacy
+            ConciseShapeMode::Slim
         ); // warn + default
     }
 
