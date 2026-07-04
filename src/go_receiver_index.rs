@@ -245,23 +245,32 @@ fn unique_visible_type(
     let mut tys = BTreeSet::new();
     for fact in facts {
         let defining_profile = go_file_profiles.get(&fact.defining_file);
-        let visible = match (caller_profile, defining_profile) {
+        let visibility = match (caller_profile, defining_profile) {
             (Some(caller), Some(defining)) => {
                 if crate::resolution::dir_of(caller_file)
                     == crate::resolution::dir_of(&fact.defining_file)
                 {
-                    crate::go_build_profile::go_same_package_visible(caller, defining)
+                    Some(crate::go_build_profile::go_same_package_visible_detailed(
+                        caller, defining,
+                    ))
                 } else {
                     let mut imported = caller.clone();
                     imported.package_clause = defining.package_clause.clone();
                     imported.is_test_file = false;
-                    crate::go_build_profile::go_same_package_visible(&imported, defining)
+                    Some(crate::go_build_profile::go_same_package_visible_detailed(
+                        &imported, defining,
+                    ))
                 }
             }
-            _ => true,
+            _ => None,
         };
+        let visible = visibility.as_ref().map_or(true, |vis| vis.visible);
         if visible {
-            if !crate::go_build_profile::profile_allows_exact(defining_profile) {
+            let exact_allowed = visibility.as_ref().map_or_else(
+                || crate::go_build_profile::profile_allows_exact(defining_profile),
+                |vis| crate::go_build_profile::visibility_allows_exact(defining_profile, vis),
+            );
+            if !exact_allowed {
                 return None;
             }
             tys.insert(fact.ty.clone());

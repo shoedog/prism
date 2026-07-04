@@ -331,13 +331,14 @@ pub fn resolve_go_bare_value_ref(
     }
     let same_pkg = go_visible_value_candidates(caller_file, &same_pkg, go_file_profiles);
     if same_pkg.len() == 1 {
-        if !crate::go_build_profile::profile_allows_exact(go_file_profiles.get(&same_pkg[0].file)) {
+        let (target, exact_allowed) = same_pkg[0];
+        if !exact_allowed {
             if !raw_ambiguous {
                 *ambiguous_counter += 1;
             }
             return None;
         }
-        return Some(same_pkg[0].clone());
+        return Some(target.clone());
     }
     None
 }
@@ -346,16 +347,36 @@ fn go_visible_value_candidates<'a>(
     caller_file: &str,
     candidates: &[&'a FunctionId],
     profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
-) -> Vec<&'a FunctionId> {
+) -> Vec<(&'a FunctionId, bool)> {
     let Some(caller_profile) = profiles.get(caller_file) else {
-        return candidates.to_vec();
+        return candidates
+            .iter()
+            .map(|fid| {
+                (
+                    *fid,
+                    crate::go_build_profile::profile_allows_exact(profiles.get(&fid.file)),
+                )
+            })
+            .collect();
     };
     candidates
         .iter()
-        .copied()
-        .filter(|fid| {
-            profiles.get(&fid.file).map_or(true, |candidate_profile| {
-                crate::go_build_profile::go_same_package_visible(caller_profile, candidate_profile)
+        .filter_map(|fid| {
+            let Some(candidate_profile) = profiles.get(&fid.file) else {
+                return Some((*fid, false));
+            };
+            let visibility = crate::go_build_profile::go_same_package_visible_detailed(
+                caller_profile,
+                candidate_profile,
+            );
+            visibility.visible.then(|| {
+                (
+                    *fid,
+                    crate::go_build_profile::visibility_allows_exact(
+                        Some(candidate_profile),
+                        &visibility,
+                    ),
+                )
             })
         })
         .collect()
@@ -2057,7 +2078,7 @@ impl CallGraph {
                         .filter(|f| dir_of(&f.file) == dir)
                         .collect();
                     if !same_pkg.is_empty() {
-                        let (survivors, mut telemetry, partition) =
+                        let (survivors, mut telemetry, partition, exact_allowed) =
                             self.go_visible_same_package_candidates(&caller.file, &same_pkg);
                         match survivors.len() {
                             0 => {
@@ -2068,9 +2089,7 @@ impl CallGraph {
                                 );
                             }
                             1 => {
-                                if !crate::go_build_profile::profile_allows_exact(
-                                    self.go_file_profiles.get(&survivors[0].file),
-                                ) {
+                                if !exact_allowed {
                                     return ResolutionOutcome::hit_with_telemetry(
                                         demoted(survivors, ResolutionKind::SamePackage),
                                         telemetry,
@@ -2150,21 +2169,28 @@ impl CallGraph {
         Vec<&'a FunctionId>,
         ResolutionTelemetry,
         GoSamePackagePartition,
+        bool,
     ) {
         let Some(caller_profile) = self.go_profile_for(caller_file) else {
+            let exact_allowed = candidates.iter().all(|fid| {
+                crate::go_build_profile::profile_allows_exact(self.go_file_profiles.get(&fid.file))
+            });
             return (
                 candidates.to_vec(),
                 ResolutionTelemetry::default(),
                 GoSamePackagePartition::None,
+                exact_allowed,
             );
         };
         let mut telemetry = ResolutionTelemetry::default();
         let mut survivors = Vec::new();
+        let mut survivors_allow_exact = true;
         let mut build_filtered = false;
         let mut namespace_filtered = false;
         for fid in candidates {
             let Some(candidate_profile) = self.go_profile_for(&fid.file) else {
                 survivors.push(*fid);
+                survivors_allow_exact = false;
                 continue;
             };
             let vis = crate::go_build_profile::go_same_package_visible_detailed(
@@ -2173,6 +2199,10 @@ impl CallGraph {
             );
             telemetry.go_build_expr_unparsed += vis.diagnostics.unparsed;
             if vis.visible {
+                if !crate::go_build_profile::visibility_allows_exact(Some(&candidate_profile), &vis)
+                {
+                    survivors_allow_exact = false;
+                }
                 survivors.push(*fid);
             } else if vis.build_decisive {
                 build_filtered = true;
@@ -2187,7 +2217,7 @@ impl CallGraph {
         } else {
             GoSamePackagePartition::None
         };
-        (survivors, telemetry, partition)
+        (survivors, telemetry, partition, survivors_allow_exact)
     }
 
     /// P4: JS/TS R4c import-member candidates via the typed, whole-program-

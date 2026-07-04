@@ -36,6 +36,7 @@ pub struct GoBuildDiagnostics {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GoBuildVisibility {
     pub visible: bool,
+    pub certain: bool,
     pub namespace_decisive: bool,
     pub build_decisive: bool,
     pub diagnostics: GoBuildDiagnostics,
@@ -99,37 +100,42 @@ pub fn go_same_package_visible_detailed(
     caller: &GoBuildProfile,
     candidate: &GoBuildProfile,
 ) -> GoBuildVisibility {
-    let diagnostics = GoBuildDiagnostics {
-        unparsed: usize::from(candidate.build_unparsed),
-    };
     if !caller.package_clause.is_empty()
         && !candidate.package_clause.is_empty()
         && caller.package_clause != candidate.package_clause
     {
         return GoBuildVisibility {
             visible: false,
+            certain: true,
             namespace_decisive: true,
             build_decisive: false,
-            diagnostics,
+            diagnostics: GoBuildDiagnostics::default(),
         };
     }
     if candidate.is_test_file && !caller.is_test_file {
         return GoBuildVisibility {
             visible: false,
+            certain: true,
             namespace_decisive: true,
             build_decisive: false,
-            diagnostics,
+            diagnostics: GoBuildDiagnostics::default(),
         };
     }
     let sat = build_sat(caller, candidate);
     GoBuildVisibility {
         visible: sat.compatible,
+        certain: sat.certain,
         namespace_decisive: false,
         build_decisive: !sat.compatible,
-        diagnostics: GoBuildDiagnostics {
-            unparsed: diagnostics.unparsed + sat.diagnostics.unparsed,
-        },
+        diagnostics: sat.diagnostics,
     }
+}
+
+pub fn visibility_allows_exact(
+    profile: Option<&GoBuildProfile>,
+    visibility: &GoBuildVisibility,
+) -> bool {
+    visibility.certain && profile_allows_exact(profile)
 }
 
 fn package_clause(parsed: &ParsedFile) -> Option<String> {
@@ -182,37 +188,53 @@ fn filename_constraints(path: &str) -> (Option<String>, Option<String>) {
 
 fn parse_build_header(source: &str) -> (Option<BuildExpr>, usize) {
     let mut go_build = Vec::new();
-    let mut plus_build = Vec::new();
     let mut in_block = false;
-    'lines: for line in source.lines() {
+    let mut ended = false;
+    let mut header_end = 0usize;
+    let mut offset = 0usize;
+
+    'lines: for raw in source.split_inclusive('\n') {
+        let line = raw.strip_suffix('\n').unwrap_or(raw);
         let mut trimmed = line.trim();
+        let after_line = offset + raw.len();
+
+        if trimmed.is_empty() && !ended {
+            header_end = after_line;
+            offset = after_line;
+            continue 'lines;
+        }
+        if !trimmed.starts_with("//") {
+            ended = true;
+        }
+
+        if !in_block {
+            if let Some(expr) = split_go_build(trimmed) {
+                go_build.push(expr);
+            }
+        }
+
         loop {
             if in_block {
                 let Some(end) = trimmed.find("*/") else {
+                    offset = after_line;
                     continue 'lines;
                 };
                 in_block = false;
-                trimmed = trimmed[end + 2..].trim_start();
+                trimmed = trimmed[end + 2..].trim();
                 continue;
             }
             if trimmed.is_empty() {
+                offset = after_line;
+                continue 'lines;
+            }
+            if trimmed.starts_with("//") {
+                offset = after_line;
                 continue 'lines;
             }
             if let Some(rest) = trimmed.strip_prefix("/*") {
-                let Some(end) = rest.find("*/") else {
-                    in_block = true;
-                    continue 'lines;
-                };
-                trimmed = rest[end + 2..].trim_start();
+                in_block = true;
+                trimmed = rest.trim();
                 continue;
-            }
-            if trimmed.starts_with("//") {
-                if let Some(expr) = split_go_build(trimmed) {
-                    go_build.push(expr);
-                } else if let Some(expr) = split_plus_build(trimmed) {
-                    plus_build.push(expr);
-                }
-                continue 'lines;
             }
             break 'lines;
         }
@@ -226,6 +248,11 @@ fn parse_build_header(source: &str) -> (Option<BuildExpr>, usize) {
             None => (None, 1),
         };
     }
+
+    let plus_build: Vec<String> = source[..header_end]
+        .lines()
+        .filter_map(|line| split_plus_build(line.trim()))
+        .collect();
     if plus_build.is_empty() {
         return (None, 0);
     }
@@ -278,6 +305,7 @@ fn split_plus_build(line: &str) -> Option<String> {
 
 struct SatResult {
     compatible: bool,
+    certain: bool,
     diagnostics: GoBuildDiagnostics,
 }
 
@@ -293,6 +321,7 @@ fn build_sat(a: &GoBuildProfile, b: &GoBuildProfile) -> SatResult {
     if free.len() > 8 {
         return SatResult {
             compatible: true,
+            certain: false,
             diagnostics: GoBuildDiagnostics { unparsed: 1 },
         };
     }
@@ -305,6 +334,7 @@ fn build_sat(a: &GoBuildProfile, b: &GoBuildProfile) -> SatResult {
                 {
                     return SatResult {
                         compatible: true,
+                        certain: true,
                         diagnostics: GoBuildDiagnostics::default(),
                     };
                 }
@@ -313,6 +343,7 @@ fn build_sat(a: &GoBuildProfile, b: &GoBuildProfile) -> SatResult {
     }
     SatResult {
         compatible: false,
+        certain: true,
         diagnostics: GoBuildDiagnostics::default(),
     }
 }

@@ -1,6 +1,7 @@
 use prism::ast::ParsedFile;
 use prism::go_build_profile::{
-    extract_go_file_profile, go_same_package_visible, BuildExpr, GoBuildProfile,
+    extract_go_file_profile, go_same_package_visible, go_same_package_visible_detailed, BuildExpr,
+    GoBuildProfile,
 };
 use prism::languages::Language;
 
@@ -102,6 +103,69 @@ fn directive_detection_matches_go_syntax() {
     assert!(parsed("x.go", "// +buildfoo\n\npackage demo\n")
         .build_expr
         .is_none());
+}
+
+#[test]
+fn go_build_after_block_close_on_same_physical_line_is_not_directive() {
+    let candidate = parsed(
+        "x.go",
+        "/**///go:build linux
+package demo
+",
+    );
+    assert!(candidate.build_expr.is_none());
+    assert!(go_same_package_visible(
+        &parsed(
+            "use_windows.go",
+            "package demo
+"
+        ),
+        &candidate
+    ));
+}
+
+#[test]
+fn legacy_plus_build_requires_following_blank_line_but_go_build_does_not() {
+    assert_eq!(
+        parsed(
+            "x.go",
+            "//go:build linux
+package demo
+"
+        )
+        .build_expr,
+        Some(BuildExpr::Tag("linux".into()))
+    );
+    assert!(parsed(
+        "x.go",
+        "// +build linux
+package demo
+"
+    )
+    .build_expr
+    .is_none());
+}
+
+#[test]
+fn sat_bound_fail_open_visibility_is_uncertain() {
+    let caller = parsed(
+        "use.go",
+        "//go:build t0
+
+package demo
+",
+    );
+    let candidate = parsed(
+        "x.go",
+        "//go:build !t0 && t1 && t2 && t3 && t4 && t5 && t6 && t7 && t8
+
+package demo
+",
+    );
+    let vis = go_same_package_visible_detailed(&caller, &candidate);
+    assert!(vis.visible);
+    assert!(!vis.certain);
+    assert_eq!(vis.diagnostics.unparsed, 1);
 }
 
 #[test]

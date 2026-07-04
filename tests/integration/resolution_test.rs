@@ -4013,6 +4013,37 @@ fn go_build_expr_complement_partition_exact() {
 }
 
 #[test]
+fn go_sat_bound_uncertain_unique_survivor_demotes_not_exact() {
+    use prism::languages::Language::Go;
+    let uncertain = "//go:build !t0 && t1 && t2 && t3 && t4 && t5 && t6 && t7 && t8
+
+package a
+func f() {}
+";
+    let filtered = "//go:build !t0
+
+package a
+func f() {}
+";
+    let caller = "//go:build t0
+
+package a
+func use() { f() }
+";
+    let (cg, _) = build(&[
+        ("a/uncertain.go", uncertain, Go),
+        ("a/filtered.go", filtered, Go),
+        ("a/use.go", caller, Go),
+    ]);
+    let out = cg.resolve_call_site_full(&site_in(&cg, "use", "f"));
+    assert_eq!(out.resolved.len(), 1, "one fail-open survivor: {out:?}");
+    assert_eq!(out.resolved[0].target.file, "a/uncertain.go");
+    assert_eq!(out.resolved[0].confidence, ResolutionConfidence::NameOnly);
+    assert_eq!(out.telemetry.go_build_partition_exact, 0);
+    assert_eq!(out.telemetry.go_build_expr_unparsed, 1);
+}
+
+#[test]
 fn go_negation_only_build_expr_demotes_unconstrained_caller() {
     use prism::languages::Language::Go;
     let (cg, _) = build(&[
@@ -4100,7 +4131,7 @@ fn go_malformed_build_unique_survivor_is_demoted() {
     assert_eq!(out.resolved[0].target.file, "a/bad.go");
     assert_eq!(out.resolved[0].confidence, ResolutionConfidence::NameOnly);
     assert_eq!(out.telemetry.go_build_partition_exact, 0);
-    assert_eq!(out.telemetry.go_build_expr_unparsed, 1);
+    assert_eq!(out.telemetry.go_build_expr_unparsed, 0);
 }
 
 #[test]
@@ -4188,6 +4219,36 @@ fn go_return_typed_fact_negation_only_demotes_to_ambiguous() {
         ("a/t_unix.go", "//go:build !windows && !plan9 && !solaris\n\npackage a\ntype UnixT struct{}\nfunc (t *UnixT) M() {}\nfunc newT() *UnixT { return &UnixT{} }\n", Go),
         ("a/t_windows.go", "package a\ntype WindowsT struct{}\nfunc (t *WindowsT) M() {}\nfunc newT() *WindowsT { return &WindowsT{} }\n", Go),
         ("a/use.go", "package a\nfunc run() { x := newT(); x.M() }\n", Go),
+    ]);
+    assert_eq!(site_in(&cg, "run", "M").receiver_type, None);
+}
+
+#[test]
+fn go_return_typed_fact_sat_bound_uncertain_survivor_bails() {
+    use prism::languages::Language::Go;
+    let uncertain = "//go:build !t0 && t1 && t2 && t3 && t4 && t5 && t6 && t7 && t8
+
+package a
+type BadT struct{}
+func (t *BadT) M() {}
+func newT() *BadT { return &BadT{} }
+";
+    let filtered = "//go:build !t0
+
+package a
+type OtherT struct{}
+func (t *OtherT) M() {}
+func newT() *OtherT { return &OtherT{} }
+";
+    let caller = "//go:build t0
+
+package a
+func run() { x := newT(); x.M() }
+";
+    let (cg, _) = build(&[
+        ("a/t_uncertain.go", uncertain, Go),
+        ("a/t_filtered.go", filtered, Go),
+        ("a/use.go", caller, Go),
     ]);
     assert_eq!(site_in(&cg, "run", "M").receiver_type, None);
 }
@@ -4310,6 +4371,43 @@ fn go_bare_value_ref_negation_only_remains_ambiguous() {
         ),
         ("a/c_windows.go", "package a\nfunc cb() {}\n", Go),
         ("a/use.go", "package a\nfunc use() { _ = cb }\n", Go),
+    ]);
+    let mut ambiguous = 0usize;
+    let target = resolve_go_bare_value_ref(
+        &cg.functions,
+        &cg.method_owners,
+        &cg.go_file_profiles,
+        &mut ambiguous,
+        "a/use.go",
+        "cb",
+    );
+    assert!(target.is_none());
+    assert_eq!(ambiguous, 1);
+}
+
+#[test]
+fn go_bare_value_ref_sat_bound_uncertain_unique_survivor_returns_none() {
+    use prism::languages::Language::Go;
+    use prism::resolution::resolve_go_bare_value_ref;
+    let uncertain = "//go:build !t0 && t1 && t2 && t3 && t4 && t5 && t6 && t7 && t8
+
+package a
+func cb() {}
+";
+    let filtered = "//go:build !t0
+
+package a
+func cb() {}
+";
+    let caller = "//go:build t0
+
+package a
+func use() { _ = cb }
+";
+    let (cg, _) = build(&[
+        ("a/uncertain.go", uncertain, Go),
+        ("a/filtered.go", filtered, Go),
+        ("a/use.go", caller, Go),
     ]);
     let mut ambiguous = 0usize;
     let target = resolve_go_bare_value_ref(
