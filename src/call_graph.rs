@@ -475,6 +475,22 @@ pub struct CallGraph {
     /// but counted separately per spec.
     #[serde(default)]
     pub go_registration_unknown_owner_recorded: usize,
+    /// P13: per-Go-file package/build profile facts used only to partition
+    /// same-directory same-name candidates at resolution consult sites.
+    #[serde(default)]
+    pub go_file_profiles: BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    /// P13 telemetry: files whose build expression was unparsed. Stored
+    /// per-file so incremental remove/merge preserves exact counts.
+    #[serde(default)]
+    pub go_build_profile_unparsed: BTreeMap<String, usize>,
+    /// P13 M1 telemetry: GoOwnerIdentity-keyed lanes still collapse package/
+    /// build partitions; count conflicts but leave re-keying out of scope.
+    #[serde(default)]
+    pub go_owner_identity_profile_conflict: usize,
+    /// P13 telemetry: `resolve_go_bare_value_ref` saw multiple same-package
+    /// value candidates before profile filtering.
+    #[serde(default)]
+    pub go_bare_value_ref_ambiguous: usize,
     /// P7 S1: python `@property`/`@cached_property` getter definitions.
     /// Key mirrors `methods`: (owner_key, method_name) -> defining
     /// FunctionIds. Only exact-match decorated getters are indexed;
@@ -561,7 +577,8 @@ pub struct CallGraph {
     /// `apply_go_receiver_indices` in the post-merge rematerialization pass,
     /// never incrementally patched.
     #[serde(default)]
-    pub go_return_types: BTreeMap<(String, String), String>,
+    pub go_return_types:
+        BTreeMap<(String, String), BTreeSet<crate::go_receiver_index::GoTypedFact>>,
     /// P11 S2: `(GoOwnerIdentity, field_name) -> peeled field type`
     /// re-projection of `GoStruct.fields` (package-scoped, including
     /// embedded-field pseudo-entries), captured in `apply_go_interface_dispatch`
@@ -573,7 +590,8 @@ pub struct CallGraph {
     /// derived (a package var can be declared in a different file of the
     /// same package); recomputed from scratch by `apply_go_receiver_indices`.
     #[serde(default)]
-    pub go_package_vars: BTreeMap<(String, String), String>,
+    pub go_package_vars:
+        BTreeMap<(String, String), BTreeSet<crate::go_receiver_index::GoTypedFact>>,
     /// P11 S4: `GoOwnerIdentity (struct) -> method_name -> interface_bare_name`
     /// for a method supplied ONLY by exactly one directly-embedded in-repo
     /// interface (no own/promoted concrete method or field shadows it).
@@ -634,6 +652,10 @@ impl CallGraph {
             go_registration_shadowed_skips: 0,
             go_registration_ambiguous_owner_skips: 0,
             go_registration_unknown_owner_recorded: 0,
+            go_file_profiles: BTreeMap::new(),
+            go_build_profile_unparsed: BTreeMap::new(),
+            go_owner_identity_profile_conflict: 0,
+            go_bare_value_ref_ambiguous: 0,
             property_getters: BTreeMap::new(),
             cached_property_getters: BTreeSet::new(),
             property_accesses: BTreeSet::new(),
@@ -671,6 +693,8 @@ impl CallGraph {
         // from the full `files` map, mirroring the existing per-build
         // whole-program-fact pattern (e.g. `extract_js_ts_resolution_facts`).
         let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let (go_file_profiles, go_build_profile_unparsed) =
+            Self::extract_go_build_profiles(files.iter().map(|(p, f)| (p.as_str(), f)));
 
         // Phase 1: Collect all function definitions
         for (file_path, parsed) in files {
@@ -838,6 +862,10 @@ impl CallGraph {
             go_registration_shadowed_skips: 0,
             go_registration_ambiguous_owner_skips: 0,
             go_registration_unknown_owner_recorded: 0,
+            go_file_profiles,
+            go_build_profile_unparsed,
+            go_owner_identity_profile_conflict: 0,
+            go_bare_value_ref_ambiguous: 0,
             property_getters: BTreeMap::new(),
             cached_property_getters: BTreeSet::new(),
             property_accesses: BTreeSet::new(),
@@ -917,6 +945,8 @@ impl CallGraph {
         // below). `BTreeSet<String>` is `Sync`, so it can be captured by
         // reference into the `par_iter` closure below.
         let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let (go_file_profiles, go_build_profile_unparsed) =
+            Self::extract_go_build_profiles(files.iter().map(|(p, f)| (p.as_str(), f)));
 
         // Collect per-file import maps for import-aware call resolution.
         let mut imports: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
@@ -1202,6 +1232,10 @@ impl CallGraph {
             go_registration_shadowed_skips: 0,
             go_registration_ambiguous_owner_skips: 0,
             go_registration_unknown_owner_recorded: 0,
+            go_file_profiles,
+            go_build_profile_unparsed,
+            go_owner_identity_profile_conflict: 0,
+            go_bare_value_ref_ambiguous: 0,
             property_getters: BTreeMap::new(),
             cached_property_getters: BTreeSet::new(),
             property_accesses: BTreeSet::new(),
@@ -1407,6 +1441,9 @@ impl CallGraph {
 
         // imports: remove entries for excluded files.
         self.imports.retain(|f, _| !exclude.contains(f));
+        self.go_file_profiles.retain(|f, _| !exclude.contains(f));
+        self.go_build_profile_unparsed
+            .retain(|f, _| !exclude.contains(f));
 
         // methods: remove FunctionId entries from excluded files.
         for func_ids in self.methods.values_mut() {
@@ -1535,6 +1572,11 @@ impl CallGraph {
         }
         self.static_functions.extend(other.static_functions);
         self.imports.extend(other.imports);
+        self.go_file_profiles.extend(other.go_file_profiles);
+        self.go_build_profile_unparsed
+            .extend(other.go_build_profile_unparsed);
+        self.go_owner_identity_profile_conflict += other.go_owner_identity_profile_conflict;
+        self.go_bare_value_ref_ambiguous += other.go_bare_value_ref_ambiguous;
         for (key, fids) in other.methods {
             self.methods.entry(key).or_default().extend(fids);
         }
@@ -2655,6 +2697,7 @@ impl CallGraph {
         // BEFORE the fresh capture) leaves them empty rather than stale.
         self.go_field_types.clear();
         self.go_embedded_interface_methods.clear();
+        self.go_owner_identity_profile_conflict = 0;
     }
 
     /// Recompute Go embedding promotions over `files` and write owner-index aliases.
@@ -2713,6 +2756,61 @@ impl CallGraph {
         }
     }
 
+    fn count_go_owner_identity_profile_conflicts(
+        &self,
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> usize {
+        let mut by_owner: BTreeMap<crate::resolution::GoOwnerIdentity, BTreeSet<String>> =
+            BTreeMap::new();
+        for (path, parsed) in files {
+            if parsed.language != crate::languages::Language::Go {
+                continue;
+            }
+            let Some(profile) = self.go_file_profiles.get(path) else {
+                continue;
+            };
+            let sig = format!(
+                "{}|{}|{:?}|{:?}|{:?}",
+                profile.package_clause,
+                profile.is_test_file,
+                profile.goos,
+                profile.goarch,
+                profile.build_expr
+            );
+            let root = parsed.tree.root_node();
+            let mut cursor = root.walk();
+            for child in root.children(&mut cursor) {
+                if child.kind() != "type_declaration" {
+                    continue;
+                }
+                let mut tcur = child.walk();
+                for spec in child.children(&mut tcur) {
+                    if !matches!(spec.kind(), "type_spec" | "type_alias") {
+                        continue;
+                    }
+                    let Some(name_node) = spec.child_by_field_name("name") else {
+                        continue;
+                    };
+                    let name = parsed.node_text(&name_node).trim();
+                    if name.is_empty() {
+                        continue;
+                    }
+                    by_owner
+                        .entry(crate::resolution::GoOwnerIdentity {
+                            package_dir: crate::resolution::dir_of(path).to_string(),
+                            name: name.to_string(),
+                        })
+                        .or_default()
+                        .insert(sig.clone());
+                }
+            }
+        }
+        by_owner
+            .values()
+            .filter(|profiles| profiles.len() > 1)
+            .count()
+    }
+
     pub fn apply_go_interface_dispatch(&mut self, files: &BTreeMap<String, ParsedFile>) {
         self.clear_interface_dispatch();
         // The dispatch pass ran (even if there are no Go files → empty result); a raw
@@ -2724,6 +2822,8 @@ impl CallGraph {
         {
             return;
         }
+        self.go_owner_identity_profile_conflict =
+            self.count_go_owner_identity_profile_conflicts(files);
         let live = crate::live_types::go_admission_live_set(files);
         let provider = crate::type_providers::go::GoTypeProvider::from_parsed_files(files);
         let table = provider.compute_interface_dispatch(&live);
@@ -2791,6 +2891,7 @@ impl CallGraph {
         self.go_registration_shadowed_skips = 0;
         self.go_registration_ambiguous_owner_skips = 0;
         self.go_registration_unknown_owner_recorded = 0;
+        self.go_bare_value_ref_ambiguous = 0;
     }
 
     /// P5 S2: scan `files` for recognized Go function-value registrations
@@ -2860,6 +2961,8 @@ impl CallGraph {
         let Some(target) = resolve_go_bare_value_ref(
             &self.functions,
             &self.method_owners,
+            &self.go_file_profiles,
+            &mut self.go_bare_value_ref_ambiguous,
             &caller_id.file,
             &cand.value_name,
         ) else {
@@ -3025,6 +3128,7 @@ impl CallGraph {
                 field_types: &self.go_field_types,
                 package_basenames: &self.go_package_basenames,
                 imports: &self.imports,
+                go_file_profiles: &self.go_file_profiles,
             };
             self.compute_go_receiver_updates(files, &facts, receiver_config)
         };
@@ -3431,6 +3535,27 @@ impl CallGraph {
         }
     }
 
+    fn extract_go_build_profiles<'a>(
+        files: impl Iterator<Item = (&'a str, &'a ParsedFile)>,
+    ) -> (
+        BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+        BTreeMap<String, usize>,
+    ) {
+        let mut profiles = BTreeMap::new();
+        let mut unparsed = BTreeMap::new();
+        for (path, parsed) in files {
+            if parsed.language != crate::languages::Language::Go {
+                continue;
+            }
+            let (profile, count) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+            profiles.insert(path.to_string(), profile);
+            if count > 0 {
+                unparsed.insert(path.to_string(), count);
+            }
+        }
+        (profiles, unparsed)
+    }
+
     /// Build a call graph from only the specified files (Phases 1+2: direct calls only).
     ///
     /// Unlike `build()`, this skips Phase 3 (indirect call resolution) because
@@ -3470,6 +3595,12 @@ impl CallGraph {
         // scanned over the FULL `files` map (not `only_files`): a
         // `macro_rules!` def outside the changed subset must still shadow.
         let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let (go_file_profiles, go_build_profile_unparsed) = Self::extract_go_build_profiles(
+            files
+                .iter()
+                .filter(|(path, _)| only_files.contains(*path))
+                .map(|(p, f)| (p.as_str(), f)),
+        );
 
         for (file_path, parsed) in files {
             if !only_files.contains(file_path) {
@@ -3720,6 +3851,10 @@ impl CallGraph {
             go_registration_shadowed_skips: 0,
             go_registration_ambiguous_owner_skips: 0,
             go_registration_unknown_owner_recorded: 0,
+            go_file_profiles,
+            go_build_profile_unparsed,
+            go_owner_identity_profile_conflict: 0,
+            go_bare_value_ref_ambiguous: 0,
             // P7: whole-program Python property-access state — left empty
             // here for the same reason as the Go func-value state above;
             // the caller re-applies `apply_python_property_accesses` on the

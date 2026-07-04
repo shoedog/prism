@@ -34,8 +34,14 @@ use crate::resolution::{
     ReceiverClassification, ReceiverClassifier, ReceiverCtx, ReceiverRecovery, RecoveredReceiver,
 };
 use crate::type_providers::go::GoTypeProvider;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+pub struct GoTypedFact {
+    pub ty: String,
+    pub defining_file: String,
+}
 
 /// S1: extract `(package_dir, func_name) -> declared return type` for every
 /// Go `function_declaration`/`method_declaration` whose return shape is
@@ -45,8 +51,8 @@ use tree_sitter::Node;
 /// entirely rather than pick one arbitrarily (favor drop over a guess).
 pub fn extract_go_return_types(
     files: &BTreeMap<String, ParsedFile>,
-) -> BTreeMap<(String, String), String> {
-    let mut multi: BTreeMap<(String, String), Vec<String>> = BTreeMap::new();
+) -> BTreeMap<(String, String), BTreeSet<GoTypedFact>> {
+    let mut multi: BTreeMap<(String, String), BTreeSet<GoTypedFact>> = BTreeMap::new();
     for (path, parsed) in files {
         if parsed.language != Language::Go {
             continue;
@@ -57,19 +63,18 @@ pub fn extract_go_return_types(
         for child in root.children(&mut cursor) {
             if matches!(child.kind(), "function_declaration" | "method_declaration") {
                 if let Some((name, ty)) = extract_one_return_type(&child, parsed) {
-                    multi.entry((dir.clone(), name)).or_default().push(ty);
+                    multi
+                        .entry((dir.clone(), name))
+                        .or_default()
+                        .insert(GoTypedFact {
+                            ty,
+                            defining_file: path.clone(),
+                        });
                 }
             }
         }
     }
     multi
-        .into_iter()
-        .filter_map(|(k, mut tys)| {
-            tys.sort();
-            tys.dedup();
-            (tys.len() == 1).then(|| (k, tys.into_iter().next().unwrap()))
-        })
-        .collect()
 }
 
 /// Single function/method declaration -> `(name, raw return-type text)`, or
@@ -161,8 +166,8 @@ fn expand_go_result_list(list: &Node, parsed: &ParsedFile) -> Vec<String> {
 /// adjudicated fixture shape). Ambiguous keys drop, same policy as S1.
 pub fn extract_go_package_vars(
     files: &BTreeMap<String, ParsedFile>,
-) -> BTreeMap<(String, String), String> {
-    let mut multi: BTreeMap<(String, String), Vec<String>> = BTreeMap::new();
+) -> BTreeMap<(String, String), BTreeSet<GoTypedFact>> {
+    let mut multi: BTreeMap<(String, String), BTreeSet<GoTypedFact>> = BTreeMap::new();
     for (path, parsed) in files {
         if parsed.language != Language::Go {
             continue;
@@ -195,19 +200,15 @@ pub fn extract_go_package_vars(
                     multi
                         .entry((dir.clone(), name))
                         .or_default()
-                        .push(ty_text.clone());
+                        .insert(GoTypedFact {
+                            ty: ty_text.clone(),
+                            defining_file: path.clone(),
+                        });
                 }
             }
         }
     }
     multi
-        .into_iter()
-        .filter_map(|(k, mut tys)| {
-            tys.sort();
-            tys.dedup();
-            (tys.len() == 1).then(|| (k, tys.into_iter().next().unwrap()))
-        })
-        .collect()
 }
 
 /// Resolve a call-RHS callee reference (`newDemux` or `pkg.New`, as written)
@@ -224,12 +225,45 @@ fn resolve_go_return_type_call(
     caller_file: &str,
     imports: &BTreeMap<String, BTreeMap<String, String>>,
     package_basenames: &BTreeMap<String, std::collections::BTreeSet<String>>,
-    return_types: &BTreeMap<(String, String), String>,
+    return_types: &BTreeMap<(String, String), BTreeSet<GoTypedFact>>,
+    go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
 ) -> Option<String> {
     let identity = resolve_go_owner_identity(callee_text, caller_file, imports, package_basenames)?;
-    return_types
-        .get(&(identity.package_dir, identity.name))
-        .cloned()
+    unique_visible_type(
+        caller_file,
+        return_types.get(&(identity.package_dir, identity.name))?,
+        go_file_profiles,
+    )
+}
+
+fn unique_visible_type(
+    caller_file: &str,
+    facts: &BTreeSet<GoTypedFact>,
+    go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+) -> Option<String> {
+    let caller_profile = go_file_profiles.get(caller_file);
+    let mut tys = BTreeSet::new();
+    for fact in facts {
+        let visible = match (caller_profile, go_file_profiles.get(&fact.defining_file)) {
+            (Some(caller), Some(defining)) => {
+                if crate::resolution::dir_of(caller_file)
+                    == crate::resolution::dir_of(&fact.defining_file)
+                {
+                    crate::go_build_profile::go_same_package_visible(caller, defining)
+                } else {
+                    let mut imported = caller.clone();
+                    imported.package_clause = defining.package_clause.clone();
+                    imported.is_test_file = false;
+                    crate::go_build_profile::go_same_package_visible(&imported, defining)
+                }
+            }
+            _ => true,
+        };
+        if visible {
+            tys.insert(fact.ty.clone());
+        }
+    }
+    (tys.len() == 1).then(|| tys.into_iter().next().unwrap())
 }
 
 /// Decompose a Go selector-chain receiver expression into its base identifier
@@ -275,11 +309,12 @@ fn is_simple_ident_text(s: &str) -> bool {
 /// Bundled repo-wide indices the post-merge Go receiver pass consults.
 /// Borrowed for the lifetime of one rematerialization pass.
 pub struct GoReceiverFacts<'a> {
-    pub return_types: &'a BTreeMap<(String, String), String>,
-    pub package_vars: &'a BTreeMap<(String, String), String>,
+    pub return_types: &'a BTreeMap<(String, String), BTreeSet<GoTypedFact>>,
+    pub package_vars: &'a BTreeMap<(String, String), BTreeSet<GoTypedFact>>,
     pub field_types: &'a BTreeMap<(GoOwnerIdentity, String), String>,
     pub package_basenames: &'a BTreeMap<String, std::collections::BTreeSet<String>>,
     pub imports: &'a BTreeMap<String, BTreeMap<String, String>>,
+    pub go_file_profiles: &'a BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
 }
 
 /// Per-call-site inputs for the post-merge Go classification. Mirrors
@@ -409,8 +444,10 @@ pub fn classify_go_receiver_expanded(
                 dir_of(ctx.caller_file).to_string(),
                 ctx.qualifier.to_string(),
             );
-            if let Some(ty) = facts.package_vars.get(&key) {
-                let static_type = owner_key(&peel_type(ty));
+            if let Some(ty) = facts.package_vars.get(&key).and_then(|entries| {
+                unique_visible_type(ctx.caller_file, entries, facts.go_file_profiles)
+            }) {
+                let static_type = owner_key(&peel_type(&ty));
                 return ReceiverClassification {
                     recovered: Some(RecoveredReceiver {
                         static_type,
@@ -437,6 +474,7 @@ pub fn classify_go_receiver_expanded(
             facts.imports,
             facts.package_basenames,
             facts.return_types,
+            facts.go_file_profiles,
         ) {
             let static_type = owner_key(&peel_type(&ty));
             return ReceiverClassification {
