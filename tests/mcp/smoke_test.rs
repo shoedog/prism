@@ -18,6 +18,10 @@ fn prism_mcp_protocol_smoke() {
     let output = command
         .arg("--repo")
         .arg(repo.path())
+        // Pin the DEFAULT wire contract against ambient env: unset means the live defaults
+        // (omit-default-path + slim) resolved in transport.rs.
+        .env_remove("PRISM_MCP_STRUCTURED_CONTENT")
+        .env_remove("PRISM_MCP_CONCISE_SHAPE")
         .write_stdin(lifecycle_messages())
         .assert()
         .success()
@@ -68,19 +72,24 @@ fn prism_mcp_protocol_smoke() {
     let tools_call = response_with_id(&responses, 3);
     let result = &tools_call["result"];
     assert_eq!(result["isError"], false, "tools/call should succeed");
-    let evidence = result
-        .get("structuredContent")
-        .cloned()
-        .or_else(|| {
-            result["content"][0]["text"]
-                .as_str()
-                .and_then(|text| serde_json::from_str::<Value>(text).ok())
-        })
-        .expect("tools/call Evidence");
-    let items = evidence["items"].as_array().expect("Evidence items array");
     assert!(
-        items.iter().any(cross_file_function_item),
-        "expected cross-file callee for file-qualified run seed"
+        result.get("structuredContent").is_none(),
+        "default path omits structuredContent under the live default (omit-default-path); \
+         content[0].text is the canonical carrier: {result}"
+    );
+    let evidence: Value = result["content"][0]["text"]
+        .as_str()
+        .map(|text| serde_json::from_str(text).expect("content text JSON"))
+        .expect("tools/call content text Evidence");
+    let items = evidence["items"].as_array().expect("Evidence items array");
+    let cross_file = items
+        .iter()
+        .find(|item| cross_file_function_item(item))
+        .expect("expected cross-file callee for file-qualified run seed");
+    assert!(
+        cross_file["symbol"]["Function"].get("start_byte").is_none()
+            && cross_file["symbol"]["Function"].get("ordinal").is_none(),
+        "default Concise items use the slim shape (no byte offsets/ordinal): {cross_file}"
     );
 
     let agent_tools_call = response_with_id(&responses, 4);
@@ -92,10 +101,23 @@ fn prism_mcp_protocol_smoke() {
     let agent_evidence = agent_result
         .get("structuredContent")
         .cloned()
-        .expect("agent tools/call structuredContent Evidence");
+        .expect("agent tools/call structuredContent Evidence (agent views always keep it)");
     assert_eq!(
-        agent_evidence, evidence,
-        "agent view must preserve canonical structuredContent"
+        agent_evidence["query"], evidence["query"],
+        "agent view answers the same query as the default path"
+    );
+    let agent_items = agent_evidence["items"]
+        .as_array()
+        .expect("agent Evidence items array");
+    let agent_cross_file = agent_items
+        .iter()
+        .find(|item| cross_file_function_item(item))
+        .expect("agent view carries the same cross-file callee");
+    assert!(
+        agent_cross_file["symbol"]["Function"]
+            .get("start_byte")
+            .is_some(),
+        "agent structuredContent stays FULL canonical (slim never reaches it): {agent_cross_file}"
     );
     let agent_view: Value =
         serde_json::from_str(agent_result["content"][0]["text"].as_str().unwrap())

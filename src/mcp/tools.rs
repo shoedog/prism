@@ -1198,8 +1198,9 @@ mod tests {
 
     #[test]
     fn default_path_legacy_mode_is_byte_unchanged() {
-        // Legacy is the DEFAULT PRISM_MCP_CONCISE_SHAPE value — must be byte-identical to a
-        // ToolContext that never mentions the mode at all (`for_test`'s default).
+        // Explicit Legacy (the opt-out value; live env default is slim since 2026-07-03) —
+        // must be byte-identical to a ToolContext that never mentions the mode at all
+        // (`for_test`'s default, which deliberately stays Legacy).
         let s = test_support::session(&[(
             "a.py",
             "def target():\n    return 1\n\ndef caller():\n    return target()\n",
