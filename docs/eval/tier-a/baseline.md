@@ -1,3 +1,87 @@
+# Tier-A Baseline — 2026-07-03 (post-round-1–6 re-baseline; Rust/Go fully adjudicated)
+
+Re-baseline at prism `555714da1991` (post P1–P12, rounds 1–6 of the LLM-leverage/accuracy
+plan, #149–#162; #163 is MCP-transport-only). First baseline whose run records populate the
+P6a **exact_tier** split (gates read exact_tier; candidate_tier is informational). Run
+records: `2026-07-03-<corpus>.{json,md}` (committed 5bbd992, adjudication fold 315ef72; owner-approved 2026-07-04).
+
+**Adjudication increment (the headline):** the run's 802 pendings were adjudicated in one
+pass — **all 526 Rust/Go items** (prism 90, ruff 101, ripgrep 75, caddy 1, cobra 37,
+etcd 39, prometheus 95, zap 114) **+ a seeded 25/corpus Python sample** (seed 20260703),
+627 verdicts total, by **codex gpt-5.5 xhigh solo**. Protocol deviations from the June
+κ-study (deliberate, ledgered): no dual-rater (owner usage directive), and
+source-verification ALLOWED (June's blinding served the κ measurement; all 4 June
+tiebreaks were outside-window facts). Controller review: all 84 `ambiguous` verdicts
+personally checked (all are statically-undeterminable dispatch — zap
+Core/LevelEnabler/WriteSyncer interface fan-outs 49, prometheus Parser/Querier 21,
+ripgrep generic `S::Error` 4, etcd interface backends 2, function-value fields, one
+untyped black fixture) plus 10 stratified spot-checks — no corrections needed. Verdict
+mix: **274 prism_fn / 165 prism_fp / 85 oracle_miss / 84 ambiguous / 19 alias_site / 0
+oracle_artifact** (the June taxonomy rule held: nothing source-invisible in this set).
+Rust/Go corpora now have **0 pending**; Python keeps 175 characterized-not-classified
+(black 26 / httpx 86 / mypy 63), mirroring the June stop-at-sample precedent.
+
+**Validity:** all 11 anchors pass their OER floors — Rust: prism 0.075, ruff 0.000,
+ripgrep 0.063 (≤0.10); Go: caddy/cobra/prometheus 0.000, etcd 0.000, zap 0.025 (≤0.10);
+Python: black 0.171, httpx 0.156, mypy 0.163 (≤0.25).
+
+## Corrected (adjudication-folded, pooled over strata, both tiers)
+
+| corpus | callers tp/fp/fn → P/R | callees tp/fp/fn → P/R |
+|---|---|---|
+| prism | 90/1/40 → 0.99/0.69 | 164/17/50 → 0.91/0.77 |
+| ruff | 97/63/19 → 0.61/0.84 | 34/0/16 → 1.00/0.68 |
+| ripgrep | 53/13/21 → 0.80/0.72 | 36/0/19 → 1.00/0.65 |
+| caddy | 81/0/4 → 1.00/0.95 | 51/3/10 → 0.94/0.84 |
+| cobra | 717/8/0 → 0.99/1.00 | 123/0/10 → 1.00/0.92 |
+| etcd | 49/2/8 → 0.96/0.86 | 80/0/27 → 1.00/0.75 |
+| prometheus | 79/20/14 → 0.80/0.85 | 66/0/32 → 1.00/0.67 |
+| zap | 179/0/16 → 1.00/0.92 | 102/0/25 → 1.00/0.80 |
+| black | 112/0/4 → 1.00/0.97 | 120/9/12 → 0.93/0.91 |
+| httpx | 138/23/1 → 0.86/0.99 | 44/2/0 → 0.96/1.00 |
+| mypy | 69/2/0 → 0.97/1.00 | 87/19/6 → 0.82/0.94 |
+
+Reading rule: pooled-corrected P dips (ruff callers 0.61, prometheus callers 0.80, httpx
+0.86, mypy callees 0.82) are dominated by **candidate-tier** name-coincidence /
+property-access edges — deliberately NameOnly, nav-only, never asserted (consumer-
+visibility doctrine). The **gate** tier tells the precision story:
+
+## Exact-tier raw (the P3-class gate reads THIS)
+
+| corpus | callers P/R | callees P/R | note |
+|---|---|---|---|
+| prism | 1.00/0.55 | 0.97/0.70 | |
+| ruff | 1.00/0.22 | 0.88/0.47 | |
+| ripgrep | 0.89/0.63 | 0.79/0.54 | |
+| caddy | 0.97/0.40 | 1.00/0.60 | |
+| cobra | 1.00/0.57 | 0.99/0.73 | corrected-R 1.00 = P5 callback edges (candidate tier) confirmed real |
+| etcd | 0.94/0.48 | 0.99/0.67 | |
+| prometheus | 1.00/0.33 | 0.92/0.60 | |
+| zap | 0.91/0.48 | 1.00/0.65 | 12 exact-caller fps incl. the withLogger pkg-clause split — fixed by P13 (#164, merged 2026-07-04) |
+| black | 1.00/0.45 | 0.92/0.56 | |
+| httpx | 0.97/0.24 | 1.00/0.47 | |
+| mypy | 1.00/0.85 | 0.65/0.64 | callees exact-fp 33 = the known Python receiver-typing gap; worth its own look |
+
+## Notes for the record
+
+- **prometheus `NewDiscovery` re-adjudication note:** the June cross-package
+  `NewDiscovery` prism_fp citation was re-examined during P13 grounding (2026-07-03):
+  live queries at `discovery/eureka/eureka.go:127` resolve correctly; the June record was
+  an M3 harness artifact, not a prism bug. The June verdict stands for its run; do not
+  carry it as an open prism defect.
+- Raw-vs-June recall jumps are the P1–P12 wave (candidate edges, callbacks, property
+  edges, framework entries); raw-precision dips are labeled candidate/framework edges by
+  design. exact_tier is the regression gate going forward.
+- The 2026-07-03 run's take-1 died from controller edits to the live SUT tree
+  (lesson filed in pipeline-lessons.md: the primary tree IS the tier-a SUT).
+- P13 (Go build-tag/package-clause partitioning) merged as #164 (2026-07-04, main
+  `7a06896`) after these run records were taken: zap `withLogger` 39/39 callers now
+  Exact (same_package NameOnly 76→0), build-partition Exacts etcd 0→2 / prometheus
+  0→11. The zap exact-caller fps above will clear on the next run; measured deltas
+  are in the PR body.
+
+---
+
 # Tier-A Baseline — 2026-06-21 (new-anchor adjudication: κ-validation + characterization)
 
 The 9 new anchors (ruff/ripgrep/cobra/prometheus/etcd/zap/black/httpx/mypy) carried **1,405 unadjudicated

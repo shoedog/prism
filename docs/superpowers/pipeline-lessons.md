@@ -1,7 +1,7 @@
-# Pipeline lessons — multi-agent P-item execution (rounds 1–6, 2026-07-02 → 2026-07-03)
+# Pipeline lessons — multi-agent P-item execution (rounds 1–7, 2026-07-02 → 2026-07-04)
 
-Durable lessons from executing `docs/analysis/prism-llm-and-accuracy-plan.md` items P1–P12
-(PRs #149–#162) via the owner-approved pipeline: codex gpt-5.5 xhigh spec review →
+Durable lessons from executing `docs/analysis/prism-llm-and-accuracy-plan.md` items P1–P13
+(PRs #149–#164) via the owner-approved pipeline: codex gpt-5.5 xhigh spec review →
 Sonnet implementers in isolated worktrees (TDD) → Opus task review ∥ codex impl review →
 fix waves → codex re-review of fix deltas → owner merge. Update this file at each round
 close-out; the per-round detail lives in the plan doc's status blocks and
@@ -9,9 +9,9 @@ close-out; the per-round detail lives in the plan doc's status blocks and
 
 ## Process lessons
 
-1. **Re-review the fix delta, always.** Through round 6: **eight of nine** codex
+1. **Re-review the fix delta, always.** Through round 7: **nine of ten** codex
    re-reviews of fix waves caught a real defect in the fix itself (P3, P5, P7, P6bc,
-   P8, P10, P9×2, P11). The defects live at the *fix×interaction* layer — the fix is
+   P8, P10, P9×2, P11, P13). The defects live at the *fix×interaction* layer — the fix is
    locally correct but breaks caching, incremental rebuilds, a parallel copy, or an
    adjacent behavior. The ONE clean re-review (P12) is itself instructive: its fix
    DERIVED the new sizing function from the real serializer instead of
@@ -81,6 +81,33 @@ close-out; the per-round detail lives in the plan doc's status blocks and
     opus's HOW (thread the resolved mode as a parameter). Precedence goes to the
     argument, not the model or the severity tag.
 
+12. **The primary tree IS the tier-a SUT.** Round 7's full-corpus run take-1 died at
+    corpus 3 because controller edits dirtied the main tree mid-run (prism+ruff
+    reports survived, written pre-edit; 9 corpora relaunched). While a run is live:
+    no main-tree edits, no rebuilds, and hold `git pull` until the run finishes (a
+    pull SHA-mismatches the recorded SUT). Corollary: rebuild the release binary to
+    match HEAD before any future run.
+
+13. **The codex-implementer variant works, with two structural changes** (round 7,
+    owner-directed to save Fable usage). Implementation = codex gpt-5.5 HIGH via
+    bridge (`sandbox_mode="workspace-write"`, session-cwd = the worktree); the Opus
+    task review is replaced by the CONTROLLER personally reading brief-vs-diff (cheap,
+    and it caught two defects codex's own report missed); the adversarial gate must be
+    a FRESH codex session with a different role prompt — same-family diversity is
+    partially restored by fresh-session + role separation, and it found three more
+    real classes. Wrinkle: the bridge sandbox cannot write `.git/worktrees/<wt>`
+    metadata (it lives under the main repo's `.git`), so implementers report
+    "commit failed" — instruct them to leave the tree uncommitted and have the
+    controller commit with the dual trailer after verification.
+
+14. **Controller reviews should reproduce, not just read.** Round 7's two controller
+    findings (C1 sentinel SAT enumeration, C2 header blank-line break) were confirmed
+    by building the worktree binary and running 3-file scratch fixtures BEFORE the
+    adversarial review was briefed — which let the review task-spec pass them as
+    named, already-proven risks and spend its effort past them. Every fix-wave
+    verdict was then re-verified the same way (all 8 defect shapes reproduced fixed
+    end-to-end). A reproduced defect also can't be argued away in the fix wave.
+
 ## Engineering doctrines (bind reviewers and implementers)
 
 1. **Consumer-visibility doctrine** (rounds 2–5, codex-ruled): uncertainty tiers need
@@ -129,6 +156,22 @@ close-out; the per-round detail lives in the plan doc's status blocks and
    Diagnose with repeat-run + shared-probe byte-identity controls before re-baselining.
    Related: rescore, never re-run, when arm outputs are saved.
 
+9. **Port the reference implementation; don't approximate its rules** (P13). Two
+   rounds of fixes approximated go/build's file-header semantics from prose and lost
+   each time (blank-line region, `/**///go:build`, too-close `+build`) — every miss a
+   toolchain-verified WRONG. The fix that survived re-review was a faithful port of
+   `parseFileHeader` (ended-flag, header-ends-at-most-recent-blank, comment loop),
+   checked against the toolchain's own test cases (Comment4, TooCloseNo). When a
+   reference implementation exists and is readable, port its control flow and cite it.
+
+10. **Fail-open failures are silent; audit the win-side too** (P13). The header bug
+    failed SAFE (no false edges) and so passed every test — but it made the entire
+    build-SAT rung INERT on all four measured corpora. The tell was a shipped feature
+    counter at zero everywhere (`go_build_partition_exact=0`). A new mechanism whose
+    success counter never fires is presumed broken until a positive corpus case is
+    reproduced; and a predicate needs BOTH failure poles exercised — fail-closed mints
+    false Exacts, fail-open silently forfeits the win.
+
 ## Follow-up queue (durable, self-tracking where possible)
 
 - Nested-test-module `use super::*` callers gap — `known_fail` fixture
@@ -136,12 +179,16 @@ close-out; the per-round detail lives in the plan doc's status blocks and
 - Pointer-embedded Go fields (`*Listener`) silently dropped by `extract_one_field`
   (tree-sitter emits a bare `*` token; `type_str == "*"` → strip → empty → drop) —
   pre-existing, affects the shipped embedding feature AND P11's S2/S4; fails safe.
-- MCP default flips for `PRISM_MCP_STRUCTURED_CONTENT`/`PRISM_MCP_CONCISE_SHAPE` —
-  owner-gated on a 2–3-probe live `claude -p` trace (docs/MCP.md); each flip is a
-  one-line change once verified.
-- Tier-a M2 re-baseline note: P11's ResolutionKind un-collapse shifts kind
-  distributions out of `typed_param`/`rust_receiver` into `field_typed`/`return_typed`
-  (label-only; edges/confidence byte-identical).
+- GoOwnerIdentity clause/build-partition blindness (P13 [M1], counted-not-fixed):
+  `go_field_types`/`struct_embeds`/embedded-interface lanes are keyed `(package_dir,
+  name)` and can cross `foo`/`foo_test` and build partitions — field_typed /
+  interface-dispatch Exact recovery can still cross those lines. Measured by
+  `go_owner_identity_profile_conflict` (etcd 1, prometheus 5). Re-key = P11-lane
+  blast radius; schedule deliberately.
+- RESOLVED round 7: MCP default flips (#163, live-verified); tier-a M2 re-baseline
+  (2026-07-03 run records + 627-verdict adjudication fold + baseline.md 2026-07-03
+  section); P15 re-export tail (measured NO-GO both halves — third under-delivery;
+  do not re-queue).
 - Advisory/CWE sanitizer recognizers still cross-match languages (P10 gated the verdict
   path only; deliberate).
 - `prune_graph_to_reasoning` keeps forward-hanging leaves only for `SanitizedBy`; any
