@@ -1208,3 +1208,99 @@ fn intra_function_confluence_bypass_stays_reached() {
     assert_eq!(source.reachability, Reachability::Reached);
     assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
 }
+
+// --- P14 fix-wave 2 (fix-delta re-review, gpt-5.5 xhigh): the bypass re-walk must be
+// verdict-classified with the three-valued `reachability_for_node_from_ordered` helper, not raw
+// frontier membership; and `descent_depth` must describe whichever chain is actually displayed. ---
+
+#[test]
+fn sanitized_exact_plus_nameonly_boundary_stays_boundary_exited() {
+    // W1: `a = A(); a.m(safe)` is an Exact-descendable call (constructor-typed receiver `a`)
+    // whose argument is sanitized (`safe = html.escape(user)`); `obj.m(user)` is a SEPARATE,
+    // NameOnly-backed call (untyped receiver `obj`, single-owner fallback) passing the RAW value
+    // into the SAME method's parameter. The raw (unexcluded) walk reaches the sink only through
+    // the Exact/sanitized route (the NameOnly hop is refused by the descent gate and recorded as
+    // a boundary instead), so `raw_reachability == Reached` and the sanitizer transition is
+    // proven on that one chain. Excluding it and re-walking leaves ONLY the NameOnly boundary
+    // hop into `m`'s parameter — a residual that reaches a callee BOUNDARY, not a proven cut. The
+    // truth is `BoundaryExited` (it outranks `Sanitized`); the pre-fix code tested raw frontier
+    // membership only, saw the sink absent from the re-walk's frontier, and reported `Sanitized`.
+    let fixture = fixture(&[(
+        "app.py",
+        "class A:\n    def m(self, p):\n        sink(p)\n\ndef f(obj):\n    user = input()\n    safe = html.escape(user)\n    a = A()\n    a.m(safe)\n    obj.m(user)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 6,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 3,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(
+        source.reachability,
+        Reachability::BoundaryExited,
+        "a NameOnly residual boundary must not be reported as a proven Sanitized cut"
+    );
+    assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+    assert_eq!(source.descent_depth, 0);
+    assert!(evidence.warnings.iter().any(|warning| {
+        matches!(
+            &warning.kind,
+            WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary { .. })
+        )
+    }));
+}
+
+#[test]
+fn descent_depth_matches_displayed_bypass_chain() {
+    // W2: `h(safe)` is a DIRECT, one-hop descent whose argument is sanitized; `w(raw)` reaches
+    // the SAME sink (`h`'s parameter, via `w`'s own body forwarding to `h(p)`) through an extra
+    // Exact wrapper hop — two `CallDescent` windows instead of one. The direct/sanitized route is
+    // shorter, so it wins the original (unexcluded) first-parent chain to the sink — its
+    // `descent_depth` is 1. Excluding the proven sanitizer transition and re-walking leaves ONLY
+    // the wrapper route, which still reaches the sink (`Reached`, a genuine bypass) with
+    // `descent_depth` 2. The witness graph is re-rendered along the bypass (wrapper) chain, so the
+    // wire's `descent_depth` must describe THAT chain (2), not the original sanitized one (1).
+    let fixture = fixture(&[(
+        "app.py",
+        "def h(p):\n    sink(p)\n\ndef w(p):\n    h(p)\n\ndef f():\n    user = input()\n    safe = html.escape(user)\n    raw = user\n    h(safe)\n    w(raw)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 8,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Reached);
+    assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+
+    let graph = evidence.graph.as_ref().expect("witness graph");
+    let displayed_descent_edges = graph
+        .edges
+        .iter()
+        .filter(|e| e.kind == "CallDescent")
+        .count();
+    assert_eq!(
+        source.descent_depth, displayed_descent_edges,
+        "wire descent_depth must match the CallDescent edges of the DISPLAYED (bypass) witness graph"
+    );
+    assert_eq!(
+        source.descent_depth, 2,
+        "the displayed bypass chain routes through the wrapper (w -> h), not the direct sanitized call"
+    );
+}
