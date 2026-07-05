@@ -191,10 +191,6 @@ fn witness_mode(
                     // edge-kind labeling does (`shape::window_relations`) so a `CallDescent` window
                     // is never evaluated as an `x = sanitizer(y)` transition.
                     let relations = window_relations(trace, Some(source.node), &chain);
-                    descent_depth = relations
-                        .iter()
-                        .filter(|relation| matches!(relation, Some(Relation::CallDescent)))
-                        .count();
                     let hits = sanitized_hits_on_chain(
                         &session.repo.files,
                         &session.index.cpg,
@@ -202,15 +198,21 @@ fn witness_mode(
                         &relations,
                     );
 
-                    // P14 fix-wave BLOCKER fix: a proven sanitizer transition on THIS chain alone
-                    // does not prove every source->sink route is cut — first-enqueue-wins dedup
-                    // can hide an unsanitized sibling branch at a confluence node (a shared callee
-                    // parameter under descent, or an intra-function fan-in target, T-F4) that never
-                    // appears on any one witness chain. Bypass-prove the downgrade: cut EVERY
-                    // genuinely-proven sanitizer hop reachable from this root (not just this
-                    // chain's window, `sanitizer_bypass_exclusions`) and re-walk; only an
-                    // unreachable sink makes `Sanitized` sound (all-paths-, not merely path-proven).
+                    // A proven sanitizer transition on THIS chain alone does not prove every
+                    // source->sink route is cut — first-enqueue-wins dedup can hide an unsanitized
+                    // sibling branch at a confluence node (a shared callee parameter under descent,
+                    // or an intra-function fan-in target, T-F4) invisible on any one witness chain.
+                    // Bypass-prove the downgrade: cut EVERY genuinely-proven sanitizer hop reachable
+                    // from this root (`sanitizer_bypass_exclusions`, not just this chain's window)
+                    // and re-walk, classified with the SAME three-valued helper the raw verdict uses
+                    // (`reachability_for_node_from_ordered`), not raw frontier membership: a residual
+                    // that only reaches a callee BOUNDARY (e.g. an unsanitized NameOnly-backed hop
+                    // into the same sink, which the descent gate refuses to cross) is not proof every
+                    // route is cut either — `BoundaryExited` outranks `Sanitized`, so misreporting it
+                    // would hide a route that may still reach the sink. Only a `NotReached` residual
+                    // makes `Sanitized` sound.
                     let mut rewalk_trace: Option<Trace> = None;
+                    let mut skip_graph = false;
                     if !hits.is_empty() {
                         let excluded = sanitizer_bypass_exclusions(
                             &session.repo.files,
@@ -223,47 +225,78 @@ fn witness_mode(
                             order,
                             &excluded,
                         );
-                        let bypass_reachable = rewalk
-                            .frontier_by_root
-                            .get(&source.node)
-                            .is_some_and(|frontier| frontier.contains(&sink.node));
-                        if bypass_reachable {
+                        let mut bypass_ordering_warnings = Vec::new();
+                        let bypass_reachability = reachability_for_node_from_ordered(
+                            &session.index.cpg,
+                            &rewalk,
+                            source.node,
+                            sink.node,
+                            order,
+                            &mut bypass_ordering_warnings,
+                        );
+                        warnings.extend(bypass_ordering_warnings.iter().map(ordering_warning));
+                        match bypass_reachability {
                             // Bypass exists: verdict stays `Reached`, `sanitized_by` stays empty
-                            // below; `descent_depth` above already came from the ORIGINAL chain.
-                            rewalk_trace = Some(rewalk);
-                        } else {
-                            reachability = Reachability::Sanitized;
-                            sanitized_by = hits.iter().map(|hit| hit.site.clone()).collect();
+                            // below; the graph re-renders along the bypass chain and `descent_depth`
+                            // (W2) is recomputed from THAT chain below.
+                            Reachability::Reached => rewalk_trace = Some(rewalk),
+                            // W1: no witness chain reaches the sink for a boundary residual — take
+                            // the same output shape as a raw (non-`Reached`) `BoundaryExited` verdict:
+                            // no graph, no `sanitized_by`, `descent_depth` 0.
+                            Reachability::BoundaryExited => {
+                                reachability = Reachability::BoundaryExited;
+                                descent_depth = 0;
+                                skip_graph = true;
+                            }
+                            Reachability::NotReached => {
+                                reachability = Reachability::Sanitized;
+                                sanitized_by = hits.iter().map(|hit| hit.site.clone()).collect();
+                            }
+                            Reachability::Sanitized => unreachable!(
+                                "reachability_for_node_from_ordered never produces the Sanitized downgrade"
+                            ),
                         }
                     }
 
-                    // Render the bypass chain (if found) in place of the sanitized one — showing a
-                    // path through a sanitizer call while reporting empty `sanitized_by` misleads.
-                    let (display_trace, display_chain): (&Trace, Vec<NodeIndex>) =
-                        match &rewalk_trace {
-                            Some(rewalk) => {
-                                let bypass_chain =
-                                    witness_chain_for(rewalk, source.node, sink.node)
-                                        .unwrap_or_else(|| chain.clone());
-                                (rewalk, bypass_chain)
-                            }
-                            None => (trace, chain.clone()),
-                        };
-                    let display_hits: &[SanitizerHit] =
-                        if rewalk_trace.is_some() { &[] } else { &hits };
+                    if !skip_graph {
+                        // Render the bypass chain (if found) in place of the sanitized one —
+                        // showing a path through a sanitizer call while reporting empty
+                        // `sanitized_by` misleads.
+                        let (display_trace, display_chain): (&Trace, Vec<NodeIndex>) =
+                            match &rewalk_trace {
+                                Some(rewalk) => {
+                                    let bypass_chain =
+                                        witness_chain_for(rewalk, source.node, sink.node)
+                                            .unwrap_or_else(|| chain.clone());
+                                    (rewalk, bypass_chain)
+                                }
+                                None => (trace, chain.clone()),
+                            };
+                        let display_hits: &[SanitizerHit] =
+                            if rewalk_trace.is_some() { &[] } else { &hits };
 
-                    let (mut witness, idx_of) = witness_graph_for_chain(
-                        &session.index.cpg,
-                        display_trace,
-                        source.node,
-                        &display_chain,
-                    );
-                    if !display_hits.is_empty() {
-                        attach_sanitizer_steps(&mut witness, &idx_of, display_hits);
+                        // P14 fix-wave 2 (W2): `descent_depth` must describe the DISPLAYED chain —
+                        // when the witness swaps to the bypass chain, a depth carried over from the
+                        // original (sanitized) chain can contradict the rendered graph.
+                        descent_depth =
+                            window_relations(display_trace, Some(source.node), &display_chain)
+                                .iter()
+                                .filter(|relation| matches!(relation, Some(Relation::CallDescent)))
+                                .count();
+
+                        let (mut witness, idx_of) = witness_graph_for_chain(
+                            &session.index.cpg,
+                            display_trace,
+                            source.node,
+                            &display_chain,
+                        );
+                        if !display_hits.is_empty() {
+                            attach_sanitizer_steps(&mut witness, &idx_of, display_hits);
+                        }
+                        let sink_key =
+                            graph_node_key(&node_to_graph_node(&session.index.cpg, sink.node));
+                        graph_node = merge_witness(&mut union, &mut node_map, witness, &sink_key);
                     }
-                    let sink_key =
-                        graph_node_key(&node_to_graph_node(&session.index.cpg, sink.node));
-                    graph_node = merge_witness(&mut union, &mut node_map, witness, &sink_key);
                 }
             }
             let sanitizers = sanitizers_for_source(session, &source.loc);
