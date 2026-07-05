@@ -25,6 +25,7 @@ Ranked by blast-radius-per-effort:
 | 2 | **Return-flow taint** (callee-return → caller-LHS) | P14's declared non-goal — descent finds sinks *inside* callees but tainted returns are invisible; needs Step-5b-class edge construction (`x = f(user)` where f returns its tainted param/source) | M–L |
 | 3 | **GoOwnerIdentity clause/build-partition blindness** (P13 M1) | field_typed / interface-dispatch Exact can cross `foo`/`foo_test` + build partitions; measured small (`go_owner_identity_profile_conflict`: etcd 1, prometheus 5); re-key = P11-lane blast radius — schedule deliberately, not urgently | M |
 | 4 | **Multi-line-call Step-5b arg gap** (new, P14 spec review M1) | `g(\n user\n)` gets no arg→param edge (arg lookup at `site.line`); silently NotReached; pinned by a Stage-A test | S–M |
+| 4b | **Go dot-import resolution** (`. "pkg"` → bare-name calls bind to that package) | Measured recall gap: 4 zap `observer.New` sites in `package foo_test` adjudicated `prism_fn` (2026-07-04 re-baseline); prism resolves neither the dot-import nor the resulting bare cross-package calls | S–M |
 | 5 | **Pointer-embedded Go fields** (`*Listener`) | Pre-existing `extract_one_field` drop; affects shipped embedding + P11 S2/S4; fails safe | S |
 | 6 | **`--review-no-diagrams`** (P1 residual) | Diagram payloads dominate compacted review output (552 KB post-P1; diagrams are most of it) | S |
 | 7 | **Advisory/CWE sanitizer recognizers cross-match languages** | P10 gated the verdict path only (deliberate); advisory noise on polyglot repos | S |
