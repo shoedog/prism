@@ -219,15 +219,13 @@ pub fn witness_graph_for_node(
         });
     }
 
+    let relations = window_relations(trace, root, &chain);
     let mut edges = Vec::new();
-    for w in chain.windows(2) {
+    for (w, relation) in chain.windows(2).zip(relations) {
         let (from, to) = (w[0], w[1]);
         if from == to {
             continue;
         }
-        let relation = root
-            .and_then(|r| trace.parents_by_root.get(&(r, to)))
-            .map(|(_, rel)| *rel);
         // Exhaustive over `Option<Relation>` (no `_` wildcard): a new `Relation` variant must be a
         // compile error here, not a silent `"DataFlow"` mislabel that freezes into Plan B's wire shape.
         let kind = match relation {
@@ -243,6 +241,27 @@ pub fn witness_graph_for_node(
         });
     }
     Some(GraphPayload { nodes, edges })
+}
+
+/// Per-window `Relation` label for `chain.windows(2)`, recovered from `parents_by_root` — the SAME
+/// recovery pattern the witness-graph edge-kind labeling below already performs. Entry `i` is the
+/// relation for the edge `(chain[i], chain[i+1])`; `None` when `root` is unknown or no parent record
+/// exists for that window (the wire boundary treats an absent relation as `"DataFlow"`, matching the
+/// exhaustive match in [`witness_graph_for_chain`]). Exposed so
+/// `reasoning::sanitizer_walk::sanitized_hits_on_chain` (P14 §S4) can skip `CallDescent` windows
+/// without re-deriving relations from bytes.
+pub fn window_relations(
+    trace: &Trace,
+    root: Option<NodeIndex>,
+    chain: &[NodeIndex],
+) -> Vec<Option<Relation>> {
+    chain
+        .windows(2)
+        .map(|w| {
+            root.and_then(|r| trace.parents_by_root.get(&(r, w[1])))
+                .map(|(_, rel)| *rel)
+        })
+        .collect()
 }
 
 /// Ordered witness chain `root..=sink` (root/source first, sink last), or `None` if `sink` is not
@@ -310,13 +329,13 @@ pub fn witness_graph_for_chain(
 ) -> (GraphPayload, BTreeMap<NodeIndex, usize>) {
     let (nodes, idx_of) = chain_nodes(cpg, chain);
 
+    let relations = window_relations(trace, Some(root), chain);
     let mut edges = Vec::new();
-    for w in chain.windows(2) {
+    for (w, relation) in chain.windows(2).zip(relations) {
         let (from, to) = (w[0], w[1]);
         if from == to {
             continue;
         }
-        let relation = trace.parents_by_root.get(&(root, to)).map(|(_, rel)| *rel);
         let kind = match relation {
             Some(Relation::DataFlow) | None => "DataFlow",
             Some(Relation::AssignmentPropagation) => "AssignmentPropagation",

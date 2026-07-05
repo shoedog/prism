@@ -5,7 +5,9 @@ use std::collections::BTreeMap;
 use petgraph::graph::NodeIndex;
 
 use crate::algorithms::taint::cleansed_categories_for_source;
-use crate::cpg::{BoundaryKind, CodePropertyGraph, OrderingWarning, SameLineOrderView, Trace};
+use crate::cpg::{
+    BoundaryKind, CodePropertyGraph, OrderingWarning, Relation, SameLineOrderView, Trace,
+};
 use crate::data_flow::VarLocation;
 use crate::navigation::types::{
     Evidence, EvidenceItem, GraphEdge, GraphNode, GraphPayload, Location, QueryError, Reason,
@@ -17,7 +19,7 @@ use crate::reasoning::sanitizer_walk::{sanitized_hits_on_chain, SanitizerHit};
 use crate::reasoning::scope_honesty;
 use crate::reasoning::seeds::{resolve, ResolvedSeed, SeedRole, SeedSpec};
 use crate::reasoning::shape::{
-    node_to_graph_node, reachability_for_node_from_ordered, witness_chain_for,
+    node_to_graph_node, reachability_for_node_from_ordered, window_relations, witness_chain_for,
     witness_graph_for_chain,
 };
 use crate::reasoning::types::{
@@ -180,10 +182,25 @@ fn witness_mode(
             let mut reachability = raw_reachability;
             let mut graph_node = None;
             let mut sanitized_by: Vec<SanitizerSite> = Vec::new();
+            let mut descent_depth: usize = 0;
             if raw_reachability == Reachability::Reached {
                 if let Some(chain) = witness_chain_for(trace, source.node, sink.node) {
-                    let hits =
-                        sanitized_hits_on_chain(&session.repo.files, &session.index.cpg, &chain);
+                    // P14 S4: recover each window's `Relation` the SAME way the witness-graph edge-kind
+                    // labeling does (`shape::window_relations`) and thread it into the sanitizer walk so
+                    // a `CallDescent` window (arg->param by construction) is never evaluated as an
+                    // `x = sanitizer(y)` transition — this REPLACES Stage A's interim function-identity
+                    // guard in `sanitized_hits_on_chain`.
+                    let relations = window_relations(trace, Some(source.node), &chain);
+                    descent_depth = relations
+                        .iter()
+                        .filter(|relation| matches!(relation, Some(Relation::CallDescent)))
+                        .count();
+                    let hits = sanitized_hits_on_chain(
+                        &session.repo.files,
+                        &session.index.cpg,
+                        &chain,
+                        &relations,
+                    );
                     if !hits.is_empty() {
                         reachability = Reachability::Sanitized;
                     }
@@ -229,6 +246,7 @@ fn witness_mode(
                 graph_node,
                 sanitizers_present_in_source_fn: sanitizers,
                 sanitized_by,
+                descent_depth,
             });
         }
         let reachability =
