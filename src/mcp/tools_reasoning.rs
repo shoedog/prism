@@ -264,6 +264,66 @@ mod tests {
     }
 
     #[test]
+    fn taint_reaches_witness_descent_pins_edge_kind_and_depth() {
+        // P14 T10: pin the wire shape for an Exact-gated descent hop the SAME way the pre-existing
+        // "SanitizedBy" pin above pins that edge kind — `graph.edges` must carry a `"CallDescent"`
+        // edge and the reached source must carry `descent_depth == 1`.
+        let s = crate::mcp::tools::test_support::session(&[(
+            "app.py",
+            "def g(p):\n    sink(p)\n\ndef f():\n    user = input()\n    g(user)\n",
+        )]);
+        let out = (ToolRegistry::all_v1().get("taint_reaches").unwrap().handler)(
+            &ToolContext::for_test(&s),
+            &json!({
+                "sources":[{"kind":"loc","file":"app.py","line":5}],
+                "sinks":[{"kind":"loc","file":"app.py","line":2}],
+                "verbosity":"detailed"
+            }),
+        );
+        assert!(!out.is_error);
+        let value: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
+        assert_eq!(value["reasoning"]["reachability"], "Reached");
+        let source = &value["reasoning"]["per_sink"][0]["sources"][0];
+        assert_eq!(source["reachability"], "Reached");
+        assert_eq!(source["descent_depth"], 1);
+        assert!(
+            value["graph"]["edges"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|e| e["kind"] == "CallDescent"),
+            "{value}"
+        );
+    }
+
+    #[test]
+    fn taint_reaches_descent_depth_is_omitted_from_wire_when_zero() {
+        // P14 S5 byte-compat gate: an intra-function reached verdict (no descent hop at all) must
+        // NOT carry a `descent_depth` key on the wire — `#[serde(skip_serializing_if)]` keeps every
+        // pre-P14 output byte-identical.
+        let s = crate::mcp::tools::test_support::session(&[(
+            "app.py",
+            "def f():\n    user = input()\n    value = user\n    sink(value)\n",
+        )]);
+        let out = (ToolRegistry::all_v1().get("taint_reaches").unwrap().handler)(
+            &ToolContext::for_test(&s),
+            &json!({
+                "sources":[{"kind":"loc","file":"app.py","line":2}],
+                "sinks":[{"kind":"loc","file":"app.py","line":4}],
+                "verbosity":"detailed"
+            }),
+        );
+        assert!(!out.is_error);
+        let value: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
+        assert_eq!(value["reasoning"]["reachability"], "Reached");
+        let source = &value["reasoning"]["per_sink"][0]["sources"][0];
+        assert!(
+            source.get("descent_depth").is_none(),
+            "descent_depth must be omitted (not `0`) on the wire when there is no descent: {value}"
+        );
+    }
+
+    #[test]
     fn taint_reaches_default_verbosity_slim_mode_slims_frontier_items() {
         // S3: taint_reaches has no `format`/agent-view branch, so its default-path (Concise)
         // result is always the terminal response — safe to apply the slim transform directly.

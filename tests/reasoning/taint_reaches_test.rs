@@ -440,6 +440,39 @@ fn descent_depth_bound_yields_boundary_exited() {
 }
 
 #[test]
+fn descended_witness_surface() {
+    // T4b: the witness graph carries a `CallDescent` edge and `descent_depth` records the number of
+    // descent hops on the winning witness chain — both Stage B (additive) surfaces.
+    let fixture = fixture(&[(
+        "app.py",
+        "def g(p):\n    sink(p)\n\ndef f():\n    user = input()\n    g(user)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 5,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Reached);
+    assert_eq!(source.descent_depth, 1);
+
+    let graph = evidence.graph.as_ref().expect("witness graph");
+    assert!(
+        graph.edges.iter().any(|e| e.kind == "CallDescent"),
+        "witness graph must contain the descent edge: {:?}",
+        graph.edges
+    );
+}
+
+#[test]
 fn frontier_mode_has_descended_frontier() {
     let fixture = fixture(&[(
         "app.py",
@@ -953,6 +986,76 @@ fn python_tainted_non_data_kwarg_is_not_a_sanitizer_transition() {
     let source = sink_source(&evidence);
     assert_eq!(source.reachability, Reachability::Reached);
     assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+}
+
+// --- P14 Stage B: sanitizer contract survives interprocedural descent ----------------------
+
+#[test]
+fn sanitize_then_pass_across_descent_is_sanitized() {
+    // The sanitizer transition (`safe = html.escape(user)`) is INTRA-caller; `safe` is then passed
+    // across an Exact-gated descent into `g`, which sinks the (now-sanitized) parameter directly.
+    // The transition is provable independent of the descent hop, so the verdict must stay Sanitized.
+    let fixture = fixture(&[(
+        "app.py",
+        "def g(p):\n    sink(p)\n\ndef f():\n    user = input()\n    safe = html.escape(user)\n    g(safe)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 5,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Sanitized);
+    assert_eq!(source.sanitized_by.len(), 1, "{:?}", source.sanitized_by);
+    assert_eq!(source.sanitized_by[0].callee_text, "html.escape");
+    assert_eq!(
+        source.descent_depth, 1,
+        "the winning witness chain crosses exactly one descent hop"
+    );
+
+    let graph = evidence.graph.as_ref().expect("witness graph");
+    assert!(
+        graph.edges.iter().any(|e| e.kind == "CallDescent"),
+        "witness graph must retain the descent edge alongside the sanitizer step: {:?}",
+        graph.edges
+    );
+}
+
+#[test]
+fn callee_body_sanitizer_bypass_stays_reached() {
+    // `g` sanitizes its param into an unused local (`safe = html.escape(p)`) but sinks the RAW `p`
+    // directly. The sanitizer transition never runs on the value that reaches the sink, so the
+    // verdict must stay Reached. This also pins that the arg->param `CallDescent` window itself is
+    // never (mis)evaluated as a sanitizer transition.
+    let fixture = fixture(&[(
+        "app.py",
+        "def g(p):\n    safe = html.escape(p)\n    sink(p)\n\ndef f():\n    user = input()\n    g(user)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 6,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 3,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Reached);
+    assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+    assert_eq!(source.descent_depth, 1);
 }
 
 #[test]
