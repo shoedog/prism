@@ -169,3 +169,54 @@ def test_score_validity_all_contradicted_gives_zero_support_rate():
     report = score_validity(_FakeCo(), text, judge)
     assert report.support_rate == 0.0
     assert report.contradicted == 1
+
+
+# ---------------------------------------------------------------------------
+# resolver-fix-spec.md R5 — D1 rewire onto the fixed resolver: a bare-but-real
+# citation must RESOLVE (via resolve_cite) so its window actually reaches the judge,
+# instead of auto-UNSUPPORTED just because the path was ambiguous.
+# ---------------------------------------------------------------------------
+
+class _LayeredResolveCo:
+    """Fake exposing resolve_cite (not resolve_rel) — simulates the noqa.rs shape:
+    a bare `noqa.rs:1014` citation resolves via the line-range layer; a bare citation
+    to a line that's real in NO candidate is ABSENT."""
+
+    def resolve_cite(self, file, line=None, symbol=None, claim_text="", *, disambiguate=None):
+        from tier_c.checkout import ABSENT, RESOLVED, ResolveResult
+        if file == "noqa.rs" and line == 1014:
+            return ResolveResult(status=RESOLVED, path="real/noqa.rs", layer="line_range")
+        return ResolveResult(status=ABSENT, path=None)
+
+    def read_window(self, rel, line):
+        return f"code @ {rel}:{line}"
+
+
+def test_score_validity_bare_but_real_citation_resolves_and_reads_window():
+    """THE R5 FIX: a bare ambiguous-basename citation to a REAL line must resolve and
+    have its window read by the judge — NOT auto-UNSUPPORTED (the old bug: ANY
+    ambiguous basename skipped straight to UNSUPPORTED regardless of the line)."""
+    seen = {}
+    def ask(m, p):
+        seen["prompt"] = p
+        return "SUPPORTED"
+    judge = CitationValidityJudge(ask=ask)
+    text = "The fix is in noqa.rs:1014 exactly."
+    report = score_validity(_LayeredResolveCo(), text, judge)
+    assert report.total == 1
+    assert report.verdicts[0].verdict == "SUPPORTED"
+    assert "code @ real/noqa.rs:1014" in seen["prompt"], (
+        "the RESOLVED path's window must reach the judge prompt"
+    )
+
+
+def test_score_validity_absent_citation_via_resolve_cite_stays_unsupported():
+    calls = []
+    def ask(m, p):
+        calls.append(p)
+        return "SUPPORTED"
+    judge = CitationValidityJudge(ask=ask)
+    text = "The fix is in noqa.rs:1 exactly."
+    report = score_validity(_LayeredResolveCo(), text, judge)
+    assert report.verdicts[0].verdict == "UNSUPPORTED"
+    assert calls == [], "a truly-ABSENT citation must never spend an ensemble call"

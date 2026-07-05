@@ -91,18 +91,46 @@ class CitationValidityJudge:
                         sonnet=self.sonnet, opus=self.opus, default="UNSUPPORTED")
 
 
-def score_validity(co, text: str, judge: "CitationValidityJudge") -> ValidityReport:
-    """Score D1 claim-support rate for one arm's text against the pinned checkout `co`."""
+def _resolve_for_validity(co, claim: CitationClaim, *, ask) -> tuple[str | None, bool]:
+    """Returns (resolved_path_or_None, ambiguous). resolver-fix-spec.md R5: prefer the
+    layered resolve_cite (R1) so a bare-but-real citation RESOLVES and its window is
+    actually read by the validity judge — the old resolve_rel-or-file_exists fallback
+    marked ANY ambiguous-basename citation unresolvable regardless of whether the line
+    was real, which is exactly the measurement artifact this fix removes. The claim's
+    own sentence doubles as the R1 layer-3 tie-break / R2 Q3 disambiguator context."""
+    cite = claim.cite
+    if hasattr(co, "resolve_cite"):
+        disambiguate_fn = None
+        if ask is not None:
+            from .disambiguate import make_disambiguator
+            disambiguate_fn = make_disambiguator(ask)
+        rr = co.resolve_cite(cite.file, cite.line, cite.symbol, claim.sentence,
+                             disambiguate=disambiguate_fn)
+        return (rr.path if rr.status == "RESOLVED" else None), (rr.status == "AMBIGUOUS")
+    if hasattr(co, "resolve_rel"):
+        return co.resolve_rel(cite.file), False
+    return (cite.file if co.file_exists(cite.file) else None), False
+
+
+def score_validity(co, text: str, judge: "CitationValidityJudge", *, ask=None) -> ValidityReport:
+    """Score D1 claim-support rate for one arm's text against the pinned checkout `co`.
+
+    `ask` (optional) wires the R2 Q3 disambiguator into genuinely-tied bare citations,
+    same seam CitationValidityJudge itself uses (judge.ask) — pass the SAME ask when
+    available so a real-but-tied citation gets one more chance to resolve before D1
+    gives up on it.
+    """
     claims = extract_citation_claims(text)
     verdicts: list[ValidityVerdict] = []
     for claim in claims:
-        if hasattr(co, "resolve_rel"):
-            resolved = co.resolve_rel(claim.cite.file)
-        else:
-            resolved = claim.cite.file if co.file_exists(claim.cite.file) else None
+        resolved, ambiguous = _resolve_for_validity(co, claim, ask=ask)
         if resolved is None or claim.cite.line is None:
-            # Unresolvable/hallucinated citation: no code window to judge -> conservative
-            # UNSUPPORTED, and we never spend an ensemble call on it.
+            # Truly unresolvable (ABSENT, or still-AMBIGUOUS after the R2 disambiguator
+            # had its shot): no definitive code window to judge -> conservative
+            # UNSUPPORTED, and we never spend an ensemble call on it. A bare-but-REAL
+            # citation the R1 layered resolver pinned to exactly one candidate reaches
+            # the `code = ...` branch below instead (the R5 fix — never auto-UNSUPPORTED
+            # just because the path was bare).
             verdicts.append(ValidityVerdict(claim=claim, verdict="UNSUPPORTED"))
             continue
         code = co.read_window(resolved, claim.cite.line) or ""

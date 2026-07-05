@@ -104,6 +104,43 @@ def test_annotate_empty_text_returns_empty():
 
 
 # ---------------------------------------------------------------------------
+# resolver-fix-spec.md R5 — ambiguous citations get a NEUTRAL tag, never the
+# "does not exist" hallucination tag.
+# ---------------------------------------------------------------------------
+
+def test_ambiguous_keys_only_flags_ambiguous_verdicts():
+    verdicts = [
+        _verdict("real.py", 1),                                      # neither
+        _verdict("ghost.py", 99, file_ok=False),                     # hallucinated
+    ]
+    from tier_c.investigator import CitationVerdict
+    ambiguous_verdict = CitationVerdict(
+        cite=Citation("noqa.rs", 10, None), file_ok=False, line_ok=False,
+        symbol_ok=True, relevant=True, ambiguous=True,
+    )
+    from tier_c.annotate import ambiguous_keys
+    keys = ambiguous_keys(verdicts + [ambiguous_verdict])
+    assert keys == {("noqa.rs", 10, None)}
+
+
+def test_annotate_tags_ambiguous_citation_neutrally_not_as_hallucinated():
+    text = "The fix likely touches noqa.rs:10 based on context."
+    out = annotate_arm_text(text, hallucinated=set(), contradicted=set(),
+                            ambiguous={("noqa.rs", 10, None)})
+    assert "[AMBIGUOUS PATH]" in out
+    assert "[CITED LOCATION DOES NOT EXIST]" not in out, (
+        "R5: a real-but-unpinnable citation must NEVER read as fabrication"
+    )
+
+
+def test_annotate_ambiguous_default_empty_set_is_backward_compatible():
+    """Existing 2-kwarg callers (hallucinated=, contradicted=) must be unaffected."""
+    text = "See real.py:1 for context."
+    out = annotate_arm_text(text, hallucinated=set(), contradicted=set())
+    assert out == text
+
+
+# ---------------------------------------------------------------------------
 # run_annotated_detectability — pooled, mirrors test_tc_detect.py's own guarantees
 # ---------------------------------------------------------------------------
 

@@ -23,12 +23,25 @@ from .claims import sentence_spans
 
 _HALLUC_TAG = " [CITED LOCATION DOES NOT EXIST]"
 _CONTRA_TAG = " [CODE CONTRADICTS THIS CLAIM]"
+_AMBIG_TAG = " [AMBIGUOUS PATH]"
 
 
 def hallucinated_keys(verdicts) -> set[tuple]:
     """(file, line, symbol) keys for citations the D0 investigator flagged as
-    hallucinated (CitationVerdict.is_hallucination) — from InvestigatorReport.verdicts."""
+    hallucinated (CitationVerdict.is_hallucination) — from InvestigatorReport.verdicts.
+
+    resolver-fix-spec.md R5: `is_hallucination` already excludes AMBIGUOUS citations
+    (real line, unpinnable) — this is the fix for D3's false-tagging of bare-but-real
+    off-arm citations as "[CITED LOCATION DOES NOT EXIST]". See ambiguous_keys() for
+    the separate, neutral tag those citations may get instead."""
     return {(v.cite.file, v.cite.line, v.cite.symbol) for v in verdicts if v.is_hallucination}
+
+
+def ambiguous_keys(verdicts) -> set[tuple]:
+    """(file, line, symbol) keys for citations the resolver marked AMBIGUOUS (real
+    line, >=2 candidate files, unpinnable) — NEVER the hallucination tag; optionally a
+    neutral [AMBIGUOUS PATH] tag via annotate_arm_text's `ambiguous=` kwarg."""
+    return {(v.cite.file, v.cite.line, v.cite.symbol) for v in verdicts if v.is_ambiguous}
 
 
 def contradicted_keys(validity_verdict_dicts: list[dict] | None) -> set[tuple]:
@@ -41,11 +54,17 @@ def contradicted_keys(validity_verdict_dicts: list[dict] | None) -> set[tuple]:
     }
 
 
-def annotate_arm_text(text: str, *, hallucinated: set[tuple], contradicted: set[tuple]) -> str:
+def annotate_arm_text(text: str, *, hallucinated: set[tuple], contradicted: set[tuple],
+                      ambiguous: set[tuple] = frozenset()) -> str:
     """Insert inline tags right after each citation occurrence whose key is flagged.
     Mechanical + deterministic; the SAME procedure runs on both arms with whatever keys
-    THAT arm's own verdicts produced (symmetric by construction, not itself a tell)."""
-    if not text or (not hallucinated and not contradicted):
+    THAT arm's own verdicts produced (symmetric by construction, not itself a tell).
+
+    `ambiguous` (resolver-fix-spec.md R5, optional/default empty — existing 2-kwarg
+    callers are unaffected) gets a NEUTRAL `[AMBIGUOUS PATH]` tag — never the
+    "does not exist" hallucination tag, per the load-bearing principle that a
+    real-but-unpinnable citation must never read as fabrication."""
+    if not text or (not hallucinated and not contradicted and not ambiguous):
         return text
     spans = sentence_spans(text)
     inserts: list[tuple[int, str]] = []
@@ -54,6 +73,8 @@ def annotate_arm_text(text: str, *, hallucinated: set[tuple], contradicted: set[
         tag = ""
         if (cite.file, cite.line, cite.symbol) in hallucinated:
             tag += _HALLUC_TAG
+        elif (cite.file, cite.line, cite.symbol) in ambiguous:
+            tag += _AMBIG_TAG
         if (cite.file, cite.line, cite.symbol, sentence) in contradicted:
             tag += _CONTRA_TAG
         if tag:
