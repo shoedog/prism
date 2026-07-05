@@ -200,8 +200,9 @@ close-out; the per-round detail lives in the plan doc's status blocks and
   first-enqueue depth-lock relaxation (pinned deterministic);
   `src/reasoning/taint_reaches.rs` at 631 lines — module split.
 
-- Nested-test-module `use super::*` callers gap — `known_fail` fixture
-  `eval/fixtures/rust/nested_test_module_glob_gap/` flips to `flip_candidate` when fixed.
+- ~~Nested-test-module `use super::*` callers gap~~ — **DONE (#166)**: anchor-only globs
+  (`super::*`/`crate::*`/`self::*`) resolve via `ResolutionPolicy::glob_anchor_expands`;
+  832 prism-self globs newly resolved. The fixture flipped `known_fail`→`pass`.
 - Pointer-embedded Go fields (`*Listener`) silently dropped by `extract_one_field`
   (tree-sitter emits a bare `*` token; `type_str == "*"` → strip → empty → drop) —
   pre-existing, affects the shipped embedding feature AND P11's S2/S4; fails safe.

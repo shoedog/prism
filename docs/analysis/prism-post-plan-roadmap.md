@@ -21,7 +21,7 @@ Ranked by blast-radius-per-effort:
 
 | # | Item | Why / measured signal | Effort |
 |---|---|---|---|
-| 1 | **Nested-test-module `use super::*` callers gap** (Rust) | Affects every nested-test-module caller in every Rust repo, macro or not; `known_fail` fixture `rust/nested_test_module_glob_gap` flips to `flip_candidate` when fixed; root cause known (empty pending glob paths poisoned at engine.rs before the `super` anchor resolves) | M |
+| 1 | ~~**Nested-test-module `use super::*` callers gap** (Rust)~~ **DONE (#166, 2026-07-05)** | Was: no caller edge from a nested module relying on `use super::*`. Fixed via `ResolutionPolicy::glob_anchor_expands` (anchor-only globs `super::*`/`crate::*`/`self::*` resolve through the existing expansion arm). Measured self-host: 832 globs newly resolved, `glob_expand.external` −72.5%. Also fixed `crate::*`/`self::*`/`super::super::*` (same shape). | ✅ |
 | 2 | **Return-flow taint** (callee-return → caller-LHS) | P14's declared non-goal — descent finds sinks *inside* callees but tainted returns are invisible; needs Step-5b-class edge construction (`x = f(user)` where f returns its tainted param/source) | M–L |
 | 3 | **GoOwnerIdentity clause/build-partition blindness** (P13 M1) | field_typed / interface-dispatch Exact can cross `foo`/`foo_test` + build partitions; measured small (`go_owner_identity_profile_conflict`: etcd 1, prometheus 5); re-key = P11-lane blast radius — schedule deliberately, not urgently | M |
 | 4 | **Multi-line-call Step-5b arg gap** (new, P14 spec review M1) | `g(\n user\n)` gets no arg→param edge (arg lookup at `site.line`); silently NotReached; pinned by a Stage-A test | S–M |
