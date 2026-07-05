@@ -1,7 +1,7 @@
-# Pipeline lessons — multi-agent P-item execution (rounds 1–7, 2026-07-02 → 2026-07-04)
+# Pipeline lessons — multi-agent P-item execution (rounds 1–8, 2026-07-02 → 2026-07-04; plan complete)
 
-Durable lessons from executing `docs/analysis/prism-llm-and-accuracy-plan.md` items P1–P13
-(PRs #149–#164) via the owner-approved pipeline: codex gpt-5.5 xhigh spec review →
+Durable lessons from executing `docs/analysis/prism-llm-and-accuracy-plan.md` items P1–P14
+(PRs #149–#165, the complete plan) via the owner-approved pipeline: codex gpt-5.5 xhigh spec review →
 Sonnet implementers in isolated worktrees (TDD) → Opus task review ∥ codex impl review →
 fix waves → codex re-review of fix deltas → owner merge. Update this file at each round
 close-out; the per-round detail lives in the plan doc's status blocks and
@@ -9,9 +9,12 @@ close-out; the per-round detail lives in the plan doc's status blocks and
 
 ## Process lessons
 
-1. **Re-review the fix delta, always.** Through round 7: **nine of ten** codex
+1. **Re-review the fix delta, always.** Through round 8: **ten of eleven** codex
    re-reviews of fix waves caught a real defect in the fix itself (P3, P5, P7, P6bc,
-   P8, P10, P9×2, P11, P13). The defects live at the *fix×interaction* layer — the fix is
+   P8, P10, P9×2, P11, P13, P14 — where the wave-1 re-review found the fix's
+   bypass check collapsing a 3-valued verdict space; see lesson 15). Counting note:
+   whole-branch/impl reviews finding pre-fix defects are a SEPARATE (also excellent)
+   layer — don't launder them into this record. The defects live at the *fix×interaction* layer — the fix is
    locally correct but breaks caching, incremental rebuilds, a parallel copy, or an
    adjacent behavior. The ONE clean re-review (P12) is itself instructive: its fix
    DERIVED the new sizing function from the real serializer instead of
@@ -108,6 +111,23 @@ close-out; the per-round detail lives in the plan doc's status blocks and
     verdict was then re-verified the same way (all 8 defect shapes reproduced fixed
     end-to-end). A reproduced defect also can't be argued away in the fix wave.
 
+15. **A reachability boolean is not a verdict.** P14's bypass re-walk tested
+    `frontier.contains(sink)` where the verdict space is three-valued
+    (Reached / BoundaryExited / NotReached) — the middle value silently collapsed
+    into the wrong verdict (`Sanitized` outranked by the truth). When a fix
+    re-derives an outcome the system already classifies, route it through the SAME
+    classifier the primary path uses (`reachability_for_node_from_ordered`), never a
+    projection of it. The projection compiles; the classifier is the contract.
+
+16. **Prescribe the WHY with the HOW — implementers can catch prescription bugs.**
+    P14 fix wave 1: the controller prescribed chain-scoped sanitizer-hop exclusion;
+    the Sonnet implementer hand-traced the both-sanitized case, showed chain-scoping
+    mis-verdicts it, and shipped tree-scoped exclusion instead — correct, and
+    controller-verified sound in both failure directions. The brief carried the
+    invariant ("Sanitized only if removing the proven cuts disconnects the sink"),
+    which is what let the implementer test the prescription against it. A
+    HOW-only prescription would have shipped the controller's bug.
+
 ## Engineering doctrines (bind reviewers and implementers)
 
 1. **Consumer-visibility doctrine** (rounds 2–5, codex-ruled): uncertainty tiers need
@@ -173,6 +193,12 @@ close-out; the per-round detail lives in the plan doc's status blocks and
     false Exacts, fail-open silently forfeits the win.
 
 ## Follow-up queue (durable, self-tracking where possible)
+
+- P14 deferrals: return-flow taint (no callee-return→caller-LHS edges exist);
+  multi-line-call args have no Step-5b edge (pinned by
+  `test_multi_line_call_shape_is_currently_not_descended`); recursion descent;
+  first-enqueue depth-lock relaxation (pinned deterministic);
+  `src/reasoning/taint_reaches.rs` at 631 lines — module split.
 
 - Nested-test-module `use super::*` callers gap — `known_fail` fixture
   `eval/fixtures/rust/nested_test_module_glob_gap/` flips to `flip_candidate` when fixed.
