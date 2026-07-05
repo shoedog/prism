@@ -1,0 +1,19 @@
+[case]
+language = "rust"
+capability = "super_super_glob_caller"
+# `use super::super::*;` flattens to an EMPTY-path glob anchored at
+# `Super(2)` — two module hops instead of one (glob-anchor-fix, 2026-07-04).
+# Proves the fix generalizes past the single-`super`/`nested_test_module_glob_gap`
+# shape. See
+# `tests/name_resolution/anchor_glob_test.rs::super_super_glob_resolves` for
+# the library-level pin.
+status = "pass"
+[seed]
+symbol = "target"
+file = "main.rs"
+line = 1
+[[expect.callers]]
+file = "main.rs"
+line = 10
+[expect]
+exact = true

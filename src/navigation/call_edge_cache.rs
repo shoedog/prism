@@ -30,7 +30,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // sites resolve and at what kind, changing nav topology.
 // v9: P13 — Go package/build profile partitioning changes same-package
 // free-function and receiver-fact resolution confidence/topology.
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 9;
+// v10: glob-anchor-fix — Rust `use super::*`/`crate::*`/`self::*` (an
+// empty-path glob with a meaningful anchor) now resolves instead of
+// poisoning, changing which Rust call sites resolve out of nested
+// modules/blocks that relied on an anchor-only glob, changing nav topology.
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 10;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -353,8 +357,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_9() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 9);
+    fn sidecar_version_is_10() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 10);
     }
 
     #[test]

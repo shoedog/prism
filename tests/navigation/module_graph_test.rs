@@ -203,6 +203,46 @@ fn module_deps_rust_resolves_named_type_external_and_glob_imports() {
 }
 
 #[test]
+fn module_deps_rust_cross_file_super_glob_resolves() {
+    // `use super::*` flattens to an EMPTY-path glob with a meaningful anchor
+    // (`Super(1)`) — the module-dep view is TARGET-MODULE-FILE resolution (a
+    // `*` dependency on the anchor's own module file), not member expansion.
+    // `nested.rs` is an out-of-line `mod nested;` so `super::*` is a genuine
+    // CROSS-FILE dependency back onto `lib.rs`.
+    let s = rust_session(&[
+        ("src/lib.rs", "pub fn target() -> i32 { 1 }\nmod nested;\n"),
+        (
+            "src/nested.rs",
+            "use super::*;\nfn f() -> i32 { target() }\n",
+        ),
+    ]);
+    let ev = module_deps(&s, "src/nested.rs");
+
+    assert!(
+        has_resolved_import(&ev, "*", "src/lib.rs"),
+        "super::* must resolve to a '*' dependency on the parent module's file"
+    );
+
+    let repo = repo_map(&s);
+    assert!(repo_map_has_edge(&repo, "src/nested.rs", "src/lib.rs"));
+
+    // Same-file `super::*` must NOT mint a self-dependency (module_graph.rs's
+    // existing "a module doesn't depend on itself" filter) — an inline nested
+    // module inside lib.rs itself reaching back to lib.rs via `super::*`.
+    let same_file = rust_session(&[(
+        "src/lib.rs",
+        "pub fn target() -> i32 { 1 }\nmod local {\n    use super::*;\n    fn g() -> i32 { target() }\n}\n",
+    )]);
+    let same_file_ev = module_deps(&same_file, "src/lib.rs");
+    assert!(
+        !resolved_import_targets(&same_file_ev)
+            .iter()
+            .any(|target| target == "src/lib.rs"),
+        "a same-file super::* must not create a self-dependency edge"
+    );
+}
+
+#[test]
 fn module_deps_rust_reexport_chain_targets_defining_file() {
     let s = rust_session(&[
         ("src/lib.rs", "pub mod a;\npub mod b;\nmod c;\n"),

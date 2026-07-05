@@ -119,7 +119,14 @@ use std::path::{Path, PathBuf};
 ///   per-file Go package/build profiles plus P13 telemetry counters; Go
 ///   same-package free-function and receiver-fact recovery now partition by
 ///   package clause and build constraints.
-const CACHE_VERSION: u32 = 39; // 39: Go build-profile same-package partitioning.
+/// - v40: glob-anchor-fix — Rust `use super::*`/`crate::*`/`self::*` (an
+///   EMPTY-path glob with a meaningful anchor) now resolves through the
+///   scope-graph engine instead of poisoning; `ResolutionPolicy` gains
+///   `glob_anchor_expands`, consulted at the engine's glob poison gate and
+///   `resolve_path_guarded`'s empty-segs branch (resolution behavior change:
+///   new Rust caller edges out of nested modules/blocks that relied on an
+///   anchor-only glob to bring a bare name into scope).
+const CACHE_VERSION: u32 = 40; // 40: Rust anchor-only glob (super::*/crate::*/self::*) resolution.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -637,10 +644,10 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_39_for_go_build_profile_partitioning() {
-        // v39: P13 Go build-profile same-package partitioning. One
-        // transition ships per PR.
-        assert_eq!(super::CACHE_VERSION, 39);
+    fn cache_version_is_40_for_rust_anchor_only_glob_resolution() {
+        // v40: glob-anchor-fix — Rust super::*/crate::*/self::* resolution.
+        // One transition ships per PR.
+        assert_eq!(super::CACHE_VERSION, 40);
     }
 
     #[test]

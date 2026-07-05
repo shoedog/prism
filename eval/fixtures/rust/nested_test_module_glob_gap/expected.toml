@@ -1,26 +1,23 @@
 [case]
 language = "rust"
 capability = "nested_test_module_glob_gap"
-# DURABLE gap diagnosis (opus Minor + codex-confirmed independently, P8 fix
-# wave 2026-07-03): a bare (unqualified) call from inside a nested module
-# that relies on `use super::*` (a glob import) to bring the callee into
-# scope does not resolve through the bare-name lookup ladder, regardless of
-# `#[cfg(test)]`/`#[test]`/macro-wrapping -- this is PRE-EXISTING and
-# orthogonal to the P8 macro-argument-call-extraction work (confirmed
-# identical on unmodified pre-P8 `main`). Root cause, three anchors:
-#   - scopes.rs:256 ("use_wildcard" => ...) -- `use super::*` flattens to a
-#     glob UseItem whose path can be empty (bare `super::*` with no further
-#     segments);
-#   - engine.rs:551 (`if let BindTarget::Pending(path, _) = &e.to`) -- the
-#     engine POISONS an empty-path pending glob rather than expanding it;
-#   - rust_policy.rs:182 (`fn ascend_to_parent`) -- Rust's bare-name lookup
-#     already stops at the enclosing Module/Root boundary, so even a
-#     non-poisoned glob only has one rib to search.
-# TODAY this reports "expected_gap" (does not match expect.callers below).
-# When the glob-expansion gap is fixed, this fixture flips to
-# "flip_candidate" -- that flip IS the durable follow-up signal; update
-# `status` to "pass" at that point.
-status = "known_fail"
+# FIXED 2026-07-04 (glob-anchor-fix): a bare (unqualified) call from inside a
+# nested module that relies on `use super::*` (a glob import) to bring the
+# callee into scope now resolves. Root cause was `use super::*` flattening to
+# an EMPTY-path glob with a meaningful anchor (`Anchor::super_n(1)`) that two
+# engine sites poisoned/discarded outright:
+#   - engine.rs glob-loop poison gate -- ANY empty-path pending glob poisoned,
+#     discarding the anchor before it could be interpreted;
+#   - engine.rs `resolve_path_guarded` -- hard-returned `unresolved()` for
+#     empty segs before ever anchoring.
+# Fix: `ResolutionPolicy::glob_anchor_expands(&Anchor) -> bool` (default
+# false; Rust true for CrateRoot|SelfMod|Super(_) ONLY -- NOT the poison
+# sentinel's Bare anchor, NOT UsePath/LeadingColon) gates both sites so an
+# anchor-only glob resolves to its anchor's scope and runs the normal member
+# lookup + precision discipline, while the `poison_scope` sentinel (missing
+# mod / parse-failed target -- the IDENTICAL empty-path+pending shape, Bare
+# anchor) still poisons. See `tests/name_resolution/anchor_glob_test.rs`.
+status = "pass"
 [seed]
 symbol = "target"
 file = "main.rs"
