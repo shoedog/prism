@@ -341,7 +341,7 @@ fn multiline_function_symbol_seed_resolves_parameter_node() {
 }
 
 #[test]
-fn cross_function_sink_reports_boundary_exited_and_warning() {
+fn cross_function_sink_reached_via_exact_descent() {
     let fixture = fixture(&[(
         "app.py",
         "def g(p):\n    sink(p)\n\ndef f():\n    user = input()\n    g(user)\n",
@@ -359,19 +359,151 @@ fn cross_function_sink_reports_boundary_exited_and_warning() {
     )
     .expect("taint_reaches");
 
-    assert_eq!(
-        evidence.reasoning.as_ref().unwrap().reachability,
-        Some(Reachability::BoundaryExited)
-    );
+    let reasoning = evidence.reasoning.as_ref().expect("reasoning summary");
+    assert_eq!(reasoning.reachability, Some(Reachability::Reached));
+    assert!(!evidence.warnings.iter().any(|warning| {
+        matches!(
+            &warning.kind,
+            WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary { .. })
+        )
+    }));
+    let graph = evidence.graph.as_ref().expect("witness graph");
     assert!(
-        evidence.warnings.iter().any(|warning| {
-            matches!(
-                &warning.kind,
-                WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary { .. })
-            )
-        }),
-        "boundary witness mode should emit an interprocedural warning"
+        graph.edges.iter().any(|edge| edge.kind == "CallDescent"),
+        "descent edge should be represented in witness graph"
     );
+}
+
+#[test]
+fn name_only_backed_hop_stays_boundary_exited() {
+    let fixture = fixture(&[
+        ("app.py",
+         "class A:\n    def m(self, p):\n        sink(p)\n\ndef f(obj):\n    user = input()\n    obj.m(user)\n",
+        )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 6,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 3,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let reasoning = evidence.reasoning.as_ref().expect("reasoning summary");
+    assert_eq!(reasoning.reachability, Some(Reachability::BoundaryExited));
+    assert!(evidence.warnings.iter().any(|warning| {
+        matches!(
+            &warning.kind,
+            WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary { .. })
+        )
+    }));
+}
+
+#[test]
+fn descent_depth_bound_yields_boundary_exited() {
+    let fixture = fixture(&[
+        ("app.py",
+         "def h(p):\n    sink(p)\n\ndef g(p):\n    h(p)\n\ndef f(p):\n    g(p)\n\ndef top():\n    user = input()\n    f(user)\n",
+        )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 11,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let reasoning = evidence.reasoning.as_ref().expect("reasoning summary");
+    assert_eq!(reasoning.reachability, Some(Reachability::BoundaryExited));
+    assert!(reasoning.per_sink.iter().all(|sink| {
+        matches!(
+            &sink.sink,
+            SymbolRef::Variable { path, .. } if path == "p"
+                && sink.sources.iter().any(|source| source.reachability == Reachability::BoundaryExited)
+        )
+    }));
+    assert!(evidence.warnings.iter().any(|warning| {
+        matches!(
+            &warning.kind,
+            WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary { .. })
+        )
+    }));
+}
+
+#[test]
+fn descended_witness_surface() {
+    // T4b: the witness graph carries a `CallDescent` edge and `descent_depth` records the number of
+    // descent hops on the winning witness chain — both Stage B (additive) surfaces.
+    let fixture = fixture(&[(
+        "app.py",
+        "def g(p):\n    sink(p)\n\ndef f():\n    user = input()\n    g(user)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 5,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Reached);
+    assert_eq!(source.descent_depth, 1);
+
+    let graph = evidence.graph.as_ref().expect("witness graph");
+    assert!(
+        graph.edges.iter().any(|e| e.kind == "CallDescent"),
+        "witness graph must contain the descent edge: {:?}",
+        graph.edges
+    );
+}
+
+#[test]
+fn frontier_mode_has_descended_frontier() {
+    let fixture = fixture(&[(
+        "app.py",
+        "def g(p):\n    sink(p)\n\ndef f():\n    user = input()\n    g(user)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 5,
+        }],
+        None,
+    )
+    .expect("taint_reaches");
+
+    let reasoning = evidence.reasoning.as_ref().expect("reasoning summary");
+    assert!(reasoning.reachability.is_none());
+    assert!(reasoning.per_sink.is_empty());
+    assert!(
+        evidence.items.iter().any(
+            |item| matches!(&item.symbol, Some(SymbolRef::Variable { path, .. }) if path == "p")
+        ),
+        "frontier should include reached callee sink argument through descent"
+    );
+    assert_eq!(evidence.graph, None);
+    assert!(!evidence.warnings.iter().any(|warning| {
+        matches!(
+            &warning.kind,
+            WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary { .. })
+        )
+    }));
 }
 
 #[test]
@@ -394,15 +526,15 @@ fn field_qualified_call_argument_reports_boundary_exited() {
     .expect("taint_reaches");
 
     let reasoning = evidence.reasoning.as_ref().expect("reasoning summary");
-    assert_eq!(reasoning.reachability, Some(Reachability::BoundaryExited));
+    assert_eq!(reasoning.reachability, Some(Reachability::Reached));
     assert!(
-        evidence.warnings.iter().any(|warning| {
+        !evidence.warnings.iter().any(|warning| {
             matches!(
                 &warning.kind,
                 WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary { .. })
             )
         }),
-        "field-qualified arg->param flow should be recorded as an interprocedural boundary"
+        "field-qualified arg->param flow may descend, so no boundary warning"
     );
 }
 
@@ -856,6 +988,76 @@ fn python_tainted_non_data_kwarg_is_not_a_sanitizer_transition() {
     assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
 }
 
+// --- P14 Stage B: sanitizer contract survives interprocedural descent ----------------------
+
+#[test]
+fn sanitize_then_pass_across_descent_is_sanitized() {
+    // The sanitizer transition (`safe = html.escape(user)`) is INTRA-caller; `safe` is then passed
+    // across an Exact-gated descent into `g`, which sinks the (now-sanitized) parameter directly.
+    // The transition is provable independent of the descent hop, so the verdict must stay Sanitized.
+    let fixture = fixture(&[(
+        "app.py",
+        "def g(p):\n    sink(p)\n\ndef f():\n    user = input()\n    safe = html.escape(user)\n    g(safe)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 5,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Sanitized);
+    assert_eq!(source.sanitized_by.len(), 1, "{:?}", source.sanitized_by);
+    assert_eq!(source.sanitized_by[0].callee_text, "html.escape");
+    assert_eq!(
+        source.descent_depth, 1,
+        "the winning witness chain crosses exactly one descent hop"
+    );
+
+    let graph = evidence.graph.as_ref().expect("witness graph");
+    assert!(
+        graph.edges.iter().any(|e| e.kind == "CallDescent"),
+        "witness graph must retain the descent edge alongside the sanitizer step: {:?}",
+        graph.edges
+    );
+}
+
+#[test]
+fn callee_body_sanitizer_bypass_stays_reached() {
+    // `g` sanitizes its param into an unused local (`safe = html.escape(p)`) but sinks the RAW `p`
+    // directly. The sanitizer transition never runs on the value that reaches the sink, so the
+    // verdict must stay Reached. This also pins that the arg->param `CallDescent` window itself is
+    // never (mis)evaluated as a sanitizer transition.
+    let fixture = fixture(&[(
+        "app.py",
+        "def g(p):\n    safe = html.escape(p)\n    sink(p)\n\ndef f():\n    user = input()\n    g(user)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 6,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 3,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Reached);
+    assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+    assert_eq!(source.descent_depth, 1);
+}
+
 #[test]
 fn python_keyword_data_arg_is_a_sanitizer_transition() {
     // `html.escape(s=user)` — the tainted value IS passed via the data kwarg by name. This is a
@@ -881,4 +1083,224 @@ fn python_keyword_data_arg_is_a_sanitizer_transition() {
     assert_eq!(source.reachability, Reachability::Sanitized);
     assert_eq!(source.sanitized_by.len(), 1, "{:?}", source.sanitized_by);
     assert_eq!(source.sanitized_by[0].callee_text, "html.escape");
+}
+
+// --- P14 fix-wave BLOCKER: bypass-proven `Sanitized` (a `Sanitized` downgrade must be sound
+// against every route to the sink, not just whichever first-enqueue-wins chain happened to reach
+// it first). See src/reasoning/taint_reaches.rs's `witness_mode` and
+// src/reasoning/sanitizer_walk.rs's `sanitizer_bypass_exclusions`. ---
+
+#[test]
+fn sanitizer_bypass_via_second_call_stays_reached() {
+    // T-F1, THE regression pin. `g(safe)` is called before `g(raw)`; `g`'s single physical
+    // parameter node is a confluence point, so first-enqueue-wins dedup means the ONLY witness
+    // chain that can ever reach the sink winds through `safe` (the sanitized value) — but
+    // `g(raw)` proves an actual, unsanitized route ALSO reaches the sink. Before this fix, the
+    // sanitizer transition proven on the (sole, arbitrarily-selected) winning chain downgraded
+    // the verdict to `Sanitized` even though `raw` bypasses it entirely: a false `Sanitized`.
+    let fixture = fixture(&[(
+        "app.py",
+        "def g(p):\n    sink(p)\n\ndef f():\n    user = input()\n    safe = html.escape(user)\n    raw = user\n    g(safe)\n    g(raw)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 5,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Reached);
+    assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+}
+
+#[test]
+fn both_calls_sanitized_is_sanitized() {
+    // T-F2: `g(safe1); g(safe2)` — BOTH arguments are, SEPARATELY, sanitizer outputs. Only ONE of
+    // the two sanitizer transitions can ever appear on any single witness chain to `g`'s shared
+    // parameter node (first-enqueue-wins), but excluding BOTH proven transitions (found by
+    // scanning the whole first-parent tree, not just the winning chain) disconnects the sink
+    // entirely — the verdict must be `Sanitized`.
+    let fixture = fixture(&[(
+        "app.py",
+        "def g(p):\n    sink(p)\n\ndef f():\n    user = input()\n    safe1 = html.escape(user)\n    safe2 = html.escape(user)\n    g(safe1)\n    g(safe2)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 5,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Sanitized);
+    assert!(!source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+}
+
+#[test]
+fn callee_internal_sanitizer_covers_all_entries() {
+    // T-F3: `g(a); g(b)` — two DIFFERENT callers reach `g`'s shared parameter, but the sanitizer
+    // transition sits INSIDE `g`, downstream of the confluence node (`safe = html.escape(p);
+    // sink(safe)`). Whichever caller wins the race, its flow still passes through the same proven
+    // transition before the sink — cutting it disconnects every entry, so the verdict must be
+    // `Sanitized`.
+    let fixture = fixture(&[(
+        "app.py",
+        "def g(p):\n    safe = html.escape(p)\n    sink(safe)\n\ndef f():\n    a = input()\n    b = a\n    g(a)\n    g(b)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 6,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 3,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Sanitized);
+    assert!(!source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+}
+
+#[test]
+fn intra_function_confluence_bypass_stays_reached() {
+    // T-F4: the intra-function analogue of T-F1's hazard, with NO interprocedural descent
+    // involved at all. `x = safe or raw` gives `x`'s Def node two same-line `Use` parents (`safe`
+    // and `raw`) via `AssignmentPropagation` — a genuine confluence node, just like a shared
+    // callee parameter. `safe` is sanitized; `raw` is the raw source value; first-enqueue-wins
+    // means the ORIGINAL winning chain reaches `x` via `safe` (so the old chain-scoped check would
+    // wrongly downgrade to `Sanitized`), but `raw`'s route bypasses the sanitizer just as `g(raw)`
+    // does in T-F1. Verdict must stay Reached.
+    let fixture = fixture(&[(
+        "app.py",
+        "def f():\n    user = input()\n    safe = html.escape(user)\n    raw = user\n    x = safe or raw\n    sink(x)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 6,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Reached);
+    assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+}
+
+// --- P14 fix-wave 2 (fix-delta re-review, gpt-5.5 xhigh): the bypass re-walk must be
+// verdict-classified with the three-valued `reachability_for_node_from_ordered` helper, not raw
+// frontier membership; and `descent_depth` must describe whichever chain is actually displayed. ---
+
+#[test]
+fn sanitized_exact_plus_nameonly_boundary_stays_boundary_exited() {
+    // W1: `a = A(); a.m(safe)` is an Exact-descendable call (constructor-typed receiver `a`)
+    // whose argument is sanitized (`safe = html.escape(user)`); `obj.m(user)` is a SEPARATE,
+    // NameOnly-backed call (untyped receiver `obj`, single-owner fallback) passing the RAW value
+    // into the SAME method's parameter. The raw (unexcluded) walk reaches the sink only through
+    // the Exact/sanitized route (the NameOnly hop is refused by the descent gate and recorded as
+    // a boundary instead), so `raw_reachability == Reached` and the sanitizer transition is
+    // proven on that one chain. Excluding it and re-walking leaves ONLY the NameOnly boundary
+    // hop into `m`'s parameter — a residual that reaches a callee BOUNDARY, not a proven cut. The
+    // truth is `BoundaryExited` (it outranks `Sanitized`); the pre-fix code tested raw frontier
+    // membership only, saw the sink absent from the re-walk's frontier, and reported `Sanitized`.
+    let fixture = fixture(&[(
+        "app.py",
+        "class A:\n    def m(self, p):\n        sink(p)\n\ndef f(obj):\n    user = input()\n    safe = html.escape(user)\n    a = A()\n    a.m(safe)\n    obj.m(user)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 6,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 3,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(
+        source.reachability,
+        Reachability::BoundaryExited,
+        "a NameOnly residual boundary must not be reported as a proven Sanitized cut"
+    );
+    assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+    assert_eq!(source.descent_depth, 0);
+    assert!(evidence.warnings.iter().any(|warning| {
+        matches!(
+            &warning.kind,
+            WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary { .. })
+        )
+    }));
+}
+
+#[test]
+fn descent_depth_matches_displayed_bypass_chain() {
+    // W2: `h(safe)` is a DIRECT, one-hop descent whose argument is sanitized; `w(raw)` reaches
+    // the SAME sink (`h`'s parameter, via `w`'s own body forwarding to `h(p)`) through an extra
+    // Exact wrapper hop — two `CallDescent` windows instead of one. The direct/sanitized route is
+    // shorter, so it wins the original (unexcluded) first-parent chain to the sink — its
+    // `descent_depth` is 1. Excluding the proven sanitizer transition and re-walking leaves ONLY
+    // the wrapper route, which still reaches the sink (`Reached`, a genuine bypass) with
+    // `descent_depth` 2. The witness graph is re-rendered along the bypass (wrapper) chain, so the
+    // wire's `descent_depth` must describe THAT chain (2), not the original sanitized one (1).
+    let fixture = fixture(&[(
+        "app.py",
+        "def h(p):\n    sink(p)\n\ndef w(p):\n    h(p)\n\ndef f():\n    user = input()\n    safe = html.escape(user)\n    raw = user\n    h(safe)\n    w(raw)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 8,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Reached);
+    assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+
+    let graph = evidence.graph.as_ref().expect("witness graph");
+    let displayed_descent_edges = graph
+        .edges
+        .iter()
+        .filter(|e| e.kind == "CallDescent")
+        .count();
+    assert_eq!(
+        source.descent_depth, displayed_descent_edges,
+        "wire descent_depth must match the CallDescent edges of the DISPLAYED (bypass) witness graph"
+    );
+    assert_eq!(
+        source.descent_depth, 2,
+        "the displayed bypass chain routes through the wrapper (w -> h), not the direct sanitized call"
+    );
 }

@@ -734,6 +734,7 @@ mod tests {
                                 file: "a.py".into(),
                                 line: 2,
                             }],
+                            descent_depth: 0,
                         }],
                         sources_omitted: 0,
                     },
@@ -746,6 +747,7 @@ mod tests {
                             graph_node: Some(3),
                             sanitizers_present_in_source_fn: vec![],
                             sanitized_by: vec![],
+                            descent_depth: 0,
                         }],
                         sources_omitted: 0,
                     },
@@ -796,6 +798,7 @@ mod tests {
                             graph_node: Some(i * 2 + 1),
                             sanitizers_present_in_source_fn: vec![format!("sanitizer_{i}")],
                             sanitized_by: vec![],
+                            descent_depth: 0,
                         }],
                         sources_omitted: 0,
                     })
@@ -848,6 +851,7 @@ mod tests {
                                 "sanitizer_{i}_with_extra_context"
                             )],
                             sanitized_by: vec![],
+                            descent_depth: 0,
                         })
                         .collect(),
                     sources_omitted: 0,
@@ -1213,6 +1217,7 @@ mod tests {
                             file: "a.py".into(),
                             line: 1,
                         }],
+                        descent_depth: 0,
                     }],
                     sources_omitted: 0,
                 }],
@@ -1242,6 +1247,125 @@ mod tests {
             .unwrap()
             .iter()
             .any(|e| e["kind"] == "SanitizedBy"));
+    }
+
+    #[test]
+    fn prune_graph_to_reasoning_keeps_descended_path() {
+        // P14: `prune_graph_to_reasoning`'s ancestor-of-sink walk is direction-based (edge.to ->
+        // edge.from), not relation-based, so a `"CallDescent"` edge (an ordinary arg->param
+        // backward-ancestor edge, same shape as DataFlow/AssignmentPropagation) should already survive
+        // it — verify that empirically instead of assuming it, and pin that an UNRELATED node (not on
+        // the sink's ancestor chain) is still dropped, proving real pruning still happens.
+        let ev = Evidence {
+            query: "taint_reaches".into(),
+            items: vec![],
+            truncated: false,
+            warnings: vec![],
+            graph: Some(GraphPayload {
+                nodes: vec![
+                    GraphNode {
+                        symbol: None,
+                        location: Location {
+                            file: "app.py".into(),
+                            start_line: 6,
+                            end_line: 6,
+                            start_byte: 0,
+                            end_byte: 1,
+                        },
+                    }, // 0: arg use in caller (root/source side)
+                    GraphNode {
+                        symbol: None,
+                        location: Location {
+                            file: "app.py".into(),
+                            start_line: 1,
+                            end_line: 1,
+                            start_byte: 1,
+                            end_byte: 2,
+                        },
+                    }, // 1: param def in callee, across the descent hop
+                    GraphNode {
+                        symbol: None,
+                        location: Location {
+                            file: "app.py".into(),
+                            start_line: 2,
+                            end_line: 2,
+                            start_byte: 2,
+                            end_byte: 3,
+                        },
+                    }, // 2: sink use in callee (the requested sink endpoint)
+                    GraphNode {
+                        symbol: None,
+                        location: Location {
+                            file: "app.py".into(),
+                            start_line: 9,
+                            end_line: 9,
+                            start_byte: 3,
+                            end_byte: 4,
+                        },
+                    }, // 3: unrelated decoy node, not on the sink's ancestor chain
+                ],
+                edges: vec![
+                    GraphEdge {
+                        from: 0,
+                        to: 1,
+                        kind: "CallDescent".into(),
+                    },
+                    GraphEdge {
+                        from: 1,
+                        to: 2,
+                        kind: "DataFlow".into(),
+                    },
+                ],
+            }),
+            reasoning: Some(ReasoningSummary {
+                reachability: Some(Reachability::Reached),
+                per_sink: vec![SinkResult {
+                    sink: sym("sink"),
+                    reachability: Reachability::Reached,
+                    sources: vec![SinkSourceResult {
+                        source: sym("source"),
+                        reachability: Reachability::Reached,
+                        graph_node: Some(2),
+                        sanitizers_present_in_source_fn: vec![],
+                        sanitized_by: vec![],
+                        descent_depth: 1,
+                    }],
+                    sources_omitted: 0,
+                }],
+                source_count: 1,
+                frontier_count: 3,
+                sinks_omitted: 0,
+            }),
+        };
+        // No clip/omission on this fixture (`retained == total == 1`), so `prune_graph_to_reasoning`
+        // (not the sink/byte-cap clip paths) is the one exercised.
+        let r = shape_result(
+            ev,
+            1,
+            false,
+            Verbosity::Detailed,
+            100_000,
+            StructuredContentMode::Always,
+        );
+        let v: serde_json::Value = serde_json::from_str(&r.content_text).unwrap();
+        let nodes = v["graph"]["nodes"].as_array().unwrap();
+        assert_eq!(
+            nodes.len(),
+            3,
+            "the descended ancestor chain (arg use, param def, sink use) must survive; the decoy must not: {nodes:?}"
+        );
+        assert!(
+            v["graph"]["edges"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|e| e["kind"] == "CallDescent"),
+            "{v}"
+        );
+        assert_eq!(
+            v["reasoning"]["per_sink"][0]["sources"][0]["descent_depth"], 1,
+            "{v}"
+        );
     }
 
     #[test]

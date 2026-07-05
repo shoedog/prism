@@ -1,0 +1,19 @@
+# Boundary control for MAX_TAINT_DESCENT_DEPTH (2).
+# Exact descent is allowed for hops `top` -> `f` and `f` -> `g`, but stops at
+# `g` -> `h` because that would be hop 3.
+# Probe:
+# `prism nav taint-reaches --repo eval/fixtures/python/taint_descent_depth_bound
+#  --source app.py:12 --sink app.py:2 --format json` ->
+# reasoning.reachability == "BoundaryExited", and an InterproceduralBoundary warning
+# is emitted.
+[case]
+language = "python"
+capability = "taint_descent_depth_bound"
+status = "pass"
+probe = "taint"
+[taint]
+sources = ["app.py:12"]
+sinks = ["app.py:2"]
+[expect]
+reachability = "BoundaryExited"
+warning_kinds_present = ["InterproceduralBoundary"]

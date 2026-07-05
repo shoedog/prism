@@ -77,6 +77,33 @@ fn demoted_callee_scores_0_6_with_resolution_reason() {
 // as a nav-visible candidate edge — score 0.6 (NameOnly) with the
 // `r6_multi_owner_candidate` resolution reason, not a silent drop.
 #[test]
+fn taint_boundary_negative_fixture_candidate_remains_name_only() {
+    let s = session(&[
+        (
+            "app.py",
+            "class A:\n    def m(self, p):\n        return p\n\ndef f(obj):\n    user = input()\n    obj.m(user)\n",
+        ),
+    ]);
+    let ev = queries::callees(&s, Some("f"), Some("app.py"), None, 1).unwrap();
+    let item = ev
+        .items
+        .iter()
+        .find(|i| {
+            matches!(
+                &i.symbol,
+                Some(SymbolRef::Function { file, name, .. })
+                    if file == "app.py" && name == "m"
+            )
+        })
+        .expect("single-owner NameOnly callee for fixture shape");
+    assert_eq!(item.score, 0.6);
+    assert!(item
+        .why
+        .iter()
+        .any(|r| matches!(r, Reason::Resolution { kind } if kind == "r6_single_owner")));
+}
+
+#[test]
 fn multi_owner_candidate_callee_scores_0_6_with_resolution_reason() {
     let s = session(&[
         (

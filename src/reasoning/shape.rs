@@ -219,21 +219,20 @@ pub fn witness_graph_for_node(
         });
     }
 
+    let relations = window_relations(trace, root, &chain);
     let mut edges = Vec::new();
-    for w in chain.windows(2) {
+    for (w, relation) in chain.windows(2).zip(relations) {
         let (from, to) = (w[0], w[1]);
         if from == to {
             continue;
         }
-        let relation = root
-            .and_then(|r| trace.parents_by_root.get(&(r, to)))
-            .map(|(_, rel)| *rel);
         // Exhaustive over `Option<Relation>` (no `_` wildcard): a new `Relation` variant must be a
         // compile error here, not a silent `"DataFlow"` mislabel that freezes into Plan B's wire shape.
         let kind = match relation {
             Some(Relation::DataFlow) | None => "DataFlow",
             Some(Relation::AssignmentPropagation) => "AssignmentPropagation",
             Some(Relation::RecoveredDefUse) => "RecoveredDefUse",
+            Some(Relation::CallDescent) => "CallDescent",
         };
         edges.push(GraphEdge {
             from: idx_of[&from],
@@ -242,6 +241,27 @@ pub fn witness_graph_for_node(
         });
     }
     Some(GraphPayload { nodes, edges })
+}
+
+/// Per-window `Relation` label for `chain.windows(2)`, recovered from `parents_by_root` — the SAME
+/// recovery pattern the witness-graph edge-kind labeling below already performs. Entry `i` is the
+/// relation for the edge `(chain[i], chain[i+1])`; `None` when `root` is unknown or no parent record
+/// exists for that window (the wire boundary treats an absent relation as `"DataFlow"`, matching the
+/// exhaustive match in [`witness_graph_for_chain`]). Exposed so
+/// `reasoning::sanitizer_walk::sanitized_hits_on_chain` (P14 §S4) can skip `CallDescent` windows
+/// without re-deriving relations from bytes.
+pub fn window_relations(
+    trace: &Trace,
+    root: Option<NodeIndex>,
+    chain: &[NodeIndex],
+) -> Vec<Option<Relation>> {
+    chain
+        .windows(2)
+        .map(|w| {
+            root.and_then(|r| trace.parents_by_root.get(&(r, w[1])))
+                .map(|(_, rel)| *rel)
+        })
+        .collect()
 }
 
 /// Ordered witness chain `root..=sink` (root/source first, sink last), or `None` if `sink` is not
@@ -309,17 +329,18 @@ pub fn witness_graph_for_chain(
 ) -> (GraphPayload, BTreeMap<NodeIndex, usize>) {
     let (nodes, idx_of) = chain_nodes(cpg, chain);
 
+    let relations = window_relations(trace, Some(root), chain);
     let mut edges = Vec::new();
-    for w in chain.windows(2) {
+    for (w, relation) in chain.windows(2).zip(relations) {
         let (from, to) = (w[0], w[1]);
         if from == to {
             continue;
         }
-        let relation = trace.parents_by_root.get(&(root, to)).map(|(_, rel)| *rel);
         let kind = match relation {
             Some(Relation::DataFlow) | None => "DataFlow",
             Some(Relation::AssignmentPropagation) => "AssignmentPropagation",
             Some(Relation::RecoveredDefUse) => "RecoveredDefUse",
+            Some(Relation::CallDescent) => "CallDescent",
         };
         edges.push(GraphEdge {
             from: idx_of[&from],
@@ -595,8 +616,8 @@ mod tests {
             Reachability::Reached
         );
         assert_eq!(
-            reachability_at(&cpg, &trace, "test.py", 2), // sink(p) inside g — taint exits to a callee
-            Reachability::BoundaryExited
+            reachability_at(&cpg, &trace, "test.py", 2), // sink(p) inside g — exact callee edge now descends
+            Reachability::Reached
         );
         assert_eq!(
             reachability_at(&cpg, &trace, "test.py", 5), // w = 1 — genuinely unrelated
@@ -650,7 +671,7 @@ mod tests {
             .expect("p use inside g on the one-liner");
         assert_eq!(
             reachability_for_node(&cpg, &trace, p_use),
-            Reachability::BoundaryExited
+            Reachability::Reached
         );
     }
 
@@ -682,7 +703,7 @@ mod tests {
         // The function is multi-line (so the param `p` Def IS registered, via the line-2 use) and a
         // boundary to `p Def@1` IS recorded — but `data_flow.rs` drops the def→use edge to the
         // same-line `sink(p)` use (`ref_line == start`). The param-binding bridge must still classify
-        // that sink BoundaryExited; otherwise it is an unsafe false negative for a path taint crosses.
+        // that sink now descends; otherwise it is an unsafe false negative for a path taint crosses.
         let cpg = js_cpg(
             "function g(p) { sink(p);\n  log(p); }\nfunction f() {\n  var u = input();\n  g(u);\n}\n",
         );
@@ -690,7 +711,7 @@ mod tests {
         let p_sink_use = use_node(&cpg, 1, "g", "p"); // the sink(p) argument on the signature line
         assert_eq!(
             reachability_for_node(&cpg, &trace, p_sink_use),
-            Reachability::BoundaryExited,
+            Reachability::Reached,
             "taint into a same-signature-line param use must not be a false negative"
         );
     }
@@ -724,8 +745,8 @@ mod tests {
         let q_sink_use = use_node(&cpg, 2, "g", "q");
         assert_eq!(
             reachability_for_node(&cpg, &trace, q_sink_use),
-            Reachability::BoundaryExited,
-            "taint through a same-line local def-then-use inside a callee must not be a false negative"
+            Reachability::Reached,
+            "taint through a same-line local def-then-use inside a callee reaches via descent"
         );
     }
 

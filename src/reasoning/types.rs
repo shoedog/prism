@@ -125,6 +125,16 @@ pub struct SinkSourceResult {
     /// byte-identical to pre-P10.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub sanitized_by: Vec<SanitizerSite>,
+    /// P14: number of `Relation::CallDescent` windows on the winning witness chain for this
+    /// (sink, source) pair — 0 means the chain never left the source's own function. Additive;
+    /// `#[serde(skip_serializing_if)]` omits the field entirely when zero so every pre-P14 wire
+    /// output (and every intra-function verdict today) stays byte-identical.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub descent_depth: usize,
+}
+
+fn is_zero(n: &usize) -> bool {
+    *n == 0
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -464,6 +474,7 @@ mod tests {
                         graph_node: None,
                         sanitizers_present_in_source_fn: vec![],
                         sanitized_by: vec![],
+                        descent_depth: 0,
                     },
                     SinkSourceResult {
                         source: sym("boundary"),
@@ -471,6 +482,7 @@ mod tests {
                         graph_node: None,
                         sanitizers_present_in_source_fn: vec![],
                         sanitized_by: vec![],
+                        descent_depth: 0,
                     },
                     SinkSourceResult {
                         source: sym("culprit"),
@@ -478,6 +490,7 @@ mod tests {
                         graph_node: Some(0),
                         sanitizers_present_in_source_fn: vec![],
                         sanitized_by: vec![],
+                        descent_depth: 0,
                     },
                 ],
                 sources_omitted: 0,
@@ -514,6 +527,7 @@ mod tests {
                         graph_node: None,
                         sanitizers_present_in_source_fn: vec![],
                         sanitized_by: vec![],
+                        descent_depth: 0,
                     },
                     SinkSourceResult {
                         source: sym("first"),
@@ -521,6 +535,7 @@ mod tests {
                         graph_node: Some(0),
                         sanitizers_present_in_source_fn: vec![],
                         sanitized_by: vec![],
+                        descent_depth: 0,
                     },
                 ],
                 sources_omitted: 0,
@@ -556,6 +571,7 @@ mod tests {
                     graph_node: Some(3),
                     sanitizers_present_in_source_fn: vec!["html".into()],
                     sanitized_by: vec![],
+                    descent_depth: 0,
                 }],
                 sources_omitted: 0,
             }],

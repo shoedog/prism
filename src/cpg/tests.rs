@@ -731,23 +731,217 @@ fn test_taint_trace_skips_non_variable_dataflow_neighbors() {
 }
 
 #[test]
-fn test_taint_trace_records_boundary_at_param_def() {
-    let src = "def g(p):\n    sink(p)\n\ndef f():\n    u = input()\n    g(u)\n";
+fn test_descended_parent_chain_crosses_functions() {
+    let src = r#"def g(p):
+    sink(p)
+
+def f():
+    user = input()
+    g(user)
+"#;
     let cpg = build_python_cpg(src);
     let trace = cpg.taint_trace(&[("test.py".to_string(), 5usize)]);
+
+    let root = cpg
+        .nodes_at("test.py", 5)
+        .into_iter()
+        .find(|&n| {
+            cpg.to_var_location(n)
+                .is_some_and(|l| l.path.to_string() == "user")
+        })
+        .expect("source node");
+    let callee_param = cpg
+        .nodes_at("test.py", 1)
+        .into_iter()
+        .find(|&n| {
+            cpg.to_var_location(n)
+                .is_some_and(|l| l.path.to_string() == "p")
+        })
+        .expect("callee parameter");
+    let callee_sink = cpg
+        .nodes_at("test.py", 2)
+        .into_iter()
+        .find(|&n| {
+            cpg.to_var_location(n)
+                .is_some_and(|l| l.path.to_string() == "p")
+        })
+        .expect("callee sink");
+
+    let (_parent, rel) = trace
+        .parents_by_root
+        .get(&(root, callee_param))
+        .copied()
+        .expect("callee parameter should be descended");
+    assert!(matches!(rel, Relation::CallDescent));
+    assert!(trace.in_frontier(callee_param));
+    assert!(trace.in_frontier(callee_sink));
+}
+
+#[test]
+fn test_self_call_param_stays_boundary() {
+    let src = r#"def f(p):
+    user = input()
+    f(user)
+
+    sink(p)
+"#;
+    let cpg = build_python_cpg(src);
+    let trace = cpg.taint_trace(&[("test.py".to_string(), 2usize)]);
+
+    let callee_param = cpg
+        .nodes_at("test.py", 1)
+        .into_iter()
+        .find(|&n| {
+            cpg.to_var_location(n)
+                .is_some_and(|l| l.path.to_string() == "p")
+        })
+        .expect("self-call parameter");
+
+    assert!(trace
+        .boundary
+        .iter()
+        .any(|be| be.to == callee_param && be.kind == BoundaryKind::SelfFunctionParam));
+}
+
+#[test]
+fn test_two_same_line_same_name_calls_do_not_descend() {
+    let src = r#"def g(p):
+    sink(p)
+
+def f():
+    user = input()
+    g(user); g(user)
+"#;
+    let cpg = build_python_cpg(src);
+    let trace = cpg.taint_trace(&[("test.py".to_string(), 5usize)]);
+
+    let g_param = cpg
+        .nodes_at("test.py", 1)
+        .into_iter()
+        .find(|&n| {
+            cpg.to_var_location(n)
+                .is_some_and(|l| l.path.to_string() == "p")
+        })
+        .expect("callee parameter");
+
+    let _root = cpg
+        .nodes_at("test.py", 5)
+        .into_iter()
+        .find(|&n| {
+            cpg.to_var_location(n)
+                .is_some_and(|l| l.path.to_string() == "user")
+        })
+        .expect("root");
+
+    assert!(!trace.in_frontier(g_param));
+    assert!(trace
+        .boundary
+        .iter()
+        .any(|be| be.to == g_param && be.kind == BoundaryKind::CrossFunction));
+}
+
+#[test]
+fn test_mutual_recursion_reentry_is_not_cfg_pruned() {
+    let src = r#"def f(p):
+    x = p
+    g(x)
+    sink(p)
+
+def g(q):
+    f(q)
+
+def top():
+    user = input()
+    f(user)
+"#;
+    let cpg = build_python_cpg(src);
+    let trace = cpg.taint_trace(&[("test.py".to_string(), 10usize)]);
+    let sink = cpg
+        .nodes_at("test.py", 4)
+        .into_iter()
+        .find(|&n| {
+            cpg.to_var_location(n)
+                .is_some_and(|l| l.path.to_string() == "p")
+        })
+        .expect("re-entered sink");
+
+    assert!(trace.in_frontier(sink));
+}
+
+#[test]
+fn test_multi_line_call_shape_is_currently_not_descended() {
+    let src = r#"def g(p):
+    sink(p)
+
+def f():
+    user = input()
+    g(
+        user
+    )
+"#;
+    let cpg = build_python_cpg(src);
+    let trace = cpg.taint_trace(&[("test.py".to_string(), 5usize)]);
+    let g_param = cpg
+        .nodes_at("test.py", 1)
+        .into_iter()
+        .find(|&n| {
+            cpg.to_var_location(n)
+                .is_some_and(|l| l.path.to_string() == "p")
+        })
+        .expect("callee parameter");
+
     assert!(
-        !trace.boundary.is_empty(),
-        "u flows into g's param across a function boundary"
+        !trace.in_frontier(g_param),
+        "multi-line call is an out-of-scope Stage A pin"
     );
-    for be in &trace.boundary {
-        assert!(
-            !trace.in_frontier(be.to),
-            "cross-function target not traversed"
-        );
-        if let Some(loc) = cpg.to_var_location(be.to) {
-            assert_eq!(loc.function, "g", "boundary target is g's parameter");
-        }
-    }
+}
+
+#[test]
+fn test_shared_callee_first_enqueue_depth_lock_is_deterministic() {
+    let src = r#"def h(p):
+    sink(p)
+
+def g1(x):
+    h(x)
+
+def g2(x):
+    h(x)
+
+def f():
+    user = input()
+    g1(user)
+    g2(user)
+"#;
+    let cpg = build_python_cpg(src);
+    let (user, source_line) = (10..=14)
+        .find_map(|line| {
+            cpg.nodes_at("test.py", line).into_iter().find_map(|n| {
+                cpg.to_var_location(n)
+                    .and_then(|loc| (loc.path.to_string() == "user").then_some((n, loc.line)))
+            })
+        })
+        .expect("source");
+    let h_param = cpg
+        .nodes_at("test.py", 1)
+        .into_iter()
+        .find(|&n| {
+            cpg.to_var_location(n)
+                .is_some_and(|l| l.path.to_string() == "p")
+        })
+        .expect("shared callee param");
+
+    let trace_a = cpg.taint_trace(&[("test.py".to_string(), source_line)]);
+    let trace_b = cpg.taint_trace(&[("test.py".to_string(), source_line)]);
+
+    assert_eq!(
+        trace_a.parents_by_root.get(&(user, h_param)),
+        trace_b.parents_by_root.get(&(user, h_param)),
+        "parent recovery for shared callee must be deterministic"
+    );
+    assert!(trace_a
+        .parents_by_root
+        .get(&(user, h_param))
+        .is_some_and(|&(_, rel)| rel == Relation::CallDescent));
 }
 
 #[test]

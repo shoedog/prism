@@ -1,7 +1,7 @@
-def g(p):
-    sink(p)
+class A:
+    def m(self, p):
+        sink(p)
 
-
-def f():
+def f(obj):
     user = input()
-    g(user)
+    obj.m(user)
