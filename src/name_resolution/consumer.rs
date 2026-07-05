@@ -12,7 +12,7 @@ use crate::name_resolution::rust_policy::{RustPolicy, NS_MACRO, NS_TYPE, NS_VALU
 use crate::name_resolution::rust_populator::enclosing_scope;
 use crate::name_resolution::types::{
     Anchor, AnchorKind, BindTarget, Binding, Candidate, CfgCtx, Edge, FileId, PolicyQueryCtx,
-    RawPath, ResStatus, Resolution, ResolveQuery, ScopeId, SourceLoc, Target,
+    RawPath, ResStatus, Resolution, ResolutionPolicy, ResolveQuery, ScopeId, SourceLoc, Target,
 };
 
 /// A Rust import-like graph artifact that can contribute a module-deps edge.
@@ -157,7 +157,21 @@ fn resolve_glob_path(
     from: ScopeId,
 ) -> ResolvedImport {
     if path.0.is_empty() {
-        return ResolvedImport::Unresolved;
+        // An anchor-only glob (`super::*`/`crate::*`/`self::*`) — module-dep view:
+        // this is TARGET-MODULE-FILE resolution (a `*` dependency on the anchor's
+        // OWN module file), not member expansion. Same predicate gate as the engine
+        // (Site A/B in `engine.rs`): only `CrateRoot`/`SelfMod`/`Super(_)` expand;
+        // the poison-sentinel `Bare` shape and a malformed empty-path `UsePath`/
+        // `LeadingColon` stay `Unresolved` here too (spec-review [F1]).
+        let policy = RustPolicy::new(graph, graph.edition);
+        return if policy.glob_anchor_expands(anchor) {
+            match policy.anchor(anchor, from) {
+                Some((scope, _ns)) => import_from_target(graph, &Target::Scope(scope)),
+                None => ResolvedImport::Unresolved,
+            }
+        } else {
+            ResolvedImport::Unresolved
+        };
     }
     let Some(at) = scope_loc(graph, from) else {
         return ResolvedImport::Unresolved;

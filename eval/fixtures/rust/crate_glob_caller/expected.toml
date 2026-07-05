@@ -1,0 +1,18 @@
+[case]
+language = "rust"
+capability = "crate_glob_caller"
+# `use crate::*;` flattens to an EMPTY-path glob anchored at `CrateRoot` — the
+# adjacent anchor-only-glob shape to `nested_test_module_glob_gap`'s
+# `super::*` (glob-anchor-fix, 2026-07-04). See
+# `tests/name_resolution/anchor_glob_test.rs::crate_glob_resolves_bare_call`
+# for the library-level pin.
+status = "pass"
+[seed]
+symbol = "target"
+file = "main.rs"
+line = 1
+[[expect.callers]]
+file = "main.rs"
+line = 9
+[expect]
+exact = true

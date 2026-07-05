@@ -548,8 +548,18 @@ fn glob_lookup_inner(
         {
             continue;
         }
-        if let BindTarget::Pending(path, _) = &e.to {
-            if path.0.is_empty() {
+        if let BindTarget::Pending(path, anchor) = &e.to {
+            // An empty-path pending glob is either an anchor-only glob
+            // (`super::*`/`crate::*`/`self::*` — flattens to an empty path +
+            // a meaningful anchor, see `rust_populator::scopes::anchor_of_segments`)
+            // OR the engine's poison sentinel (`rust_populator::builder::poison_scope`
+            // — a Bare-anchored empty-path pending glob for a missing-mod/parse-failed
+            // target module). The two shapes differ ONLY in `anchor.kind`; the policy
+            // (never the engine — `AnchorKind` is policy-owned) decides which is which.
+            // When the anchor does NOT expand (the sentinel, or a non-production empty
+            // `UsePath`/`LeadingColon`), poison exactly as before. When it DOES expand,
+            // fall through unchanged to the expansion arm below (Site B anchors it).
+            if path.0.is_empty() && !policy.glob_anchor_expands(anchor) {
                 guard.stats().record_external();
                 return GlobOutcome::Poison;
             }
@@ -730,7 +740,33 @@ fn resolve_path_guarded(
 ) -> Resolution {
     let segs = &path.0;
     if segs.is_empty() {
-        return unresolved();
+        // An anchor-only glob (`super::*`/`crate::*`/`self::*`) flattens to an
+        // empty path + a meaningful anchor (Site A above lets it reach here only
+        // when `policy.glob_anchor_expands(anchor)` is true). Resolve directly to
+        // the anchor's OWN scope as a `Resolved` singleton — mirroring how the
+        // non-empty-path walk below returns its final scope — so the caller (the
+        // glob-expansion arm) runs its member lookup + full precision discipline
+        // (has_unknown → poison, multi → poison, depth guard) against it. Keep
+        // consistent with Site A: an anchor that does NOT expand (the poison
+        // sentinel's Bare anchor, or a non-production empty `UsePath`/
+        // `LeadingColon`) falls through `unresolved()` exactly as before — it
+        // should never reach this arm anyway (Site A poisons it first), but this
+        // is the direct Site-B-in-isolation guarantee.
+        return if policy.glob_anchor_expands(anchor) {
+            match policy.anchor(anchor, from) {
+                Some((scope, _ns)) => Resolution {
+                    candidates: vec![Candidate {
+                        target: Target::Scope(scope),
+                        cond: CfgCond::True,
+                        provenance: Default::default(),
+                    }],
+                    status: ResStatus::Resolved,
+                },
+                None => unresolved(),
+            }
+        } else {
+            unresolved()
+        };
     }
     // Anchor the starting scope. `None` ⇒ conservative fall-through.
     let (mut scope, _start_ns) = match policy.anchor(anchor, from) {
