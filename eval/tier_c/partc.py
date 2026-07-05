@@ -103,6 +103,19 @@ class PartCCell:
     gate: dict = None           # type: ignore[assignment]
     head_to_head: dict = field(default_factory=dict)
 
+    # -----------------------------------------------------------------
+    # Scorecard v2 — D1-D4 (see rubric-v2-report.md). Each is a SEPARATE
+    # field; none collapse into precision/recall/bundle_delta above.
+    # -----------------------------------------------------------------
+    validity_off: dict = field(default_factory=dict)             # D1: claim-support rate (off arm)
+    validity_on: dict = field(default_factory=dict)               # D1: claim-support rate (on arm)
+    relational: dict = field(default_factory=dict)                 # D2: {"off","on","delta"} relational-fact accuracy
+    head_to_head_annotated: dict = field(default_factory=dict)    # D3: fact-annotated H2H verdict
+    annotated_off_text: str = ""                                   # D3: machine-annotated off-arm text (pooled detectability input)
+    annotated_on_text: str = ""                                    # D3: machine-annotated on-arm text
+    nav_eff_off: dict = field(default_factory=dict)                # D4: navigation efficiency (off arm)
+    nav_eff_on: dict = field(default_factory=dict)                 # D4: navigation efficiency (on arm)
+
     def __post_init__(self):
         # Supply empty-breakdown dicts for callers that don't provide them
         if self.off_breakdown is None:
@@ -237,6 +250,39 @@ def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
     head_to_head = (comps.head_to_head(off_out, on_out, cell)
                     if hasattr(comps, "head_to_head") else {})
 
+    # --- D1: citation VALIDITY (judged; optional comps hook — hasattr-gated exactly
+    # like head_to_head above, so pre-existing minimal test fakes are unaffected). ---
+    if hasattr(comps, "score_validity"):
+        validity_off = comps.score_validity(off_out.text, arm="base")
+        validity_on = comps.score_validity(on_out.text, arm="on")
+    else:
+        validity_off, validity_on = {}, {}
+
+    # --- D2: relational-fact accuracy (mechanical; optional comps hook). ---
+    relational = (comps.score_relational(off_out.text, on_out.text, cell=cell)
+                 if hasattr(comps, "score_relational") else {})
+
+    # --- D3: fact-annotated head-to-head. Annotation itself is PURE/mechanical (no
+    # comps hook needed) — built straight from D0's hallucination verdicts + D1's
+    # CONTRADICTED claims, which are already in scope. Only the ensemble comparison
+    # over the annotated pair is hasattr-gated. ---
+    from .annotate import annotate_arm_text, contradicted_keys, hallucinated_keys
+    hall_off = hallucinated_keys(off_rep.verdicts)
+    hall_on = hallucinated_keys(on_rep.verdicts)
+    contra_off = contradicted_keys(validity_off.get("verdicts", []))
+    contra_on = contradicted_keys(validity_on.get("verdicts", []))
+    annotated_off_text = annotate_arm_text(off_out.text, hallucinated=hall_off, contradicted=contra_off)
+    annotated_on_text = annotate_arm_text(on_out.text, hallucinated=hall_on, contradicted=contra_on)
+    head_to_head_annotated = (
+        comps.head_to_head_annotated(annotated_off_text, annotated_on_text, cell)
+        if hasattr(comps, "head_to_head_annotated") else {}
+    )
+
+    # --- D4: navigation efficiency (mechanical, free — no comps hook, no judge). ---
+    from .naveff import nav_efficiency, nav_efficiency_to_dict
+    nav_eff_off = nav_efficiency_to_dict(nav_efficiency(off_out, valid_citations=off_breakdown["valid"]))
+    nav_eff_on = nav_efficiency_to_dict(nav_efficiency(on_out, valid_citations=on_breakdown["valid"]))
+
     # Step 9: token/cost/wall accounting — total tokens = input + output per arm
     in_tokens_off  = off_out.in_tokens
     out_tokens_off = off_out.tokens
@@ -281,6 +327,14 @@ def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
         on_verdicts=on_verdicts,
         gate=gate,
         head_to_head=head_to_head,
+        validity_off=validity_off,
+        validity_on=validity_on,
+        relational=relational,
+        head_to_head_annotated=head_to_head_annotated,
+        annotated_off_text=annotated_off_text,
+        annotated_on_text=annotated_on_text,
+        nav_eff_off=nav_eff_off,
+        nav_eff_on=nav_eff_on,
     )
 
 
@@ -358,4 +412,64 @@ def render_partc(cells: list[PartCCell]) -> str:
         if h2h:
             esc = " (opus tiebreak)" if h2h.get("escalated") else ""
             lines.append(f"  head-to-head spec quality: {h2h.get('winner','?')}{esc}")
+
+        # --- Scorecard v2 (D0-D4): every dimension gets its OWN line — never collapsed
+        # into a single number (owner rubric-a). Each block only prints when populated,
+        # so cells built without the v2 wiring (older fixtures/fakes) render unchanged. ---
+
+        # D0: recall — a SEPARATE axis from precision (see partc.py's run_partc_cell).
+        if c.recall_on is not None or c.recall_base is not None:
+            ro = c.recall_base if c.recall_base is not None else 0.0
+            rn = c.recall_on if c.recall_on is not None else 0.0
+            lines.append(
+                f"  D0 recall (claim-coverage): off {ro:.3f}  on {rn:.3f}  Δ{rn - ro:+.3f}"
+            )
+
+        # D1: citation validity (claim-support rate; CONTRADICTED reported separately).
+        vo, vn = (c.validity_off or {}), (c.validity_on or {})
+        if vo or vn:
+            lines.append(
+                f"  D1 validity: off support {vo.get('support_rate', 0.0):.3f} "
+                f"({vo.get('total', 0)} claims, {vo.get('contradicted', 0)} contradicted)"
+                f"  on support {vn.get('support_rate', 0.0):.3f} "
+                f"({vn.get('total', 0)} claims, {vn.get('contradicted', 0)} contradicted)"
+            )
+
+        # D2: relational-fact accuracy (precision excludes UNKNOWN; UNKNOWN rate shown).
+        rel = c.relational or {}
+        if rel:
+            rel_off, rel_on = rel.get("off", {}), rel.get("on", {})
+            lines.append(
+                f"  D2 relational: off prec {rel_off.get('precision', 0.0):.3f} "
+                f"(unknown {rel_off.get('unknown_rate', 0.0):.0%})"
+                f"  on prec {rel_on.get('precision', 0.0):.3f} "
+                f"(unknown {rel_on.get('unknown_rate', 0.0):.0%})"
+                f"  Δ{rel.get('delta', 0.0):+.3f}"
+            )
+
+        # D3: fact-annotated head-to-head, alongside the blind verdict for comparison —
+        # DIVERGENCE (off wins blind, on wins annotated, or vice versa) is the finding.
+        h2ha = c.head_to_head_annotated or {}
+        if h2ha:
+            diverges = bool(h2h) and h2h.get("winner") != h2ha.get("winner")
+            note = "  <- DIVERGES from blind head-to-head" if diverges else ""
+            lines.append(f"  D3 annotated head-to-head: {h2ha.get('winner', '?')}{note}")
+
+        # D4: navigation efficiency (mechanical, free — totals, not first-citation timing).
+        no, nn = (c.nav_eff_off or {}), (c.nav_eff_on or {})
+        if no or nn:
+            def _rate(v):
+                return "n/a" if v is None else f"{v:.0%}"
+            def _cost(v):
+                return "n/a" if v is None else f"${v:.4f}"
+            lines.append(
+                f"  D4 nav-eff: off calls={no.get('tool_calls', 0)} "
+                f"wall={no.get('wall_s', 0.0):.1f}s wasted={_rate(no.get('wasted_exploration_rate'))} "
+                f"$/valid={_cost(no.get('cost_per_valid_citation'))}"
+            )
+            lines.append(
+                f"              on  calls={nn.get('tool_calls', 0)} "
+                f"wall={nn.get('wall_s', 0.0):.1f}s wasted={_rate(nn.get('wasted_exploration_rate'))} "
+                f"$/valid={_cost(nn.get('cost_per_valid_citation'))}"
+            )
     return "\n".join(lines)
