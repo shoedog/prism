@@ -1,0 +1,23 @@
+# P14 stage-a
+# Interprocedural call descent fixture now expects reachability "Reached"
+# on the exact call chain `f` -> `g`: call-site recovery and exact target match
+# both succeed, so taint is allowed to descend instead of stopping at a
+# boundary. For false-positive safety, this gate still requires Exact and depth
+# <= 2.
+#
+# Probe:
+# `prism nav taint-reaches --repo eval/fixtures/python/taint_cross_function_positive
+#  --source app.py:6 --sink app.py:2 --format json` ->
+# reasoning.reachability == "Reached",
+# warning_kinds_present does NOT include InterproceduralBoundary,
+# and witness.edges includes "CallDescent".
+[case]
+language = "python"
+capability = "taint_cross_function_positive"
+status = "pass"
+probe = "taint"
+[taint]
+sources = ["app.py:6"]
+sinks = ["app.py:2"]
+[expect]
+reachability = "Reached"

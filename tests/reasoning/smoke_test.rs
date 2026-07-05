@@ -21,6 +21,6 @@ fn taint_trace_reachability_end_to_end() {
     );
     assert_eq!(
         reachability_at(&cpg, &trace, "test.py", 2),
-        Reachability::BoundaryExited
+        Reachability::Reached
     );
 }

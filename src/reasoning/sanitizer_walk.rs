@@ -65,6 +65,14 @@ pub fn sanitized_hits_on_chain(
     let mut seen = BTreeSet::new();
     for window in chain.windows(2) {
         let (use_idx, def_idx) = (window[0], window[1]);
+        let (Some(use_loc), Some(def_loc)) =
+            (cpg.to_var_location(use_idx), cpg.to_var_location(def_idx))
+        else {
+            continue;
+        };
+        if use_loc.file != def_loc.file || use_loc.function != def_loc.function {
+            continue;
+        };
         if let Some((site, call_start_byte, call_end_byte)) =
             sanitizer_transition(files, cpg, use_idx, def_idx)
         {

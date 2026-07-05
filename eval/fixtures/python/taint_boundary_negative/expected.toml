@@ -1,26 +1,24 @@
-# By-construction taint_reaches fixture (P6b): `user` (source, line 6 in `f`)
-# is only reachable at the sink through a call into `g` (cross-function), so
-# TODAY's contract is reachability = "BoundaryExited" plus the interprocedural
-# boundary warning (src/cpg/trace.rs:317 records the boundary; src/reasoning/
-# shape.rs:99 shapes it to BoundaryExited; pinned at the library level by
-# tests/reasoning/taint_reaches_test.rs::cross_function_sink_reports_boundary_exited_and_warning).
-# Verified against the built binary:
+# This fixture is the negative control for Stage A interprocedural descent.
+# `obj.m(user)` should resolve to a single-owner NameOnly callee (r6_single_owner)
+# at score 0.6, so the Exact-only descent gate must refuse to descend and keep a
+# boundary.
+#
+# Probe:
+# `prism nav callees --repo eval/fixtures/python/taint_boundary_negative --symbol f --file app.py`
+# should include a callee with `reason` == "r6_single_owner" and score 0.6.
+#
 # `prism nav taint-reaches --repo eval/fixtures/python/taint_boundary_negative
-#  --source app.py:6 --sink app.py:2 --format json` ->
+#  --source app.py:7 --sink app.py:3 --format json` ->
 # reasoning.reachability == "BoundaryExited",
 # warnings[].kind == {"Reasoning": {"InterproceduralBoundary": {"sink": "p"}}}.
-#
-# P14 (interprocedural taint descent) is expected to flip this fixture's
-# reachability expectation to "Reached" once cross-function tracing lands --
-# do not "fix" this fixture without updating P14's status first.
 [case]
 language = "python"
 capability = "taint_boundary_negative"
 status = "pass"
 probe = "taint"
 [taint]
-sources = ["app.py:6"]
-sinks = ["app.py:2"]
+sources = ["app.py:7"]
+sinks = ["app.py:3"]
 [expect]
 reachability = "BoundaryExited"
 warning_kinds_present = ["InterproceduralBoundary"]

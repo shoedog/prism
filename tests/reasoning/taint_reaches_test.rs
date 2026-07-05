@@ -341,7 +341,7 @@ fn multiline_function_symbol_seed_resolves_parameter_node() {
 }
 
 #[test]
-fn cross_function_sink_reports_boundary_exited_and_warning() {
+fn cross_function_sink_reached_via_exact_descent() {
     let fixture = fixture(&[(
         "app.py",
         "def g(p):\n    sink(p)\n\ndef f():\n    user = input()\n    g(user)\n",
@@ -359,19 +359,118 @@ fn cross_function_sink_reports_boundary_exited_and_warning() {
     )
     .expect("taint_reaches");
 
-    assert_eq!(
-        evidence.reasoning.as_ref().unwrap().reachability,
-        Some(Reachability::BoundaryExited)
-    );
+    let reasoning = evidence.reasoning.as_ref().expect("reasoning summary");
+    assert_eq!(reasoning.reachability, Some(Reachability::Reached));
+    assert!(!evidence.warnings.iter().any(|warning| {
+        matches!(
+            &warning.kind,
+            WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary { .. })
+        )
+    }));
+    let graph = evidence.graph.as_ref().expect("witness graph");
     assert!(
-        evidence.warnings.iter().any(|warning| {
-            matches!(
-                &warning.kind,
-                WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary { .. })
-            )
-        }),
-        "boundary witness mode should emit an interprocedural warning"
+        graph.edges.iter().any(|edge| edge.kind == "CallDescent"),
+        "descent edge should be represented in witness graph"
     );
+}
+
+#[test]
+fn name_only_backed_hop_stays_boundary_exited() {
+    let fixture = fixture(&[
+        ("app.py",
+         "class A:\n    def m(self, p):\n        sink(p)\n\ndef f(obj):\n    user = input()\n    obj.m(user)\n",
+        )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 6,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 3,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let reasoning = evidence.reasoning.as_ref().expect("reasoning summary");
+    assert_eq!(reasoning.reachability, Some(Reachability::BoundaryExited));
+    assert!(evidence.warnings.iter().any(|warning| {
+        matches!(
+            &warning.kind,
+            WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary { .. })
+        )
+    }));
+}
+
+#[test]
+fn descent_depth_bound_yields_boundary_exited() {
+    let fixture = fixture(&[
+        ("app.py",
+         "def h(p):\n    sink(p)\n\ndef g(p):\n    h(p)\n\ndef f(p):\n    g(p)\n\ndef top():\n    user = input()\n    f(user)\n",
+        )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 11,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let reasoning = evidence.reasoning.as_ref().expect("reasoning summary");
+    assert_eq!(reasoning.reachability, Some(Reachability::BoundaryExited));
+    assert!(reasoning.per_sink.iter().all(|sink| {
+        matches!(
+            &sink.sink,
+            SymbolRef::Variable { path, .. } if path == "p"
+                && sink.sources.iter().any(|source| source.reachability == Reachability::BoundaryExited)
+        )
+    }));
+    assert!(evidence.warnings.iter().any(|warning| {
+        matches!(
+            &warning.kind,
+            WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary { .. })
+        )
+    }));
+}
+
+#[test]
+fn frontier_mode_has_descended_frontier() {
+    let fixture = fixture(&[(
+        "app.py",
+        "def g(p):\n    sink(p)\n\ndef f():\n    user = input()\n    g(user)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 5,
+        }],
+        None,
+    )
+    .expect("taint_reaches");
+
+    let reasoning = evidence.reasoning.as_ref().expect("reasoning summary");
+    assert!(reasoning.reachability.is_none());
+    assert!(reasoning.per_sink.is_empty());
+    assert!(
+        evidence.items.iter().any(
+            |item| matches!(&item.symbol, Some(SymbolRef::Variable { path, .. }) if path == "p")
+        ),
+        "frontier should include reached callee sink argument through descent"
+    );
+    assert_eq!(evidence.graph, None);
+    assert!(!evidence.warnings.iter().any(|warning| {
+        matches!(
+            &warning.kind,
+            WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary { .. })
+        )
+    }));
 }
 
 #[test]
@@ -394,15 +493,15 @@ fn field_qualified_call_argument_reports_boundary_exited() {
     .expect("taint_reaches");
 
     let reasoning = evidence.reasoning.as_ref().expect("reasoning summary");
-    assert_eq!(reasoning.reachability, Some(Reachability::BoundaryExited));
+    assert_eq!(reasoning.reachability, Some(Reachability::Reached));
     assert!(
-        evidence.warnings.iter().any(|warning| {
+        !evidence.warnings.iter().any(|warning| {
             matches!(
                 &warning.kind,
                 WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary { .. })
             )
         }),
-        "field-qualified arg->param flow should be recorded as an interprocedural boundary"
+        "field-qualified arg->param flow may descend, so no boundary warning"
     );
 }
 

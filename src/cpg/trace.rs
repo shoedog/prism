@@ -2,10 +2,24 @@
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
+use crate::resolution::ResolutionConfidence;
+
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 
 use super::{CodePropertyGraph, CpgEdge, CpgNode, VarAccess};
+
+type DescentGateKey = (
+    String, // caller file
+    String, // caller function
+    usize,  // caller function start line
+    usize,  // call site line
+    String, // callee name
+    String, // target function file
+    usize,  // target function start line
+);
+
+pub const MAX_TAINT_DESCENT_DEPTH: usize = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Relation {
@@ -20,6 +34,10 @@ pub enum Relation {
     /// before any Plan B consumer freezes the wire shape. (Not "same-line"-only since round 9 widened
     /// it to the cross-line field-path recovery.)
     RecoveredDefUse,
+    /// Cross-function descent hop that is both an arg->param edge and proven Exact
+    /// across one recovery gate. Stage A keeps it as a taint parent edge for witness
+    /// and leaves a future stage to expose this depth in evidence.
+    CallDescent,
 }
 
 /// A def-use edge crossing a `(file,function,function_start_line)` boundary, recorded but not
@@ -126,6 +144,8 @@ impl CodePropertyGraph {
     pub fn taint_trace(&self, sources: &[(String, usize)]) -> Trace {
         let has_cfg = self.has_cfg_edges();
         let mut trace = Trace::default();
+        let mut descent_gate_cache = BTreeMap::new();
+        let mut depths = BTreeMap::new();
 
         // Dedup `(file,line)` seeds: a repeated seed would re-run an identical BFS and (for a degraded
         // line) push a duplicate warning. `BTreeSet` also keeps iteration deterministic.
@@ -179,59 +199,24 @@ impl CodePropertyGraph {
             let cfg_scope = if has_cfg && (multi_function || self.function_starts_at(file, line)) {
                 trace.degraded = true;
                 trace.warnings.push(format!(
-                    "Seed line {file}:{line} is a function signature / hosts multiple functions; \
-                     using pure-taint fallback"
+                    "Seed line {file}:{line} is a function signature / hosts multiple functions; using pure-taint fallback"
                 ));
                 None
             } else {
                 self.cfg_scope_for_seed(file, line, has_cfg, &mut trace)
             };
             for root in roots {
-                let Some(src_fn) = self.node_file_fn(root) else {
-                    continue;
-                };
-                let mut enqueued: BTreeSet<NodeIndex> = BTreeSet::new();
-                let mut queue = VecDeque::new();
-                if enqueued.insert(root) {
-                    trace.frontier_by_root.entry(root).or_default().insert(root);
-                    queue.push_back(root);
-                }
-                while let Some(node) = queue.pop_front() {
-                    for (next, rel) in self.taint_neighbors(node) {
-                        // Non-Variable DataFlow targets are intentionally skipped (DataFlow currently
-                        // connects Variables; a Statement-mediated edge is not a taint hop). This is
-                        // covered by `test_taint_trace_skips_non_variable_dataflow_neighbors`.
-                        let Some(next_fn) = self.node_file_fn(next) else {
-                            continue;
-                        };
-                        // A neighbor is a boundary (taint exits into a callee v1 doesn't trace) if it
-                        // crosses into a different function, or if a recursive/self call's arg→param
-                        // DataFlow edge lands back in the same function. The edge-sensitive parameter
-                        // test avoids classifying one-line body locals as call boundaries.
-                        if next_fn != src_fn || self.is_parameter_binding_from(node, next, rel) {
-                            let kind = if next_fn != src_fn {
-                                BoundaryKind::CrossFunction
-                            } else {
-                                BoundaryKind::SelfFunctionParam
-                            };
-                            trace.boundary.insert(BoundaryEdge {
-                                root,
-                                from: node,
-                                to: next,
-                                kind,
-                            });
-                            continue;
-                        }
-                        if !self.cfg_valid(&src_fn.0, line, &cfg_scope, has_cfg, next) {
-                            continue;
-                        }
-                        if enqueued.insert(next) {
-                            trace.frontier_by_root.entry(root).or_default().insert(next);
-                            trace.parents_by_root.insert((root, next), (node, rel));
-                            queue.push_back(next);
-                        }
-                    }
-                }
+                self.taint_trace_from_root(
+                    &mut trace,
+                    root,
+                    file,
+                    line,
+                    cfg_scope.as_ref(),
+                    has_cfg,
+                    None,
+                    &mut descent_gate_cache,
+                    &mut depths,
+                );
             }
         }
         trace
@@ -247,6 +232,8 @@ impl CodePropertyGraph {
     ) -> Trace {
         let has_cfg = self.has_cfg_edges();
         let mut trace = Trace::default();
+        let mut descent_gate_cache = BTreeMap::new();
+        let mut depths = BTreeMap::new();
 
         let mut by_line: BTreeMap<(String, usize), BTreeSet<NodeIndex>> = BTreeMap::new();
         for &root in roots {
@@ -288,8 +275,7 @@ impl CodePropertyGraph {
             let cfg_scope = if has_cfg && (multi_function || self.function_starts_at(&file, line)) {
                 trace.degraded = true;
                 trace.warnings.push(format!(
-                    "Seed line {file}:{line} is a function signature / hosts multiple functions; \
-                     using pure-taint fallback"
+                    "Seed line {file}:{line} is a function signature / hosts multiple functions; using pure-taint fallback"
                 ));
                 None
             } else {
@@ -297,50 +283,109 @@ impl CodePropertyGraph {
             };
 
             for root in selected_roots {
-                let Some(src_fn) = self.node_file_fn(root) else {
-                    continue;
-                };
-                let mut enqueued: BTreeSet<NodeIndex> = BTreeSet::new();
-                let mut queue = VecDeque::new();
-                if enqueued.insert(root) {
-                    trace.frontier_by_root.entry(root).or_default().insert(root);
-                    queue.push_back(root);
-                }
-                while let Some(node) = queue.pop_front() {
-                    for (next, rel) in self.taint_neighbors(node) {
-                        if !self.ordering_admits(node, next, rel, order, &mut trace) {
-                            continue;
-                        }
-                        let Some(next_fn) = self.node_file_fn(next) else {
-                            continue;
-                        };
-                        if next_fn != src_fn || self.is_parameter_binding_from(node, next, rel) {
-                            let kind = if next_fn != src_fn {
-                                BoundaryKind::CrossFunction
-                            } else {
-                                BoundaryKind::SelfFunctionParam
-                            };
-                            trace.boundary.insert(BoundaryEdge {
-                                root,
-                                from: node,
-                                to: next,
-                                kind,
-                            });
-                            continue;
-                        }
-                        if !self.cfg_valid(&src_fn.0, line, &cfg_scope, has_cfg, next) {
-                            continue;
-                        }
-                        if enqueued.insert(next) {
-                            trace.frontier_by_root.entry(root).or_default().insert(next);
-                            trace.parents_by_root.insert((root, next), (node, rel));
-                            queue.push_back(next);
-                        }
-                    }
-                }
+                self.taint_trace_from_root(
+                    &mut trace,
+                    root,
+                    &file,
+                    line,
+                    cfg_scope.as_ref(),
+                    has_cfg,
+                    order,
+                    &mut descent_gate_cache,
+                    &mut depths,
+                );
             }
         }
         trace
+    }
+
+    fn taint_trace_from_root(
+        &self,
+        trace: &mut Trace,
+        root: NodeIndex,
+        src_file: &str,
+        src_line: usize,
+        cfg_scope: Option<&BTreeSet<(String, usize)>>,
+        has_cfg: bool,
+        order: Option<&dyn SameLineOrderView>,
+        descent_gate_cache: &mut BTreeMap<DescentGateKey, bool>,
+        depths: &mut BTreeMap<(NodeIndex, NodeIndex), usize>,
+    ) {
+        if !matches!(self.graph[root], CpgNode::Variable { .. }) {
+            return;
+        }
+        let mut enqueued: BTreeSet<NodeIndex> = BTreeSet::new();
+        let mut queue = VecDeque::new();
+        if enqueued.insert(root) {
+            trace.frontier_by_root.entry(root).or_default().insert(root);
+            depths.insert((root, root), 0);
+            queue.push_back(root);
+        }
+
+        while let Some(node) = queue.pop_front() {
+            let node_depth = *depths.get(&(root, node)).unwrap_or(&0);
+            for (next, rel) in self.taint_neighbors(node) {
+                if !self.ordering_admits(node, next, rel, order, trace) {
+                    continue;
+                }
+                let Some(node_fn) = self.node_file_fn(node) else {
+                    continue;
+                };
+                let Some(next_fn) = self.node_file_fn(next) else {
+                    continue;
+                };
+
+                // A neighbor is a boundary (taint exits into a callee in v1) if it crosses into a
+                // different function, or if a recursive/self call's arg→param DataFlow edge lands back in
+                // the same function. The edge-sensitive parameter test avoids classifying one-line body
+                // locals as call boundaries.
+                if next_fn != node_fn || self.is_parameter_binding_from(node, next, rel) {
+                    let boundary_kind = if next_fn != node_fn {
+                        BoundaryKind::CrossFunction
+                    } else {
+                        BoundaryKind::SelfFunctionParam
+                    };
+
+                    let can_descend = matches!(boundary_kind, BoundaryKind::CrossFunction)
+                        && node_depth < MAX_TAINT_DESCENT_DEPTH
+                        && self.descend_target(node, next, rel, descent_gate_cache);
+
+                    if can_descend {
+                        if enqueued.insert(next) {
+                            let next_depth = node_depth + 1;
+                            trace.frontier_by_root.entry(root).or_default().insert(next);
+                            trace
+                                .parents_by_root
+                                .insert((root, next), (node, Relation::CallDescent));
+                            depths.insert((root, next), next_depth);
+                            queue.push_back(next);
+                        }
+                        continue;
+                    }
+
+                    trace.boundary.insert(BoundaryEdge {
+                        root,
+                        from: node,
+                        to: next,
+                        kind: boundary_kind,
+                    });
+                    continue;
+                }
+
+                // S3: CFG pruning is depth-rooted. Any descended hop is walked pure-taint.
+                if node_depth == 0 && !self.cfg_valid(src_file, src_line, cfg_scope, has_cfg, next)
+                {
+                    continue;
+                }
+
+                if enqueued.insert(next) {
+                    trace.frontier_by_root.entry(root).or_default().insert(next);
+                    trace.parents_by_root.insert((root, next), (node, rel));
+                    depths.insert((root, next), node_depth);
+                    queue.push_back(next);
+                }
+            }
+        }
     }
 
     fn ordering_admits(
@@ -458,6 +503,90 @@ impl CodePropertyGraph {
                         && site.caller.start_line == *caller_start_line
                 })
             })
+    }
+
+    /// Some(..) iff this cross-function `DataFlow` hop is backed by exactly one matching
+    /// CallSite and that site's `resolve_call_site` includes an Exact edge to the target `to` owner.
+    fn descend_target(
+        &self,
+        from: NodeIndex,
+        to: NodeIndex,
+        rel: Relation,
+        descent_gate_cache: &mut BTreeMap<DescentGateKey, bool>,
+    ) -> bool {
+        if rel != Relation::DataFlow {
+            return false;
+        }
+
+        let CpgNode::Variable {
+            file: target_file,
+            function: target_fn,
+            function_start_line: target_fn_start_line,
+            access: VarAccess::Def,
+            ..
+        } = &self.graph[to]
+        else {
+            return false;
+        };
+
+        let CpgNode::Variable {
+            file: caller_file,
+            function: caller_fn,
+            function_start_line: caller_fn_start_line,
+            line: call_line,
+            ..
+        } = &self.graph[from]
+        else {
+            return false;
+        };
+
+        let cache_key = (
+            caller_file.clone(),
+            caller_fn.clone(),
+            *caller_fn_start_line,
+            *call_line,
+            target_fn.clone(),
+            target_file.clone(),
+            *target_fn_start_line,
+        );
+        if let Some(can_descend) = descent_gate_cache.get(&cache_key) {
+            return *can_descend;
+        }
+
+        let can_descend = self
+            .call_graph
+            .callers
+            .get(target_fn)
+            .and_then(|sites| {
+                let matching_sites: Vec<_> = sites
+                    .iter()
+                    .filter(|site| {
+                        site.line == *call_line
+                            && site.caller.file == *caller_file
+                            && site.caller.name == *caller_fn
+                            && site.caller.start_line == *caller_fn_start_line
+                    })
+                    .collect();
+
+                match matching_sites.len() {
+                    1 => Some(matching_sites[0]),
+                    _ => None,
+                }
+            })
+            .is_some_and(|site| {
+                self.call_graph
+                    .resolve_call_site(site)
+                    .into_iter()
+                    .any(|resolved| {
+                        resolved.confidence == ResolutionConfidence::Exact
+                            && resolved.target.file == *target_file
+                            && resolved.target.name == *target_fn
+                            && resolved.target.start_line == *target_fn_start_line
+                    })
+            });
+
+        descent_gate_cache.insert(cache_key, can_descend);
+        can_descend
     }
 
     fn taint_neighbors(&self, node: NodeIndex) -> Vec<(NodeIndex, Relation)> {
@@ -692,18 +821,15 @@ impl CodePropertyGraph {
     /// Per-node CFG validity. No CFG or a degraded seed means pure-taint fallback. Same source
     /// line is admitted explicitly because `cfg_reachable_lines` excludes the start line.
     ///
-    /// PRECONDITION: this only gates *intraprocedural* targets. The BFS in `taint_trace` records and
-    /// `continue`s cross-function neighbors as `BoundaryEdge`s *before* reaching this check, so
-    /// `cfg_valid` never sees a cross-function target — its `cfg_set` (the seed function's CFG-
-    /// reachable lines) contains no callee lines, and admitting one would be meaningless. Plan B's
-    /// transitive callee-chain chase must preserve that ordering (or fold the function check in here)
-    /// rather than relaxing the boundary `continue`, else a caller-seeded `cfg_set` silently prunes
-    /// every callee line, or a widened union leaks cross-function admits.
+    /// PRECONDITION: this check applies only to intraprocedural hops reached at `depth == 0`.
+    /// Once a node enters via a CallDescent edge, BFS intentionally walks callee-side flow in
+    /// pure-taint mode to avoid falsely pruning legitimate re-entries into the seed function (e.g.
+    /// mutual recursion). Stage B can refine this if a callee-scoped CFG strategy is introduced.
     fn cfg_valid(
         &self,
         src_file: &str,
         src_line: usize,
-        cfg_set: &Option<BTreeSet<(String, usize)>>,
+        cfg_set: Option<&BTreeSet<(String, usize)>>,
         has_cfg: bool,
         target: NodeIndex,
     ) -> bool {

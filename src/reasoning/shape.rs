@@ -234,6 +234,7 @@ pub fn witness_graph_for_node(
             Some(Relation::DataFlow) | None => "DataFlow",
             Some(Relation::AssignmentPropagation) => "AssignmentPropagation",
             Some(Relation::RecoveredDefUse) => "RecoveredDefUse",
+            Some(Relation::CallDescent) => "CallDescent",
         };
         edges.push(GraphEdge {
             from: idx_of[&from],
@@ -320,6 +321,7 @@ pub fn witness_graph_for_chain(
             Some(Relation::DataFlow) | None => "DataFlow",
             Some(Relation::AssignmentPropagation) => "AssignmentPropagation",
             Some(Relation::RecoveredDefUse) => "RecoveredDefUse",
+            Some(Relation::CallDescent) => "CallDescent",
         };
         edges.push(GraphEdge {
             from: idx_of[&from],
@@ -595,8 +597,8 @@ mod tests {
             Reachability::Reached
         );
         assert_eq!(
-            reachability_at(&cpg, &trace, "test.py", 2), // sink(p) inside g — taint exits to a callee
-            Reachability::BoundaryExited
+            reachability_at(&cpg, &trace, "test.py", 2), // sink(p) inside g — exact callee edge now descends
+            Reachability::Reached
         );
         assert_eq!(
             reachability_at(&cpg, &trace, "test.py", 5), // w = 1 — genuinely unrelated
@@ -650,7 +652,7 @@ mod tests {
             .expect("p use inside g on the one-liner");
         assert_eq!(
             reachability_for_node(&cpg, &trace, p_use),
-            Reachability::BoundaryExited
+            Reachability::Reached
         );
     }
 
@@ -682,7 +684,7 @@ mod tests {
         // The function is multi-line (so the param `p` Def IS registered, via the line-2 use) and a
         // boundary to `p Def@1` IS recorded — but `data_flow.rs` drops the def→use edge to the
         // same-line `sink(p)` use (`ref_line == start`). The param-binding bridge must still classify
-        // that sink BoundaryExited; otherwise it is an unsafe false negative for a path taint crosses.
+        // that sink now descends; otherwise it is an unsafe false negative for a path taint crosses.
         let cpg = js_cpg(
             "function g(p) { sink(p);\n  log(p); }\nfunction f() {\n  var u = input();\n  g(u);\n}\n",
         );
@@ -690,7 +692,7 @@ mod tests {
         let p_sink_use = use_node(&cpg, 1, "g", "p"); // the sink(p) argument on the signature line
         assert_eq!(
             reachability_for_node(&cpg, &trace, p_sink_use),
-            Reachability::BoundaryExited,
+            Reachability::Reached,
             "taint into a same-signature-line param use must not be a false negative"
         );
     }
@@ -724,8 +726,8 @@ mod tests {
         let q_sink_use = use_node(&cpg, 2, "g", "q");
         assert_eq!(
             reachability_for_node(&cpg, &trace, q_sink_use),
-            Reachability::BoundaryExited,
-            "taint through a same-line local def-then-use inside a callee must not be a false negative"
+            Reachability::Reached,
+            "taint through a same-line local def-then-use inside a callee reaches via descent"
         );
     }
 
