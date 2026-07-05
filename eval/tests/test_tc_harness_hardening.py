@@ -75,6 +75,11 @@ def test_prewarm_cpg_includes_cache_dir(monkeypatch, tmp_path):
     assert "--cache-dir" in calls[0]
     assert "/tmp/shared-cache" in calls[0]
     assert telemetry["cache_dir"] == "/tmp/shared-cache"
+    # `--cache-dir` is a GLOBAL `prism nav` flag: it MUST precede the `repo-map`
+    # subcommand, else clap errors "unexpected argument" and the prewarm no-ops
+    # (regression: the warm gate then trips on a cold prism-mcp).
+    argv = calls[0]
+    assert argv.index("--cache-dir") < argv.index("repo-map"), argv
 
 
 def test_prewarm_cpg_omits_cache_dir_when_none(monkeypatch, tmp_path):

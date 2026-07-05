@@ -278,9 +278,14 @@ def _prewarm_cpg(root: str, *, cache_dir: str | None = None) -> dict:
        "wall_s": float, "exception": str|None, "cache_dir": str|None}
     Never raises — best-effort; if warming fails the arm still runs.
     """
-    argv = [_prism_bin(), "nav", "repo-map", "--repo", root]
+    # `--cache-dir` is a GLOBAL `prism nav` flag and MUST precede the `repo-map`
+    # subcommand — `nav repo-map --repo R --cache-dir D` errors with "unexpected
+    # argument '--cache-dir'" (clap), silently defeating the prewarm (best-effort,
+    # never raises) so prism-mcp then cold-builds and the warm gate trips.
+    argv = [_prism_bin(), "nav"]
     if cache_dir:
         argv += ["--cache-dir", cache_dir]
+    argv += ["repo-map", "--repo", root]
     t0 = time.monotonic()
     try:
         r = subprocess.run(argv, capture_output=True, timeout=900)
