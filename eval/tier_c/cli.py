@@ -77,6 +77,25 @@ def main(argv: list[str] | None = None) -> int:
         help="reconstruct the prism-OFF arm from this saved run dir instead of re-running it "
              "(holds the baseline constant when only the on-arm/steer changed; no off-arm spend)",
     )
+    partc_p.add_argument(
+        "--prism-build-dir", default=None, metavar="DIR",
+        help="F1 matched-binary preflight: explicit build dir containing BOTH `prism` and "
+             "`prism-mcp` (default: $PRISM_BUILD_DIR, else the parent dir of $PRISM_BIN, "
+             "else <repo>/target/release). The run FAILS LOUD before any cell work if the "
+             "two binaries cannot be matched to one build.",
+    )
+    partc_p.add_argument(
+        "--skip-warm-gate", action="store_true",
+        help="F4 escape hatch: skip the per-cell warm-initialize gate (spawns a throwaway "
+             "prism-mcp + JSON-RPC initialize/tools-list handshake before launching the "
+             "on-arm agent). Debugging only — the gate is ON by default so a cell can never "
+             "silently run with a not-actually-warm prism-mcp.",
+    )
+    partc_p.add_argument(
+        "--warm-gate-timeout-s", type=float, default=15.0, metavar="SECONDS",
+        help="F4: seconds to wait for the prism-mcp initialize+tools/list handshake before "
+             "failing the cell (default: 15.0)",
+    )
 
     # Re-score a saved Part-C run WITHOUT re-running the arms (judge/scoring fixes are free).
     rescore_p = sub.add_parser(
@@ -131,7 +150,11 @@ def main(argv: list[str] | None = None) -> int:
             _run_partc_live(cell, bench_root=bench_root, base_root=base_root,
                             issues_path=issues_path, run_id=run_id,
                             runs_root=runs_root, force_new=force_new,
-                            reuse_off_from=args.reuse_off_from)
+                            reuse_off_from=args.reuse_off_from,
+                            prism_build_dir=args.prism_build_dir,
+                            skip_binary_preflight=False,
+                            skip_warm_gate=args.skip_warm_gate,
+                            warm_gate_timeout_s=args.warm_gate_timeout_s)
         return 0
 
     if args.cmd == "run":
@@ -212,12 +235,18 @@ def _write_partc_manifest(
     issues_path: str,
     run_id: str,
     runs_root: str,
+    binary_preflight: dict | None = None,
+    cache_dir: str | None = None,
 ) -> str:
     """Write <runs_root>/<run_id>/manifest.json for the Part-C live run.
 
     Fields: timestamp, cell, issue {key,language,repo,sha,url}, bench_root,
     base_root, issues_path, prism_mcp_bin+sha, prism_bin+sha,
     harness_git_sha, config_summary per arm, steer per arm.
+    binary_preflight (F1): the resolve_matched_binaries() dict (build_dir + mtimes/sizes
+    for both binaries) when the preflight ran; {} when skipped.
+    cache_dir (F2): the shared prism nav-cache directory used by this run's prewarm +
+    both agent MCP configs; None when not threaded (e.g. --skip-warm-gate-era callers).
     Returns the path written.
     """
     import json
@@ -276,6 +305,8 @@ def _write_partc_manifest(
         "prism_mcp_sha": mcp_sha,
         "prism_bin": prism_bin_path,
         "prism_bin_sha": prism_bin_sha,
+        "binary_preflight": binary_preflight or {},
+        "prism_cache_dir": cache_dir,
         "harness_git_sha": harness_git_sha,
         "dirty_git": dirty_git,
         "thinking_enabled": thinking_enabled,
@@ -562,7 +593,10 @@ class _LivePartCComps:
 
     def __init__(self, *, co, issue, model: str, base_root: str, ask=None,
                  reuse_off_from: str | None = None,
-                 judge_primary: str | None = None):
+                 judge_primary: str | None = None,
+                 cache_dir: str | None = None,
+                 skip_warm_gate: bool = True,
+                 warm_gate_timeout_s: float = 15.0):
         if ask is None:
             from .llm import live_ask
             ask = live_ask
@@ -576,6 +610,13 @@ class _LivePartCComps:
         self._reuse_off_from = reuse_off_from
         # When set, overrides the default JUDGE_MODEL for relevance/quality judges.
         self._judge_primary = judge_primary
+        # F2/F4 (harness hardening): shared cache dir + warm-gate config threaded down to
+        # run_arm_isolated/the runners. skip_warm_gate defaults to True (gate skipped) so
+        # direct/test construction of this class is unaffected; _run_partc_live passes the
+        # CLI-resolved values explicitly for real --live runs.
+        self._cache_dir = cache_dir
+        self._skip_warm_gate = skip_warm_gate
+        self._warm_gate_timeout_s = warm_gate_timeout_s
         self._last_off = None         # set after run_off_arm; carries ArmOutput for audit persistence
         self._last_on = None          # set after run_on_arm; carries ArmOutput for audit persistence
         self._last_off_prompt = None  # exact prompt sent to the off-arm
@@ -692,7 +733,8 @@ class _LivePartCComps:
             # NO steer — status quo, agent must discover the code itself
         )
         self._last_off_prompt = prompt
-        runner = ClaudeRunner(no_cache=False) if model.startswith("opus") else CodexRunner(no_cache=False)
+        runner = (ClaudeRunner(no_cache=False, cache_dir=self._cache_dir) if model.startswith("opus")
+                 else CodexRunner(no_cache=False, cache_dir=self._cache_dir))
         iso = run_arm_isolated(
             runner,
             checkout=self._co,
@@ -701,6 +743,7 @@ class _LivePartCComps:
             prompt=prompt,
             no_cache=False,
             prewarm=False,
+            cache_dir=self._cache_dir,
         )
         self._last_off = iso.out
         return iso.out
@@ -721,7 +764,8 @@ class _LivePartCComps:
             steer="prism_on",
         )
         self._last_on_prompt = prompt
-        runner = ClaudeRunner(no_cache=False) if model.startswith("opus") else CodexRunner(no_cache=False)
+        runner = (ClaudeRunner(no_cache=False, cache_dir=self._cache_dir) if model.startswith("opus")
+                 else CodexRunner(no_cache=False, cache_dir=self._cache_dir))
         iso = run_arm_isolated(
             runner,
             checkout=self._co,
@@ -730,6 +774,9 @@ class _LivePartCComps:
             prompt=prompt,
             no_cache=False,
             prewarm=True,
+            cache_dir=self._cache_dir,
+            skip_warm_gate=self._skip_warm_gate,
+            warm_gate_timeout_s=self._warm_gate_timeout_s,
         )
         self._last_on = iso.out
         self._last_prewarm = iso.prewarm
@@ -930,18 +977,34 @@ def _persist_judge_jsonl(records: list[dict], path: str) -> None:
 def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
                     issues_path: str, run_id: str | None = None,
                     runs_root: str | None = None, force_new: bool = False,
-                    reuse_off_from: str | None = None) -> None:
+                    reuse_off_from: str | None = None,
+                    prism_build_dir: str | None = None,
+                    skip_binary_preflight: bool = True,
+                    skip_warm_gate: bool = True,
+                    warm_gate_timeout_s: float = 15.0,
+                    cache_dir: str | None = None) -> None:
     """Open a pinned throwaway worktree at the issue SHA and run one Part-C cell live.
 
     All artifacts go under <runs_root>/<run_id>/ (collision-guarded unless force_new).
     Per-arm artifacts are written IMMEDIATELY after each arm finishes so a failure
     in one arm does not lose the other arm's context.  status.json is always written
     at the end (success or failure).
+
+    Harness-hardening params (F1/F2/F4):
+      prism_build_dir/skip_binary_preflight — F1 matched-binary preflight (resolve_matched_binaries).
+      cache_dir                             — F2 shared nav-cache dir for prewarm + both agent
+                                               MCP configs; auto-derived as <run_dir>/prism-cache
+                                               when None.
+      skip_warm_gate/warm_gate_timeout_s    — F4 per-cell warm-initialize gate before the
+                                               on-arm agent is launched.
+    skip_binary_preflight and skip_warm_gate default to True (skipped) so direct callers
+    (unit tests) that predate this hardening are unaffected; the CLI's `--live` path
+    always passes skip_binary_preflight=False and threads --skip-warm-gate explicitly.
     """
     import json as _json
     import shutil
     from .partc import run_partc_cell
-    from .arm_runner import ArmRunError
+    from .arm_runner import ArmRunError, resolve_matched_binaries, PreflightError
 
     repo, stage, model = cell
     if runs_root is None:
@@ -959,14 +1022,9 @@ def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
         shutil.rmtree(run_dir)
     os.makedirs(run_dir, exist_ok=True)
 
-    issues = load_issues(issues_path)
-    issue = next(i for i in issues if i.repo == repo)
-
-    # Write manifest before running arms (so we have an audit trail even if arms fail)
-    _write_partc_manifest(
-        cell=cell, issue=issue, bench_root=bench_root, base_root=base_root,
-        issues_path=issues_path, run_id=run_id, runs_root=runs_root,
-    )
+    # F2: one shared cache base per run, passed to prewarm AND both agent MCP configs.
+    if cache_dir is None:
+        cache_dir = os.path.join(run_dir, "prism-cache")
 
     safe_model = model.replace("/", "_").replace(":", "_")
     base = os.path.join(run_dir, f"{repo}-{stage}-{safe_model}")
@@ -974,11 +1032,36 @@ def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
     # Track failure state for status.json
     failed_stage: str | None = None
     error_msg: str | None = None
+    binary_preflight: dict | None = None
 
     try:
+        # F1: matched-binary preflight — FAIL LOUD before any cell work if prism +
+        # prism-mcp cannot be matched to one build (the independent-resolution skew
+        # vector that silently degraded prism-ON arms to a cold/never-warm MCP handshake).
+        if not skip_binary_preflight:
+            try:
+                binary_preflight = resolve_matched_binaries(build_dir=prism_build_dir)
+            except PreflightError as e:
+                failed_stage = "preflight"
+                error_msg = str(e)
+                raise
+
+        issues = load_issues(issues_path)
+        issue = next(i for i in issues if i.repo == repo)
+
+        # Write manifest before running arms (so we have an audit trail even if arms fail)
+        _write_partc_manifest(
+            cell=cell, issue=issue, bench_root=bench_root, base_root=base_root,
+            issues_path=issues_path, run_id=run_id, runs_root=runs_root,
+            binary_preflight=binary_preflight, cache_dir=cache_dir,
+        )
+
         with Checkout(os.path.join(bench_root, repo), issue.sha) as co:
             comps = _LivePartCComps(co=co, issue=issue, model=model, base_root=base_root,
-                                    reuse_off_from=reuse_off_from)
+                                    reuse_off_from=reuse_off_from,
+                                    cache_dir=cache_dir,
+                                    skip_warm_gate=skip_warm_gate,
+                                    warm_gate_timeout_s=warm_gate_timeout_s)
 
             # --- OFF arm (try/finally for immediate persistence) ---
             off_exception_info: dict | None = None
