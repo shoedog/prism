@@ -17,11 +17,11 @@
     },
     "corrected": {
      "fn": 2,
-     "fp": 1,
+     "fp": 3,
      "precision": [
-      0.8888888888888888,
-      0.565000291629209,
-      0.9801091125830901
+      0.7272727272727273,
+      0.4343546966810743,
+      0.9025394078669138
      ],
      "recall": [
       0.8,
@@ -79,7 +79,7 @@
       "tp": 4
      }
     },
-    "pending": 2,
+    "pending": 0,
     "raw": {
      "fn": 2,
      "fp": 3,
@@ -104,7 +104,7 @@
      "oracle_unconfirmed": 6
     },
     "corrected": {
-     "fn": 1,
+     "fn": 8,
      "fp": 6,
      "precision": [
       0.90625,
@@ -112,9 +112,9 @@
       0.9563217476701068
      ],
      "recall": [
-      0.9830508474576272,
-      0.910042739450708,
-      0.9970017661147945
+      0.8787878787878788,
+      0.7786256088308989,
+      0.937281544325524
      ],
      "tp": 58
     },
@@ -167,7 +167,7 @@
       "tp": 8
      }
     },
-    "pending": 7,
+    "pending": 0,
     "raw": {
      "fn": 8,
      "fp": 8,
@@ -193,11 +193,11 @@
     },
     "corrected": {
      "fn": 0,
-     "fp": 0,
+     "fp": 1,
      "precision": [
-      1.0,
-      0.871271076371412,
-      1.0
+      0.9629629629629629,
+      0.8171653389987218,
+      0.9934318540919532
      ],
      "recall": [
       1.0,
@@ -255,7 +255,7 @@
       "tp": 6
      }
     },
-    "pending": 1,
+    "pending": 0,
     "raw": {
      "fn": 0,
      "fp": 1,
@@ -369,11 +369,11 @@
     },
     "corrected": {
      "fn": 0,
-     "fp": 0,
+     "fp": 1,
      "precision": [
-      1.0,
-      0.7961166964035129,
-      1.0
+      0.9375,
+      0.716712622018518,
+      0.9888806553587528
      ],
      "recall": [
       1.0,
@@ -431,7 +431,7 @@
       "tp": 6
      }
     },
-    "pending": 1,
+    "pending": 0,
     "raw": {
      "fn": 0,
      "fp": 1,
@@ -458,7 +458,7 @@
      "oracle_unconfirmed": 1
     },
     "corrected": {
-     "fn": 10,
+     "fn": 32,
      "fp": 1,
      "precision": [
       0.75,
@@ -466,9 +466,9 @@
       0.954412739704631
      ],
      "recall": [
-      0.23076923076923078,
-      0.08179528654269594,
-      0.5025637616051964
+      0.08571428571428572,
+      0.02958236803634305,
+      0.22379274105450336
      ],
      "tp": 3
     },
@@ -521,7 +521,7 @@
       "tp": 3
      }
     },
-    "pending": 22,
+    "pending": 0,
     "raw": {
      "fn": 32,
      "fp": 1,
@@ -546,7 +546,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 2,
+     "fn": 4,
      "fp": 0,
      "precision": [
       1.0,
@@ -554,9 +554,9 @@
       1.0
      ],
      "recall": [
-      0.9887005649717514,
-      0.9597432439248962,
-      0.996895798196285
+      0.9776536312849162,
+      0.943960041205608,
+      0.9912764256561901
      ],
      "tp": 175
     },
@@ -609,7 +609,7 @@
       "tp": 169
      }
     },
-    "pending": 2,
+    "pending": 0,
     "raw": {
      "fn": 4,
      "fp": 0,
@@ -634,7 +634,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 0,
+     "fn": 1,
      "fp": 0,
      "precision": [
       1.0,
@@ -642,9 +642,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.7411670300055737,
-      1.0
+      0.9166666666666666,
+      0.6461200862787544,
+      0.9851349057603305
      ],
      "tp": 11
     },
@@ -697,7 +697,7 @@
       "tp": 10
      }
     },
-    "pending": 1,
+    "pending": 0,
     "raw": {
      "fn": 1,
      "fp": 0,
@@ -2959,304 +2959,7 @@
    "pinned": 3.618
   }
  },
- "pending": [
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/receiver_index.rs:352",
-   "site": "src/call_graph.rs:3989",
-   "site_fingerprint": "74fb3ab7838abcf0"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:371",
-   "site_fingerprint": "94774afc4d980b87"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:396",
-   "site_fingerprint": "16472b31414b9572"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:424",
-   "site_fingerprint": "5102794122ad786e"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:429",
-   "site_fingerprint": "0afa8248e90338a2"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:451",
-   "site_fingerprint": "cebb093c07e25d07"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:470",
-   "site_fingerprint": "9367577c523927e5"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:547",
-   "site_fingerprint": "9eb9896c4f742d1e"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:587",
-   "site_fingerprint": "602118724c8240d0"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:588",
-   "site_fingerprint": "f04d23eb19e0f7b1"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:614",
-   "site_fingerprint": "b69623f4ce2663e0"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:680",
-   "site_fingerprint": "b50486786acdef73"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:906",
-   "site_fingerprint": "0e95802bb1ca7850"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:911",
-   "site_fingerprint": "cdc916811d7c6b86"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:916",
-   "site_fingerprint": "f5632318442f6d8f"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:921",
-   "site_fingerprint": "37bfcd74997f4cea"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:967",
-   "site_fingerprint": "0e2dc2c29256eb11"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:1007",
-   "site_fingerprint": "87c1e740697d9be8"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:1113",
-   "site_fingerprint": "ce71ca679af6053c"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:1127",
-   "site_fingerprint": "a945a0acf540f19c"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:1292",
-   "site_fingerprint": "54bddd9b1a4722ea"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:1297",
-   "site_fingerprint": "2ddaa827ba90a387"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "tests/ast/java_type_provider_test.rs:1328",
-   "site_fingerprint": "58a09891cc203173"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/rust_provider.rs:163",
-   "site": "src/type_providers/rust_provider.rs:154",
-   "site_fingerprint": "3985663187344a02"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/type_providers/rust_provider.rs:163",
-   "site": "src/type_providers/rust_provider.rs:190",
-   "site_fingerprint": "d979fbcb3a0cfd37"
-  },
-  {
-   "corpus": "prism",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "src/reasoning/order.rs:148",
-   "site": "src/reasoning/order.rs:153",
-   "site_fingerprint": "a2ff488ffa71b7de",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prism",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "src/resolution.rs:1027",
-   "site": "src/resolution.rs:1034",
-   "site_fingerprint": "74e43d31253cf1f1",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prism",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "src/type_providers/java.rs:824",
-   "site_fingerprint": "b84d80bfbe42bdc1",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prism",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "src/type_providers/java.rs:802",
-   "site": "src/type_providers/java.rs:853",
-   "site_fingerprint": "8400705df0f38090",
-   "tier": "candidate"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "src/type_providers/rust_provider.rs:163",
-   "site": "src/type_providers/rust_provider.rs:171",
-   "site_fingerprint": "d80b2c751fe8e894"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "src/type_providers/rust_provider.rs:163",
-   "site": "src/type_providers/rust_provider.rs:174",
-   "site_fingerprint": "d5cff66fb58908cb"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "src/type_providers/rust_provider.rs:163",
-   "site": "src/type_providers/rust_provider.rs:177",
-   "site_fingerprint": "ebe2c89b826e1bca"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "src/type_providers/rust_provider.rs:163",
-   "site": "src/type_providers/rust_provider.rs:180",
-   "site_fingerprint": "1f506b99ed7dc89f"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "src/type_providers/rust_provider.rs:163",
-   "site": "src/type_providers/rust_provider.rs:183",
-   "site_fingerprint": "55e12d6095346843"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "src/type_providers/rust_provider.rs:163",
-   "site": "src/type_providers/rust_provider.rs:190",
-   "site_fingerprint": "d979fbcb3a0cfd37"
-  },
-  {
-   "corpus": "prism",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tests/algo/novel/echo_misc_test.rs:141",
-   "site": "tests/algo/novel/echo_misc_test.rs:143",
-   "site_fingerprint": "2425ed309f560118"
-  }
- ],
+ "pending": [],
  "pinned": [
   {
    "exact_supplementary": {

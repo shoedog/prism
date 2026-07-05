@@ -104,7 +104,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 14,
+     "fn": 17,
      "fp": 0,
      "precision": [
       1.0,
@@ -112,9 +112,9 @@
       1.0
      ],
      "recall": [
-      0.5882352941176471,
-      0.422215937544422,
-      0.7363403173510689
+      0.5405405405405406,
+      0.38384046777409486,
+      0.6896143029949754
      ],
      "tp": 20
     },
@@ -167,7 +167,7 @@
       "tp": 6
      }
     },
-    "pending": 3,
+    "pending": 0,
     "raw": {
      "fn": 17,
      "fp": 0,
@@ -192,7 +192,7 @@
      "oracle_unconfirmed": 1
     },
     "corrected": {
-     "fn": 7,
+     "fn": 8,
      "fp": 0,
      "precision": [
       1.0,
@@ -200,9 +200,9 @@
       0.9999999999999999
      ],
      "recall": [
-      0.8923076923076924,
-      0.7939868632434961,
-      0.946845780758715
+      0.8787878787878788,
+      0.7786256088308989,
+      0.937281544325524
      ],
      "tp": 58
     },
@@ -255,7 +255,7 @@
       "tp": 6
      }
     },
-    "pending": 1,
+    "pending": 0,
     "raw": {
      "fn": 8,
      "fp": 12,
@@ -521,7 +521,7 @@
       "tp": 8
      }
     },
-    "pending": 1,
+    "pending": 0,
     "raw": {
      "fn": 62,
      "fp": 0,
@@ -546,7 +546,7 @@
      "oracle_unconfirmed": 0
     },
     "corrected": {
-     "fn": 0,
+     "fn": 3,
      "fp": 0,
      "precision": [
       1.0,
@@ -554,9 +554,9 @@
       0.9999999999999999
      ],
      "recall": [
-      1.0,
-      0.9717210127678851,
-      0.9999999999999999
+      0.9777777777777777,
+      0.9367032024946205,
+      0.9924140873942013
      ],
      "tp": 132
     },
@@ -609,7 +609,7 @@
       "tp": 63
      }
     },
-    "pending": 3,
+    "pending": 0,
     "raw": {
      "fn": 3,
      "fp": 10,
@@ -988,72 +988,7 @@
    "oracle_start": 5.424
   }
  },
- "pending": [
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
-   "site": "zapcore/hook_test.go:62",
-   "site_fingerprint": "c31543d65d6d5ba7"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zaptest/observer/observer.go:155",
-   "site": "zaptest/observer/observer_test.go:43",
-   "site_fingerprint": "f42099cac2c1fb7e"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zaptest/observer/observer.go:155",
-   "site": "zaptest/observer/observer_test.go:77",
-   "site_fingerprint": "8b612adb4b108de6"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zaptest/observer/observer.go:155",
-   "site": "zaptest/observer/observer_test.go:180",
-   "site_fingerprint": "c69f19f8ed47cd21"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "zapcore/increase_level_test.go:36",
-   "site": "zapcore/increase_level_test.go:88",
-   "site_fingerprint": "eaabdcf2d0b0b5f5"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "zapcore/increase_level_test.go:36",
-   "site": "zapcore/increase_level_test.go:90",
-   "site_fingerprint": "4d44e1b17874e46d"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "zapcore/increase_level_test.go:36",
-   "site": "zapcore/increase_level_test.go:103",
-   "site_fingerprint": "48bc6233b6d21748"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "zaptest/observer/observer_test.go:42",
-   "site": "zaptest/observer/observer_test.go:43",
-   "site_fingerprint": "f42099cac2c1fb7e"
-  }
- ],
+ "pending": [],
  "probes": {
   "_corpus": "zap",
   "_strata": {
