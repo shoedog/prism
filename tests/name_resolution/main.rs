@@ -1,3 +1,4 @@
+mod anchor_glob_test;
 mod build_wiring_test;
 mod consumer_test;
 mod glob_expand_test;

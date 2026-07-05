@@ -334,6 +334,29 @@ impl ResolutionPolicy for RustPolicy<'_> {
             .get(&normalize_crate_ident(name))
             .copied()
     }
+
+    /// An EMPTY-path glob expands (denotes a resolvable in-scope root) ONLY for
+    /// `crate::*` / `self::*` / `super::*` — `CrateRoot | SelfMod | Super(_)`.
+    ///
+    /// `Bare` is EXCLUDED: it is the engine's poison sentinel shape
+    /// (`rust_populator::builder::poison_scope` constructs a Bare-anchored
+    /// empty-path pending glob for a missing-mod/parse-failed target module,
+    /// which must stay poisoned).
+    ///
+    /// `UsePath` is EXCLUDED: an empty-path `UsePath` arises from a malformed/
+    /// parse-recovered `use *;` (`scopes.rs` `anchor_of_segments` returns
+    /// `(UsePath, [])` when the segment list itself is empty); in a 2015 (or
+    /// no-manifest convention-fallback) crate `UsePath` anchors to the crate
+    /// root (`anchor()` above), so expanding it here would mint a false
+    /// `target()` edge for malformed input. `LeadingColon` is EXCLUDED too
+    /// (no production empty-path constructor; excluded for the same
+    /// fail-closed reason — spec-review [F1]).
+    fn glob_anchor_expands(&self, anchor: &Anchor) -> bool {
+        matches!(
+            anchor.kind,
+            AnchorKind::CrateRoot | AnchorKind::SelfMod | AnchorKind::Super(_)
+        )
+    }
 }
 
 /// True iff every pair of candidates is provably cfg-exclusive (distinct worlds).

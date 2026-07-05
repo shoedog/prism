@@ -650,4 +650,12 @@ pub trait ResolutionPolicy {
     ) -> Option<ScopeId> {
         None
     }
+
+    /// Does an EMPTY-path glob with this anchor denote a resolvable in-scope root
+    /// (`crate::*` / `self::*` / `super::*`), as opposed to the engine's poison
+    /// sentinel (a Bare-anchored empty-path pending glob)? Interpreting `AnchorKind`
+    /// is policy-owned (the engine never matches it).
+    fn glob_anchor_expands(&self, _anchor: &Anchor) -> bool {
+        false
+    }
 }
