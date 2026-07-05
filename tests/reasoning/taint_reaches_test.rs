@@ -1084,3 +1084,127 @@ fn python_keyword_data_arg_is_a_sanitizer_transition() {
     assert_eq!(source.sanitized_by.len(), 1, "{:?}", source.sanitized_by);
     assert_eq!(source.sanitized_by[0].callee_text, "html.escape");
 }
+
+// --- P14 fix-wave BLOCKER: bypass-proven `Sanitized` (a `Sanitized` downgrade must be sound
+// against every route to the sink, not just whichever first-enqueue-wins chain happened to reach
+// it first). See src/reasoning/taint_reaches.rs's `witness_mode` and
+// src/reasoning/sanitizer_walk.rs's `sanitizer_bypass_exclusions`. ---
+
+#[test]
+fn sanitizer_bypass_via_second_call_stays_reached() {
+    // T-F1, THE regression pin. `g(safe)` is called before `g(raw)`; `g`'s single physical
+    // parameter node is a confluence point, so first-enqueue-wins dedup means the ONLY witness
+    // chain that can ever reach the sink winds through `safe` (the sanitized value) — but
+    // `g(raw)` proves an actual, unsanitized route ALSO reaches the sink. Before this fix, the
+    // sanitizer transition proven on the (sole, arbitrarily-selected) winning chain downgraded
+    // the verdict to `Sanitized` even though `raw` bypasses it entirely: a false `Sanitized`.
+    let fixture = fixture(&[(
+        "app.py",
+        "def g(p):\n    sink(p)\n\ndef f():\n    user = input()\n    safe = html.escape(user)\n    raw = user\n    g(safe)\n    g(raw)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 5,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Reached);
+    assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+}
+
+#[test]
+fn both_calls_sanitized_is_sanitized() {
+    // T-F2: `g(safe1); g(safe2)` — BOTH arguments are, SEPARATELY, sanitizer outputs. Only ONE of
+    // the two sanitizer transitions can ever appear on any single witness chain to `g`'s shared
+    // parameter node (first-enqueue-wins), but excluding BOTH proven transitions (found by
+    // scanning the whole first-parent tree, not just the winning chain) disconnects the sink
+    // entirely — the verdict must be `Sanitized`.
+    let fixture = fixture(&[(
+        "app.py",
+        "def g(p):\n    sink(p)\n\ndef f():\n    user = input()\n    safe1 = html.escape(user)\n    safe2 = html.escape(user)\n    g(safe1)\n    g(safe2)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 5,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Sanitized);
+    assert!(!source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+}
+
+#[test]
+fn callee_internal_sanitizer_covers_all_entries() {
+    // T-F3: `g(a); g(b)` — two DIFFERENT callers reach `g`'s shared parameter, but the sanitizer
+    // transition sits INSIDE `g`, downstream of the confluence node (`safe = html.escape(p);
+    // sink(safe)`). Whichever caller wins the race, its flow still passes through the same proven
+    // transition before the sink — cutting it disconnects every entry, so the verdict must be
+    // `Sanitized`.
+    let fixture = fixture(&[(
+        "app.py",
+        "def g(p):\n    safe = html.escape(p)\n    sink(safe)\n\ndef f():\n    a = input()\n    b = a\n    g(a)\n    g(b)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 6,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 3,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Sanitized);
+    assert!(!source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+}
+
+#[test]
+fn intra_function_confluence_bypass_stays_reached() {
+    // T-F4: the intra-function analogue of T-F1's hazard, with NO interprocedural descent
+    // involved at all. `x = safe or raw` gives `x`'s Def node two same-line `Use` parents (`safe`
+    // and `raw`) via `AssignmentPropagation` — a genuine confluence node, just like a shared
+    // callee parameter. `safe` is sanitized; `raw` is the raw source value; first-enqueue-wins
+    // means the ORIGINAL winning chain reaches `x` via `safe` (so the old chain-scoped check would
+    // wrongly downgrade to `Sanitized`), but `raw`'s route bypasses the sanitizer just as `g(raw)`
+    // does in T-F1. Verdict must stay Reached.
+    let fixture = fixture(&[(
+        "app.py",
+        "def f():\n    user = input()\n    safe = html.escape(user)\n    raw = user\n    x = safe or raw\n    sink(x)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 6,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Reached);
+    assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
+}
