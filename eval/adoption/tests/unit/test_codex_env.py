@@ -2,6 +2,7 @@
 """TDD tests for build_isolated_codex_home file-layout + isolation contract."""
 import json, os, stat
 import tomllib
+from pathlib import Path
 from adoption.codex_env import build_isolated_codex_home
 
 
@@ -70,6 +71,92 @@ def test_skill_copied_into_home(tmp_path):
     assert os.path.isfile(skill_dst), "SKILL.md not copied into CODEX_HOME/skills/"
     ref_dst = os.path.join(home, "skills", "prism-code-navigation", "references", "deep-dive.md")
     assert os.path.isfile(ref_dst), "references/ subdir not copied"
+
+
+# ---------------------------------------------------------------------------
+# F2/F3 harness hardening: shared --cache-dir + startup/tool timeouts
+# ---------------------------------------------------------------------------
+
+def test_config_toml_includes_cache_dir_in_args(tmp_path):
+    skill_src = tmp_path / "prism-code-navigation"
+    skill_src.mkdir()
+    (skill_src / "SKILL.md").write_text("---\nname: prism-code-navigation\n---\nbody")
+    fake_auth = tmp_path / "auth.json"
+    fake_auth.write_text('{"apiKey": "sk-test"}')
+    home = build_isolated_codex_home(
+        skill_src=str(skill_src),
+        mcp_repo="/repo/y",
+        prism_mcp_bin="/usr/local/bin/prism-mcp",
+        root=str(tmp_path / "codex_home"),
+        auth_src=str(fake_auth),
+        cache_dir="/tmp/shared-prism-cache",
+    )
+    with open(os.path.join(home, "config.toml"), "rb") as f:
+        cfg = tomllib.load(f)
+    args = cfg["mcp_servers"]["prism"]["args"]
+    assert "--cache-dir" in args, f"expected --cache-dir in args; got {args}"
+    assert "/tmp/shared-prism-cache" in args
+
+
+def test_config_toml_omits_cache_dir_when_none(tmp_path):
+    skill_src = tmp_path / "prism-code-navigation"
+    skill_src.mkdir()
+    (skill_src / "SKILL.md").write_text("---\nname: prism-code-navigation\n---\nbody")
+    fake_auth = tmp_path / "auth.json"
+    fake_auth.write_text('{"apiKey": "sk-test"}')
+    home = build_isolated_codex_home(
+        skill_src=str(skill_src),
+        mcp_repo="/repo/y",
+        prism_mcp_bin="/usr/local/bin/prism-mcp",
+        root=str(tmp_path / "codex_home"),
+        auth_src=str(fake_auth),
+    )
+    with open(os.path.join(home, "config.toml"), "rb") as f:
+        cfg = tomllib.load(f)
+    args = cfg["mcp_servers"]["prism"]["args"]
+    assert "--cache-dir" not in args, f"cache_dir=None must not add --cache-dir; got {args}"
+
+
+def test_config_toml_has_startup_and_tool_timeouts(tmp_path):
+    skill_src = tmp_path / "prism-code-navigation"
+    skill_src.mkdir()
+    (skill_src / "SKILL.md").write_text("---\nname: prism-code-navigation\n---\nbody")
+    fake_auth = tmp_path / "auth.json"
+    fake_auth.write_text('{"apiKey": "sk-test"}')
+    home = build_isolated_codex_home(
+        skill_src=str(skill_src),
+        mcp_repo="/repo/y",
+        prism_mcp_bin="/usr/local/bin/prism-mcp",
+        root=str(tmp_path / "codex_home"),
+        auth_src=str(fake_auth),
+    )
+    with open(os.path.join(home, "config.toml"), "rb") as f:
+        cfg = tomllib.load(f)
+    prism = cfg["mcp_servers"]["prism"]
+    assert prism.get("startup_timeout_sec") == 600, f"got {prism.get('startup_timeout_sec')!r}"
+    assert prism.get("tool_timeout_sec") == 600, f"got {prism.get('tool_timeout_sec')!r}"
+
+
+def test_off_arm_config_ignores_cache_dir(tmp_path):
+    """The OFF arm writes no [mcp_servers.prism] section at all — cache_dir must be a no-op."""
+    skill_src = tmp_path / "prism-code-navigation"
+    skill_src.mkdir()
+    (skill_src / "SKILL.md").write_text("---\nname: prism-code-navigation\n---\nbody")
+    fake_auth = tmp_path / "auth.json"
+    fake_auth.write_text('{}')
+    home = build_isolated_codex_home(
+        skill_src=str(skill_src),
+        mcp_repo="/repo/x",
+        prism_mcp_bin="/bin/prism-mcp",
+        root=str(tmp_path / "codex_home"),
+        auth_src=str(fake_auth),
+        include_skill_and_mcp=False,
+        cache_dir="/tmp/shared-prism-cache",
+    )
+    content = (Path(home) / "config.toml").read_text()
+    assert "mcp_servers" not in content
+    assert "cache-dir" not in content
+    assert "shared-prism-cache" not in content
 
 
 def test_no_extra_skills_from_user_home(tmp_path):

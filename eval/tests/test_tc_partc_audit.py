@@ -362,7 +362,8 @@ def test_live_partc_comps_retains_off_prompt(monkeypatch):
         pass
 
     # Patch run_arm_isolated
-    def fake_run_arm_isolated(runner, *, checkout, variant, stage, prompt, no_cache, prewarm):
+    def fake_run_arm_isolated(runner, *, checkout, variant, stage, prompt, no_cache, prewarm,
+                              **kwargs):
         from tier_c.arm_runner import IsolatedArmResult
         out = _arm_output(prism=variant.prism, text="out", prism_calls=2 if variant.prism else 0)
         return IsolatedArmResult(out=out, cache_mode="cached", mcp_args=[])
@@ -402,7 +403,8 @@ def test_live_partc_comps_retains_on_prompt(monkeypatch):
     monkeypatch.setattr(prompts_mod, "stage_prompt", fake_stage_prompt)
     monkeypatch.setattr(cli_mod, "stage_prompt", fake_stage_prompt, raising=False)
 
-    def fake_run_arm_isolated(runner, *, checkout, variant, stage, prompt, no_cache, prewarm):
+    def fake_run_arm_isolated(runner, *, checkout, variant, stage, prompt, no_cache, prewarm,
+                              **kwargs):
         from tier_c.arm_runner import IsolatedArmResult
         out = _arm_output(prism=variant.prism, text="out", prism_calls=2 if variant.prism else 0)
         return IsolatedArmResult(out=out, cache_mode="cached", mcp_args=[])
@@ -573,7 +575,7 @@ def test_isolated_arm_result_carries_prewarm(tmp_path, monkeypatch):
         "exception": None,
     }
     monkeypatch.setattr(arm_mod, "_prewarm_cpg",
-                        lambda root: fake_prewarm_result)
+                        lambda root, **kwargs: fake_prewarm_result)
 
     class _NoopRunner:
         def run(self, variant, stage, prompt, repo_root):
