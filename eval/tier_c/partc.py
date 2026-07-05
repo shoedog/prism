@@ -260,8 +260,11 @@ def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
         low_dose=on_out.low_dose,
         administered=administered,
         leaked=leak_result.leaked,
-        recall_on=None,
-        recall_base=None,
+        # D0: recall as a SEPARATE axis (owner rubric-a: never collapse into precision).
+        # Previously hardcoded to None even though InvestigatorReport.recall was already
+        # computed by comps.score() — the value was silently discarded.
+        recall_on=on_rep.recall,
+        recall_base=off_rep.recall,
         tokens_off=tokens_off,
         tokens_on=tokens_on,
         in_tokens_off=in_tokens_off,

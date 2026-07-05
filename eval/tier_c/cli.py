@@ -658,11 +658,22 @@ class _LivePartCComps:
         and stored on self._last_off_judge (arm="base") / self._last_on_judge (arm="on")
         for later persistence as <base>.<arm>.judge.jsonl.
 
+        D0 REPAIR: the recall denominator is claims.count_claims(arm_text) — the
+        substantive-code-claim count of the arm's OWN text (self._last_off/self._last_on,
+        set by run_off_arm/run_on_arm before score() is called) — NOT
+        max(len(citations), 1). The old code made claim_count identically equal to the
+        citation count, which forced recall == precision whenever >=1 citation was made,
+        silently disabling the under-citing penalty (spec §6a). When no arm text is available
+        (e.g. a caller that constructs this class and calls score() directly, bypassing
+        run_off_arm/run_on_arm), we fall back to the old max(len(citations), 1) behaviour
+        so pre-existing direct callers/tests are unaffected.
+
         Returns an InvestigatorReport (precision, recall, hallucinations, verdicts).
         """
         from .investigator import score_citations, InvestigatorReport
         from .judges_live import LlmRelevanceJudge, _RecordingRelevanceJudge
         from .llm import JUDGE_MODEL
+        from .claims import count_claims
         if not citations:
             if arm == "on":
                 self._last_on_judge = []
@@ -677,10 +688,13 @@ class _LivePartCComps:
         upstream = self._upstream_spec(cell)
         issue_text = (self._issue.text + "\n\n## Upstream spec\n" + upstream
                       if upstream else self._issue.text)
+        last = self._last_on if arm == "on" else self._last_off
+        arm_text = last.text if last is not None else ""
+        claim_count = count_claims(arm_text) if arm_text else max(len(citations), 1)
         result = score_citations(
             self._co,
             citations,
-            claim_count=max(len(citations), 1),
+            claim_count=claim_count,
             relevance=rel,
             issue_text=issue_text,
             read_code=lambda f, l: self._co.read_window(f, l),
