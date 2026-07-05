@@ -1,0 +1,6024 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 0,
+  "matched": 9289,
+  "prism_extra": 0,
+  "prism_missing": 442,
+  "snapshot_prism_missing": 442
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "candidate_tier": {
+     "count": 1,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 1
+    },
+    "corrected": {
+     "fn": 2,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8241207740667156,
+      1.0
+     ],
+     "recall": [
+      0.9,
+      0.6989663528135878,
+      0.9721335190383086
+     ],
+     "tp": 18
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 2,
+      "fp": 2,
+      "precision": [
+       0.8823529411764706,
+       0.6566364919396065,
+       0.9671202265340099
+      ],
+      "recall": [
+       0.8823529411764706,
+       0.6566364919396065,
+       0.9671202265340099
+      ],
+      "tp": 15
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 2,
+     "fp": 3,
+     "precision": [
+      0.8333333333333334,
+      0.6077796169796655,
+      0.9416342323981449
+     ],
+     "recall": [
+      0.8823529411764706,
+      0.6566364919396065,
+      0.9671202265340099
+     ],
+     "tp": 15
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "candidate_tier": {
+     "count": 1,
+     "oracle_confirmed": 1,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 7,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7575059904469021,
+      1.0
+     ],
+     "recall": [
+      0.631578947368421,
+      0.4103953300354444,
+      0.8085048735804599
+     ],
+     "tp": 12
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 7,
+      "fp": 2,
+      "precision": [
+       0.8333333333333334,
+       0.5519691353881888,
+       0.9530348582430792
+      ],
+      "recall": [
+       0.5882352941176471,
+       0.3600544248492146,
+       0.7838894332600814
+      ],
+      "tp": 10
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 7,
+     "fp": 2,
+     "precision": [
+      0.8333333333333334,
+      0.5519691353881888,
+      0.9530348582430792
+     ],
+     "recall": [
+      0.5882352941176471,
+      0.3600544248492146,
+      0.7838894332600814
+     ],
+     "tp": 10
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "candidate_tier": {
+     "count": 3,
+     "oracle_confirmed": 3,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 18,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8241207740667156,
+      1.0
+     ],
+     "recall": [
+      0.5,
+      0.3447432529897015,
+      0.6552567470102986
+     ],
+     "tp": 18
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 20,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8063923170025951,
+       1.0
+      ],
+      "recall": [
+       0.4444444444444444,
+       0.2954126863754566,
+       0.6041893836210855
+      ],
+      "tp": 16
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 18,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8241207740667156,
+      1.0
+     ],
+     "recall": [
+      0.5,
+      0.3447432529897015,
+      0.6552567470102986
+     ],
+     "tp": 18
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "candidate_tier": {
+     "count": 3,
+     "oracle_confirmed": 3,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 5,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8241207740667156,
+      1.0
+     ],
+     "recall": [
+      0.782608695652174,
+      0.5809651681324879,
+      0.9033602203455142
+     ],
+     "tp": 18
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 8,
+      "fp": 1,
+      "precision": [
+       0.9375,
+       0.716712622018518,
+       0.9888806553587528
+      ],
+      "recall": [
+       0.6521739130434783,
+       0.4489033522338618,
+       0.8118872415619854
+      ],
+      "tp": 15
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.7142857142857143,
+       0.3589344495310541,
+       0.9177810767507166
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.7142857142857143,
+       0.3589344495310541,
+       0.9177810767507166
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 5,
+     "fp": 1,
+     "precision": [
+      0.9473684210526315,
+      0.7536126862526763,
+      0.9906480060413981
+     ],
+     "recall": [
+      0.782608695652174,
+      0.5809651681324879,
+      0.9033602203455142
+     ],
+     "tp": 18
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "candidate_tier": {
+     "count": 23,
+     "oracle_confirmed": 3,
+     "oracle_unconfirmed": 20
+    },
+    "corrected": {
+     "fn": 5,
+     "fp": 20,
+     "precision": [
+      0.25925925925925924,
+      0.13170374490590095,
+      0.44678571468694817
+     ],
+     "recall": [
+      0.5833333333333334,
+      0.31951131084242423,
+      0.8067396875653928
+     ],
+     "tp": 7
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 30,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "recall": [
+       0.11764705882352941,
+       0.046714466323908174,
+       0.2662084291289653
+      ],
+      "tp": 4
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 23,
+      "fp": 17,
+      "precision": [
+       0.2608695652173913,
+       0.12548615971944993,
+       0.46470005002993314
+      ],
+      "recall": [
+       0.20689655172413793,
+       0.09846070140456342,
+       0.3839009055677167
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 23,
+      "fp": 17,
+      "precision": [
+       0.2608695652173913,
+       0.12548615971944993,
+       0.46470005002993314
+      ],
+      "recall": [
+       0.20689655172413793,
+       0.09846070140456342,
+       0.3839009055677167
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 27,
+     "fp": 20,
+     "precision": [
+      0.25925925925925924,
+      0.13170374490590095,
+      0.44678571468694817
+     ],
+     "recall": [
+      0.20588235294117646,
+      0.10349526842851586,
+      0.3679838819198484
+     ],
+     "tp": 7
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "candidate_tier": {
+     "count": 1,
+     "oracle_confirmed": 1,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8156818626193445,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8156818626193445,
+      1.0
+     ],
+     "tp": 17
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8063923170025951,
+       1.0
+      ],
+      "recall": [
+       0.9411764705882353,
+       0.7301796914154303,
+       0.9895395991310502
+      ],
+      "tp": 16
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7719046248681998,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.7719046248681998,
+       1.0
+      ],
+      "tp": 13
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7719046248681998,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.7719046248681998,
+       1.0
+      ],
+      "tp": 13
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8156818626193445,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8156818626193445,
+      1.0
+     ],
+     "tp": 17
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "tp": 8
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "tp": 8
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "candidate_tier": {
+     "count": 45,
+     "oracle_confirmed": 37,
+     "oracle_unconfirmed": 8
+    },
+    "corrected": {
+     "fn": 9,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.9244423947340892,
+      1.0
+     ],
+     "recall": [
+      0.8392857142857143,
+      0.7219379322388899,
+      0.913073324344583
+     ],
+     "tp": 47
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 46,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7224671969739421,
+       0.9999999999999999
+      ],
+      "recall": [
+       0.17857142857142858,
+       0.0999985670647662,
+       0.2984118214351016
+      ],
+      "tp": 10
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8453609790128563,
+       1.0
+      ],
+      "recall": [
+       0.9545454545454546,
+       0.7820195397089796,
+       0.991930572468161
+      ],
+      "tp": 21
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8453609790128563,
+       1.0
+      ],
+      "recall": [
+       0.9545454545454546,
+       0.7820195397089796,
+       0.991930572468161
+      ],
+      "tp": 21
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 9,
+     "fp": 8,
+     "precision": [
+      0.8545454545454545,
+      0.7383908696159521,
+      0.9244071089093046
+     ],
+     "recall": [
+      0.8392857142857143,
+      0.7219379322388899,
+      0.913073324344583
+     ],
+     "tp": 47
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/dns/dns_test.go:270",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/eureka/eureka_test.go:59",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/file/file.go:249",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/file/file.go:273",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/file/file.go:278",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/linode/linode_test.go:251",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/moby/nodes_test.go:59",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/moby/services_test.go:59",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/moby/services_test.go:364",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/moby/tasks_test.go:59",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/nomad/nomad_test.go:195",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/puppetdb/puppetdb_test.go:109",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/puppetdb/puppetdb_test.go:161",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/puppetdb/puppetdb_test.go:224",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/puppetdb/puppetdb_test.go:256",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/refresh/refresh.go:69",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/refresh/refresh.go:88",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/uyuni/uyuni_test.go:59",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/uyuni/uyuni_test.go:149",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:discovery/marathon/marathon.go:229",
+    "site": "discovery/vultr/vultr_test.go:71",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:web/api/testhelpers/openapi.go:98",
+    "site": "web/api/v1/api_scenarios_test.go:47",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:web/api/testhelpers/openapi.go:98",
+    "site": "web/api/v1/api_scenarios_test.go:58",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:web/api/testhelpers/openapi.go:98",
+    "site": "web/api/v1/api_scenarios_test.go:164",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:web/api/testhelpers/openapi.go:98",
+    "site": "web/api/v1/api_scenarios_test.go:202",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:web/api/testhelpers/openapi.go:98",
+    "site": "web/api/v1/api_scenarios_test.go:310",
+    "verdict": "alias_site"
+   }
+  ],
+  "counts": {
+   "alias_site": 5,
+   "ambiguous": 20,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": false,
+  "corpus": "prometheus",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "505095b64b43",
+  "date": "2026-07-04",
+  "harness_sha": "fb81481dafa7",
+  "invalid_reasons": [],
+  "oracle": "gopls {\"GoVersion\":\"go1.26.2\",\"Path\":\"golang.org/x/tools/gopls\",\"Main\":{\"Path\":\"golang.org/x/tools/gopls\",\"Version\":\"v0.22.0\",\"Sum\":\"h1:9aON2mTxKrZ1y71RbQVnlPTTNfKZ9y5cv3x/f6XpsZw=\"},\"Deps\":[{\"Path\":\"github.com/BurntSushi/toml\",\"Version\":\"v1.6.0\",\"Sum\":\"h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk=\"},{\"Path\":\"github.com/fatih/camelcase\",\"Version\":\"v1.0.0\",\"Sum\":\"h1:hxNvNX/xYBp0ovncs8WyWZrOrpBNub/JfaMvbURyft8=\"},{\"Path\":\"github.com/fatih/gomodifytags\",\"Version\":\"v1.17.1-0.20250423142747-f3939df9aa3c\",\"Sum\":\"h1:dDSgAjoOMp8da3egfz0t2S+t8RGOpEmEXZubcGuc0Bg=\"},{\"Path\":\"github.com/fatih/structtag\",\"Version\":\"v1.2.0\",\"Sum\":\"h1:/OdNE99OxoI/PqaW/SuSK9uxxT3f/tcSZgon/ssNSx4=\"},{\"Path\":\"github.com/fsnotify/fsnotify\",\"Version\":\"v1.9.0\",\"Sum\":\"h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=\"},{\"Path\":\"github.com/google/go-cmp\",\"Version\":\"v0.7.0\",\"Sum\":\"h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=\"},{\"Path\":\"github.com/google/jsonschema-go\",\"Version\":\"v0.4.2\",\"Sum\":\"h1:tmrUohrwoLZZS/P3x7ex0WAVknEkBZM46iALbcqoRA8=\"},{\"Path\":\"github.com/modelcontextprotocol/go-sdk\",\"Version\":\"v1.4.0\",\"Sum\":\"h1:u0kr8lbJc1oBcawK7Df+/ajNMpIDFE41OEPxdeTLOn8=\"},{\"Path\":\"github.com/segmentio/asm\",\"Version\":\"v1.2.1\",\"Sum\":\"h1:DTNbBqs57ioxAD4PrArqftgypG4/qNpXoJx8TVXxPR0=\"},{\"Path\":\"github.com/segmentio/encoding\",\"Version\":\"v0.5.3\",\"Sum\":\"h1:OjMgICtcSFuNvQCdwqMCv9Tg7lEOXGwm1J5RPQccx6w=\"},{\"Path\":\"github.com/yosida95/uritemplate/v3\",\"Version\":\"v3.0.2\",\"Sum\":\"h1:Ed3Oyj9yrmi9087+NczuL5BwkIc4wvTb5zIM+UJPGz4=\"},{\"Path\":\"golang.org/x/exp/typeparams\",\"Version\":\"v0.0.0-20260312153236-7ab1446f8b90\",\"Sum\":\"h1:cfW8UCYSVdPblxA7qQe3o5Iad55Vsx4BFmuGS9RNOmc=\"},{\"Path\":\"golang.org/x/mod\",\"Version\":\"v0.35.0\",\"Sum\":\"h1:Ww1D637e6Pg+Zb2KrWfHQUnH2dQRLBQyAtpr/haaJeM=\"},{\"Path\":\"golang.org/x/oauth2\",\"Version\":\"v0.36.0\",\"Sum\":\"h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=\"},{\"Path\":\"golang.org/x/sync\",\"Version\":\"v0.20.0\",\"Sum\":\"h1:e0PTpb7pjO8GAtTs2dQ6jYa5BWYlMuX047Dco/pItO4=\"},{\"Path\":\"golang.org/x/sys\",\"Version\":\"v0.43.0\",\"Sum\":\"h1:Rlag2XtaFTxp19wS8MXlJwTvoh8ArU6ezoyFsMyCTNI=\"},{\"Path\":\"golang.org/x/telemetry\",\"Version\":\"v0.0.0-20260409153401-be6f6cb8b1fa\",\"Sum\":\"h1:efT73AJZfAAUV7SOip6pWGkwJDzIGiKBZGVzHYa+ve4=\"},{\"Path\":\"golang.org/x/text\",\"Version\":\"v0.36.0\",\"Sum\":\"h1:JfKh3XmcRPqZPKevfXVpI1wXPTqbkE5f7JA92a55Yxg=\"},{\"Path\":\"golang.org/x/tools\",\"Version\":\"v0.44.1-0.20260513175300-635ae9663724\",\"Sum\":\"h1:rz7KAMVmPA+7ecCT/BHKLE353MUOoCAwMqlUveE8508=\"},{\"Path\":\"golang.org/x/vuln\",\"Version\":\"v1.1.4\",\"Sum\":\"h1:Ju8QsuyhX3Hk8ma3CesTbO8vfJD9EvUBgHvkxHBzj0I=\"},{\"Path\":\"honnef.co/go/tools\",\"Version\":\"v0.7.0\",\"Sum\":\"h1:w6WUp1VbkqPEgLz4rkBzH/CSU6HkoqNLp6GstyTx3lU=\"},{\"Path\":\"mvdan.cc/gofumpt\",\"Version\":\"v0.9.2\",\"Sum\":\"h1:zsEMWL8SVKGHNztrx6uZrXdp7AX8r421Vvp23sz7ik4=\"},{\"Path\":\"mvdan.cc/xurls/v2\",\"Version\":\"v2.6.0\",\"Sum\":\"h1:3NTZpeTxYVWNSokW3MKeyVkz/j7uYXYiMtXRUfmjbgI=\"}],\"Settings\":[{\"Key\":\"-buildmode\",\"Value\":\"exe\"},{\"Key\":\"-compiler\",\"Value\":\"gc\"},{\"Key\":\"CGO_ENABLED\",\"Value\":\"1\"},{\"Key\":\"CGO_CFLAGS\"},{\"Key\":\"CGO_CPPFLAGS\"},{\"Key\":\"CGO_CXXFLAGS\"},{\"Key\":\"CGO_LDFLAGS\"},{\"Key\":\"GOARCH\",\"Value\":\"arm64\"},{\"Key\":\"GOOS\",\"Value\":\"darwin\"},{\"Key\":\"GOARM64\",\"Value\":\"v8.0\"}],\"Version\":\"v0.22.0\"}",
+  "oracle_error_rate": 0.0,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "fb81481dafa7",
+  "seed": 42,
+  "stale_adjudications": 5,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 77.044,
+   "m2": 129.071,
+   "m3": 0.151,
+   "oracle_start": 6.179
+  }
+ },
+ "pending": [],
+ "probes": {
+  "_corpus": "prometheus",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 0,
+    "eligible_symbols": 0,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:cmd/promtool/main.go:1369": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "cmd/promtool/main.go",
+     "labelsSetPromQL"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "cmd/promtool/main.go",
+     1410,
+     1410
+    ],
+    [
+     "cmd/promtool/main.go",
+     1389,
+     1389
+    ],
+    [
+     "cmd/promtool/main.go",
+     1377,
+     1377
+    ],
+    [
+     "cmd/promtool/main.go",
+     1379,
+     1379
+    ],
+    [
+     "cmd/promtool/main.go",
+     1381,
+     1381
+    ],
+    [
+     "cmd/promtool/main.go",
+     1383,
+     1383
+    ],
+    [
+     "cmd/promtool/main.go",
+     1370,
+     1370
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "cmd/promtool/main.go",
+     "labelsSetPromQL"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "cmd/promtool/main.go",
+     1389,
+     1389,
+     {
+      "resolution_kind": "import_qualified",
+      "score": 1.0
+     }
+    ],
+    [
+     "cmd/promtool/main.go",
+     1370,
+     1370,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "cmd/promtool/main.go:1369",
+   "stratum": "Q-scoped"
+  },
+  "callees:cmd/promtool/main_test.go:546": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "cmd/promtool/main_test.go",
+     "TestExitCodes"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "cmd/promtool/main_test.go:546",
+   "stratum": "Q-scoped"
+  },
+  "callees:cmd/promtool/metrics_test.go:45": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "cmd/promtool/metrics_test.go",
+     "createMetricsFile"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "cmd/promtool/metrics_test.go:45",
+   "stratum": "Q-scoped"
+  },
+  "callees:config/config.go:1547": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "config/config.go",
+     "Validate"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "config/config.go",
+     1549,
+     1549
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "config/config.go",
+     "Validate"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "config/config.go:1547",
+   "stratum": "C-method"
+  },
+  "callees:discovery/digitalocean/mock_test.go:32": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "discovery/digitalocean/mock_test.go:32",
+   "stratum": "C-name"
+  },
+  "callees:discovery/eureka/eureka.go:127": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "discovery/eureka/eureka.go",
+     "NewDiscovery"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "discovery/eureka/eureka.go",
+     142,
+     142
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "discovery/eureka/eureka.go",
+     "NewDiscovery"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "discovery/eureka/eureka.go",
+     142,
+     142,
+     {
+      "resolution_kind": "import_qualified",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "discovery/eureka/eureka.go:127",
+   "stratum": "C-name"
+  },
+  "callees:discovery/kubernetes/endpoints.go:333": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "discovery/kubernetes/endpoints.go:333",
+   "stratum": "Q-scoped"
+  },
+  "callees:discovery/marathon/marathon.go:229": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "discovery/marathon/marathon.go",
+     "refresh"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "discovery/marathon/marathon.go",
+     230,
+     230
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "discovery/marathon/marathon.go",
+     "refresh"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "discovery/marathon/marathon.go",
+     230,
+     230,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "discovery/marathon/marathon.go:229",
+   "stratum": "C-method"
+  },
+  "callees:discovery/stackit/server.go:114": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "discovery/stackit/server.go",
+     "refresh"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "discovery/stackit/server.go",
+     188,
+     188
+    ],
+    [
+     "discovery/stackit/server.go",
+     210,
+     210
+    ],
+    [
+     "discovery/stackit/server.go",
+     213,
+     213
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "discovery/stackit/server.go",
+     "refresh"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "discovery/stackit/server.go",
+     136,
+     136,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "discovery/stackit/server.go",
+     188,
+     188,
+     {
+      "resolution_kind": "import_qualified",
+      "score": 1.0
+     }
+    ],
+    [
+     "discovery/stackit/server.go",
+     210,
+     210,
+     {
+      "resolution_kind": "import_qualified",
+      "score": 1.0
+     }
+    ],
+    [
+     "discovery/stackit/server.go",
+     213,
+     213,
+     {
+      "resolution_kind": "import_qualified",
+      "score": 1.0
+     }
+    ],
+    [
+     "discovery/stackit/server.go",
+     151,
+     151,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "discovery/stackit/server.go:114",
+   "stratum": "C-method"
+  },
+  "callees:model/labels/labels_test.go:967": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "model/labels/labels_test.go",
+     "BenchmarkBuilder"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "model/labels/labels_test.go",
+     969,
+     969
+    ],
+    [
+     "model/labels/labels_test.go",
+     973,
+     973
+    ],
+    [
+     "model/labels/labels_test.go",
+     969,
+     969
+    ],
+    [
+     "model/labels/labels_test.go",
+     971,
+     971
+    ],
+    [
+     "model/labels/labels_test.go",
+     977,
+     977
+    ],
+    [
+     "model/labels/labels_test.go",
+     971,
+     971
+    ],
+    [
+     "model/labels/labels_test.go",
+     975,
+     975
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "model/labels/labels_test.go",
+     "BenchmarkBuilder"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "model/labels/labels_test.go",
+     969,
+     969,
+     {
+      "resolution_kind": "same_package",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/labels/labels_test.go",
+     973,
+     973,
+     {
+      "resolution_kind": "constructor_local",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/labels/labels_test.go",
+     969,
+     969,
+     {
+      "resolution_kind": "same_package",
+      "score": 0.6
+     }
+    ],
+    [
+     "model/labels/labels_test.go",
+     971,
+     971,
+     {
+      "resolution_kind": "same_package",
+      "score": 0.6
+     }
+    ],
+    [
+     "model/labels/labels_test.go",
+     971,
+     971,
+     {
+      "resolution_kind": "constructor_local",
+      "score": 0.6
+     }
+    ],
+    [
+     "model/labels/labels_test.go",
+     975,
+     975,
+     {
+      "resolution_kind": "constructor_local",
+      "score": 0.6
+     }
+    ],
+    [
+     "model/labels/labels_test.go",
+     969,
+     969,
+     {
+      "resolution_kind": "same_package",
+      "score": 0.6
+     }
+    ],
+    [
+     "model/labels/labels_test.go",
+     971,
+     971,
+     {
+      "resolution_kind": "same_package",
+      "score": 0.6
+     }
+    ],
+    [
+     "model/labels/labels_test.go",
+     971,
+     971,
+     {
+      "resolution_kind": "constructor_local",
+      "score": 0.6
+     }
+    ],
+    [
+     "model/labels/labels_test.go",
+     975,
+     975,
+     {
+      "resolution_kind": "constructor_local",
+      "score": 0.6
+     }
+    ],
+    [
+     "model/labels/labels_test.go",
+     969,
+     969,
+     {
+      "resolution_kind": "same_package",
+      "score": 0.6
+     }
+    ],
+    [
+     "model/labels/labels_test.go",
+     971,
+     971,
+     {
+      "resolution_kind": "same_package",
+      "score": 0.6
+     }
+    ],
+    [
+     "model/labels/labels_test.go",
+     971,
+     971,
+     {
+      "resolution_kind": "constructor_local",
+      "score": 0.6
+     }
+    ],
+    [
+     "model/labels/labels_test.go",
+     975,
+     975,
+     {
+      "resolution_kind": "constructor_local",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "model/labels/labels_test.go:967",
+   "stratum": "Q-scoped"
+  },
+  "callees:model/labels/regexp_test.go:912": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "model/labels/regexp_test.go",
+     "TestEqualMultiStringMatcher_Matches"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "model/labels/regexp_test.go",
+     995,
+     995
+    ],
+    [
+     "model/labels/regexp_test.go",
+     998,
+     998
+    ],
+    [
+     "model/labels/regexp_test.go",
+     981,
+     981
+    ],
+    [
+     "model/labels/regexp_test.go",
+     986,
+     986
+    ],
+    [
+     "model/labels/regexp_test.go",
+     988,
+     988
+    ],
+    [
+     "model/labels/regexp_test.go",
+     979,
+     979
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "model/labels/regexp_test.go",
+     "TestEqualMultiStringMatcher_Matches"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "model/labels/regexp_test.go",
+     979,
+     979,
+     {
+      "resolution_kind": "same_package",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/labels/regexp_test.go",
+     981,
+     981,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/labels/regexp_test.go",
+     986,
+     986,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/labels/regexp_test.go",
+     988,
+     988,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/labels/regexp_test.go",
+     995,
+     995,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/labels/regexp_test.go",
+     998,
+     998,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/labels/regexp_test.go",
+     981,
+     981,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/labels/regexp_test.go",
+     986,
+     986,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/labels/regexp_test.go",
+     988,
+     988,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/labels/regexp_test.go",
+     995,
+     995,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/labels/regexp_test.go",
+     998,
+     998,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "model/labels/regexp_test.go:912",
+   "stratum": "Q-scoped"
+  },
+  "callees:model/textparse/openmetricsparse.go:290": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "model/textparse/openmetricsparse.go",
+     "StartTimestamp"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "model/textparse/openmetricsparse.go",
+     308,
+     308
+    ],
+    [
+     "model/textparse/openmetricsparse.go",
+     357,
+     357
+    ],
+    [
+     "model/textparse/openmetricsparse.go",
+     367,
+     367
+    ],
+    [
+     "model/textparse/openmetricsparse.go",
+     341,
+     341
+    ],
+    [
+     "model/textparse/openmetricsparse.go",
+     346,
+     346
+    ],
+    [
+     "model/textparse/openmetricsparse.go",
+     360,
+     360
+    ],
+    [
+     "model/textparse/openmetricsparse.go",
+     291,
+     291
+    ],
+    [
+     "model/textparse/openmetricsparse.go",
+     335,
+     335
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "model/textparse/openmetricsparse.go",
+     "StartTimestamp"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "model/textparse/openmetricsparse.go",
+     308,
+     308,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/textparse/openmetricsparse.go",
+     357,
+     357,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/textparse/openmetricsparse.go",
+     367,
+     367,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/textparse/openmetricsparse.go",
+     341,
+     341,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/textparse/openmetricsparse.go",
+     346,
+     346,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/textparse/openmetricsparse.go",
+     360,
+     360,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/textparse/openmetricsparse.go",
+     291,
+     291,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "model/textparse/openmetricsparse.go",
+     335,
+     335,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "model/textparse/openmetricsparse.go:290",
+   "stratum": "C-method"
+  },
+  "callees:prompb/codec.go:187": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "prompb/codec.go",
+     "spansToSpansProto"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "prompb/codec.go:187",
+   "stratum": "C-name"
+  },
+  "callees:prompb/io/prometheus/client/metrics.pb.go:1139": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     "MarshalToSizedBuffer"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     1162,
+     1162
+    ],
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     1155,
+     1155
+    ],
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     1167,
+     1167
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     "MarshalToSizedBuffer"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     1155,
+     1155,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     1167,
+     1167,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     1146,
+     1146,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "prompb/io/prometheus/client/metrics.pb.go:1139",
+   "stratum": "C-method"
+  },
+  "callees:prompb/io/prometheus/client/metrics.pb.go:192": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     "XXX_Marshal"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     197,
+     197
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     "XXX_Marshal"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     197,
+     197,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "prompb/io/prometheus/client/metrics.pb.go:192",
+   "stratum": "C-method"
+  },
+  "callees:promql/parser/parse.go:1000": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "promql/parser/parse.go",
+     "addOffset"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "promql/parser/parse.go",
+     1013,
+     1013
+    ],
+    [
+     "promql/parser/parse.go",
+     1024,
+     1024
+    ],
+    [
+     "promql/parser/parse.go",
+     1031,
+     1031
+    ],
+    [
+     "promql/parser/parse.go",
+     1013,
+     1013
+    ],
+    [
+     "promql/parser/parse.go",
+     1024,
+     1024
+    ],
+    [
+     "promql/parser/parse.go",
+     1031,
+     1031
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "promql/parser/parse.go",
+     "addOffset"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "promql/parser/parse.go",
+     1013,
+     1013,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1024,
+     1024,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1031,
+     1031,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1013,
+     1013,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1024,
+     1024,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1031,
+     1031,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1013,
+     1013,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1024,
+     1024,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1031,
+     1031,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1013,
+     1013,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1024,
+     1024,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1031,
+     1031,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1013,
+     1013,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1024,
+     1024,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1031,
+     1031,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1013,
+     1013,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1024,
+     1024,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1031,
+     1031,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1013,
+     1013,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1024,
+     1024,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1031,
+     1031,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1013,
+     1013,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1024,
+     1024,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1031,
+     1031,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1013,
+     1013,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1024,
+     1024,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1031,
+     1031,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1013,
+     1013,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1024,
+     1024,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1031,
+     1031,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1013,
+     1013,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1024,
+     1024,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1031,
+     1031,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1013,
+     1013,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1024,
+     1024,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1031,
+     1031,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1013,
+     1013,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1024,
+     1024,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1031,
+     1031,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1013,
+     1013,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1024,
+     1024,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1031,
+     1031,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1013,
+     1013,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1024,
+     1024,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "promql/parser/parse.go",
+     1031,
+     1031,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "promql/parser/parse.go:1000",
+   "stratum": "U-method"
+  },
+  "callees:rules/alerting.go:223": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "rules/alerting.go:223",
+   "stratum": "U-method"
+  },
+  "callees:storage/buffer.go:620": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "storage/buffer.go",
+     "addF"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "storage/buffer.go",
+     647,
+     647
+    ],
+    [
+     "storage/buffer.go",
+     648,
+     648
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "storage/buffer.go",
+     "addF"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "storage/buffer.go",
+     629,
+     629,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "storage/buffer.go",
+     630,
+     630,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "storage/buffer.go",
+     647,
+     647,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "storage/buffer.go:620",
+   "stratum": "C-name"
+  },
+  "callees:storage/remote/codec.go:308": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "storage/remote/codec.go",
+     "MergeLabels"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "storage/remote/codec.go:308",
+   "stratum": "Q-scoped"
+  },
+  "callees:storage/remote/codec.go:491": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "storage/remote/codec.go",
+     "setCurrentHistogram"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "storage/remote/codec.go",
+     513,
+     513
+    ],
+    [
+     "storage/remote/codec.go",
+     508,
+     508
+    ],
+    [
+     "storage/remote/codec.go",
+     497,
+     497
+    ],
+    [
+     "storage/remote/codec.go",
+     496,
+     496
+    ],
+    [
+     "storage/remote/codec.go",
+     531,
+     531
+    ],
+    [
+     "storage/remote/codec.go",
+     526,
+     526
+    ],
+    [
+     "storage/remote/codec.go",
+     501,
+     501
+    ],
+    [
+     "storage/remote/codec.go",
+     521,
+     521
+    ],
+    [
+     "storage/remote/codec.go",
+     503,
+     503
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "storage/remote/codec.go",
+     "setCurrentHistogram"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "storage/remote/codec.go",
+     497,
+     497,
+     {
+      "resolution_kind": "import_qualified",
+      "score": 1.0
+     }
+    ],
+    [
+     "storage/remote/codec.go",
+     496,
+     496,
+     {
+      "resolution_kind": "import_qualified",
+      "score": 1.0
+     }
+    ],
+    [
+     "storage/remote/codec.go",
+     501,
+     501,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "storage/remote/codec.go",
+     521,
+     521,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "storage/remote/codec.go",
+     503,
+     503,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "storage/remote/codec.go",
+     501,
+     501,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "storage/remote/codec.go",
+     521,
+     521,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "storage/remote/codec.go",
+     503,
+     503,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "storage/remote/codec.go:491",
+   "stratum": "U-method"
+  },
+  "callees:storage/remote/read.go:219": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "storage/remote/read.go",
+     "LabelNames"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "storage/remote/read.go:219",
+   "stratum": "C-method"
+  },
+  "callees:tsdb/block_test.go:874": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tsdb/block_test.go",
+     "populateSeries"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tsdb/block_test.go",
+     888,
+     888
+    ],
+    [
+     "tsdb/block_test.go",
+     888,
+     888
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tsdb/block_test.go",
+     "populateSeries"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tsdb/block_test.go",
+     888,
+     888,
+     {
+      "resolution_kind": "import_qualified",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/block_test.go",
+     888,
+     888,
+     {
+      "resolution_kind": "import_qualified",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "tsdb/block_test.go:874",
+   "stratum": "C-name"
+  },
+  "callees:tsdb/chunkenc/float_histogram_test.go:1252": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     "TestFloatHistogramAppendOnlyErrors"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1268,
+     1268
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1290,
+     1290
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1312,
+     1312
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1257,
+     1257
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1279,
+     1279
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1301,
+     1301
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1262,
+     1262
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1270,
+     1270
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1284,
+     1284
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1292,
+     1292
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1306,
+     1306
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1314,
+     1314
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1254,
+     1254
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1276,
+     1276
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1298,
+     1298
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1260,
+     1260
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1282,
+     1282
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1304,
+     1304
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     "TestFloatHistogramAppendOnlyErrors"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1254,
+     1254,
+     {
+      "resolution_kind": "same_package",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1276,
+     1276,
+     {
+      "resolution_kind": "same_package",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1298,
+     1298,
+     {
+      "resolution_kind": "same_package",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1260,
+     1260,
+     {
+      "resolution_kind": "import_qualified",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1282,
+     1282,
+     {
+      "resolution_kind": "import_qualified",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/chunkenc/float_histogram_test.go",
+     1304,
+     1304,
+     {
+      "resolution_kind": "import_qualified",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "tsdb/chunkenc/float_histogram_test.go:1252",
+   "stratum": "Q-scoped"
+  },
+  "callees:tsdb/compact.go:772": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tsdb/compact.go:772",
+   "stratum": "C-method"
+  },
+  "callees:tsdb/fileutil/mmap_windows.go:22": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tsdb/fileutil/mmap_windows.go",
+     "mmap"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tsdb/fileutil/mmap_windows.go:22",
+   "stratum": "C-name"
+  },
+  "callees:tsdb/head.go:2415": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tsdb/head.go",
+     "refStripe"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tsdb/head.go:2415",
+   "stratum": "U-method"
+  },
+  "callees:tsdb/head_read.go:559": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tsdb/head_read.go",
+     "chunkFromSeries"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tsdb/head_read.go",
+     586,
+     586
+    ],
+    [
+     "tsdb/head_read.go",
+     590,
+     590
+    ],
+    [
+     "tsdb/head_read.go",
+     590,
+     590
+    ],
+    [
+     "tsdb/head_read.go",
+     578,
+     578
+    ],
+    [
+     "tsdb/head_read.go",
+     564,
+     564
+    ],
+    [
+     "tsdb/head_read.go",
+     561,
+     561
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tsdb/head_read.go",
+     "chunkFromSeries"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tsdb/head_read.go",
+     588,
+     588,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/head_read.go",
+     590,
+     590,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/head_read.go",
+     586,
+     586,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/head_read.go",
+     590,
+     590,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/head_read.go",
+     586,
+     586,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/head_read.go",
+     590,
+     590,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/head_read.go",
+     586,
+     586,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/head_read.go",
+     590,
+     590,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/head_read.go",
+     586,
+     586,
+     {
+      "resolution_kind": "interface_dispatch",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/head_read.go",
+     564,
+     564,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/head_read.go",
+     561,
+     561,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "tsdb/head_read.go:559",
+   "stratum": "U-method"
+  },
+  "callees:tsdb/record/bench_test.go:36": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tsdb/record/bench_test.go",
+     "TestEncodeDecode"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tsdb/record/bench_test.go",
+     94,
+     94
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     96,
+     96
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     99,
+     99
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     99,
+     99
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     59,
+     59
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     73,
+     73
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     85,
+     85
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     106,
+     106
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     54,
+     54
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     68,
+     68
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     81,
+     81
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     102,
+     102
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     54,
+     54
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     68,
+     68
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     81,
+     81
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     92,
+     92
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     51,
+     51
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tsdb/record/bench_test.go",
+     "TestEncodeDecode"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tsdb/record/bench_test.go",
+     94,
+     94,
+     {
+      "resolution_kind": "import_qualified",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     99,
+     99,
+     {
+      "resolution_kind": "import_qualified",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     59,
+     59,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     73,
+     73,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     85,
+     85,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     106,
+     106,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     51,
+     51,
+     {
+      "resolution_kind": "import_qualified",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/record/bench_test.go",
+     99,
+     99,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "tsdb/record/bench_test.go:36",
+   "stratum": "C-name"
+  },
+  "callees:tsdb/record/record.go:311": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tsdb/record/record.go",
+     "yoloString"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tsdb/record/record.go:311",
+   "stratum": "C-name"
+  },
+  "callees:web/api/testhelpers/openapi.go:98": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "web/api/testhelpers/openapi.go",
+     "ValidateOpenAPI"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "web/api/testhelpers/openapi.go",
+     102,
+     102
+    ],
+    [
+     "web/api/testhelpers/openapi.go",
+     107,
+     107
+    ],
+    [
+     "web/api/testhelpers/openapi.go",
+     113,
+     113
+    ],
+    [
+     "web/api/testhelpers/openapi.go",
+     109,
+     109
+    ],
+    [
+     "web/api/testhelpers/openapi.go",
+     115,
+     115
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "web/api/testhelpers/openapi.go",
+     "ValidateOpenAPI"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "web/api/testhelpers/openapi.go",
+     102,
+     102,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "web/api/testhelpers/openapi.go",
+     107,
+     107,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "web/api/testhelpers/openapi.go",
+     113,
+     113,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "web/api/testhelpers/openapi.go",
+     109,
+     109,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "web/api/testhelpers/openapi.go",
+     115,
+     115,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "web/api/testhelpers/openapi.go:98",
+   "stratum": "U-method"
+  },
+  "callees:web/api/v1/api.go:2064": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "web/api/v1/api.go",
+     "otlpWrite"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "web/api/v1/api.go:2064",
+   "stratum": "U-method"
+  },
+  "callees:web/api/v1/openapi_paths.go:675": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "web/api/v1/openapi_paths.go",
+     "otlpWritePath"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "web/api/v1/openapi_paths.go",
+     682,
+     682
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "web/api/v1/openapi_paths.go",
+     "otlpWritePath"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "web/api/v1/openapi_paths.go",
+     682,
+     682,
+     {
+      "resolution_kind": "same_package",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "web/api/v1/openapi_paths.go:675",
+   "stratum": "U-method"
+  },
+  "callers:cmd/promtool/main.go:1369": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "cmd/promtool/main.go",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "cmd/promtool/main.go",
+     475,
+     475
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "cmd/promtool/main.go",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "cmd/promtool/main.go",
+     475,
+     475,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "cmd/promtool/main.go:1369",
+   "stratum": "Q-scoped"
+  },
+  "callers:cmd/promtool/main_test.go:546": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "cmd/promtool/main_test.go:546",
+   "stratum": "Q-scoped"
+  },
+  "callers:cmd/promtool/metrics_test.go:45": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "cmd/promtool/metrics_test.go",
+     "TestPushMetrics"
+    ],
+    [
+     "cmd/promtool/metrics_test.go",
+     "TestPushMetricsInvalidProtoMsg"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "cmd/promtool/metrics_test.go",
+     96,
+     96
+    ],
+    [
+     "cmd/promtool/metrics_test.go",
+     148,
+     148
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "cmd/promtool/metrics_test.go",
+     "TestPushMetrics"
+    ],
+    [
+     "cmd/promtool/metrics_test.go",
+     "TestPushMetricsInvalidProtoMsg"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "cmd/promtool/metrics_test.go",
+     96,
+     96,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "cmd/promtool/metrics_test.go",
+     148,
+     148,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "cmd/promtool/metrics_test.go:45",
+   "stratum": "Q-scoped"
+  },
+  "callers:config/config.go:1547": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "config/config.go",
+     "UnmarshalYAML"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "config/config.go",
+     462,
+     462
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "config/config.go:1547",
+   "stratum": "C-method"
+  },
+  "callers:discovery/digitalocean/mock_test.go:32": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "discovery/digitalocean/digitalocean_db_test.go",
+     "TestDigitalOceanDBRefresh"
+    ],
+    [
+     "discovery/digitalocean/digitalocean_test.go",
+     "SetupTest"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "discovery/digitalocean/digitalocean_db_test.go",
+     29,
+     29
+    ],
+    [
+     "discovery/digitalocean/digitalocean_test.go",
+     38,
+     38
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "discovery/digitalocean/digitalocean_db_test.go",
+     "TestDigitalOceanDBRefresh"
+    ],
+    [
+     "discovery/digitalocean/digitalocean_test.go",
+     "SetupTest"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "discovery/digitalocean/digitalocean_db_test.go",
+     29,
+     29,
+     {
+      "resolution_kind": "same_package",
+      "score": 1.0
+     }
+    ],
+    [
+     "discovery/digitalocean/digitalocean_test.go",
+     38,
+     38,
+     {
+      "resolution_kind": "same_package",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "discovery/digitalocean/mock_test.go:32",
+   "stratum": "C-name"
+  },
+  "callers:discovery/eureka/eureka.go:127": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "discovery/eureka/eureka.go",
+     "NewDiscoverer"
+    ],
+    [
+     "discovery/eureka/eureka_test.go",
+     "testUpdateServices"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "discovery/eureka/eureka.go",
+     90,
+     90
+    ],
+    [
+     "discovery/eureka/eureka_test.go",
+     50,
+     50
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "discovery/eureka/eureka.go",
+     "NewDiscoverer"
+    ],
+    [
+     "discovery/eureka/eureka_test.go",
+     "testUpdateServices"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "discovery/eureka/eureka.go",
+     90,
+     90,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "discovery/eureka/eureka_test.go",
+     50,
+     50,
+     {
+      "resolution_kind": "same_package",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "discovery/eureka/eureka.go:127",
+   "stratum": "C-name"
+  },
+  "callers:discovery/kubernetes/endpoints.go:333": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "discovery/kubernetes/endpoints.go",
+     "endpointsSource"
+    ],
+    [
+     "discovery/kubernetes/endpoints.go",
+     "process"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "discovery/kubernetes/endpoints.go",
+     308,
+     308
+    ],
+    [
+     "discovery/kubernetes/endpoints.go",
+     330,
+     330
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "discovery/kubernetes/endpoints.go",
+     "endpointsSource"
+    ],
+    [
+     "discovery/kubernetes/endpoints.go",
+     "process"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "discovery/kubernetes/endpoints.go",
+     308,
+     308,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "discovery/kubernetes/endpoints.go",
+     330,
+     330,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "discovery/kubernetes/endpoints.go:333",
+   "stratum": "Q-scoped"
+  },
+  "callers:discovery/marathon/marathon.go:229": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "discovery/marathon/marathon.go",
+     "NewDiscovery"
+    ],
+    [
+     "discovery/marathon/marathon_test.go",
+     "TestMarathonSDRemoveApp"
+    ],
+    [
+     "discovery/marathon/marathon_test.go",
+     "testUpdateServices"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "discovery/marathon/marathon.go",
+     174,
+     174
+    ],
+    [
+     "discovery/marathon/marathon_test.go",
+     65,
+     65
+    ],
+    [
+     "discovery/marathon/marathon_test.go",
+     153,
+     153
+    ],
+    [
+     "discovery/marathon/marathon_test.go",
+     161,
+     161
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "discovery/dns/dns_test.go",
+     "TestDNS"
+    ],
+    [
+     "discovery/eureka/eureka_test.go",
+     "testUpdateServices"
+    ],
+    [
+     "discovery/file/file.go",
+     "Run"
+    ],
+    [
+     "discovery/linode/linode_test.go",
+     "TestLinodeSDRefresh"
+    ],
+    [
+     "discovery/marathon/marathon_test.go",
+     "TestMarathonSDRemoveApp"
+    ],
+    [
+     "discovery/marathon/marathon_test.go",
+     "testUpdateServices"
+    ],
+    [
+     "discovery/moby/nodes_test.go",
+     "TestDockerSwarmNodesSDRefresh"
+    ],
+    [
+     "discovery/moby/services_test.go",
+     "TestDockerSwarmSDServicesRefresh"
+    ],
+    [
+     "discovery/moby/services_test.go",
+     "TestDockerSwarmSDServicesRefreshWithFilters"
+    ],
+    [
+     "discovery/moby/tasks_test.go",
+     "TestDockerSwarmTasksSDRefresh"
+    ],
+    [
+     "discovery/nomad/nomad_test.go",
+     "TestNomadSDRefresh"
+    ],
+    [
+     "discovery/puppetdb/puppetdb_test.go",
+     "TestPuppetDBInvalidCode"
+    ],
+    [
+     "discovery/puppetdb/puppetdb_test.go",
+     "TestPuppetDBInvalidFormat"
+    ],
+    [
+     "discovery/puppetdb/puppetdb_test.go",
+     "TestPuppetDBRefresh"
+    ],
+    [
+     "discovery/puppetdb/puppetdb_test.go",
+     "TestPuppetDBRefreshWithParameters"
+    ],
+    [
+     "discovery/refresh/refresh.go",
+     "Run"
+    ],
+    [
+     "discovery/uyuni/uyuni_test.go",
+     "TestUyuniSDSkipLogin"
+    ],
+    [
+     "discovery/uyuni/uyuni_test.go",
+     "testUpdateServices"
+    ],
+    [
+     "discovery/vultr/vultr_test.go",
+     "TestVultrSDRefresh"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "discovery/dns/dns_test.go",
+     270,
+     270,
+     {
+      "resolution_kind": "return_typed",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/eureka/eureka_test.go",
+     59,
+     59,
+     {
+      "resolution_kind": "return_typed",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/file/file.go",
+     249,
+     249,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/file/file.go",
+     273,
+     273,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/file/file.go",
+     278,
+     278,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/linode/linode_test.go",
+     251,
+     251,
+     {
+      "resolution_kind": "return_typed",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/marathon/marathon_test.go",
+     65,
+     65,
+     {
+      "resolution_kind": "return_typed",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/marathon/marathon_test.go",
+     153,
+     153,
+     {
+      "resolution_kind": "return_typed",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/marathon/marathon_test.go",
+     161,
+     161,
+     {
+      "resolution_kind": "return_typed",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/moby/nodes_test.go",
+     59,
+     59,
+     {
+      "resolution_kind": "return_typed",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/moby/services_test.go",
+     59,
+     59,
+     {
+      "resolution_kind": "return_typed",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/moby/services_test.go",
+     364,
+     364,
+     {
+      "resolution_kind": "return_typed",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/moby/tasks_test.go",
+     59,
+     59,
+     {
+      "resolution_kind": "return_typed",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/nomad/nomad_test.go",
+     195,
+     195,
+     {
+      "resolution_kind": "return_typed",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/puppetdb/puppetdb_test.go",
+     109,
+     109,
+     {
+      "resolution_kind": "return_typed",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/puppetdb/puppetdb_test.go",
+     161,
+     161,
+     {
+      "resolution_kind": "return_typed",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/puppetdb/puppetdb_test.go",
+     224,
+     224,
+     {
+      "resolution_kind": "return_typed",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/puppetdb/puppetdb_test.go",
+     256,
+     256,
+     {
+      "resolution_kind": "return_typed",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/refresh/refresh.go",
+     69,
+     69,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/refresh/refresh.go",
+     88,
+     88,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/uyuni/uyuni_test.go",
+     59,
+     59,
+     {
+      "resolution_kind": "return_typed",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/uyuni/uyuni_test.go",
+     149,
+     149,
+     {
+      "resolution_kind": "return_typed",
+      "score": 0.6
+     }
+    ],
+    [
+     "discovery/vultr/vultr_test.go",
+     71,
+     71,
+     {
+      "resolution_kind": "return_typed",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "discovery/marathon/marathon.go:229",
+   "stratum": "C-method"
+  },
+  "callers:discovery/stackit/server.go:114": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "discovery/stackit/server_test.go",
+     "TestServerSDRefresh"
+    ],
+    [
+     "discovery/stackit/stackit.go",
+     "NewDiscovery"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "discovery/stackit/server_test.go",
+     101,
+     101
+    ],
+    [
+     "discovery/stackit/stackit.go",
+     146,
+     146
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "discovery/stackit/server_test.go",
+     "TestServerSDRefresh"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "discovery/stackit/server_test.go",
+     101,
+     101,
+     {
+      "resolution_kind": "return_typed",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "discovery/stackit/server.go:114",
+   "stratum": "C-method"
+  },
+  "callers:model/labels/labels_test.go:967": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "model/labels/labels_test.go:967",
+   "stratum": "Q-scoped"
+  },
+  "callers:model/labels/regexp_test.go:912": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "model/labels/regexp_test.go:912",
+   "stratum": "Q-scoped"
+  },
+  "callers:model/textparse/openmetricsparse.go:290": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "model/textparse/benchmark_test.go",
+     "BenchmarkStartTimestampPromProto"
+    ],
+    [
+     "model/textparse/benchmark_test.go",
+     "benchParse"
+    ],
+    [
+     "model/textparse/interface_test.go",
+     "testParse"
+    ],
+    [
+     "model/textparse/nhcbparse.go",
+     "StartTimestamp"
+    ],
+    [
+     "model/textparse/nhcbparse.go",
+     "processClassicHistogramSeries"
+    ],
+    [
+     "scrape/scrape.go",
+     "append"
+    ],
+    [
+     "scrape/scrape_append_v2.go",
+     "append"
+    ],
+    [
+     "util/fuzzing/fuzz_test.go",
+     "FuzzParseProtobuf"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "model/textparse/benchmark_test.go",
+     209,
+     209
+    ],
+    [
+     "model/textparse/benchmark_test.go",
+     304,
+     304
+    ],
+    [
+     "model/textparse/benchmark_test.go",
+     334,
+     334
+    ],
+    [
+     "model/textparse/interface_test.go",
+     259,
+     259
+    ],
+    [
+     "model/textparse/nhcbparse.go",
+     166,
+     166
+    ],
+    [
+     "model/textparse/nhcbparse.go",
+     321,
+     321
+    ],
+    [
+     "scrape/scrape.go",
+     1752,
+     1752
+    ],
+    [
+     "scrape/scrape_append_v2.go",
+     261,
+     261
+    ],
+    [
+     "util/fuzzing/fuzz_test.go",
+     327,
+     327
+    ],
+    [
+     "util/fuzzing/fuzz_test.go",
+     335,
+     335
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "model/textparse/openmetricsparse.go:290",
+   "stratum": "C-method"
+  },
+  "callers:prompb/codec.go:187": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "prompb/codec.go",
+     "FromFloatHistogram"
+    ],
+    [
+     "prompb/codec.go",
+     "FromIntHistogram"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "prompb/codec.go",
+     159,
+     159
+    ],
+    [
+     "prompb/codec.go",
+     161,
+     161
+    ],
+    [
+     "prompb/codec.go",
+     177,
+     177
+    ],
+    [
+     "prompb/codec.go",
+     179,
+     179
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "prompb/codec.go",
+     "FromFloatHistogram"
+    ],
+    [
+     "prompb/codec.go",
+     "FromIntHistogram"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "prompb/codec.go",
+     159,
+     159,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "prompb/codec.go",
+     161,
+     161,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "prompb/codec.go",
+     177,
+     177,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "prompb/codec.go",
+     179,
+     179,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "prompb/codec.go:187",
+   "stratum": "C-name"
+  },
+  "callers:prompb/io/prometheus/client/metrics.pb.go:1139": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     "Marshal"
+    ],
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     "MarshalTo"
+    ],
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     "MarshalToSizedBuffer"
+    ],
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     "XXX_Marshal"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     197,
+     197
+    ],
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     1127,
+     1127
+    ],
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     1136,
+     1136
+    ],
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     1730,
+     1730
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     "Marshal"
+    ],
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     "MarshalTo"
+    ],
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     "XXX_Marshal"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     197,
+     197,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     1127,
+     1127,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "prompb/io/prometheus/client/metrics.pb.go",
+     1136,
+     1136,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "prompb/io/prometheus/client/metrics.pb.go:1139",
+   "stratum": "C-method"
+  },
+  "callers:prompb/io/prometheus/client/metrics.pb.go:192": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "prompb/io/prometheus/client/metrics.pb.go:192",
+   "stratum": "C-method"
+  },
+  "callers:promql/parser/parse.go:1000": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "promql/parser/generated_parser.y.go",
+     "Parse"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "promql/parser/generated_parser.y.go",
+     1666,
+     1666
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "promql/parser/generated_parser.y.go",
+     "Parse"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "promql/parser/generated_parser.y.go",
+     1666,
+     1666,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "promql/parser/parse.go:1000",
+   "stratum": "U-method"
+  },
+  "callers:rules/alerting.go:223": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "web/api/v1/api.go",
+     "rules"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "web/api/v1/api.go",
+     1695,
+     1695
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "web/api/v1/api.go",
+     "rules"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "web/api/v1/api.go",
+     1695,
+     1695,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "rules/alerting.go:223",
+   "stratum": "U-method"
+  },
+  "callers:storage/buffer.go:620": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "storage/buffer.go",
+     "add"
+    ],
+    [
+     "storage/buffer.go",
+     "addF"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "storage/buffer.go",
+     473,
+     473
+    ],
+    [
+     "storage/buffer.go",
+     489,
+     489
+    ],
+    [
+     "storage/buffer.go",
+     532,
+     532
+    ],
+    [
+     "storage/buffer.go",
+     534,
+     534
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "storage/buffer.go",
+     "add"
+    ],
+    [
+     "storage/buffer.go",
+     "addF"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "storage/buffer.go",
+     473,
+     473,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "storage/buffer.go",
+     489,
+     489,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "storage/buffer.go",
+     532,
+     532,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "storage/buffer.go",
+     534,
+     534,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "storage/buffer.go:620",
+   "stratum": "C-name"
+  },
+  "callers:storage/remote/codec.go:308": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "storage/remote/codec.go",
+     "StreamChunkedReadResponses"
+    ],
+    [
+     "storage/remote/codec_test.go",
+     "TestMergeLabels"
+    ],
+    [
+     "storage/remote/read_handler.go",
+     "remoteReadSamples"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "storage/remote/codec.go",
+     245,
+     245
+    ],
+    [
+     "storage/remote/codec_test.go",
+     733,
+     733
+    ],
+    [
+     "storage/remote/read_handler.go",
+     168,
+     168
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "storage/remote/codec.go",
+     "StreamChunkedReadResponses"
+    ],
+    [
+     "storage/remote/codec_test.go",
+     "TestMergeLabels"
+    ],
+    [
+     "storage/remote/read_handler.go",
+     "remoteReadSamples"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "storage/remote/codec.go",
+     245,
+     245,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "storage/remote/codec_test.go",
+     733,
+     733,
+     {
+      "resolution_kind": "same_package",
+      "score": 1.0
+     }
+    ],
+    [
+     "storage/remote/read_handler.go",
+     168,
+     168,
+     {
+      "resolution_kind": "same_package",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "storage/remote/codec.go:308",
+   "stratum": "Q-scoped"
+  },
+  "callers:storage/remote/codec.go:491": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "storage/remote/codec.go",
+     "Next"
+    ],
+    [
+     "storage/remote/codec.go",
+     "Seek"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "storage/remote/codec.go",
+     477,
+     477
+    ],
+    [
+     "storage/remote/codec.go",
+     618,
+     618
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "storage/remote/codec.go",
+     "Next"
+    ],
+    [
+     "storage/remote/codec.go",
+     "Seek"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "storage/remote/codec.go",
+     477,
+     477,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "storage/remote/codec.go",
+     618,
+     618,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "storage/remote/codec.go:491",
+   "stratum": "U-method"
+  },
+  "callers:storage/remote/read.go:219": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "storage/merge.go",
+     "LabelNames"
+    ],
+    [
+     "storage/merge_test.go",
+     "TestMergeQuerierWithSecondaries_ErrorHandling"
+    ],
+    [
+     "storage/secondary.go",
+     "LabelNames"
+    ],
+    [
+     "tsdb/db_append_v2_test.go",
+     "TestDB_LabelNames_AppendV2"
+    ],
+    [
+     "tsdb/db_test.go",
+     "TestDB_LabelNames"
+    ],
+    [
+     "tsdb/head_append_v2_test.go",
+     "testQueryOOOHeadDuringTruncateAppenderV2"
+    ],
+    [
+     "tsdb/head_test.go",
+     "testQueryOOOHeadDuringTruncate"
+    ],
+    [
+     "tsdb/ooo_head_read.go",
+     "LabelNames"
+    ],
+    [
+     "web/api/v1/api.go",
+     "labelNames"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "storage/merge.go",
+     262,
+     262
+    ],
+    [
+     "storage/merge_test.go",
+     1636,
+     1636
+    ],
+    [
+     "storage/secondary.go",
+     64,
+     64
+    ],
+    [
+     "tsdb/db_append_v2_test.go",
+     1779,
+     1779
+    ],
+    [
+     "tsdb/db_test.go",
+     2499,
+     2499
+    ],
+    [
+     "tsdb/head_append_v2_test.go",
+     1618,
+     1618
+    ],
+    [
+     "tsdb/head_test.go",
+     4309,
+     4309
+    ],
+    [
+     "tsdb/ooo_head_read.go",
+     595,
+     595
+    ],
+    [
+     "tsdb/ooo_head_read.go",
+     669,
+     669
+    ],
+    [
+     "web/api/v1/api.go",
+     813,
+     813
+    ],
+    [
+     "web/api/v1/api.go",
+     835,
+     835
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "storage/remote/read.go:219",
+   "stratum": "C-method"
+  },
+  "callers:tsdb/block_test.go:874": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tsdb/querier_test.go",
+     "BenchmarkQueryIterator"
+    ],
+    [
+     "tsdb/querier_test.go",
+     "BenchmarkQuerySeek"
+    ],
+    [
+     "tsdb/querier_test.go",
+     "BenchmarkSetMatcher"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tsdb/querier_test.go",
+     2696,
+     2696
+    ],
+    [
+     "tsdb/querier_test.go",
+     2759,
+     2759
+    ],
+    [
+     "tsdb/querier_test.go",
+     2896,
+     2896
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tsdb/querier_test.go",
+     "BenchmarkQueryIterator"
+    ],
+    [
+     "tsdb/querier_test.go",
+     "BenchmarkQuerySeek"
+    ],
+    [
+     "tsdb/querier_test.go",
+     "BenchmarkSetMatcher"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tsdb/querier_test.go",
+     2696,
+     2696,
+     {
+      "resolution_kind": "same_package",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/querier_test.go",
+     2759,
+     2759,
+     {
+      "resolution_kind": "same_package",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/querier_test.go",
+     2896,
+     2896,
+     {
+      "resolution_kind": "same_package",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "tsdb/block_test.go:874",
+   "stratum": "C-name"
+  },
+  "callers:tsdb/chunkenc/float_histogram_test.go:1252": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tsdb/chunkenc/float_histogram_test.go:1252",
+   "stratum": "Q-scoped"
+  },
+  "callers:tsdb/compact.go:772": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tsdb/compact.go",
+     "write"
+    ],
+    [
+     "tsdb/compact_test.go",
+     "TestCompaction_populateBlock"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tsdb/compact.go",
+     706,
+     706
+    ],
+    [
+     "tsdb/compact_test.go",
+     1108,
+     1108
+    ]
+   ],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tsdb/compact.go:772",
+   "stratum": "C-method"
+  },
+  "callers:tsdb/fileutil/mmap_windows.go:22": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tsdb/fileutil/mmap.go",
+     "OpenMmapFileWithSize"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tsdb/fileutil/mmap.go",
+     48,
+     48
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tsdb/fileutil/mmap.go",
+     "OpenMmapFileWithSize"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tsdb/fileutil/mmap.go",
+     48,
+     48,
+     {
+      "resolution_kind": "same_package",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "tsdb/fileutil/mmap_windows.go:22",
+   "stratum": "C-name"
+  },
+  "callers:tsdb/head.go:2415": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tsdb/head.go",
+     "decMmapReady"
+    ],
+    [
+     "tsdb/head.go",
+     "deleteSeriesByID"
+    ],
+    [
+     "tsdb/head.go",
+     "gc"
+    ],
+    [
+     "tsdb/head.go",
+     "gcStaleSeries"
+    ],
+    [
+     "tsdb/head.go",
+     "getByID"
+    ],
+    [
+     "tsdb/head.go",
+     "incMmapReady"
+    ],
+    [
+     "tsdb/head.go",
+     "setUnlessAlreadySet"
+    ],
+    [
+     "tsdb/head_test.go",
+     "TestHead_mmapHeadChunks"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tsdb/head.go",
+     2187,
+     2187
+    ],
+    [
+     "tsdb/head.go",
+     2266,
+     2266
+    ],
+    [
+     "tsdb/head.go",
+     2364,
+     2364
+    ],
+    [
+     "tsdb/head.go",
+     2421,
+     2421
+    ],
+    [
+     "tsdb/head.go",
+     2426,
+     2426
+    ],
+    [
+     "tsdb/head.go",
+     2430,
+     2430
+    ],
+    [
+     "tsdb/head.go",
+     2459,
+     2459
+    ],
+    [
+     "tsdb/head_test.go",
+     9388,
+     9388
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tsdb/head.go",
+     "decMmapReady"
+    ],
+    [
+     "tsdb/head.go",
+     "deleteSeriesByID"
+    ],
+    [
+     "tsdb/head.go",
+     "gc"
+    ],
+    [
+     "tsdb/head.go",
+     "gcStaleSeries"
+    ],
+    [
+     "tsdb/head.go",
+     "getByID"
+    ],
+    [
+     "tsdb/head.go",
+     "incMmapReady"
+    ],
+    [
+     "tsdb/head.go",
+     "setUnlessAlreadySet"
+    ],
+    [
+     "tsdb/head_test.go",
+     "TestHead_mmapHeadChunks"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tsdb/head.go",
+     2187,
+     2187,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/head.go",
+     2364,
+     2364,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/head.go",
+     2421,
+     2421,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/head.go",
+     2426,
+     2426,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/head.go",
+     2430,
+     2430,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/head.go",
+     2459,
+     2459,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/head.go",
+     2266,
+     2266,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "tsdb/head_test.go",
+     9388,
+     9388,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "tsdb/head.go:2415",
+   "stratum": "U-method"
+  },
+  "callers:tsdb/head_read.go:559": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tsdb/head_read.go",
+     "chunk"
+    ],
+    [
+     "tsdb/ooo_head_read.go",
+     "chunkOrIterable"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tsdb/head_read.go",
+     550,
+     550
+    ],
+    [
+     "tsdb/ooo_head_read.go",
+     265,
+     265
+    ],
+    [
+     "tsdb/ooo_head_read.go",
+     284,
+     284
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tsdb/head_read.go",
+     "chunk"
+    ],
+    [
+     "tsdb/ooo_head_read.go",
+     "chunkOrIterable"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tsdb/head_read.go",
+     550,
+     550,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "tsdb/ooo_head_read.go",
+     265,
+     265,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "tsdb/ooo_head_read.go",
+     284,
+     284,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "tsdb/head_read.go:559",
+   "stratum": "U-method"
+  },
+  "callers:tsdb/record/bench_test.go:36": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tsdb/record/bench_test.go:36",
+   "stratum": "C-name"
+  },
+  "callers:tsdb/record/record.go:311": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tsdb/record/record.go",
+     "DecodeLabels"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tsdb/record/record.go",
+     322,
+     322
+    ],
+    [
+     "tsdb/record/record.go",
+     322,
+     322
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tsdb/record/record.go",
+     "DecodeLabels"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tsdb/record/record.go",
+     322,
+     322,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "tsdb/record/record.go",
+     322,
+     322,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "tsdb/record/record.go:311",
+   "stratum": "C-name"
+  },
+  "callers:web/api/testhelpers/openapi.go:98": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "web/api/v1/api_scenarios_test.go",
+     "TestAPIEmpty"
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     "TestAPITSDBNotReady"
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     "TestAPIWithNativeHistograms"
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     "TestAPIWithRules"
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     "TestAPIWithSeries"
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     "TestAPIWithStats"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "web/api/v1/api_scenarios_test.go",
+     35,
+     35
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     41,
+     41
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     53,
+     53
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     63,
+     63
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     70,
+     70
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     83,
+     83
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     90,
+     90
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     97,
+     97
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     104,
+     104
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     111,
+     111
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     118,
+     118
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     125,
+     125
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     132,
+     132
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     139,
+     139
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     156,
+     156
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     170,
+     170
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     178,
+     178
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     186,
+     186
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     194,
+     194
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     207,
+     207
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     215,
+     215
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     223,
+     223
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     230,
+     230
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     248,
+     248
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     273,
+     273
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     281,
+     281
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     298,
+     298
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     305,
+     305
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     316,
+     316
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     326,
+     326
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     333,
+     333
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     340,
+     340
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     357,
+     357
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     374,
+     374
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     397,
+     397
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     404,
+     404
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     415,
+     415
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     461,
+     461
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     498,
+     498
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "web/api/v1/api_scenarios_test.go",
+     "TestAPIEmpty"
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     "TestAPITSDBNotReady"
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     "TestAPIWithNativeHistograms"
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     "TestAPIWithRules"
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     "TestAPIWithSeries"
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     "TestAPIWithStats"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "web/api/v1/api_scenarios_test.go",
+     33,
+     33,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     40,
+     40,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     47,
+     47,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     58,
+     58,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     68,
+     68,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     81,
+     81,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     88,
+     88,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     95,
+     95,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     102,
+     102,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     109,
+     109,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     116,
+     116,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     123,
+     123,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     130,
+     130,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     137,
+     137,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     154,
+     154,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     164,
+     164,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     176,
+     176,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     184,
+     184,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     192,
+     192,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     202,
+     202,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     213,
+     213,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     221,
+     221,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     228,
+     228,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     246,
+     246,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     271,
+     271,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     279,
+     279,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     296,
+     296,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     303,
+     303,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     310,
+     310,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     321,
+     321,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     331,
+     331,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     338,
+     338,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     355,
+     355,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     372,
+     372,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     391,
+     391,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     402,
+     402,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     410,
+     410,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     461,
+     461,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "web/api/v1/api_scenarios_test.go",
+     498,
+     498,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "web/api/testhelpers/openapi.go:98",
+   "stratum": "U-method"
+  },
+  "callers:web/api/v1/api.go:2064": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "web/api/v1/api.go",
+     "Register"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "web/api/v1/api.go",
+     477,
+     477
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "web/api/v1/api.go:2064",
+   "stratum": "U-method"
+  },
+  "callers:web/api/v1/openapi_paths.go:675": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "web/api/v1/openapi.go",
+     "getAllPathDefinitions"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "web/api/v1/openapi.go",
+     327,
+     327
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "web/api/v1/openapi.go",
+     "getAllPathDefinitions"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "web/api/v1/openapi.go",
+     327,
+     327,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "web/api/v1/openapi_paths.go:675",
+   "stratum": "U-method"
+  }
+ },
+ "site_fingerprints": {
+  "cmd/promtool/main.go:1370": "32642dda4935cf2b",
+  "cmd/promtool/main.go:1377": "b9b39f692d0f4e70",
+  "cmd/promtool/main.go:1379": "94b83b8c689ad367",
+  "cmd/promtool/main.go:1381": "386648c76e7adeb1",
+  "cmd/promtool/main.go:1383": "5cc98dcd8cf609e6",
+  "cmd/promtool/main.go:1389": "03865097893d70f9",
+  "cmd/promtool/main.go:1410": "d6769598618a6dc0",
+  "cmd/promtool/main.go:475": "cf5004ce24be854f",
+  "cmd/promtool/metrics_test.go:148": "e7348de670727c0b",
+  "cmd/promtool/metrics_test.go:96": "8c48718a21408481",
+  "config/config.go:1549": "f58e0cd7a16d55e5",
+  "config/config.go:462": "0a60cb53d8a020bc",
+  "discovery/digitalocean/digitalocean_db_test.go:29": "91266e3a37621812",
+  "discovery/digitalocean/digitalocean_test.go:38": "d79577edb0c72274",
+  "discovery/dns/dns_test.go:270": "c193e17636bc445e",
+  "discovery/eureka/eureka.go:142": "ae99d9f700491c5f",
+  "discovery/eureka/eureka.go:90": "873e5d4a8f02d96c",
+  "discovery/eureka/eureka_test.go:50": "fb662fdebd981cb2",
+  "discovery/eureka/eureka_test.go:59": "1ad7801cb754d916",
+  "discovery/file/file.go:249": "1def8e52da607a92",
+  "discovery/file/file.go:273": "7c987b38e39fa20b",
+  "discovery/file/file.go:278": "2d6301a702cf8a50",
+  "discovery/kubernetes/endpoints.go:308": "94ee00fba174c90a",
+  "discovery/kubernetes/endpoints.go:330": "b7a95acc1eb0729f",
+  "discovery/linode/linode_test.go:251": "8dbae7c7fd50bee4",
+  "discovery/marathon/marathon.go:174": "15fce3bf8e2eb869",
+  "discovery/marathon/marathon.go:230": "e3878a2df3b45814",
+  "discovery/marathon/marathon_test.go:153": "8c0ff51f83f98554",
+  "discovery/marathon/marathon_test.go:161": "1807fbca15b6a012",
+  "discovery/marathon/marathon_test.go:65": "478d9e9425da761f",
+  "discovery/moby/nodes_test.go:59": "8d8ef591395b4050",
+  "discovery/moby/services_test.go:364": "8d8ef591395b4050",
+  "discovery/moby/services_test.go:59": "8d8ef591395b4050",
+  "discovery/moby/tasks_test.go:59": "8d8ef591395b4050",
+  "discovery/nomad/nomad_test.go:195": "8dbae7c7fd50bee4",
+  "discovery/puppetdb/puppetdb_test.go:109": "8d8ef591395b4050",
+  "discovery/puppetdb/puppetdb_test.go:161": "8d8ef591395b4050",
+  "discovery/puppetdb/puppetdb_test.go:224": "558b2568870fa3b7",
+  "discovery/puppetdb/puppetdb_test.go:256": "6651807c423b47ab",
+  "discovery/refresh/refresh.go:69": "1594af472460bb9e",
+  "discovery/refresh/refresh.go:88": "7936ad624cde8556",
+  "discovery/stackit/server.go:136": "22312ef1d99faf29",
+  "discovery/stackit/server.go:151": "3f181aad8830c8ed",
+  "discovery/stackit/server.go:188": "b89c1aa5b85b99d7",
+  "discovery/stackit/server.go:210": "f8c617eeb2ac6147",
+  "discovery/stackit/server.go:213": "aff06da162946238",
+  "discovery/stackit/server_test.go:101": "4cba327e3a28163d",
+  "discovery/stackit/stackit.go:146": "2de152f685eec3ff",
+  "discovery/uyuni/uyuni_test.go:149": "3dbe8f313b2dd727",
+  "discovery/uyuni/uyuni_test.go:59": "1ad7801cb754d916",
+  "discovery/vultr/vultr_test.go:71": "8d8ef591395b4050",
+  "model/labels/labels_test.go:969": "79dc16f970a7ab55",
+  "model/labels/labels_test.go:971": "65a08a3ce672a3ef",
+  "model/labels/labels_test.go:973": "187203e16712708c",
+  "model/labels/labels_test.go:975": "a939b6f652a05181",
+  "model/labels/labels_test.go:977": "e4c816a2dcf6c5eb",
+  "model/labels/regexp_test.go:979": "73e88b8584214dcc",
+  "model/labels/regexp_test.go:981": "aa715f0a583a658f",
+  "model/labels/regexp_test.go:986": "4fdaff859d5d0ccd",
+  "model/labels/regexp_test.go:988": "ba5fa8695148c007",
+  "model/labels/regexp_test.go:995": "2da192efb3f45e07",
+  "model/labels/regexp_test.go:998": "fcd7f7e51a6c1ba0",
+  "model/textparse/benchmark_test.go:209": "74487fbf58fb3c9f",
+  "model/textparse/benchmark_test.go:304": "728b829ce82dce99",
+  "model/textparse/benchmark_test.go:334": "bd120576f48a5375",
+  "model/textparse/interface_test.go:259": "40aa3b33c7572fa8",
+  "model/textparse/nhcbparse.go:166": "9fc33e0e546437c0",
+  "model/textparse/nhcbparse.go:321": "a3c1343065d1ee48",
+  "model/textparse/openmetricsparse.go:291": "3fa75a8b629e8eda",
+  "model/textparse/openmetricsparse.go:308": "2c0596be531f83a8",
+  "model/textparse/openmetricsparse.go:335": "00b044ca0a31c672",
+  "model/textparse/openmetricsparse.go:341": "2cdd56fa05c9815a",
+  "model/textparse/openmetricsparse.go:346": "5e38450436c38a9b",
+  "model/textparse/openmetricsparse.go:357": "fc905fe074145fe4",
+  "model/textparse/openmetricsparse.go:360": "98a917c8e5516e9b",
+  "model/textparse/openmetricsparse.go:367": "7341ddca52aaf8f6",
+  "prompb/codec.go:159": "24855f84eebaf2fc",
+  "prompb/codec.go:161": "e0e5f09921a5c329",
+  "prompb/codec.go:177": "5f9375b80af3701f",
+  "prompb/codec.go:179": "da982a1525c5f5d7",
+  "prompb/io/prometheus/client/metrics.pb.go:1127": "4ed5565f5b09ee4c",
+  "prompb/io/prometheus/client/metrics.pb.go:1136": "9d624e5a4581708a",
+  "prompb/io/prometheus/client/metrics.pb.go:1146": "1361f27583afe3dc",
+  "prompb/io/prometheus/client/metrics.pb.go:1155": "e0eb58fd1653e116",
+  "prompb/io/prometheus/client/metrics.pb.go:1162": "940bad2dc080122d",
+  "prompb/io/prometheus/client/metrics.pb.go:1167": "e0eb58fd1653e116",
+  "prompb/io/prometheus/client/metrics.pb.go:1730": "3e9d13165a99e3d0",
+  "prompb/io/prometheus/client/metrics.pb.go:197": "aa3ff88646575d1d",
+  "promql/parser/generated_parser.y.go:1666": "f7a2476b60199367",
+  "promql/parser/parse.go:1013": "23204de3e86c8f5f",
+  "promql/parser/parse.go:1024": "0785ecb1536e2dc6",
+  "promql/parser/parse.go:1031": "ead8188945755381",
+  "scrape/scrape.go:1752": "0668ef9a0138deb5",
+  "scrape/scrape_append_v2.go:261": "3e61a7704f9b0979",
+  "storage/buffer.go:473": "5d0a5c797993ead0",
+  "storage/buffer.go:489": "c34d02e18702b55a",
+  "storage/buffer.go:532": "50d67731478025c0",
+  "storage/buffer.go:534": "e4fb169865d6a2c0",
+  "storage/buffer.go:629": "2b9659a4149a8964",
+  "storage/buffer.go:630": "e52a0e4bdaec0180",
+  "storage/buffer.go:647": "24f73fb2dcaa76e0",
+  "storage/buffer.go:648": "ecf07f212d2cf482",
+  "storage/merge.go:262": "e89d0b3a87e15586",
+  "storage/merge_test.go:1636": "8f5c33edaac183af",
+  "storage/remote/codec.go:245": "f57b495cb2359159",
+  "storage/remote/codec.go:477": "c33e70310d17170b",
+  "storage/remote/codec.go:496": "a966d0e1433eeaff",
+  "storage/remote/codec.go:497": "838fb2d7a97a6dfe",
+  "storage/remote/codec.go:501": "7e2378e38f7d4a47",
+  "storage/remote/codec.go:503": "7f9426b9e433c4c3",
+  "storage/remote/codec.go:508": "433b9ab2deb68952",
+  "storage/remote/codec.go:513": "d5749de58dbcbd3b",
+  "storage/remote/codec.go:521": "5bf4c4500ec3e3e9",
+  "storage/remote/codec.go:526": "6d1b7dff19a56921",
+  "storage/remote/codec.go:531": "b3c446696e9d1550",
+  "storage/remote/codec.go:618": "c33e70310d17170b",
+  "storage/remote/codec_test.go:733": "786590b99dfca43f",
+  "storage/remote/read_handler.go:168": "14db2aa71df558ce",
+  "storage/secondary.go:64": "07d97db1ad965a6c",
+  "tsdb/block_test.go:888": "73a7fec37d871d39",
+  "tsdb/chunkenc/float_histogram_test.go:1254": "00a136f4fa23b56f",
+  "tsdb/chunkenc/float_histogram_test.go:1257": "e96f12d36c120973",
+  "tsdb/chunkenc/float_histogram_test.go:1260": "446e691267e2aa56",
+  "tsdb/chunkenc/float_histogram_test.go:1262": "c62c34700b8de6ee",
+  "tsdb/chunkenc/float_histogram_test.go:1268": "78bbf1ca93b88c4c",
+  "tsdb/chunkenc/float_histogram_test.go:1270": "aa4bcc8949b52d2e",
+  "tsdb/chunkenc/float_histogram_test.go:1276": "84c7efbeb7ca9200",
+  "tsdb/chunkenc/float_histogram_test.go:1279": "e96f12d36c120973",
+  "tsdb/chunkenc/float_histogram_test.go:1282": "446e691267e2aa56",
+  "tsdb/chunkenc/float_histogram_test.go:1284": "c62c34700b8de6ee",
+  "tsdb/chunkenc/float_histogram_test.go:1290": "746e3a138c1e72c0",
+  "tsdb/chunkenc/float_histogram_test.go:1292": "317bb9a93656adfa",
+  "tsdb/chunkenc/float_histogram_test.go:1298": "c598f331bf7bff09",
+  "tsdb/chunkenc/float_histogram_test.go:1301": "e96f12d36c120973",
+  "tsdb/chunkenc/float_histogram_test.go:1304": "5c444ca05ed42245",
+  "tsdb/chunkenc/float_histogram_test.go:1306": "c62c34700b8de6ee",
+  "tsdb/chunkenc/float_histogram_test.go:1312": "53bb7a9cedacc966",
+  "tsdb/chunkenc/float_histogram_test.go:1314": "347cba9b891eb6cd",
+  "tsdb/compact.go:706": "bfa8c5210c88ed02",
+  "tsdb/compact_test.go:1108": "be0971fd9d17c535",
+  "tsdb/db_append_v2_test.go:1779": "c72b3ec7598eaf47",
+  "tsdb/db_test.go:2499": "c72b3ec7598eaf47",
+  "tsdb/fileutil/mmap.go:48": "d9e50c03898fd57e",
+  "tsdb/head.go:2187": "3aa62fc72cb1b723",
+  "tsdb/head.go:2266": "32f29506f99ac503",
+  "tsdb/head.go:2364": "5055c3b38abd4e3e",
+  "tsdb/head.go:2421": "7088c1ca1fadcbc0",
+  "tsdb/head.go:2426": "08426ab42049dae9",
+  "tsdb/head.go:2430": "0b0fc6d8cff91f58",
+  "tsdb/head.go:2459": "591aabc4a41ecfca",
+  "tsdb/head_append_v2_test.go:1618": "c3870789bfb75cbf",
+  "tsdb/head_read.go:550": "b6271e06dc29663f",
+  "tsdb/head_read.go:561": "b6486954298f8a0f",
+  "tsdb/head_read.go:564": "bbf04600373b9f8d",
+  "tsdb/head_read.go:578": "4af5f1465bb9bb3a",
+  "tsdb/head_read.go:586": "72b07afe636e9227",
+  "tsdb/head_read.go:588": "ca490a3842862006",
+  "tsdb/head_read.go:590": "b41c3cc937a42fda",
+  "tsdb/head_test.go:4309": "c3870789bfb75cbf",
+  "tsdb/head_test.go:9388": "89997ae3bc90f021",
+  "tsdb/ooo_head_read.go:265": "9aa6dd83a46592d3",
+  "tsdb/ooo_head_read.go:284": "e1805de190c17fd9",
+  "tsdb/ooo_head_read.go:595": "b0ca2f094e6158e7",
+  "tsdb/ooo_head_read.go:669": "b0ca2f094e6158e7",
+  "tsdb/querier_test.go:2696": "3e332c8cd876430e",
+  "tsdb/querier_test.go:2759": "3e332c8cd876430e",
+  "tsdb/querier_test.go:2896": "3e332c8cd876430e",
+  "tsdb/record/bench_test.go:102": "35d781224257cfe6",
+  "tsdb/record/bench_test.go:106": "729e11fbc4cca77c",
+  "tsdb/record/bench_test.go:51": "78690b47d3c29632",
+  "tsdb/record/bench_test.go:54": "1f72607669ea104d",
+  "tsdb/record/bench_test.go:59": "729e11fbc4cca77c",
+  "tsdb/record/bench_test.go:68": "f6f191e822457d00",
+  "tsdb/record/bench_test.go:73": "729e11fbc4cca77c",
+  "tsdb/record/bench_test.go:81": "a32c46b3c7d6ced7",
+  "tsdb/record/bench_test.go:85": "729e11fbc4cca77c",
+  "tsdb/record/bench_test.go:92": "c763f7f7b004d4b5",
+  "tsdb/record/bench_test.go:94": "27e5b51cb0c455b1",
+  "tsdb/record/bench_test.go:96": "969fe83cbdb68fca",
+  "tsdb/record/bench_test.go:99": "115519fcbd65a6d8",
+  "tsdb/record/record.go:322": "2bc8785f0b565dd0",
+  "util/fuzzing/fuzz_test.go:327": "ebd4eb914c9112b5",
+  "util/fuzzing/fuzz_test.go:335": "95797218a2efd67a",
+  "web/api/testhelpers/openapi.go:102": "903615b5586bdb04",
+  "web/api/testhelpers/openapi.go:107": "0c5a059b77c0983e",
+  "web/api/testhelpers/openapi.go:109": "ecac1cadf60b1c24",
+  "web/api/testhelpers/openapi.go:113": "d79555018fbe5d3b",
+  "web/api/testhelpers/openapi.go:115": "034318a990c982dc",
+  "web/api/v1/api.go:1695": "cbe0ed0f75b3819c",
+  "web/api/v1/api.go:477": "15ed316862c2067c",
+  "web/api/v1/api.go:813": "e422ef62d6ade252",
+  "web/api/v1/api.go:835": "320b6e425d6468b5",
+  "web/api/v1/api_scenarios_test.go:102": "5b7924f9670988e1",
+  "web/api/v1/api_scenarios_test.go:104": "cefa9dcfeefe4b42",
+  "web/api/v1/api_scenarios_test.go:109": "f77a0b1fc55897bf",
+  "web/api/v1/api_scenarios_test.go:111": "3f58d847772db99a",
+  "web/api/v1/api_scenarios_test.go:116": "a8cc8cd52ff675c9",
+  "web/api/v1/api_scenarios_test.go:118": "cefa9dcfeefe4b42",
+  "web/api/v1/api_scenarios_test.go:123": "9b109a67b3606708",
+  "web/api/v1/api_scenarios_test.go:125": "cefa9dcfeefe4b42",
+  "web/api/v1/api_scenarios_test.go:130": "f791215b71deb57b",
+  "web/api/v1/api_scenarios_test.go:132": "cefa9dcfeefe4b42",
+  "web/api/v1/api_scenarios_test.go:137": "4df3f80e650b6d6b",
+  "web/api/v1/api_scenarios_test.go:139": "f1b509230a81ca35",
+  "web/api/v1/api_scenarios_test.go:154": "f8fde4403cd10c36",
+  "web/api/v1/api_scenarios_test.go:156": "a1b0f19039beb61d",
+  "web/api/v1/api_scenarios_test.go:164": "f2fb829e33822a1b",
+  "web/api/v1/api_scenarios_test.go:170": "8b833d563937ae54",
+  "web/api/v1/api_scenarios_test.go:176": "113eb96a2f88a5ce",
+  "web/api/v1/api_scenarios_test.go:178": "e6030ee7bdd9a8e9",
+  "web/api/v1/api_scenarios_test.go:184": "5ce26bab0f7df22a",
+  "web/api/v1/api_scenarios_test.go:186": "079bc7d244703735",
+  "web/api/v1/api_scenarios_test.go:192": "b79cecee4d6c1233",
+  "web/api/v1/api_scenarios_test.go:194": "e6030ee7bdd9a8e9",
+  "web/api/v1/api_scenarios_test.go:202": "51c64c422c352114",
+  "web/api/v1/api_scenarios_test.go:207": "e6030ee7bdd9a8e9",
+  "web/api/v1/api_scenarios_test.go:213": "aa8940bdb4e808b8",
+  "web/api/v1/api_scenarios_test.go:215": "a1b0f19039beb61d",
+  "web/api/v1/api_scenarios_test.go:221": "0ae6ae147124a926",
+  "web/api/v1/api_scenarios_test.go:223": "f1b509230a81ca35",
+  "web/api/v1/api_scenarios_test.go:228": "8beb7e2371a4e185",
+  "web/api/v1/api_scenarios_test.go:230": "a1b0f19039beb61d",
+  "web/api/v1/api_scenarios_test.go:246": "d5ddda74af6ae9bc",
+  "web/api/v1/api_scenarios_test.go:248": "7dd745c8de50de8d",
+  "web/api/v1/api_scenarios_test.go:271": "54a16643a97885a1",
+  "web/api/v1/api_scenarios_test.go:273": "c0adc8367941df8f",
+  "web/api/v1/api_scenarios_test.go:279": "fa244da8c74f0dcf",
+  "web/api/v1/api_scenarios_test.go:281": "31de7bab7dd48da1",
+  "web/api/v1/api_scenarios_test.go:296": "9d90f11035c129cb",
+  "web/api/v1/api_scenarios_test.go:298": "26c41e3e081b83ec",
+  "web/api/v1/api_scenarios_test.go:303": "44fea09914ac46be",
+  "web/api/v1/api_scenarios_test.go:305": "26c41e3e081b83ec",
+  "web/api/v1/api_scenarios_test.go:310": "5c4b2fcfb7aa960d",
+  "web/api/v1/api_scenarios_test.go:316": "26c41e3e081b83ec",
+  "web/api/v1/api_scenarios_test.go:321": "6e445b7226a22d29",
+  "web/api/v1/api_scenarios_test.go:326": "26c41e3e081b83ec",
+  "web/api/v1/api_scenarios_test.go:33": "151663bf3f32656d",
+  "web/api/v1/api_scenarios_test.go:331": "8d73add4ba25970d",
+  "web/api/v1/api_scenarios_test.go:333": "26c41e3e081b83ec",
+  "web/api/v1/api_scenarios_test.go:338": "d5739fbd60dfe589",
+  "web/api/v1/api_scenarios_test.go:340": "26c41e3e081b83ec",
+  "web/api/v1/api_scenarios_test.go:35": "d81029253d8e1732",
+  "web/api/v1/api_scenarios_test.go:355": "07adf2f9ab13b44a",
+  "web/api/v1/api_scenarios_test.go:357": "a1b0f19039beb61d",
+  "web/api/v1/api_scenarios_test.go:372": "aa784d435d84ab36",
+  "web/api/v1/api_scenarios_test.go:374": "a1b0f19039beb61d",
+  "web/api/v1/api_scenarios_test.go:391": "68c9a9ec21bad887",
+  "web/api/v1/api_scenarios_test.go:397": "8b833d563937ae54",
+  "web/api/v1/api_scenarios_test.go:40": "76dd9443ab51f356",
+  "web/api/v1/api_scenarios_test.go:402": "e4096cdae0e4385b",
+  "web/api/v1/api_scenarios_test.go:404": "a1b0f19039beb61d",
+  "web/api/v1/api_scenarios_test.go:41": "33f53304bc5a314d",
+  "web/api/v1/api_scenarios_test.go:410": "a2b8058d314a0034",
+  "web/api/v1/api_scenarios_test.go:415": "e6030ee7bdd9a8e9",
+  "web/api/v1/api_scenarios_test.go:461": "7fb28d8ba29af78c",
+  "web/api/v1/api_scenarios_test.go:47": "d40340de0d79267e",
+  "web/api/v1/api_scenarios_test.go:498": "7fb28d8ba29af78c",
+  "web/api/v1/api_scenarios_test.go:53": "8b833d563937ae54",
+  "web/api/v1/api_scenarios_test.go:58": "3c477a80a6319add",
+  "web/api/v1/api_scenarios_test.go:63": "d81029253d8e1732",
+  "web/api/v1/api_scenarios_test.go:68": "545270e3e8ae73b5",
+  "web/api/v1/api_scenarios_test.go:70": "d81029253d8e1732",
+  "web/api/v1/api_scenarios_test.go:81": "c9ecf5629a2e2d78",
+  "web/api/v1/api_scenarios_test.go:83": "31de7bab7dd48da1",
+  "web/api/v1/api_scenarios_test.go:88": "3164b2f0c00dabe3",
+  "web/api/v1/api_scenarios_test.go:90": "8164763729e1f53e",
+  "web/api/v1/api_scenarios_test.go:95": "b5c8f22def9af3e9",
+  "web/api/v1/api_scenarios_test.go:97": "a0a6401952ce2f04",
+  "web/api/v1/openapi.go:327": "ceb61653eae67081",
+  "web/api/v1/openapi_paths.go:682": "9ab6823b46faf6ee"
+ }
+}
