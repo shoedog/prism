@@ -1,0 +1,159 @@
+# Prism — post-plan roadmap (follow-up queue, strategic fork, Java, Serena)
+
+Date: 2026-07-04. Companion to `docs/analysis/prism-llm-and-accuracy-plan.md` (the
+ranked plan). Written as P14 (the final live plan item) is in implementation; refer
+back here when choosing what comes after. Owner decisions are marked **[OWNER]**.
+
+## 0. Where the ranked plan ends
+
+P1–P13 shipped (#149–#164, rounds 1–7). P15 measured-dead (three under-deliveries;
+do not re-queue). P14 (interprocedural taint descent) in flight — when it merges, the
+plan is **complete**. First post-plan action regardless of any fork choice:
+
+- **Full-corpus tier-a re-baseline** — the 2026-07-03 baseline pre-dates P13 and P14.
+  One run absorbs both (zap exact-caller fps clear; BoundaryExited → Reached shifts
+  where descent applies) and closes the plan's books with measured numbers. Rules:
+  primary tree is the SUT (pipeline-lessons #12), rebuild release at HEAD first.
+
+## 1. Follow-up queue (consolidated; living copy = pipeline-lessons.md §follow-up)
+
+Ranked by blast-radius-per-effort:
+
+| # | Item | Why / measured signal | Effort |
+|---|---|---|---|
+| 1 | **Nested-test-module `use super::*` callers gap** (Rust) | Affects every nested-test-module caller in every Rust repo, macro or not; `known_fail` fixture `rust/nested_test_module_glob_gap` flips to `flip_candidate` when fixed; root cause known (empty pending glob paths poisoned at engine.rs before the `super` anchor resolves) | M |
+| 2 | **Return-flow taint** (callee-return → caller-LHS) | P14's declared non-goal — descent finds sinks *inside* callees but tainted returns are invisible; needs Step-5b-class edge construction (`x = f(user)` where f returns its tainted param/source) | M–L |
+| 3 | **GoOwnerIdentity clause/build-partition blindness** (P13 M1) | field_typed / interface-dispatch Exact can cross `foo`/`foo_test` + build partitions; measured small (`go_owner_identity_profile_conflict`: etcd 1, prometheus 5); re-key = P11-lane blast radius — schedule deliberately, not urgently | M |
+| 4 | **Multi-line-call Step-5b arg gap** (new, P14 spec review M1) | `g(\n user\n)` gets no arg→param edge (arg lookup at `site.line`); silently NotReached; pinned by a Stage-A test | S–M |
+| 5 | **Pointer-embedded Go fields** (`*Listener`) | Pre-existing `extract_one_field` drop; affects shipped embedding + P11 S2/S4; fails safe | S |
+| 6 | **`--review-no-diagrams`** (P1 residual) | Diagram payloads dominate compacted review output (552 KB post-P1; diagrams are most of it) | S |
+| 7 | **Advisory/CWE sanitizer recognizers cross-match languages** | P10 gated the verdict path only (deliberate); advisory noise on polyglot repos | S |
+| 8 | **First-enqueue depth-lock relaxation** (P14 MIN1) + per-callee CFG scoping | Documented v1 losses in descent; only worth it if a measured case appears | S–M |
+| 9 | Python pending adjudication tail | 175 characterized-not-classified (black 26 / httpx 86 / mypy 63); the 25/corpus sample said mostly prism_fp candidate-tier + prism_fn recall; bulk-adjudicate only if a Python initiative needs the denominator | S (codex batch) |
+
+## 2. The strategic fork **[OWNER]**
+
+Three candidate directions once the queue's top items are drained (or interleaved):
+
+### A. Python/JS receiver-typing (deepen the highest-value languages)
+- Signal: mypy exact-callees precision **0.65** in the 2026-07-03 baseline ("the known
+  Python receiver-typing gap; worth its own look"); Python 54–65% unresolved, JS ~92%;
+  the 2026-06-23 maturity verdict ranked "Python+JS maturity" above C/C++ completion
+  and SCIP. Prior groundwork exists (self-receiver same-file narrowing; corrected
+  premise: same-class self/this already resolves — the gap is cross-class/typed-param
+  recovery, the Python analogue of P11's Go lanes).
+- Cost model well understood after P11/P13 (typed-fact lanes, consult-time filtering,
+  rematerialization pattern all reusable).
+
+### B. Tier-C Part-C continuation (measure end-task value)
+- The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:
+  citation-precision value tracks per-language maturity (Go/Rust +0.18..0.26, TS
+  +0.23, Python wash); owner ruled ROI sufficient to continue.
+- Natural capstone after the accuracy wave: quantifies what rounds 1–8 bought at the
+  end-task level, and produces the numbers that decide fork A vs C rationally.
+
+### C. Breadth: Java (and the Serena-informed build-vs-delegate question, §3–§4)
+- Java is prism's biggest supported-but-immature language (§3).
+
+Recommendation (controller): re-baseline → queue item 1 as a short round → run fork B
+(the harness exists; it sharpens the A-vs-C choice with data) → then A or C per its
+results. Fork order is an **[OWNER]** call.
+
+## 3. Java: check it, baseline it, build it out
+
+**Current state (grounded):**
+- Java is one of the 11 parsed languages (tree-sitter-java) and has ladder support in
+  spots (unqualified-call implicit-`this` rung shared with C++), but the 2026-06-23
+  per-language maturity measurement recorded **Java ≈ 99% exact-tier gap** — nearly
+  nothing resolves Exact. No Java corpus has ever been a tier-a anchor (committed
+  anchor set: 3 Rust / 5 Go / 3 Python).
+
+**Work items (in order; each is cheap to stop after):**
+1. **Validity survey (J1)** — pick 3–4 candidate corpora spanning shapes (suggest:
+   `gson` [small, clean], `junit5` [modules + annotations], `okhttp` [Kotlin-adjacent,
+   check Java-only subset], `spring-petclinic` [framework-heavy, small]); oracle =
+   Eclipse JDT LS (`jdtls`) through the existing LSP-oracle harness; measure OER per
+   corpus against the ≤0.10/0.25 floor discipline. **Gate: a corpus is an anchor only
+   if jdtls resolves cleanly** — Java annotation processors/generated sources are the
+   expected oracle-invalidity risk (tokio-class).
+2. **Census (J2)** — `prism nav call-stats` per corpus: unresolved% split by drop
+   class, same-package vs cross-package, static vs instance. This tells us WHICH
+   ladder rungs are missing (likely: package/import resolution for
+   `com.foo.Bar.baz()` chains, static imports, overload arity [Go precedent #100],
+   constructor `new Bar()` typing, interface dispatch).
+3. **Anchor + gap plan (J3)** — commit 2–3 valid anchors to baseline.md; write the
+   Java gap plan as a ranked mini-plan (the P1–P15 method, applied to one language).
+4. **Build-out (J4+)** — only after J1–J3 say the wins are there; the P11/P13
+   machinery (typed-fact lanes, owner identities, consult-time filtering) is the
+   template. **Alternative: LSP delegation for Java instead of native build-out — see
+   §4; J1/J2 produce exactly the data to decide that.** **[OWNER]** after J3.
+
+## 4. Serena: comparison, benchmarking, ideas to pull in
+
+Profile (from https://github.com/oraios/serena, fetched 2026-07-04): MIT-licensed MCP
+toolkit (~26k stars, v1.5.3 May 2026) giving agents symbol-level retrieval AND editing
+over an **LSP backend** (open-source language servers via an abstraction layer; paid
+JetBrains-plugin backend as an alternative). ~40+ languages by LSP delegation.
+Retrieval: `find_symbol`, `symbol_overview`, `find_referencing_symbols`,
+`find_declaration`, `find_implementations`, `diagnostics`. Editing:
+`replace_symbol_body`, `insert_after_symbol`, `insert_before_symbol`, `rename`,
+`safe_delete` (+ JetBrains-only refactors: `move`, `inline`, `propagate_deletions`).
+Plus regex search/replace, shell execution, per-project memory system + `serena init`
+onboarding, and a published "unbiased evaluation prompt" (~20 routine coding tasks).
+
+**Architectural contrast (the honest one-paragraph version):** Serena is
+*LSP-with-agent-ergonomics* — type-resolved, per-language toolchain-dependent,
+write-capable. Prism is *own-resolution structural analysis* — tree-sitter + the
+S3 ladder, no toolchain required, deterministic cached CPG, explicit confidence tiers
+(Exact/NameOnly + drop classes), and the layers Serena has no analogue for:
+diff-driven slicing (30 algorithms), taint reasoning with path-proven verdicts and
+witness graphs, module/repo dependency graphs, and the measured-accuracy harness
+itself. Serena has what prism deliberately lacks: symbol-anchored EDITING, 40+
+languages for free, and cross-session memory/onboarding UX. Our own tier-a data
+tempers the "LSP is ground truth" assumption: measured LSP oracle self-error runs
+0–25% per corpus, and some corpora are oracle-invalid outright (tokio).
+
+**Benchmark plan (S1–S3, cheapest first):**
+1. **S1 — nav head-to-head on anchored corpora**: Serena `find_referencing_symbols` /
+   `find_declaration` vs `prism nav callers`/`callees` on the tier-a anchor seeds.
+   CAVEAT: Serena is LSP-backed, so scoring both against the LSP oracle is circular
+   for Serena — the informative axes are (a) wall-clock + token cost per query
+   (P12-style payload measurement), (b) behavior on the oracle-INVALID corpora
+   (tokio-class — where LSP breaks, does Serena degrade while prism holds?), (c)
+   agreement rate + who wins each disagreement under manual adjudication (the June
+   κ protocol, reusable as-is).
+2. **S2 — end-task A/B via the Tier-C Part-C harness** (exists, branch
+   `tier-c-part-c`): agent+serena-mcp vs agent+prism-mcp vs both on the steered task
+   set. This is the benchmark that answers the question users actually have, and it
+   makes fork B do double duty. Java tasks included → feeds the §3 build-vs-delegate
+   decision with direct evidence.
+3. **S3 — adopt Serena's ~20-task evaluation prompt** as a third-party eval run
+   against prism-mcp (complements our adoption eval; their prompt, our corpora).
+
+**Ideas worth pulling in (each its own scoped item, not a bundle):**
+- **Anchored-edit coordinates (read-only-preserving alternative to editing tools):**
+  Serena's `insert_after_symbol`/`replace_symbol_body` collapse "8–12 error-prone
+  steps" per their eval. Prism can capture most of that value WITHOUT becoming a
+  writer: an MCP tool returning byte-precise, symbol-anchored edit spans (symbol body
+  span, insertion points, indentation context) that the agent's own editor applies.
+  Keeps the non-destructive posture; adds the ergonomics. Candidate: `nav_symbol_spans`.
+- **Full write tools** (Serena-parity `replace_symbol_body` etc.) — **[OWNER]**: this
+  changes prism-mcp's safety posture (today: read-only + one local-state tool);
+  decide only with a concrete consumer in hand.
+- **Onboarding/memory UX**: `serena init`-style one-shot project onboarding (warm the
+  cache, emit repo-map + module-deps + call-stats summary into a project memory file
+  the agent reads on session start). We have all the pieces (skills, cache warming,
+  repo-map); this is packaging, not analysis. Small and high-leverage.
+- **LSP-delegation hybrid for immature languages**: for Java/C++ (99% gap / doesn't
+  complete), a `source: Lsp` evidence path could serve nav queries via a bundled
+  language server while native resolution matures — Serena's core trick, scoped to
+  the languages where prism is weakest, retaining prism's evidence shape + confidence
+  labeling (LSP results enter as their own confidence class, never silently mixed
+  with Exact). Decide after J1/J2 (§3) and S1 (circularity data).
+
+## 5. Standing constraints (apply to everything above)
+
+Consumer-visibility doctrine (nothing below Exact feeds asserted findings); precision
+floor (drop-not-fanout for Rust/Go); one cache transition per PR; verify-first for
+any tail-chasing item (the P15 lesson, three strikes); the pipeline-lessons.md process
+lessons govern any multi-agent execution.
