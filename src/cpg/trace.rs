@@ -205,6 +205,7 @@ impl CodePropertyGraph {
             } else {
                 self.cfg_scope_for_seed(file, line, has_cfg, &mut trace)
             };
+            let no_exclusions = BTreeSet::new();
             for root in roots {
                 self.taint_trace_from_root(
                     &mut trace,
@@ -216,6 +217,7 @@ impl CodePropertyGraph {
                     None,
                     &mut descent_gate_cache,
                     &mut depths,
+                    &no_exclusions,
                 );
             }
         }
@@ -229,6 +231,34 @@ impl CodePropertyGraph {
         &self,
         roots: &[NodeIndex],
         order: Option<&dyn SameLineOrderView>,
+    ) -> Trace {
+        let no_exclusions = BTreeSet::new();
+        self.taint_trace_nodes_impl(roots, order, &no_exclusions)
+    }
+
+    /// P14 fix-wave BLOCKER fix: like [`Self::taint_trace_nodes`], but every hop `(from, to)` in
+    /// `excluded_hops` is skipped outright, as if the edge did not exist — it is not merely refused
+    /// as a boundary, it is never even considered (no `BoundaryEdge` is recorded for it either).
+    /// Used by `reasoning::taint_reaches::witness_mode` to test whether a sink stays reachable from
+    /// a single source root after cutting every proven sanitizer-transition hop, i.e. whether a
+    /// `Sanitized` downgrade is bypass-proven (see
+    /// `reasoning::sanitizer_walk::sanitizer_bypass_exclusions`). Shares the SAME core
+    /// (`taint_trace_from_root`) as [`Self::taint_trace`]/[`Self::taint_trace_nodes`] — doctrine-6,
+    /// exactly one walk implementation.
+    pub fn taint_trace_nodes_excluding(
+        &self,
+        roots: &[NodeIndex],
+        order: Option<&dyn SameLineOrderView>,
+        excluded_hops: &BTreeSet<(NodeIndex, NodeIndex)>,
+    ) -> Trace {
+        self.taint_trace_nodes_impl(roots, order, excluded_hops)
+    }
+
+    fn taint_trace_nodes_impl(
+        &self,
+        roots: &[NodeIndex],
+        order: Option<&dyn SameLineOrderView>,
+        excluded_hops: &BTreeSet<(NodeIndex, NodeIndex)>,
     ) -> Trace {
         let has_cfg = self.has_cfg_edges();
         let mut trace = Trace::default();
@@ -293,12 +323,14 @@ impl CodePropertyGraph {
                     order,
                     &mut descent_gate_cache,
                     &mut depths,
+                    excluded_hops,
                 );
             }
         }
         trace
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn taint_trace_from_root(
         &self,
         trace: &mut Trace,
@@ -310,6 +342,7 @@ impl CodePropertyGraph {
         order: Option<&dyn SameLineOrderView>,
         descent_gate_cache: &mut BTreeMap<DescentGateKey, bool>,
         depths: &mut BTreeMap<(NodeIndex, NodeIndex), usize>,
+        excluded_hops: &BTreeSet<(NodeIndex, NodeIndex)>,
     ) {
         if !matches!(self.graph[root], CpgNode::Variable { .. }) {
             return;
@@ -325,6 +358,14 @@ impl CodePropertyGraph {
         while let Some(node) = queue.pop_front() {
             let node_depth = *depths.get(&(root, node)).unwrap_or(&0);
             for (next, rel) in self.taint_neighbors(node) {
+                // P14 fix-wave BLOCKER fix: an excluded hop is simply not taken — no ordering
+                // check, no boundary/descent/CFG handling, no `BoundaryEdge` record. Checked first
+                // so `taint_trace_nodes_excluding`'s re-walk (used to bypass-prove a `Sanitized`
+                // downgrade, `reasoning::sanitizer_walk::sanitizer_bypass_exclusions`) behaves as
+                // if the excluded edge did not exist at all.
+                if excluded_hops.contains(&(node, next)) {
+                    continue;
+                }
                 if !self.ordering_admits(node, next, rel, order, trace) {
                     continue;
                 }

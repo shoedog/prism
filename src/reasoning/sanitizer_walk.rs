@@ -37,7 +37,7 @@ use tree_sitter::Node;
 
 use crate::algorithms::taint::{sanitizer_call_site, sanitizer_category_str};
 use crate::ast::ParsedFile;
-use crate::cpg::{CodePropertyGraph, Relation};
+use crate::cpg::{CodePropertyGraph, Relation, Trace};
 use crate::data_flow::{VarAccessKind, VarLocation};
 use crate::reasoning::types::SanitizerSite;
 
@@ -93,6 +93,44 @@ pub fn sanitized_hits_on_chain(
                     site,
                 });
             }
+        }
+    }
+    out
+}
+
+/// P14 fix-wave BLOCKER fix (bypass-proven `Sanitized`): every hop `(parent, node)` in `trace`'s
+/// first-parent tree rooted at `root` — NOT just the ones lying on the single first-enqueue-wins
+/// witness chain to one particular sink — that is itself a genuine, provable `x = sanitizer(y)`
+/// transition (the same per-window proof [`sanitized_hits_on_chain`] uses).
+///
+/// Why tree-scoped and not chain-scoped: the witness chain to a given sink is one linear path picked
+/// by first-enqueue-wins dedup. Two independently-sanitized branches can converge on a shared
+/// confluence node — typically a callee parameter reached from two call sites under interprocedural
+/// descent (`g(safe1); g(safe2)`, both separately sanitized), but also reachable intra-function via
+/// same-line `AssignmentPropagation` fan-in to a shared target — and only ONE of the two sanitizer
+/// transitions can ever appear on any single witness chain; the other lives on a sibling branch of
+/// the SAME first-parent tree that never got a chance to become "the" chain to this sink. Scanning
+/// the whole tree (still bounded — `parents_by_root` holds at most one entry per node reachable from
+/// `root`) finds every one, so the caller's exclude-then-rewalk bypass check
+/// (`reasoning::taint_reaches::witness_mode`) can prove ALL of them together disconnect the sink,
+/// not just whichever one happened to win the enqueue race.
+///
+/// `CallDescent`-relation hops are excluded up front for the same reason [`sanitized_hits_on_chain`]
+/// skips them: an arg->param hop can never itself be a same-assignment transition, and the byte-span
+/// reconstruction below has no cross-function knowledge to rule that out on its own.
+pub fn sanitizer_bypass_exclusions(
+    files: &BTreeMap<String, ParsedFile>,
+    cpg: &CodePropertyGraph,
+    trace: &Trace,
+    root: NodeIndex,
+) -> BTreeSet<(NodeIndex, NodeIndex)> {
+    let mut out = BTreeSet::new();
+    for (&(hop_root, node), &(parent, relation)) in trace.parents_by_root.iter() {
+        if hop_root != root || relation == Relation::CallDescent {
+            continue;
+        }
+        if sanitizer_transition(files, cpg, parent, node).is_some() {
+            out.insert((parent, node));
         }
     }
     out
