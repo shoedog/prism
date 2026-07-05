@@ -1,3 +1,64 @@
+# Tier-A Baseline — 2026-07-04 (plan complete: P13+P14 in the SUT)
+
+Re-baseline at prism `fb81481d` — the first run containing the COMPLETE ranked plan
+(P1–P14, #149–#165). Run records: `2026-07-04-<corpus>.{json,md}` (committed 90ea8fb).
+Prior baseline (2026-07-03) and its adjudication increment carry over; the 627 folded
+verdicts auto-applied by exact/fingerprint match.
+
+**The headline is a predicted null plus two located signals:**
+- **Nine of eleven anchors byte-stable at exact tier** vs 2026-07-03 — P14 is
+  trace-time only (M2 untouched by design), and P13's partition wins concentrate in
+  zap. The stability is itself the regression evidence for the whole P13+P14 wave.
+- **zap** (P13's target): exact-caller **R 0.48→0.62, P 0.91→0.93** — the
+  package-clause flips landing as exact-tier TPs. Its 8 new `oracle_only` pendings
+  were ADJUDICATED (78d76c9): 7 are genuine prism recall gaps (four bare `New(...)`
+  calls resolving through a `. "…/observer"` DOT-IMPORT in `package observer_test`
+  — prism doesn't resolve Go dot-imports; three direct same-package
+  `LevelOf`/`NewIncreaseLevelCore` calls) and 1 real ambiguous interface `.With()`
+  dispatch — NOT the "P13 precision drops classed ambiguous" I first wrote. zap now
+  0 pending; the exact-tier P/R above is unchanged by the fold (these were
+  oracle_only recall items).
+- **prism**: exact-caller R 0.55→0.80 with 36 new pendings — **corpus drift, not a
+  clean capability delta**: the prism corpus SHA moved 555714d→fb81481 (now contains
+  P13+P14 source), so samples resampled over new code (the P4 resampling lesson).
+  Validity unaffected (OER 0.075). The 36 were ADJUDICATED (78d76c9): 32 prism_fn
+  (Java `resolve_dispatch` trait dispatch + inherent `Self::` helpers — the known
+  Java exact-tier gap) + 4 prism_fp (std `Vec::is_empty`/`BTreeMap::get` misread).
+  prism now 0 pending. Still do NOT quote 0.80 as a P-item win.
+
+**Two corrections to prior notes:** (1) the 2026-07-03 zap note said the 12 raw
+exact-caller fps "incl. the withLogger pkg-clause split" — wrong: the withLogger
+sites were `same_package` NameOnly (candidate-tier), never exact-tier fps; the 12
+(C-name 10 / Q-scoped 2) are a distinct, still-unadjudicated population, unchanged by
+P13. (2) The initial 90ea8fb note called the zap-8 pendings the interface-dispatch
+"ambiguous" family — adjudication showed 7/8 are recall gaps (above); corrected in
+78d76c9.
+
+**Validity:** all 11 anchors within floors — Rust: prism 0.075, ruff **0.016**
+(improved from 0.000-adjacent run noise; still ✅), ripgrep 0.062; Go: caddy/cobra/
+prometheus/etcd 0.000, zap 0.025; Python: black 0.157, httpx 0.156, mypy 0.163.
+
+**Taint capability line (new, P14):** the matrix now pins interprocedural descent —
+`taint_cross_function_positive` (Reached, descent_depth 1, CallDescent witness edge),
+`taint_boundary_negative` (NameOnly callee stays BoundaryExited),
+`taint_descent_depth_bound` (3-hop Exact chain stays BoundaryExited), plus the P10
+pair under the strengthened ALL-paths-proven Sanitized contract. These are
+matrix-level gates, not M2 metrics.
+
+**Pending totals:** Rust/Go **0** (the 44 new zap+prism pendings adjudicated,
+78d76c9; all anchors clean); Python 175 unchanged (black 26 / httpx 86 / mypy 63,
+characterized-not-classified).
+
+**New follow-up surfaced:** Go dot-import resolution (`. "pkg"` → bare-name calls
+bind to that package) is a measured recall gap — 4 zap `observer.New` sites, all
+adjudicated `prism_fn`.
+
+Standing decision inputs for the roadmap fork (unchanged by this run): mypy
+exact-callees 0.65 (the Python receiver-typing signal, byte-stable here); end-task
+value = the Part-C harness question.
+
+---
+
 # Tier-A Baseline — 2026-07-03 (post-round-1–6 re-baseline; Rust/Go fully adjudicated)
 
 Re-baseline at prism `555714da1991` (post P1–P12, rounds 1–6 of the LLM-leverage/accuracy
