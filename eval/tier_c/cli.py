@@ -712,6 +712,84 @@ class _LivePartCComps:
         judge = SpecQualityJudge(self._ask, self._judge_primary)
         return judge.compare(self._issue.text, off_out.text or "", on_out.text or "")
 
+    def score_validity(self, text: str, *, arm: str) -> dict:
+        """D1 — citation VALIDITY (judged): does the code AT each cited location support
+        the sentence that cites it? Independent of the relevance judge (score()) and of
+        prism (never the oracle here — circularity doctrine). Rescorable: operates only
+        on the already-saved arm TEXT, exactly like D0's count_claims() denominator.
+
+        Returns a JSON-safe dict: {support_rate, contradicted, total, verdicts:[...]}."""
+        from .validity import CitationValidityJudge
+        from .validity import score_validity as _score_validity
+        if not text:
+            return {"support_rate": 0.0, "contradicted": 0, "total": 0, "verdicts": []}
+        judge = CitationValidityJudge(self._ask, self._judge_primary)
+        report = _score_validity(self._co, text, judge)
+        return {
+            "support_rate": report.support_rate,
+            "contradicted": report.contradicted,
+            "total": report.total,
+            "verdicts": [
+                {
+                    "file": v.claim.cite.file, "line": v.claim.cite.line,
+                    "symbol": v.claim.cite.symbol, "sentence": v.claim.sentence,
+                    "verdict": v.verdict, "escalated": v.escalated,
+                }
+                for v in report.verdicts
+            ],
+        }
+
+    def head_to_head_annotated(self, off_annotated: str, on_annotated: str, cell: tuple) -> dict:
+        """D3 — fact-annotated head-to-head: the SAME SpecQualityJudge ensemble as
+        head_to_head() above (kept byte-identical — spec cardinal constraint), fed the
+        machine-annotated pair instead of the raw text. A fully separate call/verdict."""
+        from .judges_live import SpecQualityJudge
+        judge = SpecQualityJudge(self._ask, self._judge_primary)
+        return judge.compare(self._issue.text, off_annotated or "", on_annotated or "")
+
+    def score_relational(self, off_text: str, on_text: str, *, cell: tuple) -> dict:
+        """D2 — relational-fact accuracy (mechanical; prism NEVER the oracle). ONE cheap
+        extractor call runs IDENTICALLY on both arms (same prompt template + model,
+        blind/symmetric — it never sees which arm is which). Verification is mechanical:
+        calls()/called_by() -> NullCallOracle (fail-open UNKNOWN stub; full LSP
+        call-hierarchy wiring is a follow-up, see relational.py module docstring);
+        depends() -> a neutral per-language import-text parser (NOT prism module-deps).
+
+        Returns {"off": {...}, "on": {...}, "delta": on.precision - off.precision}."""
+        from .llm import JUDGE_MODEL
+        from .relational import (
+            NullCallOracle,
+            extract_relational_claims,
+            score_relational_claims,
+        )
+        extractor_model = self._judge_primary or JUDGE_MODEL
+        language = getattr(self._issue, "language", "") or ""
+        call_oracle = NullCallOracle()  # TODO(D2 follow-up): tier_a.oracles.LspOracle bridge
+        off_claims = extract_relational_claims(self._ask, extractor_model, off_text)
+        on_claims = extract_relational_claims(self._ask, extractor_model, on_text)
+        off_report = score_relational_claims(off_claims, call_oracle=call_oracle,
+                                             co=self._co, language=language)
+        on_report = score_relational_claims(on_claims, call_oracle=call_oracle,
+                                            co=self._co, language=language)
+
+        def _to_dict(report) -> dict:
+            return {
+                "precision": report.precision,
+                "unknown_rate": report.unknown_rate,
+                "contradicted": report.contradicted,
+                "total": report.total,
+                "verdicts": [
+                    {"kind": v.claim.kind, "a": v.claim.a, "b": v.claim.b, "status": v.status}
+                    for v in report.verdicts
+                ],
+            }
+
+        return {
+            "off": _to_dict(off_report),
+            "on": _to_dict(on_report),
+            "delta": on_report.precision - off_report.precision,
+        }
+
     def run_off_arm(self, cell: tuple):
         """Run ONE fresh prism-OFF status-quo arm inside the pinned checkout.
 

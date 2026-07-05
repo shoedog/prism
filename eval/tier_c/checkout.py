@@ -43,6 +43,14 @@ class Checkout:
         lo, hi = max(0, line - 1 - ctx), min(len(lines), line + ctx)
         return "\n".join(lines[lo:hi]) if lo < hi else None
 
+    def read_file(self, rel: str) -> str | None:
+        """Full text of a repo-relative file (D2 relational.py: neutral per-language
+        import-text parsing needs the whole file, not a windowed excerpt)."""
+        p = self.root / rel
+        if not p.is_file():
+            return None
+        return p.read_text(errors="replace")
+
     def _basename_index(self) -> dict[str, list[str]]:
         """Build (and cache) a basename → [repo-relative-path, ...] index from tracked files."""
         if self._bn_index is None:
