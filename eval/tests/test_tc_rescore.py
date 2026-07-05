@@ -298,3 +298,34 @@ def test_rescore_run_dir_accepts_judge_primary(tmp_path):
         issue=_FakeIssue(), co=_FakeCo(), ask=lambda m, p: "YES",
         judge_primary="gpt-5.5-xhigh")
     assert (Path(out_dir) / "prometheus-spec-opus-4.8.json").exists()
+
+
+# --------------------------------------------------------------------------
+# Scorecard-v2 (D1/D2/D3): rescore_cell's _CachedComps wrapper must FORWARD
+# score_validity/score_relational/head_to_head_annotated to the live comps,
+# exactly like it already forwards head_to_head — otherwise run_partc_cell's
+# hasattr() gate (checking the WRAPPER, not `live` directly) silently skips
+# every new dimension even though _LivePartCComps implements them.
+# --------------------------------------------------------------------------
+def test_rescore_cell_forwards_all_scorecard_v2_hooks():
+    off = reconstruct_arm_output(_claude_raw("a model/labels/regexp.go:42"),
+                                 variant=Variant("opus-4.8", False), model="opus-4.8")
+    on = reconstruct_arm_output(_claude_raw("b model/labels/regexp.go:42",
+                                            prism_tools=["mcp__prism__nav_callers"]),
+                                variant=Variant("opus-4.8", True), model="opus-4.8")
+    cell, _, _ = rescore_cell(("prometheus", "spec", "opus-4.8"), off_out=off, on_out=on,
+                              co=_FakeCo(), issue=_FakeIssue(), base_root="",
+                              ask=lambda m, p: "SUPPORTED, YES, A clearer root cause")
+    assert cell.validity_off != {}, (
+        "D1 validity_off must be populated via rescore — _CachedComps must forward "
+        "score_validity to the live comps"
+    )
+    assert cell.validity_on != {}
+    assert cell.relational != {}, (
+        "D2 relational must be populated via rescore — _CachedComps must forward "
+        "score_relational to the live comps"
+    )
+    assert cell.head_to_head_annotated != {}, (
+        "D3 head_to_head_annotated must be populated via rescore — _CachedComps must "
+        "forward head_to_head_annotated to the live comps"
+    )

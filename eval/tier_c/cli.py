@@ -1266,6 +1266,23 @@ def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
                     if hasattr(comps, "head_to_head"):
                         return comps.head_to_head(off, on, c)
                     return {}
+                # Scorecard-v2 (D1/D2/D3) forwarding — run_partc_cell's hasattr gates
+                # check THIS wrapper object (which always defines these methods), so
+                # each one guards internally on `comps` — mirroring head_to_head above —
+                # so a comps shape that predates the v2 wiring (e.g. a monkeypatched test
+                # fake) degrades to an empty dict instead of raising AttributeError.
+                def score_validity(self_inner, text, **kwargs):
+                    if hasattr(comps, "score_validity"):
+                        return comps.score_validity(text, **kwargs)
+                    return {}
+                def score_relational(self_inner, off_text, on_text, **kwargs):
+                    if hasattr(comps, "score_relational"):
+                        return comps.score_relational(off_text, on_text, **kwargs)
+                    return {}
+                def head_to_head_annotated(self_inner, off_annotated, on_annotated, c):
+                    if hasattr(comps, "head_to_head_annotated"):
+                        return comps.head_to_head_annotated(off_annotated, on_annotated, c)
+                    return {}
 
             partc_cell = run_partc_cell(cell, _CachedComps())
 

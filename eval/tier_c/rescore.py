@@ -121,6 +121,19 @@ def rescore_cell(
             # (run_partc_cell only computes it when the comps exposes this method).
             return live.head_to_head(off, on, c)
 
+        # Scorecard-v2 (D1/D2/D3) forwarding — run_partc_cell's hasattr gates check THIS
+        # wrapper, not `live` directly, so each new hook must be forwarded explicitly or
+        # rescore silently drops D1/D2/D3 even though _LivePartCComps implements them
+        # (the exact bug this comment is here to prevent from recurring).
+        def score_validity(self_inner, text, **kwargs):
+            return live.score_validity(text, **kwargs)
+
+        def score_relational(self_inner, off_text, on_text, **kwargs):
+            return live.score_relational(off_text, on_text, **kwargs)
+
+        def head_to_head_annotated(self_inner, off_annotated, on_annotated, c):
+            return live.head_to_head_annotated(off_annotated, on_annotated, c)
+
     result = run_partc_cell(cell, _CachedComps())
     return result, list(live._last_off_judge), list(live._last_on_judge)
 
