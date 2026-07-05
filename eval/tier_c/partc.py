@@ -115,6 +115,8 @@ class PartCCell:
     annotated_on_text: str = ""                                    # D3: machine-annotated on-arm text
     nav_eff_off: dict = field(default_factory=dict)                # D4: navigation efficiency (off arm)
     nav_eff_on: dict = field(default_factory=dict)                 # D4: navigation efficiency (on arm)
+    resolvability_off: dict = field(default_factory=dict)         # R4: off-arm full-path/bare/ambiguous/absent
+    resolvability_on: dict = field(default_factory=dict)          # R4: on-arm full-path/bare/ambiguous/absent
 
     def __post_init__(self):
         # Supply empty-breakdown dicts for callers that don't provide them
@@ -188,17 +190,27 @@ def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
     precision_on = on_rep.precision
 
     # Step 6: extract per-arm citation failure breakdowns + full verdict lists
+    #
+    # resolver-fix-spec.md R3: ambiguous is a THIRD, separate bucket — real line,
+    # unpinnable, NEVER counted as a "fail" alongside halluc/irrelevant (that would
+    # reintroduce the exact artifact this fix removes).
     def _breakdown(rep) -> dict:
         verdicts = rep.verdicts
         halluc = sum(v.is_hallucination for v in verdicts)
-        irrel  = sum(1 for v in verdicts if not v.is_hallucination and not v.relevant)
+        ambiguous = sum(v.is_ambiguous for v in verdicts)
+        irrel  = sum(1 for v in verdicts
+                     if not v.is_hallucination and not v.is_ambiguous and not v.relevant)
         valid  = sum(v.is_valid for v in verdicts)
         fails  = [
             f"{v.cite.file}:{v.cite.line} ({'halluc' if v.is_hallucination else 'irrelevant'})"
-            for v in verdicts if not v.is_valid
+            for v in verdicts if not v.is_valid and not v.is_ambiguous
+        ]
+        ambiguous_fails = [
+            f"{v.cite.file}:{v.cite.line} (ambiguous)" for v in verdicts if v.is_ambiguous
         ]
         return {"n": len(verdicts), "valid": valid, "halluc": halluc,
-                "irrelevant": irrel, "fails": fails}
+                "irrelevant": irrel, "ambiguous": ambiguous, "fails": fails,
+                "ambiguous_fails": ambiguous_fails}
 
     def _verdict_list(rep) -> list:
         """Convert InvestigatorReport.verdicts → list of plain dicts for JSON serialisation."""
@@ -214,6 +226,8 @@ def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
                 "relevant": v.relevant,
                 "is_hallucination": v.is_hallucination,
                 "is_valid": v.is_valid,
+                "is_ambiguous": v.is_ambiguous,
+                "resolve_layer": v.resolve_layer,
             })
         return result
 
@@ -221,6 +235,13 @@ def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
     on_breakdown  = _breakdown(on_rep)
     off_verdicts  = _verdict_list(off_rep)
     on_verdicts   = _verdict_list(on_rep)
+
+    # --- R4: resolvability axis (mechanical, free — no comps hook, like D4 nav-eff).
+    # Kept STRICTLY separate from precision/validity: this is prism's honest
+    # "hands the agent exact resolvable paths" edge, never a truth signal. ---
+    from .investigator import resolvability_breakdown
+    resolvability_off = resolvability_breakdown(off_rep.verdicts)
+    resolvability_on = resolvability_breakdown(on_rep.verdicts)
 
     # Step 6b: gate decision
     prism_calls_on = on_out.prism_calls
@@ -266,13 +287,17 @@ def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
     # comps hook needed) — built straight from D0's hallucination verdicts + D1's
     # CONTRADICTED claims, which are already in scope. Only the ensemble comparison
     # over the annotated pair is hasattr-gated. ---
-    from .annotate import annotate_arm_text, contradicted_keys, hallucinated_keys
+    from .annotate import annotate_arm_text, ambiguous_keys, contradicted_keys, hallucinated_keys
     hall_off = hallucinated_keys(off_rep.verdicts)
     hall_on = hallucinated_keys(on_rep.verdicts)
+    ambig_off = ambiguous_keys(off_rep.verdicts)
+    ambig_on = ambiguous_keys(on_rep.verdicts)
     contra_off = contradicted_keys(validity_off.get("verdicts", []))
     contra_on = contradicted_keys(validity_on.get("verdicts", []))
-    annotated_off_text = annotate_arm_text(off_out.text, hallucinated=hall_off, contradicted=contra_off)
-    annotated_on_text = annotate_arm_text(on_out.text, hallucinated=hall_on, contradicted=contra_on)
+    annotated_off_text = annotate_arm_text(off_out.text, hallucinated=hall_off,
+                                           contradicted=contra_off, ambiguous=ambig_off)
+    annotated_on_text = annotate_arm_text(on_out.text, hallucinated=hall_on,
+                                          contradicted=contra_on, ambiguous=ambig_on)
     head_to_head_annotated = (
         comps.head_to_head_annotated(annotated_off_text, annotated_on_text, cell)
         if hasattr(comps, "head_to_head_annotated") else {}
@@ -335,6 +360,8 @@ def run_partc_cell(cell: tuple, comps: Any) -> PartCCell:
         annotated_on_text=annotated_on_text,
         nav_eff_off=nav_eff_off,
         nav_eff_on=nav_eff_on,
+        resolvability_off=resolvability_off,
+        resolvability_on=resolvability_on,
     )
 
 
@@ -471,5 +498,23 @@ def render_partc(cells: list[PartCCell]) -> str:
                 f"              on  calls={nn.get('tool_calls', 0)} "
                 f"wall={nn.get('wall_s', 0.0):.1f}s wasted={_rate(nn.get('wasted_exploration_rate'))} "
                 f"$/valid={_cost(nn.get('cost_per_valid_citation'))}"
+            )
+
+        # R4: resolvability axis (resolver-fix-spec.md) — mechanical, free, kept
+        # STRICTLY separate from precision/validity above (never a truth signal).
+        ro, rn = (c.resolvability_off or {}), (c.resolvability_on or {})
+        if ro or rn:
+            d_full = rn.get("full_path_rate", 0.0) - ro.get("full_path_rate", 0.0)
+            lines.append(
+                f"  R4 resolvability: off full-path {ro.get('full_path_rate', 0.0):.0%} "
+                f"bare {ro.get('bare_resolved_rate', 0.0):.0%} "
+                f"ambiguous {ro.get('ambiguous_rate', 0.0):.0%} "
+                f"absent {ro.get('absent_rate', 0.0):.0%}"
+            )
+            lines.append(
+                f"                    on  full-path {rn.get('full_path_rate', 0.0):.0%} "
+                f"bare {rn.get('bare_resolved_rate', 0.0):.0%} "
+                f"ambiguous {rn.get('ambiguous_rate', 0.0):.0%} "
+                f"absent {rn.get('absent_rate', 0.0):.0%}  Δfull-path {d_full:+.0%}"
             )
     return "\n".join(lines)

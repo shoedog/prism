@@ -698,6 +698,13 @@ class _LivePartCComps:
             relevance=rel,
             issue_text=issue_text,
             read_code=lambda f, l: self._co.read_window(f, l),
+            # resolver-fix-spec.md R1/R2: `text` feeds the layer-3 salient-token
+            # tie-break + R2 Q3 disambiguator context (the citation's own enclosing
+            # sentence); `ask` wires the SAME judge seam this class already uses
+            # (self._ask) into the disambiguator, invoked only on a genuine
+            # >=2-candidate tie (rare) — never a new live-call surface.
+            text=arm_text,
+            ask=self._ask,
         )
         # Store per-cite judge records on self for later persistence
         if arm == "on":
@@ -724,7 +731,9 @@ class _LivePartCComps:
         if not text:
             return {"support_rate": 0.0, "contradicted": 0, "total": 0, "verdicts": []}
         judge = CitationValidityJudge(self._ask, self._judge_primary)
-        report = _score_validity(self._co, text, judge)
+        # ask=self._ask (R5): a bare-but-tied citation gets one more shot at the R2 Q3
+        # disambiguator before D1 gives up and reads no window (see validity.py).
+        report = _score_validity(self._co, text, judge, ask=self._ask)
         return {
             "support_rate": report.support_rate,
             "contradicted": report.contradicted,

@@ -164,6 +164,25 @@ def test_render_partc_shows_every_v2_dimension_on_its_own_line():
     assert "DIVERGES from blind head-to-head" in report
 
 
+def test_run_partc_cell_populates_resolvability_axis():
+    """resolver-fix-spec.md R4: run_partc_cell computes resolvability_off/on
+    mechanically from the verdicts already produced by comps.score() — no comps hook
+    needed (same 'mechanical, free' pattern as D4 nav-eff)."""
+    cell = run_partc_cell(("ruff", "spec", "opus-4.8"), _FullComps())
+    ro, rn = cell.resolvability_off, cell.resolvability_on
+    assert ro["n"] == 1  # off-arm: a.py:1 (resolved, ok=True)
+    assert ro["absent"] == 0 and ro["ambiguous"] == 0
+    assert rn["n"] == 2   # on-arm: a.py:1 (ok) + ghost.py:99 (ok=False -> absent)
+    assert rn["absent"] == 1
+
+
+def test_render_partc_shows_r4_resolvability_line():
+    cell = run_partc_cell(("ruff", "spec", "opus-4.8"), _FullComps())
+    report = render_partc([cell])
+    assert "R4 resolvability" in report
+    assert "full-path" in report
+
+
 def test_render_partc_omits_v2_lines_when_not_populated():
     """A cell with no D1-D3 data (only D4, which is always mechanical) must not print
     empty/placeholder D1-D3 lines — the render is additive, not padded."""
