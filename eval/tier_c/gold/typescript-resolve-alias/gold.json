@@ -1,0 +1,673 @@
+{
+  "task_id": "typescript-resolve-alias",
+  "repo": "TypeScript",
+  "sha": "7964e22f2",
+  "symbol": "resolveAlias",
+  "status": "FROZEN (codex xhigh build + Fable adversarial review + fixes applied, 2026-07-06)",
+  "closure_summary": {
+    "hops": 1,
+    "forwarder": "TypeChecker#getAliasedSymbol @ src/compiler/checker.ts:1805 \u2014 thin public object-literal property forwarding directly to resolveAlias",
+    "terminates_because": "checker-internal direct callers add alias policy, circularity protection, semantic filtering, builder serialization, reference marking, checking, or emit/deprecation behavior, so they are consumers. Hop-1 callers of public getAliasedSymbol in scripts/services/compiler utilities all consume the aliased symbol. getTargetOfAliasDeclaration is inside resolveAlias and is explicitly out of scope for this weak task.",
+    "gold_size": 41,
+    "d1_count": 17,
+    "d2_count": 0,
+    "test_helper_policy": "production code only. tests/baselines/reference/api/typescript.d.ts is excluded as generated API baseline; no non-_test test-helper source admitted.",
+    "generator_of_record": "grep-per-hop only: git grep -nw resolveAlias; git grep -nw getAliasedSymbol. typescript-language-server not installed; no LSP/prism/agent cross-check used."
+  },
+  "sites": [
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "TypeChecker#getAliasedSymbol",
+      "line": 1805,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:1805",
+      "receiver_evidence": "typeChecker object literal property in createTypeChecker: `getAliasedSymbol: resolveAlias`",
+      "hop_distance": 0,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "public renaming boundary; callers spell getAliasedSymbol, target implementation is resolveAlias"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "resolveSymbol",
+      "line": 4297,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:4298",
+      "receiver_evidence": "nested createTypeChecker helper; returns `resolveAlias(symbol)` only when `!dontResolveAlias && isNonLocalAlias(symbol)`",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "adds alias-resolution policy gate; not a thin forwarder"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "tryResolveAlias",
+      "line": 4322,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:4325",
+      "receiver_evidence": "nested createTypeChecker helper; checks `links.aliasTarget !== resolvingSymbol` before calling resolveAlias",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "circularity guard changes contract; stop"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "getSymbolFlags",
+      "line": 4351,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:4357",
+      "receiver_evidence": "nested createTypeChecker helper; resolves type-only declaration symbol and loop aliases at 4357/4363",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "combines alias-target flags with type-only/export-star semantics"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "getTypeOnlyAliasDeclaration",
+      "line": 4455,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:4473",
+      "receiver_evidence": "nested createTypeChecker helper; resolves `links.typeOnlyDeclaration.symbol` when checking requested meanings",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "type-only alias filtering consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "resolveEntityName",
+      "line": 4533,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:4578",
+      "receiver_evidence": "nested createTypeChecker helper; resolves alias namespace for member lookup and final entity symbol at 4578/4629",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "entity-name resolver consumes alias resolution inside namespace/type/value lookup"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "trySymbolTable",
+      "line": 5788,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:5809",
+      "receiver_evidence": "local helper inside getAccessibleSymbolChain; resolves `symbolFromSymbolTable` before candidate-list construction",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "accessibility chain search consumes resolved import symbol"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "needsQualification",
+      "line": 5841,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:5858",
+      "receiver_evidence": "nested createTypeChecker helper; conditionally resolves alias from an enclosing symbol table before flag comparison",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "qualification decision consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "lookupTypeParameterNodes",
+      "line": 8557,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:8575",
+      "receiver_evidence": "local helper inside createNodeBuilder; resolves aliased parent symbol before getTypeParametersOfClassOrInterface",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "node-builder type-parameter serialization consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "serializeTypeName",
+      "line": 9276,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:9280",
+      "receiver_evidence": "local helper inside createNodeBuilder; resolves aliased type-name symbol before symbolToTypeNode",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "node-builder type-name serialization consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "getTypeOfAlias",
+      "line": 12844,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:12850",
+      "receiver_evidence": "nested createTypeChecker helper; resolves alias then computes declared type/export target",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "type-of-alias computation consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "getDeclaredTypeOfAlias",
+      "line": 13605,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:13607",
+      "receiver_evidence": "nested createTypeChecker helper; caches `getDeclaredTypeOfSymbol(resolveAlias(symbol))`",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "declared-type cache consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "getTypeFromTypeAliasReference",
+      "line": 17050,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:17095",
+      "receiver_evidence": "nested createTypeChecker helper; resolves `aliasSymbol` while handling type-alias references",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "type-reference validation/inference consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "markExportSpecifierAliasReferenced",
+      "line": 30742,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:30753",
+      "receiver_evidence": "nested createTypeChecker helper; resolves alias target for export-specifier reference marking",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "reference-marking consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "markAliasReferenced",
+      "line": 30813,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:30818",
+      "receiver_evidence": "nested createTypeChecker helper; obtains target with `resolveAlias(symbol)` before reference marking",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "alias reference-marking consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "markExportAsReferenced",
+      "line": 30857,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:30859",
+      "receiver_evidence": "nested createTypeChecker helper; resolves exported alias before marking references",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "export reference-marking consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "markEntityNameOrEntityExpressionAsReference",
+      "line": 30870,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:30880",
+      "receiver_evidence": "nested createTypeChecker helper; resolves root symbol while deciding const enum/module reference marking",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "entity-name reference-marking consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "getJSXFragmentType",
+      "line": 37512,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:37537",
+      "receiver_evidence": "nested createTypeChecker helper; resolves aliased JSX factory symbol before fragment type lookup",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "JSX fragment type consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "checkExportsOnMergedDeclarationsWorker",
+      "line": 43362,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:43460",
+      "receiver_evidence": "nested checker function; resolves alias target of merged export declaration before export diagnostics",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "merged-declaration export checking consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "checkAliasSymbol",
+      "line": 48394,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:48396",
+      "receiver_evidence": "nested checker function; resolves alias target for alias-symbol validation",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "alias declaration checking consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "resolveAliasWithDeprecationCheck",
+      "line": 48561,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:48566",
+      "receiver_evidence": "nested checker function; resolves alias target then performs deprecation checks at a location",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "adds deprecation behavior; not a thin forwarder"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "checkImportEqualsDeclaration",
+      "line": 48709,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:48723",
+      "receiver_evidence": "nested checker function; resolves alias target of import-equals declaration for diagnostics/checking",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "import-equals checking consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "isAliasResolvedToValue",
+      "line": 50783,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:50793",
+      "receiver_evidence": "nested checker function; resolves alias then tests exported value symbol flags",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "value-reachability predicate consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "getTypeReferenceSerializationKind",
+      "line": 51096,
+      "token_anchor": "resolveAlias@src/compiler/checker.ts:51113",
+      "receiver_evidence": "nested checker function; resolves value and type aliases at 51113/51118 before serialization-kind decision",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "emit serialization classification consumer"
+    },
+    {
+      "file": "scripts/dtsBundler.mjs",
+      "symbol": "containsPublicAPIWorker",
+      "line": 181,
+      "token_anchor": "getAliasedSymbol@scripts/dtsBundler.mjs:187",
+      "receiver_evidence": "`typeChecker` is initialized from `program.getTypeChecker()` at line 78; call is public TypeChecker.getAliasedSymbol",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "d.ts bundler public-API reachability consumer; file has zero resolveAlias text"
+    },
+    {
+      "file": "scripts/dtsBundler.mjs",
+      "symbol": "resolveSymbol",
+      "line": 269,
+      "token_anchor": "getAliasedSymbol@scripts/dtsBundler.mjs:270",
+      "receiver_evidence": "`typeChecker` is initialized from `program.getTypeChecker()` at line 78; mirrors compiler alias policy with public API",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "script-local alias-policy consumer; D1"
+    },
+    {
+      "file": "scripts/dtsBundler.mjs",
+      "symbol": "emitAsNamespace",
+      "line": 367,
+      "token_anchor": "getAliasedSymbol@scripts/dtsBundler.mjs:401",
+      "receiver_evidence": "`typeChecker` is initialized from `program.getTypeChecker()` at line 78; resolves export alias while emitting namespace members",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "namespace emission consumer; D1"
+    },
+    {
+      "file": "src/compiler/moduleSpecifiers.ts",
+      "symbol": "tryGetModuleNameFromAmbientModule",
+      "line": 879,
+      "token_anchor": "getAliasedSymbol@src/compiler/moduleSpecifiers.ts:910",
+      "receiver_evidence": "`checker: TypeChecker` parameter; resolves exportSymbol alias while finding ambient module name",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "module specifier consumer; D1"
+    },
+    {
+      "file": "src/compiler/utilities.ts",
+      "symbol": "skipAlias",
+      "line": 8068,
+      "token_anchor": "getAliasedSymbol@src/compiler/utilities.ts:8069",
+      "receiver_evidence": "`checker: TypeChecker` parameter; returns checker.getAliasedSymbol for alias symbols",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "utility consumer of public alias resolution; D1"
+    },
+    {
+      "file": "src/services/callHierarchy.ts",
+      "symbol": "resolveCallHierarchyDeclaration",
+      "line": 347,
+      "token_anchor": "getAliasedSymbol@src/services/callHierarchy.ts:403",
+      "receiver_evidence": "`typeChecker` is initialized from `program.getTypeChecker()` at line 362; resolves alias before following valueDeclaration",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "call hierarchy declaration resolution consumer; D1"
+    },
+    {
+      "file": "src/services/classifier.ts",
+      "symbol": "classifySymbol",
+      "line": 609,
+      "token_anchor": "getAliasedSymbol@src/services/classifier.ts:630",
+      "receiver_evidence": "`checker: TypeChecker` parameter; recursively classifies aliased symbol",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "semantic classification consumer; D1"
+    },
+    {
+      "file": "src/services/classifier2020.ts",
+      "symbol": "visit",
+      "line": 127,
+      "token_anchor": "getAliasedSymbol@src/services/classifier2020.ts:154",
+      "receiver_evidence": "local visitor inside collectTokens; `typeChecker` is initialized from `program.getTypeChecker()` at line 123",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "semantic-token visitor consumer; D1"
+    },
+    {
+      "file": "src/services/codefixes/fixAddMissingMember.ts",
+      "symbol": "getAllSupers",
+      "line": 801,
+      "token_anchor": "getAliasedSymbol@src/services/codefixes/fixAddMissingMember.ts:807",
+      "receiver_evidence": "`checker: TypeChecker` parameter; resolves alias super symbol while walking heritage chain",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "codefix heritage consumer; D1"
+    },
+    {
+      "file": "src/services/codefixes/importFixes.ts",
+      "symbol": "addImportForModuleSymbol",
+      "line": 325,
+      "token_anchor": "getAliasedSymbol@src/services/codefixes/importFixes.ts:328",
+      "receiver_evidence": "`checker = program.getTypeChecker()` at line 327; resolves module symbol for import fix",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "import-fix module-symbol consumer; D1"
+    },
+    {
+      "file": "src/services/codefixes/importFixes.ts",
+      "symbol": "getFixesInfoForUMDImport",
+      "line": 1475,
+      "token_anchor": "getAliasedSymbol@src/services/codefixes/importFixes.ts:1479",
+      "receiver_evidence": "`checker = program.getTypeChecker()` at line 1476; resolves UMD symbol for export info",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "UMD import-fix consumer; D1"
+    },
+    {
+      "file": "src/services/findAllReferences.ts",
+      "symbol": "getMergedAliasedSymbolOfNamespaceExportDeclaration",
+      "line": 1093,
+      "token_anchor": "getAliasedSymbol@src/services/findAllReferences.ts:1095",
+      "receiver_evidence": "`checker: TypeChecker` parameter; resolves namespace-export alias before merged-symbol comparison",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "find-all-references namespace export consumer; D1"
+    },
+    {
+      "file": "src/services/goToDefinition.ts",
+      "symbol": "getSymbol",
+      "line": 558,
+      "token_anchor": "getAliasedSymbol@src/services/goToDefinition.ts:566",
+      "receiver_evidence": "`checker: TypeChecker` parameter; resolves declaration-site alias for go-to-definition target",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "go-to-definition consumer; D1"
+    },
+    {
+      "file": "src/services/navigateTo.ts",
+      "symbol": "shouldKeepItem",
+      "line": 110,
+      "token_anchor": "getAliasedSymbol@src/services/navigateTo.ts:122",
+      "receiver_evidence": "`checker: TypeChecker` parameter; resolves import alias before excluding library/current-file declarations",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "navigate-to filtering consumer; D1"
+    },
+    {
+      "file": "src/services/rename.ts",
+      "symbol": "wouldRenameInOtherNodeModules",
+      "line": 130,
+      "token_anchor": "getAliasedSymbol@src/services/rename.ts:139",
+      "receiver_evidence": "`checker: TypeChecker` parameter; resolves import alias before node_modules rename diagnostics",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "rename diagnostic consumer; D1"
+    },
+    {
+      "file": "src/services/symbolDisplay.ts",
+      "symbol": "getSymbolModifiers",
+      "line": 232,
+      "token_anchor": "getAliasedSymbol@src/services/symbolDisplay.ts:239",
+      "receiver_evidence": "`typeChecker: TypeChecker` parameter; resolves alias to merge normalized modifiers",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "symbol display modifier consumer; D1"
+    },
+    {
+      "file": "src/services/symbolDisplay.ts",
+      "symbol": "getSymbolDisplayPartsDocumentationAndSymbolKindWorker",
+      "line": 261,
+      "token_anchor": "getAliasedSymbol@src/services/symbolDisplay.ts:591",
+      "receiver_evidence": "`typeChecker: TypeChecker` parameter; resolves alias while building display/documentation parts",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "symbol display/documentation consumer; D1"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "resolveAlias definition/comments",
+      "line": 4301,
+      "adjudication": "excluded",
+      "reason": "DEF/COMMENT SURFACE: resolveAlias definition at 4301 and comment-only mentions at 4332/4344/4347/4400 are not downstream callers."
+    },
+    {
+      "file": "src/compiler/types.ts",
+      "symbol": "TypeChecker.getAliasedSymbol declaration",
+      "line": 5264,
+      "adjudication": "excluded",
+      "reason": "INTERFACE DECLARATION only, not executable caller. The implementing wrapper in checker.ts:1805 is the real forwarder."
+    },
+    {
+      "file": "tests/baselines/reference/api/typescript.d.ts",
+      "symbol": "TypeChecker.getAliasedSymbol API baseline",
+      "line": 6279,
+      "adjudication": "excluded",
+      "reason": "GENERATED API baseline/test artifact, not production code site."
+    }
+  ],
+  "excluded_test_helpers": [],
+  "exclusion_table": {
+    "note": "No same-name other-receiver production method collisions were found for resolveAlias/getAliasedSymbol. Exclusions are definition/comment/interface/generated baseline and the explicitly out-of-scope target helper boundary.",
+    "def_or_comment_surface": [
+      "src/compiler/checker.ts:4301",
+      "src/compiler/checker.ts:4332",
+      "src/compiler/checker.ts:4344",
+      "src/compiler/checker.ts:4347",
+      "src/compiler/checker.ts:4400"
+    ],
+    "interface_or_generated_api_surface": [
+      "src/compiler/types.ts:5264",
+      "tests/baselines/reference/api/typescript.d.ts:6279"
+    ],
+    "explicit_out_of_scope_not_hopped": [
+      "src/compiler/checker.ts:getTargetOfAliasDeclaration @4253; resolveAlias calls it at 4308, but the task explicitly says not to hop into getTargetOfAliasDeclaration"
+    ]
+  }
+}

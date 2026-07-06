@@ -1,0 +1,159 @@
+{
+  "oracle_health": {
+    "lsp": "ok",
+    "prism": "ok"
+  },
+  "repo": "prometheus",
+  "sha": "505095b",
+  "sites": [
+    {
+      "d_member": "none",
+      "file": "config/config.go",
+      "line": 432,
+      "provenance": "prism",
+      "symbol": "UnmarshalYAML"
+    },
+    {
+      "d_member": "none",
+      "file": "discovery/file/file.go",
+      "line": 93,
+      "provenance": "prism",
+      "symbol": "UnmarshalYAML"
+    },
+    {
+      "d_member": "none",
+      "file": "discovery/http/http.go",
+      "line": 177,
+      "provenance": "prism",
+      "symbol": "Refresh"
+    },
+    {
+      "d_member": "none",
+      "file": "discovery/http/http_test.go",
+      "line": 223,
+      "provenance": "prism",
+      "symbol": "TestContentTypeRegex"
+    },
+    {
+      "d_member": "none",
+      "file": "discovery/puppetdb/puppetdb.go",
+      "line": 215,
+      "provenance": "prism",
+      "symbol": "refresh"
+    },
+    {
+      "d_member": "none",
+      "file": "model/labels/matcher.go",
+      "line": 117,
+      "provenance": "both",
+      "symbol": "Matches"
+    },
+    {
+      "d_member": "none",
+      "file": "model/labels/regexp.go",
+      "line": 140,
+      "provenance": "prism",
+      "symbol": "compileMatchStringFunction"
+    },
+    {
+      "d_member": "none",
+      "file": "model/labels/regexp_test.go",
+      "line": 317,
+      "provenance": "both",
+      "symbol": "BenchmarkFastRegexMatcher"
+    },
+    {
+      "d_member": "none",
+      "file": "model/labels/regexp_test.go",
+      "line": 1456,
+      "provenance": "both",
+      "symbol": "BenchmarkFastRegexMatcher_ConcatenatedPattern"
+    },
+    {
+      "d_member": "none",
+      "file": "model/labels/regexp_test.go",
+      "line": 145,
+      "provenance": "both",
+      "symbol": "TestFastRegexMatcher_MatchString"
+    },
+    {
+      "d_member": "none",
+      "file": "model/labels/regexp_test.go",
+      "line": 535,
+      "provenance": "prism",
+      "symbol": "TestStringMatcherFromRegexp_LiteralPrefix"
+    },
+    {
+      "d_member": "none",
+      "file": "model/labels/regexp_test.go",
+      "line": 610,
+      "provenance": "prism",
+      "symbol": "TestStringMatcherFromRegexp_LiteralSuffix"
+    },
+    {
+      "d_member": "none",
+      "file": "model/labels/regexp_test.go",
+      "line": 695,
+      "provenance": "prism",
+      "symbol": "TestStringMatcherFromRegexp_Quest"
+    },
+    {
+      "d_member": "none",
+      "file": "model/labels/regexp_test.go",
+      "line": 1219,
+      "provenance": "prism",
+      "symbol": "TestZeroOrOneCharacterStringMatcher"
+    },
+    {
+      "d_member": "none",
+      "file": "model/relabel/relabel.go",
+      "line": 153,
+      "provenance": "prism",
+      "symbol": "Validate"
+    },
+    {
+      "d_member": "none",
+      "file": "promql/promqltest/test.go",
+      "line": 1105,
+      "provenance": "prism",
+      "symbol": "CheckMatch"
+    },
+    {
+      "d_member": "none",
+      "file": "promql/promqltest/test.go",
+      "line": 1532,
+      "provenance": "prism",
+      "symbol": "checkExpectedFailure"
+    },
+    {
+      "d_member": "none",
+      "file": "promql/promqltest/test.go",
+      "line": 285,
+      "provenance": "prism",
+      "symbol": "parseLoad"
+    },
+    {
+      "d_member": "none",
+      "file": "promql/promqltest/test.go",
+      "line": 1810,
+      "provenance": "prism",
+      "symbol": "runInstantQuery"
+    },
+    {
+      "d_member": "none",
+      "file": "promql/query_logger_test.go",
+      "line": 58,
+      "provenance": "prism",
+      "symbol": "TestQueryLogging"
+    },
+    {
+      "d_member": "none",
+      "file": "util/logging/dedupe.go",
+      "line": 175,
+      "provenance": "prism",
+      "symbol": "HandleWarningHeaderWithContext"
+    }
+  ],
+  "symbol": "MatchString",
+  "task_id": "prometheus-matchstring"
+}

@@ -1,0 +1,336 @@
+{
+  "task_id": "mypy-meet-types",
+  "repo": "mypy",
+  "sha": "5ef0902",
+  "symbol": "meet_types",
+  "status": "FROZEN (codex xhigh build + Fable adversarial review + fixes applied, 2026-07-06)",
+  "closure_summary": {
+    "hops": 2,
+    "forwarder": "meet_type_list @ mypy/meet.py:1269 \u2014 thin homogeneous aggregation over meet_types; TypeMeetVisitor.meet @ mypy/meet.py:1227 \u2014 thin method wrapper over meet_types; narrow_declared_type @ mypy/meet.py:117 \u2014 task-scoped wrapper included for D1 reach, but thinness is borderline and flagged for review",
+    "terminates_because": "direct external callers consume meet results for narrowing, joining, solving constraints, plugin signatures, or formal argument merging; hop callers of meet_type_list and narrow_declared_type consume those wrapper contracts. TypeMeetVisitor.meet callers are internal visitor recursion sites and do not introduce further rename boundaries.",
+    "gold_size": 15,
+    "d1_count": 3,
+    "d2_count": 0,
+    "test_helper_policy": "production code only. mypy/test/testtypes.py and test-data/unit/check-typeform.test are excluded as test surfaces.",
+    "generator_of_record": "grep-per-hop only: git grep -nw meet_types; git grep -nw meet_type_list; git grep -nw narrow_declared_type; git grep -n 'self\\.meet' -- mypy/meet.py for TypeMeetVisitor.meet receiver sites. No LSP/prism/agent enumeration used.",
+    "fable_fix": "Dropped 10 TypeMeetVisitor.* impl-body (definition-surface) sites per Fable 2026-07-06; kept module-level forwarders (narrow_declared_type, meet_type_list) + external consumers. D1=3 is inherent (public-name inversion)."
+  },
+  "sites": [
+    {
+      "file": "mypy/meet.py",
+      "symbol": "narrow_declared_type",
+      "line": 117,
+      "token_anchor": "meet_types@mypy/meet.py:232",
+      "receiver_evidence": "module free function in mypy.meet; fallback branches call meet_types(original_declared, original_narrowed) at 232/234/241 after narrowing guards",
+      "hop_distance": 0,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "task-scoped wrapper around meet operation; admitted to expose its D1 consumers, but thinness is borderline"
+    },
+    {
+      "file": "mypy/meet.py",
+      "symbol": "meet_similar_callables",
+      "line": 1240,
+      "token_anchor": "meet_types@mypy/meet.py:1259",
+      "receiver_evidence": "module helper in mypy.meet; calls meet_types for instance_type and ret_type while combining callables",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "callable meet consumer"
+    },
+    {
+      "file": "mypy/meet.py",
+      "symbol": "meet_type_list",
+      "line": 1269,
+      "token_anchor": "meet_types@mypy/meet.py:1276",
+      "receiver_evidence": "module helper; iteratively sets `met = meet_types(met, t)` over the list",
+      "hop_distance": 0,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "thin homogeneous aggregation forwarder"
+    },
+    {
+      "file": "mypy/checker.py",
+      "symbol": "comparison_type_narrowing_helper",
+      "line": 6746,
+      "token_anchor": "meet_types@mypy/checker.py:6916",
+      "receiver_evidence": "`meet_types` imported from mypy.meet at line 111; used to combine chained comparison operand restrictions",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "checker narrowing consumer"
+    },
+    {
+      "file": "mypy/checker.py",
+      "symbol": "and_conditional_maps",
+      "line": 8917,
+      "token_anchor": "meet_types@mypy/checker.py:8956",
+      "receiver_evidence": "`meet_types` imported from mypy.meet at line 111; used for common expression types when `use_meet` is set",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "conditional type-map consumer"
+    },
+    {
+      "file": "mypy/join.py",
+      "symbol": "TypeJoinVisitor.visit_parameters",
+      "line": 329,
+      "token_anchor": "meet_types@mypy/join.py:338",
+      "receiver_evidence": "local import `from mypy.meet import meet_types` at line 334; joins parameter lists using meet_types for argument types",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "join visitor consumer for parameter meets"
+    },
+    {
+      "file": "mypy/join.py",
+      "symbol": "safe_meet",
+      "line": 837,
+      "token_anchor": "meet_types@mypy/join.py:842",
+      "receiver_evidence": "local import `from mypy.meet import meet_types` at line 839; safe_meet delegates ordinary non-Unpack meets to meet_types and handles UnpackType around it",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "non-thin helper with UnpackType handling; consumer boundary"
+    },
+    {
+      "file": "mypy/plugins/attrs.py",
+      "symbol": "_meet_fields",
+      "line": 1095,
+      "token_anchor": "meet_types@mypy/plugins/attrs.py:1106",
+      "receiver_evidence": "`meet_types` imported from mypy.meet at line 15; passed to reduce over attrs field types",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "attrs plugin field lower-bound consumer"
+    },
+    {
+      "file": "mypy/plugins/dataclasses.py",
+      "symbol": "_meet_replace_sigs",
+      "line": 1045,
+      "token_anchor": "meet_types@mypy/plugins/dataclasses.py:1063",
+      "receiver_evidence": "`meet_types` imported from mypy.meet at line 10; used for dataclass replace signature argument types",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "dataclasses plugin signature consumer"
+    },
+    {
+      "file": "mypy/solve.py",
+      "symbol": "solve_one",
+      "line": 263,
+      "token_anchor": "meet_types@mypy/solve.py:309",
+      "receiver_evidence": "`meet_types` imported from mypy.meet at line 13; used to combine upper-bound targets while solving constraints",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "constraint-solving consumer"
+    },
+    {
+      "file": "mypy/typeops.py",
+      "symbol": "callable_corresponding_argument",
+      "line": 551,
+      "token_anchor": "meet_types@mypy/typeops.py:581",
+      "receiver_evidence": "local import `from mypy.meet import meet_types` at line 569; merges optional positional/name-only argument types",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "formal argument merge consumer"
+    },
+    {
+      "file": "mypy/solve.py",
+      "symbol": "choose_free",
+      "line": 332,
+      "token_anchor": "meet_type_list@mypy/solve.py:350",
+      "receiver_evidence": "`meet_type_list` imported from mypy.meet at line 13; computes common upper bound for an SCC of type variables",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "consumer of meet_type_list wrapper; file is not D1 because solve.py also imports/calls meet_types"
+    },
+    {
+      "file": "mypy/suggestions.py",
+      "symbol": "SuggestionFinder.get_args",
+      "line": 345,
+      "token_anchor": "meet_type_list@mypy/suggestions.py:394",
+      "receiver_evidence": "`meet_type_list` imported from mypy.meet at line 40; combines all use types for argument suggestions",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "D1 consumer of meet_type_list; file has zero meet_types text"
+    },
+    {
+      "file": "mypy/checkexpr.py",
+      "symbol": "ExpressionChecker.narrow_type_from_binder",
+      "line": 6513,
+      "token_anchor": "narrow_declared_type@mypy/checkexpr.py:6532",
+      "receiver_evidence": "`narrow_declared_type` imported from mypy.meet at line 35; applies binder restriction to known expression type",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "D1 consumer of task-scoped narrow_declared_type wrapper; file has zero meet_types text"
+    },
+    {
+      "file": "mypy/checkpattern.py",
+      "symbol": "PatternTypeVisitor.visit_class_pattern",
+      "line": 567,
+      "token_anchor": "narrow_declared_type@mypy/checkpattern.py:590",
+      "receiver_evidence": "`narrow_declared_type` imported from mypy.meet at line 15; narrows current pattern type with class-pattern result",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "D1 consumer of task-scoped narrow_declared_type wrapper; file has zero meet_types text"
+    },
+    {
+      "file": "mypy/meet.py",
+      "symbol": "meet_types definition",
+      "line": 75,
+      "adjudication": "excluded",
+      "reason": "DEF SURFACE: target definition, not a downstream caller."
+    },
+    {
+      "file": "mypy/checker.py",
+      "symbol": "meet_types import",
+      "line": 111,
+      "adjudication": "excluded",
+      "reason": "IMPORT-ONLY hit; executable checker call sites in this file are counted separately."
+    },
+    {
+      "file": "mypy/expandtype.py",
+      "symbol": "meet_types comment",
+      "line": 50,
+      "adjudication": "excluded",
+      "reason": "COMMENT-ONLY reference to meet_types, not a call site."
+    },
+    {
+      "file": "mypy/types_utils.py",
+      "symbol": "meet_types comment",
+      "line": 3,
+      "adjudication": "excluded",
+      "reason": "COMMENT-ONLY reference to meet_types, not a call site."
+    },
+    {
+      "file": "mypy/test/testtypes.py",
+      "symbol": "assert_simple_meet",
+      "line": 1395,
+      "adjudication": "excluded",
+      "reason": "TEST SURFACE: direct meet_types test helper/case, excluded from production gold."
+    },
+    {
+      "file": "test-data/unit/check-typeform.test",
+      "symbol": "Meet test-data section",
+      "line": 465,
+      "adjudication": "excluded",
+      "reason": "TEST DATA label/comment, not production code."
+    },
+    {
+      "file": "mypy/meet.py",
+      "symbol": "TypeMeetVisitor.meet_tuples sibling",
+      "line": 1086,
+      "adjudication": "excluded",
+      "reason": "HOP-1 GREP COLLISION: `self.meet_tuples` matched the receiver-specific `self.meet` probe but is not a call to TypeMeetVisitor.meet."
+    }
+  ],
+  "excluded_test_helpers": [
+    {
+      "file": "mypy/test/testtypes.py",
+      "symbol": "assert_simple_meet",
+      "line": 1395,
+      "reason": "test-only meet_types assertion; production code only"
+    },
+    {
+      "file": "test-data/unit/check-typeform.test",
+      "symbol": "Meet test-data section",
+      "line": 465,
+      "reason": "test-data comment/fixture section, not executable production code"
+    }
+  ],
+  "exclusion_table": {
+    "note": "Excluded hits are definition/import/comment/test surfaces plus the receiver-verified self.meet_tuples sibling from the TypeMeetVisitor.meet hop.",
+    "definition": [
+      "mypy/meet.py:75"
+    ],
+    "import_only": [
+      "mypy/checker.py:111",
+      "mypy/join.py:334",
+      "mypy/join.py:839",
+      "mypy/plugins/attrs.py:15",
+      "mypy/plugins/dataclasses.py:10",
+      "mypy/solve.py:13",
+      "mypy/typeops.py:569"
+    ],
+    "comment_only": [
+      "mypy/expandtype.py:50",
+      "mypy/join.py:838",
+      "mypy/types_utils.py:3"
+    ],
+    "tests_or_fixtures": [
+      "mypy/test/testtypes.py:11",
+      "mypy/test/testtypes.py:1396",
+      "test-data/unit/check-typeform.test:465"
+    ],
+    "self_meet_sibling_not_forwarder": [
+      "mypy/meet.py:1086"
+    ]
+  }
+}

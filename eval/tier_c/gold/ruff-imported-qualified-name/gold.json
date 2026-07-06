@@ -1,0 +1,464 @@
+{
+  "task_id": "ruff-imported-qualified-name",
+  "repo": "ruff",
+  "sha": "44f6d18",
+  "symbol": "qualified_name",
+  "status": "FROZEN (codex xhigh build + Fable adversarial review + fixes applied, 2026-07-06)",
+  "closure_summary": {
+    "hops": 0,
+    "forwarder": "none \u2014 this is the D2/PRECISION task (shallow, flat receiver-disambiguation over the direct call sites of trait Imported::qualified_name and its 4 impls), not a forwarder closure",
+    "terminates_because": "N/A \u2014 no recursion; every gold site is a direct `.qualified_name()` call site on a value whose static type implements Imported (Import/SubmoduleImport/FromImport/AnyImport)",
+    "gold_size": 17,
+    "d1_count": 0,
+    "d2_count": 17,
+    "test_helper_policy": "no test files encountered (all sites are production src/rules, src/checkers, or src/*.rs code); none excluded as test helpers",
+    "generator_of_record": "narrowed grep-per-hop: `git grep -n \"\\.qualified_name(\" -- '*.rs' ':!*/tests/*' ':!*test*.rs'` (48 raw line-hits / 19 files -- the METHOD-CALL-SYNTAX form, which cuts the raw 873-hit `-w qualified_name` word-count field down to a tractable, precise candidate set by construction: struct-field access `x.qualified_name` (no parens) and `fn qualified_name` definitions never match `\\.qualified_name\\(`). Each of the 48 raw hits was then receiver-verified by reading the enclosing fn/struct/impl to determine the static type of the value before the dot. Cross-checked against `tier-c build-gold`'s LSP(rust-analyzer)+prism candidates: prism's nav_callers returned AmbiguousSymbol listing the same 4 impls + the 2 decoy same-name definitions (definition.rs:63, imports.rs:60) that I identified by source-reading -- independent confirmation of the decoy inventory. LSP call-hierarchy (seeded on one specific impl) returned 18 raw candidates matching 16 of my 17 gold entries plus 2 sites I excluded as impl-internal plumbing (binding.rs:772, binding.rs:814) -- and it MISSED import_private_name.rs:183 (the sibling `From<&Import>` impl of the one it found at line 196, `From<&FromImport>`) entirely -- a genuine LSP false-negative (oracle_miss) that only the exhaustive grep-per-hop found, folded into gold per the LSP-fallibility handling (design Sec 5a).",
+    "receiver_disambiguation_note": "of the 48 raw `.qualified_name(` hits, 24 were same-name-different-receiver PHANTOM BAIT (Module::qualified_name via checker.module / self.module -- definition.rs:63 -- 7 sites incl. statement.rs x4, banned_module_level_imports.rs x1, model.rs x2; NameImport::qualified_name via required_import -- imports.rs:60 -- 4 sites incl. unnecessary_future_import.rs x2, configuration.rs x2; ty-crate Class/TypeAlias::qualified_name -- ty/types/class.rs:693/1012, ty/types/diagnostic.rs, ty/types/display.rs -- 8 sites; AnyImport's OWN qualified_name impl body dispatching to the 3 concrete impls, binding.rs:812-814, treated as part of S's definition surface, not a caller -- 3 sites; Import::member_name and SubmoduleImport::member_name's internal self.qualified_name() calls, binding.rs:751/772, same reasoning -- 2 sites; the remaining decoy is imports.rs:75's `self.qualified_name()` half of a mixed line, co-located with a real AnyImport call on the SAME source line). D-membership is keyed to S's own name ('qualified_name'); every gold site's file necessarily contains the literal text 'qualified_name' (that IS how grep found it), so D1 is structurally impossible for this task -- consistent with the corpus's own framing ('d_member here is mostly D2'). Repo-wide git grep -c -w qualified_name total is far above the D2>100 threshold (873 raw word hits), so every real scoring key is D2."
+  },
+  "sites": [
+    {
+      "file": "crates/ruff_linter/src/rules/airflow/rules/variable_get_outside_task.rs",
+      "symbol": "is_dag_file",
+      "line": 116,
+      "token_anchor": "qualified_name@crates/ruff_linter/src/rules/airflow/rules/variable_get_outside_task.rs:116",
+      "receiver_evidence": "`import` bound via `semantic.binding(binding_id).as_any_import().is_some_and(|import| matches!(import.qualified_name().segments(), ...))` -- import: AnyImport",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "D2",
+      "provenance": [
+        "grep",
+        "lsp"
+      ],
+      "reason": "AnyImport receiver, real",
+      "adjudication": "real"
+    },
+    {
+      "file": "crates/ruff_linter/src/rules/flake8_import_conventions/rules/unconventional_import_alias.rs",
+      "symbol": "unconventional_import_alias",
+      "line": 68,
+      "token_anchor": "qualified_name@crates/ruff_linter/src/rules/flake8_import_conventions/rules/unconventional_import_alias.rs:68",
+      "receiver_evidence": "`let Some(import) = binding.as_any_import() else { return; }; ... import.qualified_name().to_string()` -- import: AnyImport",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "D2",
+      "provenance": [
+        "grep",
+        "lsp"
+      ],
+      "reason": "AnyImport receiver, real; ICN001 rule",
+      "adjudication": "real"
+    },
+    {
+      "file": "crates/ruff_linter/src/rules/flake8_pyi/rules/unaliased_collections_abc_set_import.rs",
+      "symbol": "unaliased_collections_abc_set_import",
+      "line": 65,
+      "token_anchor": "qualified_name@crates/ruff_linter/src/rules/flake8_pyi/rules/unaliased_collections_abc_set_import.rs:65",
+      "receiver_evidence": "`let BindingKind::FromImport(import) = &binding.kind else { return; }; ... import.qualified_name().segments()` -- import: &FromImport",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "D2",
+      "provenance": [
+        "grep",
+        "lsp"
+      ],
+      "reason": "FromImport receiver, real; PYI025 rule",
+      "adjudication": "real"
+    },
+    {
+      "file": "crates/ruff_linter/src/rules/flake8_type_checking/rules/runtime_import_in_type_checking_block.rs",
+      "symbol": "runtime_import_in_type_checking_block",
+      "line": 102,
+      "token_anchor": "qualified_name@crates/ruff_linter/src/rules/flake8_type_checking/rules/runtime_import_in_type_checking_block.rs:212",
+      "receiver_evidence": "destructures `ImportBinding{import,...}` (flake8_type_checking/imports.rs:6: `pub(crate) import: AnyImport<'a,'a>`); calls import.qualified_name() at lines 212, 244, 271 (3 call sites, all inside this one top-level pub(crate) rule fn -- collapsed to one gold entry)",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "D2",
+      "provenance": [
+        "grep",
+        "lsp"
+      ],
+      "reason": "AnyImport receiver, real; TC-family rule",
+      "adjudication": "real"
+    },
+    {
+      "file": "crates/ruff_linter/src/rules/flake8_type_checking/rules/typing_only_runtime_import.rs",
+      "symbol": "typing_only_runtime_import",
+      "line": 273,
+      "token_anchor": "qualified_name@crates/ruff_linter/src/rules/flake8_type_checking/rules/typing_only_runtime_import.rs:320",
+      "receiver_evidence": "`let Some(import) = binding.as_any_import() else { continue; }; ... import.qualified_name()` at lines 320, 416, 445 (3 call sites, all inside this one top-level pub(crate) rule fn -- collapsed)",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "D2",
+      "provenance": [
+        "grep",
+        "lsp"
+      ],
+      "reason": "AnyImport receiver, real; TC-family rule",
+      "adjudication": "real"
+    },
+    {
+      "file": "crates/ruff_linter/src/rules/pandas_vet/helpers.rs",
+      "symbol": "test_expression",
+      "line": 17,
+      "token_anchor": "qualified_name@crates/ruff_linter/src/rules/pandas_vet/helpers.rs:53",
+      "receiver_evidence": "`BindingKind::Import(import) if matches!(import.qualified_name().segments(), [\"pandas\"]) => ...` -- import: &Import (destructured from BindingKind::Import)",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "D2",
+      "provenance": [
+        "grep",
+        "lsp"
+      ],
+      "reason": "Import receiver, real; only fn in this file",
+      "adjudication": "real"
+    },
+    {
+      "file": "crates/ruff_linter/src/rules/pyflakes/rules/redefined_while_unused.rs",
+      "symbol": "redefined_while_unused",
+      "line": 95,
+      "token_anchor": "qualified_name@crates/ruff_linter/src/rules/pyflakes/rules/redefined_while_unused.rs:230",
+      "receiver_evidence": "`if let Some(shadowed_import) = info.shadowed.as_any_import() { if let Some(import) = info.binding.as_any_import() { if shadowed_import.qualified_name() == import.qualified_name() ...` -- both AnyImport",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "D2",
+      "provenance": [
+        "grep",
+        "lsp"
+      ],
+      "reason": "AnyImport receivers (x2 on one line), real; F811 top-level rule",
+      "adjudication": "real"
+    },
+    {
+      "file": "crates/ruff_linter/src/rules/pyflakes/rules/redefined_while_unused.rs",
+      "symbol": "bindings_in_different_forks",
+      "line": 324,
+      "token_anchor": "qualified_name@crates/ruff_linter/src/rules/pyflakes/rules/redefined_while_unused.rs:340",
+      "receiver_evidence": "`let (Some(left_import), Some(right_import)) = (left_binding.as_any_import(), right_binding.as_any_import()) && left_import.qualified_name() == right_import.qualified_name()` -- both AnyImport",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "D2",
+      "provenance": [
+        "grep",
+        "lsp"
+      ],
+      "reason": "AnyImport receivers (x2 on one line), real; distinct fn from redefined_while_unused above, same file",
+      "adjudication": "real"
+    },
+    {
+      "file": "crates/ruff_linter/src/rules/pylint/rules/import_private_name.rs",
+      "symbol": "<ImportInfo as From<&FromImport>>::from",
+      "line": 179,
+      "token_anchor": "qualified_name@crates/ruff_linter/src/rules/pylint/rules/import_private_name.rs:183",
+      "receiver_evidence": "`impl<'a> From<&'a FromImport<'_>> for ImportInfo<'a> { fn from(import: &'a FromImport) -> Self { ... let qualified_name = import.qualified_name(); ...} }` -- import: &FromImport",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "D2",
+      "provenance": [
+        "grep"
+      ],
+      "reason": "FromImport receiver, real; PLC2701-family rule helper. NOTE: LSP call-hierarchy (seeded on one impl) MISSED this sibling impl entirely -- oracle_miss, only grep-per-hop found it",
+      "adjudication": "real"
+    },
+    {
+      "file": "crates/ruff_linter/src/rules/pylint/rules/import_private_name.rs",
+      "symbol": "<ImportInfo as From<&Import>>::from",
+      "line": 195,
+      "token_anchor": "qualified_name@crates/ruff_linter/src/rules/pylint/rules/import_private_name.rs:196",
+      "receiver_evidence": "`impl<'a> From<&'a Import<'_>> for ImportInfo<'a> { fn from(import: &'a Import) -> Self { ... let qualified_name = import.qualified_name(); ...} }` -- import: &Import",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "D2",
+      "provenance": [
+        "grep",
+        "lsp"
+      ],
+      "reason": "Import receiver, real; sibling impl to the FromImport one above",
+      "adjudication": "real"
+    },
+    {
+      "file": "crates/ruff_python_semantic/src/imports.rs",
+      "symbol": "NameImport::matches",
+      "line": 73,
+      "token_anchor": "qualified_name@crates/ruff_python_semantic/src/imports.rs:75",
+      "receiver_evidence": "`fn matches(&self, name: &str, binding: &AnyImport) -> bool { name == self.bound_name() && self.qualified_name() == *binding.qualified_name() }` -- MIXED LINE: `self.qualified_name()` is the DECOY (self: &NameImport, imports.rs:60 same-name method) but `binding.qualified_name()` is REAL (binding: &AnyImport) -- both on line 75, disambiguated by receiver",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "D2",
+      "provenance": [
+        "grep",
+        "lsp"
+      ],
+      "reason": "AnyImport receiver (the `binding` arg only, NOT the `self: &NameImport` half of the same line -- see reason)",
+      "adjudication": "real"
+    },
+    {
+      "file": "crates/ruff_python_semantic/src/model.rs",
+      "symbol": "resolve_submodule",
+      "line": 947,
+      "token_anchor": "qualified_name@crates/ruff_python_semantic/src/model.rs:969",
+      "receiver_evidence": "`let import = self.bindings[binding_id].as_any_import()?; if !import.is_import() { return None; } let call_path = import.qualified_name();` -- import: AnyImport",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "D2",
+      "provenance": [
+        "grep",
+        "lsp"
+      ],
+      "reason": "AnyImport receiver, real. NOTE: same file also has 2 DECOY sites (self.module.qualified_name() @1073/1103, self.module: Module<'a> -- definition.rs:63) -- excluded, see exclusion_table",
+      "adjudication": "real"
+    },
+    {
+      "file": "crates/ruff_linter/src/rules/pyflakes/rules/unused_import.rs",
+      "symbol": "is_first_party",
+      "line": 270,
+      "token_anchor": "qualified_name@crates/ruff_linter/src/rules/pyflakes/rules/unused_import.rs:274",
+      "receiver_evidence": "`fn is_first_party(import: &AnyImport, checker: &Checker) -> bool { import.qualified_name().is_unresolved_import() ... }`",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "D2",
+      "provenance": [
+        "grep",
+        "lsp"
+      ],
+      "reason": "AnyImport receiver (explicit param type), real",
+      "adjudication": "real"
+    },
+    {
+      "file": "crates/ruff_linter/src/rules/pyflakes/rules/unused_import.rs",
+      "symbol": "unused_import",
+      "line": 324,
+      "token_anchor": "qualified_name@crates/ruff_linter/src/rules/pyflakes/rules/unused_import.rs:360",
+      "receiver_evidence": "top-level pub(crate) F401 rule; `import.qualified_name().starts_with(...)` @360 (import: AnyImport via `.as_any_import()` earlier in fn) and `binding.import.qualified_name().to_string()` @466/493 (binding: local ImportBinding{import: AnyImport,...} struct, unused_import.rs:512-521) -- 3 call sites, one enclosing fn, collapsed",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "D2",
+      "provenance": [
+        "grep",
+        "lsp"
+      ],
+      "reason": "AnyImport receiver throughout, real",
+      "adjudication": "real"
+    },
+    {
+      "file": "crates/ruff_linter/src/rules/pyflakes/rules/unused_import.rs",
+      "symbol": "unused_imports_from_binding",
+      "line": 731,
+      "token_anchor": "qualified_name@crates/ruff_linter/src/rules/pyflakes/rules/unused_import.rs:749",
+      "receiver_evidence": "`binding.as_any_import().expect(...).qualified_name().segments().first()...` -- AnyImport",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "D2",
+      "provenance": [
+        "grep",
+        "lsp"
+      ],
+      "reason": "AnyImport receiver, real",
+      "adjudication": "real"
+    },
+    {
+      "file": "crates/ruff_linter/src/rules/pyflakes/rules/unused_import.rs",
+      "symbol": "mark_uses_of_qualified_name",
+      "line": 835,
+      "token_anchor": "qualified_name@crates/ruff_linter/src/rules/pyflakes/rules/unused_import.rs:844",
+      "receiver_evidence": "`let Some(best_import) = best.as_any_import() else {return}; let best_name = best_import.qualified_name();` @844, and `binding.as_any_import().is_some_and(|imp| imp.qualified_name() == best_name)` @866 -- both AnyImport, 2 call sites, one fn, collapsed",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "D2",
+      "provenance": [
+        "grep",
+        "lsp"
+      ],
+      "reason": "AnyImport receiver, real",
+      "adjudication": "real"
+    },
+    {
+      "file": "crates/ruff_linter/src/rules/pyflakes/rules/unused_import.rs",
+      "symbol": "rank_matches",
+      "line": 883,
+      "token_anchor": "qualified_name@crates/ruff_linter/src/rules/pyflakes/rules/unused_import.rs:887",
+      "receiver_evidence": "`let Some(import) = binding.as_any_import() else { unreachable!() }; let qname = import.qualified_name();` -- AnyImport",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "D2",
+      "provenance": [
+        "grep",
+        "lsp"
+      ],
+      "reason": "AnyImport receiver, real",
+      "adjudication": "real"
+    },
+    {
+      "file": "crates/ruff_linter/src/checkers/ast/analyze/statement.rs",
+      "symbol": "statement",
+      "line": 633,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: checker.module.qualified_name() inside statement; checker.module: Module<'a>, whose own qualified_name (definition.rs:63) is not Imported/AnyImport."
+    },
+    {
+      "file": "crates/ruff_linter/src/checkers/ast/analyze/statement.rs",
+      "symbol": "statement",
+      "line": 777,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: checker.module.qualified_name() inside statement; checker.module: Module<'a>, whose own qualified_name (definition.rs:63) is not Imported/AnyImport."
+    },
+    {
+      "file": "crates/ruff_linter/src/checkers/ast/analyze/statement.rs",
+      "symbol": "statement",
+      "line": 835,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: checker.module.qualified_name() inside statement; checker.module: Module<'a>, whose own qualified_name (definition.rs:63) is not Imported/AnyImport."
+    },
+    {
+      "file": "crates/ruff_linter/src/checkers/ast/analyze/statement.rs",
+      "symbol": "statement",
+      "line": 921,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: checker.module.qualified_name() inside statement; checker.module: Module<'a>, whose own qualified_name (definition.rs:63) is not Imported/AnyImport."
+    },
+    {
+      "file": "crates/ruff_linter/src/rules/flake8_tidy_imports/rules/banned_module_level_imports.rs",
+      "symbol": "BannedModuleImportPolicies::new",
+      "line": 99,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: checker.module.qualified_name() inside BannedModuleImportPolicies::new; receiver is Module<'a>, not Imported/AnyImport."
+    },
+    {
+      "file": "crates/ruff_python_semantic/src/model.rs",
+      "symbol": "resolve_qualified_name",
+      "line": 1073,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: self.module.qualified_name() inside resolve_qualified_name; self.module: Module<'a>, not Imported/AnyImport."
+    },
+    {
+      "file": "crates/ruff_python_semantic/src/model.rs",
+      "symbol": "resolve_qualified_name",
+      "line": 1103,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: self.module.qualified_name() inside resolve_qualified_name; self.module: Module<'a>, not Imported/AnyImport."
+    },
+    {
+      "file": "crates/ruff_linter/src/rules/pyupgrade/rules/unnecessary_future_import.rs",
+      "symbol": "is_import_required_by_isort",
+      "line": 112,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: required_import.qualified_name() where required_import: &NameImport via RequiredImports = BTreeSet<NameImport>, not Imported/AnyImport."
+    },
+    {
+      "file": "crates/ruff_linter/src/rules/pyupgrade/rules/unnecessary_future_import.rs",
+      "symbol": "is_import_required_by_isort",
+      "line": 125,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: required_import.qualified_name() where required_import: &NameImport via RequiredImports = BTreeSet<NameImport>, not Imported/AnyImport."
+    },
+    {
+      "file": "crates/ruff_workspace/src/configuration.rs",
+      "symbol": "conflicting_import_settings",
+      "line": 1696,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: required_import.qualified_name() where required_import iterates isort.required_imports: BTreeSet<NameImport>, not Imported/AnyImport."
+    },
+    {
+      "file": "crates/ruff_workspace/src/configuration.rs",
+      "symbol": "conflicting_required_import_pyi025",
+      "line": 1735,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: required_import.qualified_name() where required_import iterates isort.required_imports: BTreeSet<NameImport>, not Imported/AnyImport."
+    },
+    {
+      "file": "crates/ty_python_semantic/src/types/class.rs",
+      "symbol": "ClassType::qualified_name",
+      "line": 1013,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: self.class_literal(db).qualified_name(db) inside ty-crate ClassType::qualified_name; unrelated to ruff_python_semantic::Imported."
+    },
+    {
+      "file": "crates/ty_python_semantic/src/types/diagnostic.rs",
+      "symbol": "report_invalid_method_override",
+      "line": 3687,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: superclass.qualified_name(db) where superclass: ClassType<'db>, unrelated to Imported/AnyImport."
+    },
+    {
+      "file": "crates/ty_python_semantic/src/types/diagnostic.rs",
+      "symbol": "report_overridden_final_method",
+      "line": 3872,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: superclass.qualified_name(db) where superclass: ClassType<'db>, unrelated to Imported/AnyImport."
+    },
+    {
+      "file": "crates/ty_python_semantic/src/types/diagnostic.rs",
+      "symbol": "report_overridden_final_variable",
+      "line": 4040,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: superclass.qualified_name(db) where superclass: ClassType<'db>, unrelated to Imported/AnyImport."
+    },
+    {
+      "file": "crates/ty_python_semantic/src/types/display.rs",
+      "symbol": "NamedItem::qualified_name_components",
+      "line": 75,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: class.qualified_name(db) where class is a ty-crate Class/TypeAlias display item, unrelated to Imported/AnyImport."
+    },
+    {
+      "file": "crates/ty_python_semantic/src/types/display.rs",
+      "symbol": "NamedItem::qualified_name_components",
+      "line": 77,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: type_alias.qualified_name(db) where type_alias is a ty-crate TypeAliasType, unrelated to Imported/AnyImport."
+    },
+    {
+      "file": "crates/ty_python_semantic/src/types/display.rs",
+      "symbol": "ClassDisplay::fmt_detailed",
+      "line": 778,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: self.class.qualified_name(self.db) where self.class is a ty-crate ClassLiteral, unrelated to Imported/AnyImport."
+    },
+    {
+      "file": "crates/ty_python_semantic/src/types/display.rs",
+      "symbol": "TypeAliasDisplay::fmt_detailed",
+      "line": 842,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: self.type_alias.qualified_name(self.db) where self.type_alias is a ty-crate TypeAliasType, unrelated to Imported/AnyImport."
+    },
+    {
+      "file": "crates/ruff_python_semantic/src/binding.rs",
+      "symbol": "AnyImport::qualified_name (own impl body)",
+      "line": 810,
+      "adjudication": "excluded",
+      "reason": "the tag-dispatch impl body itself (binding.rs:812-814, `Self::Import(import) => import.qualified_name()` etc.) -- part of S's OWN definition surface (one of the '4 impls' the trait has), not an external caller. Same exclusion principle as a forwarder's own def not being gold."
+    },
+    {
+      "file": "crates/ruff_python_semantic/src/binding.rs",
+      "symbol": "Import::member_name / SubmoduleImport::member_name (own impl bodies)",
+      "line": 750,
+      "adjudication": "excluded",
+      "reason": "`Cow::Owned(self.qualified_name().to_string())` at lines 751 (Import::member_name) and 772 (SubmoduleImport::member_name) -- a SIBLING trait method calling qualified_name from within the SAME impl block, in the trait's own home file. Treated as part of the definition/plumbing of the Imported protocol for these types, not an external consumer -- flagged as an interpretive judgment call (see ADJUDICATION.md uncertain sites; LSP's raw call-hierarchy DID surface binding.rs:772 as a candidate, consistent with a stricter reading that would include it)."
+    }
+  ],
+  "excluded_test_helpers": [],
+  "exclusion_table": {
+    "note": "same-name/other-receiver qualified_name() collisions verified during the method-call-syntax grep sweep = phantom bait; scored as phantom if an arm claims them",
+    "Module_qualified_name_decoy_def": "crates/ruff_python_semantic/src/definition.rs:63 (pub const fn qualified_name(&self) -> Option<&'a [String]> on struct Module<'a>)",
+    "Module_qualified_name_call_sites": [
+      "crates/ruff_linter/src/checkers/ast/analyze/statement.rs:633,777,835,921",
+      "crates/ruff_linter/src/rules/flake8_tidy_imports/rules/banned_module_level_imports.rs:99",
+      "crates/ruff_python_semantic/src/model.rs:1073,1103"
+    ],
+    "NameImport_qualified_name_decoy_def": "crates/ruff_python_semantic/src/imports.rs:60 (pub fn qualified_name(&self) -> QualifiedName<'_> on enum NameImport)",
+    "NameImport_qualified_name_call_sites": [
+      "crates/ruff_linter/src/rules/pyupgrade/rules/unnecessary_future_import.rs:112,125 (via RequiredImports = BTreeSet<NameImport>)",
+      "crates/ruff_workspace/src/configuration.rs:1696,1735 (via isort.required_imports: BTreeSet<NameImport>)",
+      "crates/ruff_python_semantic/src/imports.rs:75 (the self.qualified_name() half of a mixed line, see sites[10])"
+    ],
+    "ty_crate_qualified_name_decoy_defs": [
+      "crates/ty_python_semantic/src/types/class.rs:693,1012 (ClassLiteral/Class variants)",
+      "crates/ty_python_semantic/src/types/type_alias.rs:302 (TypeAlias)"
+    ],
+    "ty_crate_qualified_name_call_sites": [
+      "crates/ty_python_semantic/src/types/class.rs:1013",
+      "crates/ty_python_semantic/src/types/diagnostic.rs:3687,3872,4040",
+      "crates/ty_python_semantic/src/types/display.rs:75,77,778,842"
+    ],
+    "binding_rs_struct_field_decoys": "crates/ruff_python_semantic/src/binding.rs:500(Import.qualified_name field),511(FromImport.qualified_name field),520(SubmoduleImport.qualified_name field) -- verified exact match to the corpus's named line numbers. FIELD ACCESS `x.qualified_name` (no parens) never matches the `\\.qualified_name\\(` method-call grep, so these were never candidates in the first place; noted per corpus's explicit callout"
+  }
+}

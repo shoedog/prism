@@ -61,6 +61,12 @@ class Checkout:
         lo, hi = max(0, line - 1 - ctx), min(len(lines), line + ctx)
         return "\n".join(lines[lo:hi]) if lo < hi else None
 
+    def read_text(self, rel: str) -> str | None:
+        """Whole-file text (Part-D structural.verify_site_exists phantom check —
+        a line number is not always available for an arm-claimed impact site)."""
+        p = self.root / rel
+        return p.read_text(errors="replace") if p.is_file() else None
+
     def read_file(self, rel: str) -> str | None:
         """Full text of a repo-relative file (D2 relational.py: neutral per-language
         import-text parsing needs the whole file, not a windowed excerpt)."""

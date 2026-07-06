@@ -1,0 +1,138 @@
+{
+  "oracle_health": {
+    "lsp": "ok",
+    "prism": "unavailable: prism nav callers failed (3): {\n  \"error\": {\n    \"AmbiguousSymbol\": {\n      \"candidates\": [\n        {\n          \"Function\": {\n            \"end_byte\": 24510,\n            \"end_line\": 742,\n            \"file\": \"crates/ruff_python_semantic/src/binding.rs\",\n            \"name\": \"qualified_name\",\n            \"ordinal\": 0,\n            \"start_byte\": 24427,\n            \"start_line\": 740\n          }\n        },\n        {\n          \"Function\": {\n            \"end_byte\": 25125,\n            \"end_line\": 763,\n            \"file\": \"crates/ruff_python_semantic/src/binding.rs\",\n            \"name\": \"qualified_name\",\n            \"ordinal\": 0,\n            \"start_byte\": 25042,\n            \"start_line\": 761\n          }\n        },\n        {\n          \"Function\": {\n            \"end_byte\": 25752,\n            \"end_line\": 784,\n            \"file\": \"crates/ruff_python_semantic/src/binding.rs\",\n            \"name\": \"qualified_name\",\n            \"ordinal\": 0,\n            \"start_byte\": 25669,\n            \"start_line\": 782\n          }\n        },\n        {\n          \"Function\": {\n            \"end_byte\": 26869,\n            \"end_line\": 816,\n            \"file\": \"crates/ruff_python_semantic/src/binding.rs\",\n            \"name\": \"qualified_name\",\n            \"ordinal\": 0,\n            \"start_byte\": 26586,\n            \"start_line\": 810\n          }\n        },\n        {\n          \"Function\": {\n            \"end_byte\": 2106,\n            \"end_line\": 69,\n            \"file\": \"crates/ruff_python_semantic/src/definition.rs\",\n            \"name\": \"qualified_name\",\n            \"ordinal\": 0,\n            \"start_byte\": 1917,\n            \"start_line\": 63\n          }\n        },\n        {\n          \"Function\": {\n            \"end_byte\": 2324,\n            \"end_line\": 69,\n            \"file\": \"crates/ruff_python_semantic/src/imports.rs\",\n            \"name\": \"qualified_name\",\n            \"ordinal\": 0,\n            \"start_byte\": 1922,\n            \"start_line\": 60\n          }\n        },\n        {\n          \"Function\": {\n            \"end_byte\": 28690,\n            \"end_l"
+  },
+  "repo": "ruff",
+  "sha": "44f6d18",
+  "sites": [
+    {
+      "d_member": "D2",
+      "file": "crates/ruff_linter/src/rules/airflow/rules/variable_get_outside_task.rs",
+      "line": 116,
+      "provenance": "lsp",
+      "symbol": "is_dag_file"
+    },
+    {
+      "d_member": "D2",
+      "file": "crates/ruff_linter/src/rules/flake8_import_conventions/rules/unconventional_import_alias.rs",
+      "line": 68,
+      "provenance": "lsp",
+      "symbol": "unconventional_import_alias"
+    },
+    {
+      "d_member": "D2",
+      "file": "crates/ruff_linter/src/rules/flake8_pyi/rules/unaliased_collections_abc_set_import.rs",
+      "line": 65,
+      "provenance": "lsp",
+      "symbol": "unaliased_collections_abc_set_import"
+    },
+    {
+      "d_member": "D2",
+      "file": "crates/ruff_linter/src/rules/flake8_type_checking/rules/runtime_import_in_type_checking_block.rs",
+      "line": 271,
+      "provenance": "lsp",
+      "symbol": "runtime_import_in_type_checking_block"
+    },
+    {
+      "d_member": "D2",
+      "file": "crates/ruff_linter/src/rules/flake8_type_checking/rules/typing_only_runtime_import.rs",
+      "line": 445,
+      "provenance": "lsp",
+      "symbol": "typing_only_runtime_import"
+    },
+    {
+      "d_member": "D2",
+      "file": "crates/ruff_linter/src/rules/pandas_vet/helpers.rs",
+      "line": 53,
+      "provenance": "lsp",
+      "symbol": "test_expression"
+    },
+    {
+      "d_member": "D2",
+      "file": "crates/ruff_linter/src/rules/pyflakes/rules/redefined_while_unused.rs",
+      "line": 340,
+      "provenance": "lsp",
+      "symbol": "bindings_in_different_forks"
+    },
+    {
+      "d_member": "D2",
+      "file": "crates/ruff_linter/src/rules/pyflakes/rules/redefined_while_unused.rs",
+      "line": 230,
+      "provenance": "lsp",
+      "symbol": "redefined_while_unused"
+    },
+    {
+      "d_member": "D2",
+      "file": "crates/ruff_linter/src/rules/pyflakes/rules/unused_import.rs",
+      "line": 274,
+      "provenance": "lsp",
+      "symbol": "is_first_party"
+    },
+    {
+      "d_member": "D2",
+      "file": "crates/ruff_linter/src/rules/pyflakes/rules/unused_import.rs",
+      "line": 866,
+      "provenance": "lsp",
+      "symbol": "mark_uses_of_qualified_name"
+    },
+    {
+      "d_member": "D2",
+      "file": "crates/ruff_linter/src/rules/pyflakes/rules/unused_import.rs",
+      "line": 887,
+      "provenance": "lsp",
+      "symbol": "rank_matches"
+    },
+    {
+      "d_member": "D2",
+      "file": "crates/ruff_linter/src/rules/pyflakes/rules/unused_import.rs",
+      "line": 493,
+      "provenance": "lsp",
+      "symbol": "unused_import"
+    },
+    {
+      "d_member": "D2",
+      "file": "crates/ruff_linter/src/rules/pyflakes/rules/unused_import.rs",
+      "line": 749,
+      "provenance": "lsp",
+      "symbol": "unused_imports_from_binding"
+    },
+    {
+      "d_member": "D2",
+      "file": "crates/ruff_linter/src/rules/pylint/rules/import_private_name.rs",
+      "line": 196,
+      "provenance": "lsp",
+      "symbol": "from"
+    },
+    {
+      "d_member": "D2",
+      "file": "crates/ruff_python_semantic/src/binding.rs",
+      "line": 772,
+      "provenance": "lsp",
+      "symbol": "member_name"
+    },
+    {
+      "d_member": "D2",
+      "file": "crates/ruff_python_semantic/src/binding.rs",
+      "line": 814,
+      "provenance": "lsp",
+      "symbol": "qualified_name"
+    },
+    {
+      "d_member": "D2",
+      "file": "crates/ruff_python_semantic/src/imports.rs",
+      "line": 75,
+      "provenance": "lsp",
+      "symbol": "matches"
+    },
+    {
+      "d_member": "D2",
+      "file": "crates/ruff_python_semantic/src/model.rs",
+      "line": 969,
+      "provenance": "lsp",
+      "symbol": "resolve_submodule"
+    }
+  ],
+  "symbol": "qualified_name",
+  "task_id": "ruff-imported-qualified-name"
+}

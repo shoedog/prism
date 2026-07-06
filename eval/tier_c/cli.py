@@ -115,6 +115,53 @@ def main(argv: list[str] | None = None) -> int:
     rescore_p.add_argument("--judge", choices=["sonnet", "codex"], default="sonnet",
                            help="judge primary model: sonnet (sonnet-4.6) or codex (gpt-5.5-xhigh)")
 
+    # Part-D: emit gold CANDIDATE sites for one/all structural tasks (spec P2).
+    # Does NOT decide truth — writes candidates.json + adjudicate.md for the
+    # controller's source-verified adjudication pass, which freezes gold.json.
+    buildgold_p = sub.add_parser(
+        "build-gold",
+        help="emit Part-D gold CANDIDATE sites (LSP ∪ prism, provenance-tagged) for a structural task",
+    )
+    buildgold_p.add_argument("--task", default=None,
+                             help="structural task id (default: all tasks; requires --all)")
+    buildgold_p.add_argument("--all", action="store_true",
+                             help="build candidates for every task in --structural-issues")
+    buildgold_p.add_argument("--structural-issues", default="tier_c/issues/structural.toml",
+                             help="structural task TOML (default: tier_c/issues/structural.toml)")
+    buildgold_p.add_argument("--bench-root", default="~/code/bench-repos",
+                             help="root directory containing cloned benchmark repos")
+    buildgold_p.add_argument("--gold-root", default=None,
+                             help="output root for gold/<task_id>/ (default: eval/tier_c/gold)")
+
+    # Part-D: run ONE (task_id, model) cell — steered prism-on impact arm vs
+    # unsteered-off, scored via structural.py against the frozen gold.json.
+    partd_p = sub.add_parser(
+        "run-partd",
+        help="run ONE Part-D structural-impact cell (steered prism-on vs unsteered-off)",
+    )
+    partd_p.add_argument("--task", required=True, help="structural task id")
+    partd_p.add_argument("--model", required=True, help="model id (e.g. opus-4.8, gpt-5.5)")
+    partd_p.add_argument("--live", action="store_true",
+                         help="execute a real live cell (requires a frozen gold.json + bench-repos)")
+    partd_p.add_argument("--bench-root", default="~/code/bench-repos",
+                         help="root directory containing cloned benchmark repos")
+    partd_p.add_argument("--structural-issues", default="tier_c/issues/structural.toml",
+                         help="structural task TOML (default: tier_c/issues/structural.toml)")
+    partd_p.add_argument("--gold-root", default=None,
+                         help="root containing gold/<task_id>/gold.json (default: eval/tier_c/gold)")
+    partd_p.add_argument("--run-id", default=None,
+                         help="run identifier; required for --live (use --force-new to override collision guard)")
+    partd_p.add_argument("--force-new", action="store_true",
+                         help="override run-id collision guard (overwrites existing run dir)")
+    partd_p.add_argument("--run-store-root", default=None,
+                         help="root dir for run artifacts (default: eval/tier_c/runs/partd)")
+    partd_p.add_argument("--prism-build-dir", default=None,
+                         help="F1 matched-binary preflight build dir (default resolution mirrors run-partc)")
+    partd_p.add_argument("--skip-warm-gate", action="store_true",
+                         help="F4 escape hatch: skip the per-cell warm-initialize gate")
+    partd_p.add_argument("--warm-gate-timeout-s", type=float, default=15.0,
+                         help="F4: seconds to wait for the prism-mcp handshake (default: 15.0)")
+
     args = ap.parse_args(argv)
 
     if args.cmd == "rescore":
@@ -130,6 +177,62 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(render_partc([cell_result]))  # render_partc takes a list of cells
         print(f"\nrescored (arms NOT re-run) → {out_dir}")
+        return 0
+
+    if args.cmd == "build-gold":
+        from .structural_corpus import load_structural_tasks
+        from .buildgold import build_gold
+
+        tasks = load_structural_tasks(args.structural_issues)
+        if args.task:
+            tasks = [t for t in tasks if t.id == args.task]
+            if not tasks:
+                ap.error(f"no such structural task: {args.task!r}")
+        elif not args.all:
+            ap.error("build-gold requires --task <id> or --all")
+
+        bench_root = os.path.expanduser(args.bench_root)
+        gold_root = args.gold_root or _default_gold_root()
+        for task in tasks:
+            with Checkout(os.path.join(bench_root, task.repo), task.sha) as co:
+                result, cand_path, adjudicate_path = build_gold(task, co, out_root=gold_root)
+            both = sum(1 for s in result.sites if s.provenance == "both")
+            band = len(result.sites) - both
+            print(f"{task.id}: {len(result.sites)} candidate sites "
+                 f"({both} auto-accepted, {band} need adjudication)")
+            print(f"  oracle_health: {result.oracle_health}")
+            print(f"  candidates: {cand_path}")
+            print(f"  adjudicate: {adjudicate_path}")
+        return 0
+
+    if args.cmd == "run-partd":
+        if not args.live:
+            print(
+                "live run requires --live + a frozen gold/<task_id>/gold.json + bench-repos;\n"
+                "pass --live --run-id <id> to execute one (task, model) cell."
+            )
+            return 0
+        if not args.run_id:
+            ap.error("--run-id is required for --live (use --force-new to override collision guard)")
+
+        from .partd import _run_partd_live
+
+        bench_root = os.path.expanduser(args.bench_root)
+        gold_root = args.gold_root or _default_gold_root()
+        runs_root = args.run_store_root or _default_partd_run_store_root()
+        _run_partd_live(
+            (args.task, args.model),
+            bench_root=bench_root,
+            structural_issues_path=args.structural_issues,
+            gold_root=gold_root,
+            run_id=args.run_id,
+            runs_root=runs_root,
+            force_new=args.force_new,
+            prism_build_dir=args.prism_build_dir,
+            skip_binary_preflight=False,
+            skip_warm_gate=args.skip_warm_gate,
+            warm_gate_timeout_s=args.warm_gate_timeout_s,
+        )
         return 0
 
     if args.cmd == "run-partc":
@@ -195,6 +298,17 @@ def _default_run_store_root() -> str:
 def _default_partc_run_store_root() -> str:
     """Default Part-C run store: eval/tier_c/runs/partc/ (gitignored)."""
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs", "partc")
+
+
+def _default_partd_run_store_root() -> str:
+    """Default Part-D run store: eval/tier_c/runs/partd/ (gitignored)."""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs", "partd")
+
+
+def _default_gold_root() -> str:
+    """Default Part-D gold root: eval/tier_c/gold/ (committed — candidates.json,
+    adjudicate.md, and the frozen gold.json are the audit trail + scoring input)."""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "gold")
 
 
 def _default_partc_run_id() -> str:

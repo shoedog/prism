@@ -1,0 +1,194 @@
+# Tier-C Part-D corpus — 12 tasks, 5 languages. Archetype-A "refactor blast-radius" +
+# one archetype-B interface migration (caddy). Cross-validated 8-scout selection, codex
+# gpt-5.5 xhigh gold construction, Fable adversarial review (2026-07-06). Design-of-record:
+# docs/superpowers/specs/2026-07-05-tier-c-part-d-structural-tasks-design.md
+# RUN MATRIX (11 runnable tasks x 2 models x {on,off} = 44 arms): all 12 tasks below EXCEPT
+# guava-converter-doforward (admission FAIL: D1=0 under guava/src production scope -> Java is
+# STRONG-ONLY doEquivalent; the failed guava-forwardingmap-standard-containskey gold dir is a
+# documented failure record, not in structural.toml). Python HEADLINE = django (not meet_types).
+# Report ΔD-recall (SITE-level) PER-TASK, never pooled-only.
+# Gold methodology (Fable memo 2026-07-05): RENAMING-FORWARDER CLOSURE — gold = transitive
+# closure over THIN forwarders (W where "if S's contract changes W's necessarily changes and
+# W adds nothing of its own"), computed by GREP-PER-HOP; each gold site carries a token
+# anchor (the textual call token grep found it by). Grep-complete + prism-INDEPENDENT (a
+# different name is grepped at each hop). Bound = admission (>60 -> FAIL the target, never
+# truncate). D1 = gold site in a file with ZERO textual occurrence of S's name.
+#
+# CRITICAL (Fable do-not-trust flag #2): `prompt_change` is shown to BOTH arms and MUST NOT
+# NAME ANY FORWARDER (no "Matches", "is_list", "check_type", "MatchWithError") — naming the
+# wrapper hands the off-arm the grep token and collapses the instrument. State the transitive
+# rule generically. `scope` declarations ARE mirrored into the prompt verbatim (in/out lines).
+#
+# Corpus depth heterogeneity is intentional: prometheus (1 renaming hop) is the WEAKEST
+# instrument (expect smallest ΔD-recall); ruff match_annotation (2 hops, ~10-name fan-out) the
+# strongest. REPORT ΔD-recall PER TASK, never pooled-only.
+
+[[task]]
+id = "prometheus-matchstring"
+repo = "prometheus"
+lang = "go"
+sha = "505095b"
+symbol = "MatchString"
+receiver = "(*FastRegexMatcher)"
+def_site = "model/labels/regexp.go:328"
+dispatch = "1 renaming hop: (*Matcher).Matches (model/labels/matcher.go:108) forwards m.re.MatchString (2 of 4 switch arms, one negated). Terminates at 1 hop (PostingsForMatchers CONSUMES Matches -> stops)."
+prompt_change = "We are changing the matching semantics of FastRegexMatcher.MatchString (the compiled fast-path used to test whether a string matches). Enumerate every site that must be reviewed because its behavior depends on this method — INCLUDING callers of any wrapper or dispatch method that merely forwards this method's result, transitively (a caller that adapts the result only trivially — negation, plumbing, aggregation — still depends on it)."
+scope = "IN: the fast-path MatchString and thin forwarders of it. OUT: SetMatches/stringMatcher set-optimization fast paths; stdlib *regexp.Regexp.MatchString and relabel.Regexp (embeds stdlib) — different receivers. Report code sites only (not tests)."
+grep_name_stats = "git grep -nw MatchString = 33 non-test hits/15 files; most are stdlib *regexp.Regexp or relabel.Regexp (other receivers -> exclusion/phantom-bait table). .Matches( hop = 26 non-test hits/8 files."
+notes = "Fable: WEAKEST instrument (1 clean hop, grep-recoverable in principle). prism value here may show as PRECISION (avoiding ~25 stdlib MatchString collisions) more than recall. Phantom bait: relabel.go, discovery/http.go, cors.go, dedupe.go."
+
+[[task]]
+id = "ruff-typechecker-match-annotation"
+repo = "ruff"
+lang = "rust"
+sha = "44f6d18"
+symbol = "match_annotation"
+receiver = "trait TypeChecker"
+def_site = "crates/ruff_python_semantic/src/analyze/typing.rs:615"
+dispatch = "2 renaming hops: match_annotation <- check_type::<T> (typing.rs:625) <- ~10 named wrapper fns (is_list/is_dict/is_set/is_int/is_float/is_string/is_bytes/is_tuple/is_io_base/...) <- lint-rule consumers. 15 impls via blanket impl<T: BuiltinTypeChecker> TypeChecker for T."
+prompt_change = "We are changing the semantics of the protocol's list- and dict-type matching paths. Enumerate every site that must be reviewed because it depends on those paths — INCLUDING callers of any wrapper or dispatch function that merely forwards their result, transitively."
+scope = "IN: only the protocol's list- and dict-type matching paths; OUT: matching paths for other builtin/library types. OUT: unrelated same-named decoy match_annotation_to_complex_bool (flake8_boolean_trap). Report code sites only."
+grep_name_stats = "git grep -nw match_annotation = 4 files/16 hits (trait decl + 15 impls + 2 T::match_annotation in check_type); ~0 call sites name it. Wrapper names (is_*) fan out to the real consumers."
+notes = "Fable: STRONGEST instrument (2 hops, ~10-name fan-out). Consumers call is_list(...), never match_annotation. Decoy free fn match_annotation_to_complex_bool is a phantom check."
+
+[[task]]
+id = "caddy-requestmatcher-migration"
+repo = "caddy"
+lang = "go"
+sha = "77e9ce7"
+symbol = "RequestMatcher"
+receiver = "interface caddyhttp.RequestMatcher"
+def_site = "modules/caddyhttp/caddyhttp.go:43"
+dispatch = "Archetype-B interface migration: delete legacy RequestMatcher (Match(r) bool), make RequestMatcherWithError (caddyhttp.go:55) the only path. 17 legacy Match impls across 6 files satisfy it IMPLICITLY (D1 via implicit interface satisfaction — impl files never spell RequestMatcher). Dual-dispatch type-switches at routes.go:352/373/445, httptype.go:1572; CEL factories vars.go:236/369/392; deprecated MatcherSet.Match routes.go:411."
+prompt_change = "We are removing the legacy request-matcher interface and consolidating on its error-returning successor as the single dispatch path. Enumerate every site that must change — every implementer of the legacy interface, every dispatch/type-switch site, and every wiring/factory site — INCLUDING sites that satisfy or dispatch the interface WITHOUT naming it."
+scope = "IN: legacy-interface implementers, dispatch type-switches, interface guards (none remain legacy at this SHA), CEL/factory wiring, and the deprecated MatcherSet.Match dispatch method. OUT: unrelated Match methods on non-matcher types and already-migrated MatcherSets.AnyMatch. Report code sites only."
+grep_name_stats = "git grep -lw RequestMatcher = 5 files ONLY (impl files ip_matchers.go, vars.go, fileserver/matcher.go never spell it -> D1>=5). ~17 legacy Match impls + ~17 MatchWithError impls; 14 interface guards exist but all are already RequestMatcherWithError at this SHA."
+notes = "Fable: gopls dispatch oracle PRE-VALIDATED on caddy (Phase-IP dispatch_precision 1.0). LEAK CAVEAT (weakest posture): the caddy 2.9 matcher migration (Dec 2024) is training-visible; the module LIST is memorizable but the SHA-specific residual-legacy-site list is not — the no-command memorization tell in the attribution audit covers it."
+
+[[task]]
+id = "ruff-imported-qualified-name"
+repo = "ruff"
+lang = "rust"
+sha = "44f6d18"
+symbol = "qualified_name"
+receiver = "trait Imported"
+def_site = "crates/ruff_python_semantic/src/binding.rs:719"
+dispatch = "trait Imported + 4 impls (binding.rs:719/740/761/782/810), AnyImport = enum-variant forwarding. ~13 rule/checker consumers call import.qualified_name()."
+prompt_change = "We are changing the semantics of the import-identity accessor that returns an imported symbol's qualified name. Enumerate every site that must be reviewed because it depends on this accessor — resolving which call sites bind to THIS trait method versus unrelated same-named methods/fields/types."
+scope = "IN: the Imported trait method + its impls (incl. AnyImport forwarding) + consumers that call it on an import binding. OUT: the unrelated QualifiedName type, same-named struct fields (binding.rs:500/511/520), and same-named methods on other types (imports.rs:60, definition.rs:63, ty class.rs:693/1012, type_alias.rs:302). Report code sites only."
+grep_name_stats = "git grep -nw qualified_name = 225 files/873 hits, overwhelmingly the unrelated QualifiedName type + same-name fields/methods (strong D2). ~40 real .qualified_name() call sites in 16 non-test files."
+notes = "Fable: the D2/PRECISION instrument (different from match_annotation's D1/renaming-hop). Value = receiver disambiguation in an 873-hit noise field — prism's resolution ladder vs grep. Chosen over R3 in_async_context (|gold|~5-8 quantization-noise-fails the headline)."
+
+# ============ Corpus expansion (2026-07-05): 5 languages, cross-validated 8-scout selection ============
+
+[[task]]
+id = "hugo-converter-convert"
+repo = "hugo"
+lang = "go"
+sha = "a00b5c7"
+symbol = "Convert"
+receiver = "converter.Converter (interface)"
+def_site = "markup/converter/converter.go:90"
+dispatch = "STRONG (codex pick, 2-3 hops): interface Convert -> (*pageContentOutput).renderContentWithConverter -> page/content render wrappers ParseAndRenderContent/RenderString/shortcode. Callers spell page-render APIs, never Convert."
+prompt_change = "We are changing the semantics of the content-conversion step that turns page source (markdown/etc.) into rendered content. Enumerate every site that must be reviewed because its behavior depends on this conversion — INCLUDING callers of any page-render wrapper or method that reaches the conversion indirectly."
+scope = "IN: the converter interface method + the render wrappers that forward it + their name-absent consumers. OUT: the converter implementations themselves. OUT: unrelated Convert methods on other types (e.g. resource/image converters — verify receiver). Report code sites only."
+grep_name_stats = "git grep -nw Convert = 43 lines/21 files (many other-receiver). Forwarders renderContentWithConverter 4/2, ParseAndRenderContent 9/6, RenderString 46/17. D1~5 files (page__content.go, shortcode.go, page_lazy_contentprovider.go, page.go, page_nop.go = zero Convert)."
+notes = "STRONG. Repo-diverse from prometheus. Verify receiver types (Convert is a common method name in hugo)."
+
+[[task]]
+id = "prometheus-promql-walk"
+repo = "prometheus"
+lang = "go"
+sha = "505095b"
+symbol = "Walk"
+receiver = "parser (package free function)"
+def_site = "promql/parser/ast.go:350"
+dispatch = "STRONG (Claude pick, 2-3 hops): Walk(Visitor,Node,path) reached via Inspect (ast.go:396, one-line wrapper) + ExtractSelectors (ast.go:370, 3-hop) over the Visitor.Visit interface. Consumers spell Inspect/ExtractSelectors, never Walk."
+prompt_change = "We are changing the traversal semantics of the PromQL AST walker (how the visitor descends the expression tree). Enumerate every site that must be reviewed because it depends on this traversal — INCLUDING callers of any convenience wrapper or selector-extraction helper that drives the walk indirectly."
+scope = "IN: the walk driver + its named wrappers + their consumers + real Visitor impls passed to it. OUT: unrelated Walk (filepath.Walk, tsdb dir walk, index walk — different receivers). Report code sites only."
+grep_name_stats = "git grep -nw Walk = 18 hits/11 files MOSTLY UNRELATED collisions; real parser.Walk direct sites = 2. Forwarder Inspect = 11 real parser.Inspect call sites/6 files; ExtractSelectors = 2 callers. D1=5 files (promtool/main.go, promql/info.go, promqltest/test.go, rules/group.go, web/api/v1/api.go)."
+notes = "STRONG. Same repo as MatchString but DISJOINT subsystem (promql/parser vs pkg/labels). Exclusion table = the 5+ unrelated Walk collisions."
+
+[[task]]
+id = "typescript-resolve-signature"
+repo = "TypeScript"
+lang = "typescript"
+sha = "7964e22f2"
+symbol = "resolveSignature"
+receiver = "createTypeChecker closure (checker.ts)"
+def_site = "src/compiler/checker.ts:37631"
+dispatch = "STRONG (Claude pick, >=2 hops, D1 density ~1.0): public getResolvedSignature (types.ts:5240) -> interface arrow wrappers (checker.ts:1778/1780) -> getResolvedSignatureWorker (checker.ts:2040) -> internal getResolvedSignature (37658) -> resolveSignature. Consumers spell getResolvedSignature; NO substring collision with resolveSignature."
+prompt_change = "We are changing the semantics of call/overload signature resolution (how a call-like expression is resolved to a signature). Enumerate every site that must be reviewed because it depends on this resolution — INCLUDING callers of the public resolution API and its wrappers that reach it under a different name."
+scope = "IN: the resolver + its wrappers + the ~10 internal checker.ts callers + 6 external service files. OUT: unrelated resolve* methods. Report code sites only."
+grep_name_stats = "git grep -nw resolveSignature = 1 file/3 hits (def+assert+1 call). Forwarder getResolvedSignature = 7 files/22 hits. |gold|~18-24, D1~18-22 (6 external service files + ~10 internal fns, all zero resolveSignature)."
+notes = "STRONG, D1 density ~1.0. LSP cross-check unavailable (typescript-language-server not installed) — gold is grep-per-hop prism-independent."
+
+[[task]]
+id = "typescript-resolve-alias"
+repo = "TypeScript"
+lang = "typescript"
+sha = "7964e22f2"
+symbol = "resolveAlias"
+receiver = "createTypeChecker closure (checker.ts)"
+def_site = "src/compiler/checker.ts:4301"
+dispatch = "WEAK 2nd (Claude pick, 1 hop): public getAliasedSymbol (types.ts:5264) mapped directly at checker.ts:1805 (getAliasedSymbol: resolveAlias). The 12 external consumers spell getAliasedSymbol; the 23 internal callers spell resolveAlias (name-present)."
+prompt_change = "We are changing the semantics of import-alias symbol resolution (resolving an alias to its target symbol). Enumerate every site that must be reviewed because it depends on this resolution — INCLUDING callers of the public alias-resolution API that reach it under a different name."
+scope = "IN: the alias resolver + its public-API consumers. OUT: do NOT hop into getTargetOfAliasDeclaration (blows past 60 via createNodeBuilder serialization). Report code sites only."
+grep_name_stats = "git grep -nw resolveAlias = 1 file/32 hits (internal, name-present). Forwarder getAliasedSymbol = 12 external consumer files (moduleSpecifiers, utilities, callHierarchy, classifier, ... all zero resolveAlias). |gold|~35, D1=12."
+notes = "WEAK (1-hop; internal callers name-present, only the 12 external are D1). Clean, no substring collision."
+
+[[task]]
+id = "mypy-meet-types"
+repo = "mypy"
+lang = "python"
+sha = "5ef0902"
+symbol = "meet_types"
+receiver = "mypy.meet (module free function; forwards to TypeMeetVisitor)"
+def_site = "mypy/meet.py:75"
+dispatch = "STRONG (Claude pick, 2 hops): named function meet_types (meet.py:75) -> t.accept(TypeMeetVisitor(s)) (meet.py:114) -> polymorphic visit_*. Optional 3rd hop narrow_declared_type/meet_type_list wrap meet_types. Consumers spell meet_types, never TypeMeetVisitor."
+prompt_change = "We are changing the semantics of the type 'meet' operation (greatest lower bound of two types). Enumerate every site that must be reviewed because it depends on this operation — INCLUDING callers of any helper that wraps or forwards it under a different name."
+scope = "IN: the meet operation forwarder + its 9 external callers + internal meet.py forwarders/callers (+ optional narrow_declared_type consumers). OUT: comment-only mentions. Report code sites only."
+grep_name_stats = "git grep -nw TypeMeetVisitor = 2 hits/1 file (def+dispatch, ZERO consumers). Forwarder meet_types = 44 hits/9 files, ~9 external call sites/6 files (checker,join,solve,typeops,attrs,dataclasses). D1=6 files. |gold|~12-25."
+notes = "Python SECONDARY/weak (Fable+owner 2026-07-06 FLIP). D1=3 is INHERENT: meet_types IS the public name (renaming boundary inverted — TypeMeetVisitor has zero external consumers), so it can never be D1-rich. Quantized at both site+file level — do NOT headline. Built gold |gold|=15 (10 TypeMeetVisitor.* impl-body sites dropped per Fable)."
+
+[[task]]
+id = "django-check-registry-run-checks"
+repo = "django"
+lang = "python"
+sha = "e8cff29"
+symbol = "run_checks"
+receiver = "CheckRegistry"
+def_site = "django/core/checks/registry.py:73"
+dispatch = "WEAK 2nd (codex pick, registry, 2 hops): @register(...)-decorated check functions -> registry sets -> get_checks -> run_checks invokes each check. Registered checks are name-absent w.r.t. run_checks."
+prompt_change = "We are changing the semantics of the system-check runner (how registered checks are collected and invoked). Enumerate every site that must be reviewed because it depends on this runner — INCLUDING the registered check functions reached through the check registry without naming the runner."
+scope = "IN: the runner + get_checks + the registered check functions (scoped to django/core/checks + app check registrations). OUT: the generic @register decorator's non-check uses (register is polluted repo-wide). Report code sites only."
+grep_name_stats = "git grep -nw run_checks = 7/4 files. Forwarder/decorator register = 289/63 repo-wide (NOISY — scope to check registrations). get_checks = 3/1. |gold|~40-50, D1~30+ if scoped to core/checks."
+notes = "Python HEADLINE/STRONG (Fable+owner 2026-07-06 FLIP). Built gold |gold|=59, D1=51 sites/19 files (D1-RICH). CAVEATS (Fable): D1 discoverable by dir-convention django/core/checks/** so both arms may saturate D-recall (small Delta -> 'registry flavor' datapoint, not renaming-depth); memorization-prone famous code -> lean on the attribution audit."
+
+[[task]]
+id = "guava-equivalence-doequivalent"
+repo = "guava"
+lang = "java"
+sha = "2b2452a"
+symbol = "doEquivalent"
+receiver = "Equivalence<T> (abstract)"
+def_site = "guava/src/com/google/common/base/Equivalence.java:100"
+dispatch = "STRONG (Claude pick, 1 rename hop + composition): public equivalent(a,b) (Equivalence.java:68 -> :75 return doEquivalent) -> protected abstract doEquivalent. Consumers spell .equivalent(), never doEquivalent. Sibling hash()->doHash(). Extra: Wrapper.equals()->equivalent()->doEquivalent."
+prompt_change = "We are changing the semantics of the pairwise equivalence check (whether two values are considered equivalent). Enumerate every site that must be reviewed because its behavior depends on this check — INCLUDING callers that reach it through the public equivalence API without naming the internal method."
+scope = "IN: guava/src ONLY (NOT android/guava dup). The abstract method + its impls + the public-dispatch method + name-absent consumers. OUT: android/guava mirror. Report code sites only."
+grep_name_stats = "git grep -nw doEquivalent (guava/src) = 3 files/7 hits ALL inside the SPI family (ZERO consumers). Forwarder .equivalent( = 36 real call lines. Name-absent consumers: LocalCache.java(17)+MapMakerInternalMap.java(13)+Maps.java(1), all zero doEquivalent. |gold|~26, D1~20 (density 0.77)."
+notes = "STRONG, central abstraction. SCOPE guava/src only (android dup ~doubles counts, tight to 52 if both). jdtls unavailable — grep-per-hop gold, prism-independent. Java = prism FLOOR language."
+
+[[task]]
+id = "guava-converter-doforward"
+repo = "guava"
+lang = "java"
+sha = "2b2452a"
+symbol = "doForward"
+receiver = "Converter<A,B> (abstract)"
+def_site = "guava/src/com/google/common/base/Converter.java:172"
+dispatch = "WEAK/contested (>=3 rename hops): doForward -> correctedDoForward (:200) -> convert() (:196) -> apply() Function-bridge (:449); + convertAll (:270). Consumers spell .convert()/.apply()."
+prompt_change = "We are changing the semantics of the forward conversion step of a Converter (how it maps an input to an output). Enumerate every site that must be reviewed because it depends on this conversion — INCLUDING callers that reach it through the public convert/apply API without naming the internal method."
+scope = "IN: guava/src ONLY. The forward-conversion method + its wrappers + name-absent .convert()/.apply() consumers. OUT: android/guava; guava-tests (141 .convert( sites -> would blow past 60); TimeUnit.convert / other-receiver convert. Report code sites only."
+grep_name_stats = "git grep -nw doForward (guava/src) = 9 files/23 hits. Forwarder convert = 28 files/70 hits (noisy). CONTESTED: Claude=WEAK (thin within-src consumers), codex=FAILS-SIZE. VERIFY at build: if src-only |gold|<8 (too thin) OR >60, ESCALATE — swap to ForwardingMap.standardContainsKey (ForwardingMap.java:214, codex clean-weak alt)."
+notes = "WEAK, CONTESTED between models. Build agent MUST verify admission (8<=|gold|<=60, D1>=3); if it fails either bound, escalate + swap to the codex alt ForwardingMap.standardContainsKey. Java floor language."
