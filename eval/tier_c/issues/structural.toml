@@ -1,23 +1,21 @@
-# Tier-C Part-D corpus — archetype-A "refactor blast-radius" tasks.
-# Design-of-record: docs/superpowers/specs/2026-07-05-tier-c-part-d-structural-tasks-design.md
+# Tier-C Part-D corpus — 4 tasks, 2 per language (Go, Rust). Archetype-A "refactor
+# blast-radius" + one archetype-B interface migration (caddy). Design-of-record:
+# docs/superpowers/specs/2026-07-05-tier-c-part-d-structural-tasks-design.md
+# Gold methodology (Fable memo 2026-07-05): RENAMING-FORWARDER CLOSURE — gold = transitive
+# closure over THIN forwarders (W where "if S's contract changes W's necessarily changes and
+# W adds nothing of its own"), computed by GREP-PER-HOP; each gold site carries a token
+# anchor (the textual call token grep found it by). Grep-complete + prism-INDEPENDENT (a
+# different name is grepped at each hop). Bound = admission (>60 -> FAIL the target, never
+# truncate). D1 = gold site in a file with ZERO textual occurrence of S's name.
 #
-# FRAMING (load-bearing): each task is a SEMANTICS change, NOT a syntactic signature
-# change. "We are changing HOW <symbol> behaves / what it guarantees — enumerate every
-# site that must be reviewed/changed." The name-absent blast radius only appears through
-# dispatch propagation (a pure signature change's must-change set is often grep-findable;
-# the semantic-propagation set is not). The enumerated set IS the answer.
+# CRITICAL (Fable do-not-trust flag #2): `prompt_change` is shown to BOTH arms and MUST NOT
+# NAME ANY FORWARDER (no "Matches", "is_list", "check_type", "MatchWithError") — naming the
+# wrapper hands the off-arm the grep token and collapses the instrument. State the transitive
+# rule generically. `scope` declarations ARE mirrored into the prompt verbatim (in/out lines).
 #
-# Admission gate (design §2), applied per task: |gold| 8-60 distinct sites; name-absent
-# density D1>=3 OR (D1+D2)/|gold|>=0.3 (D1 = gold sites in files with ZERO textual
-# occurrence of the name; D2 = name present but repo-wide grep hits >100); answer-changing;
-# leak-resistant; scale >=1.5k files; oracle health (rust-analyzer/gopls trusted).
-#
-# STATUS: 2 of 3 locked (both strong name-absent). The 3rd slot (was excalidraw) is
-# DEFERRED to the owner gold-review checkpoint — excalidraw has no clean archetype-A
-# name-absent in-band target (E1 Action.perform over-band + grep-findable; E2/E3 are
-# same-name COLLISION, not name-ABSENCE, which the gate doesn't score). Candidate
-# replacements to weigh there: caddy archetype-B (Go, gopls dispatch oracle validated) or
-# ruff Imported::qualified_name (Rust, 873-hit noisy-grep flavor).
+# Corpus depth heterogeneity is intentional: prometheus (1 renaming hop) is the WEAKEST
+# instrument (expect smallest ΔD-recall); ruff match_annotation (2 hops, ~10-name fan-out) the
+# strongest. REPORT ΔD-recall PER TASK, never pooled-only.
 
 [[task]]
 id = "prometheus-matchstring"
@@ -27,10 +25,11 @@ sha = "505095b"
 symbol = "MatchString"
 receiver = "(*FastRegexMatcher)"
 def_site = "model/labels/regexp.go:328"
-dispatch = "labels.Matcher.Matches -> matchString field; callers invoke .Matches(), never .MatchString()"
-prompt_change = "We are changing the matching semantics of FastRegexMatcher.MatchString (the compiled fast-path). Enumerate every site that must be reviewed because its behavior depends on this method — including sites that reach it indirectly through labels.Matcher.Matches dispatch."
-grep_name_stats = "git grep -lw MatchString = 21 files; most are OTHER types' MatchString"
-notes = "Worked reference from the design doc; name-absent via the Matches interface dispatch."
+dispatch = "1 renaming hop: (*Matcher).Matches (model/labels/matcher.go:108) forwards m.re.MatchString (2 of 4 switch arms, one negated). Terminates at 1 hop (PostingsForMatchers CONSUMES Matches -> stops)."
+prompt_change = "We are changing the matching semantics of FastRegexMatcher.MatchString (the compiled fast-path used to test whether a string matches). Enumerate every site that must be reviewed because its behavior depends on this method — INCLUDING callers of any wrapper or dispatch method that merely forwards this method's result, transitively (a caller that adapts the result only trivially — negation, plumbing, aggregation — still depends on it)."
+scope = "IN: the fast-path MatchString and thin forwarders of it. OUT: SetMatches/stringMatcher set-optimization fast paths; stdlib *regexp.Regexp.MatchString and relabel.Regexp (embeds stdlib) — different receivers. Report code sites only (not tests)."
+grep_name_stats = "git grep -nw MatchString = 33 non-test hits/15 files; most are stdlib *regexp.Regexp or relabel.Regexp (other receivers -> exclusion/phantom-bait table). .Matches( hop = 26 non-test hits/8 files."
+notes = "Fable: WEAKEST instrument (1 clean hop, grep-recoverable in principle). prism value here may show as PRECISION (avoiding ~25 stdlib MatchString collisions) more than recall. Phantom bait: relabel.go, discovery/http.go, cors.go, dedupe.go."
 
 [[task]]
 id = "ruff-typechecker-match-annotation"
@@ -40,9 +39,36 @@ sha = "44f6d18"
 symbol = "match_annotation"
 receiver = "trait TypeChecker"
 def_site = "crates/ruff_python_semantic/src/analyze/typing.rs:615"
-dispatch = "generic bound check_type<T: TypeChecker> (typing.rs:625), itself behind ~10 named wrapper fns is_list/is_dict/is_set/is_int/is_float/is_string/is_bytes/is_tuple/is_io_base/...; 15 impls via a blanket impl<T: BuiltinTypeChecker> TypeChecker for T"
-prompt_change = "We are changing the semantics of the TypeChecker type-matching protocol (match_annotation / match_initializer). Enumerate every site that must be reviewed because it depends on this protocol — including the is_* wrapper functions and their lint-rule call sites that reach it via check_type<T>."
-grep_name_stats = "git grep -nw match_annotation = 4 files / 16 hits (trait decl + 15 impls + 2 T::match_annotation calls in check_type); ~0 call sites name it"
-notes = "Strongest ruff candidate; consumers call is_list(...) etc., never match_annotation."
+dispatch = "2 renaming hops: match_annotation <- check_type::<T> (typing.rs:625) <- ~10 named wrapper fns (is_list/is_dict/is_set/is_int/is_float/is_string/is_bytes/is_tuple/is_io_base/...) <- lint-rule consumers. 15 impls via blanket impl<T: BuiltinTypeChecker> TypeChecker for T."
+prompt_change = "We are changing the semantics of the TypeChecker type-matching protocol (how an annotation/initializer is matched against a builtin type). Enumerate every site that must be reviewed because it depends on this protocol — INCLUDING the callers of any wrapper or dispatch function that merely forwards this protocol's result, transitively."
+scope = "IN: the matching protocol and thin wrapper fns that forward it + their consumers. OUT: unrelated same-named decoy match_annotation_to_complex_bool (flake8_boolean_trap). Report code sites only."
+grep_name_stats = "git grep -nw match_annotation = 4 files/16 hits (trait decl + 15 impls + 2 T::match_annotation in check_type); ~0 call sites name it. Wrapper names (is_*) fan out to the real consumers."
+notes = "Fable: STRONGEST instrument (2 hops, ~10-name fan-out). Consumers call is_list(...), never match_annotation. Decoy free fn match_annotation_to_complex_bool is a phantom check."
 
-# [[task]] 3 — DEFERRED to gold-review checkpoint (see STATUS above).
+[[task]]
+id = "caddy-requestmatcher-migration"
+repo = "caddy"
+lang = "go"
+sha = "77e9ce7"
+symbol = "RequestMatcher"
+receiver = "interface caddyhttp.RequestMatcher"
+def_site = "modules/caddyhttp/caddyhttp.go:43"
+dispatch = "Archetype-B interface migration: delete legacy RequestMatcher (Match(r) bool), make RequestMatcherWithError (caddyhttp.go:55) the only path. 17 legacy Match impls across 6 files satisfy it IMPLICITLY (D1 via implicit interface satisfaction — impl files never spell RequestMatcher). Dual-dispatch type-switches at routes.go:352/373/445, httptype.go:1572; CEL factories vars.go:236/369/392; deprecated MatcherSet.Match routes.go:411."
+prompt_change = "We are removing the legacy request-matcher interface and consolidating on its error-returning successor as the single dispatch path. Enumerate every site that must change — every implementer of the legacy interface, every dispatch/type-switch site, and every wiring/factory site — INCLUDING sites that satisfy or dispatch the interface WITHOUT naming it."
+scope = "IN: legacy-interface implementers, dispatch type-switches, interface guards, CEL/factory wiring, the deprecated set method. OUT: unrelated Match methods on non-matcher types. Report code sites only."
+grep_name_stats = "git grep -lw RequestMatcher = 5 files ONLY (impl files ip_matchers.go, vars.go, fileserver/matcher.go never spell it -> D1>=5). ~17 legacy Match impls + ~17 MatchWithError impls + 14 interface guards."
+notes = "Fable: gopls dispatch oracle PRE-VALIDATED on caddy (Phase-IP dispatch_precision 1.0). LEAK CAVEAT (weakest posture): the caddy 2.9 matcher migration (Dec 2024) is training-visible; the module LIST is memorizable but the SHA-specific residual-legacy-site list is not — the no-command memorization tell in the attribution audit covers it."
+
+[[task]]
+id = "ruff-imported-qualified-name"
+repo = "ruff"
+lang = "rust"
+sha = "44f6d18"
+symbol = "qualified_name"
+receiver = "trait Imported"
+def_site = "crates/ruff_python_semantic/src/binding.rs:719"
+dispatch = "trait Imported + 4 impls (binding.rs:719/740/761/782/810), AnyImport = enum-variant forwarding. ~13 rule/checker consumers call import.qualified_name()."
+prompt_change = "We are changing the semantics of the import-identity accessor that returns an imported symbol's qualified name. Enumerate every site that must be reviewed because it depends on this accessor — resolving which call sites bind to THIS trait method versus unrelated same-named methods/fields/types."
+scope = "IN: the Imported trait method + its impls (incl. AnyImport forwarding) + consumers that call it on an import binding. OUT: the unrelated QualifiedName type, same-named struct fields (binding.rs:500/511/520), and same-named methods on other types (imports.rs:60, definition.rs:63, ty class.rs:693/1012, type_alias.rs:302). Report code sites only."
+grep_name_stats = "git grep -nw qualified_name = 225 files/873 hits, overwhelmingly the unrelated QualifiedName type + same-name fields/methods (strong D2). ~40 real .qualified_name() call sites in 16 non-test files."
+notes = "Fable: the D2/PRECISION instrument (different from match_annotation's D1/renaming-hop). Value = receiver disambiguation in an 873-hit noise field — prism's resolution ladder vs grep. Chosen over R3 in_async_context (|gold|~5-8 quantization-noise-fails the headline)."
