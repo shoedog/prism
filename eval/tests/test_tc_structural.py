@@ -87,6 +87,25 @@ def test_phantom_nonexistent_file_or_symbol():
     assert r.unmatched_extra == 0
 
 
+def test_claimed_excluded_site_is_phantom_not_extra():
+    """An adjudicated-excluded site (exclusion table / phantom bait) claimed by an arm
+    scores as a PHANTOM (adjudicated wrong answer), NOT unmatched_extra — even without a
+    verify_exists callable, since exclusion is an adjudication, not an existence check."""
+    gold = _gold([
+        _site("real.go", "Foo", 10, d_member="D1"),
+        _site("collision.go", "Bar", 20, adjudication="excluded",
+              reason="same-name/other-receiver phantom bait"),
+    ])
+    claimed = [
+        {"file": "real.go", "symbol": "Foo"},        # correct
+        {"file": "collision.go", "symbol": "Bar"},   # excluded -> phantom
+    ]
+    r = score_structural(claimed, gold)  # no verify_exists
+    assert r.phantom == 1
+    assert r.unmatched_extra == 0
+    assert r.gold_size == 1  # excluded sites are not gold
+
+
 def test_claimed_real_extra_is_unmatched_extra_not_phantom():
     """A claimed site NOT in gold but verified to be REAL is unmatched_extra —
     never counted as a phantom (spec: novel-but-real claims route through

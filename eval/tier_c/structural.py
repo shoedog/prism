@@ -157,6 +157,10 @@ def score_structural(claimed, gold: dict, *, verify_exists=None) -> StructuralRe
     """
     gold_sites = [_as_gold_site(s) for s in gold.get("sites", [])]
     real = [s for s in gold_sites if s.adjudication == "real"]
+    # Adjudicated-excluded sites (e.g. same-name/other-receiver collisions in the
+    # exclusion table) are PHANTOM BAIT: claiming one is an adjudicated wrong answer,
+    # scored as a phantom (stronger than unmatched_extra, which is for real-but-not-gold).
+    excluded_syms = {(s.file, norm_symbol(s.symbol)) for s in gold_sites if s.adjudication == "excluded"}
     claims = [_as_claimed_site(c) for c in claimed]
 
     gold_files = {s.file for s in real}
@@ -172,7 +176,9 @@ def score_structural(claimed, gold: dict, *, verify_exists=None) -> StructuralRe
         key = (c.file, norm_symbol(c.symbol))
         if key in gold_syms:
             continue
-        if verify_exists is not None and not verify_exists(c.file, c.symbol):
+        if key in excluded_syms:
+            phantom += 1  # adjudicated non-real (exclusion table) — a wrong answer, not just an extra
+        elif verify_exists is not None and not verify_exists(c.file, c.symbol):
             phantom += 1
         else:
             unmatched_extra += 1

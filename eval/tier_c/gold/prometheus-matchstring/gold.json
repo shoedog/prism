@@ -8,8 +8,9 @@
     "hops": 1,
     "forwarder": "(*labels.Matcher).Matches @ model/labels/matcher.go:108 — thin (forwards m.re.MatchString in MatchRegexp/MatchNotRegexp arms, one negated)",
     "terminates_because": "hop-1 callers are CONSUMERS (query/rule/tsdb eval); PostingsForMatchers consumes Matches in posting logic (own contract) -> no further hop",
-    "gold_size": 13,
-    "d1_count": 10,
+    "gold_size": 12,
+    "d1_count": 9,
+    "test_helper_policy": "production code only — non-_test.go test-HELPER files (test_utils.go) excluded per owner",
     "generator_of_record": "grep-per-hop (git grep -nw MatchString @L0; git grep -n '.Matches(' @hop1, receiver-verified *labels.Matcher). prism-INDEPENDENT."
   },
   "sites": [
@@ -27,7 +28,14 @@
     {"file": "web/api/v1/api.go", "symbol": "matchLabels", "line": 1268, "token_anchor": "Matches@web/api/v1/api.go:1268", "receiver_evidence": "m : *labels.Matcher", "hop_distance": 1, "role": "consumer", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "labels.Matcher.Matches caller; NOT D1 (api.go has a stdlib MatchString @1904)"},
     {"file": "web/api/v1/api.go", "symbol": "parseMatchersParam", "line": 2311, "token_anchor": "Matches@web/api/v1/api.go:2311", "receiver_evidence": "lm : *labels.Matcher", "hop_distance": 1, "role": "consumer", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "labels.Matcher.Matches caller; NOT D1 (same file as :1904 stdlib hit)"},
 
-    {"file": "model/labels/test_utils.go", "symbol": "Matches", "line": 36, "token_anchor": "Matches@model/labels/test_utils.go:36", "receiver_evidence": "m : *labels.Matcher (Selector []*labels.Matcher)", "hop_distance": 1, "role": "consumer", "d_member": "D1", "provenance": ["grep"], "adjudication": "real", "reason": "Selector.Matches wraps labels.Matcher.Matches; include SITE, do NOT hop (its callers are tests). BORDERLINE: test-helper file (non-_test.go) — flag for owner"}
+    {"file": "config/config.go", "symbol": "UnmarshalYAML", "line": 432, "adjudication": "excluded", "reason": "PHANTOM BAIT: patRulePath.MatchString is stdlib *regexp.Regexp, NOT FastRegexMatcher"},
+    {"file": "discovery/file/file.go", "symbol": "UnmarshalYAML", "line": 93, "adjudication": "excluded", "reason": "PHANTOM BAIT: patFileSDName.MatchString is stdlib *regexp.Regexp"},
+    {"file": "discovery/http/http.go", "symbol": "Refresh", "line": 177, "adjudication": "excluded", "reason": "PHANTOM BAIT: matchContentType.MatchString is stdlib *regexp.Regexp"},
+    {"file": "discovery/puppetdb/puppetdb.go", "symbol": "refresh", "line": 215, "adjudication": "excluded", "reason": "PHANTOM BAIT: matchContentType.MatchString is stdlib *regexp.Regexp"},
+    {"file": "web/api/v1/api.go", "symbol": "selfMetrics", "line": 1904, "adjudication": "excluded", "reason": "PHANTOM BAIT: nameFilter.MatchString is stdlib *regexp.Regexp (distinct symbol from the real api.go gold sites)"}
+  ],
+  "excluded_test_helpers": [
+    {"file": "model/labels/test_utils.go", "symbol": "Matches", "line": 36, "reason": "labels.Matcher.Matches caller (D1) but a non-_test.go TEST HELPER (used only by tests) — excluded per owner: production code sites only"}
   ],
   "exclusion_table": {
     "note": "same-name/other-receiver MatchString hits = phantom bait; scored as phantom if an arm claims them",
