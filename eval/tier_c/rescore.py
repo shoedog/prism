@@ -102,9 +102,15 @@ def rescore_cell(
 
     class _CachedComps:
         def run_off_arm(self_inner, c):
+            # D0: mirror what a live run_off_arm would have set, so live.score() can
+            # thread the arm TEXT (self._last_off/self._last_on) into the recall-
+            # denominator fix (claims.count_claims) even under rescore — where the
+            # arms are never actually re-run.
+            live._last_off = off_out
             return off_out
 
         def run_on_arm(self_inner, c):
+            live._last_on = on_out
             return on_out
 
         def score(self_inner, citations, **kwargs):
@@ -114,6 +120,19 @@ def rescore_cell(
             # Forward to the live comps so rescore produces the head-to-head verdict too
             # (run_partc_cell only computes it when the comps exposes this method).
             return live.head_to_head(off, on, c)
+
+        # Scorecard-v2 (D1/D2/D3) forwarding — run_partc_cell's hasattr gates check THIS
+        # wrapper, not `live` directly, so each new hook must be forwarded explicitly or
+        # rescore silently drops D1/D2/D3 even though _LivePartCComps implements them
+        # (the exact bug this comment is here to prevent from recurring).
+        def score_validity(self_inner, text, **kwargs):
+            return live.score_validity(text, **kwargs)
+
+        def score_relational(self_inner, off_text, on_text, **kwargs):
+            return live.score_relational(off_text, on_text, **kwargs)
+
+        def head_to_head_annotated(self_inner, off_annotated, on_annotated, c):
+            return live.head_to_head_annotated(off_annotated, on_annotated, c)
 
     result = run_partc_cell(cell, _CachedComps())
     return result, list(live._last_off_judge), list(live._last_on_judge)

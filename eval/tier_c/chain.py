@@ -42,7 +42,7 @@ def run_stage(*, stage, variants, runner, co, prompt, repo_root, claim_counts=No
     investigator = {
         vid: score_citations(co, o.citations, claim_count=claim_counts[vid],
                              relevance=relevance, issue_text=issue_text,
-                             read_code=read_code)
+                             read_code=read_code, text=o.text)
         for vid, o in outputs.items()
     }
     planted = {vid: score_catch(o.text, plants) for vid, o in outputs.items()}
