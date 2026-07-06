@@ -668,10 +668,22 @@ class _LivePartCComps:
         run_off_arm/run_on_arm), we fall back to the old max(len(citations), 1) behaviour
         so pre-existing direct callers/tests are unaffected.
 
+        Batch judging (perf fix): relevance is judged in ONE model call per arm (no
+        ensemble) instead of one ensemble call PER citation. Every citation is first
+        pre-resolved through investigator.verify_citation (the SAME resolver
+        score_citations itself uses) with a code-window-capturing stand-in relevance
+        object — this costs zero model calls, it only tells us which citations will
+        actually reach a relevance check (file_ok/line_ok/symbol_ok) and reads their
+        code windows. Those are classified in ONE LlmRelevanceJudge.relevance_batch
+        call, then looked up by (file, line, symbol) via a small precomputed oracle
+        injected into the REAL score_citations call — score_citations's signature and
+        the RelevanceJudge protocol are unchanged; the precomputed oracle just
+        satisfies the protocol.
+
         Returns an InvestigatorReport (precision, recall, hallucinations, verdicts).
         """
-        from .investigator import score_citations, InvestigatorReport
-        from .judges_live import LlmRelevanceJudge, _RecordingRelevanceJudge
+        from .investigator import score_citations, verify_citation, InvestigatorReport
+        from .judges_live import LlmRelevanceJudge
         from .llm import JUDGE_MODEL
         from .claims import count_claims
         if not citations:
@@ -680,22 +692,60 @@ class _LivePartCComps:
             else:
                 self._last_off_judge = []
             return InvestigatorReport(precision=0.0, recall=0.0, hallucinations=0, verdicts=[])
-        # Sonnet, not opus — owner-tested to follow the YES/NO instruction (opus went agentic).
-        # judge_primary overrides JUDGE_MODEL when a codex ensemble is requested.
-        inner_rel = LlmRelevanceJudge(self._ask, self._judge_primary or JUDGE_MODEL)
-        records: list[dict] = []
-        rel = _RecordingRelevanceJudge(inner_rel, records)
         upstream = self._upstream_spec(cell)
         issue_text = (self._issue.text + "\n\n## Upstream spec\n" + upstream
                       if upstream else self._issue.text)
         last = self._last_on if arm == "on" else self._last_off
         arm_text = last.text if last is not None else ""
         claim_count = count_claims(arm_text) if arm_text else max(len(citations), 1)
+
+        # --- Batch judging (perf fix): pre-resolve, then ONE relevance_batch call ---
+        class _CaptureCode:
+            """Stand-in RelevanceJudge: records (cite, code) for every citation that
+            reaches the relevance check inside verify_citation, WITHOUT spending a
+            model call (this is a local Python object, not self._ask)."""
+
+            def __init__(self):
+                self.items: list[tuple] = []
+
+            def is_relevant(self, cite, issue_text, code: str = "") -> bool:
+                self.items.append((cite, code))
+                return True  # placeholder; overwritten by relevance_batch below
+
+        capture = _CaptureCode()
+        for c in citations:
+            verify_citation(self._co, c, issue_text=issue_text, relevance=capture,
+                            read_code=lambda f, l: self._co.read_window(f, l),
+                            text=arm_text, ask=self._ask)
+
+        # Sonnet, not opus — owner-tested to follow the YES/NO instruction (opus went agentic).
+        # judge_primary overrides JUDGE_MODEL when a codex ensemble is requested.
+        rel_judge = LlmRelevanceJudge(self._ask, self._judge_primary or JUDGE_MODEL)
+        batch_verdicts = (rel_judge.relevance_batch(capture.items, issue_text)
+                          if capture.items else [])
+        lookup = {
+            (c.file, c.line, c.symbol): v
+            for (c, _code), v in zip(capture.items, batch_verdicts)
+        }
+        records: list[dict] = [
+            {"file": c.file, "line": c.line, "symbol": c.symbol,
+             "verdict": "YES" if v else "NO", "escalated": False, "votes": [],
+             "relevant": v}
+            for (c, _code), v in zip(capture.items, batch_verdicts)
+        ]
+
+        class _PrecomputedRelevance:
+            """Satisfies the RelevanceJudge protocol by looking up the batch verdict
+            computed above; default False (conservative) on a miss."""
+
+            def is_relevant(self, cite, issue_text, code: str = "") -> bool:
+                return lookup.get((cite.file, cite.line, cite.symbol), False)
+
         result = score_citations(
             self._co,
             citations,
             claim_count=claim_count,
-            relevance=rel,
+            relevance=_PrecomputedRelevance(),
             issue_text=issue_text,
             read_code=lambda f, l: self._co.read_window(f, l),
             # resolver-fix-spec.md R1/R2: `text` feeds the layer-3 salient-token

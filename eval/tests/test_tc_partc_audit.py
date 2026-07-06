@@ -1135,11 +1135,18 @@ def test_live_partc_comps_score_produces_judge_records(monkeypatch):
     assert "verdict" in rec
     assert "escalated" in rec
     assert "relevant" in rec
+    # Batch judging (perf fix): 2 citations must still cost <=1 ask call (was 2x ensemble).
+    assert len(ask_log) == 1, (
+        f"relevance for 2 citations must batch into ONE ask call, got {len(ask_log)}"
+    )
 
     # Score the on-arm
     comps.score(cites, cell=cell, arm="on")
     assert hasattr(comps, "_last_on_judge"), (
         "_LivePartCComps.score must set _last_on_judge after arm='on' call"
+    )
+    assert len(ask_log) == 2, (
+        f"relevance for the on-arm must add exactly ONE more ask call, got {len(ask_log)}"
     )
     assert len(comps._last_on_judge) == 2
 

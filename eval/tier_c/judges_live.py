@@ -50,6 +50,26 @@ class LlmRelevanceJudge:
     def is_relevant(self, cite: Citation, issue_text: str, code: str = "") -> bool:
         return self.relevance(cite, issue_text, code).verdict == "YES"
 
+    def relevance_batch(self, items: list[tuple[Citation, str]], issue_text: str) -> list[bool]:
+        """Batch judging (perf fix): classify ALL citations in ONE model call (self.sonnet
+        only — NO opus, NO ensemble), instead of one ensemble call PER citation. `items`
+        pairs each Citation with its already-read code window; returns a bool list
+        (True == relevant) aligned 1:1 with `items`."""
+        from .batch_judge import classify_batch
+        blocks = [
+            f"Location: {cite.file}:{cite.line}"
+            f"{' (symbol ' + cite.symbol + ')' if cite.symbol else ''}\n\nCode:\n{code}"
+            for cite, code in items
+        ]
+        intro = (
+            f"Issue:\n{issue_text}\n\n"
+            "For EACH numbered location below, is the code at that location actually "
+            "relevant to fixing the issue?"
+        )
+        verdicts = classify_batch(self.ask, self.sonnet, intro, blocks, ("YES", "NO"),
+                                  default="NO")
+        return [v == "YES" for v in verdicts]
+
 class LlmConditionGuesser:
     def __init__(self, ask, model: str):
         self.ask, self.model = ask, model

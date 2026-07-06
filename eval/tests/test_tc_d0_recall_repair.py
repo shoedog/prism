@@ -56,6 +56,18 @@ def _issue() -> types.SimpleNamespace:
     return types.SimpleNamespace(text="ISSUE", scoped_slice="s", repo="ruff", sha="abc")
 
 
+def _batch_yes_ask(calls: list):
+    """Batch judging (perf fix): score() now classifies ALL citations for an arm in
+    ONE relevance_batch call instead of one ensemble call per citation, so a fake ask
+    must answer every numbered "--- Item #n ---" block, not just return a bare "YES".
+    `calls` collects every prompt seen so tests can assert the call count."""
+    def ask(model: str, prompt: str) -> str:
+        calls.append(prompt)
+        n = prompt.count("--- Item #")
+        return "\n".join(f"#{i} YES" for i in range(1, n + 1)) if n else "YES"
+    return ask
+
+
 def test_fixture_text_has_several_substantive_code_claims():
     """Sanity check on the fixture itself — must have >1 code claim so the repair is
     actually exercised (a single-claim text can't distinguish old vs new behaviour)."""
@@ -70,8 +82,9 @@ def test_score_recall_uses_claim_count_not_citation_count():
     n_claims = count_claims(_ARM_TEXT)
     cites = [Citation("a.py", 1, "f"), Citation("b.py", 2, "f")]
 
+    calls: list = []
     comps = _LivePartCComps(co=_Co(), issue=_issue(), model="opus-4.8", base_root="x",
-                            ask=lambda m, p: "YES")
+                            ask=_batch_yes_ask(calls))
     comps._last_on = ArmOutput(
         variant=Variant("opus-4.8", True), text=_ARM_TEXT, citations=cites,
         tokens=10, tool_calls=2, wall_s=0.0, used_prism=True, prism_calls=2,
@@ -80,6 +93,9 @@ def test_score_recall_uses_claim_count_not_citation_count():
 
     rep = comps.score(cites, cell=("ruff", "spec", "opus-4.8"), arm="on")
 
+    assert len(calls) <= 1, (
+        f"batch judging: relevance for both citations must cost <=1 ask call, got {len(calls)}"
+    )
     assert rep.precision == 1.0, "both citations resolve + judge YES -> precision 1.0"
     expected_recall = 2 / n_claims
     assert rep.recall == pytest.approx(expected_recall), (
@@ -158,9 +174,10 @@ def test_rescore_cached_comps_threads_arm_text_into_recall(monkeypatch):
         dose=Dose(count=2), low_dose=False,
     )
 
+    calls: list = []
     cell, _, _ = rescore_cell(
         ("ruff", "spec", "opus-4.8"), off_out=off, on_out=on, co=_Co(),
-        issue=_FakeIssue(), base_root="", ask=lambda m, p: "YES",
+        issue=_FakeIssue(), base_root="", ask=_batch_yes_ask(calls),
     )
     n_claims = count_claims(_ARM_TEXT)
     assert cell.recall_on == pytest.approx(2 / n_claims), (
