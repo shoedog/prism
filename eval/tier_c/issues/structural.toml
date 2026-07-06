@@ -1,0 +1,48 @@
+# Tier-C Part-D corpus — archetype-A "refactor blast-radius" tasks.
+# Design-of-record: docs/superpowers/specs/2026-07-05-tier-c-part-d-structural-tasks-design.md
+#
+# FRAMING (load-bearing): each task is a SEMANTICS change, NOT a syntactic signature
+# change. "We are changing HOW <symbol> behaves / what it guarantees — enumerate every
+# site that must be reviewed/changed." The name-absent blast radius only appears through
+# dispatch propagation (a pure signature change's must-change set is often grep-findable;
+# the semantic-propagation set is not). The enumerated set IS the answer.
+#
+# Admission gate (design §2), applied per task: |gold| 8-60 distinct sites; name-absent
+# density D1>=3 OR (D1+D2)/|gold|>=0.3 (D1 = gold sites in files with ZERO textual
+# occurrence of the name; D2 = name present but repo-wide grep hits >100); answer-changing;
+# leak-resistant; scale >=1.5k files; oracle health (rust-analyzer/gopls trusted).
+#
+# STATUS: 2 of 3 locked (both strong name-absent). The 3rd slot (was excalidraw) is
+# DEFERRED to the owner gold-review checkpoint — excalidraw has no clean archetype-A
+# name-absent in-band target (E1 Action.perform over-band + grep-findable; E2/E3 are
+# same-name COLLISION, not name-ABSENCE, which the gate doesn't score). Candidate
+# replacements to weigh there: caddy archetype-B (Go, gopls dispatch oracle validated) or
+# ruff Imported::qualified_name (Rust, 873-hit noisy-grep flavor).
+
+[[task]]
+id = "prometheus-matchstring"
+repo = "prometheus"
+lang = "go"
+sha = "505095b"
+symbol = "MatchString"
+receiver = "(*FastRegexMatcher)"
+def_site = "model/labels/regexp.go:328"
+dispatch = "labels.Matcher.Matches -> matchString field; callers invoke .Matches(), never .MatchString()"
+prompt_change = "We are changing the matching semantics of FastRegexMatcher.MatchString (the compiled fast-path). Enumerate every site that must be reviewed because its behavior depends on this method — including sites that reach it indirectly through labels.Matcher.Matches dispatch."
+grep_name_stats = "git grep -lw MatchString = 21 files; most are OTHER types' MatchString"
+notes = "Worked reference from the design doc; name-absent via the Matches interface dispatch."
+
+[[task]]
+id = "ruff-typechecker-match-annotation"
+repo = "ruff"
+lang = "rust"
+sha = "44f6d18"
+symbol = "match_annotation"
+receiver = "trait TypeChecker"
+def_site = "crates/ruff_python_semantic/src/analyze/typing.rs:615"
+dispatch = "generic bound check_type<T: TypeChecker> (typing.rs:625), itself behind ~10 named wrapper fns is_list/is_dict/is_set/is_int/is_float/is_string/is_bytes/is_tuple/is_io_base/...; 15 impls via a blanket impl<T: BuiltinTypeChecker> TypeChecker for T"
+prompt_change = "We are changing the semantics of the TypeChecker type-matching protocol (match_annotation / match_initializer). Enumerate every site that must be reviewed because it depends on this protocol — including the is_* wrapper functions and their lint-rule call sites that reach it via check_type<T>."
+grep_name_stats = "git grep -nw match_annotation = 4 files / 16 hits (trait decl + 15 impls + 2 T::match_annotation calls in check_type); ~0 call sites name it"
+notes = "Strongest ruff candidate; consumers call is_list(...) etc., never match_annotation."
+
+# [[task]] 3 — DEFERRED to gold-review checkpoint (see STATUS above).
