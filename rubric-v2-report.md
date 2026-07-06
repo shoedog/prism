@@ -337,3 +337,119 @@ wiring, the `R4 resolvability` render line).
 `cd eval && uv run pytest -q --ignore=adoption` → **687 passed** (651 prior + 36 new).
 No live agent arms were run. `git diff fb05861..HEAD --stat -- src/ Cargo.toml
 Cargo.lock` is empty (HARNESS Python only, confirmed again for this pass).
+
+## Batch judging (perf fix)
+
+Branch continuation on `partc-rubric-v2` (4 commits, oldest first: `4d22609` batch_judge
+R1, `1f2b751` D1 validity batching R2, `882e836` relevance batching R3, `83995f9` the R4
+anti-fanout perf guard).
+
+### The problem, in numbers
+
+D1 validity (`validity.py::score_validity`) and relevance
+(`judges_live.LlmRelevanceJudge` via `cli._LivePartCComps.score`) each judged PER
+CITATION through `ensemble.py`'s 2-sonnet + opus-tiebreak vote. An arm with N citations
+cost N × (2–3) cold `claude -p` subprocess calls for EACH of these two dimensions.
+Measured on one Part-C cell: ~140–220 sequential calls, >58 minutes to rescore.
+
+Before/after call count, per cell (2 arms):
+
+| dimension | before | after |
+|---|---|---|
+| D1 validity | N_off × (2–3) + N_on × (2–3) | 1 (off) + 1 (on) = 2 |
+| relevance | N_off × (2–3) + N_on × (2–3) | 1 (off) + 1 (on) = 2 |
+| head-to-head, blind (`SpecQualityJudge`) | 2–3 | 2–3 — **unchanged** |
+| head-to-head, annotated (D3) | 2–3 | 2–3 — **unchanged** |
+| **total, N≈10 citations/arm** | **~4×20 + ~5 ≈ 85–125** | **~2+2+5 ≈ 9** |
+
+Call count is now independent of citation count — pinned by
+`test_tc_batch_judge.py::test_batch_judging_call_count_is_independent_of_citation_count`:
+an arm with 4 citations across 4 sentences costs ≤1 validity call + ≤1 relevance call
+(≤2 total), not ~8–12. A cell that took >58 minutes now rescores in minutes.
+
+### What batched
+
+- **New `batch_judge.py::classify_batch(ask, model, intro, items, choices, *,
+  default)`**: builds ONE prompt (`intro` + one `--- Item #n ---` block per item + a
+  reply-format instruction) and makes ONE `ask(model, prompt)` call. Parses a
+  `#<n> <VERDICT>` line per item; a missing line or an unparseable token on that line
+  defaults conservatively. `items == []` → `[]`, NO ask call at all. Reuses
+  `ensemble.parse_verdict`'s token-matching style; does NOT import `ensemble()`. A
+  singleton batch (exactly one item) additionally accepts a bare unprefixed reply
+  (unambiguous with one item to classify), which is what keeps every pre-existing
+  single-primitive-era fake (`ask=lambda m, p: "SUPPORTED"`) green without rewriting it —
+  only ONE pre-existing `score_validity` test needed adapting (see "Tests").
+- **`CitationValidityJudge.validity_batch`** (`validity.py`): one `self.sonnet`-only
+  call (no opus) classifying every RESOLVABLE claim in an arm's text.
+  `score_validity` still resolves each claim first via the unchanged R5 layered
+  resolver (unresolvable claims short-circuit to `UNSUPPORTED` with zero model spend,
+  same as before), then batches all resolvable ones into ONE `validity_batch` call
+  instead of one `judge.validity()` ensemble call per claim. `escalated` is always
+  `False` on this path now (no ensemble tiebreak); the field is kept on
+  `ValidityVerdict` for shape compatibility.
+- **`LlmRelevanceJudge.relevance_batch`** (`judges_live.py`) + `cli._LivePartCComps.score`
+  rewiring: `score()` first pre-resolves every citation through
+  `investigator.verify_citation` (the SAME resolver `score_citations` itself uses)
+  with a local code-window-capturing stand-in `RelevanceJudge` — this costs ZERO model
+  calls; it only determines which citations reach a relevance check
+  (file_ok/line_ok/symbol_ok) and reads their code windows, exactly mirroring which
+  citations previously got a `_RecordingRelevanceJudge.is_relevant()` call. Those go
+  into ONE `relevance_batch` call, then a small `_PrecomputedRelevance` oracle (looks
+  up by `(file, line, symbol)`, default `False` on a miss — conservative) is injected
+  into the REAL `score_citations(relevance=…)` call. `score_citations`'s signature and
+  the `RelevanceJudge` protocol are UNCHANGED — the precomputed oracle just satisfies
+  the existing protocol. `<base>.<arm>.judge.jsonl` record shape
+  (`{file,line,symbol,verdict,escalated,votes,relevant}`) is unchanged.
+
+### What stayed on the ensemble (kept byte-identical)
+
+The head-to-head (`SpecQualityJudge.compare`, used by both the blind `head_to_head` and
+the D3 `head_to_head_annotated`) is genuinely subjective (spec quality, not a
+per-citation fact check) and cheap (2 comparisons/cell, not N×), so it keeps the
+2-sonnet+opus-tiebreak ensemble exactly as it was: `git diff da7e4d0..HEAD -- eval/tier_c/judges.py
+eval/tier_c/detect.py eval/tier_c/ensemble.py` is empty, and the `judges_live.py` diff
+is purely additive (`relevance_batch` appended after `is_relevant`; `SpecQualityJudge`
+and everything else in that file untouched).
+
+### Symmetry / no new detectability tell
+
+Batching is per-arm — one validity call for the off-arm's claims and a separate one for
+the on-arm's, same for relevance — and the batched prompt contains only the issue text,
+claim sentences/citation locations, and code windows: the SAME content the old
+per-citation ensemble prompts already showed the model, just concatenated into one
+request instead of N requests. Nothing in the batched prompt or in
+`_LivePartCComps.score`'s new pre-resolve pass mentions "arm", "off", "on", "prism", or
+any steering signal, and both arms take the IDENTICAL code path through
+`classify_batch`. `detect.py`'s `LlmConditionGuesser`/`run_detectability` machinery is
+untouched (confirmed above), so the guard's inputs and mechanism are unaffected — there
+is no new textual surface for a condition-guesser to key off of.
+
+### Tests
+
+TDD, failing-first: `tests/test_tc_batch_judge.py` (new, 8 tests) covers
+`classify_batch`'s contract — well-formed 3-item batch, missing-item default,
+unparseable-token default, empty-items-no-call, singleton bare-reply fallback (parsed
+and default-on-unparseable), prompt shape — plus the R4 anti-fanout guard
+(`test_batch_judging_call_count_is_independent_of_citation_count`: 4 citations across 4
+sentences → ≤1 validity call + ≤1 relevance call, driving both `score_validity` and the
+real `_LivePartCComps.score` with one shared counting fake).
+
+Per spec, exactly ONE pre-existing test needed adapting for D1 —
+`test_score_validity_rate_is_over_claims_not_citations` (3 claims): its fake ask now
+returns one `#1/#2/#3 VERDICT` batched reply and asserts it was called exactly once. All
+5 `CitationValidityJudge.validity()` tests and the `LlmRelevanceJudge.relevance()`/
+`is_relevant()`/`_RecordingRelevanceJudge` tests (the tested single-primitive methods —
+still ensemble-backed, just no longer on the `score_validity`/`score()` hot path) are
+UNCHANGED and green. Two `test_tc_d0_recall_repair.py` tests that drove
+`_LivePartCComps.score` with 2 citations and a bare `"YES"` fake had their fakes adapted
+to answer a numbered batch reply (`_batch_yes_ask` helper) plus a call-count assertion;
+`test_live_partc_comps_score_produces_judge_records` (`test_tc_partc_audit.py`) got a
+bonus call-count assertion (≤1 ask call per arm for 2 citations) since it already
+tracked an `ask_log`. No other real `_LivePartCComps.score`/`score_validity` call site
+in the suite used more than one citation/claim — those are covered by
+`classify_batch`'s singleton fallback and needed no changes.
+
+`cd eval && uv run pytest -q --ignore=adoption` → **693 passed, 2 skipped** (685 prior +
+8 new). With `PRISM_BIN`/`PRISM_MCP_BIN` pointed at the real release binaries, **695
+passed, 0 skipped**. No live agent arms were run. `git diff da7e4d0..HEAD --stat -- src/
+Cargo.toml Cargo.lock` is empty (HARNESS Python only, confirmed again for this pass).
