@@ -7,11 +7,19 @@ from tier_c.structural_corpus import load_structural_tasks, StructuralTask, Stru
 REAL_TOML = "tier_c/issues/structural.toml"
 
 
-def test_load_real_structural_toml_both_tasks():
+def test_load_real_structural_toml_core_tasks_present():
     tasks = load_structural_tasks(REAL_TOML)
-    assert len(tasks) == 2
     ids = {t.id for t in tasks}
-    assert ids == {"prometheus-matchstring", "ruff-typechecker-match-annotation"}
+    assert len(ids) == len(tasks)  # ids unique
+    # The corpus is the frozen 12-task, 5-language Part-D slate; spot-check the anchors.
+    assert {
+        "prometheus-matchstring", "ruff-typechecker-match-annotation",
+        "hugo-converter-convert", "prometheus-promql-walk",
+        "typescript-resolve-signature", "mypy-meet-types",
+        "guava-equivalence-doequivalent",
+    } <= ids
+    langs = {t.lang for t in tasks}
+    assert {"go", "rust", "typescript", "python", "java"} <= langs
 
 
 def test_def_site_parses_to_file_and_line():
@@ -33,8 +41,8 @@ def test_task_fields_populated():
     assert pt.receiver == "(*FastRegexMatcher)"
     assert "Matches" in pt.dispatch
     assert pt.prompt_change.startswith("We are changing")
-    assert "21 files" in pt.grep_name_stats
-    assert "Worked reference" in pt.notes
+    assert "MatchString" in pt.grep_name_stats
+    assert pt.notes  # notes present (documentation)
 
 
 def test_missing_required_field_raises(tmp_path):

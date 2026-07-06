@@ -1,0 +1,655 @@
+{
+  "task_id": "guava-equivalence-doequivalent",
+  "repo": "guava",
+  "sha": "2b2452a",
+  "symbol": "doEquivalent",
+  "status": "FROZEN (codex xhigh build + Fable adversarial review + fixes applied, 2026-07-06)",
+  "closure_summary": {
+    "hops": 1,
+    "forwarder": "Equivalence.equivalent @ guava/src/com/google/common/base/Equivalence.java:68 \u2014 thin public API wrapper around doEquivalent after identity/null guards; Equivalence.test @ :86 is a deprecated BiPredicate bridge to equivalent with no in-scope production callers",
+    "terminates_because": "hop-1 .equivalent(...) sites are cache/map/base consumers or doEquivalent implementations; no further renaming forwarders with production callers remain",
+    "gold_size": 36,
+    "d1_count": 27,
+    "test_helper_policy": "guava/src production scope only; guava-tests and android mirror excluded per prompt",
+    "generator_of_record": "grep-per-hop in guava/src only: git grep -nw doEquivalent; git grep -nw equivalent plus call-token narrowing to equivalent(...); receiver/source verified. No prism/LSP."
+  },
+  "sites": [
+    {
+      "file": "guava/src/com/google/common/base/Equivalence.java",
+      "symbol": "equivalent",
+      "line": 68,
+      "token_anchor": "doEquivalent@guava/src/com/google/common/base/Equivalence.java:75",
+      "receiver_evidence": "this : Equivalence<T>; protected abstract boolean doEquivalent(T a, T b) declared at Equivalence.java:100",
+      "hop_distance": 0,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "thin public dispatch wrapper: identity/null guards then forwards to doEquivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/base/Equivalence.java",
+      "symbol": "doEquivalent",
+      "line": 100,
+      "token_anchor": "doEquivalent@guava/src/com/google/common/base/Equivalence.java:100",
+      "receiver_evidence": "abstract SPI method on Equivalence<T>",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "target SPI declaration included by task scope"
+    },
+    {
+      "file": "guava/src/com/google/common/base/Equivalence.java",
+      "symbol": "test",
+      "line": 86,
+      "token_anchor": "equivalent@guava/src/com/google/common/base/Equivalence.java:87",
+      "receiver_evidence": "this : Equivalence<T>; test is the BiPredicate bridge on Equivalence",
+      "hop_distance": 1,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "deprecated bridge forwards directly to equivalent(t, u); checked .test(...) call tokens have no Equivalence receiver in guava/src"
+    },
+    {
+      "file": "guava/src/com/google/common/base/Equivalence.java",
+      "symbol": "Wrapper.equals",
+      "line": 248,
+      "token_anchor": "equivalent@guava/src/com/google/common/base/Equivalence.java:259",
+      "receiver_evidence": "equivalence : Equivalence<Object> after checked cast from this.equivalence",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "Wrapper equality depends on Equivalence.equivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/base/Equivalence.java",
+      "symbol": "EquivalentToPredicate.apply",
+      "line": 324,
+      "token_anchor": "equivalent@guava/src/com/google/common/base/Equivalence.java:325",
+      "receiver_evidence": "equivalence : Equivalence<T> field of EquivalentToPredicate",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "predicate evaluation delegates to Equivalence.equivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/base/Equivalence.java",
+      "symbol": "Equals.doEquivalent",
+      "line": 384,
+      "token_anchor": "doEquivalent@guava/src/com/google/common/base/Equivalence.java:384",
+      "receiver_evidence": "static final class Equals extends Equivalence<Object>",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "concrete doEquivalent implementation"
+    },
+    {
+      "file": "guava/src/com/google/common/base/Equivalence.java",
+      "symbol": "Identity.doEquivalent",
+      "line": 405,
+      "token_anchor": "doEquivalent@guava/src/com/google/common/base/Equivalence.java:405",
+      "receiver_evidence": "static final class Identity extends Equivalence<Object>",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "concrete doEquivalent implementation"
+    },
+    {
+      "file": "guava/src/com/google/common/base/FunctionalEquivalence.java",
+      "symbol": "doEquivalent",
+      "line": 47,
+      "token_anchor": "doEquivalent@guava/src/com/google/common/base/FunctionalEquivalence.java:47",
+      "receiver_evidence": "final class FunctionalEquivalence<F,T> extends Equivalence<F>; resultEquivalence : Equivalence<T>",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "concrete doEquivalent implementation; body also calls resultEquivalence.equivalent at line 48"
+    },
+    {
+      "file": "guava/src/com/google/common/base/PairwiseEquivalence.java",
+      "symbol": "doEquivalent",
+      "line": 34,
+      "token_anchor": "doEquivalent@guava/src/com/google/common/base/PairwiseEquivalence.java:34",
+      "receiver_evidence": "final class PairwiseEquivalence<E,T> extends Equivalence<Iterable<T>>; elementEquivalence : Equivalence<E>",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "concrete doEquivalent implementation; loop delegates element comparison to elementEquivalence.equivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/cache/LocalCache.java",
+      "symbol": "lockedGetOrLoad",
+      "line": 2107,
+      "token_anchor": "equivalent@guava/src/com/google/common/cache/LocalCache.java:2126",
+      "receiver_evidence": "map.keyEquivalence : Equivalence<Object> field of LocalCache",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "cache key comparison via Equivalence.equivalent; file has zero doEquivalent text"
+    },
+    {
+      "file": "guava/src/com/google/common/cache/LocalCache.java",
+      "symbol": "compute",
+      "line": 2207,
+      "token_anchor": "equivalent@guava/src/com/google/common/cache/LocalCache.java:2235",
+      "receiver_evidence": "map.keyEquivalence : Equivalence<Object> field of LocalCache",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "cache key comparison via Equivalence.equivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/cache/LocalCache.java",
+      "symbol": "insertLoadingValueReference",
+      "line": 2405,
+      "token_anchor": "equivalent@guava/src/com/google/common/cache/LocalCache.java:2417",
+      "receiver_evidence": "map.keyEquivalence : Equivalence<Object> field of LocalCache",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "cache key comparison via Equivalence.equivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/cache/LocalCache.java",
+      "symbol": "getEntry",
+      "line": 2696,
+      "token_anchor": "equivalent@guava/src/com/google/common/cache/LocalCache.java:2703",
+      "receiver_evidence": "map.keyEquivalence : Equivalence<Object> field of LocalCache",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "cache key lookup via Equivalence.equivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/cache/LocalCache.java",
+      "symbol": "Segment.containsValue",
+      "line": 2764,
+      "token_anchor": "equivalent@guava/src/com/google/common/cache/LocalCache.java:2778",
+      "receiver_evidence": "map.valueEquivalence : Equivalence<Object> field of LocalCache",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "segment value comparison via Equivalence.equivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/cache/LocalCache.java",
+      "symbol": "put",
+      "line": 2798,
+      "token_anchor": "equivalent@guava/src/com/google/common/cache/LocalCache.java:2813",
+      "receiver_evidence": "map.keyEquivalence : Equivalence<Object> field of LocalCache",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "put collision check uses Equivalence.equivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/cache/LocalCache.java",
+      "symbol": "replace(K,int,V,V)",
+      "line": 2932,
+      "token_anchor": "equivalent@guava/src/com/google/common/cache/LocalCache.java:2950",
+      "receiver_evidence": "map.keyEquivalence and map.valueEquivalence : Equivalence<Object> fields of LocalCache",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "overload checks key equivalence at 2950 and old value equivalence at 2974"
+    },
+    {
+      "file": "guava/src/com/google/common/cache/LocalCache.java",
+      "symbol": "replace(K,int,V)",
+      "line": 2996,
+      "token_anchor": "equivalent@guava/src/com/google/common/cache/LocalCache.java:3011",
+      "receiver_evidence": "map.keyEquivalence : Equivalence<Object> field of LocalCache",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "replace overload checks key equivalence"
+    },
+    {
+      "file": "guava/src/com/google/common/cache/LocalCache.java",
+      "symbol": "remove(Object,int)",
+      "line": 3047,
+      "token_anchor": "equivalent@guava/src/com/google/common/cache/LocalCache.java:3066",
+      "receiver_evidence": "map.keyEquivalence : Equivalence<Object> field of LocalCache",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "remove overload checks key equivalence"
+    },
+    {
+      "file": "guava/src/com/google/common/cache/LocalCache.java",
+      "symbol": "remove(Object,int,Object)",
+      "line": 3091,
+      "token_anchor": "equivalent@guava/src/com/google/common/cache/LocalCache.java:3112",
+      "receiver_evidence": "map.keyEquivalence and map.valueEquivalence : Equivalence<Object> fields of LocalCache",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "overload checks key equivalence at 3112 and value equivalence at 3117"
+    },
+    {
+      "file": "guava/src/com/google/common/cache/LocalCache.java",
+      "symbol": "storeLoadedValue",
+      "line": 3146,
+      "token_anchor": "equivalent@guava/src/com/google/common/cache/LocalCache.java:3165",
+      "receiver_evidence": "map.keyEquivalence : Equivalence<Object> field of LocalCache",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "loaded-value store compares keys via Equivalence.equivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/cache/LocalCache.java",
+      "symbol": "reclaimValue",
+      "line": 3326,
+      "token_anchor": "equivalent@guava/src/com/google/common/cache/LocalCache.java:3343",
+      "receiver_evidence": "map.keyEquivalence : Equivalence<Object> field of LocalCache",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "value reclamation checks key equivalence"
+    },
+    {
+      "file": "guava/src/com/google/common/cache/LocalCache.java",
+      "symbol": "removeLoadingValue",
+      "line": 3370,
+      "token_anchor": "equivalent@guava/src/com/google/common/cache/LocalCache.java:3386",
+      "receiver_evidence": "map.keyEquivalence : Equivalence<Object> field of LocalCache",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "loading-value removal checks key equivalence"
+    },
+    {
+      "file": "guava/src/com/google/common/cache/LocalCache.java",
+      "symbol": "LocalCache.containsValue",
+      "line": 4171,
+      "token_anchor": "equivalent@guava/src/com/google/common/cache/LocalCache.java:4190",
+      "receiver_evidence": "valueEquivalence : Equivalence<Object> field of LocalCache",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "outer containsValue scan compares values via Equivalence.equivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/cache/LocalCache.java",
+      "symbol": "EntrySet.contains",
+      "line": 4633,
+      "token_anchor": "equivalent@guava/src/com/google/common/cache/LocalCache.java:4643",
+      "receiver_evidence": "valueEquivalence : Equivalence<Object> field of LocalCache",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "entry-set containment compares values via Equivalence.equivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/MapMakerInternalMap.java",
+      "symbol": "getEntry",
+      "line": 1414,
+      "token_anchor": "equivalent@guava/src/com/google/common/collect/MapMakerInternalMap.java:1426",
+      "receiver_evidence": "map.keyEquivalence : Equivalence<Object> field of MapMakerInternalMap",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "map-maker key lookup via Equivalence.equivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/MapMakerInternalMap.java",
+      "symbol": "Segment.containsValue",
+      "line": 1463,
+      "token_anchor": "equivalent@guava/src/com/google/common/collect/MapMakerInternalMap.java:1485",
+      "receiver_evidence": "map.valueEquivalence() returns Equivalence<Object>",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "segment value comparison via Equivalence.equivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/MapMakerInternalMap.java",
+      "symbol": "put",
+      "line": 1500,
+      "token_anchor": "equivalent@guava/src/com/google/common/collect/MapMakerInternalMap.java:1518",
+      "receiver_evidence": "map.keyEquivalence : Equivalence<Object> field of MapMakerInternalMap",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "put collision check uses Equivalence.equivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/MapMakerInternalMap.java",
+      "symbol": "replace(K,int,V,V)",
+      "line": 1624,
+      "token_anchor": "equivalent@guava/src/com/google/common/collect/MapMakerInternalMap.java:1637",
+      "receiver_evidence": "map.keyEquivalence field and map.valueEquivalence() both produce Equivalence<Object>",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "overload checks key equivalence at 1637 and old value equivalence at 1653"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/MapMakerInternalMap.java",
+      "symbol": "replace(K,int,V)",
+      "line": 1668,
+      "token_anchor": "equivalent@guava/src/com/google/common/collect/MapMakerInternalMap.java:1684",
+      "receiver_evidence": "map.keyEquivalence : Equivalence<Object> field of MapMakerInternalMap",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "replace overload checks key equivalence"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/MapMakerInternalMap.java",
+      "symbol": "remove(Object,int)",
+      "line": 1711,
+      "token_anchor": "equivalent@guava/src/com/google/common/collect/MapMakerInternalMap.java:1727",
+      "receiver_evidence": "map.keyEquivalence : Equivalence<Object> field of MapMakerInternalMap",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "remove overload checks key equivalence"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/MapMakerInternalMap.java",
+      "symbol": "remove(Object,int,Object)",
+      "line": 1751,
+      "token_anchor": "equivalent@guava/src/com/google/common/collect/MapMakerInternalMap.java:1767",
+      "receiver_evidence": "map.keyEquivalence field and map.valueEquivalence() both produce Equivalence<Object>",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "overload checks key equivalence at 1767 and value equivalence at 1771"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/MapMakerInternalMap.java",
+      "symbol": "reclaimValue",
+      "line": 1868,
+      "token_anchor": "equivalent@guava/src/com/google/common/collect/MapMakerInternalMap.java:1882",
+      "receiver_evidence": "map.keyEquivalence : Equivalence<Object> field of MapMakerInternalMap",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "value reclamation checks key equivalence"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/MapMakerInternalMap.java",
+      "symbol": "clearValueForTesting",
+      "line": 1901,
+      "token_anchor": "equivalent@guava/src/com/google/common/collect/MapMakerInternalMap.java:1918",
+      "receiver_evidence": "map.keyEquivalence : Equivalence<Object> field of MapMakerInternalMap",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "testing convenience in production source still compares keys via Equivalence.equivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/MapMakerInternalMap.java",
+      "symbol": "MapMakerInternalMap.containsValue",
+      "line": 2388,
+      "token_anchor": "equivalent@guava/src/com/google/common/collect/MapMakerInternalMap.java:2406",
+      "receiver_evidence": "valueEquivalence() returns Equivalence<Object>",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "outer containsValue scan compares values via Equivalence.equivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/MapMakerInternalMap.java",
+      "symbol": "EntrySet.contains",
+      "line": 2747,
+      "token_anchor": "equivalent@guava/src/com/google/common/collect/MapMakerInternalMap.java:2756",
+      "receiver_evidence": "valueEquivalence() returns Equivalence<Object>",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "entry-set containment compares values via Equivalence.equivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/Maps.java",
+      "symbol": "doDifference",
+      "line": 570,
+      "token_anchor": "equivalent@guava/src/com/google/common/collect/Maps.java:594",
+      "receiver_evidence": "valueEquivalence : Equivalence<? super V> parameter of doDifference",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "map difference value comparison via Equivalence.equivalent"
+    },
+    {
+      "file": "guava/src/com/google/common/cache/LocalCache.java",
+      "symbol": "removeIf",
+      "line": 4556,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: .test is BiPredicate.test, not Equivalence.test"
+    },
+    {
+      "file": "guava/src/com/google/common/cache/LocalCache.java",
+      "symbol": "Values.removeIf",
+      "line": 4609,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: filter.test is java.util.function.Predicate, not Equivalence.test"
+    },
+    {
+      "file": "guava/src/com/google/common/cache/LocalCache.java",
+      "symbol": "EntrySet.removeIf",
+      "line": 4628,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: filter.test is java.util.function.Predicate, not Equivalence.test"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/CollectSpliterators.java",
+      "symbol": "filter",
+      "line": 174,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: predicate.test is java.util.function.Predicate, not Equivalence.test"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/Collections2.java",
+      "symbol": "FilteredCollection.forEach",
+      "line": 193,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: predicate.test is java.util.function.Predicate, not Equivalence.test"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/Collections2.java",
+      "symbol": "FilteredCollection.removeIf",
+      "line": 217,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: filter.test is java.util.function.Predicate, not Equivalence.test"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/Collections2.java",
+      "symbol": "TransformedCollection.removeIf",
+      "line": 309,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: filter.test is java.util.function.Predicate, not Equivalence.test"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/Iterables.java",
+      "symbol": "filter",
+      "line": 595,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: retainIfTrue.test is java.util.function.Predicate, not Equivalence.test"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/Lists.java",
+      "symbol": "TransformingSequentialList.removeIf",
+      "line": 605,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: filter.test is java.util.function.Predicate, not Equivalence.test"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/Lists.java",
+      "symbol": "TransformingRandomAccessList.removeIf",
+      "line": 667,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: filter.test is java.util.function.Predicate, not Equivalence.test"
+    },
+    {
+      "file": "guava/src/com/google/common/math/LongMath.java",
+      "symbol": "isPrime",
+      "line": 1044,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: MillerRabinTester.test, not Equivalence.test"
+    }
+  ],
+  "excluded_test_helpers": [],
+  "exclusion_table": {
+    "note": "android/guava/src is an out-of-scope mirror and guava-tests are out of production scope; raw .test(...) collisions were receiver-verified and excluded.",
+    "doEquivalent_comment_only": [
+      "guava/src/com/google/common/base/Equivalence.java:44"
+    ],
+    "equivalent_non_call_or_doc_only": [
+      "guava/src/com/google/common/base/Equivalence.java:83",
+      "guava/src/com/google/common/base/Equivalence.java:157",
+      "guava/src/com/google/common/base/Equivalence.java:158"
+    ],
+    "out_of_scope_android_mirror": [
+      "android/guava/src/com/google/common/base/Equivalence.java",
+      "android/guava/src/com/google/common/base/FunctionalEquivalence.java",
+      "android/guava/src/com/google/common/base/PairwiseEquivalence.java",
+      "android/guava/src/com/google/common/cache/LocalCache.java",
+      "android/guava/src/com/google/common/collect/MapMakerInternalMap.java",
+      "android/guava/src/com/google/common/collect/Maps.java"
+    ]
+  }
+}

@@ -1,0 +1,977 @@
+{
+  "task_id": "django-check-registry-run-checks",
+  "repo": "django",
+  "sha": "e8cff29",
+  "symbol": "run_checks",
+  "status": "FROZEN (codex xhigh build + Fable adversarial review + fixes applied, 2026-07-06)",
+  "closure_summary": {
+    "hops": 3,
+    "forwarder": "module aliases run_checks/register in django/core/checks/registry.py:125-126 and django/core/checks/__init__.py:14 expose the CheckRegistry methods; CheckRegistry.get_checks @ registry.py:117 collects the registered sets; CheckRegistry.register @ registry.py:35 populates those sets",
+    "terminates_because": "the scoped registered check functions are invoked by CheckRegistry.run_checks and are the callback boundary; their bodies are consumers and are not recursed. Generic Django register decorators outside the system-check registry are polluted and excluded.",
+    "gold_size": 59,
+    "d1_count": 51,
+    "d2_count": 0,
+    "test_helper_policy": "production code only. tests/, docs/, and test-runner test cases are excluded.",
+    "generator_of_record": "grep-per-hop/callback only: git grep -nw run_checks; git grep -nw get_checks; scoped git grep for @register under django/core/checks and checks.register in contrib app configs. No LSP/prism/agent enumeration used.",
+    "fable_fix": "Added missed D1 site django/tasks/checks.py::check_tasks; neutralized DiscoverRunner.run_checks bait (transitive via call_command, not a wrong answer). Fable 2026-07-06. NOW THE PYTHON HEADLINE/STRONG task."
+  },
+  "sites": [
+    {
+      "file": "django/core/checks/registry.py",
+      "symbol": "CheckRegistry.run_checks",
+      "line": 73,
+      "token_anchor": "get_checks@django/core/checks/registry.py:84",
+      "receiver_evidence": "`self: CheckRegistry`; runner calls `self.get_checks(include_deployment_checks)` then invokes each returned check",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "runner implementation in task scope"
+    },
+    {
+      "file": "django/core/checks/registry.py",
+      "symbol": "CheckRegistry.register",
+      "line": 35,
+      "token_anchor": "register@django/core/checks/registry.py:35",
+      "receiver_evidence": "`registry = CheckRegistry()` at line 124 and `register = registry.register` at line 125; method populates registered_checks/deployment_checks",
+      "hop_distance": 2,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registry population boundary for check callbacks"
+    },
+    {
+      "file": "django/core/checks/registry.py",
+      "symbol": "CheckRegistry.get_checks",
+      "line": 117,
+      "token_anchor": "get_checks@django/core/checks/registry.py:117",
+      "receiver_evidence": "`self: CheckRegistry`; returns registered_checks and optional deployment_checks consumed by run_checks",
+      "hop_distance": 1,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "collection boundary between registry sets and runner"
+    },
+    {
+      "file": "django/core/checks/registry.py",
+      "symbol": "CheckRegistry.tags_available",
+      "line": 110,
+      "token_anchor": "get_checks@django/core/checks/registry.py:113",
+      "receiver_evidence": "`self: CheckRegistry`; derives tag set from `self.get_checks(deployment_checks)`",
+      "hop_distance": 2,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "consumer of get_checks collection semantics"
+    },
+    {
+      "file": "django/core/checks/registry.py",
+      "symbol": "module register alias",
+      "line": 125,
+      "token_anchor": "register@django/core/checks/registry.py:125",
+      "receiver_evidence": "`registry = CheckRegistry()` at line 124; module-level `register = registry.register`",
+      "hop_distance": 2,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "public registration alias used by check decorators"
+    },
+    {
+      "file": "django/core/checks/registry.py",
+      "symbol": "module run_checks alias",
+      "line": 126,
+      "token_anchor": "run_checks@django/core/checks/registry.py:126",
+      "receiver_evidence": "`registry = CheckRegistry()` at line 124; module-level `run_checks = registry.run_checks`",
+      "hop_distance": 0,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "public runner alias used as django.core.checks.run_checks"
+    },
+    {
+      "file": "django/core/checks/__init__.py",
+      "symbol": "checks module reexport",
+      "line": 14,
+      "token_anchor": "run_checks@django/core/checks/__init__.py:14",
+      "receiver_evidence": "`from .registry import Tags, register, run_checks, tag_exists`; check modules import register from this package",
+      "hop_distance": 1,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "package reexport for runner and registration decorators"
+    },
+    {
+      "file": "django/core/management/base.py",
+      "symbol": "BaseCommand.check",
+      "line": 483,
+      "token_anchor": "run_checks@django/core/management/base.py:498",
+      "receiver_evidence": "`checks` is django.core.checks; calls public checks.run_checks with app_configs/tags/deploy/databases",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "production direct consumer of system-check runner"
+    },
+    {
+      "file": "django/core/checks/async_checks.py",
+      "symbol": "check_async_unsafe",
+      "line": 13,
+      "token_anchor": "register@django/core/checks/async_checks.py:12",
+      "receiver_evidence": "`register` imported from django.core.checks at line 3; decorator registers this check with Tags.async_support deploy=True",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; file has zero run_checks text"
+    },
+    {
+      "file": "django/core/checks/caches.py",
+      "symbol": "check_default_cache_is_configured",
+      "line": 16,
+      "token_anchor": "register@django/core/checks/caches.py:15",
+      "receiver_evidence": "`register` imported from django.core.checks at line 7; decorator registers cache check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/caches.py",
+      "symbol": "check_cache_location_not_exposed",
+      "line": 23,
+      "token_anchor": "register@django/core/checks/caches.py:22",
+      "receiver_evidence": "`register` imported from django.core.checks at line 7; decorator registers deploy cache check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/caches.py",
+      "symbol": "check_file_based_cache_is_absolute",
+      "line": 62,
+      "token_anchor": "register@django/core/checks/caches.py:61",
+      "receiver_evidence": "`register` imported from django.core.checks at line 7; decorator registers cache check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/commands.py",
+      "symbol": "migrate_and_makemigrations_autodetector",
+      "line": 5,
+      "token_anchor": "register@django/core/checks/commands.py:4",
+      "receiver_evidence": "`register` imported from django.core.checks at line 1; decorator registers commands check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/compatibility/django_4_0.py",
+      "symbol": "check_csrf_trusted_origins",
+      "line": 6,
+      "token_anchor": "register@django/core/checks/compatibility/django_4_0.py:5",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers compatibility check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/database.py",
+      "symbol": "check_database_backends",
+      "line": 7,
+      "token_anchor": "register@django/core/checks/database.py:6",
+      "receiver_evidence": "`register` imported from django.core.checks at line 3; decorator registers database check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/files.py",
+      "symbol": "check_setting_file_upload_temp_dir",
+      "line": 9,
+      "token_anchor": "register@django/core/checks/files.py:8",
+      "receiver_evidence": "`register` imported from django.core.checks at line 5; decorator registers files check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/model_checks.py",
+      "symbol": "check_all_models",
+      "line": 12,
+      "token_anchor": "register@django/core/checks/model_checks.py:11",
+      "receiver_evidence": "`register` imported from django.core.checks at line 7; decorator registers model check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/model_checks.py",
+      "symbol": "check_lazy_references",
+      "line": 226,
+      "token_anchor": "register@django/core/checks/model_checks.py:225",
+      "receiver_evidence": "`register` imported from django.core.checks at line 7; decorator registers lazy-reference model check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/base.py",
+      "symbol": "check_security_middleware",
+      "line": 204,
+      "token_anchor": "register@django/core/checks/security/base.py:203",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers deploy security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/base.py",
+      "symbol": "check_xframe_options_middleware",
+      "line": 210,
+      "token_anchor": "register@django/core/checks/security/base.py:209",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers deploy security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/base.py",
+      "symbol": "check_sts",
+      "line": 216,
+      "token_anchor": "register@django/core/checks/security/base.py:215",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers deploy security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/base.py",
+      "symbol": "check_sts_include_subdomains",
+      "line": 222,
+      "token_anchor": "register@django/core/checks/security/base.py:221",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers deploy security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/base.py",
+      "symbol": "check_sts_preload",
+      "line": 232,
+      "token_anchor": "register@django/core/checks/security/base.py:231",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers deploy security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/base.py",
+      "symbol": "check_content_type_nosniff",
+      "line": 242,
+      "token_anchor": "register@django/core/checks/security/base.py:241",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers deploy security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/base.py",
+      "symbol": "check_ssl_redirect",
+      "line": 250,
+      "token_anchor": "register@django/core/checks/security/base.py:249",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers deploy security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/base.py",
+      "symbol": "check_secret_key",
+      "line": 264,
+      "token_anchor": "register@django/core/checks/security/base.py:263",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers deploy security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/base.py",
+      "symbol": "check_secret_key_fallbacks",
+      "line": 275,
+      "token_anchor": "register@django/core/checks/security/base.py:274",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers deploy security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/base.py",
+      "symbol": "check_debug",
+      "line": 291,
+      "token_anchor": "register@django/core/checks/security/base.py:290",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers deploy security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/base.py",
+      "symbol": "check_xframe_deny",
+      "line": 297,
+      "token_anchor": "register@django/core/checks/security/base.py:296",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers deploy security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/base.py",
+      "symbol": "check_allowed_hosts",
+      "line": 303,
+      "token_anchor": "register@django/core/checks/security/base.py:302",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers deploy security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/base.py",
+      "symbol": "check_referrer_policy",
+      "line": 308,
+      "token_anchor": "register@django/core/checks/security/base.py:307",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers deploy security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/base.py",
+      "symbol": "check_cross_origin_opener_policy",
+      "line": 324,
+      "token_anchor": "register@django/core/checks/security/base.py:323",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers deploy security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/base.py",
+      "symbol": "check_csp_settings",
+      "line": 336,
+      "token_anchor": "register@django/core/checks/security/base.py:335",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/base.py",
+      "symbol": "check_csp_nonce_context_processor",
+      "line": 352,
+      "token_anchor": "register@django/core/checks/security/base.py:351",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/csrf.py",
+      "symbol": "check_csrf_middleware",
+      "line": 28,
+      "token_anchor": "register@django/core/checks/security/csrf.py:27",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers deploy security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/csrf.py",
+      "symbol": "check_csrf_cookie_secure",
+      "line": 34,
+      "token_anchor": "register@django/core/checks/security/csrf.py:33",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers deploy security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/csrf.py",
+      "symbol": "check_csrf_failure_view",
+      "line": 44,
+      "token_anchor": "register@django/core/checks/security/csrf.py:43",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/sessions.py",
+      "symbol": "check_session_cookie_secure",
+      "line": 66,
+      "token_anchor": "register@django/core/checks/security/sessions.py:65",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers deploy security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/security/sessions.py",
+      "symbol": "check_session_cookie_httponly",
+      "line": 80,
+      "token_anchor": "register@django/core/checks/security/sessions.py:79",
+      "receiver_evidence": "`register` imported from django.core.checks at line 2; decorator registers deploy security check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/templates.py",
+      "symbol": "check_templates",
+      "line": 5,
+      "token_anchor": "register@django/core/checks/templates.py:4",
+      "receiver_evidence": "`register` imported from django.core.checks at line 1; decorator registers templates check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/translation.py",
+      "symbol": "check_setting_language_code",
+      "line": 30,
+      "token_anchor": "register@django/core/checks/translation.py:29",
+      "receiver_evidence": "`register` imported from django.core.checks at line 5; decorator registers translation check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/translation.py",
+      "symbol": "check_setting_languages",
+      "line": 39,
+      "token_anchor": "register@django/core/checks/translation.py:38",
+      "receiver_evidence": "`register` imported from django.core.checks at line 5; decorator registers translation check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/translation.py",
+      "symbol": "check_setting_languages_bidi",
+      "line": 49,
+      "token_anchor": "register@django/core/checks/translation.py:48",
+      "receiver_evidence": "`register` imported from django.core.checks at line 5; decorator registers translation check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/translation.py",
+      "symbol": "check_language_settings_consistent",
+      "line": 59,
+      "token_anchor": "register@django/core/checks/translation.py:58",
+      "receiver_evidence": "`register` imported from django.core.checks at line 5; decorator registers translation check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/urls.py",
+      "symbol": "check_url_config",
+      "line": 11,
+      "token_anchor": "register@django/core/checks/urls.py:10",
+      "receiver_evidence": "`register` imported from django.core.checks at line 7; decorator registers URLs check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/urls.py",
+      "symbol": "check_url_namespaces_unique",
+      "line": 34,
+      "token_anchor": "register@django/core/checks/urls.py:33",
+      "receiver_evidence": "`register` imported from django.core.checks at line 7; decorator registers URLs check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/urls.py",
+      "symbol": "check_url_settings",
+      "line": 106,
+      "token_anchor": "register@django/core/checks/urls.py:105",
+      "receiver_evidence": "`register` imported from django.core.checks at line 7; decorator registers URLs check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/core/checks/urls.py",
+      "symbol": "check_custom_error_handlers",
+      "line": 123,
+      "token_anchor": "register@django/core/checks/urls.py:122",
+      "receiver_evidence": "`register` imported from django.core.checks at line 7; decorator registers URLs check",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check callback; D1"
+    },
+    {
+      "file": "django/contrib/admin/checks.py",
+      "symbol": "check_dependencies",
+      "line": 56,
+      "token_anchor": "register@django/contrib/admin/apps.py:16",
+      "receiver_evidence": "`checks` imported from django.core at admin/apps.py:3; `check_dependencies` imported at apps.py:2 and registered in SimpleAdminConfig.ready",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "programmatically registered app check callback; D1"
+    },
+    {
+      "file": "django/contrib/admin/checks.py",
+      "symbol": "check_admin_app",
+      "line": 47,
+      "token_anchor": "register@django/contrib/admin/apps.py:17",
+      "receiver_evidence": "`checks` imported from django.core at admin/apps.py:3; `check_admin_app` imported at apps.py:2 and registered in SimpleAdminConfig.ready",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "programmatically registered app check callback; D1"
+    },
+    {
+      "file": "django/contrib/auth/checks.py",
+      "symbol": "check_user_model",
+      "line": 27,
+      "token_anchor": "register@django/contrib/auth/apps.py:33",
+      "receiver_evidence": "`checks` imported from django.core at auth/apps.py:2; check imported from .checks at apps.py:8 and registered in AuthConfig.ready",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "programmatically registered app check callback; D1"
+    },
+    {
+      "file": "django/contrib/auth/checks.py",
+      "symbol": "check_models_permissions",
+      "line": 123,
+      "token_anchor": "register@django/contrib/auth/apps.py:34",
+      "receiver_evidence": "`checks` imported from django.core at auth/apps.py:2; check imported from .checks at apps.py:8 and registered in AuthConfig.ready",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "programmatically registered app check callback; D1"
+    },
+    {
+      "file": "django/contrib/auth/checks.py",
+      "symbol": "check_middleware",
+      "line": 239,
+      "token_anchor": "register@django/contrib/auth/apps.py:35",
+      "receiver_evidence": "`checks` imported from django.core at auth/apps.py:2; check imported from .checks at apps.py:8 and registered in AuthConfig.ready",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "programmatically registered app check callback; D1"
+    },
+    {
+      "file": "django/contrib/contenttypes/checks.py",
+      "symbol": "check_generic_foreign_keys",
+      "line": 7,
+      "token_anchor": "register@django/contrib/contenttypes/apps.py:21",
+      "receiver_evidence": "`checks` imported from django.core at contenttypes/apps.py:6; check imported at apps.py:2-5 and registered in ContentTypesConfig.ready",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "programmatically registered app check callback; D1"
+    },
+    {
+      "file": "django/contrib/contenttypes/checks.py",
+      "symbol": "check_model_name_lengths",
+      "line": 28,
+      "token_anchor": "register@django/contrib/contenttypes/apps.py:22",
+      "receiver_evidence": "`checks` imported from django.core at contenttypes/apps.py:6; check imported at apps.py:2-5 and registered in ContentTypesConfig.ready",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "programmatically registered app check callback; D1"
+    },
+    {
+      "file": "django/contrib/sites/checks.py",
+      "symbol": "check_site_id",
+      "line": 6,
+      "token_anchor": "register@django/contrib/sites/apps.py:17",
+      "receiver_evidence": "`checks` imported from django.core at sites/apps.py:3; `check_site_id` imported at apps.py:2 and registered in SitesConfig.ready",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "programmatically registered app check callback; D1"
+    },
+    {
+      "file": "django/contrib/staticfiles/checks.py",
+      "symbol": "check_finders",
+      "line": 11,
+      "token_anchor": "register@django/contrib/staticfiles/apps.py:13",
+      "receiver_evidence": "`checks` imported from django.core at staticfiles/apps.py:3; checks imported at apps.py:2 and registered in StaticFilesConfig.ready",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "programmatically registered app check callback; D1"
+    },
+    {
+      "file": "django/contrib/staticfiles/checks.py",
+      "symbol": "check_storages",
+      "line": 24,
+      "token_anchor": "register@django/contrib/staticfiles/apps.py:14",
+      "receiver_evidence": "`checks` imported from django.core at staticfiles/apps.py:3; checks imported at apps.py:2 and registered in StaticFilesConfig.ready",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "programmatically registered app check callback; D1"
+    },
+    {
+      "file": "django/contrib/admin/decorators.py",
+      "symbol": "register",
+      "line": 97,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: admin.register decorator, not django.core.checks.register."
+    },
+    {
+      "file": "django/contrib/admin/templatetags/admin_list.py",
+      "symbol": "register tag/filter decorators",
+      "line": 37,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: template Library.register/tag/simple_tag/filter usage, not system-check registry."
+    },
+    {
+      "file": "docs/topics/testing/advanced.txt",
+      "symbol": "DiscoverRunner.run_checks docs",
+      "line": 700,
+      "adjudication": "excluded",
+      "reason": "DOC SURFACE: documentation for test runner method, not production registry site."
+    },
+    {
+      "file": "tests/check_framework/tests.py",
+      "symbol": "run_checks test calls",
+      "line": 52,
+      "adjudication": "excluded",
+      "reason": "TEST SURFACE: tests of CheckRegistry.run_checks excluded from production gold."
+    },
+    {
+      "file": "django/tasks/checks.py",
+      "symbol": "check_tasks",
+      "line": 5,
+      "token_anchor": "@checks.register@django/tasks/checks.py:4",
+      "receiver_evidence": "@checks.register-decorated system check fn; reached via CheckRegistry.get_checks->run_checks without naming run_checks",
+      "hop_distance": 2,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "registered system-check function; file has zero run_checks text (D1). Missed by the original scoped probe (Fable 2026-07-06)."
+    }
+  ],
+  "excluded_test_helpers": [
+    {
+      "file": "tests/check_framework/tests.py",
+      "symbol": "run_checks test calls",
+      "line": 52,
+      "reason": "test-only CheckRegistry.run_checks calls; production code only"
+    },
+    {
+      "file": "tests/auth_tests/test_checks.py",
+      "symbol": "checks.run_checks test calls",
+      "line": 35,
+      "reason": "test-only checks.run_checks calls; production code only"
+    }
+  ],
+  "exclusion_table": {
+    "note": "The raw register grep is heavily polluted. Gold admits only django.core.checks decorators and explicit contrib app checks.register calls.",
+    "same_name_other_receiver_run_checks": [
+      "django/test/runner.py:1051",
+      "django/test/runner.py:1132",
+      "tests/test_runner/tests.py:679",
+      "tests/test_runner/tests.py:718"
+    ],
+    "docs": [
+      "docs/releases/1.11.txt:434",
+      "docs/topics/testing/advanced.txt:700"
+    ],
+    "tests": [
+      "tests/admin_checks/tests.py",
+      "tests/auth_tests/test_checks.py",
+      "tests/check_framework/",
+      "tests/contenttypes_tests/test_checks.py",
+      "tests/test_runner/"
+    ],
+    "non_check_registers": [
+      "django/contrib/admin/decorators.py:97",
+      "django/contrib/admin/filters.py:201",
+      "django/contrib/admin/templatetags/",
+      "django/contrib/auth/templatetags/",
+      "django/contrib/flatpages/templatetags/",
+      "django/contrib/humanize/templatetags/",
+      "django/contrib/gis/db/backends/postgis/base.py:142",
+      "django/contrib/postgres/signals.py:48"
+    ]
+  }
+}

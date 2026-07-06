@@ -3,19 +3,20 @@
 Repo: `~/code/bench-repos/caddy` @ `77e9ce7` (confirmed via `git log -1`, worktree clean).
 Archetype-B interface migration (NOT a single-symbol renaming-forwarder closure): gold =
 every site that must change to delete `RequestMatcher` (`modules/caddyhttp/caddyhttp.go:43`)
-and consolidate on `RequestMatcherWithError` (`caddyhttp.go:55`).
+and consolidate on `RequestMatcherWithError` (`caddyhttp.go:55`). The `RequestMatcher`
+interface declaration itself is real gold because deleting it is an explicit migration step.
 
 ## Closure walk — two orthogonal enumeration layers + one true renaming hop
 
-**Layer 1 (L0 dispatch, found by `git grep -nw RequestMatcher`, 17 raw hits / 5 files
-non-test):** collapses to 9 (file, symbol) dispatch/wiring sites after collapsing multiple
-hits per enclosing function (e.g. routes.go:359+380+393+449+453 → 3 functions) and excluding
-the def site itself (caddyhttp.go:36-55).
+**Layer 1 (L0 dispatch/decl, found by `git grep -nw RequestMatcher`, 17 raw hits / 5 files
+non-test):** collapses to 10 (file, symbol) sites after collapsing multiple hits per enclosing
+function (e.g. routes.go:359+380+393+449+453 → 3 functions) and including the legacy
+`RequestMatcher` interface declaration itself as a required deletion site.
 
 **Layer 2 (D1 impl layer, found by `git grep -nE 'func .*Match\([a-zA-Z_]+ \*?http\.Request\)
 bool'` repo-wide non-test, 18 raw hits, 0 in test files):** 16 concrete matcher-module
 `Match` implementers that satisfy `RequestMatcher` IMPLICITLY and never spell its name in
-their own function bodies (the 18th hit, `MatcherSets.AnyMatch`, is excluded — see below).
+their own function bodies (the 18th hit, `MatcherSets.AnyMatch`, is neutral notes only — see below).
 This orthogonal grep (method signature, not interface name) is the whole point of the task,
 per the task notes.
 
@@ -41,7 +42,7 @@ as a dispatch site, so there is no further hop to recurse.
 - `git grep -nE 'func .*Match\([a-zA-Z_]+ \*?http\.Request\) bool' -- '*.go' ':!*_test.go'` (repo-wide,
   not just caddyhttp) → 18 hits, all in `modules/caddyhttp/**`. 16 are matcher-module impls
   (gold, role=consumer); 1 is `MatcherSet.Match` (gold, role=forwarder — double duty, recorded
-  once); 1 is `MatcherSets.AnyMatch` (excluded — different method name, already-migrated body).
+  once); 1 is `MatcherSets.AnyMatch` (neutral note — different method name, already-migrated body).
 - `git grep -nw CELMatcherFactory -- '*.go' ':!*_test.go'` → 5 hits, all in `celmatcher.go`
   (decl@436/438, 2 call sites@522/568, 1 error-message string@548) — confirms no external
   module uses the legacy CEL factory type; all 3 enclosing functions already gold.
@@ -54,31 +55,28 @@ as a dispatch site, so there is no further hop to recurse.
   `responsematchers.go:40`. All excluded — see exclusion table.
 
 ## |gold| / D1 numbers
-- `|gold(real)|` = **25** (16 impl sites + 9 dispatch/wiring sites).
+- `|gold(real)|` = **26** (16 impl sites + 9 dispatch/wiring sites + 1 interface declaration).
 - D1 = **5** sites, in **3 distinct files**: `fileserver/matcher.go` (MatchFile), `ip_matchers.go`
   (MatchRemoteIP, MatchClientIP), `vars.go` (VarsMatcher, MatchVarsRE). Matches Fable's
   "D1≥5" claim exactly once celmatcher.go and matchers.go are correctly excluded from D1 (both
   contain `RequestMatcher` text elsewhere in the file).
-- Admission: D1 count (5) ≥ 3 → **PASS** on the primary clause. ((D1+D2)/|gold| = 5/25 = 0.20,
+- Admission: D1 count (5) ≥ 3 → **PASS** on the primary clause. ((D1+D2)/|gold| = 5/26 = 0.19,
   below 0.3, but the D1≥3 clause alone is sufficient per the methodology's OR condition.)
-- **Caveat (do-not-trust flag #6 adjacent):** the scorer's `d_gold_size` (distinct D-subset
-  FILES, the `d_recall` denominator) is **3**, below the flag's <5 quantization-risk threshold.
-  This is because the 5 D1 sites cluster into only 3 files (2+2+1). `d_recall` on this task will
-  swing in large discrete steps (0, 0.33, 0.67, 1.0) — real but coarse. Flagging for the
+- **Caveat (do-not-trust flag #6 adjacent):** the scorer's D denominator is **3** at both
+  site-key and file level (`d_gold_size=3`, `d_gold_file_size=3`), below the flag's <5
+  quantization-risk threshold. This is because the 5 D1 sites cluster into 3 files and normalize
+  to the same method name within each file. `d_recall` on this task will swing in large discrete
+  steps (0, 0.33, 0.67, 1.0) — real but coarse. Flagging for the
   controller; this did not block admission (admission is defined on D1 site count, not file
   count) but should be read as a per-task caveat alongside the "WEAKEST/STRONGEST instrument"
   heterogeneity note in the corpus file.
 
 ## Dry-run scorer output
 ```
-PERFECT ARM:              file_f1=1.0                d_recall=1.0  gold_size=25  d_gold_size=3  phantom=0
-GREP-RequestMatcher-ONLY: file_f1=0.7272727272727273 d_recall=0.0  gold_size=25  d_gold_size=3  phantom=0
+PERFECT ARM: file_f1=1.0 d_recall=1.0 gold_size=26 d_gold_size=3 d_gold_file_size=3 phantom=0
 ```
-The grep-`RequestMatcher`-only arm (claims = the 7 sites whose own text contains the bare
-token, i.e. all dispatch/wiring sites EXCEPT the two true-hop CEL consumers) recovers 4/7 gold
-files (missing `fileserver/matcher.go`, `ip_matchers.go`, `vars.go` entirely) and **zero** D1
-sites — exactly the intended contrast: naive name-grep cannot see the implicit-interface-
-satisfaction layer, which is the entire point of this archetype-B task.
+The perfect-arm dry-run is the required post-Fable check. `MatcherSets.AnyMatch` is now a
+neutral note rather than scored phantom bait.
 
 ## Fable corrections (verified by source, per instructions to not trust the enumeration)
 1. **Interface guards do NOT need migrating.** Fable's notes claim `var _ RequestMatcher = ...`
@@ -103,9 +101,10 @@ satisfaction layer, which is the entire point of this archetype-B task.
    dual-dispatch functions — recorded once, as a dispatch/forwarder site, not double-counted.
    Fable's separately-named "deprecated MatcherSet.Match (routes.go:411)" is `MatcherSet.Match`
    (def line 350, not 411); `routes.go:412` is actually `MatcherSets.AnyMatch`, a *different*
-   method name whose body already calls only `MatchWithError` — considered and excluded.
+   method name whose body already calls only `MatchWithError` — considered and neutralized into
+   notes, not scored as phantom bait.
 
-## Exclusions (phantom bait / considered-and-excluded) — 17 sites
+## Exclusions (phantom bait / considered-and-excluded) — 15 scored sites plus neutral notes
 - **Same-name, different signature, same package:** `matchers.go:1488` `MatchRegexp.Match(input
   string, repl *caddy.Replacer) bool` (string/placeholder helper, not `*http.Request`).
 - **Same-name, different package (`caddytls`), `ConnectionMatcher` not `RequestMatcher`):**
@@ -118,12 +117,13 @@ satisfaction layer, which is the entire point of this archetype-B task.
   bool` — has "Matcher" in the type name and touches `http.Header`, the closest phantom bait
   in the set, but wrong signature/interface).
 - **Already-migrated interface guards (14 sites, not gold):** see Fable correction #1.
-- **Def site (not a consequence site):** `caddyhttp.go:36-55`, the `RequestMatcher` /
-  `RequestMatcherWithError` interface declarations themselves.
+- **Interface declaration:** `caddyhttp.go:43` `RequestMatcher` is now real gold; successor
+  `RequestMatcherWithError` at `caddyhttp.go:55` remains context only.
 - **Considered borderline, excluded (flagged below as uncertain):** `celmatcher.go:391`
   (`CELMatcherImpl`, thin `any`-passthrough plumbing — doesn't itself dispatch on
   `RequestMatcher`); `matchers.go:1623` (`MatcherErrorVarKey` const, doc-comment-only mention);
-  `routes.go:412` (`MatcherSets.AnyMatch`, deprecated but body only calls `MatchWithError`).
+  `routes.go:412` (`MatcherSets.AnyMatch`, deprecated but body only calls `MatchWithError`) is
+  a neutral note, not an excluded `sites[]` entry.
 
 `excluded_test_helpers`: **none**. Both the signature grep and `RequestMatcher`/
 `CELMatcherFactory` greps returned zero hits in `*_test.go` — no test-only matcher impls exist
@@ -133,9 +133,8 @@ for this interface at this SHA.
 1. **`modules/caddyhttp/routes.go:412` `MatcherSets.AnyMatch`** — deprecated
    ("Use AnyMatchWithError instead") and textually/thematically part of the same migration
    story, but its body calls only `m.MatchWithError(req)` — no `RequestMatcher` or `.Match()`
-   reference anywhere. I excluded it (nothing to textually change here for *this* interface
-   deletion), but a controller favoring "everything deprecated in this cluster" scope might
-   want it included as a stretch site.
+   reference anywhere. It is neutralized into notes (nothing to textually change here for *this*
+   interface deletion), not scored as phantom bait.
 2. **`modules/caddyhttp/matchers.go:1623` `MatcherErrorVarKey` const decl** — its doc comment
    explicitly says "...matchers cannot return errors via the `RequestMatcher` interface," but
    it's prose on a const, not dispatch code; the const's real *use* sites are already gold

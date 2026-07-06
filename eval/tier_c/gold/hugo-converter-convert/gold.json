@@ -1,0 +1,331 @@
+{
+  "task_id": "hugo-converter-convert",
+  "repo": "hugo",
+  "sha": "a00b5c7",
+  "symbol": "Convert",
+  "status": "FROZEN (codex xhigh build + Fable adversarial review + fixes applied, 2026-07-06)",
+  "closure_summary": {
+    "hops": 3,
+    "forwarder": "(*pageContentOutput).renderContentWithConverter @ hugolib/page__per_output.go:459 calls c.Convert where c is converter.Converter; hop-1 wrappers are (*pageContentOutput).ParseAndRenderContent and (*cachedContentScope).RenderString; hop-2 has same-name pass-through wrappers on pageContentOutput/LazyContentProvider plus terminal render consumers",
+    "terminates_because": "hop-2/3 sites either are production render consumers (contentRendered/contentToC/prepareShortcode/Markdownify) or same-name pass-through wrappers with no additional non-test Go callers. Markdownify is treated as a consumer, not a forwarder, because it owns the template helper contract and trims the returned HTML.",
+    "gold_size": 10,
+    "d1_count": 7,
+    "d2_count": 0,
+    "test_helper_policy": "production Go code only. *_test.go Convert/RenderString call sites are excluded; no non-_test.go test-helper file is admitted.",
+    "generator_of_record": "grep-per-hop, prism-INDEPENDENT: git grep -nw Convert @L0; git grep -nw renderContentWithConverter @hop1; git grep -nw ParseAndRenderContent and git grep -nw RenderString @hop2; receiver-verified by source. repo-wide `git grep -hwo Convert | wc -l` = 65, so D2 is impossible for this task."
+  },
+  "sites": [
+    {
+      "file": "hugolib/page__per_output.go",
+      "symbol": "renderContentWithConverter",
+      "line": 459,
+      "token_anchor": "Convert@hugolib/page__per_output.go:460",
+      "receiver_evidence": "parameter `c converter.Converter` in `func (pco *pageContentOutput) renderContentWithConverter(...)`; body calls `c.Convert(...)`",
+      "hop_distance": 0,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "primary renaming boundary: downstream callers spell renderContentWithConverter/ParseAndRenderContent/RenderString, not Convert"
+    },
+    {
+      "file": "hugolib/page__per_output.go",
+      "symbol": "ParseAndRenderContent",
+      "line": 409,
+      "token_anchor": "renderContentWithConverter@hugolib/page__per_output.go:417",
+      "receiver_evidence": "`cp : *pageContentOutput`; body gets `c converter.Converter` and returns `cp.renderContentWithConverter(ctx, c, content, si, renderTOC)`",
+      "hop_distance": 1,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "thin page-content rendering wrapper; same file contains Convert, so not D1"
+    },
+    {
+      "file": "hugolib/page__content.go",
+      "symbol": "RenderString",
+      "line": 878,
+      "token_anchor": "renderContentWithConverter@hugolib/page__content.go:977",
+      "receiver_evidence": "`c : *cachedContentScope`; method assigns `pco := c.pco`, then both RenderString branches call `pco.renderContentWithConverter(...)` (lines 977 and 1026)",
+      "hop_distance": 1,
+      "role": "forwarder",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "page RenderString wrapper over the converter path; file has zero Convert text"
+    },
+    {
+      "file": "hugolib/page__content.go",
+      "symbol": "contentRendered",
+      "line": 492,
+      "token_anchor": "ParseAndRenderContent@hugolib/page__content.go:608",
+      "receiver_evidence": "`cp.po.contentRenderer : page.ContentRenderer` (pageOutput.contentRenderer field); calls ParseAndRenderContent for front-matter summary rendering",
+      "hop_distance": 2,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "terminal page-content consumer of ParseAndRenderContent; file has zero Convert text"
+    },
+    {
+      "file": "hugolib/page__content.go",
+      "symbol": "contentToC",
+      "line": 646,
+      "token_anchor": "ParseAndRenderContent@hugolib/page__content.go:733",
+      "receiver_evidence": "`po.contentRenderer : page.ContentRenderer`; calls ParseAndRenderContent for non-Goldmark render+TOC extraction",
+      "hop_distance": 2,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "terminal table-of-contents/content-rendering consumer; file has zero Convert text"
+    },
+    {
+      "file": "hugolib/shortcode.go",
+      "symbol": "prepareShortcode",
+      "line": 322,
+      "token_anchor": "ParseAndRenderContent@hugolib/shortcode.go:471",
+      "receiver_evidence": "`p.pageOutput.contentRenderer : page.ContentRenderer`; calls ParseAndRenderContent to render legacy shortcode inner content",
+      "hop_distance": 2,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "terminal shortcode rendering consumer; file has zero Convert text"
+    },
+    {
+      "file": "resources/page/page_lazy_contentprovider.go",
+      "symbol": "LazyContentProvider.ParseAndRenderContent",
+      "line": 128,
+      "token_anchor": "ParseAndRenderContent@resources/page/page_lazy_contentprovider.go:129",
+      "receiver_evidence": "`lcp.init.Value(ctx) : OutputFormatContentProvider`, which embeds ContentRenderer; method returns `.ParseAndRenderContent(ctx, content, renderTOC)`",
+      "hop_distance": 2,
+      "role": "forwarder",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "same-name lazy-initialization pass-through wrapper; no additional non-test Go callers found"
+    },
+    {
+      "file": "hugolib/page__per_output.go",
+      "symbol": "RenderString",
+      "line": 223,
+      "token_anchor": "RenderString@hugolib/page__per_output.go:224",
+      "receiver_evidence": "`pco : *pageContentOutput`; method returns `pco.c().RenderString(ctx, args...)`, where `c()` returns the cached content scope",
+      "hop_distance": 2,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "same-name pageContentOutput pass-through to cachedContentScope.RenderString; same file contains Convert"
+    },
+    {
+      "file": "resources/page/page_lazy_contentprovider.go",
+      "symbol": "LazyContentProvider.RenderString",
+      "line": 124,
+      "token_anchor": "RenderString@resources/page/page_lazy_contentprovider.go:125",
+      "receiver_evidence": "`lcp.init.Value(ctx) : OutputFormatContentProvider`, which embeds PageRenderProvider; method returns `.RenderString(ctx, args...)`",
+      "hop_distance": 2,
+      "role": "forwarder",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "same-name lazy-initialization pass-through wrapper; file has zero Convert text"
+    },
+    {
+      "file": "tpl/transform/transform.go",
+      "symbol": "Markdownify",
+      "line": 214,
+      "token_anchor": "RenderString@tpl/transform/transform.go:219",
+      "receiver_evidence": "`home := ns.deps.Site.Home()`; `Site.Home() page.Page`, and page.Page includes PageRenderProvider.RenderString",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "terminal transform namespace consumer of Page.RenderString; Markdownify owns extra helper behavior, so recursion stops"
+    },
+    {
+      "file": "markup/asciidocext/internal/converter.go",
+      "symbol": "AsciiDocConverter.Convert",
+      "line": 68,
+      "adjudication": "excluded",
+      "reason": "CONSIDERED, EXCLUDED: converter.Converter implementation surface, not a downstream caller in the renaming-forwarder closure. UNCERTAIN \u2014 controller may choose to include converter implementations if this task is interpreted as an implementation-review target."
+    },
+    {
+      "file": "markup/converter/converter.go",
+      "symbol": "nopConverter.Convert / Converter interface",
+      "line": 80,
+      "adjudication": "excluded",
+      "reason": "DEF/IMPLEMENTATION SURFACE: nop Convert implementation and converter.Converter interface declaration are the target family itself, not downstream caller sites, following the MatchString/match_annotation convention."
+    },
+    {
+      "file": "markup/goldmark/convert.go",
+      "symbol": "goldmarkConverter.Convert",
+      "line": 312,
+      "adjudication": "excluded",
+      "reason": "CONSIDERED, EXCLUDED: converter.Converter implementation surface, not a downstream caller; flagged with the other converter implementations for controller review."
+    },
+    {
+      "file": "markup/org/convert.go",
+      "symbol": "orgConverter.Convert",
+      "line": 47,
+      "adjudication": "excluded",
+      "reason": "CONSIDERED, EXCLUDED: converter.Converter implementation surface, not a downstream caller."
+    },
+    {
+      "file": "markup/pandoc/convert.go",
+      "symbol": "pandocConverter.Convert",
+      "line": 45,
+      "adjudication": "excluded",
+      "reason": "CONSIDERED, EXCLUDED: converter.Converter implementation surface, not a downstream caller."
+    },
+    {
+      "file": "markup/rst/convert.go",
+      "symbol": "rstConverter.Convert",
+      "line": 49,
+      "adjudication": "excluded",
+      "reason": "CONSIDERED, EXCLUDED: converter.Converter implementation surface, not a downstream caller."
+    },
+    {
+      "file": "resources/page/page.go",
+      "symbol": "ContentRenderer.ParseAndRenderContent / PageRenderProvider.RenderString",
+      "line": 113,
+      "adjudication": "excluded",
+      "reason": "DEF SURFACE: interface method declarations for wrappers, not call sites."
+    },
+    {
+      "file": "resources/page/page_markup.go",
+      "symbol": "Markup.RenderString",
+      "line": 44,
+      "adjudication": "excluded",
+      "reason": "DEF SURFACE: interface declaration only, not a call site."
+    },
+    {
+      "file": "resources/page/page_nop.go",
+      "symbol": "nopPage.RenderString / nopContentRenderer.ParseAndRenderContent / nopMarkup.RenderString",
+      "line": 406,
+      "adjudication": "excluded",
+      "reason": "STUB IMPLEMENTATION SURFACE: no-op methods do not call or forward converter.Converter.Convert; considered same-name wrapper-definition noise, not gold."
+    },
+    {
+      "file": "common/hreflect/convert.go",
+      "symbol": "ConvertIfPossible",
+      "line": 97,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: repeated `reflect.Value.Convert` calls (lines 122/138/144/158/170/178/184/195/204/217), unrelated receiver and package."
+    },
+    {
+      "file": "tpl/internal/go_templates/texttemplate/funcs.go",
+      "symbol": "evalCall",
+      "line": 158,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: `value.Convert(argType)` is reflect.Value conversion in the vendored template engine, not converter.Converter.Convert."
+    },
+    {
+      "file": "commands/convert.go",
+      "symbol": "newConvertCommand",
+      "line": 38,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT / string collision: command descriptions contain the word Convert, but there is no converter.Converter receiver or call."
+    },
+    {
+      "file": "tpl/tplimpl/embedded/templates/_shortcodes/details.html",
+      "symbol": "_shortcodes/details.html",
+      "line": 72,
+      "adjudication": "excluded",
+      "reason": "OUT OF SCOPE: production embedded template uses `.Page.RenderString`, but this Part-D gold is scoped to production Go code sites with enclosing Go symbols. UNCERTAIN \u2014 flag for controller if non-Go template code should be admitted."
+    }
+  ],
+  "excluded_test_helpers": [
+    {
+      "file": "markup/asciidocext/convert_test.go",
+      "symbol": "Convert tests",
+      "line": 314,
+      "reason": "*_test.go direct Convert calls excluded by production-code-only policy"
+    },
+    {
+      "file": "markup/goldmark/convert_test.go",
+      "symbol": "Convert tests",
+      "line": 77,
+      "reason": "*_test.go direct Convert calls excluded by production-code-only policy"
+    },
+    {
+      "file": "markup/org/convert_test.go",
+      "symbol": "Convert tests",
+      "line": 38,
+      "reason": "*_test.go direct Convert calls excluded by production-code-only policy"
+    },
+    {
+      "file": "markup/pandoc/convert_test.go",
+      "symbol": "Convert tests",
+      "line": 41,
+      "reason": "*_test.go direct Convert calls excluded by production-code-only policy"
+    },
+    {
+      "file": "markup/rst/convert_test.go",
+      "symbol": "Convert tests",
+      "line": 44,
+      "reason": "*_test.go direct Convert calls excluded by production-code-only policy"
+    },
+    {
+      "file": "hugolib/renderstring_test.go",
+      "symbol": "RenderString tests",
+      "line": 32,
+      "reason": "*_test.go RenderString template/call sites excluded by production-code-only policy"
+    }
+  ],
+  "exclusion_table": {
+    "note": "same-name/other-receiver collisions and out-of-scope definition/example surfaces; scored as phantom if an arm claims them as downstream production Go callers.",
+    "reflect_Value_Convert": [
+      "common/hreflect/convert.go:122,138,144,158,170,178,184,195,204,217",
+      "tpl/internal/go_templates/texttemplate/funcs.go:158"
+    ],
+    "converter_implementation_surface_considered_excluded": [
+      "markup/asciidocext/internal/converter.go:68",
+      "markup/converter/converter.go:80",
+      "markup/goldmark/convert.go:312",
+      "markup/org/convert.go:47",
+      "markup/pandoc/convert.go:45",
+      "markup/rst/convert.go:49"
+    ],
+    "wrapper_definition_surface_considered_excluded": [
+      "resources/page/page.go:113/339",
+      "resources/page/page_markup.go:44",
+      "resources/page/page_nop.go:406/520/547"
+    ],
+    "non_go_or_doc_examples_out_of_scope": [
+      "docs/content/** RenderString/Convert mentions",
+      "docs/layouts/** RenderString uses",
+      "tpl/tplimpl/embedded/templates/_shortcodes/details.html:72,73"
+    ],
+    "comments_and_strings": [
+      "README.md:62",
+      "commands/convert.go:44/56/68/110/111",
+      "internal/warpc/avif.go:289/401",
+      "resources/images/codec.go:109/151",
+      "resources/images/mask.go:41",
+      "tpl/tplimpl/templatestore.go:1351"
+    ]
+  }
+}

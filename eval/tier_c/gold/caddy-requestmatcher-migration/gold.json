@@ -3,84 +3,572 @@
   "repo": "caddy",
   "sha": "77e9ce7",
   "symbol": "RequestMatcher",
-  "status": "DRAFT — controller review pending",
+  "status": "FROZEN (codex xhigh build + Fable adversarial review + fixes applied, 2026-07-06)",
   "closure_summary": {
     "archetype": "B (interface migration, not a single-symbol call-forwarder closure)",
     "def_site": "modules/caddyhttp/caddyhttp.go:43 (type RequestMatcher interface { Match(*http.Request) bool }); successor modules/caddyhttp/caddyhttp.go:55 (RequestMatcherWithError)",
     "two_orthogonal_enumeration_layers": [
-      "L0 dispatch layer: git grep -nw RequestMatcher (17 raw hits / 5 files) collapsed to enclosing (file,symbol) — dual-dispatch type-switches, Caddyfile wiring, and the one legacy CEL factory type alias.",
-      "D1 impl layer: git grep -nE 'func .*Match\\([a-zA-Z_]+ \\*?http\\.Request\\) bool' repo-wide (18 hits, no test files) — the concrete matcher-module implementers that satisfy RequestMatcher IMPLICITLY and never spell its name. This is the layer the task is about."
+      "L0 dispatch layer: git grep -nw RequestMatcher (17 raw hits / 5 files) collapsed to enclosing (file,symbol) \u2014 dual-dispatch type-switches, Caddyfile wiring, and the one legacy CEL factory type alias.",
+      "D1 impl layer: git grep -nE 'func .*Match\\([a-zA-Z_]+ \\*?http\\.Request\\) bool' repo-wide (18 hits, no test files) \u2014 the concrete matcher-module implementers that satisfy RequestMatcher IMPLICITLY and never spell its name. This is the layer the task is about."
     ],
-    "one_true_renaming_hop": "CELMatcherFactory (celmatcher.go:438, deprecated type alias '= func(data ref.Val) (RequestMatcher, error)') is a genuine forwarder-name hop: its two consumers, CELMatcherDecorator (celmatcher.go:469) and CELMatcherRuntimeFunction (celmatcher.go:554), contain ZERO occurrences of the bare token 'RequestMatcher' in their own bodies — they are found by grepping 'CELMatcherFactory', not 'RequestMatcher'. (Both still land d_member=none because celmatcher.go as a FILE contains 'RequestMatcher' elsewhere at lines 436/438, per the strict per-file d_member rule — but the discovery mechanism is a true renaming hop.)",
-    "terminates_because": "Dispatch-layer functions call the interface methods (Match/MatchWithError) on values obtained from config-decoded 'any'; the 16 concrete Match(r) bool implementers are leaves (D1 or none) with no further callers that depend on RequestMatcher itself — their own callers (route execution) go through MatcherSet.Match/MatchWithError, which is already gold as a dispatch site.",
-    "gold_size": 25,
+    "one_true_renaming_hop": "CELMatcherFactory (celmatcher.go:438, deprecated type alias '= func(data ref.Val) (RequestMatcher, error)') is a genuine forwarder-name hop: its two consumers, CELMatcherDecorator (celmatcher.go:469) and CELMatcherRuntimeFunction (celmatcher.go:554), contain ZERO occurrences of the bare token 'RequestMatcher' in their own bodies \u2014 they are found by grepping 'CELMatcherFactory', not 'RequestMatcher'. (Both still land d_member=none because celmatcher.go as a FILE contains 'RequestMatcher' elsewhere at lines 436/438, per the strict per-file d_member rule \u2014 but the discovery mechanism is a true renaming hop.)",
+    "terminates_because": "Dispatch-layer functions call the interface methods (Match/MatchWithError) on values obtained from config-decoded 'any'; the 16 concrete Match(r) bool implementers are leaves (D1 or none) with no further callers that depend on RequestMatcher itself \u2014 their own callers (route execution) go through MatcherSet.Match/MatchWithError, which is already gold as a dispatch site.",
+    "gold_size": 26,
     "d1_count": 5,
-    "d1_sites": ["fileserver/matcher.go:317 (MatchFile.Match)", "ip_matchers.go:146 (MatchRemoteIP.Match)", "ip_matchers.go:253 (MatchClientIP.Match)", "vars.go:170 (VarsMatcher.Match)", "vars.go:310 (MatchVarsRE.Match)"],
-    "test_helper_policy": "production code only; git grep -nE for the Match(r *http.Request) bool signature and for RequestMatcher/CELMatcherFactory across '*_test.go' returned ZERO hits — no excluded_test_helpers for this task.",
-    "generator_of_record": "grep-per-layer, prism-INDEPENDENT: git grep -nw RequestMatcher (dispatch layer); git grep -nE 'func .*Match\\([a-zA-Z_]+ \\*?http\\.Request\\) bool' repo-wide non-test (impl layer); git grep -nw CELMatcherFactory (the one renaming-forwarder hop); git grep -nE '_[[:space:]]+(caddyhttp\\.)?RequestMatcher(WithError)?[[:space:]]*=' for interface guards (returned ZERO — see fable_corrections).",
+    "d1_sites": [
+      "fileserver/matcher.go:317 (MatchFile.Match)",
+      "ip_matchers.go:146 (MatchRemoteIP.Match)",
+      "ip_matchers.go:253 (MatchClientIP.Match)",
+      "vars.go:170 (VarsMatcher.Match)",
+      "vars.go:310 (MatchVarsRE.Match)"
+    ],
+    "test_helper_policy": "production code only; git grep -nE for the Match(r *http.Request) bool signature and for RequestMatcher/CELMatcherFactory across '*_test.go' returned ZERO hits \u2014 no excluded_test_helpers for this task.",
+    "generator_of_record": "grep-per-layer, prism-INDEPENDENT: git grep -nw RequestMatcher (dispatch layer); git grep -nE 'func .*Match\\([a-zA-Z_]+ \\*?http\\.Request\\) bool' repo-wide non-test (impl layer); git grep -nw CELMatcherFactory (the one renaming-forwarder hop); git grep -nE '_[[:space:]]+(caddyhttp\\.)?RequestMatcher(WithError)?[[:space:]]*=' for interface guards (returned ZERO \u2014 see fable_corrections).",
     "fable_corrections": [
-      "CORRECTION 1 (interface guards): Fable's task notes claim 'interface guards (var _ RequestMatcher = ...)' need migrating. VERIFIED FALSE at this SHA: git grep found 14 interface guards, ALL already 'var _ RequestMatcherWithError = (*T)(nil)' (celmatcher.go:838, fileserver/matcher.go:737, ip_matchers.go:356/361, matchers.go:1632/1634/1635/1637/1638/1639/1640/1642/1643, vars.go:466/468). None reference bare RequestMatcher. This component of the enumeration is EMPTY — excluded entirely, not gold.",
-      "CORRECTION 2 (CEL factory location): Fable's notes point to 'CEL factories vars.go:236/369/392'. VERIFIED: those vars.go closures are ALREADY typed (data ref.Val) (RequestMatcherWithError, error) — fully migrated, no change needed. The REAL legacy-CEL-factory dispatch lives in modules/caddyhttp/celmatcher.go: the CELMatcherFactory type alias (438, 'Deprecated: Use CELMatcherWithErrorFactory instead', returns bare RequestMatcher) and its two consumers CELMatcherDecorator (469, dual-dispatch @499/522, legacy Match() fallback @543) and CELMatcherRuntimeFunction (554, dual-dispatch @556/568, legacy Match() fallback @581). Relocated all 3 CEL sites to celmatcher.go.",
-      "CORRECTION 3 (routes.go line drift): Fable's 'routes.go:352/373/445' type-switch lines are off by 7-9 at this SHA; actual RequestMatcher type-assertions are at routes.go:359 (in MatcherSet.Match, def line 350), 380 (in MatcherSet.MatchWithError, def line 371), 449 (in MatcherSets.FromInterface, def line 441). httptype.go dispatch is at line 1577 (RequestMatcher) / 1572 (RequestMatcherWithError), inside parseMatcherDefinitions (def line 1537) — not 1572 as a standalone site.",
-      "CORRECTION 4 (deprecated MatcherSet.Match / 17-count reconciliation): Fable's 'deprecated MatcherSet.Match (routes.go:411)' is close to but not exactly routes.go:350 (the actual func). Fable's '~17 legacy Match impls' reconciles as 16 pure matcher-module impls + MatcherSet.Match itself (routes.go:350), which both satisfies the legacy signature AND is one of the 3 dual-dispatch functions in routes.go — it is gold via the dispatch-layer, not double-counted. routes.go:412 MatcherSets.AnyMatch (a DIFFERENT method name, deprecated in favor of AnyMatchWithError) was considered and EXCLUDED — its body calls only m.MatchWithError, never RequestMatcher or .Match(), so it needs no code change for this migration."
+      "CORRECTION 1 (interface guards): Fable's task notes claim 'interface guards (var _ RequestMatcher = ...)' need migrating. VERIFIED FALSE at this SHA: git grep found 14 interface guards, ALL already 'var _ RequestMatcherWithError = (*T)(nil)' (celmatcher.go:838, fileserver/matcher.go:737, ip_matchers.go:356/361, matchers.go:1632/1634/1635/1637/1638/1639/1640/1642/1643, vars.go:466/468). None reference bare RequestMatcher. This component of the enumeration is EMPTY \u2014 excluded entirely, not gold.",
+      "CORRECTION 2 (CEL factory location): Fable's notes point to 'CEL factories vars.go:236/369/392'. VERIFIED: those vars.go closures are ALREADY typed (data ref.Val) (RequestMatcherWithError, error) \u2014 fully migrated, no change needed. The REAL legacy-CEL-factory dispatch lives in modules/caddyhttp/celmatcher.go: the CELMatcherFactory type alias (438, 'Deprecated: Use CELMatcherWithErrorFactory instead', returns bare RequestMatcher) and its two consumers CELMatcherDecorator (469, dual-dispatch @499/522, legacy Match() fallback @543) and CELMatcherRuntimeFunction (554, dual-dispatch @556/568, legacy Match() fallback @581). Relocated all 3 CEL sites to celmatcher.go.",
+      "CORRECTION 3 (routes.go line drift): Fable's 'routes.go:352/373/445' type-switch lines are off by 7-9 at this SHA; actual RequestMatcher type-assertions are at routes.go:359 (in MatcherSet.Match, def line 350), 380 (in MatcherSet.MatchWithError, def line 371), 449 (in MatcherSets.FromInterface, def line 441). httptype.go dispatch is at line 1577 (RequestMatcher) / 1572 (RequestMatcherWithError), inside parseMatcherDefinitions (def line 1537) \u2014 not 1572 as a standalone site.",
+      "CORRECTION 4 (deprecated MatcherSet.Match / 17-count reconciliation): Fable's 'deprecated MatcherSet.Match (routes.go:411)' is close to but not exactly routes.go:350 (the actual func). Fable's '~17 legacy Match impls' reconciles as 16 pure matcher-module impls + MatcherSet.Match itself (routes.go:350), which both satisfies the legacy signature AND is one of the 3 dual-dispatch functions in routes.go \u2014 it is gold via the dispatch-layer, not double-counted. routes.go:412 MatcherSets.AnyMatch (a DIFFERENT method name, deprecated in favor of AnyMatchWithError) was considered but neutralized into notes \u2014 its body calls only m.MatchWithError, never RequestMatcher or .Match(), so it needs no code change for this migration."
     ]
   },
   "sites": [
-    {"file": "modules/caddyhttp/celmatcher.go", "symbol": "MatchExpression.Match", "line": 204, "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/celmatcher.go:204", "receiver_evidence": "m : MatchExpression (struct, celmatcher.go:61; caddy.RegisterModule(MatchExpression{}), CEL expression matcher)", "hop_distance": 1, "role": "consumer", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "legacy Match(r *http.Request) bool impl found by method-signature grep, not by RequestMatcher name; file is NOT D1 (celmatcher.go also has RequestMatcher@436/438 in the CEL factory declarations)"},
-    {"file": "modules/caddyhttp/fileserver/matcher.go", "symbol": "MatchFile.Match", "line": 317, "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/fileserver/matcher.go:317", "receiver_evidence": "m : MatchFile (struct, fileserver/matcher.go:65)", "hop_distance": 1, "role": "consumer", "d_member": "D1", "provenance": ["grep"], "adjudication": "real", "reason": "legacy Match impl; file has ZERO occurrence of RequestMatcher (D1)"},
-    {"file": "modules/caddyhttp/ip_matchers.go", "symbol": "MatchRemoteIP.Match", "line": 146, "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/ip_matchers.go:146", "receiver_evidence": "m : MatchRemoteIP (struct, ip_matchers.go:37)", "hop_distance": 1, "role": "consumer", "d_member": "D1", "provenance": ["grep"], "adjudication": "real", "reason": "legacy Match impl; file has ZERO occurrence of RequestMatcher (D1)"},
-    {"file": "modules/caddyhttp/ip_matchers.go", "symbol": "MatchClientIP.Match", "line": 253, "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/ip_matchers.go:253", "receiver_evidence": "m : MatchClientIP (struct, ip_matchers.go:50)", "hop_distance": 1, "role": "consumer", "d_member": "D1", "provenance": ["grep"], "adjudication": "real", "reason": "legacy Match impl; file has ZERO occurrence of RequestMatcher (D1)"},
-    {"file": "modules/caddyhttp/matchers.go", "symbol": "MatchHost.Match", "line": 301, "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:301", "receiver_evidence": "m : MatchHost = []string (grouped type decl, matchers.go ~65)", "hop_distance": 1, "role": "consumer", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "legacy Match impl; matchers.go is NOT D1 (contains RequestMatcher@1409/1594/1623)"},
-    {"file": "modules/caddyhttp/matchers.go", "symbol": "MatchPath.Match", "line": 423, "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:423", "receiver_evidence": "m : MatchPath (grouped type decl, matchers.go)", "hop_distance": 1, "role": "consumer", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "legacy Match impl; matchers.go not D1"},
-    {"file": "modules/caddyhttp/matchers.go", "symbol": "MatchPathRE.Match", "line": 695, "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:695", "receiver_evidence": "m : MatchPathRE struct{ MatchRegexp } (matchers.go:118)", "hop_distance": 1, "role": "consumer", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "legacy Match impl; matchers.go not D1"},
-    {"file": "modules/caddyhttp/matchers.go", "symbol": "MatchMethod.Match", "line": 788, "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:788", "receiver_evidence": "m : MatchMethod (grouped type decl, matchers.go)", "hop_distance": 1, "role": "consumer", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "legacy Match impl; matchers.go not D1"},
-    {"file": "modules/caddyhttp/matchers.go", "symbol": "MatchQuery.Match", "line": 853, "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:853", "receiver_evidence": "m : MatchQuery (grouped type decl, matchers.go)", "hop_distance": 1, "role": "consumer", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "legacy Match impl; matchers.go not D1"},
-    {"file": "modules/caddyhttp/matchers.go", "symbol": "MatchHeader.Match", "line": 977, "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:977", "receiver_evidence": "m : MatchHeader (grouped type decl, matchers.go)", "hop_distance": 1, "role": "consumer", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "legacy Match impl; matchers.go not D1"},
-    {"file": "modules/caddyhttp/matchers.go", "symbol": "MatchHeaderRE.Match", "line": 1122, "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:1122", "receiver_evidence": "m : MatchHeaderRE (grouped type decl, matchers.go)", "hop_distance": 1, "role": "consumer", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "legacy Match impl; matchers.go not D1"},
-    {"file": "modules/caddyhttp/matchers.go", "symbol": "MatchProtocol.Match", "line": 1240, "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:1240", "receiver_evidence": "m : MatchProtocol (grouped type decl, matchers.go)", "hop_distance": 1, "role": "consumer", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "legacy Match impl; matchers.go not D1"},
-    {"file": "modules/caddyhttp/matchers.go", "symbol": "MatchTLS.Match", "line": 1317, "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:1317", "receiver_evidence": "m : MatchTLS (struct, matchers.go:185)", "hop_distance": 1, "role": "consumer", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "legacy Match impl; matchers.go not D1"},
-    {"file": "modules/caddyhttp/matchers.go", "symbol": "MatchNot.Match", "line": 1423, "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:1423", "receiver_evidence": "m : MatchNot (struct, matchers.go:216; negation combinator over []MatcherSet)", "hop_distance": 1, "role": "consumer", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "legacy Match impl; matchers.go not D1"},
-    {"file": "modules/caddyhttp/vars.go", "symbol": "VarsMatcher.Match", "line": 170, "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/vars.go:170", "receiver_evidence": "m : VarsMatcher = map[string][]string (vars.go:135)", "hop_distance": 1, "role": "consumer", "d_member": "D1", "provenance": ["grep"], "adjudication": "real", "reason": "legacy Match impl; file has ZERO occurrence of RequestMatcher (D1)"},
-    {"file": "modules/caddyhttp/vars.go", "symbol": "MatchVarsRE.Match", "line": 310, "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/vars.go:310", "receiver_evidence": "m : MatchVarsRE = map[string]*MatchRegexp (vars.go:253)", "hop_distance": 1, "role": "consumer", "d_member": "D1", "provenance": ["grep"], "adjudication": "real", "reason": "legacy Match impl; file has ZERO occurrence of RequestMatcher (D1)"},
-
-    {"file": "modules/caddyhttp/routes.go", "symbol": "MatcherSet.Match", "line": 350, "token_anchor": "RequestMatcher@modules/caddyhttp/routes.go:359", "receiver_evidence": "mset : MatcherSet = []any (routes.go:346); body type-asserts m.(RequestMatcherWithError)@352 then m.(RequestMatcher)@359", "hop_distance": 0, "role": "forwarder", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "dual-dispatch type-switch — the deprecated-Match dispatcher; also itself one of the ~17 legacy Match(r) bool signatures (Fable double-billed this as both an impl and a dispatch site; recorded once, here, as the dispatch role)"},
-    {"file": "modules/caddyhttp/routes.go", "symbol": "MatcherSet.MatchWithError", "line": 371, "token_anchor": "RequestMatcher@modules/caddyhttp/routes.go:380", "receiver_evidence": "mset : MatcherSet = []any (routes.go:346); body type-asserts m.(RequestMatcherWithError)@373 then m.(RequestMatcher)@380, with legacy error-smuggling fallback via MatcherErrorVarKey@393", "hop_distance": 0, "role": "forwarder", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "dual-dispatch type-switch, the primary current call path from route execution"},
-    {"file": "modules/caddyhttp/routes.go", "symbol": "MatcherSets.FromInterface", "line": 441, "token_anchor": "RequestMatcher@modules/caddyhttp/routes.go:449", "receiver_evidence": "ms : *MatcherSets (MatcherSets = []MatcherSet, routes.go:405); construction-time dual dispatch: matcher.(RequestMatcherWithError)@445 then matcher.(RequestMatcher)@449", "hop_distance": 0, "role": "forwarder", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "config-decode-time wiring dual dispatch; must change to consolidate on RequestMatcherWithError only"},
-    {"file": "caddyconfig/httpcaddyfile/httptype.go", "symbol": "parseMatcherDefinitions", "line": 1537, "token_anchor": "RequestMatcher@caddyconfig/httpcaddyfile/httptype.go:1577", "receiver_evidence": "unm : caddyfile.Unmarshaler value dual-asserted to caddyhttp.RequestMatcherWithError@1572 then caddyhttp.RequestMatcher@1577", "hop_distance": 0, "role": "forwarder", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "Caddyfile matcher-definition parsing dual dispatch; corrects Fable's 'httptype.go:1572' single-line citation (1572 is the RequestMatcherWithError arm; 1577 is the RequestMatcher arm needing deletion; both are inside this one function)"},
-    {"file": "modules/caddyhttp/matchers.go", "symbol": "MatchNot.Provision", "line": 1397, "token_anchor": "RequestMatcher@modules/caddyhttp/matchers.go:1409", "receiver_evidence": "m : *MatchNot; modIface (decoded module, any) dual-asserted to RequestMatcherWithError@1405 then RequestMatcher@1409 while loading MatcherSetsRaw", "hop_distance": 0, "role": "forwarder", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "dual-dispatch type-switch at negated-matcher provisioning time"},
-    {"file": "modules/caddyhttp/matchers.go", "symbol": "ParseCaddyfileNestedMatcherSet", "line": 1556, "token_anchor": "RequestMatcher@modules/caddyhttp/matchers.go:1594", "receiver_evidence": "unm (decoded module, any) dual-asserted to RequestMatcherWithError@1590 then RequestMatcher@1594 while building a nested Caddyfile matcher map", "hop_distance": 0, "role": "forwarder", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "dual-dispatch type-switch, Caddyfile nested-matcher-set wiring"},
-    {"file": "modules/caddyhttp/celmatcher.go", "symbol": "CELMatcherFactory", "line": 438, "token_anchor": "RequestMatcher@modules/caddyhttp/celmatcher.go:438", "receiver_evidence": "type alias decl: 'type CELMatcherFactory = func(data ref.Val) (RequestMatcher, error)', marked 'Deprecated: Use CELMatcherWithErrorFactory instead' (celmatcher.go:436-441)", "hop_distance": 0, "role": "forwarder", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "the legacy CEL factory type itself — directly names RequestMatcher as its return type; must be deleted alongside RequestMatcher. Fable's notes mislocated this to 'vars.go:236/369/392' (those closures are already CELMatcherWithErrorFactory-shaped and need no change)"},
-    {"file": "modules/caddyhttp/celmatcher.go", "symbol": "CELMatcherDecorator", "line": 469, "token_anchor": "CELMatcherFactory@modules/caddyhttp/celmatcher.go:522", "receiver_evidence": "fac : any dual-asserted to CELMatcherWithErrorFactory@499 then legacy CELMatcherFactory@522; on the legacy branch, matcher (any) is further asserted to RequestMatcherWithError@536 else falls back to the legacy matcher.Match(httpReq.Request)@543", "hop_distance": 1, "role": "forwarder", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "TRUE renaming-forwarder hop: this function's body contains ZERO occurrences of the bare token 'RequestMatcher' — it is reachable only via the CELMatcherFactory forwarder name (celmatcher.go file-level d_member is 'none' only because the file separately declares CELMatcherFactory at line 438)"},
-    {"file": "modules/caddyhttp/celmatcher.go", "symbol": "CELMatcherRuntimeFunction", "line": 554, "token_anchor": "CELMatcherFactory@modules/caddyhttp/celmatcher.go:568", "receiver_evidence": "fac : any dual-asserted to CELMatcherWithErrorFactory@556 then legacy CELMatcherFactory@568; matcher further asserted to RequestMatcherWithError@574 else legacy matcher.Match(httpReq.Request)@581", "hop_distance": 1, "role": "forwarder", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "TRUE renaming-forwarder hop, same shape as CELMatcherDecorator — the CEL runtime binding used at match-evaluation time"},
-
-    {"file": "modules/caddyhttp/matchers.go", "symbol": "MatchRegexp.Match", "line": 1488, "adjudication": "excluded", "reason": "PHANTOM BAIT (same name, different signature): func (mre *MatchRegexp) Match(input string, repl *caddy.Replacer) bool — a string/placeholder helper used internally by MatchPathRE/MatchHeaderRE, NOT (r *http.Request) bool; does not satisfy RequestMatcher"},
-    {"file": "modules/caddyhttp/routes.go", "symbol": "MatcherSets.AnyMatch", "line": 412, "adjudication": "excluded", "reason": "CONSIDERED, EXCLUDED: deprecated (comment says 'Use AnyMatchWithError instead') but its body calls ONLY m.MatchWithError(req) — no reference to RequestMatcher or .Match() anywhere in this function; already fully on the new path, needs no change for this migration. Different method name from the interface's Match, so also not a signature match. UNCERTAIN — flagged for controller"},
-    {"file": "modules/caddyhttp/celmatcher.go", "symbol": "CELMatcherImpl", "line": 391, "adjudication": "excluded", "reason": "thin plumbing: builds macro/env/program options and forwards 'fac any' unexamined to CELMatcherRuntimeFunction and CELMatcherDecorator; does not itself type-assert on RequestMatcher, so its own signature/body needs no change"},
-    {"file": "modules/caddyhttp/matchers.go", "symbol": "MatcherErrorVarKey (const decl)", "line": 1623, "adjudication": "excluded", "reason": "CONSIDERED, EXCLUDED: doc comment says '...matchers cannot return errors via the RequestMatcher interface' but this is prose on a const declaration, not dispatch code; the const's actual USE sites (SetVar/GetVar in the legacy-Match fallback branches) are already gold via MatcherSet.Match/MatchWithError and the ip_matchers.go Match impls. UNCERTAIN — flagged for controller (some reviewers may want the comment-bearing decl included since deleting RequestMatcher makes the smuggling mechanism's rationale obsolete)"},
-    {"file": "modules/caddyhttp/caddyhttp.go", "symbol": "RequestMatcher / RequestMatcherWithError (interface decls)", "line": 43, "adjudication": "excluded", "reason": "the migration's DEF SITE / target of deletion itself, not a downstream consequence site — excluded by the same convention as S's own definition in the renaming-forwarder-closure tasks (e.g. prometheus MatchString's def in regexp.go is not itself a gold site)"},
-
-    {"file": "modules/caddyhttp/celmatcher.go", "symbol": "MatchExpression (interface guard)", "line": 838, "adjudication": "excluded", "reason": "PHANTOM BAIT / Fable-enumeration correction: 'var _ RequestMatcherWithError = (*MatchExpression)(nil)' — ALREADY guards the NEW interface, not RequestMatcher. No legacy 'var _ RequestMatcher = ...' guards exist anywhere in this repo at this SHA (verified via git grep -E, both a naive and a boundary-safe regex, repo-wide non-test: zero hits)."},
-    {"file": "modules/caddyhttp/fileserver/matcher.go", "symbol": "MatchFile (interface guard)", "line": 737, "adjudication": "excluded", "reason": "guards caddyhttp.RequestMatcherWithError already — see celmatcher.go:838 note; grouped under the same Fable correction"},
-    {"file": "modules/caddyhttp/ip_matchers.go", "symbol": "MatchRemoteIP/MatchClientIP (interface guards)", "line": 356, "adjudication": "excluded", "reason": "guards RequestMatcherWithError already (lines 356, 361) — see celmatcher.go:838 note"},
-    {"file": "modules/caddyhttp/matchers.go", "symbol": "MatchHost..MatchNot (interface guards)", "line": 1632, "adjudication": "excluded", "reason": "9 guards (1632,1634,1635,1637,1638,1639,1640,1642,1643) all already 'var _ RequestMatcherWithError = (*T)(nil)' — see celmatcher.go:838 note"},
-    {"file": "modules/caddyhttp/vars.go", "symbol": "VarsMatcher/MatchVarsRE (interface guards)", "line": 466, "adjudication": "excluded", "reason": "guards RequestMatcherWithError already (lines 466, 468) — see celmatcher.go:838 note"},
-
-    {"file": "modules/caddytls/matchers.go", "symbol": "MatchServerName.Match", "line": 58, "adjudication": "excluded", "reason": "PHANTOM BAIT (same method name 'Match', different package/interface/signature): func (m MatchServerName) Match(hello *tls.ClientHelloInfo) bool — implements caddytls's ConnectionMatcher, not caddyhttp.RequestMatcher"},
-    {"file": "modules/caddytls/matchers.go", "symbol": "MatchServerNameRE.Match", "line": 231, "adjudication": "excluded", "reason": "PHANTOM BAIT: same as MatchServerName.Match above — ConnectionMatcher, not RequestMatcher"},
-    {"file": "modules/caddytls/matchers.go", "symbol": "MatchRemoteIP.Match (caddytls)", "line": 306, "adjudication": "excluded", "reason": "PHANTOM BAIT, NAME-COLLISION: caddytls.MatchRemoteIP is a DIFFERENT TYPE from caddyhttp.MatchRemoteIP (ip_matchers.go:146, real gold site above) in a different package; Match(hello *tls.ClientHelloInfo) bool implements ConnectionMatcher, not RequestMatcher — a receiver-blind arm could easily conflate these two same-named types"},
-    {"file": "modules/caddytls/matchers.go", "symbol": "MatchLocalIP.Match", "line": 422, "adjudication": "excluded", "reason": "PHANTOM BAIT: ConnectionMatcher, not RequestMatcher"},
-    {"file": "modules/caddytls/matchers.go", "symbol": "MatchRegexp.Match (caddytls)", "line": 151, "adjudication": "excluded", "reason": "PHANTOM BAIT, NAME-COLLISION: caddytls has its own separate MatchRegexp type (distinct from caddyhttp.MatchRegexp, matchers.go:1488, also excluded); Match(input string, repl *caddy.Replacer) bool, unrelated signature"},
-    {"file": "modules/caddyhttp/encode/encode.go", "symbol": "Encode.Match", "line": 278, "adjudication": "excluded", "reason": "PHANTOM BAIT: func (enc *Encode) Match(rw *responseWriter) bool — content-encoding negotiation match, unrelated domain/signature, same method name only"},
-    {"file": "modules/caddyhttp/responsematchers.go", "symbol": "ResponseMatcher.Match", "line": 40, "adjudication": "excluded", "reason": "PHANTOM BAIT, close but different: func (rm ResponseMatcher) Match(statusCode int, hdr http.Header) bool — an HTTP-response matcher (reverse_proxy/handle_response) with 'Matcher' in its own type name and an http.Header parameter, but signature and interface are unrelated to RequestMatcher"}
+    {
+      "file": "modules/caddyhttp/celmatcher.go",
+      "symbol": "MatchExpression.Match",
+      "line": 204,
+      "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/celmatcher.go:204",
+      "receiver_evidence": "m : MatchExpression (struct, celmatcher.go:61; caddy.RegisterModule(MatchExpression{}), CEL expression matcher)",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "legacy Match(r *http.Request) bool impl found by method-signature grep, not by RequestMatcher name; file is NOT D1 (celmatcher.go also has RequestMatcher@436/438 in the CEL factory declarations)"
+    },
+    {
+      "file": "modules/caddyhttp/fileserver/matcher.go",
+      "symbol": "MatchFile.Match",
+      "line": 317,
+      "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/fileserver/matcher.go:317",
+      "receiver_evidence": "m : MatchFile (struct, fileserver/matcher.go:65)",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "legacy Match impl; file has ZERO occurrence of RequestMatcher (D1)"
+    },
+    {
+      "file": "modules/caddyhttp/ip_matchers.go",
+      "symbol": "MatchRemoteIP.Match",
+      "line": 146,
+      "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/ip_matchers.go:146",
+      "receiver_evidence": "m : MatchRemoteIP (struct, ip_matchers.go:37)",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "legacy Match impl; file has ZERO occurrence of RequestMatcher (D1)"
+    },
+    {
+      "file": "modules/caddyhttp/ip_matchers.go",
+      "symbol": "MatchClientIP.Match",
+      "line": 253,
+      "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/ip_matchers.go:253",
+      "receiver_evidence": "m : MatchClientIP (struct, ip_matchers.go:50)",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "legacy Match impl; file has ZERO occurrence of RequestMatcher (D1)"
+    },
+    {
+      "file": "modules/caddyhttp/matchers.go",
+      "symbol": "MatchHost.Match",
+      "line": 301,
+      "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:301",
+      "receiver_evidence": "m : MatchHost = []string (grouped type decl, matchers.go ~65)",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "legacy Match impl; matchers.go is NOT D1 (contains RequestMatcher@1409/1594/1623)"
+    },
+    {
+      "file": "modules/caddyhttp/matchers.go",
+      "symbol": "MatchPath.Match",
+      "line": 423,
+      "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:423",
+      "receiver_evidence": "m : MatchPath (grouped type decl, matchers.go)",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "legacy Match impl; matchers.go not D1"
+    },
+    {
+      "file": "modules/caddyhttp/matchers.go",
+      "symbol": "MatchPathRE.Match",
+      "line": 695,
+      "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:695",
+      "receiver_evidence": "m : MatchPathRE struct{ MatchRegexp } (matchers.go:118)",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "legacy Match impl; matchers.go not D1"
+    },
+    {
+      "file": "modules/caddyhttp/matchers.go",
+      "symbol": "MatchMethod.Match",
+      "line": 788,
+      "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:788",
+      "receiver_evidence": "m : MatchMethod (grouped type decl, matchers.go)",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "legacy Match impl; matchers.go not D1"
+    },
+    {
+      "file": "modules/caddyhttp/matchers.go",
+      "symbol": "MatchQuery.Match",
+      "line": 853,
+      "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:853",
+      "receiver_evidence": "m : MatchQuery (grouped type decl, matchers.go)",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "legacy Match impl; matchers.go not D1"
+    },
+    {
+      "file": "modules/caddyhttp/matchers.go",
+      "symbol": "MatchHeader.Match",
+      "line": 977,
+      "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:977",
+      "receiver_evidence": "m : MatchHeader (grouped type decl, matchers.go)",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "legacy Match impl; matchers.go not D1"
+    },
+    {
+      "file": "modules/caddyhttp/matchers.go",
+      "symbol": "MatchHeaderRE.Match",
+      "line": 1122,
+      "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:1122",
+      "receiver_evidence": "m : MatchHeaderRE (grouped type decl, matchers.go)",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "legacy Match impl; matchers.go not D1"
+    },
+    {
+      "file": "modules/caddyhttp/matchers.go",
+      "symbol": "MatchProtocol.Match",
+      "line": 1240,
+      "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:1240",
+      "receiver_evidence": "m : MatchProtocol (grouped type decl, matchers.go)",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "legacy Match impl; matchers.go not D1"
+    },
+    {
+      "file": "modules/caddyhttp/matchers.go",
+      "symbol": "MatchTLS.Match",
+      "line": 1317,
+      "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:1317",
+      "receiver_evidence": "m : MatchTLS (struct, matchers.go:185)",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "legacy Match impl; matchers.go not D1"
+    },
+    {
+      "file": "modules/caddyhttp/matchers.go",
+      "symbol": "MatchNot.Match",
+      "line": 1423,
+      "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/matchers.go:1423",
+      "receiver_evidence": "m : MatchNot (struct, matchers.go:216; negation combinator over []MatcherSet)",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "legacy Match impl; matchers.go not D1"
+    },
+    {
+      "file": "modules/caddyhttp/vars.go",
+      "symbol": "VarsMatcher.Match",
+      "line": 170,
+      "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/vars.go:170",
+      "receiver_evidence": "m : VarsMatcher = map[string][]string (vars.go:135)",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "legacy Match impl; file has ZERO occurrence of RequestMatcher (D1)"
+    },
+    {
+      "file": "modules/caddyhttp/vars.go",
+      "symbol": "MatchVarsRE.Match",
+      "line": 310,
+      "token_anchor": "Match(r *http.Request) bool@modules/caddyhttp/vars.go:310",
+      "receiver_evidence": "m : MatchVarsRE = map[string]*MatchRegexp (vars.go:253)",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "legacy Match impl; file has ZERO occurrence of RequestMatcher (D1)"
+    },
+    {
+      "file": "modules/caddyhttp/routes.go",
+      "symbol": "MatcherSet.Match",
+      "line": 350,
+      "token_anchor": "RequestMatcher@modules/caddyhttp/routes.go:359",
+      "receiver_evidence": "mset : MatcherSet = []any (routes.go:346); body type-asserts m.(RequestMatcherWithError)@352 then m.(RequestMatcher)@359",
+      "hop_distance": 0,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "dual-dispatch type-switch \u2014 the deprecated-Match dispatcher; also itself one of the ~17 legacy Match(r) bool signatures (Fable double-billed this as both an impl and a dispatch site; recorded once, here, as the dispatch role)"
+    },
+    {
+      "file": "modules/caddyhttp/routes.go",
+      "symbol": "MatcherSet.MatchWithError",
+      "line": 371,
+      "token_anchor": "RequestMatcher@modules/caddyhttp/routes.go:380",
+      "receiver_evidence": "mset : MatcherSet = []any (routes.go:346); body type-asserts m.(RequestMatcherWithError)@373 then m.(RequestMatcher)@380, with legacy error-smuggling fallback via MatcherErrorVarKey@393",
+      "hop_distance": 0,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "dual-dispatch type-switch, the primary current call path from route execution"
+    },
+    {
+      "file": "modules/caddyhttp/routes.go",
+      "symbol": "MatcherSets.FromInterface",
+      "line": 441,
+      "token_anchor": "RequestMatcher@modules/caddyhttp/routes.go:449",
+      "receiver_evidence": "ms : *MatcherSets (MatcherSets = []MatcherSet, routes.go:405); construction-time dual dispatch: matcher.(RequestMatcherWithError)@445 then matcher.(RequestMatcher)@449",
+      "hop_distance": 0,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "config-decode-time wiring dual dispatch; must change to consolidate on RequestMatcherWithError only"
+    },
+    {
+      "file": "caddyconfig/httpcaddyfile/httptype.go",
+      "symbol": "parseMatcherDefinitions",
+      "line": 1537,
+      "token_anchor": "RequestMatcher@caddyconfig/httpcaddyfile/httptype.go:1577",
+      "receiver_evidence": "unm : caddyfile.Unmarshaler value dual-asserted to caddyhttp.RequestMatcherWithError@1572 then caddyhttp.RequestMatcher@1577",
+      "hop_distance": 0,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "Caddyfile matcher-definition parsing dual dispatch; corrects Fable's 'httptype.go:1572' single-line citation (1572 is the RequestMatcherWithError arm; 1577 is the RequestMatcher arm needing deletion; both are inside this one function)"
+    },
+    {
+      "file": "modules/caddyhttp/matchers.go",
+      "symbol": "MatchNot.Provision",
+      "line": 1397,
+      "token_anchor": "RequestMatcher@modules/caddyhttp/matchers.go:1409",
+      "receiver_evidence": "m : *MatchNot; modIface (decoded module, any) dual-asserted to RequestMatcherWithError@1405 then RequestMatcher@1409 while loading MatcherSetsRaw",
+      "hop_distance": 0,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "dual-dispatch type-switch at negated-matcher provisioning time"
+    },
+    {
+      "file": "modules/caddyhttp/matchers.go",
+      "symbol": "ParseCaddyfileNestedMatcherSet",
+      "line": 1556,
+      "token_anchor": "RequestMatcher@modules/caddyhttp/matchers.go:1594",
+      "receiver_evidence": "unm (decoded module, any) dual-asserted to RequestMatcherWithError@1590 then RequestMatcher@1594 while building a nested Caddyfile matcher map",
+      "hop_distance": 0,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "dual-dispatch type-switch, Caddyfile nested-matcher-set wiring"
+    },
+    {
+      "file": "modules/caddyhttp/celmatcher.go",
+      "symbol": "CELMatcherFactory",
+      "line": 438,
+      "token_anchor": "RequestMatcher@modules/caddyhttp/celmatcher.go:438",
+      "receiver_evidence": "type alias decl: 'type CELMatcherFactory = func(data ref.Val) (RequestMatcher, error)', marked 'Deprecated: Use CELMatcherWithErrorFactory instead' (celmatcher.go:436-441)",
+      "hop_distance": 0,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "the legacy CEL factory type itself \u2014 directly names RequestMatcher as its return type; must be deleted alongside RequestMatcher. Fable's notes mislocated this to 'vars.go:236/369/392' (those closures are already CELMatcherWithErrorFactory-shaped and need no change)"
+    },
+    {
+      "file": "modules/caddyhttp/celmatcher.go",
+      "symbol": "CELMatcherDecorator",
+      "line": 469,
+      "token_anchor": "CELMatcherFactory@modules/caddyhttp/celmatcher.go:522",
+      "receiver_evidence": "fac : any dual-asserted to CELMatcherWithErrorFactory@499 then legacy CELMatcherFactory@522; on the legacy branch, matcher (any) is further asserted to RequestMatcherWithError@536 else falls back to the legacy matcher.Match(httpReq.Request)@543",
+      "hop_distance": 1,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "TRUE renaming-forwarder hop: this function's body contains ZERO occurrences of the bare token 'RequestMatcher' \u2014 it is reachable only via the CELMatcherFactory forwarder name (celmatcher.go file-level d_member is 'none' only because the file separately declares CELMatcherFactory at line 438)"
+    },
+    {
+      "file": "modules/caddyhttp/celmatcher.go",
+      "symbol": "CELMatcherRuntimeFunction",
+      "line": 554,
+      "token_anchor": "CELMatcherFactory@modules/caddyhttp/celmatcher.go:568",
+      "receiver_evidence": "fac : any dual-asserted to CELMatcherWithErrorFactory@556 then legacy CELMatcherFactory@568; matcher further asserted to RequestMatcherWithError@574 else legacy matcher.Match(httpReq.Request)@581",
+      "hop_distance": 1,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "TRUE renaming-forwarder hop, same shape as CELMatcherDecorator \u2014 the CEL runtime binding used at match-evaluation time"
+    },
+    {
+      "file": "modules/caddyhttp/caddyhttp.go",
+      "symbol": "RequestMatcher",
+      "line": 43,
+      "token_anchor": "RequestMatcher@modules/caddyhttp/caddyhttp.go:43",
+      "receiver_evidence": "interface declaration `type RequestMatcher interface { Match(*http.Request) bool }`",
+      "hop_distance": 0,
+      "role": "interface_to_delete",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "migration target declaration; deleting the legacy interface is an explicit code change required by the task prompt"
+    },
+    {
+      "file": "modules/caddyhttp/matchers.go",
+      "symbol": "MatchRegexp.Match",
+      "line": 1488,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT (same name, different signature): func (mre *MatchRegexp) Match(input string, repl *caddy.Replacer) bool \u2014 a string/placeholder helper used internally by MatchPathRE/MatchHeaderRE, NOT (r *http.Request) bool; does not satisfy RequestMatcher"
+    },
+    {
+      "file": "modules/caddyhttp/celmatcher.go",
+      "symbol": "CELMatcherImpl",
+      "line": 391,
+      "adjudication": "excluded",
+      "reason": "thin plumbing: builds macro/env/program options and forwards 'fac any' unexamined to CELMatcherRuntimeFunction and CELMatcherDecorator; does not itself type-assert on RequestMatcher, so its own signature/body needs no change"
+    },
+    {
+      "file": "modules/caddyhttp/matchers.go",
+      "symbol": "MatcherErrorVarKey (const decl)",
+      "line": 1623,
+      "adjudication": "excluded",
+      "reason": "CONSIDERED, EXCLUDED: doc comment says '...matchers cannot return errors via the RequestMatcher interface' but this is prose on a const declaration, not dispatch code; the const's actual USE sites (SetVar/GetVar in the legacy-Match fallback branches) are already gold via MatcherSet.Match/MatchWithError and the ip_matchers.go Match impls. UNCERTAIN \u2014 flagged for controller (some reviewers may want the comment-bearing decl included since deleting RequestMatcher makes the smuggling mechanism's rationale obsolete)"
+    },
+    {
+      "file": "modules/caddyhttp/celmatcher.go",
+      "symbol": "MatchExpression (interface guard)",
+      "line": 838,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT / Fable-enumeration correction: 'var _ RequestMatcherWithError = (*MatchExpression)(nil)' \u2014 ALREADY guards the NEW interface, not RequestMatcher. No legacy 'var _ RequestMatcher = ...' guards exist anywhere in this repo at this SHA (verified via git grep -E, both a naive and a boundary-safe regex, repo-wide non-test: zero hits)."
+    },
+    {
+      "file": "modules/caddyhttp/fileserver/matcher.go",
+      "symbol": "MatchFile (interface guard)",
+      "line": 737,
+      "adjudication": "excluded",
+      "reason": "guards caddyhttp.RequestMatcherWithError already \u2014 see celmatcher.go:838 note; grouped under the same Fable correction"
+    },
+    {
+      "file": "modules/caddyhttp/ip_matchers.go",
+      "symbol": "MatchRemoteIP/MatchClientIP (interface guards)",
+      "line": 356,
+      "adjudication": "excluded",
+      "reason": "guards RequestMatcherWithError already (lines 356, 361) \u2014 see celmatcher.go:838 note"
+    },
+    {
+      "file": "modules/caddyhttp/matchers.go",
+      "symbol": "MatchHost..MatchNot (interface guards)",
+      "line": 1632,
+      "adjudication": "excluded",
+      "reason": "9 guards (1632,1634,1635,1637,1638,1639,1640,1642,1643) all already 'var _ RequestMatcherWithError = (*T)(nil)' \u2014 see celmatcher.go:838 note"
+    },
+    {
+      "file": "modules/caddyhttp/vars.go",
+      "symbol": "VarsMatcher/MatchVarsRE (interface guards)",
+      "line": 466,
+      "adjudication": "excluded",
+      "reason": "guards RequestMatcherWithError already (lines 466, 468) \u2014 see celmatcher.go:838 note"
+    },
+    {
+      "file": "modules/caddytls/matchers.go",
+      "symbol": "MatchServerName.Match",
+      "line": 58,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT (same method name 'Match', different package/interface/signature): func (m MatchServerName) Match(hello *tls.ClientHelloInfo) bool \u2014 implements caddytls's ConnectionMatcher, not caddyhttp.RequestMatcher"
+    },
+    {
+      "file": "modules/caddytls/matchers.go",
+      "symbol": "MatchServerNameRE.Match",
+      "line": 231,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: same as MatchServerName.Match above \u2014 ConnectionMatcher, not RequestMatcher"
+    },
+    {
+      "file": "modules/caddytls/matchers.go",
+      "symbol": "MatchRemoteIP.Match (caddytls)",
+      "line": 306,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT, NAME-COLLISION: caddytls.MatchRemoteIP is a DIFFERENT TYPE from caddyhttp.MatchRemoteIP (ip_matchers.go:146, real gold site above) in a different package; Match(hello *tls.ClientHelloInfo) bool implements ConnectionMatcher, not RequestMatcher \u2014 a receiver-blind arm could easily conflate these two same-named types"
+    },
+    {
+      "file": "modules/caddytls/matchers.go",
+      "symbol": "MatchLocalIP.Match",
+      "line": 422,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: ConnectionMatcher, not RequestMatcher"
+    },
+    {
+      "file": "modules/caddytls/matchers.go",
+      "symbol": "MatchRegexp.Match (caddytls)",
+      "line": 151,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT, NAME-COLLISION: caddytls has its own separate MatchRegexp type (distinct from caddyhttp.MatchRegexp, matchers.go:1488, also excluded); Match(input string, repl *caddy.Replacer) bool, unrelated signature"
+    },
+    {
+      "file": "modules/caddyhttp/encode/encode.go",
+      "symbol": "Encode.Match",
+      "line": 278,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: func (enc *Encode) Match(rw *responseWriter) bool \u2014 content-encoding negotiation match, unrelated domain/signature, same method name only"
+    },
+    {
+      "file": "modules/caddyhttp/responsematchers.go",
+      "symbol": "ResponseMatcher.Match",
+      "line": 40,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT, close but different: func (rm ResponseMatcher) Match(statusCode int, hdr http.Header) bool \u2014 an HTTP-response matcher (reverse_proxy/handle_response) with 'Matcher' in its own type name and an http.Header parameter, but signature and interface are unrelated to RequestMatcher"
+    }
   ],
   "excluded_test_helpers": [],
   "exclusion_table": {
     "note": "same-name/other-receiver/other-signature collisions = phantom bait; scored as phantom if an arm claims them. Grouped by kind.",
-    "same_name_different_signature_same_package": ["modules/caddyhttp/matchers.go:1488 (MatchRegexp.Match(input string, repl *caddy.Replacer) bool)", "modules/caddyhttp/routes.go:412 (MatcherSets.AnyMatch, different method name + already-migrated body)"],
-    "same_name_different_package_ConnectionMatcher": ["modules/caddytls/matchers.go:58 (MatchServerName.Match)", "modules/caddytls/matchers.go:151 (MatchRegexp.Match, name-collides with caddyhttp.MatchRegexp)", "modules/caddytls/matchers.go:231 (MatchServerNameRE.Match)", "modules/caddytls/matchers.go:306 (MatchRemoteIP.Match, name-collides with caddyhttp.MatchRemoteIP)", "modules/caddytls/matchers.go:422 (MatchLocalIP.Match)"],
-    "same_name_unrelated_domain": ["modules/caddyhttp/encode/encode.go:278 (Encode.Match(rw *responseWriter) bool)", "modules/caddyhttp/responsematchers.go:40 (ResponseMatcher.Match(statusCode int, hdr http.Header) bool)"],
-    "already_migrated_interface_guards_NOT_gold": ["modules/caddyhttp/celmatcher.go:838", "modules/caddyhttp/fileserver/matcher.go:737", "modules/caddyhttp/ip_matchers.go:356", "modules/caddyhttp/ip_matchers.go:361", "modules/caddyhttp/matchers.go:1632", "modules/caddyhttp/matchers.go:1634", "modules/caddyhttp/matchers.go:1635", "modules/caddyhttp/matchers.go:1637", "modules/caddyhttp/matchers.go:1638", "modules/caddyhttp/matchers.go:1639", "modules/caddyhttp/matchers.go:1640", "modules/caddyhttp/matchers.go:1642", "modules/caddyhttp/matchers.go:1643", "modules/caddyhttp/vars.go:466", "modules/caddyhttp/vars.go:468"],
-    "def_site_not_gold": ["modules/caddyhttp/caddyhttp.go:36-55 (RequestMatcher + RequestMatcherWithError interface declarations and doc comments)"],
-    "considered_borderline_excluded": ["modules/caddyhttp/celmatcher.go:391 (CELMatcherImpl, thin any-passthrough plumbing)", "modules/caddyhttp/matchers.go:1623 (MatcherErrorVarKey const doc comment)"]
+    "same_name_different_signature_same_package": [
+      "modules/caddyhttp/matchers.go:1488 (MatchRegexp.Match(input string, repl *caddy.Replacer) bool)"
+    ],
+    "same_name_different_package_ConnectionMatcher": [
+      "modules/caddytls/matchers.go:58 (MatchServerName.Match)",
+      "modules/caddytls/matchers.go:151 (MatchRegexp.Match, name-collides with caddyhttp.MatchRegexp)",
+      "modules/caddytls/matchers.go:231 (MatchServerNameRE.Match)",
+      "modules/caddytls/matchers.go:306 (MatchRemoteIP.Match, name-collides with caddyhttp.MatchRemoteIP)",
+      "modules/caddytls/matchers.go:422 (MatchLocalIP.Match)"
+    ],
+    "same_name_unrelated_domain": [
+      "modules/caddyhttp/encode/encode.go:278 (Encode.Match(rw *responseWriter) bool)",
+      "modules/caddyhttp/responsematchers.go:40 (ResponseMatcher.Match(statusCode int, hdr http.Header) bool)"
+    ],
+    "already_migrated_interface_guards_NOT_gold": [
+      "modules/caddyhttp/celmatcher.go:838",
+      "modules/caddyhttp/fileserver/matcher.go:737",
+      "modules/caddyhttp/ip_matchers.go:356",
+      "modules/caddyhttp/ip_matchers.go:361",
+      "modules/caddyhttp/matchers.go:1632",
+      "modules/caddyhttp/matchers.go:1634",
+      "modules/caddyhttp/matchers.go:1635",
+      "modules/caddyhttp/matchers.go:1637",
+      "modules/caddyhttp/matchers.go:1638",
+      "modules/caddyhttp/matchers.go:1639",
+      "modules/caddyhttp/matchers.go:1640",
+      "modules/caddyhttp/matchers.go:1642",
+      "modules/caddyhttp/matchers.go:1643",
+      "modules/caddyhttp/vars.go:466",
+      "modules/caddyhttp/vars.go:468"
+    ],
+    "successor_interface_context": [
+      "modules/caddyhttp/caddyhttp.go:55 (RequestMatcherWithError successor interface declaration)"
+    ],
+    "considered_borderline_excluded": [
+      "modules/caddyhttp/celmatcher.go:391 (CELMatcherImpl, thin any-passthrough plumbing)",
+      "modules/caddyhttp/matchers.go:1623 (MatcherErrorVarKey const doc comment)",
+      "modules/caddyhttp/routes.go:412 (MatcherSets.AnyMatch, deprecated but already-migrated body; neutral note, not phantom bait)"
+    ]
   }
 }

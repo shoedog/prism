@@ -1,0 +1,107 @@
+{
+  "task_id": "guava-forwardingmap-standard-containskey",
+  "repo": "guava",
+  "sha": "2b2452a",
+  "symbol": "containsKeyImpl",
+  "status": "FROZEN (codex xhigh build + Fable adversarial review + fixes applied, 2026-07-06)",
+  "closure_summary": {
+    "hops": 1,
+    "forwarder": "ForwardingMap.standardContainsKey @ guava/src/com/google/common/collect/ForwardingMap.java:214 \u2014 thin wrapper over Maps.containsKeyImpl(this, key)",
+    "terminates_because": "guava/src has no production callers of standardContainsKey; only a ForwardingSortedMap same-name sibling override and out-of-scope test/mirror callers",
+    "gold_size": 2,
+    "d1_count": 0,
+    "test_helper_policy": "guava/src production scope only; guava-tests and android mirror excluded per prompt",
+    "generator_of_record": "grep-per-hop in guava/src only: git grep -nw containsKeyImpl; git grep -n standardContainsKey(. No prism/LSP."
+  },
+  "sites": [
+    {
+      "file": "guava/src/com/google/common/collect/Maps.java",
+      "symbol": "containsKeyImpl",
+      "line": 3816,
+      "token_anchor": "containsKeyImpl@guava/src/com/google/common/collect/Maps.java:3816",
+      "receiver_evidence": "static helper Maps.containsKeyImpl(Map<?, ?> map, Object key)",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "target helper declaration for fallback root"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/ForwardingMap.java",
+      "symbol": "standardContainsKey",
+      "line": 214,
+      "token_anchor": "containsKeyImpl@guava/src/com/google/common/collect/ForwardingMap.java:215",
+      "receiver_evidence": "this : ForwardingMap<K,V>, passed as Map<?, ?> to Maps.containsKeyImpl",
+      "hop_distance": 0,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "thin protected standard-method wrapper over Maps.containsKeyImpl(this, key)"
+    },
+    {
+      "file": "guava/src/com/google/common/collect/ForwardingSortedMap.java",
+      "symbol": "standardContainsKey",
+      "line": 133,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: same-name protected method but it does not call Maps.containsKeyImpl; sorted-map-specific implementation via tailMap/unsafeCompare"
+    },
+    {
+      "file": "guava-tests/test/com/google/common/collect/ForwardingMapTest.java",
+      "symbol": "containsKey",
+      "line": 80,
+      "adjudication": "excluded",
+      "reason": "OUT OF SCOPE: guava-tests caller of standardContainsKey; prompt says guava/src production only"
+    },
+    {
+      "file": "guava-tests/test/com/google/common/collect/ForwardingNavigableMapTest.java",
+      "symbol": "containsKey",
+      "line": 68,
+      "adjudication": "excluded",
+      "reason": "OUT OF SCOPE: guava-tests caller of standardContainsKey; prompt says guava/src production only"
+    },
+    {
+      "file": "guava-tests/test/com/google/common/collect/ForwardingSortedMapTest.java",
+      "symbol": "containsKey",
+      "line": 63,
+      "adjudication": "excluded",
+      "reason": "OUT OF SCOPE: guava-tests caller of standardContainsKey; prompt says guava/src production only"
+    },
+    {
+      "file": "android/guava/src/com/google/common/collect/ForwardingMap.java",
+      "symbol": "standardContainsKey",
+      "line": 214,
+      "adjudication": "excluded",
+      "reason": "OUT OF SCOPE: android/guava/src mirror excluded by prompt"
+    },
+    {
+      "file": "android/guava/src/com/google/common/collect/ForwardingSortedMap.java",
+      "symbol": "standardContainsKey",
+      "line": 133,
+      "adjudication": "excluded",
+      "reason": "OUT OF SCOPE: android/guava/src mirror excluded by prompt"
+    }
+  ],
+  "excluded_test_helpers": [],
+  "exclusion_table": {
+    "note": "This fallback was requested only if guava-converter-doforward failed. Source verification shows this fallback also fails admission under guava/src-only production scope.",
+    "guava_src_standardContainsKey_hits": [
+      "guava/src/com/google/common/collect/ForwardingMap.java:214",
+      "guava/src/com/google/common/collect/ForwardingSortedMap.java:133"
+    ],
+    "out_of_scope_test_callers": [
+      "guava-tests/test/com/google/common/collect/ForwardingMapTest.java:80",
+      "guava-tests/test/com/google/common/collect/ForwardingNavigableMapTest.java:68",
+      "guava-tests/test/com/google/common/collect/ForwardingSortedMapTest.java:63"
+    ],
+    "out_of_scope_android_mirror": [
+      "android/guava/src/com/google/common/collect/ForwardingMap.java:214",
+      "android/guava/src/com/google/common/collect/ForwardingSortedMap.java:133"
+    ]
+  }
+}

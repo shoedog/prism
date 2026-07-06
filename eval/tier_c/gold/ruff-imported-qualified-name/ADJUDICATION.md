@@ -55,7 +55,7 @@ reading each receiver's declared/inferred type:
    impl block, in the trait's own home file. Same "part of the definition, not a consumer"
    reasoning as #4 — **flagged as a judgment call**, see Uncertain sites below.
 
-**24 remaining raw hits are real**, collapsing to **18 (file, symbol) gold entries across 11
+**24 remaining raw hits are real**, collapsing to **17 JSON real gold entries across 11
 files** (several files/functions have 2-3 raw call sites that collapse to one entry: e.g.
 `runtime_import_in_type_checking_block` 3->1, `typing_only_runtime_import` 3->1, `unused_import`
 3->1, `mark_uses_of_qualified_name` 2->1).
@@ -89,13 +89,13 @@ D-membership is keyed to S's own name ("qualified_name"). By construction, **eve
 file necessarily contains the literal text "qualified_name"** (that is how the grep-per-hop
 generator found it), so **D1 is structurally impossible for this task** — every real site is
 **D2** (name present, repo-wide total 873 >> the D2 threshold of 100). This matches the corpus's
-own framing exactly ("d_member here is mostly D2"). Gold: 18/18 D2.
+own framing exactly ("d_member here is mostly D2"). Gold: 17/17 D2.
 
 ## Admission
 
-|gold(real)| = 18 (within [8,60] ✓). D1=0, D2=18, (D1+D2)/|gold| = 1.0 ≥ 0.3 ✓. PASSES admission.
+|gold(real)| = 17 (within [8,60] ✓). D1=0, D2=17, (D1+D2)/|gold| = 1.0 ≥ 0.3 ✓. PASSES admission.
 
-Note: my rigorously-verified 18-site count is well under the corpus's "~40 sites/~16 files"
+Note: my rigorously-verified 17-site count is well under the corpus's "~40 sites/~16 files"
 starting estimate. Per instructions ("VERIFY the full set... not trust"), I traced every one of
 the 48 raw `.qualified_name(` call-syntax hits to a concrete receiver type rather than accepting
 the estimate; the gap is fully accounted for by the 24 phantom-bait hits documented above (the
@@ -107,21 +107,25 @@ for UFCS-style (`Imported::qualified_name(x)`) or inherent-`Binding`-method call
 ## Dry-run (scorer sanity check)
 
 ```
-perfect arm:      file_f1=1.0  d_recall=1.0  gold_size=17  d_gold_size=11  phantom=0
-grep-S-only arm:  file_f1=0.0  d_recall=0.0  gold_size=17  d_gold_size=11  phantom=0
+perfect arm:      file_f1=1.0  d_recall=1.0  gold_size=17  d_gold_size=16  d_gold_file_size=11  phantom=0
+grep-S-only arm:  not rerun after Fable fix; prior sanity check remains directionally valid
 ```
 (`grep-S-only` = an off-arm that only found `binding.rs::qualified_name`, i.e. stopped at S's own
 home file without disambiguating any receiver — scores zero, as expected, since binding.rs's
 internal sites are correctly excluded from gold.)
 
-**Note on gold_size=17 vs. 18 real sites in the JSON**: the scorer's `norm_symbol()` strips
-everything before a `::` for site-key matching (by design, to tolerate arm symbol-spelling
-variance). My two `import_private_name.rs` entries — `<ImportInfo as From<&FromImport>>::from`
-and `<ImportInfo as From<&Import>>::from` — both normalize to bare `from` in the SAME file, so
-they collapse to one scoring key. This does not affect the primary file-F1 metric (same file
-either way) and is a property of the scorer's intentional normalization, not a gold.json defect;
-flagged here for transparency rather than renamed away (the actual Rust identifier for both really
-is `from`, being two trait-impl methods of the same name).
+**Note on d_gold_size=16 vs. D2=17**: the scorer's `norm_symbol()` strips everything before a
+`::` for D-subset site-key matching (by design, to tolerate arm symbol-spelling variance). My
+two `import_private_name.rs` entries — `<ImportInfo as From<&FromImport>>::from` and
+`<ImportInfo as From<&Import>>::from` — both normalize to bare `from` in the SAME file, so they
+collapse to one D scoring key. This does not affect the primary file-F1 metric (same file either
+way) and is a property of the scorer's intentional normalization, not a gold.json defect.
+
+## Fable review fix (2026-07-06)
+
+- Replaced inert `n/a (...)` placeholder exclusions with one scored excluded `sites[]` entry per
+  decoy call site, using real enclosing symbols from the ruff source.
+- Corrected `closure_summary.gold_size` from 18 to 17 to match the JSON real-site count.
 
 ## Uncertain sites flagged for controller
 
@@ -138,9 +142,9 @@ is `from`, being two trait-impl methods of the same name).
    dropped or hand-flagged rather than resolved unilaterally. I resolved it because the receiver
    types are unambiguous from local source (self: &NameImport vs binding: &AnyImport are both
    explicit in the function signature) — no genuine ambiguity, just co-location.
-3. **`unused_import.rs` contributing 5 of the 18 gold entries** — this file is unusually
+3. **`unused_import.rs` contributing 5 of the 17 gold entries** — this file is unusually
    qualified_name-heavy (a whole rule module built around ranking/matching imports by qualified
    name). Not a modeling uncertainty, just worth the controller's awareness that the gold set's
-   file diversity (11 files) is smaller than its site count (18) might suggest, with
+   file diversity (11 files) is smaller than its site count (17) might suggest, with
    `unused_import.rs` and `redefined_while_unused.rs`/`import_private_name.rs` each contributing
    multiple entries.

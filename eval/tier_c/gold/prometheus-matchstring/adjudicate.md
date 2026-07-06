@@ -266,3 +266,9 @@ reason:
 - model/labels/regexp_test.go:317 — BenchmarkFastRegexMatcher (d_member=none)
 - model/labels/regexp_test.go:1456 — BenchmarkFastRegexMatcher_ConcatenatedPattern (d_member=none)
 - model/labels/regexp_test.go:145 — TestFastRegexMatcher_MatchString (d_member=none)
+
+## Fable Review Update — 2026-07-06
+
+- Verified non-test `MatchString` file set with `git -C ~/code/bench-repos/prometheus grep -lw MatchString -- '*.go' ':!*_test.go'`: 15 files.
+- Added excluded `sites[]` real-symbol bait for the 8 previously uncovered collision files: `cmd/promtool/unittest.go::matchesRun`, `model/relabel/relabel.go::relabel`, `promql/promqltest/test.go::CheckMatch`, `promql/promqltest/test_migrate.go::processTestFileLines`, `storage/remote/azuread/azuread.go::Validate`, `template/template.go::NewTemplateExpander`, `util/httputil/cors.go::SetCORS`, `util/logging/dedupe.go::HandleWarningHeaderWithContext`.
+- New `|gold|/D1` = `12/9` (`d_gold_file_size=5`). Perfect-arm dry-run: `1.0 1.0 12 9 5 0` (`file_f1 d_recall gold_size d_gold_size d_gold_file_size phantom`).

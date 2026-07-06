@@ -1,0 +1,368 @@
+{
+  "task_id": "typescript-resolve-signature",
+  "repo": "TypeScript",
+  "sha": "7964e22f2",
+  "symbol": "resolveSignature",
+  "status": "FROZEN (codex xhigh build + Fable adversarial review + fixes applied, 2026-07-06)",
+  "closure_summary": {
+    "hops": 3,
+    "forwarder": "internal getResolvedSignature @ src/compiler/checker.ts:37658 calls resolveSignature @37679; getResolvedSignatureWorker @2040 normalizes parse-tree input and forwards to getResolvedSignature; public TypeChecker getResolvedSignature/getResolvedSignatureForSignatureHelp wrappers @1778/@1780 forward to the worker",
+    "terminates_because": "checker-internal callers and external service/script callers consume signatures for control-flow, contextual typing, JSX/call/decorator checking, codefixes, navigation, display, inlay hints, signature help, or linting. getCandidateSignaturesForStringLiteralCompletions consumes the worker twice and adds candidate-set logic, so its callers are not recursed.",
+    "gold_size": 19,
+    "d1_count": 7,
+    "d2_count": 0,
+    "test_helper_policy": "production code only. tests/baselines/reference/api/typescript.d.ts is excluded as generated API baseline; no non-_test test-helper source admitted.",
+    "generator_of_record": "grep-per-hop only: git grep -nw resolveSignature; git grep -nw getResolvedSignature; git grep -nw getResolvedSignatureWorker; git grep -nw getResolvedSignatureForSignatureHelp. typescript-language-server not installed; no LSP/prism/agent cross-check used.",
+    "fable_fix": "Neutralized the stringCompletions.ts::getStringLiteralCompletionsFromSignature excluded entry (judgment-boundary consumer, not an adjudicated wrong answer) per Fable 2026-07-06."
+  },
+  "sites": [
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "getResolvedSignature",
+      "line": 37658,
+      "token_anchor": "resolveSignature@src/compiler/checker.ts:37679",
+      "receiver_evidence": "nested function in createTypeChecker closure; body caches node links then calls `resolveSignature(node, candidatesOutArray, checkMode || CheckMode.Normal)`",
+      "hop_distance": 0,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "direct caller of resolveSignature; thin cache/plumbing forwarder"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "getResolvedSignatureWorker",
+      "line": 2040,
+      "token_anchor": "getResolvedSignature@src/compiler/checker.ts:2043",
+      "receiver_evidence": "nested worker in createTypeChecker closure; normalizes `nodeIn` with getParseTreeNode, sets apparentArgumentCount, calls internal getResolvedSignature",
+      "hop_distance": 1,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "thin worker between public API wrappers and internal getResolvedSignature"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "TypeChecker#getResolvedSignature",
+      "line": 1778,
+      "token_anchor": "getResolvedSignatureWorker@src/compiler/checker.ts:1778",
+      "receiver_evidence": "typeChecker object literal property: `getResolvedSignature: (node, candidatesOutArray, argumentCount) => getResolvedSignatureWorker(..., CheckMode.Normal)`",
+      "hop_distance": 2,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "public TypeChecker API wrapper; callers spell getResolvedSignature, not resolveSignature"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "TypeChecker#getResolvedSignatureForSignatureHelp",
+      "line": 1780,
+      "token_anchor": "getResolvedSignatureWorker@src/compiler/checker.ts:1780",
+      "receiver_evidence": "typeChecker object literal property: `getResolvedSignatureForSignatureHelp: (...) => runWithoutResolvedSignatureCaching(node, () => getResolvedSignatureWorker(..., CheckMode.IsForSignatureHelp))`",
+      "hop_distance": 2,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "thin public/internal signature-help wrapper; cache suppression is plumbing"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "getCandidateSignaturesForStringLiteralCompletions",
+      "line": 1963,
+      "token_anchor": "getResolvedSignatureWorker@src/compiler/checker.ts:1968",
+      "receiver_evidence": "nested function calls getResolvedSignatureWorker twice, under inference-blocked and nonblocked modes, then returns a deduped candidate set",
+      "hop_distance": 2,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "consumer of signature resolution candidates with own completion-specific aggregation; do not recurse to its callers"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "getEffectsSignature",
+      "line": 28790,
+      "token_anchor": "getResolvedSignature@src/compiler/checker.ts:28821",
+      "receiver_evidence": "nested checker function; conditionally uses `getResolvedSignature(node)` when candidate signatures include type predicate or never-return type",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "internal consumer for control-flow effects signature selection"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "getContextualTypeForArgumentAtIndex",
+      "line": 32166,
+      "token_anchor": "getResolvedSignature@src/compiler/checker.ts:32175",
+      "receiver_evidence": "nested checker function; resolves callTarget unless already resolving to contextual-type an argument position",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "internal contextual typing consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "checkJsxOpeningLikeElementOrOpeningFragment",
+      "line": 34346,
+      "token_anchor": "getResolvedSignature@src/compiler/checker.ts:34353",
+      "receiver_evidence": "nested checker function; calls `const sig = getResolvedSignature(node)` before JSX deprecation and element-type checks",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "internal JSX checking consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "checkCallExpression",
+      "line": 37807,
+      "token_anchor": "getResolvedSignature@src/compiler/checker.ts:37813",
+      "receiver_evidence": "nested checker function; resolves call/new expression signature before deprecation and return-type checks",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "internal call/new expression checking consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "checkTaggedTemplateExpression",
+      "line": 38055,
+      "token_anchor": "getResolvedSignature@src/compiler/checker.ts:38062",
+      "receiver_evidence": "nested checker function; resolves tagged template signature and returns its return type",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "internal tagged template checking consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "checkInstanceOfExpression",
+      "line": 40150,
+      "token_anchor": "getResolvedSignature@src/compiler/checker.ts:40168",
+      "receiver_evidence": "nested checker function; calls getResolvedSignature on the parent instanceof expression to check Symbol.hasInstance",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "internal instanceof checking consumer"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "checkDecorator",
+      "line": 44009,
+      "token_anchor": "getResolvedSignature@src/compiler/checker.ts:44013",
+      "receiver_evidence": "nested checker function; resolves decorator signature before return-type/decorator-signature validation",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "internal decorator checking consumer"
+    },
+    {
+      "file": "scripts/eslint/rules/argument-trivia.cjs",
+      "symbol": "checkArgumentTrivia",
+      "line": 180,
+      "token_anchor": "getResolvedSignature@scripts/eslint/rules/argument-trivia.cjs:190",
+      "receiver_evidence": "`checker` from `parserServices.program.getTypeChecker()`; calls public TypeChecker.getResolvedSignature(tsNode)",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "external script consumer of public TypeChecker signature resolution; file has zero resolveSignature text"
+    },
+    {
+      "file": "src/services/codefixes/fixAddMissingMember.ts",
+      "symbol": "getInfo",
+      "line": 304,
+      "token_anchor": "getResolvedSignature@src/services/codefixes/fixAddMissingMember.ts:317",
+      "receiver_evidence": "`checker: TypeChecker` parameter to getInfo; calls checker.getResolvedSignature(parent.parent)",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "codefix consumer of public TypeChecker signature resolution; D1"
+    },
+    {
+      "file": "src/services/codefixes/fixAddVoidToPromise.ts",
+      "symbol": "makeChange",
+      "line": 54,
+      "token_anchor": "getResolvedSignature@src/services/codefixes/fixAddVoidToPromise.ts:82",
+      "receiver_evidence": "`checker = program.getTypeChecker()`; calls checker.getResolvedSignature(node.parent)",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "codefix consumer; D1"
+    },
+    {
+      "file": "src/services/goToDefinition.ts",
+      "symbol": "tryGetSignatureDeclaration",
+      "line": 783,
+      "token_anchor": "getResolvedSignature@src/services/goToDefinition.ts:785",
+      "receiver_evidence": "`typeChecker: TypeChecker` parameter; calls typeChecker.getResolvedSignature(callLike)",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "navigation consumer of public signature resolution; D1"
+    },
+    {
+      "file": "src/services/inlayHints.ts",
+      "symbol": "visitCallOrNewExpression",
+      "line": 295,
+      "token_anchor": "getResolvedSignature@src/services/inlayHints.ts:301",
+      "receiver_evidence": "`checker` captured from program TypeChecker in inlay hints visitor; calls checker.getResolvedSignature(expr)",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "inlay-hints consumer; D1"
+    },
+    {
+      "file": "src/services/symbolDisplay.ts",
+      "symbol": "getSymbolDisplayPartsDocumentationAndSymbolKindWorker",
+      "line": 261,
+      "token_anchor": "getResolvedSignature@src/services/symbolDisplay.ts:346",
+      "receiver_evidence": "`typeChecker: TypeChecker` parameter; calls typeChecker.getResolvedSignature(callExpressionLike)",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "symbol display consumer; D1"
+    },
+    {
+      "file": "src/services/signatureHelp.ts",
+      "symbol": "getCandidateOrTypeInfo",
+      "line": 181,
+      "token_anchor": "getResolvedSignatureForSignatureHelp@src/services/signatureHelp.ts:188",
+      "receiver_evidence": "`checker: TypeChecker` parameter; calls checker.getResolvedSignatureForSignatureHelp(invocation.node, candidates, argumentCount)",
+      "hop_distance": 3,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "signature-help consumer of the thin signature-help wrapper; D1"
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "resolveSignature definition/assert",
+      "line": 37631,
+      "adjudication": "excluded",
+      "reason": "DEF SURFACE / STRING HIT: resolveSignature definition and Debug.assertNever message are target surface, not downstream callers."
+    },
+    {
+      "file": "src/compiler/checker.ts",
+      "symbol": "getResolvedSignature comments",
+      "line": 1572,
+      "adjudication": "excluded",
+      "reason": "COMMENT-ONLY getResolvedSignature occurrences at 1572 and 36659-36664; not call sites."
+    },
+    {
+      "file": "src/compiler/types.ts",
+      "symbol": "TypeChecker.getResolvedSignature declaration",
+      "line": 5240,
+      "adjudication": "excluded",
+      "reason": "INTERFACE DECLARATION: TypeChecker API declaration, not executable caller. The implementing wrappers in checker.ts are real sites."
+    },
+    {
+      "file": "src/compiler/types.ts",
+      "symbol": "TypeChecker.getResolvedSignatureForSignatureHelp declaration",
+      "line": 5241,
+      "adjudication": "excluded",
+      "reason": "INTERFACE DECLARATION only, not executable caller."
+    },
+    {
+      "file": "src/compiler/types.ts",
+      "symbol": "TypeChecker.getCandidateSignaturesForStringLiteralCompletions declaration",
+      "line": 5242,
+      "adjudication": "excluded",
+      "reason": "INTERFACE DECLARATION only; implementation body in checker.ts is the real consumer site."
+    },
+    {
+      "file": "tests/baselines/reference/api/typescript.d.ts",
+      "symbol": "TypeChecker.getResolvedSignature API baseline",
+      "line": 6269,
+      "adjudication": "excluded",
+      "reason": "GENERATED API baseline/test artifact, not production code site."
+    }
+  ],
+  "excluded_test_helpers": [],
+  "exclusion_table": {
+    "note": "No same-name other-receiver production methods were found for resolveSignature/getResolvedSignature. Exclusions are definition/interface/generated baseline/comment/out-of-scope consumer surfaces.",
+    "def_or_comment_surface": [
+      "src/compiler/checker.ts:1572",
+      "src/compiler/checker.ts:37631",
+      "src/compiler/checker.ts:37648",
+      "src/compiler/checker.ts:36659-36664"
+    ],
+    "interface_declarations": [
+      "src/compiler/types.ts:5240",
+      "src/compiler/types.ts:5241",
+      "src/compiler/types.ts:5242"
+    ],
+    "generated_or_test_baseline": [
+      "tests/baselines/reference/api/typescript.d.ts:6269"
+    ],
+    "consumer_boundary_not_recurred": [
+      "src/services/stringCompletions.ts:595"
+    ]
+  }
+}

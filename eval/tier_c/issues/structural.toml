@@ -1,6 +1,12 @@
-# Tier-C Part-D corpus — 4 tasks, 2 per language (Go, Rust). Archetype-A "refactor
-# blast-radius" + one archetype-B interface migration (caddy). Design-of-record:
+# Tier-C Part-D corpus — 12 tasks, 5 languages. Archetype-A "refactor blast-radius" +
+# one archetype-B interface migration (caddy). Cross-validated 8-scout selection, codex
+# gpt-5.5 xhigh gold construction, Fable adversarial review (2026-07-06). Design-of-record:
 # docs/superpowers/specs/2026-07-05-tier-c-part-d-structural-tasks-design.md
+# RUN MATRIX (11 runnable tasks x 2 models x {on,off} = 44 arms): all 12 tasks below EXCEPT
+# guava-converter-doforward (admission FAIL: D1=0 under guava/src production scope -> Java is
+# STRONG-ONLY doEquivalent; the failed guava-forwardingmap-standard-containskey gold dir is a
+# documented failure record, not in structural.toml). Python HEADLINE = django (not meet_types).
+# Report ΔD-recall (SITE-level) PER-TASK, never pooled-only.
 # Gold methodology (Fable memo 2026-07-05): RENAMING-FORWARDER CLOSURE — gold = transitive
 # closure over THIN forwarders (W where "if S's contract changes W's necessarily changes and
 # W adds nothing of its own"), computed by GREP-PER-HOP; each gold site carries a token
@@ -40,8 +46,8 @@ symbol = "match_annotation"
 receiver = "trait TypeChecker"
 def_site = "crates/ruff_python_semantic/src/analyze/typing.rs:615"
 dispatch = "2 renaming hops: match_annotation <- check_type::<T> (typing.rs:625) <- ~10 named wrapper fns (is_list/is_dict/is_set/is_int/is_float/is_string/is_bytes/is_tuple/is_io_base/...) <- lint-rule consumers. 15 impls via blanket impl<T: BuiltinTypeChecker> TypeChecker for T."
-prompt_change = "We are changing the semantics of the TypeChecker type-matching protocol (how an annotation/initializer is matched against a builtin type). Enumerate every site that must be reviewed because it depends on this protocol — INCLUDING the callers of any wrapper or dispatch function that merely forwards this protocol's result, transitively."
-scope = "IN: the matching protocol and thin wrapper fns that forward it + their consumers. OUT: unrelated same-named decoy match_annotation_to_complex_bool (flake8_boolean_trap). Report code sites only."
+prompt_change = "We are changing the semantics of the protocol's list- and dict-type matching paths. Enumerate every site that must be reviewed because it depends on those paths — INCLUDING callers of any wrapper or dispatch function that merely forwards their result, transitively."
+scope = "IN: only the protocol's list- and dict-type matching paths; OUT: matching paths for other builtin/library types. OUT: unrelated same-named decoy match_annotation_to_complex_bool (flake8_boolean_trap). Report code sites only."
 grep_name_stats = "git grep -nw match_annotation = 4 files/16 hits (trait decl + 15 impls + 2 T::match_annotation in check_type); ~0 call sites name it. Wrapper names (is_*) fan out to the real consumers."
 notes = "Fable: STRONGEST instrument (2 hops, ~10-name fan-out). Consumers call is_list(...), never match_annotation. Decoy free fn match_annotation_to_complex_bool is a phantom check."
 
@@ -55,8 +61,8 @@ receiver = "interface caddyhttp.RequestMatcher"
 def_site = "modules/caddyhttp/caddyhttp.go:43"
 dispatch = "Archetype-B interface migration: delete legacy RequestMatcher (Match(r) bool), make RequestMatcherWithError (caddyhttp.go:55) the only path. 17 legacy Match impls across 6 files satisfy it IMPLICITLY (D1 via implicit interface satisfaction — impl files never spell RequestMatcher). Dual-dispatch type-switches at routes.go:352/373/445, httptype.go:1572; CEL factories vars.go:236/369/392; deprecated MatcherSet.Match routes.go:411."
 prompt_change = "We are removing the legacy request-matcher interface and consolidating on its error-returning successor as the single dispatch path. Enumerate every site that must change — every implementer of the legacy interface, every dispatch/type-switch site, and every wiring/factory site — INCLUDING sites that satisfy or dispatch the interface WITHOUT naming it."
-scope = "IN: legacy-interface implementers, dispatch type-switches, interface guards, CEL/factory wiring, the deprecated set method. OUT: unrelated Match methods on non-matcher types. Report code sites only."
-grep_name_stats = "git grep -lw RequestMatcher = 5 files ONLY (impl files ip_matchers.go, vars.go, fileserver/matcher.go never spell it -> D1>=5). ~17 legacy Match impls + ~17 MatchWithError impls + 14 interface guards."
+scope = "IN: legacy-interface implementers, dispatch type-switches, interface guards (none remain legacy at this SHA), CEL/factory wiring, and the deprecated MatcherSet.Match dispatch method. OUT: unrelated Match methods on non-matcher types and already-migrated MatcherSets.AnyMatch. Report code sites only."
+grep_name_stats = "git grep -lw RequestMatcher = 5 files ONLY (impl files ip_matchers.go, vars.go, fileserver/matcher.go never spell it -> D1>=5). ~17 legacy Match impls + ~17 MatchWithError impls; 14 interface guards exist but all are already RequestMatcherWithError at this SHA."
 notes = "Fable: gopls dispatch oracle PRE-VALIDATED on caddy (Phase-IP dispatch_precision 1.0). LEAK CAVEAT (weakest posture): the caddy 2.9 matcher migration (Dec 2024) is training-visible; the module LIST is memorizable but the SHA-specific residual-legacy-site list is not — the no-command memorization tell in the attribution audit covers it."
 
 [[task]]
@@ -85,7 +91,7 @@ receiver = "converter.Converter (interface)"
 def_site = "markup/converter/converter.go:90"
 dispatch = "STRONG (codex pick, 2-3 hops): interface Convert -> (*pageContentOutput).renderContentWithConverter -> page/content render wrappers ParseAndRenderContent/RenderString/shortcode. Callers spell page-render APIs, never Convert."
 prompt_change = "We are changing the semantics of the content-conversion step that turns page source (markdown/etc.) into rendered content. Enumerate every site that must be reviewed because its behavior depends on this conversion — INCLUDING callers of any page-render wrapper or method that reaches the conversion indirectly."
-scope = "IN: the converter interface method + the render wrappers that forward it + their name-absent consumers. OUT: unrelated Convert methods on other types (e.g. resource/image converters — verify receiver). Report code sites only."
+scope = "IN: the converter interface method + the render wrappers that forward it + their name-absent consumers. OUT: the converter implementations themselves. OUT: unrelated Convert methods on other types (e.g. resource/image converters — verify receiver). Report code sites only."
 grep_name_stats = "git grep -nw Convert = 43 lines/21 files (many other-receiver). Forwarders renderContentWithConverter 4/2, ParseAndRenderContent 9/6, RenderString 46/17. D1~5 files (page__content.go, shortcode.go, page_lazy_contentprovider.go, page.go, page_nop.go = zero Convert)."
 notes = "STRONG. Repo-diverse from prometheus. Verify receiver types (Convert is a common method name in hugo)."
 
@@ -143,7 +149,7 @@ dispatch = "STRONG (Claude pick, 2 hops): named function meet_types (meet.py:75)
 prompt_change = "We are changing the semantics of the type 'meet' operation (greatest lower bound of two types). Enumerate every site that must be reviewed because it depends on this operation — INCLUDING callers of any helper that wraps or forwards it under a different name."
 scope = "IN: the meet operation forwarder + its 9 external callers + internal meet.py forwarders/callers (+ optional narrow_declared_type consumers). OUT: comment-only mentions. Report code sites only."
 grep_name_stats = "git grep -nw TypeMeetVisitor = 2 hits/1 file (def+dispatch, ZERO consumers). Forwarder meet_types = 44 hits/9 files, ~9 external call sites/6 files (checker,join,solve,typeops,attrs,dataclasses). D1=6 files. |gold|~12-25."
-notes = "STRONG, statically buildable (named-function call, no runtime getattr). Alt STRONG-redundant = TypeJoinVisitor/join_types."
+notes = "Python SECONDARY/weak (Fable+owner 2026-07-06 FLIP). D1=3 is INHERENT: meet_types IS the public name (renaming boundary inverted — TypeMeetVisitor has zero external consumers), so it can never be D1-rich. Quantized at both site+file level — do NOT headline. Built gold |gold|=15 (10 TypeMeetVisitor.* impl-body sites dropped per Fable)."
 
 [[task]]
 id = "django-check-registry-run-checks"
@@ -157,7 +163,7 @@ dispatch = "WEAK 2nd (codex pick, registry, 2 hops): @register(...)-decorated ch
 prompt_change = "We are changing the semantics of the system-check runner (how registered checks are collected and invoked). Enumerate every site that must be reviewed because it depends on this runner — INCLUDING the registered check functions reached through the check registry without naming the runner."
 scope = "IN: the runner + get_checks + the registered check functions (scoped to django/core/checks + app check registrations). OUT: the generic @register decorator's non-check uses (register is polluted repo-wide). Report code sites only."
 grep_name_stats = "git grep -nw run_checks = 7/4 files. Forwarder/decorator register = 289/63 repo-wide (NOISY — scope to check registrations). get_checks = 3/1. |gold|~40-50, D1~30+ if scoped to core/checks."
-notes = "WEAK-but-noisier (codex: 'register polluted across Django'). Registry/decorator mechanism = different flavor + different repo. If |gold|>60 after scoping, escalate/narrow."
+notes = "Python HEADLINE/STRONG (Fable+owner 2026-07-06 FLIP). Built gold |gold|=59, D1=51 sites/19 files (D1-RICH). CAVEATS (Fable): D1 discoverable by dir-convention django/core/checks/** so both arms may saturate D-recall (small Delta -> 'registry flavor' datapoint, not renaming-depth); memorization-prone famous code -> lean on the attribution audit."
 
 [[task]]
 id = "guava-equivalence-doequivalent"

@@ -1,0 +1,378 @@
+{
+  "task_id": "prometheus-promql-walk",
+  "repo": "prometheus",
+  "sha": "505095b",
+  "symbol": "Walk",
+  "status": "FROZEN (codex xhigh build + Fable adversarial review + fixes applied, 2026-07-06)",
+  "closure_summary": {
+    "hops": 2,
+    "forwarder": "Inspect @ promql/parser/ast.go:396 calls Walk(f, node, pathBuf[:0]); ExtractSelectors @ promql/parser/ast.go:370 calls Inspect and is the second named wrapper. The inspector.Visit adapter and durationVisitor.Visit are included as real Visitor implementations passed to Walk.",
+    "terminates_because": "Inspect and ExtractSelectors callers are terminal PromQL analysis/mutation/API consumers. PreprocessExpr is a direct Walk consumer. Markdown-style recursion is not present; Walk's recursive self-call is S's own body and excluded.",
+    "gold_size": 16,
+    "d1_count": 6,
+    "d2_count": 0,
+    "test_helper_policy": "production code only. *_test.go Walk/Inspect/ExtractSelectors hits are excluded. promql/promqltest/test.go is admitted because non-test production packages, including cmd/promtool, import promqltest.",
+    "generator_of_record": "grep-per-hop, prism-INDEPENDENT: git grep -nw Walk @L0; git grep -nw Inspect @hop1; git grep -nw ExtractSelectors @hop2; plus scope-required Visitor implementation greps for inspector and durationVisitor. repo-wide `git grep -hwo Walk | wc -l` = 18, so D2 is impossible."
+  },
+  "sites": [
+    {
+      "file": "promql/parser/ast.go",
+      "symbol": "Inspect",
+      "line": 396,
+      "token_anchor": "Walk@promql/parser/ast.go:398",
+      "receiver_evidence": "`func Inspect(node Node, f inspector)`; body calls package-local `Walk(f, node, pathBuf[:0])`",
+      "hop_distance": 0,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "primary renaming boundary: callers say Inspect, not Walk"
+    },
+    {
+      "file": "promql/parser/ast.go",
+      "symbol": "inspector.Visit",
+      "line": 384,
+      "token_anchor": "inspector@promql/parser/ast.go:384",
+      "receiver_evidence": "`type inspector func(Node, []Node) error`; Inspect passes `f inspector` to Walk, and this Visit method adapts the callback to parser.Visitor",
+      "hop_distance": 0,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "scope-required Visitor implementation passed to Walk via Inspect; adapter returns `f` to continue traversal"
+    },
+    {
+      "file": "promql/engine.go",
+      "symbol": "PreprocessExpr",
+      "line": 4487,
+      "token_anchor": "Walk@promql/engine.go:4492",
+      "receiver_evidence": "direct package-qualified call `parser.Walk(&durationVisitor{step: step, queryRange: end.Sub(start)}, expr, nil)`",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "direct production caller of parser.Walk; file contains Walk text, so not D1"
+    },
+    {
+      "file": "promql/durations.go",
+      "symbol": "durationVisitor.Visit",
+      "line": 39,
+      "token_anchor": "durationVisitor@promql/durations.go:39",
+      "receiver_evidence": "`func (v *durationVisitor) Visit(node parser.Node, _ []parser.Node) (parser.Visitor, error)`; `&durationVisitor{...}` is passed to parser.Walk in PreprocessExpr at engine.go:4492",
+      "hop_distance": 0,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "scope-required concrete Visitor implementation used by the direct Walk caller; file has a parser.Walk comment, so strict D-membership is none"
+    },
+    {
+      "file": "promql/parser/ast.go",
+      "symbol": "ExtractSelectors",
+      "line": 370,
+      "token_anchor": "Inspect@promql/parser/ast.go:372",
+      "receiver_evidence": "`func ExtractSelectors(expr Expr) [][]*labels.Matcher`; body calls package-local Inspect and appends VectorSelector label matchers",
+      "hop_distance": 1,
+      "role": "forwarder",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "named wrapper over Inspect; task caveat explicitly calls this a wrapper hop"
+    },
+    {
+      "file": "cmd/promtool/main.go",
+      "symbol": "labelsSetPromQL",
+      "line": 1369,
+      "token_anchor": "Inspect@cmd/promtool/main.go:1389",
+      "receiver_evidence": "`parser.Inspect(expr, func(node parser.Node, _ []parser.Node) error { ... })` after `expr, err := p.ParseExpr(query)`",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "terminal promtool label mutation consumer; file has zero Walk text"
+    },
+    {
+      "file": "cmd/promtool/main.go",
+      "symbol": "labelsDeletePromQL",
+      "line": 1414,
+      "token_anchor": "Inspect@cmd/promtool/main.go:1420",
+      "receiver_evidence": "`parser.Inspect(expr, func(node parser.Node, _ []parser.Node) error { ... })` after parsing the query",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "terminal promtool label deletion consumer; same file as labelsSetPromQL but distinct enclosing symbol"
+    },
+    {
+      "file": "promql/engine.go",
+      "symbol": "validateOpts",
+      "line": 619,
+      "token_anchor": "Inspect@promql/engine.go:627",
+      "receiver_evidence": "`parser.Inspect(expr, func(node parser.Node, _ []parser.Node) error { ... })` in `func (ng *Engine) validateOpts`",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "terminal engine validation consumer; file contains Walk text"
+    },
+    {
+      "file": "promql/engine.go",
+      "symbol": "FindMinMaxTime",
+      "line": 945,
+      "token_anchor": "Inspect@promql/engine.go:951",
+      "receiver_evidence": "`parser.Inspect(s.Expr, func(node parser.Node, path []parser.Node) error { ... })` in `func FindMinMaxTime`",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "terminal time-range analysis consumer; file contains Walk text"
+    },
+    {
+      "file": "promql/engine.go",
+      "symbol": "populateSeries",
+      "line": 1045,
+      "token_anchor": "Inspect@promql/engine.go:1051",
+      "receiver_evidence": "`parser.Inspect(s.Expr, func(node parser.Node, path []parser.Node) error { ... })` in `func (ng *Engine) populateSeries`",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "terminal series-population consumer; file contains Walk text"
+    },
+    {
+      "file": "promql/engine.go",
+      "symbol": "setOffsetForAtModifier",
+      "line": 4616,
+      "token_anchor": "Inspect@promql/engine.go:4632",
+      "receiver_evidence": "`parser.Inspect(expr, func(node parser.Node, path []parser.Node) error { ... })` in `func setOffsetForAtModifier`",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "terminal offset mutation consumer; file contains Walk text"
+    },
+    {
+      "file": "promql/engine.go",
+      "symbol": "detectHistogramStatsDecoding",
+      "line": 4653,
+      "token_anchor": "Inspect@promql/engine.go:4654",
+      "receiver_evidence": "`parser.Inspect(expr, func(node parser.Node, path []parser.Node) error { ... })` in `func detectHistogramStatsDecoding`",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "none",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "terminal histogram decoding optimization consumer; file contains Walk text"
+    },
+    {
+      "file": "promql/info.go",
+      "symbol": "infoSelectHints",
+      "line": 108,
+      "token_anchor": "Inspect@promql/info.go:111",
+      "receiver_evidence": "`parser.Inspect(expr, func(node parser.Node, _ []parser.Node) error { ... })` in `func (ev *evaluator) infoSelectHints`",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "terminal info() hint extraction consumer; file has zero Walk text"
+    },
+    {
+      "file": "promql/promqltest/test.go",
+      "symbol": "atModifierTestCases",
+      "line": 1599,
+      "token_anchor": "Inspect@promql/promqltest/test.go:1610",
+      "receiver_evidence": "`parser.Inspect(expr, func(node parser.Node, path []parser.Node) error { ... })`; promqltest is imported by non-test production command packages",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "terminal built-in PromQL test framework consumer; admitted because promqltest is used by promtool production code, not only *_test.go"
+    },
+    {
+      "file": "rules/group.go",
+      "symbol": "buildDependencyMap",
+      "line": 1125,
+      "token_anchor": "Inspect@rules/group.go:1140",
+      "receiver_evidence": "`parser.Inspect(rule.Query(), func(node parser.Node, _ []parser.Node) error { ... })` inside the rule loop",
+      "hop_distance": 1,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "terminal rule dependency analysis consumer; file has zero Walk text"
+    },
+    {
+      "file": "web/api/v1/api.go",
+      "symbol": "queryExemplars",
+      "line": 713,
+      "token_anchor": "ExtractSelectors@web/api/v1/api.go:732",
+      "receiver_evidence": "`expr, err := api.parser.ParseExpr(...)`; then `selectors := parser.ExtractSelectors(expr)` in `func (api *API) queryExemplars`",
+      "hop_distance": 2,
+      "role": "consumer",
+      "d_member": "D1",
+      "provenance": [
+        "grep"
+      ],
+      "adjudication": "real",
+      "reason": "terminal API exemplar-query consumer of ExtractSelectors; file has zero Walk text"
+    },
+    {
+      "file": "promql/parser/ast.go",
+      "symbol": "Visitor interface / Walk definition",
+      "line": 340,
+      "adjudication": "excluded",
+      "reason": "DEF SURFACE: target interface and Walk definition/comments are not downstream sites; real Visitor implementations are recorded separately."
+    },
+    {
+      "file": "promql/durations.go",
+      "symbol": "durationVisitor.Visit comment",
+      "line": 36,
+      "adjudication": "excluded",
+      "reason": "COMMENT-ONLY Walk occurrence in the real durationVisitor file; affects strict D-membership but is not itself a site."
+    },
+    {
+      "file": "promql/engine.go",
+      "symbol": "detectHistogramStatsDecoding comment",
+      "line": 4661,
+      "adjudication": "excluded",
+      "reason": "COMMENT-ONLY Walk occurrence (`Walk backwards up the path`), not a parser.Walk call."
+    },
+    {
+      "file": "tsdb/fileutil/dir.go",
+      "symbol": "DirSize",
+      "line": 23,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: `filepath.Walk`, filesystem traversal, unrelated to promql/parser.Walk."
+    },
+    {
+      "file": "tsdb/fileutil/fileutil.go",
+      "symbol": "CopyDirs",
+      "line": 79,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: `filepath.Walk`, filesystem traversal, unrelated receiver/package."
+    },
+    {
+      "file": "util/testutil/directory.go",
+      "symbol": "DirectorySize",
+      "line": 127,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT: `filepath.Walk` in test utility package, unrelated to promql/parser.Walk."
+    },
+    {
+      "file": "storage/generic.go",
+      "symbol": "MergeSlices",
+      "line": 295,
+      "adjudication": "excluded",
+      "reason": "COMMENT-ONLY collision: `Walk the input in reverse`, not a parser.Walk call."
+    },
+    {
+      "file": "tsdb/index/index.go",
+      "symbol": "Reader.Postings",
+      "line": 1205,
+      "adjudication": "excluded",
+      "reason": "COMMENT-ONLY collision: `Walk until we find the one we want`, unrelated index scan comment."
+    },
+    {
+      "file": "web/api/v1/openapi_coverage_test.go",
+      "symbol": "TestOpenAPI",
+      "line": 49,
+      "adjudication": "excluded",
+      "reason": "PHANTOM BAIT / TEST: `ast.Inspect` from Go's standard go/ast package, not parser.Inspect."
+    },
+    {
+      "file": "promql/parser/parse_test.go",
+      "symbol": "TestExtractSelectors",
+      "line": 6109,
+      "adjudication": "excluded",
+      "reason": "TEST: ExtractSelectors call in *_test.go excluded by production-code policy."
+    }
+  ],
+  "excluded_test_helpers": [
+    {
+      "file": "promql/durations_test.go",
+      "symbol": "TestDurationVisitor",
+      "line": 40,
+      "reason": "*_test.go direct parser.Walk call excluded by production-code-only policy"
+    },
+    {
+      "file": "tsdb/wlog/checkpoint_test.go",
+      "symbol": "TestCheckpoint",
+      "line": 547,
+      "reason": "*_test.go filepath.Walk collision excluded; unrelated to parser.Walk"
+    },
+    {
+      "file": "tsdb/agent/checkpoint_test.go",
+      "symbol": "checkpoint tests",
+      "line": 280,
+      "reason": "*_test.go comment-only Walk collision excluded"
+    }
+  ],
+  "exclusion_table": {
+    "note": "same-name/other-package collisions and out-of-scope tests = phantom bait; claiming these is scored as wrong.",
+    "walk_self_or_definition_surface": [
+      "promql/parser/ast.go:350/361",
+      "promql/parser/ast.go:338-346 comments"
+    ],
+    "filepath_Walk_collisions": [
+      "tsdb/fileutil/dir.go:23",
+      "tsdb/fileutil/fileutil.go:79",
+      "util/testutil/directory.go:127",
+      "tsdb/wlog/checkpoint_test.go:547"
+    ],
+    "comment_only_Walk_collisions": [
+      "promql/durations.go:36",
+      "promql/engine.go:4661",
+      "storage/generic.go:295",
+      "tsdb/index/index.go:1205",
+      "tsdb/agent/checkpoint_test.go:280",
+      "tsdb/wlog/checkpoint_test.go:546"
+    ],
+    "stdlib_ast_Inspect_collision": [
+      "web/api/v1/openapi_coverage_test.go:49",
+      "web/api/v1/openapi_coverage_test.go:83"
+    ],
+    "test_only_parser_calls": [
+      "promql/durations_test.go:40",
+      "promql/parser/parse_test.go:6109"
+    ]
+  }
+}

@@ -3,7 +3,7 @@
 repo: ruff  sha: 44f6d18  symbol: match_annotation (trait TypeChecker, typing.rs:615)
 
 ## STATUS: escalation — full closure fails the |gold|<=60 admission ceiling; this file ships a
-proposed narrowing (is_list + is_dict sub-closure, 28 sites) for controller review, per
+proposed narrowing (is_list + is_dict sub-closure, 32 sites) for controller review, per
 "propose a scope narrowing to the controller (do NOT truncate)".
 
 ## Closure walk (full picture, source-verified)
@@ -85,7 +85,7 @@ NOT truncate)." I did not truncate the full closure — I did not attempt to fre
 slice of it by arbitrary cutoff. Instead this `gold.json` ships a **different, smaller,
 fully-independently-verified target**: the **is_list + is_dict sub-closure only** (the two
 most heavily-consumed wrapper families; `unnecessary_enumerate.rs` and `literal_membership.rs`
-already exercise is_set/is_tuple alongside them for free). **28 sites, D1=25 (89%)**,
+already exercise is_set/is_tuple alongside them for free). **32 sites, D1=28 (88%)**,
 comfortably inside [8,60], hops 2-3 depending on branch (private-relay branches add a hop).
 
 Alternative narrowings for the controller to pick instead (not built, estimated only):
@@ -102,15 +102,15 @@ Alternative narrowings for the controller to pick instead (not built, estimated 
 D-membership is keyed to **match_annotation's own name** (per spec: "d_member ... FILE has ZERO
 textual occurrence of S's name"), repo-wide total = 16 hits (well under the D2 >100 threshold,
 so D2 is structurally unreachable for this task — every site is either D1 or "none"). Verified
-via `git grep -c -w match_annotation <file>` for all 17 candidate files: all 16 hop-2/3 consumer
-files = 0 hits (D1); typing.rs (hop 0/1, containing check_type/is_list/is_dict) = 12 hits
+via `git grep -c -w match_annotation <file>` for all 20 candidate files: all 19 hop-2/3 consumer
+files = 0 hits (D1); typing.rs (hop 0/1, containing check_type/is_list/is_dict/is_known_to_be_of_type_dict) = 12 hits
 (d_member="none", as expected — same file as S). No test-dir files encountered.
 
 ## Dry-run (scorer sanity check)
 
 ```
-perfect arm:       file_f1=1.0    d_recall=1.0  gold_size=28  d_gold_size=16  phantom=0
-grep-S-only arm:   file_f1=0.111  d_recall=0.0  gold_size=28  d_gold_size=16  phantom=0
+perfect arm:       file_f1=1.0    d_recall=1.0  gold_size=32  d_gold_size=28  d_gold_file_size=19  phantom=0
+grep-S-only arm:   not rerun after Fable fix; prior sanity check remains directionally valid
 ```
 (`grep-S-only` simulates an off-arm that only found `check_type` via grepping `match_annotation`
 itself — the exact degenerate case the task is designed to catch. It scores near-zero, as
@@ -147,9 +147,19 @@ grep.)
   — the corpus's named decoy; confirmed unrelated AND confirmed it never appears in the L0
   `git grep -nw match_annotation` hit list at all (word-boundary excludes the fused identifier).
 - `crates/ruff_python_parser/src/parser/{mod.rs:949, pattern.rs:349,365}` — an unrelated
-  `is_list(self)` method on the parser's own type; different receiver, excluded.
+  `is_list(self)` method on the parser's own type; different receiver, excluded as real
+  `sites[]` phantom bait with enclosing symbols per Fable phantom-channel calibration.
 - `key_in_dict.rs:112,122` — a local variable named `is_dict` shadowing the import; the genuine
   `typing::is_dict` call (line 120) inside the same closure is included in gold.
 - `private_member_access.rs:312` — `Self::match_annotation` recursive call inside
   `SameClassInstanceChecker`'s own impl body (Subscript case); part of the definition, not an
   external caller (also LSP-surfaced, cross-checked, and excluded here).
+
+## Fable review fix (2026-07-06)
+
+- Reworded the task prompt/scope to be name-free and limited to the protocol's list- and
+  dict-type matching paths.
+- Added the missed `is_known_to_be_of_type_dict` forwarder and its 3 D1 consumers:
+  `if_else_block_instead_of_dict_get`, `falsy_dict_get_fallback`, and `if_key_in_dict_del`.
+- Moved parser `is_list` bait from inert `exclusion_table` notes into scored excluded
+  `sites[]` entries with real enclosing symbols.
