@@ -75,12 +75,17 @@ class StructuralReport:
     symbol_precision: float
     symbol_recall: float
     symbol_f1: float
-    d_recall: float          # THE headline metric (design §5): recall over d_member in {D1,D2}
+    d_recall: float          # THE headline metric (design §5): SITE-level recall over the D
+                             # (grep-hard) subset — (file,norm_symbol) keys with d_member in
+                             # {D1,D2}. Site-level per Fable review 2026-07-06 (file-level
+                             # quantizes coarsely when D1 clusters in <=3 files).
+    d_recall_file: float     # SECONDARY: the old FILE-level d_recall (forgiving of symbol spelling)
     precision: float         # alias of symbol_precision (report headline)
     phantom: int             # claimed sites verified NOT to exist in the checkout
     unmatched_extra: int     # claimed sites not in gold but NOT verified-nonexistent
     gold_size: int           # number of adjudication=="real" gold sites
-    d_gold_size: int         # number of distinct D-subset gold FILES (d_recall denominator)
+    d_gold_size: int         # number of distinct D-subset gold SITES (d_recall denominator)
+    d_gold_file_size: int    # number of distinct D-subset gold FILES (d_recall_file denominator)
     claimed_size: int
 
     def to_dict(self) -> dict:
@@ -166,6 +171,7 @@ def score_structural(claimed, gold: dict, *, verify_exists=None) -> StructuralRe
     gold_files = {s.file for s in real}
     gold_syms = {(s.file, norm_symbol(s.symbol)) for s in real}
     d_gold_files = {s.file for s in real if s.d_member in ("D1", "D2")}
+    d_gold_syms = {(s.file, norm_symbol(s.symbol)) for s in real if s.d_member in ("D1", "D2")}
 
     claimed_files = {c.file for c in claims}
     claimed_syms = {(c.file, norm_symbol(c.symbol)) for c in claims}
@@ -193,14 +199,19 @@ def score_structural(claimed, gold: dict, *, verify_exists=None) -> StructuralRe
     sym_r = _ratio(sym_tp, len(gold_syms))
     sym_f1 = _f1(sym_p, sym_r)
 
-    d_tp = len(claimed_files & d_gold_files)
-    d_recall = _ratio(d_tp, len(d_gold_files))
+    # Headline d_recall is SITE-level (Fable 2026-07-06): recall over the D-subset (file,symbol)
+    # sites, so tasks whose D1 clusters in a few files aren't quantized. File-level kept secondary.
+    d_site_tp = len(claimed_syms & d_gold_syms)
+    d_recall = _ratio(d_site_tp, len(d_gold_syms))
+    d_file_tp = len(claimed_files & d_gold_files)
+    d_recall_file = _ratio(d_file_tp, len(d_gold_files))
 
     return StructuralReport(
         file_precision=file_p, file_recall=file_r, file_f1=file_f1,
         symbol_precision=sym_p, symbol_recall=sym_r, symbol_f1=sym_f1,
-        d_recall=d_recall, precision=sym_p,
+        d_recall=d_recall, d_recall_file=d_recall_file, precision=sym_p,
         phantom=phantom, unmatched_extra=unmatched_extra,
-        gold_size=len(real), d_gold_size=len(d_gold_files),
+        gold_size=len(real), d_gold_size=len(d_gold_syms),
+        d_gold_file_size=len(d_gold_files),
         claimed_size=len(claims),
     )

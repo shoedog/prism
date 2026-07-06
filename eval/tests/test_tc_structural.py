@@ -296,9 +296,15 @@ def test_p6_dry_run_scorer_against_frozen_gold_fixture():
     assert r.symbol_precision == 3 / 5
     assert r.symbol_recall == 3 / 4
 
-    # D-recall: D-subset gold files = {engine.go (D1 x2), handler.go (D2)} = 2 files
-    # claimed files hit engine.go but NOT handler.go -> 1/2
-    assert r.d_recall == 0.5
+    # D-recall (headline = SITE-level): D-subset gold sites = {(engine.go,run) D1,
+    #   (engine.go,stop) D1, (handler.go,handle) D2} = 3 sites; claimed hits run+stop
+    #   but NOT handle -> 2/3.
+    assert r.d_recall == 2 / 3
+    assert r.d_gold_size == 3
+    # D-recall_file (secondary = FILE-level): D-subset gold files = {engine.go, handler.go}
+    #   = 2; claimed hits engine.go but not handler.go -> 1/2.
+    assert r.d_recall_file == 0.5
+    assert r.d_gold_file_size == 2
 
     # Phantom: ghost_module.go does not exist in the checkout -> 1 phantom.
     assert r.phantom == 1

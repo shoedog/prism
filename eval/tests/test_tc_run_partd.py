@@ -32,8 +32,8 @@ def _arm_out(*, prism: bool, prism_calls: int, text: str, in_tokens=10, cost_usd
 def _report(**overrides) -> StructuralReport:
     base = dict(file_precision=1.0, file_recall=1.0, file_f1=1.0,
                symbol_precision=1.0, symbol_recall=1.0, symbol_f1=1.0,
-               d_recall=1.0, precision=1.0, phantom=0, unmatched_extra=0,
-               gold_size=2, d_gold_size=1, claimed_size=2)
+               d_recall=1.0, d_recall_file=1.0, precision=1.0, phantom=0, unmatched_extra=0,
+               gold_size=2, d_gold_size=1, d_gold_file_size=1, claimed_size=2)
     base.update(overrides)
     return StructuralReport(**base)
 

@@ -148,6 +148,7 @@ def render_partd(cells: list) -> str:
             f"{'yes' if c.administered else 'NO':>4} "
             f"{'YES' if c.leaked else 'no':>5} "
             f"{c.report_on['phantom']:>12}"
+            f"   file-dR {c.report_off['d_recall_file']:.2f}/{c.report_on['d_recall_file']:.2f}"
         )
     return "\n".join(lines)
 
