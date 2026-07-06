@@ -8,9 +8,28 @@ _PARITY = ("For every substantive claim about the code, you MUST cite the exact 
 _INLINE = ("Output the full spec/plan INLINE in your final response — do NOT write it to a file. "
            "Your response text IS the deliverable.")
 
+_IMPACT_CONTRACT = (
+    "You are analyzing a proposed SEMANTIC/behavioral change to a symbol in this "
+    "codebase (not a syntactic signature change). Enumerate every site (file + "
+    "enclosing symbol) that must be reviewed or changed because its behavior "
+    "depends on the affected symbol — including sites reached only through "
+    "interface/trait dispatch, callback registration, or other indirection "
+    "where the symbol's NAME never literally appears in that file. Do not "
+    "limit yourself to sites a plain text search would find.\n\n"
+    "First, produce a fenced ```json code block with EXACTLY this shape:\n"
+    "```json\n"
+    '{"impact": [{"file": "path/to/file.ext", "symbol": "EnclosingFunctionOrMethod", '
+    '"reason": "why this site depends on the change"}], '
+    '"migration_order": ["path/to/file.ext:EnclosingFunctionOrMethod", "..."]}\n'
+    "```\n"
+    "Then, AFTER the JSON block, add free-text design discussion (risk notes, "
+    "grouping by module, migration ordering rationale, anything else relevant)."
+)
+
 _STAGE = {
     "spec": "Write a short implementation SPEC for this issue, scoped to the stated slice.",
     "plan": "Write a step-by-step PLAN for this spec, scoped to the stated slice.",
+    "impact": _IMPACT_CONTRACT,
 }
 
 # Steer directives injected per arm to control tool usage without leaking into
