@@ -28,3 +28,17 @@ def count_claims(text: str) -> int:
         if sent.strip() and _CODE.search(sent):
             n += 1
     return n
+
+
+def sentence_spans(text: str) -> list[tuple[int, int, str]]:
+    """(start, end, sentence_text) for each _SENT-delimited span in `text`, so a
+    citation's character offset can be mapped back to its enclosing sentence (D1
+    validity.py / D3 annotate.py). Uses the SAME splitter as count_claims so "sentence"
+    means the same thing across the recall-denominator and validity/annotation axes."""
+    spans: list[tuple[int, int, str]] = []
+    pos = 0
+    for m in _SENT.finditer(text):
+        spans.append((pos, m.start(), text[pos:m.start()]))
+        pos = m.end()
+    spans.append((pos, len(text), text[pos:]))
+    return spans

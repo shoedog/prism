@@ -658,32 +658,103 @@ class _LivePartCComps:
         and stored on self._last_off_judge (arm="base") / self._last_on_judge (arm="on")
         for later persistence as <base>.<arm>.judge.jsonl.
 
+        D0 REPAIR: the recall denominator is claims.count_claims(arm_text) — the
+        substantive-code-claim count of the arm's OWN text (self._last_off/self._last_on,
+        set by run_off_arm/run_on_arm before score() is called) — NOT
+        max(len(citations), 1). The old code made claim_count identically equal to the
+        citation count, which forced recall == precision whenever >=1 citation was made,
+        silently disabling the under-citing penalty (spec §6a). When no arm text is available
+        (e.g. a caller that constructs this class and calls score() directly, bypassing
+        run_off_arm/run_on_arm), we fall back to the old max(len(citations), 1) behaviour
+        so pre-existing direct callers/tests are unaffected.
+
+        Batch judging (perf fix): relevance is judged in ONE model call per arm (no
+        ensemble) instead of one ensemble call PER citation. Every citation is first
+        pre-resolved through investigator.verify_citation (the SAME resolver
+        score_citations itself uses) with a code-window-capturing stand-in relevance
+        object — this costs zero model calls, it only tells us which citations will
+        actually reach a relevance check (file_ok/line_ok/symbol_ok) and reads their
+        code windows. Those are classified in ONE LlmRelevanceJudge.relevance_batch
+        call, then looked up by (file, line, symbol) via a small precomputed oracle
+        injected into the REAL score_citations call — score_citations's signature and
+        the RelevanceJudge protocol are unchanged; the precomputed oracle just
+        satisfies the protocol.
+
         Returns an InvestigatorReport (precision, recall, hallucinations, verdicts).
         """
-        from .investigator import score_citations, InvestigatorReport
-        from .judges_live import LlmRelevanceJudge, _RecordingRelevanceJudge
+        from .investigator import score_citations, verify_citation, InvestigatorReport
+        from .judges_live import LlmRelevanceJudge
         from .llm import JUDGE_MODEL
+        from .claims import count_claims
         if not citations:
             if arm == "on":
                 self._last_on_judge = []
             else:
                 self._last_off_judge = []
             return InvestigatorReport(precision=0.0, recall=0.0, hallucinations=0, verdicts=[])
-        # Sonnet, not opus — owner-tested to follow the YES/NO instruction (opus went agentic).
-        # judge_primary overrides JUDGE_MODEL when a codex ensemble is requested.
-        inner_rel = LlmRelevanceJudge(self._ask, self._judge_primary or JUDGE_MODEL)
-        records: list[dict] = []
-        rel = _RecordingRelevanceJudge(inner_rel, records)
         upstream = self._upstream_spec(cell)
         issue_text = (self._issue.text + "\n\n## Upstream spec\n" + upstream
                       if upstream else self._issue.text)
+        last = self._last_on if arm == "on" else self._last_off
+        arm_text = last.text if last is not None else ""
+        claim_count = count_claims(arm_text) if arm_text else max(len(citations), 1)
+
+        # --- Batch judging (perf fix): pre-resolve, then ONE relevance_batch call ---
+        class _CaptureCode:
+            """Stand-in RelevanceJudge: records (cite, code) for every citation that
+            reaches the relevance check inside verify_citation, WITHOUT spending a
+            model call (this is a local Python object, not self._ask)."""
+
+            def __init__(self):
+                self.items: list[tuple] = []
+
+            def is_relevant(self, cite, issue_text, code: str = "") -> bool:
+                self.items.append((cite, code))
+                return True  # placeholder; overwritten by relevance_batch below
+
+        capture = _CaptureCode()
+        for c in citations:
+            verify_citation(self._co, c, issue_text=issue_text, relevance=capture,
+                            read_code=lambda f, l: self._co.read_window(f, l),
+                            text=arm_text, ask=self._ask)
+
+        # Sonnet, not opus — owner-tested to follow the YES/NO instruction (opus went agentic).
+        # judge_primary overrides JUDGE_MODEL when a codex ensemble is requested.
+        rel_judge = LlmRelevanceJudge(self._ask, self._judge_primary or JUDGE_MODEL)
+        batch_verdicts = (rel_judge.relevance_batch(capture.items, issue_text)
+                          if capture.items else [])
+        lookup = {
+            (c.file, c.line, c.symbol): v
+            for (c, _code), v in zip(capture.items, batch_verdicts)
+        }
+        records: list[dict] = [
+            {"file": c.file, "line": c.line, "symbol": c.symbol,
+             "verdict": "YES" if v else "NO", "escalated": False, "votes": [],
+             "relevant": v}
+            for (c, _code), v in zip(capture.items, batch_verdicts)
+        ]
+
+        class _PrecomputedRelevance:
+            """Satisfies the RelevanceJudge protocol by looking up the batch verdict
+            computed above; default False (conservative) on a miss."""
+
+            def is_relevant(self, cite, issue_text, code: str = "") -> bool:
+                return lookup.get((cite.file, cite.line, cite.symbol), False)
+
         result = score_citations(
             self._co,
             citations,
-            claim_count=max(len(citations), 1),
-            relevance=rel,
+            claim_count=claim_count,
+            relevance=_PrecomputedRelevance(),
             issue_text=issue_text,
             read_code=lambda f, l: self._co.read_window(f, l),
+            # resolver-fix-spec.md R1/R2: `text` feeds the layer-3 salient-token
+            # tie-break + R2 Q3 disambiguator context (the citation's own enclosing
+            # sentence); `ask` wires the SAME judge seam this class already uses
+            # (self._ask) into the disambiguator, invoked only on a genuine
+            # >=2-candidate tie (rare) — never a new live-call surface.
+            text=arm_text,
+            ask=self._ask,
         )
         # Store per-cite judge records on self for later persistence
         if arm == "on":
@@ -697,6 +768,86 @@ class _LivePartCComps:
         from .judges_live import SpecQualityJudge
         judge = SpecQualityJudge(self._ask, self._judge_primary)
         return judge.compare(self._issue.text, off_out.text or "", on_out.text or "")
+
+    def score_validity(self, text: str, *, arm: str) -> dict:
+        """D1 — citation VALIDITY (judged): does the code AT each cited location support
+        the sentence that cites it? Independent of the relevance judge (score()) and of
+        prism (never the oracle here — circularity doctrine). Rescorable: operates only
+        on the already-saved arm TEXT, exactly like D0's count_claims() denominator.
+
+        Returns a JSON-safe dict: {support_rate, contradicted, total, verdicts:[...]}."""
+        from .validity import CitationValidityJudge
+        from .validity import score_validity as _score_validity
+        if not text:
+            return {"support_rate": 0.0, "contradicted": 0, "total": 0, "verdicts": []}
+        judge = CitationValidityJudge(self._ask, self._judge_primary)
+        # ask=self._ask (R5): a bare-but-tied citation gets one more shot at the R2 Q3
+        # disambiguator before D1 gives up and reads no window (see validity.py).
+        report = _score_validity(self._co, text, judge, ask=self._ask)
+        return {
+            "support_rate": report.support_rate,
+            "contradicted": report.contradicted,
+            "total": report.total,
+            "verdicts": [
+                {
+                    "file": v.claim.cite.file, "line": v.claim.cite.line,
+                    "symbol": v.claim.cite.symbol, "sentence": v.claim.sentence,
+                    "verdict": v.verdict, "escalated": v.escalated,
+                }
+                for v in report.verdicts
+            ],
+        }
+
+    def head_to_head_annotated(self, off_annotated: str, on_annotated: str, cell: tuple) -> dict:
+        """D3 — fact-annotated head-to-head: the SAME SpecQualityJudge ensemble as
+        head_to_head() above (kept byte-identical — spec cardinal constraint), fed the
+        machine-annotated pair instead of the raw text. A fully separate call/verdict."""
+        from .judges_live import SpecQualityJudge
+        judge = SpecQualityJudge(self._ask, self._judge_primary)
+        return judge.compare(self._issue.text, off_annotated or "", on_annotated or "")
+
+    def score_relational(self, off_text: str, on_text: str, *, cell: tuple) -> dict:
+        """D2 — relational-fact accuracy (mechanical; prism NEVER the oracle). ONE cheap
+        extractor call runs IDENTICALLY on both arms (same prompt template + model,
+        blind/symmetric — it never sees which arm is which). Verification is mechanical:
+        calls()/called_by() -> NullCallOracle (fail-open UNKNOWN stub; full LSP
+        call-hierarchy wiring is a follow-up, see relational.py module docstring);
+        depends() -> a neutral per-language import-text parser (NOT prism module-deps).
+
+        Returns {"off": {...}, "on": {...}, "delta": on.precision - off.precision}."""
+        from .llm import JUDGE_MODEL
+        from .relational import (
+            NullCallOracle,
+            extract_relational_claims,
+            score_relational_claims,
+        )
+        extractor_model = self._judge_primary or JUDGE_MODEL
+        language = getattr(self._issue, "language", "") or ""
+        call_oracle = NullCallOracle()  # TODO(D2 follow-up): tier_a.oracles.LspOracle bridge
+        off_claims = extract_relational_claims(self._ask, extractor_model, off_text)
+        on_claims = extract_relational_claims(self._ask, extractor_model, on_text)
+        off_report = score_relational_claims(off_claims, call_oracle=call_oracle,
+                                             co=self._co, language=language)
+        on_report = score_relational_claims(on_claims, call_oracle=call_oracle,
+                                            co=self._co, language=language)
+
+        def _to_dict(report) -> dict:
+            return {
+                "precision": report.precision,
+                "unknown_rate": report.unknown_rate,
+                "contradicted": report.contradicted,
+                "total": report.total,
+                "verdicts": [
+                    {"kind": v.claim.kind, "a": v.claim.a, "b": v.claim.b, "status": v.status}
+                    for v in report.verdicts
+                ],
+            }
+
+        return {
+            "off": _to_dict(off_report),
+            "on": _to_dict(on_report),
+            "delta": on_report.precision - off_report.precision,
+        }
 
     def run_off_arm(self, cell: tuple):
         """Run ONE fresh prism-OFF status-quo arm inside the pinned checkout.
@@ -1173,6 +1324,23 @@ def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
                     # _LivePartCComps always does.
                     if hasattr(comps, "head_to_head"):
                         return comps.head_to_head(off, on, c)
+                    return {}
+                # Scorecard-v2 (D1/D2/D3) forwarding — run_partc_cell's hasattr gates
+                # check THIS wrapper object (which always defines these methods), so
+                # each one guards internally on `comps` — mirroring head_to_head above —
+                # so a comps shape that predates the v2 wiring (e.g. a monkeypatched test
+                # fake) degrades to an empty dict instead of raising AttributeError.
+                def score_validity(self_inner, text, **kwargs):
+                    if hasattr(comps, "score_validity"):
+                        return comps.score_validity(text, **kwargs)
+                    return {}
+                def score_relational(self_inner, off_text, on_text, **kwargs):
+                    if hasattr(comps, "score_relational"):
+                        return comps.score_relational(off_text, on_text, **kwargs)
+                    return {}
+                def head_to_head_annotated(self_inner, off_annotated, on_annotated, c):
+                    if hasattr(comps, "head_to_head_annotated"):
+                        return comps.head_to_head_annotated(off_annotated, on_annotated, c)
                     return {}
 
             partc_cell = run_partc_cell(cell, _CachedComps())

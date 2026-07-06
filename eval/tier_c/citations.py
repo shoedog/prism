@@ -20,3 +20,14 @@ def parse_citations(text: str) -> list[Citation]:
             seen.add(key)
             out.append(Citation(file=file, line=line, symbol=sym))
     return out
+
+
+def iter_citation_occurrences(text: str):
+    """Yield (start, end, Citation) for EVERY citation occurrence in `text`, in order,
+    NOT deduped (unlike parse_citations). D1 (validity.py) and D3 (annotate.py) need the
+    exact text position of each occurrence to map it back to its enclosing sentence and
+    to insert inline annotation tags — a repeated file:line cited from two different
+    sentences is two distinct occurrences for those purposes."""
+    for m in _PAT.finditer(text):
+        file, line, sym = m.group(1), int(m.group(2)), m.group(3)
+        yield m.start(), m.end(), Citation(file=file, line=line, symbol=sym)
