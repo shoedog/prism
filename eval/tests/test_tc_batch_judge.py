@@ -83,3 +83,70 @@ def test_classify_batch_prompt_numbers_items_and_carries_intro():
     assert "INTRO-TEXT" in p
     assert "ITEM-ONE" in p and "ITEM-TWO" in p
     assert "#1" in p and "#2" in p
+
+
+# ---------------------------------------------------------------------------
+# R4 — anti-fanout perf guard: call count independent of citation count.
+# An arm with >=4 citations across >=2 sentences must cost AT MOST ONE ask()
+# call for validity and AT MOST ONE for relevance — this is the test that
+# would have caught the original O(N) per-citation ensemble design
+# (~140-220 calls/cell, >58 min/cell).
+# ---------------------------------------------------------------------------
+
+def test_batch_judging_call_count_is_independent_of_citation_count():
+    import types
+    from tier_c.cli import _LivePartCComps
+    from tier_c.validity import CitationValidityJudge, score_validity
+    from tier_c.model import Citation
+
+    calls = {"n": 0}
+
+    def counting_ask(model, prompt):
+        calls["n"] += 1
+        n_items = prompt.count("--- Item #")
+        return "\n".join(f"#{i} YES" for i in range(1, n_items + 1))
+
+    class _CountingCo:
+        root = "/fake"
+        def resolve_rel(self, f):
+            return f
+        def file_exists(self, f):
+            return True
+        def read_line(self, f, ln):
+            return "func Foo() Bar { }"
+        def read_window(self, f, ln):
+            return "def foo(): ..."
+
+    co = _CountingCo()
+    text = (
+        "Claim one touches src/a.go:1. Claim two touches src/b.go:2. "
+        "Claim three touches src/c.go:3. Claim four touches src/d.go:4."
+    )
+
+    # --- D1 validity: 4 claims across 4 sentences -> <=1 call ---
+    judge = CitationValidityJudge(ask=counting_ask)
+    vreport = score_validity(co, text, judge)
+    assert vreport.total == 4
+    validity_calls = calls["n"]
+    assert validity_calls <= 1, f"validity must cost <=1 ask call, got {validity_calls}"
+
+    # --- relevance: 4 citations -> <=1 ADDITIONAL call ---
+    issue = types.SimpleNamespace(text="ISSUE", scoped_slice="s", repo="ruff", sha="abc")
+    comps = _LivePartCComps(co=co, issue=issue, model="opus-4.8", base_root="x",
+                            ask=counting_ask)
+    comps._upstream_spec = lambda cell: ""
+    cites = [
+        Citation(file="src/a.go", line=1, symbol=None),
+        Citation(file="src/b.go", line=2, symbol=None),
+        Citation(file="src/c.go", line=3, symbol=None),
+        Citation(file="src/d.go", line=4, symbol=None),
+    ]
+    rep = comps.score(cites, cell=("ruff", "spec", "opus-4.8"), arm="on")
+    assert len(rep.verdicts) == 4
+    relevance_calls = calls["n"] - validity_calls
+    assert relevance_calls <= 1, f"relevance must cost <=1 ask call, got {relevance_calls}"
+
+    assert calls["n"] <= 2, (
+        f"TOTAL validity+relevance calls over a 4-citation arm must be <=2 "
+        f"(pre-fix this was ~4 x 2-3 = 8-12 ensemble calls), got {calls['n']}"
+    )
