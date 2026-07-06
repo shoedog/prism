@@ -118,26 +118,26 @@ class _PartialCo:
 
 def test_score_validity_rate_is_over_claims_not_citations():
     """3 claims (from 3 sentences), 2 SUPPORTED, 1 CONTRADICTED -> support_rate = 2/3,
-    NOT a raw count. This is the anti-volume guarantee spec D1 requires."""
+    NOT a raw count. This is the anti-volume guarantee spec D1 requires.
+
+    Batch judging (perf fix): score_validity now classifies ALL resolvable claims in
+    ONE model call (no ensemble) instead of one ensemble call per claim, so the fake
+    ask returns ONE reply with 3 "#n VERDICT" lines and must be called exactly once."""
     text = ("Fix one is in a.py:1. Fix two is in a.py:1. "  # SAME cite, different sentences
             "The third detail is in b.py:2.")
 
-    # Deterministic per-sentence verdict (both sonnet votes see the SAME prompt content
-    # and so always agree -> no opus escalation, and no StopIteration risk from a shared
-    # iterator being consumed more than once per claim).
+    calls = []
+
     def ask(model, prompt):
-        if "Fix one" in prompt:
-            return "SUPPORTED one"
-        if "Fix two" in prompt:
-            return "SUPPORTED two"
-        assert "third detail" in prompt
-        return "CONTRADICTED three"
+        calls.append(prompt)
+        return "#1 SUPPORTED one\n#2 SUPPORTED two\n#3 CONTRADICTED three"
 
     judge = CitationValidityJudge(ask=ask)
     report = score_validity(_FakeCo(), text, judge)
     assert report.total == 3
     assert report.support_rate == 2 / 3, f"expected 2/3, got {report.support_rate}"
     assert report.contradicted == 1
+    assert len(calls) == 1, f"validity must batch all 3 claims into ONE ask call, got {len(calls)}"
 
 
 def test_score_validity_unresolvable_citation_is_unsupported_without_asking():

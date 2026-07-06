@@ -90,6 +90,26 @@ class CitationValidityJudge:
         return ensemble(self.ask, prompt, _VALIDITY_CHOICES,
                         sonnet=self.sonnet, opus=self.opus, default="UNSUPPORTED")
 
+    def validity_batch(self, items: list[tuple[CitationClaim, str]]) -> list[str]:
+        """Batch judging (perf fix): classify ALL resolvable claims in ONE model call
+        (self.sonnet only — NO opus, NO ensemble), instead of one ensemble call PER
+        claim. `items` pairs each CitationClaim with its already-read code window;
+        returns a verdict list aligned 1:1 with `items`."""
+        from .batch_judge import classify_batch
+        blocks = [
+            f"A written claim cites code at {claim.cite.file}:{claim.cite.line}"
+            f"{' (symbol ' + claim.cite.symbol + ')' if claim.cite.symbol else ''}.\n\n"
+            f"Claim sentence:\n{claim.sentence}\n\n"
+            f"Code at that location:\n{code}"
+            for claim, code in items
+        ]
+        intro = (
+            "For EACH numbered item below, does the code SUPPORT the claim sentence, "
+            "CONTRADICT it, or is it UNSUPPORTED (the code doesn't confirm it either way)?"
+        )
+        return classify_batch(self.ask, self.sonnet, intro, blocks, _VALIDITY_CHOICES,
+                              default="UNSUPPORTED")
+
 
 def _resolve_for_validity(co, claim: CitationClaim, *, ask) -> tuple[str | None, bool]:
     """Returns (resolved_path_or_None, ambiguous). resolver-fix-spec.md R5: prefer the
@@ -119,24 +139,39 @@ def score_validity(co, text: str, judge: "CitationValidityJudge", *, ask=None) -
     same seam CitationValidityJudge itself uses (judge.ask) — pass the SAME ask when
     available so a real-but-tied citation gets one more chance to resolve before D1
     gives up on it.
+
+    Batch judging (perf fix): every RESOLVABLE claim is classified in ONE
+    `judge.validity_batch` call (single model, no ensemble) instead of one ensemble
+    call per claim — call count is independent of claim count. `escalated` is always
+    False now (no ensemble tiebreak in the batch path); the field is kept for shape
+    compatibility with the pre-batch ValidityVerdict.
     """
     claims = extract_citation_claims(text)
-    verdicts: list[ValidityVerdict] = []
-    for claim in claims:
+    verdict_slots: list[str | None] = [None] * len(claims)
+    resolvable: list[tuple[int, CitationClaim, str]] = []
+    for i, claim in enumerate(claims):
         resolved, ambiguous = _resolve_for_validity(co, claim, ask=ask)
         if resolved is None or claim.cite.line is None:
             # Truly unresolvable (ABSENT, or still-AMBIGUOUS after the R2 disambiguator
             # had its shot): no definitive code window to judge -> conservative
-            # UNSUPPORTED, and we never spend an ensemble call on it. A bare-but-REAL
+            # UNSUPPORTED, and we never spend a model call on it. A bare-but-REAL
             # citation the R1 layered resolver pinned to exactly one candidate reaches
             # the `code = ...` branch below instead (the R5 fix — never auto-UNSUPPORTED
             # just because the path was bare).
-            verdicts.append(ValidityVerdict(claim=claim, verdict="UNSUPPORTED"))
+            verdict_slots[i] = "UNSUPPORTED"
             continue
         code = co.read_window(resolved, claim.cite.line) or ""
-        ev = judge.validity(claim, code)
-        verdicts.append(ValidityVerdict(claim=claim, verdict=ev.verdict,
-                                        escalated=ev.escalated, votes=ev.votes))
+        resolvable.append((i, claim, code))
+
+    if resolvable:
+        batch_verdicts = judge.validity_batch([(c, code) for _, c, code in resolvable])
+        for (i, _claim, _code), verdict in zip(resolvable, batch_verdicts):
+            verdict_slots[i] = verdict
+
+    verdicts = [
+        ValidityVerdict(claim=claims[i], verdict=verdict_slots[i], escalated=False, votes=[])
+        for i in range(len(claims))
+    ]
     total = len(verdicts)
     supported = sum(1 for v in verdicts if v.verdict == "SUPPORTED")
     contradicted = sum(1 for v in verdicts if v.verdict == "CONTRADICTED")
