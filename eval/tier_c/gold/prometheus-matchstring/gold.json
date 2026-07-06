@@ -1,0 +1,38 @@
+{
+  "task_id": "prometheus-matchstring",
+  "repo": "prometheus",
+  "sha": "505095b",
+  "symbol": "MatchString",
+  "status": "DRAFT — owner methodology review pending (worked example)",
+  "closure_summary": {
+    "hops": 1,
+    "forwarder": "(*labels.Matcher).Matches @ model/labels/matcher.go:108 — thin (forwards m.re.MatchString in MatchRegexp/MatchNotRegexp arms, one negated)",
+    "terminates_because": "hop-1 callers are CONSUMERS (query/rule/tsdb eval); PostingsForMatchers consumes Matches in posting logic (own contract) -> no further hop",
+    "gold_size": 13,
+    "d1_count": 10,
+    "generator_of_record": "grep-per-hop (git grep -nw MatchString @L0; git grep -n '.Matches(' @hop1, receiver-verified *labels.Matcher). prism-INDEPENDENT."
+  },
+  "sites": [
+    {"file": "model/labels/matcher.go", "symbol": "Matches", "line": 108, "token_anchor": "MatchString@model/labels/matcher.go:115", "receiver_evidence": "m.re : *FastRegexMatcher (Matcher.re field)", "hop_distance": 0, "role": "forwarder", "d_member": "none", "provenance": ["grep", "lsp", "prism"], "adjudication": "real", "reason": "the renaming boundary: callers say Matches, target is MatchString"},
+
+    {"file": "promql/info.go", "symbol": "evalInfo", "line": 65, "token_anchor": "Matches@promql/info.go:65", "receiver_evidence": "m : *labels.Matcher (info-metric matcher loop)", "hop_distance": 1, "role": "consumer", "d_member": "D1", "provenance": ["grep"], "adjudication": "real", "reason": "labels.Matcher.Matches caller; file has zero MatchString text"},
+    {"file": "promql/info.go", "symbol": "combineWithInfoVector", "line": 470, "token_anchor": "Matches@promql/info.go:470", "receiver_evidence": "m : *labels.Matcher", "hop_distance": 1, "role": "consumer", "d_member": "D1", "provenance": ["grep"], "adjudication": "real", "reason": "labels.Matcher.Matches caller; D1"},
+    {"file": "promql/parser/parse.go", "symbol": "checkAST", "line": 915, "token_anchor": "Matches@promql/parser/parse.go:915", "receiver_evidence": "lm : *labels.Matcher", "hop_distance": 1, "role": "consumer", "d_member": "D1", "provenance": ["grep"], "adjudication": "real", "reason": "labels.Matcher.Matches caller; D1"},
+    {"file": "rules/group.go", "symbol": "matches", "line": 172, "token_anchor": "Matches@rules/group.go:172", "receiver_evidence": "m : *labels.Matcher (label-matcher loop)", "hop_distance": 1, "role": "consumer", "d_member": "D1", "provenance": ["grep"], "adjudication": "real", "reason": "labels.Matcher.Matches caller; D1"},
+    {"file": "rules/group.go", "symbol": "buildDependencyMap", "line": 1164, "token_anchor": "Matches@rules/group.go:1164", "receiver_evidence": "nameMatcher : *labels.Matcher", "hop_distance": 1, "role": "consumer", "d_member": "D1", "provenance": ["grep"], "adjudication": "real", "reason": "labels.Matcher.Matches caller (3 sites 1164/1188/1196 in this fn); D1"},
+    {"file": "tsdb/exemplar.go", "symbol": "matchesSomeMatcherSet", "line": 209, "token_anchor": "Matches@tsdb/exemplar.go:209", "receiver_evidence": "m : *labels.Matcher (matchers [][]*labels.Matcher, explicit)", "hop_distance": 1, "role": "consumer", "d_member": "D1", "provenance": ["grep"], "adjudication": "real", "reason": "labels.Matcher.Matches caller; D1"},
+    {"file": "tsdb/querier.go", "symbol": "PostingsForMatchers", "line": 277, "token_anchor": "Matches@tsdb/querier.go:277", "receiver_evidence": "m : *labels.Matcher (ms []*labels.Matcher)", "hop_distance": 1, "role": "consumer", "d_member": "D1", "provenance": ["grep"], "adjudication": "real", "reason": "labels.Matcher.Matches caller (3 sites 277/285/349); CONSUMER - do not hop to its callers; D1"},
+    {"file": "tsdb/querier.go", "symbol": "inversePostingsForMatcher", "line": 459, "token_anchor": "Matches@tsdb/querier.go:459", "receiver_evidence": "m : *labels.Matcher", "hop_distance": 1, "role": "consumer", "d_member": "D1", "provenance": ["grep"], "adjudication": "real", "reason": "labels.Matcher.Matches caller; D1"},
+    {"file": "tsdb/querier.go", "symbol": "labelValuesWithMatchers", "line": 490, "token_anchor": "Matches@tsdb/querier.go:490", "receiver_evidence": "m : *labels.Matcher", "hop_distance": 1, "role": "consumer", "d_member": "D1", "provenance": ["grep"], "adjudication": "real", "reason": "labels.Matcher.Matches caller; D1"},
+    {"file": "web/api/v1/api.go", "symbol": "matchLabels", "line": 1268, "token_anchor": "Matches@web/api/v1/api.go:1268", "receiver_evidence": "m : *labels.Matcher", "hop_distance": 1, "role": "consumer", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "labels.Matcher.Matches caller; NOT D1 (api.go has a stdlib MatchString @1904)"},
+    {"file": "web/api/v1/api.go", "symbol": "parseMatchersParam", "line": 2311, "token_anchor": "Matches@web/api/v1/api.go:2311", "receiver_evidence": "lm : *labels.Matcher", "hop_distance": 1, "role": "consumer", "d_member": "none", "provenance": ["grep"], "adjudication": "real", "reason": "labels.Matcher.Matches caller; NOT D1 (same file as :1904 stdlib hit)"},
+
+    {"file": "model/labels/test_utils.go", "symbol": "Matches", "line": 36, "token_anchor": "Matches@model/labels/test_utils.go:36", "receiver_evidence": "m : *labels.Matcher (Selector []*labels.Matcher)", "hop_distance": 1, "role": "consumer", "d_member": "D1", "provenance": ["grep"], "adjudication": "real", "reason": "Selector.Matches wraps labels.Matcher.Matches; include SITE, do NOT hop (its callers are tests). BORDERLINE: test-helper file (non-_test.go) — flag for owner"}
+  ],
+  "exclusion_table": {
+    "note": "same-name/other-receiver MatchString hits = phantom bait; scored as phantom if an arm claims them",
+    "stdlib_regexp_MatchString": ["config/config.go:432", "discovery/file/file.go:93", "discovery/http/http.go:177", "discovery/puppetdb/puppetdb.go:215", "web/api/v1/api.go:1904"],
+    "relabel_Regexp_embeds_stdlib": ["relabel/relabel.go (relabel.Regexp struct embeds *regexp.Regexp)"],
+    "stringMatcher_internal_optimization_OUT_of_scope": ["model/labels/regexp.go:138/704/713/717/753/770/792/807/951 (StringMatcher.Matches, the SetMatches/stringMatcher fast-path — different symbol, scoped OUT)"]
+  }
+}
