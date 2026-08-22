@@ -6412,6 +6412,90 @@ mod go_receiver_typing_tests {
     }
 
     #[test]
+    fn s2_pointer_embed_interface_alias_collision_never_recovers() {
+        let cg = build_go(&[
+            (
+                "a/a.go",
+                "package a\n\
+                 type Alias = interface { Do() }\n\
+                 type Holder struct { *Alias }\n\
+                 func run(h Holder) { h.Alias.Do() }\n",
+            ),
+            (
+                "z/z.go",
+                "package z\n\
+                 type Alias interface { Do() }\n\
+                 type Impl struct{}\n\
+                 func (Impl) Do() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Do");
+        assert_eq!(site.receiver_type, None);
+        assert_eq!(site.receiver_recovery, None);
+        let out = cg.resolve_call_site_full(site);
+        assert!(
+            out.resolved
+                .iter()
+                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
+            "an invalid pointer-to-interface alias must not emit Exact z.Impl.Do: {out:?}"
+        );
+    }
+
+    #[test]
+    fn s2_pointer_embed_struct_alias_fails_closed() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Listener struct{}\n\
+             func (*Listener) Serve() {}\n\
+             type Alias = Listener\n\
+             type Holder struct { *Alias }\n\
+             func run(h Holder) { h.Alias.Serve() }\n",
+        )]);
+        let site = site_in(&cg, "run", "Serve");
+        assert_eq!(site.receiver_type, None);
+        assert_eq!(site.receiver_recovery, None);
+        assert!(
+            cg.resolve_call_site_full(site)
+                .resolved
+                .iter()
+                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
+            "struct aliases intentionally fail closed for S2"
+        );
+    }
+
+    #[test]
+    fn s2_pointer_embed_defined_interface_collision_never_recovers() {
+        let cg = build_go(&[
+            (
+                "a/a.go",
+                "package a\n\
+                 type I interface { Do() }\n\
+                 type I2 I\n\
+                 type Holder struct { *I2 }\n\
+                 func run(h Holder) { h.I2.Do() }\n",
+            ),
+            (
+                "z/z.go",
+                "package z\n\
+                 type I2 interface { Do() }\n\
+                 type Impl struct{}\n\
+                 func (Impl) Do() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Do");
+        assert_eq!(site.receiver_type, None);
+        assert_eq!(site.receiver_recovery, None);
+        let out = cg.resolve_call_site_full(site);
+        assert!(
+            out.resolved
+                .iter()
+                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
+            "a defined interface type must not emit an Exact edge through z.I2: {out:?}"
+        );
+    }
+
+    #[test]
     fn cross_package_unqualified_embed_never_mints_embedded_promotion() {
         let cg = build_go(&[
             (

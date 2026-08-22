@@ -263,7 +263,7 @@ impl GoTypeProvider {
             Self::extract_from_file(&mut inner, path, parsed);
         }
 
-        Self::remove_invalid_pointer_interface_pseudo_fields(&mut inner);
+        Self::remove_unproven_pointer_embed_pseudo_fields(&mut inner);
         Self::compute_satisfaction(&mut inner);
         GoTypeProvider {
             data: Arc::new(inner),
@@ -697,23 +697,23 @@ impl GoTypeProvider {
         }
     }
 
-    /// Go rejects `struct { *I }` when `I` is an interface. Tree-sitter still
-    /// parses it, so remove its implicit selector from S2's field index after
-    /// the whole repository has supplied the interface definitions. A
-    /// qualified pointer target needs package-aware type resolution to decide
-    /// this, so it also fails closed rather than leaking an invalid `*pkg.I`.
-    fn remove_invalid_pointer_interface_pseudo_fields(data: &mut GoTypeData) {
+    /// Retain a pointer-embed pseudo-field for S2 recovery only when its bare
+    /// target is proven to be a struct declared in the embedding package.
+    /// Aliases, defined named types, qualified targets, interfaces, and unknown
+    /// targets all fail closed. Their selector names remain in `struct_embeds`
+    /// for Go shadowing decisions; only the S2 `field_types` entry is removed.
+    fn remove_unproven_pointer_embed_pseudo_fields(data: &mut GoTypeData) {
         let mut invalid = Vec::new();
         for (owner, embeds) in &data.struct_embeds {
             for embedded in embeds {
-                let is_invalid = embedded.is_pointer
-                    && match embedded.local_target_name() {
-                        Some(target) => data
-                            .interface_name_owners
-                            .get(target)
-                            .is_some_and(|owners| owners.contains(&owner.package_dir)),
-                        None => true,
-                    };
+                let is_proven_local_struct = embedded.local_target_name().is_some_and(|target| {
+                    data.struct_identities
+                        .contains(&crate::resolution::GoOwnerIdentity {
+                            package_dir: owner.package_dir.clone(),
+                            name: target.to_string(),
+                        })
+                });
+                let is_invalid = embedded.is_pointer && !is_proven_local_struct;
                 if is_invalid {
                     invalid.push((owner.clone(), embedded.name.clone()));
                 }
