@@ -224,6 +224,37 @@ pub(crate) fn exact_cross_package_visibility(
     (visibility.visible, exact)
 }
 
+/// Exact build/test visibility for a P5 registration site. Registration
+/// provenance belongs to the package performing the assignment, not to the
+/// struct field's owner package, so only caller-to-site compatibility applies.
+fn exact_registration_visibility(
+    caller_file: &str,
+    registration_file: &str,
+    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+) -> (bool, bool) {
+    let (Some(caller), Some(registration)) =
+        (profiles.get(caller_file), profiles.get(registration_file))
+    else {
+        return (true, false);
+    };
+    let caller_owns_test_namespace = crate::resolution::dir_of(caller_file)
+        == crate::resolution::dir_of(registration_file)
+        && caller.package_clause == registration.package_clause;
+    if registration.is_test_file && !caller_owns_test_namespace {
+        return (false, true);
+    }
+    let mut registration_caller = caller.clone();
+    registration_caller.package_clause = registration.package_clause.clone();
+    let visibility = crate::go_build_profile::go_same_package_visible_detailed(
+        &registration_caller,
+        registration,
+    );
+    let exact = visibility.visible
+        && crate::go_build_profile::profile_allows_exact(Some(caller))
+        && crate::go_build_profile::visibility_allows_exact(Some(registration), &visibility);
+    (visibility.visible, exact)
+}
+
 /// Filter provenance-bearing values, union target sets from compatible profile
 /// groups, and drop when mutually exclusive visible groups disagree. Multiple
 /// registrations in files that coexist in one build remain a legitimate P5
@@ -240,6 +271,53 @@ where
     I: IntoIterator<Item = (&'a str, T)>,
 {
     let mode = GoOwnerReferenceMode::from_type_text(owner_type_text);
+    select_values_by_visibility(
+        facts,
+        profiles,
+        ProfileComparison::DeclarationNamespace,
+        |defining_file| {
+            exact_declaration_visibility(owner, caller_file, mode, defining_file, profiles)
+        },
+    )
+}
+
+/// Filter P5 registration targets by the invocation caller's exact build/test
+/// compatibility with each registration site. The field-owner declaration is
+/// intentionally irrelevant here; it was already validated by the field lane.
+pub fn select_registration_values<'a, T, I>(
+    caller_file: &str,
+    facts: I,
+    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+) -> GoPartitionSelection<BTreeSet<T>>
+where
+    T: Clone + Ord,
+    I: IntoIterator<Item = (&'a str, T)>,
+{
+    select_values_by_visibility(
+        facts,
+        profiles,
+        ProfileComparison::BuildOnly,
+        |registration_file| exact_registration_visibility(caller_file, registration_file, profiles),
+    )
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ProfileComparison {
+    DeclarationNamespace,
+    BuildOnly,
+}
+
+fn select_values_by_visibility<'a, T, I, F>(
+    facts: I,
+    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    comparison: ProfileComparison,
+    mut visibility: F,
+) -> GoPartitionSelection<BTreeSet<T>>
+where
+    T: Clone + Ord,
+    I: IntoIterator<Item = (&'a str, T)>,
+    F: FnMut(&str) -> (bool, bool),
+{
     let mut evidence = GoPartitionEvidence::default();
     let mut all_groups: BTreeMap<crate::go_build_profile::GoBuildProfile, BTreeSet<T>> =
         BTreeMap::new();
@@ -257,8 +335,7 @@ where
             .entry(profile.clone())
             .or_default()
             .insert(value.clone());
-        let (visible, exact) =
-            exact_declaration_visibility(owner, caller_file, mode, defining_file, profiles);
+        let (visible, exact) = visibility(defining_file);
         if !visible {
             evidence.filtered_declarations += 1;
             continue;
@@ -280,11 +357,17 @@ where
     let visible_groups: Vec<_> = visible_groups.into_iter().collect();
     for (index, (left_profile, left_values)) in visible_groups.iter().enumerate() {
         for (right_profile, right_values) in visible_groups.iter().skip(index + 1) {
+            let mut left_profile = left_profile.clone();
+            let mut right_profile = right_profile.clone();
+            if comparison == ProfileComparison::BuildOnly {
+                left_profile.package_clause.clear();
+                right_profile.package_clause.clear();
+            }
             let overlap =
-                crate::go_build_profile::go_same_package_visible(left_profile, right_profile)
+                crate::go_build_profile::go_same_package_visible(&left_profile, &right_profile)
                     || crate::go_build_profile::go_same_package_visible(
-                        right_profile,
-                        left_profile,
+                        &right_profile,
+                        &left_profile,
                     );
             if !overlap && left_values != right_values {
                 evidence.conflict = true;

@@ -1397,10 +1397,8 @@ impl CallGraph {
             );
         }
         let field_key = (owner.clone(), name.to_string());
-        let targets = crate::go_owner_partition::select_profiled_values(
-            &owner,
+        let targets = crate::go_owner_partition::select_registration_values(
             caller_file,
-            recv_ty,
             self.go_registrations
                 .iter()
                 .filter(|r| r.field_key.as_ref() == Some(&field_key))
