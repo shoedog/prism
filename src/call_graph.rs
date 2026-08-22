@@ -580,7 +580,7 @@ pub struct CallGraph {
     /// function match.
     #[serde(default)]
     pub framework_entry_unresolved_handlers: usize,
-    /// P11 S1: `(package_dir, func_name) -> declared return type` for Go
+    /// P11/P10 S1: clause-bearing function identity -> declared return type for Go
     /// free functions/methods whose `result` is a single type or `(T,
     /// error)`. Whole-program derived (a consuming file's call-RHS receiver
     /// recovery can depend on a function declared in a DIFFERENT file of the
@@ -588,8 +588,7 @@ pub struct CallGraph {
     /// `apply_go_receiver_indices` in the post-merge rematerialization pass,
     /// never incrementally patched.
     #[serde(default)]
-    pub go_return_types:
-        BTreeMap<(String, String), BTreeSet<crate::go_receiver_index::GoTypedFact>>,
+    pub go_return_types: crate::go_receiver_index::GoReturnTypes,
     /// P11 S2/P10: clause-keyed per-declaration struct snapshots. Field
     /// presence/absence and raw type remain attached to the defining file so
     /// receiver recovery can filter build profiles before requiring one value.
@@ -6054,7 +6053,8 @@ mod go_receiver_typing_tests {
     fn s1_cross_package_same_name_constructor_pins_own_package_type() {
         // Two UNRELATED packages each declare a bare (same-name, unqualified)
         // `New()` constructor returning their OWN package's type. S1's index
-        // is keyed by `(package_dir, func_name)` (`extract_go_return_types`),
+        // is keyed by clause-bearing package/function identity
+        // (`extract_go_return_types`),
         // so this must not collide -- each package's `x := New()` recovers
         // to ITS OWN type, never the other's.
         let cg = build_go(&[

@@ -7,7 +7,7 @@
 //! that are not available until the whole program has been parsed and
 //! merged:
 //!
-//! - S1 `go_return_types`: `(package_dir, func_name) -> declared return type`
+//! - S1 `go_return_types`: clause-bearing function identity -> declared return type
 //!   for free functions/methods whose `result` is a single type or a
 //!   `(T, error)` pair. Feeds `d := newDemux(...)` call-RHS recovery.
 //! - S3 `go_package_vars`: `(package_dir, var_name) -> declared type` for
@@ -44,28 +44,35 @@ pub struct GoTypedFact {
     pub defining_file: String,
 }
 
-/// S1: extract `(package_dir, func_name) -> declared return type` for every
+pub type GoReturnTypes = BTreeMap<crate::resolution::GoOwnerIdentity, BTreeSet<GoTypedFact>>;
+
+/// S1: extract a clause-bearing function identity -> declared return type for every
 /// Go `function_declaration`/`method_declaration` whose return shape is
 /// either a single type or a `(T, error)` pair. Ambiguous keys (two
-/// declarations that share a `(package_dir, func_name)` key — e.g. a free
+/// declarations that share one package namespace/function name — e.g. a free
 /// function and a same-named method — with DIFFERENT recorded types) drop
 /// entirely rather than pick one arbitrarily (favor drop over a guess).
-pub fn extract_go_return_types(
-    files: &BTreeMap<String, ParsedFile>,
-) -> BTreeMap<(String, String), BTreeSet<GoTypedFact>> {
-    let mut multi: BTreeMap<(String, String), BTreeSet<GoTypedFact>> = BTreeMap::new();
+pub fn extract_go_return_types(files: &BTreeMap<String, ParsedFile>) -> GoReturnTypes {
+    let mut multi = GoReturnTypes::new();
     for (path, parsed) in files {
         if parsed.language != Language::Go {
             continue;
         }
-        let dir = dir_of(path).to_string();
+        let (profile, _) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+        if profile.package_clause.trim().is_empty() {
+            continue;
+        }
         let root = parsed.tree.root_node();
         let mut cursor = root.walk();
         for child in root.children(&mut cursor) {
             if matches!(child.kind(), "function_declaration" | "method_declaration") {
                 if let Some((name, ty)) = extract_one_return_type(&child, parsed) {
                     multi
-                        .entry((dir.clone(), name))
+                        .entry(crate::resolution::GoOwnerIdentity {
+                            package_dir: dir_of(path).to_string(),
+                            package_clause: profile.package_clause.clone(),
+                            name,
+                        })
                         .or_default()
                         .insert(GoTypedFact {
                             ty,
@@ -255,7 +262,7 @@ fn is_simple_ident_text(s: &str) -> bool {
 /// Bundled repo-wide indices the post-merge Go receiver pass consults.
 /// Borrowed for the lifetime of one rematerialization pass.
 pub struct GoReceiverFacts<'a> {
-    pub return_types: &'a BTreeMap<(String, String), BTreeSet<GoTypedFact>>,
+    pub return_types: &'a GoReturnTypes,
     pub package_vars: &'a BTreeMap<(String, String), BTreeSet<GoTypedFact>>,
     pub field_types: &'a crate::go_owner_partition::GoStructDeclarations,
     pub package_basenames: &'a BTreeMap<String, std::collections::BTreeSet<String>>,

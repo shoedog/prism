@@ -85,3 +85,30 @@ fn same_package_test_s4_target_keeps_its_own_test_only_implementers() {
         expected
     );
 }
+
+#[test]
+fn qualified_return_type_uses_the_imported_packages_ordinary_clause() {
+    let cg = build_go(&[
+        (
+            "foo/prod.go",
+            "package foo\ntype Prod struct{}\nfunc (Prod) Dial() {}\nfunc New() Prod { return Prod{} }\n",
+        ),
+        (
+            "foo/external_test.go",
+            "package foo_test\ntype Mock struct{}\nfunc (Mock) Dial() {}\nfunc New() Mock { return Mock{} }\n",
+        ),
+        (
+            "foo/use_test.go",
+            "package foo_test\nimport foo \"example/foo\"\nfunc invokeQualified() { x := foo.New(); x.Dial() }\nfunc invokeBare() { x := New(); x.Dial() }\n",
+        ),
+    ]);
+
+    assert_eq!(
+        resolved_method_owners(&cg, "invokeQualified", "Dial"),
+        BTreeSet::from(["Prod".to_string()])
+    );
+    assert_eq!(
+        resolved_method_owners(&cg, "invokeBare", "Dial"),
+        BTreeSet::from(["Mock".to_string()])
+    );
+}

@@ -1,6 +1,7 @@
 //! Exact visibility for Go return-typed receiver facts.
 
-use crate::go_receiver_index::GoTypedFact;
+use crate::go_owner_partition::{exact_declaration_visibility, GoOwnerReferenceMode};
+use crate::go_receiver_index::{GoReturnTypes, GoTypedFact};
 use crate::resolution::resolve_go_owner_identity;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -13,7 +14,7 @@ pub(crate) fn resolve_go_return_type_call(
     caller_file: &str,
     imports: &BTreeMap<String, BTreeMap<String, String>>,
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
-    return_types: &BTreeMap<(String, String), BTreeSet<GoTypedFact>>,
+    return_types: &GoReturnTypes,
     go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
 ) -> Option<String> {
     let identity = resolve_go_owner_identity(
@@ -23,11 +24,40 @@ pub(crate) fn resolve_go_return_type_call(
         package_basenames,
         go_file_profiles,
     )?;
-    unique_visible_type(
+    unique_visible_return_type(
+        &identity,
         caller_file,
-        return_types.get(&(identity.package_dir, identity.name))?,
+        GoOwnerReferenceMode::from_type_text(callee_text),
+        return_types.get(&identity)?,
         go_file_profiles,
     )
+}
+
+fn unique_visible_return_type(
+    owner: &crate::resolution::GoOwnerIdentity,
+    caller_file: &str,
+    mode: GoOwnerReferenceMode,
+    facts: &BTreeSet<GoTypedFact>,
+    go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+) -> Option<String> {
+    let mut tys = BTreeSet::new();
+    for fact in facts {
+        let (visible, exact) = exact_declaration_visibility(
+            owner,
+            caller_file,
+            mode,
+            &fact.defining_file,
+            go_file_profiles,
+        );
+        if !visible {
+            continue;
+        }
+        if !exact {
+            return None;
+        }
+        tys.insert(fact.ty.clone());
+    }
+    (tys.len() == 1).then(|| tys.into_iter().next().unwrap())
 }
 
 pub(crate) fn unique_visible_type(
