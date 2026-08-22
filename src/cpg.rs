@@ -18,6 +18,10 @@
 mod build;
 mod cfg_queries;
 mod context;
+#[cfg(test)]
+mod multiline_call_arg_parity_tests;
+#[cfg(test)]
+mod multiline_call_arg_tests;
 pub mod query;
 #[cfg(test)]
 mod tests;

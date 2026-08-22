@@ -6378,8 +6378,9 @@ impl ParsedFile {
     /// Extract the parameter name from a parameter declaration node.
     fn extract_param_name(&self, node: &Node<'_>) -> Option<String> {
         match node.kind() {
-            "parameter_declaration" | "optional_parameter_declaration" => {
-                // C/C++/Java: has a declarator field containing the identifier
+            "parameter_declaration" | "optional_parameter_declaration" | "formal_parameter" => {
+                // C/C++ declarations expose a declarator; Java formal parameters
+                // fall through to their direct identifier child below.
                 if let Some(decl) = node.child_by_field_name("declarator") {
                     return Some(self.innermost_identifier(&decl));
                 }
@@ -6417,8 +6418,10 @@ impl ParsedFile {
             | "typed_default_parameter"
             | "default_parameter"
             | "list_splat_pattern"
-            | "dictionary_splat_pattern" => {
-                // Python: typed / default / splat parameter forms.
+            | "dictionary_splat_pattern"
+            | "required_parameter"
+            | "optional_parameter" => {
+                // Python typed/default/splat and TypeScript typed parameter forms.
                 if let Some(name) = node.child_by_field_name("name") {
                     return Some(self.node_text(&name).to_string());
                 }
@@ -6436,7 +6439,7 @@ impl ParsedFile {
 
     fn extract_param_name_node<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
         match node.kind() {
-            "parameter_declaration" | "optional_parameter_declaration" => {
+            "parameter_declaration" | "optional_parameter_declaration" | "formal_parameter" => {
                 if let Some(decl) = node.child_by_field_name("declarator") {
                     return self.innermost_identifier_node(&decl);
                 }
@@ -6468,7 +6471,9 @@ impl ParsedFile {
             | "typed_default_parameter"
             | "default_parameter"
             | "list_splat_pattern"
-            | "dictionary_splat_pattern" => {
+            | "dictionary_splat_pattern"
+            | "required_parameter"
+            | "optional_parameter" => {
                 if let Some(name) = node.child_by_field_name("name") {
                     return Some(name);
                 }
@@ -6611,10 +6616,29 @@ impl ParsedFile {
     /// Like `call_argument_texts`, but selects the call expression whose start
     /// byte == `start_byte` (disambiguates multiple calls on one line).
     pub fn call_argument_texts_at(&self, start_byte: usize, callee_name: &str) -> Vec<String> {
+        self.call_argument_texts_and_spans_at(start_byte, callee_name)
+            .into_iter()
+            .map(|(text, _)| text)
+            .collect()
+    }
+
+    /// Like `call_argument_texts_at`, while retaining each argument node's
+    /// half-open source-byte span. The text-only API remains a wrapper because
+    /// its consumers intentionally do not need occurrence identity.
+    pub(crate) fn call_argument_texts_and_spans_at(
+        &self,
+        start_byte: usize,
+        callee_name: &str,
+    ) -> Vec<(String, std::ops::Range<usize>)> {
         self.call_args_index()
             .by_call
             .get(&(start_byte, callee_name.to_string()))
-            .map(|spans| spans.iter().map(|a| self.arg_text(a)).collect())
+            .map(|spans| {
+                spans
+                    .iter()
+                    .map(|a| (self.arg_text(a), a.start_byte..a.end_byte))
+                    .collect()
+            })
             .unwrap_or_default()
     }
 

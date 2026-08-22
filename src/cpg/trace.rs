@@ -13,7 +13,8 @@ type DescentGateKey = (
     String, // caller file
     String, // caller function
     usize,  // caller function start line
-    usize,  // call site line
+    usize,  // source occurrence line
+    usize,  // source occurrence start byte
     String, // callee name
     String, // target function file
     usize,  // target function start line
@@ -527,7 +528,9 @@ impl CodePropertyGraph {
             file: caller_file,
             function: caller_name,
             function_start_line: caller_start_line,
-            line: call_line,
+            line: source_line,
+            start_byte: source_start_byte,
+            end_byte: source_end_byte,
             ..
         } = &self.graph[from]
         else {
@@ -538,10 +541,15 @@ impl CodePropertyGraph {
             .get(callee_name)
             .is_some_and(|sites| {
                 sites.iter().any(|site| {
-                    site.line == *call_line
-                        && site.caller.file == *caller_file
-                        && site.caller.name == *caller_name
-                        && site.caller.start_line == *caller_start_line
+                    Self::call_site_matches_source_occurrence(
+                        site,
+                        caller_file,
+                        caller_name,
+                        *caller_start_line,
+                        *source_line,
+                        *source_start_byte,
+                        *source_end_byte,
+                    )
                 })
             })
     }
@@ -574,7 +582,9 @@ impl CodePropertyGraph {
             file: caller_file,
             function: caller_fn,
             function_start_line: caller_fn_start_line,
-            line: call_line,
+            line: source_line,
+            start_byte: source_start_byte,
+            end_byte: source_end_byte,
             ..
         } = &self.graph[from]
         else {
@@ -585,7 +595,8 @@ impl CodePropertyGraph {
             caller_file.clone(),
             caller_fn.clone(),
             *caller_fn_start_line,
-            *call_line,
+            *source_line,
+            *source_start_byte,
             target_fn.clone(),
             target_file.clone(),
             *target_fn_start_line,
@@ -602,10 +613,15 @@ impl CodePropertyGraph {
                 let matching_sites: Vec<_> = sites
                     .iter()
                     .filter(|site| {
-                        site.line == *call_line
-                            && site.caller.file == *caller_file
-                            && site.caller.name == *caller_fn
-                            && site.caller.start_line == *caller_fn_start_line
+                        Self::call_site_matches_source_occurrence(
+                            site,
+                            caller_file,
+                            caller_fn,
+                            *caller_fn_start_line,
+                            *source_line,
+                            *source_start_byte,
+                            *source_end_byte,
+                        )
                     })
                     .collect();
 
@@ -628,6 +644,26 @@ impl CodePropertyGraph {
 
         descent_gate_cache.insert(cache_key, can_descend);
         can_descend
+    }
+
+    /// Match a Step-5b source occurrence to its CallSite. Existing same-line
+    /// behavior remains line-based, preserving the refusal on same-line
+    /// same-name call collisions. When the occurrence is on a continuation
+    /// line, the CallSite's byte span is the only available identity proof.
+    fn call_site_matches_source_occurrence(
+        site: &crate::call_graph::CallSite,
+        caller_file: &str,
+        caller_name: &str,
+        caller_start_line: usize,
+        source_line: usize,
+        source_start_byte: usize,
+        source_end_byte: usize,
+    ) -> bool {
+        site.caller.file == caller_file
+            && site.caller.name == caller_name
+            && site.caller.start_line == caller_start_line
+            && (site.line == source_line
+                || (site.start_byte <= source_start_byte && source_end_byte <= site.end_byte))
     }
 
     fn taint_neighbors(&self, node: NodeIndex) -> Vec<(NodeIndex, Relation)> {
