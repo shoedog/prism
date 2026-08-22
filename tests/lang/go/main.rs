@@ -5,4 +5,5 @@ mod build_profile_test;
 #[path = "../../common/mod.rs"]
 mod common;
 mod lang_test;
+mod owner_partition_test;
 mod span_test;

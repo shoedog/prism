@@ -222,16 +222,17 @@ pub fn iface_key(text: &str) -> Option<String> {
 /// a callback registration in one package must never feed an S3 hit for a
 /// same-named struct in another (spec-review MAJOR-1).
 ///
-/// P13 follow-up note: this identity intentionally remains `(package_dir,
-/// name)` and does not encode package-clause/build-profile partitions. The
-/// same-package consult sites and P11 S1/S3 receiver facts are profile-filtered,
-/// but GoOwnerIdentity-keyed field/interface lanes can still cross those
-/// partitions; `go_owner_identity_profile_conflict` measures that gap.
+/// Package clause is part of the namespace identity: ordinary `foo` and
+/// external-test `foo_test` packages may share a directory but cannot donate
+/// owner facts to one another. Build constraints stay out of the identity and
+/// are handled from declaration provenance at consult time.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub struct GoOwnerIdentity {
     /// The struct's declaring directory (dir-as-package convention, matching
     /// `ResolutionKind::SamePackage` / R4.5 and `dir_of`).
     pub package_dir: String,
+    /// Proven Go package clause. Empty/unparsed clauses never form identities.
+    pub package_clause: String,
     /// Bare struct/type name (no package qualifier).
     pub name: String,
 }
@@ -256,6 +257,7 @@ pub fn resolve_go_owner_identity(
     file: &str,
     imports: &BTreeMap<String, BTreeMap<String, String>>,
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
+    go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
 ) -> Option<GoOwnerIdentity> {
     let t = type_text
         .trim()
@@ -266,10 +268,17 @@ pub fn resolve_go_owner_identity(
         return None;
     }
     match t.rsplit_once('.') {
-        None => Some(GoOwnerIdentity {
-            package_dir: dir_of(file).to_string(),
-            name: t.to_string(),
-        }),
+        None => {
+            let package_clause = go_file_profiles.get(file)?.package_clause.trim();
+            if package_clause.is_empty() {
+                return None;
+            }
+            Some(GoOwnerIdentity {
+                package_dir: dir_of(file).to_string(),
+                package_clause: package_clause.to_string(),
+                name: t.to_string(),
+            })
+        }
         Some((pkg, name)) => {
             if pkg.is_empty() || name.is_empty() {
                 return None;
@@ -280,8 +289,22 @@ pub fn resolve_go_owner_identity(
             if dirs.len() != 1 {
                 return None; // ambiguous basename -> fail closed
             }
+            let package_dir = dirs.iter().next().unwrap().clone();
+            let ordinary_clauses: BTreeSet<&str> = go_file_profiles
+                .iter()
+                .filter(|(path, profile)| {
+                    dir_of(path) == package_dir
+                        && !profile.is_test_file
+                        && !profile.package_clause.trim().is_empty()
+                })
+                .map(|(_, profile)| profile.package_clause.trim())
+                .collect();
+            if ordinary_clauses.len() != 1 {
+                return None;
+            }
             Some(GoOwnerIdentity {
-                package_dir: dirs.iter().next().unwrap().clone(),
+                package_dir,
+                package_clause: ordinary_clauses.into_iter().next().unwrap().to_string(),
                 name: name.to_string(),
             })
         }
@@ -1106,6 +1129,7 @@ impl CallGraph {
             caller_file,
             &self.imports,
             &self.go_package_basenames,
+            &self.go_file_profiles,
         ) else {
             return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
         };
@@ -1765,6 +1789,7 @@ impl CallGraph {
                                     &site.caller.file,
                                     &self.imports,
                                     &self.go_package_basenames,
+                                    &self.go_file_profiles,
                                 );
                                 if let Some(iface_name) = go_owner
                                     .as_ref()

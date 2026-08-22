@@ -522,6 +522,7 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                 &site.caller.file,
                 &cg.imports,
                 &cg.go_package_basenames,
+                &cg.go_file_profiles,
             );
             // M1 parity fix (codex re-review MAJOR): once the S4 route MATCHES
             // (the receiver struct's `go_embedded_interface_methods` entry

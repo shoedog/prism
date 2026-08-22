@@ -434,26 +434,29 @@ impl GoTypeProvider {
                 let (fields, embedded) = Self::extract_struct_fields(&type_node, parsed);
                 // P5 S1: package-scoped owner identity, distinct from the bare
                 // `name` key `data.structs` uses (spec-review MAJOR-1).
-                let owner = crate::resolution::GoOwnerIdentity {
-                    package_dir: crate::resolution::dir_of(path).to_string(),
-                    name: name.clone(),
-                };
-                data.struct_identities.insert(owner.clone());
-                for (field_name, field_type) in &fields {
-                    if field_type.trim_start().starts_with("func(") {
-                        data.func_typed_fields
-                            .insert((owner.clone(), field_name.clone()));
+                let (profile, _) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+                let owner = (!profile.package_clause.trim().is_empty()).then(|| {
+                    crate::resolution::GoOwnerIdentity {
+                        package_dir: crate::resolution::dir_of(path).to_string(),
+                        package_clause: profile.package_clause.clone(),
+                        name: name.clone(),
                     }
-                    // P11 S2: re-project every field (including embedded
-                    // pseudo-fields) as a package-scoped owner/field -> type
-                    // index, for the nested-selector receiver-recovery pass.
-                    data.field_types
-                        .insert((owner.clone(), field_name.clone()), field_type.clone());
+                });
+                if let Some(owner) = owner {
+                    data.struct_identities.insert(owner.clone());
+                    for (field_name, field_type) in &fields {
+                        if field_type.trim_start().starts_with("func(") {
+                            data.func_typed_fields
+                                .insert((owner.clone(), field_name.clone()));
+                        }
+                        // P11 S2: re-project every field (including embedded
+                        // pseudo-fields) as a package-scoped owner/field -> type
+                        // index, for the nested-selector receiver-recovery pass.
+                        data.field_types
+                            .insert((owner.clone(), field_name.clone()), field_type.clone());
+                    }
+                    data.struct_embeds.insert(owner, embedded.clone());
                 }
-                // P11 S4 (B2 fix): package-scoped embed list, parallel to the
-                // bare `data.structs` insert below (which last-file-wins
-                // collapses same-named structs across packages).
-                data.struct_embeds.insert(owner, embedded.clone());
                 data.structs.insert(
                     name.clone(),
                     GoStruct {
@@ -2327,9 +2330,10 @@ mod func_typed_field_tests {
         GoTypeProvider::from_parsed_files(&files)
     }
 
-    fn owner(dir: &str, name: &str) -> GoOwnerIdentity {
+    fn owner(dir: &str, package_clause: &str, name: &str) -> GoOwnerIdentity {
         GoOwnerIdentity {
             package_dir: dir.to_string(),
+            package_clause: package_clause.to_string(),
             name: name.to_string(),
         }
     }
@@ -2341,7 +2345,7 @@ mod func_typed_field_tests {
             "package main\ntype Command struct {\n\tRun func()\n}\n",
         );
         let fields = p.go_func_typed_fields();
-        assert!(fields.contains(&(owner("", "Command"), "Run".to_string())));
+        assert!(fields.contains(&(owner("", "main", "Command"), "Run".to_string())));
     }
 
     #[test]
@@ -2363,8 +2367,8 @@ mod func_typed_field_tests {
             "package main\ntype Hooks struct {\n\tBefore, After func()\n}\n",
         );
         let fields = p.go_func_typed_fields();
-        assert!(fields.contains(&(owner("", "Hooks"), "Before".to_string())));
-        assert!(fields.contains(&(owner("", "Hooks"), "After".to_string())));
+        assert!(fields.contains(&(owner("", "main", "Hooks"), "Before".to_string())));
+        assert!(fields.contains(&(owner("", "main", "Hooks"), "After".to_string())));
     }
 
     #[test]
@@ -2375,7 +2379,7 @@ mod func_typed_field_tests {
         );
         assert!(p
             .go_known_struct_identities()
-            .contains(&owner("", "Config")));
+            .contains(&owner("", "main", "Config")));
     }
 
     #[test]
@@ -2404,12 +2408,12 @@ mod func_typed_field_tests {
         );
         let p = GoTypeProvider::from_parsed_files(&files);
         let fields = p.go_func_typed_fields();
-        assert!(fields.contains(&(owner("pkga", "Command"), "Run".to_string())));
+        assert!(fields.contains(&(owner("pkga", "pkga", "Command"), "Run".to_string())));
         // pkgb's Command has no func-typed field at all, and critically is a
         // DIFFERENT owner identity from pkga's Command despite the same bare name.
-        assert!(!fields.contains(&(owner("pkgb", "Command"), "Run".to_string())));
+        assert!(!fields.contains(&(owner("pkgb", "pkgb", "Command"), "Run".to_string())));
         let known = p.go_known_struct_identities();
-        assert!(known.contains(&owner("pkga", "Command")));
-        assert!(known.contains(&owner("pkgb", "Command")));
+        assert!(known.contains(&owner("pkga", "pkga", "Command")));
+        assert!(known.contains(&owner("pkgb", "pkgb", "Command")));
     }
 }

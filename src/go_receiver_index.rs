@@ -228,7 +228,13 @@ fn resolve_go_return_type_call(
     return_types: &BTreeMap<(String, String), BTreeSet<GoTypedFact>>,
     go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
 ) -> Option<String> {
-    let identity = resolve_go_owner_identity(callee_text, caller_file, imports, package_basenames)?;
+    let identity = resolve_go_owner_identity(
+        callee_text,
+        caller_file,
+        imports,
+        package_basenames,
+        go_file_profiles,
+    )?;
     unique_visible_type(
         caller_file,
         return_types.get(&(identity.package_dir, identity.name))?,
@@ -542,6 +548,7 @@ fn classify_nested_selector(
             ctx.caller_file,
             facts.imports,
             facts.package_basenames,
+            facts.go_file_profiles,
         )?;
         let field_ty = facts.field_types.get(&(owner, seg))?;
         current = owner_key(&peel_type(field_ty));

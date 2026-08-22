@@ -2760,8 +2760,10 @@ impl CallGraph {
         &self,
         files: &BTreeMap<String, ParsedFile>,
     ) -> usize {
-        let mut by_owner: BTreeMap<crate::resolution::GoOwnerIdentity, BTreeSet<String>> =
-            BTreeMap::new();
+        // Deliberately retain the legacy `(dir, name)` support-set diagnostic:
+        // after package clause enters `GoOwnerIdentity`, this counter must still
+        // reveal the cross-clause population that motivated the partition cut.
+        let mut by_owner: BTreeMap<(String, String), BTreeSet<String>> = BTreeMap::new();
         for (path, parsed) in files {
             if parsed.language != crate::languages::Language::Go {
                 continue;
@@ -2796,10 +2798,10 @@ impl CallGraph {
                         continue;
                     }
                     by_owner
-                        .entry(crate::resolution::GoOwnerIdentity {
-                            package_dir: crate::resolution::dir_of(path).to_string(),
-                            name: name.to_string(),
-                        })
+                        .entry((
+                            crate::resolution::dir_of(path).to_string(),
+                            name.to_string(),
+                        ))
                         .or_default()
                         .insert(sig.clone());
                 }
@@ -2997,6 +2999,7 @@ impl CallGraph {
                     &caller_id.file,
                     &self.imports,
                     &self.go_package_basenames,
+                    &self.go_file_profiles,
                 ) {
                     Some(owner) if self.go_known_struct_identities.contains(&owner) => {
                         if self
@@ -3047,6 +3050,7 @@ impl CallGraph {
                     &caller_id.file,
                     &self.imports,
                     &self.go_package_basenames,
+                    &self.go_file_profiles,
                 ) {
                     Some(owner)
                         if self
@@ -5814,6 +5818,7 @@ mod go_receiver_typing_tests {
     fn main_owner(name: &str) -> GoOwnerIdentity {
         GoOwnerIdentity {
             package_dir: String::new(),
+            package_clause: "main".to_string(),
             name: name.to_string(),
         }
     }
