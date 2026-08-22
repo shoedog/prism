@@ -187,6 +187,14 @@ fn prism_mcp_bounds_first_call_wait_and_accepts_eager() {
     Command::cargo_bin("prism-mcp")
         .expect("prism-mcp binary")
         .args(["--repo", repo.path().to_str().unwrap()])
+        .args(["--first-call-wait", "600"])
+        .write_stdin(initialize_message())
+        .assert()
+        .success();
+
+    Command::cargo_bin("prism-mcp")
+        .expect("prism-mcp binary")
+        .args(["--repo", repo.path().to_str().unwrap()])
         .args(["--first-call-wait", "601"])
         .assert()
         .failure()

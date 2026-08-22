@@ -72,6 +72,18 @@ fn assert_warming_result(
     }
 }
 
+fn assert_build_failed_omit_default_path_result(response: &serde_json::Value, cause: &str) {
+    let result = &response["result"];
+    assert_eq!(result["isError"], true);
+    assert_eq!(result["_meta"]["prism/index_state"], "failed");
+    assert_eq!(result["_meta"]["prism/retryable"], true);
+    assert!(result.get("structuredContent").is_none());
+    let status: serde_json::Value =
+        serde_json::from_str(result["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(status["status"], "build_failed");
+    assert_eq!(status["cause"], cause);
+}
+
 struct BlockingBuild {
     release: Option<std::sync::mpsc::Sender<()>>,
     started: Option<std::sync::mpsc::Receiver<()>>,
@@ -307,6 +319,34 @@ fn lazy_runtime_reports_build_failures_then_retries_until_success() {
     assert_eq!(response["result"]["isError"], false);
     assert_eq!(provider.attempts(), 3);
     assert_eq!(provider.last_error(), None);
+}
+
+#[test]
+fn lazy_runtime_reports_build_failure_without_structured_content_on_the_default_path() {
+    use std::sync::Arc;
+
+    let dir = tempfile::tempdir().unwrap();
+    write_file(dir.path(), "a.py", "def f():\n    return 1\n");
+    let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
+    cfg.cache = crate::mcp::CacheMode::NoCache;
+    let builder: crate::mcp::lazy::SessionBuilder =
+        Arc::new(|| anyhow::bail!("injected build failure"));
+    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
+        &cfg,
+        std::time::Duration::from_secs(1),
+        builder,
+    )
+    .unwrap();
+
+    let response = call_tool_at_cap_with_mode(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_repo_map","arguments":{}}}"#,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::OmitDefaultPath,
+    );
+
+    assert_build_failed_omit_default_path_result(&response, "injected build failure");
 }
 
 #[test]
@@ -747,6 +787,29 @@ fn call_tool_at_cap_with_modes(
 
 const INIT: &str = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}"#;
 const INITED: &str = r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#;
+
+fn eager_initialize_wire_fixture() -> String {
+    let instructions = serde_json::to_string(&format!(
+        "{} {}",
+        crate::mcp::tools::SNAPSHOT_NOTICE,
+        crate::mcp::tools::VIEW_NOTICE
+    ))
+    .unwrap();
+    format!(
+        r#"{{"id":1,"jsonrpc":"2.0","result":{{"capabilities":{{"tools":{{}}}},"instructions":{instructions},"protocolVersion":"2025-11-25","serverInfo":{{"name":"prism-mcp","version":"{}"}}}}}}"#,
+        env!("CARGO_PKG_VERSION")
+    )
+}
+
+#[test]
+fn eager_initialize_wire_response_is_byte_identical_to_origin_main() {
+    let eager = run(vec![INIT]);
+
+    assert_eq!(
+        serde_json::to_string(&eager[0]).unwrap(),
+        eager_initialize_wire_fixture()
+    );
+}
 
 #[test]
 fn initialize_instructions_are_exact_for_eager_and_lazy_startup() {

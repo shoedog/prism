@@ -211,6 +211,13 @@ mod tests {
     }
 
     impl BlockingBuild {
+        fn new(release: mpsc::Sender<()>, done: mpsc::Receiver<()>) -> Self {
+            Self {
+                release: Some(release),
+                done: Some(done),
+            }
+        }
+
         fn release(&mut self) {
             if let Some(release) = self.release.take() {
                 let _ = release.send(());
@@ -268,14 +275,7 @@ mod tests {
             blocking_builder(cfg.clone(), Arc::new(Mutex::new(rx)), done),
         )
         .unwrap();
-        (
-            dir,
-            provider,
-            BlockingBuild {
-                release: Some(release),
-                done: Some(done_rx),
-            },
-        )
+        (dir, provider, BlockingBuild::new(release, done_rx))
     }
 
     #[test]
@@ -323,6 +323,58 @@ mod tests {
         build.wait();
         assert!(matches!(provider.ensure_ready(), Readiness::Ready));
         assert_eq!(provider.attempts(), 1);
+    }
+
+    #[test]
+    fn retry_starts_with_a_fresh_full_wait_budget() {
+        use std::collections::VecDeque;
+
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a.py"), "def f():\n    return 1\n").unwrap();
+        let mut cfg = ServerConfig::new(dir.path().to_path_buf());
+        cfg.cache = CacheMode::NoCache;
+        let wait = Duration::from_millis(100);
+        let outcomes = Arc::new(Mutex::new(VecDeque::from(["fail", "block"])));
+        let (release, rx) = mpsc::channel();
+        let (done, done_rx) = mpsc::channel();
+        let rx = Arc::new(Mutex::new(rx));
+        let builder_cfg = cfg.clone();
+        let builder: SessionBuilder =
+            Arc::new(
+                move || match outcomes.lock().unwrap().pop_front().unwrap() {
+                    "fail" => anyhow::bail!("first build failure"),
+                    "block" => {
+                        if let Ok(release) = rx.lock() {
+                            let _ = release.recv();
+                        }
+                        let result = SessionProvider::bootstrap(&builder_cfg);
+                        let _ = done.send(());
+                        result
+                    }
+                    _ => unreachable!(),
+                },
+            );
+        let mut build = BlockingBuild::new(release, done_rx);
+        let mut provider = LazySessionProvider::with_builder(&cfg, wait, builder).unwrap();
+
+        assert!(matches!(provider.ensure_ready(), Readiness::Failed { .. }));
+        assert_eq!(provider.attempts(), 1);
+
+        let retry_started = Instant::now();
+        match provider.ensure_ready() {
+            Readiness::Warming { elapsed } => {
+                assert!(elapsed >= wait, "the retry receives a fresh full deadline");
+            }
+            _ => panic!("retry must wait for its new build"),
+        }
+        assert!(
+            retry_started.elapsed() >= wait,
+            "the retry must wait for its own full deadline"
+        );
+        assert_eq!(provider.attempts(), 2);
+
+        build.finish();
+        assert!(matches!(provider.ensure_ready(), Readiness::Ready));
     }
 
     #[test]
