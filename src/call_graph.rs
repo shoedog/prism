@@ -6420,7 +6420,8 @@ mod go_receiver_typing_tests {
              type Concrete struct{}\n\
              func (c Concrete) Do() {}\n\
              type Holder struct { *I }\n\
-             func run(h Holder) { h.Do() }\n",
+             func direct(h Holder) { h.Do() }\n\
+             func nested(h Holder) { h.I.Do() }\n",
         )]);
         assert!(
             cg.go_embedded_interface_methods
@@ -6430,10 +6431,66 @@ mod go_receiver_typing_tests {
             "invalid *I embed must not mint an S4 InterfaceDispatch route"
         );
         assert!(
-            cg.resolve_call_site_full(site_in(&cg, "run", "Do"))
+            cg.resolve_call_site_full(site_in(&cg, "direct", "Do"))
                 .resolved
                 .is_empty(),
             "invalid *I embed must not satisfy I or resolve h.Do()"
+        );
+        let nested = site_in(&cg, "nested", "Do");
+        assert_eq!(nested.receiver_type, None);
+        assert_eq!(nested.receiver_recovery, None);
+        let nested_outcome = cg.resolve_call_site_full(nested);
+        assert!(
+            nested_outcome
+                .resolved
+                .iter()
+                .all(|candidate| candidate.kind != ResolutionKind::InterfaceDispatch),
+            "invalid *I embed must not recover h.I as I and dispatch it: \
+             site={nested:?}, outcome={nested_outcome:?}"
+        );
+    }
+
+    #[test]
+    fn qualified_embedded_struct_does_not_promote_unrelated_local_bare_target() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Listener struct{}\n\
+             func (l Listener) Serve() {}\n\
+             type S struct { ext.Listener }\n\
+             func run(s S) { s.Serve() }\n",
+        )]);
+        assert!(
+            cg.resolve_call_site_full(site_in(&cg, "run", "Serve"))
+                .resolved
+                .is_empty(),
+            "qualified ext.Listener must not promote an unrelated local Listener.Serve"
+        );
+    }
+
+    #[test]
+    fn qualified_embedded_interface_does_not_route_local_bare_interface() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type I interface { Do() }\n\
+             type Concrete struct{}\n\
+             func (c Concrete) Do() {}\n\
+             type Holder struct { ext.I }\n\
+             func run(h Holder) { h.Do() }\n",
+        )]);
+        assert!(
+            cg.go_embedded_interface_methods
+                .get(&main_owner("Holder"))
+                .and_then(|methods| methods.get("Do"))
+                .is_none(),
+            "qualified ext.I must not mint an S4 route through unrelated local I"
+        );
+        assert!(
+            cg.resolve_call_site_full(site_in(&cg, "run", "Do"))
+                .resolved
+                .is_empty(),
+            "qualified ext.I must not dispatch h.Do() to local I implementers"
         );
     }
 

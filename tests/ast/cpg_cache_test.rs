@@ -433,7 +433,7 @@ fn cache_round_trips_pointer_embedded_promotion() {
          type Listener struct{}\n\
          func (l *Listener) Serve() {}\n\
          type S struct { *Listener }\n\
-         func run(s S) { s.Serve() }\n"
+         func run(s S) { s.Listener.Serve() }\n"
             .to_string(),
     );
     let files = parsed_files(
@@ -445,6 +445,10 @@ fn cache_round_trips_pointer_embedded_promotion() {
     );
     let before = CodePropertyGraph::build(&files);
     let site = call_site(&before, "run", "Serve");
+    assert_eq!(
+        site.receiver_recovery,
+        Some(prism::resolution::ReceiverRecovery::FieldTyped)
+    );
     assert!(before
         .call_graph
         .resolve_call_site_full(&site)
@@ -460,6 +464,10 @@ fn cache_round_trips_pointer_embedded_promotion() {
     cpg_cache::save_cache(&before, &hashes, false, cache_dir.path()).unwrap();
     let loaded = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
     let loaded_site = call_site(&loaded, "run", "Serve");
+    assert_eq!(
+        loaded_site.receiver_recovery,
+        Some(prism::resolution::ReceiverRecovery::FieldTyped)
+    );
     assert!(loaded
         .call_graph
         .resolve_call_site_full(&loaded_site)

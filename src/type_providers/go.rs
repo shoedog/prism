@@ -64,8 +64,18 @@ struct GoEmbeddedField {
     /// Implicit selector name, always the unqualified type name.
     name: String,
     /// Raw source declaration, including a leading bare `*` when present.
+    /// Target resolution must use this, never `name`: `ext.Listener` selects
+    /// as `Listener` but must not resolve to a local `Listener`.
     raw_type: String,
     is_pointer: bool,
+}
+
+impl GoEmbeddedField {
+    /// The directly indexable local target. Qualified targets fail closed until
+    /// this provider has package-aware import resolution for embedding walks.
+    fn local_target_name(&self) -> Option<&str> {
+        embedded_local_target_name(&self.raw_type)
+    }
 }
 
 /// A Go interface definition.
@@ -253,6 +263,7 @@ impl GoTypeProvider {
             Self::extract_from_file(&mut inner, path, parsed);
         }
 
+        Self::remove_invalid_pointer_interface_pseudo_fields(&mut inner);
         Self::compute_satisfaction(&mut inner);
         GoTypeProvider {
             data: Arc::new(inner),
@@ -683,6 +694,27 @@ impl GoTypeProvider {
             for name in names {
                 fields.push((name, raw_type.clone()));
             }
+        }
+    }
+
+    /// Go rejects `struct { *I }` when `I` is an interface. Tree-sitter still
+    /// parses it, so remove its implicit selector from S2's field index after
+    /// the whole repository has supplied the interface definitions.
+    fn remove_invalid_pointer_interface_pseudo_fields(data: &mut GoTypeData) {
+        let mut invalid = Vec::new();
+        for (owner, embeds) in &data.struct_embeds {
+            for embedded in embeds {
+                if embedded.is_pointer
+                    && embedded
+                        .local_target_name()
+                        .is_some_and(|target| data.interfaces.contains_key(target))
+                {
+                    invalid.push((owner.clone(), embedded.name.clone()));
+                }
+            }
+        }
+        for field in invalid {
+            data.field_types.remove(&field);
         }
     }
 
@@ -1431,7 +1463,9 @@ impl GoTypeProvider {
                 if embedded.is_pointer {
                     continue; // Go rejects `*I` embedded interfaces.
                 }
-                let bare = embedded.name.as_str();
+                let Some(bare) = embedded.local_target_name() else {
+                    continue; // qualified target: no package-aware embedding resolver here.
+                };
                 let Some(iface) = data.interfaces.get(bare) else {
                     continue; // not a known in-repo interface (struct embed, or external) -- skip.
                 };
@@ -1519,7 +1553,9 @@ impl GoTypeProvider {
                 if embedded.is_pointer {
                     continue; // Go rejects `*I` embedded interfaces.
                 }
-                let bare = embedded.name.as_str();
+                let Some(bare) = embedded.local_target_name() else {
+                    continue; // qualified target: no package-aware embedding resolver here.
+                };
                 let package_unique_here = data
                     .interface_name_owners
                     .get(bare)
@@ -1765,7 +1801,9 @@ impl GoTypeProvider {
             }
         }
         for embedded in &go_struct.embedded {
-            let bare = embedded.name.as_str();
+            let Some(bare) = embedded.local_target_name() else {
+                continue; // qualified target: no package-aware embedding resolver here.
+            };
             if data.interfaces.contains_key(bare) {
                 continue; // embedded interface -> interface dispatch, deferred
             }
@@ -1928,6 +1966,16 @@ fn embedded_selector_name(type_text: &str) -> Option<&str> {
     let without_type_args = without_pointer.split('[').next()?.trim();
     let selector = without_type_args.rsplit('.').next()?.trim();
     (!selector.is_empty()).then_some(selector)
+}
+
+/// Return an unqualified embedded target suitable for the provider's local,
+/// bare-keyed indices. A qualified target needs import-aware package identity;
+/// absent that resolver, callers must fail closed rather than reuse its
+/// selector name and collide with an unrelated local declaration.
+fn embedded_local_target_name(raw_type: &str) -> Option<&str> {
+    let without_pointer = strip_pointer(raw_type);
+    let without_type_args = without_pointer.split('[').next()?.trim();
+    (!without_type_args.is_empty() && !without_type_args.contains('.')).then_some(without_type_args)
 }
 
 #[cfg(test)]
@@ -2280,6 +2328,23 @@ mod embedding_tests {
         assert!(
             satisfiers.contains(&"S".to_string()) && satisfiers.contains(&"*S".to_string()),
             "a *Listener embed promotes its pointer-receiver method into S and *S: {satisfiers:?}"
+        );
+    }
+
+    #[test]
+    fn value_embedded_struct_keeps_pointer_receiver_off_value_method_set() {
+        let p = provider(
+            "package main\n\
+             type I interface { Serve() }\n\
+             type Listener struct{}\n\
+             func (l *Listener) Serve() {}\n\
+             type S struct { Listener }\n",
+        );
+        assert_eq!(ms(&p.promoted_struct_methods(), "S", "Serve").len(), 1);
+        let satisfiers = p.satisfier_admission_keys_for_test("I", "Serve");
+        assert!(
+            !satisfiers.contains(&"S".to_string()) && satisfiers.contains(&"*S".to_string()),
+            "a value Listener embed exposes its pointer receiver only on *S: {satisfiers:?}"
         );
     }
 

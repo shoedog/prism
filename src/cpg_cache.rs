@@ -131,7 +131,9 @@ use std::path::{Path, PathBuf};
 ///   descent-gate check is in-memory only.
 /// - v42: Go embedded-field extraction now persists pointer embeds and their
 ///   selector/raw-type split, changing embedding promotion and S2/S4 facts.
-const CACHE_VERSION: u32 = 42; // 42: Go pointer-embedded field topology.
+/// - v43: qualified embedded targets fail closed instead of colliding with a
+///   local bare target; invalid pointer-interface pseudo-fields leave S2.
+const CACHE_VERSION: u32 = 43; // 43: corrected Go embedded-field topology.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -649,10 +651,10 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_42_for_go_pointer_embedded_field_topology() {
-        // v42: Go pointer-embedded field promotion and S2/S4 facts.
+    fn cache_version_is_43_for_corrected_go_embedded_field_topology() {
+        // v43: qualified targets and invalid pointer-interface S2 facts.
         // One transition ships per PR.
-        assert_eq!(super::CACHE_VERSION, 42);
+        assert_eq!(super::CACHE_VERSION, 43);
     }
 
     #[test]
