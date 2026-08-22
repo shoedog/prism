@@ -1,6 +1,6 @@
 # Go nested-module import identity — design v2 (roadmap #14, folds #15b) — **four slices**
 
-Date: 2026-08-22 · Status: **v3 — sol round-2 findings folded; round 3 (declared cap) focuses on slices 3–4; slices 1–2 proceed to implementation per the FIX→fold→proceed rule** · Owner decision 2026-08-22: **full scope as sol's round-1 review specified, delivered as slices**
+Date: 2026-08-22 · Status: **v4 — sol round 3 (declared cap): slices 1–2 APPROVE (implementing); slices 3–4 FIX → folded here (§4/§5); the adversarial diff review is the next gate for slices 3–4 (convergence 7→7→5, narrowing)** · Owner decision 2026-08-22: **full scope as sol's round-1 review specified, delivered as slices**
 (each slice = its own spec section here → implementer → controller gate → adversarial diff review → PR). Sol round-1 findings (7 WRONG + test
 corrections) are folded below; the slice that closes each finding is marked **[R1-n]**.
 
@@ -43,7 +43,8 @@ precision gate compares bare receiver NAMES (`manifest` + `dispatch_oracle.py`),
   summary prints `gate_ok` and the offending sites; the output pins the environment: corpus SHA, `go version`, `gopls version`, GOOS/GOARCH/tags,
   effective GOWORK (the tool forces the repo-root `go.work` when present, else `GOWORK=off`, so a parent/environment workspace cannot change the
   universe); a baseline/branch pair with different pins is refused **[R1-4]**; (d) empty scored denominator → `dispatch_precision: null` + `scored_sites` count,
-  never a vacuous 1.0; timeouts still excluded from precision but counted and (in delta mode) blocking; (e) collision fixtures (pytest, red→green on today's tool): `good.Impl` vs `bad.Impl` (different dirs); `p.Impl` vs `p_test.Impl` (same dir,
+  never a vacuous 1.0; timeouts still excluded from precision but counted and (in delta mode) blocking; (d') gopls locations are normalized to the ENCLOSING METHOD DECLARATION span (not the raw selection/name range) before comparing with prism's
+  full-node `(file, span)` (sol r3 implementation condition); (e) collision fixtures (pytest, red→green on today's tool): `good.Impl` vs `bad.Impl` (different dirs); `p.Impl` vs `p_test.Impl` (same dir,
   different clause); `impl_darwin.go` vs `impl_linux.go` (same dir/clause/type, different target file → `target_mismatch`).
 - Re-baseline main (264c8ef) with the hardened oracle for caddy/prometheus/etcd (+hugo) and record the identity-aware numbers; they replace the
   name-only baselines (caddy 1.0000/70, prometheus 0.9715/649, etcd 0.9931/1481, 2026-08-22 16:19) as the gate.
@@ -81,20 +82,24 @@ precision gate compares bare receiver NAMES (`manifest` + `dispatch_oracle.py`),
   (ii) **active main modules** = when a regular, fully valid `go.work` exists at repo root: its `use` directories — relative OR absolute, canonicalized
   (normalized `..` allowed) and lexically proven to lie inside the repo; each must contain a regular, valid `go.mod` — a malformed `go.work`, any
   `use` outside the repo / unprovable / missing or malformed target `go.mod`, or a malformed active-module `go.mod` → the WHOLE workspace graph
-  fails closed (all Go identities unproven; reason `workspace_invalid`); without `go.work`: the root `go.mod` module if present, else none; (iii) **applicable local replacements** **[R1-1]**: candidates = `replace A [vX] => <dir>` directives (relative RHS resolved against the directory
-  of the file containing the directive; target inside the repo; target contains a regular valid `go.mod`) from `go.work` and from every ACTIVE
-  main module's `go.mod`. Precedence and applicability: (1) an active main module's WORKSPACE version always wins for its own module path — a
+  fails closed (all Go identities unproven; reason `workspace_invalid`); without `go.work`: the root `go.mod` module if present, else none; (iii) **applicable local replacements** **[R1-1]**: FIRST parse ALL `replace` directives (local-dir AND module-version RHS, in-repo or not,
+  usable or not) from `go.work` and from every ACTIVE main module's `go.mod`; THEN determine the precedence WINNER per LHS (`go.work` replaces
+  override module replaces; among active main modules the union applies, and two different replacements of the same LHS without a `go.work`
+  override = conflict); ONLY THEN test the winner for usability: it must be a local directory RHS (relative RHS resolved against the directory of
+  the file containing the directive), inside the repo, lexically proven, containing a regular valid `go.mod`, and applicable per (4)–(5). An
+  unusable/unprovable WINNER (version RHS, outside the repo, missing/malformed/symlinked `go.mod`, version-specific) → the LHS is
+  `replace_unproven`: NEVER fall through to a lower-precedence local replacement (sol r3-1). Precedence and applicability: (1) an active main module's WORKSPACE version always wins for its own module path — a
   replace whose LHS is an active main module's path is ignored (the etcd shape: root `go.mod` replaces `go.etcd.io/etcd/api/v3 => ./api` while
   `api` is a `use`d main module — `api/**` stays `go.etcd.io/etcd/api/v3/...`); (2) `go.work` replaces are consulted first; (3) then the UNION of
-  the active modules' replaces — two active modules replacing the same LHS to different targets → conflict → the LHS fails closed unless
-  `go.work` overrides it; (4) a wildcard replace (no LHS version) applies only if its LHS module path is `require`d by at least one active main
+  the active modules' replaces — two active main modules replacing the same LHS to different targets without a `go.work` override is a
+  WORKSPACE error in Go → the whole workspace graph is `workspace_invalid` (all Go identities unproven), not just that LHS (sol r3-2); likewise
+  two active main modules (or an active main module and an applicable replace target) claiming the SAME effective path → `workspace_invalid`; (4) a wildcard replace (no LHS version) applies only if its LHS module path is `require`d by at least one active main
   module (a replace alone never enters the module graph); (5) a version-specific replace (`A vX => dir`) applies only with PROOF that vX is the
   selected version — prism does not compute MVS, so version-specific replaces FAIL CLOSED (documented recall stance; telemetry `replace_unproven`).
   Packages under an applicable target dir are addressed as `A + rel(pkg_dir, target_dir)` — the REPLACED path, regardless of the target's declared
   path. Version replacements (`=> other/module v1.2.3`) are ignored. (iv) **Effective identity of a package dir** = from its nearest enclosing provider after the precedence above: an active main module (declared
-  path + rel) or an applicable replace target (replaced path + rel); two DISTINCT providers claiming the same effective path (duplicate providers) or a
-  dir under an inactive, unreplaced module only → **no identity (fail closed)** with a reason (`inactive_module`, `duplicate_provider`,
-  `replace_unproven`, `workspace_invalid`, `no_go_mod`, `malformed`, `symlink`). A nested `go.mod` excludes its
+  path + rel) or an applicable replace target (replaced path + rel); a dir under an inactive, unreplaced module only → **no identity (fail closed)** with a reason (`inactive_module`, `replace_unproven`,
+  `workspace_invalid`, `no_go_mod`, `malformed`, `symlink`); duplicate effective paths among active providers are a workspace error (above). A nested `go.mod` excludes its
   subtree from the parent module (nearest wins) — inside an ACTIVE parent, a nested INACTIVE module's packages get no identity.
 - `go_package_import_paths` → consults the graph (per-dir memo); `local_import_paths` rule unchanged (single ordinary clause) → nested `Local`
   tokens for proven effective identities. Comparator unchanged in this slice (`Local↔Local` still by name until slice 4).
@@ -107,7 +112,9 @@ precision gate compares bare receiver NAMES (`manifest` + `dispatch_oracle.py`),
   => ./fork` (fork declaring `fork.example/mod`) + inactive `decoy/` declaring `original.example/mod`: a signature `original.example/mod/p.T` matches
   `fork/p` (Exact) and NOT `decoy/p`; the SAME without the `require` → no identity for `fork/p` (unrequired replace is inert); version-specific
   replace → fail closed; the etcd shape (active main module also named by another main module's replace) → workspace version wins; conflicting
-  replaces in two active modules with and without a `go.work` override; replace target missing/malformed/symlinked `go.mod` → inert; valid absolute
+  replaces in two active modules WITHOUT a `go.work` override → whole workspace unproven (no Exact edges from m1/m2 at all) and WITH the override →
+  override wins; a `go.work` replace with a non-local/version RHS over a module-file local replace of the same LHS → `replace_unproven` (no fall-through);
+  duplicate effective paths among active mains → workspace unproven; replace target missing/malformed/symlinked `go.mod` → inert; valid absolute
   in-repo `use`; missing root `go.mod` + valid root `go.work`; malformed whole `go.work` → all unproven; `use` target missing `go.mod` → all
   unproven; duplicate providers → both dropped; nested-in-nested (depth 2); relative `../` replace inside repo; replace target outside repo
   ignored; memoization: each `go.mod`/`go.work` parsed once from the loader snapshot; full == incremental == cached (46) parity; non-Go byte-identical.
@@ -119,11 +126,19 @@ precision gate compares bare receiver NAMES (`manifest` + `dispatch_oracle.py`),
   invisible to production), keeping the RHS as a canonicalized TYPE EXPRESSION (not a named leaf). `canon_type`, on a `type_identifier`/
   `qualified_type` leaf that names an alias visible to the file (own package with a visible declaring profile, or via the file's import map for
   qualified), SUBSTITUTES the entire canonical RHS expression (instantiated generics `base.List[int]`, pointers, slices, maps, funcs, predeclared,
-  nested aliases — transitively, cycle-guarded) BEFORE producing `Local`/`Qualified` tokens; if several profile-visible declarations of the alias
-  exist they must canonicalize identically, else `AliasUnresolved`; an unresolvable alias target → `AliasUnresolved` (fail closed on the Exact
+  nested aliases — transitively, cycle-guarded) BEFORE producing `Local`/`Qualified` tokens; the alias index snapshots EVERY declaration variant for `(package_dir, package_clause, type_name)` with its kind (`Alias(canonical RHS)` or
+  `Defined`) and declaring profile; expansion is allowed only when every EXACTLY visible variant (P10 exact visibility/certainty boundary, not mere
+  compatibility) is an `Alias` and all RHS canonicalize identically — any visible `Defined` variant (e.g. `a_linux.go: type A = int` vs
+  `a_windows.go: type A int`), uncertain profile visibility, or incomplete provenance → `AliasUnresolved` (sol r3-3); **parameterized aliases**
+  (`type Twice[T any] = Pair[T, T]`, Go ≥ 1.24): arity-checked binding of alias type parameters to the supplied type arguments, capture-safe
+  substitution into the RHS, transitive expansion; wrong arity / unbound parameters / cycles / unsupported constraints → `AliasUnresolved` (sol r3-4);
+  **predeclared aliases** are normalized in canonical comparison: `byte → uint8`, `rune → int32` (keep the existing `any`/empty-interface
+  normalization) (sol r3-5); an unresolvable alias target → `AliasUnresolved` (fail closed on the Exact
   path). Then the comparator: `(Local, Local) => left_path == right_path`; `(Bare, Bare) => true` stays.
 - Tests: alias-to-local, alias-to-qualified, alias to an instantiated generic (`type L = base.List[int]`; interface `Use(L)` vs `Use(base.List[int])`
-  → Exact kept), alias to composite/predeclared types, aliases in two packages to one base type → Exact kept; distinct defined types with the same name in two
+  → Exact kept), parameterized alias (`Twice[int]` vs `Pair[int, int]` → Exact; wrong arity → unresolved), `type B = byte` vs `uint8` → Exact and
+  `rune` vs `int32` → Exact, alias to composite/predeclared types, aliases in two packages to one base type → Exact kept, build-profile variants
+  `type A = int` (linux) vs `type A int` (windows) → `AliasUnresolved` (no Exact), agreeing variants → expanded; distinct defined types with the same name in two
   proven packages → empty (red today: name match); alias cycle → fail closed; `_test`-clause alias invisible; generic instantiation wrapping an
   alias keeps shape; the P10 fixture `s4_unqualified_named_types_keep_the_existing_bare_name_rule` is renamed to state that its two proven-path types
   no longer match, with a separate `Bare↔Bare` (no go.mod) variant keeping the name rule.
@@ -132,8 +147,8 @@ precision gate compares bare receiver NAMES (`manifest` + `dispatch_oracle.py`),
 ## 6. Acceptance summary per slice
 Full suite; tier-a `--matrix-only` 0 regr; fmt; clippy no new warnings; `git diff --check`; same-base `call-stats --no-cache` vs the then-current
 main on ripgrep/caddy/prometheus/etcd/hugo (leaf diff; losses attributed); hardened oracle (slices 2–4) with `--baseline` delta mode: `gate_ok`
-true and per-corpus precision ≥ baseline; reviewer: slice 1 terra (tooling), slices 2–4 sol @ xhigh (precision code); implementer: slice 1 terra,
-slices 2–4 sol @ xhigh.
+true and per-corpus precision ≥ baseline; cross-model pairs — implementer: slice 1 terra, slices 2–4 sol @ xhigh; adversarial reviewer: slice 1 sol, slice 2 terra, slices 3–4 terra @ xhigh
+(with sol's spec record in hand).
 
 ## 7. Round-2 answers recorded + round-3 questions (cap)
 Recorded from sol r2: Q1 identity includes `package_clause`, plus target file/span for the Exact-target check; unmappable gopls locations →
