@@ -235,8 +235,10 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 .get(&crate::go_owner_partition::site_key(site))
                 .copied()
                 .unwrap_or_default();
-            go_owner_identity_partition
-                .merge(receiver_partition.coalesce_site(out.telemetry.go_owner_identity_partition));
+            let site_partition =
+                receiver_partition.coalesce_site(out.telemetry.go_owner_identity_partition);
+            crate::navigation::partition_site_dump::emit_if_enabled(site, &out, site_partition);
+            go_owner_identity_partition.merge(site_partition);
             if out.drop.is_some() && site.caller.file.ends_with(".go") {
                 let key = site
                     .receiver_recovery
