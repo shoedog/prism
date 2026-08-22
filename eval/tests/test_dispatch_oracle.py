@@ -298,7 +298,8 @@ def test_summarize_oracle_timeout_excluded_from_precision():
 def test_summarize_empty_sites():
     summary = do.summarize([])
     assert summary["overall"]["sites"] == 0
-    assert summary["overall"]["dispatch_precision"] == pytest.approx(1.0)
+    assert summary["overall"]["scored_sites"] == 0
+    assert summary["overall"]["dispatch_precision"] is None
     assert summary["groups"] == []
     assert summary["over_approx_sites"] == []
     assert summary["oracle_timeout_groups"] == []

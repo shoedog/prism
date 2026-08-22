@@ -328,7 +328,8 @@ def summarize(sites: list[dict]) -> dict:
 
     dispatch_precision aggregates as (sum |P∩G|) / (sum |P|) over scored sites. Timeout and
     unresolved sites are excluded from the type-precision ratio; target mismatches remain
-    type-scored but are separately blocking Exact-target failures in delta mode.
+    type-scored but are separately blocking Exact-target failures in delta mode. An empty
+    aggregate denominator is null, never a vacuous 1.0.
     """
     groups: dict[tuple, dict] = {}
     overall = {
@@ -440,12 +441,12 @@ def summarize(sites: list[dict]) -> dict:
         g = groups[key]
         acc = g.pop("_acc")
         g["dispatch_precision"] = (
-            acc["inter"] / acc["prism"] if acc["prism"] else 1.0
+            acc["inter"] / acc["prism"] if acc["prism"] else None
         )
         group_list.append(g)
 
     overall["dispatch_precision"] = (
-        overall_acc["inter"] / overall_acc["prism"] if overall_acc["prism"] else 1.0
+        overall_acc["inter"] / overall_acc["prism"] if overall_acc["prism"] else None
     )
     return {
         "overall": overall,
@@ -1054,15 +1055,19 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
     return records, summarize(records)
 
 
+def _format_precision(value: float | None) -> str:
+    return "null" if value is None else f"{value:.4f}"
+
+
 def _print_summary(summary: dict, log=sys.stdout) -> None:
     o = summary["overall"]
     print("\n=== dispatch oracle summary ===", file=log)
-    print(f"overall dispatch_precision = {o['dispatch_precision']:.4f}  "
+    print(f"overall dispatch_precision = {_format_precision(o['dispatch_precision'])}  "
           f"(sites={o['sites']} sound={o['sound']} over_approx={o['over_approx']} "
           f"recall_gap={o['recall_gap']} oracle_timeout={o['oracle_timeout']})", file=log)
     print("per (interface, method):", file=log)
     for g in summary["groups"]:
-        print(f"  {g['interface']}.{g['method']}: precision={g['dispatch_precision']:.4f} "
+        print(f"  {g['interface']}.{g['method']}: precision={_format_precision(g['dispatch_precision'])} "
               f"sites={g['sites']} sound={g['sound']} over_approx={g['over_approx']} "
               f"recall_gap={g['recall_gap']} oracle_timeout={g['oracle_timeout']}", file=log)
     if summary["over_approx_sites"]:
