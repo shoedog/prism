@@ -183,6 +183,12 @@ pub struct GoTypeData {
     /// by the embedded type's bare name). Package-scoped, same rationale as
     /// `func_typed_fields` above.
     field_types: BTreeMap<(crate::resolution::GoOwnerIdentity, String), String>,
+    /// Proven local embedded-struct targets for S2. Unlike `field_types`, each
+    /// route retains the target package identity and the visible declaration's
+    /// exact build profile, so downstream method lookup never widens back to a
+    /// repo-global bare owner bucket.
+    field_targets:
+        BTreeMap<(crate::resolution::GoOwnerIdentity, String), crate::resolution::GoFieldTarget>,
     /// P11 S4: `struct_name -> method_name -> (interface_name, signature)` for
     /// a method supplied ONLY by exactly one directly-embedded in-repo
     /// interface, with no own/promoted concrete method or field shadowing it.
@@ -264,6 +270,7 @@ impl GoTypeProvider {
             type_declaration_files: BTreeMap::new(),
             func_typed_fields: BTreeSet::new(),
             field_types: BTreeMap::new(),
+            field_targets: BTreeMap::new(),
             embedded_interface_promotions: BTreeMap::new(),
             struct_embeds: BTreeMap::new(),
             struct_embed_files: BTreeMap::new(),
@@ -316,6 +323,13 @@ impl GoTypeProvider {
     /// `CallGraph.go_field_types` in `apply_go_interface_dispatch`.
     pub fn go_field_types(&self) -> BTreeMap<(crate::resolution::GoOwnerIdentity, String), String> {
         self.data.field_types.clone()
+    }
+
+    pub fn go_field_targets(
+        &self,
+    ) -> BTreeMap<(crate::resolution::GoOwnerIdentity, String), crate::resolution::GoFieldTarget>
+    {
+        self.data.field_targets.clone()
     }
 
     /// P11 S4 routing map: `GoOwnerIdentity (struct) -> method_name ->
@@ -735,57 +749,66 @@ impl GoTypeProvider {
         }
     }
 
-    /// Retain a pointer-embed pseudo-field for S2 recovery only when its bare
-    /// target is proven to be a struct declared in the embedding package.
+    /// Record package/profile proof for every local embedded struct. Retain a
+    /// pointer-embed pseudo-field for S2 recovery only when that proof exists.
     /// Aliases, defined named types, qualified targets, interfaces, and unknown
-    /// targets all fail closed. Their selector names remain in `struct_embeds`
-    /// for Go shadowing decisions; only the S2 `field_types` entry is removed.
+    /// pointer targets all fail closed. Their selector names remain in
+    /// `struct_embeds` for Go shadowing decisions; only the S2 `field_types`
+    /// entry is removed.
     fn remove_unproven_pointer_embed_pseudo_fields(
         data: &mut GoTypeData,
         go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
     ) {
         let mut invalid = Vec::new();
+        let mut proven = Vec::new();
         for (owner, embeds) in &data.struct_embeds {
             for embedded in embeds {
-                let is_proven_local_struct = embedded.local_target_name().is_some_and(|target| {
-                    Self::has_visible_struct_declaration(
+                let target = embedded.local_target_name().and_then(|target| {
+                    let target_owner = crate::resolution::GoOwnerIdentity {
+                        package_dir: owner.package_dir.clone(),
+                        name: target.to_string(),
+                    };
+                    Self::visible_struct_declaration_file(
                         data,
                         go_file_profiles,
                         owner,
-                        &crate::resolution::GoOwnerIdentity {
-                            package_dir: owner.package_dir.clone(),
-                            name: target.to_string(),
-                        },
+                        &target_owner,
                     )
+                    .map(|declaring_file| crate::resolution::GoFieldTarget {
+                        owner: target_owner,
+                        declaring_file,
+                    })
                 });
-                let is_invalid = embedded.is_pointer && !is_proven_local_struct;
-                if is_invalid {
+                if let Some(target) = target {
+                    proven.push(((owner.clone(), embedded.name.clone()), target));
+                } else if embedded.is_pointer {
                     invalid.push((owner.clone(), embedded.name.clone()));
                 }
             }
         }
+        data.field_targets.extend(proven);
         for field in invalid {
             data.field_types.remove(&field);
         }
     }
 
-    fn has_visible_struct_declaration(
+    fn visible_struct_declaration_file(
         data: &GoTypeData,
         go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
         embedding_owner: &crate::resolution::GoOwnerIdentity,
         target_owner: &crate::resolution::GoOwnerIdentity,
-    ) -> bool {
+    ) -> Option<String> {
         let Some(embedding_file) = data.struct_embed_files.get(embedding_owner) else {
-            return false;
+            return None;
         };
         let Some(embedding_profile) = go_file_profiles.get(embedding_file) else {
-            return false;
+            return None;
         };
         if !crate::go_build_profile::profile_allows_exact(Some(embedding_profile)) {
-            return false;
+            return None;
         }
         let Some(target_files) = data.struct_declaration_files.get(target_owner) else {
-            return false;
+            return None;
         };
 
         // These maps are keyed by the intentionally under-specified
@@ -794,22 +817,23 @@ impl GoTypeProvider {
         if Self::owner_identity_has_profile_conflict(data, go_file_profiles, embedding_owner)
             || Self::owner_identity_has_profile_conflict(data, go_file_profiles, target_owner)
         {
-            return false;
+            return None;
         }
 
-        target_files.iter().any(|target_file| {
+        target_files.iter().find_map(|target_file| {
             let Some(target_profile) = go_file_profiles.get(target_file) else {
-                return false;
+                return None;
             };
             let visibility = crate::go_build_profile::go_same_package_visible_detailed(
                 embedding_profile,
                 target_profile,
             );
-            visibility.visible
+            (visibility.visible
                 && crate::go_build_profile::visibility_allows_exact(
                     Some(target_profile),
                     &visibility,
-                )
+                ))
+            .then(|| target_file.clone())
         })
     }
 

@@ -236,6 +236,58 @@ pub struct GoOwnerIdentity {
     pub name: String,
 }
 
+/// Package/declaration proof for a Go receiver reached through a locally-declared
+/// embedded struct field. Kept separate from `GoOwnerIdentity`: P10 owns that
+/// identity's shape, while S2 needs the target declaring file to recover its
+/// build profile and narrow the bare global method bucket without guessing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GoFieldTarget {
+    pub owner: GoOwnerIdentity,
+    pub declaring_file: String,
+}
+
+const GO_FIELD_TARGET_PREFIX: &str = "go-field-target:";
+
+/// Carry a proven Go field target through the existing serialized receiver
+/// identity slot. This deliberately adds no `CallSite`/`CallGraph` field, so
+/// cache v42's bincode layout stays unchanged.
+pub(crate) fn go_field_target_outcome(
+    target: &GoFieldTarget,
+) -> crate::resolution_identity::ReceiverOutcome {
+    crate::resolution_identity::ReceiverOutcome {
+        key: crate::resolution_identity::ReceiverTypeKey::External(format!(
+            "{GO_FIELD_TARGET_PREFIX}{}\0{}",
+            target.owner.package_dir, target.declaring_file
+        )),
+        bare: target.owner.name.clone(),
+        recovery: ReceiverRecovery::FieldTyped,
+    }
+}
+
+fn go_field_target_from_outcome(
+    outcome: &crate::resolution_identity::ReceiverOutcome,
+) -> Option<GoFieldTarget> {
+    if outcome.recovery != ReceiverRecovery::FieldTyped {
+        return None;
+    }
+    let crate::resolution_identity::ReceiverTypeKey::External(encoded) = &outcome.key else {
+        return None;
+    };
+    let (package_dir, declaring_file) = encoded
+        .strip_prefix(GO_FIELD_TARGET_PREFIX)?
+        .split_once('\0')?;
+    if declaring_file.is_empty() || outcome.bare.is_empty() {
+        return None;
+    }
+    Some(GoFieldTarget {
+        owner: GoOwnerIdentity {
+            package_dir: package_dir.to_string(),
+            name: outcome.bare.clone(),
+        },
+        declaring_file: declaring_file.to_string(),
+    })
+}
+
 /// Resolve a Go type reference (`T` or `pkg.T`, as written at `file`) to a
 /// package-scoped owner identity, for the S1 func-value-field index (S2
 /// registration scan + S3 gated invocation).
@@ -490,6 +542,7 @@ pub enum ReceiverRecovery {
 pub struct RecoveredReceiver {
     pub static_type: String,
     pub recovery: ReceiverRecovery,
+    pub go_field_target: Option<GoFieldTarget>,
 }
 
 /// Receiver classifier output. `materialized` means the qualifier was proven to
@@ -654,6 +707,7 @@ fn classify_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> ReceiverCl
     ReceiverClassification::recovered(RecoveredReceiver {
         static_type,
         recovery: how,
+        go_field_target: None,
     })
 }
 
@@ -731,6 +785,7 @@ fn recover_type_assertion(ctx: &ReceiverCtx<'_>) -> Option<RecoveredReceiver> {
     Some(RecoveredReceiver {
         static_type,
         recovery: ReceiverRecovery::TypeAssertion,
+        go_field_target: None,
     })
 }
 
@@ -1078,6 +1133,66 @@ impl CallGraph {
             }
         }
         Some(resolved)
+    }
+
+    /// Resolve an S2 receiver whose embedded target was proven locally. The
+    /// global `methods[(bare_owner, name)]` bucket intentionally remains
+    /// bare-keyed, so narrow it by the carried package identity and require a
+    /// method profile that is visibly compatible with the target declaration.
+    /// A present proof owns the route: zero or multiple certain survivors drop
+    /// rather than falling back to the global bare-name ladder.
+    fn go_field_target_lookup(
+        &self,
+        target: &GoFieldTarget,
+        name: &str,
+        recovered_kind: ResolutionKind,
+    ) -> ResolutionOutcome<'_> {
+        if dir_of(&target.declaring_file) != target.owner.package_dir {
+            return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+        }
+        let Some(declaring_profile) = self.go_file_profiles.get(&target.declaring_file) else {
+            return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+        };
+        if !crate::go_build_profile::profile_allows_exact(Some(declaring_profile)) {
+            return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+        }
+        let Some(ids) = self
+            .methods
+            .get(&(target.owner.name.clone(), name.to_string()))
+        else {
+            return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+        };
+        let survivors: Vec<&FunctionId> = ids
+            .iter()
+            .filter(|fid| dir_of(&fid.file) == target.owner.package_dir)
+            .filter(|fid| {
+                let Some(candidate_profile) = self.go_file_profiles.get(&fid.file) else {
+                    return false;
+                };
+                let visibility = crate::go_build_profile::go_same_package_visible_detailed(
+                    declaring_profile,
+                    candidate_profile,
+                );
+                visibility.visible
+                    && crate::go_build_profile::visibility_allows_exact(
+                        Some(candidate_profile),
+                        &visibility,
+                    )
+            })
+            .collect();
+        let [survivor] = survivors.as_slice() else {
+            return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+        };
+        let kind = if self
+            .promoted_aliases
+            .get(&(target.owner.name.clone(), name.to_string()))
+            .is_some_and(|fids| fids.contains(*survivor))
+        {
+            ResolutionKind::EmbeddedPromotion
+        } else {
+            recovered_kind
+        };
+        ResolutionOutcome::hit(exact(std::iter::once(*survivor), kind))
     }
 
     /// P5 S3 (Go func-value callbacks): consulted from the Go interface-consult
@@ -1680,6 +1795,20 @@ impl CallGraph {
                         site.receiver_recovery
                             .unwrap_or(ReceiverRecovery::TypedParam),
                     );
+                    if caller_lang == Some(crate::languages::Language::Go)
+                        && site.receiver_recovery == Some(ReceiverRecovery::FieldTyped)
+                    {
+                        if let Some(target) = site
+                            .receiver_outcome
+                            .as_ref()
+                            .and_then(go_field_target_from_outcome)
+                        {
+                            if target.owner.name != recv_ty {
+                                return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+                            }
+                            return self.go_field_target_lookup(&target, name, recovered_kind);
+                        }
+                    }
                     if caller_lang == Some(crate::languages::Language::Python) {
                         let clean_key = (caller.file.clone(), recv_ty.to_string());
                         if self.clean_class_spans.contains_key(&clean_key) {

@@ -3113,19 +3113,26 @@ impl CallGraph {
         }
         self.go_return_types = crate::go_receiver_index::extract_go_return_types(files);
         self.go_package_vars = crate::go_receiver_index::extract_go_package_vars(files);
-        self.rematerialize_go_receiver_keys(files, receiver_config);
+        let field_targets =
+            crate::type_providers::go::GoTypeProvider::from_parsed_files(files).go_field_targets();
+        self.rematerialize_go_receiver_keys(files, receiver_config, &field_targets);
     }
 
     fn rematerialize_go_receiver_keys(
         &mut self,
         files: &BTreeMap<String, ParsedFile>,
         receiver_config: &crate::resolution::ReceiverRecoveryConfig,
+        field_targets: &BTreeMap<
+            (crate::resolution::GoOwnerIdentity, String),
+            crate::resolution::GoFieldTarget,
+        >,
     ) {
         let updates = {
             let facts = crate::go_receiver_index::GoReceiverFacts {
                 return_types: &self.go_return_types,
                 package_vars: &self.go_package_vars,
                 field_types: &self.go_field_types,
+                field_targets,
                 package_basenames: &self.go_package_basenames,
                 imports: &self.imports,
                 go_file_profiles: &self.go_file_profiles,
@@ -3139,6 +3146,11 @@ impl CallGraph {
                 .as_ref()
                 .map(|r| r.static_type.clone());
             updated.receiver_recovery = classification.recovered.as_ref().map(|r| r.recovery);
+            updated.receiver_outcome = classification
+                .recovered
+                .as_ref()
+                .and_then(|r| r.go_field_target.as_ref())
+                .map(crate::resolution::go_field_target_outcome);
             updated.receiver_materialized = classification.materialized;
             if updated == old_site {
                 continue; // no change -- skip the take/insert churn.
@@ -3153,6 +3165,7 @@ impl CallGraph {
                     if site.caller == old_site.caller && site.cmp_key() == old_site.cmp_key() {
                         site.receiver_type = updated.receiver_type.clone();
                         site.receiver_recovery = updated.receiver_recovery;
+                        site.receiver_outcome = updated.receiver_outcome.clone();
                         site.receiver_materialized = updated.receiver_materialized;
                     }
                 }
@@ -6412,6 +6425,141 @@ mod go_receiver_typing_tests {
     }
 
     #[test]
+    fn s2_pointer_embedded_field_routes_only_to_its_proven_package() {
+        let cg = build_go(&[
+            (
+                "a/types.go",
+                "package a\n\
+                 type Listener struct{}\n\
+                 func (*Listener) Serve() {}\n\
+                 type Holder struct { *Listener }\n\
+                 func run(h Holder) { h.Listener.Serve() }\n",
+            ),
+            (
+                "b/types.go",
+                "package b\n\
+                 type Listener struct{}\n\
+                 func (*Listener) Serve() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Serve");
+        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+        assert!(
+            site.receiver_outcome.is_some(),
+            "target proof was not carried"
+        );
+        let round_tripped: CallSite =
+            bincode::deserialize(&bincode::serialize(site).unwrap()).unwrap();
+        assert_eq!(round_tripped.receiver_outcome, site.receiver_outcome);
+
+        let out = cg.resolve_call_site_full(&round_tripped);
+        assert_eq!(out.resolved.len(), 1, "package decoy leaked: {out:?}");
+        assert_eq!(out.resolved[0].target.file, "a/types.go");
+        assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
+        assert_eq!(out.resolved[0].kind, ResolutionKind::FieldTyped);
+    }
+
+    #[test]
+    fn s2_value_embedded_field_routes_only_to_its_proven_package() {
+        let cg = build_go(&[
+            (
+                "a/types.go",
+                "package a\n\
+                 type Listener struct{}\n\
+                 func (Listener) Serve() {}\n\
+                 type Holder struct { Listener }\n\
+                 func run(h Holder) { h.Listener.Serve() }\n",
+            ),
+            (
+                "b/types.go",
+                "package b\n\
+                 type Listener struct{}\n\
+                 func (Listener) Serve() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Serve");
+        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+
+        let out = cg.resolve_call_site_full(site);
+        assert_eq!(out.resolved.len(), 1, "package decoy leaked: {out:?}");
+        assert_eq!(out.resolved[0].target.file, "a/types.go");
+        assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
+        assert_eq!(out.resolved[0].kind, ResolutionKind::FieldTyped);
+    }
+
+    #[test]
+    fn s2_embedded_field_drops_incompatible_target_method_profile() {
+        let cg = build_go(&[
+            (
+                "a/types_linux.go",
+                "package a\n\
+                 type Listener struct{}\n\
+                 type Holder struct { *Listener }\n\
+                 func run(h Holder) { h.Listener.Serve() }\n",
+            ),
+            (
+                "a/method_darwin.go",
+                "package a\nfunc (*Listener) Serve() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Serve");
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+        let out = cg.resolve_call_site_full(site);
+        assert!(
+            out.resolved.is_empty(),
+            "darwin-only method leaked into linux target route: {out:?}"
+        );
+    }
+
+    #[test]
+    fn s2_embedded_field_drops_external_test_package_method_candidate() {
+        let cg = build_go(&[
+            (
+                "p/types.go",
+                "package p\n\
+                 type Listener struct{}\n\
+                 type Holder struct { *Listener }\n\
+                 func run(h Holder) { h.Listener.Serve() }\n",
+            ),
+            (
+                "p/method_test.go",
+                "package p_test\nfunc (*Listener) Serve() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Serve");
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+        let out = cg.resolve_call_site_full(site);
+        assert!(
+            out.resolved.is_empty(),
+            "p_test method leaked into package p target route: {out:?}"
+        );
+    }
+
+    #[test]
+    fn s2_embedded_field_drops_conflicting_compatible_target_methods() {
+        let cg = build_go(&[
+            (
+                "a/types.go",
+                "package a\n\
+                 type Listener struct{}\n\
+                 type Holder struct { Listener }\n\
+                 func run(h Holder) { h.Listener.Serve() }\n",
+            ),
+            ("a/method_one.go", "package a\nfunc (Listener) Serve() {}\n"),
+            ("a/method_two.go", "package a\nfunc (Listener) Serve() {}\n"),
+        ]);
+        let site = site_in(&cg, "run", "Serve");
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+        let out = cg.resolve_call_site_full(site);
+        assert!(
+            out.resolved.is_empty(),
+            "conflicting compatible methods must fail closed: {out:?}"
+        );
+    }
+
+    #[test]
     fn s2_pointer_embed_struct_in_external_test_package_never_recovers() {
         let cg = build_go(&[
             (
@@ -7167,16 +7315,25 @@ mod go_receiver_typing_tests {
             "consumer.go".to_string(),
             ParsedFile::parse(
                 "consumer.go",
-                "package p\nfunc run(s S) { s.Serve() }\n",
+                "package p\nfunc run(s S) { s.Listener.Serve() }\n",
+                Go,
+            )
+            .unwrap(),
+        );
+        files.insert(
+            "b/listener.go".to_string(),
+            ParsedFile::parse(
+                "b/listener.go",
+                "package b\ntype Listener struct{}\nfunc (*Listener) Serve() {}\n",
                 Go,
             )
             .unwrap(),
         );
         let cg0 = CallGraph::build(&files);
-        assert!(cg0
-            .resolve_call_site_full(site_in(&cg0, "run", "Serve"))
-            .resolved
-            .is_empty());
+        let site0 = site_in(&cg0, "run", "Serve");
+        assert_eq!(site0.receiver_type, None);
+        assert_eq!(site0.receiver_recovery, None);
+        assert_eq!(site0.receiver_outcome, None);
 
         files.insert(
             "embed.go".to_string(),
@@ -7184,9 +7341,13 @@ mod go_receiver_typing_tests {
         );
         let full = CallGraph::build(&files);
         let full_out = full.resolve_call_site_full(site_in(&full, "run", "Serve"));
-        assert!(full_out.resolved.iter().any(|candidate| {
-            candidate.target.name == "Serve" && candidate.confidence == ResolutionConfidence::Exact
-        }));
+        assert_eq!(
+            full_out.resolved.len(),
+            1,
+            "full-build decoy leaked: {full_out:?}"
+        );
+        assert_eq!(full_out.resolved[0].target.file, "listener.go");
+        assert_eq!(full_out.resolved[0].confidence, ResolutionConfidence::Exact);
 
         let changed = BTreeSet::from(["embed.go".to_string()]);
         let incremental = CodePropertyGraph::build_incremental(
@@ -7201,9 +7362,16 @@ mod go_receiver_typing_tests {
             "run",
             "Serve",
         ));
-        assert!(incremental_out.resolved.iter().any(|candidate| {
-            candidate.target.name == "Serve" && candidate.confidence == ResolutionConfidence::Exact
-        }));
+        assert_eq!(
+            incremental_out.resolved.len(),
+            1,
+            "incremental decoy leaked: {incremental_out:?}"
+        );
+        assert_eq!(incremental_out.resolved[0].target.file, "listener.go");
+        assert_eq!(
+            incremental_out.resolved[0].confidence,
+            ResolutionConfidence::Exact
+        );
     }
 
     #[test]
