@@ -11,7 +11,7 @@ class Dose:
     errors: int = 0
 
 _ANTHROPIC = {"opus-4.8", "sonnet-4.6"}
-_OPENAI = {"gpt-5.5", "gpt-5.3-spark"}
+_OPENAI = {"gpt-5.5", "gpt-5.3-spark", "gpt-5.3-codex-spark", "gpt-5.6-sol"}
 
 @dataclass(frozen=True, order=True)
 class Variant:

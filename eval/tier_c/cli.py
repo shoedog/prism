@@ -1277,8 +1277,10 @@ def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
     if run_id is None:
         run_id = _default_partc_run_id()
 
-    # Collision guard + force-new clear
-    run_dir = os.path.join(runs_root, run_id)
+    # Collision guard + force-new clear. Paths are made ABSOLUTE first (see
+    # partd.resolve_run_paths: a relative root silently voided a Part-D slate).
+    from .partd import resolve_run_paths
+    runs_root, run_dir, cache_dir = resolve_run_paths(runs_root, run_id, cache_dir, runs_root)
     if os.path.exists(run_dir) and not force_new:
         raise FileExistsError(
             f"run-id dir exists: {run_dir} (use --force-new to override)"
@@ -1287,9 +1289,8 @@ def _run_partc_live(cell: tuple, *, bench_root: str, base_root: str,
         shutil.rmtree(run_dir)
     os.makedirs(run_dir, exist_ok=True)
 
-    # F2: one shared cache base per run, passed to prewarm AND both agent MCP configs.
-    if cache_dir is None:
-        cache_dir = os.path.join(run_dir, "prism-cache")
+    # F2: one shared cache base per run (absolute; resolved above), passed to prewarm AND both
+    # agent MCP configs.
 
     safe_model = model.replace("/", "_").replace(":", "_")
     base = os.path.join(run_dir, f"{repo}-{stage}-{safe_model}")

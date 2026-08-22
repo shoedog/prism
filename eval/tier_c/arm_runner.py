@@ -56,7 +56,7 @@ def prism_mcp_args(repo_root: str, *, no_cache: bool = False,
     if no_cache:
         args.append("--no-cache")
     elif cache_dir:
-        args += ["--cache-dir", cache_dir]
+        args += ["--cache-dir", os.path.abspath(cache_dir)]  # agents spawn prism-mcp from the session cwd; keep it absolute
     return args
 
 
@@ -355,9 +355,12 @@ def warm_gate_check(repo_root: str, *, cache_dir: str | None = None,
 
     t0 = time.monotonic()
     try:
+        # cwd=repo_root mirrors how the agents spawn prism-mcp (session cwd = the checkout), so a
+        # cwd-relative --cache-dir that would miss in the agent's session ALSO misses here and the
+        # gate fails loud instead of passing from the harness cwd (2026-08-21 slate void).
         proc = subprocess.Popen(
             argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, text=True, bufsize=1,
+            stderr=subprocess.PIPE, text=True, bufsize=1, cwd=repo_root,
         )
     except Exception as e:
         return {"ok": False, "wall_s": time.monotonic() - t0, "tools_count": 0,

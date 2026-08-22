@@ -23,14 +23,17 @@ Ranked by blast-radius-per-effort:
 |---|---|---|---|
 | 1 | ~~**Nested-test-module `use super::*` callers gap** (Rust)~~ **DONE (#166, 2026-07-05)** | Was: no caller edge from a nested module relying on `use super::*`. Fixed via `ResolutionPolicy::glob_anchor_expands` (anchor-only globs `super::*`/`crate::*`/`self::*` resolve through the existing expansion arm). Measured self-host: 832 globs newly resolved, `glob_expand.external` −72.5%. Also fixed `crate::*`/`self::*`/`super::super::*` (same shape). | ✅ |
 | 2 | **Return-flow taint** (callee-return → caller-LHS) | P14's declared non-goal — descent finds sinks *inside* callees but tainted returns are invisible; needs Step-5b-class edge construction (`x = f(user)` where f returns its tainted param/source) | M–L |
-| 3 | **GoOwnerIdentity clause/build-partition blindness** (P13 M1) | field_typed / interface-dispatch Exact can cross `foo`/`foo_test` + build partitions; measured small (`go_owner_identity_profile_conflict`: etcd 1, prometheus 5); re-key = P11-lane blast radius — schedule deliberately, not urgently | M |
-| 4 | **Multi-line-call Step-5b arg gap** (new, P14 spec review M1) | `g(\n user\n)` gets no arg→param edge (arg lookup at `site.line`); silently NotReached; pinned by a Stage-A test | S–M |
-| 4b | **Go dot-import resolution** (`. "pkg"` → bare-name calls bind to that package) | Measured recall gap: 4 zap `observer.New` sites in `package foo_test` adjudicated `prism_fn` (2026-07-04 re-baseline); prism resolves neither the dot-import nor the resulting bare cross-package calls | S–M |
-| 5 | **Pointer-embedded Go fields** (`*Listener`) | Pre-existing `extract_one_field` drop; affects shipped embedding + P11 S2/S4; fails safe | S |
-| 6 | **`--review-no-diagrams`** (P1 residual) | Diagram payloads dominate compacted review output (552 KB post-P1; diagrams are most of it) | S |
-| 7 | **Advisory/CWE sanitizer recognizers cross-match languages** | P10 gated the verdict path only (deliberate); advisory noise on polyglot repos | S |
+| 3 | **GoOwnerIdentity clause/build-partition blindness** (P13 M1) — **IN FLIGHT 2026-08-21 (P10, full scope per sol spec review; sol implementing)** | field_typed / interface-dispatch Exact can cross `foo`/`foo_test` + build partitions; measured small (`go_owner_identity_profile_conflict`: etcd 1, prometheus 5); re-key = P11-lane blast radius — schedule deliberately, not urgently | M |
+| 4 | ~~**Multi-line-call Step-5b arg gap**~~ **DONE (#171, 2026-08-22)** — byte-contained arg→param selector + trace-gate containment; Java/TS parameter materialization split out → PARKED design A2 (`docs/superpowers/specs/2026-08-21-java-ts-parameter-materialization-design-PARKED.md`) | `g(\n user\n)` gets no arg→param edge (arg lookup at `site.line`); silently NotReached; pinned by a Stage-A test | S–M |
+| 4b | **Go dot-import resolution** — **REJECTED at spec review 2026-08-21; deferred with redesign inputs** (`docs/superpowers/specs/2026-08-21-go-dot-import-resolution-deferred.md`) | Measured recall gap: 4 zap `observer.New` sites in `package foo_test` adjudicated `prism_fn` (2026-07-04 re-baseline); prism resolves neither the dot-import nor the resulting bare cross-package calls | S–M |
+| 5 | **Pointer-embedded Go fields** (`*Listener`) — **IN FLIGHT 2026-08-21 (P9, fix wave 1 after sol review)** | Pre-existing `extract_one_field` drop; affects shipped embedding + P11 S2/S4; fails safe | S |
+| 6 | ~~**`--review-no-diagrams`**~~ **DONE (#170, 2026-08-22)** | Diagram payloads dominate compacted review output (552 KB post-P1; diagrams are most of it) | S |
+| 7 | ~~**Advisory/CWE sanitizer recognizers cross-match languages**~~ **DONE (#169, 2026-08-22)** — advisory tier gated by `recognizer.languages`; `sanitizer_supported` derived | P10 gated the verdict path only (deliberate); advisory noise on polyglot repos | S |
 | 8 | **First-enqueue depth-lock relaxation** (P14 MIN1) + per-callee CFG scoping | Documented v1 losses in descent; only worth it if a measured case appears | S–M |
 | 9 | Python pending adjudication tail | 175 characterized-not-classified (black 26 / httpx 86 / mypy 63); the 25/corpus sample said mostly prism_fp candidate-tier + prism_fn recall; bulk-adjudicate only if a Python initiative needs the denominator | S (codex batch) |
+| 10 | **Parameter-slot fail-closed alignment + Level-3 callback identity** (NEW 2026-08-21, precision WRONG on main) — JS default/rest/destructured params compress → false Level-3 callback edges; Go grouped params first-name only; Level-3 binds by function NAME. **IN FLIGHT (P8, terra)** | sol spec review 2026-08-21 (`docs/superpowers/specs/2026-08-21-p8-p9-p10-designs-and-spec-review-sol.md`) | M |
+| 11 | **prism-mcp lazy handshake** (NEW 2026-08-21, adoption-critical) — answer `initialize`/`tools/list` immediately and load/build the index on first tool call; codex 0.147 silently drops servers not ready in ~10 s regardless of `startup_timeout_sec` (proven by probe; voided the first Part-D slate; TS cells unmeasurable with a 17–19 s warm load). Claude Code has short MCP startup limits too. | `docs/analysis/2026-08-21-tier-c-partd-readout.md` §Caveats | S–M |
+| 12 | **Java/TS parameter materialization (A2)** — PARKED design with sol spec review (canonical slot model, rest/variadic/spread semantics, Level-3 identity, go.mod/sidecar cache); prerequisite for Java/TS interprocedural taint | `2026-08-21-java-ts-parameter-materialization-design-PARKED.md` | L |
 
 ## 2. The strategic fork **[OWNER]**
 
@@ -46,7 +49,7 @@ Three candidate directions once the queue's top items are drained (or interleave
 - Cost model well understood after P11/P13 (typed-fact lanes, consult-time filtering,
   rematerialization pattern all reusable).
 
-### B. Tier-C Part-C continuation (measure end-task value)
+### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:
   citation-precision value tracks per-language maturity (Go/Rust +0.18..0.26, TS
   +0.23, Python wash); owner ruled ROI sufficient to continue.
