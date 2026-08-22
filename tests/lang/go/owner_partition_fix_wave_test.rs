@@ -1,5 +1,5 @@
 use prism::ast::ParsedFile;
-use prism::call_graph::{CallGraph, ScopeGraphBuildInputs};
+use prism::call_graph::CallGraph;
 use prism::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -40,8 +40,7 @@ fn build_go_with_modules(sources: &[(&str, &str)], modules: &[(&str, &str)]) -> 
         )
         .expect("write go.mod fixture");
     }
-    let mut inputs = ScopeGraphBuildInputs::from_files_convention(&files);
-    inputs.repo_root = repo.path().to_path_buf();
+    let inputs = prism::repo_loader::scope_graph_build_inputs(repo.path(), &files);
     CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs))
 }
 

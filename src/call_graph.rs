@@ -206,6 +206,8 @@ pub struct ScopeGraphBuildInputs {
     pub all_file_paths: BTreeSet<String>,
     pub manifest_hashes: BTreeMap<String, String>,
     #[serde(default)]
+    pub manifest_snapshot: crate::ManifestSnapshot,
+    #[serde(default)]
     pub skipped_go_testdata_files: usize,
     pub cfg: RustCrateConfig,
     pub complete: bool,
@@ -217,6 +219,7 @@ impl ScopeGraphBuildInputs {
             repo_root: PathBuf::new(),
             all_file_paths: files.keys().cloned().collect(),
             manifest_hashes: BTreeMap::new(),
+            manifest_snapshot: crate::ManifestSnapshot::default(),
             skipped_go_testdata_files: 0,
             cfg: RustCrateConfig::from_convention(files),
             complete: true,
@@ -2928,11 +2931,35 @@ impl CallGraph {
             let mut module_root = package_root.as_path();
 
             loop {
-                match std::fs::read_to_string(module_root.join("go.mod")) {
-                    Ok(go_mod) => {
+                let Some(module_relative) =
+                    module_root
+                        .strip_prefix(repo_root)
+                        .ok()
+                        .and_then(|relative| {
+                            relative
+                                .iter()
+                                .map(|part| part.to_str())
+                                .collect::<Option<Vec<_>>>()
+                        })
+                else {
+                    break;
+                };
+                let manifest_path = if module_relative.is_empty() {
+                    "go.mod".to_string()
+                } else {
+                    format!("{}/go.mod", module_relative.join("/"))
+                };
+                match scope_inputs.manifest_snapshot.get(&manifest_path) {
+                    Some(crate::manifest_snapshot::ManifestSnapshotEntry::Regular {
+                        bytes,
+                        ..
+                    }) => {
                         if module_root != repo_root {
                             break;
                         }
+                        let Ok(go_mod) = std::str::from_utf8(bytes) else {
+                            break;
+                        };
                         let Some(module_path) = Self::parse_go_module_path(&go_mod) else {
                             break;
                         };
@@ -2958,8 +2985,8 @@ impl CallGraph {
                         out.insert(path.clone(), import_path);
                         break;
                     }
-                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                    Err(_) => break,
+                    Some(crate::manifest_snapshot::ManifestSnapshotEntry::SymlinkRefused) => break,
+                    None => {}
                 }
                 if module_root == repo_root {
                     break;

@@ -56,6 +56,8 @@ mod go_receiver_index_visibility;
 pub mod js_exports;
 pub mod languages;
 pub mod live_types;
+mod manifest_snapshot;
+pub use manifest_snapshot::ManifestSnapshot;
 #[cfg(feature = "mcp")]
 pub mod mcp;
 pub mod name_resolution;
