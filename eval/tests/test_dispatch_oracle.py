@@ -6,6 +6,7 @@ TDD: the pure classification + summary logic (`classify`, `dispatch_precision`,
 caddy), deliberately NOT unit-tested.
 """
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -301,3 +302,38 @@ def test_summarize_empty_sites():
     assert summary["groups"] == []
     assert summary["over_approx_sites"] == []
     assert summary["oracle_timeout_groups"] == []
+
+
+def test_load_dispatch_sites_keeps_zero_fanout_and_scores_recall_gap(tmp_path):
+    manifest = tmp_path / "manifest.json"
+    zero = {
+        "file": "caller.go",
+        "line": 10,
+        "method": "Go",
+        "fanout": 0,
+        "implementers": [],
+        "implementer_identities": [],
+    }
+    fanned = {
+        "file": "caller.go",
+        "line": 20,
+        "method": "Go",
+        "fanout": 1,
+        "implementers": ["Impl"],
+        "implementer_identities": [_identity("Impl", "impl.go", [3, 5])],
+    }
+    manifest.write_text(json.dumps({"sites": [zero, fanned]}))
+    assert do.load_dispatch_sites(manifest) == [zero, fanned]
+
+    rec = do.compare_site(
+        file=zero["file"],
+        line=zero["line"],
+        interface="Runner",
+        method=zero["method"],
+        prism_identities=zero["implementer_identities"],
+        gopls_identities=[_identity("Impl", "impl.go", [3, 5])],
+    )
+    summary = do.summarize([rec])
+    assert rec["classification"] == "recall_gap"
+    assert summary["overall"]["recall_gap"] == 1
+    assert summary["overall"]["scored_sites"] == 1

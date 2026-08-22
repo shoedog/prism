@@ -494,9 +494,9 @@ def method_token_col(line_text: str, method: str) -> int | None:
 
 
 def load_dispatch_sites(manifest_path: str) -> list[dict]:
-    """The fanout>0 sites of a `prism nav interface-manifest` document (Slice-E shape)."""
+    """All in-scope sites of a `prism nav interface-manifest` document."""
     doc = json.loads(Path(manifest_path).read_text())
-    return [s for s in doc.get("sites", []) if s.get("fanout", 0) > 0]
+    return doc.get("sites", [])
 
 
 def interface_label(line_text: str | None, method: str, ordinal: int) -> str:
@@ -793,18 +793,18 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
     repo = os.path.abspath(os.path.expanduser(repo))
     dispatch = load_dispatch_sites(manifest_path)
 
-    print(f"dispatch sites (fanout>0): {len(dispatch)}", file=log)
+    print(f"dispatch sites (all in-scope): {len(dispatch)}", file=log)
 
     oracle = oracle_factory(repo, cmd, group_timeout=group_timeout)
     records: list[dict] = []
-    # Cache the satisfier set per INTERFACE-METHOD DECLARATION location (file, decl_line),
+    # Cache the satisfier set per interface-method declaration and empty-result policy,
     # not per prism group: gopls disambiguates the interface a call site dispatches on
     # (caddy `next.ServeHTTP` is `http.Handler.ServeHTTP` at some sites and
     # `caddyhttp.Handler.ServeHTTP` at others, even though prism groups them together by
     # implementer set). Keying on the decl location queries the interface gopls sees and is
     # immune to a prism grouping that lumps two interfaces. Value = (qualified
     # satisfier identities, display label, adapter-unresolved flag).
-    decl_cache: dict[tuple[str, int], tuple[list[dict], str, bool]] = {}
+    decl_cache: dict[tuple[str, int, bool], tuple[list[dict], str, bool]] = {}
     try:
         t0 = time.monotonic()
         oracle.start()
@@ -843,7 +843,11 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                 decl = oracle.method_decl(s["file"], s["line"] - 1, col)
                 if decl is not None:
                     decl_file, decl_line, decl_char = decl
-                    ckey = (decl_file, decl_line)
+                    # A persistently empty implementation result is valid evidence only
+                    # when prism also minted no edges. Keep that cache entry separate
+                    # from fanout>0 sites, whose empty result remains a readiness timeout.
+                    allow_empty = s.get("fanout", 0) == 0
+                    ckey = (decl_file, decl_line, allow_empty)
                     if ckey not in decl_cache:
                         # 2) implementation at the decl's method token, with empty-retry
                         #    (empty for a fanout>0 method => not-ready, not a true zero).
@@ -851,7 +855,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                         if out is not None and out[1] == 0:
                             oracle.resettle(settle_s=oracle._settle_s)
                             out = oracle.satisfier_identities(decl_file, decl_line, decl_char)
-                        if out is not None and out[1] > 0:
+                        if out is not None and (out[1] > 0 or allow_empty):
                             # the enclosing type at the decl line is the interface name.
                             label = oracle._type_at(decl_file, decl_line) or \
                                 f"{Path(decl_file).stem}:{decl_line + 1}"
