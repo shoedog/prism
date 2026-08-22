@@ -68,15 +68,34 @@ pub fn graph_callable_edge(graph: &ScopeGraph, site: &CallSite) -> Option<Target
         CallKind::Call => NS_VALUE,
         CallKind::MacroInvocation => NS_MACRO,
     };
-    let file = file_id_for_path(graph, &site.caller.file)?;
-    let from = enclosing_scope(graph, file, site.start_byte)?;
+    graph_value_target(
+        graph,
+        &site.caller.file,
+        site.start_byte,
+        &site.callee_name,
+        ns,
+    )
+}
+
+fn graph_value_target(
+    graph: &ScopeGraph,
+    caller_file: &str,
+    at_byte: usize,
+    name: &str,
+    ns: u16,
+) -> Option<Target> {
+    if !graph.complete {
+        return None;
+    }
+    let file = file_id_for_path(graph, caller_file)?;
+    let from = enclosing_scope(graph, file, at_byte)?;
     let q = ResolveQuery {
-        name: site.callee_name.clone(),
+        name: name.to_string(),
         ns,
         from,
         at: SourceLoc {
             file,
-            byte: site.start_byte,
+            byte: at_byte,
         },
         cfg: CfgCtx::default(),
         ctx: PolicyQueryCtx::default(),

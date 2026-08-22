@@ -57,6 +57,7 @@ pub mod mcp;
 pub mod name_resolution;
 pub mod navigation;
 pub mod output;
+mod parameter_slots;
 pub mod queries;
 pub mod react_hooks;
 pub mod reasoning;

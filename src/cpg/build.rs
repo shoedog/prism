@@ -42,14 +42,8 @@ pub(crate) fn compute_param_names(
                 .unwrap_or(false)
                 && callee_parsed.node_line_range(node).0 == callee_id.start_line
         })
-        .map(|node| {
-            callee_parsed
-                .function_parameter_occurrences(&node)
-                .into_iter()
-                .map(|(name, _, _)| name)
-                .collect()
-        })
-        .unwrap_or_else(|| info.param_names.clone());
+        .and_then(|node| callee_parsed.function_parameter_slots(&node))
+        .or_else(|| info.param_names.clone())?;
     let final_names = match normalized.first().map(String::as_str) {
         Some("self") | Some("cls")
             if info.owner.is_some()
@@ -333,10 +327,6 @@ impl CodePropertyGraph {
             cached_cg.merge(fresh_cg);
             cached_dfg.merge(fresh_dfg);
 
-            // Phase 3: C/C++ indirect calls are whole-program derived edges.
-            // Clear old synthetic sites and recompute over the merged source graph.
-            cached_cg.recompute_indirect_calls(files);
-
             // Rebuild-together: this also refreshes Phase-2a Rust receiver indices
             // and re-materializes CallSite.receiver_outcome before assemble reads it.
             cached_cg.rebuild_scope_graph(files, scope_inputs);
@@ -381,6 +371,9 @@ impl CodePropertyGraph {
             // ALSO whole-program derived — recompute after merge, same
             // rationale as the Go passes above.
             cached_cg.apply_js_export_resolution();
+            // Match full construction: recompute the remaining indirect passes
+            // after every whole-program resolution fact is restored. Level-3 is disabled.
+            cached_cg.recompute_indirect_calls(files);
 
             Self::assemble_graph(cached_cg, cached_dfg, files, type_db)
         })

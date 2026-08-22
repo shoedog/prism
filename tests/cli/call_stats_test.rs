@@ -31,6 +31,31 @@ fn call_stats_reports_kind_counts_and_drops() {
 }
 
 #[test]
+fn call_stats_reports_parameter_slots_and_disabled_level3() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("callbacks.js"),
+        "function safe() {}\nfunction blocked(cb, cb) { cb(); }\nfunction invoke(a, cb) { cb(); }\nfunction outer() {\n  blocked(safe, safe);\n  invoke(0, safe);\n}\n",
+    )
+    .unwrap();
+
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--repo"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["param_slots_unknown"]["JavaScript"], 1);
+    assert_eq!(v["level3_indirect_resolved"], 0);
+}
+
+#[test]
 fn call_stats_same_name_owner_collision_demotes_out_of_multi_target_exact() {
     // Two distinct structs both literally named `Foo`, each with an associated
     // `make`, in separate files. A qualified `Foo::make()` call keys the bare
@@ -376,4 +401,45 @@ fn call_stats_reports_macro_arg_telemetry() {
     assert_eq!(v["macro_arg_calls_recorded"].as_u64().unwrap(), 1);
     assert_eq!(v["macro_arg_skipped_macros"].as_u64().unwrap(), 1);
     assert_eq!(v["macro_arg_ctor_skips"].as_u64().unwrap(), 1);
+}
+
+#[test]
+fn call_stats_dump_sites_emits_no_synthetic_callback_custody() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("callbacks.js"),
+        "function safe() {}\nfunction invoke(cb) { cb(); }\nfunction forward() { invoke(safe); }\n",
+    )
+    .unwrap();
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--dump-sites", "--repo"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let sites: Vec<serde_json::Value> = String::from_utf8(out.stdout)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(sites.len(), 2, "one JSONL record per source site");
+    assert!(
+        sites
+            .iter()
+            .all(|site| site["origin"] != "IndirectResolution"),
+        "disabled Level-3 must emit no synthetic callback site"
+    );
+    assert!(sites.iter().all(|site| {
+        site["resolved_targets"].as_array().map_or(true, |targets| {
+            targets
+                .iter()
+                .all(|target| target["kind"] != "parameter_callback")
+        })
+    }));
 }
