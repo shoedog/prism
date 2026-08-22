@@ -205,6 +205,8 @@ pub struct ScopeGraphBuildInputs {
     pub repo_root: PathBuf,
     pub all_file_paths: BTreeSet<String>,
     pub manifest_hashes: BTreeMap<String, String>,
+    #[serde(default)]
+    pub skipped_go_testdata_files: usize,
     pub cfg: RustCrateConfig,
     pub complete: bool,
 }
@@ -215,6 +217,7 @@ impl ScopeGraphBuildInputs {
             repo_root: PathBuf::new(),
             all_file_paths: files.keys().cloned().collect(),
             manifest_hashes: BTreeMap::new(),
+            skipped_go_testdata_files: 0,
             cfg: RustCrateConfig::from_convention(files),
             complete: true,
         }
@@ -504,6 +507,11 @@ pub struct CallGraph {
     /// is not a count of affected consult sites or edges.
     #[serde(default)]
     pub go_owner_identity_profile_conflict: usize,
+    /// Go source files excluded because a path segment is exactly `testdata`.
+    /// Loader-derived and propagated through scope inputs so call-stats can
+    /// account for files that never enter the parsed-file map.
+    #[serde(default)]
+    pub skipped_go_testdata_files: usize,
     /// P10 build-time S2 consult decisions. Whole-program rematerialized with
     /// receiver keys; runtime S4/P5 decisions travel on ResolutionOutcome.
     #[serde(default)]
@@ -686,6 +694,7 @@ impl CallGraph {
             go_file_profiles: BTreeMap::new(),
             go_build_profile_unparsed: BTreeMap::new(),
             go_owner_identity_profile_conflict: 0,
+            skipped_go_testdata_files: 0,
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
@@ -905,6 +914,7 @@ impl CallGraph {
             go_file_profiles,
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
+            skipped_go_testdata_files: 0,
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
@@ -1286,6 +1296,7 @@ impl CallGraph {
             go_file_profiles,
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
+            skipped_go_testdata_files: 0,
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
@@ -2832,6 +2843,9 @@ impl CallGraph {
         scope_inputs: Option<&ScopeGraphBuildInputs>,
     ) {
         self.clear_interface_dispatch();
+        self.skipped_go_testdata_files = scope_inputs
+            .map(|inputs| inputs.skipped_go_testdata_files)
+            .unwrap_or(0);
         // The dispatch pass ran (even if there are no Go files → empty result); a raw
         // build_direct_subset graph leaves this false (review MINOR 6 signal).
         self.interface_dispatch_computed = true;
@@ -4036,6 +4050,7 @@ impl CallGraph {
             go_file_profiles,
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
+            skipped_go_testdata_files: 0,
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,

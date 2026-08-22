@@ -17,6 +17,7 @@ const BUILTIN_SKIP_DIRS: &[&str] = &[".git", "target", "node_modules", "vendor",
 pub enum SkipReason {
     Unsupported,
     Ignored,
+    GoTestdata,
     Symlink,
     Hidden,
     TooLarge { bytes: u64 },
@@ -146,7 +147,12 @@ fn merge_walk_items(root: &Path, items: Vec<MergeItem>, outcomes: Vec<ParseOutco
 
     debug_assert!(outcomes.next().is_none());
 
-    let scope_graph_inputs = scope_graph_build_inputs(root, &files);
+    let skipped_go_testdata_files = skipped
+        .iter()
+        .filter(|skip| skip.reason == SkipReason::GoTestdata)
+        .count();
+    let mut scope_graph_inputs = scope_graph_build_inputs(root, &files);
+    scope_graph_inputs.skipped_go_testdata_files = skipped_go_testdata_files;
     let manifest_hashes = scope_graph_inputs.manifest_hashes.clone();
 
     LoadedRepo {
@@ -172,6 +178,7 @@ pub fn scope_graph_build_inputs(
         repo_root: root.to_path_buf(),
         all_file_paths: files.keys().cloned().collect(),
         manifest_hashes,
+        skipped_go_testdata_files: 0,
         cfg,
         complete,
     }
@@ -723,6 +730,16 @@ fn walk(
             items.push(MergeItem::Skip(SkippedFile {
                 path: relp,
                 reason: SkipReason::TooLarge { bytes: meta.len() },
+            }));
+            continue;
+        }
+
+        if Language::from_path(&relp) == Some(Language::Go)
+            && relp.split('/').any(|component| component == "testdata")
+        {
+            items.push(MergeItem::Skip(SkippedFile {
+                path: relp,
+                reason: SkipReason::GoTestdata,
             }));
             continue;
         }

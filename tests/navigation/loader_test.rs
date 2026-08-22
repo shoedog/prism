@@ -65,3 +65,31 @@ fn built_in_names_take_precedence_over_symlinks() {
         .iter()
         .any(|s| s.path == "target" && s.reason == SkipReason::Symlink));
 }
+
+#[test]
+fn go_testdata_files_are_skipped_but_other_languages_are_loaded() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    std::fs::create_dir_all(root.join("pkg/testdata/helpers")).unwrap();
+    std::fs::write(
+        root.join("pkg/testdata/helpers/impl.go"),
+        "package helpers\ntype Impl struct{}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("pkg/testdata/helpers/helper.py"),
+        "def helper():\n    return 1\n",
+    )
+    .unwrap();
+
+    let repo = load_repo(root).unwrap();
+
+    assert!(!repo.files.contains_key("pkg/testdata/helpers/impl.go"));
+    assert!(repo.files.contains_key("pkg/testdata/helpers/helper.py"));
+    let skip = repo
+        .skipped
+        .iter()
+        .find(|skip| skip.path == "pkg/testdata/helpers/impl.go")
+        .expect("Go testdata skip is recorded");
+    assert_eq!(skip.reason, SkipReason::GoTestdata);
+}
