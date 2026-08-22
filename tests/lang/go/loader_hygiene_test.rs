@@ -1,6 +1,8 @@
-use prism::navigation::NavigationIndex;
+use prism::call_graph::CallGraph;
+use prism::cpg::CodePropertyGraph;
+use prism::navigation::{queries, NavigationIndex};
 use prism::repo_loader::{load_repo, LoadedRepo};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 fn write(root: &Path, relative: &str, contents: &str) {
@@ -65,6 +67,70 @@ fn resolved_owners(repo: &LoadedRepo) -> BTreeSet<String> {
         .iter()
         .filter_map(|resolved| cg.method_owners.get(resolved.target).cloned())
         .collect()
+}
+
+fn resolved_owners_for(cg: &CallGraph, caller: &str, method: &str) -> BTreeSet<String> {
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.caller.name == caller && site.callee_name == method)
+        .expect("interface call site");
+    cg.resolve_call_site_full(site)
+        .resolved
+        .iter()
+        .filter_map(|resolved| cg.method_owners.get(resolved.target).cloned())
+        .collect()
+}
+
+fn normalized_vec_map<K, V>(map: &BTreeMap<K, Vec<V>>) -> BTreeMap<K, BTreeSet<V>>
+where
+    K: Clone + Ord,
+    V: Clone + Ord,
+{
+    map.iter()
+        .map(|(key, values)| (key.clone(), values.iter().cloned().collect()))
+        .collect()
+}
+
+fn assert_call_graph_parity(actual: &CallGraph, expected: &CallGraph) {
+    assert_eq!(
+        normalized_vec_map(&actual.functions),
+        normalized_vec_map(&expected.functions)
+    );
+    assert_eq!(actual.calls, expected.calls);
+    assert_eq!(
+        normalized_vec_map(&actual.callers),
+        normalized_vec_map(&expected.callers)
+    );
+    assert_eq!(
+        normalized_vec_map(&actual.methods),
+        normalized_vec_map(&expected.methods)
+    );
+    assert_eq!(actual.method_owners, expected.method_owners);
+    assert_eq!(
+        normalized_vec_map(&actual.interface_impls),
+        normalized_vec_map(&expected.interface_impls)
+    );
+    assert_eq!(actual.method_arity, expected.method_arity);
+    assert_eq!(actual.go_file_profiles, expected.go_file_profiles);
+    assert_eq!(
+        actual.go_interface_declarations,
+        expected.go_interface_declarations
+    );
+    assert_eq!(
+        actual.go_method_declarations,
+        expected.go_method_declarations
+    );
+    assert_eq!(
+        actual.go_interface_live_types,
+        expected.go_interface_live_types
+    );
+    assert_eq!(queries::call_stats(actual), queries::call_stats(expected));
+    assert_eq!(
+        queries::interface_dispatch_manifest(actual),
+        queries::interface_dispatch_manifest(expected)
+    );
 }
 
 #[test]
@@ -132,4 +198,82 @@ fn symlinked_nearest_go_mod_is_a_terminal_unproven_boundary() {
     let loaded = load_repo(root).unwrap();
 
     assert!(resolved_owners(&loaded).is_empty());
+}
+
+#[test]
+fn multi_module_full_incremental_and_cached_builds_are_identical() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    write(root, "go.mod", "module example.com/root\n");
+    write(root, "nested/go.mod", "module example.com/nested\n");
+    write(
+        root,
+        "api.go",
+        "package root\n\
+         type Context struct{}\n\
+         type Doer interface { Act(Context) }\n\
+         type Holder struct { Doer }\n\
+         func invokeRoot(h Holder, ctx Context) { h.Act(ctx) }\n",
+    );
+    write(
+        root,
+        "impl/impl.go",
+        "package impl\n\
+         import root \"example.com/root\"\n\
+         type Impl struct{}\n\
+         func (Impl) Act(root.Context) {}\n",
+    );
+    write(
+        root,
+        "nested/api.go",
+        "package nested\n\
+         type Context struct{}\n\
+         type Worker interface { Work(Context) }\n\
+         type Holder struct { Worker }\n\
+         func invokeNested(h Holder, ctx Context) { h.Work(ctx) }\n",
+    );
+    write(
+        root,
+        "nested_impl/impl.go",
+        "package nestedimpl\n\
+         import nested \"example.com/nested\"\n\
+         type NestedImpl struct{}\n\
+         func (NestedImpl) Work(nested.Context) {}\n",
+    );
+
+    let initial_repo = load_repo(root).unwrap();
+    let initial = NavigationIndex::build(&initial_repo);
+    write(
+        root,
+        "impl/impl.go",
+        "package impl\n\
+         import root \"example.com/root\"\n\
+         type Impl struct{}\n\
+         func (Impl) Act(root.Context) {}\n\
+         func helper() {}\n",
+    );
+    let updated_repo = load_repo(root).unwrap();
+    let changed = BTreeSet::from(["impl/impl.go".to_string()]);
+    let incremental = CodePropertyGraph::build_incremental_with_scope_graph_inputs(
+        initial.cpg().call_graph.clone(),
+        initial.cpg().dfg.clone(),
+        &changed,
+        &updated_repo.files,
+        None,
+        updated_repo.scope_graph_inputs.as_ref(),
+    );
+    let full = NavigationIndex::build(&updated_repo);
+    let cache = tempfile::tempdir().unwrap();
+    let cached_miss = NavigationIndex::build_cached_under(&updated_repo, cache.path());
+    let cached_hit = NavigationIndex::build_cached_under(&updated_repo, cache.path());
+
+    let expected = full.call_graph();
+    assert_call_graph_parity(&incremental.call_graph, expected);
+    assert_call_graph_parity(cached_miss.call_graph(), expected);
+    assert_call_graph_parity(cached_hit.call_graph(), expected);
+    assert_eq!(
+        resolved_owners_for(expected, "invokeRoot", "Act"),
+        BTreeSet::from(["Impl".to_string()])
+    );
+    assert!(resolved_owners_for(expected, "invokeNested", "Work").is_empty());
 }
