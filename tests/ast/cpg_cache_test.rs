@@ -425,6 +425,53 @@ fn cache_v9_round_trips_interface_impls() {
 }
 
 #[test]
+fn cache_round_trips_pointer_embedded_promotion() {
+    let mut sources = BTreeMap::new();
+    sources.insert(
+        "main.go".to_string(),
+        "package main\n\
+         type Listener struct{}\n\
+         func (l *Listener) Serve() {}\n\
+         type S struct { *Listener }\n\
+         func run(s S) { s.Serve() }\n"
+            .to_string(),
+    );
+    let files = parsed_files(
+        sources
+            .iter()
+            .map(|(path, source)| (path.as_str(), source.as_str(), Language::Go))
+            .collect::<Vec<_>>()
+            .as_slice(),
+    );
+    let before = CodePropertyGraph::build(&files);
+    let site = call_site(&before, "run", "Serve");
+    assert!(before
+        .call_graph
+        .resolve_call_site_full(&site)
+        .resolved
+        .iter()
+        .any(|candidate| {
+            candidate.target.name == "Serve"
+                && candidate.confidence == prism::resolution::ResolutionConfidence::Exact
+        }));
+
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&before, &hashes, false, cache_dir.path()).unwrap();
+    let loaded = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
+    let loaded_site = call_site(&loaded, "run", "Serve");
+    assert!(loaded
+        .call_graph
+        .resolve_call_site_full(&loaded_site)
+        .resolved
+        .iter()
+        .any(|candidate| {
+            candidate.target.name == "Serve"
+                && candidate.confidence == prism::resolution::ResolutionConfidence::Exact
+        }));
+}
+
+#[test]
 fn cache_v12_round_trips_scope_graph_and_rejects_v11() {
     let repo_dir = write_repo(&[
         (

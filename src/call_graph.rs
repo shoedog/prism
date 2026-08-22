@@ -6391,6 +6391,53 @@ mod go_receiver_typing_tests {
     }
 
     #[test]
+    fn s2_pointer_embedded_field_recovers_nested_selector_receiver() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Listener struct{}\n\
+             func (l *Listener) Serve() {}\n\
+             type Holder struct { *Listener }\n\
+             func run(h Holder) { h.Listener.Serve() }\n",
+        )]);
+        let site = site_in(&cg, "run", "Serve");
+        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+        let out = cg.resolve_call_site_full(site);
+        assert!(out.resolved.iter().any(|candidate| {
+            candidate.target.name == "Serve"
+                && candidate.confidence == ResolutionConfidence::Exact
+                && candidate.kind == ResolutionKind::FieldTyped
+        }));
+    }
+
+    #[test]
+    fn s4_pointer_embedded_interface_never_routes_or_satisfies() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type I interface { Do() }\n\
+             type Concrete struct{}\n\
+             func (c Concrete) Do() {}\n\
+             type Holder struct { *I }\n\
+             func run(h Holder) { h.Do() }\n",
+        )]);
+        assert!(
+            cg.go_embedded_interface_methods
+                .get(&main_owner("Holder"))
+                .and_then(|methods| methods.get("Do"))
+                .is_none(),
+            "invalid *I embed must not mint an S4 InterfaceDispatch route"
+        );
+        assert!(
+            cg.resolve_call_site_full(site_in(&cg, "run", "Do"))
+                .resolved
+                .is_empty(),
+            "invalid *I embed must not satisfy I or resolve h.Do()"
+        );
+    }
+
+    #[test]
     fn s4_own_method_shadows_embedded_interface_promotion() {
         let cg = build_go(&[(
             "main.go",
@@ -6627,6 +6674,69 @@ mod go_receiver_typing_tests {
             "consumer.go's retained call site kept a stale recovery after \
              the type-defining file changed"
         );
+    }
+
+    #[test]
+    fn incremental_parity_edit_pointer_embed_defining_file_updates_retained_consumer() {
+        use crate::cpg::CodePropertyGraph;
+        use crate::data_flow::DataFlowGraph;
+        use std::collections::BTreeSet;
+
+        let mut files = BTreeMap::new();
+        files.insert(
+            "listener.go".to_string(),
+            ParsedFile::parse(
+                "listener.go",
+                "package p\ntype Listener struct{}\nfunc (l *Listener) Serve() {}\n",
+                Go,
+            )
+            .unwrap(),
+        );
+        files.insert(
+            "embed.go".to_string(),
+            ParsedFile::parse("embed.go", "package p\ntype S struct{}\n", Go).unwrap(),
+        );
+        files.insert(
+            "consumer.go".to_string(),
+            ParsedFile::parse(
+                "consumer.go",
+                "package p\nfunc run(s S) { s.Serve() }\n",
+                Go,
+            )
+            .unwrap(),
+        );
+        let cg0 = CallGraph::build(&files);
+        assert!(cg0
+            .resolve_call_site_full(site_in(&cg0, "run", "Serve"))
+            .resolved
+            .is_empty());
+
+        files.insert(
+            "embed.go".to_string(),
+            ParsedFile::parse("embed.go", "package p\ntype S struct { *Listener }\n", Go).unwrap(),
+        );
+        let full = CallGraph::build(&files);
+        let full_out = full.resolve_call_site_full(site_in(&full, "run", "Serve"));
+        assert!(full_out.resolved.iter().any(|candidate| {
+            candidate.target.name == "Serve" && candidate.confidence == ResolutionConfidence::Exact
+        }));
+
+        let changed = BTreeSet::from(["embed.go".to_string()]);
+        let incremental = CodePropertyGraph::build_incremental(
+            cg0,
+            DataFlowGraph::build(&BTreeMap::new()),
+            &changed,
+            &files,
+            None,
+        );
+        let incremental_out = incremental.call_graph.resolve_call_site_full(site_in(
+            &incremental.call_graph,
+            "run",
+            "Serve",
+        ));
+        assert!(incremental_out.resolved.iter().any(|candidate| {
+            candidate.target.name == "Serve" && candidate.confidence == ResolutionConfidence::Exact
+        }));
     }
 
     #[test]

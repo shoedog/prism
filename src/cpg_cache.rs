@@ -129,7 +129,9 @@ use std::path::{Path, PathBuf};
 /// - v41: persisted Step-5b arg→param DataFlow edges now select byte-contained
 ///   occurrences across multi-line call arguments. The corresponding trace
 ///   descent-gate check is in-memory only.
-const CACHE_VERSION: u32 = 41; // 41: byte-contained multi-line Step-5b arg→param edges.
+/// - v42: Go embedded-field extraction now persists pointer embeds and their
+///   selector/raw-type split, changing embedding promotion and S2/S4 facts.
+const CACHE_VERSION: u32 = 42; // 42: Go pointer-embedded field topology.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -647,10 +649,10 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_41_for_multiline_step5b_arg_edges() {
-        // v41: byte-contained multi-line Step-5b arg→param DataFlow edges.
+    fn cache_version_is_42_for_go_pointer_embedded_field_topology() {
+        // v42: Go pointer-embedded field promotion and S2/S4 facts.
         // One transition ships per PR.
-        assert_eq!(super::CACHE_VERSION, 41);
+        assert_eq!(super::CACHE_VERSION, 42);
     }
 
     #[test]

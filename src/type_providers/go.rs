@@ -47,7 +47,8 @@ pub struct InterfaceDispatchTable {
 struct GoStruct {
     /// Struct name.
     name: String,
-    /// Fields: (name, type_string). Anonymous/embedded fields have name == type.
+    /// Fields: (selector name, raw declared type). Embedded fields use their
+    /// implicit Go selector name (`Listener` for `*pkg.Listener`).
     fields: Vec<(String, String)>,
     /// Embedded fields (for promoted methods).
     embedded: Vec<GoEmbeddedField>,
@@ -60,7 +61,10 @@ struct GoStruct {
 /// An embedded struct field, preserving whether it was written as `T` or `*T`.
 #[derive(Debug, Clone)]
 struct GoEmbeddedField {
+    /// Implicit selector name, always the unqualified type name.
     name: String,
+    /// Raw source declaration, including a leading bare `*` when present.
+    raw_type: String,
     is_pointer: bool,
 }
 
@@ -636,40 +640,48 @@ impl GoTypeProvider {
         embedded: &mut Vec<GoEmbeddedField>,
     ) {
         let mut names: Vec<String> = Vec::new();
-        let mut type_str = String::new();
-
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            match child.kind() {
-                "field_identifier" => {
-                    names.push(parsed.node_text(&child).trim().to_string());
-                }
-                _ if type_str.is_empty()
-                    && child.kind() != "field_identifier"
-                    && child.kind() != "tag"
-                    && child.kind() != "comment"
-                    && child.kind() != "," =>
-                {
-                    if child.kind() != "field_identifier" {
-                        type_str = parsed.node_text(&child).trim().to_string();
-                    }
-                }
-                _ => {}
+            if child.kind() == "field_identifier" {
+                names.push(parsed.node_text(&child).trim().to_string());
             }
         }
 
+        // The grammar's named `type` field is the only type source. An
+        // embedded `*T` keeps `*` as a preceding anonymous token, while a
+        // named `field *T` has a `pointer_type` node here.
+        let Some(type_node) = node.child_by_field_name("type") else {
+            return;
+        };
+        let type_text = parsed.node_text(&type_node).trim();
+        if type_text.is_empty() {
+            return;
+        }
+
+        let mut pointer_cursor = node.walk();
+        let bare_pointer_embed = names.is_empty()
+            && node
+                .children(&mut pointer_cursor)
+                .any(|child| child.kind() == "*" && child.end_byte() <= type_node.start_byte());
+        let raw_type = if bare_pointer_embed {
+            format!("*{type_text}")
+        } else {
+            type_text.to_string()
+        };
+
         if names.is_empty() {
-            let embedded_name = strip_pointer(&type_str);
-            if !embedded_name.is_empty() {
-                embedded.push(GoEmbeddedField {
+            if let Some(embedded_name) = embedded_selector_name(type_text) {
+                let embedded_field = GoEmbeddedField {
                     name: embedded_name.to_string(),
-                    is_pointer: type_str.trim().starts_with('*'),
-                });
-                fields.push((embedded_name.to_string(), type_str));
+                    raw_type,
+                    is_pointer: bare_pointer_embed || type_text.starts_with('*'),
+                };
+                fields.push((embedded_name.to_string(), embedded_field.raw_type.clone()));
+                embedded.push(embedded_field);
             }
         } else {
             for name in names {
-                fields.push((name, type_str.clone()));
+                fields.push((name, raw_type.clone()));
             }
         }
     }
@@ -1416,6 +1428,9 @@ impl GoTypeProvider {
         for (struct_name, go_struct) in &data.structs {
             let mut candidates: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
             for embedded in &go_struct.embedded {
+                if embedded.is_pointer {
+                    continue; // Go rejects `*I` embedded interfaces.
+                }
                 let bare = embedded.name.as_str();
                 let Some(iface) = data.interfaces.get(bare) else {
                     continue; // not a known in-repo interface (struct embed, or external) -- skip.
@@ -1501,6 +1516,9 @@ impl GoTypeProvider {
         for (owner, embeds) in &data.struct_embeds {
             let mut candidates: BTreeMap<String, Vec<String>> = BTreeMap::new();
             for embedded in embeds {
+                if embedded.is_pointer {
+                    continue; // Go rejects `*I` embedded interfaces.
+                }
                 let bare = embedded.name.as_str();
                 let package_unique_here = data
                     .interface_name_owners
@@ -1903,6 +1921,15 @@ fn strip_pointer(s: &str) -> &str {
     s.strip_prefix('*').unwrap_or(s).trim()
 }
 
+/// Go's implicit field selector is the unqualified base name: `Listener` for
+/// `Listener`, `*Listener`, `pkg.Listener`, and `*pkg.Listener[T]`.
+fn embedded_selector_name(type_text: &str) -> Option<&str> {
+    let without_pointer = strip_pointer(type_text);
+    let without_type_args = without_pointer.split('[').next()?.trim();
+    let selector = without_type_args.rsplit('.').next()?.trim();
+    (!selector.is_empty()).then_some(selector)
+}
+
 #[cfg(test)]
 mod dispatch_tests {
     use super::*;
@@ -2178,6 +2205,118 @@ mod embedding_tests {
         assert_eq!(p[0].func_id.name, "Ping");
         assert_eq!(p[0].func_id.file, "main.go");
         assert_eq!(p[0].depth, 1);
+    }
+
+    #[test]
+    fn embedded_fields_keep_selector_name_separate_from_raw_declared_type() {
+        let p = provider(
+            "package main\n\
+             type Listener struct{}\n\
+             type Generic[T any] struct{}\n\
+             type S struct {\n\
+             \t*Listener\n\
+             \tpkg.Listener\n\
+             \t*pkg.Pointer\n\
+             \t*Generic[int]\n\
+             \tnamed *Listener\n\
+             }\n\
+             type Plain struct { Listener }\n",
+        );
+        let s = p.data.structs.get("S").expect("S extracted");
+        assert_eq!(
+            s.fields,
+            vec![
+                ("Listener".to_string(), "*Listener".to_string()),
+                ("Listener".to_string(), "pkg.Listener".to_string()),
+                ("Pointer".to_string(), "*pkg.Pointer".to_string()),
+                ("Generic".to_string(), "*Generic[int]".to_string()),
+                ("named".to_string(), "*Listener".to_string()),
+            ],
+            "fields must use Go selector names while retaining raw declared types"
+        );
+        let embeds: Vec<(&str, &str, bool)> = s
+            .embedded
+            .iter()
+            .map(|field| {
+                (
+                    field.name.as_str(),
+                    field.raw_type.as_str(),
+                    field.is_pointer,
+                )
+            })
+            .collect();
+        assert_eq!(
+            embeds,
+            vec![
+                ("Listener", "*Listener", true),
+                ("Listener", "pkg.Listener", false),
+                ("Pointer", "*pkg.Pointer", true),
+                ("Generic", "*Generic[int]", true),
+            ],
+            "named fields are not embeds; qualified and generic embeds select by bare type name"
+        );
+
+        let plain = p.data.structs.get("Plain").expect("Plain extracted");
+        assert_eq!(
+            plain.fields,
+            vec![("Listener".to_string(), "Listener".to_string())]
+        );
+        assert_eq!(plain.embedded[0].name, "Listener");
+        assert_eq!(plain.embedded[0].raw_type, "Listener");
+        assert!(!plain.embedded[0].is_pointer);
+    }
+
+    #[test]
+    fn pointer_embedded_struct_promotes_pointer_receiver_into_value_method_set() {
+        let p = provider(
+            "package main\n\
+             type I interface { Serve() }\n\
+             type Listener struct{}\n\
+             func (l *Listener) Serve() {}\n\
+             type S struct { *Listener }\n",
+        );
+        assert_eq!(ms(&p.promoted_struct_methods(), "S", "Serve").len(), 1);
+        let satisfiers = p.satisfier_admission_keys_for_test("I", "Serve");
+        assert!(
+            satisfiers.contains(&"S".to_string()) && satisfiers.contains(&"*S".to_string()),
+            "a *Listener embed promotes its pointer-receiver method into S and *S: {satisfiers:?}"
+        );
+    }
+
+    #[test]
+    fn pointer_embedded_field_shadows_same_named_promoted_method() {
+        let v = provider(
+            "package main\n\
+             type Listener struct{}\n\
+             type D struct{}\n\
+             func (d D) Listener() {}\n\
+             type S struct {\n\t*Listener\n\tD\n}\n",
+        )
+        .promoted_struct_methods();
+        assert!(
+            ms(&v, "S", "Listener").is_empty(),
+            "the embedded *Listener selector shadows D.Listener at the same depth"
+        );
+    }
+
+    #[test]
+    fn pointer_embedded_interface_is_excluded_from_s4_routes() {
+        let p = provider(
+            "package main\n\
+             type I interface { Do() }\n\
+             type Holder struct { *I }\n",
+        );
+        assert!(
+            p.embedded_interface_method_routes().is_empty(),
+            "tree-sitter accepts *I, but Go rejects pointer-to-interface embeds"
+        );
+        assert!(
+            !p.data
+                .satisfaction
+                .get("I")
+                .is_some_and(|satisfying| satisfying.contains("Holder")),
+            "tree-sitter accepts *I, but Go rejects it: Holder must not satisfy I"
+        );
     }
 
     #[test]
