@@ -677,6 +677,36 @@ fn cpg_python_method_arg_binds_to_explicit_param_not_receiver() {
 }
 
 #[test]
+fn cpg_go_grouped_parameters_bind_every_argument_to_its_matching_definition() {
+    let cpg = build_cpg_files(&[(
+        "grouped.go",
+        "package main\nfunc f(a, b string, c int) { use(a); use(b); use(c) }\nfunc caller(x, y string, z int) { f(x, y, z) }\n",
+        Language::Go,
+    )]);
+
+    assert!(has_dataflow_edge(
+        &cpg,
+        ("grouped.go", "caller", 3, "x"),
+        ("grouped.go", "f", 2, "a")
+    ));
+    assert!(has_dataflow_edge(
+        &cpg,
+        ("grouped.go", "caller", 3, "y"),
+        ("grouped.go", "f", 2, "b")
+    ));
+    assert!(has_dataflow_edge(
+        &cpg,
+        ("grouped.go", "caller", 3, "z"),
+        ("grouped.go", "f", 2, "c")
+    ));
+    assert!(!has_dataflow_edge(
+        &cpg,
+        ("grouped.go", "caller", 3, "y"),
+        ("grouped.go", "f", 2, "c")
+    ));
+}
+
+#[test]
 fn cpg_python_free_function_with_self_param_keeps_all_args() {
     // Review fix (MAJOR 3): the self/cls receiver skip must be gated on actual
     // method ownership. A FREE function whose first param happens to be named

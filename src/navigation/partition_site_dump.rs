@@ -98,6 +98,7 @@ mod tests {
             arg_spread: false,
             receiver_outcome: None,
             origin: CallSiteOrigin::Source,
+            pre_resolved_target: None,
         };
         let outcome = ResolutionOutcome {
             resolved: vec![crate::resolution::ResolvedCallee {

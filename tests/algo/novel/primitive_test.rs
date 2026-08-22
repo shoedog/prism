@@ -127,6 +127,29 @@ def cache_key(name):
     );
 }
 
+#[test]
+fn test_primitive_keyword_only_parameter_is_not_treated_as_positional() {
+    let source = r#"
+import hashlib
+
+def get_str_hash(data, *, length):
+    return hashlib.sha256(data).hexdigest()[:length]
+
+def cache_key(name):
+    return get_str_hash(name, length=12)
+"#;
+    let result = run_primitive(
+        source,
+        "src/cache.py",
+        Language::Python,
+        BTreeSet::from([8]),
+    );
+    assert!(
+        findings_for_rule(&result, "HASH_TRUNCATION_VIA_CALL").is_empty(),
+        "the keyword-only boundary makes this function unsafe for positional matching"
+    );
+}
+
 // --- Python: WEAK_HASH_FOR_IDENTITY ---
 
 #[test]

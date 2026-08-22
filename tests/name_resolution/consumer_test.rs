@@ -109,6 +109,7 @@ fn call_site(file: &str, name: &str, byte: usize) -> CallSite {
         arg_spread: false,
         receiver_outcome: None,
         origin: CallSiteOrigin::Source,
+        pre_resolved_target: None,
     }
 }
 

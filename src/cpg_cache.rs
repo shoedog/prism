@@ -129,9 +129,16 @@ use std::path::{Path, PathBuf};
 /// - v41: persisted Step-5b arg→param DataFlow edges now select byte-contained
 ///   occurrences across multi-line call arguments. The corresponding trace
 ///   descent-gate check is in-memory only.
-/// - v42: P10 Go owner identities carry package clauses; S2/S4/P5 persist raw
+/// - v42: positional parameter slots now fail closed instead of compressing
+///   unknown bindings; persisted Step-5b edges and synthetic Level-3 callback
+///   sites therefore have changed topology.
+/// - v43: Go embedded-field extraction now persists pointer embeds (bare `*T`,
+///   `*pkg.T`, `*T[X]`) with selector name + raw type; qualified embedded targets
+///   and pointer-to-interface embeds fail closed in promotion/S4/S2 (P9; single shipped
+///   transition on top of main's v42).
+/// - v44: P10 Go owner identities carry package clauses; S2/S4/P5 persist raw
 ///   declaration snapshots, registration provenance, and partition telemetry.
-const CACHE_VERSION: u32 = 42;
+const CACHE_VERSION: u32 = 44;
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -649,10 +656,10 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_42_for_go_owner_partition_snapshots() {
-        // v42: clause-bearing identities, declaration snapshots, and telemetry.
-        // One transition ships per PR.
-        assert_eq!(super::CACHE_VERSION, 42);
+    fn cache_version_is_44_for_go_owner_partition_snapshots() {
+        // v44: P10 clause-bearing identities, declaration snapshots, and telemetry,
+        // stacked on v42 parameter slots and v43 pointer embeds.
+        assert_eq!(super::CACHE_VERSION, 44);
     }
 
     #[test]

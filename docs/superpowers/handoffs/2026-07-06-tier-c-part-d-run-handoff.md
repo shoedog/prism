@@ -97,7 +97,7 @@ cd ~/code/bench-repos/prometheus && git worktree remove --force /tmp/pw; rm -rf 
 
 ```bash
 cd /private/tmp/prism-partd/eval
-ROOT=tier_c/runs/partd/full-codex-2026-07-06     # one root groups the whole slate
+ROOT="$PWD/tier_c/runs/partd/full-codex-2026-07-06"   # one root groups the whole slate — ABSOLUTE (see note below)
 TASKS="prometheus-promql-walk hugo-converter-convert prometheus-matchstring \
 caddy-requestmatcher-migration ruff-typechecker-match-annotation ruff-imported-qualified-name \
 typescript-resolve-signature typescript-resolve-alias django-check-registry-run-checks \
@@ -112,6 +112,17 @@ for t in $TASKS; do
     || echo "CELL FAILED: $t (see $ROOT/$t/status.json)"
 done
 ```
+
+
+> **2026-08-21 harness defect (fixed, `resolve_run_paths` in `tier_c/partd.py`):** a RELATIVE
+> `--run-store-root` made the per-cell `--cache-dir` relative. Prewarm + the F4 warm gate ran from `eval/` and
+> resolved it, but codex spawns `prism-mcp` with cwd = the session checkout, so the agent's server resolved the
+> same string INSIDE the checkout → cache miss → cold CPG build at MCP startup → prism never exposed (model said
+> "tools are not currently exposed") → silent 0-dose ON arms with `status=success`. Three cells of the first
+> 2026-08-21 slate were voided this way (`runs/partd/full-gpt-5.5-2026-08-21-VOID-relcache/`, kept). The
+> harness now absolutizes run paths at the source, writes agent MCP configs absolute, and spawns the warm gate
+> from the checkout cwd so this class fails loud. The 07-06 validation passed only because it used the default
+> (absolute) run root.
 
 - **Use `gpt-5.5`, NOT `gpt-5.5-xhigh`.** The `-xhigh` reasoning-effort flag is wired only
   into the judge path (`live_ask`), **never into the arm command** (`build_codex_cmd`).
@@ -129,7 +140,7 @@ done
 
 **Identical command, `--model opus-4.8` and a distinct root:**
 ```bash
-ROOT=tier_c/runs/partd/full-claude-2026-07-06
+ROOT="$PWD/tier_c/runs/partd/full-claude-2026-07-06"
 for t in $TASKS; do
   uv run tier-c run-partd --task "$t" --model opus-4.8 --live \
     --run-id "$t" --run-store-root "$ROOT" \

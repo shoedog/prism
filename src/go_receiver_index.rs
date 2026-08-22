@@ -31,8 +31,8 @@ use crate::ast::ParsedFile;
 use crate::go_receiver_index_visibility::{resolve_go_return_type_call, unique_visible_type};
 use crate::languages::Language;
 use crate::resolution::{
-    dir_of, owner_key, peel_type, resolve_go_owner_identity, ReceiverClassification,
-    ReceiverClassifier, ReceiverCtx, ReceiverRecovery, RecoveredReceiver,
+    dir_of, owner_key, peel_type, resolve_go_owner_identity, GoOwnerIdentity,
+    ReceiverClassification, ReceiverClassifier, ReceiverCtx, ReceiverRecovery, RecoveredReceiver,
 };
 use crate::type_providers::go::GoTypeProvider;
 use std::collections::{BTreeMap, BTreeSet};
@@ -265,6 +265,7 @@ pub struct GoReceiverFacts<'a> {
     pub return_types: &'a GoReturnTypes,
     pub package_vars: &'a BTreeMap<(String, String), BTreeSet<GoTypedFact>>,
     pub field_types: &'a crate::go_owner_partition::GoStructDeclarations,
+    pub field_targets: &'a BTreeMap<(GoOwnerIdentity, String), crate::resolution::GoFieldTarget>,
     pub package_basenames: &'a BTreeMap<String, std::collections::BTreeSet<String>>,
     pub imports: &'a BTreeMap<String, BTreeMap<String, String>>,
     pub go_file_profiles: &'a BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
@@ -402,6 +403,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                     static_type,
                     owner_identity: None,
                     recovery: how,
+                    go_field_target: None,
                 }),
                 materialized: true,
             },
@@ -428,6 +430,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                             static_type,
                             owner_identity: None,
                             recovery: ReceiverRecovery::VarDecl,
+                            go_field_target: None,
                         }),
                         materialized: true,
                     },
@@ -462,6 +465,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                         static_type,
                         owner_identity: Some(owner_identity),
                         recovery: ReceiverRecovery::ReturnTyped,
+                        go_field_target: None,
                     }),
                     materialized: true,
                 },
@@ -543,7 +547,9 @@ fn classify_nested_selector(
             owner
         }
     };
+    let mut field_target = None;
     for seg in segments {
+        let key = (current_owner.clone(), seg.clone());
         let Some(declarations) = facts.field_types.get(&current_owner) else {
             return (None, evidence, true);
         };
@@ -570,16 +576,30 @@ fn classify_nested_selector(
             facts.go_file_profiles,
         );
         evidence.merge(selection.evidence);
-        let Some(field_owner) = selection.value else {
+        let Some(field) = selection.value else {
             return (None, evidence, true);
         };
-        current_owner = field_owner;
+        let selected_target = facts.field_targets.get(&key).cloned();
+        let requires_local_struct_proof = field.embedded
+            && (field.raw_type.trim_start().starts_with('*') || field.raw_type.contains('.'));
+        if requires_local_struct_proof && selected_target.is_none() {
+            return (None, evidence, true);
+        }
+        if selected_target
+            .as_ref()
+            .is_some_and(|target| target.owner != field.owner)
+        {
+            return (None, evidence, true);
+        }
+        current_owner = field.owner;
+        field_target = selected_target;
     }
     (
         Some(RecoveredReceiver {
             static_type: current_owner.name.clone(),
             owner_identity: Some(current_owner),
             recovery: ReceiverRecovery::FieldTyped,
+            go_field_target: field_target,
         }),
         evidence,
         true,

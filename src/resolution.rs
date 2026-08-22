@@ -104,6 +104,10 @@ pub enum ResolutionKind {
     /// Also now the distinct label for Rust's Lane-A
     /// `ReceiverRecovery::FieldTyped` (previously collapsed to `TypedParam`).
     FieldTyped,
+    /// P8: a parameter callback whose argument was resolved as one Exact
+    /// FunctionId in the inbound caller's lexical context before minting the
+    /// synthetic call site.
+    ParameterCallback,
 }
 
 impl ResolutionKind {
@@ -135,6 +139,7 @@ impl ResolutionKind {
             ResolutionKind::FrameworkEntry => "framework_entry",
             ResolutionKind::ReturnTyped => "return_typed",
             ResolutionKind::FieldTyped => "field_typed",
+            ResolutionKind::ParameterCallback => "parameter_callback",
         }
     }
 }
@@ -235,6 +240,64 @@ pub struct GoOwnerIdentity {
     pub package_clause: String,
     /// Bare struct/type name (no package qualifier).
     pub name: String,
+}
+
+/// Package/declaration proof for a Go receiver reached through a locally-declared
+/// embedded struct field. Kept separate from `GoOwnerIdentity`: P10 owns that
+/// identity's shape, while S2 needs the target declaring file to recover its
+/// build profile and narrow the bare global method bucket without guessing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GoFieldTarget {
+    pub owner: GoOwnerIdentity,
+    pub declaring_file: String,
+}
+
+const GO_FIELD_TARGET_PREFIX: &str = "go-field-target:";
+
+/// Carry a proven Go field target through the existing serialized receiver
+/// identity slot. This deliberately adds no `CallSite`/`CallGraph` field, so
+/// cache layout stays unchanged; v44 updates the encoded identity to include
+/// P10's package clause.
+pub(crate) fn go_field_target_outcome(
+    target: &GoFieldTarget,
+) -> crate::resolution_identity::ReceiverOutcome {
+    crate::resolution_identity::ReceiverOutcome {
+        key: crate::resolution_identity::ReceiverTypeKey::External(format!(
+            "{GO_FIELD_TARGET_PREFIX}{}\0{}\0{}",
+            target.owner.package_dir, target.owner.package_clause, target.declaring_file
+        )),
+        bare: target.owner.name.clone(),
+        recovery: ReceiverRecovery::FieldTyped,
+    }
+}
+
+fn go_field_target_from_outcome(
+    outcome: &crate::resolution_identity::ReceiverOutcome,
+) -> Option<GoFieldTarget> {
+    if outcome.recovery != ReceiverRecovery::FieldTyped {
+        return None;
+    }
+    let crate::resolution_identity::ReceiverTypeKey::External(encoded) = &outcome.key else {
+        return None;
+    };
+    let encoded = encoded.strip_prefix(GO_FIELD_TARGET_PREFIX)?;
+    let (package_dir, rest) = encoded.split_once('\0')?;
+    let (package_clause, declaring_file) = rest.split_once('\0')?;
+    if package_dir.is_empty()
+        || package_clause.is_empty()
+        || declaring_file.is_empty()
+        || outcome.bare.is_empty()
+    {
+        return None;
+    }
+    Some(GoFieldTarget {
+        owner: GoOwnerIdentity {
+            package_dir: package_dir.to_string(),
+            package_clause: package_clause.to_string(),
+            name: outcome.bare.clone(),
+        },
+        declaring_file: declaring_file.to_string(),
+    })
 }
 
 /// Resolve a Go type reference (`T` or `pkg.T`, as written at `file`) to a
@@ -517,6 +580,7 @@ pub struct RecoveredReceiver {
     /// bare returned type is never rebound in the caller's package.
     pub owner_identity: Option<GoOwnerIdentity>,
     pub recovery: ReceiverRecovery,
+    pub go_field_target: Option<GoFieldTarget>,
 }
 
 /// Receiver classifier output. `materialized` means the qualifier was proven to
@@ -682,6 +746,7 @@ fn classify_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> ReceiverCl
         static_type,
         owner_identity: None,
         recovery: how,
+        go_field_target: None,
     })
 }
 
@@ -760,6 +825,7 @@ fn recover_type_assertion(ctx: &ReceiverCtx<'_>) -> Option<RecoveredReceiver> {
         static_type,
         owner_identity: None,
         recovery: ReceiverRecovery::TypeAssertion,
+        go_field_target: None,
     })
 }
 
@@ -1379,6 +1445,63 @@ impl CallGraph {
         Some((owner, selection))
     }
 
+    /// Resolve an S2 receiver whose embedded target was proven locally. The
+    /// global `methods[(bare_owner, name)]` bucket intentionally remains
+    /// bare-keyed, so narrow it by the carried package identity and require a
+    /// method profile that is visibly compatible with the target declaration.
+    /// A present proof owns the route: zero or multiple certain survivors drop
+    /// rather than falling back to the global bare-name ladder.
+    fn go_field_target_lookup(
+        &self,
+        target: &GoFieldTarget,
+        name: &str,
+        recovered_kind: ResolutionKind,
+    ) -> ResolutionOutcome<'_> {
+        if dir_of(&target.declaring_file) != target.owner.package_dir {
+            return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+        }
+        let Some(declaring_profile) = self.go_file_profiles.get(&target.declaring_file) else {
+            return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+        };
+        if declaring_profile.package_clause != target.owner.package_clause
+            || !crate::go_build_profile::profile_allows_exact(Some(declaring_profile))
+        {
+            return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+        }
+        let Some(ids) = self
+            .methods
+            .get(&(target.owner.name.clone(), name.to_string()))
+        else {
+            return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+        };
+        let survivors: Vec<&FunctionId> = ids
+            .iter()
+            .filter(|fid| dir_of(&fid.file) == target.owner.package_dir)
+            .filter(|fid| {
+                crate::go_owner_partition::exact_declaration_visibility(
+                    &target.owner,
+                    &target.declaring_file,
+                    crate::go_owner_partition::GoOwnerReferenceMode::Bare,
+                    &fid.file,
+                    &self.go_file_profiles,
+                ) == (true, true)
+            })
+            .collect();
+        let [survivor] = survivors.as_slice() else {
+            return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+        };
+        let kind = if self
+            .promoted_aliases
+            .get(&(target.owner.name.clone(), name.to_string()))
+            .is_some_and(|fids| fids.contains(*survivor))
+        {
+            ResolutionKind::EmbeddedPromotion
+        } else {
+            recovered_kind
+        };
+        ResolutionOutcome::hit(exact(std::iter::once(*survivor), kind))
+    }
+
     /// P5 S3 (Go func-value callbacks): consulted from the Go interface-consult
     /// miss path (resolve_call_site_full), ONLY after concrete `owner_lookup`
     /// AND `interface_impls` have both missed or arity-filtered to empty.
@@ -1674,6 +1797,19 @@ impl CallGraph {
     /// new precision ladder. Legacy callers continue to use the old resolver
     /// until Tasks 9-11 migrate them.
     pub fn resolve_call_site_full(&self, site: &CallSite) -> ResolutionOutcome<'_> {
+        if let Some(target) = site.pre_resolved_target.as_ref() {
+            let resolved = self
+                .functions
+                .get(&target.name)
+                .and_then(|targets| targets.iter().find(|candidate| *candidate == target));
+            return match resolved {
+                Some(target) => {
+                    ResolutionOutcome::hit(exact([target], ResolutionKind::ParameterCallback))
+                }
+                None => ResolutionOutcome::dropped(DropReason::UnknownName),
+            };
+        }
+
         let name = site.callee_name.as_str();
         let caller = &site.caller;
 
@@ -2015,6 +2151,20 @@ impl CallGraph {
                         site.receiver_recovery
                             .unwrap_or(ReceiverRecovery::TypedParam),
                     );
+                    if caller_lang == Some(crate::languages::Language::Go)
+                        && site.receiver_recovery == Some(ReceiverRecovery::FieldTyped)
+                    {
+                        if let Some(target) = site
+                            .receiver_outcome
+                            .as_ref()
+                            .and_then(go_field_target_from_outcome)
+                        {
+                            if target.owner.name != recv_ty {
+                                return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+                            }
+                            return self.go_field_target_lookup(&target, name, recovered_kind);
+                        }
+                    }
                     if caller_lang == Some(crate::languages::Language::Python) {
                         let clean_key = (caller.file.clone(), recv_ty.to_string());
                         if self.clean_class_spans.contains_key(&clean_key) {
@@ -3614,6 +3764,7 @@ mod scope_resolution_predicate_tests {
             arg_spread: false,
             receiver_outcome: None,
             origin: CallSiteOrigin::Source,
+            pre_resolved_target: None,
         }
     }
 

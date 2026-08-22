@@ -125,3 +125,18 @@ def test_live_ask_codex_xhigh_sets_reasoning_effort(monkeypatch):
     joined = " ".join(seen["cmd"])
     assert "model_reasoning_effort=xhigh" in joined
     assert "gpt-5.5" in seen["cmd"]
+
+
+def test_model_cli_registers_account_available_codex_slugs():
+    """2026-08-21: slugs present in this account's codex models_cache + smoke-verified live. Pre-change
+    these were KeyErrors in cli_model_flag (the slate could not run them)."""
+    from tier_c.llm import MODEL_CLI, cli_model_flag
+    from tier_c.model import Variant
+    assert MODEL_CLI["gpt-5.3-codex-spark"] == ("codex", "gpt-5.3-codex-spark")
+    assert MODEL_CLI["gpt-5.6-sol"] == ("codex", "gpt-5.6-sol")
+    assert cli_model_flag("gpt-5.3-codex-spark") == "gpt-5.3-codex-spark"
+    # family routing (RoutingArmRunner raises on "unknown"): both must classify as openai.
+    assert Variant("gpt-5.3-codex-spark", prism=False).family == "openai"
+    assert Variant("gpt-5.6-sol", prism=True).family == "openai"
+    # negative: the plain slug is rejected by this account's ChatGPT-auth codex and must stay unregistered.
+    assert "gpt-5.3-codex" not in MODEL_CLI

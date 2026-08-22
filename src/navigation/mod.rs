@@ -35,6 +35,7 @@ struct CallSiteKey {
     arg_spread: bool,
     receiver_outcome: Option<String>,
     origin: CallSiteOrigin,
+    pre_resolved_target: Option<FunctionId>,
 }
 
 impl From<&CallSite> for CallSiteKey {
@@ -55,6 +56,7 @@ impl From<&CallSite> for CallSiteKey {
             arg_spread: site.arg_spread,
             receiver_outcome: site.receiver_outcome.as_ref().map(|o| format!("{o:?}")),
             origin: site.origin,
+            pre_resolved_target: site.pre_resolved_target.clone(),
         }
     }
 }

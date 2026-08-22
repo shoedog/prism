@@ -44,3 +44,23 @@ fn go_multiline_parameter_occurrence_uses_parameter_token() {
     assert_eq!(&source[start_byte..end_byte], "x");
     assert_eq!(parsed.line_for_byte(start_byte), 3);
 }
+
+#[test]
+fn go_grouped_parameter_declaration_has_an_occurrence_per_binding() {
+    let source = "package main\nfunc f(a, b string, c int) { _ = a; _ = b; _ = c }\n";
+    let parsed = ParsedFile::parse("test.go", source, Language::Go).unwrap();
+    let func = parsed.all_functions().into_iter().next().unwrap();
+    let occurrences = parsed.function_parameter_occurrences(&func);
+
+    assert_eq!(
+        occurrences
+            .iter()
+            .map(|(name, _, _)| name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["a", "b", "c"],
+        "each Go binding needs a DFG parameter Def occurrence"
+    );
+    for (name, start, end) in occurrences {
+        assert_eq!(&source[start..end], name);
+    }
+}

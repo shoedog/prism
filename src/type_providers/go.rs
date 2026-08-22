@@ -48,7 +48,8 @@ pub struct InterfaceDispatchTable {
 struct GoStruct {
     /// Struct name.
     name: String,
-    /// Fields: (name, type_string). Anonymous/embedded fields have name == type.
+    /// Fields: (selector name, raw declared type). Embedded fields use their
+    /// implicit Go selector name (`Listener` for `*pkg.Listener`).
     fields: Vec<(String, String)>,
     /// Embedded fields (for promoted methods).
     embedded: Vec<GoEmbeddedField>,
@@ -61,8 +62,21 @@ struct GoStruct {
 /// An embedded struct field, preserving whether it was written as `T` or `*T`.
 #[derive(Debug, Clone)]
 struct GoEmbeddedField {
+    /// Implicit selector name, always the unqualified type name.
     name: String,
+    /// Raw source declaration, including a leading bare `*` when present.
+    /// Target resolution must use this, never `name`: `ext.Listener` selects
+    /// as `Listener` but must not resolve to a local `Listener`.
+    raw_type: String,
     is_pointer: bool,
+}
+
+impl GoEmbeddedField {
+    /// The directly indexable local target. Qualified targets fail closed until
+    /// this provider has package-aware import resolution for embedding walks.
+    fn local_target_name(&self) -> Option<&str> {
+        embedded_local_target_name(&self.raw_type)
+    }
 }
 
 /// A Go interface definition.
@@ -150,6 +164,14 @@ pub struct GoTypeData {
     /// known, field not func-typed" from "struct unknown entirely" (the S2
     /// registration scan's per-form fallback/counting depends on this).
     struct_identities: BTreeSet<crate::resolution::GoOwnerIdentity>,
+    /// Declaring files for every struct identity. `GoOwnerIdentity` deliberately
+    /// omits package/build partitions, so S2's pointer-embed proof must consult
+    /// these files' profiles instead of treating directory + name as proof.
+    struct_declaration_files: BTreeMap<crate::resolution::GoOwnerIdentity, BTreeSet<String>>,
+    /// Declaring files for every named type, including structs, interfaces,
+    /// defined types, and aliases. Profile conflicts in any of those collapse
+    /// under `GoOwnerIdentity`, so pointer-embed proof fails closed on them.
+    type_declaration_files: BTreeMap<crate::resolution::GoOwnerIdentity, BTreeSet<String>>,
     /// P5 S1: `(owner_identity, field_name)` pairs whose declared type begins
     /// with `func(` (named-type indirection, e.g. `type Handler func()`, is
     /// out of scope — noted, not attempted). Package-scoped so a registration
@@ -172,6 +194,12 @@ pub struct GoTypeData {
     /// by the embedded type's bare name). Package-scoped, same rationale as
     /// `func_typed_fields` above.
     field_types: BTreeMap<(crate::resolution::GoOwnerIdentity, String), String>,
+    /// Proven local embedded-struct targets for S2. Unlike `field_types`, each
+    /// route retains the target package identity and the visible declaration's
+    /// exact build profile, so downstream method lookup never widens back to a
+    /// repo-global bare owner bucket.
+    field_targets:
+        BTreeMap<(crate::resolution::GoOwnerIdentity, String), crate::resolution::GoFieldTarget>,
     /// P11 S4: `struct_name -> method_name -> (interface_name, signature)` for
     /// a method supplied ONLY by exactly one directly-embedded in-repo
     /// interface, with no own/promoted concrete method or field shadowing it.
@@ -192,6 +220,10 @@ pub struct GoTypeData {
     /// unrelated same-named `Holder` in another package). Keyed by the
     /// EMBEDDING struct's own `GoOwnerIdentity`.
     struct_embeds: BTreeMap<crate::resolution::GoOwnerIdentity, Vec<GoEmbeddedField>>,
+    /// Declaring file corresponding to the last-wins `struct_embeds` entry.
+    /// Kept in lockstep so the S2 proof can compare the embedding and target
+    /// declarations without widening `GoOwnerIdentity` (owned by P10).
+    struct_embed_files: BTreeMap<crate::resolution::GoOwnerIdentity, String>,
     /// P11 S4 (B2 fix): bare interface name -> set of package dirs that
     /// declare an interface with that name. `interfaces` collapses same-named
     /// interfaces across packages (last-file-wins), so it alone cannot tell
@@ -244,13 +276,17 @@ impl GoTypeProvider {
             dispatch_gaps: Vec::new(),
             dispatch_overapprox: Vec::new(),
             struct_identities: BTreeSet::new(),
+            struct_declaration_files: BTreeMap::new(),
+            type_declaration_files: BTreeMap::new(),
             func_typed_fields: BTreeSet::new(),
             struct_declarations: BTreeMap::new(),
             interface_declarations: BTreeMap::new(),
             method_declarations: BTreeMap::new(),
             field_types: BTreeMap::new(),
+            field_targets: BTreeMap::new(),
             embedded_interface_promotions: BTreeMap::new(),
             struct_embeds: BTreeMap::new(),
+            struct_embed_files: BTreeMap::new(),
             interface_name_owners: BTreeMap::new(),
             embedded_interface_routes: BTreeMap::new(),
         };
@@ -262,6 +298,8 @@ impl GoTypeProvider {
             Self::extract_from_file(&mut inner, path, parsed);
         }
 
+        let (go_file_profiles, _) = crate::go_build_profile::extract_go_file_profiles(files);
+        Self::remove_unproven_pointer_embed_pseudo_fields(&mut inner, &go_file_profiles);
         Self::compute_satisfaction(&mut inner);
         GoTypeProvider {
             data: Arc::new(inner),
@@ -308,6 +346,13 @@ impl GoTypeProvider {
 
     pub fn go_method_declarations(&self) -> crate::go_owner_partition::GoMethodDeclarations {
         self.data.method_declarations.clone()
+    }
+
+    pub fn go_field_targets(
+        &self,
+    ) -> BTreeMap<(crate::resolution::GoOwnerIdentity, String), crate::resolution::GoFieldTarget>
+    {
+        self.data.field_targets.clone()
     }
 
     /// P11 S4 routing map: `GoOwnerIdentity (struct) -> method_name ->
@@ -422,7 +467,7 @@ impl GoTypeProvider {
         for child in node.children(&mut cursor) {
             match child.kind() {
                 "type_spec" => Self::extract_type_spec(data, &child, path, parsed),
-                "type_alias" => Self::extract_type_alias(data, &child, parsed),
+                "type_alias" => Self::extract_type_alias(data, &child, path, parsed),
                 _ => {}
             }
         }
@@ -443,6 +488,7 @@ impl GoTypeProvider {
         if name.is_empty() {
             return;
         }
+        Self::record_type_declaration(data, path, &name, parsed);
 
         let type_node = match node.child_by_field_name("type") {
             Some(n) => n,
@@ -466,13 +512,25 @@ impl GoTypeProvider {
                 });
                 if let Some(owner) = owner {
                     data.struct_identities.insert(owner.clone());
+                    data.struct_declaration_files
+                        .entry(owner.clone())
+                        .or_default()
+                        .insert(path.to_string());
                     data.struct_declarations
                         .entry(owner.clone())
                         .or_default()
                         .insert(crate::go_owner_partition::GoStructDeclaration {
                             defining_file: path.to_string(),
                             fields: fields.iter().cloned().collect(),
-                            embedded_types: embedded.iter().map(|e| e.name.clone()).collect(),
+                            embedded_fields: embedded
+                                .iter()
+                                .map(|e| (e.name.clone(), e.raw_type.clone()))
+                                .collect(),
+                            embedded_types: embedded
+                                .iter()
+                                .filter(|e| !e.is_pointer && e.local_target_name().is_some())
+                                .map(|e| e.name.clone())
+                                .collect(),
                         });
                     for (field_name, field_type) in &fields {
                         if field_type.trim_start().starts_with("func(") {
@@ -485,7 +543,8 @@ impl GoTypeProvider {
                         data.field_types
                             .insert((owner.clone(), field_name.clone()), field_type.clone());
                     }
-                    data.struct_embeds.insert(owner, embedded.clone());
+                    data.struct_embeds.insert(owner.clone(), embedded.clone());
+                    data.struct_embed_files.insert(owner, path.to_string());
                 }
                 data.structs.insert(
                     name.clone(),
@@ -564,6 +623,21 @@ impl GoTypeProvider {
                 }
             }
         }
+    }
+
+    fn record_type_declaration(data: &mut GoTypeData, path: &str, name: &str, parsed: &ParsedFile) {
+        let (profile, _) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+        if profile.package_clause.trim().is_empty() {
+            return;
+        }
+        data.type_declaration_files
+            .entry(crate::resolution::GoOwnerIdentity {
+                package_dir: crate::resolution::dir_of(path).to_string(),
+                package_clause: profile.package_clause,
+                name: name.to_string(),
+            })
+            .or_default()
+            .insert(path.to_string());
     }
 
     fn has_generic_syntax(node: &tree_sitter::Node) -> bool {
@@ -655,7 +729,12 @@ impl GoTypeProvider {
     }
 
     /// Extract a type alias: `type Name = OtherType`.
-    fn extract_type_alias(data: &mut GoTypeData, node: &tree_sitter::Node, parsed: &ParsedFile) {
+    fn extract_type_alias(
+        data: &mut GoTypeData,
+        node: &tree_sitter::Node,
+        path: &str,
+        parsed: &ParsedFile,
+    ) {
         let name_node = match node.child_by_field_name("name") {
             Some(n) => n,
             None => return,
@@ -667,6 +746,7 @@ impl GoTypeProvider {
         let name = parsed.node_text(&name_node).trim().to_string();
         let target = parsed.node_text(&type_node).trim().to_string();
         if !name.is_empty() && !target.is_empty() {
+            Self::record_type_declaration(data, path, &name, parsed);
             data.aliases.insert(name, target);
         }
     }
@@ -701,42 +781,177 @@ impl GoTypeProvider {
         embedded: &mut Vec<GoEmbeddedField>,
     ) {
         let mut names: Vec<String> = Vec::new();
-        let mut type_str = String::new();
-
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            match child.kind() {
-                "field_identifier" => {
-                    names.push(parsed.node_text(&child).trim().to_string());
-                }
-                _ if type_str.is_empty()
-                    && child.kind() != "field_identifier"
-                    && child.kind() != "tag"
-                    && child.kind() != "comment"
-                    && child.kind() != "," =>
-                {
-                    if child.kind() != "field_identifier" {
-                        type_str = parsed.node_text(&child).trim().to_string();
-                    }
-                }
-                _ => {}
+            if child.kind() == "field_identifier" {
+                names.push(parsed.node_text(&child).trim().to_string());
             }
         }
 
+        // The grammar's named `type` field is the only type source. An
+        // embedded `*T` keeps `*` as a preceding anonymous token, while a
+        // named `field *T` has a `pointer_type` node here.
+        let Some(type_node) = node.child_by_field_name("type") else {
+            return;
+        };
+        let type_text = parsed.node_text(&type_node).trim();
+        if type_text.is_empty() {
+            return;
+        }
+
+        let mut pointer_cursor = node.walk();
+        let bare_pointer_embed = names.is_empty()
+            && node
+                .children(&mut pointer_cursor)
+                .any(|child| child.kind() == "*" && child.end_byte() <= type_node.start_byte());
+        let raw_type = if bare_pointer_embed {
+            format!("*{type_text}")
+        } else {
+            type_text.to_string()
+        };
+
         if names.is_empty() {
-            let embedded_name = strip_pointer(&type_str);
-            if !embedded_name.is_empty() {
-                embedded.push(GoEmbeddedField {
+            if let Some(embedded_name) = embedded_selector_name(type_text) {
+                let embedded_field = GoEmbeddedField {
                     name: embedded_name.to_string(),
-                    is_pointer: type_str.trim().starts_with('*'),
-                });
-                fields.push((embedded_name.to_string(), type_str));
+                    raw_type,
+                    is_pointer: bare_pointer_embed || type_text.starts_with('*'),
+                };
+                fields.push((embedded_name.to_string(), embedded_field.raw_type.clone()));
+                embedded.push(embedded_field);
             }
         } else {
             for name in names {
-                fields.push((name, type_str.clone()));
+                fields.push((name, raw_type.clone()));
             }
         }
+    }
+
+    /// Record package/profile proof for every local embedded struct. Retain a
+    /// pointer-embed pseudo-field for S2 recovery only when that proof exists.
+    /// Aliases, defined named types, qualified targets, interfaces, and unknown
+    /// pointer targets all fail closed. Their selector names remain in
+    /// `struct_embeds` for Go shadowing decisions; only the S2 `field_types`
+    /// entry is removed.
+    fn remove_unproven_pointer_embed_pseudo_fields(
+        data: &mut GoTypeData,
+        go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    ) {
+        let mut invalid = Vec::new();
+        let mut proven = Vec::new();
+        for (owner, embeds) in &data.struct_embeds {
+            for embedded in embeds {
+                let target = embedded.local_target_name().and_then(|target| {
+                    let target_owner = crate::resolution::GoOwnerIdentity {
+                        package_dir: owner.package_dir.clone(),
+                        package_clause: owner.package_clause.clone(),
+                        name: target.to_string(),
+                    };
+                    Self::visible_struct_declaration_file(
+                        data,
+                        go_file_profiles,
+                        owner,
+                        &target_owner,
+                    )
+                    .map(|declaring_file| crate::resolution::GoFieldTarget {
+                        owner: target_owner,
+                        declaring_file,
+                    })
+                });
+                if let Some(target) = target {
+                    proven.push(((owner.clone(), embedded.name.clone()), target));
+                } else if embedded.is_pointer {
+                    invalid.push((owner.clone(), embedded.name.clone()));
+                }
+            }
+        }
+        data.field_targets.extend(proven);
+        for field in invalid {
+            data.field_types.remove(&field);
+        }
+    }
+
+    fn visible_struct_declaration_file(
+        data: &GoTypeData,
+        go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+        embedding_owner: &crate::resolution::GoOwnerIdentity,
+        target_owner: &crate::resolution::GoOwnerIdentity,
+    ) -> Option<String> {
+        let Some(embedding_file) = data.struct_embed_files.get(embedding_owner) else {
+            return None;
+        };
+        if crate::go_owner_partition::exact_declaration_visibility(
+            embedding_owner,
+            embedding_file,
+            crate::go_owner_partition::GoOwnerReferenceMode::Bare,
+            embedding_file,
+            go_file_profiles,
+        ) != (true, true)
+        {
+            return None;
+        }
+        let Some(target_files) = data.struct_declaration_files.get(target_owner) else {
+            return None;
+        };
+
+        // Owner identity includes the package clause but intentionally omits
+        // build constraints. If either identity spans build profiles, the
+        // retained entry cannot prove which declaration supplied it.
+        if Self::owner_identity_has_profile_conflict(data, go_file_profiles, embedding_owner)
+            || Self::owner_identity_has_profile_conflict(data, go_file_profiles, target_owner)
+        {
+            return None;
+        }
+
+        target_files.iter().find_map(|target_file| {
+            (crate::go_owner_partition::exact_declaration_visibility(
+                target_owner,
+                embedding_file,
+                crate::go_owner_partition::GoOwnerReferenceMode::Bare,
+                target_file,
+                go_file_profiles,
+            ) == (true, true))
+                .then(|| target_file.clone())
+        })
+    }
+
+    fn owner_identity_has_profile_conflict(
+        data: &GoTypeData,
+        go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+        owner: &crate::resolution::GoOwnerIdentity,
+    ) -> bool {
+        let Some(files) = data.type_declaration_files.get(owner) else {
+            return true;
+        };
+        let mut profiles = files.iter().map(|file| go_file_profiles.get(file));
+        let Some(Some(first)) = profiles.next() else {
+            return true;
+        };
+        profiles.any(|profile| profile != Some(first))
+    }
+
+    /// Package-scoped selector names used only for Go shadowing decisions.
+    ///
+    /// `field_types` is intentionally narrower: S2 removes pointer embeds whose
+    /// target type cannot be proved recoverable. The selector still exists for
+    /// Go method-set shadowing, however, so merge the unfiltered embed names back
+    /// in without making those fields eligible for S2 recovery.
+    fn selector_field_names(
+        data: &GoTypeData,
+        owner: &crate::resolution::GoOwnerIdentity,
+    ) -> BTreeSet<String> {
+        data.field_types
+            .keys()
+            .filter(|(field_owner, _)| field_owner == owner)
+            .map(|(_, field)| field.clone())
+            .chain(
+                data.struct_embeds
+                    .get(owner)
+                    .into_iter()
+                    .flatten()
+                    .map(|embedded| embedded.name.clone()),
+            )
+            .collect()
     }
 
     /// Extract method signatures from an interface_type node.
@@ -1470,12 +1685,41 @@ impl GoTypeProvider {
         concrete_methods: &BTreeMap<String, ReceiverMethodSet>,
     ) -> BTreeMap<String, BTreeMap<String, (String, String)>> {
         let mut out: BTreeMap<String, BTreeMap<String, (String, String)>> = BTreeMap::new();
-        for (struct_name, go_struct) in &data.structs {
+        for go_struct in data.structs.values() {
+            let Some(struct_owner) = data
+                .struct_declarations
+                .iter()
+                .find(|(owner, declarations)| {
+                    owner.name == go_struct.name
+                        && declarations
+                            .iter()
+                            .any(|declaration| declaration.defining_file == go_struct.file)
+                })
+                .map(|(owner, _)| owner.clone())
+            else {
+                continue;
+            };
+            let Some(embeds) = data.struct_embeds.get(&struct_owner) else {
+                continue;
+            };
             let mut candidates: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
-            for embedded in &go_struct.embedded {
-                let bare = embedded.name.as_str();
+            for embedded in embeds {
+                if embedded.is_pointer {
+                    continue; // Go rejects `*I` embedded interfaces.
+                }
+                let Some(bare) = embedded.local_target_name() else {
+                    continue; // qualified target: no package-aware embedding resolver here.
+                };
+                let local_unique_interface = data
+                    .interface_name_owners
+                    .get(bare)
+                    .map(|owners| owners.len() == 1 && owners.contains(&struct_owner.package_dir))
+                    .unwrap_or(false);
+                if !local_unique_interface {
+                    continue; // not this package's interface, or bare-key map is ambiguous.
+                }
                 let Some(iface) = data.interfaces.get(bare) else {
-                    continue; // not a known in-repo interface (struct embed, or external) -- skip.
+                    continue;
                 };
                 if iface.generic {
                     continue;
@@ -1493,14 +1737,18 @@ impl GoTypeProvider {
             if candidates.is_empty() {
                 continue;
             }
-            let own_fields: BTreeSet<&str> =
-                go_struct.fields.iter().map(|(n, _)| n.as_str()).collect();
+            let own_fields = Self::selector_field_names(data, &struct_owner);
             let own_methods: BTreeSet<&str> = data
                 .methods
-                .get(struct_name)
-                .map(|ms| ms.iter().map(|m| m.name.as_str()).collect())
+                .get(&struct_owner.name)
+                .map(|ms| {
+                    ms.iter()
+                        .filter(|m| crate::resolution::dir_of(&m.file) == struct_owner.package_dir)
+                        .map(|m| m.name.as_str())
+                        .collect()
+                })
                 .unwrap_or_default();
-            let already = concrete_methods.get(struct_name);
+            let already = concrete_methods.get(&struct_owner.name);
             let mut per_struct = BTreeMap::new();
             for (method_name, ifaces) in candidates {
                 if ifaces.len() != 1 {
@@ -1522,7 +1770,7 @@ impl GoTypeProvider {
                 per_struct.insert(method_name, ifaces.into_iter().next().unwrap());
             }
             if !per_struct.is_empty() {
-                out.insert(struct_name.clone(), per_struct);
+                out.insert(struct_owner.name.clone(), per_struct);
             }
         }
         out
@@ -1731,15 +1979,38 @@ impl GoTypeProvider {
         data: &GoTypeData,
     ) -> Vec<PromotedMethodCandidate> {
         let mut out = Vec::new();
-        for struct_name in data.structs.keys() {
+        let mut outer_owner_counts: BTreeMap<&str, usize> = BTreeMap::new();
+        for owner in &data.struct_identities {
+            *outer_owner_counts.entry(owner.name.as_str()).or_default() += 1;
+        }
+        for go_struct in data.structs.values() {
+            // Promoted aliases are still installed and consulted by bare owner
+            // name. Until that index is package-scoped end-to-end, refuse to
+            // mint an alias when more than one package owns this outer name.
+            if outer_owner_counts.get(go_struct.name.as_str()).copied() != Some(1) {
+                continue;
+            }
+            let Some(struct_owner) = data
+                .struct_declarations
+                .iter()
+                .find(|(owner, declarations)| {
+                    owner.name == go_struct.name
+                        && declarations
+                            .iter()
+                            .any(|declaration| declaration.defining_file == go_struct.file)
+                })
+                .map(|(owner, _)| owner.clone())
+            else {
+                continue;
+            };
             let mut field_depth: BTreeMap<String, usize> = BTreeMap::new();
             let mut cands: Vec<PromotedMethodCandidate> = Vec::new();
-            let mut path: BTreeSet<String> = BTreeSet::new();
-            path.insert(struct_name.clone());
+            let mut path = BTreeSet::new();
+            path.insert(struct_owner.clone());
             Self::walk_embedding(
                 data,
-                struct_name,
-                struct_name,
+                &struct_owner,
+                &struct_owner,
                 0,
                 &mut path,
                 &mut field_depth,
@@ -1760,22 +2031,23 @@ impl GoTypeProvider {
     #[allow(clippy::too_many_arguments)]
     fn walk_embedding(
         data: &GoTypeData,
-        outer: &str,
-        current: &str,
+        outer: &crate::resolution::GoOwnerIdentity,
+        current: &crate::resolution::GoOwnerIdentity,
         depth: usize, // depth of `current` within `outer` (0 = the outer struct itself)
-        path: &mut BTreeSet<String>,
+        path: &mut BTreeSet<crate::resolution::GoOwnerIdentity>,
         field_depth: &mut BTreeMap<String, usize>,
         cands: &mut Vec<PromotedMethodCandidate>,
         value_can_use_pointer_receiver: bool,
     ) {
-        let go_struct = match data.structs.get(current) {
-            Some(s) => s,
+        let embeds = match data.struct_embeds.get(current) {
+            Some(embeds) => embeds,
             None => return,
         };
-        // Record this struct's own field names at `depth` (keep the min).
-        for (fname, _) in &go_struct.fields {
+        // Record this struct's unfiltered selector names at `depth` (keep the
+        // min). S2 recoverability is deliberately irrelevant to shadowing.
+        for fname in Self::selector_field_names(data, current) {
             field_depth
-                .entry(fname.clone())
+                .entry(fname)
                 .and_modify(|d| {
                     if depth < *d {
                         *d = depth;
@@ -1786,18 +2058,13 @@ impl GoTypeProvider {
         // Methods of `current` promote to `outer` (depth>=1; the outer struct's own
         // depth-0 methods are NOT promoted — direct-method-wins is the caller's job).
         if depth >= 1 {
-            if let Some(methods) = data.methods.get(current) {
+            if let Some(methods) = data.method_declarations.get(current) {
                 for m in methods {
                     cands.push(PromotedMethodCandidate {
                         promoted: PromotedMethod {
-                            struct_name: outer.to_string(),
-                            method: m.name.clone(),
-                            func_id: FunctionId {
-                                name: m.name.clone(),
-                                file: m.file.clone(),
-                                start_line: m.start_line,
-                                end_line: m.end_line,
-                            },
+                            struct_name: outer.name.clone(),
+                            method: m.method_name.clone(),
+                            func_id: m.function_id.clone(),
                             depth,
                         },
                         value_method_set: !m.is_pointer_receiver || value_can_use_pointer_receiver,
@@ -1805,25 +2072,32 @@ impl GoTypeProvider {
                 }
             }
         }
-        for embedded in &go_struct.embedded {
-            let bare = embedded.name.as_str();
-            if data.interfaces.contains_key(bare) {
+        for embedded in embeds {
+            let Some(bare) = embedded.local_target_name() else {
+                continue; // qualified target: no package-aware embedding resolver here.
+            };
+            let target = crate::resolution::GoOwnerIdentity {
+                package_dir: current.package_dir.clone(),
+                package_clause: current.package_clause.clone(),
+                name: bare.to_string(),
+            };
+            if data.interface_declarations.contains_key(&target) {
                 continue; // embedded interface -> interface dispatch, deferred
             }
-            if !path.insert(bare.to_string()) {
+            if !data.struct_embeds.contains_key(&target) || !path.insert(target.clone()) {
                 continue; // cycle along THIS path only
             }
             Self::walk_embedding(
                 data,
                 outer,
-                bare,
+                &target,
                 depth + 1,
                 path,
                 field_depth,
                 cands,
                 value_can_use_pointer_receiver || embedded.is_pointer,
             );
-            path.remove(bare); // restore for sibling paths (path-local)
+            path.remove(&target); // restore for sibling paths (path-local)
         }
     }
 }
@@ -1960,6 +2234,25 @@ impl DispatchProvider for GoTypeProvider {
 /// Strip leading `*` from a pointer type: `*Server` → `Server`.
 fn strip_pointer(s: &str) -> &str {
     s.strip_prefix('*').unwrap_or(s).trim()
+}
+
+/// Go's implicit field selector is the unqualified base name: `Listener` for
+/// `Listener`, `*Listener`, `pkg.Listener`, and `*pkg.Listener[T]`.
+fn embedded_selector_name(type_text: &str) -> Option<&str> {
+    let without_pointer = strip_pointer(type_text);
+    let without_type_args = without_pointer.split('[').next()?.trim();
+    let selector = without_type_args.rsplit('.').next()?.trim();
+    (!selector.is_empty()).then_some(selector)
+}
+
+/// Return an unqualified embedded target suitable for the provider's local,
+/// bare-keyed indices. A qualified target needs import-aware package identity;
+/// absent that resolver, callers must fail closed rather than reuse its
+/// selector name and collide with an unrelated local declaration.
+fn embedded_local_target_name(raw_type: &str) -> Option<&str> {
+    let without_pointer = strip_pointer(raw_type);
+    let without_type_args = without_pointer.split('[').next()?.trim();
+    (!without_type_args.is_empty() && !without_type_args.contains('.')).then_some(without_type_args)
 }
 
 #[cfg(test)]
@@ -2212,14 +2505,21 @@ mod satisfaction_tests {
 #[cfg(test)]
 mod embedding_tests {
     use super::*;
-    use std::collections::BTreeMap;
 
     fn provider(src: &str) -> GoTypeProvider {
-        let mut files = BTreeMap::new();
-        files.insert(
-            "main.go".to_string(),
-            crate::ast::ParsedFile::parse("main.go", src, Language::Go).unwrap(),
-        );
+        provider_files(&[("main.go", src)])
+    }
+
+    fn provider_files(sources: &[(&str, &str)]) -> GoTypeProvider {
+        let files = sources
+            .iter()
+            .map(|(path, source)| {
+                (
+                    (*path).to_string(),
+                    crate::ast::ParsedFile::parse(path, source, Language::Go).unwrap(),
+                )
+            })
+            .collect();
         GoTypeProvider::from_parsed_files(&files)
     }
 
@@ -2237,6 +2537,232 @@ mod embedding_tests {
         assert_eq!(p[0].func_id.name, "Ping");
         assert_eq!(p[0].func_id.file, "main.go");
         assert_eq!(p[0].depth, 1);
+    }
+
+    #[test]
+    fn embedded_fields_keep_selector_name_separate_from_raw_declared_type() {
+        let p = provider(
+            "package main\n\
+             type Listener struct{}\n\
+             type Generic[T any] struct{}\n\
+             type S struct {\n\
+             \t*Listener\n\
+             \tpkg.Listener\n\
+             \t*pkg.Pointer\n\
+             \t*Generic[int]\n\
+             \tnamed *Listener\n\
+             }\n\
+             type Plain struct { Listener }\n",
+        );
+        let s = p.data.structs.get("S").expect("S extracted");
+        assert_eq!(
+            s.fields,
+            vec![
+                ("Listener".to_string(), "*Listener".to_string()),
+                ("Listener".to_string(), "pkg.Listener".to_string()),
+                ("Pointer".to_string(), "*pkg.Pointer".to_string()),
+                ("Generic".to_string(), "*Generic[int]".to_string()),
+                ("named".to_string(), "*Listener".to_string()),
+            ],
+            "fields must use Go selector names while retaining raw declared types"
+        );
+        let embeds: Vec<(&str, &str, bool)> = s
+            .embedded
+            .iter()
+            .map(|field| {
+                (
+                    field.name.as_str(),
+                    field.raw_type.as_str(),
+                    field.is_pointer,
+                )
+            })
+            .collect();
+        assert_eq!(
+            embeds,
+            vec![
+                ("Listener", "*Listener", true),
+                ("Listener", "pkg.Listener", false),
+                ("Pointer", "*pkg.Pointer", true),
+                ("Generic", "*Generic[int]", true),
+            ],
+            "named fields are not embeds; qualified and generic embeds select by bare type name"
+        );
+
+        let plain = p.data.structs.get("Plain").expect("Plain extracted");
+        assert_eq!(
+            plain.fields,
+            vec![("Listener".to_string(), "Listener".to_string())]
+        );
+        assert_eq!(plain.embedded[0].name, "Listener");
+        assert_eq!(plain.embedded[0].raw_type, "Listener");
+        assert!(!plain.embedded[0].is_pointer);
+    }
+
+    #[test]
+    fn pointer_embedded_struct_promotes_pointer_receiver_into_value_method_set() {
+        let p = provider(
+            "package main\n\
+             type I interface { Serve() }\n\
+             type Listener struct{}\n\
+             func (l *Listener) Serve() {}\n\
+             type S struct { *Listener }\n",
+        );
+        assert_eq!(ms(&p.promoted_struct_methods(), "S", "Serve").len(), 1);
+        let satisfiers = p.satisfier_admission_keys_for_test("I", "Serve");
+        assert!(
+            satisfiers.contains(&"S".to_string()) && satisfiers.contains(&"*S".to_string()),
+            "a *Listener embed promotes its pointer-receiver method into S and *S: {satisfiers:?}"
+        );
+    }
+
+    #[test]
+    fn unqualified_embeds_resolve_only_within_embedding_package() {
+        let p = provider_files(&[
+            (
+                "a/types.go",
+                "package a\n\
+                 type Base struct{}\n\
+                 type S struct { *Base }\n\
+                 type ValueS struct { Base }\n",
+            ),
+            (
+                "b/types.go",
+                "package b\n\
+                 type Base struct{}\n\
+                 func (b *Base) Serve() {}\n",
+            ),
+            ("c/types.go", "package c\ntype I interface { Serve() }\n"),
+        ]);
+        let promoted = p.promoted_struct_methods();
+        assert!(
+            ms(&promoted, "S", "Serve").is_empty() && ms(&promoted, "ValueS", "Serve").is_empty(),
+            "a.Base has no Serve; neither pointer nor value embed may walk b.Base"
+        );
+        let satisfiers = p.satisfier_admission_keys_for_test("I", "Serve");
+        assert!(
+            !satisfiers.contains(&"S".to_string()) && !satisfiers.contains(&"*S".to_string()),
+            "a.S must not satisfy c.I through b.Base: {satisfiers:?}"
+        );
+        assert!(
+            !p.data
+                .satisfaction
+                .get("I")
+                .is_some_and(|satisfiers| satisfiers.contains("S")),
+            "a.S must not appear in c.I's satisfaction membership: {:?}",
+            p.data.satisfaction.get("I")
+        );
+    }
+
+    #[test]
+    fn value_embed_does_not_use_unrelated_package_interface() {
+        let p = provider_files(&[
+            (
+                "a/types.go",
+                "package a\n\
+                 type Base struct{}\n\
+                 type S struct { Base }\n",
+            ),
+            ("c/types.go", "package c\ntype I interface { Serve() }\n"),
+            ("z/types.go", "package z\ntype Base interface { Serve() }\n"),
+        ]);
+        assert!(
+            !p.data
+                .satisfaction
+                .get("I")
+                .is_some_and(|satisfiers| satisfiers.contains("S")),
+            "a.S must not inherit z.Base's interface method: {:?}",
+            p.data.satisfaction.get("I")
+        );
+    }
+
+    #[test]
+    fn value_embedded_struct_keeps_pointer_receiver_off_value_method_set() {
+        let p = provider(
+            "package main\n\
+             type I interface { Serve() }\n\
+             type Listener struct{}\n\
+             func (l *Listener) Serve() {}\n\
+             type S struct { Listener }\n",
+        );
+        assert_eq!(ms(&p.promoted_struct_methods(), "S", "Serve").len(), 1);
+        let satisfiers = p.satisfier_admission_keys_for_test("I", "Serve");
+        assert!(
+            !satisfiers.contains(&"S".to_string()) && satisfiers.contains(&"*S".to_string()),
+            "a value Listener embed exposes its pointer receiver only on *S: {satisfiers:?}"
+        );
+    }
+
+    #[test]
+    fn pointer_embedded_field_shadows_same_named_promoted_method() {
+        let v = provider(
+            "package main\n\
+             type Listener struct{}\n\
+             type D struct{}\n\
+             func (d D) Listener() {}\n\
+             type S struct {\n\t*Listener\n\tD\n}\n",
+        )
+        .promoted_struct_methods();
+        assert!(
+            ms(&v, "S", "Listener").is_empty(),
+            "the embedded *Listener selector shadows D.Listener at the same depth"
+        );
+    }
+
+    #[test]
+    fn qualified_pointer_embedded_field_shadows_s4_membership_and_route() {
+        let p = provider_files(&[
+            ("ext/types.go", "package ext\ntype Listener struct{}\n"),
+            (
+                "main/types.go",
+                "package main\n\
+                 import \"example.com/ext\"\n\
+                 type Target interface { Listener() }\n\
+                 type I interface { Listener() }\n\
+                 type Concrete struct{}\n\
+                 func (c Concrete) Listener() {}\n\
+                 type S struct {\n\t*ext.Listener\n\tI\n}\n",
+            ),
+        ]);
+        let owner = crate::resolution::GoOwnerIdentity {
+            package_dir: "main".to_string(),
+            package_clause: "main".to_string(),
+            name: "S".to_string(),
+        };
+        assert!(
+            !p.data
+                .satisfaction
+                .get("Target")
+                .is_some_and(|satisfiers| satisfiers.contains("S")),
+            "the depth-0 Listener field must keep I.Listener out of S's method set: {:?}",
+            p.data.satisfaction.get("Target")
+        );
+        assert!(
+            p.embedded_interface_method_routes()
+                .get(&owner)
+                .and_then(|methods| methods.get("Listener"))
+                .is_none(),
+            "the depth-0 Listener field must suppress the I.Listener S4 route"
+        );
+    }
+
+    #[test]
+    fn pointer_embedded_interface_is_excluded_from_s4_routes() {
+        let p = provider(
+            "package main\n\
+             type I interface { Do() }\n\
+             type Holder struct { *I }\n",
+        );
+        assert!(
+            p.embedded_interface_method_routes().is_empty(),
+            "tree-sitter accepts *I, but Go rejects pointer-to-interface embeds"
+        );
+        assert!(
+            !p.data
+                .satisfaction
+                .get("I")
+                .is_some_and(|satisfying| satisfying.contains("Holder")),
+            "tree-sitter accepts *I, but Go rejects it: Holder must not satisfy I"
+        );
     }
 
     #[test]

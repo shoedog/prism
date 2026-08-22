@@ -44,6 +44,13 @@ pub(crate) fn resolve_go_return_type_call(
 /// package/import namespace. Returning only the raw field type is insufficient:
 /// a bare `Gadget` in `factory.Widget` must not later be rebound as
 /// `app.Gadget` by the caller that happens to use the widget.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct GoResolvedStructField {
+    pub owner: crate::resolution::GoOwnerIdentity,
+    pub raw_type: String,
+    pub embedded: bool,
+}
+
 pub(crate) fn resolve_go_struct_field_owner(
     owner: &crate::resolution::GoOwnerIdentity,
     caller_file: &str,
@@ -53,14 +60,14 @@ pub(crate) fn resolve_go_struct_field_owner(
     imports: &BTreeMap<String, BTreeMap<String, String>>,
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
     go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
-) -> crate::go_owner_partition::GoPartitionSelection<crate::resolution::GoOwnerIdentity> {
+) -> crate::go_owner_partition::GoPartitionSelection<GoResolvedStructField> {
     let all_values: BTreeSet<Option<String>> = declarations
         .iter()
         .map(|declaration| declaration.fields.get(field_name).cloned())
         .collect();
     let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
     let mut visible_values = BTreeSet::new();
-    let mut field_owners = BTreeSet::new();
+    let mut resolved_fields = BTreeSet::new();
     for declaration in declarations {
         let (visible, exact) = exact_declaration_visibility(
             owner,
@@ -99,10 +106,14 @@ pub(crate) fn resolve_go_struct_field_owner(
                 evidence,
             };
         };
-        field_owners.insert(field_owner);
+        resolved_fields.insert(GoResolvedStructField {
+            owner: field_owner,
+            raw_type: field_type,
+            embedded: declaration.embedded_fields.contains_key(field_name),
+        });
     }
-    evidence.distinct_visible_values = visible_values.len().max(field_owners.len());
-    evidence.conflict = visible_values.len() > 1 || field_owners.len() > 1;
+    evidence.distinct_visible_values = visible_values.len().max(resolved_fields.len());
+    evidence.conflict = visible_values.len() > 1 || resolved_fields.len() > 1;
     if evidence.conflict {
         return crate::go_owner_partition::GoPartitionSelection {
             value: None,
@@ -112,9 +123,9 @@ pub(crate) fn resolve_go_struct_field_owner(
     evidence.recovered = all_values.len() > 1
         && evidence.filtered_declarations > 0
         && visible_values.len() == 1
-        && field_owners.len() == 1;
+        && resolved_fields.len() == 1;
     crate::go_owner_partition::GoPartitionSelection {
-        value: field_owners.into_iter().next(),
+        value: resolved_fields.into_iter().next(),
         evidence,
     }
 }

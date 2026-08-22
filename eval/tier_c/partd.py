@@ -352,6 +352,23 @@ def _write_partd_manifest(*, cell: tuple, task, bench_root: str,
     return path
 
 
+
+def resolve_run_paths(runs_root: str | None, run_id: str, cache_dir: str | None,
+                      default_runs_root: str) -> tuple[str, str, str]:
+    """Return ABSOLUTE (runs_root, run_dir, cache_dir) for one live cell.
+
+    2026-08-21 harness defect (Part-D slate, 3 cells voided): a RELATIVE ``--run-store-root`` made
+    ``cache_dir`` relative.  The prewarm and the F4 warm gate ran from ``eval/`` and resolved it
+    fine, but codex spawns ``prism-mcp`` with cwd = the session checkout, so the agent's server
+    resolved the same string INSIDE the checkout -> cache miss -> cold CPG build at MCP startup ->
+    prism never exposed to the model (0-dose, silently).  Every path handed to an agent MCP config
+    must therefore be absolute; do it ONCE here so prewarm, gate, manifest and agent configs agree.
+    """
+    root = os.path.abspath(runs_root) if runs_root else default_runs_root
+    run_dir = os.path.join(root, run_id)
+    cache = os.path.abspath(cache_dir) if cache_dir else os.path.join(run_dir, "prism-cache")
+    return root, run_dir, cache
+
 def _run_partd_live(cell: tuple, *, bench_root: str, structural_issues_path: str,
                     gold_root: str, run_id: str | None = None,
                     runs_root: str | None = None, force_new: bool = False,
@@ -374,20 +391,16 @@ def _run_partd_live(cell: tuple, *, bench_root: str, structural_issues_path: str
     from .cli import _persist_one_arm, _persist_partc_cell
 
     task_id, model = cell
-    if runs_root is None:
-        runs_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs", "partd")
     if run_id is None:
         run_id = _default_partd_run_id()
-
-    run_dir = os.path.join(runs_root, run_id)
+    runs_root, run_dir, cache_dir = resolve_run_paths(
+        runs_root, run_id, cache_dir,
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs", "partd"))
     if os.path.exists(run_dir) and not force_new:
         raise FileExistsError(f"run-id dir exists: {run_dir} (use --force-new to override)")
     if os.path.exists(run_dir) and force_new:
         shutil.rmtree(run_dir)
     os.makedirs(run_dir, exist_ok=True)
-
-    if cache_dir is None:
-        cache_dir = os.path.join(run_dir, "prism-cache")
 
     safe_model = model.replace("/", "_").replace(":", "_")
     base = os.path.join(run_dir, f"{task_id}-impact-{safe_model}")

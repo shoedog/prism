@@ -4,6 +4,9 @@ use anyhow::{Context, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::{Node, Parser, Tree};
 
+/// A parameter binding and the byte span of its identifier token.
+pub type ParameterOccurrence = (String, usize, usize);
+
 /// Count ERROR and MISSING nodes in a parse tree.
 ///
 /// Returns `(error_count, total_nodes)` so callers can compute an error rate.
@@ -99,7 +102,9 @@ pub struct FunctionInfo {
     pub end_byte: usize,
     pub start_line: usize, // 1-indexed, inclusive
     pub end_line: usize,   // 1-indexed, inclusive
-    pub param_names: Vec<String>,
+    /// Positional runtime slots when the signature can be represented exactly.
+    /// `None` fails positional consumers closed.
+    pub param_names: Option<Vec<String>>,
     /// S3: owning type for methods (bare key, generics stripped). None = free fn.
     pub owner: Option<String>,
     /// S3 (Go only): receiver variable name (`t` in `func (t *T) m()`).
@@ -531,7 +536,7 @@ impl ParsedFile {
                 end_byte: node.end_byte(),
                 start_line: node.start_position().row + 1,
                 end_line: node.end_position().row + 1,
-                param_names: self.function_parameter_names(&node),
+                param_names: self.function_parameter_slots(&node),
                 owner: self
                     .language
                     .method_owner(&node)
@@ -2020,6 +2025,182 @@ impl ParsedFile {
         );
         self.collect_js_ts_local_bindings(*func_node, root_key, &mut out);
         out
+    }
+
+    /// Conservative function-local value bindings for callback value-reference
+    /// resolution. `None` means this language or syntax is not modeled strongly
+    /// enough to prove that a plain identifier is free.
+    pub fn function_local_value_bindings(&self, func_node: &Node<'_>) -> Option<BTreeSet<String>> {
+        fn contains_recovery(node: Node<'_>) -> bool {
+            if node.is_error() || node.is_missing() {
+                return true;
+            }
+            let mut cursor = node.walk();
+            let found = node.children(&mut cursor).any(contains_recovery);
+            found
+        }
+
+        if contains_recovery(*func_node) {
+            return None;
+        }
+        if matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return Some(self.js_ts_function_local_bindings(func_node));
+        }
+        if !matches!(self.language, Language::Python | Language::Go) {
+            return None;
+        }
+
+        let mut out: BTreeSet<String> = self
+            .function_parameter_occurrences(func_node)
+            .into_iter()
+            .map(|(name, _, _)| name)
+            .collect();
+        let root_key = (
+            func_node.start_byte(),
+            func_node.end_byte(),
+            func_node.kind_id(),
+        );
+        self.collect_python_go_local_value_bindings(*func_node, root_key, &mut out);
+        Some(out)
+    }
+
+    fn collect_python_go_local_value_bindings(
+        &self,
+        node: Node<'_>,
+        root_key: (usize, usize, u16),
+        out: &mut BTreeSet<String>,
+    ) {
+        let is_root = (node.start_byte(), node.end_byte(), node.kind_id()) == root_key;
+        if !is_root
+            && matches!(
+                node.kind(),
+                "function_definition"
+                    | "lambda"
+                    | "function_declaration"
+                    | "method_declaration"
+                    | "func_literal"
+            )
+        {
+            if node.kind() == "function_definition" {
+                if let Some(name) = node.child_by_field_name("name") {
+                    out.insert(self.node_text(&name).to_string());
+                }
+            }
+            return;
+        }
+
+        match (self.language, node.kind()) {
+            (Language::Python, "assignment" | "augmented_assignment") => {
+                if let Some(left) = node.child_by_field_name("left") {
+                    self.collect_local_binding_pattern(left, out);
+                }
+            }
+            (Language::Python, "named_expression") => {
+                if let Some(name) = node.child_by_field_name("name") {
+                    self.collect_local_binding_pattern(name, out);
+                }
+            }
+            (Language::Python, "for_statement" | "for_in_clause") => {
+                if let Some(left) = node.child_by_field_name("left") {
+                    self.collect_local_binding_pattern(left, out);
+                }
+            }
+            (Language::Python, "as_pattern") => {
+                if let Some(alias) = node.child_by_field_name("alias") {
+                    self.collect_local_binding_pattern(alias, out);
+                }
+            }
+            (Language::Python, "import_statement" | "import_from_statement") => {
+                // Python imports inside a function bind names in that function's
+                // local namespace. Collecting every identifier is deliberately
+                // conservative: an extra local is safer than an omitted binding.
+                self.collect_identifier_names(node, out);
+            }
+            (Language::Python, "case_pattern") => {
+                // Capture patterns bind locals, while value/class patterns can
+                // also contain identifiers. Over-collecting the latter is the
+                // fail-closed choice for callback identity.
+                self.collect_identifier_names(node, out);
+            }
+            (Language::Python, "class_definition") if !is_root => {
+                if let Some(name) = node.child_by_field_name("name") {
+                    out.insert(self.node_text(&name).to_string());
+                }
+                return;
+            }
+            (Language::Go, "short_var_declaration") => {
+                if let Some(left) = node.child_by_field_name("left") {
+                    self.collect_local_binding_pattern(left, out);
+                }
+            }
+            (Language::Go, "parameter_declaration" | "variadic_parameter_declaration") => {
+                let type_start = node
+                    .child_by_field_name("type")
+                    .map_or(node.end_byte(), |ty| ty.start_byte());
+                let mut cursor = node.walk();
+                for child in node.named_children(&mut cursor) {
+                    if child.start_byte() >= type_start {
+                        break;
+                    }
+                    if child.kind() == "identifier" {
+                        self.collect_local_binding_pattern(child, out);
+                    }
+                }
+            }
+            (Language::Go, "var_spec") => {
+                let value_start = node
+                    .child_by_field_name("value")
+                    .map_or(node.end_byte(), |value| value.start_byte());
+                let mut cursor = node.walk();
+                for child in node.named_children(&mut cursor) {
+                    if child.start_byte() >= value_start {
+                        break;
+                    }
+                    if child.kind() == "identifier" {
+                        self.collect_local_binding_pattern(child, out);
+                    }
+                }
+            }
+            (Language::Go, "range_clause") => {
+                let text = self.node_text(&node);
+                if text.contains(":=") {
+                    if let Some(left) = node.child_by_field_name("left") {
+                        self.collect_local_binding_pattern(left, out);
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_python_go_local_value_bindings(child, root_key, out);
+        }
+    }
+
+    fn collect_local_binding_pattern(&self, node: Node<'_>, out: &mut BTreeSet<String>) {
+        match node.kind() {
+            "identifier" => {
+                let name = self.node_text(&node);
+                if name != "_" {
+                    out.insert(name.to_string());
+                }
+            }
+            "pattern_list"
+            | "tuple_pattern"
+            | "list_pattern"
+            | "expression_list"
+            | "parenthesized_expression" => {
+                let mut cursor = node.walk();
+                for child in node.named_children(&mut cursor) {
+                    self.collect_local_binding_pattern(child, out);
+                }
+            }
+            _ => {}
+        }
     }
 
     fn collect_js_ts_parameter_bindings(&self, func_node: Node<'_>, out: &mut BTreeSet<String>) {
@@ -5860,14 +6041,20 @@ impl ParsedFile {
         None
     }
 
-    /// Extract the ordered parameter names from a function definition node.
+    /// Extract binding names in declaration order for non-positional consumers.
     ///
-    /// Walks the tree-sitter AST to find `parameter_declaration` (C/C++),
-    /// `parameter` (Go/Rust), or `identifier` children of the parameters node.
-    /// Returns the names in declaration order.
+    /// Go grouped declarations intentionally expand (`a, b string` yields both
+    /// bindings), so DFG and reasoning receive one definition seed per name.
     pub fn function_parameter_names(&self, func_node: &Node<'_>) -> Vec<String> {
+        if self.language == Language::Go {
+            return self
+                .function_parameter_occurrences(func_node)
+                .into_iter()
+                .map(|(name, _, _)| name)
+                .collect();
+        }
+
         let mut names = Vec::new();
-        // Find the parameters node — could be in a declarator chain (C/C++) or direct
         if let Some(params) = self.find_parameters_node(func_node) {
             let mut cursor = params.walk();
             for child in params.children(&mut cursor) {
@@ -5884,15 +6071,12 @@ impl ParsedFile {
     /// The tuple is `(name, start_byte, end_byte)` for the actual parameter
     /// binding token. The DFG still anchors parameter defs to the function start
     /// line for call-boundary compatibility.
-    pub fn function_parameter_occurrences(
-        &self,
-        func_node: &Node<'_>,
-    ) -> Vec<(String, usize, usize)> {
+    pub fn function_parameter_occurrences(&self, func_node: &Node<'_>) -> Vec<ParameterOccurrence> {
         let mut params_out = Vec::new();
         if let Some(params) = self.find_parameters_node(func_node) {
             let mut cursor = params.walk();
             for child in params.children(&mut cursor) {
-                if let Some(name_node) = self.extract_param_name_node(&child) {
+                for name_node in self.parameter_binding_name_nodes(child) {
                     params_out.push((
                         self.node_text(&name_node).to_string(),
                         name_node.start_byte(),
@@ -5904,9 +6088,42 @@ impl ParsedFile {
         params_out
     }
 
+    /// Exact runtime parameter slots in declaration order. A deterministic
+    /// prefix is returned through the first variadic, keyword-only, or
+    /// unrepresentable parameter; duplicate bindings and parse recovery return
+    /// `None` because they cannot support an exact positional mapping.
+    pub fn function_parameter_slots(&self, func_node: &Node<'_>) -> Option<Vec<String>> {
+        crate::parameter_slots::slots(self, func_node)
+            .map(|occurrences| occurrences.into_iter().map(|(name, _, _)| name).collect())
+    }
+
+    /// Byte-bearing twin of [`Self::function_parameter_slots`].
+    pub fn function_parameter_slot_occurrences(
+        &self,
+        func_node: &Node<'_>,
+    ) -> Option<Vec<ParameterOccurrence>> {
+        crate::parameter_slots::slots(self, func_node)
+    }
+
+    fn parameter_binding_name_nodes<'a>(&self, node: Node<'a>) -> Vec<Node<'a>> {
+        if self.language == Language::Go
+            && matches!(
+                node.kind(),
+                "parameter_declaration" | "variadic_parameter_declaration"
+            )
+        {
+            let mut cursor = node.walk();
+            return node
+                .children(&mut cursor)
+                .filter(|child| child.kind() == "identifier" && self.node_text(child) != "_")
+                .collect();
+        }
+        self.extract_param_name_node(&node).into_iter().collect()
+    }
+
     /// Find the parameters node within a function definition.
     /// Handles the C/C++ declarator chain (function_definition → declarator → function_declarator → parameters).
-    fn find_parameters_node<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
+    pub(crate) fn find_parameters_node<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
         let node = self.unwrap_decorated(*node);
         // Direct "parameters" field (Go, Rust, Python, JS/TS, Java, Lua)
         if let Some(params) = node.child_by_field_name("parameters") {
@@ -6434,7 +6651,7 @@ impl ParsedFile {
         }
     }
 
-    fn extract_param_name_node<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
+    pub(crate) fn extract_param_name_node<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
         match node.kind() {
             "parameter_declaration" | "optional_parameter_declaration" => {
                 if let Some(decl) = node.child_by_field_name("declarator") {
@@ -6786,17 +7003,18 @@ impl ParsedFile {
     }
 }
 
-/// Scan a function's source text for assignments of the form `var_name = func_name`
-/// where `func_name` is a known function. Returns the last such assignment's RHS
-/// (simple must-alias within a single function).
+/// Scan the function-source prefix before a call for exactly one assignment of
+/// the form `var_name = func_name`, where `func_name` is a known function.
+/// Any second assignment or non-function RHS fails closed.
 ///
-/// Used by call graph Phase 3 to resolve local function pointer variables.
+/// Used by call graph Level 1 to resolve local function pointer variables.
 pub fn resolve_fptr_assignment(
     func_source: &str,
     var_name: &str,
     known_fns: &BTreeSet<String>,
 ) -> Option<String> {
     let mut resolved = None;
+    let mut saw_assignment = false;
     for line in func_source.lines() {
         let trimmed = line.trim();
         // Match: var_name = identifier  (with optional trailing semicolon/comma)
@@ -6805,7 +7023,7 @@ pub fn resolve_fptr_assignment(
 
         // Strategy: find `var_name` followed by `=` (but not `==`), then extract RHS identifier
         if let Some(eq_pos) = find_assignment_eq(trimmed) {
-            let lhs = trimmed[..eq_pos].trim();
+            let lhs = trimmed[..eq_pos].trim().trim_end_matches(':').trim();
             let rhs = trimmed[eq_pos + 1..].trim().trim_end_matches(';').trim();
 
             // Check if LHS contains var_name as the assigned variable
@@ -6820,6 +7038,11 @@ pub fn resolve_fptr_assignment(
                 continue;
             }
 
+            if saw_assignment {
+                return None;
+            }
+            saw_assignment = true;
+
             // RHS should be a plain identifier (possibly with & prefix for address-of)
             let rhs_name = rhs.trim_start_matches('&');
             if !rhs_name.is_empty()
@@ -6827,6 +7050,8 @@ pub fn resolve_fptr_assignment(
                 && known_fns.contains(rhs_name)
             {
                 resolved = Some(rhs_name.to_string());
+            } else {
+                return None;
             }
         }
     }
@@ -7564,7 +7789,10 @@ mod tests {
             assert_eq!(info.kind_id, node.kind_id());
         }
         assert_eq!(table[0].name.as_deref(), Some("alpha"));
-        assert_eq!(table[0].param_names, vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(
+            table[0].param_names,
+            Some(vec!["a".to_string(), "b".to_string()])
+        );
         assert!(table.iter().any(|f| f.name.is_none())); // the arrow callback
     }
 
@@ -7578,7 +7806,7 @@ mod tests {
             .filter(|f| f.name.as_deref() == Some("f"))
             .collect();
         assert_eq!(named.len(), 2); // both kept, query order — no dedup/last-writer-wins
-        assert_eq!(named[0].param_names, vec!["x".to_string()]);
+        assert_eq!(named[0].param_names, Some(vec!["x".to_string()]));
     }
 
     #[test]

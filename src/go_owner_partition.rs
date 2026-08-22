@@ -25,6 +25,10 @@ pub(crate) fn site_key(site: &crate::call_graph::CallSite) -> GoOwnerPartitionSi
 pub struct GoStructDeclaration {
     pub defining_file: String,
     pub fields: BTreeMap<String, String>,
+    /// Every anonymous embedded selector with its raw declared type. This is
+    /// distinct from `embedded_types`, whose entries are safe S4 interface
+    /// candidates (local, non-pointer names only).
+    pub embedded_fields: BTreeMap<String, String>,
     pub embedded_types: BTreeSet<String>,
 }
 

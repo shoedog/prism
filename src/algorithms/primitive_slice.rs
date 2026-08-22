@@ -314,7 +314,10 @@ fn collect_truncating_functions(
                 None => continue,
             };
             let func_name = parsed.node_text(&name_node).to_string();
-            let params = parsed.function_parameter_names(&func);
+            let params = match parsed.function_parameter_slots(&func) {
+                Some(params) => params,
+                None => continue,
+            };
             if params.is_empty() {
                 continue;
             }

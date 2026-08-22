@@ -17,6 +17,11 @@ MODEL_CLI = {
     "haiku-4.5": ("claude", "haiku"),
     "gpt-5.5": ("codex", "gpt-5.5"),
     "gpt-5.5-xhigh": ("codex", "gpt-5.5"),
+    # 2026-08-21: slugs present in this account's ~/.codex/models_cache.json and smoke-verified
+    # live (`codex exec -m <slug>` -> OK). NOTE: plain "gpt-5.3-codex" is REJECTED under ChatGPT
+    # auth ("not supported when using Codex with a ChatGPT account") -- do not register it.
+    "gpt-5.3-codex-spark": ("codex", "gpt-5.3-codex-spark"),
+    "gpt-5.6-sol": ("codex", "gpt-5.6-sol"),
 }
 
 # Models that require a reasoning-effort flag: model-name -> effort level.
