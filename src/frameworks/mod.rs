@@ -89,12 +89,15 @@ pub struct SanitizerRecognizer {
     /// half*; the second-half check name is resolved at suppression time by textual
     /// co-occurrence in the same function body.
     pub paired_check: Option<&'static str>,
-    /// P10 F2: the language(s) this recognizer's `call_path` is meaningful for (e.g. bare `escape`
-    /// means something different in Python vs. JS/TS, and means nothing in Go). Consumed ONLY by
-    /// `taint::sanitizer_call_site` (the P10 verdict-path matcher) — the advisory tier
-    /// (`function_body_cleansed_for` / `cleansed_categories_for_source`) intentionally does NOT
-    /// filter by this field; see that function's doc comment for why its cross-language matching
-    /// stays unchanged.
+    /// P10 F2 / Item B (#7): the language(s) this recognizer's `call_path` is meaningful for (e.g.
+    /// bare `escape` means something different in Python vs. JS/TS, and means nothing in Go).
+    /// Consumed by `taint::sanitizer_call_site` (the P10 verdict-path matcher) AND by
+    /// `taint::function_body_cleansed_for` (the advisory tier feeding
+    /// `cleansed_categories_for_source` / `sanitizers_present_in_source_fn` / the `Cleansed`
+    /// warning, and the CWE sink-suppression engine's `FlowPath.cleansed_for` marks) — both apply
+    /// the identical `recognizer.languages.contains(&parsed.language)` predicate. Also consulted
+    /// by `sanitizer_supported` (`src/sanitizers/mod.rs`), which derives its per-language gate
+    /// from this field across every recognizer table.
     pub languages: &'static [Language],
     /// P10 F3: the name of the call's data-carrying parameter (e.g. `"s"` for `html.escape(s,
     /// quote=True)`, `"text"` for `bleach.clean(text, ...)`), used ONLY by

@@ -923,6 +923,63 @@ fn go_cross_language_recognizer_name_does_not_produce_sanitized_verdict() {
     );
 }
 
+// --- Item B (#7): advisory tier must apply the same language predicate ---------------------
+
+#[test]
+fn go_cross_language_recognizer_name_does_not_produce_cleansed_advisory() {
+    // Same fixture as `go_cross_language_recognizer_name_does_not_produce_sanitized_verdict`
+    // above, but pinning the ADVISORY tier this time: pre-fix, `function_body_cleansed_for` /
+    // `cleansed_categories_for_source` iterate `active_recognizers()` unfiltered by language, so
+    // this same Go `escape(user)` call fires a false `Cleansed` warning and a non-empty
+    // `sanitizers_present_in_source_fn` even though the verdict itself was already correct
+    // (Reached) via the P10 verdict-path fix. NOT cleansed, no Cleansed warning, finding present.
+    let fixture = fixture(&[(
+        "app.go",
+        "package m\n\nfunc f(user string) string {\n\tsafe := escape(user)\n\tsink(safe)\n\treturn safe\n}\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Symbol {
+            name: "f".into(),
+            file: Some("app.go".into()),
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.go".into(),
+            line: 5,
+        }]),
+    )
+    .expect("taint_reaches");
+
+    let reasoning = evidence.reasoning.as_ref().expect("reasoning summary");
+    let source = reasoning
+        .per_sink
+        .first()
+        .expect("one sink")
+        .sources
+        .first()
+        .expect("one source");
+    assert_eq!(
+        source.reachability,
+        Reachability::Reached,
+        "finding present"
+    );
+    assert!(source.sanitized_by.is_empty());
+    assert!(
+        source.sanitizers_present_in_source_fn.is_empty(),
+        "a same-name recognizer from another language's table must not surface an advisory \
+         sanitizer category for Go: {:?}",
+        source.sanitizers_present_in_source_fn
+    );
+    assert!(
+        !evidence.warnings.iter().any(|warning| matches!(
+            &warning.kind,
+            WarningKind::Reasoning(ReasoningWarning::Cleansed { .. })
+        )),
+        "a same-name recognizer from another language's table must not fire the advisory \
+         Cleansed warning for Go"
+    );
+}
+
 // --- F3 BLOCKER: Python `keyword_argument` must not be treated as the data-argument span ---------
 //
 // `ast.rs::rvalue_identifier_spans_on_lines` records EVERY identifier under a call's argument list

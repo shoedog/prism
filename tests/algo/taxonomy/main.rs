@@ -4,6 +4,7 @@ mod common;
 mod eft_precision_test;
 mod misc_lang_test;
 mod misc_test;
+mod sanitizers_js_ts_test;
 mod sanitizers_python_test;
 mod sanitizers_test;
 mod taint_cve_test;
