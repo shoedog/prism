@@ -1,0 +1,176 @@
+{
+  "version": "1.0",
+  "algorithms_run": [
+    "Taint",
+    "VerticalSlice"
+  ],
+  "results": [
+    {
+      "algorithm": "Taint",
+      "slices": [
+        {
+          "block_id": 0,
+          "file": "views.py",
+          "modify_type": "M",
+          "slice_text": "+   2|\tq = request.GET[\"q\"]\n+   3|\tcursor.execute(f\"SELECT * FROM users WHERE name = '{q}'\")\n",
+          "source_lines": [
+            2
+          ],
+          "sink_lines": [
+            3
+          ]
+        }
+      ],
+      "findings": [
+        {
+          "algorithm": "taint",
+          "file": "views.py",
+          "line": 3,
+          "severity": "warning",
+          "description": "tainted value from line 2 reaches sink at line 3",
+          "related_lines": [
+            2
+          ],
+          "category": "taint_sink",
+          "diagrams": [
+            {
+              "title": "Data flow",
+              "shape": "Chain",
+              "nodes": [
+                {
+                  "id": "n_views_py_2",
+                  "label": "views.py:2\nq = request.GET[\"q\"]",
+                  "kind": "Source",
+                  "file": "views.py",
+                  "line": 2
+                },
+                {
+                  "id": "n_views_py_3",
+                  "label": "views.py:3\ncursor.execute(f\"SELECT * FROM users WHERE name = '{q}'\")",
+                  "kind": "Sink",
+                  "file": "views.py",
+                  "line": 3
+                }
+              ],
+              "edges": [
+                {
+                  "from": "n_views_py_2",
+                  "to": "n_views_py_3",
+                  "label": "tainted",
+                  "style": "Solid"
+                }
+              ],
+              "mermaid": "flowchart TD\n    n_views_py_2[\"views.py:2<br/>q = request.GET[&quot;q&quot;]\"]:::source\n    n_views_py_3[\"views.py:3<br/>cursor.execute(f&quot;SELECT * FROM users WHERE name = '{q}'&quo…\"]:::sink\n    n_views_py_2 -->|\"tainted\"| n_views_py_3\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+            }
+          ]
+        },
+        {
+          "algorithm": "taint",
+          "file": "views.py",
+          "line": 2,
+          "severity": "info",
+          "description": "taint source: origin of tainted data at line 2",
+          "category": "taint_source"
+        }
+      ],
+      "diagram_warnings": [
+        {
+          "algorithm": "Taint",
+          "graph_title": "Data flow",
+          "kind": "LabelTruncated",
+          "detail": "label on node 'n_views_py_3' exceeded 80 chars"
+        }
+      ]
+    },
+    {
+      "algorithm": "VerticalSlice",
+      "slices": [],
+      "findings": [],
+      "diagrams": [
+        {
+          "title": "Layered call graph",
+          "shape": "Layered",
+          "nodes": [
+            {
+              "id": "n_views_py_1",
+              "label": "views.py:1\nlookup_view",
+              "kind": "Step",
+              "file": "views.py",
+              "line": 1
+            }
+          ],
+          "edges": [],
+          "clusters": [
+            {
+              "label": "View",
+              "node_ids": [
+                "n_views_py_1"
+              ]
+            }
+          ],
+          "mermaid": "flowchart TD\n    subgraph cluster_0[\"View\"]\n        n_views_py_1[\"views.py:1<br/>lookup_view\"]\n    end\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    }
+  ],
+  "all_findings": [
+    {
+      "algorithm": "taint",
+      "file": "views.py",
+      "line": 3,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 3",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_views_py_2",
+              "label": "views.py:2\nq = request.GET[\"q\"]",
+              "kind": "Source",
+              "file": "views.py",
+              "line": 2
+            },
+            {
+              "id": "n_views_py_3",
+              "label": "views.py:3\ncursor.execute(f\"SELECT * FROM users WHERE name = '{q}'\")",
+              "kind": "Sink",
+              "file": "views.py",
+              "line": 3
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_views_py_2",
+              "to": "n_views_py_3",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_views_py_2[\"views.py:2<br/>q = request.GET[&quot;q&quot;]\"]:::source\n    n_views_py_3[\"views.py:3<br/>cursor.execute(f&quot;SELECT * FROM users WHERE name = '{q}'&quo…\"]:::sink\n    n_views_py_2 -->|\"tainted\"| n_views_py_3\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "views.py",
+      "line": 2,
+      "severity": "info",
+      "description": "taint source: origin of tainted data at line 2",
+      "category": "taint_source"
+    }
+  ],
+  "diagram_warnings": [
+    {
+      "algorithm": "Taint",
+      "graph_title": "Data flow",
+      "kind": "LabelTruncated",
+      "detail": "label on node 'n_views_py_3' exceeded 80 chars"
+    }
+  ]
+}

@@ -165,6 +165,15 @@ struct ReviewArgs {
     #[arg(long, default_value_t = false)]
     review_full_slices: bool,
 
+    /// --format review only: omit diagram payloads (`diagrams` on each
+    /// result and each finding, including the top-level `all_findings`
+    /// aggregate in multi-algorithm runs) from the output. This is a
+    /// payload-size reduction only: `finalize_diagrams` still runs, so
+    /// `diagram_warnings` are unaffected and `--strict-diagrams` exit-code
+    /// semantics are unchanged. Does not affect --format json/text/paper.
+    #[arg(long, default_value_t = false)]
+    review_no_diagrams: bool,
+
     /// Only process these files from the diff (comma-separated paths).
     /// If omitted, process all files in the diff.
     #[arg(long)]
@@ -985,14 +994,22 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                             &sources,
                             min_rank,
                             cli.review_full_slices,
+                            cli.review_no_diagrams,
                         )
                     })
                     .collect();
-                let filtered_all_findings: Vec<_> = all_findings
+                let mut filtered_all_findings: Vec<_> = all_findings
                     .iter()
                     .filter(|f| output::severity_rank(&f.severity) >= min_rank)
                     .cloned()
                     .collect();
+                if cli.review_no_diagrams {
+                    // Second copy (spec-review delta 1): all_findings is built
+                    // independently of review_results above, not through
+                    // to_compact_review_output, so it needs the same strip
+                    // applied via the shared helper to avoid drifting from it.
+                    output::strip_finding_diagrams(&mut filtered_all_findings);
+                }
                 let out = output::CompactMultiReviewOutput {
                     version: "1.0".to_string(),
                     algorithms_run,
@@ -1094,6 +1111,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     &sources,
                     min_rank,
                     cli.review_full_slices,
+                    cli.review_no_diagrams,
                 );
                 println!("{}", serde_json::to_string_pretty(&review)?);
                 emit_warnings_to_stderr(&result.diagram_warnings);

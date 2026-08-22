@@ -5,6 +5,7 @@ mod diagram_e2e_test;
 mod nav_compat_test;
 mod output_test;
 mod review_compact_test;
+mod review_no_diagrams_test;
 mod taint_reaches_test;
 mod validation_test;
 mod version_test;
