@@ -136,6 +136,94 @@ def test_compare_site_with_oracle_timeout_marker():
 
 
 # ---------------------------------------------------------------------------
+# #14 slice 1 qualified identities — fake adapter, no live gopls
+# ---------------------------------------------------------------------------
+
+def _identity(name, file, span, package_clause="impl"):
+    return {
+        "name": name,
+        "file": file,
+        "span": span,
+        "package_dir": str(Path(file).parent) if Path(file).parent != Path(".") else "",
+        "package_clause": package_clause,
+    }
+
+
+def test_gopls_identity_at_keeps_package_and_method_target_evidence():
+    class FakeGoplsAdapter:
+        def _methods(self, rel):
+            assert rel == "good/impl.go"
+            return [("Go", "Impl", 4, 7)]
+
+        def _package_clause(self, rel):
+            assert rel == "good/impl.go"
+            return "good"
+
+    identity = do.GoplsSatisfiers._identity_at(FakeGoplsAdapter(), "good/impl.go", 5)
+    assert identity == _identity("Impl", "good/impl.go", [5, 8], package_clause="good")
+
+
+def test_compare_site_qualified_identity_rejects_same_named_other_package():
+    rec = do.compare_site(
+        file="caller.go",
+        line=10,
+        interface="Runner",
+        method="Go",
+        prism_identities=[_identity("Impl", "bad/impl.go", [10, 12], "bad")],
+        gopls_identities=[_identity("Impl", "good/impl.go", [10, 12], "good")],
+    )
+    assert rec["identity_mode"] == "qualified"
+    assert rec["classification"] == "over_approx"
+    assert rec["prism_only_identities"] == [
+        {"package_dir": "bad", "package_clause": "bad", "name": "Impl"}
+    ]
+
+
+def test_compare_site_qualified_identity_requires_exact_method_target():
+    rec = do.compare_site(
+        file="caller.go",
+        line=10,
+        interface="Runner",
+        method="Go",
+        prism_identities=[_identity("Impl", "impl_darwin.go", [3, 5])],
+        gopls_identities=[_identity("Impl", "impl_linux.go", [3, 5])],
+    )
+    assert rec["classification"] == "target_mismatch"
+    assert rec["target_mismatches"] == [
+        {
+            "identity": {"package_dir": "", "package_clause": "impl", "name": "Impl"},
+            "prism_targets": [{"file": "impl_darwin.go", "span": [3, 5]}],
+            "gopls_targets": [{"file": "impl_linux.go", "span": [3, 5]}],
+        }
+    ]
+
+
+def test_compare_site_unknown_package_clause_is_oracle_unresolved():
+    unresolved = _identity("Impl", "impl.go", [3, 5], package_clause=None)
+    rec = do.compare_site(
+        file="caller.go",
+        line=10,
+        interface="Runner",
+        method="Go",
+        prism_identities=[unresolved],
+        gopls_identities=[_identity("Impl", "impl.go", [3, 5])],
+    )
+    assert rec["classification"] == "oracle_unresolved"
+
+
+def test_summarize_marks_legacy_manifest_comparison_name_only():
+    legacy = do.compare_site(
+        file="caller.go",
+        line=10,
+        interface="Runner",
+        method="Go",
+        prism_set={"Impl"},
+        gopls_set={"Impl"},
+    )
+    assert do.summarize([legacy])["identity_mode"] == "name_only"
+
+
+# ---------------------------------------------------------------------------
 # summarize — per-(interface,method) + overall rollup
 # ---------------------------------------------------------------------------
 

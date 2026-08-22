@@ -150,37 +150,171 @@ def dispatch_precision(prism_set: set[str], gopls_set: set[str]) -> float:
     return len(prism_set & gopls_set) / len(prism_set)
 
 
+def _identity_key(identity: dict) -> tuple[str, str, str] | None:
+    """The satisfier-type identity shared by prism and gopls.
+
+    A Go package directory alone is insufficient because `p` and `p_test` can
+    coexist there. Method target evidence is deliberately excluded from this
+    key and checked separately by `_identity_targets`.
+    """
+    package_dir = identity.get("package_dir")
+    package_clause = identity.get("package_clause")
+    name = identity.get("name")
+    if not all(isinstance(value, str) and value for value in (package_clause, name)):
+        return None
+    if not isinstance(package_dir, str):
+        return None
+    return package_dir, package_clause, name
+
+
+def _identity_target(identity: dict) -> tuple[str, int, int] | None:
+    file = identity.get("file")
+    span = identity.get("span")
+    if (
+        not isinstance(file, str)
+        or not isinstance(span, list)
+        or len(span) != 2
+        or not all(isinstance(line, int) for line in span)
+    ):
+        return None
+    return file, span[0], span[1]
+
+
+def _identity_targets(identities: list[dict]) -> dict | None:
+    """Full target evidence grouped by satisfier-type identity, or None if unscorable."""
+    targets: dict[tuple[str, str, str], set[tuple[str, int, int]]] = {}
+    for identity in identities:
+        key = _identity_key(identity)
+        target = _identity_target(identity)
+        if key is None or target is None:
+            return None
+        targets.setdefault(key, set()).add(target)
+    return targets
+
+
+def _identity_key_records(keys) -> list[dict]:
+    return [
+        {"package_dir": package_dir, "package_clause": package_clause, "name": name}
+        for package_dir, package_clause, name in sorted(keys)
+    ]
+
+
+def _identity_records(targets: dict) -> list[dict]:
+    records = []
+    for (package_dir, package_clause, name), values in sorted(targets.items()):
+        for file, start_line, end_line in sorted(values):
+            records.append({
+                "package_dir": package_dir,
+                "package_clause": package_clause,
+                "name": name,
+                "file": file,
+                "span": [start_line, end_line],
+            })
+    return records
+
+
 def compare_site(
     file: str,
     line: int,
     interface: str,
     method: str,
-    prism_set: set[str],
-    gopls_set: set[str] | None,
+    prism_set: set[str] | None = None,
+    gopls_set: set[str] | None = None,
+    *,
+    prism_identities: list[dict] | None = None,
+    gopls_identities: list[dict] | None = None,
+    oracle_unresolved: bool = False,
 ) -> dict:
-    """One per-site comparison record. ``gopls_set is None`` => the group timed out."""
-    if gopls_set is None:
-        return {
-            "file": file,
-            "line": line,
-            "interface": interface,
-            "method": method,
-            "prism_implementers": sorted(prism_set),
-            "gopls_satisfiers": None,
-            "classification": "oracle_timeout",
-            "prism_only_types": [],
-            "gopls_only_types": [],
-        }
+    """One per-site comparison record with qualified or legacy name-only identity.
+
+    New manifests provide full identities and must never silently fall back to
+    names. The name-only path is exclusively a compatibility path for manifests
+    emitted by older prism binaries.
+    """
+    if prism_identities is None:
+        identity_mode = "name_only"
+        prism = set(prism_set or set())
+        gopls = None if gopls_set is None else set(gopls_set)
+        prism_identity_records: list[dict] = []
+        gopls_identity_records: list[dict] | None = None
+        prism_only_identities: list[dict] = []
+        gopls_only_identities: list[dict] = []
+        target_mismatches: list[dict] = []
+        if gopls is None:
+            classification = "oracle_timeout"
+            prism_only = set()
+            gopls_only = set()
+        else:
+            classification = classify(prism, gopls)
+            prism_only = prism - gopls
+            gopls_only = gopls - prism
+    else:
+        identity_mode = "qualified"
+        prism_targets = _identity_targets(prism_identities)
+        gopls_targets = (
+            _identity_targets(gopls_identities) if gopls_identities is not None else None
+        )
+        prism_identity_records = _identity_records(prism_targets) if prism_targets is not None else []
+        gopls_identity_records = (
+            _identity_records(gopls_targets) if gopls_targets is not None else None
+        )
+        prism = set(prism_targets or {})
+        gopls = None if gopls_targets is None else set(gopls_targets)
+        prism_only = set()
+        gopls_only = set()
+        target_mismatches = []
+        if oracle_unresolved or prism_targets is None or (
+            gopls_identities is not None and gopls_targets is None
+        ):
+            classification = "oracle_unresolved"
+        elif gopls_targets is None:
+            classification = "oracle_timeout"
+        else:
+            prism_only = prism - gopls
+            gopls_only = gopls - prism
+            classification = classify(prism, gopls)
+            if classification != "over_approx":
+                for key in sorted(prism & gopls):
+                    prism_targets_for_key = prism_targets[key]
+                    gopls_targets_for_key = gopls_targets[key]
+                    if not prism_targets_for_key <= gopls_targets_for_key:
+                        target_mismatches.append({
+                            "identity": _identity_key_records([key])[0],
+                            "prism_targets": [
+                                {"file": target_file, "span": [start, end]}
+                                for target_file, start, end in sorted(prism_targets_for_key)
+                            ],
+                            "gopls_targets": [
+                                {"file": target_file, "span": [start, end]}
+                                for target_file, start, end in sorted(gopls_targets_for_key)
+                            ],
+                        })
+                if target_mismatches:
+                    classification = "target_mismatch"
+        prism_only_identities = _identity_key_records(prism_only)
+        gopls_only_identities = _identity_key_records(gopls_only)
+
+    prism_implementers = (
+        sorted({identity["name"] for identity in prism_identity_records})
+        if identity_mode == "qualified"
+        else sorted(prism_set or set())
+    )
     return {
         "file": file,
         "line": line,
         "interface": interface,
         "method": method,
-        "prism_implementers": sorted(prism_set),
-        "gopls_satisfiers": sorted(gopls_set),
-        "classification": classify(prism_set, gopls_set),
-        "prism_only_types": sorted(prism_set - gopls_set),
-        "gopls_only_types": sorted(gopls_set - prism_set),
+        "identity_mode": identity_mode,
+        "prism_implementers": prism_implementers,
+        "gopls_satisfiers": None if gopls is None else sorted(item[-1] if isinstance(item, tuple) else item for item in gopls),
+        "prism_identities": prism_identity_records,
+        "gopls_satisfier_identities": gopls_identity_records,
+        "classification": classification,
+        "prism_only_types": sorted(item[-1] if isinstance(item, tuple) else item for item in prism_only),
+        "gopls_only_types": sorted(item[-1] if isinstance(item, tuple) else item for item in gopls_only),
+        "prism_only_identities": prism_only_identities,
+        "gopls_only_identities": gopls_only_identities,
+        "target_mismatches": target_mismatches,
     }
 
 
@@ -191,9 +325,9 @@ def _precision_acc() -> dict:
 def summarize(sites: list[dict]) -> dict:
     """Per-(interface, method) + overall rollup of compare_site records.
 
-    dispatch_precision aggregates as (sum |P∩G|) / (sum |P|) over scored sites; an empty
-    overall denominator is vacuously 1.0. oracle_timeout sites are excluded from precision
-    and from the sound/over_approx/recall_gap tallies (only counted as oracle_timeout).
+    dispatch_precision aggregates as (sum |P∩G|) / (sum |P|) over scored sites. Timeout and
+    unresolved sites are excluded from the type-precision ratio; target mismatches remain
+    type-scored but are separately blocking Exact-target failures in delta mode.
     """
     groups: dict[tuple, dict] = {}
     overall = {
@@ -202,10 +336,16 @@ def summarize(sites: list[dict]) -> dict:
         "over_approx": 0,
         "recall_gap": 0,
         "oracle_timeout": 0,
+        "oracle_unresolved": 0,
+        "target_mismatch": 0,
+        "scored_sites": 0,
     }
     overall_acc = _precision_acc()
     over_approx_sites: list[dict] = []
     timeout_groups: dict[tuple, tuple[str, str]] = {}
+    unresolved_sites: list[dict] = []
+    target_mismatch_sites: list[dict] = []
+    identity_modes: set[str] = set()
 
     for s in sites:
         # Group identity is (method, the minted implementer set) — the same (iface_key,
@@ -213,7 +353,24 @@ def summarize(sites: list[dict]) -> dict:
         # declared on two interfaces (distinct sets) stays split; a single interface whose
         # sites carry different display labels stays merged. `interface` is the display
         # label of the first site in the group.
-        key = (s["method"], tuple(s["prism_implementers"]))
+        identity_mode = s.get("identity_mode", "name_only")
+        identity_modes.add(identity_mode)
+        if identity_mode == "qualified":
+            group_implementers = tuple(
+                sorted(
+                    (
+                        identity["package_dir"],
+                        identity["package_clause"],
+                        identity["name"],
+                        identity["file"],
+                        tuple(identity["span"]),
+                    )
+                    for identity in s["prism_identities"]
+                )
+            )
+        else:
+            group_implementers = tuple(s["prism_implementers"])
+        key = (s["method"], identity_mode, group_implementers)
         g = groups.setdefault(
             key,
             {
@@ -224,6 +381,9 @@ def summarize(sites: list[dict]) -> dict:
                 "over_approx": 0,
                 "recall_gap": 0,
                 "oracle_timeout": 0,
+                "oracle_unresolved": 0,
+                "target_mismatch": 0,
+                "scored_sites": 0,
                 "_acc": _precision_acc(),
             },
         )
@@ -235,9 +395,27 @@ def summarize(sites: list[dict]) -> dict:
         if cls == "oracle_timeout":
             timeout_groups[key] = (s["interface"], s["method"])
             continue
-        prism = set(s["prism_implementers"])
-        gopls = set(s["gopls_satisfiers"])
+        if cls == "oracle_unresolved":
+            unresolved_sites.append({
+                "file": s["file"], "line": s["line"], "interface": s["interface"],
+                "method": s["method"],
+            })
+            continue
+        if identity_mode == "qualified":
+            prism = {
+                (identity["package_dir"], identity["package_clause"], identity["name"])
+                for identity in s["prism_identities"]
+            }
+            gopls = {
+                (identity["package_dir"], identity["package_clause"], identity["name"])
+                for identity in s["gopls_satisfier_identities"]
+            }
+        else:
+            prism = set(s["prism_implementers"])
+            gopls = set(s["gopls_satisfiers"])
         inter = len(prism & gopls)
+        g["scored_sites"] += 1
+        overall["scored_sites"] += 1
         g["_acc"]["inter"] += inter
         g["_acc"]["prism"] += len(prism)
         overall_acc["inter"] += inter
@@ -249,6 +427,11 @@ def summarize(sites: list[dict]) -> dict:
                 "interface": s["interface"],
                 "method": s["method"],
                 "prism_only_types": s["prism_only_types"],
+            })
+        elif cls == "target_mismatch":
+            target_mismatch_sites.append({
+                "file": s["file"], "line": s["line"], "interface": s["interface"],
+                "method": s["method"], "target_mismatches": s["target_mismatches"],
             })
 
     group_list = []
@@ -265,6 +448,10 @@ def summarize(sites: list[dict]) -> dict:
     )
     return {
         "overall": overall,
+        "identity_mode": (
+            "name_only" if identity_modes == {"name_only"} else
+            "qualified" if identity_modes == {"qualified"} else "mixed"
+        ),
         "groups": group_list,
         "over_approx_sites": sorted(
             over_approx_sites, key=lambda r: (r["file"], r["line"])
@@ -273,6 +460,12 @@ def summarize(sites: list[dict]) -> dict:
             {"interface": i, "method": m}
             for (i, m) in sorted(timeout_groups.values())
         ],
+        "oracle_unresolved_sites": sorted(
+            unresolved_sites, key=lambda r: (r["file"], r["line"])
+        ),
+        "target_mismatch_sites": sorted(
+            target_mismatch_sites, key=lambda r: (r["file"], r["line"])
+        ),
     }
 
 
@@ -430,6 +623,39 @@ class GoplsSatisfiers:
                     best = (span, cont)
         return best[1] if best else None
 
+    def _package_clause(self, rel: str) -> str | None:
+        """Package declaration for one repo-relative Go source file."""
+        try:
+            source = (Path(self.root) / rel).read_text(
+                encoding="utf-8", errors="replace"
+            )
+        except (FileNotFoundError, IsADirectoryError):
+            return None
+        match = re.search(r"(?m)^\s*package\s+([A-Za-z_][A-Za-z0-9_]*)\b", source)
+        return match.group(1) if match else None
+
+    def _identity_at(self, rel: str, line0: int) -> dict | None:
+        """Qualified satisfier identity and method-definition target at a gopls location."""
+        best = None
+        for _name, container, start_line, end_line in self._methods(rel):
+            if start_line <= line0 <= end_line:
+                width = end_line - start_line
+                if best is None or width < best[0]:
+                    best = (width, container, start_line, end_line)
+        if best is None or not best[1]:
+            return None
+        package_clause = self._package_clause(rel)
+        if package_clause is None:
+            return None
+        package_dir = Path(rel).parent.as_posix()
+        return {
+            "name": best[1],
+            "file": rel,
+            "span": [best[2] + 1, best[3] + 1],
+            "package_dir": "" if package_dir == "." else package_dir,
+            "package_clause": package_clause,
+        }
+
     def method_decl(self, rel: str, line0: int, char0: int) -> tuple[str, int, int] | None:
         """textDocument/definition at a call's method token -> the interface method's
         declaration site (rel_file, decl_line0, decl_char0), or None.
@@ -495,6 +721,47 @@ class GoplsSatisfiers:
                 types.add(t)
         return types, len(results)
 
+    def satisfier_identities(
+        self, rel: str, line0: int, char0: int
+    ) -> tuple[list[dict], int, bool] | None:
+        """gopls implementation locations as qualified identities and method targets.
+
+        The boolean marks a location that gopls returned but the adapter could not map to
+        a repository package clause, receiver type, or method declaration target. It is
+        deliberately distinct from an LSP timeout: delta mode must block on either, but
+        the latter has no gopls evidence while the former exposes an adapter gap.
+        """
+        from tier_a.lsp_client import LspError
+        from tier_a.oracles import uri_to_rel
+
+        if not self._did_open(rel):
+            return None
+        try:
+            results = self.client.request(
+                "textDocument/implementation",
+                {"textDocument": {"uri": self._uri(rel)},
+                 "position": {"line": line0, "character": char0}},
+                timeout=self.group_timeout,
+            )
+        except LspError:
+            return None
+        results = results or []
+        identities: list[dict] = []
+        unresolved = False
+        for result in results:
+            uri = result.get("uri") or result.get("targetUri")
+            location = result.get("range") or result.get("targetSelectionRange") or result.get("targetRange")
+            target_file = uri_to_rel(uri, self.root) if uri else None
+            if target_file is None or location is None:
+                unresolved = True
+                continue
+            identity = self._identity_at(target_file, location["start"]["line"])
+            if identity is None:
+                unresolved = True
+            else:
+                identities.append(identity)
+        return identities, len(results), unresolved
+
 
 def make_cmd(corpus: str | None) -> list[str]:
     """gopls command — from corpora.toml `oracle` for the named Go corpus, else PATH gopls."""
@@ -519,7 +786,8 @@ def _read_line(root: str, rel: str, line: int) -> str | None:
 
 
 def run_oracle(manifest_path: str, repo: str, cmd: list[str],
-               group_timeout: float, log=sys.stderr) -> tuple[list[dict], dict]:
+               group_timeout: float, log=sys.stderr,
+               oracle_factory=GoplsSatisfiers) -> tuple[list[dict], dict]:
     """Load the manifest, query gopls once per unique (interface, method) group, and build
     per-site compare records + a summary. Returns (sites, summary)."""
     repo = os.path.abspath(os.path.expanduser(repo))
@@ -527,15 +795,16 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
 
     print(f"dispatch sites (fanout>0): {len(dispatch)}", file=log)
 
-    oracle = GoplsSatisfiers(repo, cmd, group_timeout=group_timeout)
+    oracle = oracle_factory(repo, cmd, group_timeout=group_timeout)
     records: list[dict] = []
     # Cache the satisfier set per INTERFACE-METHOD DECLARATION location (file, decl_line),
     # not per prism group: gopls disambiguates the interface a call site dispatches on
     # (caddy `next.ServeHTTP` is `http.Handler.ServeHTTP` at some sites and
     # `caddyhttp.Handler.ServeHTTP` at others, even though prism groups them together by
     # implementer set). Keying on the decl location queries the interface gopls sees and is
-    # immune to a prism grouping that lumps two interfaces. Value = (types, label).
-    decl_cache: dict[tuple[str, int], tuple[set[str], str]] = {}
+    # immune to a prism grouping that lumps two interfaces. Value = (qualified
+    # satisfier identities, display label, adapter-unresolved flag).
+    decl_cache: dict[tuple[str, int], tuple[list[dict], str, bool]] = {}
     try:
         t0 = time.monotonic()
         oracle.start()
@@ -566,7 +835,8 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
             line_text = _read_line(repo, s["file"], s["line"])
             col = method_token_col(line_text or "", method)
 
-            gopls_set: set[str] | None = None
+            gopls_identities: list[dict] | None = None
+            oracle_unresolved = False
             iface = None
             if col is not None:
                 # 1) resolve which interface this call dispatches on (its method decl).
@@ -577,33 +847,51 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                     if ckey not in decl_cache:
                         # 2) implementation at the decl's method token, with empty-retry
                         #    (empty for a fanout>0 method => not-ready, not a true zero).
-                        out = oracle.satisfier_types(decl_file, decl_line, decl_char)
+                        out = oracle.satisfier_identities(decl_file, decl_line, decl_char)
                         if out is not None and out[1] == 0:
                             oracle.resettle(settle_s=oracle._settle_s)
-                            out = oracle.satisfier_types(decl_file, decl_line, decl_char)
+                            out = oracle.satisfier_identities(decl_file, decl_line, decl_char)
                         if out is not None and out[1] > 0:
                             # the enclosing type at the decl line is the interface name.
                             label = oracle._type_at(decl_file, decl_line) or \
                                 f"{Path(decl_file).stem}:{decl_line + 1}"
-                            decl_cache[ckey] = (out[0], label)
+                            decl_cache[ckey] = (out[0], label, out[2])
                     cached = decl_cache.get(ckey)
                     if cached is not None:
-                        gopls_set, iface = cached
+                        gopls_identities, iface, oracle_unresolved = cached
             if iface is None:
                 # decl/impl unavailable: fall back to a type-assertion source label, then
-                # a synthetic one. gopls_set stays None => the site is oracle_timeout.
+                # a synthetic one. gopls identities stay None => oracle_timeout.
                 m = _ASSERT_RE.search(line_text) if line_text else None
                 iface = m.group(1) if m else interface_label(line_text, method, si)
 
-            if gopls_set is not None:
+            if "implementer_identities" in s:
+                record = compare_site(
+                    file=s["file"], line=s["line"], interface=iface, method=method,
+                    prism_set=prism_set,
+                    prism_identities=s["implementer_identities"],
+                    gopls_identities=gopls_identities,
+                    oracle_unresolved=oracle_unresolved,
+                )
+            else:
+                # Compatibility only: old manifests lack target/package evidence, so the
+                # comparison is explicitly marked name_only rather than pretending it is
+                # qualified by the new gopls adapter.
+                gopls_set = (
+                    None if gopls_identities is None
+                    else {identity["name"] for identity in gopls_identities}
+                )
+                record = compare_site(
+                    file=s["file"], line=s["line"], interface=iface, method=method,
+                    prism_set=prism_set, gopls_set=gopls_set,
+                )
+            if record["classification"] not in {"oracle_timeout", "oracle_unresolved"}:
                 scored += 1
-            records.append(compare_site(
-                file=s["file"], line=s["line"], interface=iface,
-                method=method, prism_set=prism_set, gopls_set=gopls_set))
+            records.append(record)
 
         print(f"scored {scored}/{len(dispatch)} sites; "
               f"{len(decl_cache)} unique interface-method declarations; "
-              f"{len(dispatch) - scored} oracle_timeout in "
+              f"{len(dispatch) - scored} timeout_or_unresolved in "
               f"{round(time.monotonic() - t0, 1)}s total", file=log)
     finally:
         oracle.stop()
