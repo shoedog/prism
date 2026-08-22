@@ -418,6 +418,43 @@ def test_warm_gate_check_includes_cache_dir_in_argv(monkeypatch):
     assert "/tmp/shared-cache" in captured[0]
 
 
+def test_warm_gate_requires_eager_and_distinguishes_cold_from_warm(monkeypatch):
+    """The gate verifies cache warmth only when it forces synchronous startup.
+
+    A lazy handshake would pass both cases because initialize/tools-list need no index;
+    model a cold build as a delayed eager response and a prewarmed build as an immediate one.
+    """
+    import tier_c.arm_runner as arm_mod
+
+    cold_argv: list = []
+    monkeypatch.setattr(
+        arm_mod.subprocess,
+        "Popen",
+        _make_fake_popen_factory(
+            [_init_ok_line(), _tools_line(["nav_repo_map"])],
+            delay=0.2,
+            captured_argv=cold_argv,
+        ),
+    )
+    cold = warm_gate_check("/repo", timeout_s=0.05)
+    assert cold["ok"] is False
+    assert "timed out" in (cold["error"] or "").lower()
+
+    warm_argv: list = []
+    monkeypatch.setattr(
+        arm_mod.subprocess,
+        "Popen",
+        _make_fake_popen_factory(
+            [_init_ok_line(), _tools_line(["nav_repo_map"])],
+            captured_argv=warm_argv,
+        ),
+    )
+    warm = warm_gate_check("/repo", timeout_s=0.5)
+    assert warm["ok"] is True
+    assert "--eager" in cold_argv[0]
+    assert "--eager" in warm_argv[0]
+
+
 def test_warm_gate_check_never_raises_on_malformed_response(monkeypatch):
     """A garbage first line (not JSON, or missing 'result') must be reported via the
     telemetry dict, never propagate as an exception."""
