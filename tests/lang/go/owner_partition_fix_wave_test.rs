@@ -600,6 +600,69 @@ fn s4_nested_module_mixed_bare_and_qualified_types_fail_closed() {
 }
 
 #[test]
+fn s4_nested_module_bare_interface_rejects_root_local_same_name() {
+    let cg = build_go_with_modules(
+        &[
+            (
+                "nested/context.go",
+                "package nested\ntype Context struct{}\ntype Doer interface { Act(Context) }\ntype Holder struct { Doer }\nfunc invoke(h Holder, ctx Context) { h.Act(ctx) }\n",
+            ),
+            (
+                "good/impl.go",
+                "package good\nimport nested \"example/nested\"\ntype Good struct{}\nfunc (Good) Act(nested.Context) {}\n",
+            ),
+            (
+                "bad/impl.go",
+                "package bad\ntype Context struct{}\ntype Bad struct{}\nfunc (Bad) Act(Context) {}\n",
+            ),
+        ],
+        &[("", "example/root"), ("nested", "example/nested")],
+    );
+
+    assert!(resolved_method_owners(&cg, "invoke", "Act").is_empty());
+    assert!(manifest_owners(&cg, "nested/context.go", "Act").is_empty());
+}
+
+#[test]
+fn s4_root_local_interface_rejects_nested_bare_and_keeps_qualified_same_path() {
+    let root_interface = (
+        "context.go",
+        "package root\ntype Context struct{}\ntype Doer interface { Act(Context) }\ntype Holder struct { Doer }\nfunc invoke(h Holder, ctx Context) { h.Act(ctx) }\n",
+    );
+    let nested_implementer = (
+        "nested/impl.go",
+        "package nested\ntype Context struct{}\ntype Impl struct{}\nfunc (Impl) Act(Context) {}\n",
+    );
+    let modules = &[("", "example/root"), ("nested", "example/nested")];
+    let nested_only = build_go_with_modules(&[root_interface, nested_implementer], modules);
+
+    assert!(resolved_method_owners(&nested_only, "invoke", "Act").is_empty());
+    assert!(manifest_owners(&nested_only, "context.go", "Act").is_empty());
+
+    let with_qualified_root_implementer = build_go_with_modules(
+        &[
+            root_interface,
+            nested_implementer,
+            (
+                "good/impl.go",
+                "package good\nimport root \"example/root\"\ntype Impl2 struct{}\nfunc (Impl2) Act(root.Context) {}\n",
+            ),
+        ],
+        modules,
+    );
+    let expected = BTreeSet::from(["Impl2".to_string()]);
+
+    assert_eq!(
+        resolved_method_owners(&with_qualified_root_implementer, "invoke", "Act"),
+        expected
+    );
+    assert_eq!(
+        manifest_owners(&with_qualified_root_implementer, "context.go", "Act"),
+        expected
+    );
+}
+
+#[test]
 fn s4_unqualified_named_types_keep_the_existing_bare_name_rule() {
     let cg = build_go_with_module(
         &[

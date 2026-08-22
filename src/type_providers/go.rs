@@ -1292,9 +1292,10 @@ impl GoTypeProvider {
         }
     }
 
-    /// Compare canonical signatures while preserving the pre-existing rule for two
-    /// unqualified names. A locally-proven bare name carries enough provenance to
-    /// compare with a qualified import, but two bare spellings still compare by name.
+    /// Compare canonical signatures while preserving the pre-existing name-only rules
+    /// for two local names and for two unproven bare names. A locally-proven name can
+    /// compare with a qualified import by path, but an unproven bare name never matches
+    /// a proven local or qualified identity.
     pub(crate) fn canon_signatures_match(left: &str, right: &str) -> bool {
         let (Some(left), Some(right)) = (
             Self::canon_signature_tokens(left),
@@ -1332,7 +1333,9 @@ impl GoTypeProvider {
                                 left_path == right_path
                             }
                             (CanonNameKind::Qualified, CanonNameKind::Bare)
-                            | (CanonNameKind::Bare, CanonNameKind::Qualified) => false,
+                            | (CanonNameKind::Bare, CanonNameKind::Qualified)
+                            | (CanonNameKind::Local, CanonNameKind::Bare)
+                            | (CanonNameKind::Bare, CanonNameKind::Local) => false,
                             _ => true,
                         }
                     }
