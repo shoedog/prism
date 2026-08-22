@@ -170,7 +170,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     let mut go_build_partition_exact = 0usize;
     let mut go_bare_value_ref_ambiguous = cg.go_bare_value_ref_ambiguous;
     let mut go_build_expr_unparsed: usize = cg.go_build_profile_unparsed.values().sum();
-    let mut go_owner_identity_partition = cg.go_owner_identity_partition;
+    let mut go_owner_identity_partition =
+        crate::go_owner_partition::GoOwnerPartitionTelemetry::default();
     // Phase-3 stratification (re-measure for slice scoping): split each kind by
     // confidence, and stratify NameOnly demotes by (recovery, method-kind). This
     // isolates the #2-addressable universe — a NameOnly demote from `combine_kind`'s
@@ -229,7 +230,13 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
             go_build_partition_exact += out.telemetry.go_build_partition_exact;
             go_bare_value_ref_ambiguous += out.telemetry.go_bare_value_ref_ambiguous;
             go_build_expr_unparsed += out.telemetry.go_build_expr_unparsed;
-            go_owner_identity_partition.merge(out.telemetry.go_owner_identity_partition);
+            let receiver_partition = cg
+                .go_owner_identity_partition_sites
+                .get(&crate::go_owner_partition::site_key(site))
+                .copied()
+                .unwrap_or_default();
+            go_owner_identity_partition
+                .merge(receiver_partition.coalesce_site(out.telemetry.go_owner_identity_partition));
             if out.drop.is_some() && site.caller.file.ends_with(".go") {
                 let key = site
                     .receiver_recovery

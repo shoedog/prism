@@ -8,6 +8,19 @@ use crate::resolution::GoOwnerIdentity;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+pub(crate) type GoOwnerPartitionSiteKey =
+    (crate::call_graph::FunctionId, String, usize, usize, usize);
+
+pub(crate) fn site_key(site: &crate::call_graph::CallSite) -> GoOwnerPartitionSiteKey {
+    (
+        site.caller.clone(),
+        site.callee_name.clone(),
+        site.line,
+        site.start_byte,
+        site.end_byte,
+    )
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct GoStructDeclaration {
     pub defining_file: String,
@@ -105,6 +118,28 @@ impl GoOwnerPartitionTelemetry {
         self.drops += other.drops;
         self.recovered += other.recovered;
         self.affected_edges += other.affected_edges;
+    }
+
+    /// Fold multiple partition decisions made while resolving one call site
+    /// into one site-level observation. A later resolution-stage decision owns
+    /// the affected-edge count because it sees the final candidate set.
+    pub fn coalesce_site(self, later: Self) -> Self {
+        let affected_edges = if later.affected_sites() > 0 {
+            later.affected_edges
+        } else {
+            self.affected_edges
+        };
+        let drops = usize::from(self.drops > 0 || later.drops > 0);
+        let recovered = usize::from(drops == 0 && (self.recovered > 0 || later.recovered > 0));
+        Self {
+            drops,
+            recovered,
+            affected_edges: if drops + recovered > 0 {
+                affected_edges
+            } else {
+                0
+            },
+        }
     }
 
     pub fn affected_sites(self) -> usize {

@@ -481,14 +481,23 @@ pub struct CallGraph {
     /// per-file so incremental remove/merge preserves exact counts.
     #[serde(default)]
     pub go_build_profile_unparsed: BTreeMap<String, usize>,
-    /// P13 M1 telemetry: GoOwnerIdentity-keyed lanes still collapse package/
-    /// build partitions; count conflicts but leave re-keying out of scope.
+    /// P13/P10 legacy support-set diagnostic: count `(directory, bare name)`
+    /// owners whose declarations span more than one clause/build profile. This
+    /// is not a count of affected consult sites or edges.
     #[serde(default)]
     pub go_owner_identity_profile_conflict: usize,
     /// P10 build-time S2 consult decisions. Whole-program rematerialized with
     /// receiver keys; runtime S4/P5 decisions travel on ResolutionOutcome.
     #[serde(default)]
     pub go_owner_identity_partition: crate::go_owner_partition::GoOwnerPartitionTelemetry,
+    /// P10 build-time S2 decisions keyed by their source call site. `call-stats`
+    /// coalesces this with the same site's runtime S4/P5/direct-method decision
+    /// so `affected_sites` is a cardinality, not a count of pipeline stages.
+    #[serde(default)]
+    pub(crate) go_owner_identity_partition_sites: BTreeMap<
+        crate::go_owner_partition::GoOwnerPartitionSiteKey,
+        crate::go_owner_partition::GoOwnerPartitionTelemetry,
+    >,
     /// P13 telemetry: `resolve_go_bare_value_ref` saw multiple same-package
     /// value candidates before profile filtering.
     #[serde(default)]
@@ -659,6 +668,7 @@ impl CallGraph {
             go_build_profile_unparsed: BTreeMap::new(),
             go_owner_identity_profile_conflict: 0,
             go_owner_identity_partition: Default::default(),
+            go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
             property_getters: BTreeMap::new(),
             cached_property_getters: BTreeSet::new(),
@@ -873,6 +883,7 @@ impl CallGraph {
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
             go_owner_identity_partition: Default::default(),
+            go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
             property_getters: BTreeMap::new(),
             cached_property_getters: BTreeSet::new(),
@@ -1247,6 +1258,7 @@ impl CallGraph {
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
             go_owner_identity_partition: Default::default(),
+            go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
             property_getters: BTreeMap::new(),
             cached_property_getters: BTreeSet::new(),
@@ -3120,6 +3132,7 @@ impl CallGraph {
         self.go_return_types.clear();
         self.go_package_vars.clear();
         self.go_owner_identity_partition = Default::default();
+        self.go_owner_identity_partition_sites.clear();
     }
 
     /// P11 S1/S2/S3: recompute the Go return-type (S1) and package-var (S3)
@@ -3178,7 +3191,16 @@ impl CallGraph {
             self.compute_go_receiver_updates(files, &facts, receiver_config)
         };
         for (caller, old_site, classification, evidence) in updates {
-            self.go_owner_identity_partition.observe(evidence, 1);
+            let mut site_telemetry =
+                crate::go_owner_partition::GoOwnerPartitionTelemetry::default();
+            site_telemetry.observe(evidence, 1);
+            self.go_owner_identity_partition.merge(site_telemetry);
+            if site_telemetry.affected_sites() > 0 {
+                self.go_owner_identity_partition_sites.insert(
+                    crate::go_owner_partition::site_key(&old_site),
+                    site_telemetry,
+                );
+            }
             let mut updated = old_site.clone();
             updated.receiver_type = classification
                 .recovered
@@ -3904,6 +3926,7 @@ impl CallGraph {
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
             go_owner_identity_partition: Default::default(),
+            go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
             // P7: whole-program Python property-access state — left empty
             // here for the same reason as the Go func-value state above;

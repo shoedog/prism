@@ -81,6 +81,35 @@ fn direct_method_cross_package_pruning_reports_recovery() {
 }
 
 #[test]
+fn s2_and_direct_partition_decisions_count_one_affected_call_site() {
+    let cg = build_go(&[
+        (
+            "pkg/a_linux.go",
+            "//go:build linux\n\npackage foo\ntype T struct { f Conn }\ntype Conn struct{}\nfunc (Conn) Dial() {}\n",
+        ),
+        (
+            "pkg/z_windows.go",
+            "//go:build windows\n\npackage foo\ntype T struct { f Mock }\ntype Mock struct{}\nfunc (Mock) Dial() {}\n",
+        ),
+        (
+            "pkg/use_linux.go",
+            "//go:build linux\n\npackage foo\nfunc invoke(t T) { t.f.Dial() }\n",
+        ),
+        (
+            "other/conn.go",
+            "package other\ntype Conn struct{}\nfunc (Conn) Dial() {}\n",
+        ),
+    ]);
+    let stats = call_stats(&cg);
+
+    assert_eq!(dial_owners(&cg), BTreeSet::from(["Conn".to_string()]));
+    assert_eq!(stats["go_owner_identity_partition_recovered"], 1);
+    assert_eq!(stats["go_owner_identity_partition_drop"], 0);
+    assert_eq!(stats["go_owner_identity_partition_affected_sites"], 1);
+    assert_eq!(stats["go_owner_identity_partition_affected_edges"], 2);
+}
+
+#[test]
 fn direct_method_conflicting_visible_build_survivors_report_drop() {
     let cg = build_go(&[
         (
@@ -228,6 +257,7 @@ fn round_trip_preserves_partition_snapshots_registration_provenance_and_telemetr
         field_round.go_owner_identity_partition,
         field.go_owner_identity_partition
     );
+    assert_eq!(call_stats(&field_round), call_stats(&field));
     assert!(field_round
         .go_field_types
         .keys()
@@ -349,6 +379,7 @@ fn assert_incremental_matches_full(
         full.go_owner_identity_partition
     );
     assert_eq!(dial_owners(&incremental), dial_owners(&full));
+    assert_eq!(call_stats(&incremental), call_stats(&full));
     incremental
 }
 
