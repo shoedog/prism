@@ -6378,9 +6378,8 @@ impl ParsedFile {
     /// Extract the parameter name from a parameter declaration node.
     fn extract_param_name(&self, node: &Node<'_>) -> Option<String> {
         match node.kind() {
-            "parameter_declaration" | "optional_parameter_declaration" | "formal_parameter" => {
-                // C/C++ declarations expose a declarator; Java formal parameters
-                // fall through to their direct identifier child below.
+            "parameter_declaration" | "optional_parameter_declaration" => {
+                // C/C++/Java: has a declarator field containing the identifier
                 if let Some(decl) = node.child_by_field_name("declarator") {
                     return Some(self.innermost_identifier(&decl));
                 }
@@ -6418,10 +6417,8 @@ impl ParsedFile {
             | "typed_default_parameter"
             | "default_parameter"
             | "list_splat_pattern"
-            | "dictionary_splat_pattern"
-            | "required_parameter"
-            | "optional_parameter" => {
-                // Python typed/default/splat and TypeScript typed parameter forms.
+            | "dictionary_splat_pattern" => {
+                // Python: typed / default / splat parameter forms.
                 if let Some(name) = node.child_by_field_name("name") {
                     return Some(self.node_text(&name).to_string());
                 }
@@ -6439,7 +6436,7 @@ impl ParsedFile {
 
     fn extract_param_name_node<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
         match node.kind() {
-            "parameter_declaration" | "optional_parameter_declaration" | "formal_parameter" => {
+            "parameter_declaration" | "optional_parameter_declaration" => {
                 if let Some(decl) = node.child_by_field_name("declarator") {
                     return self.innermost_identifier_node(&decl);
                 }
@@ -6471,9 +6468,7 @@ impl ParsedFile {
             | "typed_default_parameter"
             | "default_parameter"
             | "list_splat_pattern"
-            | "dictionary_splat_pattern"
-            | "required_parameter"
-            | "optional_parameter" => {
+            | "dictionary_splat_pattern" => {
                 if let Some(name) = node.child_by_field_name("name") {
                     return Some(name);
                 }

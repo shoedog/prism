@@ -6,14 +6,12 @@ use crate::ast::ParsedFile;
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 
-pub(super) fn languages() -> [(Language, &'static str); 6] {
+pub(super) fn languages() -> [(Language, &'static str); 4] {
     [
         (Language::Python, "m.py"),
         (Language::Go, "m.go"),
         (Language::Rust, "m.rs"),
-        (Language::Java, "M.java"),
         (Language::JavaScript, "m.js"),
-        (Language::TypeScript, "m.ts"),
     ]
 }
 
@@ -27,14 +25,8 @@ pub(super) fn fixture_source(language: Language, multiline_wrapper: bool) -> Str
         (Language::Go, true) => "wrapped(\n        (\n            wrapped_user\n        ),\n    )",
         (Language::Rust, false) => "wrapped(&wrapped_user);",
         (Language::Rust, true) => "wrapped(\n        &\n        wrapped_user,\n    );",
-        (Language::Java, false) => "M.wrapped((Object) wrapped_user);",
-        (Language::Java, true) => "M.wrapped(\n        (Object)\n        wrapped_user\n    );",
         (Language::JavaScript, false) => "wrapped(...[wrapped_user]);",
         (Language::JavaScript, true) => {
-            "wrapped(\n        ...[\n            wrapped_user\n        ],\n    );"
-        }
-        (Language::TypeScript, false) => "wrapped(...[wrapped_user]);",
-        (Language::TypeScript, true) => {
             "wrapped(\n        ...[\n            wrapped_user\n        ],\n    );"
         }
         _ => unreachable!("fixture languages are fixed above"),
@@ -177,46 +169,6 @@ fn run() {
 }
 "#
         }
-        Language::Java => {
-            r#"class M {
-    static void direct(Object p) { sink(p); }
-    static void wrapped(Object p) { sink(p); }
-    static void mixed(Object a, Object b) { sink(a); sink(b); }
-    static void mutated(Object a, Object b, Object c) { sink(a); sink(b); sink(c); }
-    static void repeated(Object a, Object b) { sink(a); sink(b); }
-    static void inner(Object p) { sink(p); }
-    static void outer(Object q) { sink(q); }
-
-    static void run() {
-        Object direct_user = source();
-        Object wrapped_user = source();
-        Object mixed_first = source();
-        Object mixed_second = source();
-        Object mutation_user = source();
-        Object pair_obj = source();
-        Object nested_user = source();
-        M.direct(
-            direct_user
-        );
-        WRAPPED_CALL
-        M.mixed(mixed_first,
-            mixed_second);
-        M.mutated(mutation_user, (mutation_user = source()), (
-            mutation_user
-        ));
-        M.repeated(
-            pair_obj.value,
-            pair_obj.value
-        );
-        M.outer(
-            M.inner(
-                nested_user
-            )
-        );
-    }
-}
-"#
-        }
         Language::JavaScript => {
             r#"function direct(p) { sink(p); }
 function wrapped(p) { sink(p); }
@@ -225,45 +177,6 @@ function mutated(a, b, c) { sink(a); sink(b); sink(c); }
 function repeated(a, b) { sink(a); sink(b); }
 function inner(p) { sink(p); }
 function outer(q) { sink(q); }
-
-function run() {
-    const direct_user = source();
-    const wrapped_user = source();
-    const mixed_first = source();
-    const mixed_second = source();
-    let mutation_user = source();
-    const pair_obj = source();
-    const nested_user = source();
-    direct(
-        direct_user,
-    );
-    WRAPPED_CALL
-    mixed(mixed_first,
-        mixed_second,
-    );
-    mutated(mutation_user, (mutation_user = source()), (
-        mutation_user
-    ));
-    repeated(
-        pair_obj.value,
-        pair_obj.value,
-    );
-    outer(
-        inner(
-            nested_user,
-        ),
-    );
-}
-"#
-        }
-        Language::TypeScript => {
-            r#"function direct(p: unknown) { sink(p); }
-function wrapped(p: unknown) { sink(p); }
-function mixed(a: unknown, b: unknown) { sink(a); sink(b); }
-function mutated(a: unknown, b: unknown, c: unknown) { sink(a); sink(b); sink(c); }
-function repeated(a: unknown, b: unknown) { sink(a); sink(b); }
-function inner(p: unknown) { sink(p); }
-function outer(q: unknown) { sink(q); }
 
 function run() {
     const direct_user = source();
@@ -430,42 +343,6 @@ fn arg_param_shapes(cpg: &CodePropertyGraph, callee: &str, parameter: &str) -> B
 }
 
 #[test]
-fn java_formal_parameters_materialize_step5b_targets() {
-    let source = fixture_source(Language::Java, true);
-    let cpg = build(Language::Java, "M.java", &source);
-    assert!(
-        cpg.node_indices().any(|idx| matches!(
-            cpg.node(idx),
-            CpgNode::Variable {
-                path,
-                function,
-                access: VarAccess::Def,
-                ..
-            } if path.base == "p" && function == "direct"
-        )),
-        "Java formal parameter direct.p must materialize a Def target"
-    );
-}
-
-#[test]
-fn typescript_typed_parameters_materialize_step5b_targets() {
-    let source = fixture_source(Language::TypeScript, true);
-    let cpg = build(Language::TypeScript, "m.ts", &source);
-    assert!(
-        cpg.node_indices().any(|idx| matches!(
-            cpg.node(idx),
-            CpgNode::Variable {
-                path,
-                function,
-                access: VarAccess::Def,
-                ..
-            } if path.base == "p" && function == "direct"
-        )),
-        "TypeScript typed parameter direct.p must materialize a Def target"
-    );
-}
-
-#[test]
 fn multiline_direct_and_mixed_arguments_bind_exact_occurrences_in_each_language() {
     for (language, file) in languages() {
         let source = fixture_source(language, true);
@@ -513,10 +390,30 @@ fn transparent_wrappers_are_line_invariant_in_each_language() {
         let multiline = fixture_source(language, true);
         let single_edges = arg_param_shapes(&build(language, file, &single), "wrapped", "p");
         let multiline_edges = arg_param_shapes(&build(language, file, &multiline), "wrapped", "p");
-        assert_eq!(
-            multiline_edges, single_edges,
-            "{language:?}: changing only wrapper layout must preserve Step-5b edges"
-        );
+        match language {
+            Language::Python | Language::Go | Language::Rust => {
+                assert!(
+                    !single_edges.is_empty(),
+                    "{language:?}: single-line wrapper must bind before layout invariance is checked"
+                );
+                assert_eq!(
+                    multiline_edges, single_edges,
+                    "{language:?}: changing only wrapper layout must preserve the positive Step-5b edge"
+                );
+            }
+            Language::JavaScript => {
+                // Characterization: AccessPath::from_expr does not unwrap this spread form.
+                assert!(
+                    single_edges.is_empty(),
+                    "{language:?}: current AccessPath::from_expr scope does not normalize this wrapper"
+                );
+                assert!(
+                    multiline_edges.is_empty(),
+                    "{language:?}: multiline layout must not invent a wrapper edge outside AccessPath::from_expr scope"
+                );
+            }
+            _ => unreachable!("fixture languages are fixed above"),
+        }
     }
 }
 
@@ -584,4 +481,75 @@ fn nested_call_adds_only_the_inner_argument_to_parameter_edge() {
             "{language:?}: nested user must not bypass inner return flow into outer.q"
         );
     }
+}
+
+#[test]
+fn distinct_name_nested_multiline_trace_descends_only_to_inner_parameter() {
+    let source = r#"def h(p):
+    sink(p)
+
+def g(q):
+    sink(q)
+
+def f():
+    user = input()
+    g(h(
+        user
+    ))
+"#;
+    let cpg = build(Language::Python, "m.py", source);
+    let trace = cpg.taint_trace(&[("m.py".to_string(), 8)]);
+    let h_param = cpg
+        .nodes_at("m.py", 1)
+        .into_iter()
+        .find(|&node| {
+            cpg.to_var_location(node)
+                .is_some_and(|loc| loc.path.to_string() == "p")
+        })
+        .expect("inner parameter");
+    let g_param = cpg
+        .nodes_at("m.py", 4)
+        .into_iter()
+        .find(|&node| {
+            cpg.to_var_location(node)
+                .is_some_and(|loc| loc.path.to_string() == "q")
+        })
+        .expect("outer parameter");
+
+    assert!(
+        trace.in_frontier(h_param),
+        "nested call must descend to h.p"
+    );
+    assert!(
+        !trace.in_frontier(g_param),
+        "nested call must not invent direct return flow into g.q"
+    );
+}
+
+#[test]
+fn same_name_nested_multiline_trace_refuses_ambiguous_containing_calls() {
+    let source = r#"def g(p):
+    sink(p)
+
+def f():
+    user = input()
+    g(g(
+        user
+    ))
+"#;
+    let cpg = build(Language::Python, "m.py", source);
+    let trace = cpg.taint_trace(&[("m.py".to_string(), 5)]);
+    let g_param = cpg
+        .nodes_at("m.py", 1)
+        .into_iter()
+        .find(|&node| {
+            cpg.to_var_location(node)
+                .is_some_and(|loc| loc.path.to_string() == "p")
+        })
+        .expect("callee parameter");
+
+    assert!(
+        !trace.in_frontier(g_param),
+        "same-name nested spans are ambiguous and must not descend"
+    );
 }

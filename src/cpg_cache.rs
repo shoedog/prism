@@ -126,8 +126,9 @@ use std::path::{Path, PathBuf};
 ///   `resolve_path_guarded`'s empty-segs branch (resolution behavior change:
 ///   new Rust caller edges out of nested modules/blocks that relied on an
 ///   anchor-only glob to bring a bare name into scope).
-/// - v41: Step-5b arg→param DataFlow now selects byte-contained occurrences
-///   across multi-line call arguments; persisted CPG DataFlow edges change.
+/// - v41: persisted Step-5b arg→param DataFlow edges now select byte-contained
+///   occurrences across multi-line call arguments. The corresponding trace
+///   descent-gate check is in-memory only.
 const CACHE_VERSION: u32 = 41; // 41: byte-contained multi-line Step-5b arg→param edges.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
