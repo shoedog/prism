@@ -7,7 +7,9 @@ prism resolves Go interface-dispatch call sites (e.g. caddy's
 ``x.(caddy.Module).CaddyModule()``) by *minting an implementer set* — for a recovered
 interface receiver it fans the call out to every in-repo type prism believes satisfies
 that interface (RTA-pruned to live / constructed types). `prism nav interface-manifest`
-emits, per dispatch site, that set as ``implementers`` (and ``fanout`` = its size).
+emits, per dispatch site, that set as ``implementers`` (and ``fanout`` = its size), plus
+the additive ``implementer_identities`` records. Those records carry the implementer's
+name, file, target span, package directory, and package clause.
 
 The open question is *soundness*: is prism's minted set a subset of the types that
 **actually** satisfy the interface, or does it over-approximate (mint a non-satisfier =
@@ -17,9 +19,12 @@ unique ``(interface, method)`` and compares prism's per-site set to gopls's sati
 
 THE TAXONOMY (per dispatch site)
 --------------------------------
-Let ``P`` = prism's minted implementer types, ``G`` = gopls's satisfier types.
+Let ``P`` = prism's minted implementer identities, ``G`` = gopls's satisfier identities.
+For current manifests an identity is ``(package_dir, package_clause, name)`` and its
+target is the concrete ``(file, span)``. Older manifests without identity records use
+name-only comparison and are explicitly marked ``identity_mode: name_only``.
 
-- ``over_approx``  — ``P \\ G`` is non-empty. prism minted a type gopls says does NOT
+- ``over_approx``  — ``P \\ G`` is non-empty. prism minted an identity gopls says does NOT
                      satisfy the interface => a false edge => a **prism_fp candidate**.
                      ``prism_only_types`` lists the offenders. These are the sites the
                      controller's dual-adjudicator κ pass examines. Highest precedence.
@@ -30,30 +35,33 @@ Let ``P`` = prism's minted implementer types, ``G`` = gopls's satisfier types.
                      verdict: prism's 121 ⊆ gopls's satisfier set => sound, the §4 answer.)
 - ``recall_gap``   — ``P`` is EMPTY while ``G`` is non-empty: prism minted nothing for a
                      site that has real satisfiers — a genuine recall hole. Informational,
-                     not a precision bug. (NB: the manifest only feeds fanout>0 sites, so on
-                     real corpora ``P`` is non-empty and this is an edge-case label; the
-                     strict-subset "prism under-covers but is sound" case is ``sound`` above,
-                     and the ``gopls_only_types`` field still records what prism missed.)
+                     not a precision bug. Zero-fanout sites remain in the manifest so this
+                     is a normal, visible non-gating classification.
 - ``oracle_timeout`` — gopls did not answer for this site's ``(interface, method)`` group
                      within the timeout. Recorded, never scored (excluded from precision
                      and from the sound/over_approx/recall_gap tallies).
+- ``oracle_unresolved`` — gopls returned a location that cannot be mapped to a complete
+                     identity, or either side has an unknown package clause. Recorded and
+                     excluded from the precision denominator.
+- ``target_mismatch`` — prism and gopls agree on the qualified identity but not the
+                     concrete target file/span. This is precision-relevant and blocks a
+                     delta gate.
 
 Precedence: ``over_approx`` (any false edge) > ``recall_gap`` (prism empty, gopls non-empty)
 > ``sound``. A false edge is the precision-relevant verdict even when prism also under-covers.
 
 THE GATE METRIC
 ---------------
-``dispatch_precision = |P ∩ G| / |P|`` — summed over all scored (non-timeout) sites for
-the overall figure, and per ``(interface, method)``. It is the §8 dispatch precision/recall
-regression gate.
+``dispatch_precision = |P ∩ G| / |P|`` — summed over all scored sites for the overall
+figure, and per ``(interface, method)``. Timeouts and unresolved oracle identities are
+excluded. If nothing is scored, precision is ``null`` rather than a vacuous 1.0.
 
-  **Baseline dispatch_precision must stay AT-OR-ABOVE on a re-run. A DECREASE is a
-  deliberate, recorded decision (e.g. a refactor that trades precision for recall) — it
-  is never silently accepted. Paste the new summary into the PR and explain the delta.**
-
-A future baseline regenerates the manifest + re-runs this oracle on the same corpus SHA
-and compares ``overall.dispatch_precision`` (and the over_approx site list) to the recorded
-baseline. ``recall_gap`` is reported but does not gate (RTA pruning is by-design precision).
+With ``--baseline`` the current run is compared only at newly exact sites: fanout 0 to
+positive, or newly emitted implementer identities. The delta gate passes only when none of
+those sites are ``over_approx``, ``oracle_timeout``, ``oracle_unresolved``, or
+``target_mismatch``. Environment pins (corpus SHA, Go, gopls, GOOS/GOARCH, tags, and the
+effective GOWORK) must exactly match the baseline before comparison. ``recall_gap`` remains
+visible but non-gating.
 
 RE-RUN COMMAND (the gate)
 -------------------------
