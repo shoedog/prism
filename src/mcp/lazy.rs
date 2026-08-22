@@ -12,8 +12,6 @@ pub enum Readiness {
 }
 
 pub struct LazySessionProvider {
-    #[allow(dead_code)]
-    cfg: ServerConfig,
     state: LazyState,
     wait: Duration,
     last_error: Option<String>,
@@ -27,7 +25,7 @@ enum LazyState {
         started: Instant,
         deadline: Option<Instant>,
     },
-    Ready(SessionProvider),
+    Ready(Box<SessionProvider>),
     Failed {
         error: String,
         at: Instant,
@@ -40,7 +38,7 @@ impl LazySessionProvider {
         let builder_cfg = cfg.clone();
         let builder: SessionBuilder = Arc::new(move || SessionProvider::bootstrap(&builder_cfg));
         let wait = cfg.first_call_wait;
-        Self::from_canonical_config(cfg, wait, builder)
+        Self::from_canonical_config(wait, builder)
     }
 
     #[cfg(test)]
@@ -49,19 +47,13 @@ impl LazySessionProvider {
         wait: Duration,
         builder: SessionBuilder,
     ) -> anyhow::Result<Self> {
-        let cfg = canonical_config(cfg)?;
-        Self::from_canonical_config(cfg, wait, builder)
+        canonical_config(cfg)?;
+        Self::from_canonical_config(wait, builder)
     }
 
-    fn from_canonical_config(
-        mut cfg: ServerConfig,
-        wait: Duration,
-        builder: SessionBuilder,
-    ) -> anyhow::Result<Self> {
+    fn from_canonical_config(wait: Duration, builder: SessionBuilder) -> anyhow::Result<Self> {
         validate_wait(wait)?;
-        cfg.first_call_wait = wait;
         let mut provider = Self {
-            cfg,
             state: LazyState::Failed {
                 error: String::new(),
                 at: Instant::now(),
@@ -113,7 +105,7 @@ impl LazySessionProvider {
 
         match result {
             Ok(Ok(provider)) => {
-                self.state = LazyState::Ready(provider);
+                self.state = LazyState::Ready(Box::new(provider));
                 self.last_error = None;
                 Readiness::Ready
             }
@@ -151,14 +143,14 @@ impl LazySessionProvider {
 
     pub(crate) fn ready(&self) -> Option<&SessionProvider> {
         match &self.state {
-            LazyState::Ready(provider) => Some(provider),
+            LazyState::Ready(provider) => Some(provider.as_ref()),
             LazyState::Building { .. } | LazyState::Failed { .. } => None,
         }
     }
 
     pub(crate) fn ready_mut(&mut self) -> Option<&mut SessionProvider> {
         match &mut self.state {
-            LazyState::Ready(provider) => Some(provider),
+            LazyState::Ready(provider) => Some(provider.as_mut()),
             LazyState::Building { .. } | LazyState::Failed { .. } => None,
         }
     }
