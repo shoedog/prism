@@ -698,6 +698,47 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                 })
                 .collect();
             let implementers: Vec<String> = implementers.into_iter().collect();
+            // #14 slice 1: preserve the legacy owner-name wire field above, and add
+            // enough target evidence for the oracle to distinguish same-named Go
+            // implementers across packages, clauses, and build-tagged files. This
+            // intentionally dedupes only identical full target tuples: two methods
+            // named Impl in different build-tag files are distinct Exact-edge targets.
+            let implementer_identities: BTreeSet<_> =
+                kept.iter()
+                    .map(|fid| {
+                        let name =
+                            cg.method_owners.get(*fid).cloned().unwrap_or_else(|| {
+                                crate::resolution::file_stem(&fid.file).to_string()
+                            });
+                        let package_dir = crate::resolution::dir_of(&fid.file).to_string();
+                        let package_clause = cg
+                            .go_file_profiles
+                            .get(&fid.file)
+                            .map(|profile| profile.package_clause.clone());
+                        (
+                            package_dir,
+                            package_clause,
+                            name,
+                            fid.file.clone(),
+                            fid.start_line,
+                            fid.end_line,
+                        )
+                    })
+                    .collect();
+            let implementer_identities: Vec<_> = implementer_identities
+                .into_iter()
+                .map(
+                    |(package_dir, package_clause, name, file, start_line, end_line)| {
+                        serde_json::json!({
+                            "name": name,
+                            "file": file,
+                            "span": [start_line, end_line],
+                            "package_dir": package_dir,
+                            "package_clause": package_clause,
+                        })
+                    },
+                )
+                .collect();
             sites.push(serde_json::json!({
                 "file": site.caller.file,
                 "start_byte": site.start_byte,
@@ -707,6 +748,7 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                 "method": site.callee_name,
                 "fanout": implementers.len(),
                 "implementers": implementers,
+                "implementer_identities": implementer_identities,
             }));
         }
     }

@@ -324,6 +324,66 @@ fn interface_manifest_implementers_set() {
     );
 }
 
+// #14 slice 1: target identity is additive. The legacy implementer-name set
+// remains the existing consumer contract, while the oracle gets package and
+// method-definition evidence needed to distinguish same-named Go types.
+#[test]
+fn interface_manifest_implementer_identities_are_additive() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         type Slow struct{}\nfunc (s Slow) Go() {}\n\
+         func use() { _ = Fast{}; _ = Slow{} }\n\
+         func dispatch() { var r Runner; r.Go() }\n\
+         func concrete() { var c Fast; c.Go() }\n",
+        Go,
+    )]);
+    let manifest = prism::navigation::queries::interface_dispatch_manifest(&cg);
+    let sites = manifest["sites"].as_array().expect("sites array");
+    let dispatch_site = sites
+        .iter()
+        .find(|site| site["method"] == "Go" && site["fanout"].as_u64() == Some(2))
+        .expect("two-implementer dispatch site");
+
+    // Existing fields retain their exact legacy values for current consumers.
+    assert_eq!(
+        dispatch_site["implementers"],
+        serde_json::json!(["Fast", "Slow"])
+    );
+    assert_eq!(dispatch_site["fanout"], serde_json::json!(2));
+
+    let identities = dispatch_site["implementer_identities"]
+        .as_array()
+        .expect("additive identity array");
+    assert_eq!(identities.len(), 2);
+    for (identity, expected_name) in identities.iter().zip(["Fast", "Slow"]) {
+        assert_eq!(identity["name"], expected_name);
+        assert_eq!(identity["file"], "main.go");
+        assert_eq!(identity["package_dir"], "");
+        assert_eq!(identity["package_clause"], "main");
+        assert!(
+            identity["span"]
+                .as_array()
+                .is_some_and(|span| span.len() == 2 && span.iter().all(serde_json::Value::is_u64)),
+            "method target span must be serialized: {identity:?}"
+        );
+    }
+
+    let concrete_site = sites
+        .iter()
+        .find(|site| site["method"] == "Go" && site["fanout"].as_u64() == Some(0))
+        .expect("zero-fanout in-scope site");
+    assert_eq!(concrete_site["implementers"], serde_json::json!([]));
+    assert_eq!(
+        concrete_site["implementer_identities"],
+        serde_json::json!([]),
+        "zero-fanout sites stay emitted and carry an empty identity list"
+    );
+}
+
 // Codex re-review MAJOR: the query/manifest S4 consult must distinguish "no
 // S4 route" from "matched S4 route with a missing/empty implementer set" --
 // the latter must use the empty implementer slice and must NOT fall through
