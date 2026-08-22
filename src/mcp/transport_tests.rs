@@ -429,6 +429,34 @@ const INIT: &str = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"p
 const INITED: &str = r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#;
 
 #[test]
+fn initialize_instructions_are_exact_for_eager_and_lazy_startup() {
+    let eager = run(vec![INIT]);
+    let eager_instructions = eager[0]["result"]["instructions"].as_str().unwrap();
+    assert_eq!(
+        eager_instructions,
+        format!(
+            "{} {}",
+            crate::mcp::tools::SNAPSHOT_NOTICE,
+            crate::mcp::tools::VIEW_NOTICE
+        )
+    );
+
+    let dir = tempfile::tempdir().unwrap();
+    write_file(dir.path(), "a.py", "def f():\n    return 1\n");
+    let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
+    cfg.cache = crate::mcp::CacheMode::NoCache;
+    let mut lazy = crate::mcp::lazy::LazySessionProvider::new(&cfg).unwrap();
+    let lazy_response = run_provider(&mut lazy, &ToolRegistry::all_v1(), vec![INIT]);
+    assert_eq!(
+        lazy_response[0]["result"]["instructions"],
+        format!(
+            "The repository snapshot is loaded by a background build started at server startup; until it completes, tool calls return an `index warming` result — retry shortly. Freshness warnings compare the working tree against the most recently completed build or refresh snapshot. {}",
+            crate::mcp::tools::VIEW_NOTICE
+        )
+    );
+}
+
+#[test]
 fn initialize_result_carries_snapshot_and_view_instructions_once() {
     // S1: the notices formerly appended to every nav tool description now live ONCE in
     // `initialize`'s `instructions` (the protocol-legal home for state-once text).

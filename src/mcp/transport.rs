@@ -339,7 +339,7 @@ fn handle_message(
 
     match method {
         "initialize" => {
-            let dispatch = initialize_response(obj, id);
+            let dispatch = initialize_response(obj, id, runtime.startup_mode());
             // Advance ONLY from PreInit, and only on a *successful* initialize. A repeat initialize once
             // negotiated responds but never downgrades the state (lifecycle is monotonic — re-review MAJOR).
             if *state == Lifecycle::PreInit
@@ -356,7 +356,7 @@ fn handle_message(
     }
 }
 
-fn initialize_response(obj: &Map<String, Value>, id: Value) -> Dispatch {
+fn initialize_response(obj: &Map<String, Value>, id: Value, startup_mode: StartupMode) -> Dispatch {
     let Some(params) = obj.get("params").and_then(Value::as_object) else {
         return Dispatch::Response(error_response(id, -32602, "Invalid params"));
     };
@@ -383,7 +383,7 @@ fn initialize_response(obj: &Map<String, Value>, id: Value) -> Dispatch {
                 "name": "prism-mcp",
                 "version": env!("CARGO_PKG_VERSION")
             },
-            "instructions": server_instructions()
+            "instructions": server_instructions(startup_mode)
         }),
     ))
 }
@@ -394,12 +394,12 @@ fn initialize_response(obj: &Map<String, Value>, id: Value) -> Dispatch {
 /// `tools_reasoning`'s equivalent) pointing back here, since client ingestion of `instructions`
 /// is unverified (codex MAJOR) — the hedge preserves discoverability even for a client that never
 /// surfaces it.
-fn server_instructions() -> String {
-    format!(
-        "{} {}",
-        crate::mcp::tools::SNAPSHOT_NOTICE,
-        crate::mcp::tools::VIEW_NOTICE
-    )
+fn server_instructions(startup_mode: StartupMode) -> String {
+    let snapshot_notice = match startup_mode {
+        StartupMode::Eager => crate::mcp::tools::SNAPSHOT_NOTICE,
+        StartupMode::Lazy => "The repository snapshot is loaded by a background build started at server startup; until it completes, tool calls return an `index warming` result — retry shortly. Freshness warnings compare the working tree against the most recently completed build or refresh snapshot.",
+    };
+    format!("{snapshot_notice} {}", crate::mcp::tools::VIEW_NOTICE)
 }
 
 fn list_tools(registry: &ToolRegistry) -> Value {
