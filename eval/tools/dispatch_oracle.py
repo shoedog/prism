@@ -235,6 +235,8 @@ def compare_site(
     oracle_unresolved: bool = False,
     definition_kind: str = "unknown",
     failure_stage: str | None = None,
+    unresolved_locations: list[dict] | None = None,
+    oracle_reason: str | None = None,
 ) -> dict:
     """One per-site comparison record with qualified or legacy name-only identity.
 
@@ -242,6 +244,7 @@ def compare_site(
     names. The name-only path is exclusively a compatibility path for manifests
     emitted by older prism binaries.
     """
+    unresolved_locations = list(unresolved_locations or [])
     if prism_identities is None:
         identity_mode = "name_only"
         prism = set(prism_set or set())
@@ -274,7 +277,11 @@ def compare_site(
         prism_only = set()
         gopls_only = set()
         target_mismatches = []
-        if oracle_unresolved or prism_targets is None or (
+        fatal_mapping = any(
+            location.get("reason") == "interface_location"
+            for location in unresolved_locations
+        )
+        if oracle_unresolved or fatal_mapping or prism_targets is None or (
             gopls_identities is not None and gopls_targets is None
         ):
             classification = "oracle_unresolved"
@@ -284,6 +291,11 @@ def compare_site(
             prism_only = prism - gopls
             gopls_only = gopls - prism
             classification = classify(prism, gopls)
+            # An extra unmappable implementation location is not evidence against
+            # already matched prism identities. It only blocks when it could account
+            # for an otherwise prism-only identity; interface locations remain fatal.
+            if unresolved_locations and (not prism or prism_only):
+                classification = "oracle_unresolved"
             if classification != "over_approx":
                 for key in sorted(prism & gopls):
                     prism_targets_for_key = prism_targets[key]
@@ -305,6 +317,8 @@ def compare_site(
         prism_only_identities = _identity_key_records(prism_only)
         gopls_only_identities = _identity_key_records(gopls_only)
 
+    if oracle_reason is None and not unresolved_locations and prism == set() and gopls == set():
+        oracle_reason = "empty_satisfier_set"
     prism_implementers = (
         sorted({identity["name"] for identity in prism_identity_records})
         if identity_mode == "qualified"
@@ -318,6 +332,8 @@ def compare_site(
         "identity_mode": identity_mode,
         "definition_kind": definition_kind,
         "failure_stage": failure_stage,
+        "oracle_reason": oracle_reason,
+        "unresolved_locations": unresolved_locations,
         "prism_implementers": prism_implementers,
         "gopls_satisfiers": None if gopls is None else sorted(item[-1] if isinstance(item, tuple) else item for item in gopls),
         "prism_identities": prism_identity_records,
@@ -412,7 +428,10 @@ def summarize(sites: list[dict]) -> dict:
         if cls == "oracle_unresolved":
             unresolved_sites.append({
                 "file": s["file"], "line": s["line"], "interface": s["interface"],
-                "method": s["method"],
+                "method": s["method"], "definition_kind": s.get("definition_kind"),
+                "failure_stage": s.get("failure_stage"),
+                "oracle_reason": s.get("oracle_reason"),
+                "unresolved_locations": s.get("unresolved_locations", []),
             })
             continue
         if identity_mode == "qualified":
@@ -936,13 +955,12 @@ class GoplsSatisfiers:
 
     def satisfier_identities(
         self, rel: str, line0: int, char0: int
-    ) -> tuple[list[dict], int, bool] | None:
+    ) -> tuple[list[dict], int, list[dict]] | None:
         """gopls implementation locations as qualified identities and method targets.
 
-        The boolean marks a location that gopls returned but the adapter could not map to
-        a repository package clause, receiver type, or method declaration target. It is
-        deliberately distinct from an LSP timeout: delta mode must block on either, but
-        the latter has no gopls evidence while the former exposes an adapter gap.
+        Unmappable locations are retained with their file, line, and reason instead of
+        collapsing the entire site into an opaque boolean. The caller can then compare the
+        mappable evidence and fail closed only when a missing prism identity could be hidden.
         """
         from tier_a.lsp_client import LspError
         from tier_a.oracles import uri_to_rel
@@ -960,20 +978,40 @@ class GoplsSatisfiers:
             return None
         results = results or []
         identities: list[dict] = []
-        unresolved = False
+        unresolved_locations: list[dict] = []
         for result in results:
             uri = result.get("uri") or result.get("targetUri")
             location = result.get("range") or result.get("targetSelectionRange") or result.get("targetRange")
             target_file = uri_to_rel(uri, self.root) if uri else None
-            if target_file is None or location is None:
-                unresolved = True
+            line = None
+            if location is not None:
+                line0 = location.get("start", {}).get("line")
+                line = line0 + 1 if isinstance(line0, int) else None
+            if target_file is None:
+                parsed = urllib.parse.urlparse(uri) if uri else None
+                unresolved_locations.append({
+                    "file": urllib.parse.unquote(parsed.path) if parsed and parsed.path else uri,
+                    "line": line,
+                    "reason": "outside_repo" if uri else "location_uri_missing",
+                })
                 continue
-            identity = self._identity_at(target_file, location["start"]["line"])
+            if location is None or line is None:
+                unresolved_locations.append({
+                    "file": target_file,
+                    "line": line,
+                    "reason": "location_missing",
+                })
+                continue
+            identity, reason = self._identity_with_reason(target_file, line - 1)
             if identity is None:
-                unresolved = True
+                unresolved_locations.append({
+                    "file": target_file,
+                    "line": line,
+                    "reason": reason or "mapping_unknown",
+                })
             else:
                 identities.append(identity)
-        return identities, len(results), unresolved
+        return identities, len(results), unresolved_locations
 
 
 def make_cmd(corpus: str | None) -> list[str]:
@@ -1016,8 +1054,8 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
     # `caddyhttp.Handler.ServeHTTP` at others, even though prism groups them together by
     # implementer set). Keying on the decl location queries the interface gopls sees and is
     # immune to a prism grouping that lumps two interfaces. Value = (qualified
-    # satisfier identities, display label, adapter-unresolved flag).
-    decl_cache: dict[tuple[str, int, bool], tuple[list[dict], str, bool]] = {}
+    # satisfier identities, display label, and unmappable implementation locations).
+    decl_cache: dict[tuple[str, int, bool], tuple[list[dict], str, list[dict]]] = {}
     try:
         t0 = time.monotonic()
         oracle.start()
@@ -1050,6 +1088,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
 
             gopls_identities: list[dict] | None = None
             oracle_unresolved = False
+            unresolved_locations: list[dict] = []
             definition_kind = "unknown"
             failure_stage: str | None = "token" if col is None else None
             iface = None
@@ -1065,6 +1104,12 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                         gopls_identities = []
                         oracle_unresolved = True
                         failure_stage = "mapping"
+                        unresolved_locations.append({
+                            "file": decl.get("file"),
+                            "line": (decl.get("line") + 1)
+                            if isinstance(decl.get("line"), int) else None,
+                            "reason": decl.get("reason") or "definition_target_unmapped",
+                        })
                     else:
                         # `implementation` on a concrete method returns the interface it
                         # implements, not a concrete satisfier. The definition itself is
@@ -1100,8 +1145,8 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                                 decl_cache[ckey] = (out[0], label, out[2])
                         cached = decl_cache.get(ckey)
                         if cached is not None:
-                            gopls_identities, iface, oracle_unresolved = cached
-                            failure_stage = "mapping" if oracle_unresolved else None
+                            gopls_identities, iface, unresolved_locations = cached
+                            failure_stage = "mapping" if unresolved_locations else None
                         elif out is None:
                             failure_stage = "timeout"
                         else:
@@ -1125,6 +1170,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                     oracle_unresolved=oracle_unresolved,
                     definition_kind=definition_kind,
                     failure_stage=failure_stage,
+                    unresolved_locations=unresolved_locations,
                 )
             else:
                 # Compatibility only: old manifests lack target/package evidence, so the
@@ -1138,6 +1184,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                     file=s["file"], line=s["line"], interface=iface, method=method,
                     prism_set=prism_set, gopls_set=gopls_set,
                     definition_kind=definition_kind, failure_stage=failure_stage,
+                    unresolved_locations=unresolved_locations,
                 )
             # Preserve the manifest site identity in the durable output so baseline
             # deltas cannot collapse distinct calls that share a source line.

@@ -449,6 +449,59 @@ def test_interface_enclosed_location_is_not_a_concrete_satisfier():
     assert reason == "interface_location"
 
 
+def test_mappable_satisfier_set_is_scored_when_extra_location_is_unresolved():
+    impl = _identity("Impl", "impl.go", [3, 5])
+    unmappable = {"file": "/go/src/net/http/server.go", "line": 90,
+                  "reason": "outside_repo"}
+    record = do.compare_site(
+        file="caller.go", line=1, interface="Runner", method="Go",
+        prism_identities=[impl], gopls_identities=[impl],
+        unresolved_locations=[unmappable], failure_stage="mapping",
+    )
+    assert record["classification"] == "sound"
+    assert record["unresolved_locations"] == [unmappable]
+    assert record["failure_stage"] == "mapping"
+
+
+def test_unresolved_location_blocks_only_when_it_can_hide_prism_only_identity():
+    matched = _identity("Impl", "impl.go", [3, 5])
+    missing = _identity("Other", "other.go", [7, 9])
+    record = do.compare_site(
+        file="caller.go", line=1, interface="Runner", method="Go",
+        prism_identities=[matched, missing], gopls_identities=[matched],
+        unresolved_locations=[{"file": "generated.go", "line": 1,
+                               "reason": "receiver_unknown"}],
+        failure_stage="mapping",
+    )
+    assert record["classification"] == "oracle_unresolved"
+
+
+def test_interface_location_remains_fail_closed_even_when_prism_is_mapped():
+    impl = _identity("Impl", "impl.go", [3, 5])
+    record = do.compare_site(
+        file="caller.go", line=1, interface="Runner", method="Go",
+        prism_identities=[impl], gopls_identities=[impl],
+        unresolved_locations=[{"file": "interface.go", "line": 7,
+                               "reason": "interface_location"}],
+        failure_stage="mapping",
+    )
+    assert record["classification"] == "oracle_unresolved"
+
+
+def test_zero_fanout_empty_implementation_is_sound_with_explicit_reason(tmp_path):
+    record, _implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={
+            "file": "interface.go", "line": 7, "character": 2,
+            "kind": "interface", "identity": None,
+        },
+        satisfiers=[],
+        prism_identities=[],
+    )
+    assert record["classification"] == "sound"
+    assert record["oracle_reason"] == "empty_satisfier_set"
+
+
 # ---------------------------------------------------------------------------
 # #14 slice 1 delta gate and environment pins
 # ---------------------------------------------------------------------------
