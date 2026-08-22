@@ -11,12 +11,23 @@ pub enum Readiness {
     Failed { error: String },
 }
 
+#[cfg(test)]
+pub(crate) type LazyTestHook = Arc<dyn Fn() + Send + Sync>;
+
+#[cfg(test)]
+#[derive(Clone, Default)]
+pub(crate) struct LazyTestHooks {
+    pub(crate) published: Option<LazyTestHook>,
+}
+
 pub struct LazySessionProvider {
     state: LazyState,
     wait: Duration,
     last_error: Option<String>,
     attempts: usize,
     builder: SessionBuilder,
+    #[cfg(test)]
+    hooks: LazyTestHooks,
 }
 
 enum LazyState {
@@ -38,6 +49,11 @@ impl LazySessionProvider {
         let builder_cfg = cfg.clone();
         let builder: SessionBuilder = Arc::new(move || SessionProvider::bootstrap(&builder_cfg));
         let wait = cfg.first_call_wait;
+        #[cfg(test)]
+        {
+            return Self::from_canonical_config(wait, builder, LazyTestHooks::default());
+        }
+        #[cfg(not(test))]
         Self::from_canonical_config(wait, builder)
     }
 
@@ -47,11 +63,25 @@ impl LazySessionProvider {
         wait: Duration,
         builder: SessionBuilder,
     ) -> anyhow::Result<Self> {
-        canonical_config(cfg)?;
-        Self::from_canonical_config(wait, builder)
+        Self::with_builder_and_hooks(cfg, wait, builder, LazyTestHooks::default())
     }
 
-    fn from_canonical_config(wait: Duration, builder: SessionBuilder) -> anyhow::Result<Self> {
+    #[cfg(test)]
+    pub(crate) fn with_builder_and_hooks(
+        cfg: &ServerConfig,
+        wait: Duration,
+        builder: SessionBuilder,
+        hooks: LazyTestHooks,
+    ) -> anyhow::Result<Self> {
+        canonical_config(cfg)?;
+        Self::from_canonical_config(wait, builder, hooks)
+    }
+
+    fn from_canonical_config(
+        wait: Duration,
+        builder: SessionBuilder,
+        #[cfg(test)] hooks: LazyTestHooks,
+    ) -> anyhow::Result<Self> {
         validate_wait(wait)?;
         let mut provider = Self {
             state: LazyState::Failed {
@@ -62,6 +92,8 @@ impl LazySessionProvider {
             last_error: None,
             attempts: 0,
             builder,
+            #[cfg(test)]
+            hooks,
         };
         provider.spawn_build();
         Ok(provider)
@@ -121,9 +153,16 @@ impl LazySessionProvider {
         self.attempts += 1;
         let (tx, rx) = mpsc::channel();
         let builder = Arc::clone(&self.builder);
+        #[cfg(test)]
+        let published = self.hooks.published.clone();
         let started = Instant::now();
         std::thread::spawn(move || {
-            let _ = tx.send(builder());
+            let result = builder();
+            let _ = tx.send(result);
+            #[cfg(test)]
+            if let Some(published) = published {
+                published();
+            }
         });
         self.state = LazyState::Building {
             rx,
@@ -199,14 +238,14 @@ mod tests {
 
     struct BlockingBuild {
         release: Option<mpsc::Sender<()>>,
-        done: Option<mpsc::Receiver<()>>,
+        published: Option<mpsc::Receiver<()>>,
     }
 
     impl BlockingBuild {
-        fn new(release: mpsc::Sender<()>, done: mpsc::Receiver<()>) -> Self {
+        fn new(release: mpsc::Sender<()>, published: mpsc::Receiver<()>) -> Self {
             Self {
                 release: Some(release),
-                done: Some(done),
+                published: Some(published),
             }
         }
 
@@ -216,12 +255,12 @@ mod tests {
             }
         }
 
-        fn wait(&mut self) {
-            self.done
-                .take()
-                .expect("blocking builder completion must be awaited once")
+        fn wait(&self) {
+            self.published
+                .as_ref()
+                .expect("blocking builder publication must be awaited once")
                 .recv_timeout(Duration::from_secs(5))
-                .expect("blocking builder must complete after release");
+                .expect("blocking builder must publish after release");
         }
 
         fn finish(&mut self) {
@@ -233,8 +272,8 @@ mod tests {
     impl Drop for BlockingBuild {
         fn drop(&mut self) {
             self.release();
-            if let Some(done) = self.done.take() {
-                let _ = done.recv_timeout(Duration::from_secs(5));
+            if let Some(published) = self.published.take() {
+                let _ = published.recv_timeout(Duration::from_secs(5));
             }
         }
     }
@@ -242,16 +281,21 @@ mod tests {
     fn blocking_builder(
         cfg: ServerConfig,
         release: Arc<Mutex<mpsc::Receiver<()>>>,
-        done: mpsc::Sender<()>,
     ) -> SessionBuilder {
         Arc::new(move || {
             if let Ok(release) = release.lock() {
                 let _ = release.recv();
             }
-            let result = SessionProvider::bootstrap(&cfg);
-            let _ = done.send(());
-            result
+            SessionProvider::bootstrap(&cfg)
         })
+    }
+
+    fn publication_hooks(published: mpsc::Sender<()>) -> LazyTestHooks {
+        LazyTestHooks {
+            published: Some(Arc::new(move || {
+                let _ = published.send(());
+            })),
+        }
     }
 
     fn blocking_lazy(wait: Duration) -> (tempfile::TempDir, LazySessionProvider, BlockingBuild) {
@@ -260,14 +304,15 @@ mod tests {
         let mut cfg = ServerConfig::new(dir.path().to_path_buf());
         cfg.cache = CacheMode::NoCache;
         let (release, rx) = mpsc::channel();
-        let (done, done_rx) = mpsc::channel();
-        let provider = LazySessionProvider::with_builder(
+        let (published, published_rx) = mpsc::channel();
+        let provider = LazySessionProvider::with_builder_and_hooks(
             &cfg,
             wait,
-            blocking_builder(cfg.clone(), Arc::new(Mutex::new(rx)), done),
+            blocking_builder(cfg.clone(), Arc::new(Mutex::new(rx))),
+            publication_hooks(published),
         )
         .unwrap();
-        (dir, provider, BlockingBuild::new(release, done_rx))
+        (dir, provider, BlockingBuild::new(release, published_rx))
     }
 
     #[test]
@@ -279,8 +324,8 @@ mod tests {
         assert_eq!(provider.state_kind(), "building");
 
         build.release();
-        assert!(matches!(provider.ensure_ready(), Readiness::Ready));
         build.wait();
+        assert!(matches!(provider.ensure_ready(), Readiness::Ready));
         assert_eq!(provider.attempts(), 1);
     }
 
@@ -328,7 +373,7 @@ mod tests {
         let wait = Duration::from_millis(100);
         let outcomes = Arc::new(Mutex::new(VecDeque::from(["fail", "block"])));
         let (release, rx) = mpsc::channel();
-        let (done, done_rx) = mpsc::channel();
+        let (published, published_rx) = mpsc::channel();
         let rx = Arc::new(Mutex::new(rx));
         let builder_cfg = cfg.clone();
         let builder: SessionBuilder =
@@ -339,18 +384,23 @@ mod tests {
                         if let Ok(release) = rx.lock() {
                             let _ = release.recv();
                         }
-                        let result = SessionProvider::bootstrap(&builder_cfg);
-                        let _ = done.send(());
-                        result
+                        SessionProvider::bootstrap(&builder_cfg)
                     }
                     _ => unreachable!(),
                 },
             );
-        let mut build = BlockingBuild::new(release, done_rx);
-        let mut provider = LazySessionProvider::with_builder(&cfg, wait, builder).unwrap();
+        let mut build = BlockingBuild::new(release, published_rx);
+        let mut provider = LazySessionProvider::with_builder_and_hooks(
+            &cfg,
+            wait,
+            builder,
+            publication_hooks(published),
+        )
+        .unwrap();
 
         assert!(matches!(provider.ensure_ready(), Readiness::Failed { .. }));
         assert_eq!(provider.attempts(), 1);
+        build.wait();
 
         let retry_started = Instant::now();
         match provider.ensure_ready() {

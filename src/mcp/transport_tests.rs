@@ -87,7 +87,7 @@ fn assert_build_failed_omit_default_path_result(response: &serde_json::Value, ca
 struct BlockingBuild {
     release: Option<std::sync::mpsc::Sender<()>>,
     started: Option<std::sync::mpsc::Receiver<()>>,
-    done: Option<std::sync::mpsc::Receiver<()>>,
+    published: Option<std::sync::mpsc::Receiver<()>>,
 }
 
 impl BlockingBuild {
@@ -113,11 +113,11 @@ impl BlockingBuild {
     }
 
     fn wait(&mut self) {
-        self.done
+        self.published
             .take()
-            .expect("blocking builder completion must be awaited once")
+            .expect("blocking builder publication must be awaited once")
             .recv_timeout(std::time::Duration::from_secs(5))
-            .expect("blocking builder must complete after release");
+            .expect("blocking builder must publish after release");
     }
 
     fn finish(&mut self) {
@@ -129,36 +129,47 @@ impl BlockingBuild {
 impl Drop for BlockingBuild {
     fn drop(&mut self) {
         self.release();
-        if let Some(done) = self.done.take() {
-            let _ = done.recv_timeout(std::time::Duration::from_secs(5));
+        if let Some(published) = self.published.take() {
+            let _ = published.recv_timeout(std::time::Duration::from_secs(5));
         }
+    }
+}
+
+fn publication_hooks(published: std::sync::mpsc::Sender<()>) -> crate::mcp::lazy::LazyTestHooks {
+    crate::mcp::lazy::LazyTestHooks {
+        published: Some(std::sync::Arc::new(move || {
+            let _ = published.send(());
+        })),
     }
 }
 
 fn blocking_builder(
     cfg: crate::mcp::ServerConfig,
-) -> (crate::mcp::lazy::SessionBuilder, BlockingBuild) {
+) -> (
+    crate::mcp::lazy::SessionBuilder,
+    crate::mcp::lazy::LazyTestHooks,
+    BlockingBuild,
+) {
     use std::sync::{mpsc, Arc, Mutex};
 
     let (release, rx) = mpsc::channel();
     let (started, started_rx) = mpsc::channel();
-    let (done, done_rx) = mpsc::channel();
+    let (published, published_rx) = mpsc::channel();
     let rx = Arc::new(Mutex::new(rx));
     let builder = Arc::new(move || {
         let _ = started.send(());
         if let Ok(release) = rx.lock() {
             let _ = release.recv();
         }
-        let result = crate::mcp::SessionProvider::bootstrap(&cfg);
-        let _ = done.send(());
-        result
+        crate::mcp::SessionProvider::bootstrap(&cfg)
     });
     (
         builder,
+        publication_hooks(published),
         BlockingBuild {
             release: Some(release),
             started: Some(started_rx),
-            done: Some(done_rx),
+            published: Some(published_rx),
         },
     )
 }
@@ -169,11 +180,12 @@ fn lazy_runtime_returns_warming_status_in_both_wire_modes_while_ping_remains_rea
     write_file(dir.path(), "a.py", "def f():\n    return 1\n");
     let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
     cfg.cache = crate::mcp::CacheMode::NoCache;
-    let (builder, mut build) = blocking_builder(cfg.clone());
-    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
+    let (builder, hooks, mut build) = blocking_builder(cfg.clone());
+    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder_and_hooks(
         &cfg,
         std::time::Duration::ZERO,
         builder,
+        hooks,
     )
     .unwrap();
 
@@ -218,11 +230,12 @@ fn lazy_runtime_validates_bad_calls_before_waiting_or_retrying() {
     write_file(dir.path(), "a.py", "def f():\n    return 1\n");
     let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
     cfg.cache = crate::mcp::CacheMode::NoCache;
-    let (builder, mut build) = blocking_builder(cfg.clone());
-    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
+    let (builder, hooks, mut build) = blocking_builder(cfg.clone());
+    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder_and_hooks(
         &cfg,
         std::time::Duration::from_secs(1),
         builder,
+        hooks,
     )
     .unwrap();
 
@@ -360,7 +373,7 @@ fn lazy_runtime_retries_a_real_bootstrap_after_the_repo_root_is_recreated() {
     let mut cfg = crate::mcp::ServerConfig::new(repo_root.clone());
     cfg.cache = crate::mcp::CacheMode::NoCache;
     let (release, rx) = mpsc::channel();
-    let (done, done_rx) = mpsc::channel();
+    let (published, published_rx) = mpsc::channel();
     let rx = Arc::new(Mutex::new(rx));
     let first_attempt = Arc::new(AtomicBool::new(true));
     let builder_cfg = cfg.clone();
@@ -369,9 +382,7 @@ fn lazy_runtime_retries_a_real_bootstrap_after_the_repo_root_is_recreated() {
             if let Ok(release) = rx.lock() {
                 let _ = release.recv();
             }
-            let result = crate::mcp::SessionProvider::bootstrap(&builder_cfg);
-            let _ = done.send(());
-            result
+            crate::mcp::SessionProvider::bootstrap(&builder_cfg)
         } else {
             crate::mcp::SessionProvider::bootstrap(&builder_cfg)
         }
@@ -379,12 +390,13 @@ fn lazy_runtime_retries_a_real_bootstrap_after_the_repo_root_is_recreated() {
     let mut build = BlockingBuild {
         release: Some(release),
         started: None,
-        done: Some(done_rx),
+        published: Some(published_rx),
     };
-    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
+    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder_and_hooks(
         &cfg,
         std::time::Duration::from_secs(1),
         builder,
+        publication_hooks(published),
     )
     .unwrap();
     std::fs::remove_dir_all(&repo_root).unwrap();
@@ -422,11 +434,12 @@ fn lazy_runtime_returns_the_eager_result_when_the_builder_finishes_during_the_fi
     let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
     cfg.cache = crate::mcp::CacheMode::NoCache;
     let mut eager = crate::mcp::SessionProvider::bootstrap(&cfg).unwrap();
-    let (builder, mut build) = blocking_builder(cfg.clone());
-    let mut lazy = crate::mcp::lazy::LazySessionProvider::with_builder(
+    let (builder, hooks, mut build) = blocking_builder(cfg.clone());
+    let mut lazy = crate::mcp::lazy::LazySessionProvider::with_builder_and_hooks(
         &cfg,
         std::time::Duration::from_secs(5),
         builder,
+        hooks,
     )
     .unwrap();
     build.wait_started();
@@ -470,30 +483,29 @@ fn lazy_refresh_after_an_initial_snapshot_edit_reports_stale_before_refresh() {
     cfg.cache = crate::mcp::CacheMode::NoCache;
     let (snapshot_taken, snapshot_rx) = mpsc::channel();
     let (release, release_rx) = mpsc::channel();
-    let (done, done_rx) = mpsc::channel();
+    let (published, published_rx) = mpsc::channel();
     let release_rx = Arc::new(Mutex::new(release_rx));
     let builder_cfg = cfg.clone();
     let builder: crate::mcp::lazy::SessionBuilder = Arc::new(move || {
-        let result = (|| {
+        (|| {
             let provider = crate::mcp::SessionProvider::bootstrap(&builder_cfg)?;
             let _ = snapshot_taken.send(());
             if let Ok(release) = release_rx.lock() {
                 let _ = release.recv();
             }
             Ok(provider)
-        })();
-        let _ = done.send(());
-        result
+        })()
     });
     let mut build = BlockingBuild {
         release: Some(release),
         started: None,
-        done: Some(done_rx),
+        published: Some(published_rx),
     };
-    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
+    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder_and_hooks(
         &cfg,
         std::time::Duration::from_secs(1),
         builder,
+        publication_hooks(published),
     )
     .unwrap();
     snapshot_rx
@@ -501,11 +513,11 @@ fn lazy_refresh_after_an_initial_snapshot_edit_reports_stale_before_refresh() {
         .unwrap();
     write_file(dir.path(), "a.py", "def fresh():\n    return 2\n");
     build.release();
+    build.wait();
     assert!(matches!(
         provider.ensure_ready(),
         crate::mcp::lazy::Readiness::Ready
     ));
-    build.wait();
 
     let response = call_tool_at_cap_with_mode(
         &mut provider,
@@ -578,11 +590,12 @@ fn lazy_runtime_returns_on_eof_without_waiting_for_the_background_builder() {
     write_file(dir.path(), "a.py", "def f():\n    return 1\n");
     let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
     cfg.cache = crate::mcp::CacheMode::NoCache;
-    let (builder, mut build) = blocking_builder(cfg.clone());
-    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
+    let (builder, hooks, mut build) = blocking_builder(cfg.clone());
+    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder_and_hooks(
         &cfg,
         std::time::Duration::from_secs(1),
         builder,
+        hooks,
     )
     .unwrap();
     let mut transport = InMemoryTransport::new(vec![]);
@@ -600,11 +613,12 @@ fn lazy_refresh_returns_warming_then_delegates_and_preserves_raced_stale_evidenc
     write_file(dir.path(), "a.py", "def old():\n    return 1\n");
     let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
     cfg.cache = crate::mcp::CacheMode::NoCache;
-    let (builder, mut build) = blocking_builder(cfg.clone());
-    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
+    let (builder, hooks, mut build) = blocking_builder(cfg.clone());
+    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder_and_hooks(
         &cfg,
         std::time::Duration::ZERO,
         builder,
+        hooks,
     )
     .unwrap();
     let request = r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"refresh_index","arguments":{}}}"#;
