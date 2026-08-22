@@ -354,6 +354,9 @@ def warm_gate_check(repo_root: str, *, cache_dir: str | None = None,
     import threading
 
     bin_path = prism_mcp_bin or _prism_mcp_bin()
+    # absolute repo_root: the gate is spawned with cwd=repo_root (mirrors the agents), so a relative
+    # root would make prism-mcp see `<root>/<root>` (PR #172 re-review).
+    repo_root = os.path.abspath(repo_root)
     argv = [bin_path, "--repo", repo_root]
     if cache_dir:
         # absolute: this process is spawned with cwd=repo_root (mirrors the agents); a relative

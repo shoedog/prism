@@ -726,3 +726,23 @@ def test_prewarm_cpg_absolutizes_relative_cache_dir(monkeypatch, tmp_path):
     arm_mod._prewarm_cpg(str(tmp_path / "repo"), cache_dir="rel/prism-cache")
     assert str(tmp_path / "rel" / "prism-cache") in seen["argv"]
     assert "rel/prism-cache" not in seen["argv"]
+
+
+def test_warm_gate_check_absolutizes_relative_repo_root(monkeypatch, tmp_path):
+    """PR #172 re-review: with cwd=repo_root, a RELATIVE repo_root would make prism-mcp resolve
+    `<root>/<root>`; both argv --repo and the spawn cwd must be the absolute root."""
+    import tier_c.arm_runner as arm_mod
+    monkeypatch.chdir(tmp_path)
+    captured: list = []
+    lines = [_init_ok_line(), _tools_line(["x"])]
+    inner = _make_fake_popen_factory(lines, captured_argv=captured)
+    seen: dict = {}
+
+    def popen(argv, **kw):
+        seen.update(kw)
+        return inner(argv, **kw)
+
+    monkeypatch.setattr(arm_mod.subprocess, "Popen", popen)
+    warm_gate_check("checkout", cache_dir="/abs/cache", timeout_s=5.0)
+    assert captured[0][captured[0].index("--repo") + 1] == str(tmp_path / "checkout")
+    assert seen.get("cwd") == str(tmp_path / "checkout")
