@@ -108,6 +108,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 import tomllib
@@ -499,6 +500,138 @@ def load_dispatch_sites(manifest_path: str) -> list[dict]:
     return doc.get("sites", [])
 
 
+def effective_gowork(repo: str) -> str:
+    """The workspace this oracle forces for all Go/gopls observations."""
+    root = Path(repo).expanduser().resolve()
+    work = root / "go.work"
+    return str(work) if work.is_file() else "off"
+
+
+def _command_output(command: list[str], cwd: str, env: dict[str, str]) -> str | None:
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=cwd,
+            env=env,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=30,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    output = completed.stdout.strip()
+    return output if completed.returncode == 0 and output else None
+
+
+def environment_pins(repo: str, cmd: list[str]) -> dict:
+    """Immutable comparison context for a baseline and its branch rerun."""
+    root = str(Path(repo).expanduser().resolve())
+    gowork = effective_gowork(root)
+    env = os.environ.copy()
+    env["GOWORK"] = gowork
+    return {
+        "corpus_sha": _command_output(["git", "rev-parse", "HEAD"], root, env) or "unavailable",
+        "go_version": _command_output(["go", "version"], root, env) or "unavailable",
+        "gopls_version": _command_output([cmd[0], "version"], root, env) or "unavailable",
+        "GOOS": _command_output(["go", "env", "GOOS"], root, env) or "unavailable",
+        "GOARCH": _command_output(["go", "env", "GOARCH"], root, env) or "unavailable",
+        "tags": env.get("GOFLAGS", ""),
+        "GOWORK": gowork,
+    }
+
+
+def validate_environment_pins(baseline: dict, current: dict) -> None:
+    """Refuse delta adjudication across different Go/gopls universes."""
+    differences = {
+        key: {"baseline": baseline.get(key), "current": current.get(key)}
+        for key in sorted(set(baseline) | set(current))
+        if baseline.get(key) != current.get(key)
+    }
+    if differences:
+        raise ValueError(f"environment pins differ: {json.dumps(differences, sort_keys=True)}")
+
+
+def _site_key(site: dict) -> tuple:
+    return (
+        site.get("file"),
+        site.get("start_byte"),
+        site.get("end_byte"),
+        site.get("line"),
+        site.get("method"),
+    )
+
+
+def _record_identity_tuples(site: dict) -> set[tuple]:
+    if site.get("identity_mode") == "qualified":
+        return {
+            (
+                identity["package_dir"],
+                identity["package_clause"],
+                identity["name"],
+                identity["file"],
+                tuple(identity["span"]),
+            )
+            for identity in site.get("prism_identities", [])
+        }
+    return {(name,) for name in site.get("prism_implementers", [])}
+
+
+def delta_summary(current_sites: list[dict], baseline_sites: list[dict]) -> dict:
+    """Classify only newly exact edges and gate that bounded delta population."""
+    baseline_by_site = {_site_key(site): site for site in baseline_sites}
+    newly_exact_sites: list[dict] = []
+    for current in current_sites:
+        baseline = baseline_by_site.get(_site_key(current))
+        current_fanout = current.get("fanout", len(current.get("prism_implementers", [])))
+        baseline_fanout = (
+            baseline.get("fanout", len(baseline.get("prism_implementers", [])))
+            if baseline is not None else 0
+        )
+        current_identities = _record_identity_tuples(current)
+        baseline_identities = _record_identity_tuples(baseline) if baseline is not None else set()
+        if current_fanout > 0 and baseline_fanout == 0:
+            reason = "fanout_0_to_positive"
+            new_identity_tuples = current_identities
+        else:
+            new_identity_tuples = current_identities - baseline_identities
+            if not new_identity_tuples:
+                continue
+            reason = "new_implementer_identities"
+        new_identity_records = [
+            identity
+            for identity in current.get("prism_identities", [])
+            if (
+                identity["package_dir"],
+                identity["package_clause"],
+                identity["name"],
+                identity["file"],
+                tuple(identity["span"]),
+            ) in new_identity_tuples
+        ]
+        newly_exact_sites.append({
+            "file": current["file"],
+            "line": current["line"],
+            "method": current["method"],
+            "classification": current["classification"],
+            "reason": reason,
+            "new_implementer_identities": new_identity_records,
+        })
+    newly_exact_sites.sort(key=lambda site: (site["file"], site["line"], site["method"]))
+    blocking_classes = {
+        "over_approx", "oracle_timeout", "oracle_unresolved", "target_mismatch",
+    }
+    blocking_sites = [
+        site for site in newly_exact_sites if site["classification"] in blocking_classes
+    ]
+    return {
+        "newly_exact_sites": newly_exact_sites,
+        "blocking_sites": blocking_sites,
+        "gate_ok": not blocking_sites,
+    }
+
+
 def interface_label(line_text: str | None, method: str, ordinal: int) -> str:
     """Recover the interface name from a type-assertion call line; else a synthetic label.
 
@@ -545,6 +678,7 @@ class GoplsSatisfiers:
         self.root = os.path.abspath(repo)
         self.group_timeout = group_timeout
         self._settle_s, self._cap_s = settle_s, cap_s
+        self.gowork = effective_gowork(self.root)
         root_uri = "file://" + urllib.parse.quote(self.root)
         self.client = LspClient(cmd, cwd=self.root, root_uri=root_uri,
                                 default_timeout=group_timeout)
@@ -552,7 +686,19 @@ class GoplsSatisfiers:
         self._docsym: dict[str, list[tuple]] = {}
 
     def start(self) -> None:
-        self.client.start()
+        # LspClient inherits this process environment at Popen time. Scope the
+        # override to launch so unrelated tooling in this Python process keeps its
+        # original environment, while gopls cannot inherit a parent workspace.
+        had_gowork = "GOWORK" in os.environ
+        previous_gowork = os.environ.get("GOWORK")
+        os.environ["GOWORK"] = self.gowork
+        try:
+            self.client.start()
+        finally:
+            if had_gowork:
+                os.environ["GOWORK"] = previous_gowork
+            else:
+                os.environ.pop("GOWORK", None)
         _settle(self.client, self._cap_s, self._settle_s)
 
     def resettle(self, settle_s: float | None = None) -> None:
@@ -889,6 +1035,11 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                     file=s["file"], line=s["line"], interface=iface, method=method,
                     prism_set=prism_set, gopls_set=gopls_set,
                 )
+            # Preserve the manifest site identity in the durable output so baseline
+            # deltas cannot collapse distinct calls that share a source line.
+            record["fanout"] = s.get("fanout", len(prism_set))
+            record["start_byte"] = s.get("start_byte")
+            record["end_byte"] = s.get("end_byte")
             if record["classification"] not in {"oracle_timeout", "oracle_unresolved"}:
                 scored += 1
             records.append(record)
@@ -926,6 +1077,13 @@ def _print_summary(summary: dict, log=sys.stdout) -> None:
         print(f"\noracle_timeout groups ({len(summary['oracle_timeout_groups'])}):", file=log)
         for r in summary["oracle_timeout_groups"]:
             print(f"  {r['interface']}.{r['method']}", file=log)
+    if "delta" in summary:
+        delta = summary["delta"]
+        print(f"\ndelta gate_ok = {delta['gate_ok']} "
+              f"(newly_exact_sites={len(delta['newly_exact_sites'])})", file=log)
+        for site in delta["blocking_sites"]:
+            print(f"  BLOCK {site['file']}:{site['line']} {site['method']} "
+                  f"{site['classification']} ({site['reason']})", file=log)
 
 
 def main() -> int:
@@ -938,18 +1096,35 @@ def main() -> int:
     ap.add_argument("--corpus", default=None,
                     help="corpus name in corpora.toml (reads the gopls cmd); default PATH gopls")
     ap.add_argument("--out", required=True, help="output comparison.json path")
+    ap.add_argument("--baseline", default=None,
+                    help="prior dispatch-oracle output; enables pin-checked delta gating")
     ap.add_argument("--group-timeout", type=float, default=300.0,
                     help="per-(interface,method) gopls request timeout seconds "
                          "(generous; a slow group is recorded oracle_timeout, not fatal)")
     args = ap.parse_args()
 
     cmd = make_cmd(args.corpus)
+    repo = os.path.abspath(os.path.expanduser(args.repo))
+    pins = environment_pins(repo, cmd)
+    baseline = None
+    if args.baseline:
+        baseline = json.loads(Path(args.baseline).read_text())
+        baseline_pins = baseline.get("environment")
+        if not isinstance(baseline_pins, dict):
+            ap.error("baseline has no environment pins; re-baseline with the hardened oracle")
+        try:
+            validate_environment_pins(baseline_pins, pins)
+        except ValueError as exc:
+            ap.error(str(exc))
     sites, summary = run_oracle(args.manifest, args.repo, cmd, args.group_timeout)
+    if baseline is not None:
+        summary["delta"] = delta_summary(sites, baseline.get("sites", []))
     out = {
         "manifest": os.path.abspath(args.manifest),
-        "repo": os.path.abspath(os.path.expanduser(args.repo)),
+        "repo": repo,
         "corpus": args.corpus,
         "oracle_cmd": cmd,
+        "environment": pins,
         "sites": sites,
         "summary": summary,
     }

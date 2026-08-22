@@ -337,3 +337,79 @@ def test_load_dispatch_sites_keeps_zero_fanout_and_scores_recall_gap(tmp_path):
     assert rec["classification"] == "recall_gap"
     assert summary["overall"]["recall_gap"] == 1
     assert summary["overall"]["scored_sites"] == 1
+
+
+# ---------------------------------------------------------------------------
+# #14 slice 1 delta gate and environment pins
+# ---------------------------------------------------------------------------
+
+_PINS = {
+    "corpus_sha": "abc123",
+    "go_version": "go version go1.25.0 darwin/arm64",
+    "gopls_version": "golang.org/x/tools/gopls v0.22.0",
+    "GOOS": "darwin",
+    "GOARCH": "arm64",
+    "tags": "integration",
+    "GOWORK": "/repo/go.work",
+}
+
+
+def _delta_site(*, fanout, identities, classification="sound"):
+    gopls = identities or [_identity("Impl", "impl.go", [3, 5])]
+    rec = do.compare_site(
+        file="caller.go",
+        line=10,
+        interface="Runner",
+        method="Go",
+        prism_identities=identities,
+        gopls_identities=gopls,
+    )
+    rec["fanout"] = fanout
+    rec["start_byte"] = 100
+    rec["end_byte"] = 110
+    if classification != rec["classification"]:
+        rec["classification"] = classification
+    return rec
+
+
+def test_delta_reports_newly_exact_fanout_and_identity_transitions():
+    before = _delta_site(fanout=0, identities=[])
+    after = _delta_site(fanout=1, identities=[_identity("Impl", "impl.go", [3, 5])])
+    delta = do.delta_summary([after], [before])
+    assert delta["gate_ok"] is True
+    assert delta["newly_exact_sites"] == [
+        {
+            "file": "caller.go",
+            "line": 10,
+            "method": "Go",
+            "classification": "sound",
+            "reason": "fanout_0_to_positive",
+            "new_implementer_identities": [_identity("Impl", "impl.go", [3, 5])],
+        }
+    ]
+
+    changed = _delta_site(fanout=1, identities=[_identity("Impl", "impl_linux.go", [3, 5])])
+    delta = do.delta_summary([changed], [after])
+    assert delta["newly_exact_sites"][0]["reason"] == "new_implementer_identities"
+    assert delta["newly_exact_sites"][0]["new_implementer_identities"] == [
+        _identity("Impl", "impl_linux.go", [3, 5])
+    ]
+
+
+def test_delta_gate_blocks_a_timed_out_newly_exact_site():
+    before = _delta_site(fanout=0, identities=[])
+    timeout = _delta_site(
+        fanout=1,
+        identities=[_identity("Impl", "impl.go", [3, 5])],
+        classification="oracle_timeout",
+    )
+    delta = do.delta_summary([timeout], [before])
+    assert delta["gate_ok"] is False
+    assert delta["blocking_sites"] == delta["newly_exact_sites"]
+    assert delta["blocking_sites"][0]["classification"] == "oracle_timeout"
+
+
+def test_delta_refuses_mismatched_environment_pins():
+    changed_pins = dict(_PINS, GOARCH="amd64")
+    with pytest.raises(ValueError, match="environment pins differ"):
+        do.validate_environment_pins(_PINS, changed_pins)
