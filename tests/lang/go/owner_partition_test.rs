@@ -448,6 +448,37 @@ fn p5_registration_targets_follow_the_invocation_partition() {
 }
 
 #[test]
+fn p5_compatible_common_and_linux_registrations_are_additive() {
+    let files = go_files(&[
+        (
+            "pkg/type.go",
+            "package foo\ntype Command struct { Run func() }\nfunc commonHandler() {}\nfunc setupCommon() { _ = Command{Run: commonHandler} }\n",
+        ),
+        (
+            "pkg/setup_linux.go",
+            "//go:build linux\n\npackage foo\nfunc linuxHandler() {}\nfunc setupLinux() { _ = Command{Run: linuxHandler} }\n",
+        ),
+        (
+            "pkg/use_linux.go",
+            "//go:build linux\n\npackage foo\nfunc invoke(c Command) { c.Run() }\n",
+        ),
+    ]);
+    let cg = CallGraph::build(&files);
+    assert_eq!(
+        cg.go_registrations
+            .iter()
+            .map(|record| record.target.name.as_str())
+            .collect::<BTreeSet<_>>(),
+        BTreeSet::from(["commonHandler", "linuxHandler"])
+    );
+
+    assert_eq!(
+        run_targets(&cg),
+        BTreeSet::from(["commonHandler".to_string(), "linuxHandler".to_string()])
+    );
+}
+
+#[test]
 fn p5_func_vs_nonfunc_declarations_conflict_and_nonfunc_registration_is_skipped() {
     let files = go_files(&[
         (
