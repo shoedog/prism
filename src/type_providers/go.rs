@@ -155,6 +155,16 @@ pub struct GoTypeData {
     /// in one package cannot donate a false hit to a same-named struct in
     /// another (spec-review MAJOR-1).
     func_typed_fields: BTreeSet<(crate::resolution::GoOwnerIdentity, String)>,
+    /// Clause-keyed, per-defining-file struct snapshots. Unlike the legacy
+    /// positive-only and single-value projections, these preserve field
+    /// absence and mutually exclusive declarations for consult-time filtering.
+    struct_declarations: crate::go_owner_partition::GoStructDeclarations,
+    /// Clause-keyed, per-defining-file interface snapshots used by S4 before
+    /// any route is minted. Direct methods and embedded names remain separate
+    /// so profile-aware consumers can resolve the visible declaration set.
+    interface_declarations: crate::go_owner_partition::GoInterfaceDeclarations,
+    /// Clause-keyed method declarations for S4 shadow checks.
+    method_declarations: crate::go_owner_partition::GoMethodDeclarations,
     /// P11 S2: `(owner_identity, field_name) -> raw declared field type`
     /// re-projection of every struct's `fields` (including embedded-field
     /// pseudo-entries — `GoStruct::extract_struct_fields` already names those
@@ -235,6 +245,9 @@ impl GoTypeProvider {
             dispatch_overapprox: Vec::new(),
             struct_identities: BTreeSet::new(),
             func_typed_fields: BTreeSet::new(),
+            struct_declarations: BTreeMap::new(),
+            interface_declarations: BTreeMap::new(),
+            method_declarations: BTreeMap::new(),
             field_types: BTreeMap::new(),
             embedded_interface_promotions: BTreeMap::new(),
             struct_embeds: BTreeMap::new(),
@@ -285,6 +298,18 @@ impl GoTypeProvider {
     /// `CallGraph.go_field_types` in `apply_go_interface_dispatch`.
     pub fn go_field_types(&self) -> BTreeMap<(crate::resolution::GoOwnerIdentity, String), String> {
         self.data.field_types.clone()
+    }
+
+    pub fn go_struct_declarations(&self) -> crate::go_owner_partition::GoStructDeclarations {
+        self.data.struct_declarations.clone()
+    }
+
+    pub fn go_interface_declarations(&self) -> crate::go_owner_partition::GoInterfaceDeclarations {
+        self.data.interface_declarations.clone()
+    }
+
+    pub fn go_method_declarations(&self) -> crate::go_owner_partition::GoMethodDeclarations {
+        self.data.method_declarations.clone()
     }
 
     /// P11 S4 routing map: `GoOwnerIdentity (struct) -> method_name ->
@@ -444,6 +469,14 @@ impl GoTypeProvider {
                 });
                 if let Some(owner) = owner {
                     data.struct_identities.insert(owner.clone());
+                    data.struct_declarations
+                        .entry(owner.clone())
+                        .or_default()
+                        .insert(crate::go_owner_partition::GoStructDeclaration {
+                            defining_file: path.to_string(),
+                            fields: fields.iter().cloned().collect(),
+                            embedded_types: embedded.iter().map(|e| e.name.clone()).collect(),
+                        });
                     for (field_name, field_type) in &fields {
                         if field_type.trim_start().starts_with("func(") {
                             data.func_typed_fields
@@ -474,6 +507,28 @@ impl GoTypeProvider {
                 let (methods, embedded, overapprox) =
                     Self::extract_interface_methods(&type_node, parsed);
                 data.dispatch_overapprox.extend(overapprox);
+                let (profile, _) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+                if !profile.package_clause.trim().is_empty() {
+                    let owner = crate::resolution::GoOwnerIdentity {
+                        package_dir: crate::resolution::dir_of(path).to_string(),
+                        package_clause: profile.package_clause.clone(),
+                        name: name.clone(),
+                    };
+                    data.interface_declarations
+                        .entry(owner)
+                        .or_default()
+                        .insert(crate::go_owner_partition::GoInterfaceDeclaration {
+                            defining_file: path.to_string(),
+                            methods: methods
+                                .iter()
+                                .filter_map(|(method, signature)| {
+                                    signature.is_ok().then_some(method.clone())
+                                })
+                                .collect(),
+                            embedded_types: embedded.iter().cloned().collect(),
+                            generic,
+                        });
+                }
                 // P11 S4 (B2 fix): track which package dir(s) declare an
                 // interface with this bare name, so the routing computation
                 // can fail closed on a cross-package bare-name collision
@@ -990,6 +1045,21 @@ impl GoTypeProvider {
         let end_line = node.end_position().row + 1;
         let (params, variadic) = Self::count_method_params(node);
 
+        let (profile, _) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+        if !profile.package_clause.trim().is_empty() {
+            data.method_declarations
+                .entry(crate::resolution::GoOwnerIdentity {
+                    package_dir: crate::resolution::dir_of(path).to_string(),
+                    package_clause: profile.package_clause,
+                    name: receiver_type.clone(),
+                })
+                .or_default()
+                .insert(crate::go_owner_partition::GoMethodDeclaration {
+                    defining_file: path.to_string(),
+                    method_name: name.clone(),
+                });
+        }
+
         data.methods
             .entry(receiver_type.clone())
             .or_default()
@@ -1485,106 +1555,109 @@ impl GoTypeProvider {
     /// approximation: a `Holder` in package A must never donate its embedded
     /// interface's methods to an unrelated same-named `Holder` in package B.
     ///
-    /// Iterates `data.struct_embeds` (package-scoped: `GoOwnerIdentity ->
-    /// embedded fields`) instead of the bare `data.structs`/`data.methods`,
-    /// so each package's struct is considered independently. An embedded
-    /// interface reference is trusted only when its bare name is BOTH
-    /// package-unique repo-wide and owned by the embedding struct's OWN
-    /// package (`interface_name_owners`) — Go requires a bare (unqualified)
-    /// embedded name to resolve within the SAME package, and a same-named
-    /// interface existing in some OTHER package as well means
-    /// `data.interfaces.get(bare)` (itself bare-collapsed) cannot be trusted
-    /// to be the RIGHT one; either case fails closed (skip this candidate).
+    /// Iterates clause-keyed, per-file struct/interface snapshots. If build
+    /// variants disagree, this legacy single-value projection omits the route;
+    /// the CallGraph snapshot lanes retain every declaration for the later
+    /// caller-profile consult.
     fn embedded_interface_routes(
         data: &GoTypeData,
         concrete_methods: &BTreeMap<String, ReceiverMethodSet>,
     ) -> BTreeMap<crate::resolution::GoOwnerIdentity, BTreeMap<String, String>> {
         let mut out: BTreeMap<crate::resolution::GoOwnerIdentity, BTreeMap<String, String>> =
             BTreeMap::new();
-        for (owner, embeds) in &data.struct_embeds {
-            let mut candidates: BTreeMap<String, Vec<String>> = BTreeMap::new();
-            for embedded in embeds {
-                let bare = embedded.name.as_str();
-                let package_unique_here = data
-                    .interface_name_owners
-                    .get(bare)
-                    .map(|dirs| dirs.len() == 1 && dirs.contains(&owner.package_dir))
-                    .unwrap_or(false);
-                if !package_unique_here {
-                    continue; // fail closed: not package-unique, or not this package's.
+        for (owner, declarations) in &data.struct_declarations {
+            let mut variants = BTreeSet::new();
+            for declaration in declarations {
+                let own_methods: BTreeSet<&str> = data
+                    .method_declarations
+                    .get(owner)
+                    .into_iter()
+                    .flatten()
+                    .map(|method| method.method_name.as_str())
+                    .collect();
+                let already = concrete_methods.get(&owner.name);
+                let mut candidates: BTreeMap<String, Vec<String>> = BTreeMap::new();
+                for bare in &declaration.embedded_types {
+                    let iface_owner = crate::resolution::GoOwnerIdentity {
+                        package_dir: owner.package_dir.clone(),
+                        package_clause: owner.package_clause.clone(),
+                        name: bare.clone(),
+                    };
+                    let Some(methods) =
+                        Self::snapshot_interface_methods(data, &iface_owner, &mut BTreeSet::new())
+                    else {
+                        continue;
+                    };
+                    for method in methods {
+                        candidates.entry(method).or_default().push(bare.clone());
+                    }
                 }
-                let Some(iface) = data.interfaces.get(bare) else {
-                    continue;
-                };
-                if iface.generic {
-                    continue;
-                }
-                let methods =
-                    Self::collect_interface_methods_from(data, bare, &mut BTreeSet::new());
-                for (m, sig) in &methods {
-                    if sig.is_err() {
+                let mut per_struct = BTreeMap::new();
+                for (method_name, ifaces) in candidates {
+                    if ifaces.len() != 1
+                        || declaration.fields.contains_key(&method_name)
+                        || own_methods.contains(method_name.as_str())
+                    {
                         continue;
                     }
-                    candidates
-                        .entry(m.clone())
-                        .or_default()
-                        .push(bare.to_string());
+                    let already_concrete = already
+                        .map(|rs| {
+                            Self::method_in_package(&rs.value, &method_name, &owner.package_dir)
+                                || Self::method_in_package(
+                                    &rs.pointer,
+                                    &method_name,
+                                    &owner.package_dir,
+                                )
+                        })
+                        .unwrap_or(false);
+                    if !already_concrete {
+                        per_struct.insert(method_name, ifaces.into_iter().next().unwrap());
+                    }
                 }
+                variants.insert(per_struct);
             }
-            if candidates.is_empty() {
-                continue;
-            }
-            // Package-scoped shadow checks (own field / own method / already
-            // FunctionId-backed concrete method) -- filter the existing
-            // bare-collapsed indices down to entries whose OWN file lives in
-            // this struct's package, rather than trusting them wholesale.
-            let own_fields: BTreeSet<&str> = data
-                .field_types
-                .keys()
-                .filter(|(o, _)| o == owner)
-                .map(|(_, f)| f.as_str())
-                .collect();
-            let own_methods: BTreeSet<&str> = data
-                .methods
-                .get(&owner.name)
-                .map(|ms| {
-                    ms.iter()
-                        .filter(|m| crate::resolution::dir_of(&m.file) == owner.package_dir)
-                        .map(|m| m.name.as_str())
-                        .collect()
-                })
-                .unwrap_or_default();
-            let already = concrete_methods.get(&owner.name);
-            let mut per_struct = BTreeMap::new();
-            for (method_name, ifaces) in candidates {
-                if ifaces.len() != 1 {
-                    continue;
+            if variants.len() == 1 {
+                let per_struct = variants.into_iter().next().unwrap();
+                if !per_struct.is_empty() {
+                    out.insert(owner.clone(), per_struct);
                 }
-                if own_fields.contains(method_name.as_str())
-                    || own_methods.contains(method_name.as_str())
-                {
-                    continue;
-                }
-                let already_concrete = already
-                    .map(|rs| {
-                        Self::method_in_package(&rs.value, &method_name, &owner.package_dir)
-                            || Self::method_in_package(
-                                &rs.pointer,
-                                &method_name,
-                                &owner.package_dir,
-                            )
-                    })
-                    .unwrap_or(false);
-                if already_concrete {
-                    continue;
-                }
-                per_struct.insert(method_name, ifaces.into_iter().next().unwrap());
-            }
-            if !per_struct.is_empty() {
-                out.insert(owner.clone(), per_struct);
             }
         }
         out
+    }
+
+    fn snapshot_interface_methods(
+        data: &GoTypeData,
+        owner: &crate::resolution::GoOwnerIdentity,
+        visiting: &mut BTreeSet<crate::resolution::GoOwnerIdentity>,
+    ) -> Option<BTreeSet<String>> {
+        if !visiting.insert(owner.clone()) {
+            return None;
+        }
+        let declarations = data.interface_declarations.get(owner)?;
+        let mut variants = BTreeSet::new();
+        for declaration in declarations {
+            if declaration.generic {
+                visiting.remove(owner);
+                return None;
+            }
+            let mut methods = declaration.methods.clone();
+            for embedded in &declaration.embedded_types {
+                let embedded_owner = crate::resolution::GoOwnerIdentity {
+                    package_dir: owner.package_dir.clone(),
+                    package_clause: owner.package_clause.clone(),
+                    name: embedded.clone(),
+                };
+                methods.extend(Self::snapshot_interface_methods(
+                    data,
+                    &embedded_owner,
+                    visiting,
+                )?);
+            }
+            variants.insert(methods);
+        }
+        visiting.remove(owner);
+        (variants.len() == 1).then(|| variants.into_iter().next().unwrap())
     }
 
     fn method_in_package(
