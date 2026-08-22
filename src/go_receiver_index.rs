@@ -28,6 +28,7 @@
 //! doctrine 5).
 
 use crate::ast::ParsedFile;
+use crate::go_receiver_index_visibility::{resolve_go_return_type_call, unique_visible_type};
 use crate::languages::Language;
 use crate::resolution::{
     dir_of, owner_key, peel_type, resolve_go_owner_identity, ReceiverClassification,
@@ -209,80 +210,6 @@ pub fn extract_go_package_vars(
         }
     }
     multi
-}
-
-/// Resolve a call-RHS callee reference (`newDemux` or `pkg.New`, as written)
-/// to its recorded S1 return type. Reuses `resolve_go_owner_identity`'s
-/// bare/`pkg.`-qualified resolution rules (same-package for a bare name,
-/// import-map + unique-basename-directory for a qualified name, no
-/// permissive fall-through) — a method-style call on a local receiver
-/// (`factory.New()`) naturally misses here too, since `factory` is not a
-/// recognized import alias (spec: "skip + count otherwise" — the miss is
-/// counted downstream by the ordinary drop-reason telemetry, no separate
-/// counter needed).
-fn resolve_go_return_type_call(
-    callee_text: &str,
-    caller_file: &str,
-    imports: &BTreeMap<String, BTreeMap<String, String>>,
-    package_basenames: &BTreeMap<String, std::collections::BTreeSet<String>>,
-    return_types: &BTreeMap<(String, String), BTreeSet<GoTypedFact>>,
-    go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
-) -> Option<String> {
-    let identity = resolve_go_owner_identity(
-        callee_text,
-        caller_file,
-        imports,
-        package_basenames,
-        go_file_profiles,
-    )?;
-    unique_visible_type(
-        caller_file,
-        return_types.get(&(identity.package_dir, identity.name))?,
-        go_file_profiles,
-    )
-}
-
-fn unique_visible_type(
-    caller_file: &str,
-    facts: &BTreeSet<GoTypedFact>,
-    go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
-) -> Option<String> {
-    let caller_profile = go_file_profiles.get(caller_file);
-    let mut tys = BTreeSet::new();
-    for fact in facts {
-        let defining_profile = go_file_profiles.get(&fact.defining_file);
-        let visibility = match (caller_profile, defining_profile) {
-            (Some(caller), Some(defining)) => {
-                if crate::resolution::dir_of(caller_file)
-                    == crate::resolution::dir_of(&fact.defining_file)
-                {
-                    Some(crate::go_build_profile::go_same_package_visible_detailed(
-                        caller, defining,
-                    ))
-                } else {
-                    let mut imported = caller.clone();
-                    imported.package_clause = defining.package_clause.clone();
-                    imported.is_test_file = false;
-                    Some(crate::go_build_profile::go_same_package_visible_detailed(
-                        &imported, defining,
-                    ))
-                }
-            }
-            _ => None,
-        };
-        let visible = visibility.as_ref().map_or(true, |vis| vis.visible);
-        if visible {
-            let exact_allowed = visibility.as_ref().map_or_else(
-                || crate::go_build_profile::profile_allows_exact(defining_profile),
-                |vis| crate::go_build_profile::visibility_allows_exact(defining_profile, vis),
-            );
-            if !exact_allowed {
-                return None;
-            }
-            tys.insert(fact.ty.clone());
-        }
-    }
-    (tys.len() == 1).then(|| tys.into_iter().next().unwrap())
 }
 
 /// Decompose a Go selector-chain receiver expression into its base identifier

@@ -51,6 +51,7 @@ pub mod go_build_profile;
 pub mod go_owner_partition;
 mod go_owner_partition_s4;
 mod go_receiver_index;
+mod go_receiver_index_visibility;
 pub mod js_exports;
 pub mod languages;
 pub mod live_types;
