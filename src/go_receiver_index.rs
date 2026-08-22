@@ -325,6 +325,7 @@ pub struct GoReceiverFacts<'a> {
     pub return_types: &'a BTreeMap<(String, String), BTreeSet<GoTypedFact>>,
     pub package_vars: &'a BTreeMap<(String, String), BTreeSet<GoTypedFact>>,
     pub field_types: &'a BTreeMap<(GoOwnerIdentity, String), String>,
+    pub field_targets: &'a BTreeMap<(GoOwnerIdentity, String), crate::resolution::GoFieldTarget>,
     pub package_basenames: &'a BTreeMap<String, std::collections::BTreeSet<String>>,
     pub imports: &'a BTreeMap<String, BTreeMap<String, String>>,
     pub go_file_profiles: &'a BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
@@ -443,6 +444,7 @@ pub fn classify_go_receiver_expanded(
             recovered: Some(RecoveredReceiver {
                 static_type,
                 recovery: how,
+                go_field_target: None,
             }),
             materialized: true,
         };
@@ -465,6 +467,7 @@ pub fn classify_go_receiver_expanded(
                     recovered: Some(RecoveredReceiver {
                         static_type,
                         recovery: ReceiverRecovery::VarDecl,
+                        go_field_target: None,
                     }),
                     materialized: true,
                 };
@@ -494,6 +497,7 @@ pub fn classify_go_receiver_expanded(
                 recovered: Some(RecoveredReceiver {
                     static_type,
                     recovery: ReceiverRecovery::ReturnTyped,
+                    go_field_target: None,
                 }),
                 materialized: true,
             };
@@ -536,18 +540,36 @@ fn classify_nested_selector(
         classify_go_receiver_expanded(&base_ctx, base_classifier, facts, var_local).recovered?;
 
     let mut current = base_recovered.static_type;
-    for seg in segments {
-        let owner = resolve_go_owner_identity(
-            &current,
-            ctx.caller_file,
-            facts.imports,
-            facts.package_basenames,
-        )?;
-        let field_ty = facts.field_types.get(&(owner, seg))?;
+    let mut current_owner = resolve_go_owner_identity(
+        &current,
+        ctx.caller_file,
+        facts.imports,
+        facts.package_basenames,
+    )?;
+    let mut field_target = None;
+    let segment_count = segments.len();
+    for (index, seg) in segments.into_iter().enumerate() {
+        let key = (current_owner.clone(), seg);
+        let field_ty = facts.field_types.get(&key)?;
         current = owner_key(&peel_type(field_ty));
+        field_target = facts.field_targets.get(&key).cloned();
+        if index + 1 < segment_count {
+            current_owner = field_target.as_ref().map_or_else(
+                || {
+                    resolve_go_owner_identity(
+                        &current,
+                        ctx.caller_file,
+                        facts.imports,
+                        facts.package_basenames,
+                    )
+                },
+                |target| Some(target.owner.clone()),
+            )?;
+        }
     }
     Some(RecoveredReceiver {
         static_type: current,
         recovery: ReceiverRecovery::FieldTyped,
+        go_field_target: field_target,
     })
 }

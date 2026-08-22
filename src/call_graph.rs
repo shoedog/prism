@@ -3082,19 +3082,26 @@ impl CallGraph {
         }
         self.go_return_types = crate::go_receiver_index::extract_go_return_types(files);
         self.go_package_vars = crate::go_receiver_index::extract_go_package_vars(files);
-        self.rematerialize_go_receiver_keys(files, receiver_config);
+        let field_targets =
+            crate::type_providers::go::GoTypeProvider::from_parsed_files(files).go_field_targets();
+        self.rematerialize_go_receiver_keys(files, receiver_config, &field_targets);
     }
 
     fn rematerialize_go_receiver_keys(
         &mut self,
         files: &BTreeMap<String, ParsedFile>,
         receiver_config: &crate::resolution::ReceiverRecoveryConfig,
+        field_targets: &BTreeMap<
+            (crate::resolution::GoOwnerIdentity, String),
+            crate::resolution::GoFieldTarget,
+        >,
     ) {
         let updates = {
             let facts = crate::go_receiver_index::GoReceiverFacts {
                 return_types: &self.go_return_types,
                 package_vars: &self.go_package_vars,
                 field_types: &self.go_field_types,
+                field_targets,
                 package_basenames: &self.go_package_basenames,
                 imports: &self.imports,
                 go_file_profiles: &self.go_file_profiles,
@@ -3108,6 +3115,11 @@ impl CallGraph {
                 .as_ref()
                 .map(|r| r.static_type.clone());
             updated.receiver_recovery = classification.recovered.as_ref().map(|r| r.recovery);
+            updated.receiver_outcome = classification
+                .recovered
+                .as_ref()
+                .and_then(|r| r.go_field_target.as_ref())
+                .map(crate::resolution::go_field_target_outcome);
             updated.receiver_materialized = classification.materialized;
             if updated == old_site {
                 continue; // no change -- skip the take/insert churn.
@@ -3122,6 +3134,7 @@ impl CallGraph {
                     if site.caller == old_site.caller && site.cmp_key() == old_site.cmp_key() {
                         site.receiver_type = updated.receiver_type.clone();
                         site.receiver_recovery = updated.receiver_recovery;
+                        site.receiver_outcome = updated.receiver_outcome.clone();
                         site.receiver_materialized = updated.receiver_materialized;
                     }
                 }
@@ -6380,6 +6393,655 @@ mod go_receiver_typing_tests {
     }
 
     #[test]
+    fn s2_pointer_embedded_field_recovers_nested_selector_receiver() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Listener struct{}\n\
+             func (l *Listener) Serve() {}\n\
+             type Holder struct { *Listener }\n\
+             func run(h Holder) { h.Listener.Serve() }\n",
+        )]);
+        let site = site_in(&cg, "run", "Serve");
+        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+        let out = cg.resolve_call_site_full(site);
+        assert!(out.resolved.iter().any(|candidate| {
+            candidate.target.name == "Serve"
+                && candidate.confidence == ResolutionConfidence::Exact
+                && candidate.kind == ResolutionKind::FieldTyped
+        }));
+    }
+
+    #[test]
+    fn s2_pointer_embedded_field_routes_only_to_its_proven_package() {
+        let cg = build_go(&[
+            (
+                "a/types.go",
+                "package a\n\
+                 type Listener struct{}\n\
+                 func (*Listener) Serve() {}\n\
+                 type Holder struct { *Listener }\n\
+                 func run(h Holder) { h.Listener.Serve() }\n",
+            ),
+            (
+                "b/types.go",
+                "package b\n\
+                 type Listener struct{}\n\
+                 func (*Listener) Serve() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Serve");
+        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+        assert!(
+            site.receiver_outcome.is_some(),
+            "target proof was not carried"
+        );
+        let round_tripped: CallSite =
+            bincode::deserialize(&bincode::serialize(site).unwrap()).unwrap();
+        assert_eq!(round_tripped.receiver_outcome, site.receiver_outcome);
+
+        let out = cg.resolve_call_site_full(&round_tripped);
+        assert_eq!(out.resolved.len(), 1, "package decoy leaked: {out:?}");
+        assert_eq!(out.resolved[0].target.file, "a/types.go");
+        assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
+        assert_eq!(out.resolved[0].kind, ResolutionKind::FieldTyped);
+    }
+
+    #[test]
+    fn s2_value_embedded_field_routes_only_to_its_proven_package() {
+        let cg = build_go(&[
+            (
+                "a/types.go",
+                "package a\n\
+                 type Listener struct{}\n\
+                 func (Listener) Serve() {}\n\
+                 type Holder struct { Listener }\n\
+                 func run(h Holder) { h.Listener.Serve() }\n",
+            ),
+            (
+                "b/types.go",
+                "package b\n\
+                 type Listener struct{}\n\
+                 func (Listener) Serve() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Serve");
+        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+
+        let out = cg.resolve_call_site_full(site);
+        assert_eq!(out.resolved.len(), 1, "package decoy leaked: {out:?}");
+        assert_eq!(out.resolved[0].target.file, "a/types.go");
+        assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
+        assert_eq!(out.resolved[0].kind, ResolutionKind::FieldTyped);
+    }
+
+    #[test]
+    fn s2_embedded_field_drops_incompatible_target_method_profile() {
+        let cg = build_go(&[
+            (
+                "a/types_linux.go",
+                "package a\n\
+                 type Listener struct{}\n\
+                 type Holder struct { *Listener }\n\
+                 func run(h Holder) { h.Listener.Serve() }\n",
+            ),
+            (
+                "a/method_darwin.go",
+                "package a\nfunc (*Listener) Serve() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Serve");
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+        let out = cg.resolve_call_site_full(site);
+        assert!(
+            out.resolved.is_empty(),
+            "darwin-only method leaked into linux target route: {out:?}"
+        );
+    }
+
+    #[test]
+    fn s2_embedded_field_drops_external_test_package_method_candidate() {
+        let cg = build_go(&[
+            (
+                "p/types.go",
+                "package p\n\
+                 type Listener struct{}\n\
+                 type Holder struct { *Listener }\n\
+                 func run(h Holder) { h.Listener.Serve() }\n",
+            ),
+            (
+                "p/method_test.go",
+                "package p_test\nfunc (*Listener) Serve() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Serve");
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+        let out = cg.resolve_call_site_full(site);
+        assert!(
+            out.resolved.is_empty(),
+            "p_test method leaked into package p target route: {out:?}"
+        );
+    }
+
+    #[test]
+    fn s2_embedded_field_drops_conflicting_compatible_target_methods() {
+        let cg = build_go(&[
+            (
+                "a/types.go",
+                "package a\n\
+                 type Listener struct{}\n\
+                 type Holder struct { Listener }\n\
+                 func run(h Holder) { h.Listener.Serve() }\n",
+            ),
+            ("a/method_one.go", "package a\nfunc (Listener) Serve() {}\n"),
+            ("a/method_two.go", "package a\nfunc (Listener) Serve() {}\n"),
+        ]);
+        let site = site_in(&cg, "run", "Serve");
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+        let out = cg.resolve_call_site_full(site);
+        assert!(
+            out.resolved.is_empty(),
+            "conflicting compatible methods must fail closed: {out:?}"
+        );
+    }
+
+    #[test]
+    fn s2_pointer_embed_struct_in_external_test_package_never_recovers() {
+        let cg = build_go(&[
+            (
+                "p/holder.go",
+                "package p\n\
+                 type Holder struct { *Listener }\n\
+                 func run(h Holder) { h.Listener.Do() }\n",
+            ),
+            (
+                "p/listener_test.go",
+                "package p_test\n\
+                 type Listener struct{}\n\
+                 func (*Listener) Do() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Do");
+        assert_eq!(site.receiver_type, None);
+        assert_eq!(site.receiver_recovery, None);
+        let out = cg.resolve_call_site_full(site);
+        assert!(
+            out.resolved
+                .iter()
+                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
+            "a p_test struct must not prove p.Holder's pointer embed or emit Exact: {out:?}"
+        );
+    }
+
+    #[test]
+    fn s2_pointer_embed_struct_in_incompatible_build_profile_never_recovers() {
+        let cg = build_go(&[
+            (
+                "p/holder_linux.go",
+                "package p\n\
+                 type Holder struct { *Listener }\n\
+                 func run(h Holder) { h.Listener.Do() }\n",
+            ),
+            (
+                "p/listener_darwin.go",
+                "package p\n\
+                 type Listener struct{}\n\
+                 func (*Listener) Do() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Do");
+        assert_eq!(site.receiver_type, None);
+        assert_eq!(site.receiver_recovery, None);
+        let out = cg.resolve_call_site_full(site);
+        assert!(
+            out.resolved
+                .iter()
+                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
+            "a darwin-only struct must not prove a linux holder's pointer embed: {out:?}"
+        );
+    }
+
+    #[test]
+    fn s2_pointer_embed_struct_with_uncertain_embedding_profile_never_recovers() {
+        let cg = build_go(&[
+            (
+                "p/holder.go",
+                "//go:build linux &&\n\n\
+                 package p\n\
+                 type Holder struct { *Listener }\n\
+                 func run(h Holder) { h.Listener.Do() }\n",
+            ),
+            (
+                "p/listener.go",
+                "package p\n\
+                 type Listener struct{}\n\
+                 func (*Listener) Do() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Do");
+        assert_eq!(site.receiver_type, None);
+        assert_eq!(site.receiver_recovery, None);
+        assert!(
+            cg.resolve_call_site_full(site)
+                .resolved
+                .iter()
+                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
+            "an unparsed embedding profile cannot prove pointer-target visibility"
+        );
+    }
+
+    #[test]
+    fn s2_pointer_embed_struct_in_same_build_profile_still_recovers() {
+        let cg = build_go(&[
+            (
+                "p/holder_linux.go",
+                "package p\n\
+                 type Holder struct { *Listener }\n\
+                 func run(h Holder) { h.Listener.Do() }\n",
+            ),
+            (
+                "p/listener_linux.go",
+                "package p\n\
+                 type Listener struct{}\n\
+                 func (*Listener) Do() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Do");
+        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+        assert!(cg
+            .resolve_call_site_full(site)
+            .resolved
+            .iter()
+            .any(|candidate| {
+                candidate.target.name == "Do"
+                    && candidate.confidence == ResolutionConfidence::Exact
+                    && candidate.kind == ResolutionKind::FieldTyped
+            }));
+    }
+
+    #[test]
+    fn s2_pointer_embed_unconstrained_cross_file_struct_still_recovers() {
+        let cg = build_go(&[
+            (
+                "p/holder.go",
+                "package p\n\
+                 type Holder struct { *Listener }\n\
+                 func run(h Holder) { h.Listener.Do() }\n",
+            ),
+            (
+                "p/listener.go",
+                "package p\n\
+                 type Listener struct{}\n\
+                 func (*Listener) Do() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Do");
+        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+        assert!(cg
+            .resolve_call_site_full(site)
+            .resolved
+            .iter()
+            .any(|candidate| {
+                candidate.target.name == "Do"
+                    && candidate.confidence == ResolutionConfidence::Exact
+                    && candidate.kind == ResolutionKind::FieldTyped
+            }));
+    }
+
+    #[test]
+    fn s2_pointer_embed_owner_profile_conflict_fails_closed() {
+        let cg = build_go(&[
+            (
+                "p/holder.go",
+                "package p\n\
+                 type Holder struct { *Listener }\n\
+                 func run(h Holder) { h.Listener.Do() }\n",
+            ),
+            (
+                "p/listener.go",
+                "package p\n\
+                 type Listener struct{}\n\
+                 func (*Listener) Do() {}\n",
+            ),
+            (
+                "p/listener_test.go",
+                "package p_test\n\
+                 type Listener interface { Do() }\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Do");
+        assert_eq!(site.receiver_type, None);
+        assert_eq!(site.receiver_recovery, None);
+        assert!(
+            cg.resolve_call_site_full(site)
+                .resolved
+                .iter()
+                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
+            "a mixed-kind Listener identity spanning p and p_test must fail closed"
+        );
+    }
+
+    #[test]
+    fn s2_pointer_embed_interface_alias_collision_never_recovers() {
+        let cg = build_go(&[
+            (
+                "a/a.go",
+                "package a\n\
+                 type Alias = interface { Do() }\n\
+                 type Holder struct { *Alias }\n\
+                 func run(h Holder) { h.Alias.Do() }\n",
+            ),
+            (
+                "z/z.go",
+                "package z\n\
+                 type Alias interface { Do() }\n\
+                 type Impl struct{}\n\
+                 func (Impl) Do() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Do");
+        assert_eq!(site.receiver_type, None);
+        assert_eq!(site.receiver_recovery, None);
+        let out = cg.resolve_call_site_full(site);
+        assert!(
+            out.resolved
+                .iter()
+                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
+            "an invalid pointer-to-interface alias must not emit Exact z.Impl.Do: {out:?}"
+        );
+    }
+
+    #[test]
+    fn s2_pointer_embed_struct_alias_fails_closed() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Listener struct{}\n\
+             func (*Listener) Serve() {}\n\
+             type Alias = Listener\n\
+             type Holder struct { *Alias }\n\
+             func run(h Holder) { h.Alias.Serve() }\n",
+        )]);
+        let site = site_in(&cg, "run", "Serve");
+        assert_eq!(site.receiver_type, None);
+        assert_eq!(site.receiver_recovery, None);
+        assert!(
+            cg.resolve_call_site_full(site)
+                .resolved
+                .iter()
+                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
+            "struct aliases intentionally fail closed for S2"
+        );
+    }
+
+    #[test]
+    fn s2_pointer_embed_defined_interface_collision_never_recovers() {
+        let cg = build_go(&[
+            (
+                "a/a.go",
+                "package a\n\
+                 type I interface { Do() }\n\
+                 type I2 I\n\
+                 type Holder struct { *I2 }\n\
+                 func run(h Holder) { h.I2.Do() }\n",
+            ),
+            (
+                "z/z.go",
+                "package z\n\
+                 type I2 interface { Do() }\n\
+                 type Impl struct{}\n\
+                 func (Impl) Do() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Do");
+        assert_eq!(site.receiver_type, None);
+        assert_eq!(site.receiver_recovery, None);
+        let out = cg.resolve_call_site_full(site);
+        assert!(
+            out.resolved
+                .iter()
+                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
+            "a defined interface type must not emit an Exact edge through z.I2: {out:?}"
+        );
+    }
+
+    #[test]
+    fn cross_package_unqualified_embed_never_mints_embedded_promotion() {
+        let cg = build_go(&[
+            (
+                "a/types.go",
+                "package a\n\
+                 type Base struct{}\n\
+                 type S struct { *Base }\n",
+            ),
+            (
+                "a/run.go",
+                "package a\n\
+                 func run(s S) { s.Serve() }\n",
+            ),
+            (
+                "b/types.go",
+                "package b\n\
+                 type Base struct{}\n\
+                 func (b *Base) Serve() {}\n",
+            ),
+        ]);
+        assert!(
+            cg.resolve_call_site_full(site_in(&cg, "run", "Serve"))
+                .resolved
+                .iter()
+                .all(|candidate| candidate.kind != ResolutionKind::EmbeddedPromotion),
+            "a.S must not promote b.(*Base).Serve"
+        );
+    }
+
+    #[test]
+    fn s2_unrelated_package_interface_does_not_remove_local_pointer_embed() {
+        let cg = build_go(&[
+            (
+                "a/types.go",
+                "package a\n\
+                 type Base struct{}\n\
+                 func (b *Base) Serve() {}\n\
+                 type S struct { *Base }\n",
+            ),
+            (
+                "a/run.go",
+                "package a\n\
+                 func run(s S) { s.Base.Serve() }\n",
+            ),
+            ("z/types.go", "package z\ntype Base interface { Serve() }\n"),
+        ]);
+        let site = site_in(&cg, "run", "Serve");
+        assert_eq!(site.receiver_type.as_deref(), Some("Base"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+        assert!(cg
+            .resolve_call_site_full(site)
+            .resolved
+            .iter()
+            .any(|candidate| {
+                candidate.target.name == "Serve"
+                    && candidate.confidence == ResolutionConfidence::Exact
+                    && candidate.kind == ResolutionKind::FieldTyped
+            }));
+    }
+
+    #[test]
+    fn qualified_pointer_embed_field_shadows_concrete_promotion() {
+        let cg = build_go(&[
+            ("ext/types.go", "package ext\ntype Listener struct{}\n"),
+            (
+                "main.go",
+                "package main\n\
+                 import \"example.com/ext\"\n\
+                 type D struct{}\n\
+                 func (d D) Listener() {}\n\
+                 type S struct { *ext.Listener; D }\n\
+                 func run(s S) { s.Listener() }\n",
+            ),
+        ]);
+        let out = cg.resolve_call_site_full(site_in(&cg, "run", "Listener"));
+        assert!(
+            out.resolved.is_empty(),
+            "the depth-0 ext.Listener field must shadow promoted D.Listener: {out:?}"
+        );
+        assert!(!cg
+            .promoted_aliases
+            .contains_key(&("S".to_string(), "Listener".to_string())));
+    }
+
+    #[test]
+    fn duplicate_outer_struct_name_never_cross_routes_promoted_alias() {
+        let cg = build_go(&[
+            (
+                "a/types.go",
+                "package a\n\
+                 type I interface { Serve(x int) }\n\
+                 type Concrete struct{}\n\
+                 func (c Concrete) Serve(x int) {}\n\
+                 type S struct { I }\n",
+            ),
+            ("a/run.go", "package a\nfunc run(s S) { s.Serve(1) }\n"),
+            (
+                "z/types.go",
+                "package z\n\
+                 type Base struct{}\n\
+                 func (b *Base) Serve(x string) {}\n\
+                 type S struct { *Base }\n",
+            ),
+        ]);
+        let out = cg.resolve_call_site_full(site_in(&cg, "run", "Serve"));
+        assert!(
+            out.resolved.is_empty()
+                || out.resolved.iter().all(|candidate| {
+                    candidate.target.file == "a/types.go"
+                        && candidate.target.name == "Serve"
+                        && candidate.kind == ResolutionKind::InterfaceDispatch
+                }),
+            "a.S may route through its own I or fail closed, but must never reach z.Base.Serve: \
+             {out:?}"
+        );
+    }
+
+    #[test]
+    fn s4_pointer_embedded_interface_never_routes_or_satisfies() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type I interface { Do() }\n\
+             type Concrete struct{}\n\
+             func (c Concrete) Do() {}\n\
+             type Holder struct { *I }\n\
+             func direct(h Holder) { h.Do() }\n\
+             func nested(h Holder) { h.I.Do() }\n",
+        )]);
+        assert!(
+            cg.go_embedded_interface_methods
+                .get(&main_owner("Holder"))
+                .and_then(|methods| methods.get("Do"))
+                .is_none(),
+            "invalid *I embed must not mint an S4 InterfaceDispatch route"
+        );
+        assert!(
+            cg.resolve_call_site_full(site_in(&cg, "direct", "Do"))
+                .resolved
+                .is_empty(),
+            "invalid *I embed must not satisfy I or resolve h.Do()"
+        );
+        let nested = site_in(&cg, "nested", "Do");
+        assert_eq!(nested.receiver_type, None);
+        assert_eq!(nested.receiver_recovery, None);
+        let nested_outcome = cg.resolve_call_site_full(nested);
+        assert!(
+            nested_outcome
+                .resolved
+                .iter()
+                .all(|candidate| candidate.kind != ResolutionKind::InterfaceDispatch),
+            "invalid *I embed must not recover h.I as I and dispatch it: \
+             site={nested:?}, outcome={nested_outcome:?}"
+        );
+    }
+
+    #[test]
+    fn s2_qualified_pointer_embedded_interface_never_recovers() {
+        let cg = build_go(&[
+            (
+                "ext/types.go",
+                "package ext\n\
+                 type I interface { Do() }\n\
+                 type Concrete struct{}\n\
+                 func (c Concrete) Do() {}\n",
+            ),
+            (
+                "main.go",
+                "package main\n\
+                 import \"github.com/x/y/ext\"\n\
+                 type Holder struct { *ext.I }\n\
+                 func nested(h Holder) { h.I.Do() }\n",
+            ),
+        ]);
+        let nested = site_in(&cg, "nested", "Do");
+        assert_eq!(nested.receiver_type, None);
+        assert_eq!(nested.receiver_recovery, None);
+        assert!(
+            cg.resolve_call_site_full(nested)
+                .resolved
+                .iter()
+                .all(|candidate| candidate.kind != ResolutionKind::InterfaceDispatch),
+            "invalid *ext.I embed must not recover h.I for interface dispatch"
+        );
+    }
+
+    #[test]
+    fn qualified_embedded_struct_does_not_promote_unrelated_local_bare_target() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type Listener struct{}\n\
+             func (l Listener) Serve() {}\n\
+             type S struct { ext.Listener }\n\
+             func run(s S) { s.Serve() }\n",
+        )]);
+        assert!(
+            cg.resolve_call_site_full(site_in(&cg, "run", "Serve"))
+                .resolved
+                .is_empty(),
+            "qualified ext.Listener must not promote an unrelated local Listener.Serve"
+        );
+    }
+
+    #[test]
+    fn qualified_embedded_interface_does_not_route_local_bare_interface() {
+        let cg = build_go(&[(
+            "main.go",
+            "package main\n\
+             type I interface { Do() }\n\
+             type Concrete struct{}\n\
+             func (c Concrete) Do() {}\n\
+             type Holder struct { ext.I }\n\
+             func run(h Holder) { h.Do() }\n",
+        )]);
+        assert!(
+            cg.go_embedded_interface_methods
+                .get(&main_owner("Holder"))
+                .and_then(|methods| methods.get("Do"))
+                .is_none(),
+            "qualified ext.I must not mint an S4 route through unrelated local I"
+        );
+        assert!(
+            cg.resolve_call_site_full(site_in(&cg, "run", "Do"))
+                .resolved
+                .is_empty(),
+            "qualified ext.I must not dispatch h.Do() to local I implementers"
+        );
+    }
+
+    #[test]
     fn s4_own_method_shadows_embedded_interface_promotion() {
         let cg = build_go(&[(
             "main.go",
@@ -6615,6 +7277,89 @@ mod go_receiver_typing_tests {
             Some("Demux"),
             "consumer.go's retained call site kept a stale recovery after \
              the type-defining file changed"
+        );
+    }
+
+    #[test]
+    fn incremental_parity_edit_pointer_embed_defining_file_updates_retained_consumer() {
+        use crate::cpg::CodePropertyGraph;
+        use crate::data_flow::DataFlowGraph;
+        use std::collections::BTreeSet;
+
+        let mut files = BTreeMap::new();
+        files.insert(
+            "listener.go".to_string(),
+            ParsedFile::parse(
+                "listener.go",
+                "package p\ntype Listener struct{}\nfunc (l *Listener) Serve() {}\n",
+                Go,
+            )
+            .unwrap(),
+        );
+        files.insert(
+            "embed.go".to_string(),
+            ParsedFile::parse("embed.go", "package p\ntype S struct{}\n", Go).unwrap(),
+        );
+        files.insert(
+            "consumer.go".to_string(),
+            ParsedFile::parse(
+                "consumer.go",
+                "package p\nfunc run(s S) { s.Listener.Serve() }\n",
+                Go,
+            )
+            .unwrap(),
+        );
+        files.insert(
+            "b/listener.go".to_string(),
+            ParsedFile::parse(
+                "b/listener.go",
+                "package b\ntype Listener struct{}\nfunc (*Listener) Serve() {}\n",
+                Go,
+            )
+            .unwrap(),
+        );
+        let cg0 = CallGraph::build(&files);
+        let site0 = site_in(&cg0, "run", "Serve");
+        assert_eq!(site0.receiver_type, None);
+        assert_eq!(site0.receiver_recovery, None);
+        assert_eq!(site0.receiver_outcome, None);
+
+        files.insert(
+            "embed.go".to_string(),
+            ParsedFile::parse("embed.go", "package p\ntype S struct { *Listener }\n", Go).unwrap(),
+        );
+        let full = CallGraph::build(&files);
+        let full_out = full.resolve_call_site_full(site_in(&full, "run", "Serve"));
+        assert_eq!(
+            full_out.resolved.len(),
+            1,
+            "full-build decoy leaked: {full_out:?}"
+        );
+        assert_eq!(full_out.resolved[0].target.file, "listener.go");
+        assert_eq!(full_out.resolved[0].confidence, ResolutionConfidence::Exact);
+
+        let changed = BTreeSet::from(["embed.go".to_string()]);
+        let incremental = CodePropertyGraph::build_incremental(
+            cg0,
+            DataFlowGraph::build(&BTreeMap::new()),
+            &changed,
+            &files,
+            None,
+        );
+        let incremental_out = incremental.call_graph.resolve_call_site_full(site_in(
+            &incremental.call_graph,
+            "run",
+            "Serve",
+        ));
+        assert_eq!(
+            incremental_out.resolved.len(),
+            1,
+            "incremental decoy leaked: {incremental_out:?}"
+        );
+        assert_eq!(incremental_out.resolved[0].target.file, "listener.go");
+        assert_eq!(
+            incremental_out.resolved[0].confidence,
+            ResolutionConfidence::Exact
         );
     }
 

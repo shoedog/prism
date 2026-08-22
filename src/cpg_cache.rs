@@ -132,7 +132,11 @@ use std::path::{Path, PathBuf};
 /// - v42: positional parameter slots now fail closed instead of compressing
 ///   unknown bindings; persisted Step-5b edges and synthetic Level-3 callback
 ///   sites therefore have changed topology.
-const CACHE_VERSION: u32 = 42; // 42: fail-closed parameter-slot topology.
+/// - v43: Go embedded-field extraction now persists pointer embeds (bare `*T`,
+///   `*pkg.T`, `*T[X]`) with selector name + raw type; qualified embedded targets
+///   and pointer-to-interface embeds fail closed in promotion/S4/S2 (P9; single shipped
+///   transition on top of main's v42).
+const CACHE_VERSION: u32 = 43; // 43: corrected Go embedded-field topology (P9).
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -650,10 +654,10 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_42_for_fail_closed_parameter_slots() {
-        // v42: fail-closed Step-5b and Level-3 callback topology.
-        // One transition ships per PR.
-        assert_eq!(super::CACHE_VERSION, 42);
+    fn cache_version_is_43_for_corrected_go_embedded_field_topology() {
+        // v43: P9 pointer embeds + fail-closed qualified/pointer-interface targets,
+        // stacked on main's v42 (fail-closed parameter slots). One transition ships per PR.
+        assert_eq!(super::CACHE_VERSION, 43);
     }
 
     #[test]

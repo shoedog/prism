@@ -36,7 +36,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // modules/blocks that relied on an anchor-only glob, changing nav topology.
 // v11: fail-closed positional parameter slots and exact Level-3 callback
 // identity change which synthetic callback edges enter the nav index.
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 11;
+// v12: Go pointer-embedded fields participate in embedding promotion / S2 / S4;
+//      qualified and pointer-to-interface embedded targets fail closed (P9; one shipped transition on top of main's v11).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 12;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -360,8 +362,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_11_for_parameter_slot_topology() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 11);
+    fn sidecar_version_is_12_for_go_pointer_embeds() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 12);
     }
 
     #[test]
