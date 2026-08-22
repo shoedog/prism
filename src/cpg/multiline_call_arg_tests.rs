@@ -548,6 +548,13 @@ def f():
         })
         .expect("callee parameter");
 
+    // The inner Step-5b edge (continuation-line `user` → g.p) MUST exist, so the
+    // non-descent below is provably the trace gate's ambiguity refusal (two
+    // containing same-name `g` spans), not a missing edge. (Review SMELL-1.)
+    assert!(
+        has_edge_from_byte_to_param(&cpg, source, last_byte(source, "user"), "user", "g", "p"),
+        "inner multiline argument must still bind user -> g.p"
+    );
     assert!(
         !trace.in_frontier(g_param),
         "same-name nested spans are ambiguous and must not descend"
