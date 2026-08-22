@@ -6473,6 +6473,63 @@ mod go_receiver_typing_tests {
     }
 
     #[test]
+    fn qualified_pointer_embed_field_shadows_concrete_promotion() {
+        let cg = build_go(&[
+            ("ext/types.go", "package ext\ntype Listener struct{}\n"),
+            (
+                "main.go",
+                "package main\n\
+                 import \"example.com/ext\"\n\
+                 type D struct{}\n\
+                 func (d D) Listener() {}\n\
+                 type S struct { *ext.Listener; D }\n\
+                 func run(s S) { s.Listener() }\n",
+            ),
+        ]);
+        let out = cg.resolve_call_site_full(site_in(&cg, "run", "Listener"));
+        assert!(
+            out.resolved.is_empty(),
+            "the depth-0 ext.Listener field must shadow promoted D.Listener: {out:?}"
+        );
+        assert!(!cg
+            .promoted_aliases
+            .contains_key(&("S".to_string(), "Listener".to_string())));
+    }
+
+    #[test]
+    fn duplicate_outer_struct_name_never_cross_routes_promoted_alias() {
+        let cg = build_go(&[
+            (
+                "a/types.go",
+                "package a\n\
+                 type I interface { Serve(x int) }\n\
+                 type Concrete struct{}\n\
+                 func (c Concrete) Serve(x int) {}\n\
+                 type S struct { I }\n",
+            ),
+            ("a/run.go", "package a\nfunc run(s S) { s.Serve(1) }\n"),
+            (
+                "z/types.go",
+                "package z\n\
+                 type Base struct{}\n\
+                 func (b *Base) Serve(x string) {}\n\
+                 type S struct { *Base }\n",
+            ),
+        ]);
+        let out = cg.resolve_call_site_full(site_in(&cg, "run", "Serve"));
+        assert!(
+            out.resolved.is_empty()
+                || out.resolved.iter().all(|candidate| {
+                    candidate.target.file == "a/types.go"
+                        && candidate.target.name == "Serve"
+                        && candidate.kind == ResolutionKind::InterfaceDispatch
+                }),
+            "a.S may route through its own I or fail closed, but must never reach z.Base.Serve: \
+             {out:?}"
+        );
+    }
+
+    #[test]
     fn s4_pointer_embedded_interface_never_routes_or_satisfies() {
         let cg = build_go(&[(
             "main.go",

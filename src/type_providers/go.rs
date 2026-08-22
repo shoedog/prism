@@ -724,6 +724,30 @@ impl GoTypeProvider {
         }
     }
 
+    /// Package-scoped selector names used only for Go shadowing decisions.
+    ///
+    /// `field_types` is intentionally narrower: S2 removes pointer embeds whose
+    /// target type cannot be proved recoverable. The selector still exists for
+    /// Go method-set shadowing, however, so merge the unfiltered embed names back
+    /// in without making those fields eligible for S2 recovery.
+    fn selector_field_names(
+        data: &GoTypeData,
+        owner: &crate::resolution::GoOwnerIdentity,
+    ) -> BTreeSet<String> {
+        data.field_types
+            .keys()
+            .filter(|(field_owner, _)| field_owner == owner)
+            .map(|(_, field)| field.clone())
+            .chain(
+                data.struct_embeds
+                    .get(owner)
+                    .into_iter()
+                    .flatten()
+                    .map(|embedded| embedded.name.clone()),
+            )
+            .collect()
+    }
+
     /// Extract method signatures from an interface_type node.
     fn extract_interface_methods(
         node: &tree_sitter::Node,
@@ -1506,12 +1530,7 @@ impl GoTypeProvider {
             if candidates.is_empty() {
                 continue;
             }
-            let own_fields: BTreeSet<&str> = data
-                .field_types
-                .keys()
-                .filter(|(owner, _)| owner == &struct_owner)
-                .map(|(_, field)| field.as_str())
-                .collect();
+            let own_fields = Self::selector_field_names(data, &struct_owner);
             let own_methods: BTreeSet<&str> = data
                 .methods
                 .get(&struct_owner.name)
@@ -1615,16 +1634,10 @@ impl GoTypeProvider {
             if candidates.is_empty() {
                 continue;
             }
-            // Package-scoped shadow checks (own field / own method / already
-            // FunctionId-backed concrete method) -- filter the existing
-            // bare-collapsed indices down to entries whose OWN file lives in
-            // this struct's package, rather than trusting them wholesale.
-            let own_fields: BTreeSet<&str> = data
-                .field_types
-                .keys()
-                .filter(|(o, _)| o == owner)
-                .map(|(_, f)| f.as_str())
-                .collect();
+            // Package-scoped shadow checks (unfiltered selector field / own
+            // method / already FunctionId-backed concrete method). Method
+            // facts are filtered to entries whose own file is in this package.
+            let own_fields = Self::selector_field_names(data, owner);
             let own_methods: BTreeSet<&str> = data
                 .methods
                 .get(&owner.name)
@@ -1756,7 +1769,17 @@ impl GoTypeProvider {
         data: &GoTypeData,
     ) -> Vec<PromotedMethodCandidate> {
         let mut out = Vec::new();
+        let mut outer_owner_counts: BTreeMap<&str, usize> = BTreeMap::new();
+        for owner in &data.struct_identities {
+            *outer_owner_counts.entry(owner.name.as_str()).or_default() += 1;
+        }
         for go_struct in data.structs.values() {
+            // Promoted aliases are still installed and consulted by bare owner
+            // name. Until that index is package-scoped end-to-end, refuse to
+            // mint an alias when more than one package owns this outer name.
+            if outer_owner_counts.get(go_struct.name.as_str()).copied() != Some(1) {
+                continue;
+            }
             let struct_owner = crate::resolution::GoOwnerIdentity {
                 package_dir: crate::resolution::dir_of(&go_struct.file).to_string(),
                 name: go_struct.name.clone(),
@@ -1801,15 +1824,11 @@ impl GoTypeProvider {
             Some(embeds) => embeds,
             None => return,
         };
-        // Record this struct's own field names at `depth` (keep the min).
-        for (owner, fname) in data
-            .field_types
-            .keys()
-            .filter(|(owner, _)| owner == current)
-        {
-            debug_assert_eq!(owner, current);
+        // Record this struct's unfiltered selector names at `depth` (keep the
+        // min). S2 recoverability is deliberately irrelevant to shadowing.
+        for fname in Self::selector_field_names(data, current) {
             field_depth
-                .entry(fname.clone())
+                .entry(fname)
                 .and_modify(|d| {
                     if depth < *d {
                         *d = depth;
@@ -2478,6 +2497,42 @@ mod embedding_tests {
         assert!(
             ms(&v, "S", "Listener").is_empty(),
             "the embedded *Listener selector shadows D.Listener at the same depth"
+        );
+    }
+
+    #[test]
+    fn qualified_pointer_embedded_field_shadows_s4_membership_and_route() {
+        let p = provider_files(&[
+            ("ext/types.go", "package ext\ntype Listener struct{}\n"),
+            (
+                "main/types.go",
+                "package main\n\
+                 import \"example.com/ext\"\n\
+                 type Target interface { Listener() }\n\
+                 type I interface { Listener() }\n\
+                 type Concrete struct{}\n\
+                 func (c Concrete) Listener() {}\n\
+                 type S struct {\n\t*ext.Listener\n\tI\n}\n",
+            ),
+        ]);
+        let owner = crate::resolution::GoOwnerIdentity {
+            package_dir: "main".to_string(),
+            name: "S".to_string(),
+        };
+        assert!(
+            !p.data
+                .satisfaction
+                .get("Target")
+                .is_some_and(|satisfiers| satisfiers.contains("S")),
+            "the depth-0 Listener field must keep I.Listener out of S's method set: {:?}",
+            p.data.satisfaction.get("Target")
+        );
+        assert!(
+            p.embedded_interface_method_routes()
+                .get(&owner)
+                .and_then(|methods| methods.get("Listener"))
+                .is_none(),
+            "the depth-0 Listener field must suppress the I.Listener S4 route"
         );
     }
 
