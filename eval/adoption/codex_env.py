@@ -89,6 +89,10 @@ def build_isolated_codex_home(
         # Deliberately omitting: skill_dirs, model, approvals_reviewer, projects, notify.
         mcp_args = ["--repo", mcp_repo]
         if cache_dir:
+            # Codex spawns the MCP server with cwd = the SESSION cwd (the checkout), not the
+            # harness cwd — a relative cache path would resolve inside the checkout and miss the
+            # prewarmed cache (2026-08-21 slate void). Always write it absolute.
+            cache_dir = os.path.abspath(cache_dir)
             # F2: explicit --cache-dir so this codex's prism-mcp shares the harness
             # prewarm's cache directory instead of the default OS cache dir.
             mcp_args += ["--cache-dir", cache_dir]

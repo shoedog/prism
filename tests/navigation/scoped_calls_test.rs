@@ -62,6 +62,7 @@ fn resolved_targets(
                 arg_spread: false,
                 receiver_outcome: None,
                 origin: CallSiteOrigin::Source,
+                pre_resolved_target: None,
             }
         });
     resolve_site_nav(cg, &site)

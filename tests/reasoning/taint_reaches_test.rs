@@ -2,7 +2,7 @@ use prism::navigation::types::{
     QueryError, Reachability, ReasoningWarning, SymbolRef, WarningKind,
 };
 use prism::navigation::{NavigationIndex, NavigationSession};
-use prism::reasoning::seeds::SeedSpec;
+use prism::reasoning::seeds::{resolve, SeedRole, SeedSpec};
 use prism::reasoning::taint_reaches::taint_reaches;
 use prism::repo_loader::load_repo;
 use std::sync::Arc;
@@ -337,6 +337,29 @@ fn multiline_function_symbol_seed_resolves_parameter_node() {
     assert_eq!(
         evidence.reasoning.as_ref().unwrap().reachability,
         Some(Reachability::Reached)
+    );
+}
+
+#[test]
+fn grouped_go_parameter_symbol_seed_includes_every_binding() {
+    let fixture = fixture(&[("app.go", "package p\nfunc f(a, b string) { sink(b) }\n")]);
+    let resolved = resolve(
+        &fixture.session,
+        &[SeedSpec::Symbol {
+            name: "f".into(),
+            file: Some("app.go".into()),
+        }],
+        SeedRole::Source,
+    )
+    .expect("grouped Go parameter b should resolve as a function seed");
+
+    assert!(
+        resolved
+            .seeds
+            .iter()
+            .flat_map(|seed| &seed.locations)
+            .any(|loc| { loc.file == "app.go" && loc.function == "f" && loc.path.base == "b" }),
+        "the non-first grouped Go name must be available to reasoning seeds"
     );
 }
 

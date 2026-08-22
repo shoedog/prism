@@ -56,6 +56,25 @@ void show_vty_c(struct vty *vty, int z) {
 }
 
 #[test]
+fn test_peer_consistency_skips_destructured_js_first_parameter() {
+    let source = r#"
+function a({value}, cb) { use(cb); }
+function b({value}, cb) { use(cb); }
+function c({value}, cb) { use(cb); }
+"#;
+    let result = run_peer_consistency(
+        source,
+        "handlers.js",
+        Language::JavaScript,
+        BTreeSet::from([2]),
+    );
+    assert!(
+        result.findings.is_empty(),
+        "a destructured first parameter must not be compressed into cb"
+    );
+}
+
+#[test]
 fn test_peer_consistency_divergent_cluster_c() {
     // 4 siblings sharing first-param `vty`. 3 guard with `if (vty)`, 1 unguarded.
     let source = r#"

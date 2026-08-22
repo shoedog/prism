@@ -1,4 +1,6 @@
 use crate::common::*;
+use prism::call_graph::CallSiteOrigin;
+use prism::resolution::{ResolutionConfidence, ResolutionKind};
 
 fn build_call_graph_one(file: &str, src: &str) -> CallGraph {
     let parsed = ParsedFile::parse(file, src, Language::Python).unwrap();
@@ -501,7 +503,7 @@ int process_c(int x) {
 }
 
 #[test]
-fn test_call_graph_level3_cross_file_callback() {
+fn level3_does_not_mint_cross_file_callback() {
     let executor_source = r#"
 typedef void (*event_cb)(int);
 
@@ -540,14 +542,14 @@ void init_events(void) {
         .collect();
 
     assert!(
-        callee_names.contains("handle_connect"),
-        "Level 3: cross-file on_event(handle_connect, 1) should resolve callback, got: {:?}",
+        !callee_names.contains("handle_connect"),
+        "disabled Level-3 must not mint a cross-file callback edge, got: {:?}",
         callee_names
     );
 }
 
 #[test]
-fn test_call_graph_level3_with_local_variable() {
+fn level3_declines_local_variable_assignment() {
     let source = r#"
 void real_handler(int x) {
     // actual implementation
@@ -581,10 +583,684 @@ void setup(void) {
         .collect();
 
     assert!(
-        callee_names.contains("real_handler"),
-        "Level 3+1: invoke(h, 10) where h = real_handler should resolve cb to real_handler, got: {:?}",
+        !callee_names.contains("real_handler"),
+        "a local assignment is not a dominance or must-alias proof, got: {:?}",
         callee_names
     );
+}
+
+#[test]
+fn level3_js_default_parameter_does_not_mis_slot_callback() {
+    let source = r#"
+function safe() {}
+function invoke(x = 0, cb) { cb(); }
+function start() { invoke(safe, 0); }
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "callbacks.js".to_string(),
+        ParsedFile::parse("callbacks.js", source, Language::JavaScript).unwrap(),
+    );
+
+    let cg = CallGraph::build(&files);
+    let invoke = cg.functions["invoke"]
+        .iter()
+        .find(|id| id.file == "callbacks.js")
+        .unwrap();
+    assert!(
+        !cg.calls[invoke].iter().any(|site| {
+            site.origin == CallSiteOrigin::IndirectResolution && site.callee_name == "safe"
+        }),
+        "a default parameter must not shift cb onto the first argument"
+    );
+}
+
+#[test]
+fn level3_js_destructured_parameters_do_not_mis_slot_callbacks() {
+    let source = r#"
+function safe() {}
+function array([x], cb) { cb(); }
+function object({x}, cb) { cb(); }
+function start() { array(safe, 0); object(safe, 0); }
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "callbacks.js".to_string(),
+        ParsedFile::parse("callbacks.js", source, Language::JavaScript).unwrap(),
+    );
+
+    let cg = CallGraph::build(&files);
+    for name in ["array", "object"] {
+        let function = cg.functions[name]
+            .iter()
+            .find(|id| id.file == "callbacks.js")
+            .unwrap();
+        assert!(
+            !cg.calls[function].iter().any(|site| {
+                site.origin == CallSiteOrigin::IndirectResolution && site.callee_name == "safe"
+            }),
+            "{name} must not produce a callback edge from a non-slot parameter"
+        );
+    }
+}
+
+#[test]
+fn level3_js_duplicate_parameter_bindings_do_not_select_a_slot() {
+    let source = r#"
+function safe() {}
+function target() {}
+function invoke(cb, cb) { cb(); }
+function start() { invoke(safe, target); }
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "callbacks.js".to_string(),
+        ParsedFile::parse("callbacks.js", source, Language::JavaScript).unwrap(),
+    );
+
+    let cg = CallGraph::build(&files);
+    let invoke = cg.functions["invoke"]
+        .iter()
+        .find(|id| id.file == "callbacks.js")
+        .unwrap();
+    assert!(
+        !cg.calls[invoke]
+            .iter()
+            .any(|site| site.origin == CallSiteOrigin::IndirectResolution),
+        "duplicate parameter bindings are not an exact callback mapping"
+    );
+}
+
+#[test]
+fn level3_binds_the_containing_function_identity_not_just_its_name() {
+    let mut files = BTreeMap::new();
+    files.insert(
+        "a.js".to_string(),
+        ParsedFile::parse(
+            "a.js",
+            "function invoke(cb) { cb(); }",
+            Language::JavaScript,
+        )
+        .unwrap(),
+    );
+    files.insert(
+        "b.js".to_string(),
+        ParsedFile::parse(
+            "b.js",
+            "function safe() {}\nfunction target() {}\nfunction invoke(x, cb) { cb(); }\nfunction start() { invoke(safe, target); }",
+            Language::JavaScript,
+        )
+        .unwrap(),
+    );
+
+    let cg = CallGraph::build(&files);
+    let a_invoke = cg.functions["invoke"]
+        .iter()
+        .find(|id| id.file == "a.js")
+        .unwrap();
+    assert!(
+        !cg.calls[a_invoke].iter().any(|site| {
+            site.origin == CallSiteOrigin::IndirectResolution && site.callee_name == "safe"
+        }),
+        "an incoming call resolved to b.js::invoke must not feed a.js::invoke"
+    );
+}
+
+#[test]
+fn level3_does_not_mint_plain_identifier_callback_edge() {
+    let source = r#"
+function safe() {}
+function invoke(a, cb) { cb(); }
+function start() { invoke(0, safe); }
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "callbacks.js".to_string(),
+        ParsedFile::parse("callbacks.js", source, Language::JavaScript).unwrap(),
+    );
+
+    let cg = CallGraph::build(&files);
+    assert!(
+        !has_level3_target(&cg, "invoke", "callbacks.js", "safe"),
+        "disabled Level-3 must not mint a plain-identifier callback edge"
+    );
+}
+
+#[test]
+fn disabled_level3_round_trip_preserves_absence() {
+    let mut files = BTreeMap::new();
+    files.insert(
+        "a.js".to_string(),
+        ParsedFile::parse(
+            "a.js",
+            "export function safe() {}\nexport function invoke(cb) { cb(); }",
+            Language::JavaScript,
+        )
+        .unwrap(),
+    );
+    files.insert(
+        "b.js".to_string(),
+        ParsedFile::parse(
+            "b.js",
+            "import { invoke } from './a';\nfunction safe() {}\nfunction start() { invoke(safe); }",
+            Language::JavaScript,
+        )
+        .unwrap(),
+    );
+
+    let cg = CallGraph::build(&files);
+    let assert_absent = |graph: &CallGraph| {
+        let a_invoke = graph.functions["invoke"]
+            .iter()
+            .find(|id| id.file == "a.js")
+            .unwrap();
+        assert!(
+            !graph.calls[a_invoke].iter().any(|site| {
+                site.origin == CallSiteOrigin::IndirectResolution && site.callee_name == "safe"
+            }),
+            "disabled Level-3 must remain absent across serialization"
+        );
+        assert_eq!(graph.level3_indirect_resolved, 0);
+    };
+    assert_absent(&cg);
+
+    let restored: CallGraph = bincode::deserialize(&bincode::serialize(&cg).unwrap()).unwrap();
+    assert_absent(&restored);
+}
+
+#[test]
+fn level3_does_not_mint_distinct_same_name_callback_targets() {
+    let mut files = BTreeMap::new();
+    files.insert(
+        "a.js".to_string(),
+        ParsedFile::parse(
+            "a.js",
+            "export function invoke(cb) { cb(); }",
+            Language::JavaScript,
+        )
+        .unwrap(),
+    );
+    for path in ["b.js", "c.js"] {
+        files.insert(
+            path.to_string(),
+            ParsedFile::parse(
+                path,
+                "import { invoke } from './a';\nfunction safe() {}\nfunction start() { invoke(safe); }",
+                Language::JavaScript,
+            )
+            .unwrap(),
+        );
+    }
+
+    let cg = CallGraph::build(&files);
+    let a_invoke = cg.functions["invoke"]
+        .iter()
+        .find(|id| id.file == "a.js")
+        .unwrap();
+    let targets: BTreeSet<_> = cg.calls[a_invoke]
+        .iter()
+        .filter(|site| site.origin == CallSiteOrigin::IndirectResolution)
+        .filter_map(|site| {
+            let resolved = cg.resolve_call_site_full(site);
+            match resolved.resolved.as_slice() {
+                [target]
+                    if target.confidence == ResolutionConfidence::Exact
+                        && target.kind == ResolutionKind::ParameterCallback =>
+                {
+                    Some(target.target.file.as_str())
+                }
+                _ => None,
+            }
+        })
+        .collect();
+    assert!(targets.is_empty(), "disabled Level-3 must mint no targets");
+}
+
+#[test]
+fn object_assignment_duplicate_parameters_count_as_unknown_slots() {
+    for (path, language, source) in [
+        (
+            "unknown.js",
+            Language::JavaScript,
+            "function f({x = 0}, x) {}",
+        ),
+        (
+            "unknown.ts",
+            Language::TypeScript,
+            "function f({x = 0}: {x?: number}, x: number) {}",
+        ),
+    ] {
+        let parsed = ParsedFile::parse(path, source, language).unwrap();
+        let files = BTreeMap::from([(path.to_string(), parsed)]);
+
+        let cg = CallGraph::build(&files);
+        assert_eq!(cg.param_slots_unknown.get(&language), Some(&1));
+    }
+}
+
+#[test]
+fn level3_does_not_mint_from_same_line_inbound_calls() {
+    let source = r#"
+function safe() {}
+function target() {}
+function invoke(a, cb) { cb(); }
+function start() { invoke(0, safe); invoke(0, target); }
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "callbacks.js".to_string(),
+        ParsedFile::parse("callbacks.js", source, Language::JavaScript).unwrap(),
+    );
+
+    let cg = CallGraph::build(&files);
+    let invoke = cg.functions["invoke"]
+        .iter()
+        .find(|id| id.file == "callbacks.js")
+        .unwrap();
+    let resolved: BTreeSet<_> = cg.calls[invoke]
+        .iter()
+        .filter(|site| site.origin == CallSiteOrigin::IndirectResolution)
+        .map(|site| site.callee_name.as_str())
+        .collect();
+    assert!(resolved.is_empty(), "disabled Level-3 must mint no targets");
+}
+
+fn has_level3_target(cg: &CallGraph, caller: &str, target_file: &str, target_name: &str) -> bool {
+    cg.functions[caller].iter().any(|caller_id| {
+        cg.calls.get(caller_id).is_some_and(|sites| {
+            sites.iter().any(|site| {
+                if site.origin != CallSiteOrigin::IndirectResolution {
+                    return false;
+                }
+                matches!(
+                    cg.resolve_call_site_full(site).resolved.as_slice(),
+                    [resolved]
+                        if resolved.target.file == target_file
+                            && resolved.target.name == target_name
+                            && resolved.confidence == ResolutionConfidence::Exact
+                            && resolved.kind == ResolutionKind::ParameterCallback
+                )
+            })
+        })
+    })
+}
+
+#[test]
+fn level3_parameter_bindings_shadow_same_named_repo_functions_in_supported_languages() {
+    for (path, language, source) in [
+        (
+            "shadow.js",
+            Language::JavaScript,
+            "function safe() {}\nfunction invoke(cb) { cb(); }\nfunction forward(safe) { invoke(safe); }\n",
+        ),
+        (
+            "shadow.ts",
+            Language::TypeScript,
+            "function safe(): void {}\nfunction invoke(cb: () => void): void { cb(); }\nfunction forward(safe: () => void): void { invoke(safe); }\n",
+        ),
+        (
+            "shadow.py",
+            Language::Python,
+            "def safe(): pass\ndef invoke(cb): cb()\ndef forward(safe): invoke(safe)\n",
+        ),
+        (
+            "shadow.go",
+            Language::Go,
+            "package p\nfunc safe() {}\nfunc invoke(cb func()) { cb() }\nfunc forward(safe func()) { invoke(safe) }\n",
+        ),
+        (
+            "shadow.rs",
+            Language::Rust,
+            "fn safe() {}\nfn invoke(cb: fn()) { cb(); }\nfn forward(safe: fn()) { invoke(safe); }\n",
+        ),
+    ] {
+        let files = BTreeMap::from([(
+            path.to_string(),
+            ParsedFile::parse(path, source, language).unwrap(),
+        )]);
+        let cg = CallGraph::build(&files);
+        assert!(
+            !has_level3_target(&cg, "invoke", path, "safe"),
+            "{language:?} parameter binding must shadow the repo function"
+        );
+    }
+}
+
+#[test]
+fn level3_local_binding_shadows_same_named_repo_function() {
+    for (path, language, source) in [
+        (
+            "shadow.js",
+            Language::JavaScript,
+            "function safe() {}\nfunction invoke(cb) { cb(); }\nfunction forward() { const safe = () => {}; invoke(safe); }\n",
+        ),
+        (
+            "shadow.ts",
+            Language::TypeScript,
+            "function safe(): void {}\nfunction invoke(cb: () => void): void { cb(); }\nfunction forward(): void { const safe = (): void => {}; invoke(safe); }\n",
+        ),
+        (
+            "shadow.py",
+            Language::Python,
+            "def safe(): pass\ndef invoke(cb): cb()\ndef forward():\n    safe = lambda: None\n    invoke(safe)\n",
+        ),
+        (
+            "shadow.go",
+            Language::Go,
+            "package p\nfunc safe() {}\nfunc invoke(cb func()) { cb() }\nfunc forward() { safe := func() {}; invoke(safe) }\n",
+        ),
+        (
+            "shadow.rs",
+            Language::Rust,
+            "fn safe() {}\nfn invoke(cb: fn()) { cb(); }\nfn forward() { let safe = || {}; invoke(safe); }\n",
+        ),
+    ] {
+        let files = BTreeMap::from([(
+            path.to_string(),
+            ParsedFile::parse(path, source, language).unwrap(),
+        )]);
+        let cg = CallGraph::build(&files);
+        assert!(
+            !has_level3_target(&cg, "invoke", path, "safe"),
+            "{language:?} local binding must shadow the repo function"
+        );
+    }
+}
+
+#[test]
+fn level3_python_function_local_import_shadows_same_named_repo_function() {
+    let source = "def safe(): pass\ndef invoke(cb): cb()\ndef forward():\n    from external import safe\n    invoke(safe)\n";
+    let files = BTreeMap::from([(
+        "shadow.py".to_string(),
+        ParsedFile::parse("shadow.py", source, Language::Python).unwrap(),
+    )]);
+    let cg = CallGraph::build(&files);
+
+    assert!(
+        !has_level3_target(&cg, "invoke", "shadow.py", "safe"),
+        "a function-local import must shadow the module function"
+    );
+}
+
+#[test]
+fn level3_go_multi_name_var_shadows_same_named_repo_function() {
+    let source = "package p\nfunc safe() {}\nfunc invoke(cb func()) { cb() }\nfunc forward() { var other, safe = 0, func() {}; _ = other; invoke(safe) }\n";
+    let files = BTreeMap::from([(
+        "shadow.go".to_string(),
+        ParsedFile::parse("shadow.go", source, Language::Go).unwrap(),
+    )]);
+    let cg = CallGraph::build(&files);
+
+    assert!(
+        !has_level3_target(&cg, "invoke", "shadow.go", "safe"),
+        "every name in a Go var declaration must shadow the package function"
+    );
+}
+
+#[test]
+fn level3_python_match_and_go_named_result_bindings_shadow_repo_functions() {
+    for (path, language, source) in [
+        (
+            "capture.py",
+            Language::Python,
+            "def safe(): pass\ndef invoke(cb): cb()\ndef forward(value):\n    match value:\n        case safe:\n            invoke(safe)\n",
+        ),
+        (
+            "result.go",
+            Language::Go,
+            "package p\nfunc safe() {}\nfunc invoke(cb func()) { cb() }\nfunc forward() (safe func()) { invoke(safe); return }\n",
+        ),
+    ] {
+        let files = BTreeMap::from([(
+            path.to_string(),
+            ParsedFile::parse(path, source, language).unwrap(),
+        )]);
+        let cg = CallGraph::build(&files);
+        assert!(
+            !has_level3_target(&cg, "invoke", path, "safe"),
+            "{language:?} binding must shadow the repository function"
+        );
+    }
+}
+
+#[test]
+fn level3_does_not_mint_same_file_free_identifier() {
+    let source =
+        "function safe() {}\nfunction invoke(cb) { cb(); }\nfunction forward() { invoke(safe); }\n";
+    let files = BTreeMap::from([(
+        "free.js".to_string(),
+        ParsedFile::parse("free.js", source, Language::JavaScript).unwrap(),
+    )]);
+    let cg = CallGraph::build(&files);
+
+    assert!(
+        !has_level3_target(&cg, "invoke", "free.js", "safe"),
+        "disabled Level-3 must not mint a same-file free-identifier edge"
+    );
+}
+
+#[test]
+fn level3_declines_calls_inside_nested_js_function_values() {
+    for source in [
+        "function safe() {}\nfunction other() {}\nfunction invoke(cb) { cb(); }\nfunction outer() { const run = (safe) => invoke(safe); run(other); }\n",
+        "function safe() {}\nfunction other() {}\nfunction invoke(cb) { cb(); }\nfunction outer() { const run = function(safe) { invoke(safe); }; run(other); }\n",
+        "function safe() {}\nfunction other() {}\nfunction invoke(cb) { cb(); }\nfunction outer() { const run = function* (safe) { invoke(safe); }; run(other).next(); }\n",
+    ] {
+        let files = BTreeMap::from([(
+            "nested.js".to_string(),
+            ParsedFile::parse("nested.js", source, Language::JavaScript).unwrap(),
+        )]);
+        let cg = CallGraph::build(&files);
+
+        assert!(
+            !has_level3_target(&cg, "invoke", "nested.js", "safe"),
+            "a call attributed to outer but nested in a JS function value must not mint Level-3"
+        );
+    }
+}
+
+#[test]
+fn level3_declines_calls_inside_nested_python_lambda() {
+    let source = "def safe(): pass\ndef other(): pass\ndef invoke(cb): cb()\ndef outer():\n    run = lambda safe: invoke(safe)\n    run(other)\n";
+    let files = BTreeMap::from([(
+        "nested.py".to_string(),
+        ParsedFile::parse("nested.py", source, Language::Python).unwrap(),
+    )]);
+    let cg = CallGraph::build(&files);
+
+    assert!(
+        !has_level3_target(&cg, "invoke", "nested.py", "safe"),
+        "a call attributed to outer but nested in a Python lambda must not mint Level-3"
+    );
+}
+
+#[test]
+fn level3_declines_calls_inside_nested_go_func_literal() {
+    let source = "package p\nfunc safe() {}\nfunc other() {}\nfunc invoke(cb func()) { cb() }\nfunc outer() { run := func(safe func()) { invoke(safe) }; run(other) }\n";
+    let files = BTreeMap::from([(
+        "nested.go".to_string(),
+        ParsedFile::parse("nested.go", source, Language::Go).unwrap(),
+    )]);
+    let cg = CallGraph::build(&files);
+
+    assert!(
+        !has_level3_target(&cg, "invoke", "nested.go", "safe"),
+        "a call attributed to outer but nested in a Go func literal must not mint Level-3"
+    );
+}
+
+#[test]
+fn level3_declines_calls_inside_nested_rust_closure() {
+    let source = "fn safe() {}\nfn other() {}\nfn invoke(cb: fn()) { cb(); }\nfn outer() { let run = |safe: fn()| invoke(safe); run(other); }\n";
+    let files = BTreeMap::from([(
+        "nested.rs".to_string(),
+        ParsedFile::parse("nested.rs", source, Language::Rust).unwrap(),
+    )]);
+    let cg = CallGraph::build(&files);
+
+    assert!(
+        !has_level3_target(&cg, "invoke", "nested.rs", "safe"),
+        "a call attributed to outer but nested in a Rust closure must not mint Level-3"
+    );
+}
+
+#[test]
+fn level3_does_not_mint_resolvable_import_identifier() {
+    let files = BTreeMap::from([
+        (
+            "invoke.js".to_string(),
+            ParsedFile::parse(
+                "invoke.js",
+                "export function invoke(cb) { cb(); }\n",
+                Language::JavaScript,
+            )
+            .unwrap(),
+        ),
+        (
+            "safe.js".to_string(),
+            ParsedFile::parse(
+                "safe.js",
+                "export function safe() {}\n",
+                Language::JavaScript,
+            )
+            .unwrap(),
+        ),
+        (
+            "decoy.js".to_string(),
+            ParsedFile::parse(
+                "decoy.js",
+                "export function safe() {}\n",
+                Language::JavaScript,
+            )
+            .unwrap(),
+        ),
+        (
+            "entry.js".to_string(),
+            ParsedFile::parse(
+                "entry.js",
+                "import { invoke } from './invoke';\nimport { safe } from './safe';\nfunction forward() { invoke(safe); }\n",
+                Language::JavaScript,
+            )
+            .unwrap(),
+        ),
+    ]);
+    let cg = CallGraph::build(&files);
+
+    assert!(
+        !has_level3_target(&cg, "invoke", "safe.js", "safe"),
+        "disabled Level-3 must not mint even a resolvable imported callback edge"
+    );
+}
+
+#[test]
+fn level3_unresolvable_import_does_not_fall_through_to_same_name_repo_function() {
+    let files = BTreeMap::from([
+        (
+            "decoy.js".to_string(),
+            ParsedFile::parse(
+                "decoy.js",
+                "export function safe() {}\n",
+                Language::JavaScript,
+            )
+            .unwrap(),
+        ),
+        (
+            "entry.js".to_string(),
+            ParsedFile::parse(
+                "entry.js",
+                "import { safe } from 'external';\nfunction invoke(cb) { cb(); }\nfunction forward() { invoke(safe); }\n",
+                Language::JavaScript,
+            )
+            .unwrap(),
+        ),
+    ]);
+    let cg = CallGraph::build(&files);
+
+    assert!(
+        !has_level3_target(&cg, "invoke", "decoy.js", "safe"),
+        "a recognized but unresolved import must not fall through to a same-name repo function"
+    );
+}
+
+#[test]
+fn level3_go_dot_import_does_not_fall_through_to_same_name_repo_function() {
+    let files = BTreeMap::from([
+        (
+            "decoy/safe.go".to_string(),
+            ParsedFile::parse(
+                "decoy/safe.go",
+                "package decoy\nfunc safe() {}\n",
+                Language::Go,
+            )
+            .unwrap(),
+        ),
+        (
+            "entry.go".to_string(),
+            ParsedFile::parse(
+                "entry.go",
+                "package p\nimport . \"external/pkg\"\nfunc invoke(cb func()) { cb() }\nfunc forward() { invoke(safe) }\n",
+                Language::Go,
+            )
+            .unwrap(),
+        ),
+    ]);
+    let cg = CallGraph::build(&files);
+
+    assert!(
+        !has_level3_target(&cg, "invoke", "decoy/safe.go", "safe"),
+        "an unmodeled Go dot import must not fall through to a same-name repo function"
+    );
+}
+
+fn level3_assignment_targets(source: &str) -> BTreeSet<String> {
+    let files = BTreeMap::from([(
+        "callbacks.c".to_string(),
+        ParsedFile::parse("callbacks.c", source, Language::C).unwrap(),
+    )]);
+    let cg = CallGraph::build(&files);
+    let invoke = &cg.functions["invoke"][0];
+    cg.calls[invoke]
+        .iter()
+        .filter(|site| site.origin == CallSiteOrigin::IndirectResolution)
+        .map(|site| site.callee_name.clone())
+        .collect()
+}
+
+#[test]
+fn level3_declines_one_assignment_before_the_inbound_call() {
+    let source = "void safe() {}\nvoid invoke(void (*cb)()) { cb(); }\nvoid forward() { void (*callback)() = safe; invoke(callback); }\n";
+    assert!(
+        level3_assignment_targets(source).is_empty(),
+        "one prior assignment is not a dominance or must-alias proof"
+    );
+}
+
+#[test]
+fn level3_declines_conditional_assignment_before_the_inbound_call() {
+    let source = "void safe() {}\nvoid invoke(void (*cb)()) { cb(); }\nvoid forward(int choose) { void (*callback)(); if (choose) callback = safe; invoke(callback); }\n";
+    assert!(
+        level3_assignment_targets(source).is_empty(),
+        "a conditional prior assignment is not a dominance or must-alias proof"
+    );
+}
+
+#[test]
+fn level3_declines_assignment_even_when_reassignment_is_after_the_inbound_call() {
+    let source = "void safe() {}\nvoid other() {}\nvoid invoke(void (*cb)()) { cb(); }\nvoid forward() {\n    void (*callback)() = safe;\n    invoke(callback);\n    callback = other;\n}\n";
+    assert!(
+        level3_assignment_targets(source).is_empty(),
+        "assignment fallback is not Level-3 evidence even when a later write is out of range"
+    );
+}
+
+#[test]
+fn level3_declines_after_only_and_multiple_assignments() {
+    for source in [
+        "void safe() {}\nvoid invoke(void (*cb)()) { cb(); }\nvoid forward() {\n    void (*callback)();\n    invoke(callback);\n    callback = safe;\n}\n",
+        "void safe() {}\nvoid other() {}\nvoid invoke(void (*cb)()) { cb(); }\nvoid forward() {\n    void (*callback)() = safe;\n    callback = other;\n    invoke(callback);\n}\n",
+    ] {
+        assert!(level3_assignment_targets(source).is_empty());
+    }
 }
 
 // ---------------------------------------------------------------------------

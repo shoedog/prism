@@ -153,6 +153,47 @@ fn classify_recovery_typepath(cg: &CallGraph, site: &CallSite) -> &'static str {
     }
 }
 
+/// Deterministic JSONL-ready custody records for every raw call-graph site.
+pub fn call_site_dump(cg: &CallGraph) -> Vec<serde_json::Value> {
+    use crate::resolution::ResolutionConfidence;
+
+    let mut records = Vec::new();
+    for sites in cg.calls.values() {
+        for site in sites {
+            let outcome = cg.resolve_call_site_full(site);
+            let resolved_targets: Vec<_> = outcome
+                .resolved
+                .iter()
+                .map(|resolved| {
+                    serde_json::json!({
+                        "function_id": resolved.target,
+                        "kind": resolved.kind.as_str(),
+                        "confidence": match resolved.confidence {
+                            ResolutionConfidence::Exact => "exact",
+                            ResolutionConfidence::NameOnly => "name_only",
+                        },
+                    })
+                })
+                .collect();
+            records.push(serde_json::json!({
+                "caller": site.caller,
+                "source_span": {
+                    "file": site.caller.file,
+                    "line": site.line,
+                    "start_byte": site.start_byte,
+                    "end_byte": site.end_byte,
+                },
+                "callee_text": site.callee_name,
+                "call_kind": site.kind,
+                "origin": site.origin,
+                "resolved_targets": resolved_targets,
+                "drop": outcome.drop.map(|drop| format!("{drop:?}")),
+            }));
+        }
+    }
+    records
+}
+
 pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     crate::name_resolution::glob_stats::GLOBAL.reset();
 
@@ -438,6 +479,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "shadow_typepath_narrow": shadow_typepath_narrow,
         "recovery_typepath": recovery_typepath,
         "glob_expand": glob_expand,
+        "param_slots_unknown": cg.param_slots_unknown,
+        "level3_indirect_resolved": cg.level3_indirect_resolved,
     })
 }
 

@@ -34,10 +34,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // empty-path glob with a meaningful anchor) now resolves instead of
 // poisoning, changing which Rust call sites resolve out of nested
 // modules/blocks that relied on an anchor-only glob, changing nav topology.
-// v11: Go pointer-embedded fields participate in embedding promotion / S2 / S4;
-//      qualified and pointer-to-interface embedded targets fail closed (P9, one
-//      shipped transition for the branch).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 11;
+// v11: fail-closed positional parameter slots and exact Level-3 callback
+// identity change which synthetic callback edges enter the nav index.
+// v12: Go pointer-embedded fields participate in embedding promotion / S2 / S4;
+//      qualified and pointer-to-interface embedded targets fail closed (P9; one shipped transition on top of main's v11).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 12;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -327,6 +328,7 @@ mod tests {
             arg_spread: false,
             receiver_outcome: None,
             origin: CallSiteOrigin::Source,
+            pre_resolved_target: None,
         });
         (index, target)
     }
@@ -360,8 +362,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_11() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 11);
+    fn sidecar_version_is_12_for_go_pointer_embeds() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 12);
     }
 
     #[test]

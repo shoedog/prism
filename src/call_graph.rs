@@ -112,6 +112,10 @@ pub struct CallSite {
     /// edge cannot coexist with an identical source call-site identity.
     #[serde(default)]
     pub origin: CallSiteOrigin,
+    /// Exact target field retained for serialized-call-site compatibility.
+    /// Level-3 minting is disabled, so new construction leaves this empty.
+    #[serde(default)]
+    pub pre_resolved_target: Option<FunctionId>,
 }
 
 /// Parameter arity for a method definition (language-agnostic shape).
@@ -309,6 +313,14 @@ pub struct CallGraph {
     pub calls: BTreeMap<FunctionId, BTreeSet<CallSite>>,
     /// Reverse edges: function name → set of call sites that invoke it.
     pub callers: BTreeMap<String, Vec<CallSite>>,
+    /// Functions whose positional slots cannot be represented exactly, grouped
+    /// by source language. Positional consumers fail closed for these functions.
+    #[serde(default)]
+    pub param_slots_unknown: BTreeMap<crate::languages::Language, usize>,
+    /// Reserved Level-3 telemetry. This remains zero while callback minting is
+    /// disabled fail-closed.
+    #[serde(default)]
+    pub level3_indirect_resolved: usize,
     /// Functions with file-local (static) linkage: `(file, name)` pairs.
     /// Used to disambiguate same-named functions across files.
     pub static_functions: BTreeSet<(String, String)>,
@@ -613,6 +625,8 @@ impl CallGraph {
             functions: BTreeMap::new(),
             calls: BTreeMap::new(),
             callers: BTreeMap::new(),
+            param_slots_unknown: BTreeMap::new(),
+            level3_indirect_resolved: 0,
             static_functions: BTreeSet::new(),
             imports: BTreeMap::new(),
             methods: BTreeMap::new(),
@@ -807,6 +821,7 @@ impl CallGraph {
                         arg_spread: false,
                         receiver_outcome: None,
                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
+                        pre_resolved_target: None,
                     };
                     calls
                         .entry(caller_id.clone())
@@ -823,6 +838,8 @@ impl CallGraph {
             functions,
             calls,
             callers,
+            param_slots_unknown: Self::parameter_slots_unknown(files),
+            level3_indirect_resolved: 0,
             static_functions,
             imports: BTreeMap::new(),
             methods,
@@ -1147,6 +1164,7 @@ impl CallGraph {
                             arg_spread: meta.arg_spread,
                             receiver_outcome: None,
                             origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
+                            pre_resolved_target: None,
                         };
                         file_call_sites.push((caller_id.clone(), site));
                     }
@@ -1193,6 +1211,8 @@ impl CallGraph {
             functions,
             calls,
             callers,
+            param_slots_unknown: Self::parameter_slots_unknown(files),
+            level3_indirect_resolved: 0,
             static_functions,
             imports,
             methods,
@@ -1256,7 +1276,6 @@ impl CallGraph {
             go_package_vars: BTreeMap::new(),
             go_embedded_interface_methods: BTreeMap::new(),
         };
-        cg.recompute_indirect_calls(files);
         cg.refresh_rust_receiver_state(files);
         cg.apply_go_embedding_promotion(files);
         cg.apply_go_interface_dispatch(files);
@@ -1287,6 +1306,9 @@ impl CallGraph {
         // P4: JS/TS export-fact resolution (re-export chains/barrels) is ALSO
         // whole-program derived, same rationale as the Go passes above.
         cg.apply_js_export_resolution();
+        // Recompute the remaining whole-program indirect passes after all
+        // resolution facts are installed. Level-3 callback minting is disabled.
+        cg.recompute_indirect_calls(files);
         cg
     }
 
@@ -1334,6 +1356,20 @@ impl CallGraph {
         BTreeMap<FunctionId, BTreeSet<String>>,
     ) {
         Self::extract_js_ts_resolution_facts_from_iter(files.iter())
+    }
+
+    fn parameter_slots_unknown(
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> BTreeMap<crate::languages::Language, usize> {
+        let mut unknown = BTreeMap::new();
+        for parsed in files.values() {
+            for function in parsed.all_functions() {
+                if parsed.function_parameter_slots(&function).is_none() {
+                    *unknown.entry(parsed.language).or_default() += 1;
+                }
+            }
+        }
+        unknown
     }
 
     fn extract_js_ts_resolution_facts_from_iter<'a, I>(
@@ -1420,6 +1456,10 @@ impl CallGraph {
     /// Used by incremental cache update: when a file changes, its call graph
     /// contributions are stripped out before fresh data is merged in.
     pub fn remove_files(&mut self, exclude: &BTreeSet<String>) {
+        // Both are whole-program pass products and are repopulated from the
+        // complete files map by `build_direct_subset` / `recompute_indirect_calls`.
+        self.param_slots_unknown.clear();
+        self.level3_indirect_resolved = 0;
         // functions: remove FunctionId entries from excluded files.
         for func_ids in self.functions.values_mut() {
             func_ids.retain(|fid| !exclude.contains(&fid.file));
@@ -1561,6 +1601,8 @@ impl CallGraph {
     /// Entries from `other` are added to the existing data. Typically called
     /// after `remove_files` to splice in freshly-built data for changed files.
     pub fn merge(&mut self, other: CallGraph) {
+        self.param_slots_unknown = other.param_slots_unknown;
+        self.level3_indirect_resolved = other.level3_indirect_resolved;
         for (name, fids) in other.functions {
             self.functions.entry(name).or_default().extend(fids);
         }
@@ -1672,11 +1714,13 @@ impl CallGraph {
 
     pub(crate) fn recompute_indirect_calls(&mut self, files: &BTreeMap<String, ParsedFile>) {
         self.clear_indirect_calls();
-        let sites = self.compute_indirect_call_sites(files);
+        let (sites, level3_resolved) = self.compute_indirect_call_sites(files);
         self.apply_indirect_call_sites(sites);
+        self.level3_indirect_resolved = level3_resolved;
     }
 
     fn clear_indirect_calls(&mut self) {
+        self.level3_indirect_resolved = 0;
         for sites in self.calls.values_mut() {
             sites.retain(|site| site.origin != CallSiteOrigin::IndirectResolution);
         }
@@ -1691,7 +1735,7 @@ impl CallGraph {
     fn compute_indirect_call_sites(
         &self,
         files: &BTreeMap<String, ParsedFile>,
-    ) -> Vec<(FunctionId, CallSite)> {
+    ) -> (Vec<(FunctionId, CallSite)>, usize) {
         // Resolve indirect call sites (function pointer variables and dispatch
         // tables). Preserve the historical level ordering:
         // 1/2 local function pointer and array dispatch, 4 struct callbacks,
@@ -1747,9 +1791,13 @@ impl CallGraph {
                     .chars()
                     .all(|c| c.is_alphanumeric() || c == '_')
                 {
-                    let func_source = Self::extract_func_source(parsed, caller_id);
+                    let Some(func_source) =
+                        Self::extract_func_source_before(parsed, caller_id, site.start_byte)
+                    else {
+                        continue;
+                    };
                     if let Some(resolved) = crate::ast::resolve_fptr_assignment(
-                        &func_source,
+                        func_source,
                         &site.callee_name,
                         &known_fn_names,
                     ) {
@@ -1824,88 +1872,8 @@ impl CallGraph {
         }
         extra_sites.extend(level4_sites);
 
-        // Level 3: parameter-passed function pointers (1-hop interprocedural).
-        let mut level3_sites: Vec<(FunctionId, CallSite)> = Vec::new();
-        for (caller_id, sites) in &self.calls {
-            let parsed = match files.get(&caller_id.file) {
-                Some(p) => p,
-                None => continue,
-            };
-
-            let func_node = parsed.find_function_by_name(&caller_id.name);
-            let param_names = match func_node {
-                Some(ref f) => parsed.function_parameter_names(f),
-                None => continue,
-            };
-            if param_names.is_empty() {
-                continue;
-            }
-
-            for site in sites {
-                if self.functions.contains_key(&site.callee_name) {
-                    continue;
-                }
-                if !site
-                    .callee_name
-                    .chars()
-                    .all(|c| c.is_alphanumeric() || c == '_')
-                {
-                    continue;
-                }
-
-                let already_resolved = extra_sites.iter().any(|(cid, es)| {
-                    cid == caller_id
-                        && es.line == site.line
-                        && known_fn_names.contains(&es.callee_name)
-                });
-                if already_resolved {
-                    continue;
-                }
-
-                let param_idx = match param_names.iter().position(|p| p == &site.callee_name) {
-                    Some(idx) => idx,
-                    None => continue,
-                };
-
-                if let Some(caller_sites) = self.callers.get(&caller_id.name) {
-                    for caller_site in caller_sites {
-                        let caller_parsed = match files.get(&caller_site.caller.file) {
-                            Some(p) => p,
-                            None => continue,
-                        };
-
-                        if let Some(arg_text) = caller_parsed.call_argument_text_at(
-                            caller_site.line,
-                            &caller_id.name,
-                            param_idx,
-                        ) {
-                            if known_fn_names.contains(&arg_text) {
-                                level3_sites.push((
-                                    caller_id.clone(),
-                                    Self::indirect_call_site(caller_id, arg_text, site),
-                                ));
-                            } else {
-                                let caller_func_source =
-                                    Self::extract_func_source(caller_parsed, &caller_site.caller);
-                                if let Some(resolved) = crate::ast::resolve_fptr_assignment(
-                                    &caller_func_source,
-                                    &arg_text,
-                                    &known_fn_names,
-                                ) {
-                                    level3_sites.push((
-                                        caller_id.clone(),
-                                        Self::indirect_call_site(caller_id, resolved, site),
-                                    ));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        extra_sites.extend(level3_sites);
-        extra_sites
+        // Level-3 parameter callback minting is disabled fail-closed.
+        (extra_sites, 0)
     }
 
     fn apply_indirect_call_sites(&mut self, sites: Vec<(FunctionId, CallSite)>) {
@@ -1940,6 +1908,7 @@ impl CallGraph {
             arg_spread: false,
             receiver_outcome: None,
             origin: CallSiteOrigin::IndirectResolution,
+            pre_resolved_target: None,
         }
     }
 
@@ -3760,6 +3729,7 @@ impl CallGraph {
                         arg_spread: meta.arg_spread,
                         receiver_outcome: None,
                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
+                        pre_resolved_target: None,
                     };
                     calls
                         .entry(caller_id.clone())
@@ -3814,6 +3784,8 @@ impl CallGraph {
             functions,
             calls,
             callers,
+            param_slots_unknown: Self::parameter_slots_unknown(files),
+            level3_indirect_resolved: 0,
             static_functions,
             imports,
             methods,
@@ -4161,6 +4133,20 @@ impl CallGraph {
             .unwrap_or(CallKind::Call)
     }
 
+    /// Exact function-source prefix ending immediately before `before_byte`.
+    /// Assignment-based callback resolution must never inspect later writes.
+    fn extract_func_source_before<'a>(
+        parsed: &'a ParsedFile,
+        func_id: &FunctionId,
+        before_byte: usize,
+    ) -> Option<&'a str> {
+        let function = Self::function_node_for_id(parsed, func_id)?;
+        if before_byte < function.start_byte() || before_byte > function.end_byte() {
+            return None;
+        }
+        parsed.source.get(function.start_byte()..before_byte)
+    }
+
     /// Extract the source text for a function from its parsed file.
     fn extract_func_source(parsed: &ParsedFile, func_id: &FunctionId) -> String {
         let lines: Vec<&str> = parsed.source.lines().collect();
@@ -4383,6 +4369,7 @@ impl CallSite {
         usize,
         Option<&str>,
         Option<&str>,
+        Option<&FunctionId>,
     ) {
         (
             &self.caller.name,
@@ -4393,6 +4380,7 @@ impl CallSite {
             self.end_byte,
             self.qualifier.as_deref(),
             self.receiver_type.as_deref(),
+            self.pre_resolved_target.as_ref(),
         )
     }
 }
@@ -5247,7 +5235,7 @@ mod tests {
     }
 
     #[test]
-    fn recompute_indirect_calls_is_idempotent_and_post_merge_matches_full_build() {
+    fn recompute_indirect_calls_is_idempotent_with_level3_disabled() {
         let files_v1 = c_files(&[(
             "callbacks.c",
             "void old_handler() {}\nvoid execute(void (*cb)()) { cb(); }\nvoid outer() { execute(old_handler); }\n",
@@ -5264,7 +5252,8 @@ mod tests {
         merged.recompute_indirect_calls(&files_v2);
         let once = indirect_call_dump(&merged);
         let callers_once = indirect_caller_dump(&merged);
-        assert!(once.iter().any(|entry| entry.contains(":new_handler:")));
+        assert!(!once.iter().any(|entry| entry.contains(":new_handler:")));
+        assert!(!once.iter().any(|entry| entry.contains(":old_handler:")));
 
         merged.recompute_indirect_calls(&files_v2);
         assert_eq!(once, indirect_call_dump(&merged));

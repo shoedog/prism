@@ -198,3 +198,44 @@ fn callees_emits_each_resolved_definition_for_one_call_site() {
         2
     );
 }
+
+#[test]
+fn disabled_level3_emits_no_callback_edges_in_either_direction() {
+    let s = session(&[
+        ("a.js", "export function invoke(cb) { cb(); }\n"),
+        (
+            "b.js",
+            "import { invoke } from './a';\nfunction safe() {}\nfunction startB() { invoke(safe); }\n",
+        ),
+        (
+            "c.js",
+            "import { invoke } from './a';\nfunction safe() {}\nfunction startC() { invoke(safe); }\n",
+        ),
+    ]);
+
+    let callees = queries::callees(&s, Some("invoke"), Some("a.js"), None, 1).unwrap();
+    let mut safe_files: Vec<_> = callees
+        .items
+        .iter()
+        .filter_map(|item| match &item.symbol {
+            Some(SymbolRef::Function { file, name, .. }) if name == "safe" => Some(file.as_str()),
+            _ => None,
+        })
+        .collect();
+    safe_files.sort_unstable();
+    assert!(safe_files.is_empty());
+
+    for file in ["b.js", "c.js"] {
+        let callers = queries::callers(&s, Some("safe"), Some(file), None, 1).unwrap();
+        assert!(
+            !callers.items.iter().any(|item| {
+                matches!(
+                    &item.symbol,
+                    Some(SymbolRef::Function { file, name, .. })
+                        if file == "a.js" && name == "invoke"
+                )
+            }),
+            "disabled Level-3 must not report a.js::invoke as caller of {file}::safe"
+        );
+    }
+}

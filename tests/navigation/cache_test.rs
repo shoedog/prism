@@ -455,3 +455,55 @@ fn two_repos_same_base_are_isolated() {
         matches!(&item.symbol, Some(SymbolRef::Function { name, .. }) if name == "beta")
     }));
 }
+
+#[test]
+fn call_edge_sidecar_round_trip_preserves_disabled_level3_absence() {
+    with_dirty_sidecar_load_override(|| {
+        let repo_d = tempfile::tempdir().unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        write(
+            repo_d.path(),
+            "a.js",
+            "export function invoke(cb) { cb(); }\n",
+        );
+        write(
+            repo_d.path(),
+            "b.js",
+            "import { invoke } from './a';\nfunction safe() {}\nfunction startB() { invoke(safe); }\n",
+        );
+        write(
+            repo_d.path(),
+            "c.js",
+            "import { invoke } from './a';\nfunction safe() {}\nfunction startC() { invoke(safe); }\n",
+        );
+        let repo = Arc::new(load_repo(repo_d.path()).unwrap());
+        let sidecar = nav_cache_subdir(cache.path(), &repo).join("resolved-call-edge-index.bin");
+
+        let cold = NavigationSession {
+            repo: repo.clone(),
+            index: Arc::new(NavigationIndex::build_cached_under(&repo, cache.path())),
+        };
+        let cold_edges = queries::callees(&cold, Some("invoke"), Some("a.js"), None, 1).unwrap();
+        assert!(sidecar.exists());
+
+        let warm = NavigationSession {
+            repo: repo.clone(),
+            index: Arc::new(NavigationIndex::build_cached_under(&repo, cache.path())),
+        };
+        let warm_edges = queries::callees(&warm, Some("invoke"), Some("a.js"), None, 1).unwrap();
+        assert_eq!(cold_edges, warm_edges);
+
+        let mut safe_files: Vec<_> = warm_edges
+            .items
+            .iter()
+            .filter_map(|item| match &item.symbol {
+                Some(SymbolRef::Function { file, name, .. }) if name == "safe" => {
+                    Some(file.as_str())
+                }
+                _ => None,
+            })
+            .collect();
+        safe_files.sort_unstable();
+        assert!(safe_files.is_empty());
+    });
+}

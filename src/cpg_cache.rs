@@ -129,11 +129,14 @@ use std::path::{Path, PathBuf};
 /// - v41: persisted Step-5b arg→param DataFlow edges now select byte-contained
 ///   occurrences across multi-line call arguments. The corresponding trace
 ///   descent-gate check is in-memory only.
-/// - v42: Go embedded-field extraction now persists pointer embeds (bare `*T`,
+/// - v42: positional parameter slots now fail closed instead of compressing
+///   unknown bindings; persisted Step-5b edges and synthetic Level-3 callback
+///   sites therefore have changed topology.
+/// - v43: Go embedded-field extraction now persists pointer embeds (bare `*T`,
 ///   `*pkg.T`, `*T[X]`) with selector name + raw type; qualified embedded targets
-///   and pointer-to-interface embeds fail closed in promotion/S4/S2 (single shipped
-///   transition for the P9 branch).
-const CACHE_VERSION: u32 = 42; // 42: corrected Go embedded-field topology (P9).
+///   and pointer-to-interface embeds fail closed in promotion/S4/S2 (P9; single shipped
+///   transition on top of main's v42).
+const CACHE_VERSION: u32 = 43; // 43: corrected Go embedded-field topology (P9).
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -651,9 +654,10 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_42_for_corrected_go_embedded_field_topology() {
-        // v42: P9 pointer embeds + fail-closed qualified/pointer-interface targets.
-        assert_eq!(super::CACHE_VERSION, 42);
+    fn cache_version_is_43_for_corrected_go_embedded_field_topology() {
+        // v43: P9 pointer embeds + fail-closed qualified/pointer-interface targets,
+        // stacked on main's v42 (fail-closed parameter slots). One transition ships per PR.
+        assert_eq!(super::CACHE_VERSION, 43);
     }
 
     #[test]

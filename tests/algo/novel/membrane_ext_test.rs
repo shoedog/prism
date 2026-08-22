@@ -285,7 +285,7 @@ void connect() {
 }
 
 #[test]
-fn test_membrane_through_parameter_fptr() {
+fn membrane_does_not_invent_dependency_through_disabled_level3() {
     // File A: the API being changed
     let api_source = r#"
 int process_data(int val) {
@@ -341,14 +341,9 @@ void run(void) {
     )
     .unwrap();
 
-    // The call graph should have resolved apply_transform → process_data via Level 3.
-    // The executor calls process_data through the `fn` parameter, and the caller
-    // passes process_data as the argument. Membrane should detect the cross-file call.
-    // (Either the executor or the direct caller without error handling may be flagged.)
-    let has_blocks = !result.blocks.is_empty();
     assert!(
-        has_blocks,
-        "Membrane should detect cross-file dependency through parameter-passed fptr"
+        result.blocks.is_empty(),
+        "disabled Level-3 must not invent a parameter-passed callback dependency"
     );
 }
 

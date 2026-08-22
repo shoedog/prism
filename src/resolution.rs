@@ -104,6 +104,10 @@ pub enum ResolutionKind {
     /// Also now the distinct label for Rust's Lane-A
     /// `ReceiverRecovery::FieldTyped` (previously collapsed to `TypedParam`).
     FieldTyped,
+    /// P8: a parameter callback whose argument was resolved as one Exact
+    /// FunctionId in the inbound caller's lexical context before minting the
+    /// synthetic call site.
+    ParameterCallback,
 }
 
 impl ResolutionKind {
@@ -135,6 +139,7 @@ impl ResolutionKind {
             ResolutionKind::FrameworkEntry => "framework_entry",
             ResolutionKind::ReturnTyped => "return_typed",
             ResolutionKind::FieldTyped => "field_typed",
+            ResolutionKind::ParameterCallback => "parameter_callback",
         }
     }
 }
@@ -1461,6 +1466,19 @@ impl CallGraph {
     /// new precision ladder. Legacy callers continue to use the old resolver
     /// until Tasks 9-11 migrate them.
     pub fn resolve_call_site_full(&self, site: &CallSite) -> ResolutionOutcome<'_> {
+        if let Some(target) = site.pre_resolved_target.as_ref() {
+            let resolved = self
+                .functions
+                .get(&target.name)
+                .and_then(|targets| targets.iter().find(|candidate| *candidate == target));
+            return match resolved {
+                Some(target) => {
+                    ResolutionOutcome::hit(exact([target], ResolutionKind::ParameterCallback))
+                }
+                None => ResolutionOutcome::dropped(DropReason::UnknownName),
+            };
+        }
+
         let name = site.callee_name.as_str();
         let caller = &site.caller;
 
@@ -3195,6 +3213,7 @@ mod scope_resolution_predicate_tests {
             arg_spread: false,
             receiver_outcome: None,
             origin: CallSiteOrigin::Source,
+            pre_resolved_target: None,
         }
     }
 

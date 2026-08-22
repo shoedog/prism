@@ -331,6 +331,9 @@ enum NavQuery {
     CallStats {
         #[arg(long)]
         repo: std::path::PathBuf,
+        /// Emit deterministic JSONL custody for every raw call site.
+        #[arg(long)]
+        dump_sites: bool,
     },
     /// Whole-repo interface-dispatch in-scope manifest (Phase-IP PR-2 §8a).
     InterfaceManifest {
@@ -515,10 +518,16 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
             println!("{}", prism::output::navigation::render(&ev, format));
             Ok(())
         }
-        NavQuery::CallStats { repo } => {
+        NavQuery::CallStats { repo, dump_sites } => {
             let session = build_session(repo, nav.no_cache, nav.cache_dir.as_deref())?;
-            let stats = prism::navigation::queries::call_stats(session.index.call_graph());
-            println!("{}", serde_json::to_string_pretty(&stats)?);
+            if *dump_sites {
+                for site in prism::navigation::queries::call_site_dump(session.index.call_graph()) {
+                    println!("{}", serde_json::to_string(&site)?);
+                }
+            } else {
+                let stats = prism::navigation::queries::call_stats(session.index.call_graph());
+                println!("{}", serde_json::to_string_pretty(&stats)?);
+            }
             Ok(())
         }
         NavQuery::InterfaceManifest { repo } => {

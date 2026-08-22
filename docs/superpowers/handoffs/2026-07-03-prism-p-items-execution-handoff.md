@@ -2,6 +2,19 @@
 
 Cold-start map for continuing the execution of `docs/analysis/prism-llm-and-accuracy-plan.md`. The durable in-repo progress ledger is **`.superpowers/sdd/progress.md`** (git-ignored scratch — read it first; it has per-step history including every review verdict).
 
+## 2026-08-22 — Item P8 parameter-slots fail-closed wave 3 + terminal fallback
+
+- Lane: `param-slots-fail-closed`, parent `2fe665e`; fail-closed wave commit `16b681f` plus the fallback commit containing this handoff are intentionally unpushed.
+- Wave 3 removed Level-3's assignment fallback, refused callback sites nested in JS/TS anonymous functions, Python lambdas, Go func literals, and Rust closures, and made recognized import bindings terminal on zero/multiple in-repo candidates. `resolve_fptr_assignment` remains only for Level 1; no cache version changed.
+- Terra round 4 returned REJECT with one constructible WRONG: a JS generator function expression (`function* (safe) { invoke(safe) }`) escaped the nested-function guard and could mint `invoke -> safe` when runtime passed `other`.
+- Per the owner-authorized terminal fallback, Level-3 callback minting is now disabled at its sole producer. The producer returns zero Level-3 sites/telemetry; callback argument/import/binding and Rust function-value helper paths were subtracted. The serialized `pre_resolved_target` field remains only for compatibility.
+- Former positive Level-3 cases are intentionally flipped to absence: same-file free identifier, resolvable import, cross-file callback, distinct-target cardinality/dedup, same-line inbound spans, C function-pointer/address-of callbacks, bincode and navigation sidecar round trips, incremental rebuilds, CLI custody, and membrane propagation. The Terra generator counterexample is pinned negative alongside arrow/function/lambda/func-literal/closure variants.
+- Wave-3 TDD evidence: initial focused integration run was 18 pass / 8 fail and the Go dot-import control was separately red; final focused integration was 27 / 27. The older local-variable positive was flipped only after the first green attempt (sequencing deviation).
+- Fallback TDD evidence: before producer removal, integration was 19 pass / 8 fail; C 0 / 2; AST Level-3 0 / 2; telemetry 0 / 2; navigation 0 / 2; two CLI checks and membrane were red. After removal all focused groups passed. The first full suite then exposed one internal recompute test still asserting a Level-3 edge; same-session pre-fallback control was green, fixture inspection proved it was callback-only, and the assertion was flipped (second sequencing deviation).
+- Verification: `cargo fmt --all -- --check` clean; final full `cargo test` = 3,127 passed / 0 failed / 1 ignored; `cargo build --release` clean; Tier-A matrix = 104 / 104 `ok`.
+- Tier-A quick: SUT error rate 0 and all 104 matrix cases `ok`; baseline-invalid because dirty corpus SHA `16b681f193c3` differs from pin `20c8490591a3` and rust-analyzer produced 4/6 Q-scoped probes. Pinned results: existing `target-c-method` flip candidate, two stale/missing feature-gated probes, ambiguous-symbol contract `ok`. Generated report/snapshot artifacts were not committed.
+- Cache versions remain CPG 42 / sidecar 11 by explicit owner instruction; no new resolution heuristic, amend, or push.
+
 ## State
 
 **Merged to main** (tip at handoff: `900adf6` + one docs commit): P1 #149 (review-output collapse, probe 13.49 MB→552 KB), P2 #150 (docs truth pass, LLM.md deleted), P6a #151 (confidence-stratified M2: `exact_tier` gates / `candidate_tier` informational), #152 (CaseResult test drift), P3 #153 (R6MultiOwnerCandidate: capped ≤3-target NameOnly candidates for Py/JS/TS/Tsx unknown receivers; black `dropped_multi_owner` 230→30), P5 #154 (Go `callback_registration` table + `func_value_field`; cobra `emptyRun` 0→288). Plan doc status blocks record all of it + as-shipped corrections.

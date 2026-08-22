@@ -20,7 +20,12 @@ fn compute_param_names_pins_current_behavior() {
     use crate::languages::Language;
 
     // Free function: all params, no self/cls stripping.
-    let go = ParsedFile::parse("t.go", "func f(a int, b int) { _ = a }", Language::Go).unwrap();
+    let go = ParsedFile::parse(
+        "t.go",
+        "func f(a, b string, c int) { _, _, _ = a, b, c }",
+        Language::Go,
+    )
+    .unwrap();
     let fid = FunctionId {
         file: "t.go".into(),
         name: "f".into(),
@@ -29,7 +34,7 @@ fn compute_param_names_pins_current_behavior() {
     };
     assert_eq!(
         compute_param_names(&go, &fid),
-        Some(vec!["a".to_string(), "b".to_string()])
+        Some(vec!["a".to_string(), "b".to_string(), "c".to_string()])
     );
 
     // Python method with a self receiver + owner: self is stripped.
@@ -185,6 +190,40 @@ fn step5b_parallel_edge_collect_matches_serial_reference() {
         !par.is_empty(),
         "fixture produced no interproc DataFlow edges"
     );
+}
+
+#[test]
+fn step5b_grouped_go_parameters_parallel_matches_serial_reference() {
+    use super::build::CodePropertyGraph;
+    let mut files = std::collections::BTreeMap::new();
+    files.insert(
+        "grouped.go".to_string(),
+        ParsedFile::parse(
+            "grouped.go",
+            "package main\nfunc f(a, b string, c int) { use(a); use(b); use(c) }\nfunc caller(x, y string, z int) { f(x, y, z) }\n",
+            Language::Go,
+        )
+        .unwrap(),
+    );
+    let cpg = CodePropertyGraph::build(&files);
+    let parallel = CodePropertyGraph::collect_step5b_edges(
+        &cpg.call_graph,
+        &cpg.var_index,
+        &cpg.graph,
+        &files,
+    );
+    let serial = CodePropertyGraph::collect_step5b_edges_reference(
+        &cpg.call_graph,
+        &cpg.var_index,
+        &cpg.graph,
+        &files,
+    );
+
+    assert_eq!(
+        parallel, serial,
+        "grouped Go slots must preserve par==serial parity"
+    );
+    assert!(parallel.len() >= 3, "three grouped Go arguments must bind");
 }
 
 #[test]

@@ -45,6 +45,34 @@ fn two_calls_one_line_bind_their_own_args() {
 }
 
 #[test]
+fn go_grouped_parameter_creates_a_definition_for_every_binding() {
+    let source = "package p\nfunc f(a, b string) { sink(b) }\n";
+    let parsed = ParsedFile::parse("grouped.go", source, Language::Go).unwrap();
+    let files = BTreeMap::from([("grouped.go".to_string(), parsed)]);
+
+    let dfg = DataFlowGraph::build(&files);
+    let b_defs = dfg.all_defs_of("grouped.go", "b");
+    assert_eq!(b_defs.len(), 1, "grouped Go name `b` needs its own DFG Def");
+    let b = &b_defs[0];
+    assert_eq!(b.function, "f");
+    assert_eq!(&source[b.start_byte..b.end_byte], "b");
+}
+
+#[test]
+fn go_blank_parameter_creates_no_binding_definition() {
+    let source = "package p\nfunc f(a, _ string, c int) { sink(a); sink(c) }\n";
+    let parsed = ParsedFile::parse("blank.go", source, Language::Go).unwrap();
+    let files = BTreeMap::from([("blank.go".to_string(), parsed)]);
+
+    let dfg = DataFlowGraph::build(&files);
+    assert!(
+        dfg.all_defs_of("blank.go", "_").is_empty(),
+        "a Go blank parameter is not a binding definition"
+    );
+    assert_eq!(dfg.all_defs_of("blank.go", "c").len(), 1);
+}
+
+#[test]
 fn nested_augmented_base_peels_to_leftmost() {
     let source = concat!(
         "struct C { config: Cfg }\n",
