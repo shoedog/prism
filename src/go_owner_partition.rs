@@ -460,6 +460,6 @@ pub fn select_struct_field(
 
 pub use crate::go_owner_partition_s4::{
     select_embedded_interface_route, select_embedded_interface_route_with_mode,
-    select_interface_signatures, select_interface_signatures_with_mode, select_own_method,
-    select_own_method_with_mode,
+    select_interface_presence_with_mode, select_interface_signatures,
+    select_interface_signatures_with_mode, select_own_method, select_own_method_with_mode,
 };

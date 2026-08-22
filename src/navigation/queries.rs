@@ -574,17 +574,29 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             // (`resolution.rs`'s `resolve_call_site` around the M1 fix).
             let s4_blocked = s4_route.evidence.conflict || s4_route.evidence.uncertain;
             let s4_iface_name = s4_route.value.as_ref();
+            let interface_presence = site
+                .receiver_owner_identity
+                .as_ref()
+                .map(|owner| cg.go_visible_interface_owner(owner, &site.caller.file));
+            let direct_interface_blocked = interface_presence.as_ref().is_some_and(|selection| {
+                selection.evidence.conflict || selection.evidence.uncertain
+            });
             let proven_iface_name = site.receiver_owner_identity.as_ref().and_then(|owner| {
-                cg.go_interface_declarations
-                    .contains_key(owner)
+                interface_presence
+                    .as_ref()
+                    .is_some_and(|selection| selection.value == Some(true))
                     .then_some(&owner.name)
             });
+            let proven_concrete_owner = site.receiver_owner_identity.is_some()
+                && interface_presence
+                    .as_ref()
+                    .is_some_and(|selection| selection.value == Some(false));
             let impls: &[FunctionId] = if let Some(iface_name) = s4_iface_name {
                 cg.interface_impls
                     .get(&(iface_name.clone(), site.callee_name.clone()))
                     .map(|v| v.as_slice())
                     .unwrap_or(&[])
-            } else if s4_blocked {
+            } else if s4_blocked || direct_interface_blocked || proven_concrete_owner {
                 &[]
             } else if let Some(iface_name) = proven_iface_name {
                 cg.interface_impls

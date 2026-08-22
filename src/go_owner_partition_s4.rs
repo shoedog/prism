@@ -340,10 +340,13 @@ pub fn select_interface_signatures_with_mode(
         &mut BTreeSet::new(),
     );
     match result {
-        Ok(methods) if !methods.is_empty() => GoPartitionSelection {
-            value: Some(methods),
-            evidence,
-        },
+        Ok(methods) if !methods.is_empty() => {
+            evidence.recovered |= evidence.filtered_declarations > 0;
+            GoPartitionSelection {
+                value: Some(methods),
+                evidence,
+            }
+        }
         Ok(_) => GoPartitionSelection {
             value: None,
             evidence,
@@ -362,6 +365,49 @@ pub fn select_interface_signatures_with_mode(
                 evidence,
             }
         }
+    }
+}
+
+/// Prove whether this owner is an interface in the caller's exact build
+/// partition. Whole-snapshot membership is not enough because the same owner
+/// name may denote a concrete type and an interface in mutually exclusive Go
+/// build profiles.
+pub fn select_interface_presence_with_mode(
+    owner: &GoOwnerIdentity,
+    caller_file: &str,
+    mode: GoOwnerReferenceMode,
+    declarations: &GoInterfaceDeclarations,
+    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+) -> GoPartitionSelection<bool> {
+    let mut evidence = GoPartitionEvidence::default();
+    let mut visible = false;
+    for declaration in declarations.get(owner).into_iter().flatten() {
+        let (is_visible, exact) = exact_declaration_visibility(
+            owner,
+            caller_file,
+            mode,
+            &declaration.defining_file,
+            profiles,
+        );
+        if !is_visible {
+            evidence.filtered_declarations += 1;
+            continue;
+        }
+        evidence.visible_declarations += 1;
+        if !exact {
+            evidence.uncertain = true;
+            return GoPartitionSelection {
+                value: None,
+                evidence,
+            };
+        }
+        visible = true;
+    }
+    evidence.distinct_visible_values = 1;
+    evidence.recovered = visible && evidence.filtered_declarations > 0;
+    GoPartitionSelection {
+        value: Some(visible),
+        evidence,
     }
 }
 

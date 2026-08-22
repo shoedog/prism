@@ -490,3 +490,102 @@ fn s4_exported_primitive_signature_still_matches_across_packages() {
     assert_eq!(resolved_method_owners(&cg, "invoke", "Act"), expected);
     assert_eq!(manifest_owners(&cg, "lib/defs.go", "Act"), expected);
 }
+
+#[test]
+fn qualified_return_nested_field_preserves_each_package_owner() {
+    let cg = build_go(&[
+        (
+            "factory/factory.go",
+            "package factory\ntype Gadget struct{}\nfunc (Gadget) Use() {}\ntype Widget struct { Part Gadget }\nfunc New() Widget { return Widget{} }\n",
+        ),
+        (
+            "app/local.go",
+            "package app\ntype Gadget struct{}\nfunc (Gadget) Use() {}\ntype Widget struct { Part Gadget }\n",
+        ),
+        (
+            "app/use.go",
+            "package app\nimport factory \"example/factory\"\nfunc invoke() { w := factory.New(); w.Part.Use() }\n",
+        ),
+    ]);
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.caller.name == "invoke" && site.callee_name == "Use")
+        .expect("nested qualified-return method site");
+    let owner = site
+        .receiver_owner_identity
+        .as_ref()
+        .expect("nested field owner identity");
+
+    assert_eq!(owner.package_dir, "factory");
+    assert_eq!(owner.package_clause, "factory");
+    assert_eq!(owner.name, "Gadget");
+    assert_eq!(
+        resolved_target_files(&cg, "invoke", "Use"),
+        BTreeSet::from(["factory/factory.go".to_string()])
+    );
+}
+
+#[test]
+fn direct_interface_identity_never_reintroduces_a_bare_signature_decoy() {
+    let cg = build_go(&[
+        (
+            "factory/factory.go",
+            "package factory\ntype Doer interface { Act(string) }\ntype Local struct{}\nfunc (Local) Act(string) {}\nfunc New() Doer { panic(\"unreachable\") }\n",
+        ),
+        (
+            "other/other.go",
+            "package other\ntype Doer interface { Act(int) }\ntype Impl struct{}\nfunc (Impl) Act(int) {}\nfunc keepLive() { _ = Impl{} }\n",
+        ),
+        (
+            "app/use.go",
+            "package app\nimport factory \"example/factory\"\nfunc invoke() { value := factory.New(); value.Act(\"ok\") }\n",
+        ),
+    ]);
+    let expected = BTreeSet::from(["Local".to_string()]);
+
+    assert_eq!(resolved_method_owners(&cg, "invoke", "Act"), expected);
+    assert_eq!(manifest_owners(&cg, "app/use.go", "Act"), expected);
+}
+
+#[test]
+fn s4_identity_never_reintroduces_a_bare_signature_decoy() {
+    let cg = build_go(&[
+        (
+            "lib/defs.go",
+            "package lib\ntype Doer interface { Act(string) }\ntype Holder struct { Doer }\ntype Local struct{}\nfunc (Local) Act(string) {}\nfunc invoke(h Holder) { h.Act(\"ok\") }\n",
+        ),
+        (
+            "other/other.go",
+            "package other\ntype Doer interface { Act(int) }\ntype Impl struct{}\nfunc (Impl) Act(int) {}\nfunc keepLive() { _ = Impl{} }\n",
+        ),
+    ]);
+    let expected = BTreeSet::from(["Local".to_string()]);
+
+    assert_eq!(resolved_method_owners(&cg, "invoke", "Act"), expected);
+    assert_eq!(manifest_owners(&cg, "lib/defs.go", "Act"), expected);
+}
+
+#[test]
+fn qualified_return_uses_the_caller_visible_concrete_declaration_kind() {
+    let cg = build_go(&[
+        (
+            "factory/widget_linux.go",
+            "package factory\ntype Widget struct{}\nfunc (Widget) Use() {}\nfunc New() Widget { return Widget{} }\n",
+        ),
+        (
+            "factory/widget_windows.go",
+            "package factory\ntype Widget interface { Use() }\n",
+        ),
+        (
+            "app/use_linux.go",
+            "package app\nimport factory \"example/factory\"\nfunc invoke() { value := factory.New(); value.Use() }\n",
+        ),
+    ]);
+
+    assert_eq!(
+        resolved_target_files(&cg, "invoke", "Use"),
+        BTreeSet::from(["factory/widget_linux.go".to_string()])
+    );
+}

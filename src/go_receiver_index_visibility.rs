@@ -40,6 +40,85 @@ pub(crate) fn resolve_go_return_type_call(
     )
 }
 
+/// Resolve one selected struct field's declared type in the declaration file's
+/// package/import namespace. Returning only the raw field type is insufficient:
+/// a bare `Gadget` in `factory.Widget` must not later be rebound as
+/// `app.Gadget` by the caller that happens to use the widget.
+pub(crate) fn resolve_go_struct_field_owner(
+    owner: &crate::resolution::GoOwnerIdentity,
+    caller_file: &str,
+    mode: GoOwnerReferenceMode,
+    field_name: &str,
+    declarations: &BTreeSet<crate::go_owner_partition::GoStructDeclaration>,
+    imports: &BTreeMap<String, BTreeMap<String, String>>,
+    package_basenames: &BTreeMap<String, BTreeSet<String>>,
+    go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+) -> crate::go_owner_partition::GoPartitionSelection<crate::resolution::GoOwnerIdentity> {
+    let all_values: BTreeSet<Option<String>> = declarations
+        .iter()
+        .map(|declaration| declaration.fields.get(field_name).cloned())
+        .collect();
+    let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
+    let mut visible_values = BTreeSet::new();
+    let mut field_owners = BTreeSet::new();
+    for declaration in declarations {
+        let (visible, exact) = exact_declaration_visibility(
+            owner,
+            caller_file,
+            mode,
+            &declaration.defining_file,
+            go_file_profiles,
+        );
+        if !visible {
+            evidence.filtered_declarations += 1;
+            continue;
+        }
+        evidence.visible_declarations += 1;
+        if !exact {
+            evidence.uncertain = true;
+            return crate::go_owner_partition::GoPartitionSelection {
+                value: None,
+                evidence,
+            };
+        }
+        let field_type = declaration.fields.get(field_name).cloned();
+        visible_values.insert(field_type.clone());
+        let Some(field_type) = field_type else {
+            continue;
+        };
+        let Some(field_owner) = resolve_go_owner_identity(
+            &field_type,
+            &declaration.defining_file,
+            imports,
+            package_basenames,
+            go_file_profiles,
+        ) else {
+            evidence.uncertain = true;
+            return crate::go_owner_partition::GoPartitionSelection {
+                value: None,
+                evidence,
+            };
+        };
+        field_owners.insert(field_owner);
+    }
+    evidence.distinct_visible_values = visible_values.len().max(field_owners.len());
+    evidence.conflict = visible_values.len() > 1 || field_owners.len() > 1;
+    if evidence.conflict {
+        return crate::go_owner_partition::GoPartitionSelection {
+            value: None,
+            evidence,
+        };
+    }
+    evidence.recovered = all_values.len() > 1
+        && evidence.filtered_declarations > 0
+        && visible_values.len() == 1
+        && field_owners.len() == 1;
+    crate::go_owner_partition::GoPartitionSelection {
+        value: field_owners.into_iter().next(),
+        evidence,
+    }
+}
+
 fn unique_visible_return_owner(
     owner: &crate::resolution::GoOwnerIdentity,
     caller_file: &str,

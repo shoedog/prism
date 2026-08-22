@@ -1192,6 +1192,21 @@ impl CallGraph {
         )
     }
 
+    pub(crate) fn go_visible_interface_owner(
+        &self,
+        owner: &GoOwnerIdentity,
+        caller_file: &str,
+    ) -> crate::go_owner_partition::GoPartitionSelection<bool> {
+        let mode = self.go_owner_reference_mode(owner, caller_file);
+        crate::go_owner_partition::select_interface_presence_with_mode(
+            owner,
+            caller_file,
+            mode,
+            &self.go_interface_declarations,
+            &self.go_file_profiles,
+        )
+    }
+
     pub(crate) fn go_visible_s4_implementers<'a>(
         &'a self,
         recv_ty: &str,
@@ -1199,30 +1214,9 @@ impl CallGraph {
         interface_name: &str,
         method_name: &str,
         caller_file: &str,
-        candidates: Vec<&'a FunctionId>,
+        _candidates: Vec<&'a FunctionId>,
     ) -> crate::go_owner_partition::GoPartitionSelection<Vec<&'a FunctionId>> {
         let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
-        let mut visible_legacy = BTreeSet::new();
-        for candidate in candidates {
-            let (is_visible, exact) = crate::go_owner_partition::exact_cross_package_visibility(
-                caller_file,
-                &candidate.file,
-                &self.go_file_profiles,
-            );
-            if !is_visible {
-                evidence.filtered_declarations += 1;
-                continue;
-            }
-            evidence.visible_declarations += 1;
-            if !exact {
-                evidence.uncertain = true;
-                return crate::go_owner_partition::GoPartitionSelection {
-                    value: None,
-                    evidence,
-                };
-            }
-            visible_legacy.insert(candidate);
-        }
 
         let Some(receiver_owner) = self.go_receiver_owner(recv_ty, caller_file, proven_owner)
         else {
@@ -1254,18 +1248,6 @@ impl CallGraph {
         let requires_interface_namespace = required
             .keys()
             .any(|name| !name.chars().next().is_some_and(char::is_uppercase));
-        if requires_interface_namespace {
-            visible_legacy.retain(|candidate| {
-                dir_of(&candidate.file) == interface_owner.package_dir
-                    && self
-                        .go_file_profiles
-                        .get(&candidate.file)
-                        .is_some_and(|profile| {
-                            profile.package_clause == interface_owner.package_clause
-                        })
-            });
-        }
-
         let mut all_satisfiers: Vec<(String, &'a FunctionId)> = Vec::new();
         for (concrete_owner, declarations) in &self.go_method_declarations {
             if requires_interface_namespace
@@ -1351,18 +1333,12 @@ impl CallGraph {
             .filter(|(key, _)| self.go_interface_live_types.contains(key))
             .map(|(_, target)| *target)
             .collect();
-        let promoted_legacy: BTreeSet<&FunctionId> =
-            visible_legacy.difference(&all_ids).copied().collect();
         let chosen = if !live_ids.is_empty() {
             live_ids
-        } else if !promoted_legacy.is_empty() {
-            promoted_legacy
         } else {
             all_ids
         };
         evidence.distinct_visible_values = chosen.len();
-        evidence.recovered |= (!visible_legacy.is_empty() || !chosen.is_empty())
-            && (evidence.filtered_declarations > 0 || visible_legacy != chosen);
         crate::go_owner_partition::GoPartitionSelection {
             value: Some(chosen.into_iter().collect()),
             evidence,
@@ -2079,58 +2055,74 @@ impl CallGraph {
                         }
                     } else {
                         if caller_lang == Some(crate::languages::Language::Go) {
-                            if let Some(interface_owner) = site
-                                .receiver_owner_identity
-                                .as_ref()
-                                .filter(|owner| self.go_interface_declarations.contains_key(*owner))
-                            {
-                                let ids = self
-                                    .interface_impls
-                                    .get(&(interface_owner.name.clone(), name.to_string()))
-                                    .map(Vec::as_slice)
-                                    .unwrap_or(&[]);
-                                let visible = self.go_visible_s4_implementers(
-                                    recv_ty,
-                                    Some(interface_owner),
-                                    &interface_owner.name,
-                                    name,
-                                    &site.caller.file,
-                                    ids.iter().collect(),
-                                );
-                                let evidence = visible.evidence;
-                                if evidence.uncertain || evidence.conflict {
+                            if let Some(interface_owner) = site.receiver_owner_identity.as_ref() {
+                                let interface_presence = self
+                                    .go_visible_interface_owner(interface_owner, &site.caller.file);
+                                if interface_presence.evidence.uncertain
+                                    || interface_presence.evidence.conflict
+                                {
                                     return ResolutionOutcome::dropped_with_telemetry(
                                         DropReason::ExternalReceiver,
-                                        ResolutionTelemetry::with_go_owner_partition(evidence, 1),
+                                        ResolutionTelemetry::with_go_owner_partition(
+                                            interface_presence.evidence,
+                                            1,
+                                        ),
                                     );
                                 }
-                                let kept: Vec<&FunctionId> = visible
-                                    .value
-                                    .unwrap_or_default()
-                                    .into_iter()
-                                    .filter(|target| {
-                                        arity_admits(
-                                            site.arg_count,
-                                            site.arg_spread,
-                                            self.method_arity.get(*target),
+                                if interface_presence.value == Some(true) {
+                                    let ids = self
+                                        .interface_impls
+                                        .get(&(interface_owner.name.clone(), name.to_string()))
+                                        .map(Vec::as_slice)
+                                        .unwrap_or(&[]);
+                                    let visible = self.go_visible_s4_implementers(
+                                        recv_ty,
+                                        Some(interface_owner),
+                                        &interface_owner.name,
+                                        name,
+                                        &site.caller.file,
+                                        ids.iter().collect(),
+                                    );
+                                    let mut evidence = interface_presence.evidence;
+                                    evidence.merge(visible.evidence);
+                                    if evidence.uncertain || evidence.conflict {
+                                        return ResolutionOutcome::dropped_with_telemetry(
+                                            DropReason::ExternalReceiver,
+                                            ResolutionTelemetry::with_go_owner_partition(
+                                                evidence, 1,
+                                            ),
+                                        );
+                                    }
+                                    let kept: Vec<&FunctionId> = visible
+                                        .value
+                                        .unwrap_or_default()
+                                        .into_iter()
+                                        .filter(|target| {
+                                            arity_admits(
+                                                site.arg_count,
+                                                site.arg_spread,
+                                                self.method_arity.get(*target),
+                                            )
+                                        })
+                                        .collect();
+                                    return if kept.is_empty() {
+                                        ResolutionOutcome::dropped_with_telemetry(
+                                            DropReason::ExternalReceiver,
+                                            ResolutionTelemetry::with_go_owner_partition(
+                                                evidence, 0,
+                                            ),
                                         )
-                                    })
-                                    .collect();
-                                return if kept.is_empty() {
-                                    ResolutionOutcome::dropped_with_telemetry(
-                                        DropReason::ExternalReceiver,
-                                        ResolutionTelemetry::with_go_owner_partition(evidence, 0),
-                                    )
-                                } else {
-                                    let affected_edges = kept.len();
-                                    ResolutionOutcome::hit_with_telemetry(
-                                        exact(kept, ResolutionKind::InterfaceDispatch),
-                                        ResolutionTelemetry::with_go_owner_partition(
-                                            evidence,
-                                            affected_edges,
-                                        ),
-                                    )
-                                };
+                                    } else {
+                                        let affected_edges = kept.len();
+                                        ResolutionOutcome::hit_with_telemetry(
+                                            exact(kept, ResolutionKind::InterfaceDispatch),
+                                            ResolutionTelemetry::with_go_owner_partition(
+                                                evidence,
+                                                affected_edges,
+                                            ),
+                                        )
+                                    };
+                                }
                             }
                         }
                         let own_method_partition =

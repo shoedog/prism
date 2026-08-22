@@ -349,12 +349,21 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
     }
 
     if ctx.qualifier.contains('.') {
-        let (recovered, evidence) =
+        let (recovered, evidence, materialized) =
             classify_nested_selector(ctx, base_classifier, facts, var_local);
         if let Some(rec) = recovered {
             return (
                 ReceiverClassification {
                     recovered: Some(rec),
+                    materialized: true,
+                },
+                evidence,
+            );
+        }
+        if materialized {
+            return (
+                ReceiverClassification {
+                    recovered: None,
                     materialized: true,
                 },
                 evidence,
@@ -493,18 +502,19 @@ fn classify_nested_selector(
 ) -> (
     Option<RecoveredReceiver>,
     crate::go_owner_partition::GoPartitionEvidence,
+    bool,
 ) {
     let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
     let Some((base_node, segments)) = decompose_go_selector_chain(ctx.receiver_expr, ctx.parsed)
     else {
-        return (None, evidence);
+        return (None, evidence, false);
     };
     if segments.is_empty() || segments.len() > 2 {
-        return (None, evidence); // 3+-hop chain — depth guard, no recovery.
+        return (None, evidence, false); // 3+-hop chain — depth guard, no recovery.
     }
     let base_text = ctx.parsed.node_text(&base_node).trim();
     if !is_simple_ident_text(base_text) {
-        return (None, evidence);
+        return (None, evidence, false);
     }
     let base_ctx = GoReceiverCtx {
         parsed: ctx.parsed,
@@ -522,43 +532,63 @@ fn classify_nested_selector(
     let Some(base_recovered) =
         classify_go_receiver_expanded(&base_ctx, base_classifier, facts, var_local).recovered
     else {
-        return (None, evidence);
+        return (None, evidence, false);
     };
 
-    let mut current = base_recovered.static_type;
+    let mut current_owner = match base_recovered.owner_identity {
+        Some(owner) => owner,
+        None => {
+            let Some(owner) = resolve_go_owner_identity(
+                &base_recovered.static_type,
+                ctx.caller_file,
+                facts.imports,
+                facts.package_basenames,
+                facts.go_file_profiles,
+            ) else {
+                return (None, evidence, true);
+            };
+            owner
+        }
+    };
     for seg in segments {
-        let Some(owner) = resolve_go_owner_identity(
-            &current,
+        let Some(declarations) = facts.field_types.get(&current_owner) else {
+            return (None, evidence, true);
+        };
+        let same_namespace = facts
+            .go_file_profiles
+            .get(ctx.caller_file)
+            .is_some_and(|profile| {
+                crate::resolution::dir_of(ctx.caller_file) == current_owner.package_dir
+                    && profile.package_clause == current_owner.package_clause
+            });
+        let mode = if same_namespace {
+            crate::go_owner_partition::GoOwnerReferenceMode::Bare
+        } else {
+            crate::go_owner_partition::GoOwnerReferenceMode::Qualified
+        };
+        let selection = crate::go_receiver_index_visibility::resolve_go_struct_field_owner(
+            &current_owner,
             ctx.caller_file,
+            mode,
+            &seg,
+            declarations,
             facts.imports,
             facts.package_basenames,
             facts.go_file_profiles,
-        ) else {
-            return (None, evidence);
-        };
-        let Some(declarations) = facts.field_types.get(&owner) else {
-            return (None, evidence);
-        };
-        let selection = crate::go_owner_partition::select_struct_field(
-            &owner,
-            ctx.caller_file,
-            &current,
-            &seg,
-            declarations,
-            facts.go_file_profiles,
         );
         evidence.merge(selection.evidence);
-        let Some(field_ty) = selection.value else {
-            return (None, evidence);
+        let Some(field_owner) = selection.value else {
+            return (None, evidence, true);
         };
-        current = owner_key(&peel_type(&field_ty));
+        current_owner = field_owner;
     }
     (
         Some(RecoveredReceiver {
-            static_type: current,
-            owner_identity: None,
+            static_type: current_owner.name.clone(),
+            owner_identity: Some(current_owner),
             recovery: ReceiverRecovery::FieldTyped,
         }),
         evidence,
+        true,
     )
 }
