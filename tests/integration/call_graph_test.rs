@@ -1,4 +1,5 @@
 use crate::common::*;
+use prism::call_graph::CallSiteOrigin;
 
 fn build_call_graph_one(file: &str, src: &str) -> CallGraph {
     let parsed = ParsedFile::parse(file, src, Language::Python).unwrap();
@@ -584,6 +585,180 @@ void setup(void) {
         callee_names.contains("real_handler"),
         "Level 3+1: invoke(h, 10) where h = real_handler should resolve cb to real_handler, got: {:?}",
         callee_names
+    );
+}
+
+#[test]
+fn level3_js_default_parameter_does_not_mis_slot_callback() {
+    let source = r#"
+function safe() {}
+function invoke(x = 0, cb) { cb(); }
+function start() { invoke(safe, 0); }
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "callbacks.js".to_string(),
+        ParsedFile::parse("callbacks.js", source, Language::JavaScript).unwrap(),
+    );
+
+    let cg = CallGraph::build(&files);
+    let invoke = cg.functions["invoke"]
+        .iter()
+        .find(|id| id.file == "callbacks.js")
+        .unwrap();
+    assert!(
+        !cg.calls[invoke].iter().any(|site| {
+            site.origin == CallSiteOrigin::IndirectResolution && site.callee_name == "safe"
+        }),
+        "a default parameter must not shift cb onto the first argument"
+    );
+}
+
+#[test]
+fn level3_js_destructured_parameters_do_not_mis_slot_callbacks() {
+    let source = r#"
+function safe() {}
+function array([x], cb) { cb(); }
+function object({x}, cb) { cb(); }
+function start() { array(safe, 0); object(safe, 0); }
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "callbacks.js".to_string(),
+        ParsedFile::parse("callbacks.js", source, Language::JavaScript).unwrap(),
+    );
+
+    let cg = CallGraph::build(&files);
+    for name in ["array", "object"] {
+        let function = cg.functions[name]
+            .iter()
+            .find(|id| id.file == "callbacks.js")
+            .unwrap();
+        assert!(
+            !cg.calls[function].iter().any(|site| {
+                site.origin == CallSiteOrigin::IndirectResolution && site.callee_name == "safe"
+            }),
+            "{name} must not produce a callback edge from a non-slot parameter"
+        );
+    }
+}
+
+#[test]
+fn level3_js_duplicate_parameter_bindings_do_not_select_a_slot() {
+    let source = r#"
+function safe() {}
+function target() {}
+function invoke(cb, cb) { cb(); }
+function start() { invoke(safe, target); }
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "callbacks.js".to_string(),
+        ParsedFile::parse("callbacks.js", source, Language::JavaScript).unwrap(),
+    );
+
+    let cg = CallGraph::build(&files);
+    let invoke = cg.functions["invoke"]
+        .iter()
+        .find(|id| id.file == "callbacks.js")
+        .unwrap();
+    assert!(
+        !cg.calls[invoke]
+            .iter()
+            .any(|site| site.origin == CallSiteOrigin::IndirectResolution),
+        "duplicate parameter bindings are not an exact callback mapping"
+    );
+}
+
+#[test]
+fn level3_binds_the_containing_function_identity_not_just_its_name() {
+    let mut files = BTreeMap::new();
+    files.insert(
+        "a.js".to_string(),
+        ParsedFile::parse(
+            "a.js",
+            "function invoke(cb) { cb(); }",
+            Language::JavaScript,
+        )
+        .unwrap(),
+    );
+    files.insert(
+        "b.js".to_string(),
+        ParsedFile::parse(
+            "b.js",
+            "function safe() {}\nfunction target() {}\nfunction invoke(x, cb) { cb(); }\nfunction start() { invoke(safe, target); }",
+            Language::JavaScript,
+        )
+        .unwrap(),
+    );
+
+    let cg = CallGraph::build(&files);
+    let a_invoke = cg.functions["invoke"]
+        .iter()
+        .find(|id| id.file == "a.js")
+        .unwrap();
+    assert!(
+        !cg.calls[a_invoke].iter().any(|site| {
+            site.origin == CallSiteOrigin::IndirectResolution && site.callee_name == "safe"
+        }),
+        "an incoming call resolved to b.js::invoke must not feed a.js::invoke"
+    );
+}
+
+#[test]
+fn level3_js_plain_identifier_parameters_keep_exact_callback_edge() {
+    let source = r#"
+function safe() {}
+function invoke(a, cb) { cb(); }
+function start() { invoke(0, safe); }
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "callbacks.js".to_string(),
+        ParsedFile::parse("callbacks.js", source, Language::JavaScript).unwrap(),
+    );
+
+    let cg = CallGraph::build(&files);
+    let invoke = cg.functions["invoke"]
+        .iter()
+        .find(|id| id.file == "callbacks.js")
+        .unwrap();
+    assert!(
+        cg.calls[invoke].iter().any(|site| {
+            site.origin == CallSiteOrigin::IndirectResolution && site.callee_name == "safe"
+        }),
+        "plain positional identifiers retain the exact callback edge"
+    );
+}
+
+#[test]
+fn level3_uses_each_inbound_callsite_byte_span_for_arguments() {
+    let source = r#"
+function safe() {}
+function target() {}
+function invoke(a, cb) { cb(); }
+function start() { invoke(0, safe); invoke(0, target); }
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "callbacks.js".to_string(),
+        ParsedFile::parse("callbacks.js", source, Language::JavaScript).unwrap(),
+    );
+
+    let cg = CallGraph::build(&files);
+    let invoke = cg.functions["invoke"]
+        .iter()
+        .find(|id| id.file == "callbacks.js")
+        .unwrap();
+    let resolved: BTreeSet<_> = cg.calls[invoke]
+        .iter()
+        .filter(|site| site.origin == CallSiteOrigin::IndirectResolution)
+        .map(|site| site.callee_name.as_str())
+        .collect();
+    assert_eq!(
+        resolved,
+        BTreeSet::from(["safe", "target"]),
+        "same-line calls with the same callee must retain their own argument lists"
     );
 }
 

@@ -185,7 +185,10 @@ fn collect_peers_in_file(parsed: &ParsedFile) -> Vec<PeerInfo> {
             Some(n) => parsed.node_text(&n).to_string(),
             None => continue,
         };
-        let params = parsed.function_parameter_names(&func);
+        let params = match parsed.function_parameter_slots(&func) {
+            Some(params) => params,
+            None => continue,
+        };
         let first_param = match params.first() {
             Some(p) if !p.is_empty() => p.clone(),
             _ => continue,
@@ -286,5 +289,24 @@ fn strip_line_comment(line: &str) -> &str {
         &line[..pos]
     } else {
         line
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::languages::Language;
+
+    #[test]
+    fn destructured_first_parameter_is_not_compressed_into_a_peer_slot() {
+        let source = "function a({value}, cb) { use(cb); }\n\
+                      function b({value}, cb) { use(cb); }\n\
+                      function c({value}, cb) { use(cb); }\n";
+        let parsed = ParsedFile::parse("handlers.js", source, Language::JavaScript).unwrap();
+
+        assert!(
+            collect_peers_in_file(&parsed).is_empty(),
+            "a later callback parameter is not the function's first runtime slot"
+        );
     }
 }

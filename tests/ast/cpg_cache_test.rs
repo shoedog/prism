@@ -134,6 +134,14 @@ fn normalized_cpg_behavior(cpg: &CodePropertyGraph) -> Vec<String> {
         }
     }
     out.push(format!(
+        "cg-index param_slots_unknown {:?}",
+        cpg.call_graph.param_slots_unknown
+    ));
+    out.push(format!(
+        "cg-index level3_indirect_resolved {}",
+        cpg.call_graph.level3_indirect_resolved
+    ));
+    out.push(format!(
         "cg-index static_functions {:?}",
         cpg.call_graph.static_functions
     ));
@@ -597,6 +605,57 @@ fn test_cache_round_trip_javascript() {
         ctx_original.cpg.graph.edge_count(),
         loaded_cpg.graph.edge_count()
     );
+}
+
+#[test]
+fn cache_round_trips_parameter_slot_telemetry() {
+    let source = "function safe() {}\nfunction blocked(cb, cb) { cb(); }\nfunction invoke(a, cb) { cb(); }\nfunction outer() { invoke(0, safe); }\n";
+    let sources = BTreeMap::from([("callbacks.js".to_string(), source.to_string())]);
+    let files = parsed_files(&[("callbacks.js", source, Language::JavaScript)]);
+    let ctx = CpgContext::build(&files, None);
+
+    assert_eq!(
+        ctx.cpg.call_graph.param_slots_unknown,
+        BTreeMap::from([(Language::JavaScript, 1)])
+    );
+    assert_eq!(ctx.cpg.call_graph.level3_indirect_resolved, 1);
+
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
+    let loaded = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
+
+    assert_eq!(
+        loaded.call_graph.param_slots_unknown,
+        ctx.cpg.call_graph.param_slots_unknown
+    );
+    assert_eq!(
+        loaded.call_graph.level3_indirect_resolved,
+        ctx.cpg.call_graph.level3_indirect_resolved
+    );
+}
+
+#[test]
+fn incremental_parameter_slot_telemetry_matches_full_build() {
+    let v1 = parsed_files(&[(
+        "callbacks.js",
+        "function safe() {}\nfunction invoke(a, cb) { cb(); }\nfunction outer() { invoke(0, safe); }\n",
+        Language::JavaScript,
+    )]);
+    let v2 = parsed_files(&[(
+        "callbacks.js",
+        "function safe() {}\nfunction blocked(cb, cb) { cb(); }\nfunction invoke(a, cb) { cb(); }\nfunction outer() { invoke(0, safe); }\n",
+        Language::JavaScript,
+    )]);
+
+    let incremental =
+        assert_incremental_matches_full(v1, v2, BTreeSet::from(["callbacks.js".to_string()]));
+
+    assert_eq!(
+        incremental.call_graph.param_slots_unknown,
+        BTreeMap::from([(Language::JavaScript, 1)])
+    );
+    assert_eq!(incremental.call_graph.level3_indirect_resolved, 1);
 }
 
 #[test]

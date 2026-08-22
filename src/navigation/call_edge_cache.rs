@@ -34,7 +34,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // empty-path glob with a meaningful anchor) now resolves instead of
 // poisoning, changing which Rust call sites resolve out of nested
 // modules/blocks that relied on an anchor-only glob, changing nav topology.
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 10;
+// v11: fail-closed positional parameter slots and exact Level-3 callback
+// identity change which synthetic callback edges enter the nav index.
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 11;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -357,8 +359,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_10() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 10);
+    fn sidecar_version_is_11_for_parameter_slot_topology() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 11);
     }
 
     #[test]

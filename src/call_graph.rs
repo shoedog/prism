@@ -309,6 +309,14 @@ pub struct CallGraph {
     pub calls: BTreeMap<FunctionId, BTreeSet<CallSite>>,
     /// Reverse edges: function name → set of call sites that invoke it.
     pub callers: BTreeMap<String, Vec<CallSite>>,
+    /// Functions whose positional slots cannot be represented exactly, grouped
+    /// by source language. Positional consumers fail closed for these functions.
+    #[serde(default)]
+    pub param_slots_unknown: BTreeMap<crate::languages::Language, usize>,
+    /// Synthetic callback edges emitted by Level 3 during the last indirect
+    /// resolution pass. Generic indirect origins cannot distinguish this level.
+    #[serde(default)]
+    pub level3_indirect_resolved: usize,
     /// Functions with file-local (static) linkage: `(file, name)` pairs.
     /// Used to disambiguate same-named functions across files.
     pub static_functions: BTreeSet<(String, String)>,
@@ -613,6 +621,8 @@ impl CallGraph {
             functions: BTreeMap::new(),
             calls: BTreeMap::new(),
             callers: BTreeMap::new(),
+            param_slots_unknown: BTreeMap::new(),
+            level3_indirect_resolved: 0,
             static_functions: BTreeSet::new(),
             imports: BTreeMap::new(),
             methods: BTreeMap::new(),
@@ -823,6 +833,8 @@ impl CallGraph {
             functions,
             calls,
             callers,
+            param_slots_unknown: Self::parameter_slots_unknown(files),
+            level3_indirect_resolved: 0,
             static_functions,
             imports: BTreeMap::new(),
             methods,
@@ -1193,6 +1205,8 @@ impl CallGraph {
             functions,
             calls,
             callers,
+            param_slots_unknown: Self::parameter_slots_unknown(files),
+            level3_indirect_resolved: 0,
             static_functions,
             imports,
             methods,
@@ -1336,6 +1350,20 @@ impl CallGraph {
         Self::extract_js_ts_resolution_facts_from_iter(files.iter())
     }
 
+    fn parameter_slots_unknown(
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> BTreeMap<crate::languages::Language, usize> {
+        let mut unknown = BTreeMap::new();
+        for parsed in files.values() {
+            for function in parsed.all_functions() {
+                if parsed.function_parameter_slots(&function).is_none() {
+                    *unknown.entry(parsed.language).or_default() += 1;
+                }
+            }
+        }
+        unknown
+    }
+
     fn extract_js_ts_resolution_facts_from_iter<'a, I>(
         files: I,
     ) -> (
@@ -1420,6 +1448,10 @@ impl CallGraph {
     /// Used by incremental cache update: when a file changes, its call graph
     /// contributions are stripped out before fresh data is merged in.
     pub fn remove_files(&mut self, exclude: &BTreeSet<String>) {
+        // Both are whole-program pass products and are repopulated from the
+        // complete files map by `build_direct_subset` / `recompute_indirect_calls`.
+        self.param_slots_unknown.clear();
+        self.level3_indirect_resolved = 0;
         // functions: remove FunctionId entries from excluded files.
         for func_ids in self.functions.values_mut() {
             func_ids.retain(|fid| !exclude.contains(&fid.file));
@@ -1561,6 +1593,8 @@ impl CallGraph {
     /// Entries from `other` are added to the existing data. Typically called
     /// after `remove_files` to splice in freshly-built data for changed files.
     pub fn merge(&mut self, other: CallGraph) {
+        self.param_slots_unknown = other.param_slots_unknown;
+        self.level3_indirect_resolved = other.level3_indirect_resolved;
         for (name, fids) in other.functions {
             self.functions.entry(name).or_default().extend(fids);
         }
@@ -1672,11 +1706,13 @@ impl CallGraph {
 
     pub(crate) fn recompute_indirect_calls(&mut self, files: &BTreeMap<String, ParsedFile>) {
         self.clear_indirect_calls();
-        let sites = self.compute_indirect_call_sites(files);
+        let (sites, level3_resolved) = self.compute_indirect_call_sites(files);
         self.apply_indirect_call_sites(sites);
+        self.level3_indirect_resolved = level3_resolved;
     }
 
     fn clear_indirect_calls(&mut self) {
+        self.level3_indirect_resolved = 0;
         for sites in self.calls.values_mut() {
             sites.retain(|site| site.origin != CallSiteOrigin::IndirectResolution);
         }
@@ -1691,7 +1727,7 @@ impl CallGraph {
     fn compute_indirect_call_sites(
         &self,
         files: &BTreeMap<String, ParsedFile>,
-    ) -> Vec<(FunctionId, CallSite)> {
+    ) -> (Vec<(FunctionId, CallSite)>, usize) {
         // Resolve indirect call sites (function pointer variables and dispatch
         // tables). Preserve the historical level ordering:
         // 1/2 local function pointer and array dispatch, 4 struct callbacks,
@@ -1832,10 +1868,19 @@ impl CallGraph {
                 None => continue,
             };
 
-            let func_node = parsed.find_function_by_name(&caller_id.name);
+            let func_node = parsed.all_functions().into_iter().find(|function| {
+                parsed
+                    .language
+                    .function_name(function)
+                    .is_some_and(|name| parsed.node_text(&name) == caller_id.name)
+                    && parsed.node_line_range(function).0 == caller_id.start_line
+            });
             let param_names = match func_node {
-                Some(ref f) => parsed.function_parameter_names(f),
+                Some(ref function) => parsed.function_parameter_slots(function),
                 None => continue,
+            };
+            let Some(param_names) = param_names else {
+                continue;
             };
             if param_names.is_empty() {
                 continue;
@@ -1862,9 +1907,16 @@ impl CallGraph {
                     continue;
                 }
 
-                let param_idx = match param_names.iter().position(|p| p == &site.callee_name) {
-                    Some(idx) => idx,
-                    None => continue,
+                let param_indices: Vec<_> = param_names
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, parameter)| {
+                        (parameter == &site.callee_name).then_some(index)
+                    })
+                    .collect();
+                let param_idx = match param_indices.as_slice() {
+                    [index] => *index,
+                    _ => continue,
                 };
 
                 if let Some(caller_sites) = self.callers.get(&caller_id.name) {
@@ -1874,22 +1926,32 @@ impl CallGraph {
                             None => continue,
                         };
 
-                        if let Some(arg_text) = caller_parsed.call_argument_text_at(
-                            caller_site.line,
-                            &caller_id.name,
-                            param_idx,
+                        let inbound = self.resolve_call_site_full(caller_site);
+                        if !matches!(
+                            inbound.resolved.as_slice(),
+                            [resolved]
+                                if *resolved.target == *caller_id
+                                    && resolved.confidence
+                                        == crate::resolution::ResolutionConfidence::Exact
                         ) {
-                            if known_fn_names.contains(&arg_text) {
+                            continue;
+                        }
+                        let args = caller_parsed.call_argument_texts_at(
+                            caller_site.start_byte,
+                            &caller_site.callee_name,
+                        );
+                        if let Some(arg_text) = args.get(param_idx) {
+                            if known_fn_names.contains(arg_text) {
                                 level3_sites.push((
                                     caller_id.clone(),
-                                    Self::indirect_call_site(caller_id, arg_text, site),
+                                    Self::indirect_call_site(caller_id, arg_text.clone(), site),
                                 ));
                             } else {
                                 let caller_func_source =
                                     Self::extract_func_source(caller_parsed, &caller_site.caller);
                                 if let Some(resolved) = crate::ast::resolve_fptr_assignment(
                                     &caller_func_source,
-                                    &arg_text,
+                                    arg_text,
                                     &known_fn_names,
                                 ) {
                                     level3_sites.push((
@@ -1904,8 +1966,9 @@ impl CallGraph {
             }
         }
 
+        let level3_resolved = level3_sites.iter().cloned().collect::<BTreeSet<_>>().len();
         extra_sites.extend(level3_sites);
-        extra_sites
+        (extra_sites, level3_resolved)
     }
 
     fn apply_indirect_call_sites(&mut self, sites: Vec<(FunctionId, CallSite)>) {
@@ -3801,6 +3864,8 @@ impl CallGraph {
             functions,
             calls,
             callers,
+            param_slots_unknown: Self::parameter_slots_unknown(files),
+            level3_indirect_resolved: 0,
             static_functions,
             imports,
             methods,

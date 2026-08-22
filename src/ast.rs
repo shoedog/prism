@@ -4,6 +4,9 @@ use anyhow::{Context, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::{Node, Parser, Tree};
 
+/// A parameter binding and the byte span of its identifier token.
+pub type ParameterOccurrence = (String, usize, usize);
+
 /// Count ERROR and MISSING nodes in a parse tree.
 ///
 /// Returns `(error_count, total_nodes)` so callers can compute an error rate.
@@ -99,7 +102,9 @@ pub struct FunctionInfo {
     pub end_byte: usize,
     pub start_line: usize, // 1-indexed, inclusive
     pub end_line: usize,   // 1-indexed, inclusive
-    pub param_names: Vec<String>,
+    /// Positional runtime slots when the signature can be represented exactly.
+    /// `None` fails positional consumers closed.
+    pub param_names: Option<Vec<String>>,
     /// S3: owning type for methods (bare key, generics stripped). None = free fn.
     pub owner: Option<String>,
     /// S3 (Go only): receiver variable name (`t` in `func (t *T) m()`).
@@ -531,7 +536,7 @@ impl ParsedFile {
                 end_byte: node.end_byte(),
                 start_line: node.start_position().row + 1,
                 end_line: node.end_position().row + 1,
-                param_names: self.function_parameter_names(&node),
+                param_names: self.function_parameter_slots(&node),
                 owner: self
                     .language
                     .method_owner(&node)
@@ -5860,23 +5865,15 @@ impl ParsedFile {
         None
     }
 
-    /// Extract the ordered parameter names from a function definition node.
+    /// Extract binding names in declaration order for non-positional consumers.
     ///
-    /// Walks the tree-sitter AST to find `parameter_declaration` (C/C++),
-    /// `parameter` (Go/Rust), or `identifier` children of the parameters node.
-    /// Returns the names in declaration order.
+    /// Go grouped declarations intentionally expand (`a, b string` yields both
+    /// bindings), so DFG and reasoning receive one definition seed per name.
     pub fn function_parameter_names(&self, func_node: &Node<'_>) -> Vec<String> {
-        let mut names = Vec::new();
-        // Find the parameters node — could be in a declarator chain (C/C++) or direct
-        if let Some(params) = self.find_parameters_node(func_node) {
-            let mut cursor = params.walk();
-            for child in params.children(&mut cursor) {
-                if let Some(name) = self.extract_param_name(&child) {
-                    names.push(name);
-                }
-            }
-        }
-        names
+        self.function_parameter_occurrences(func_node)
+            .into_iter()
+            .map(|(name, _, _)| name)
+            .collect()
     }
 
     /// Byte-bearing sibling of `function_parameter_names`.
@@ -5884,15 +5881,12 @@ impl ParsedFile {
     /// The tuple is `(name, start_byte, end_byte)` for the actual parameter
     /// binding token. The DFG still anchors parameter defs to the function start
     /// line for call-boundary compatibility.
-    pub fn function_parameter_occurrences(
-        &self,
-        func_node: &Node<'_>,
-    ) -> Vec<(String, usize, usize)> {
+    pub fn function_parameter_occurrences(&self, func_node: &Node<'_>) -> Vec<ParameterOccurrence> {
         let mut params_out = Vec::new();
         if let Some(params) = self.find_parameters_node(func_node) {
             let mut cursor = params.walk();
             for child in params.children(&mut cursor) {
-                if let Some(name_node) = self.extract_param_name_node(&child) {
+                for name_node in self.parameter_binding_name_nodes(child) {
                     params_out.push((
                         self.node_text(&name_node).to_string(),
                         name_node.start_byte(),
@@ -5904,9 +5898,42 @@ impl ParsedFile {
         params_out
     }
 
+    /// Exact runtime parameter slots in declaration order. A deterministic
+    /// prefix is returned through the first variadic, keyword-only, or
+    /// unrepresentable parameter; duplicate bindings and parse recovery return
+    /// `None` because they cannot support an exact positional mapping.
+    pub fn function_parameter_slots(&self, func_node: &Node<'_>) -> Option<Vec<String>> {
+        crate::parameter_slots::slots(self, func_node)
+            .map(|occurrences| occurrences.into_iter().map(|(name, _, _)| name).collect())
+    }
+
+    /// Byte-bearing twin of [`Self::function_parameter_slots`].
+    pub fn function_parameter_slot_occurrences(
+        &self,
+        func_node: &Node<'_>,
+    ) -> Option<Vec<ParameterOccurrence>> {
+        crate::parameter_slots::slots(self, func_node)
+    }
+
+    fn parameter_binding_name_nodes<'a>(&self, node: Node<'a>) -> Vec<Node<'a>> {
+        if self.language == Language::Go
+            && matches!(
+                node.kind(),
+                "parameter_declaration" | "variadic_parameter_declaration"
+            )
+        {
+            let mut cursor = node.walk();
+            return node
+                .children(&mut cursor)
+                .filter(|child| child.kind() == "identifier")
+                .collect();
+        }
+        self.extract_param_name_node(&node).into_iter().collect()
+    }
+
     /// Find the parameters node within a function definition.
     /// Handles the C/C++ declarator chain (function_definition → declarator → function_declarator → parameters).
-    fn find_parameters_node<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
+    pub(crate) fn find_parameters_node<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
         let node = self.unwrap_decorated(*node);
         // Direct "parameters" field (Go, Rust, Python, JS/TS, Java, Lua)
         if let Some(params) = node.child_by_field_name("parameters") {
@@ -6434,7 +6461,7 @@ impl ParsedFile {
         }
     }
 
-    fn extract_param_name_node<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
+    pub(crate) fn extract_param_name_node<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
         match node.kind() {
             "parameter_declaration" | "optional_parameter_declaration" => {
                 if let Some(decl) = node.child_by_field_name("declarator") {
@@ -7564,7 +7591,10 @@ mod tests {
             assert_eq!(info.kind_id, node.kind_id());
         }
         assert_eq!(table[0].name.as_deref(), Some("alpha"));
-        assert_eq!(table[0].param_names, vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(
+            table[0].param_names,
+            Some(vec!["a".to_string(), "b".to_string()])
+        );
         assert!(table.iter().any(|f| f.name.is_none())); // the arrow callback
     }
 
@@ -7578,7 +7608,7 @@ mod tests {
             .filter(|f| f.name.as_deref() == Some("f"))
             .collect();
         assert_eq!(named.len(), 2); // both kept, query order — no dedup/last-writer-wins
-        assert_eq!(named[0].param_names, vec!["x".to_string()]);
+        assert_eq!(named[0].param_names, Some(vec!["x".to_string()]));
     }
 
     #[test]

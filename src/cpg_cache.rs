@@ -129,7 +129,10 @@ use std::path::{Path, PathBuf};
 /// - v41: persisted Step-5b arg→param DataFlow edges now select byte-contained
 ///   occurrences across multi-line call arguments. The corresponding trace
 ///   descent-gate check is in-memory only.
-const CACHE_VERSION: u32 = 41; // 41: byte-contained multi-line Step-5b arg→param edges.
+/// - v42: positional parameter slots now fail closed instead of compressing
+///   unknown bindings; persisted Step-5b edges and synthetic Level-3 callback
+///   sites therefore have changed topology.
+const CACHE_VERSION: u32 = 42; // 42: fail-closed parameter-slot topology.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -647,10 +650,10 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_41_for_multiline_step5b_arg_edges() {
-        // v41: byte-contained multi-line Step-5b arg→param DataFlow edges.
+    fn cache_version_is_42_for_fail_closed_parameter_slots() {
+        // v42: fail-closed Step-5b and Level-3 callback topology.
         // One transition ships per PR.
-        assert_eq!(super::CACHE_VERSION, 41);
+        assert_eq!(super::CACHE_VERSION, 42);
     }
 
     #[test]

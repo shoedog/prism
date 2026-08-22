@@ -42,14 +42,8 @@ pub(crate) fn compute_param_names(
                 .unwrap_or(false)
                 && callee_parsed.node_line_range(node).0 == callee_id.start_line
         })
-        .map(|node| {
-            callee_parsed
-                .function_parameter_occurrences(&node)
-                .into_iter()
-                .map(|(name, _, _)| name)
-                .collect()
-        })
-        .unwrap_or_else(|| info.param_names.clone());
+        .and_then(|node| callee_parsed.function_parameter_slots(&node))
+        .or_else(|| info.param_names.clone())?;
     let final_names = match normalized.first().map(String::as_str) {
         Some("self") | Some("cls")
             if info.owner.is_some()

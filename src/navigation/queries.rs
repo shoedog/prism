@@ -438,6 +438,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "shadow_typepath_narrow": shadow_typepath_narrow,
         "recovery_typepath": recovery_typepath,
         "glob_expand": glob_expand,
+        "param_slots_unknown": cg.param_slots_unknown,
+        "level3_indirect_resolved": cg.level3_indirect_resolved,
     })
 }
 
