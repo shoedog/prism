@@ -19,7 +19,15 @@ pub use session::{
 };
 
 pub fn run(cfg: ServerConfig) -> anyhow::Result<()> {
-    let mut p = SessionProvider::bootstrap(&cfg)?;
     let r = registry::ToolRegistry::all_v1();
-    transport::serve_stdio(&mut p, &r)
+    match cfg.startup {
+        StartupMode::Eager => {
+            let mut p = SessionProvider::bootstrap(&cfg)?;
+            transport::serve_stdio(&mut p, &r)
+        }
+        StartupMode::Lazy => {
+            let mut p = lazy::LazySessionProvider::new(&cfg)?;
+            transport::serve_stdio_runtime(&mut p, &r)
+        }
+    }
 }

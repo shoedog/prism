@@ -129,10 +129,17 @@ fn serve_runtime(
 }
 
 pub fn serve_stdio(p: &mut SessionProvider, r: &ToolRegistry) -> anyhow::Result<()> {
+    serve_stdio_runtime(p, r)
+}
+
+pub(super) fn serve_stdio_runtime(
+    runtime: &mut impl SessionRuntime,
+    registry: &ToolRegistry,
+) -> anyhow::Result<()> {
     let stdin = io::stdin();
     let stdout = io::stdout();
     let mut transport = StdioTransport::new(stdin.lock(), stdout.lock());
-    serve_runtime(p, r, &mut transport)
+    serve_runtime(runtime, registry, &mut transport)
 }
 
 pub(super) trait SessionRuntime {

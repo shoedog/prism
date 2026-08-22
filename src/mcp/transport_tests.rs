@@ -457,6 +457,65 @@ fn initialize_instructions_are_exact_for_eager_and_lazy_startup() {
 }
 
 #[test]
+fn lazy_runtime_delegates_each_refresh_policy_after_readiness() {
+    for (policy, expected_auto_refresh, expected_strategy) in [
+        (crate::mcp::RefreshPolicy::WarnOnly, None, None),
+        (
+            crate::mcp::RefreshPolicy::AutoFull,
+            Some("refreshed"),
+            Some("full"),
+        ),
+        (
+            crate::mcp::RefreshPolicy::AutoIncremental,
+            Some("refreshed"),
+            Some("incremental"),
+        ),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        write_file(dir.path(), "a.py", "def target():\n    return 1\n");
+        let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
+        cfg.cache = crate::mcp::CacheMode::NoCache;
+        cfg.refresh_policy = policy;
+        cfg.first_call_wait = std::time::Duration::from_secs(1);
+        let mut provider = crate::mcp::lazy::LazySessionProvider::new(&cfg).unwrap();
+        assert!(matches!(
+            provider.ensure_ready(),
+            crate::mcp::lazy::Readiness::Ready
+        ));
+
+        write_file(
+            dir.path(),
+            "a.py",
+            "def target():\n    return 1\n\ndef caller():\n    return target()\n",
+        );
+        let responses = run_provider(
+            &mut provider,
+            &ToolRegistry::all_v1(),
+            vec![
+                INIT,
+                INITED,
+                r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_callers","arguments":{"seed":{"kind":"symbol","name":"target","file":"a.py"},"depth":1}}}"#,
+            ],
+        );
+        let result = &responses[1]["result"];
+        match expected_auto_refresh {
+            Some(status) => {
+                assert_eq!(result["_meta"]["prism/auto_refresh"], status);
+                assert_eq!(
+                    result["_meta"]["prism/refresh_strategy"],
+                    expected_strategy.unwrap()
+                );
+                assert!(result["_meta"].get("prism/index_freshness").is_none());
+            }
+            None => {
+                assert!(result["_meta"].get("prism/auto_refresh").is_none());
+                assert_eq!(result["_meta"]["prism/index_freshness"], "stale");
+            }
+        }
+    }
+}
+
+#[test]
 fn initialize_result_carries_snapshot_and_view_instructions_once() {
     // S1: the notices formerly appended to every nav tool description now live ONCE in
     // `initialize`'s `instructions` (the protocol-legal home for state-once text).
