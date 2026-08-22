@@ -156,3 +156,18 @@ Round 3: R1 any remaining WRONG in the deadline state machine (§2.2) — e.g. a
 build that completes between `try_recv` and the response? R2 the warming/failure result shape (canonical status JSON in text + structured)
 — consistent with the other transport-generated results (`unknown_tool_result`, refresh errors)? R3 anything the generalized
 `serve_stdio_runtime` / `run_provider` seam breaks for existing callers (MCP feature gate, `lib.rs` exports)?
+
+## 7. Sol round-3 (declared cap) findings — resolutions (binding for the implementation)
+- **WRONG (folded):** unbounded `first_call_wait` (`Duration::MAX` or a huge CLI value) would panic at `deadline = now + wait`. Resolution:
+  `FIRST_CALL_WAIT_MAX = 600 s`; CLI `--first-call-wait` uses a clap range validator `0..=600`; `LazySessionProvider::new` (and `with_builder`)
+  return `Err` for `first_call_wait > FIRST_CALL_WAIT_MAX` (programmatic `ServerConfig` construction is validated too, inside
+  `canonical_config`); the deadline uses `Instant::checked_add` and, if that ever fails, falls back to `now + FIRST_CALL_WAIT_MAX`.
+  Tests: `Duration::MAX` rejected at construction; CLI `--first-call-wait 601` rejected with a usage error; `600` accepted.
+- **SMELL (folded):** `pub(crate) serve_stdio_runtime(&mut impl SessionRuntime)` over a private trait → `private_bounds` warning. Resolution:
+  `SessionRuntime` and the generic helper become `pub(super)`; the public eager `serve_stdio` stays unchanged.
+- **API smell (noted):** new public `ServerConfig` fields break downstream struct literals; `ServerConfig::new(repo)` is the supported
+  constructor and sets defaults (`startup: Lazy`, `first_call_wait: 20 s`). Mentioned in the PR body.
+- R1–R3 answered sound (exact-deadline/zero-wait races are legitimate async snapshots; results stay JSON-RPC successes with `isError: true`,
+  built from ONE `Value` serialized into text and cloned into structured; public `serve_stdio`/feature gate unchanged).
+Status: spec review cap (3 rounds) reached — 8 → 9 (approach change) → 2 (narrow, new) findings; proceed to implementation; the adversarial
+diff review is the next gate.
