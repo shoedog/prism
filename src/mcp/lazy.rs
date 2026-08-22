@@ -50,12 +50,12 @@ impl LazySessionProvider {
         let builder_cfg = cfg.clone();
         let builder: SessionBuilder = Arc::new(move || SessionProvider::bootstrap(&builder_cfg));
         let wait = cfg.first_call_wait;
-        #[cfg(test)]
-        {
-            return Self::from_canonical_config(wait, builder, LazyTestHooks::default());
-        }
-        #[cfg(not(test))]
-        Self::from_canonical_config(wait, builder)
+        Self::from_canonical_config(
+            wait,
+            builder,
+            #[cfg(test)]
+            LazyTestHooks::default(),
+        )
     }
 
     #[cfg(test)]
