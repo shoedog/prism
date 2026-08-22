@@ -74,6 +74,7 @@ fn assert_warming_result(
 
 struct BlockingBuild {
     release: Option<std::sync::mpsc::Sender<()>>,
+    started: Option<std::sync::mpsc::Receiver<()>>,
     done: Option<std::sync::mpsc::Receiver<()>>,
 }
 
@@ -89,6 +90,14 @@ impl BlockingBuild {
             .as_ref()
             .expect("blocking builder release sender remains available")
             .clone()
+    }
+
+    fn wait_started(&mut self) {
+        self.started
+            .take()
+            .expect("blocking builder start must be observed once")
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .expect("blocking builder must begin before it is released");
     }
 
     fn wait(&mut self) {
@@ -120,9 +129,11 @@ fn blocking_builder(
     use std::sync::{mpsc, Arc, Mutex};
 
     let (release, rx) = mpsc::channel();
+    let (started, started_rx) = mpsc::channel();
     let (done, done_rx) = mpsc::channel();
     let rx = Arc::new(Mutex::new(rx));
     let builder = Arc::new(move || {
+        let _ = started.send(());
         if let Ok(release) = rx.lock() {
             let _ = release.recv();
         }
@@ -134,6 +145,7 @@ fn blocking_builder(
         builder,
         BlockingBuild {
             release: Some(release),
+            started: Some(started_rx),
             done: Some(done_rx),
         },
     )
@@ -326,6 +338,7 @@ fn lazy_runtime_retries_a_real_bootstrap_after_the_repo_root_is_recreated() {
     });
     let mut build = BlockingBuild {
         release: Some(release),
+        started: None,
         done: Some(done_rx),
     };
     let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
@@ -376,13 +389,17 @@ fn lazy_runtime_returns_the_eager_result_when_the_builder_finishes_during_the_fi
         builder,
     )
     .unwrap();
+    build.wait_started();
+    let call_gate = std::sync::Arc::new(std::sync::Barrier::new(2));
     let release = build.release_sender();
+    let release_gate = std::sync::Arc::clone(&call_gate);
     let releaser = std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_millis(20));
+        release_gate.wait();
         let _ = release.send(());
     });
     let request = r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_repo_map","arguments":{}}}"#;
 
+    call_gate.wait();
     let lazy_response = call_tool_at_cap_with_mode(
         &mut lazy,
         &ToolRegistry::all_v1(),
@@ -430,6 +447,7 @@ fn lazy_refresh_after_an_initial_snapshot_edit_reports_stale_before_refresh() {
     });
     let mut build = BlockingBuild {
         release: Some(release),
+        started: None,
         done: Some(done_rx),
     };
     let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
@@ -562,13 +580,11 @@ fn lazy_refresh_returns_warming_then_delegates_and_preserves_raced_stale_evidenc
     assert_eq!(provider.attempts(), 1);
 
     build.release();
-    for _ in 0..100 {
-        if matches!(provider.ensure_ready(), crate::mcp::lazy::Readiness::Ready) {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(5));
-    }
     build.wait();
+    assert!(matches!(
+        provider.ensure_ready(),
+        crate::mcp::lazy::Readiness::Ready
+    ));
     assert!(
         provider.ready().is_some(),
         "released lazy build must become ready"
