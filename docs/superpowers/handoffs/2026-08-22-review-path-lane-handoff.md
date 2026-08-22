@@ -34,7 +34,7 @@
 | #172 harness fix + Part-D read-out + designs/reviews | done (04:50Z) | `[MEASURED]` squash b8bd5434; `docs/analysis/2026-08-21-tier-c-partd-readout.md` |
 | #173 P8 fail-closed parameter slots; Level-3 minting DISABLED; `--dump-sites` | done (15:26Z) | `[MEASURED]` squash 68fc03c6; final terra gate APPROVE (`scratchpad/review-P8r4.out`); dump diff custody 47 removed / 0 added |
 | #174 P9 pointer-embedded Go fields | done (16:03Z) | `[MEASURED]` squash 36b2796c; 7 review rounds; merged onto main by controller (cf7f917; only version files conflicted) |
-| P10 GoOwnerIdentity clause + build partitions | in progress — wave 3 running | `[MEASURED]` clone head 558dc2a (merge w/ main; CPG 44 / sidecar 13); 3215/0/1; tier-a 104/104; REGRESSION in 558dc2a: interface_dispatch collapse (caddy 1761→42; attributed to wave-2 `canon_type` rejecting every `qualified_type`, pre-merge 27e44ad shows the same) → wave 3 brief = import-path identity |
+| P10 GoOwnerIdentity clause + build partitions | **done (#176, merged 2026-08-22T18:33Z; squash a075c2b2)** — see §8 | `[MEASURED]` clone head 558dc2a (merge w/ main; CPG 44 / sidecar 13); 3215/0/1; tier-a 104/104; REGRESSION in 558dc2a: interface_dispatch collapse (caddy 1761→42; attributed to wave-2 `canon_type` rejecting every `qualified_type`, pre-merge 27e44ad shows the same) → wave 3 brief = import-path identity |
 | Part-D codex gpt-5.5 slate | done — REFUTED | `[MEASURED]` `eval/tier_c/runs/partd/full-gpt-5.5-2026-08-21/aggregate.txt`: 9 valid cells, median ΔdR 0.0, 6/9 off-saturated; TS 0-dose (codex 0.147 drops MCP servers not ready in ~10 s — probe-proven); read-out doc in #172 |
 | A2 Java/TS parameter materialization | parked | `docs/superpowers/specs/2026-08-21-java-ts-parameter-materialization-design-PARKED.md`; WIP branch `java-ts-param-materialization-wip` (1cd3322) in p4 + p4b clones |
 | D Go dot-import | deferred (REJECTED at spec review) | `docs/superpowers/specs/2026-08-21-go-dot-import-resolution-deferred.md` |
@@ -95,3 +95,20 @@
 **Questions the owner owes an answer to:**
 1. After P10 merges: approve clone clean-up (§1 step 7)?
 2. Schedule roadmap #11 (prism-mcp lazy handshake) and #13 (sound Level-3) — both were surfaced this session; #11 blocks any Part-D/Part-C TypeScript measurement.
+
+## 8. Successor update (2026-08-22, same session after /clear — controller Claude Fable 5)
+
+- Wave 3 (sol, 79b9198 "Restore Go qualified interface dispatch identity"): per-file signature-import map → `@path::T` / `~path::T`
+  (root-`go.mod`-proven local bare) / bare tokens, token-wise `canon_signatures_match`; dot-imports + unbound aliases + nested-module
+  mixed bare/qualified fail closed; `go.mod` in topology hashing; P9/P10 reconciliation (declaration-snapshot Exact only with explicit
+  receiver-owner identity). Controller: 3225/0/1, tier-a 104/104, same-base control vs main@36b2796: caddy 1761→1766 / 107=,
+  prometheus 2374→2461 / 763→770, etcd 1788→1742 / 228→230, QualifiedTypeIdentity 0/0/0, ripgrep byte-identical — acceptance met.
+- Final gate r3 (terra xhigh, whole branch): FIX — 1 BLOCKER (controller-confirmed): `Local↔Bare` matched by name → constructible
+  false single Exact for nested-module bare interface params; 3 SMELLs deferred (roadmap #14/#15).
+- Wave 4 (sol, FRESH ctx `fable-itemP10-sol-w4-20260822` because the old one was at 82% and had compacted): d68e2dd — two match arms
+  + two regression tests; 3227/0/1; tier-a 104/104; wave-4-only corpus diff byte-identical (the WRONG was corpus-invisible).
+- r4 (terra): APPROVE → PR #176 → CI green → squash-merge a075c2b2 at 2026-08-22T18:33Z. main = CPG 44 / sidecar 13.
+- Docs: this PR (#175) — roadmap row 3 DONE, rows 14 (nested-module import identity) + 15 (Go provider perf SMELLs) added,
+  pipeline-lessons lesson 17.
+- Remaining open work: §4 rows 4–8 (roadmap #11 lazy handshake, #13 sound Level-3, Part-D INSTRUMENT-FAIL audit, P9 perf SMELL →
+  now roadmap #15, clone/context clean-up pending owner OK). Owner questions in §7 still open.

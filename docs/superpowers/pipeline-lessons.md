@@ -192,6 +192,21 @@ close-out; the per-round detail lives in the plan doc's status blocks and
     reproduced; and a predicate needs BOTH failure poles exercised — fail-closed mints
     false Exacts, fail-open silently forfeits the win.
 
+### Lesson 17 (2026-08-22, P10 #176): a fail-closed fix can pass the whole gate and silently delete a capability
+
+P10 wave 2 answered a reviewer BLOCKER ("S4 treats `pkg.T` as package-free") by returning a `QualifiedTypeIdentity` gap for
+EVERY qualified type in an interface signature. Full suite green, tier-a 104/104, sol's internal reviews clean — and Go interface
+dispatch collapsed (caddy `kind_exact/interface_dispatch` 1761→42, prometheus 2374→345, etcd 1788→609) because every method with a
+`context.Context` / `http.ResponseWriter` parameter failed closed. Only the controller's same-base `prism nav --no-cache call-stats`
+control (main rebuilt at the SAME base, leaf-by-leaf JSON diff) caught it; attribution needed the pre-merge commit (27e44ad) measured
+against the same control to rule out the merge. Rules: (1) every precision-critical resolution wave gets a same-base corpus control
+before review, and a delta that removes Exact edges en masse is a STOP, not a footnote; (2) when a reviewer offers two remedies,
+"fail closed on the whole class" is the cheap one and usually the wrong one — take the identity-preserving remedy (here: resolved
+import path) and fail closed only on the genuinely unprovable residue; (3) a 99%-confident reviewer finding still gets a mechanism
+check by the controller — terra's r3 BLOCKER (`Local↔Bare` matched by name) was corpus-invisible on all four bench repos yet a
+constructible false Exact; (4) when an implementer context passes ~80% of its window (and has compacted), dispatch the next wave to
+a fresh context with a self-contained brief — wave 4 did, and returned a 2-arm fix in 19 min.
+
 ## Follow-up queue (durable, self-tracking where possible)
 
 - P14 deferrals: return-flow taint (no callee-return→caller-LHS edges exist);
@@ -205,7 +220,7 @@ close-out; the per-round detail lives in the plan doc's status blocks and
 - ~~Pointer-embedded Go fields (`*Listener`) silently dropped by `extract_one_field`~~ — **DONE (#174, 2026-08-22)**; was:
   (tree-sitter emits a bare `*` token; `type_str == "*"` → strip → empty → drop) —
   pre-existing, affects the shipped embedding feature AND P11's S2/S4; fails safe.
-- GoOwnerIdentity clause/build-partition blindness (P13 [M1], counted-not-fixed):
+- ~~GoOwnerIdentity clause/build-partition blindness (P13 [M1], counted-not-fixed)~~ — **DONE (#176, 2026-08-22)**; was:
   `go_field_types`/`struct_embeds`/embedded-interface lanes are keyed `(package_dir,
   name)` and can cross `foo`/`foo_test` and build partitions — field_typed /
   interface-dispatch Exact recovery can still cross those lines. Measured by
