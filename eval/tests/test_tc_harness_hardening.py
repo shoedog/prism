@@ -697,3 +697,32 @@ def test_warm_gate_check_spawns_with_repo_root_cwd(monkeypatch):
     monkeypatch.setattr(arm_mod.subprocess, "Popen", popen)
     warm_gate_check("/repo/checkout", cache_dir="/abs/cache", timeout_s=5.0)
     assert seen.get("cwd") == "/repo/checkout"
+
+
+def test_warm_gate_check_absolutizes_relative_cache_dir_in_argv(monkeypatch, tmp_path):
+    """PR #172 review: the gate is spawned with cwd=repo_root, so a RELATIVE cache_dir (from any caller)
+    must be absolutized at the callee or it resolves inside the checkout and misses the prewarmed cache."""
+    import tier_c.arm_runner as arm_mod
+    monkeypatch.chdir(tmp_path)
+    captured: list = []
+    lines = [_init_ok_line(), _tools_line(["x"])]
+    monkeypatch.setattr(arm_mod.subprocess, "Popen",
+                        _make_fake_popen_factory(lines, captured_argv=captured))
+    warm_gate_check("/repo/checkout", cache_dir="rel/prism-cache", timeout_s=5.0)
+    assert str(tmp_path / "rel" / "prism-cache") in captured[0]
+    assert "rel/prism-cache" not in captured[0]
+
+
+def test_prewarm_cpg_absolutizes_relative_cache_dir(monkeypatch, tmp_path):
+    import tier_c.arm_runner as arm_mod
+    monkeypatch.chdir(tmp_path)
+    seen: dict = {}
+
+    def fake_run(argv, **kw):
+        seen["argv"] = list(argv)
+        return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(arm_mod.subprocess, "run", fake_run)
+    arm_mod._prewarm_cpg(str(tmp_path / "repo"), cache_dir="rel/prism-cache")
+    assert str(tmp_path / "rel" / "prism-cache") in seen["argv"]
+    assert "rel/prism-cache" not in seen["argv"]
