@@ -72,21 +72,80 @@ fn assert_warming_result(
     }
 }
 
-#[test]
-fn lazy_runtime_returns_warming_status_in_both_wire_modes_while_ping_remains_ready() {
+struct BlockingBuild {
+    release: Option<std::sync::mpsc::Sender<()>>,
+    done: Option<std::sync::mpsc::Receiver<()>>,
+}
+
+impl BlockingBuild {
+    fn release(&mut self) {
+        if let Some(release) = self.release.take() {
+            let _ = release.send(());
+        }
+    }
+
+    fn release_sender(&self) -> std::sync::mpsc::Sender<()> {
+        self.release
+            .as_ref()
+            .expect("blocking builder release sender remains available")
+            .clone()
+    }
+
+    fn wait(&mut self) {
+        self.done
+            .take()
+            .expect("blocking builder completion must be awaited once")
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .expect("blocking builder must complete after release");
+    }
+
+    fn finish(&mut self) {
+        self.release();
+        self.wait();
+    }
+}
+
+impl Drop for BlockingBuild {
+    fn drop(&mut self) {
+        self.release();
+        if let Some(done) = self.done.take() {
+            let _ = done.recv_timeout(std::time::Duration::from_secs(5));
+        }
+    }
+}
+
+fn blocking_builder(
+    cfg: crate::mcp::ServerConfig,
+) -> (crate::mcp::lazy::SessionBuilder, BlockingBuild) {
     use std::sync::{mpsc, Arc, Mutex};
 
+    let (release, rx) = mpsc::channel();
+    let (done, done_rx) = mpsc::channel();
+    let rx = Arc::new(Mutex::new(rx));
+    let builder = Arc::new(move || {
+        if let Ok(release) = rx.lock() {
+            let _ = release.recv();
+        }
+        let result = crate::mcp::SessionProvider::bootstrap(&cfg);
+        let _ = done.send(());
+        result
+    });
+    (
+        builder,
+        BlockingBuild {
+            release: Some(release),
+            done: Some(done_rx),
+        },
+    )
+}
+
+#[test]
+fn lazy_runtime_returns_warming_status_in_both_wire_modes_while_ping_remains_ready() {
     let dir = tempfile::tempdir().unwrap();
     write_file(dir.path(), "a.py", "def f():\n    return 1\n");
     let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
     cfg.cache = crate::mcp::CacheMode::NoCache;
-    let (release, rx) = mpsc::channel();
-    let rx = Arc::new(Mutex::new(rx));
-    let builder_cfg = cfg.clone();
-    let builder: crate::mcp::lazy::SessionBuilder = Arc::new(move || {
-        rx.lock().unwrap().recv().unwrap();
-        crate::mcp::SessionProvider::bootstrap(&builder_cfg)
-    });
+    let (builder, mut build) = blocking_builder(cfg.clone());
     let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
         &cfg,
         std::time::Duration::ZERO,
@@ -126,24 +185,16 @@ fn lazy_runtime_returns_warming_status_in_both_wire_modes_while_ping_remains_rea
         assert_warming_result(&response, mode);
         assert_eq!(provider.attempts(), 1);
     }
-    release.send(()).unwrap();
+    build.finish();
 }
 
 #[test]
 fn lazy_runtime_validates_bad_calls_before_waiting_or_retrying() {
-    use std::sync::{mpsc, Arc, Mutex};
-
     let dir = tempfile::tempdir().unwrap();
     write_file(dir.path(), "a.py", "def f():\n    return 1\n");
     let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
     cfg.cache = crate::mcp::CacheMode::NoCache;
-    let (release, rx) = mpsc::channel();
-    let rx = Arc::new(Mutex::new(rx));
-    let builder_cfg = cfg.clone();
-    let builder: crate::mcp::lazy::SessionBuilder = Arc::new(move || {
-        rx.lock().unwrap().recv().unwrap();
-        crate::mcp::SessionProvider::bootstrap(&builder_cfg)
-    });
+    let (builder, mut build) = blocking_builder(cfg.clone());
     let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
         &cfg,
         std::time::Duration::from_secs(1),
@@ -185,7 +236,7 @@ fn lazy_runtime_validates_bad_calls_before_waiting_or_retrying() {
     }
     assert!(started.elapsed() < std::time::Duration::from_millis(100));
     assert_eq!(provider.attempts(), 1);
-    release.send(()).unwrap();
+    build.finish();
 }
 
 #[test]
@@ -257,15 +308,26 @@ fn lazy_runtime_retries_a_real_bootstrap_after_the_repo_root_is_recreated() {
     let mut cfg = crate::mcp::ServerConfig::new(repo_root.clone());
     cfg.cache = crate::mcp::CacheMode::NoCache;
     let (release, rx) = mpsc::channel();
+    let (done, done_rx) = mpsc::channel();
     let rx = Arc::new(Mutex::new(rx));
     let first_attempt = Arc::new(AtomicBool::new(true));
     let builder_cfg = cfg.clone();
     let builder: crate::mcp::lazy::SessionBuilder = Arc::new(move || {
         if first_attempt.swap(false, Ordering::SeqCst) {
-            rx.lock().unwrap().recv().unwrap();
+            if let Ok(release) = rx.lock() {
+                let _ = release.recv();
+            }
+            let result = crate::mcp::SessionProvider::bootstrap(&builder_cfg);
+            let _ = done.send(());
+            result
+        } else {
+            crate::mcp::SessionProvider::bootstrap(&builder_cfg)
         }
-        crate::mcp::SessionProvider::bootstrap(&builder_cfg)
     });
+    let mut build = BlockingBuild {
+        release: Some(release),
+        done: Some(done_rx),
+    };
     let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
         &cfg,
         std::time::Duration::from_secs(1),
@@ -273,7 +335,7 @@ fn lazy_runtime_retries_a_real_bootstrap_after_the_repo_root_is_recreated() {
     )
     .unwrap();
     std::fs::remove_dir_all(&repo_root).unwrap();
-    release.send(()).unwrap();
+    build.release();
     let request = r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_repo_map","arguments":{}}}"#;
 
     let failed = call_tool_at_cap_with_mode(
@@ -285,6 +347,7 @@ fn lazy_runtime_retries_a_real_bootstrap_after_the_repo_root_is_recreated() {
     );
     assert_eq!(failed["result"]["isError"], true);
     assert_eq!(provider.attempts(), 1);
+    build.wait();
 
     std::fs::create_dir_all(&repo_root).unwrap();
     write_file(&repo_root, "a.py", "def f():\n    return 1\n");
@@ -301,29 +364,22 @@ fn lazy_runtime_retries_a_real_bootstrap_after_the_repo_root_is_recreated() {
 
 #[test]
 fn lazy_runtime_returns_the_eager_result_when_the_builder_finishes_during_the_first_call() {
-    use std::sync::{mpsc, Arc, Mutex};
-
     let dir = tempfile::tempdir().unwrap();
     write_file(dir.path(), "a.py", "def f():\n    return 1\n");
     let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
     cfg.cache = crate::mcp::CacheMode::NoCache;
     let mut eager = crate::mcp::SessionProvider::bootstrap(&cfg).unwrap();
-    let (release, rx) = mpsc::channel();
-    let rx = Arc::new(Mutex::new(rx));
-    let builder_cfg = cfg.clone();
-    let builder: crate::mcp::lazy::SessionBuilder = Arc::new(move || {
-        rx.lock().unwrap().recv().unwrap();
-        crate::mcp::SessionProvider::bootstrap(&builder_cfg)
-    });
+    let (builder, mut build) = blocking_builder(cfg.clone());
     let mut lazy = crate::mcp::lazy::LazySessionProvider::with_builder(
         &cfg,
         std::time::Duration::from_secs(5),
         builder,
     )
     .unwrap();
-    std::thread::spawn(move || {
+    let release = build.release_sender();
+    let releaser = std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(20));
-        release.send(()).unwrap();
+        let _ = release.send(());
     });
     let request = r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_repo_map","arguments":{}}}"#;
 
@@ -343,6 +399,8 @@ fn lazy_runtime_returns_the_eager_result_when_the_builder_finishes_during_the_fi
     );
     assert_eq!(lazy_response, eager_response);
     assert_eq!(lazy.attempts(), 1);
+    releaser.join().unwrap();
+    build.wait();
 }
 
 #[test]
@@ -355,14 +413,25 @@ fn lazy_refresh_after_an_initial_snapshot_edit_reports_stale_before_refresh() {
     cfg.cache = crate::mcp::CacheMode::NoCache;
     let (snapshot_taken, snapshot_rx) = mpsc::channel();
     let (release, release_rx) = mpsc::channel();
+    let (done, done_rx) = mpsc::channel();
     let release_rx = Arc::new(Mutex::new(release_rx));
     let builder_cfg = cfg.clone();
     let builder: crate::mcp::lazy::SessionBuilder = Arc::new(move || {
-        let provider = crate::mcp::SessionProvider::bootstrap(&builder_cfg)?;
-        snapshot_taken.send(()).unwrap();
-        release_rx.lock().unwrap().recv().unwrap();
-        Ok(provider)
+        let result = (|| {
+            let provider = crate::mcp::SessionProvider::bootstrap(&builder_cfg)?;
+            let _ = snapshot_taken.send(());
+            if let Ok(release) = release_rx.lock() {
+                let _ = release.recv();
+            }
+            Ok(provider)
+        })();
+        let _ = done.send(());
+        result
     });
+    let mut build = BlockingBuild {
+        release: Some(release),
+        done: Some(done_rx),
+    };
     let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
         &cfg,
         std::time::Duration::from_secs(1),
@@ -373,11 +442,12 @@ fn lazy_refresh_after_an_initial_snapshot_edit_reports_stale_before_refresh() {
         .recv_timeout(std::time::Duration::from_secs(1))
         .unwrap();
     write_file(dir.path(), "a.py", "def fresh():\n    return 2\n");
-    release.send(()).unwrap();
+    build.release();
     assert!(matches!(
         provider.ensure_ready(),
         crate::mcp::lazy::Readiness::Ready
     ));
+    build.wait();
 
     let response = call_tool_at_cap_with_mode(
         &mut provider,
@@ -446,19 +516,11 @@ fn lazy_runtime_reports_a_panicking_builder_then_retries() {
 
 #[test]
 fn lazy_runtime_returns_on_eof_without_waiting_for_the_background_builder() {
-    use std::sync::{mpsc, Arc, Mutex};
-
     let dir = tempfile::tempdir().unwrap();
     write_file(dir.path(), "a.py", "def f():\n    return 1\n");
     let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
     cfg.cache = crate::mcp::CacheMode::NoCache;
-    let (release, rx) = mpsc::channel();
-    let rx = Arc::new(Mutex::new(rx));
-    let builder_cfg = cfg.clone();
-    let builder: crate::mcp::lazy::SessionBuilder = Arc::new(move || {
-        rx.lock().unwrap().recv().unwrap();
-        crate::mcp::SessionProvider::bootstrap(&builder_cfg)
-    });
+    let (builder, mut build) = blocking_builder(cfg.clone());
     let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
         &cfg,
         std::time::Duration::from_secs(1),
@@ -471,24 +533,16 @@ fn lazy_runtime_returns_on_eof_without_waiting_for_the_background_builder() {
     serve_runtime(&mut provider, &ToolRegistry::all_v1(), &mut transport).unwrap();
     assert!(started.elapsed() < std::time::Duration::from_millis(100));
     assert_eq!(provider.attempts(), 1);
-    release.send(()).unwrap();
+    build.finish();
 }
 
 #[test]
 fn lazy_refresh_returns_warming_then_delegates_and_preserves_raced_stale_evidence() {
-    use std::sync::{mpsc, Arc, Mutex};
-
     let dir = tempfile::tempdir().unwrap();
     write_file(dir.path(), "a.py", "def old():\n    return 1\n");
     let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
     cfg.cache = crate::mcp::CacheMode::NoCache;
-    let (release, rx) = mpsc::channel();
-    let rx = Arc::new(Mutex::new(rx));
-    let builder_cfg = cfg.clone();
-    let builder: crate::mcp::lazy::SessionBuilder = Arc::new(move || {
-        rx.lock().unwrap().recv().unwrap();
-        crate::mcp::SessionProvider::bootstrap(&builder_cfg)
-    });
+    let (builder, mut build) = blocking_builder(cfg.clone());
     let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
         &cfg,
         std::time::Duration::ZERO,
@@ -507,13 +561,14 @@ fn lazy_refresh_returns_warming_then_delegates_and_preserves_raced_stale_evidenc
     assert_warming_result(&warming, crate::mcp::output::StructuredContentMode::Always);
     assert_eq!(provider.attempts(), 1);
 
-    release.send(()).unwrap();
+    build.release();
     for _ in 0..100 {
         if matches!(provider.ensure_ready(), crate::mcp::lazy::Readiness::Ready) {
             break;
         }
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
+    build.wait();
     assert!(
         provider.ready().is_some(),
         "released lazy build must become ready"

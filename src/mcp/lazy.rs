@@ -205,47 +205,96 @@ mod tests {
     use std::sync::{mpsc, Arc, Mutex};
     use std::time::{Duration, Instant};
 
+    struct BlockingBuild {
+        release: Option<mpsc::Sender<()>>,
+        done: Option<mpsc::Receiver<()>>,
+    }
+
+    impl BlockingBuild {
+        fn release(&mut self) {
+            if let Some(release) = self.release.take() {
+                let _ = release.send(());
+            }
+        }
+
+        fn wait(&mut self) {
+            self.done
+                .take()
+                .expect("blocking builder completion must be awaited once")
+                .recv_timeout(Duration::from_secs(5))
+                .expect("blocking builder must complete after release");
+        }
+
+        fn finish(&mut self) {
+            self.release();
+            self.wait();
+        }
+    }
+
+    impl Drop for BlockingBuild {
+        fn drop(&mut self) {
+            self.release();
+            if let Some(done) = self.done.take() {
+                let _ = done.recv_timeout(Duration::from_secs(5));
+            }
+        }
+    }
+
     fn blocking_builder(
         cfg: ServerConfig,
         release: Arc<Mutex<mpsc::Receiver<()>>>,
+        done: mpsc::Sender<()>,
     ) -> SessionBuilder {
         Arc::new(move || {
-            release.lock().unwrap().recv().unwrap();
-            SessionProvider::bootstrap(&cfg)
+            if let Ok(release) = release.lock() {
+                let _ = release.recv();
+            }
+            let result = SessionProvider::bootstrap(&cfg);
+            let _ = done.send(());
+            result
         })
     }
 
-    fn blocking_lazy(wait: Duration) -> (tempfile::TempDir, LazySessionProvider, mpsc::Sender<()>) {
+    fn blocking_lazy(wait: Duration) -> (tempfile::TempDir, LazySessionProvider, BlockingBuild) {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("a.py"), "def f():\n    return 1\n").unwrap();
         let mut cfg = ServerConfig::new(dir.path().to_path_buf());
         cfg.cache = CacheMode::NoCache;
         let (release, rx) = mpsc::channel();
+        let (done, done_rx) = mpsc::channel();
         let provider = LazySessionProvider::with_builder(
             &cfg,
             wait,
-            blocking_builder(cfg.clone(), Arc::new(Mutex::new(rx))),
+            blocking_builder(cfg.clone(), Arc::new(Mutex::new(rx)), done),
         )
         .unwrap();
-        (dir, provider, release)
+        (
+            dir,
+            provider,
+            BlockingBuild {
+                release: Some(release),
+                done: Some(done_rx),
+            },
+        )
     }
 
     #[test]
     fn construction_starts_one_background_build_without_waiting_for_readiness() {
-        let (_dir, mut provider, release) = blocking_lazy(Duration::from_secs(1));
+        let (_dir, mut provider, mut build) = blocking_lazy(Duration::from_secs(1));
 
         assert_eq!(provider.attempts(), 1);
         assert_eq!(provider.builds(), 1);
         assert_eq!(provider.state_kind(), "building");
 
-        release.send(()).unwrap();
+        build.release();
         assert!(matches!(provider.ensure_ready(), Readiness::Ready));
+        build.wait();
         assert_eq!(provider.attempts(), 1);
     }
 
     #[test]
     fn zero_wait_reports_warming_without_starting_another_build() {
-        let (_dir, mut provider, _release) = blocking_lazy(Duration::ZERO);
+        let (_dir, mut provider, mut build) = blocking_lazy(Duration::ZERO);
 
         assert!(matches!(
             provider.ensure_ready(),
@@ -253,11 +302,12 @@ mod tests {
         ));
         assert_eq!(provider.attempts(), 1);
         assert_eq!(provider.state_kind(), "building");
+        build.finish();
     }
 
     #[test]
     fn queued_calls_share_one_cumulative_wait_budget() {
-        let (_dir, mut provider, release) = blocking_lazy(Duration::from_millis(200));
+        let (_dir, mut provider, mut build) = blocking_lazy(Duration::from_millis(200));
 
         let started = Instant::now();
         for _ in 0..4 {
@@ -269,8 +319,8 @@ mod tests {
         );
         assert_eq!(provider.attempts(), 1);
 
-        release.send(()).unwrap();
-        std::thread::sleep(Duration::from_millis(10));
+        build.release();
+        build.wait();
         assert!(matches!(provider.ensure_ready(), Readiness::Ready));
         assert_eq!(provider.attempts(), 1);
     }
