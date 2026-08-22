@@ -6412,6 +6412,184 @@ mod go_receiver_typing_tests {
     }
 
     #[test]
+    fn s2_pointer_embed_struct_in_external_test_package_never_recovers() {
+        let cg = build_go(&[
+            (
+                "p/holder.go",
+                "package p\n\
+                 type Holder struct { *Listener }\n\
+                 func run(h Holder) { h.Listener.Do() }\n",
+            ),
+            (
+                "p/listener_test.go",
+                "package p_test\n\
+                 type Listener struct{}\n\
+                 func (*Listener) Do() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Do");
+        assert_eq!(site.receiver_type, None);
+        assert_eq!(site.receiver_recovery, None);
+        let out = cg.resolve_call_site_full(site);
+        assert!(
+            out.resolved
+                .iter()
+                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
+            "a p_test struct must not prove p.Holder's pointer embed or emit Exact: {out:?}"
+        );
+    }
+
+    #[test]
+    fn s2_pointer_embed_struct_in_incompatible_build_profile_never_recovers() {
+        let cg = build_go(&[
+            (
+                "p/holder_linux.go",
+                "package p\n\
+                 type Holder struct { *Listener }\n\
+                 func run(h Holder) { h.Listener.Do() }\n",
+            ),
+            (
+                "p/listener_darwin.go",
+                "package p\n\
+                 type Listener struct{}\n\
+                 func (*Listener) Do() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Do");
+        assert_eq!(site.receiver_type, None);
+        assert_eq!(site.receiver_recovery, None);
+        let out = cg.resolve_call_site_full(site);
+        assert!(
+            out.resolved
+                .iter()
+                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
+            "a darwin-only struct must not prove a linux holder's pointer embed: {out:?}"
+        );
+    }
+
+    #[test]
+    fn s2_pointer_embed_struct_with_uncertain_embedding_profile_never_recovers() {
+        let cg = build_go(&[
+            (
+                "p/holder.go",
+                "//go:build linux &&\n\n\
+                 package p\n\
+                 type Holder struct { *Listener }\n\
+                 func run(h Holder) { h.Listener.Do() }\n",
+            ),
+            (
+                "p/listener.go",
+                "package p\n\
+                 type Listener struct{}\n\
+                 func (*Listener) Do() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Do");
+        assert_eq!(site.receiver_type, None);
+        assert_eq!(site.receiver_recovery, None);
+        assert!(
+            cg.resolve_call_site_full(site)
+                .resolved
+                .iter()
+                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
+            "an unparsed embedding profile cannot prove pointer-target visibility"
+        );
+    }
+
+    #[test]
+    fn s2_pointer_embed_struct_in_same_build_profile_still_recovers() {
+        let cg = build_go(&[
+            (
+                "p/holder_linux.go",
+                "package p\n\
+                 type Holder struct { *Listener }\n\
+                 func run(h Holder) { h.Listener.Do() }\n",
+            ),
+            (
+                "p/listener_linux.go",
+                "package p\n\
+                 type Listener struct{}\n\
+                 func (*Listener) Do() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Do");
+        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+        assert!(cg
+            .resolve_call_site_full(site)
+            .resolved
+            .iter()
+            .any(|candidate| {
+                candidate.target.name == "Do"
+                    && candidate.confidence == ResolutionConfidence::Exact
+                    && candidate.kind == ResolutionKind::FieldTyped
+            }));
+    }
+
+    #[test]
+    fn s2_pointer_embed_unconstrained_cross_file_struct_still_recovers() {
+        let cg = build_go(&[
+            (
+                "p/holder.go",
+                "package p\n\
+                 type Holder struct { *Listener }\n\
+                 func run(h Holder) { h.Listener.Do() }\n",
+            ),
+            (
+                "p/listener.go",
+                "package p\n\
+                 type Listener struct{}\n\
+                 func (*Listener) Do() {}\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Do");
+        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+        assert!(cg
+            .resolve_call_site_full(site)
+            .resolved
+            .iter()
+            .any(|candidate| {
+                candidate.target.name == "Do"
+                    && candidate.confidence == ResolutionConfidence::Exact
+                    && candidate.kind == ResolutionKind::FieldTyped
+            }));
+    }
+
+    #[test]
+    fn s2_pointer_embed_owner_profile_conflict_fails_closed() {
+        let cg = build_go(&[
+            (
+                "p/holder.go",
+                "package p\n\
+                 type Holder struct { *Listener }\n\
+                 func run(h Holder) { h.Listener.Do() }\n",
+            ),
+            (
+                "p/listener.go",
+                "package p\n\
+                 type Listener struct{}\n\
+                 func (*Listener) Do() {}\n",
+            ),
+            (
+                "p/listener_test.go",
+                "package p_test\n\
+                 type Listener interface { Do() }\n",
+            ),
+        ]);
+        let site = site_in(&cg, "run", "Do");
+        assert_eq!(site.receiver_type, None);
+        assert_eq!(site.receiver_recovery, None);
+        assert!(
+            cg.resolve_call_site_full(site)
+                .resolved
+                .iter()
+                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
+            "a mixed-kind Listener identity spanning p and p_test must fail closed"
+        );
+    }
+
+    #[test]
     fn s2_pointer_embed_interface_alias_collision_never_recovers() {
         let cg = build_go(&[
             (

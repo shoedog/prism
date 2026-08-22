@@ -163,6 +163,14 @@ pub struct GoTypeData {
     /// known, field not func-typed" from "struct unknown entirely" (the S2
     /// registration scan's per-form fallback/counting depends on this).
     struct_identities: BTreeSet<crate::resolution::GoOwnerIdentity>,
+    /// Declaring files for every struct identity. `GoOwnerIdentity` deliberately
+    /// omits package/build partitions, so S2's pointer-embed proof must consult
+    /// these files' profiles instead of treating directory + name as proof.
+    struct_declaration_files: BTreeMap<crate::resolution::GoOwnerIdentity, BTreeSet<String>>,
+    /// Declaring files for every named type, including structs, interfaces,
+    /// defined types, and aliases. Profile conflicts in any of those collapse
+    /// under `GoOwnerIdentity`, so pointer-embed proof fails closed on them.
+    type_declaration_files: BTreeMap<crate::resolution::GoOwnerIdentity, BTreeSet<String>>,
     /// P5 S1: `(owner_identity, field_name)` pairs whose declared type begins
     /// with `func(` (named-type indirection, e.g. `type Handler func()`, is
     /// out of scope — noted, not attempted). Package-scoped so a registration
@@ -195,6 +203,10 @@ pub struct GoTypeData {
     /// unrelated same-named `Holder` in another package). Keyed by the
     /// EMBEDDING struct's own `GoOwnerIdentity`.
     struct_embeds: BTreeMap<crate::resolution::GoOwnerIdentity, Vec<GoEmbeddedField>>,
+    /// Declaring file corresponding to the last-wins `struct_embeds` entry.
+    /// Kept in lockstep so the S2 proof can compare the embedding and target
+    /// declarations without widening `GoOwnerIdentity` (owned by P10).
+    struct_embed_files: BTreeMap<crate::resolution::GoOwnerIdentity, String>,
     /// P11 S4 (B2 fix): bare interface name -> set of package dirs that
     /// declare an interface with that name. `interfaces` collapses same-named
     /// interfaces across packages (last-file-wins), so it alone cannot tell
@@ -248,10 +260,13 @@ impl GoTypeProvider {
             dispatch_gaps: Vec::new(),
             dispatch_overapprox: Vec::new(),
             struct_identities: BTreeSet::new(),
+            struct_declaration_files: BTreeMap::new(),
+            type_declaration_files: BTreeMap::new(),
             func_typed_fields: BTreeSet::new(),
             field_types: BTreeMap::new(),
             embedded_interface_promotions: BTreeMap::new(),
             struct_embeds: BTreeMap::new(),
+            struct_embed_files: BTreeMap::new(),
             interface_name_owners: BTreeMap::new(),
             embedded_interface_routes: BTreeMap::new(),
         };
@@ -263,7 +278,8 @@ impl GoTypeProvider {
             Self::extract_from_file(&mut inner, path, parsed);
         }
 
-        Self::remove_unproven_pointer_embed_pseudo_fields(&mut inner);
+        let (go_file_profiles, _) = crate::go_build_profile::extract_go_file_profiles(files);
+        Self::remove_unproven_pointer_embed_pseudo_fields(&mut inner, &go_file_profiles);
         Self::compute_satisfaction(&mut inner);
         GoTypeProvider {
             data: Arc::new(inner),
@@ -415,7 +431,7 @@ impl GoTypeProvider {
         for child in node.children(&mut cursor) {
             match child.kind() {
                 "type_spec" => Self::extract_type_spec(data, &child, path, parsed),
-                "type_alias" => Self::extract_type_alias(data, &child, parsed),
+                "type_alias" => Self::extract_type_alias(data, &child, path, parsed),
                 _ => {}
             }
         }
@@ -436,6 +452,7 @@ impl GoTypeProvider {
         if name.is_empty() {
             return;
         }
+        Self::record_type_declaration(data, path, &name);
 
         let type_node = match node.child_by_field_name("type") {
             Some(n) => n,
@@ -454,6 +471,10 @@ impl GoTypeProvider {
                     name: name.clone(),
                 };
                 data.struct_identities.insert(owner.clone());
+                data.struct_declaration_files
+                    .entry(owner.clone())
+                    .or_default()
+                    .insert(path.to_string());
                 for (field_name, field_type) in &fields {
                     if field_type.trim_start().starts_with("func(") {
                         data.func_typed_fields
@@ -468,7 +489,8 @@ impl GoTypeProvider {
                 // P11 S4 (B2 fix): package-scoped embed list, parallel to the
                 // bare `data.structs` insert below (which last-file-wins
                 // collapses same-named structs across packages).
-                data.struct_embeds.insert(owner, embedded.clone());
+                data.struct_embeds.insert(owner.clone(), embedded.clone());
+                data.struct_embed_files.insert(owner, path.to_string());
                 data.structs.insert(
                     name.clone(),
                     GoStruct {
@@ -514,6 +536,16 @@ impl GoTypeProvider {
                 }
             }
         }
+    }
+
+    fn record_type_declaration(data: &mut GoTypeData, path: &str, name: &str) {
+        data.type_declaration_files
+            .entry(crate::resolution::GoOwnerIdentity {
+                package_dir: crate::resolution::dir_of(path).to_string(),
+                name: name.to_string(),
+            })
+            .or_default()
+            .insert(path.to_string());
     }
 
     fn has_generic_syntax(node: &tree_sitter::Node) -> bool {
@@ -605,7 +637,12 @@ impl GoTypeProvider {
     }
 
     /// Extract a type alias: `type Name = OtherType`.
-    fn extract_type_alias(data: &mut GoTypeData, node: &tree_sitter::Node, parsed: &ParsedFile) {
+    fn extract_type_alias(
+        data: &mut GoTypeData,
+        node: &tree_sitter::Node,
+        path: &str,
+        parsed: &ParsedFile,
+    ) {
         let name_node = match node.child_by_field_name("name") {
             Some(n) => n,
             None => return,
@@ -617,6 +654,7 @@ impl GoTypeProvider {
         let name = parsed.node_text(&name_node).trim().to_string();
         let target = parsed.node_text(&type_node).trim().to_string();
         if !name.is_empty() && !target.is_empty() {
+            Self::record_type_declaration(data, path, &name);
             data.aliases.insert(name, target);
         }
     }
@@ -702,16 +740,23 @@ impl GoTypeProvider {
     /// Aliases, defined named types, qualified targets, interfaces, and unknown
     /// targets all fail closed. Their selector names remain in `struct_embeds`
     /// for Go shadowing decisions; only the S2 `field_types` entry is removed.
-    fn remove_unproven_pointer_embed_pseudo_fields(data: &mut GoTypeData) {
+    fn remove_unproven_pointer_embed_pseudo_fields(
+        data: &mut GoTypeData,
+        go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    ) {
         let mut invalid = Vec::new();
         for (owner, embeds) in &data.struct_embeds {
             for embedded in embeds {
                 let is_proven_local_struct = embedded.local_target_name().is_some_and(|target| {
-                    data.struct_identities
-                        .contains(&crate::resolution::GoOwnerIdentity {
+                    Self::has_visible_struct_declaration(
+                        data,
+                        go_file_profiles,
+                        owner,
+                        &crate::resolution::GoOwnerIdentity {
                             package_dir: owner.package_dir.clone(),
                             name: target.to_string(),
-                        })
+                        },
+                    )
                 });
                 let is_invalid = embedded.is_pointer && !is_proven_local_struct;
                 if is_invalid {
@@ -722,6 +767,65 @@ impl GoTypeProvider {
         for field in invalid {
             data.field_types.remove(&field);
         }
+    }
+
+    fn has_visible_struct_declaration(
+        data: &GoTypeData,
+        go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+        embedding_owner: &crate::resolution::GoOwnerIdentity,
+        target_owner: &crate::resolution::GoOwnerIdentity,
+    ) -> bool {
+        let Some(embedding_file) = data.struct_embed_files.get(embedding_owner) else {
+            return false;
+        };
+        let Some(embedding_profile) = go_file_profiles.get(embedding_file) else {
+            return false;
+        };
+        if !crate::go_build_profile::profile_allows_exact(Some(embedding_profile)) {
+            return false;
+        }
+        let Some(target_files) = data.struct_declaration_files.get(target_owner) else {
+            return false;
+        };
+
+        // These maps are keyed by the intentionally under-specified
+        // `GoOwnerIdentity`. If either identity spans package/build profiles,
+        // the retained entry cannot prove which declaration supplied it.
+        if Self::owner_identity_has_profile_conflict(data, go_file_profiles, embedding_owner)
+            || Self::owner_identity_has_profile_conflict(data, go_file_profiles, target_owner)
+        {
+            return false;
+        }
+
+        target_files.iter().any(|target_file| {
+            let Some(target_profile) = go_file_profiles.get(target_file) else {
+                return false;
+            };
+            let visibility = crate::go_build_profile::go_same_package_visible_detailed(
+                embedding_profile,
+                target_profile,
+            );
+            visibility.visible
+                && crate::go_build_profile::visibility_allows_exact(
+                    Some(target_profile),
+                    &visibility,
+                )
+        })
+    }
+
+    fn owner_identity_has_profile_conflict(
+        data: &GoTypeData,
+        go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+        owner: &crate::resolution::GoOwnerIdentity,
+    ) -> bool {
+        let Some(files) = data.type_declaration_files.get(owner) else {
+            return true;
+        };
+        let mut profiles = files.iter().map(|file| go_file_profiles.get(file));
+        let Some(Some(first)) = profiles.next() else {
+            return true;
+        };
+        profiles.any(|profile| profile != Some(first))
     }
 
     /// Package-scoped selector names used only for Go shadowing decisions.
