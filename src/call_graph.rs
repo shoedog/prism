@@ -2977,16 +2977,7 @@ impl CallGraph {
     }
 
     fn parse_go_module_path(go_mod: &str) -> Option<String> {
-        go_mod.lines().find_map(|line| {
-            let mut words = line.split_whitespace();
-            if words.next() != Some("module") {
-                return None;
-            }
-            words
-                .next()
-                .map(|path| path.trim_matches(['"', '`']).to_string())
-                .filter(|path| !path.is_empty())
-        })
+        crate::go_mod::parse_module_path(go_mod)
     }
 
     fn clear_go_func_value_fields(&mut self) {

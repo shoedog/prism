@@ -48,6 +48,7 @@ pub mod diff;
 pub mod framework_entries;
 pub mod frameworks;
 pub mod go_build_profile;
+mod go_mod;
 pub mod go_owner_partition;
 mod go_owner_partition_s4;
 mod go_receiver_index;

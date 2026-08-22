@@ -407,7 +407,7 @@ fn call_stats_reports_macro_arg_telemetry() {
 fn call_stats_reports_go_testdata_skip_and_excludes_its_exact_edge() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::create_dir_all(dir.path().join("testdata")).unwrap();
-    std::fs::write(dir.path().join("go.mod"), "module example/root\n").unwrap();
+    std::fs::write(dir.path().join("go.mod"), "module example.com/root\n").unwrap();
     std::fs::write(
         dir.path().join("main.go"),
         "package root\n\
