@@ -68,15 +68,46 @@ pub fn graph_callable_edge(graph: &ScopeGraph, site: &CallSite) -> Option<Target
         CallKind::Call => NS_VALUE,
         CallKind::MacroInvocation => NS_MACRO,
     };
-    let file = file_id_for_path(graph, &site.caller.file)?;
-    let from = enclosing_scope(graph, file, site.start_byte)?;
+    graph_value_target(
+        graph,
+        &site.caller.file,
+        site.start_byte,
+        &site.callee_name,
+        ns,
+    )
+}
+
+/// Resolve a bare Rust value reference to exactly one in-repo callable item.
+/// Unlike [`graph_callable_edge`], this API does not model the reference as a
+/// call site and therefore cannot accidentally bypass local-value shadowing.
+pub fn graph_function_value_reference(
+    graph: &ScopeGraph,
+    caller_file: &str,
+    at_byte: usize,
+    name: &str,
+) -> Option<Target> {
+    graph_value_target(graph, caller_file, at_byte, name, NS_VALUE)
+}
+
+fn graph_value_target(
+    graph: &ScopeGraph,
+    caller_file: &str,
+    at_byte: usize,
+    name: &str,
+    ns: u16,
+) -> Option<Target> {
+    if !graph.complete {
+        return None;
+    }
+    let file = file_id_for_path(graph, caller_file)?;
+    let from = enclosing_scope(graph, file, at_byte)?;
     let q = ResolveQuery {
-        name: site.callee_name.clone(),
+        name: name.to_string(),
         ns,
         from,
         at: SourceLoc {
             file,
-            byte: site.start_byte,
+            byte: at_byte,
         },
         cfg: CfgCtx::default(),
         ctx: PolicyQueryCtx::default(),

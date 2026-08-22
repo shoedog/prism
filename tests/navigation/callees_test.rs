@@ -198,3 +198,44 @@ fn callees_emits_each_resolved_definition_for_one_call_site() {
         2
     );
 }
+
+#[test]
+fn level3_same_span_sites_keep_exact_callback_identity_in_both_directions() {
+    let s = session(&[
+        ("a.js", "export function invoke(cb) { cb(); }\n"),
+        (
+            "b.js",
+            "import { invoke } from './a';\nfunction safe() {}\nfunction startB() { invoke(safe); }\n",
+        ),
+        (
+            "c.js",
+            "import { invoke } from './a';\nfunction safe() {}\nfunction startC() { invoke(safe); }\n",
+        ),
+    ]);
+
+    let callees = queries::callees(&s, Some("invoke"), Some("a.js"), None, 1).unwrap();
+    let mut safe_files: Vec<_> = callees
+        .items
+        .iter()
+        .filter_map(|item| match &item.symbol {
+            Some(SymbolRef::Function { file, name, .. }) if name == "safe" => Some(file.as_str()),
+            _ => None,
+        })
+        .collect();
+    safe_files.sort_unstable();
+    assert_eq!(safe_files, vec!["b.js", "c.js"]);
+
+    for file in ["b.js", "c.js"] {
+        let callers = queries::callers(&s, Some("safe"), Some(file), None, 1).unwrap();
+        assert!(
+            callers.items.iter().any(|item| {
+                matches!(
+                    &item.symbol,
+                    Some(SymbolRef::Function { file, name, .. })
+                        if file == "a.js" && name == "invoke"
+                )
+            }),
+            "missing a.js::invoke as caller of {file}::safe"
+        );
+    }
+}

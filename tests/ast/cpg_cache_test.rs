@@ -1678,6 +1678,67 @@ void run() {
 }
 
 #[test]
+fn incremental_level3_matches_full_rust_block_import_function_identity() {
+    let lib_v1 = "pub mod m;\nfn safe() {}\nfn invoke(cb: fn()) { cb(); }\nfn start() {\n    { use crate::m::safe; invoke(safe); }\n}\n";
+    let lib_v2 = "pub mod m;\nfn safe() {}\nfn invoke(cb: fn()) { cb(); }\nfn start() {\n    { use crate::m::safe; invoke(safe); }\n}\n// changed\n";
+    let module = "pub fn safe() {}\n";
+    let v1 = parsed_files(&[
+        ("src/lib.rs", lib_v1, Language::Rust),
+        ("src/m.rs", module, Language::Rust),
+    ]);
+    let v2 = parsed_files(&[
+        ("src/lib.rs", lib_v2, Language::Rust),
+        ("src/m.rs", module, Language::Rust),
+    ]);
+
+    let incremental =
+        assert_incremental_matches_full(v1, v2, BTreeSet::from(["src/lib.rs".to_string()]));
+    let site = call_site_in_file(&incremental, "src/lib.rs", "invoke", "safe");
+    let resolved = incremental.call_graph.resolve_call_site_full(&site);
+    assert!(matches!(
+        resolved.resolved.as_slice(),
+        [target]
+            if target.target.file == "src/m.rs"
+                && target.target.name == "safe"
+                && target.confidence == prism::resolution::ResolutionConfidence::Exact
+                && target.kind == prism::resolution::ResolutionKind::ParameterCallback
+    ));
+}
+
+#[test]
+fn incremental_level3_matches_full_js_import_function_identity() {
+    let invoke = "export function invoke(cb) { cb(); }\n";
+    let target = "export function safe() {}\n";
+    let entry_v1 = "import { invoke } from './invoke';\nimport { safe } from './safe';\nfunction forward() { invoke(safe); }\n";
+    let entry_v2 = "import { invoke } from './invoke';\nimport { safe } from './safe';\nfunction forward() { invoke(safe); }\n// changed\n";
+    let v1 = parsed_files(&[
+        ("invoke.js", invoke, Language::JavaScript),
+        ("safe.js", target, Language::JavaScript),
+        ("decoy.js", target, Language::JavaScript),
+        ("entry.js", entry_v1, Language::JavaScript),
+    ]);
+    let v2 = parsed_files(&[
+        ("invoke.js", invoke, Language::JavaScript),
+        ("safe.js", target, Language::JavaScript),
+        ("decoy.js", target, Language::JavaScript),
+        ("entry.js", entry_v2, Language::JavaScript),
+    ]);
+
+    let incremental =
+        assert_incremental_matches_full(v1, v2, BTreeSet::from(["entry.js".to_string()]));
+    let site = call_site_in_file(&incremental, "invoke.js", "invoke", "safe");
+    let resolved = incremental.call_graph.resolve_call_site_full(&site);
+    assert!(matches!(
+        resolved.resolved.as_slice(),
+        [target]
+            if target.target.file == "safe.js"
+                && target.target.name == "safe"
+                && target.confidence == prism::resolution::ResolutionConfidence::Exact
+                && target.kind == prism::resolution::ResolutionKind::ParameterCallback
+    ));
+}
+
+#[test]
 fn incremental_matches_full_for_rust_receiver_rematerialization() {
     let lib_src = "mod model;\n\
                    use crate::model::Outer;\n\

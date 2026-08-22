@@ -245,6 +245,38 @@ fn rust_and_python_slots_preserve_prefixes_and_pseudo_parameter_rules() {
 }
 
 #[test]
+fn callback_binding_scan_includes_python_local_imports_and_all_go_var_names() {
+    for (source, language) in [
+        (
+            "def forward():\n    from external import safe\n    invoke(safe)\n",
+            Language::Python,
+        ),
+        (
+            "package p\nfunc forward() { var other, safe = 0, func() {}; _ = other; invoke(safe) }\n",
+            Language::Go,
+        ),
+        (
+            "def forward(value):\n    match value:\n        case safe:\n            invoke(safe)\n",
+            Language::Python,
+        ),
+        (
+            "package p\nfunc forward() (safe func()) { invoke(safe); return }\n",
+            Language::Go,
+        ),
+    ] {
+        let parsed = ParsedFile::parse("test", source, language).unwrap();
+        let function = parsed.find_function_by_name("forward").unwrap();
+        let bindings = parsed
+            .function_local_value_bindings(&function)
+            .expect("supported binding model");
+        assert!(
+            bindings.contains("safe"),
+            "{language:?} must classify safe as function-local: {bindings:?}"
+        );
+    }
+}
+
+#[test]
 fn java_parameters_are_not_currently_positional_slots() {
     assert_eq!(
         slots("class C { void f(int value) {} }", Language::Java),

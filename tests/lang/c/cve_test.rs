@@ -46,18 +46,17 @@ void caller_reassign(void) {
         callee_names
     );
 
-    // caller_reassign's fptr(99) should resolve to target_func (last assignment)
+    // Two recognized assignments are not a must-alias proof. Retain the raw
+    // fptr call, but fail closed instead of choosing the last assignment.
     let reassign_id = &call_graph.functions.get("caller_reassign").unwrap()[0];
     let reassign_calls = call_graph.calls.get(reassign_id).unwrap();
     let reassign_names: Vec<&str> = reassign_calls
         .iter()
         .map(|s| s.callee_name.as_str())
         .collect();
-    assert!(
-        reassign_names.contains(&"target_func"),
-        "Level 1: reassigned fptr should resolve to last assignment (target_func), got: {:?}",
-        reassign_names
-    );
+    assert!(reassign_names.contains(&"fptr"));
+    assert!(!reassign_names.contains(&"target_func"));
+    assert!(!reassign_names.contains(&"other_func"));
 }
 
 #[test]

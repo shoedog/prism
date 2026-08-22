@@ -327,10 +327,6 @@ impl CodePropertyGraph {
             cached_cg.merge(fresh_cg);
             cached_dfg.merge(fresh_dfg);
 
-            // Phase 3: C/C++ indirect calls are whole-program derived edges.
-            // Clear old synthetic sites and recompute over the merged source graph.
-            cached_cg.recompute_indirect_calls(files);
-
             // Rebuild-together: this also refreshes Phase-2a Rust receiver indices
             // and re-materializes CallSite.receiver_outcome before assemble reads it.
             cached_cg.rebuild_scope_graph(files, scope_inputs);
@@ -375,6 +371,9 @@ impl CodePropertyGraph {
             // ALSO whole-program derived — recompute after merge, same
             // rationale as the Go passes above.
             cached_cg.apply_js_export_resolution();
+            // Match full construction: Phase 3 / Level-3 runs only after every
+            // whole-program resolution fact has been restored on the merged graph.
+            cached_cg.recompute_indirect_calls(files);
 
             Self::assemble_graph(cached_cg, cached_dfg, files, type_db)
         })

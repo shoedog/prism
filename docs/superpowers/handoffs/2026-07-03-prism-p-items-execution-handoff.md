@@ -2,6 +2,18 @@
 
 Cold-start map for continuing the execution of `docs/analysis/prism-llm-and-accuracy-plan.md`. The durable in-repo progress ledger is **`.superpowers/sdd/progress.md`** (git-ignored scratch — read it first; it has per-step history including every review verdict).
 
+## 2026-08-22 — Item P8 parameter-slots final wave
+
+- Lane: `param-slots-fail-closed`, parent `8595d0d`; this final-wave commit is intentionally unpushed.
+- Level-3 callback arguments now use binding-aware value-reference resolution. JS/TS, Python, Go, and Rust parameters/locals shadow repository functions; Python local imports/match captures and Go multi-name vars/named results are also fail-closed. Free and imported identifiers retain exact `FunctionId` custody.
+- Full and incremental construction both recompute indirect sites only after whole-program scope/import/export/type facts are restored. Rust block-local imports and JS imports have exact full-vs-incremental identity tests.
+- Navigation `CallSiteKey` includes `pre_resolved_target`; live callers/callees and the sidecar round trip retain two same-span Level-3 targets.
+- The assignment fallback is retained only for exactly one recognized assignment before the inbound call. Later-only or multiple prior assignments mint no target; a post-call reassignment does not rewrite the earlier call.
+- Custody surface: `prism nav call-stats --dump-sites` emits deterministic JSONL per raw site with caller/span/callee, targets, kind, confidence, and drop.
+- Cache versions remain CPG 42 / sidecar 11 as required.
+- Verification: `cargo fmt --all -- --check` clean; full `cargo test` = 3,120 passed / 0 failed / 1 ignored; release build clean; Tier-A matrix all `ok`.
+- Tier-A quick completed evaluation but exited 2 because the baseline was invalid: corpus SHA `8595d0dca844` != configured pin `20c8490591a3`, and rust-analyzer produced 4/6 Q-scoped probes. SUT error rate was 0 and matrix regressions were empty. Pinned outputs: `target-c-method` flip candidate; both expected `oracle_miss_site` probes reported missing. Raw evidence is retained at ignored `eval/runs/2026-08-22-prism.json`; no baseline/report artifact was committed.
+
 ## State
 
 **Merged to main** (tip at handoff: `900adf6` + one docs commit): P1 #149 (review-output collapse, probe 13.49 MB→552 KB), P2 #150 (docs truth pass, LLM.md deleted), P6a #151 (confidence-stratified M2: `exact_tier` gates / `candidate_tier` informational), #152 (CaseResult test drift), P3 #153 (R6MultiOwnerCandidate: capped ≤3-target NameOnly candidates for Py/JS/TS/Tsx unknown receivers; black `dropped_multi_owner` 230→30), P5 #154 (Go `callback_registration` table + `func_value_field`; cobra `emptyRun` 0→288). Plan doc status blocks record all of it + as-shipped corrections.

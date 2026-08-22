@@ -1277,7 +1277,6 @@ impl CallGraph {
             go_package_vars: BTreeMap::new(),
             go_embedded_interface_methods: BTreeMap::new(),
         };
-        cg.recompute_indirect_calls(files);
         cg.refresh_rust_receiver_state(files);
         cg.apply_go_embedding_promotion(files);
         cg.apply_go_interface_dispatch(files);
@@ -1308,6 +1307,9 @@ impl CallGraph {
         // P4: JS/TS export-fact resolution (re-export chains/barrels) is ALSO
         // whole-program derived, same rationale as the Go passes above.
         cg.apply_js_export_resolution();
+        // Phase 3 / Level-3 is the final derived pass: exact callback values
+        // may consult every whole-program resolution fact installed above.
+        cg.recompute_indirect_calls(files);
         cg
     }
 
@@ -1790,9 +1792,13 @@ impl CallGraph {
                     .chars()
                     .all(|c| c.is_alphanumeric() || c == '_')
                 {
-                    let func_source = Self::extract_func_source(parsed, caller_id);
+                    let Some(func_source) =
+                        Self::extract_func_source_before(parsed, caller_id, site.start_byte)
+                    else {
+                        continue;
+                    };
                     if let Some(resolved) = crate::ast::resolve_fptr_assignment(
-                        &func_source,
+                        func_source,
                         &site.callee_name,
                         &known_fn_names,
                     ) {
@@ -2025,47 +2031,93 @@ impl CallGraph {
         argument_span: &std::ops::Range<usize>,
         known_fn_names: &BTreeSet<String>,
     ) -> Option<FunctionId> {
-        let resolve_name = |name: &str| {
-            let site = CallSite {
-                caller: caller_site.caller.clone(),
-                callee_name: name.to_string(),
-                line: caller_parsed.line_for_byte(argument_span.start),
-                kind: CallKind::Call,
-                start_byte: argument_span.start,
-                end_byte: argument_span.end,
-                qualifier: None,
-                receiver_type: None,
-                receiver_recovery: None,
-                receiver_materialized: false,
-                arg_count: None,
-                arg_spread: false,
-                receiver_outcome: None,
-                origin: CallSiteOrigin::Source,
-                pre_resolved_target: None,
-            };
-            match self.resolve_call_site_full(&site).resolved.as_slice() {
-                [resolved]
-                    if resolved.confidence == crate::resolution::ResolutionConfidence::Exact =>
-                {
-                    Some(resolved.target.clone())
-                }
-                _ => None,
-            }
-        };
-
-        if argument
+        if !argument
             .chars()
             .all(|character| character.is_alphanumeric() || character == '_')
         {
-            if let Some(target) = resolve_name(argument) {
+            return None;
+        }
+
+        let bound = self.callback_value_binding_state(
+            caller_parsed,
+            &caller_site.caller,
+            argument,
+            argument_span.start,
+        )?;
+        if !bound {
+            if let Some(target) = self.exact_free_function_value_reference(
+                &caller_site.caller,
+                argument,
+                argument_span.start,
+            ) {
                 return Some(target);
             }
         }
 
-        let caller_func_source = Self::extract_func_source(caller_parsed, &caller_site.caller);
+        let caller_func_source = Self::extract_func_source_before(
+            caller_parsed,
+            &caller_site.caller,
+            caller_site.start_byte,
+        )?;
         let assigned =
-            crate::ast::resolve_fptr_assignment(&caller_func_source, argument, known_fn_names)?;
-        resolve_name(&assigned)
+            crate::ast::resolve_fptr_assignment(caller_func_source, argument, known_fn_names)?;
+        if self.callback_value_binding_state(
+            caller_parsed,
+            &caller_site.caller,
+            &assigned,
+            argument_span.start,
+        )? {
+            return None;
+        }
+        self.exact_free_function_value_reference(
+            &caller_site.caller,
+            &assigned,
+            argument_span.start,
+        )
+    }
+
+    /// `Some(true)` means a local/parameter binding shadows the repository
+    /// function namespace. `None` is an unsupported or degraded binding model
+    /// and therefore declines Level-3 rather than guessing.
+    fn callback_value_binding_state(
+        &self,
+        parsed: &ParsedFile,
+        caller: &FunctionId,
+        name: &str,
+        at_byte: usize,
+    ) -> Option<bool> {
+        use crate::languages::Language;
+
+        match parsed.language {
+            // The persisted index is intentionally sparse: absence means the
+            // modeled function has no parameter/local bindings.
+            Language::JavaScript | Language::TypeScript | Language::Tsx => Some(
+                self.js_ts_function_locals
+                    .get(caller)
+                    .is_some_and(|bindings| bindings.contains(name)),
+            ),
+            Language::Python | Language::Go => {
+                let function = Self::function_node_for_id(parsed, caller)?;
+                parsed
+                    .function_local_value_bindings(&function)
+                    .map(|bindings| bindings.contains(name))
+            }
+            Language::Rust => {
+                let graph = self.scope_graph.as_ref()?;
+                if !graph.complete {
+                    return None;
+                }
+                let file = *graph.file_paths.get(&caller.file)?;
+                Some(
+                    crate::name_resolution::binding_lookup::lookup_visible_binding(
+                        graph, file, at_byte, name,
+                    )
+                    .is_some(),
+                )
+            }
+            Language::C | Language::Cpp => Some(false),
+            _ => None,
+        }
     }
 
     /// Build class facts for inherited-self and recovered receiver resolution.
@@ -4274,6 +4326,20 @@ impl CallGraph {
                 return CallKind::Call;
             })
             .unwrap_or(CallKind::Call)
+    }
+
+    /// Exact function-source prefix ending immediately before `before_byte`.
+    /// Assignment-based callback resolution must never inspect later writes.
+    fn extract_func_source_before<'a>(
+        parsed: &'a ParsedFile,
+        func_id: &FunctionId,
+        before_byte: usize,
+    ) -> Option<&'a str> {
+        let function = Self::function_node_for_id(parsed, func_id)?;
+        if before_byte < function.start_byte() || before_byte > function.end_byte() {
+            return None;
+        }
+        parsed.source.get(function.start_byte()..before_byte)
     }
 
     /// Extract the source text for a function from its parsed file.

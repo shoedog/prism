@@ -402,3 +402,53 @@ fn call_stats_reports_macro_arg_telemetry() {
     assert_eq!(v["macro_arg_skipped_macros"].as_u64().unwrap(), 1);
     assert_eq!(v["macro_arg_ctor_skips"].as_u64().unwrap(), 1);
 }
+
+#[test]
+fn call_stats_dump_sites_emits_per_site_exact_callback_custody() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("callbacks.js"),
+        "function safe() {}\nfunction invoke(cb) { cb(); }\nfunction forward() { invoke(safe); }\n",
+    )
+    .unwrap();
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--dump-sites", "--repo"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let sites: Vec<serde_json::Value> = String::from_utf8(out.stdout)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(sites.len(), 3, "one JSONL record per source/synthetic site");
+    let callback = sites
+        .iter()
+        .find(|site| site["callee_text"] == "safe" && site["origin"] == "IndirectResolution")
+        .expect("Level-3 synthetic callback site");
+    assert_eq!(callback["caller"]["file"], "callbacks.js");
+    assert_eq!(callback["caller"]["name"], "invoke");
+    assert!(callback["source_span"]["start_byte"].is_u64());
+    assert!(callback["source_span"]["end_byte"].is_u64());
+    assert_eq!(callback["call_kind"], "Call");
+    assert_eq!(
+        callback["resolved_targets"][0]["function_id"]["file"],
+        "callbacks.js"
+    );
+    assert_eq!(
+        callback["resolved_targets"][0]["function_id"]["name"],
+        "safe"
+    );
+    assert_eq!(
+        callback["resolved_targets"][0]["kind"],
+        "parameter_callback"
+    );
+    assert_eq!(callback["resolved_targets"][0]["confidence"], "exact");
+}
