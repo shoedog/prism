@@ -140,6 +140,7 @@ fn publication_hooks(published: std::sync::mpsc::Sender<()>) -> crate::mcp::lazy
         published: Some(std::sync::Arc::new(move || {
             let _ = published.send(());
         })),
+        before_wait: None,
     }
 }
 
@@ -434,7 +435,11 @@ fn lazy_runtime_returns_the_eager_result_when_the_builder_finishes_during_the_fi
     let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
     cfg.cache = crate::mcp::CacheMode::NoCache;
     let mut eager = crate::mcp::SessionProvider::bootstrap(&cfg).unwrap();
-    let (builder, hooks, mut build) = blocking_builder(cfg.clone());
+    let (builder, mut hooks, mut build) = blocking_builder(cfg.clone());
+    let (before_wait, before_wait_rx) = std::sync::mpsc::channel();
+    hooks.before_wait = Some(std::sync::Arc::new(move || {
+        let _ = before_wait.send(());
+    }));
     let mut lazy = crate::mcp::lazy::LazySessionProvider::with_builder_and_hooks(
         &cfg,
         std::time::Duration::from_secs(5),
@@ -443,16 +448,18 @@ fn lazy_runtime_returns_the_eager_result_when_the_builder_finishes_during_the_fi
     )
     .unwrap();
     build.wait_started();
-    let call_gate = std::sync::Arc::new(std::sync::Barrier::new(2));
     let release = build.release_sender();
-    let release_gate = std::sync::Arc::clone(&call_gate);
     let releaser = std::thread::spawn(move || {
-        release_gate.wait();
-        let _ = release.send(());
+        let reached_wait = before_wait_rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .is_ok();
+        if reached_wait {
+            let _ = release.send(());
+        }
+        reached_wait
     });
     let request = r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_repo_map","arguments":{}}}"#;
 
-    call_gate.wait();
     let lazy_response = call_tool_at_cap_with_mode(
         &mut lazy,
         &ToolRegistry::all_v1(),
@@ -469,7 +476,9 @@ fn lazy_runtime_returns_the_eager_result_when_the_builder_finishes_during_the_fi
     );
     assert_eq!(lazy_response, eager_response);
     assert_eq!(lazy.attempts(), 1);
-    releaser.join().unwrap();
+    assert!(releaser
+        .join()
+        .expect("wait releaser thread must not panic"));
     build.wait();
 }
 

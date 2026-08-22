@@ -18,6 +18,7 @@ pub(crate) type LazyTestHook = Arc<dyn Fn() + Send + Sync>;
 #[derive(Clone, Default)]
 pub(crate) struct LazyTestHooks {
     pub(crate) published: Option<LazyTestHook>,
+    pub(crate) before_wait: Option<LazyTestHook>,
 }
 
 pub struct LazySessionProvider {
@@ -126,10 +127,14 @@ impl LazySessionProvider {
                     now.checked_add(self.wait)
                         .unwrap_or_else(|| now + FIRST_CALL_WAIT_MAX)
                 });
-                (
-                    rx.recv_timeout(deadline.saturating_duration_since(now)),
-                    started.elapsed(),
-                )
+                let remaining = deadline.saturating_duration_since(now);
+                #[cfg(test)]
+                if !remaining.is_zero() {
+                    if let Some(before_wait) = &self.hooks.before_wait {
+                        before_wait();
+                    }
+                }
+                (rx.recv_timeout(remaining), started.elapsed())
             }
             LazyState::Ready(_) => return Readiness::Ready,
             LazyState::Failed { .. } => unreachable!("failed state always restarts before waiting"),
@@ -290,15 +295,30 @@ mod tests {
         })
     }
 
-    fn publication_hooks(published: mpsc::Sender<()>) -> LazyTestHooks {
+    fn publication_hooks(
+        published: mpsc::Sender<()>,
+        before_wait: Option<mpsc::Sender<()>>,
+    ) -> LazyTestHooks {
         LazyTestHooks {
             published: Some(Arc::new(move || {
                 let _ = published.send(());
             })),
+            before_wait: before_wait.map(|before_wait| -> LazyTestHook {
+                Arc::new(move || {
+                    let _ = before_wait.send(());
+                })
+            }),
         }
     }
 
     fn blocking_lazy(wait: Duration) -> (tempfile::TempDir, LazySessionProvider, BlockingBuild) {
+        blocking_lazy_with_before_wait(wait, None)
+    }
+
+    fn blocking_lazy_with_before_wait(
+        wait: Duration,
+        before_wait: Option<mpsc::Sender<()>>,
+    ) -> (tempfile::TempDir, LazySessionProvider, BlockingBuild) {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("a.py"), "def f():\n    return 1\n").unwrap();
         let mut cfg = ServerConfig::new(dir.path().to_path_buf());
@@ -309,7 +329,7 @@ mod tests {
             &cfg,
             wait,
             blocking_builder(cfg.clone(), Arc::new(Mutex::new(rx))),
-            publication_hooks(published),
+            publication_hooks(published, before_wait),
         )
         .unwrap();
         (dir, provider, BlockingBuild::new(release, published_rx))
@@ -331,7 +351,9 @@ mod tests {
 
     #[test]
     fn zero_wait_reports_warming_without_starting_another_build() {
-        let (_dir, mut provider, mut build) = blocking_lazy(Duration::ZERO);
+        let (before_wait, before_wait_rx) = mpsc::channel();
+        let (_dir, mut provider, mut build) =
+            blocking_lazy_with_before_wait(Duration::ZERO, Some(before_wait));
 
         assert!(matches!(
             provider.ensure_ready(),
@@ -339,6 +361,10 @@ mod tests {
         ));
         assert_eq!(provider.attempts(), 1);
         assert_eq!(provider.state_kind(), "building");
+        assert!(matches!(
+            before_wait_rx.try_recv(),
+            Err(mpsc::TryRecvError::Empty)
+        ));
         build.finish();
     }
 
@@ -394,7 +420,7 @@ mod tests {
             &cfg,
             wait,
             builder,
-            publication_hooks(published),
+            publication_hooks(published, None),
         )
         .unwrap();
 
