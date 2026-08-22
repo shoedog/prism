@@ -5,12 +5,24 @@ use crate::repo_loader::{load_repo, LoadedRepo};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
+
+pub const FIRST_CALL_WAIT_MAX: Duration = Duration::from_secs(600);
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum StartupMode {
+    #[default]
+    Lazy,
+    Eager,
+}
 
 #[derive(Clone, Debug)]
 pub struct ServerConfig {
     pub repo_root: PathBuf,
     pub cache: CacheMode,
     pub refresh_policy: RefreshPolicy,
+    pub startup: StartupMode,
+    pub first_call_wait: Duration,
 }
 
 impl ServerConfig {
@@ -19,6 +31,8 @@ impl ServerConfig {
             repo_root,
             cache: CacheMode::Default,
             refresh_policy: RefreshPolicy::WarnOnly,
+            startup: StartupMode::Lazy,
+            first_call_wait: Duration::from_secs(20),
         }
     }
 }
@@ -285,11 +299,19 @@ impl SessionProvider {
     }
 }
 
-fn canonical_config(cfg: &ServerConfig) -> anyhow::Result<ServerConfig> {
+pub(super) fn canonical_config(cfg: &ServerConfig) -> anyhow::Result<ServerConfig> {
+    if cfg.first_call_wait > FIRST_CALL_WAIT_MAX {
+        anyhow::bail!(
+            "first_call_wait must not exceed {} seconds",
+            FIRST_CALL_WAIT_MAX.as_secs()
+        );
+    }
     Ok(ServerConfig {
         repo_root: std::fs::canonicalize(&cfg.repo_root)?,
         cache: cfg.cache.clone(),
         refresh_policy: cfg.refresh_policy,
+        startup: cfg.startup,
+        first_call_wait: cfg.first_call_wait,
     })
 }
 
@@ -529,6 +551,29 @@ fn display_changed_key(key: &str, fallback_prefix: &str) -> String {
 mod tests {
     use super::*;
 
+    #[test]
+    fn server_config_new_defaults_to_lazy_with_a_bounded_first_call_wait() {
+        let cfg = ServerConfig::new(PathBuf::from("."));
+
+        assert_eq!(cfg.startup, StartupMode::Lazy);
+        assert_eq!(cfg.first_call_wait, std::time::Duration::from_secs(20));
+        assert!(cfg.first_call_wait <= FIRST_CALL_WAIT_MAX);
+    }
+
+    #[test]
+    fn canonical_config_rejects_an_unbounded_first_call_wait() {
+        let cfg = ServerConfig {
+            repo_root: PathBuf::from("."),
+            cache: CacheMode::NoCache,
+            refresh_policy: RefreshPolicy::WarnOnly,
+            startup: StartupMode::Lazy,
+            first_call_wait: std::time::Duration::MAX,
+        };
+
+        let error = canonical_config(&cfg).expect_err("unbounded wait must be rejected");
+        assert!(error.to_string().contains("first_call_wait"));
+    }
+
     fn snapshot(
         files: &[(&str, &str)],
         manifests: &[(&str, &str)],
@@ -559,6 +604,8 @@ mod tests {
             repo_root: dir.path().to_path_buf(),
             cache: CacheMode::NoCache,
             refresh_policy: RefreshPolicy::WarnOnly,
+            startup: StartupMode::Eager,
+            first_call_wait: Duration::from_secs(20),
         };
         let p = SessionProvider::bootstrap(&cfg).expect("bootstrap");
         assert_eq!(
@@ -575,6 +622,8 @@ mod tests {
             repo_root: dir.path().to_path_buf(),
             cache: CacheMode::NoCache,
             refresh_policy: RefreshPolicy::WarnOnly,
+            startup: StartupMode::Eager,
+            first_call_wait: Duration::from_secs(20),
         };
         let mut p = SessionProvider::bootstrap(&cfg).expect("bootstrap");
         std::fs::write(dir.path().join("a.py"), "def fresh():\n    return 1\n").unwrap();
@@ -603,6 +652,8 @@ mod tests {
             repo_root: dir.path().to_path_buf(),
             cache: CacheMode::NoCache,
             refresh_policy: RefreshPolicy::WarnOnly,
+            startup: StartupMode::Eager,
+            first_call_wait: Duration::from_secs(20),
         };
         let mut p = SessionProvider::bootstrap(&cfg).expect("bootstrap");
         std::fs::write(dir.path().join("a.py"), "def fresh():\n    return 1\n").unwrap();
@@ -629,6 +680,8 @@ mod tests {
             repo_root: dir.path().to_path_buf(),
             cache: CacheMode::NoCache,
             refresh_policy: RefreshPolicy::WarnOnly,
+            startup: StartupMode::Eager,
+            first_call_wait: Duration::from_secs(20),
         };
         let mut p = SessionProvider::bootstrap(&cfg).expect("bootstrap");
         std::fs::write(dir.path().join("a.py"), "def fresh():\n    return 1\n").unwrap();

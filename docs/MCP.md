@@ -56,6 +56,7 @@ server when prompted.
 prism-mcp --repo /abs/path/to/your/repo                              # serve one repo over stdio
 prism-mcp --repo /abs/path/to/repo --cache-dir ~/.cache/prism-nav    # pin the nav-cache location
 prism-mcp --repo /abs/path/to/repo --no-cache                        # disable the nav cache
+prism-mcp --repo /abs/path/to/repo --eager < /dev/null               # build synchronously, then exit
 ```
 
 | Flag | Required | Meaning |
@@ -63,11 +64,14 @@ prism-mcp --repo /abs/path/to/repo --no-cache                        # disable t
 | `--repo <PATH>` | yes | The repository this server instance navigates. **One repo per process** — pin an absolute path. |
 | `--cache-dir <PATH>` | no | Where to store the per-repo navigation CPG cache (default: an OS cache dir, keyed by the canonical repo path). |
 | `--no-cache` | no | Don't read/write the nav cache (rebuild every start). Conflicts with `--cache-dir`. |
+| `--eager` | no | Build the repository index before answering `initialize`, preserving the historical synchronous startup. Use for explicit pre-warming; normally leave it off. |
+| `--first-call-wait <SECS>` | no | Lazy-mode maximum wait for the first valid `tools/call` while the background build finishes (default `20`, range `0`–`600`). `0` returns a warming result immediately. Accepted but ignored with `--eager`. |
 
 > **First start warms a cache.** A cold whole-repo CPG build can take ~30 s on a large repo; subsequent
 > starts on an unchanged tree are near-instant (the cache is keyed by the canonical repo path + a grammar
-> fingerprint, and only re-indexes changed files). If your agent host has a short MCP handshake timeout,
-> **pre-warm once**: `prism-mcp --repo <REPO> --cache-dir <DIR> < /dev/null`.
+> fingerprint, and only re-indexes changed files). If you want to pre-warm once, use either
+> `prism-mcp --repo <REPO> --cache-dir <DIR> --eager < /dev/null` or
+> `prism nav --cache-dir <DIR> repo-map --repo <REPO>` (the `--cache-dir` flag must precede `repo-map`).
 
 ---
 
@@ -158,8 +162,11 @@ symbol's *definition* or *call* line, not a blank/comment line.
   type across multiple owner types; not attributed as callers` means real callers may be missing:
   treat "no callers" plus that warning as *unknown*, not *none*.
 - **Read-only.** The server never modifies the repo. It also never executes code.
-- **Cold first call.** If you didn't pre-warm and the first tool call stalls, the server is building the
-  whole-repo CPG (~30 s on a large repo). It's fast after that.
+- **Cold first call.** `initialize`, `ping`, and `tools/list` answer immediately while the repository index
+  builds in the background. A valid `tools/call` waits up to `--first-call-wait` (20 seconds by default),
+  then returns an error-marked `index warming` JSON result if the build is still running. Retry that same
+  call shortly; no other action is needed, and later calls are fast. Use `--eager` only when a synchronous
+  build is desirable, such as pre-warming a shared cache.
 
 ---
 

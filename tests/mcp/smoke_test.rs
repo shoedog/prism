@@ -1,6 +1,7 @@
 #![cfg(feature = "mcp")]
 
 use assert_cmd::Command;
+use predicates::prelude::*;
 use serde_json::Value;
 
 #[test]
@@ -30,6 +31,11 @@ fn prism_mcp_protocol_smoke() {
 
     let stdout = String::from_utf8(output.stdout).expect("stdout utf8");
     let responses = parse_json_rpc_stdout(&stdout);
+    assert_eq!(
+        response_with_id(&responses, 1)["result"]["instructions"],
+        lazy_instructions(),
+        "default prism-mcp startup must advertise the lazy handshake"
+    );
     let tools_list = response_with_id(&responses, 2);
     let tools = tools_list["result"]["tools"]
         .as_array()
@@ -129,6 +135,84 @@ fn prism_mcp_protocol_smoke() {
         agent_result["_meta"]["prism/view_indexing_policy"],
         "code_role_v1"
     );
+}
+
+#[test]
+fn prism_mcp_bounds_first_call_wait_and_accepts_eager() {
+    let repo = tempfile::tempdir().expect("temp repo");
+    std::fs::write(repo.path().join("main.py"), "def main():\n    return 1\n").expect("write repo");
+
+    let eager_output = Command::cargo_bin("prism-mcp")
+        .expect("prism-mcp binary")
+        .args(["--repo", repo.path().to_str().unwrap()])
+        .args(["--eager", "--first-call-wait", "0"])
+        .write_stdin(initialize_message())
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+    let eager_responses = parse_json_rpc_stdout(
+        std::str::from_utf8(&eager_output.stdout).expect("eager stdout utf8"),
+    );
+    assert_eq!(
+        response_with_id(&eager_responses, 1)["result"]["instructions"],
+        eager_instructions(),
+        "--eager must retain the previous initialization bytes"
+    );
+
+    Command::cargo_bin("prism-mcp")
+        .expect("prism-mcp binary")
+        .args(["--repo", repo.path().to_str().unwrap()])
+        .args(["--first-call-wait", "0"])
+        .write_stdin(initialize_message())
+        .assert()
+        .success();
+
+    let cache = tempfile::tempdir().expect("cache dir");
+    Command::cargo_bin("prism-mcp")
+        .expect("prism-mcp binary")
+        .args(["--repo", repo.path().to_str().unwrap()])
+        .args(["--cache-dir", cache.path().to_str().unwrap(), "--eager"])
+        .write_stdin("")
+        .assert()
+        .success();
+    assert!(
+        std::fs::read_dir(cache.path())
+            .expect("read cache dir")
+            .next()
+            .is_some(),
+        "--eager EOF pre-warm must populate its cache directory"
+    );
+
+    Command::cargo_bin("prism-mcp")
+        .expect("prism-mcp binary")
+        .args(["--repo", repo.path().to_str().unwrap()])
+        .args(["--first-call-wait", "600"])
+        .write_stdin(initialize_message())
+        .assert()
+        .success();
+
+    Command::cargo_bin("prism-mcp")
+        .expect("prism-mcp binary")
+        .args(["--repo", repo.path().to_str().unwrap()])
+        .args(["--first-call-wait", "601"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("0..=600"));
+}
+
+fn initialize_message() -> String {
+    r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"mcp-smoke","version":"0"}}}"#
+        .to_string()
+        + "\n"
+}
+
+fn eager_instructions() -> String {
+    "Results reflect the repository snapshot loaded when prism-mcp started or last refreshed. If indexed files change during the server session, Prism marks tool results with stale-index metadata and warnings; restart/re-add the MCP server or use CLI nav for a fresh snapshot. Optional LLM views are opt-in: set format to agent_markdown or agent_json. Agent views change only content text and view metadata; structuredContent remains canonical Evidence. agent_json includes normalized locations, canonical symbol_ref handles, deterministic reasons, group summaries, and parser-valid next_queries.".to_string()
+}
+
+fn lazy_instructions() -> String {
+    "The repository snapshot is loaded by a background build started at server startup; until it completes, tool calls return an `index warming` result — retry shortly. Freshness warnings compare the working tree against the most recently completed build or refresh snapshot. Optional LLM views are opt-in: set format to agent_markdown or agent_json. Agent views change only content text and view metadata; structuredContent remains canonical Evidence. agent_json includes normalized locations, canonical symbol_ref handles, deterministic reasons, group summaries, and parser-valid next_queries.".to_string()
 }
 
 fn lifecycle_messages() -> String {

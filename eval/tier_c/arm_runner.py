@@ -336,13 +336,14 @@ def _prism_mcp_config(repo_root: str, *, no_cache: bool = False,
 def warm_gate_check(repo_root: str, *, cache_dir: str | None = None,
                     prism_mcp_bin: str | None = None,
                     timeout_s: float = 15.0) -> dict:
-    """F4 warm-initialize GATE: spawn a throwaway `prism-mcp --repo repo_root
+    """F4 warm-initialize GATE: spawn a throwaway `prism-mcp --repo repo_root --eager
     [--cache-dir cache_dir]`, run the JSON-RPC handshake (initialize ->
     notifications/initialized -> tools/list) over stdio, and assert it completes within
     *timeout_s* AND tools/list returns a non-empty tool set.
 
-    This is the loud-failure guarantee: if the arm's prism-mcp would NOT actually start
-    warm (cold CPG build racing the host's MCP timeout, a stale/mismatched cache, a
+    `--eager` is deliberate: lazy initialization answers without an index, so it cannot
+    prove the shared cache is warm. This is the loud-failure guarantee: if the arm's
+    prism-mcp would NOT actually start warm (cold CPG build racing the host's MCP timeout, a stale/mismatched cache, a
     crashed server, ...), this catches it BEFORE the agent is launched — a 0-dose arm
     (agent silently ran with no prism tools available) is worse than a failed cell.
 
@@ -357,7 +358,7 @@ def warm_gate_check(repo_root: str, *, cache_dir: str | None = None,
     # absolute repo_root: the gate is spawned with cwd=repo_root (mirrors the agents), so a relative
     # root would make prism-mcp see `<root>/<root>` (PR #172 re-review).
     repo_root = os.path.abspath(repo_root)
-    argv = [bin_path, "--repo", repo_root]
+    argv = [bin_path, "--repo", repo_root, "--eager"]
     if cache_dir:
         # absolute: this process is spawned with cwd=repo_root (mirrors the agents); a relative
         # path would resolve inside the checkout and miss the prewarmed cache (fail loud, but wrongly).

@@ -2,6 +2,7 @@ use super::concise_shape::{resolve_concise_shape_mode, ConciseShapeMode};
 use super::freshness::{
     apply_freshness_report, FreshnessProbe, FreshnessReport, FRESHNESS_RESERVE_BYTES,
 };
+use super::lazy::{LazySessionProvider, Readiness};
 use super::output::{
     clamp_user_text, resolve_cap, resolve_structured_content_mode, McpToolResult,
     StructuredContentMode, MAX_RESULT_CHARS_FLOOR, SCHEMA_VERSION,
@@ -9,7 +10,7 @@ use super::output::{
 use super::registry::{ToolContext, ToolRegistry, ToolRuntimeBehavior};
 use super::{
     tools_refresh, AutoRefreshSummary, RefreshPolicy, RefreshSummary, RefreshVerification,
-    SessionProvider,
+    SessionProvider, StartupMode,
 };
 use crate::navigation::NavigationSession;
 use serde_json::{json, Map, Value};
@@ -128,13 +129,22 @@ fn serve_runtime(
 }
 
 pub fn serve_stdio(p: &mut SessionProvider, r: &ToolRegistry) -> anyhow::Result<()> {
+    serve_stdio_runtime(p, r)
+}
+
+pub(super) fn serve_stdio_runtime(
+    runtime: &mut impl SessionRuntime,
+    registry: &ToolRegistry,
+) -> anyhow::Result<()> {
     let stdin = io::stdin();
     let stdout = io::stdout();
     let mut transport = StdioTransport::new(stdin.lock(), stdout.lock());
-    serve_runtime(p, r, &mut transport)
+    serve_runtime(runtime, registry, &mut transport)
 }
 
-trait SessionRuntime {
+pub(super) trait SessionRuntime {
+    fn ensure_ready(&mut self) -> Readiness;
+    fn startup_mode(&self) -> StartupMode;
     fn session(&self) -> &NavigationSession;
     fn freshness(&self) -> Option<&FreshnessProbe>;
     fn known_stale_after_refresh(&self) -> Option<&FreshnessReport>;
@@ -149,6 +159,14 @@ struct StaticRuntime<'a> {
 }
 
 impl SessionRuntime for StaticRuntime<'_> {
+    fn ensure_ready(&mut self) -> Readiness {
+        Readiness::Ready
+    }
+
+    fn startup_mode(&self) -> StartupMode {
+        StartupMode::Eager
+    }
+
     fn session(&self) -> &NavigationSession {
         self.session
     }
@@ -175,6 +193,14 @@ impl SessionRuntime for StaticRuntime<'_> {
 }
 
 impl SessionRuntime for SessionProvider {
+    fn ensure_ready(&mut self) -> Readiness {
+        Readiness::Ready
+    }
+
+    fn startup_mode(&self) -> StartupMode {
+        StartupMode::Eager
+    }
+
     fn session(&self) -> &NavigationSession {
         SessionProvider::session(self)
     }
@@ -197,6 +223,54 @@ impl SessionRuntime for SessionProvider {
 
     fn auto_refresh_index(&mut self) -> anyhow::Result<AutoRefreshSummary> {
         self.auto_refresh()
+    }
+}
+
+impl SessionRuntime for LazySessionProvider {
+    fn ensure_ready(&mut self) -> Readiness {
+        LazySessionProvider::ensure_ready(self)
+    }
+
+    fn startup_mode(&self) -> StartupMode {
+        StartupMode::Lazy
+    }
+
+    fn session(&self) -> &NavigationSession {
+        self.ready()
+            .expect("lazy runtime methods run only after readiness")
+            .session()
+    }
+
+    fn freshness(&self) -> Option<&FreshnessProbe> {
+        Some(
+            self.ready()
+                .expect("lazy runtime methods run only after readiness")
+                .freshness(),
+        )
+    }
+
+    fn known_stale_after_refresh(&self) -> Option<&FreshnessReport> {
+        self.ready()
+            .expect("lazy runtime methods run only after readiness")
+            .known_stale_after_refresh()
+    }
+
+    fn refresh_policy(&self) -> RefreshPolicy {
+        self.ready()
+            .expect("lazy runtime methods run only after readiness")
+            .refresh_policy()
+    }
+
+    fn refresh_index(&mut self) -> anyhow::Result<RefreshSummary> {
+        self.ready_mut()
+            .expect("lazy runtime methods run only after readiness")
+            .refresh()
+    }
+
+    fn auto_refresh_index(&mut self) -> anyhow::Result<AutoRefreshSummary> {
+        self.ready_mut()
+            .expect("lazy runtime methods run only after readiness")
+            .auto_refresh()
     }
 }
 
@@ -272,7 +346,7 @@ fn handle_message(
 
     match method {
         "initialize" => {
-            let dispatch = initialize_response(obj, id);
+            let dispatch = initialize_response(obj, id, runtime.startup_mode());
             // Advance ONLY from PreInit, and only on a *successful* initialize. A repeat initialize once
             // negotiated responds but never downgrades the state (lifecycle is monotonic — re-review MAJOR).
             if *state == Lifecycle::PreInit
@@ -289,7 +363,7 @@ fn handle_message(
     }
 }
 
-fn initialize_response(obj: &Map<String, Value>, id: Value) -> Dispatch {
+fn initialize_response(obj: &Map<String, Value>, id: Value, startup_mode: StartupMode) -> Dispatch {
     let Some(params) = obj.get("params").and_then(Value::as_object) else {
         return Dispatch::Response(error_response(id, -32602, "Invalid params"));
     };
@@ -316,7 +390,7 @@ fn initialize_response(obj: &Map<String, Value>, id: Value) -> Dispatch {
                 "name": "prism-mcp",
                 "version": env!("CARGO_PKG_VERSION")
             },
-            "instructions": server_instructions()
+            "instructions": server_instructions(startup_mode)
         }),
     ))
 }
@@ -327,12 +401,12 @@ fn initialize_response(obj: &Map<String, Value>, id: Value) -> Dispatch {
 /// `tools_reasoning`'s equivalent) pointing back here, since client ingestion of `instructions`
 /// is unverified (codex MAJOR) — the hedge preserves discoverability even for a client that never
 /// surfaces it.
-fn server_instructions() -> String {
-    format!(
-        "{} {}",
-        crate::mcp::tools::SNAPSHOT_NOTICE,
-        crate::mcp::tools::VIEW_NOTICE
-    )
+fn server_instructions(startup_mode: StartupMode) -> String {
+    let snapshot_notice = match startup_mode {
+        StartupMode::Eager => crate::mcp::tools::SNAPSHOT_NOTICE,
+        StartupMode::Lazy => "The repository snapshot is loaded by a background build started at server startup; until it completes, tool calls return an `index warming` result — retry shortly. Freshness warnings compare the working tree against the most recently completed build or refresh snapshot.",
+    };
+    format!("{snapshot_notice} {}", crate::mcp::tools::VIEW_NOTICE)
 }
 
 fn list_tools(registry: &ToolRegistry) -> Value {
@@ -432,18 +506,41 @@ fn call_tool_response_with_cap_and_mode(
     };
 
     if tool.runtime_behavior == Some(ToolRuntimeBehavior::RefreshIndex) {
-        let result = if arguments.as_object().is_some_and(|obj| obj.is_empty()) {
-            match runtime.refresh_index() {
+        if !arguments.as_object().is_some_and(|obj| obj.is_empty()) {
+            return Dispatch::Response(success_response(
+                id,
+                tools_refresh::invalid_arguments_result()
+                    .to_call_tool_result_value(structured_content_mode),
+            ));
+        }
+        let result = match runtime.ensure_ready() {
+            Readiness::Ready => match runtime.refresh_index() {
                 Ok(summary) => tools_refresh::refresh_result(&summary),
                 Err(error) => tools_refresh::refresh_error_result(&error),
-            }
-        } else {
-            tools_refresh::invalid_arguments_result()
+            },
+            Readiness::Warming { elapsed } => warming_result(elapsed),
+            Readiness::Failed { error } => build_failure_result(&error),
         };
         return Dispatch::Response(success_response(
             id,
             result.to_call_tool_result_value(structured_content_mode),
         ));
+    }
+
+    match runtime.ensure_ready() {
+        Readiness::Ready => {}
+        Readiness::Warming { elapsed } => {
+            return Dispatch::Response(success_response(
+                id,
+                warming_result(elapsed).to_call_tool_result_value(structured_content_mode),
+            ));
+        }
+        Readiness::Failed { error } => {
+            return Dispatch::Response(success_response(
+                id,
+                build_failure_result(&error).to_call_tool_result_value(structured_content_mode),
+            ));
+        }
     }
 
     let report = effective_stale_report(runtime);
@@ -683,6 +780,48 @@ fn unknown_tool_result(name: &str, registry: &ToolRegistry) -> McpToolResult {
     McpToolResult {
         content_text: format!("unknown tool '{name}'; available [{available}]"),
         structured: None,
+        is_error: true,
+        meta,
+    }
+}
+
+fn warming_result(elapsed: std::time::Duration) -> McpToolResult {
+    retryable_status_result(
+        json!({
+            "status": "warming",
+            "elapsed_secs": elapsed.as_secs(),
+            "message": "prism-mcp is still building the repository index; retry this call shortly — no other action is needed; later calls are fast."
+        }),
+        "warming",
+    )
+}
+
+fn build_failure_result(error: &str) -> McpToolResult {
+    retryable_status_result(
+        json!({
+            "status": "build_failed",
+            "cause": clamp_user_text(error),
+            "message": "the server keeps running; the next tool call retries the build"
+        }),
+        "failed",
+    )
+}
+
+fn retryable_status_result(status: Value, index_state: &'static str) -> McpToolResult {
+    let content_text = serde_json::to_string(&status).expect("status result serializes");
+    let mut meta = Map::new();
+    meta.insert(
+        "prism/schema_version".into(),
+        Value::String(SCHEMA_VERSION.into()),
+    );
+    meta.insert(
+        "prism/index_state".into(),
+        Value::String(index_state.into()),
+    );
+    meta.insert("prism/retryable".into(), Value::Bool(true));
+    McpToolResult {
+        content_text,
+        structured: Some(status),
         is_error: true,
         meta,
     }
