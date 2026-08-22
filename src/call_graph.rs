@@ -2960,7 +2960,7 @@ impl CallGraph {
                         let Ok(go_mod) = std::str::from_utf8(bytes) else {
                             break;
                         };
-                        let Some(module_path) = Self::parse_go_module_path(&go_mod) else {
+                        let Some(module_path) = Self::parse_go_module_path(go_mod) else {
                             break;
                         };
                         let Some(suffix) =

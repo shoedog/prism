@@ -484,7 +484,7 @@ fn parse_rust_crate_config(
             }
         }
 
-        collect_dep_renames(&value, &mut cfg.dep_renames);
+        collect_dep_renames(value, &mut cfg.dep_renames);
         // Resolve this member's `workspace = true` deps through its OWNING workspace
         // root's `[workspace.dependencies]` (nearest ancestor dir that declared
         // `[workspace]`); an empty map when the member is not under any workspace root.
@@ -493,7 +493,7 @@ fn parse_rust_crate_config(
         let ws_deps_for_member = owning_ws
             .and_then(|ws| workspace_dep_paths.get(ws))
             .unwrap_or(&empty_ws_deps);
-        let member_deps = parse_member_in_repo_deps(&value, manifest_dir, ws_deps_for_member);
+        let member_deps = parse_member_in_repo_deps(value, manifest_dir, ws_deps_for_member);
         if !member_deps.is_empty() {
             member_in_repo_deps.insert(manifest_dir.to_string(), member_deps);
         }
