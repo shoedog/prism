@@ -271,6 +271,20 @@ where
     I: IntoIterator<Item = (&'a str, T)>,
 {
     let mode = GoOwnerReferenceMode::from_type_text(owner_type_text);
+    select_profiled_values_with_mode(owner, caller_file, mode, facts, profiles)
+}
+
+pub(crate) fn select_profiled_values_with_mode<'a, T, I>(
+    owner: &GoOwnerIdentity,
+    caller_file: &str,
+    mode: GoOwnerReferenceMode,
+    facts: I,
+    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+) -> GoPartitionSelection<BTreeSet<T>>
+where
+    T: Clone + Ord,
+    I: IntoIterator<Item = (&'a str, T)>,
+{
     select_values_by_visibility(
         facts,
         profiles,
@@ -445,5 +459,7 @@ pub fn select_struct_field(
 }
 
 pub use crate::go_owner_partition_s4::{
-    select_embedded_interface_route, select_interface_signatures, select_own_method,
+    select_embedded_interface_route, select_embedded_interface_route_with_mode,
+    select_interface_signatures, select_interface_signatures_with_mode, select_own_method,
+    select_own_method_with_mode,
 };

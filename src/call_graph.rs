@@ -85,6 +85,12 @@ pub struct CallSite {
     /// (typed param / constructor local, peeled). None = unrecovered.
     #[serde(default)]
     pub receiver_type: Option<String>,
+    /// Package-scoped Go owner proven during receiver recovery. This is kept
+    /// separate from `receiver_type` so a bare type returned by a qualified
+    /// factory cannot be rebound in the caller's namespace. Older cache rows
+    /// deserialize to `None` and therefore cannot invent this provenance.
+    #[serde(default)]
+    pub receiver_owner_identity: Option<crate::resolution::GoOwnerIdentity>,
     /// S3 P6-lite: which syntactic fact recovered `receiver_type`
     /// (telemetry + ResolutionKind split). Excluded from cmp_key —
     /// derived from the same scan as receiver_type.
@@ -817,6 +823,7 @@ impl CallGraph {
                             None,
                         ),
                         receiver_type: None,
+                        receiver_owner_identity: None,
                         receiver_recovery: None,
                         receiver_materialized: false,
                         arg_count: None,
@@ -1162,6 +1169,9 @@ impl CallGraph {
                             end_byte,
                             qualifier,
                             receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
+                            receiver_owner_identity: recovered
+                                .as_ref()
+                                .and_then(|r| r.owner_identity.clone()),
                             receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                             receiver_materialized: classification.materialized,
                             arg_count: meta.arg_count,
@@ -1960,6 +1970,7 @@ impl CallGraph {
             end_byte: source_site.end_byte,
             qualifier: None,
             receiver_type: None,
+            receiver_owner_identity: None,
             receiver_recovery: None,
             receiver_materialized: false,
             arg_count: None,
@@ -3205,6 +3216,10 @@ impl CallGraph {
                 .recovered
                 .as_ref()
                 .map(|r| r.static_type.clone());
+            updated.receiver_owner_identity = classification
+                .recovered
+                .as_ref()
+                .and_then(|r| r.owner_identity.clone());
             updated.receiver_recovery = classification.recovered.as_ref().map(|r| r.recovery);
             updated.receiver_materialized = classification.materialized;
             if updated == old_site {
@@ -3219,6 +3234,7 @@ impl CallGraph {
                 for site in sites {
                     if site.caller == old_site.caller && site.cmp_key() == old_site.cmp_key() {
                         site.receiver_type = updated.receiver_type.clone();
+                        site.receiver_owner_identity = updated.receiver_owner_identity.clone();
                         site.receiver_recovery = updated.receiver_recovery;
                         site.receiver_materialized = updated.receiver_materialized;
                     }
@@ -3811,6 +3827,9 @@ impl CallGraph {
                         end_byte,
                         qualifier,
                         receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
+                        receiver_owner_identity: recovered
+                            .as_ref()
+                            .and_then(|r| r.owner_identity.clone()),
                         receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                         receiver_materialized: classification.materialized,
                         arg_count: meta.arg_count,
@@ -6446,7 +6465,7 @@ mod go_receiver_typing_tests {
             out
         );
         assert_eq!(
-            cg.go_embedded_interface_route("Holder", "Do", "main.go")
+            cg.go_embedded_interface_route("Holder", None, "Do", "main.go")
                 .value
                 .as_deref(),
             Some("Doer")
@@ -6469,7 +6488,7 @@ mod go_receiver_typing_tests {
         // embedded-interface promotion map (own method wins, ordinary
         // owner_lookup already resolves it).
         assert!(cg
-            .go_embedded_interface_route("Holder", "Do", "main.go")
+            .go_embedded_interface_route("Holder", None, "Do", "main.go")
             .value
             .is_none());
         let site = site_in(&cg, "run", "Do");
@@ -6495,7 +6514,7 @@ mod go_receiver_typing_tests {
         let out = cg.resolve_call_site_full(site);
         assert!(out.resolved.is_empty());
         assert!(cg
-            .go_embedded_interface_route("Wrap", "Accept", "main.go")
+            .go_embedded_interface_route("Wrap", None, "Accept", "main.go")
             .value
             .is_none());
     }
@@ -6585,7 +6604,7 @@ mod go_receiver_typing_tests {
              type Holder struct {\n\tA\n\tB\n}\n\
              func run(h Holder) {\n\th.M()\n}\n",
         )]);
-        let route = cg.go_embedded_interface_route("Holder", "M", "main.go");
+        let route = cg.go_embedded_interface_route("Holder", None, "M", "main.go");
         assert!(route.value.is_none());
         assert!(route.evidence.conflict);
     }

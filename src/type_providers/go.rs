@@ -17,15 +17,16 @@ use std::sync::Arc;
 /// Non-dispatchable, fail-closed — mints NO edge (spec §15).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GoDispatchGap {
-    Generic,            // decl carries a type_parameter_list / interface type-set
-    AnonymousInterface, // non-empty anonymous interface in a signature
-    UnknownCanonType,   // unenumerated type node — fail closed
+    Generic,               // decl carries a type_parameter_list / interface type-set
+    AnonymousInterface,    // non-empty anonymous interface in a signature
+    QualifiedTypeIdentity, // pkg.T requires package-aware comparison; fail closed for Exact
+    UnknownCanonType,      // unenumerated type node — fail closed
 }
 
 /// Admitted over-approximation — the Exact edge IS minted; a precision counter (spec §15).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GoDispatchOverApprox {
-    CrossPackageBareName,         // io.Reader ≡ bufio.Reader under bare-name canon
+    CrossPackageBareName, // legacy telemetry variant; qualified signatures now gap
     NonLocalConstructionFallback, // empty-live fallback fired: full satisfier set
 }
 
@@ -515,12 +516,12 @@ impl GoTypeProvider {
                         .or_default()
                         .insert(crate::go_owner_partition::GoInterfaceDeclaration {
                             defining_file: path.to_string(),
-                            methods: methods
-                                .iter()
-                                .filter_map(|(method, signature)| {
-                                    signature.is_ok().then_some(method.clone())
-                                })
-                                .collect(),
+                            // Keep every declared name in the structural
+                            // manifest denominator. Gapped signatures remain
+                            // absent from `method_signatures` and make this
+                            // declaration non-dispatchable, so they can report
+                            // an empty implementer set without minting Exact.
+                            methods: methods.keys().cloned().collect(),
                             method_signatures: methods
                                 .iter()
                                 .filter_map(|(method, signature)| {
@@ -777,9 +778,6 @@ impl GoTypeProvider {
                 }
                 if !name.is_empty() {
                     let sig = Self::extract_method_signature(node, parsed);
-                    if sig.is_ok() && Self::signature_has_qualified_type(node) {
-                        overapprox.push(GoDispatchOverApprox::CrossPackageBareName);
-                    }
                     methods.insert(name, sig);
                 }
             }
@@ -813,12 +811,8 @@ impl GoTypeProvider {
     /// Canonical type string, recursive. Fails closed on unknown nodes (spec §6).
     fn canon_type(node: &tree_sitter::Node, parsed: &ParsedFile) -> Result<String, GoDispatchGap> {
         match node.kind() {
-            "type_identifier" | "qualified_type" => {
-                // bare name; pkg.T -> T
-                let txt = parsed.node_text(node);
-                let bare = txt.trim().rsplit('.').next().unwrap_or(txt.trim()).trim();
-                Ok(bare.to_string())
-            }
+            "type_identifier" => Ok(parsed.node_text(node).trim().to_string()),
+            "qualified_type" => Err(GoDispatchGap::QualifiedTypeIdentity),
             "pointer_type" => {
                 let inner = node.named_child(0).ok_or(GoDispatchGap::UnknownCanonType)?;
                 Ok(format!("*{}", Self::canon_type(&inner, parsed)?))
@@ -1042,10 +1036,6 @@ impl GoTypeProvider {
         };
 
         let sig = Self::extract_func_signature(node, parsed);
-        if sig.is_ok() && Self::signature_has_qualified_type(node) {
-            data.dispatch_overapprox
-                .push(GoDispatchOverApprox::CrossPackageBareName);
-        }
         let generic = Self::signature_has_generic_syntax(node);
         let start_line = node.start_position().row + 1;
         let end_line = node.end_position().row + 1;
@@ -1153,27 +1143,6 @@ impl GoTypeProvider {
             node.child_by_field_name("result").as_ref(),
             parsed,
         )
-    }
-
-    fn signature_has_qualified_type(node: &tree_sitter::Node) -> bool {
-        node.child_by_field_name("parameters")
-            .map(|params| Self::node_has_kind(&params, "qualified_type"))
-            .unwrap_or(false)
-            || node
-                .child_by_field_name("result")
-                .map(|result| Self::node_has_kind(&result, "qualified_type"))
-                .unwrap_or(false)
-    }
-
-    fn node_has_kind(node: &tree_sitter::Node, kind: &str) -> bool {
-        if node.kind() == kind {
-            return true;
-        }
-        let mut cursor = node.walk();
-        let children: Vec<_> = node.children(&mut cursor).collect();
-        children
-            .iter()
-            .any(|child| Self::node_has_kind(child, kind))
     }
 
     // -----------------------------------------------------------------------

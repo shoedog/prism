@@ -552,8 +552,12 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             // resolving Exact at query time). Package-scoped (B2 fix): the
             // route map is keyed by the receiver struct's `GoOwnerIdentity`,
             // same resolution `resolve_call_site_full` performs.
-            let s4_route =
-                cg.go_embedded_interface_route(recv_ty, &site.callee_name, &site.caller.file);
+            let s4_route = cg.go_embedded_interface_route(
+                recv_ty,
+                site.receiver_owner_identity.as_ref(),
+                &site.callee_name,
+                &site.caller.file,
+            );
             // M1 parity fix (codex re-review MAJOR): once the S4 route MATCHES
             // (the receiver struct's declaration-snapshot route
             // donates `callee_name` from exactly one embedded in-repo
@@ -570,6 +574,11 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             // (`resolution.rs`'s `resolve_call_site` around the M1 fix).
             let s4_blocked = s4_route.evidence.conflict || s4_route.evidence.uncertain;
             let s4_iface_name = s4_route.value.as_ref();
+            let proven_iface_name = site.receiver_owner_identity.as_ref().and_then(|owner| {
+                cg.go_interface_declarations
+                    .contains_key(owner)
+                    .then_some(&owner.name)
+            });
             let impls: &[FunctionId] = if let Some(iface_name) = s4_iface_name {
                 cg.interface_impls
                     .get(&(iface_name.clone(), site.callee_name.clone()))
@@ -577,6 +586,11 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                     .unwrap_or(&[])
             } else if s4_blocked {
                 &[]
+            } else if let Some(iface_name) = proven_iface_name {
+                cg.interface_impls
+                    .get(&(iface_name.clone(), site.callee_name.clone()))
+                    .map(|v| v.as_slice())
+                    .unwrap_or(&[])
             } else {
                 crate::resolution::iface_key(recv_ty)
                     .and_then(|k| cg.interface_impls.get(&(k, site.callee_name.clone())))
@@ -594,10 +608,12 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                 site.arg_spread,
                 &cg.method_arity,
             );
-            let kept = if s4_iface_name.is_some() {
+            let identity_iface_name = s4_iface_name.or(proven_iface_name);
+            let kept = if let Some(iface_name) = identity_iface_name {
                 cg.go_visible_s4_implementers(
                     recv_ty,
-                    s4_iface_name.expect("checked S4 interface"),
+                    site.receiver_owner_identity.as_ref(),
+                    iface_name,
                     &site.callee_name,
                     &site.caller.file,
                     kept,

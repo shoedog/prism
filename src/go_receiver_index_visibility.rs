@@ -16,7 +16,7 @@ pub(crate) fn resolve_go_return_type_call(
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
     return_types: &GoReturnTypes,
     go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
-) -> crate::go_owner_partition::GoPartitionSelection<String> {
+) -> crate::go_owner_partition::GoPartitionSelection<crate::resolution::GoOwnerIdentity> {
     let Some(identity) = resolve_go_owner_identity(
         callee_text,
         caller_file,
@@ -29,25 +29,30 @@ pub(crate) fn resolve_go_return_type_call(
     let Some(facts) = return_types.get(&identity) else {
         return Default::default();
     };
-    unique_visible_return_type(
+    unique_visible_return_owner(
         &identity,
         caller_file,
         GoOwnerReferenceMode::from_type_text(callee_text),
         facts,
+        imports,
+        package_basenames,
         go_file_profiles,
     )
 }
 
-fn unique_visible_return_type(
+fn unique_visible_return_owner(
     owner: &crate::resolution::GoOwnerIdentity,
     caller_file: &str,
     mode: GoOwnerReferenceMode,
     facts: &BTreeSet<GoTypedFact>,
+    imports: &BTreeMap<String, BTreeMap<String, String>>,
+    package_basenames: &BTreeMap<String, BTreeSet<String>>,
     go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
-) -> crate::go_owner_partition::GoPartitionSelection<String> {
+) -> crate::go_owner_partition::GoPartitionSelection<crate::resolution::GoOwnerIdentity> {
     let all_values: BTreeSet<_> = facts.iter().map(|fact| fact.ty.clone()).collect();
     let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
-    let mut tys = BTreeSet::new();
+    let mut owners = BTreeSet::new();
+    let mut visible_types = BTreeSet::new();
     for fact in facts {
         let (visible, exact) = exact_declaration_visibility(
             owner,
@@ -68,20 +73,36 @@ fn unique_visible_return_type(
                 evidence,
             };
         }
-        tys.insert(fact.ty.clone());
+        let Some(return_owner) = resolve_go_owner_identity(
+            &fact.ty,
+            &fact.defining_file,
+            imports,
+            package_basenames,
+            go_file_profiles,
+        ) else {
+            evidence.uncertain = true;
+            return crate::go_owner_partition::GoPartitionSelection {
+                value: None,
+                evidence,
+            };
+        };
+        visible_types.insert(fact.ty.clone());
+        owners.insert(return_owner);
     }
-    evidence.distinct_visible_values = tys.len();
-    evidence.conflict = tys.len() > 1;
+    evidence.distinct_visible_values = visible_types.len().max(owners.len());
+    evidence.conflict = visible_types.len() > 1 || owners.len() > 1;
     if evidence.conflict {
         return crate::go_owner_partition::GoPartitionSelection {
             value: None,
             evidence,
         };
     }
-    evidence.recovered =
-        all_values.len() > 1 && evidence.filtered_declarations > 0 && tys.len() == 1;
+    evidence.recovered = all_values.len() > 1
+        && evidence.filtered_declarations > 0
+        && visible_types.len() == 1
+        && owners.len() == 1;
     crate::go_owner_partition::GoPartitionSelection {
-        value: tys.into_iter().next(),
+        value: owners.into_iter().next(),
         evidence,
     }
 }

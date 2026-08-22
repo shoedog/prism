@@ -102,6 +102,7 @@ fn call_site(file: &str, name: &str, byte: usize) -> CallSite {
         end_byte: byte + name.len(),
         qualifier: None,
         receiver_type: None,
+        receiver_owner_identity: None,
         receiver_recovery: None,
         receiver_materialized: false,
         arg_count: None,

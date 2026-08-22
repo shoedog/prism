@@ -25,6 +25,26 @@ pub fn select_own_method(
     method_declarations: &GoMethodDeclarations,
     profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
 ) -> GoPartitionSelection<bool> {
+    select_own_method_with_mode(
+        owner,
+        caller_file,
+        GoOwnerReferenceMode::from_type_text(owner_type_text),
+        method_name,
+        struct_declarations,
+        method_declarations,
+        profiles,
+    )
+}
+
+pub fn select_own_method_with_mode(
+    owner: &GoOwnerIdentity,
+    caller_file: &str,
+    mode: GoOwnerReferenceMode,
+    method_name: &str,
+    struct_declarations: &GoStructDeclarations,
+    method_declarations: &GoMethodDeclarations,
+    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+) -> GoPartitionSelection<bool> {
     let named_methods: Vec<_> = method_declarations
         .get(owner)
         .into_iter()
@@ -32,10 +52,10 @@ pub fn select_own_method(
         .filter(|declaration| declaration.method_name == method_name)
         .collect();
     let Some(structs) = struct_declarations.get(owner) else {
-        let selected = crate::go_owner_partition::select_profiled_values(
+        let selected = crate::go_owner_partition::select_profiled_values_with_mode(
             owner,
             caller_file,
-            owner_type_text,
+            mode,
             named_methods
                 .iter()
                 .map(|method| (method.defining_file.as_str(), &method.function_id)),
@@ -61,7 +81,6 @@ pub fn select_own_method(
             }
         };
     };
-    let mode = GoOwnerReferenceMode::from_type_text(owner_type_text);
     let mut evidence = GoPartitionEvidence::default();
     let mut all_values = BTreeSet::new();
     let mut visible_values = BTreeSet::new();
@@ -294,11 +313,27 @@ pub fn select_interface_signatures(
     declarations: &GoInterfaceDeclarations,
     profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
 ) -> GoPartitionSelection<BTreeMap<String, String>> {
+    select_interface_signatures_with_mode(
+        owner,
+        caller_file,
+        GoOwnerReferenceMode::from_type_text(owner_type_text),
+        declarations,
+        profiles,
+    )
+}
+
+pub fn select_interface_signatures_with_mode(
+    owner: &GoOwnerIdentity,
+    caller_file: &str,
+    mode: GoOwnerReferenceMode,
+    declarations: &GoInterfaceDeclarations,
+    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+) -> GoPartitionSelection<BTreeMap<String, String>> {
     let mut evidence = GoPartitionEvidence::default();
     let result = interface_signatures(
         owner,
         caller_file,
-        GoOwnerReferenceMode::from_type_text(owner_type_text),
+        mode,
         declarations,
         profiles,
         &mut evidence,
@@ -345,10 +380,32 @@ pub fn select_embedded_interface_route(
     method_declarations: &GoMethodDeclarations,
     profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
 ) -> GoPartitionSelection<String> {
+    select_embedded_interface_route_with_mode(
+        owner,
+        caller_file,
+        GoOwnerReferenceMode::from_type_text(owner_type_text),
+        method_name,
+        struct_declarations,
+        interface_declarations,
+        method_declarations,
+        profiles,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn select_embedded_interface_route_with_mode(
+    owner: &GoOwnerIdentity,
+    caller_file: &str,
+    mode: GoOwnerReferenceMode,
+    method_name: &str,
+    struct_declarations: &GoStructDeclarations,
+    interface_declarations: &GoInterfaceDeclarations,
+    method_declarations: &GoMethodDeclarations,
+    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+) -> GoPartitionSelection<String> {
     let Some(declarations) = struct_declarations.get(owner) else {
         return GoPartitionSelection::default();
     };
-    let mode = GoOwnerReferenceMode::from_type_text(owner_type_text);
     let mut evidence = GoPartitionEvidence::default();
     let all_values: BTreeSet<Option<String>> = declarations
         .iter()
@@ -378,10 +435,10 @@ pub fn select_embedded_interface_route(
                 .flatten()
         })
         .collect();
-    let own_method = select_own_method(
+    let own_method = select_own_method_with_mode(
         owner,
         caller_file,
-        owner_type_text,
+        mode,
         method_name,
         struct_declarations,
         method_declarations,

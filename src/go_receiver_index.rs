@@ -400,6 +400,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
             ReceiverClassification {
                 recovered: Some(RecoveredReceiver {
                     static_type,
+                    owner_identity: None,
                     recovery: how,
                 }),
                 materialized: true,
@@ -425,6 +426,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                     ReceiverClassification {
                         recovered: Some(RecoveredReceiver {
                             static_type,
+                            owner_identity: None,
                             recovery: ReceiverRecovery::VarDecl,
                         }),
                         materialized: true,
@@ -452,14 +454,24 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
             facts.return_types,
             facts.go_file_profiles,
         );
-        if let Some(ty) = selection.value {
-            let static_type = owner_key(&peel_type(&ty));
+        if let Some(owner_identity) = selection.value {
+            let static_type = owner_identity.name.clone();
             return (
                 ReceiverClassification {
                     recovered: Some(RecoveredReceiver {
                         static_type,
+                        owner_identity: Some(owner_identity),
                         recovery: ReceiverRecovery::ReturnTyped,
                     }),
+                    materialized: true,
+                },
+                selection.evidence,
+            );
+        }
+        if selection.evidence.conflict || selection.evidence.uncertain {
+            return (
+                ReceiverClassification {
+                    recovered: None,
                     materialized: true,
                 },
                 selection.evidence,
@@ -544,6 +556,7 @@ fn classify_nested_selector(
     (
         Some(RecoveredReceiver {
             static_type: current,
+            owner_identity: None,
             recovery: ReceiverRecovery::FieldTyped,
         }),
         evidence,

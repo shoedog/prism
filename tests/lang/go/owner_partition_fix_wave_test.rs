@@ -264,3 +264,229 @@ fn cross_package_p5_excludes_foreign_test_registrations() {
         BTreeSet::from(["appHandler".to_string()])
     );
 }
+
+fn resolved_target_files(cg: &CallGraph, caller: &str, method: &str) -> BTreeSet<String> {
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.caller.name == caller && site.callee_name == method)
+        .expect("method call site");
+    cg.resolve_call_site_full(site)
+        .resolved
+        .iter()
+        .map(|resolved| resolved.target.file.clone())
+        .collect()
+}
+
+#[test]
+fn qualified_return_recovery_preserves_the_return_types_package_owner() {
+    let cg = build_go(&[
+        (
+            "factory/factory.go",
+            "package factory\ntype Widget struct{}\nfunc (Widget) Use() {}\nfunc New() Widget { return Widget{} }\n",
+        ),
+        (
+            "app/local.go",
+            "package app\ntype Widget struct{}\nfunc (Widget) Use() {}\nfunc Make() Widget { return Widget{} }\n",
+        ),
+        (
+            "app/use.go",
+            "package app\nimport factory \"example/factory\"\nfunc invokeFactory() { w := factory.New(); w.Use() }\nfunc invokeLocal() { w := Make(); w.Use() }\n",
+        ),
+    ]);
+
+    let factory_site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.caller.name == "invokeFactory" && site.callee_name == "Use")
+        .expect("qualified-return method site");
+    let factory_owner = factory_site
+        .receiver_owner_identity
+        .as_ref()
+        .expect("qualified-return owner identity");
+    assert_eq!(factory_owner.package_dir, "factory");
+    assert_eq!(factory_owner.package_clause, "factory");
+    assert_eq!(factory_owner.name, "Widget");
+    let local_site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.caller.name == "invokeLocal" && site.callee_name == "Use")
+        .expect("bare-return method site");
+    let local_owner = local_site
+        .receiver_owner_identity
+        .as_ref()
+        .expect("bare-return owner identity");
+    assert_eq!(local_owner.package_dir, "app");
+    assert_eq!(local_owner.package_clause, "app");
+    assert_eq!(local_owner.name, "Widget");
+
+    assert_eq!(
+        resolved_target_files(&cg, "invokeFactory", "Use"),
+        BTreeSet::from(["factory/factory.go".to_string()])
+    );
+    let mut stale_factory_site = factory_site.clone();
+    stale_factory_site.receiver_owner_identity = None;
+    assert!(cg
+        .resolve_call_site_full(&stale_factory_site)
+        .resolved
+        .is_empty());
+    let local_outcome = cg.resolve_call_site_full(local_site);
+    let local_files: BTreeSet<_> = local_outcome
+        .resolved
+        .iter()
+        .map(|resolved| resolved.target.file.clone())
+        .collect();
+    assert_eq!(
+        local_files,
+        BTreeSet::from(["app/local.go".to_string()]),
+        "drop={:?}; telemetry={:?}",
+        local_outcome.drop,
+        local_outcome.telemetry
+    );
+}
+
+#[test]
+fn qualified_returned_interface_uses_its_proven_package_identity() {
+    let cg = build_go(&[
+        (
+            "factory/factory.go",
+            "package factory\ntype sealed interface { seal(); Act() }\ntype Local struct{}\nfunc (Local) seal() {}\nfunc (Local) Act() {}\nfunc New() sealed { return Local{} }\n",
+        ),
+        (
+            "other/other.go",
+            "package other\ntype sealed interface { seal(); Act() }\ntype Impl struct{}\nfunc (Impl) seal() {}\nfunc (Impl) Act() {}\n",
+        ),
+        (
+            "app/use.go",
+            "package app\nimport factory \"example/factory\"\nfunc invoke() { value := factory.New(); value.Act() }\n",
+        ),
+    ]);
+    let expected = BTreeSet::from(["Local".to_string()]);
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.caller.name == "invoke" && site.callee_name == "Act")
+        .expect("qualified-return interface site");
+    let outcome = cg.resolve_call_site_full(site);
+    let owners: BTreeSet<_> = outcome
+        .resolved
+        .iter()
+        .filter_map(|resolved| cg.method_owners.get(resolved.target).cloned())
+        .collect();
+
+    assert_eq!(
+        owners, expected,
+        "site={site:?}; outcome={outcome:?}; interface_impls={:?}",
+        cg.interface_impls
+    );
+    assert_eq!(manifest_owners(&cg, "app/use.go", "Act"), expected);
+}
+
+#[test]
+fn qualified_returned_interface_filters_same_named_signature_decoys() {
+    let cg = build_go(&[
+        (
+            "factory/factory.go",
+            "package factory\ntype Doer interface { Act(string) }\ntype Local struct{}\nfunc (Local) Act(string) {}\nfunc New() Doer { return Local{} }\n",
+        ),
+        (
+            "other/other.go",
+            "package other\ntype Doer interface { Act(int) }\ntype Impl struct{}\nfunc (Impl) Act(int) {}\n",
+        ),
+        (
+            "app/use.go",
+            "package app\nimport factory \"example/factory\"\nfunc invoke() { value := factory.New(); value.Act(\"ok\") }\n",
+        ),
+    ]);
+    let expected = BTreeSet::from(["Local".to_string()]);
+
+    assert_eq!(resolved_method_owners(&cg, "invoke", "Act"), expected);
+    assert_eq!(manifest_owners(&cg, "app/use.go", "Act"), expected);
+}
+
+#[test]
+fn qualified_return_with_unbound_declaring_package_fails_closed() {
+    let cg = build_go(&[
+        (
+            "factory/factory.go",
+            "package factory\nimport missing \"example/missing\"\nfunc New() missing.Widget { panic(\"unreachable\") }\n",
+        ),
+        (
+            "app/local.go",
+            "package app\ntype Widget struct{}\nfunc (Widget) Use() {}\n",
+        ),
+        (
+            "app/use.go",
+            "package app\nimport factory \"example/factory\"\nfunc invoke() { w := factory.New(); w.Use() }\n",
+        ),
+    ]);
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.caller.name == "invoke" && site.callee_name == "Use")
+        .expect("qualified-return method site");
+
+    assert!(site.receiver_owner_identity.is_none());
+    assert!(site.receiver_materialized);
+    assert!(cg.resolve_call_site_full(site).resolved.is_empty());
+}
+
+#[test]
+fn s4_unexported_methods_require_the_interface_package_owner() {
+    let cg = build_go(&[
+        (
+            "lib/defs.go",
+            "package lib\ntype sealed interface { seal() }\ntype Holder struct { sealed }\ntype Local struct{}\nfunc (Local) seal() {}\nfunc invoke(h Holder) { h.seal() }\n",
+        ),
+        (
+            "other/impl.go",
+            "package other\ntype Impl struct{}\nfunc (Impl) seal() {}\n",
+        ),
+    ]);
+    let expected = BTreeSet::from(["Local".to_string()]);
+
+    assert_eq!(resolved_method_owners(&cg, "invoke", "seal"), expected);
+    assert_eq!(manifest_owners(&cg, "lib/defs.go", "seal"), expected);
+}
+
+#[test]
+fn s4_qualified_parameter_types_never_match_by_bare_name() {
+    let cg = build_go(&[
+        ("left/id.go", "package left\ntype ID struct{}\n"),
+        ("right/id.go", "package right\ntype ID struct{}\n"),
+        (
+            "lib/defs.go",
+            "package lib\nimport left \"example/left\"\ntype Doer interface { Act(left.ID) }\ntype Holder struct { Doer }\nfunc invoke(h Holder, id left.ID) { h.Act(id) }\n",
+        ),
+        (
+            "other/impl.go",
+            "package other\nimport right \"example/right\"\ntype Impl struct{}\nfunc (Impl) Act(right.ID) {}\n",
+        ),
+    ]);
+
+    assert!(resolved_method_owners(&cg, "invoke", "Act").is_empty());
+    assert!(manifest_owners(&cg, "lib/defs.go", "Act").is_empty());
+}
+
+#[test]
+fn s4_exported_primitive_signature_still_matches_across_packages() {
+    let cg = build_go(&[
+        (
+            "lib/defs.go",
+            "package lib\ntype Doer interface { Act(string) }\ntype Holder struct { Doer }\nfunc invoke(h Holder) { h.Act(\"ok\") }\n",
+        ),
+        (
+            "other/impl.go",
+            "package other\ntype Impl struct{}\nfunc (Impl) Act(string) {}\n",
+        ),
+    ]);
+    let expected = BTreeSet::from(["Impl".to_string()]);
+
+    assert_eq!(resolved_method_owners(&cg, "invoke", "Act"), expected);
+    assert_eq!(manifest_owners(&cg, "lib/defs.go", "Act"), expected);
+}
