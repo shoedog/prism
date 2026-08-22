@@ -1,17 +1,17 @@
 # Go nested-module import identity — design v2 (roadmap #14, folds #15b) — **four slices**
 
-Date: 2026-08-22 · Status: **v2 for sol round 2** · Owner decision 2026-08-22: **full scope as sol's round-1 review specified, delivered as slices**
+Date: 2026-08-22 · Status: **v3 — sol round-2 findings folded; round 3 (declared cap) focuses on slices 3–4; slices 1–2 proceed to implementation per the FIX→fold→proceed rule** · Owner decision 2026-08-22: **full scope as sol's round-1 review specified, delivered as slices**
 (each slice = its own spec section here → implementer → controller gate → adversarial diff review → PR). Sol round-1 findings (7 WRONG + test
 corrections) are folded below; the slice that closes each finding is marked **[R1-n]**.
 
 ## 0. Slices, order, and what each closes
 | Slice | Scope | Closes | Gate | Cache |
 |---|---|---|---|---|
-| **1 oracle hardening** | `interface-manifest` package-qualified identities; `dispatch_oracle.py` qualified compare, zero-fanout scoring, delta mode with timeout block, no vacuous 1.0; re-baseline main | [R1-3] [R1-4] | its own pytest + a synthetic collision fixture red on today's tool | none (additive manifest fields) |
-| **2 loader/parser/cache hygiene** | Go `testdata/` excluded from Go inputs; full `module` directive validation; symlinked `go.mod` consistency (refuse + don't hash); `go.work` topology-hashed; cache transition | [R1-5] [R1-6] [R1-7] | full suite, tier-a, same-base control (5 corpora), hardened oracle ≥ baselines | CPG 45 / sidecar 14 |
-| **3 effective module identity** | `GoModuleGraph`: declared (nearest `go.mod`) + active set (`go.work` `use` / root) + local `replace` → **effective** import path per dir, memoized; inactive/duplicate/ambiguous providers fail closed; nested `Local` tokens; telemetry | [R1-1] (+ #15b) | same-base control + hardened oracle (delta sites all scored; over_approx/timeout in delta = STOP) | CPG 46 / sidecar 15 |
-| **4 alias-aware step 2** | clause/profile-scoped type-alias expansion before `Local`/`Qualified` tokens; then `Local↔Local` by path | [R1-2] | same as 3 | CPG 47 / sidecar 16 |
-Order: 1 ‖ 2 (independent files; 2 bumps cache, 1 does not) → 3 (needs 1's gate and 2's parser/symlink rules) → 4. If slices merge back-to-back,
+| **1 oracle hardening** | `interface-manifest` package-qualified identities `(package_dir, package_clause, type_name)` + target method file/span; `dispatch_oracle.py` qualified compare, `oracle_unresolved`, zero-fanout scoring, `--baseline` delta mode (over_approx / timeout / unresolved in the delta block), no vacuous 1.0, pinned environment; re-baseline main | [R1-3] [R1-4] | its own pytest + synthetic collision fixtures (`good.Impl`/`bad.Impl`; `p`/`p_test`; build-tagged twins) red on today's tool | none (additive manifest fields) |
+| **2 loader/parser/cache hygiene** | Go `testdata/` excluded from Go inputs; go.mod tokenizer + `module` directive grammar (incl. parenthesized) + semantic module-path validation; symlinked `go.mod`/`go.work` = hashed terminal boundary (`symlink_refused` topology entry); `go.work` topology-hashed; one immutable manifest snapshot shared by hashing and parsing; `SKIP_POLICY_VERSION` 1→2; cache transition | [R1-5] [R1-6] [R1-7] | full suite, tier-a, same-base control (5 corpora); hardened oracle ≥ baselines (run after slice 1 merges) | CPG 45 / sidecar 14 |
+| **3 effective module identity** | `GoModuleGraph`: declared (nearest `go.mod`) + active set (`go.work` `use` — relative or absolute in-repo — or root) + **applicable** local `replace` (workspace version of an active main module always wins; `go.work` replaces first; then the union of active modules' replaces, conflicts fail closed; a replace applies only when its LHS path is required by an active main module; version-specific replaces fail closed) → **effective** import path per dir, memoized; whole-workspace fail-closed on malformed `go.work`/`use`/active `go.mod`; nested `Local` tokens; telemetry | [R1-1] (+ #15b) | same-base control + hardened oracle in delta mode (`gate_ok`) | CPG 46 / sidecar 15 |
+| **4 alias-aware step 2** | clause/profile-scoped type-alias expansion substituting the ENTIRE canonical RHS type expression (generics, pointers, slices, maps, funcs, predeclared, nested aliases; profile variants must agree) before `Local`/`Qualified` tokens; then `Local↔Local` by path | [R1-2] | same as 3 | CPG 47 / sidecar 16 |
+Order: 1 ‖ 2 for IMPLEMENTATION (independent files; 2 bumps cache, 1 does not), but slice 2's oracle ACCEPTANCE runs only after slice 1 has merged and main is re-baselined with the hardened oracle → 3 (needs 1's gate and 2's parser/symlink/snapshot rules) → 4. If slices merge back-to-back,
 the cache transitions stay one-per-PR by convention (no mid-branch multi-bumps).
 
 ## 1. Problem (unchanged from v1, corrected)
@@ -27,18 +27,24 @@ precision gate compares bare receiver NAMES (`manifest` + `dispatch_oracle.py`),
 ## 2. Slice 1 — dispatch-oracle hardening (tooling only; no resolution change)
 - **Manifest** (`src/navigation/queries.rs` interface-manifest site emission, today `implementers: Vec<String>` = owner type names via
   `cg.method_owners` / file stem): ADD an additive per-site field `implementer_identities: [{ "name": <owner type name>, "file": <repo-relative
-  method file>, "package_dir": <dir of that file>, "package_clause": <clause of that file, if known> }]` (one per kept `FunctionId`, sorted,
-  deduped on (package_dir, name)); keep `implementers` byte-identical for existing consumers. ALSO list in-scope sites with `fanout == 0` (already
+  method file>, "span": [start_line, end_line], "package_dir": <dir of that file>, "package_clause": <clause of that file; null if unknown> }]`
+  (one per kept `FunctionId`, sorted, **deduped on the FULL tuple (package_dir, package_clause, name, file, span)** — never on (dir, name): the target
+  method file/span is the Exact-edge evidence for build-tagged twins such as `impl_darwin.go`/`impl_linux.go`); keep `implementers` byte-identical for existing consumers. ALSO list in-scope sites with `fanout == 0` (already
   present in the manifest? — confirm; if the manifest omits them, emit them with `implementers: []` so the oracle can score recall) **[R1-4]**.
-- **Oracle** (`eval/tools/dispatch_oracle.py`): (a) identity of an implementer = `(package_dir, type_name)` on BOTH sides — prism from
-  `implementer_identities`, gopls from each `textDocument/implementation` location's file → its repo-relative dir + the receiver type at that line
-  (existing `_type_at`); name-only fallback ONLY when a manifest lacks identities (old binaries) and then the summary says `identity_mode:
-  "name_only"` **[R1-3]**; (b) `load_dispatch_sites` keeps in-scope `fanout == 0` sites; classification adds `recall_gap` for them when gopls
-  returns satisfiers (reported, non-gating, but VISIBLE) **[R1-4]**; (c) `--baseline <prior out.json>` **delta mode**: `delta.newly_exact_sites`
-  (fanout 0→>0 or new implementer identities) each with its classification; `gate_ok = no over_approx AND no oracle_timeout among delta sites`;
-  summary prints `gate_ok` and the offending sites **[R1-4]**; (d) empty scored denominator → `dispatch_precision: null` + `scored_sites` count,
-  never a vacuous 1.0; timeouts still excluded from precision but counted and (in delta mode) blocking; (e) the collision fixture: a synthetic
-  manifest with `good.Impl`/`bad.Impl` + a fake gopls adapter → today's tool says sound, hardened says over_approx (pytest, red→green).
+- **Oracle** (`eval/tools/dispatch_oracle.py`): (a) satisfier identity = `(package_dir, package_clause, type_name)` on BOTH sides — prism from `implementer_identities`, gopls from each
+  `textDocument/implementation` location's file → repo-relative dir + that file's package clause + the receiver type at that line (existing `_type_at`
+  extended); a gopls location that cannot be mapped to (dir, clause, receiver, declaration) → `oracle_unresolved` (counted; BLOCKS delta acceptance);
+  an identity with unknown clause is unscorable (blocks in delta mode). The oracle is a satisfier-TYPE gate; the Exact-edge TARGET check compares
+  prism's `(file, span)` against gopls' implementation location for the same (dir, clause, type) — a mismatch (wrong build-tagged twin) is
+  `target_mismatch` and blocks. Name-only fallback ONLY for manifests without identities (old binaries), flagged `identity_mode: "name_only"`
+  **[R1-3]**; (b) `load_dispatch_sites` keeps in-scope `fanout == 0` sites (the live manifest already emits them; removing the Python filter suffices);
+  classification adds `recall_gap` for them when gopls returns satisfiers (reported, non-gating, but VISIBLE) **[R1-4]**; (c) `--baseline <prior out.json>` **delta mode**: `delta.newly_exact_sites`
+  (fanout 0→>0 or new implementer identities) each with its classification; `gate_ok = no over_approx AND no oracle_timeout AND no oracle_unresolved AND no target_mismatch among delta sites`;
+  summary prints `gate_ok` and the offending sites; the output pins the environment: corpus SHA, `go version`, `gopls version`, GOOS/GOARCH/tags,
+  effective GOWORK (the tool forces the repo-root `go.work` when present, else `GOWORK=off`, so a parent/environment workspace cannot change the
+  universe); a baseline/branch pair with different pins is refused **[R1-4]**; (d) empty scored denominator → `dispatch_precision: null` + `scored_sites` count,
+  never a vacuous 1.0; timeouts still excluded from precision but counted and (in delta mode) blocking; (e) collision fixtures (pytest, red→green on today's tool): `good.Impl` vs `bad.Impl` (different dirs); `p.Impl` vs `p_test.Impl` (same dir,
+  different clause); `impl_darwin.go` vs `impl_linux.go` (same dir/clause/type, different target file → `target_mismatch`).
 - Re-baseline main (264c8ef) with the hardened oracle for caddy/prometheus/etcd (+hugo) and record the identity-aware numbers; they replace the
   name-only baselines (caddy 1.0000/70, prometheus 0.9715/649, etcd 0.9931/1481, 2026-08-22 16:19) as the gate.
 - Tests: Rust — manifest field serialization + byte-compat of the existing fields + fanout-0 site emission; Python — oracle unit tests for
@@ -50,51 +56,74 @@ precision gate compares bare receiver NAMES (`manifest` + `dispatch_oracle.py`),
   and can be minted Exact via `Bare↔Bare` (predeclared-typed signatures) + the empty-live fallback. Fix: **language-aware** skip — Go files under a
   `testdata` path segment are skipped at load (other languages unaffected: a Python repo's `testdata/` is real code). Measure: same-base control on
   the 5 corpora (expect small Exact/NameOnly removals; non-Go byte-identical); telemetry `skipped_go_testdata_files`.
-- **`module` directive** **[R1-6]**: `parse_go_module_path` → validate the whole directive per the go.mod grammar: exactly one `module` directive
-  (duplicate → None), path token either bare or an interpreted/raw string (unescape `"..."`), NO trailing tokens other than a `//` comment,
-  non-empty, no whitespace inside → else None (fail closed). Unit-test poles: plain, quoted, raw-quoted, trailing comment, trailing junk, duplicate,
-  empty, `module` inside a block comment line.
-- **Symlinked `go.mod`** **[R1-7]**: resolution currently `read_to_string`s (follows symlinks) while `collect_manifest_hashes` hashes only
-  `is_file()` entries (symlinks skipped) → a symlink-target module-path edit leaves the cache key unchanged. Fix: identity resolution REFUSES a
-  symlinked `go.mod` (`symlink_metadata().file_type().is_symlink()` → treated as absent → fail closed) so what is read == what is hashed;
-  telemetry reason `symlink`. Also hash `go.work` (and refuse symlinked `go.work`) now, so slice 3 inherits a correct key.
-- **Cache**: derived data changes for identical inputs (testdata removal) → **CPG 45 / sidecar 14** with ancestry comment; pin tests for both
-  round-trip and incremental; a go.mod/go.work add/remove/edit/malformed-transition/module-path-change test matrix on the cache key.
+- **`module` directive** **[R1-6]**: replace `parse_go_module_path` with a small go.mod TOKENIZER following the documented grammar
+  (https://go.dev/ref/mod#go-mod-file-grammar): line-oriented; `//` comments; bare and quoted (interpreted, with unescape) and raw-backtick strings;
+  **parenthesized directive blocks** (`module (\n example.com/m\n)` is legal); `/* */` is NOT legal → whole file malformed; exactly one `module`
+  directive with exactly one path token, else malformed; then **semantic module-path validation** equivalent to Go's `module.CheckPath`
+  (non-empty, ASCII, each element non-empty, allowed characters `A-Za-z0-9.~_-`, no element starting/ending with `.`, no `..`/`.` elements, no
+  leading/trailing `/`, no `//`, the major-version suffix rule for `/vN` with N ≥ 2, Windows reserved names rejected) → else malformed (fail
+  closed; `module bad!path` must NOT prove an identity). Unit-test poles: plain; quoted; raw-quoted; trailing comment; trailing junk; duplicate;
+  empty; parenthesized; `/* */` → malformed; `bad!path`; `example.com/m/v2` ok; `example.com/m/v1` (invalid major) malformed.
+- **Symlinked `go.mod` / `go.work`** **[R1-7]**: resolution currently follows symlinks while `collect_manifest_hashes` hashes only `is_file()`
+  entries → stale-cache hole. Fix: (i) a symlinked `go.mod`/`go.work` is REFUSED for identity AND recorded in the topology key as an entry
+  `<rel> = symlink_refused` (hash its presence and path-kind, not its target bytes) so add/remove/regular↔symlink transitions invalidate; (ii) a
+  refused OR malformed nearest `go.mod` is a **terminal unproven boundary** — resolution does NOT continue upward to the parent module
+  (otherwise a nested symlink would inherit the root identity); (iii) **one immutable manifest snapshot**: the loader reads the bytes of every
+  `go.mod`/`go.work` (and Cargo.toml) once into `LoadedRepo` (content + hash); the module graph/parsers consume THOSE bytes — never a second disk
+  read — so graph B can never be keyed under hash A (sol SMELL, folded); telemetry reason `symlink`.
+- **Cache**: derived data changes for identical inputs (testdata removal) → **CPG 45 / sidecar 14** with ancestry comment; `SKIP_POLICY_VERSION`
+  1 → 2 (loader skip policy changed); pin tests for both round-trip and incremental; a go.mod/go.work add/remove/edit/malformed-transition/
+  module-path-change/symlink-transition test matrix on the cache key.
 
 ## 4. Slice 3 — effective module identity (memoized)
 - **`GoModuleGraph`** (new module, e.g. `src/go_module_graph.rs`, built once per call-graph build from `repo_root`; all reads memoized; `go.mod`
   files read once): (i) every non-symlinked `go.mod` under the repo (vendor/testdata excluded) → `(module_dir, declared_path)` (validated parser);
-  (ii) **active main modules** = `go.work` `use` directories (repo-relative, resolved against the go.work dir; `..`/absolute/outside-repo → ignored)
-  when `go.work` exists at repo root, else the root `go.mod` module if present, else none; (iii) **local replacements** = `replace A [vX] => ./rel`
-  (and `../rel`) directives in ACTIVE modules' `go.mod` and in `go.work` (workspace replaces) whose target dir is inside the repo → packages under
-  that dir are addressed as `A + rel(pkg_dir, target_dir)` — the REPLACED path, regardless of the target's declared path **[R1-1]**; version
-  replacements (`=> other/module v1.2.3`) and targets outside the repo → ignored. (iv) **Effective identity of a package dir** = from its nearest
-  enclosing provider: an active main module (declared path + rel) or a replace target (replaced path + rel) — if BOTH apply to the same dir or two
-  providers claim the same effective path (duplicate providers) or a dir is under an inactive module only → **no identity (fail closed)** with a
-  reason (`inactive_module`, `duplicate_provider`, `ambiguous_provider`, `no_go_mod`, `malformed`, `symlink`). A nested `go.mod` excludes its
+  (ii) **active main modules** = when a regular, fully valid `go.work` exists at repo root: its `use` directories — relative OR absolute, canonicalized
+  (normalized `..` allowed) and lexically proven to lie inside the repo; each must contain a regular, valid `go.mod` — a malformed `go.work`, any
+  `use` outside the repo / unprovable / missing or malformed target `go.mod`, or a malformed active-module `go.mod` → the WHOLE workspace graph
+  fails closed (all Go identities unproven; reason `workspace_invalid`); without `go.work`: the root `go.mod` module if present, else none; (iii) **applicable local replacements** **[R1-1]**: candidates = `replace A [vX] => <dir>` directives (relative RHS resolved against the directory
+  of the file containing the directive; target inside the repo; target contains a regular valid `go.mod`) from `go.work` and from every ACTIVE
+  main module's `go.mod`. Precedence and applicability: (1) an active main module's WORKSPACE version always wins for its own module path — a
+  replace whose LHS is an active main module's path is ignored (the etcd shape: root `go.mod` replaces `go.etcd.io/etcd/api/v3 => ./api` while
+  `api` is a `use`d main module — `api/**` stays `go.etcd.io/etcd/api/v3/...`); (2) `go.work` replaces are consulted first; (3) then the UNION of
+  the active modules' replaces — two active modules replacing the same LHS to different targets → conflict → the LHS fails closed unless
+  `go.work` overrides it; (4) a wildcard replace (no LHS version) applies only if its LHS module path is `require`d by at least one active main
+  module (a replace alone never enters the module graph); (5) a version-specific replace (`A vX => dir`) applies only with PROOF that vX is the
+  selected version — prism does not compute MVS, so version-specific replaces FAIL CLOSED (documented recall stance; telemetry `replace_unproven`).
+  Packages under an applicable target dir are addressed as `A + rel(pkg_dir, target_dir)` — the REPLACED path, regardless of the target's declared
+  path. Version replacements (`=> other/module v1.2.3`) are ignored. (iv) **Effective identity of a package dir** = from its nearest enclosing provider after the precedence above: an active main module (declared
+  path + rel) or an applicable replace target (replaced path + rel); two DISTINCT providers claiming the same effective path (duplicate providers) or a
+  dir under an inactive, unreplaced module only → **no identity (fail closed)** with a reason (`inactive_module`, `duplicate_provider`,
+  `replace_unproven`, `workspace_invalid`, `no_go_mod`, `malformed`, `symlink`). A nested `go.mod` excludes its
   subtree from the parent module (nearest wins) — inside an ACTIVE parent, a nested INACTIVE module's packages get no identity.
 - `go_package_import_paths` → consults the graph (per-dir memo); `local_import_paths` rule unchanged (single ordinary clause) → nested `Local`
   tokens for proven effective identities. Comparator unchanged in this slice (`Local↔Local` still by name until slice 4).
 - Telemetry: `go_module_graph { modules, active, replaces, duplicate_providers }`, `go_import_path_proven_files`, `go_import_path_unproven_files`
   + reason histogram; conservation test: `proven + unproven == loaded Go files` and `Σ reasons == unproven`.
 - Cache: **CPG 46 / sidecar 15**; `go.work` + all `go.mod` already in the key (slice 2).
-- Tests (all resolver + manifest parity, asserting TARGET FILES/identities, not only owner names **[R1-3]**): go.work with `use ./nested` → root
-  interface bare `Context` ↔ nested implementer `root.Context` (Qualified, same path) → Exact `Impl` at `nested/impl.go`; the same fixture WITHOUT
-  go.work → nested inactive → no identity → fail closed (empty); `replace original.example/mod => ./fork` with fork declaring `fork.example/mod`
-  + inactive `decoy/` declaring `original.example/mod`: a signature `original.example/mod/p.T` matches `fork/p` (Exact) and NOT `decoy/p`;
-  duplicate providers (two `use`d modules declaring the same path) → both dropped; nested-in-nested (depth 2) resolves against the nearest active
-  module; workspace-level `replace`; relative `../` replace inside repo; replace target outside repo ignored; memoization: each `go.mod`/`go.work`
-  read exactly once (test hook); full == incremental == cached (46) parity; non-Go byte-identical.
+- Tests (all resolver + manifest parity, asserting TARGET FILES/identities, not only owner names **[R1-3]**): go.work with `use .` AND
+  `use ./nested` → root interface bare `Context` ↔ nested implementer `root.Context` (Qualified, same path) → Exact `Impl` at `nested/impl.go`;
+  the same fixture WITHOUT go.work → nested inactive → fail closed (empty); `require original.example/mod v0.0.0` + `replace original.example/mod
+  => ./fork` (fork declaring `fork.example/mod`) + inactive `decoy/` declaring `original.example/mod`: a signature `original.example/mod/p.T` matches
+  `fork/p` (Exact) and NOT `decoy/p`; the SAME without the `require` → no identity for `fork/p` (unrequired replace is inert); version-specific
+  replace → fail closed; the etcd shape (active main module also named by another main module's replace) → workspace version wins; conflicting
+  replaces in two active modules with and without a `go.work` override; replace target missing/malformed/symlinked `go.mod` → inert; valid absolute
+  in-repo `use`; missing root `go.mod` + valid root `go.work`; malformed whole `go.work` → all unproven; `use` target missing `go.mod` → all
+  unproven; duplicate providers → both dropped; nested-in-nested (depth 2); relative `../` replace inside repo; replace target outside repo
+  ignored; memoization: each `go.mod`/`go.work` parsed once from the loader snapshot; full == incremental == cached (46) parity; non-Go byte-identical.
 - Gate: same-base control (5 corpora; every Exact loss attributed; every Exact gain scored by the hardened oracle in delta mode: `gate_ok` required)
   + precision ≥ slice-1 baselines per corpus.
 
 ## 5. Slice 4 — alias-aware `Local↔Local` by path
-- Alias expansion **[R1-2]**: record `type A = B` / `type A = pkg.B` per declaring (dir, clause, profile) (P10 identity; `_test` clause aliases
-  invisible to production). `canon_type` resolves a `type_identifier`/`qualified_type` leaf through aliases TRANSITIVELY (cycle-guarded; via the
-  file's import map for qualified targets; aliases from the file's own package only when the declaring profile is visible to the file's profile)
-  to the ultimate defined type's identity BEFORE producing `Local`/`Qualified` tokens; an unresolvable alias target → new gap `AliasUnresolved`
-  (fail closed on the Exact path). Then the comparator: `(Local, Local) => left_path == right_path`; `(Bare, Bare) => true` stays.
-- Tests: alias-to-local, alias-to-qualified, aliases in two packages to one base type → Exact kept; distinct defined types with the same name in two
+- Alias expansion **[R1-2]**: record every `type A = <type expr>` per declaring (dir, clause, profile) (P10 identity; `_test` clause aliases
+  invisible to production), keeping the RHS as a canonicalized TYPE EXPRESSION (not a named leaf). `canon_type`, on a `type_identifier`/
+  `qualified_type` leaf that names an alias visible to the file (own package with a visible declaring profile, or via the file's import map for
+  qualified), SUBSTITUTES the entire canonical RHS expression (instantiated generics `base.List[int]`, pointers, slices, maps, funcs, predeclared,
+  nested aliases — transitively, cycle-guarded) BEFORE producing `Local`/`Qualified` tokens; if several profile-visible declarations of the alias
+  exist they must canonicalize identically, else `AliasUnresolved`; an unresolvable alias target → `AliasUnresolved` (fail closed on the Exact
+  path). Then the comparator: `(Local, Local) => left_path == right_path`; `(Bare, Bare) => true` stays.
+- Tests: alias-to-local, alias-to-qualified, alias to an instantiated generic (`type L = base.List[int]`; interface `Use(L)` vs `Use(base.List[int])`
+  → Exact kept), alias to composite/predeclared types, aliases in two packages to one base type → Exact kept; distinct defined types with the same name in two
   proven packages → empty (red today: name match); alias cycle → fail closed; `_test`-clause alias invisible; generic instantiation wrapping an
   alias keeps shape; the P10 fixture `s4_unqualified_named_types_keep_the_existing_bare_name_rule` is renamed to state that its two proven-path types
   no longer match, with a separate `Bare↔Bare` (no go.mod) variant keeping the name rule.
@@ -106,7 +135,16 @@ main on ripgrep/caddy/prometheus/etcd/hugo (leaf diff; losses attributed); harde
 true and per-corpus precision ≥ baseline; reviewer: slice 1 terra (tooling), slices 2–4 sol @ xhigh (precision code); implementer: slice 1 terra,
 slices 2–4 sol @ xhigh.
 
-## 7. Open questions for sol (round 2)
+## 7. Round-2 answers recorded + round-3 questions (cap)
+Recorded from sol r2: Q1 identity includes `package_clause`, plus target file/span for the Exact-target check; unmappable gopls locations →
+`oracle_unresolved` (blocks delta). SMELLs folded: `SKIP_POLICY_VERSION` 1→2 (slice 2); one immutable manifest snapshot shared by hashing and
+parsing (slice 2); delta baselines pin corpus SHA / go / gopls / GOOS / GOARCH / tags / GOWORK (slice 1). Slice boundaries confirmed; 1 ‖ 2 for
+implementation only.
+Round 3 (slices 3–4 focus): R1 is the conservative applicability rule (wildcard replace needs a `require` by an active main module; version-specific
+replaces fail closed; workspace version wins) sound in every case Go can present, and does it lose anything on etcd/prometheus/hugo beyond the
+documented stance? R2 whole-workspace fail-closed on any malformed part — too coarse for a monorepo with one broken leaf module? R3 alias
+substitution of full RHS expressions — interaction with `signature_has_generic_syntax`/Generic gaps and with P10 clause-keyed owner identity?
+(Previous round-2 questions, now superseded:)
 - Q1 Slice 1 identity `(package_dir, type_name)`: is there a repo shape where two Go packages share a directory (only `_test` external packages —
   should the identity include the clause?) or where gopls' implementation location is not in the receiver's declaring package?
 - Q2 Slice 3 active-set rule without `go.work`: root module only (nested inactive unless replaced) — matches `go build` semantics; acceptable
