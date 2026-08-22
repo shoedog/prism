@@ -61,6 +61,50 @@ fn call_stats_reports_owner_partition_conflict_drop_site_and_edge() {
 }
 
 #[test]
+fn direct_method_cross_package_pruning_reports_recovery() {
+    let cg = build_go(&[
+        (
+            "a/a.go",
+            "package a\ntype Handler struct{}\nfunc (Handler) Act() {}\nfunc invoke(h Handler) { h.Act() }\n",
+        ),
+        (
+            "b/b.go",
+            "package b\ntype Handler struct{}\nfunc (Handler) Act() {}\n",
+        ),
+    ]);
+    let stats = call_stats(&cg);
+
+    assert_eq!(act_owners(&cg), BTreeSet::from(["Handler".to_string()]));
+    assert_eq!(stats["go_owner_identity_partition_recovered"], 1);
+    assert_eq!(stats["go_owner_identity_partition_drop"], 0);
+    assert_eq!(stats["go_owner_identity_partition_affected_edges"], 2);
+}
+
+#[test]
+fn direct_method_conflicting_visible_build_survivors_report_drop() {
+    let cg = build_go(&[
+        (
+            "pkg/a.go",
+            "//go:build alpha\n\npackage foo\ntype T struct{}\nfunc (T) Act() {}\n",
+        ),
+        (
+            "pkg/b.go",
+            "//go:build beta\n\npackage foo\ntype T struct{}\nfunc (T) Act() {}\n",
+        ),
+        (
+            "pkg/use.go",
+            "//go:build alpha\n\npackage foo\nfunc invoke(t T) { t.Act() }\n",
+        ),
+    ]);
+    let stats = call_stats(&cg);
+
+    assert!(act_owners(&cg).is_empty());
+    assert_eq!(stats["go_owner_identity_partition_recovered"], 0);
+    assert_eq!(stats["go_owner_identity_partition_drop"], 1);
+    assert_eq!(stats["go_owner_identity_partition_affected_edges"], 2);
+}
+
+#[test]
 fn call_stats_omits_owner_partition_extension_for_non_go_graphs() {
     let stats = call_stats(&CallGraph::empty());
 

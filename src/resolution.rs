@@ -2031,7 +2031,12 @@ impl CallGraph {
                                 );
                             }
                             if selection.value.is_none() {
-                                return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+                                let mut evidence = selection.evidence;
+                                evidence.conflict = true;
+                                return ResolutionOutcome::dropped_with_telemetry(
+                                    DropReason::ExternalReceiver,
+                                    ResolutionTelemetry::with_go_owner_partition(evidence, 1),
+                                );
                             }
                         }
                         let direct = if own_method_partition
@@ -2046,6 +2051,7 @@ impl CallGraph {
                             Some(mut resolved) => {
                                 let mut telemetry = ResolutionTelemetry::default();
                                 if let Some((owner, selection)) = &own_method_partition {
+                                    let unfiltered = resolved.len();
                                     let mode = crate::go_owner_partition::GoOwnerReferenceMode::from_type_text(
                                         recv_ty,
                                     );
@@ -2072,18 +2078,21 @@ impl CallGraph {
                                     resolved.retain(|callee| {
                                         visible_files.contains(callee.target.file.as_str())
                                     });
+                                    let mut evidence = selection.evidence;
+                                    evidence.uncertain |= uncertain;
                                     if uncertain || resolved.len() != 1 {
+                                        evidence.conflict |= resolved.len() != 1;
                                         return ResolutionOutcome::dropped_with_telemetry(
                                             DropReason::ExternalReceiver,
                                             ResolutionTelemetry::with_go_owner_partition(
-                                                selection.evidence,
-                                                1,
+                                                evidence,
+                                                unfiltered.max(1),
                                             ),
                                         );
                                     }
+                                    evidence.recovered |= unfiltered != resolved.len();
                                     telemetry = ResolutionTelemetry::with_go_owner_partition(
-                                        selection.evidence,
-                                        resolved.len(),
+                                        evidence, unfiltered,
                                     );
                                 }
                                 for callee in &mut resolved {
