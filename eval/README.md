@@ -153,12 +153,17 @@ believes satisfies the interface, RTA-pruned to live/constructed types. This too
 that set against gopls `textDocument/implementation` (the ground truth for "what satisfies
 interface I") to decide whether prism's set is **sound** (a subset of the real satisfiers,
 no false edges) or **over-approximates** (mints a non-satisfier = a `prism_fp` candidate).
+Current manifests compare each satisfier by `(package_dir, package_clause, type_name)` and
+also require prism's method target `(file, span)` to match gopls's implementation location.
+This prevents a same-named type in another package, an external `_test` package, or a
+build-tagged sibling method from scoring as a false sound result. Manifests emitted by old
+Prism binaries have no identities, so the oracle falls back to names and marks the summary
+`identity_mode: "name_only"`; identity-aware output is `"qualified"`.
 
 It is **re-usable on any Go corpus** in `corpora.toml` and is the gate future baselines
-must hold: **`dispatch_precision` must stay at-or-above; a decrease is a deliberate,
-recorded decision** (e.g. a precision/recall trade in a refactor) — paste the new summary
-into the PR and explain the delta. (`recall_gap` is reported but does not gate — RTA
-pruning is by-design precision.)
+must hold. Zero-fanout manifest sites are included: if gopls has satisfiers they are a visible,
+non-gating `recall_gap`. `dispatch_precision` is `null` (not a vacuous 1.0) when its scored
+edge denominator is empty; `scored_sites` distinguishes that case from a timeout-only run.
 
 Regenerate the manifest with the current prism, then run the oracle (needs `gopls` on PATH
 and the harness env; gopls can be slow on large corpora, so the per-group timeout is
@@ -175,13 +180,31 @@ cd eval && uv run python tools/dispatch_oracle.py \
   --out /tmp/caddy-dispatch-oracle.json
 ```
 
-The summary (printed to stdout and in `comparison.json` under `summary`) reports the
-overall and per-`(interface, method)` `dispatch_precision = |prism ∩ gopls| / |prism|`,
-the `sound` / `over_approx` / `recall_gap` / `oracle_timeout` site counts, and the list of
-`over_approx` sites with their offending minted types — the FP candidates the dual-adjudicator
-κ pass examines. Per-site records (`prism_implementers`, `gopls_satisfiers`, `classification`,
-`prism_only_types`, `gopls_only_types`) live under `sites`. The full taxonomy, gate semantics,
-and the gopls-query design are in the `tools/dispatch_oracle.py` module docstring.
+To gate a branch's newly Exact edges, pass a hardened-oracle output from the same corpus as
+the baseline:
+
+```bash
+cd eval && uv run python tools/dispatch_oracle.py \
+  --manifest /tmp/caddy-branch-manifest.json \
+  --repo ~/code/bench-repos/caddy \
+  --corpus caddy \
+  --baseline /tmp/caddy-main-dispatch-oracle.json \
+  --out /tmp/caddy-branch-dispatch-oracle.json
+```
+
+The delta contains `newly_exact_sites` for `fanout: 0 → >0` transitions or new full
+implementer identities. Its `gate_ok` is true only when none of those delta sites is
+`over_approx`, `oracle_timeout`, `oracle_unresolved`, or `target_mismatch`; `recall_gap`
+remains visible but non-gating. The baseline pair is refused unless its pins agree exactly:
+corpus SHA, Go/gopls versions, `GOOS`, `GOARCH`, tags, and `GOWORK`. The tool forces `GOWORK`
+to the corpus-root `go.work` when present, otherwise `off`, so an ambient parent workspace
+cannot alter the comparison universe.
+
+The summary (printed to stdout and in `comparison.json` under `summary`) reports overall and
+per-`(interface, method)` precision, `scored_sites`, all classifications, and the offending
+identity/target evidence. Per-site records include legacy display names plus qualified
+identities, targets, and classifications. The full taxonomy and gopls-query design are in
+the `tools/dispatch_oracle.py` module docstring.
 
 ## Snapshots and Baselines
 
