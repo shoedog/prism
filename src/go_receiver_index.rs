@@ -30,8 +30,8 @@
 use crate::ast::ParsedFile;
 use crate::languages::Language;
 use crate::resolution::{
-    dir_of, owner_key, peel_type, resolve_go_owner_identity, GoOwnerIdentity,
-    ReceiverClassification, ReceiverClassifier, ReceiverCtx, ReceiverRecovery, RecoveredReceiver,
+    dir_of, owner_key, peel_type, resolve_go_owner_identity, ReceiverClassification,
+    ReceiverClassifier, ReceiverCtx, ReceiverRecovery, RecoveredReceiver,
 };
 use crate::type_providers::go::GoTypeProvider;
 use std::collections::{BTreeMap, BTreeSet};
@@ -330,7 +330,7 @@ fn is_simple_ident_text(s: &str) -> bool {
 pub struct GoReceiverFacts<'a> {
     pub return_types: &'a BTreeMap<(String, String), BTreeSet<GoTypedFact>>,
     pub package_vars: &'a BTreeMap<(String, String), BTreeSet<GoTypedFact>>,
-    pub field_types: &'a BTreeMap<(GoOwnerIdentity, String), String>,
+    pub field_types: &'a crate::go_owner_partition::GoStructDeclarations,
     pub package_basenames: &'a BTreeMap<String, std::collections::BTreeSet<String>>,
     pub imports: &'a BTreeMap<String, BTreeMap<String, String>>,
     pub go_file_profiles: &'a BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
@@ -550,8 +550,17 @@ fn classify_nested_selector(
             facts.package_basenames,
             facts.go_file_profiles,
         )?;
-        let field_ty = facts.field_types.get(&(owner, seg))?;
-        current = owner_key(&peel_type(field_ty));
+        let declarations = facts.field_types.get(&owner)?;
+        let field_ty = crate::go_owner_partition::select_struct_field(
+            &owner,
+            ctx.caller_file,
+            &current,
+            &seg,
+            declarations,
+            facts.go_file_profiles,
+        )
+        .value?;
+        current = owner_key(&peel_type(&field_ty));
     }
     Some(RecoveredReceiver {
         static_type: current,

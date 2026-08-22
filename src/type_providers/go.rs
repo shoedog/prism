@@ -1984,7 +1984,7 @@ mod dispatch_tests {
     use super::*;
     use crate::ast::ParsedFile;
     use crate::languages::Language;
-    use std::collections::{BTreeMap, BTreeSet};
+    use std::collections::BTreeMap;
 
     fn provider(src: &str) -> GoTypeProvider {
         let mut files = BTreeMap::new();

@@ -1103,6 +1103,36 @@ impl CallGraph {
         Some(resolved)
     }
 
+    /// Shared S4 resolver/manifest consult. Identity resolution and the
+    /// declaration visibility/certainty floor live here once so the two
+    /// consumers cannot drift.
+    pub(crate) fn go_embedded_interface_route(
+        &self,
+        recv_ty: &str,
+        method_name: &str,
+        caller_file: &str,
+    ) -> crate::go_owner_partition::GoPartitionSelection<String> {
+        let Some(owner) = resolve_go_owner_identity(
+            recv_ty,
+            caller_file,
+            &self.imports,
+            &self.go_package_basenames,
+            &self.go_file_profiles,
+        ) else {
+            return crate::go_owner_partition::GoPartitionSelection::default();
+        };
+        crate::go_owner_partition::select_embedded_interface_route(
+            &owner,
+            caller_file,
+            recv_ty,
+            method_name,
+            &self.go_field_types,
+            &self.go_interface_declarations,
+            &self.go_method_declarations,
+            &self.go_file_profiles,
+        )
+    }
+
     /// P5 S3 (Go func-value callbacks): consulted from the Go interface-consult
     /// miss path (resolve_call_site_full), ONLY after concrete `owner_lookup`
     /// AND `interface_impls` have both missed or arity-filtered to empty.
@@ -1784,21 +1814,20 @@ impl CallGraph {
                                 // otherwise mint an unrelated edge from that
                                 // ladder (e.g. a same-bare-name interface
                                 // declared in a different, unrelated package).
-                                let go_owner = crate::resolution::resolve_go_owner_identity(
+                                let s4_route = self.go_embedded_interface_route(
                                     recv_ty,
+                                    name,
                                     &site.caller.file,
-                                    &self.imports,
-                                    &self.go_package_basenames,
-                                    &self.go_file_profiles,
                                 );
-                                if let Some(iface_name) = go_owner
-                                    .as_ref()
-                                    .and_then(|owner| self.go_embedded_interface_methods.get(owner))
-                                    .and_then(|m| m.get(name))
-                                {
+                                if s4_route.evidence.conflict || s4_route.evidence.uncertain {
+                                    return ResolutionOutcome::dropped(
+                                        DropReason::ExternalReceiver,
+                                    );
+                                }
+                                if let Some(iface_name) = s4_route.value {
                                     return match self
                                         .interface_impls
-                                        .get(&(iface_name.clone(), name.to_string()))
+                                        .get(&(iface_name, name.to_string()))
                                     {
                                         Some(ids) => {
                                             let kept = crate::resolution::arity_filter(

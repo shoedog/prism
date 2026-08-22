@@ -1,7 +1,9 @@
 use prism::ast::ParsedFile;
+use prism::call_graph::CallGraph;
 use prism::go_build_profile::unconstrained_profile;
+use prism::go_owner_partition::select_embedded_interface_route;
 use prism::languages::Language;
-use prism::resolution::{resolve_go_owner_identity, GoOwnerIdentity};
+use prism::resolution::{resolve_go_owner_identity, GoOwnerIdentity, ResolutionConfidence};
 use prism::type_providers::go::GoTypeProvider;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -13,7 +15,12 @@ fn profile(package_clause: &str, is_test_file: bool) -> prism::go_build_profile:
 }
 
 fn go_provider(files: &[(&str, &str)]) -> GoTypeProvider {
-    let parsed = files
+    let parsed = go_files(files);
+    GoTypeProvider::from_parsed_files(&parsed)
+}
+
+fn go_files(files: &[(&str, &str)]) -> BTreeMap<String, ParsedFile> {
+    files
         .iter()
         .map(|(path, source)| {
             (
@@ -21,8 +28,7 @@ fn go_provider(files: &[(&str, &str)]) -> GoTypeProvider {
                 ParsedFile::parse(path, source, Language::Go).expect("parse Go fixture"),
             )
         })
-        .collect();
-    GoTypeProvider::from_parsed_files(&parsed)
+        .collect()
 }
 
 #[test]
@@ -168,4 +174,223 @@ fn provider_s4_route_does_not_cross_external_test_clause() {
 
     assert_eq!(methods.get("Prod"), Some(&"Doer".to_string()));
     assert!(!methods.contains_key("Test"));
+}
+
+#[test]
+fn s4_linux_partition_selects_linux_interface_declaration() {
+    let files = go_files(&[
+        (
+            "pkg/a_linux.go",
+            "//go:build linux\n\npackage foo\ntype Doer interface { Prod() }\n",
+        ),
+        (
+            "pkg/holder.go",
+            "package foo\ntype Holder struct { Doer }\n",
+        ),
+        (
+            "pkg/z_windows.go",
+            "//go:build windows\n\npackage foo\ntype Doer interface { Test() }\n",
+        ),
+        (
+            "pkg/use_linux.go",
+            "//go:build linux\n\npackage foo\nfunc use(h Holder) { h.Prod() }\n",
+        ),
+    ]);
+    let cg = CallGraph::build(&files);
+    let owner = GoOwnerIdentity {
+        package_dir: "pkg".to_string(),
+        package_clause: "foo".to_string(),
+        name: "Holder".to_string(),
+    };
+    let route = select_embedded_interface_route(
+        &owner,
+        "pkg/use_linux.go",
+        "Holder",
+        "Prod",
+        &cg.go_field_types,
+        &cg.go_interface_declarations,
+        &cg.go_method_declarations,
+        &cg.go_file_profiles,
+    );
+
+    assert_eq!(route.value, Some("Doer".to_string()));
+}
+
+fn build_partition_field_fixture(caller_path: &str, caller_header: &str) -> CallGraph {
+    let caller = format!("{caller_header}package foo\nfunc use(t T) {{ t.f.Dial() }}\n");
+    let files = go_files(&[
+        (
+            "pkg/a_linux.go",
+            "//go:build linux\n\npackage foo\ntype T struct { f LinuxConn }\ntype LinuxConn struct{}\nfunc (LinuxConn) Dial() {}\n",
+        ),
+        (
+            "pkg/z_windows.go",
+            "//go:build windows\n\npackage foo\ntype T struct { f WindowsConn }\ntype WindowsConn struct{}\nfunc (WindowsConn) Dial() {}\n",
+        ),
+        (caller_path, &caller),
+    ]);
+    CallGraph::build(&files)
+}
+
+fn dial_outcome(cg: &CallGraph) -> prism::resolution::ResolutionOutcome<'_> {
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.callee_name == "Dial")
+        .expect("Dial call site");
+    cg.resolve_call_site_full(site)
+}
+
+#[test]
+fn s2_linux_caller_selects_linux_field_declaration() {
+    let cg = build_partition_field_fixture("pkg/use_linux.go", "//go:build linux\n\n");
+    let outcome = dial_outcome(&cg);
+
+    assert_eq!(outcome.resolved.len(), 1);
+    assert_eq!(outcome.resolved[0].target.file, "pkg/a_linux.go");
+}
+
+#[test]
+fn s2_unconstrained_caller_drops_conflicting_visible_field_declarations() {
+    let cg = build_partition_field_fixture("pkg/use.go", "");
+    let outcome = dial_outcome(&cg);
+
+    assert!(outcome.resolved.is_empty());
+}
+
+#[test]
+fn s2_qualified_owner_from_external_test_uses_ordinary_clause_in_both_orders() {
+    for (prod_path, test_path) in [
+        ("foo/a_prod.go", "foo/z_external_test.go"),
+        ("foo/z_prod.go", "foo/a_external_test.go"),
+    ] {
+        let files = go_files(&[
+            (
+                prod_path,
+                "package foo\ntype T struct { f Conn }\ntype Conn struct{}\nfunc (Conn) Dial() {}\n",
+            ),
+            (
+                test_path,
+                "package foo_test\ntype T struct { f Mock }\ntype Mock struct{}\nfunc (Mock) Dial() {}\n",
+            ),
+            (
+                "foo/blackbox_test.go",
+                "package foo_test\nimport foo \"example/foo\"\nfunc use(t foo.T) { t.f.Dial() }\n",
+            ),
+        ]);
+        let cg = CallGraph::build(&files);
+        let outcome = dial_outcome(&cg);
+
+        assert_eq!(outcome.resolved.len(), 1, "order case {prod_path}");
+        assert_eq!(outcome.resolved[0].target.file, prod_path);
+    }
+}
+
+#[test]
+fn s2_same_value_duplicate_visible_declarations_remain_exact() {
+    let files = go_files(&[
+        (
+            "pkg/a_linux.go",
+            "//go:build linux\n\npackage foo\ntype T struct { f Conn }\n",
+        ),
+        (
+            "pkg/conn.go",
+            "package foo\ntype Conn struct{}\nfunc (Conn) Dial() {}\n",
+        ),
+        (
+            "pkg/z_windows.go",
+            "//go:build windows\n\npackage foo\ntype T struct { f Conn }\n",
+        ),
+        ("pkg/use.go", "package foo\nfunc use(t T) { t.f.Dial() }\n"),
+    ]);
+    let cg = CallGraph::build(&files);
+    let outcome = dial_outcome(&cg);
+
+    assert_eq!(outcome.resolved.len(), 1);
+    assert_eq!(outcome.resolved[0].confidence, ResolutionConfidence::Exact);
+}
+
+#[test]
+fn s2_unparsed_build_expression_never_mints_exact() {
+    let files = go_files(&[
+        (
+            "pkg/a_bad.go",
+            "//go:build (\n\npackage foo\ntype T struct { f Conn }\n",
+        ),
+        (
+            "pkg/conn.go",
+            "package foo\ntype Conn struct{}\nfunc (Conn) Dial() {}\n",
+        ),
+        ("pkg/use.go", "package foo\nfunc use(t T) { t.f.Dial() }\n"),
+    ]);
+    let cg = CallGraph::build(&files);
+    let outcome = dial_outcome(&cg);
+
+    assert!(outcome
+        .resolved
+        .iter()
+        .all(|callee| callee.confidence != ResolutionConfidence::Exact));
+}
+
+fn build_s4_struct_partition_fixture(caller_path: &str, caller_header: &str) -> CallGraph {
+    let caller = format!("{caller_header}package foo\nfunc use(h Holder) {{ h.Act() }}\n");
+    let files = go_files(&[
+        (
+            "pkg/holder_linux.go",
+            "//go:build linux\n\npackage foo\ntype Holder struct { Doer }\n",
+        ),
+        (
+            "pkg/holder_windows.go",
+            "//go:build windows\n\npackage foo\ntype Holder struct{}\n",
+        ),
+        (
+            "pkg/interface.go",
+            "package foo\ntype Doer interface { Act() }\ntype Impl struct{}\nfunc (Impl) Act() {}\nfunc live() { _ = Impl{} }\n",
+        ),
+        (caller_path, &caller),
+    ]);
+    CallGraph::build(&files)
+}
+
+fn act_outcome(cg: &CallGraph) -> prism::resolution::ResolutionOutcome<'_> {
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.callee_name == "Act")
+        .expect("Act call site");
+    cg.resolve_call_site_full(site)
+}
+
+fn manifest_act_implementers(cg: &CallGraph) -> BTreeSet<String> {
+    prism::navigation::queries::interface_dispatch_manifest(cg)["sites"]
+        .as_array()
+        .expect("manifest sites")
+        .iter()
+        .find(|site| site["method"] == "Act")
+        .expect("Act manifest site")["implementers"]
+        .as_array()
+        .expect("implementers")
+        .iter()
+        .map(|value| value.as_str().expect("implementer string").to_string())
+        .collect()
+}
+
+#[test]
+fn s4_resolver_and_manifest_share_recovered_and_blocked_partition_decisions() {
+    let linux = build_s4_struct_partition_fixture("pkg/use_linux.go", "//go:build linux\n\n");
+    let linux_outcome = act_outcome(&linux);
+    let linux_resolved: BTreeSet<String> = linux_outcome
+        .resolved
+        .iter()
+        .filter_map(|callee| linux.method_owners.get(callee.target).cloned())
+        .collect();
+    assert_eq!(linux_resolved, BTreeSet::from(["Impl".to_string()]));
+    assert_eq!(manifest_act_implementers(&linux), linux_resolved);
+
+    let unconstrained = build_s4_struct_partition_fixture("pkg/use.go", "");
+    let unconstrained_outcome = act_outcome(&unconstrained);
+    assert!(unconstrained_outcome.resolved.is_empty());
+    assert_eq!(manifest_act_implementers(&unconstrained), BTreeSet::new());
 }

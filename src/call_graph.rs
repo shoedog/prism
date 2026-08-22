@@ -579,12 +579,17 @@ pub struct CallGraph {
     #[serde(default)]
     pub go_return_types:
         BTreeMap<(String, String), BTreeSet<crate::go_receiver_index::GoTypedFact>>,
-    /// P11 S2: `(GoOwnerIdentity, field_name) -> peeled field type`
-    /// re-projection of `GoStruct.fields` (package-scoped, including
-    /// embedded-field pseudo-entries), captured in `apply_go_interface_dispatch`
-    /// alongside the other Go type-provider captures. Whole-program derived.
+    /// P11 S2/P10: clause-keyed per-declaration struct snapshots. Field
+    /// presence/absence and raw type remain attached to the defining file so
+    /// receiver recovery can filter build profiles before requiring one value.
     #[serde(default)]
-    pub go_field_types: BTreeMap<(crate::resolution::GoOwnerIdentity, String), String>,
+    pub go_field_types: crate::go_owner_partition::GoStructDeclarations,
+    /// P10 S4 interface and method declaration provenance, captured from the
+    /// provider alongside `go_field_types` for exact consult-time routing.
+    #[serde(default)]
+    pub go_interface_declarations: crate::go_owner_partition::GoInterfaceDeclarations,
+    #[serde(default)]
+    pub go_method_declarations: crate::go_owner_partition::GoMethodDeclarations,
     /// P11 S3: `(package_dir, var_name) -> declared type` for package-scope
     /// (top-level) Go `var` declarations with an explicit type. Whole-program
     /// derived (a package var can be declared in a different file of the
@@ -667,6 +672,8 @@ impl CallGraph {
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
+            go_interface_declarations: BTreeMap::new(),
+            go_method_declarations: BTreeMap::new(),
             go_package_vars: BTreeMap::new(),
             go_embedded_interface_methods: BTreeMap::new(),
         }
@@ -882,6 +889,8 @@ impl CallGraph {
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
+            go_interface_declarations: BTreeMap::new(),
+            go_method_declarations: BTreeMap::new(),
             go_package_vars: BTreeMap::new(),
             go_embedded_interface_methods: BTreeMap::new(),
         }
@@ -1253,6 +1262,8 @@ impl CallGraph {
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
+            go_interface_declarations: BTreeMap::new(),
+            go_method_declarations: BTreeMap::new(),
             go_package_vars: BTreeMap::new(),
             go_embedded_interface_methods: BTreeMap::new(),
         };
@@ -2696,6 +2707,8 @@ impl CallGraph {
         // early return in that function (which runs AFTER this clear but
         // BEFORE the fresh capture) leaves them empty rather than stale.
         self.go_field_types.clear();
+        self.go_interface_declarations.clear();
+        self.go_method_declarations.clear();
         self.go_embedded_interface_methods.clear();
         self.go_owner_identity_profile_conflict = 0;
     }
@@ -2837,7 +2850,9 @@ impl CallGraph {
         self.method_arity = provider.method_arities();
         // P11 S2/S4: capture the field re-projection and the embedded-interface
         // routing map while the provider is live, same pattern as above.
-        self.go_field_types = provider.go_field_types();
+        self.go_field_types = provider.go_struct_declarations();
+        self.go_interface_declarations = provider.go_interface_declarations();
+        self.go_method_declarations = provider.go_method_declarations();
         self.go_embedded_interface_methods = provider.embedded_interface_method_routes();
         for g in &table.gaps {
             *self.interface_gaps.entry(format!("{g:?}")).or_insert(0) += 1;
@@ -3886,6 +3901,8 @@ impl CallGraph {
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
+            go_interface_declarations: BTreeMap::new(),
+            go_method_declarations: BTreeMap::new(),
             go_package_vars: BTreeMap::new(),
             go_embedded_interface_methods: BTreeMap::new(),
         }
