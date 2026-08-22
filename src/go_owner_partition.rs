@@ -181,6 +181,9 @@ pub(crate) fn exact_declaration_visibility(
     {
         return (true, false); // corrupted/stale provenance must never mint Exact.
     }
+    if mode == GoOwnerReferenceMode::Qualified && defining.is_test_file {
+        return (false, true); // imported packages never include their test files.
+    }
     let mut target_caller = caller.clone();
     if mode == GoOwnerReferenceMode::Qualified {
         target_caller.package_clause = owner.package_clause.clone();
@@ -193,9 +196,9 @@ pub(crate) fn exact_declaration_visibility(
     (visibility.visible, exact)
 }
 
-/// Exact build/test visibility for a declaration in another Go package. Only
-/// the package namespace is rewritten; test-file and build constraints remain
-/// caller-relative.
+/// Exact build/test visibility for a structural implementer declaration. Test
+/// declarations are visible only from the caller's own package namespace;
+/// importing some other package never imports that package's test files.
 pub(crate) fn exact_cross_package_visibility(
     caller_file: &str,
     defining_file: &str,
@@ -205,6 +208,12 @@ pub(crate) fn exact_cross_package_visibility(
     else {
         return (true, false);
     };
+    let caller_owns_test_namespace = crate::resolution::dir_of(caller_file)
+        == crate::resolution::dir_of(defining_file)
+        && caller.package_clause == defining.package_clause;
+    if defining.is_test_file && !caller_owns_test_namespace {
+        return (false, true);
+    }
     let mut target_caller = caller.clone();
     target_caller.package_clause = defining.package_clause.clone();
     let visibility =
