@@ -85,6 +85,12 @@ pub struct CallSite {
     /// (typed param / constructor local, peeled). None = unrecovered.
     #[serde(default)]
     pub receiver_type: Option<String>,
+    /// Package-scoped Go owner proven during receiver recovery. This is kept
+    /// separate from `receiver_type` so a bare type returned by a qualified
+    /// factory cannot be rebound in the caller's namespace. Older cache rows
+    /// deserialize to `None` and therefore cannot invent this provenance.
+    #[serde(default)]
+    pub receiver_owner_identity: Option<crate::resolution::GoOwnerIdentity>,
     /// S3 P6-lite: which syntactic fact recovered `receiver_type`
     /// (telemetry + ResolutionKind split). Excluded from cmp_key —
     /// derived from the same scan as receiver_type.
@@ -294,7 +300,7 @@ pub struct PropertyAccessSite {
 /// (`NavigationIndex::build_resolved_call_edges`). Nav-only per the
 /// consumer-visibility doctrine — never consulted by CPG Call/Return edges,
 /// Step-5b DataFlow, or any non-nav consumer (there is no S3 resolve-time
-/// consult path at all, unlike `go_func_typed_fields`/`FuncValueField`).
+/// consult path at all, unlike Go func-field snapshots/`FuncValueField`).
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub struct PropertyAccessRecord {
     /// The function whose body contains the access.
@@ -456,14 +462,12 @@ pub struct CallGraph {
     /// `apply_go_func_value_fields`.
     #[serde(default)]
     pub go_package_basenames: BTreeMap<String, BTreeSet<String>>,
-    /// P5 S1: every package-scoped struct identity the Go type provider
-    /// extracted (regardless of func-typed fields). Whole-program derived;
-    /// recomputed by `apply_go_func_value_fields`.
+    /// Compatibility projection retained for downstream callers. Production
+    /// P5 consults use `go_field_types` declaration snapshots.
     #[serde(default)]
     pub go_known_struct_identities: BTreeSet<crate::resolution::GoOwnerIdentity>,
-    /// P5 S1: `(owner_identity, field_name)` pairs whose declared type begins
-    /// with `func(`. Whole-program derived; recomputed by
-    /// `apply_go_func_value_fields`.
+    /// Compatibility projection retained for downstream callers. Production
+    /// P5 consults use all-field declaration snapshots and presence/absence.
     #[serde(default)]
     pub go_func_typed_fields: BTreeSet<(crate::resolution::GoOwnerIdentity, String)>,
     /// P5 S2: recognized Go function-value registration sites. Whole-program
@@ -495,10 +499,23 @@ pub struct CallGraph {
     /// per-file so incremental remove/merge preserves exact counts.
     #[serde(default)]
     pub go_build_profile_unparsed: BTreeMap<String, usize>,
-    /// P13 M1 telemetry: GoOwnerIdentity-keyed lanes still collapse package/
-    /// build partitions; count conflicts but leave re-keying out of scope.
+    /// P13/P10 legacy support-set diagnostic: count `(directory, bare name)`
+    /// owners whose declarations span more than one clause/build profile. This
+    /// is not a count of affected consult sites or edges.
     #[serde(default)]
     pub go_owner_identity_profile_conflict: usize,
+    /// P10 build-time S2 consult decisions. Whole-program rematerialized with
+    /// receiver keys; runtime S4/P5 decisions travel on ResolutionOutcome.
+    #[serde(default)]
+    pub go_owner_identity_partition: crate::go_owner_partition::GoOwnerPartitionTelemetry,
+    /// P10 build-time S2 decisions keyed by their source call site. `call-stats`
+    /// coalesces this with the same site's runtime S4/P5/direct-method decision
+    /// so `affected_sites` is a cardinality, not a count of pipeline stages.
+    #[serde(default)]
+    pub(crate) go_owner_identity_partition_sites: BTreeMap<
+        crate::go_owner_partition::GoOwnerPartitionSiteKey,
+        crate::go_owner_partition::GoOwnerPartitionTelemetry,
+    >,
     /// P13 telemetry: `resolve_go_bare_value_ref` saw multiple same-package
     /// value candidates before profile filtering.
     #[serde(default)]
@@ -581,7 +598,7 @@ pub struct CallGraph {
     /// function match.
     #[serde(default)]
     pub framework_entry_unresolved_handlers: usize,
-    /// P11 S1: `(package_dir, func_name) -> declared return type` for Go
+    /// P11/P10 S1: clause-bearing function identity -> declared return type for Go
     /// free functions/methods whose `result` is a single type or `(T,
     /// error)`. Whole-program derived (a consuming file's call-RHS receiver
     /// recovery can depend on a function declared in a DIFFERENT file of the
@@ -589,14 +606,26 @@ pub struct CallGraph {
     /// `apply_go_receiver_indices` in the post-merge rematerialization pass,
     /// never incrementally patched.
     #[serde(default)]
-    pub go_return_types:
-        BTreeMap<(String, String), BTreeSet<crate::go_receiver_index::GoTypedFact>>,
-    /// P11 S2: `(GoOwnerIdentity, field_name) -> peeled field type`
-    /// re-projection of `GoStruct.fields` (package-scoped, including
-    /// embedded-field pseudo-entries), captured in `apply_go_interface_dispatch`
-    /// alongside the other Go type-provider captures. Whole-program derived.
+    pub go_return_types: crate::go_receiver_index::GoReturnTypes,
+    /// P11 S2/P10: clause-keyed per-declaration struct snapshots. Field
+    /// presence/absence and raw type remain attached to the defining file so
+    /// receiver recovery can filter build profiles before requiring one value.
     #[serde(default)]
-    pub go_field_types: BTreeMap<(crate::resolution::GoOwnerIdentity, String), String>,
+    pub go_field_types: crate::go_owner_partition::GoStructDeclarations,
+    /// P10 S4 interface and method declaration provenance, captured from the
+    /// provider alongside `go_field_types` for exact consult-time routing.
+    #[serde(default)]
+    pub go_interface_declarations: crate::go_owner_partition::GoInterfaceDeclarations,
+    #[serde(default)]
+    pub go_method_declarations: crate::go_owner_partition::GoMethodDeclarations,
+    /// P10 S4: RTA admission keys used by snapshot-derived interface dispatch.
+    #[serde(default)]
+    pub go_interface_live_types: BTreeSet<String>,
+    /// Compatibility projection retained for downstream callers. Production
+    /// S4 routing consults the declaration snapshots above.
+    #[serde(default)]
+    pub go_embedded_interface_methods:
+        BTreeMap<crate::resolution::GoOwnerIdentity, BTreeMap<String, String>>,
     /// P11 S3: `(package_dir, var_name) -> declared type` for package-scope
     /// (top-level) Go `var` declarations with an explicit type. Whole-program
     /// derived (a package var can be declared in a different file of the
@@ -604,18 +633,6 @@ pub struct CallGraph {
     #[serde(default)]
     pub go_package_vars:
         BTreeMap<(String, String), BTreeSet<crate::go_receiver_index::GoTypedFact>>,
-    /// P11 S4: `GoOwnerIdentity (struct) -> method_name -> interface_bare_name`
-    /// for a method supplied ONLY by exactly one directly-embedded in-repo
-    /// interface (no own/promoted concrete method or field shadows it).
-    /// Package-scoped by the STRUCT's identity (B2 fix, codex impl-review
-    /// BLOCKER: a bare-struct-name key let one package's struct donate its
-    /// embedded-interface methods to an unrelated same-named struct in
-    /// another package). Captured in `apply_go_interface_dispatch`
-    /// (signature-only — deliberately carries no FunctionId; see
-    /// `type_providers::go::GoTypeProvider::embedded_interface_method_routes`).
-    #[serde(default)]
-    pub go_embedded_interface_methods:
-        BTreeMap<crate::resolution::GoOwnerIdentity, BTreeMap<String, String>>,
 }
 
 impl CallGraph {
@@ -669,6 +686,8 @@ impl CallGraph {
             go_file_profiles: BTreeMap::new(),
             go_build_profile_unparsed: BTreeMap::new(),
             go_owner_identity_profile_conflict: 0,
+            go_owner_identity_partition: Default::default(),
+            go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
             property_getters: BTreeMap::new(),
             cached_property_getters: BTreeSet::new(),
@@ -681,8 +700,11 @@ impl CallGraph {
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
-            go_package_vars: BTreeMap::new(),
+            go_interface_declarations: BTreeMap::new(),
+            go_method_declarations: BTreeMap::new(),
+            go_interface_live_types: BTreeSet::new(),
             go_embedded_interface_methods: BTreeMap::new(),
+            go_package_vars: BTreeMap::new(),
         }
     }
 
@@ -815,6 +837,7 @@ impl CallGraph {
                             None,
                         ),
                         receiver_type: None,
+                        receiver_owner_identity: None,
                         receiver_recovery: None,
                         receiver_materialized: false,
                         arg_count: None,
@@ -882,6 +905,8 @@ impl CallGraph {
             go_file_profiles,
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
+            go_owner_identity_partition: Default::default(),
+            go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
             property_getters: BTreeMap::new(),
             cached_property_getters: BTreeSet::new(),
@@ -899,8 +924,11 @@ impl CallGraph {
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
-            go_package_vars: BTreeMap::new(),
+            go_interface_declarations: BTreeMap::new(),
+            go_method_declarations: BTreeMap::new(),
+            go_interface_live_types: BTreeSet::new(),
             go_embedded_interface_methods: BTreeMap::new(),
+            go_package_vars: BTreeMap::new(),
         }
     }
 
@@ -1158,6 +1186,9 @@ impl CallGraph {
                             end_byte,
                             qualifier,
                             receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
+                            receiver_owner_identity: recovered
+                                .as_ref()
+                                .and_then(|r| r.owner_identity.clone()),
                             receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                             receiver_materialized: classification.materialized,
                             arg_count: meta.arg_count,
@@ -1255,6 +1286,8 @@ impl CallGraph {
             go_file_profiles,
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
+            go_owner_identity_partition: Default::default(),
+            go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
             property_getters: BTreeMap::new(),
             cached_property_getters: BTreeSet::new(),
@@ -1273,12 +1306,15 @@ impl CallGraph {
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
-            go_package_vars: BTreeMap::new(),
+            go_interface_declarations: BTreeMap::new(),
+            go_method_declarations: BTreeMap::new(),
+            go_interface_live_types: BTreeSet::new(),
             go_embedded_interface_methods: BTreeMap::new(),
+            go_package_vars: BTreeMap::new(),
         };
         cg.refresh_rust_receiver_state(files);
         cg.apply_go_embedding_promotion(files);
-        cg.apply_go_interface_dispatch(files);
+        cg.apply_go_interface_dispatch_with_scope_inputs(files, scope_inputs);
         // P5: S1 func-typed-field index, then S2 registration scan (needs S1
         // already applied — registrations are keyed against it).
         cg.apply_go_func_value_fields(files);
@@ -1286,7 +1322,7 @@ impl CallGraph {
         // P11: Go receiver-typing indices (S1 return-types, S3 package vars)
         // + the post-merge rematerialization pass (S1 call-RHS, S2
         // nested-selector, S3 package var). Needs `go_field_types`/
-        // `go_embedded_interface_methods`, already captured by
+        // declaration snapshots, already captured by
         // `apply_go_interface_dispatch` above. Uses the SAME `receiver_config`
         // this build used at extraction time (spec-parity fix: an earlier
         // draft hardcoded `ReceiverRecoveryConfig::default()` here, silently
@@ -1575,7 +1611,7 @@ impl CallGraph {
         // func-value state directly above: a return/package-var type can be
         // declared in an unchanged file. Drop it all;
         // `apply_go_receiver_indices` repopulates from the merged graph
-        // (`go_field_types`/`go_embedded_interface_methods` are cleared by
+        // (the Go owner declaration snapshots are cleared by
         // `clear_interface_dispatch` above and repopulated by
         // `apply_go_interface_dispatch`).
         self.clear_go_receiver_indices();
@@ -1702,7 +1738,7 @@ impl CallGraph {
         // `build_incremental_with_scope_graph_inputs`.
         //
         // P11 (Go receiver-typing indices `go_return_types`/`go_package_vars`,
-        // and the `go_field_types`/`go_embedded_interface_methods` captured
+        // and the Go owner declaration snapshots captured
         // alongside `interface_impls`): deliberately NOT merged here either,
         // same reasoning as P5/P7/P9 above — `apply_go_interface_dispatch` +
         // `apply_go_receiver_indices` re-apply on the merged graph, and the
@@ -1902,6 +1938,7 @@ impl CallGraph {
             end_byte: source_site.end_byte,
             qualifier: None,
             receiver_type: None,
+            receiver_owner_identity: None,
             receiver_recovery: None,
             receiver_materialized: false,
             arg_count: None,
@@ -2665,6 +2702,9 @@ impl CallGraph {
         // early return in that function (which runs AFTER this clear but
         // BEFORE the fresh capture) leaves them empty rather than stale.
         self.go_field_types.clear();
+        self.go_interface_declarations.clear();
+        self.go_method_declarations.clear();
+        self.go_interface_live_types.clear();
         self.go_embedded_interface_methods.clear();
         self.go_owner_identity_profile_conflict = 0;
     }
@@ -2729,8 +2769,10 @@ impl CallGraph {
         &self,
         files: &BTreeMap<String, ParsedFile>,
     ) -> usize {
-        let mut by_owner: BTreeMap<crate::resolution::GoOwnerIdentity, BTreeSet<String>> =
-            BTreeMap::new();
+        // Deliberately retain the legacy `(dir, name)` support-set diagnostic:
+        // after package clause enters `GoOwnerIdentity`, this counter must still
+        // reveal the cross-clause population that motivated the partition cut.
+        let mut by_owner: BTreeMap<(String, String), BTreeSet<String>> = BTreeMap::new();
         for (path, parsed) in files {
             if parsed.language != crate::languages::Language::Go {
                 continue;
@@ -2765,10 +2807,10 @@ impl CallGraph {
                         continue;
                     }
                     by_owner
-                        .entry(crate::resolution::GoOwnerIdentity {
-                            package_dir: crate::resolution::dir_of(path).to_string(),
-                            name: name.to_string(),
-                        })
+                        .entry((
+                            crate::resolution::dir_of(path).to_string(),
+                            name.to_string(),
+                        ))
                         .or_default()
                         .insert(sig.clone());
                 }
@@ -2781,6 +2823,14 @@ impl CallGraph {
     }
 
     pub fn apply_go_interface_dispatch(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        self.apply_go_interface_dispatch_with_scope_inputs(files, None);
+    }
+
+    pub(crate) fn apply_go_interface_dispatch_with_scope_inputs(
+        &mut self,
+        files: &BTreeMap<String, ParsedFile>,
+        scope_inputs: Option<&ScopeGraphBuildInputs>,
+    ) {
         self.clear_interface_dispatch();
         // The dispatch pass ran (even if there are no Go files → empty result); a raw
         // build_direct_subset graph leaves this false (review MINOR 6 signal).
@@ -2794,18 +2844,31 @@ impl CallGraph {
         self.go_owner_identity_profile_conflict =
             self.count_go_owner_identity_profile_conflicts(files);
         let live = crate::live_types::go_admission_live_set(files);
-        let provider = crate::type_providers::go::GoTypeProvider::from_parsed_files(files);
+        self.go_interface_live_types = live.clone();
+        let package_import_paths = Self::go_package_import_paths(files, scope_inputs);
+        let provider =
+            crate::type_providers::go::GoTypeProvider::from_parsed_files_with_package_import_paths(
+                files,
+                &package_import_paths,
+            );
         let table = provider.compute_interface_dispatch(&live);
         self.interface_impls = table.impls;
-        // Capture the interface-method-name set for the PR-2 manifest denominator
-        // (§8a) while the provider is live (it is dropped after this fn).
-        self.interface_method_names = provider.interface_method_names();
         // Capture per-method arity for later arity-filtered dispatch (Task 2).
         self.method_arity = provider.method_arities();
         // P11 S2/S4: capture the field re-projection and the embedded-interface
         // routing map while the provider is live, same pattern as above.
-        self.go_field_types = provider.go_field_types();
+        self.go_field_types = provider.go_struct_declarations();
+        self.go_interface_declarations = provider.go_interface_declarations();
+        self.go_method_declarations = provider.go_method_declarations();
         self.go_embedded_interface_methods = provider.embedded_interface_method_routes();
+        // Manifest denominator from raw snapshots, before any clause/profile
+        // last-writer collapse in the provider compatibility maps.
+        self.interface_method_names = self
+            .go_interface_declarations
+            .values()
+            .flatten()
+            .flat_map(|declaration| declaration.methods.iter().cloned())
+            .collect();
         for g in &table.gaps {
             *self.interface_gaps.entry(format!("{g:?}")).or_insert(0) += 1;
         }
@@ -2815,6 +2878,101 @@ impl CallGraph {
                 .entry(format!("{o:?}"))
                 .or_insert(0) += 1;
         }
+    }
+
+    fn go_package_import_paths(
+        files: &BTreeMap<String, ParsedFile>,
+        scope_inputs: Option<&ScopeGraphBuildInputs>,
+    ) -> BTreeMap<String, String> {
+        use std::path::{Component, Path};
+
+        let Some(scope_inputs) = scope_inputs else {
+            return BTreeMap::new();
+        };
+        let repo_root = &scope_inputs.repo_root;
+        if repo_root.as_os_str().is_empty() {
+            return BTreeMap::new();
+        }
+        let mut out = BTreeMap::new();
+        for (path, parsed) in files {
+            if parsed.language != crate::languages::Language::Go {
+                continue;
+            }
+            let relative = Path::new(path);
+            if relative.is_absolute()
+                || relative.components().any(|component| {
+                    matches!(
+                        component,
+                        Component::ParentDir | Component::RootDir | Component::Prefix(_)
+                    )
+                })
+            {
+                continue;
+            }
+            let package_relative = relative.parent().unwrap_or_else(|| Path::new(""));
+            let package_root = repo_root.join(package_relative);
+            let mut module_root = package_root.as_path();
+
+            loop {
+                match std::fs::read_to_string(module_root.join("go.mod")) {
+                    Ok(go_mod) => {
+                        if module_root != repo_root {
+                            break;
+                        }
+                        let Some(module_path) = Self::parse_go_module_path(&go_mod) else {
+                            break;
+                        };
+                        let Some(suffix) =
+                            package_root
+                                .strip_prefix(module_root)
+                                .ok()
+                                .and_then(|suffix| {
+                                    suffix
+                                        .iter()
+                                        .map(|part| part.to_str())
+                                        .collect::<Option<Vec<_>>>()
+                                })
+                        else {
+                            break;
+                        };
+                        let suffix = suffix.join("/");
+                        let import_path = if suffix.is_empty() {
+                            module_path
+                        } else {
+                            format!("{}/{suffix}", module_path.trim_end_matches('/'))
+                        };
+                        out.insert(path.clone(), import_path);
+                        break;
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(_) => break,
+                }
+                if module_root == repo_root {
+                    break;
+                }
+                let Some(parent) = module_root.parent() else {
+                    break;
+                };
+                if !parent.starts_with(repo_root) {
+                    break;
+                }
+                module_root = parent;
+            }
+        }
+        out
+    }
+
+    fn parse_go_module_path(go_mod: &str) -> Option<String> {
+        go_mod.lines().find_map(|line| {
+            let mut words = line.split_whitespace();
+            if words.next() != Some("module") {
+                return None;
+            }
+            words
+                .next()
+                .map(|path| path.trim_matches(['"', '`']).to_string())
+                .filter(|path| !path.is_empty())
+        })
     }
 
     fn clear_go_func_value_fields(&mut self) {
@@ -2850,9 +3008,20 @@ impl CallGraph {
                 .or_default()
                 .insert(dir);
         }
-        let provider = crate::type_providers::go::GoTypeProvider::from_parsed_files(files);
-        self.go_known_struct_identities = provider.go_known_struct_identities();
-        self.go_func_typed_fields = provider.go_func_typed_fields();
+        self.go_known_struct_identities = self.go_field_types.keys().cloned().collect();
+        self.go_func_typed_fields = self
+            .go_field_types
+            .iter()
+            .flat_map(|(owner, declarations)| {
+                declarations.iter().flat_map(move |declaration| {
+                    declaration.fields.iter().filter_map(move |(name, ty)| {
+                        ty.trim_start()
+                            .starts_with("func(")
+                            .then(|| (owner.clone(), name.clone()))
+                    })
+                })
+            })
+            .collect();
     }
 
     fn clear_go_registrations(&mut self) {
@@ -2866,9 +3035,9 @@ impl CallGraph {
     /// P5 S2: scan `files` for recognized Go function-value registrations
     /// (composite-literal keyed field, field assignment, bare call argument)
     /// and record them in `go_registrations`. Whole-program derived (needs
-    /// `go_func_typed_fields`/`go_known_struct_identities` already applied by
-    /// `apply_go_func_value_fields`, and target resolution needs the complete
-    /// `functions`/`method_owners` index) — clears and recomputes from
+    /// declaration snapshots already applied by `apply_go_interface_dispatch`,
+    /// and target resolution needs the complete `functions`/`method_owners`
+    /// index) — clears and recomputes from
     /// scratch, never incrementally patched.
     ///
     /// Walks `parsed.all_functions()` per file (the same per-function
@@ -2907,6 +3076,42 @@ impl CallGraph {
         }
     }
 
+    /// Resolve one P5 field key against all visible declaration snapshots.
+    /// `Err` means the owner itself is unknown (composite literals retain the
+    /// legacy nav-only fallback); `Ok(None)` means a known owner whose visible
+    /// field cannot be proven func-typed and must not register.
+    fn go_func_field_key(
+        &self,
+        owner_type_text: &str,
+        caller_file: &str,
+        field_name: &str,
+    ) -> Result<Option<(crate::resolution::GoOwnerIdentity, String)>, ()> {
+        let owner = crate::resolution::resolve_go_owner_identity(
+            owner_type_text,
+            caller_file,
+            &self.imports,
+            &self.go_package_basenames,
+            &self.go_file_profiles,
+        )
+        .ok_or(())?;
+        let Some(declarations) = self.go_field_types.get(&owner) else {
+            return Err(());
+        };
+        let selected = crate::go_owner_partition::select_struct_field(
+            &owner,
+            caller_file,
+            owner_type_text,
+            field_name,
+            declarations,
+            &self.go_file_profiles,
+        );
+        Ok(selected
+            .value
+            .as_deref()
+            .is_some_and(|ty| ty.trim_start().starts_with("func("))
+            .then(|| (owner, field_name.to_string())))
+    }
+
     /// One raw S2 candidate -> zero or one `RegistrationRecord`, applying the
     /// shared gates (target resolution, shadow check) and the per-form owner
     /// recovery / field-typing gate.
@@ -2918,7 +3123,7 @@ impl CallGraph {
         cand: crate::ast::GoRegistrationCandidate,
     ) {
         use crate::ast::GoRegistrationForm;
-        use crate::resolution::{resolve_go_bare_value_ref, resolve_go_owner_identity};
+        use crate::resolution::resolve_go_bare_value_ref;
 
         // Shared gate (ALL forms): the value must resolve to a known in-repo
         // free function via same-package/import helpers (never bare
@@ -2960,36 +3165,16 @@ impl CallGraph {
             GoRegistrationForm::CompositeLiteralField {
                 struct_type_text,
                 field_name,
-            } => {
-                match resolve_go_owner_identity(
-                    struct_type_text,
-                    &caller_id.file,
-                    &self.imports,
-                    &self.go_package_basenames,
-                ) {
-                    Some(owner) if self.go_known_struct_identities.contains(&owner) => {
-                        if self
-                            .go_func_typed_fields
-                            .contains(&(owner.clone(), field_name.clone()))
-                        {
-                            Some((owner, field_name.clone()))
-                        } else {
-                            // Known struct, field not func-typed: not a
-                            // registration candidate at all — silently skip
-                            // (not a "fallback", not a "skip" to count).
-                            return;
-                        }
-                    }
-                    _ => {
-                        // Unknown/ambiguous struct: fall back to recording
-                        // WITHOUT a field key (nav-only, never feeds S3),
-                        // since the shared gate above already established the
-                        // value resolves unambiguously and isn't shadowed.
-                        self.go_registration_unknown_owner_recorded += 1;
-                        None
-                    }
+            } => match self.go_func_field_key(struct_type_text, &caller_id.file, field_name) {
+                Ok(Some(key)) => Some(key),
+                Ok(None) => return,
+                Err(()) => {
+                    // Unknown/ambiguous struct: fall back to recording WITHOUT
+                    // a field key (nav-only, never feeds S3).
+                    self.go_registration_unknown_owner_recorded += 1;
+                    None
                 }
-            }
+            },
             GoRegistrationForm::FieldAssignment {
                 operand_name,
                 field_name,
@@ -3011,19 +3196,8 @@ impl CallGraph {
                     self.go_registration_ambiguous_owner_skips += 1;
                     return;
                 }
-                match resolve_go_owner_identity(
-                    &operand_type,
-                    &caller_id.file,
-                    &self.imports,
-                    &self.go_package_basenames,
-                ) {
-                    Some(owner)
-                        if self
-                            .go_func_typed_fields
-                            .contains(&(owner.clone(), field_name.clone())) =>
-                    {
-                        Some((owner, field_name.clone()))
-                    }
+                match self.go_func_field_key(&operand_type, &caller_id.file, field_name) {
+                    Ok(Some(key)) => Some(key),
                     _ => {
                         self.go_registration_ambiguous_owner_skips += 1;
                         return;
@@ -3044,12 +3218,14 @@ impl CallGraph {
     fn clear_go_receiver_indices(&mut self) {
         self.go_return_types.clear();
         self.go_package_vars.clear();
+        self.go_owner_identity_partition = Default::default();
+        self.go_owner_identity_partition_sites.clear();
     }
 
     /// P11 S1/S2/S3: recompute the Go return-type (S1) and package-var (S3)
     /// indices, then rematerialize every Go call site's receiver
     /// classification against the fresh whole-program facts (S1 call-RHS,
-    /// S2 nested-selector via `go_field_types`/`go_embedded_interface_methods`
+    /// S2 nested-selector via the Go owner declaration snapshots
     /// already captured by `apply_go_interface_dispatch`, S3 package var).
     ///
     /// Whole-program derived — MUST run after `apply_go_interface_dispatch`
@@ -3108,12 +3284,26 @@ impl CallGraph {
             };
             self.compute_go_receiver_updates(files, &facts, receiver_config)
         };
-        for (caller, old_site, classification) in updates {
+        for (caller, old_site, classification, evidence) in updates {
+            let mut site_telemetry =
+                crate::go_owner_partition::GoOwnerPartitionTelemetry::default();
+            site_telemetry.observe(evidence, 1);
+            self.go_owner_identity_partition.merge(site_telemetry);
+            if site_telemetry.affected_sites() > 0 {
+                self.go_owner_identity_partition_sites.insert(
+                    crate::go_owner_partition::site_key(&old_site),
+                    site_telemetry,
+                );
+            }
             let mut updated = old_site.clone();
             updated.receiver_type = classification
                 .recovered
                 .as_ref()
                 .map(|r| r.static_type.clone());
+            updated.receiver_owner_identity = classification
+                .recovered
+                .as_ref()
+                .and_then(|r| r.owner_identity.clone());
             updated.receiver_recovery = classification.recovered.as_ref().map(|r| r.recovery);
             updated.receiver_outcome = classification
                 .recovered
@@ -3133,6 +3323,7 @@ impl CallGraph {
                 for site in sites {
                     if site.caller == old_site.caller && site.cmp_key() == old_site.cmp_key() {
                         site.receiver_type = updated.receiver_type.clone();
+                        site.receiver_owner_identity = updated.receiver_owner_identity.clone();
                         site.receiver_recovery = updated.receiver_recovery;
                         site.receiver_outcome = updated.receiver_outcome.clone();
                         site.receiver_materialized = updated.receiver_materialized;
@@ -3153,6 +3344,7 @@ impl CallGraph {
         FunctionId,
         CallSite,
         crate::resolution::ReceiverClassification,
+        crate::go_owner_partition::GoPartitionEvidence,
     )> {
         use rayon::prelude::*;
 
@@ -3188,6 +3380,7 @@ impl CallGraph {
         FunctionId,
         CallSite,
         crate::resolution::ReceiverClassification,
+        crate::go_owner_partition::GoPartitionEvidence,
     )> {
         let mut out = Vec::new();
         let Some(parsed) = files.get(&caller.file) else {
@@ -3236,10 +3429,11 @@ impl CallGraph {
                 file_imports,
                 caller_file: &caller.file,
             };
-            let classification = crate::go_receiver_index::classify_go_receiver_expanded(
-                &ctx, classifier, facts, var_local,
-            );
-            out.push((caller.clone(), site.clone(), classification));
+            let (classification, evidence) =
+                crate::go_receiver_index::classify_go_receiver_expanded_with_partition(
+                    &ctx, classifier, facts, var_local,
+                );
+            out.push((caller.clone(), site.clone(), classification, evidence));
         }
         out
     }
@@ -3723,6 +3917,9 @@ impl CallGraph {
                         end_byte,
                         qualifier,
                         receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
+                        receiver_owner_identity: recovered
+                            .as_ref()
+                            .and_then(|r| r.owner_identity.clone()),
                         receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                         receiver_materialized: classification.materialized,
                         arg_count: meta.arg_count,
@@ -3839,6 +4036,8 @@ impl CallGraph {
             go_file_profiles,
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
+            go_owner_identity_partition: Default::default(),
+            go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
             // P7: whole-program Python property-access state — left empty
             // here for the same reason as the Go func-value state above;
@@ -3867,8 +4066,11 @@ impl CallGraph {
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
-            go_package_vars: BTreeMap::new(),
+            go_interface_declarations: BTreeMap::new(),
+            go_method_declarations: BTreeMap::new(),
+            go_interface_live_types: BTreeSet::new(),
             go_embedded_interface_methods: BTreeMap::new(),
+            go_package_vars: BTreeMap::new(),
         }
     }
 
@@ -5794,8 +5996,6 @@ func main() {\n\thelper := func() {}\n\t_ = helper\n\tRegister(helper)\n}\n",
         );
         let cg = CallGraph::build(&files);
         assert!(cg.go_registrations.is_empty());
-        assert!(cg.go_known_struct_identities.is_empty());
-        assert!(cg.go_func_typed_fields.is_empty());
         assert_eq!(cg.go_registration_shadowed_skips, 0);
         assert_eq!(cg.go_registration_ambiguous_owner_skips, 0);
         assert_eq!(cg.go_registration_unknown_owner_recorded, 0);
@@ -5806,19 +6006,8 @@ func main() {\n\thelper := func() {}\n\t_ = helper\n\tRegister(helper)\n}\n",
 mod go_receiver_typing_tests {
     use super::*;
     use crate::languages::Language::Go;
-    use crate::resolution::{
-        GoOwnerIdentity, ReceiverRecovery, ResolutionConfidence, ResolutionKind,
-    };
+    use crate::resolution::{ReceiverRecovery, ResolutionConfidence, ResolutionKind};
     use std::collections::BTreeMap;
-
-    /// `GoOwnerIdentity` for a single-file `"main.go"` fixture (package_dir
-    /// `dir_of("main.go")` == `""`).
-    fn main_owner(name: &str) -> GoOwnerIdentity {
-        GoOwnerIdentity {
-            package_dir: String::new(),
-            name: name.to_string(),
-        }
-    }
 
     fn build_go(files: &[(&str, &str)]) -> CallGraph {
         let mut map = BTreeMap::new();
@@ -5834,6 +6023,14 @@ mod go_receiver_typing_tests {
             .find(|(fid, _)| fid.name == caller)
             .and_then(|(_, sites)| sites.iter().find(|s| s.callee_name == callee))
             .unwrap_or_else(|| panic!("no call site {caller} -> {callee}"))
+    }
+
+    fn main_owner(name: &str) -> crate::resolution::GoOwnerIdentity {
+        crate::resolution::GoOwnerIdentity {
+            package_dir: String::new(),
+            package_clause: "main".to_string(),
+            name: name.to_string(),
+        }
     }
 
     // ---- S1: call-RHS return-typed recovery ----------------------------
@@ -5993,7 +6190,8 @@ mod go_receiver_typing_tests {
     fn s1_cross_package_same_name_constructor_pins_own_package_type() {
         // Two UNRELATED packages each declare a bare (same-name, unqualified)
         // `New()` constructor returning their OWN package's type. S1's index
-        // is keyed by `(package_dir, func_name)` (`extract_go_return_types`),
+        // is keyed by clause-bearing package/function identity
+        // (`extract_go_return_types`),
         // so this must not collide -- each package's `x := New()` recovers
         // to ITS OWN type, never the other's.
         let cg = build_go(&[
@@ -6240,7 +6438,7 @@ mod go_receiver_typing_tests {
         // sibling closure's OWN `d := other()` binding as a SECOND binding of
         // `d` in `run`'s scope (on top of the genuine outer `d :=
         // newDemux(...)`), inflating `bindings` from the correct 1 to 2.
-        // `go_receiver_index.rs`'s `classify_go_receiver_expanded` then bails
+        // `go_receiver_index.rs`'s partition-aware classifier then bails
         // at its `if bindings > 1 { return baseline; }` gate (~line 389)
         // BEFORE ever attempting the S1 call-RHS retry -- so the outer,
         // wholly unambiguous `d.Init(1)` lost its recovery entirely, not just
@@ -6385,10 +6583,10 @@ mod go_receiver_typing_tests {
             out
         );
         assert_eq!(
-            cg.go_embedded_interface_methods
-                .get(&main_owner("Holder"))
-                .and_then(|m| m.get("Do")),
-            Some(&"Doer".to_string())
+            cg.go_embedded_interface_route("Holder", None, "Do", "main.go")
+                .value
+                .as_deref(),
+            Some("Doer")
         );
     }
 
@@ -6694,7 +6892,7 @@ mod go_receiver_typing_tests {
     }
 
     #[test]
-    fn s2_pointer_embed_owner_profile_conflict_fails_closed() {
+    fn s2_pointer_embed_external_test_clause_does_not_conflict_with_owner() {
         let cg = build_go(&[
             (
                 "p/holder.go",
@@ -6715,14 +6913,24 @@ mod go_receiver_typing_tests {
             ),
         ]);
         let site = site_in(&cg, "run", "Do");
-        assert_eq!(site.receiver_type, None);
-        assert_eq!(site.receiver_recovery, None);
+        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+        let outcome = cg.resolve_call_site_full(site);
         assert!(
-            cg.resolve_call_site_full(site)
+            outcome.resolved.iter().any(|candidate| {
+                candidate.target.file == "p/listener.go"
+                    && candidate.target.name == "Do"
+                    && candidate.confidence == ResolutionConfidence::Exact
+                    && candidate.kind == ResolutionKind::FieldTyped
+            }),
+            "the p_test clause must not suppress the proven p.Listener target: {outcome:?}"
+        );
+        assert!(
+            outcome
                 .resolved
                 .iter()
-                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
-            "a mixed-kind Listener identity spanning p and p_test must fail closed"
+                .all(|candidate| candidate.target.file != "p/listener_test.go"),
+            "the external-test clause must never donate the pointer-embed target: {outcome:?}"
         );
     }
 
@@ -7057,9 +7265,8 @@ mod go_receiver_typing_tests {
         // embedded-interface promotion map (own method wins, ordinary
         // owner_lookup already resolves it).
         assert!(cg
-            .go_embedded_interface_methods
-            .get(&main_owner("Holder"))
-            .and_then(|m| m.get("Do"))
+            .go_embedded_interface_route("Holder", None, "Do", "main.go")
+            .value
             .is_none());
         let site = site_in(&cg, "run", "Do");
         let out = cg.resolve_call_site_full(site);
@@ -7084,9 +7291,8 @@ mod go_receiver_typing_tests {
         let out = cg.resolve_call_site_full(site);
         assert!(out.resolved.is_empty());
         assert!(cg
-            .go_embedded_interface_methods
-            .get(&main_owner("Wrap"))
-            .and_then(|m| m.get("Accept"))
+            .go_embedded_interface_route("Wrap", None, "Accept", "main.go")
+            .value
             .is_none());
     }
 
@@ -7175,11 +7381,9 @@ mod go_receiver_typing_tests {
              type Holder struct {\n\tA\n\tB\n}\n\
              func run(h Holder) {\n\th.M()\n}\n",
         )]);
-        assert!(cg
-            .go_embedded_interface_methods
-            .get(&main_owner("Holder"))
-            .and_then(|m| m.get("M"))
-            .is_none());
+        let route = cg.go_embedded_interface_route("Holder", None, "M", "main.go");
+        assert!(route.value.is_none());
+        assert!(route.evidence.conflict);
     }
 
     // ---- S5: telemetry ----------------------------------------------------

@@ -56,6 +56,7 @@ fn resolved_targets(
                 end_byte: 0,
                 qualifier: qualifier.map(str::to_string),
                 receiver_type: None,
+                receiver_owner_identity: None,
                 receiver_recovery: None,
                 receiver_materialized: false,
                 arg_count: None,

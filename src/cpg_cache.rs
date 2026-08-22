@@ -76,9 +76,9 @@ use std::path::{Path, PathBuf};
 /// - v32: P3 R6MultiOwnerCandidate — Python/JS/TS/Tsx unknown-receiver
 ///   multi-owner collisions resolve via `resolve_call_site` to a capped
 ///   NameOnly candidate instead of dropping, changing CPG Call/Return edges.
-/// - v33: P5 Go func-value callbacks — CallGraph.go_package_basenames /
-///   go_known_struct_identities / go_func_typed_fields (S1) +
-///   go_registrations + registration telemetry counters (S2); new
+/// - v33: P5 Go func-value callbacks — CallGraph.go_package_basenames plus
+///   provider-derived struct/func-field facts (S1) + go_registrations and
+///   registration telemetry counters (S2); new
 ///   ResolutionKind::CallbackRegistration/FuncValueField and
 ///   DropReason::FuncValueFanout (S3, resolution behavior change).
 /// - v34: P7 Python `@property`/`@cached_property` access edges —
@@ -105,14 +105,14 @@ use std::path::{Path, PathBuf};
 ///   change, mirrors `PropertyAccess`).
 /// - v38: P11 Go receiver typing — CallGraph gains `go_return_types` (S1),
 ///   `go_field_types` (S2), `go_package_vars` (S3),
-///   `go_embedded_interface_methods` (S4); a new post-merge Go receiver
+///   embedded-interface route facts (S4); a new post-merge Go receiver
 ///   rematerialization pass changes which Go `CallSite`s carry a recovered
 ///   `receiver_type`/`receiver_recovery` (S1 call-RHS, S2 nested-selector,
 ///   S3 package var); S4 adds an additive Exact `InterfaceDispatch` route for
 ///   a struct receiver whose method comes only from a directly embedded
 ///   in-repo interface; new `ResolutionKind::{ReturnTyped, FieldTyped}`
 ///   (resolution behavior change: new Go Exact/NameOnly edges).
-///   `go_embedded_interface_methods` is keyed by `GoOwnerIdentity`
+///   embedded-interface routes are keyed by `GoOwnerIdentity`
 ///   (package-scoped); Go binding walks are fenced by func_literal lexical
 ///   scope; S4 gate failure drops instead of falling through.
 /// - v39: Go build-profile same-package partitioning. CallGraph gains
@@ -136,7 +136,9 @@ use std::path::{Path, PathBuf};
 ///   `*pkg.T`, `*T[X]`) with selector name + raw type; qualified embedded targets
 ///   and pointer-to-interface embeds fail closed in promotion/S4/S2 (P9; single shipped
 ///   transition on top of main's v42).
-const CACHE_VERSION: u32 = 43; // 43: corrected Go embedded-field topology (P9).
+/// - v44: P10 Go owner identities carry package clauses; S2/S4/P5 persist raw
+///   declaration snapshots, registration provenance, and partition telemetry.
+const CACHE_VERSION: u32 = 44;
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -654,10 +656,10 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_43_for_corrected_go_embedded_field_topology() {
-        // v43: P9 pointer embeds + fail-closed qualified/pointer-interface targets,
-        // stacked on main's v42 (fail-closed parameter slots). One transition ships per PR.
-        assert_eq!(super::CACHE_VERSION, 43);
+    fn cache_version_is_44_for_go_owner_partition_snapshots() {
+        // v44: P10 clause-bearing identities, declaration snapshots, and telemetry,
+        // stacked on v42 parameter slots and v43 pointer embeds.
+        assert_eq!(super::CACHE_VERSION, 44);
     }
 
     #[test]

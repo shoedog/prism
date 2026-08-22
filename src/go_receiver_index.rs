@@ -7,7 +7,7 @@
 //! that are not available until the whole program has been parsed and
 //! merged:
 //!
-//! - S1 `go_return_types`: `(package_dir, func_name) -> declared return type`
+//! - S1 `go_return_types`: clause-bearing function identity -> declared return type
 //!   for free functions/methods whose `result` is a single type or a
 //!   `(T, error)` pair. Feeds `d := newDemux(...)` call-RHS recovery.
 //! - S3 `go_package_vars`: `(package_dir, var_name) -> declared type` for
@@ -28,6 +28,7 @@
 //! doctrine 5).
 
 use crate::ast::ParsedFile;
+use crate::go_receiver_index_visibility::{resolve_go_return_type_call, unique_visible_type};
 use crate::languages::Language;
 use crate::resolution::{
     dir_of, owner_key, peel_type, resolve_go_owner_identity, GoOwnerIdentity,
@@ -43,28 +44,35 @@ pub struct GoTypedFact {
     pub defining_file: String,
 }
 
-/// S1: extract `(package_dir, func_name) -> declared return type` for every
+pub type GoReturnTypes = BTreeMap<crate::resolution::GoOwnerIdentity, BTreeSet<GoTypedFact>>;
+
+/// S1: extract a clause-bearing function identity -> declared return type for every
 /// Go `function_declaration`/`method_declaration` whose return shape is
 /// either a single type or a `(T, error)` pair. Ambiguous keys (two
-/// declarations that share a `(package_dir, func_name)` key — e.g. a free
+/// declarations that share one package namespace/function name — e.g. a free
 /// function and a same-named method — with DIFFERENT recorded types) drop
 /// entirely rather than pick one arbitrarily (favor drop over a guess).
-pub fn extract_go_return_types(
-    files: &BTreeMap<String, ParsedFile>,
-) -> BTreeMap<(String, String), BTreeSet<GoTypedFact>> {
-    let mut multi: BTreeMap<(String, String), BTreeSet<GoTypedFact>> = BTreeMap::new();
+pub fn extract_go_return_types(files: &BTreeMap<String, ParsedFile>) -> GoReturnTypes {
+    let mut multi = GoReturnTypes::new();
     for (path, parsed) in files {
         if parsed.language != Language::Go {
             continue;
         }
-        let dir = dir_of(path).to_string();
+        let (profile, _) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+        if profile.package_clause.trim().is_empty() {
+            continue;
+        }
         let root = parsed.tree.root_node();
         let mut cursor = root.walk();
         for child in root.children(&mut cursor) {
             if matches!(child.kind(), "function_declaration" | "method_declaration") {
                 if let Some((name, ty)) = extract_one_return_type(&child, parsed) {
                     multi
-                        .entry((dir.clone(), name))
+                        .entry(crate::resolution::GoOwnerIdentity {
+                            package_dir: dir_of(path).to_string(),
+                            package_clause: profile.package_clause.clone(),
+                            name,
+                        })
                         .or_default()
                         .insert(GoTypedFact {
                             ty,
@@ -211,74 +219,6 @@ pub fn extract_go_package_vars(
     multi
 }
 
-/// Resolve a call-RHS callee reference (`newDemux` or `pkg.New`, as written)
-/// to its recorded S1 return type. Reuses `resolve_go_owner_identity`'s
-/// bare/`pkg.`-qualified resolution rules (same-package for a bare name,
-/// import-map + unique-basename-directory for a qualified name, no
-/// permissive fall-through) — a method-style call on a local receiver
-/// (`factory.New()`) naturally misses here too, since `factory` is not a
-/// recognized import alias (spec: "skip + count otherwise" — the miss is
-/// counted downstream by the ordinary drop-reason telemetry, no separate
-/// counter needed).
-fn resolve_go_return_type_call(
-    callee_text: &str,
-    caller_file: &str,
-    imports: &BTreeMap<String, BTreeMap<String, String>>,
-    package_basenames: &BTreeMap<String, std::collections::BTreeSet<String>>,
-    return_types: &BTreeMap<(String, String), BTreeSet<GoTypedFact>>,
-    go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
-) -> Option<String> {
-    let identity = resolve_go_owner_identity(callee_text, caller_file, imports, package_basenames)?;
-    unique_visible_type(
-        caller_file,
-        return_types.get(&(identity.package_dir, identity.name))?,
-        go_file_profiles,
-    )
-}
-
-fn unique_visible_type(
-    caller_file: &str,
-    facts: &BTreeSet<GoTypedFact>,
-    go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
-) -> Option<String> {
-    let caller_profile = go_file_profiles.get(caller_file);
-    let mut tys = BTreeSet::new();
-    for fact in facts {
-        let defining_profile = go_file_profiles.get(&fact.defining_file);
-        let visibility = match (caller_profile, defining_profile) {
-            (Some(caller), Some(defining)) => {
-                if crate::resolution::dir_of(caller_file)
-                    == crate::resolution::dir_of(&fact.defining_file)
-                {
-                    Some(crate::go_build_profile::go_same_package_visible_detailed(
-                        caller, defining,
-                    ))
-                } else {
-                    let mut imported = caller.clone();
-                    imported.package_clause = defining.package_clause.clone();
-                    imported.is_test_file = false;
-                    Some(crate::go_build_profile::go_same_package_visible_detailed(
-                        &imported, defining,
-                    ))
-                }
-            }
-            _ => None,
-        };
-        let visible = visibility.as_ref().map_or(true, |vis| vis.visible);
-        if visible {
-            let exact_allowed = visibility.as_ref().map_or_else(
-                || crate::go_build_profile::profile_allows_exact(defining_profile),
-                |vis| crate::go_build_profile::visibility_allows_exact(defining_profile, vis),
-            );
-            if !exact_allowed {
-                return None;
-            }
-            tys.insert(fact.ty.clone());
-        }
-    }
-    (tys.len() == 1).then(|| tys.into_iter().next().unwrap())
-}
-
 /// Decompose a Go selector-chain receiver expression into its base identifier
 /// node plus the ordered list of field segments, AST-shaped only (never
 /// text-split): `identifier(.selector_expression){1,2}`. Any index/slice/map
@@ -322,9 +262,9 @@ fn is_simple_ident_text(s: &str) -> bool {
 /// Bundled repo-wide indices the post-merge Go receiver pass consults.
 /// Borrowed for the lifetime of one rematerialization pass.
 pub struct GoReceiverFacts<'a> {
-    pub return_types: &'a BTreeMap<(String, String), BTreeSet<GoTypedFact>>,
+    pub return_types: &'a GoReturnTypes,
     pub package_vars: &'a BTreeMap<(String, String), BTreeSet<GoTypedFact>>,
-    pub field_types: &'a BTreeMap<(GoOwnerIdentity, String), String>,
+    pub field_types: &'a crate::go_owner_partition::GoStructDeclarations,
     pub field_targets: &'a BTreeMap<(GoOwnerIdentity, String), crate::resolution::GoFieldTarget>,
     pub package_basenames: &'a BTreeMap<String, std::collections::BTreeSet<String>>,
     pub imports: &'a BTreeMap<String, BTreeMap<String, String>>,
@@ -376,12 +316,15 @@ pub struct GoReceiverCtx<'a> {
 /// whereas `var_local`/`type_assertion` gate recoveries that trade off
 /// precision more heuristically. `Legacy` mode is a parity/fall-back mode
 /// for THOSE forms, not a request to disable grounded ones.
-pub fn classify_go_receiver_expanded(
+pub(crate) fn classify_go_receiver_expanded_with_partition(
     ctx: &GoReceiverCtx<'_>,
     base_classifier: &dyn ReceiverClassifier,
     facts: &GoReceiverFacts<'_>,
     var_local: bool,
-) -> ReceiverClassification {
+) -> (
+    ReceiverClassification,
+    crate::go_owner_partition::GoPartitionEvidence,
+) {
     let rctx = ReceiverCtx {
         receiver_expr: Some(ctx.receiver_expr),
         qualifier: Some(ctx.qualifier),
@@ -394,17 +337,31 @@ pub fn classify_go_receiver_expanded(
     };
     let baseline = base_classifier.classify(rctx);
     if baseline.recovered.is_some() {
-        return baseline;
+        return (baseline, Default::default());
     }
 
     if ctx.qualifier.contains('.') {
-        if let Some(rec) = classify_nested_selector(ctx, base_classifier, facts, var_local) {
-            return ReceiverClassification {
-                recovered: Some(rec),
-                materialized: true,
-            };
+        let (recovered, evidence, materialized) =
+            classify_nested_selector(ctx, base_classifier, facts, var_local);
+        if let Some(rec) = recovered {
+            return (
+                ReceiverClassification {
+                    recovered: Some(rec),
+                    materialized: true,
+                },
+                evidence,
+            );
         }
-        return baseline;
+        if materialized {
+            return (
+                ReceiverClassification {
+                    recovered: None,
+                    materialized: true,
+                },
+                evidence,
+            );
+        }
+        return (baseline, evidence);
     }
 
     // Same suppression gate `classify_simple_ident` applies (resolution.rs):
@@ -420,7 +377,7 @@ pub fn classify_go_receiver_expanded(
         .map(|m| m.contains_key(ctx.qualifier))
         .unwrap_or(false);
     if !is_simple_ident_text(ctx.qualifier) || is_kw || is_recv || is_import {
-        return baseline;
+        return (baseline, Default::default());
     }
 
     // `var_local` (not hardcoded `true`): must match the SAME flag
@@ -436,18 +393,22 @@ pub fn classify_go_receiver_expanded(
         var_local,
     );
     if bindings > 1 {
-        return baseline; // ambiguous/shadowed — unchanged.
+        return (baseline, Default::default()); // ambiguous/shadowed — unchanged.
     }
     if let Some((ty, how)) = found {
         let static_type = owner_key(&peel_type(&ty));
-        return ReceiverClassification {
-            recovered: Some(RecoveredReceiver {
-                static_type,
-                recovery: how,
-                go_field_target: None,
-            }),
-            materialized: true,
-        };
+        return (
+            ReceiverClassification {
+                recovered: Some(RecoveredReceiver {
+                    static_type,
+                    owner_identity: None,
+                    recovery: how,
+                    go_field_target: None,
+                }),
+                materialized: true,
+            },
+            Default::default(),
+        );
     }
     if bindings == 0 {
         // S3 is the package-scope generalization of the SAME `var`-decl
@@ -463,17 +424,21 @@ pub fn classify_go_receiver_expanded(
                 unique_visible_type(ctx.caller_file, entries, facts.go_file_profiles)
             }) {
                 let static_type = owner_key(&peel_type(&ty));
-                return ReceiverClassification {
-                    recovered: Some(RecoveredReceiver {
-                        static_type,
-                        recovery: ReceiverRecovery::VarDecl,
-                        go_field_target: None,
-                    }),
-                    materialized: true,
-                };
+                return (
+                    ReceiverClassification {
+                        recovered: Some(RecoveredReceiver {
+                            static_type,
+                            owner_identity: None,
+                            recovery: ReceiverRecovery::VarDecl,
+                            go_field_target: None,
+                        }),
+                        materialized: true,
+                    },
+                    Default::default(),
+                );
             }
         }
-        return baseline;
+        return (baseline, Default::default());
     }
     // bindings == 1 && found.is_none(): exactly one qualifying local
     // statement bound this name but its type wasn't recoverable via the
@@ -484,26 +449,41 @@ pub fn classify_go_receiver_expanded(
         ctx.call_line,
         ctx.call_start_byte,
     ) {
-        if let Some(ty) = resolve_go_return_type_call(
+        let selection = resolve_go_return_type_call(
             &callee_text,
             ctx.caller_file,
             facts.imports,
             facts.package_basenames,
             facts.return_types,
             facts.go_file_profiles,
-        ) {
-            let static_type = owner_key(&peel_type(&ty));
-            return ReceiverClassification {
-                recovered: Some(RecoveredReceiver {
-                    static_type,
-                    recovery: ReceiverRecovery::ReturnTyped,
-                    go_field_target: None,
-                }),
-                materialized: true,
-            };
+        );
+        if let Some(owner_identity) = selection.value {
+            let static_type = owner_identity.name.clone();
+            return (
+                ReceiverClassification {
+                    recovered: Some(RecoveredReceiver {
+                        static_type,
+                        owner_identity: Some(owner_identity),
+                        recovery: ReceiverRecovery::ReturnTyped,
+                        go_field_target: None,
+                    }),
+                    materialized: true,
+                },
+                selection.evidence,
+            );
         }
+        if selection.evidence.conflict || selection.evidence.uncertain {
+            return (
+                ReceiverClassification {
+                    recovered: None,
+                    materialized: true,
+                },
+                selection.evidence,
+            );
+        }
+        return (baseline, selection.evidence);
     }
-    baseline
+    (baseline, Default::default())
 }
 
 /// S2: base + up to 2 field hops, AST-shaped, any miss (unresolved base,
@@ -514,14 +494,22 @@ fn classify_nested_selector(
     base_classifier: &dyn ReceiverClassifier,
     facts: &GoReceiverFacts<'_>,
     var_local: bool,
-) -> Option<RecoveredReceiver> {
-    let (base_node, segments) = decompose_go_selector_chain(ctx.receiver_expr, ctx.parsed)?;
+) -> (
+    Option<RecoveredReceiver>,
+    crate::go_owner_partition::GoPartitionEvidence,
+    bool,
+) {
+    let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
+    let Some((base_node, segments)) = decompose_go_selector_chain(ctx.receiver_expr, ctx.parsed)
+    else {
+        return (None, evidence, false);
+    };
     if segments.is_empty() || segments.len() > 2 {
-        return None; // 3+-hop chain — depth guard, no recovery.
+        return (None, evidence, false); // 3+-hop chain — depth guard, no recovery.
     }
     let base_text = ctx.parsed.node_text(&base_node).trim();
     if !is_simple_ident_text(base_text) {
-        return None;
+        return (None, evidence, false);
     }
     let base_ctx = GoReceiverCtx {
         parsed: ctx.parsed,
@@ -536,40 +524,84 @@ fn classify_nested_selector(
     };
     // Recurse through the SAME simple-ident + S1/S3 machinery for the base —
     // terminates in one level since `base_text` is never dotted.
-    let base_recovered =
-        classify_go_receiver_expanded(&base_ctx, base_classifier, facts, var_local).recovered?;
+    let (base_classification, base_evidence) =
+        classify_go_receiver_expanded_with_partition(&base_ctx, base_classifier, facts, var_local);
+    evidence.merge(base_evidence);
+    let base_materialized = base_classification.materialized;
+    let Some(base_recovered) = base_classification.recovered else {
+        return (None, evidence, base_materialized);
+    };
 
-    let mut current = base_recovered.static_type;
-    let mut current_owner = resolve_go_owner_identity(
-        &current,
-        ctx.caller_file,
-        facts.imports,
-        facts.package_basenames,
-    )?;
-    let mut field_target = None;
-    let segment_count = segments.len();
-    for (index, seg) in segments.into_iter().enumerate() {
-        let key = (current_owner.clone(), seg);
-        let field_ty = facts.field_types.get(&key)?;
-        current = owner_key(&peel_type(field_ty));
-        field_target = facts.field_targets.get(&key).cloned();
-        if index + 1 < segment_count {
-            current_owner = field_target.as_ref().map_or_else(
-                || {
-                    resolve_go_owner_identity(
-                        &current,
-                        ctx.caller_file,
-                        facts.imports,
-                        facts.package_basenames,
-                    )
-                },
-                |target| Some(target.owner.clone()),
-            )?;
+    let mut current_owner = match base_recovered.owner_identity {
+        Some(owner) => owner,
+        None => {
+            let Some(owner) = resolve_go_owner_identity(
+                &base_recovered.static_type,
+                ctx.caller_file,
+                facts.imports,
+                facts.package_basenames,
+                facts.go_file_profiles,
+            ) else {
+                return (None, evidence, true);
+            };
+            owner
         }
+    };
+    let mut field_target = None;
+    for seg in segments {
+        let key = (current_owner.clone(), seg.clone());
+        let Some(declarations) = facts.field_types.get(&current_owner) else {
+            return (None, evidence, true);
+        };
+        let same_namespace = facts
+            .go_file_profiles
+            .get(ctx.caller_file)
+            .is_some_and(|profile| {
+                crate::resolution::dir_of(ctx.caller_file) == current_owner.package_dir
+                    && profile.package_clause == current_owner.package_clause
+            });
+        let mode = if same_namespace {
+            crate::go_owner_partition::GoOwnerReferenceMode::Bare
+        } else {
+            crate::go_owner_partition::GoOwnerReferenceMode::Qualified
+        };
+        let selection = crate::go_receiver_index_visibility::resolve_go_struct_field_owner(
+            &current_owner,
+            ctx.caller_file,
+            mode,
+            &seg,
+            declarations,
+            facts.imports,
+            facts.package_basenames,
+            facts.go_file_profiles,
+        );
+        evidence.merge(selection.evidence);
+        let Some(field) = selection.value else {
+            return (None, evidence, true);
+        };
+        let selected_target = facts.field_targets.get(&key).cloned();
+        let requires_local_struct_proof = field.embedded
+            && (field.raw_type.trim_start().starts_with('*') || field.raw_type.contains('.'));
+        if requires_local_struct_proof && selected_target.is_none() {
+            return (None, evidence, true);
+        }
+        if selected_target
+            .as_ref()
+            .is_some_and(|target| target.owner != field.owner)
+        {
+            return (None, evidence, true);
+        }
+        current_owner = field.owner;
+        field_target = selected_target;
     }
-    Some(RecoveredReceiver {
-        static_type: current,
-        recovery: ReceiverRecovery::FieldTyped,
-        go_field_target: field_target,
-    })
+    (
+        Some(RecoveredReceiver {
+            static_type: current_owner.name.clone(),
+            owner_identity: Some(current_owner),
+            recovery: ReceiverRecovery::FieldTyped,
+            go_field_target: field_target,
+        }),
+        evidence,
+        true,
+    )
 }

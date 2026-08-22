@@ -4,6 +4,7 @@ pub mod call_resolve;
 pub mod code_context;
 pub mod inventory;
 pub mod module_graph;
+mod partition_site_dump;
 pub mod queries;
 pub mod seed;
 pub mod types;
@@ -27,6 +28,7 @@ struct CallSiteKey {
     end_byte: usize,
     qualifier: Option<String>,
     receiver_type: Option<String>,
+    receiver_owner_identity: Option<crate::resolution::GoOwnerIdentity>,
     receiver_recovery: Option<String>,
     receiver_materialized: bool,
     arg_count: Option<usize>,
@@ -47,6 +49,7 @@ impl From<&CallSite> for CallSiteKey {
             end_byte: site.end_byte,
             qualifier: site.qualifier.clone(),
             receiver_type: site.receiver_type.clone(),
+            receiver_owner_identity: site.receiver_owner_identity.clone(),
             receiver_recovery: site.receiver_recovery.map(|r| format!("{r:?}")),
             receiver_materialized: site.receiver_materialized,
             arg_count: site.arg_count,

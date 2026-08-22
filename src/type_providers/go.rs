@@ -17,15 +17,16 @@ use std::sync::Arc;
 /// Non-dispatchable, fail-closed — mints NO edge (spec §15).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GoDispatchGap {
-    Generic,            // decl carries a type_parameter_list / interface type-set
-    AnonymousInterface, // non-empty anonymous interface in a signature
-    UnknownCanonType,   // unenumerated type node — fail closed
+    Generic,               // decl carries a type_parameter_list / interface type-set
+    AnonymousInterface,    // non-empty anonymous interface in a signature
+    QualifiedTypeIdentity, // pkg.T alias cannot be bound to an import path; fail closed for Exact
+    UnknownCanonType,      // unenumerated type node — fail closed
 }
 
 /// Admitted over-approximation — the Exact edge IS minted; a precision counter (spec §15).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GoDispatchOverApprox {
-    CrossPackageBareName,         // io.Reader ≡ bufio.Reader under bare-name canon
+    CrossPackageBareName, // legacy telemetry variant; qualified signatures are now import-aware
     NonLocalConstructionFallback, // empty-live fallback fired: full satisfier set
 }
 
@@ -177,6 +178,16 @@ pub struct GoTypeData {
     /// in one package cannot donate a false hit to a same-named struct in
     /// another (spec-review MAJOR-1).
     func_typed_fields: BTreeSet<(crate::resolution::GoOwnerIdentity, String)>,
+    /// Clause-keyed, per-defining-file struct snapshots. Unlike the legacy
+    /// positive-only and single-value projections, these preserve field
+    /// absence and mutually exclusive declarations for consult-time filtering.
+    struct_declarations: crate::go_owner_partition::GoStructDeclarations,
+    /// Clause-keyed, per-defining-file interface snapshots used by S4 before
+    /// any route is minted. Direct methods and embedded names remain separate
+    /// so profile-aware consumers can resolve the visible declaration set.
+    interface_declarations: crate::go_owner_partition::GoInterfaceDeclarations,
+    /// Clause-keyed method declarations for S4 shadow checks.
+    method_declarations: crate::go_owner_partition::GoMethodDeclarations,
     /// P11 S2: `(owner_identity, field_name) -> raw declared field type`
     /// re-projection of every struct's `fields` (including embedded-field
     /// pseudo-entries — `GoStruct::extract_struct_fields` already names those
@@ -224,9 +235,8 @@ pub struct GoTypeData {
     /// embedding struct's own; otherwise fail closed (B2's "not
     /// package-unique" case).
     interface_name_owners: BTreeMap<String, BTreeSet<String>>,
-    /// P11 S4 (B2 fix): the package-scoped ROUTING map computed by
-    /// `embedded_interface_routes`, captured onto `CallGraph.
-    /// go_embedded_interface_methods` via `embedded_interface_method_routes`.
+    /// P11 S4 compatibility projection. Production routing uses the raw
+    /// declaration snapshots; this remains for provider-level API/tests.
     embedded_interface_routes:
         BTreeMap<crate::resolution::GoOwnerIdentity, BTreeMap<String, String>>,
 }
@@ -235,6 +245,23 @@ pub struct GoTypeData {
 struct CanonMethod {
     signature: String,
     func_id: FunctionId,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum CanonNameKind {
+    Bare,
+    Local,
+    Qualified,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum CanonSignatureToken {
+    Symbol(char),
+    Name {
+        kind: CanonNameKind,
+        path: String,
+        name: String,
+    },
 }
 
 #[derive(Debug, Default)]
@@ -256,6 +283,16 @@ pub struct GoTypeProvider {
 impl GoTypeProvider {
     /// Build a GoTypeProvider by scanning all Go parsed files.
     pub fn from_parsed_files(files: &BTreeMap<String, ParsedFile>) -> Self {
+        Self::from_parsed_files_with_package_import_paths(files, &BTreeMap::new())
+    }
+
+    /// Build with each file's package import path when repository manifests prove it.
+    /// This lets an unqualified package-local `T` compare exactly with another
+    /// file's imported `pkg.T` without falling back to bare-name identity.
+    pub(crate) fn from_parsed_files_with_package_import_paths(
+        files: &BTreeMap<String, ParsedFile>,
+        package_import_paths: &BTreeMap<String, String>,
+    ) -> Self {
         let mut inner = GoTypeData {
             structs: BTreeMap::new(),
             interfaces: BTreeMap::new(),
@@ -269,6 +306,9 @@ impl GoTypeProvider {
             struct_declaration_files: BTreeMap::new(),
             type_declaration_files: BTreeMap::new(),
             func_typed_fields: BTreeSet::new(),
+            struct_declarations: BTreeMap::new(),
+            interface_declarations: BTreeMap::new(),
+            method_declarations: BTreeMap::new(),
             field_types: BTreeMap::new(),
             field_targets: BTreeMap::new(),
             embedded_interface_promotions: BTreeMap::new(),
@@ -278,19 +318,55 @@ impl GoTypeProvider {
             embedded_interface_routes: BTreeMap::new(),
         };
 
+        let (go_file_profiles, _) = crate::go_build_profile::extract_go_file_profiles(files);
+        let local_import_paths = Self::local_import_paths(package_import_paths, &go_file_profiles);
+
         for (path, parsed) in files {
             if parsed.language != Language::Go {
                 continue;
             }
-            Self::extract_from_file(&mut inner, path, parsed);
+            Self::extract_from_file(
+                &mut inner,
+                path,
+                parsed,
+                local_import_paths.get(path).map(String::as_str),
+            );
         }
 
-        let (go_file_profiles, _) = crate::go_build_profile::extract_go_file_profiles(files);
         Self::remove_unproven_pointer_embed_pseudo_fields(&mut inner, &go_file_profiles);
         Self::compute_satisfaction(&mut inner);
         GoTypeProvider {
             data: Arc::new(inner),
         }
+    }
+
+    fn local_import_paths(
+        package_import_paths: &BTreeMap<String, String>,
+        profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    ) -> BTreeMap<String, String> {
+        let mut ordinary_clauses = BTreeMap::<String, BTreeSet<String>>::new();
+        for (path, profile) in profiles {
+            if !profile.is_test_file && !profile.package_clause.trim().is_empty() {
+                ordinary_clauses
+                    .entry(crate::resolution::dir_of(path).to_string())
+                    .or_default()
+                    .insert(profile.package_clause.clone());
+            }
+        }
+
+        profiles
+            .iter()
+            .filter_map(|(path, profile)| {
+                let dir = crate::resolution::dir_of(path);
+                let clauses = ordinary_clauses.get(dir)?;
+                (clauses.len() == 1 && clauses.contains(&profile.package_clause)).then(|| {
+                    package_import_paths
+                        .get(path)
+                        .filter(|import_path| !import_path.trim().is_empty())
+                        .map(|import_path| (path.clone(), import_path.clone()))
+                })?
+            })
+            .collect()
     }
 
     /// All method names declared on some known interface (Phase-IP PR-2 manifest
@@ -305,16 +381,14 @@ impl GoTypeProvider {
             .collect()
     }
 
-    /// P5 S1: every package-scoped struct identity extracted (regardless of
-    /// func-typed fields). Captured onto `CallGraph.go_known_struct_identities`
-    /// in `apply_go_func_value_fields`.
+    /// P5 provider projection retained for focused provider tests. Production
+    /// P5 consults use the all-field declaration snapshots on `CallGraph`.
     pub fn go_known_struct_identities(&self) -> BTreeSet<crate::resolution::GoOwnerIdentity> {
         self.data.struct_identities.clone()
     }
 
-    /// P5 S1: `(owner_identity, field_name)` pairs whose declared field type
-    /// begins with `func(`. Captured onto `CallGraph.go_func_typed_fields` in
-    /// `apply_go_func_value_fields`.
+    /// P5 provider projection retained for focused provider tests. Production
+    /// P5 consults use the all-field declaration snapshots on `CallGraph`.
     pub fn go_func_typed_fields(&self) -> BTreeSet<(crate::resolution::GoOwnerIdentity, String)> {
         self.data.func_typed_fields.clone()
     }
@@ -323,6 +397,18 @@ impl GoTypeProvider {
     /// `CallGraph.go_field_types` in `apply_go_interface_dispatch`.
     pub fn go_field_types(&self) -> BTreeMap<(crate::resolution::GoOwnerIdentity, String), String> {
         self.data.field_types.clone()
+    }
+
+    pub fn go_struct_declarations(&self) -> crate::go_owner_partition::GoStructDeclarations {
+        self.data.struct_declarations.clone()
+    }
+
+    pub fn go_interface_declarations(&self) -> crate::go_owner_partition::GoInterfaceDeclarations {
+        self.data.interface_declarations.clone()
+    }
+
+    pub fn go_method_declarations(&self) -> crate::go_owner_partition::GoMethodDeclarations {
+        self.data.method_declarations.clone()
     }
 
     pub fn go_field_targets(
@@ -335,10 +421,9 @@ impl GoTypeProvider {
     /// P11 S4 routing map: `GoOwnerIdentity (struct) -> method_name ->
     /// interface_bare_name` (signature dropped — routing only needs the
     /// providing interface's name to consult `interface_impls`).
-    /// Package-scoped (B2 fix, codex impl-review BLOCKER) — see
-    /// `embedded_interface_routes`'s doc for why this must NOT be the bare
-    /// `embedded_interface_promotions` map. Captured onto `CallGraph.
-    /// go_embedded_interface_methods` in `apply_go_interface_dispatch`.
+    /// Package-scoped (B2 fix, codex impl-review BLOCKER). Production consults
+    /// no longer use this lossy compatibility projection; they filter raw
+    /// declaration snapshots in `go_owner_partition`.
     pub fn embedded_interface_method_routes(
         &self,
     ) -> BTreeMap<crate::resolution::GoOwnerIdentity, BTreeMap<String, String>> {
@@ -417,17 +502,22 @@ impl GoTypeProvider {
     // -----------------------------------------------------------------------
 
     /// Extract type information from a single Go file.
-    fn extract_from_file(data: &mut GoTypeData, path: &str, parsed: &ParsedFile) {
+    fn extract_from_file(
+        data: &mut GoTypeData,
+        path: &str,
+        parsed: &ParsedFile,
+        local_import_path: Option<&str>,
+    ) {
         let root = parsed.tree.root_node();
         let mut cursor = root.walk();
 
         for child in root.children(&mut cursor) {
             match child.kind() {
                 "type_declaration" => {
-                    Self::extract_type_declaration(data, &child, path, parsed);
+                    Self::extract_type_declaration(data, &child, path, parsed, local_import_path);
                 }
                 "method_declaration" => {
-                    Self::extract_method(data, &child, path, parsed);
+                    Self::extract_method(data, &child, path, parsed, local_import_path);
                 }
                 _ => {}
             }
@@ -440,11 +530,14 @@ impl GoTypeProvider {
         node: &tree_sitter::Node,
         path: &str,
         parsed: &ParsedFile,
+        local_import_path: Option<&str>,
     ) {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             match child.kind() {
-                "type_spec" => Self::extract_type_spec(data, &child, path, parsed),
+                "type_spec" => {
+                    Self::extract_type_spec(data, &child, path, parsed, local_import_path)
+                }
                 "type_alias" => Self::extract_type_alias(data, &child, path, parsed),
                 _ => {}
             }
@@ -457,6 +550,7 @@ impl GoTypeProvider {
         node: &tree_sitter::Node,
         path: &str,
         parsed: &ParsedFile,
+        local_import_path: Option<&str>,
     ) {
         let name_node = match node.child_by_field_name("name") {
             Some(n) => n,
@@ -466,7 +560,7 @@ impl GoTypeProvider {
         if name.is_empty() {
             return;
         }
-        Self::record_type_declaration(data, path, &name);
+        Self::record_type_declaration(data, path, &name, parsed);
 
         let type_node = match node.child_by_field_name("type") {
             Some(n) => n,
@@ -480,31 +574,50 @@ impl GoTypeProvider {
                 let (fields, embedded) = Self::extract_struct_fields(&type_node, parsed);
                 // P5 S1: package-scoped owner identity, distinct from the bare
                 // `name` key `data.structs` uses (spec-review MAJOR-1).
-                let owner = crate::resolution::GoOwnerIdentity {
-                    package_dir: crate::resolution::dir_of(path).to_string(),
-                    name: name.clone(),
-                };
-                data.struct_identities.insert(owner.clone());
-                data.struct_declaration_files
-                    .entry(owner.clone())
-                    .or_default()
-                    .insert(path.to_string());
-                for (field_name, field_type) in &fields {
-                    if field_type.trim_start().starts_with("func(") {
-                        data.func_typed_fields
-                            .insert((owner.clone(), field_name.clone()));
+                let (profile, _) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+                let owner = (!profile.package_clause.trim().is_empty()).then(|| {
+                    crate::resolution::GoOwnerIdentity {
+                        package_dir: crate::resolution::dir_of(path).to_string(),
+                        package_clause: profile.package_clause.clone(),
+                        name: name.clone(),
                     }
-                    // P11 S2: re-project every field (including embedded
-                    // pseudo-fields) as a package-scoped owner/field -> type
-                    // index, for the nested-selector receiver-recovery pass.
-                    data.field_types
-                        .insert((owner.clone(), field_name.clone()), field_type.clone());
+                });
+                if let Some(owner) = owner {
+                    data.struct_identities.insert(owner.clone());
+                    data.struct_declaration_files
+                        .entry(owner.clone())
+                        .or_default()
+                        .insert(path.to_string());
+                    data.struct_declarations
+                        .entry(owner.clone())
+                        .or_default()
+                        .insert(crate::go_owner_partition::GoStructDeclaration {
+                            defining_file: path.to_string(),
+                            fields: fields.iter().cloned().collect(),
+                            embedded_fields: embedded
+                                .iter()
+                                .map(|e| (e.name.clone(), e.raw_type.clone()))
+                                .collect(),
+                            embedded_types: embedded
+                                .iter()
+                                .filter(|e| !e.is_pointer && e.local_target_name().is_some())
+                                .map(|e| e.name.clone())
+                                .collect(),
+                        });
+                    for (field_name, field_type) in &fields {
+                        if field_type.trim_start().starts_with("func(") {
+                            data.func_typed_fields
+                                .insert((owner.clone(), field_name.clone()));
+                        }
+                        // P11 S2: re-project every field (including embedded
+                        // pseudo-fields) as a package-scoped owner/field -> type
+                        // index, for the nested-selector receiver-recovery pass.
+                        data.field_types
+                            .insert((owner.clone(), field_name.clone()), field_type.clone());
+                    }
+                    data.struct_embeds.insert(owner.clone(), embedded.clone());
+                    data.struct_embed_files.insert(owner, path.to_string());
                 }
-                // P11 S4 (B2 fix): package-scoped embed list, parallel to the
-                // bare `data.structs` insert below (which last-file-wins
-                // collapses same-named structs across packages).
-                data.struct_embeds.insert(owner.clone(), embedded.clone());
-                data.struct_embed_files.insert(owner, path.to_string());
                 data.structs.insert(
                     name.clone(),
                     GoStruct {
@@ -520,8 +633,40 @@ impl GoTypeProvider {
                 let generic = Self::has_generic_syntax(node)
                     || Self::interface_type_has_type_set(&type_node, parsed);
                 let (methods, embedded, overapprox) =
-                    Self::extract_interface_methods(&type_node, parsed);
+                    Self::extract_interface_methods(&type_node, parsed, local_import_path);
                 data.dispatch_overapprox.extend(overapprox);
+                let (profile, _) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+                if !profile.package_clause.trim().is_empty() {
+                    let owner = crate::resolution::GoOwnerIdentity {
+                        package_dir: crate::resolution::dir_of(path).to_string(),
+                        package_clause: profile.package_clause.clone(),
+                        name: name.clone(),
+                    };
+                    data.interface_declarations
+                        .entry(owner)
+                        .or_default()
+                        .insert(crate::go_owner_partition::GoInterfaceDeclaration {
+                            defining_file: path.to_string(),
+                            // Keep every declared name in the structural
+                            // manifest denominator. Gapped signatures remain
+                            // absent from `method_signatures` and make this
+                            // declaration non-dispatchable, so they can report
+                            // an empty implementer set without minting Exact.
+                            methods: methods.keys().cloned().collect(),
+                            method_signatures: methods
+                                .iter()
+                                .filter_map(|(method, signature)| {
+                                    signature
+                                        .as_ref()
+                                        .ok()
+                                        .map(|signature| (method.clone(), signature.clone()))
+                                })
+                                .collect(),
+                            embedded_types: embedded.iter().cloned().collect(),
+                            generic,
+                            dispatchable: !generic && methods.values().all(Result::is_ok),
+                        });
+                }
                 // P11 S4 (B2 fix): track which package dir(s) declare an
                 // interface with this bare name, so the routing computation
                 // can fail closed on a cross-package bare-name collision
@@ -552,10 +697,15 @@ impl GoTypeProvider {
         }
     }
 
-    fn record_type_declaration(data: &mut GoTypeData, path: &str, name: &str) {
+    fn record_type_declaration(data: &mut GoTypeData, path: &str, name: &str, parsed: &ParsedFile) {
+        let (profile, _) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+        if profile.package_clause.trim().is_empty() {
+            return;
+        }
         data.type_declaration_files
             .entry(crate::resolution::GoOwnerIdentity {
                 package_dir: crate::resolution::dir_of(path).to_string(),
+                package_clause: profile.package_clause,
                 name: name.to_string(),
             })
             .or_default()
@@ -563,28 +713,30 @@ impl GoTypeProvider {
     }
 
     fn has_generic_syntax(node: &tree_sitter::Node) -> bool {
-        Self::node_has_any_kind(
-            node,
-            &["type_parameter_list", "generic_type", "type_arguments"],
-        )
+        Self::node_has_any_kind(node, &["type_parameter_list"])
     }
 
-    /// Generic-syntax detection scoped to a declaration's SIGNATURE (receiver / type
-    /// parameters / parameters / result), never its body `block`. A generic
-    /// instantiation *inside* a method body (`var _ Box[int]`) must NOT flag the method
-    /// itself as generic — that would wrongly exclude it from satisfaction (review MAJOR).
+    /// Generic-declaration detection scoped to a function/method declaration, never its body.
+    /// Declared type parameters and a generic receiver (`R[T]`) remain non-dispatchable. An
+    /// instantiated parameter/result type (`Box[int]`) is an ordinary, comparable signature
+    /// type and must not make the declaration generic.
     /// `pub(crate)` (P11 S1): reused by `go_receiver_index.rs`'s return-type
     /// extraction so the generic-decl gate never drifts from the dispatch
     /// provider's own signature-scoped definition of "generic".
     pub(crate) fn signature_has_generic_syntax(node: &tree_sitter::Node) -> bool {
         let mut cursor = node.walk();
         let children: Vec<_> = node.children(&mut cursor).collect();
-        children.iter().filter(|c| c.kind() != "block").any(|c| {
-            Self::node_has_any_kind(
-                c,
-                &["type_parameter_list", "generic_type", "type_arguments"],
-            )
-        })
+        if children
+            .iter()
+            .filter(|c| c.kind() != "block")
+            .any(|c| Self::node_has_any_kind(c, &["type_parameter_list"]))
+        {
+            return true;
+        }
+
+        node.child_by_field_name("receiver")
+            .map(|receiver| Self::node_has_any_kind(&receiver, &["generic_type", "type_arguments"]))
+            .unwrap_or(false)
     }
 
     fn interface_type_has_type_set(node: &tree_sitter::Node, parsed: &ParsedFile) -> bool {
@@ -668,7 +820,7 @@ impl GoTypeProvider {
         let name = parsed.node_text(&name_node).trim().to_string();
         let target = parsed.node_text(&type_node).trim().to_string();
         if !name.is_empty() && !target.is_empty() {
-            Self::record_type_declaration(data, path, &name);
+            Self::record_type_declaration(data, path, &name, parsed);
             data.aliases.insert(name, target);
         }
     }
@@ -766,6 +918,7 @@ impl GoTypeProvider {
                 let target = embedded.local_target_name().and_then(|target| {
                     let target_owner = crate::resolution::GoOwnerIdentity {
                         package_dir: owner.package_dir.clone(),
+                        package_clause: owner.package_clause.clone(),
                         name: target.to_string(),
                     };
                     Self::visible_struct_declaration_file(
@@ -801,19 +954,23 @@ impl GoTypeProvider {
         let Some(embedding_file) = data.struct_embed_files.get(embedding_owner) else {
             return None;
         };
-        let Some(embedding_profile) = go_file_profiles.get(embedding_file) else {
-            return None;
-        };
-        if !crate::go_build_profile::profile_allows_exact(Some(embedding_profile)) {
+        if crate::go_owner_partition::exact_declaration_visibility(
+            embedding_owner,
+            embedding_file,
+            crate::go_owner_partition::GoOwnerReferenceMode::Bare,
+            embedding_file,
+            go_file_profiles,
+        ) != (true, true)
+        {
             return None;
         }
         let Some(target_files) = data.struct_declaration_files.get(target_owner) else {
             return None;
         };
 
-        // These maps are keyed by the intentionally under-specified
-        // `GoOwnerIdentity`. If either identity spans package/build profiles,
-        // the retained entry cannot prove which declaration supplied it.
+        // Owner identity includes the package clause but intentionally omits
+        // build constraints. If either identity spans build profiles, the
+        // retained entry cannot prove which declaration supplied it.
         if Self::owner_identity_has_profile_conflict(data, go_file_profiles, embedding_owner)
             || Self::owner_identity_has_profile_conflict(data, go_file_profiles, target_owner)
         {
@@ -821,19 +978,14 @@ impl GoTypeProvider {
         }
 
         target_files.iter().find_map(|target_file| {
-            let Some(target_profile) = go_file_profiles.get(target_file) else {
-                return None;
-            };
-            let visibility = crate::go_build_profile::go_same_package_visible_detailed(
-                embedding_profile,
-                target_profile,
-            );
-            (visibility.visible
-                && crate::go_build_profile::visibility_allows_exact(
-                    Some(target_profile),
-                    &visibility,
-                ))
-            .then(|| target_file.clone())
+            (crate::go_owner_partition::exact_declaration_visibility(
+                target_owner,
+                embedding_file,
+                crate::go_owner_partition::GoOwnerReferenceMode::Bare,
+                target_file,
+                go_file_profiles,
+            ) == (true, true))
+                .then(|| target_file.clone())
         })
     }
 
@@ -880,6 +1032,7 @@ impl GoTypeProvider {
     fn extract_interface_methods(
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
+        local_import_path: Option<&str>,
     ) -> (
         BTreeMap<String, Result<String, GoDispatchGap>>,
         Vec<String>,
@@ -891,7 +1044,14 @@ impl GoTypeProvider {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            Self::walk_interface_body(&child, parsed, &mut methods, &mut embedded, &mut overapprox);
+            Self::walk_interface_body(
+                &child,
+                parsed,
+                local_import_path,
+                &mut methods,
+                &mut embedded,
+                &mut overapprox,
+            );
         }
 
         (methods, embedded, overapprox)
@@ -900,6 +1060,7 @@ impl GoTypeProvider {
     fn walk_interface_body(
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
+        local_import_path: Option<&str>,
         methods: &mut BTreeMap<String, Result<String, GoDispatchGap>>,
         embedded: &mut Vec<String>,
         overapprox: &mut Vec<GoDispatchOverApprox>,
@@ -914,10 +1075,7 @@ impl GoTypeProvider {
                     }
                 }
                 if !name.is_empty() {
-                    let sig = Self::extract_method_signature(node, parsed);
-                    if sig.is_ok() && Self::signature_has_qualified_type(node) {
-                        overapprox.push(GoDispatchOverApprox::CrossPackageBareName);
-                    }
+                    let sig = Self::extract_method_signature(node, parsed, local_import_path);
                     methods.insert(name, sig);
                 }
             }
@@ -930,7 +1088,14 @@ impl GoTypeProvider {
             _ => {
                 let mut cursor = node.walk();
                 for child in node.children(&mut cursor) {
-                    Self::walk_interface_body(&child, parsed, methods, embedded, overapprox);
+                    Self::walk_interface_body(
+                        &child,
+                        parsed,
+                        local_import_path,
+                        methods,
+                        embedded,
+                        overapprox,
+                    );
                 }
             }
         }
@@ -940,32 +1105,68 @@ impl GoTypeProvider {
     fn extract_method_signature(
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
+        local_import_path: Option<&str>,
     ) -> Result<String, GoDispatchGap> {
         Self::canon_sig(
             node.child_by_field_name("parameters").as_ref(),
             node.child_by_field_name("result").as_ref(),
             parsed,
+            local_import_path,
         )
     }
 
-    /// Canonical type string, recursive. Fails closed on unknown nodes (spec §6).
-    fn canon_type(node: &tree_sitter::Node, parsed: &ParsedFile) -> Result<String, GoDispatchGap> {
+    /// Canonical type string, recursive. Qualified leaves use their resolved import path so
+    /// aliases in different declaration files compare by package identity, not local spelling.
+    /// Fails closed on unknown nodes or an unbound qualifier (spec §6).
+    fn canon_type(
+        node: &tree_sitter::Node,
+        parsed: &ParsedFile,
+        imports: &BTreeMap<String, String>,
+    ) -> Result<String, GoDispatchGap> {
         match node.kind() {
-            "type_identifier" | "qualified_type" => {
-                // bare name; pkg.T -> T
-                let txt = parsed.node_text(node);
-                let bare = txt.trim().rsplit('.').next().unwrap_or(txt.trim()).trim();
-                Ok(bare.to_string())
+            "type_identifier" => {
+                let name = parsed.node_text(node).trim();
+                if name.is_empty() {
+                    return Err(GoDispatchGap::UnknownCanonType);
+                }
+                if Self::is_predeclared_go_type(name) {
+                    return Ok(name.to_string());
+                }
+                if imports.contains_key(".") {
+                    return Err(GoDispatchGap::QualifiedTypeIdentity);
+                }
+                Ok(imports
+                    .get("")
+                    .filter(|path| !path.is_empty())
+                    .map_or_else(|| name.to_string(), |path| format!("~{path}::{name}")))
+            }
+            "qualified_type" => {
+                let package = node
+                    .child_by_field_name("package")
+                    .ok_or(GoDispatchGap::QualifiedTypeIdentity)?;
+                let name = node
+                    .child_by_field_name("name")
+                    .ok_or(GoDispatchGap::QualifiedTypeIdentity)?;
+                let alias = parsed.node_text(&package).trim();
+                let name = parsed.node_text(&name).trim();
+                let import_path = imports
+                    .get(alias)
+                    .filter(|path| !path.is_empty())
+                    .ok_or(GoDispatchGap::QualifiedTypeIdentity)?;
+                if name.is_empty() {
+                    return Err(GoDispatchGap::QualifiedTypeIdentity);
+                }
+                Ok(format!("@{import_path}::{name}"))
             }
             "pointer_type" => {
                 let inner = node.named_child(0).ok_or(GoDispatchGap::UnknownCanonType)?;
-                Ok(format!("*{}", Self::canon_type(&inner, parsed)?))
+                Ok(format!("*{}", Self::canon_type(&inner, parsed, imports)?))
             }
             "slice_type" => {
                 let inner = node
                     .child_by_field_name("element")
                     .ok_or(GoDispatchGap::UnknownCanonType)?;
-                Ok(format!("[]{}", Self::canon_type(&inner, parsed)?))
+                Ok(format!("[]{}", Self::canon_type(&inner, parsed, imports)?))
             }
             "array_type" => {
                 let inner = node
@@ -977,7 +1178,10 @@ impl GoTypeProvider {
                     .child_by_field_name("length")
                     .map(|n| parsed.node_text(&n).trim().to_string())
                     .unwrap_or_default();
-                Ok(format!("[{len}]{}", Self::canon_type(&inner, parsed)?))
+                Ok(format!(
+                    "[{len}]{}",
+                    Self::canon_type(&inner, parsed, imports)?
+                ))
             }
             "map_type" => {
                 let k = node
@@ -988,8 +1192,8 @@ impl GoTypeProvider {
                     .ok_or(GoDispatchGap::UnknownCanonType)?;
                 Ok(format!(
                     "map[{}]{}",
-                    Self::canon_type(&k, parsed)?,
-                    Self::canon_type(&v, parsed)?
+                    Self::canon_type(&k, parsed, imports)?,
+                    Self::canon_type(&v, parsed, imports)?
                 ))
             }
             "channel_type" => {
@@ -1014,14 +1218,22 @@ impl GoTypeProvider {
                     return Err(GoDispatchGap::UnknownCanonType);
                 };
                 // element type is field `value` in tree-sitter-go 0.23.4 (round-4 claude MAJOR)
-                Ok(format!("{dir} {}", Self::canon_type(&inner, parsed)?))
+                Ok(format!(
+                    "{dir} {}",
+                    Self::canon_type(&inner, parsed, imports)?
+                ))
             }
             "function_type" => {
                 let params = node.child_by_field_name("parameters");
                 let result = node.child_by_field_name("result");
                 Ok(format!(
                     "func{}",
-                    Self::canon_sig(params.as_ref(), result.as_ref(), parsed)?
+                    Self::canon_sig_with_imports(
+                        params.as_ref(),
+                        result.as_ref(),
+                        parsed,
+                        imports,
+                    )?
                 ))
             }
             "interface_type" => {
@@ -1033,7 +1245,39 @@ impl GoTypeProvider {
                     Err(GoDispatchGap::AnonymousInterface)
                 }
             }
-            "generic_type" | "type_arguments" => Err(GoDispatchGap::Generic),
+            "generic_type" => {
+                let base = node
+                    .child_by_field_name("type")
+                    .ok_or(GoDispatchGap::UnknownCanonType)?;
+                let args = node
+                    .child_by_field_name("type_arguments")
+                    .ok_or(GoDispatchGap::UnknownCanonType)?;
+                Ok(format!(
+                    "{}{}",
+                    Self::canon_type(&base, parsed, imports)?,
+                    Self::canon_type(&args, parsed, imports)?
+                ))
+            }
+            "type_arguments" => {
+                let mut cursor = node.walk();
+                let args = node
+                    .named_children(&mut cursor)
+                    .map(|arg| Self::canon_type(&arg, parsed, imports))
+                    .collect::<Result<Vec<_>, _>>()?;
+                if args.is_empty() {
+                    return Err(GoDispatchGap::UnknownCanonType);
+                }
+                Ok(format!("[{}]", args.join(",")))
+            }
+            "type_elem" => {
+                let compact = parsed.node_text(node).replace(char::is_whitespace, "");
+                let mut cursor = node.walk();
+                let children: Vec<_> = node.named_children(&mut cursor).collect();
+                if compact.contains('~') || compact.contains('|') || children.len() != 1 {
+                    return Err(GoDispatchGap::Generic);
+                }
+                Self::canon_type(&children[0], parsed, imports)
+            }
             "variadic_parameter_declaration" => {
                 // handled in canon_sig; reaching here is a structural surprise
                 Err(GoDispatchGap::UnknownCanonType)
@@ -1042,10 +1286,110 @@ impl GoTypeProvider {
             // fail-closed gapped a parenthesized type instead of unwrapping it).
             "parenthesized_type" => {
                 let inner = node.named_child(0).ok_or(GoDispatchGap::UnknownCanonType)?;
-                Self::canon_type(&inner, parsed)
+                Self::canon_type(&inner, parsed, imports)
             }
             _ => Err(GoDispatchGap::UnknownCanonType),
         }
+    }
+
+    /// Compare canonical signatures while preserving the pre-existing name-only rules
+    /// for two local names and for two unproven bare names. A locally-proven name can
+    /// compare with a qualified import by path, but an unproven bare name never matches
+    /// a proven local or qualified identity.
+    pub(crate) fn canon_signatures_match(left: &str, right: &str) -> bool {
+        let (Some(left), Some(right)) = (
+            Self::canon_signature_tokens(left),
+            Self::canon_signature_tokens(right),
+        ) else {
+            return false;
+        };
+        left.len() == right.len()
+            && left
+                .iter()
+                .zip(&right)
+                .all(|(left, right)| match (left, right) {
+                    (CanonSignatureToken::Symbol(left), CanonSignatureToken::Symbol(right)) => {
+                        left == right
+                    }
+                    (
+                        CanonSignatureToken::Name {
+                            kind: left_kind,
+                            path: left_path,
+                            name: left_name,
+                        },
+                        CanonSignatureToken::Name {
+                            kind: right_kind,
+                            path: right_path,
+                            name: right_name,
+                        },
+                    ) => {
+                        if left_name != right_name {
+                            return false;
+                        }
+                        match (left_kind, right_kind) {
+                            (CanonNameKind::Qualified, CanonNameKind::Qualified)
+                            | (CanonNameKind::Qualified, CanonNameKind::Local)
+                            | (CanonNameKind::Local, CanonNameKind::Qualified) => {
+                                left_path == right_path
+                            }
+                            (CanonNameKind::Qualified, CanonNameKind::Bare)
+                            | (CanonNameKind::Bare, CanonNameKind::Qualified)
+                            | (CanonNameKind::Local, CanonNameKind::Bare)
+                            | (CanonNameKind::Bare, CanonNameKind::Local) => false,
+                            _ => true,
+                        }
+                    }
+                    _ => false,
+                })
+    }
+
+    fn canon_signature_tokens(signature: &str) -> Option<Vec<CanonSignatureToken>> {
+        let mut tokens = Vec::new();
+        let mut rest = signature;
+        while !rest.is_empty() {
+            let first = rest.chars().next()?;
+            if matches!(first, '@' | '~') {
+                let after_marker = &rest[first.len_utf8()..];
+                let separator = after_marker.find("::")?;
+                let path = &after_marker[..separator];
+                if path.is_empty() {
+                    return None;
+                }
+                let after_separator = &after_marker[separator + 2..];
+                let name_len = after_separator
+                    .char_indices()
+                    .take_while(|(_, ch)| *ch == '_' || ch.is_alphanumeric())
+                    .map(|(index, ch)| index + ch.len_utf8())
+                    .last()?;
+                let name = &after_separator[..name_len];
+                tokens.push(CanonSignatureToken::Name {
+                    kind: if first == '@' {
+                        CanonNameKind::Qualified
+                    } else {
+                        CanonNameKind::Local
+                    },
+                    path: path.to_string(),
+                    name: name.to_string(),
+                });
+                rest = &after_separator[name_len..];
+            } else if first == '_' || first.is_alphabetic() {
+                let name_len = rest
+                    .char_indices()
+                    .take_while(|(_, ch)| *ch == '_' || ch.is_alphanumeric())
+                    .map(|(index, ch)| index + ch.len_utf8())
+                    .last()?;
+                tokens.push(CanonSignatureToken::Name {
+                    kind: CanonNameKind::Bare,
+                    path: String::new(),
+                    name: rest[..name_len].to_string(),
+                });
+                rest = &rest[name_len..];
+            } else {
+                tokens.push(CanonSignatureToken::Symbol(first));
+                rest = &rest[first.len_utf8()..];
+            }
+        }
+        Some(tokens)
     }
 
     /// Canonical `(params)(results)`; names dropped, grouped params expanded, variadic
@@ -1054,13 +1398,109 @@ impl GoTypeProvider {
         params: Option<&tree_sitter::Node>,
         result: Option<&tree_sitter::Node>,
         parsed: &ParsedFile,
+        local_import_path: Option<&str>,
     ) -> Result<String, GoDispatchGap> {
-        let ps = Self::canon_param_list(params, parsed)?;
+        let imports = Self::signature_imports(parsed, local_import_path);
+        Self::canon_sig_with_imports(params, result, parsed, &imports)
+    }
+
+    /// Import aliases used only for signature identity. `ParsedFile::extract_imports`
+    /// deliberately uses the last path component for a default Go import, but Go module
+    /// major-version suffixes are not package names: `example/widget/v2` is normally
+    /// referenced as `widget`, and `gopkg.in/yaml.v3` as `yaml`. Add those conventional
+    /// bindings without changing the canonical value (the full import path). Explicit
+    /// aliases remain authoritative; colliding inferred aliases are omitted fail-closed.
+    fn signature_imports(
+        parsed: &ParsedFile,
+        local_import_path: Option<&str>,
+    ) -> BTreeMap<String, String> {
+        let mut imports = parsed.extract_imports();
+        if let Some(local_import_path) = local_import_path.filter(|path| !path.is_empty()) {
+            imports.insert(String::new(), local_import_path.to_string());
+        }
+        if Self::has_dot_import(parsed.tree.root_node()) {
+            imports.insert(".".to_string(), String::new());
+        }
+        let defaults: Vec<(String, String)> = imports
+            .iter()
+            .filter(|(alias, path)| path.rsplit('/').next() == Some(alias.as_str()))
+            .map(|(alias, path)| (alias.clone(), path.clone()))
+            .collect();
+        let explicit_aliases: BTreeSet<String> = imports
+            .iter()
+            .filter(|(alias, path)| path.rsplit('/').next() != Some(alias.as_str()))
+            .map(|(alias, _)| alias.clone())
+            .collect();
+        let mut inferred = BTreeMap::<String, String>::new();
+        let mut ambiguous = BTreeSet::new();
+
+        for (_, path) in defaults {
+            let Some(alias) = Self::versionless_go_import_alias(&path) else {
+                continue;
+            };
+            if explicit_aliases.contains(&alias) || ambiguous.contains(&alias) {
+                continue;
+            }
+            match inferred.get(&alias) {
+                None => {
+                    inferred.insert(alias, path);
+                }
+                Some(existing) if existing == &path => {}
+                Some(_) => {
+                    inferred.remove(&alias);
+                    ambiguous.insert(alias);
+                }
+            }
+        }
+        imports.extend(inferred);
+        imports
+    }
+
+    fn has_dot_import(node: tree_sitter::Node<'_>) -> bool {
+        if node.kind() == "import_spec" {
+            let mut cursor = node.walk();
+            return node
+                .children(&mut cursor)
+                .any(|child| child.kind() == "dot");
+        }
+        let mut cursor = node.walk();
+        let found = node.children(&mut cursor).any(Self::has_dot_import);
+        found
+    }
+
+    fn versionless_go_import_alias(path: &str) -> Option<String> {
+        let mut segments = path.rsplit('/');
+        let last = segments.next()?;
+        if Self::is_go_major_version(last) {
+            return segments
+                .next()
+                .filter(|name| !name.is_empty())
+                .map(str::to_string);
+        }
+        let (name, version) = last.rsplit_once(".v")?;
+        (!name.is_empty() && version.chars().all(|c| c.is_ascii_digit())).then(|| name.to_string())
+    }
+
+    fn is_go_major_version(segment: &str) -> bool {
+        segment.strip_prefix('v').is_some_and(|version| {
+            !version.is_empty() && version.chars().all(|c| c.is_ascii_digit())
+        })
+    }
+
+    fn canon_sig_with_imports(
+        params: Option<&tree_sitter::Node>,
+        result: Option<&tree_sitter::Node>,
+        parsed: &ParsedFile,
+        imports: &BTreeMap<String, String>,
+    ) -> Result<String, GoDispatchGap> {
+        let ps = Self::canon_param_list(params, parsed, imports)?;
         // result may be a single type node OR a parameter_list (multi/parenthesized).
         let rs = match result {
             None => Vec::new(),
-            Some(r) if r.kind() == "parameter_list" => Self::canon_param_list(Some(r), parsed)?,
-            Some(r) => vec![Self::canon_type(r, parsed)?],
+            Some(r) if r.kind() == "parameter_list" => {
+                Self::canon_param_list(Some(r), parsed, imports)?
+            }
+            Some(r) => vec![Self::canon_type(r, parsed, imports)?],
         };
         Ok(format!("({})({})", ps.join(","), rs.join(",")))
     }
@@ -1070,6 +1510,7 @@ impl GoTypeProvider {
     fn canon_param_list(
         list: Option<&tree_sitter::Node>,
         parsed: &ParsedFile,
+        imports: &BTreeMap<String, String>,
     ) -> Result<Vec<String>, GoDispatchGap> {
         let mut out = Vec::new();
         let list = match list {
@@ -1083,7 +1524,7 @@ impl GoTypeProvider {
                     let ty = decl
                         .child_by_field_name("type")
                         .ok_or(GoDispatchGap::UnknownCanonType)?;
-                    let canon = Self::canon_type(&ty, parsed)?;
+                    let canon = Self::canon_type(&ty, parsed, imports)?;
                     // grouped `(a, b int)`: count name children (>=1) -> repeat the type.
                     let names = decl
                         .children(&mut decl.walk())
@@ -1098,7 +1539,7 @@ impl GoTypeProvider {
                     let ty = decl
                         .child_by_field_name("type")
                         .ok_or(GoDispatchGap::UnknownCanonType)?;
-                    out.push(format!("...{}", Self::canon_type(&ty, parsed)?));
+                    out.push(format!("...{}", Self::canon_type(&ty, parsed, imports)?));
                 }
                 _ => {}
             }
@@ -1140,6 +1581,7 @@ impl GoTypeProvider {
             node.child_by_field_name("parameters").as_ref(),
             node.child_by_field_name("result").as_ref(),
             parsed,
+            None,
         )
     }
 
@@ -1167,6 +1609,7 @@ impl GoTypeProvider {
         node: &tree_sitter::Node,
         path: &str,
         parsed: &ParsedFile,
+        local_import_path: Option<&str>,
     ) {
         let name_node = match node.child_by_field_name("name") {
             Some(n) => n,
@@ -1179,15 +1622,35 @@ impl GoTypeProvider {
             None => return,
         };
 
-        let sig = Self::extract_func_signature(node, parsed);
-        if sig.is_ok() && Self::signature_has_qualified_type(node) {
-            data.dispatch_overapprox
-                .push(GoDispatchOverApprox::CrossPackageBareName);
-        }
+        let sig = Self::extract_func_signature(node, parsed, local_import_path);
         let generic = Self::signature_has_generic_syntax(node);
         let start_line = node.start_position().row + 1;
         let end_line = node.end_position().row + 1;
         let (params, variadic) = Self::count_method_params(node);
+
+        let (profile, _) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+        if !profile.package_clause.trim().is_empty() {
+            data.method_declarations
+                .entry(crate::resolution::GoOwnerIdentity {
+                    package_dir: crate::resolution::dir_of(path).to_string(),
+                    package_clause: profile.package_clause,
+                    name: receiver_type.clone(),
+                })
+                .or_default()
+                .insert(crate::go_owner_partition::GoMethodDeclaration {
+                    defining_file: path.to_string(),
+                    method_name: name.clone(),
+                    signature: sig.clone().ok(),
+                    generic,
+                    is_pointer_receiver: is_pointer,
+                    function_id: FunctionId {
+                        name: name.clone(),
+                        file: path.to_string(),
+                        start_line,
+                        end_line,
+                    },
+                });
+        }
 
         data.methods
             .entry(receiver_type.clone())
@@ -1261,33 +1724,14 @@ impl GoTypeProvider {
     fn extract_func_signature(
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
+        local_import_path: Option<&str>,
     ) -> Result<String, GoDispatchGap> {
         Self::canon_sig(
             node.child_by_field_name("parameters").as_ref(),
             node.child_by_field_name("result").as_ref(),
             parsed,
+            local_import_path,
         )
-    }
-
-    fn signature_has_qualified_type(node: &tree_sitter::Node) -> bool {
-        node.child_by_field_name("parameters")
-            .map(|params| Self::node_has_kind(&params, "qualified_type"))
-            .unwrap_or(false)
-            || node
-                .child_by_field_name("result")
-                .map(|result| Self::node_has_kind(&result, "qualified_type"))
-                .unwrap_or(false)
-    }
-
-    fn node_has_kind(node: &tree_sitter::Node, kind: &str) -> bool {
-        if node.kind() == kind {
-            return true;
-        }
-        let mut cursor = node.walk();
-        let children: Vec<_> = node.children(&mut cursor).collect();
-        children
-            .iter()
-            .any(|child| Self::node_has_kind(child, kind))
     }
 
     // -----------------------------------------------------------------------
@@ -1586,11 +2030,11 @@ impl GoTypeProvider {
     ) -> bool {
         iface.iter().all(|(method_name, iface_sig)| {
             if let Some(method) = concrete.get(method_name) {
-                return method.signature.as_str() == iface_sig.as_str();
+                return Self::canon_signatures_match(&method.signature, iface_sig);
             }
             embedded
                 .and_then(|e| e.get(method_name))
-                .map(|(_, sig)| sig.as_str() == iface_sig.as_str())
+                .map(|(_, sig)| Self::canon_signatures_match(sig, iface_sig))
                 .unwrap_or(false)
         })
     }
@@ -1616,9 +2060,18 @@ impl GoTypeProvider {
     ) -> BTreeMap<String, BTreeMap<String, (String, String)>> {
         let mut out: BTreeMap<String, BTreeMap<String, (String, String)>> = BTreeMap::new();
         for go_struct in data.structs.values() {
-            let struct_owner = crate::resolution::GoOwnerIdentity {
-                package_dir: crate::resolution::dir_of(&go_struct.file).to_string(),
-                name: go_struct.name.clone(),
+            let Some(struct_owner) = data
+                .struct_declarations
+                .iter()
+                .find(|(owner, declarations)| {
+                    owner.name == go_struct.name
+                        && declarations
+                            .iter()
+                            .any(|declaration| declaration.defining_file == go_struct.file)
+                })
+                .map(|(owner, _)| owner.clone())
+            else {
+                continue;
             };
             let Some(embeds) = data.struct_embeds.get(&struct_owner) else {
                 continue;
@@ -1697,9 +2150,8 @@ impl GoTypeProvider {
         out
     }
 
-    /// P11 S4 (B2 fix, codex impl-review BLOCKER): package-scoped ROUTING
-    /// computation feeding `CallGraph.go_embedded_interface_methods` via
-    /// `embedded_interface_method_routes` — distinct from
+    /// P11 S4 (B2 fix, codex impl-review BLOCKER): package-scoped compatibility
+    /// projection returned by `embedded_interface_method_routes` — distinct from
     /// `embedded_interface_promotions` above (bare-keyed, feeds ONLY the
     /// interface-satisfaction MEMBERSHIP check, an existing accepted
     /// approximation this fix does not touch). The routing map mints a
@@ -1708,105 +2160,109 @@ impl GoTypeProvider {
     /// approximation: a `Holder` in package A must never donate its embedded
     /// interface's methods to an unrelated same-named `Holder` in package B.
     ///
-    /// Iterates `data.struct_embeds` (package-scoped: `GoOwnerIdentity ->
-    /// embedded fields`) instead of the bare `data.structs`/`data.methods`,
-    /// so each package's struct is considered independently. An embedded
-    /// interface reference is trusted only when its bare name is BOTH
-    /// package-unique repo-wide and owned by the embedding struct's OWN
-    /// package (`interface_name_owners`) — Go requires a bare (unqualified)
-    /// embedded name to resolve within the SAME package, and a same-named
-    /// interface existing in some OTHER package as well means
-    /// `data.interfaces.get(bare)` (itself bare-collapsed) cannot be trusted
-    /// to be the RIGHT one; either case fails closed (skip this candidate).
+    /// Iterates clause-keyed, per-file struct/interface snapshots. If build
+    /// variants disagree, this legacy single-value projection omits the route;
+    /// the CallGraph snapshot lanes retain every declaration for the later
+    /// caller-profile consult.
     fn embedded_interface_routes(
         data: &GoTypeData,
         concrete_methods: &BTreeMap<String, ReceiverMethodSet>,
     ) -> BTreeMap<crate::resolution::GoOwnerIdentity, BTreeMap<String, String>> {
         let mut out: BTreeMap<crate::resolution::GoOwnerIdentity, BTreeMap<String, String>> =
             BTreeMap::new();
-        for (owner, embeds) in &data.struct_embeds {
-            let mut candidates: BTreeMap<String, Vec<String>> = BTreeMap::new();
-            for embedded in embeds {
-                if embedded.is_pointer {
-                    continue; // Go rejects `*I` embedded interfaces.
+        for (owner, declarations) in &data.struct_declarations {
+            let mut variants = BTreeSet::new();
+            for declaration in declarations {
+                let own_methods: BTreeSet<&str> = data
+                    .method_declarations
+                    .get(owner)
+                    .into_iter()
+                    .flatten()
+                    .map(|method| method.method_name.as_str())
+                    .collect();
+                let already = concrete_methods.get(&owner.name);
+                let mut candidates: BTreeMap<String, Vec<String>> = BTreeMap::new();
+                for bare in &declaration.embedded_types {
+                    let iface_owner = crate::resolution::GoOwnerIdentity {
+                        package_dir: owner.package_dir.clone(),
+                        package_clause: owner.package_clause.clone(),
+                        name: bare.clone(),
+                    };
+                    let Some(methods) =
+                        Self::snapshot_interface_methods(data, &iface_owner, &mut BTreeSet::new())
+                    else {
+                        continue;
+                    };
+                    for method in methods {
+                        candidates.entry(method).or_default().push(bare.clone());
+                    }
                 }
-                let Some(bare) = embedded.local_target_name() else {
-                    continue; // qualified target: no package-aware embedding resolver here.
-                };
-                let package_unique_here = data
-                    .interface_name_owners
-                    .get(bare)
-                    .map(|dirs| dirs.len() == 1 && dirs.contains(&owner.package_dir))
-                    .unwrap_or(false);
-                if !package_unique_here {
-                    continue; // fail closed: not package-unique, or not this package's.
-                }
-                let Some(iface) = data.interfaces.get(bare) else {
-                    continue;
-                };
-                if iface.generic {
-                    continue;
-                }
-                let methods =
-                    Self::collect_interface_methods_from(data, bare, &mut BTreeSet::new());
-                for (m, sig) in &methods {
-                    if sig.is_err() {
+                let mut per_struct = BTreeMap::new();
+                for (method_name, ifaces) in candidates {
+                    if ifaces.len() != 1
+                        || declaration.fields.contains_key(&method_name)
+                        || own_methods.contains(method_name.as_str())
+                    {
                         continue;
                     }
-                    candidates
-                        .entry(m.clone())
-                        .or_default()
-                        .push(bare.to_string());
+                    let already_concrete = already
+                        .map(|rs| {
+                            Self::method_in_package(&rs.value, &method_name, &owner.package_dir)
+                                || Self::method_in_package(
+                                    &rs.pointer,
+                                    &method_name,
+                                    &owner.package_dir,
+                                )
+                        })
+                        .unwrap_or(false);
+                    if !already_concrete {
+                        per_struct.insert(method_name, ifaces.into_iter().next().unwrap());
+                    }
                 }
+                variants.insert(per_struct);
             }
-            if candidates.is_empty() {
-                continue;
-            }
-            // Package-scoped shadow checks (unfiltered selector field / own
-            // method / already FunctionId-backed concrete method). Method
-            // facts are filtered to entries whose own file is in this package.
-            let own_fields = Self::selector_field_names(data, owner);
-            let own_methods: BTreeSet<&str> = data
-                .methods
-                .get(&owner.name)
-                .map(|ms| {
-                    ms.iter()
-                        .filter(|m| crate::resolution::dir_of(&m.file) == owner.package_dir)
-                        .map(|m| m.name.as_str())
-                        .collect()
-                })
-                .unwrap_or_default();
-            let already = concrete_methods.get(&owner.name);
-            let mut per_struct = BTreeMap::new();
-            for (method_name, ifaces) in candidates {
-                if ifaces.len() != 1 {
-                    continue;
+            if variants.len() == 1 {
+                let per_struct = variants.into_iter().next().unwrap();
+                if !per_struct.is_empty() {
+                    out.insert(owner.clone(), per_struct);
                 }
-                if own_fields.contains(method_name.as_str())
-                    || own_methods.contains(method_name.as_str())
-                {
-                    continue;
-                }
-                let already_concrete = already
-                    .map(|rs| {
-                        Self::method_in_package(&rs.value, &method_name, &owner.package_dir)
-                            || Self::method_in_package(
-                                &rs.pointer,
-                                &method_name,
-                                &owner.package_dir,
-                            )
-                    })
-                    .unwrap_or(false);
-                if already_concrete {
-                    continue;
-                }
-                per_struct.insert(method_name, ifaces.into_iter().next().unwrap());
-            }
-            if !per_struct.is_empty() {
-                out.insert(owner.clone(), per_struct);
             }
         }
         out
+    }
+
+    fn snapshot_interface_methods(
+        data: &GoTypeData,
+        owner: &crate::resolution::GoOwnerIdentity,
+        visiting: &mut BTreeSet<crate::resolution::GoOwnerIdentity>,
+    ) -> Option<BTreeSet<String>> {
+        if !visiting.insert(owner.clone()) {
+            return None;
+        }
+        let declarations = data.interface_declarations.get(owner)?;
+        let mut variants = BTreeSet::new();
+        for declaration in declarations {
+            if declaration.generic {
+                visiting.remove(owner);
+                return None;
+            }
+            let mut methods = declaration.methods.clone();
+            for embedded in &declaration.embedded_types {
+                let embedded_owner = crate::resolution::GoOwnerIdentity {
+                    package_dir: owner.package_dir.clone(),
+                    package_clause: owner.package_clause.clone(),
+                    name: embedded.clone(),
+                };
+                methods.extend(Self::snapshot_interface_methods(
+                    data,
+                    &embedded_owner,
+                    visiting,
+                )?);
+            }
+            variants.insert(methods);
+        }
+        visiting.remove(owner);
+        (variants.len() == 1).then(|| variants.into_iter().next().unwrap())
     }
 
     fn method_in_package(
@@ -1908,9 +2364,18 @@ impl GoTypeProvider {
             if outer_owner_counts.get(go_struct.name.as_str()).copied() != Some(1) {
                 continue;
             }
-            let struct_owner = crate::resolution::GoOwnerIdentity {
-                package_dir: crate::resolution::dir_of(&go_struct.file).to_string(),
-                name: go_struct.name.clone(),
+            let Some(struct_owner) = data
+                .struct_declarations
+                .iter()
+                .find(|(owner, declarations)| {
+                    owner.name == go_struct.name
+                        && declarations
+                            .iter()
+                            .any(|declaration| declaration.defining_file == go_struct.file)
+                })
+                .map(|(owner, _)| owner.clone())
+            else {
+                continue;
             };
             let mut field_depth: BTreeMap<String, usize> = BTreeMap::new();
             let mut cands: Vec<PromotedMethodCandidate> = Vec::new();
@@ -1967,21 +2432,13 @@ impl GoTypeProvider {
         // Methods of `current` promote to `outer` (depth>=1; the outer struct's own
         // depth-0 methods are NOT promoted — direct-method-wins is the caller's job).
         if depth >= 1 {
-            if let Some(methods) = data.methods.get(&current.name) {
-                for m in methods
-                    .iter()
-                    .filter(|m| crate::resolution::dir_of(&m.file) == current.package_dir)
-                {
+            if let Some(methods) = data.method_declarations.get(current) {
+                for m in methods {
                     cands.push(PromotedMethodCandidate {
                         promoted: PromotedMethod {
                             struct_name: outer.name.clone(),
-                            method: m.name.clone(),
-                            func_id: FunctionId {
-                                name: m.name.clone(),
-                                file: m.file.clone(),
-                                start_line: m.start_line,
-                                end_line: m.end_line,
-                            },
+                            method: m.method_name.clone(),
+                            func_id: m.function_id.clone(),
                             depth,
                         },
                         value_method_set: !m.is_pointer_receiver || value_can_use_pointer_receiver,
@@ -1995,13 +2452,10 @@ impl GoTypeProvider {
             };
             let target = crate::resolution::GoOwnerIdentity {
                 package_dir: current.package_dir.clone(),
+                package_clause: current.package_clause.clone(),
                 name: bare.to_string(),
             };
-            if data
-                .interface_name_owners
-                .get(bare)
-                .is_some_and(|owners| owners.contains(&current.package_dir))
-            {
+            if data.interface_declarations.contains_key(&target) {
                 continue; // embedded interface -> interface dispatch, deferred
             }
             if !data.struct_embeds.contains_key(&target) || !path.insert(target.clone()) {
@@ -2226,7 +2680,7 @@ mod satisfaction_tests {
     use super::*;
     use crate::ast::ParsedFile;
     use crate::languages::Language;
-    use std::collections::{BTreeMap, BTreeSet};
+    use std::collections::BTreeMap;
 
     fn provider(src: &str) -> GoTypeProvider {
         let mut files = BTreeMap::new();
@@ -2645,6 +3099,7 @@ mod embedding_tests {
         ]);
         let owner = crate::resolution::GoOwnerIdentity {
             package_dir: "main".to_string(),
+            package_clause: "main".to_string(),
             name: "S".to_string(),
         };
         assert!(
@@ -2801,12 +3256,51 @@ mod canon_tests {
     }
 
     #[test]
+    fn dot_import_leaves_bare_signature_identity_unprovable() {
+        let source = "package p\nimport . \"example/external\"\ntype I interface { F(Context) }\n";
+        assert_eq!(
+            sig_of(source, "F"),
+            Err(GoDispatchGap::QualifiedTypeIdentity)
+        );
+    }
+
+    #[test]
     fn parenthesized_type_unwraps() {
         // `chan (int)` ≡ `chan int` — a parenthesized element type must unwrap, not gap
         // (review MINOR). tree-sitter-go parses `chan (int)` value as a parenthesized_type.
         let paren = "package p\ntype T struct{}\nfunc (t T) C(c chan (int)) {}\n";
         let plain = "package p\ntype I interface { C(c chan int) }\n";
         assert_eq!(sig_of(paren, "C").unwrap(), sig_of(plain, "C").unwrap());
+    }
+
+    #[test]
+    fn qualified_types_preserve_import_identity_through_wrappers_and_generics() {
+        let iface = "package p\nimport (\n\tboxa \"example/box\"\n\tctxa \"context\"\n)\ntype I interface { F(map[string][]*boxa.Box[ctxa.Context]) }\n";
+        let concrete = "package p\nimport (\n\tboxb \"example/box\"\n\tctxb \"context\"\n)\ntype T struct{}\nfunc (T) F(map[string][]*boxb.Box[ctxb.Context]) {}\n";
+
+        assert_eq!(sig_of(iface, "F").unwrap(), sig_of(concrete, "F").unwrap());
+    }
+
+    #[test]
+    fn dotted_major_version_default_name_matches_explicit_alias() {
+        let default_name =
+            "package p\nimport \"gopkg.in/yaml.v3\"\ntype I interface { F(yaml.Node) }\n";
+        let explicit_alias = "package p\nimport yamlalias \"gopkg.in/yaml.v3\"\ntype T struct{}\nfunc (T) F(yamlalias.Node) {}\n";
+
+        assert_eq!(
+            sig_of(default_name, "F").unwrap(),
+            sig_of(explicit_alias, "F").unwrap()
+        );
+    }
+
+    #[test]
+    fn unresolved_qualified_type_alias_fails_closed() {
+        let source = "package p\ntype I interface { F(missing.Context) }\n";
+
+        assert_eq!(
+            sig_of(source, "F"),
+            Err(GoDispatchGap::QualifiedTypeIdentity)
+        );
     }
 }
 
@@ -2831,9 +3325,10 @@ mod func_typed_field_tests {
         GoTypeProvider::from_parsed_files(&files)
     }
 
-    fn owner(dir: &str, name: &str) -> GoOwnerIdentity {
+    fn owner(dir: &str, package_clause: &str, name: &str) -> GoOwnerIdentity {
         GoOwnerIdentity {
             package_dir: dir.to_string(),
+            package_clause: package_clause.to_string(),
             name: name.to_string(),
         }
     }
@@ -2845,7 +3340,7 @@ mod func_typed_field_tests {
             "package main\ntype Command struct {\n\tRun func()\n}\n",
         );
         let fields = p.go_func_typed_fields();
-        assert!(fields.contains(&(owner("", "Command"), "Run".to_string())));
+        assert!(fields.contains(&(owner("", "main", "Command"), "Run".to_string())));
     }
 
     #[test]
@@ -2867,8 +3362,8 @@ mod func_typed_field_tests {
             "package main\ntype Hooks struct {\n\tBefore, After func()\n}\n",
         );
         let fields = p.go_func_typed_fields();
-        assert!(fields.contains(&(owner("", "Hooks"), "Before".to_string())));
-        assert!(fields.contains(&(owner("", "Hooks"), "After".to_string())));
+        assert!(fields.contains(&(owner("", "main", "Hooks"), "Before".to_string())));
+        assert!(fields.contains(&(owner("", "main", "Hooks"), "After".to_string())));
     }
 
     #[test]
@@ -2879,7 +3374,7 @@ mod func_typed_field_tests {
         );
         assert!(p
             .go_known_struct_identities()
-            .contains(&owner("", "Config")));
+            .contains(&owner("", "main", "Config")));
     }
 
     #[test]
@@ -2908,12 +3403,12 @@ mod func_typed_field_tests {
         );
         let p = GoTypeProvider::from_parsed_files(&files);
         let fields = p.go_func_typed_fields();
-        assert!(fields.contains(&(owner("pkga", "Command"), "Run".to_string())));
+        assert!(fields.contains(&(owner("pkga", "pkga", "Command"), "Run".to_string())));
         // pkgb's Command has no func-typed field at all, and critically is a
         // DIFFERENT owner identity from pkga's Command despite the same bare name.
-        assert!(!fields.contains(&(owner("pkgb", "Command"), "Run".to_string())));
+        assert!(!fields.contains(&(owner("pkgb", "pkgb", "Command"), "Run".to_string())));
         let known = p.go_known_struct_identities();
-        assert!(known.contains(&owner("pkga", "Command")));
-        assert!(known.contains(&owner("pkgb", "Command")));
+        assert!(known.contains(&owner("pkga", "pkga", "Command")));
+        assert!(known.contains(&owner("pkgb", "pkgb", "Command")));
     }
 }

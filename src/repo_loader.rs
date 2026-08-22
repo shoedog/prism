@@ -202,7 +202,7 @@ fn collect_manifest_hashes_inner(root: &Path, dir: &Path, out: &mut BTreeMap<Str
             collect_manifest_hashes_inner(root, &path, out);
             continue;
         }
-        if file_type.is_file() && name == "Cargo.toml" {
+        if file_type.is_file() && matches!(name.as_str(), "Cargo.toml" | "go.mod") {
             if let Ok(bytes) = std::fs::read(&path) {
                 let mut hasher = Sha256::new();
                 hasher.update(&bytes);
@@ -774,6 +774,18 @@ fn walk(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn go_module_manifests_participate_in_topology_hashing() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("nested")).unwrap();
+        std::fs::write(dir.path().join("go.mod"), "module example/root\n").unwrap();
+        std::fs::write(dir.path().join("nested/go.mod"), "module example/nested\n").unwrap();
+
+        let manifests = collect_manifest_hashes(dir.path());
+        assert!(manifests.contains_key("go.mod"));
+        assert!(manifests.contains_key("nested/go.mod"));
+    }
 
     #[test]
     fn mixed_edition_workspace_is_not_uniform() {

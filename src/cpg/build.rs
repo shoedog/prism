@@ -333,7 +333,7 @@ impl CodePropertyGraph {
             // Phase-IP: Go embedding/interface dispatch are whole-program — recompute
             // after scope/Rust receiver state to mirror full-build derived ordering.
             cached_cg.apply_go_embedding_promotion(files);
-            cached_cg.apply_go_interface_dispatch(files);
+            cached_cg.apply_go_interface_dispatch_with_scope_inputs(files, scope_inputs);
             // P5: Go func-value callbacks are ALSO whole-program derived (S1
             // field-typing needs every Go file's struct declarations; S2
             // registration target resolution needs the complete function
@@ -342,8 +342,8 @@ impl CodePropertyGraph {
             cached_cg.apply_go_func_value_fields(files);
             cached_cg.apply_go_registrations(files);
             // P11: Go receiver-typing indices + post-merge rematerialization
-            // pass (S1/S2/S3) — needs `go_field_types`/
-            // `go_embedded_interface_methods`, already captured above by
+            // pass (S1/S2/S3) — needs the Go owner declaration snapshots,
+            // already captured above by
             // `apply_go_interface_dispatch`; recomputes from scratch every
             // rebuild so a type/return/package-var-defining file edited
             // elsewhere always updates a retained consuming file's recovery.

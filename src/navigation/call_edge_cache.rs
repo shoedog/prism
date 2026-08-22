@@ -38,7 +38,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // identity change which synthetic callback edges enter the nav index.
 // v12: Go pointer-embedded fields participate in embedding promotion / S2 / S4;
 //      qualified and pointer-to-interface embedded targets fail closed (P9; one shipped transition on top of main's v11).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 12;
+// v13: P10 clause-bearing Go owner identities and exact build-partition
+// filtering change S2/S4/P5 resolved edge topology.
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 13;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -322,6 +324,7 @@ mod tests {
             end_byte: 18,
             qualifier: None,
             receiver_type: None,
+            receiver_owner_identity: None,
             receiver_recovery: None,
             receiver_materialized: false,
             arg_count: None,
@@ -362,8 +365,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_12_for_go_pointer_embeds() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 12);
+    fn sidecar_version_is_13_for_go_owner_partition_snapshots() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 13);
     }
 
     #[test]
