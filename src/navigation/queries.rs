@@ -170,6 +170,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     let mut go_build_partition_exact = 0usize;
     let mut go_bare_value_ref_ambiguous = cg.go_bare_value_ref_ambiguous;
     let mut go_build_expr_unparsed: usize = cg.go_build_profile_unparsed.values().sum();
+    let mut go_owner_identity_partition = cg.go_owner_identity_partition;
     // Phase-3 stratification (re-measure for slice scoping): split each kind by
     // confidence, and stratify NameOnly demotes by (recovery, method-kind). This
     // isolates the #2-addressable universe — a NameOnly demote from `combine_kind`'s
@@ -228,6 +229,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
             go_build_partition_exact += out.telemetry.go_build_partition_exact;
             go_bare_value_ref_ambiguous += out.telemetry.go_bare_value_ref_ambiguous;
             go_build_expr_unparsed += out.telemetry.go_build_expr_unparsed;
+            go_owner_identity_partition.merge(out.telemetry.go_owner_identity_partition);
             if out.drop.is_some() && site.caller.file.ends_with(".go") {
                 let key = site
                     .receiver_recovery
@@ -354,7 +356,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "member_hidden_continue_poison": ge.member_hidden_continue_poison,
     });
 
-    serde_json::json!({
+    let mut stats = serde_json::json!({
         "total_call_sites": total,
         "kinds": kinds,
         "demoted_edges": demoted,
@@ -438,7 +440,31 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "shadow_typepath_narrow": shadow_typepath_narrow,
         "recovery_typepath": recovery_typepath,
         "glob_expand": glob_expand,
-    })
+    });
+    if !cg.go_file_profiles.is_empty() {
+        let object = stats.as_object_mut().expect("call-stats object");
+        object.insert(
+            "go_owner_identity_partition_affected_owners".to_string(),
+            cg.go_owner_identity_profile_conflict.into(),
+        );
+        object.insert(
+            "go_owner_identity_partition_drop".to_string(),
+            go_owner_identity_partition.drops.into(),
+        );
+        object.insert(
+            "go_owner_identity_partition_recovered".to_string(),
+            go_owner_identity_partition.recovered.into(),
+        );
+        object.insert(
+            "go_owner_identity_partition_affected_sites".to_string(),
+            go_owner_identity_partition.affected_sites().into(),
+        );
+        object.insert(
+            "go_owner_identity_partition_affected_edges".to_string(),
+            go_owner_identity_partition.affected_edges.into(),
+        );
+    }
+    stats
 }
 
 /// Phase-IP PR-2 in-scope interface-dispatch manifest (spec §8a, structural — no oracle).
@@ -509,7 +535,7 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             // (fanout == 0) receiver yields the empty set.
             // P11 S4: a struct-typed receiver whose method is supplied ONLY
             // by a directly embedded in-repo interface routes through
-            // `go_embedded_interface_methods` instead of `iface_key` (the
+            // the declaration-snapshot S4 route instead of `iface_key` (the
             // receiver's OWN type isn't an interface name) — consult it
             // first so this manifest's implementer set matches what
             // `resolve_call_site_full` actually mints for these sites
@@ -520,7 +546,7 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             let s4_route =
                 cg.go_embedded_interface_route(recv_ty, &site.callee_name, &site.caller.file);
             // M1 parity fix (codex re-review MAJOR): once the S4 route MATCHES
-            // (the receiver struct's `go_embedded_interface_methods` entry
+            // (the receiver struct's declaration-snapshot route
             // donates `callee_name` from exactly one embedded in-repo
             // interface), that route's implementer set is authoritative --
             // even when EMPTY (no `interface_impls` entry for the providing
@@ -559,6 +585,29 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                 site.arg_spread,
                 &cg.method_arity,
             );
+            let kept = if s4_iface_name.is_some() {
+                cg.go_visible_s4_implementers(
+                    recv_ty,
+                    s4_iface_name.expect("checked S4 interface"),
+                    &site.callee_name,
+                    &site.caller.file,
+                    kept,
+                )
+                .value
+                .unwrap_or_default()
+            } else {
+                kept
+            };
+            let kept: Vec<&FunctionId> = kept
+                .into_iter()
+                .filter(|target| {
+                    crate::resolution::arity_admits(
+                        site.arg_count,
+                        site.arg_spread,
+                        cg.method_arity.get(*target),
+                    )
+                })
+                .collect();
             let implementers: BTreeSet<String> = kept
                 .iter()
                 .map(|fid| {

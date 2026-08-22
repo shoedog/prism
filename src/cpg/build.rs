@@ -352,8 +352,8 @@ impl CodePropertyGraph {
             cached_cg.apply_go_func_value_fields(files);
             cached_cg.apply_go_registrations(files);
             // P11: Go receiver-typing indices + post-merge rematerialization
-            // pass (S1/S2/S3) — needs `go_field_types`/
-            // `go_embedded_interface_methods`, already captured above by
+            // pass (S1/S2/S3) — needs the Go owner declaration snapshots,
+            // already captured above by
             // `apply_go_interface_dispatch`; recomputes from scratch every
             // rebuild so a type/return/package-var-defining file edited
             // elsewhere always updates a retained consuming file's recovery.

@@ -34,7 +34,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // empty-path glob with a meaningful anchor) now resolves instead of
 // poisoning, changing which Rust call sites resolve out of nested
 // modules/blocks that relied on an anchor-only glob, changing nav topology.
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 10;
+// v11: P10 clause-bearing Go owner identities and exact build-partition
+// filtering change S2/S4/P5 resolved edge topology.
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 11;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -357,8 +359,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_10() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 10);
+    fn sidecar_version_is_11() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 11);
     }
 
     #[test]

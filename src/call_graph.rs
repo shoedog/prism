@@ -290,7 +290,7 @@ pub struct PropertyAccessSite {
 /// (`NavigationIndex::build_resolved_call_edges`). Nav-only per the
 /// consumer-visibility doctrine — never consulted by CPG Call/Return edges,
 /// Step-5b DataFlow, or any non-nav consumer (there is no S3 resolve-time
-/// consult path at all, unlike `go_func_typed_fields`/`FuncValueField`).
+/// consult path at all, unlike Go func-field snapshots/`FuncValueField`).
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub struct PropertyAccessRecord {
     /// The function whose body contains the access.
@@ -444,6 +444,14 @@ pub struct CallGraph {
     /// `apply_go_func_value_fields`.
     #[serde(default)]
     pub go_package_basenames: BTreeMap<String, BTreeSet<String>>,
+    /// Compatibility projection retained for downstream callers. Production
+    /// P5 consults use `go_field_types` declaration snapshots.
+    #[serde(default)]
+    pub go_known_struct_identities: BTreeSet<crate::resolution::GoOwnerIdentity>,
+    /// Compatibility projection retained for downstream callers. Production
+    /// P5 consults use all-field declaration snapshots and presence/absence.
+    #[serde(default)]
+    pub go_func_typed_fields: BTreeSet<(crate::resolution::GoOwnerIdentity, String)>,
     /// P5 S2: recognized Go function-value registration sites. Whole-program
     /// derived (needs S1's package-scoped field-typing, and target resolution
     /// must see the complete function index) — like
@@ -477,6 +485,10 @@ pub struct CallGraph {
     /// build partitions; count conflicts but leave re-keying out of scope.
     #[serde(default)]
     pub go_owner_identity_profile_conflict: usize,
+    /// P10 build-time S2 consult decisions. Whole-program rematerialized with
+    /// receiver keys; runtime S4/P5 decisions travel on ResolutionOutcome.
+    #[serde(default)]
+    pub go_owner_identity_partition: crate::go_owner_partition::GoOwnerPartitionTelemetry,
     /// P13 telemetry: `resolve_go_bare_value_ref` saw multiple same-package
     /// value candidates before profile filtering.
     #[serde(default)]
@@ -580,6 +592,14 @@ pub struct CallGraph {
     pub go_interface_declarations: crate::go_owner_partition::GoInterfaceDeclarations,
     #[serde(default)]
     pub go_method_declarations: crate::go_owner_partition::GoMethodDeclarations,
+    /// P10 S4: RTA admission keys used by snapshot-derived interface dispatch.
+    #[serde(default)]
+    pub go_interface_live_types: BTreeSet<String>,
+    /// Compatibility projection retained for downstream callers. Production
+    /// S4 routing consults the declaration snapshots above.
+    #[serde(default)]
+    pub go_embedded_interface_methods:
+        BTreeMap<crate::resolution::GoOwnerIdentity, BTreeMap<String, String>>,
     /// P11 S3: `(package_dir, var_name) -> declared type` for package-scope
     /// (top-level) Go `var` declarations with an explicit type. Whole-program
     /// derived (a package var can be declared in a different file of the
@@ -587,18 +607,6 @@ pub struct CallGraph {
     #[serde(default)]
     pub go_package_vars:
         BTreeMap<(String, String), BTreeSet<crate::go_receiver_index::GoTypedFact>>,
-    /// P11 S4: `GoOwnerIdentity (struct) -> method_name -> interface_bare_name`
-    /// for a method supplied ONLY by exactly one directly-embedded in-repo
-    /// interface (no own/promoted concrete method or field shadows it).
-    /// Package-scoped by the STRUCT's identity (B2 fix, codex impl-review
-    /// BLOCKER: a bare-struct-name key let one package's struct donate its
-    /// embedded-interface methods to an unrelated same-named struct in
-    /// another package). Captured in `apply_go_interface_dispatch`
-    /// (signature-only — deliberately carries no FunctionId; see
-    /// `type_providers::go::GoTypeProvider::embedded_interface_method_routes`).
-    #[serde(default)]
-    pub go_embedded_interface_methods:
-        BTreeMap<crate::resolution::GoOwnerIdentity, BTreeMap<String, String>>,
 }
 
 impl CallGraph {
@@ -641,6 +649,8 @@ impl CallGraph {
             js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
             go_package_basenames: BTreeMap::new(),
+            go_known_struct_identities: BTreeSet::new(),
+            go_func_typed_fields: BTreeSet::new(),
             go_registrations: BTreeSet::new(),
             go_registration_shadowed_skips: 0,
             go_registration_ambiguous_owner_skips: 0,
@@ -648,6 +658,7 @@ impl CallGraph {
             go_file_profiles: BTreeMap::new(),
             go_build_profile_unparsed: BTreeMap::new(),
             go_owner_identity_profile_conflict: 0,
+            go_owner_identity_partition: Default::default(),
             go_bare_value_ref_ambiguous: 0,
             property_getters: BTreeMap::new(),
             cached_property_getters: BTreeSet::new(),
@@ -662,8 +673,9 @@ impl CallGraph {
             go_field_types: BTreeMap::new(),
             go_interface_declarations: BTreeMap::new(),
             go_method_declarations: BTreeMap::new(),
-            go_package_vars: BTreeMap::new(),
+            go_interface_live_types: BTreeSet::new(),
             go_embedded_interface_methods: BTreeMap::new(),
+            go_package_vars: BTreeMap::new(),
         }
     }
 
@@ -851,6 +863,8 @@ impl CallGraph {
             js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
             go_package_basenames: BTreeMap::new(),
+            go_known_struct_identities: BTreeSet::new(),
+            go_func_typed_fields: BTreeSet::new(),
             go_registrations: BTreeSet::new(),
             go_registration_shadowed_skips: 0,
             go_registration_ambiguous_owner_skips: 0,
@@ -858,6 +872,7 @@ impl CallGraph {
             go_file_profiles,
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
+            go_owner_identity_partition: Default::default(),
             go_bare_value_ref_ambiguous: 0,
             property_getters: BTreeMap::new(),
             cached_property_getters: BTreeSet::new(),
@@ -877,8 +892,9 @@ impl CallGraph {
             go_field_types: BTreeMap::new(),
             go_interface_declarations: BTreeMap::new(),
             go_method_declarations: BTreeMap::new(),
-            go_package_vars: BTreeMap::new(),
+            go_interface_live_types: BTreeSet::new(),
             go_embedded_interface_methods: BTreeMap::new(),
+            go_package_vars: BTreeMap::new(),
         }
     }
 
@@ -1221,6 +1237,8 @@ impl CallGraph {
             js_export_barrel_conflicts: 0,
             js_ts_function_locals,
             go_package_basenames: BTreeMap::new(),
+            go_known_struct_identities: BTreeSet::new(),
+            go_func_typed_fields: BTreeSet::new(),
             go_registrations: BTreeSet::new(),
             go_registration_shadowed_skips: 0,
             go_registration_ambiguous_owner_skips: 0,
@@ -1228,6 +1246,7 @@ impl CallGraph {
             go_file_profiles,
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
+            go_owner_identity_partition: Default::default(),
             go_bare_value_ref_ambiguous: 0,
             property_getters: BTreeMap::new(),
             cached_property_getters: BTreeSet::new(),
@@ -1248,8 +1267,9 @@ impl CallGraph {
             go_field_types: BTreeMap::new(),
             go_interface_declarations: BTreeMap::new(),
             go_method_declarations: BTreeMap::new(),
-            go_package_vars: BTreeMap::new(),
+            go_interface_live_types: BTreeSet::new(),
             go_embedded_interface_methods: BTreeMap::new(),
+            go_package_vars: BTreeMap::new(),
         };
         cg.recompute_indirect_calls(files);
         cg.refresh_rust_receiver_state(files);
@@ -1262,7 +1282,7 @@ impl CallGraph {
         // P11: Go receiver-typing indices (S1 return-types, S3 package vars)
         // + the post-merge rematerialization pass (S1 call-RHS, S2
         // nested-selector, S3 package var). Needs `go_field_types`/
-        // `go_embedded_interface_methods`, already captured by
+        // declaration snapshots, already captured by
         // `apply_go_interface_dispatch` above. Uses the SAME `receiver_config`
         // this build used at extraction time (spec-parity fix: an earlier
         // draft hardcoded `ReceiverRecoveryConfig::default()` here, silently
@@ -1530,7 +1550,7 @@ impl CallGraph {
         // func-value state directly above: a return/package-var type can be
         // declared in an unchanged file. Drop it all;
         // `apply_go_receiver_indices` repopulates from the merged graph
-        // (`go_field_types`/`go_embedded_interface_methods` are cleared by
+        // (the Go owner declaration snapshots are cleared by
         // `clear_interface_dispatch` above and repopulated by
         // `apply_go_interface_dispatch`).
         self.clear_go_receiver_indices();
@@ -1655,7 +1675,7 @@ impl CallGraph {
         // `build_incremental_with_scope_graph_inputs`.
         //
         // P11 (Go receiver-typing indices `go_return_types`/`go_package_vars`,
-        // and the `go_field_types`/`go_embedded_interface_methods` captured
+        // and the Go owner declaration snapshots captured
         // alongside `interface_impls`): deliberately NOT merged here either,
         // same reasoning as P5/P7/P9 above — `apply_go_interface_dispatch` +
         // `apply_go_receiver_indices` re-apply on the merged graph, and the
@@ -2693,6 +2713,7 @@ impl CallGraph {
         self.go_field_types.clear();
         self.go_interface_declarations.clear();
         self.go_method_declarations.clear();
+        self.go_interface_live_types.clear();
         self.go_embedded_interface_methods.clear();
         self.go_owner_identity_profile_conflict = 0;
     }
@@ -2824,12 +2845,10 @@ impl CallGraph {
         self.go_owner_identity_profile_conflict =
             self.count_go_owner_identity_profile_conflicts(files);
         let live = crate::live_types::go_admission_live_set(files);
+        self.go_interface_live_types = live.clone();
         let provider = crate::type_providers::go::GoTypeProvider::from_parsed_files(files);
         let table = provider.compute_interface_dispatch(&live);
         self.interface_impls = table.impls;
-        // Capture the interface-method-name set for the PR-2 manifest denominator
-        // (§8a) while the provider is live (it is dropped after this fn).
-        self.interface_method_names = provider.interface_method_names();
         // Capture per-method arity for later arity-filtered dispatch (Task 2).
         self.method_arity = provider.method_arities();
         // P11 S2/S4: capture the field re-projection and the embedded-interface
@@ -2838,6 +2857,14 @@ impl CallGraph {
         self.go_interface_declarations = provider.go_interface_declarations();
         self.go_method_declarations = provider.go_method_declarations();
         self.go_embedded_interface_methods = provider.embedded_interface_method_routes();
+        // Manifest denominator from raw snapshots, before any clause/profile
+        // last-writer collapse in the provider compatibility maps.
+        self.interface_method_names = self
+            .go_interface_declarations
+            .values()
+            .flatten()
+            .flat_map(|declaration| declaration.methods.iter().cloned())
+            .collect();
         for g in &table.gaps {
             *self.interface_gaps.entry(format!("{g:?}")).or_insert(0) += 1;
         }
@@ -2851,6 +2878,8 @@ impl CallGraph {
 
     fn clear_go_func_value_fields(&mut self) {
         self.go_package_basenames.clear();
+        self.go_known_struct_identities.clear();
+        self.go_func_typed_fields.clear();
     }
 
     /// P5 S1: recompute the Go func-typed-field index (package-scoped owner
@@ -2880,6 +2909,20 @@ impl CallGraph {
                 .or_default()
                 .insert(dir);
         }
+        self.go_known_struct_identities = self.go_field_types.keys().cloned().collect();
+        self.go_func_typed_fields = self
+            .go_field_types
+            .iter()
+            .flat_map(|(owner, declarations)| {
+                declarations.iter().flat_map(move |declaration| {
+                    declaration.fields.iter().filter_map(move |(name, ty)| {
+                        ty.trim_start()
+                            .starts_with("func(")
+                            .then(|| (owner.clone(), name.clone()))
+                    })
+                })
+            })
+            .collect();
     }
 
     fn clear_go_registrations(&mut self) {
@@ -3076,12 +3119,13 @@ impl CallGraph {
     fn clear_go_receiver_indices(&mut self) {
         self.go_return_types.clear();
         self.go_package_vars.clear();
+        self.go_owner_identity_partition = Default::default();
     }
 
     /// P11 S1/S2/S3: recompute the Go return-type (S1) and package-var (S3)
     /// indices, then rematerialize every Go call site's receiver
     /// classification against the fresh whole-program facts (S1 call-RHS,
-    /// S2 nested-selector via `go_field_types`/`go_embedded_interface_methods`
+    /// S2 nested-selector via the Go owner declaration snapshots
     /// already captured by `apply_go_interface_dispatch`, S3 package var).
     ///
     /// Whole-program derived — MUST run after `apply_go_interface_dispatch`
@@ -3133,7 +3177,8 @@ impl CallGraph {
             };
             self.compute_go_receiver_updates(files, &facts, receiver_config)
         };
-        for (caller, old_site, classification) in updates {
+        for (caller, old_site, classification, evidence) in updates {
+            self.go_owner_identity_partition.observe(evidence, 1);
             let mut updated = old_site.clone();
             updated.receiver_type = classification
                 .recovered
@@ -3172,6 +3217,7 @@ impl CallGraph {
         FunctionId,
         CallSite,
         crate::resolution::ReceiverClassification,
+        crate::go_owner_partition::GoPartitionEvidence,
     )> {
         use rayon::prelude::*;
 
@@ -3207,6 +3253,7 @@ impl CallGraph {
         FunctionId,
         CallSite,
         crate::resolution::ReceiverClassification,
+        crate::go_owner_partition::GoPartitionEvidence,
     )> {
         let mut out = Vec::new();
         let Some(parsed) = files.get(&caller.file) else {
@@ -3255,10 +3302,11 @@ impl CallGraph {
                 file_imports,
                 caller_file: &caller.file,
             };
-            let classification = crate::go_receiver_index::classify_go_receiver_expanded(
-                &ctx, classifier, facts, var_local,
-            );
-            out.push((caller.clone(), site.clone(), classification));
+            let (classification, evidence) =
+                crate::go_receiver_index::classify_go_receiver_expanded_with_partition(
+                    &ctx, classifier, facts, var_local,
+                );
+            out.push((caller.clone(), site.clone(), classification, evidence));
         }
         out
     }
@@ -3846,6 +3894,8 @@ impl CallGraph {
             // / `apply_go_registrations` on the merged graph (mirrors
             // `apply_go_embedding_promotion` / `apply_go_interface_dispatch`).
             go_package_basenames: BTreeMap::new(),
+            go_known_struct_identities: BTreeSet::new(),
+            go_func_typed_fields: BTreeSet::new(),
             go_registrations: BTreeSet::new(),
             go_registration_shadowed_skips: 0,
             go_registration_ambiguous_owner_skips: 0,
@@ -3853,6 +3903,7 @@ impl CallGraph {
             go_file_profiles,
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
+            go_owner_identity_partition: Default::default(),
             go_bare_value_ref_ambiguous: 0,
             // P7: whole-program Python property-access state — left empty
             // here for the same reason as the Go func-value state above;
@@ -3883,8 +3934,9 @@ impl CallGraph {
             go_field_types: BTreeMap::new(),
             go_interface_declarations: BTreeMap::new(),
             go_method_declarations: BTreeMap::new(),
-            go_package_vars: BTreeMap::new(),
+            go_interface_live_types: BTreeSet::new(),
             go_embedded_interface_methods: BTreeMap::new(),
+            go_package_vars: BTreeMap::new(),
         }
     }
 
@@ -5803,20 +5855,8 @@ func main() {\n\thelper := func() {}\n\t_ = helper\n\tRegister(helper)\n}\n",
 mod go_receiver_typing_tests {
     use super::*;
     use crate::languages::Language::Go;
-    use crate::resolution::{
-        GoOwnerIdentity, ReceiverRecovery, ResolutionConfidence, ResolutionKind,
-    };
+    use crate::resolution::{ReceiverRecovery, ResolutionConfidence, ResolutionKind};
     use std::collections::BTreeMap;
-
-    /// `GoOwnerIdentity` for a single-file `"main.go"` fixture (package_dir
-    /// `dir_of("main.go")` == `""`).
-    fn main_owner(name: &str) -> GoOwnerIdentity {
-        GoOwnerIdentity {
-            package_dir: String::new(),
-            package_clause: "main".to_string(),
-            name: name.to_string(),
-        }
-    }
 
     fn build_go(files: &[(&str, &str)]) -> CallGraph {
         let mut map = BTreeMap::new();
@@ -6383,10 +6423,10 @@ mod go_receiver_typing_tests {
             out
         );
         assert_eq!(
-            cg.go_embedded_interface_methods
-                .get(&main_owner("Holder"))
-                .and_then(|m| m.get("Do")),
-            Some(&"Doer".to_string())
+            cg.go_embedded_interface_route("Holder", "Do", "main.go")
+                .value
+                .as_deref(),
+            Some("Doer")
         );
     }
 
@@ -6406,9 +6446,8 @@ mod go_receiver_typing_tests {
         // embedded-interface promotion map (own method wins, ordinary
         // owner_lookup already resolves it).
         assert!(cg
-            .go_embedded_interface_methods
-            .get(&main_owner("Holder"))
-            .and_then(|m| m.get("Do"))
+            .go_embedded_interface_route("Holder", "Do", "main.go")
+            .value
             .is_none());
         let site = site_in(&cg, "run", "Do");
         let out = cg.resolve_call_site_full(site);
@@ -6433,9 +6472,8 @@ mod go_receiver_typing_tests {
         let out = cg.resolve_call_site_full(site);
         assert!(out.resolved.is_empty());
         assert!(cg
-            .go_embedded_interface_methods
-            .get(&main_owner("Wrap"))
-            .and_then(|m| m.get("Accept"))
+            .go_embedded_interface_route("Wrap", "Accept", "main.go")
+            .value
             .is_none());
     }
 
@@ -6524,11 +6562,9 @@ mod go_receiver_typing_tests {
              type Holder struct {\n\tA\n\tB\n}\n\
              func run(h Holder) {\n\th.M()\n}\n",
         )]);
-        assert!(cg
-            .go_embedded_interface_methods
-            .get(&main_owner("Holder"))
-            .and_then(|m| m.get("M"))
-            .is_none());
+        let route = cg.go_embedded_interface_route("Holder", "M", "main.go");
+        assert!(route.value.is_none());
+        assert!(route.evidence.conflict);
     }
 
     // ---- S5: telemetry ----------------------------------------------------

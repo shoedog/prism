@@ -202,9 +202,8 @@ pub struct GoTypeData {
     /// embedding struct's own; otherwise fail closed (B2's "not
     /// package-unique" case).
     interface_name_owners: BTreeMap<String, BTreeSet<String>>,
-    /// P11 S4 (B2 fix): the package-scoped ROUTING map computed by
-    /// `embedded_interface_routes`, captured onto `CallGraph.
-    /// go_embedded_interface_methods` via `embedded_interface_method_routes`.
+    /// P11 S4 compatibility projection. Production routing uses the raw
+    /// declaration snapshots; this remains for provider-level API/tests.
     embedded_interface_routes:
         BTreeMap<crate::resolution::GoOwnerIdentity, BTreeMap<String, String>>,
 }
@@ -313,10 +312,9 @@ impl GoTypeProvider {
     /// P11 S4 routing map: `GoOwnerIdentity (struct) -> method_name ->
     /// interface_bare_name` (signature dropped — routing only needs the
     /// providing interface's name to consult `interface_impls`).
-    /// Package-scoped (B2 fix, codex impl-review BLOCKER) — see
-    /// `embedded_interface_routes`'s doc for why this must NOT be the bare
-    /// `embedded_interface_promotions` map. Captured onto `CallGraph.
-    /// go_embedded_interface_methods` in `apply_go_interface_dispatch`.
+    /// Package-scoped (B2 fix, codex impl-review BLOCKER). Production consults
+    /// no longer use this lossy compatibility projection; they filter raw
+    /// declaration snapshots in `go_owner_partition`.
     pub fn embedded_interface_method_routes(
         &self,
     ) -> BTreeMap<crate::resolution::GoOwnerIdentity, BTreeMap<String, String>> {
@@ -523,8 +521,18 @@ impl GoTypeProvider {
                                     signature.is_ok().then_some(method.clone())
                                 })
                                 .collect(),
+                            method_signatures: methods
+                                .iter()
+                                .filter_map(|(method, signature)| {
+                                    signature
+                                        .as_ref()
+                                        .ok()
+                                        .map(|signature| (method.clone(), signature.clone()))
+                                })
+                                .collect(),
                             embedded_types: embedded.iter().cloned().collect(),
                             generic,
+                            dispatchable: !generic && methods.values().all(Result::is_ok),
                         });
                 }
                 // P11 S4 (B2 fix): track which package dir(s) declare an
@@ -1055,6 +1063,15 @@ impl GoTypeProvider {
                 .insert(crate::go_owner_partition::GoMethodDeclaration {
                     defining_file: path.to_string(),
                     method_name: name.clone(),
+                    signature: sig.clone().ok(),
+                    generic,
+                    is_pointer_receiver: is_pointer,
+                    function_id: FunctionId {
+                        name: name.clone(),
+                        file: path.to_string(),
+                        start_line,
+                        end_line,
+                    },
                 });
         }
 
@@ -1542,9 +1559,8 @@ impl GoTypeProvider {
         out
     }
 
-    /// P11 S4 (B2 fix, codex impl-review BLOCKER): package-scoped ROUTING
-    /// computation feeding `CallGraph.go_embedded_interface_methods` via
-    /// `embedded_interface_method_routes` — distinct from
+    /// P11 S4 (B2 fix, codex impl-review BLOCKER): package-scoped compatibility
+    /// projection returned by `embedded_interface_method_routes` — distinct from
     /// `embedded_interface_promotions` above (bare-keyed, feeds ONLY the
     /// interface-satisfaction MEMBERSHIP check, an existing accepted
     /// approximation this fix does not touch). The routing map mints a

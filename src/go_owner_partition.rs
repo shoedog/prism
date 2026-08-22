@@ -19,14 +19,20 @@ pub struct GoStructDeclaration {
 pub struct GoInterfaceDeclaration {
     pub defining_file: String,
     pub methods: BTreeSet<String>,
+    pub method_signatures: BTreeMap<String, String>,
     pub embedded_types: BTreeSet<String>,
     pub generic: bool,
+    pub dispatchable: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct GoMethodDeclaration {
     pub defining_file: String,
     pub method_name: String,
+    pub signature: Option<String>,
+    pub generic: bool,
+    pub is_pointer_receiver: bool,
+    pub function_id: crate::call_graph::FunctionId,
 }
 
 pub type GoStructDeclarations = BTreeMap<GoOwnerIdentity, BTreeSet<GoStructDeclaration>>;
@@ -57,6 +63,53 @@ pub struct GoPartitionEvidence {
     pub recovered: bool,
     pub conflict: bool,
     pub uncertain: bool,
+}
+
+impl GoPartitionEvidence {
+    pub fn merge(&mut self, other: Self) {
+        self.visible_declarations += other.visible_declarations;
+        self.filtered_declarations += other.filtered_declarations;
+        self.distinct_visible_values = self
+            .distinct_visible_values
+            .max(other.distinct_visible_values);
+        self.recovered |= other.recovered;
+        self.conflict |= other.conflict;
+        self.uncertain |= other.uncertain;
+    }
+}
+
+/// Whole-program or per-resolution counts for owner-partition decisions.
+/// A site is recorded once even when its decision consulted several snapshot
+/// lanes. `affected_edges` counts the resolved or suppressed candidate edges at
+/// that site, not the legacy conflicting-owner support set.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GoOwnerPartitionTelemetry {
+    pub drops: usize,
+    pub recovered: usize,
+    pub affected_edges: usize,
+}
+
+impl GoOwnerPartitionTelemetry {
+    pub fn observe(&mut self, evidence: GoPartitionEvidence, affected_edges: usize) {
+        if evidence.conflict {
+            self.drops += 1;
+        } else if evidence.recovered {
+            self.recovered += 1;
+        } else {
+            return;
+        }
+        self.affected_edges += affected_edges;
+    }
+
+    pub fn merge(&mut self, other: Self) {
+        self.drops += other.drops;
+        self.recovered += other.recovered;
+        self.affected_edges += other.affected_edges;
+    }
+
+    pub fn affected_sites(self) -> usize {
+        self.drops + self.recovered
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -105,10 +158,32 @@ pub(crate) fn exact_declaration_visibility(
     (visibility.visible, exact)
 }
 
-/// Filter provenance-bearing values, then require every visible build-profile
-/// group to expose the same target set. Multiple registrations within one
-/// profile remain a legitimate P5 fanout; different profile target sets are a
-/// partition conflict and drop.
+/// Exact build/test visibility for a declaration in another Go package. Only
+/// the package namespace is rewritten; test-file and build constraints remain
+/// caller-relative.
+pub(crate) fn exact_cross_package_visibility(
+    caller_file: &str,
+    defining_file: &str,
+    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+) -> (bool, bool) {
+    let (Some(caller), Some(defining)) = (profiles.get(caller_file), profiles.get(defining_file))
+    else {
+        return (true, false);
+    };
+    let mut target_caller = caller.clone();
+    target_caller.package_clause = defining.package_clause.clone();
+    let visibility =
+        crate::go_build_profile::go_same_package_visible_detailed(&target_caller, defining);
+    let exact = visibility.visible
+        && crate::go_build_profile::profile_allows_exact(Some(caller))
+        && crate::go_build_profile::visibility_allows_exact(Some(defining), &visibility);
+    (visibility.visible, exact)
+}
+
+/// Filter provenance-bearing values, union target sets from compatible profile
+/// groups, and drop when mutually exclusive visible groups disagree. Multiple
+/// registrations in files that coexist in one build remain a legitimate P5
+/// fanout.
 pub fn select_profiled_values<'a, T, I>(
     owner: &GoOwnerIdentity,
     caller_file: &str,
@@ -158,19 +233,33 @@ where
             .insert(value);
     }
     let all_sets: BTreeSet<BTreeSet<T>> = all_groups.into_values().collect();
-    let visible_sets: BTreeSet<BTreeSet<T>> = visible_groups.into_values().collect();
-    evidence.distinct_visible_values = visible_sets.len();
-    if visible_sets.len() > 1 {
-        evidence.conflict = true;
-        return GoPartitionSelection {
-            value: None,
-            evidence,
-        };
+    let visible_groups: Vec<_> = visible_groups.into_iter().collect();
+    for (index, (left_profile, left_values)) in visible_groups.iter().enumerate() {
+        for (right_profile, right_values) in visible_groups.iter().skip(index + 1) {
+            let overlap =
+                crate::go_build_profile::go_same_package_visible(left_profile, right_profile)
+                    || crate::go_build_profile::go_same_package_visible(
+                        right_profile,
+                        left_profile,
+                    );
+            if !overlap && left_values != right_values {
+                evidence.conflict = true;
+                return GoPartitionSelection {
+                    value: None,
+                    evidence,
+                };
+            }
+        }
     }
+    let selected: BTreeSet<T> = visible_groups
+        .into_iter()
+        .flat_map(|(_, values)| values)
+        .collect();
+    evidence.distinct_visible_values = selected.len();
     evidence.recovered =
-        all_sets.len() > 1 && evidence.filtered_declarations > 0 && visible_sets.len() == 1;
+        all_sets.len() > 1 && evidence.filtered_declarations > 0 && !selected.is_empty();
     GoPartitionSelection {
-        value: visible_sets.into_iter().next(),
+        value: (!selected.is_empty()).then_some(selected),
         evidence,
     }
 }
@@ -228,230 +317,6 @@ pub fn select_struct_field(
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RouteError {
-    Conflict,
-    Uncertain,
-}
-
-fn visible_own_method(
-    owner: &GoOwnerIdentity,
-    caller_file: &str,
-    mode: GoOwnerReferenceMode,
-    method_name: &str,
-    declarations: &GoMethodDeclarations,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
-    evidence: &mut GoPartitionEvidence,
-) -> Result<bool, RouteError> {
-    for declaration in declarations.get(owner).into_iter().flatten() {
-        if declaration.method_name != method_name {
-            continue;
-        }
-        let (visible, exact) = exact_declaration_visibility(
-            owner,
-            caller_file,
-            mode,
-            &declaration.defining_file,
-            profiles,
-        );
-        if !visible {
-            evidence.filtered_declarations += 1;
-        } else if !exact {
-            return Err(RouteError::Uncertain);
-        } else {
-            return Ok(true);
-        }
-    }
-    Ok(false)
-}
-
-#[allow(clippy::too_many_arguments)]
-fn interface_has_method(
-    owner: &GoOwnerIdentity,
-    caller_file: &str,
-    mode: GoOwnerReferenceMode,
-    method_name: &str,
-    declarations: &GoInterfaceDeclarations,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
-    evidence: &mut GoPartitionEvidence,
-    visiting: &mut BTreeSet<GoOwnerIdentity>,
-) -> Result<bool, RouteError> {
-    if !visiting.insert(owner.clone()) {
-        return Err(RouteError::Uncertain);
-    }
-    let mut values = BTreeSet::new();
-    for declaration in declarations.get(owner).into_iter().flatten() {
-        let (visible, exact) = exact_declaration_visibility(
-            owner,
-            caller_file,
-            mode,
-            &declaration.defining_file,
-            profiles,
-        );
-        if !visible {
-            evidence.filtered_declarations += 1;
-            continue;
-        }
-        if !exact {
-            visiting.remove(owner);
-            return Err(RouteError::Uncertain);
-        }
-        let mut has_method = !declaration.generic && declaration.methods.contains(method_name);
-        if !declaration.generic {
-            for embedded in &declaration.embedded_types {
-                let embedded_owner = GoOwnerIdentity {
-                    package_dir: owner.package_dir.clone(),
-                    package_clause: owner.package_clause.clone(),
-                    name: embedded.clone(),
-                };
-                has_method |= interface_has_method(
-                    &embedded_owner,
-                    caller_file,
-                    mode,
-                    method_name,
-                    declarations,
-                    profiles,
-                    evidence,
-                    visiting,
-                )?;
-            }
-        }
-        values.insert(has_method);
-    }
-    visiting.remove(owner);
-    if values.len() > 1 {
-        Err(RouteError::Conflict)
-    } else {
-        Ok(values.into_iter().next().unwrap_or(false))
-    }
-}
-
-/// Select the one embedded-interface provider visible to a caller. A route is
-/// present only when every visible, exact struct declaration agrees. Field or
-/// method shadowing is represented as absence, so present/absent disagreement
-/// drops just like two different interface providers.
-#[allow(clippy::too_many_arguments)]
-pub fn select_embedded_interface_route(
-    owner: &GoOwnerIdentity,
-    caller_file: &str,
-    owner_type_text: &str,
-    method_name: &str,
-    struct_declarations: &GoStructDeclarations,
-    interface_declarations: &GoInterfaceDeclarations,
-    method_declarations: &GoMethodDeclarations,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
-) -> GoPartitionSelection<String> {
-    let Some(declarations) = struct_declarations.get(owner) else {
-        return GoPartitionSelection::default();
-    };
-    let mode = GoOwnerReferenceMode::from_type_text(owner_type_text);
-    let mut evidence = GoPartitionEvidence::default();
-    let own_method = match visible_own_method(
-        owner,
-        caller_file,
-        mode,
-        method_name,
-        method_declarations,
-        profiles,
-        &mut evidence,
-    ) {
-        Ok(value) => value,
-        Err(RouteError::Conflict) => {
-            evidence.conflict = true;
-            return GoPartitionSelection {
-                value: None,
-                evidence,
-            };
-        }
-        Err(RouteError::Uncertain) => {
-            evidence.uncertain = true;
-            return GoPartitionSelection {
-                value: None,
-                evidence,
-            };
-        }
-    };
-    let mut values = BTreeSet::new();
-    for declaration in declarations {
-        let (visible, exact) = exact_declaration_visibility(
-            owner,
-            caller_file,
-            mode,
-            &declaration.defining_file,
-            profiles,
-        );
-        if !visible {
-            evidence.filtered_declarations += 1;
-            continue;
-        }
-        evidence.visible_declarations += 1;
-        if !exact {
-            evidence.uncertain = true;
-            return GoPartitionSelection {
-                value: None,
-                evidence,
-            };
-        }
-        if own_method || declaration.fields.contains_key(method_name) {
-            values.insert(None);
-            continue;
-        }
-        let mut candidates = BTreeSet::new();
-        for embedded in &declaration.embedded_types {
-            let interface_owner = GoOwnerIdentity {
-                package_dir: owner.package_dir.clone(),
-                package_clause: owner.package_clause.clone(),
-                name: embedded.clone(),
-            };
-            match interface_has_method(
-                &interface_owner,
-                caller_file,
-                mode,
-                method_name,
-                interface_declarations,
-                profiles,
-                &mut evidence,
-                &mut BTreeSet::new(),
-            ) {
-                Ok(true) => {
-                    candidates.insert(embedded.clone());
-                }
-                Ok(false) => {}
-                Err(RouteError::Conflict) => {
-                    evidence.conflict = true;
-                    return GoPartitionSelection {
-                        value: None,
-                        evidence,
-                    };
-                }
-                Err(RouteError::Uncertain) => {
-                    evidence.uncertain = true;
-                    return GoPartitionSelection {
-                        value: None,
-                        evidence,
-                    };
-                }
-            }
-        }
-        if candidates.len() > 1 {
-            evidence.conflict = true;
-            return GoPartitionSelection {
-                value: None,
-                evidence,
-            };
-        }
-        values.insert(candidates.into_iter().next());
-    }
-    evidence.distinct_visible_values = values.len();
-    if values.len() > 1 {
-        evidence.conflict = true;
-        return GoPartitionSelection {
-            value: None,
-            evidence,
-        };
-    }
-    GoPartitionSelection {
-        value: values.into_iter().next().flatten(),
-        evidence,
-    }
-}
+pub use crate::go_owner_partition_s4::{
+    select_embedded_interface_route, select_interface_signatures, select_own_method,
+};

@@ -387,6 +387,18 @@ pub fn classify_go_receiver_expanded(
     facts: &GoReceiverFacts<'_>,
     var_local: bool,
 ) -> ReceiverClassification {
+    classify_go_receiver_expanded_with_partition(ctx, base_classifier, facts, var_local).0
+}
+
+pub(crate) fn classify_go_receiver_expanded_with_partition(
+    ctx: &GoReceiverCtx<'_>,
+    base_classifier: &dyn ReceiverClassifier,
+    facts: &GoReceiverFacts<'_>,
+    var_local: bool,
+) -> (
+    ReceiverClassification,
+    crate::go_owner_partition::GoPartitionEvidence,
+) {
     let rctx = ReceiverCtx {
         receiver_expr: Some(ctx.receiver_expr),
         qualifier: Some(ctx.qualifier),
@@ -399,17 +411,22 @@ pub fn classify_go_receiver_expanded(
     };
     let baseline = base_classifier.classify(rctx);
     if baseline.recovered.is_some() {
-        return baseline;
+        return (baseline, Default::default());
     }
 
     if ctx.qualifier.contains('.') {
-        if let Some(rec) = classify_nested_selector(ctx, base_classifier, facts, var_local) {
-            return ReceiverClassification {
-                recovered: Some(rec),
-                materialized: true,
-            };
+        let (recovered, evidence) =
+            classify_nested_selector(ctx, base_classifier, facts, var_local);
+        if let Some(rec) = recovered {
+            return (
+                ReceiverClassification {
+                    recovered: Some(rec),
+                    materialized: true,
+                },
+                evidence,
+            );
         }
-        return baseline;
+        return (baseline, evidence);
     }
 
     // Same suppression gate `classify_simple_ident` applies (resolution.rs):
@@ -425,7 +442,7 @@ pub fn classify_go_receiver_expanded(
         .map(|m| m.contains_key(ctx.qualifier))
         .unwrap_or(false);
     if !is_simple_ident_text(ctx.qualifier) || is_kw || is_recv || is_import {
-        return baseline;
+        return (baseline, Default::default());
     }
 
     // `var_local` (not hardcoded `true`): must match the SAME flag
@@ -441,17 +458,20 @@ pub fn classify_go_receiver_expanded(
         var_local,
     );
     if bindings > 1 {
-        return baseline; // ambiguous/shadowed — unchanged.
+        return (baseline, Default::default()); // ambiguous/shadowed — unchanged.
     }
     if let Some((ty, how)) = found {
         let static_type = owner_key(&peel_type(&ty));
-        return ReceiverClassification {
-            recovered: Some(RecoveredReceiver {
-                static_type,
-                recovery: how,
-            }),
-            materialized: true,
-        };
+        return (
+            ReceiverClassification {
+                recovered: Some(RecoveredReceiver {
+                    static_type,
+                    recovery: how,
+                }),
+                materialized: true,
+            },
+            Default::default(),
+        );
     }
     if bindings == 0 {
         // S3 is the package-scope generalization of the SAME `var`-decl
@@ -467,16 +487,19 @@ pub fn classify_go_receiver_expanded(
                 unique_visible_type(ctx.caller_file, entries, facts.go_file_profiles)
             }) {
                 let static_type = owner_key(&peel_type(&ty));
-                return ReceiverClassification {
-                    recovered: Some(RecoveredReceiver {
-                        static_type,
-                        recovery: ReceiverRecovery::VarDecl,
-                    }),
-                    materialized: true,
-                };
+                return (
+                    ReceiverClassification {
+                        recovered: Some(RecoveredReceiver {
+                            static_type,
+                            recovery: ReceiverRecovery::VarDecl,
+                        }),
+                        materialized: true,
+                    },
+                    Default::default(),
+                );
             }
         }
-        return baseline;
+        return (baseline, Default::default());
     }
     // bindings == 1 && found.is_none(): exactly one qualifying local
     // statement bound this name but its type wasn't recoverable via the
@@ -496,16 +519,19 @@ pub fn classify_go_receiver_expanded(
             facts.go_file_profiles,
         ) {
             let static_type = owner_key(&peel_type(&ty));
-            return ReceiverClassification {
-                recovered: Some(RecoveredReceiver {
-                    static_type,
-                    recovery: ReceiverRecovery::ReturnTyped,
-                }),
-                materialized: true,
-            };
+            return (
+                ReceiverClassification {
+                    recovered: Some(RecoveredReceiver {
+                        static_type,
+                        recovery: ReceiverRecovery::ReturnTyped,
+                    }),
+                    materialized: true,
+                },
+                Default::default(),
+            );
         }
     }
-    baseline
+    (baseline, Default::default())
 }
 
 /// S2: base + up to 2 field hops, AST-shaped, any miss (unresolved base,
@@ -516,14 +542,21 @@ fn classify_nested_selector(
     base_classifier: &dyn ReceiverClassifier,
     facts: &GoReceiverFacts<'_>,
     var_local: bool,
-) -> Option<RecoveredReceiver> {
-    let (base_node, segments) = decompose_go_selector_chain(ctx.receiver_expr, ctx.parsed)?;
+) -> (
+    Option<RecoveredReceiver>,
+    crate::go_owner_partition::GoPartitionEvidence,
+) {
+    let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
+    let Some((base_node, segments)) = decompose_go_selector_chain(ctx.receiver_expr, ctx.parsed)
+    else {
+        return (None, evidence);
+    };
     if segments.is_empty() || segments.len() > 2 {
-        return None; // 3+-hop chain — depth guard, no recovery.
+        return (None, evidence); // 3+-hop chain — depth guard, no recovery.
     }
     let base_text = ctx.parsed.node_text(&base_node).trim();
     if !is_simple_ident_text(base_text) {
-        return None;
+        return (None, evidence);
     }
     let base_ctx = GoReceiverCtx {
         parsed: ctx.parsed,
@@ -538,32 +571,45 @@ fn classify_nested_selector(
     };
     // Recurse through the SAME simple-ident + S1/S3 machinery for the base —
     // terminates in one level since `base_text` is never dotted.
-    let base_recovered =
-        classify_go_receiver_expanded(&base_ctx, base_classifier, facts, var_local).recovered?;
+    let Some(base_recovered) =
+        classify_go_receiver_expanded(&base_ctx, base_classifier, facts, var_local).recovered
+    else {
+        return (None, evidence);
+    };
 
     let mut current = base_recovered.static_type;
     for seg in segments {
-        let owner = resolve_go_owner_identity(
+        let Some(owner) = resolve_go_owner_identity(
             &current,
             ctx.caller_file,
             facts.imports,
             facts.package_basenames,
             facts.go_file_profiles,
-        )?;
-        let declarations = facts.field_types.get(&owner)?;
-        let field_ty = crate::go_owner_partition::select_struct_field(
+        ) else {
+            return (None, evidence);
+        };
+        let Some(declarations) = facts.field_types.get(&owner) else {
+            return (None, evidence);
+        };
+        let selection = crate::go_owner_partition::select_struct_field(
             &owner,
             ctx.caller_file,
             &current,
             &seg,
             declarations,
             facts.go_file_profiles,
-        )
-        .value?;
+        );
+        evidence.merge(selection.evidence);
+        let Some(field_ty) = selection.value else {
+            return (None, evidence);
+        };
         current = owner_key(&peel_type(&field_ty));
     }
-    Some(RecoveredReceiver {
-        static_type: current,
-        recovery: ReceiverRecovery::FieldTyped,
-    })
+    (
+        Some(RecoveredReceiver {
+            static_type: current,
+            recovery: ReceiverRecovery::FieldTyped,
+        }),
+        evidence,
+    )
 }

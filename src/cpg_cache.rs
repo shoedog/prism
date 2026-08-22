@@ -105,14 +105,14 @@ use std::path::{Path, PathBuf};
 ///   change, mirrors `PropertyAccess`).
 /// - v38: P11 Go receiver typing — CallGraph gains `go_return_types` (S1),
 ///   `go_field_types` (S2), `go_package_vars` (S3),
-///   `go_embedded_interface_methods` (S4); a new post-merge Go receiver
+///   embedded-interface route facts (S4); a new post-merge Go receiver
 ///   rematerialization pass changes which Go `CallSite`s carry a recovered
 ///   `receiver_type`/`receiver_recovery` (S1 call-RHS, S2 nested-selector,
 ///   S3 package var); S4 adds an additive Exact `InterfaceDispatch` route for
 ///   a struct receiver whose method comes only from a directly embedded
 ///   in-repo interface; new `ResolutionKind::{ReturnTyped, FieldTyped}`
 ///   (resolution behavior change: new Go Exact/NameOnly edges).
-///   `go_embedded_interface_methods` is keyed by `GoOwnerIdentity`
+///   embedded-interface routes are keyed by `GoOwnerIdentity`
 ///   (package-scoped); Go binding walks are fenced by func_literal lexical
 ///   scope; S4 gate failure drops instead of falling through.
 /// - v39: Go build-profile same-package partitioning. CallGraph gains
@@ -129,7 +129,9 @@ use std::path::{Path, PathBuf};
 /// - v41: persisted Step-5b arg→param DataFlow edges now select byte-contained
 ///   occurrences across multi-line call arguments. The corresponding trace
 ///   descent-gate check is in-memory only.
-const CACHE_VERSION: u32 = 41; // 41: byte-contained multi-line Step-5b arg→param edges.
+/// - v42: P10 Go owner identities carry package clauses; S2/S4/P5 persist raw
+///   declaration snapshots, registration provenance, and partition telemetry.
+const CACHE_VERSION: u32 = 42;
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -647,10 +649,10 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_41_for_multiline_step5b_arg_edges() {
-        // v41: byte-contained multi-line Step-5b arg→param DataFlow edges.
+    fn cache_version_is_42_for_go_owner_partition_snapshots() {
+        // v42: clause-bearing identities, declaration snapshots, and telemetry.
         // One transition ships per PR.
-        assert_eq!(super::CACHE_VERSION, 41);
+        assert_eq!(super::CACHE_VERSION, 42);
     }
 
     #[test]

@@ -49,6 +49,7 @@ pub mod framework_entries;
 pub mod frameworks;
 pub mod go_build_profile;
 pub mod go_owner_partition;
+mod go_owner_partition_s4;
 mod go_receiver_index;
 pub mod js_exports;
 pub mod languages;
