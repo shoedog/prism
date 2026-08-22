@@ -225,6 +225,76 @@ fn lazy_runtime_reports_build_failures_then_retries_until_success() {
     assert_eq!(provider.last_error(), None);
 }
 
+#[test]
+fn lazy_refresh_returns_warming_then_delegates_and_preserves_raced_stale_evidence() {
+    use std::sync::{mpsc, Arc, Mutex};
+
+    let dir = tempfile::tempdir().unwrap();
+    write_file(dir.path(), "a.py", "def old():\n    return 1\n");
+    let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
+    cfg.cache = crate::mcp::CacheMode::NoCache;
+    let (release, rx) = mpsc::channel();
+    let rx = Arc::new(Mutex::new(rx));
+    let builder_cfg = cfg.clone();
+    let builder: crate::mcp::lazy::SessionBuilder = Arc::new(move || {
+        rx.lock().unwrap().recv().unwrap();
+        crate::mcp::SessionProvider::bootstrap(&builder_cfg)
+    });
+    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
+        &cfg,
+        std::time::Duration::ZERO,
+        builder,
+    )
+    .unwrap();
+    let request = r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"refresh_index","arguments":{}}}"#;
+
+    let warming = call_tool_at_cap_with_mode(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        request,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::Always,
+    );
+    assert_warming_result(&warming, crate::mcp::output::StructuredContentMode::Always);
+    assert_eq!(provider.attempts(), 1);
+
+    release.send(()).unwrap();
+    for _ in 0..100 {
+        if matches!(provider.ensure_ready(), crate::mcp::lazy::Readiness::Ready) {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    assert!(
+        provider.ready().is_some(),
+        "released lazy build must become ready"
+    );
+
+    std::fs::write(dir.path().join("a.py"), "def fresh():\n    return 2\n").unwrap();
+    provider
+        .ready_mut()
+        .unwrap()
+        .force_next_verification_for_tests(RefreshVerification::Diverged(
+            FreshnessReport::from_changed_paths(["a.py".to_string()]),
+        ));
+    let raced = call_tool_at_cap_with_mode(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        request,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::Always,
+    );
+    let result = &raced["result"];
+    assert_eq!(result["isError"], false);
+    assert_eq!(evidence_of(result)["status"], "raced_stale");
+    assert_eq!(evidence_of(result)["generation"], 1);
+    assert_eq!(
+        provider.attempts(),
+        1,
+        "refresh must not start another build"
+    );
+}
+
 struct FailingAutoRuntime {
     provider: crate::mcp::SessionProvider,
 }
