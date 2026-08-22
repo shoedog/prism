@@ -38,7 +38,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // receiver recovery, changing Go call-edge topology.
 // v12: qualified embedded targets fail closed and invalid pointer-interface
 // pseudo-fields no longer recover through S2, changing Go call-edge topology.
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 12;
+// v13: qualified pointer embeds also fail closed in S2 because their target's
+// interface status cannot be established without provider-local imports.
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 13;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -361,8 +363,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_12() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 12);
+    fn sidecar_version_is_13() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 13);
     }
 
     #[test]

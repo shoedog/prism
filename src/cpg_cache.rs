@@ -133,7 +133,9 @@ use std::path::{Path, PathBuf};
 ///   selector/raw-type split, changing embedding promotion and S2/S4 facts.
 /// - v43: qualified embedded targets fail closed instead of colliding with a
 ///   local bare target; invalid pointer-interface pseudo-fields leave S2.
-const CACHE_VERSION: u32 = 43; // 43: corrected Go embedded-field topology.
+/// - v44: qualified pointer embeds also leave S2; their target's interface
+///   status cannot be established without provider-local import resolution.
+const CACHE_VERSION: u32 = 44; // 44: corrected Go embedded-field topology.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -651,10 +653,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_43_for_corrected_go_embedded_field_topology() {
-        // v43: qualified targets and invalid pointer-interface S2 facts.
-        // One transition ships per PR.
-        assert_eq!(super::CACHE_VERSION, 43);
+    fn cache_version_is_44_for_corrected_go_embedded_field_topology() {
+        // v44: qualified pointer embeds also leave S2.
+        assert_eq!(super::CACHE_VERSION, 44);
     }
 
     #[test]

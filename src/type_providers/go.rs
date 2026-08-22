@@ -699,16 +699,19 @@ impl GoTypeProvider {
 
     /// Go rejects `struct { *I }` when `I` is an interface. Tree-sitter still
     /// parses it, so remove its implicit selector from S2's field index after
-    /// the whole repository has supplied the interface definitions.
+    /// the whole repository has supplied the interface definitions. A
+    /// qualified pointer target needs package-aware type resolution to decide
+    /// this, so it also fails closed rather than leaking an invalid `*pkg.I`.
     fn remove_invalid_pointer_interface_pseudo_fields(data: &mut GoTypeData) {
         let mut invalid = Vec::new();
         for (owner, embeds) in &data.struct_embeds {
             for embedded in embeds {
-                if embedded.is_pointer
-                    && embedded
-                        .local_target_name()
-                        .is_some_and(|target| data.interfaces.contains_key(target))
-                {
+                let is_invalid = embedded.is_pointer
+                    && match embedded.local_target_name() {
+                        Some(target) => data.interfaces.contains_key(target),
+                        None => true,
+                    };
+                if is_invalid {
                     invalid.push((owner.clone(), embedded.name.clone()));
                 }
             }

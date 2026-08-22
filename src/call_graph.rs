@@ -6451,6 +6451,36 @@ mod go_receiver_typing_tests {
     }
 
     #[test]
+    fn s2_qualified_pointer_embedded_interface_never_recovers() {
+        let cg = build_go(&[
+            (
+                "ext/types.go",
+                "package ext\n\
+                 type I interface { Do() }\n\
+                 type Concrete struct{}\n\
+                 func (c Concrete) Do() {}\n",
+            ),
+            (
+                "main.go",
+                "package main\n\
+                 import \"github.com/x/y/ext\"\n\
+                 type Holder struct { *ext.I }\n\
+                 func nested(h Holder) { h.I.Do() }\n",
+            ),
+        ]);
+        let nested = site_in(&cg, "nested", "Do");
+        assert_eq!(nested.receiver_type, None);
+        assert_eq!(nested.receiver_recovery, None);
+        assert!(
+            cg.resolve_call_site_full(nested)
+                .resolved
+                .iter()
+                .all(|candidate| candidate.kind != ResolutionKind::InterfaceDispatch),
+            "invalid *ext.I embed must not recover h.I for interface dispatch"
+        );
+    }
+
+    #[test]
     fn qualified_embedded_struct_does_not_promote_unrelated_local_bare_target() {
         let cg = build_go(&[(
             "main.go",
