@@ -260,12 +260,17 @@ mod tests {
             }
         }
 
-        fn wait(&self) {
+        fn wait_next(&mut self) {
             self.published
                 .as_ref()
                 .expect("blocking builder publication must be awaited once")
                 .recv_timeout(Duration::from_secs(5))
                 .expect("blocking builder must publish after release");
+        }
+
+        fn wait(&mut self) {
+            self.wait_next();
+            self.published.take();
         }
 
         fn finish(&mut self) {
@@ -426,7 +431,7 @@ mod tests {
 
         assert!(matches!(provider.ensure_ready(), Readiness::Failed { .. }));
         assert_eq!(provider.attempts(), 1);
-        build.wait();
+        build.wait_next();
 
         let retry_started = Instant::now();
         match provider.ensure_ready() {
