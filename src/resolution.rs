@@ -1365,7 +1365,11 @@ impl CallGraph {
                     .is_some_and(|method| {
                         !method.generic
                             && !method.is_pointer_receiver
-                            && method.signature.as_ref() == Some(signature)
+                            && method.signature.as_ref().is_some_and(|candidate| {
+                                crate::type_providers::go::GoTypeProvider::canon_signatures_match(
+                                    candidate, signature,
+                                )
+                            })
                     })
             });
             let pointer_matches = required.iter().all(|(name, signature)| {
@@ -1373,7 +1377,12 @@ impl CallGraph {
                     .get(name.as_str())
                     .and_then(|methods| methods.first())
                     .is_some_and(|method| {
-                        !method.generic && method.signature.as_ref() == Some(signature)
+                        !method.generic
+                            && method.signature.as_ref().is_some_and(|candidate| {
+                                crate::type_providers::go::GoTypeProvider::canon_signatures_match(
+                                    candidate, signature,
+                                )
+                            })
                     })
             });
             let Some(target) = visible_methods
@@ -2311,18 +2320,17 @@ impl CallGraph {
                             .collect();
                         let direct = match &own_method_partition {
                             Some((_, selection)) if selection.value == Some(false) => None,
-                            Some((owner, _)) => {
-                                let ids: Vec<&FunctionId> = self
+                            Some((owner, _)) if site.receiver_owner_identity.is_some() => {
+                                let ids = self
                                     .go_method_declarations
                                     .get(owner)
                                     .into_iter()
                                     .flatten()
                                     .filter(|declaration| declaration.method_name == name)
-                                    .map(|declaration| &declaration.function_id)
-                                    .collect();
+                                    .map(|declaration| &declaration.function_id);
                                 Some(exact(ids, ResolutionKind::QualifiedOwner))
                             }
-                            None => legacy_direct,
+                            _ => legacy_direct,
                         };
                         match direct {
                             Some(mut resolved) => {

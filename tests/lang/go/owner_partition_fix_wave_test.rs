@@ -1,5 +1,5 @@
 use prism::ast::ParsedFile;
-use prism::call_graph::CallGraph;
+use prism::call_graph::{CallGraph, ScopeGraphBuildInputs};
 use prism::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -14,6 +14,35 @@ fn build_go(sources: &[(&str, &str)]) -> CallGraph {
         })
         .collect();
     CallGraph::build(&files)
+}
+
+fn build_go_with_module(sources: &[(&str, &str)], module_path: &str) -> CallGraph {
+    build_go_with_modules(sources, &[("", module_path)])
+}
+
+fn build_go_with_modules(sources: &[(&str, &str)], modules: &[(&str, &str)]) -> CallGraph {
+    let files: BTreeMap<String, ParsedFile> = sources
+        .iter()
+        .map(|(path, source)| {
+            (
+                (*path).to_string(),
+                ParsedFile::parse(path, source, Language::Go).expect("parse Go fixture"),
+            )
+        })
+        .collect();
+    let repo = tempfile::tempdir().expect("temporary Go module root");
+    for (directory, module_path) in modules {
+        let module_root = repo.path().join(directory);
+        std::fs::create_dir_all(&module_root).expect("create Go module fixture directory");
+        std::fs::write(
+            module_root.join("go.mod"),
+            format!("module {module_path}\n\ngo 1.22\n"),
+        )
+        .expect("write go.mod fixture");
+    }
+    let mut inputs = ScopeGraphBuildInputs::from_files_convention(&files);
+    inputs.repo_root = repo.path().to_path_buf();
+    CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs))
 }
 
 fn resolved_method_owners(cg: &CallGraph, caller: &str, method: &str) -> BTreeSet<String> {
@@ -471,6 +500,124 @@ fn s4_qualified_parameter_types_never_match_by_bare_name() {
 
     assert!(resolved_method_owners(&cg, "invoke", "Act").is_empty());
     assert!(manifest_owners(&cg, "lib/defs.go", "Act").is_empty());
+}
+
+#[test]
+fn s4_qualified_context_signature_matches_same_import_path_across_aliases() {
+    let cg = build_go(&[
+        (
+            "lib/defs.go",
+            "package lib\nimport ifacectx \"context\"\ntype Doer interface { Act(ifacectx.Context) }\ntype Holder struct { Doer }\nfunc invoke(h Holder, ctx ifacectx.Context) { h.Act(ctx) }\n",
+        ),
+        (
+            "other/impl.go",
+            "package other\nimport implctx \"context\"\ntype Impl struct{}\nfunc (Impl) Act(implctx.Context) {}\n",
+        ),
+    ]);
+    let expected = BTreeSet::from(["Impl".to_string()]);
+
+    assert_eq!(resolved_method_owners(&cg, "invoke", "Act"), expected);
+    assert_eq!(manifest_owners(&cg, "lib/defs.go", "Act"), expected);
+}
+
+#[test]
+fn s4_module_major_version_default_name_matches_explicit_alias() {
+    let cg = build_go(&[
+        (
+            "lib/defs.go",
+            "package lib\nimport \"example/widget/v2\"\ntype Doer interface { Act(widget.Context) }\ntype Holder struct { Doer }\nfunc invoke(h Holder, ctx widget.Context) { h.Act(ctx) }\n",
+        ),
+        (
+            "other/impl.go",
+            "package other\nimport implwidget \"example/widget/v2\"\ntype Impl struct{}\nfunc (Impl) Act(implwidget.Context) {}\n",
+        ),
+    ]);
+    let expected = BTreeSet::from(["Impl".to_string()]);
+
+    assert_eq!(resolved_method_owners(&cg, "invoke", "Act"), expected);
+    assert_eq!(manifest_owners(&cg, "lib/defs.go", "Act"), expected);
+}
+
+#[test]
+fn s4_local_module_type_matches_its_imported_identity_without_name_only_fallback() {
+    let cg = build_go_with_module(
+        &[
+            (
+                "context.go",
+                "package caddy\ntype Context struct{}\ntype Provisioner interface { Provision(Context) }\ntype Holder struct { Provisioner }\nfunc invoke(h Holder, ctx Context) { h.Provision(ctx) }\n",
+            ),
+            (
+                "direct.go",
+                "package caddy\nfunc invokeDirect(p Provisioner, ctx Context) { p.Provision(ctx) }\n",
+            ),
+            (
+                "good/impl.go",
+                "package good\nimport caddy \"example/caddy/v2\"\ntype Impl struct{}\nfunc (Impl) Provision(caddy.Context) {}\n",
+            ),
+            (
+                "other/context.go",
+                "package other\ntype Context struct{}\n",
+            ),
+            (
+                "bad/impl.go",
+                "package bad\nimport other \"example/caddy/v2/other\"\ntype Decoy struct{}\nfunc (Decoy) Provision(other.Context) {}\n",
+            ),
+        ],
+        "example/caddy/v2",
+    );
+    let expected = BTreeSet::from(["Impl".to_string()]);
+
+    assert_eq!(resolved_method_owners(&cg, "invoke", "Provision"), expected);
+    assert_eq!(manifest_owners(&cg, "context.go", "Provision"), expected);
+    assert_eq!(
+        resolved_method_owners(&cg, "invokeDirect", "Provision"),
+        expected
+    );
+    assert_eq!(manifest_owners(&cg, "direct.go", "Provision"), expected);
+}
+
+#[test]
+fn s4_nested_module_mixed_bare_and_qualified_types_fail_closed() {
+    let cg = build_go_with_modules(
+        &[
+            (
+                "nested/context.go",
+                "package nested\ntype Context struct{}\ntype Doer interface { Act(Context) }\ntype Holder struct { Doer }\nfunc invoke(h Holder, ctx Context) { h.Act(ctx) }\n",
+            ),
+            (
+                "good/impl.go",
+                "package good\nimport nested \"example/nested\"\ntype Impl struct{}\nfunc (Impl) Act(nested.Context) {}\n",
+            ),
+            (
+                "bad/impl.go",
+                "package bad\nimport wrong \"example/root/nested\"\ntype Decoy struct{}\nfunc (Decoy) Act(wrong.Context) {}\n",
+            ),
+        ],
+        &[("", "example/root"), ("nested", "example/nested")],
+    );
+    assert!(resolved_method_owners(&cg, "invoke", "Act").is_empty());
+    assert!(manifest_owners(&cg, "nested/context.go", "Act").is_empty());
+}
+
+#[test]
+fn s4_unqualified_named_types_keep_the_existing_bare_name_rule() {
+    let cg = build_go_with_module(
+        &[
+            (
+                "lib/defs.go",
+                "package lib\ntype ID struct{}\ntype Doer interface { Act(ID) }\ntype Holder struct { Doer }\nfunc invoke(h Holder, id ID) { h.Act(id) }\n",
+            ),
+            (
+                "other/impl.go",
+                "package other\ntype ID struct{}\ntype Impl struct{}\nfunc (Impl) Act(ID) {}\n",
+            ),
+        ],
+        "example/root",
+    );
+    let expected = BTreeSet::from(["Impl".to_string()]);
+
+    assert_eq!(resolved_method_owners(&cg, "invoke", "Act"), expected);
+    assert_eq!(manifest_owners(&cg, "lib/defs.go", "Act"), expected);
 }
 
 #[test]

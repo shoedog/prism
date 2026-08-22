@@ -19,14 +19,14 @@ use std::sync::Arc;
 pub enum GoDispatchGap {
     Generic,               // decl carries a type_parameter_list / interface type-set
     AnonymousInterface,    // non-empty anonymous interface in a signature
-    QualifiedTypeIdentity, // pkg.T requires package-aware comparison; fail closed for Exact
+    QualifiedTypeIdentity, // pkg.T alias cannot be bound to an import path; fail closed for Exact
     UnknownCanonType,      // unenumerated type node — fail closed
 }
 
 /// Admitted over-approximation — the Exact edge IS minted; a precision counter (spec §15).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GoDispatchOverApprox {
-    CrossPackageBareName, // legacy telemetry variant; qualified signatures now gap
+    CrossPackageBareName, // legacy telemetry variant; qualified signatures are now import-aware
     NonLocalConstructionFallback, // empty-live fallback fired: full satisfier set
 }
 
@@ -247,6 +247,23 @@ struct CanonMethod {
     func_id: FunctionId,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum CanonNameKind {
+    Bare,
+    Local,
+    Qualified,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum CanonSignatureToken {
+    Symbol(char),
+    Name {
+        kind: CanonNameKind,
+        path: String,
+        name: String,
+    },
+}
+
 #[derive(Debug, Default)]
 struct ReceiverMethodSet {
     value: BTreeMap<String, CanonMethod>,
@@ -266,6 +283,16 @@ pub struct GoTypeProvider {
 impl GoTypeProvider {
     /// Build a GoTypeProvider by scanning all Go parsed files.
     pub fn from_parsed_files(files: &BTreeMap<String, ParsedFile>) -> Self {
+        Self::from_parsed_files_with_package_import_paths(files, &BTreeMap::new())
+    }
+
+    /// Build with each file's package import path when repository manifests prove it.
+    /// This lets an unqualified package-local `T` compare exactly with another
+    /// file's imported `pkg.T` without falling back to bare-name identity.
+    pub(crate) fn from_parsed_files_with_package_import_paths(
+        files: &BTreeMap<String, ParsedFile>,
+        package_import_paths: &BTreeMap<String, String>,
+    ) -> Self {
         let mut inner = GoTypeData {
             structs: BTreeMap::new(),
             interfaces: BTreeMap::new(),
@@ -291,19 +318,55 @@ impl GoTypeProvider {
             embedded_interface_routes: BTreeMap::new(),
         };
 
+        let (go_file_profiles, _) = crate::go_build_profile::extract_go_file_profiles(files);
+        let local_import_paths = Self::local_import_paths(package_import_paths, &go_file_profiles);
+
         for (path, parsed) in files {
             if parsed.language != Language::Go {
                 continue;
             }
-            Self::extract_from_file(&mut inner, path, parsed);
+            Self::extract_from_file(
+                &mut inner,
+                path,
+                parsed,
+                local_import_paths.get(path).map(String::as_str),
+            );
         }
 
-        let (go_file_profiles, _) = crate::go_build_profile::extract_go_file_profiles(files);
         Self::remove_unproven_pointer_embed_pseudo_fields(&mut inner, &go_file_profiles);
         Self::compute_satisfaction(&mut inner);
         GoTypeProvider {
             data: Arc::new(inner),
         }
+    }
+
+    fn local_import_paths(
+        package_import_paths: &BTreeMap<String, String>,
+        profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    ) -> BTreeMap<String, String> {
+        let mut ordinary_clauses = BTreeMap::<String, BTreeSet<String>>::new();
+        for (path, profile) in profiles {
+            if !profile.is_test_file && !profile.package_clause.trim().is_empty() {
+                ordinary_clauses
+                    .entry(crate::resolution::dir_of(path).to_string())
+                    .or_default()
+                    .insert(profile.package_clause.clone());
+            }
+        }
+
+        profiles
+            .iter()
+            .filter_map(|(path, profile)| {
+                let dir = crate::resolution::dir_of(path);
+                let clauses = ordinary_clauses.get(dir)?;
+                (clauses.len() == 1 && clauses.contains(&profile.package_clause)).then(|| {
+                    package_import_paths
+                        .get(path)
+                        .filter(|import_path| !import_path.trim().is_empty())
+                        .map(|import_path| (path.clone(), import_path.clone()))
+                })?
+            })
+            .collect()
     }
 
     /// All method names declared on some known interface (Phase-IP PR-2 manifest
@@ -439,17 +502,22 @@ impl GoTypeProvider {
     // -----------------------------------------------------------------------
 
     /// Extract type information from a single Go file.
-    fn extract_from_file(data: &mut GoTypeData, path: &str, parsed: &ParsedFile) {
+    fn extract_from_file(
+        data: &mut GoTypeData,
+        path: &str,
+        parsed: &ParsedFile,
+        local_import_path: Option<&str>,
+    ) {
         let root = parsed.tree.root_node();
         let mut cursor = root.walk();
 
         for child in root.children(&mut cursor) {
             match child.kind() {
                 "type_declaration" => {
-                    Self::extract_type_declaration(data, &child, path, parsed);
+                    Self::extract_type_declaration(data, &child, path, parsed, local_import_path);
                 }
                 "method_declaration" => {
-                    Self::extract_method(data, &child, path, parsed);
+                    Self::extract_method(data, &child, path, parsed, local_import_path);
                 }
                 _ => {}
             }
@@ -462,11 +530,14 @@ impl GoTypeProvider {
         node: &tree_sitter::Node,
         path: &str,
         parsed: &ParsedFile,
+        local_import_path: Option<&str>,
     ) {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             match child.kind() {
-                "type_spec" => Self::extract_type_spec(data, &child, path, parsed),
+                "type_spec" => {
+                    Self::extract_type_spec(data, &child, path, parsed, local_import_path)
+                }
                 "type_alias" => Self::extract_type_alias(data, &child, path, parsed),
                 _ => {}
             }
@@ -479,6 +550,7 @@ impl GoTypeProvider {
         node: &tree_sitter::Node,
         path: &str,
         parsed: &ParsedFile,
+        local_import_path: Option<&str>,
     ) {
         let name_node = match node.child_by_field_name("name") {
             Some(n) => n,
@@ -561,7 +633,7 @@ impl GoTypeProvider {
                 let generic = Self::has_generic_syntax(node)
                     || Self::interface_type_has_type_set(&type_node, parsed);
                 let (methods, embedded, overapprox) =
-                    Self::extract_interface_methods(&type_node, parsed);
+                    Self::extract_interface_methods(&type_node, parsed, local_import_path);
                 data.dispatch_overapprox.extend(overapprox);
                 let (profile, _) = crate::go_build_profile::extract_go_file_profile(path, parsed);
                 if !profile.package_clause.trim().is_empty() {
@@ -641,28 +713,30 @@ impl GoTypeProvider {
     }
 
     fn has_generic_syntax(node: &tree_sitter::Node) -> bool {
-        Self::node_has_any_kind(
-            node,
-            &["type_parameter_list", "generic_type", "type_arguments"],
-        )
+        Self::node_has_any_kind(node, &["type_parameter_list"])
     }
 
-    /// Generic-syntax detection scoped to a declaration's SIGNATURE (receiver / type
-    /// parameters / parameters / result), never its body `block`. A generic
-    /// instantiation *inside* a method body (`var _ Box[int]`) must NOT flag the method
-    /// itself as generic — that would wrongly exclude it from satisfaction (review MAJOR).
+    /// Generic-declaration detection scoped to a function/method declaration, never its body.
+    /// Declared type parameters and a generic receiver (`R[T]`) remain non-dispatchable. An
+    /// instantiated parameter/result type (`Box[int]`) is an ordinary, comparable signature
+    /// type and must not make the declaration generic.
     /// `pub(crate)` (P11 S1): reused by `go_receiver_index.rs`'s return-type
     /// extraction so the generic-decl gate never drifts from the dispatch
     /// provider's own signature-scoped definition of "generic".
     pub(crate) fn signature_has_generic_syntax(node: &tree_sitter::Node) -> bool {
         let mut cursor = node.walk();
         let children: Vec<_> = node.children(&mut cursor).collect();
-        children.iter().filter(|c| c.kind() != "block").any(|c| {
-            Self::node_has_any_kind(
-                c,
-                &["type_parameter_list", "generic_type", "type_arguments"],
-            )
-        })
+        if children
+            .iter()
+            .filter(|c| c.kind() != "block")
+            .any(|c| Self::node_has_any_kind(c, &["type_parameter_list"]))
+        {
+            return true;
+        }
+
+        node.child_by_field_name("receiver")
+            .map(|receiver| Self::node_has_any_kind(&receiver, &["generic_type", "type_arguments"]))
+            .unwrap_or(false)
     }
 
     fn interface_type_has_type_set(node: &tree_sitter::Node, parsed: &ParsedFile) -> bool {
@@ -958,6 +1032,7 @@ impl GoTypeProvider {
     fn extract_interface_methods(
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
+        local_import_path: Option<&str>,
     ) -> (
         BTreeMap<String, Result<String, GoDispatchGap>>,
         Vec<String>,
@@ -969,7 +1044,14 @@ impl GoTypeProvider {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            Self::walk_interface_body(&child, parsed, &mut methods, &mut embedded, &mut overapprox);
+            Self::walk_interface_body(
+                &child,
+                parsed,
+                local_import_path,
+                &mut methods,
+                &mut embedded,
+                &mut overapprox,
+            );
         }
 
         (methods, embedded, overapprox)
@@ -978,6 +1060,7 @@ impl GoTypeProvider {
     fn walk_interface_body(
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
+        local_import_path: Option<&str>,
         methods: &mut BTreeMap<String, Result<String, GoDispatchGap>>,
         embedded: &mut Vec<String>,
         overapprox: &mut Vec<GoDispatchOverApprox>,
@@ -992,7 +1075,7 @@ impl GoTypeProvider {
                     }
                 }
                 if !name.is_empty() {
-                    let sig = Self::extract_method_signature(node, parsed);
+                    let sig = Self::extract_method_signature(node, parsed, local_import_path);
                     methods.insert(name, sig);
                 }
             }
@@ -1005,7 +1088,14 @@ impl GoTypeProvider {
             _ => {
                 let mut cursor = node.walk();
                 for child in node.children(&mut cursor) {
-                    Self::walk_interface_body(&child, parsed, methods, embedded, overapprox);
+                    Self::walk_interface_body(
+                        &child,
+                        parsed,
+                        local_import_path,
+                        methods,
+                        embedded,
+                        overapprox,
+                    );
                 }
             }
         }
@@ -1015,28 +1105,68 @@ impl GoTypeProvider {
     fn extract_method_signature(
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
+        local_import_path: Option<&str>,
     ) -> Result<String, GoDispatchGap> {
         Self::canon_sig(
             node.child_by_field_name("parameters").as_ref(),
             node.child_by_field_name("result").as_ref(),
             parsed,
+            local_import_path,
         )
     }
 
-    /// Canonical type string, recursive. Fails closed on unknown nodes (spec §6).
-    fn canon_type(node: &tree_sitter::Node, parsed: &ParsedFile) -> Result<String, GoDispatchGap> {
+    /// Canonical type string, recursive. Qualified leaves use their resolved import path so
+    /// aliases in different declaration files compare by package identity, not local spelling.
+    /// Fails closed on unknown nodes or an unbound qualifier (spec §6).
+    fn canon_type(
+        node: &tree_sitter::Node,
+        parsed: &ParsedFile,
+        imports: &BTreeMap<String, String>,
+    ) -> Result<String, GoDispatchGap> {
         match node.kind() {
-            "type_identifier" => Ok(parsed.node_text(node).trim().to_string()),
-            "qualified_type" => Err(GoDispatchGap::QualifiedTypeIdentity),
+            "type_identifier" => {
+                let name = parsed.node_text(node).trim();
+                if name.is_empty() {
+                    return Err(GoDispatchGap::UnknownCanonType);
+                }
+                if Self::is_predeclared_go_type(name) {
+                    return Ok(name.to_string());
+                }
+                if imports.contains_key(".") {
+                    return Err(GoDispatchGap::QualifiedTypeIdentity);
+                }
+                Ok(imports
+                    .get("")
+                    .filter(|path| !path.is_empty())
+                    .map_or_else(|| name.to_string(), |path| format!("~{path}::{name}")))
+            }
+            "qualified_type" => {
+                let package = node
+                    .child_by_field_name("package")
+                    .ok_or(GoDispatchGap::QualifiedTypeIdentity)?;
+                let name = node
+                    .child_by_field_name("name")
+                    .ok_or(GoDispatchGap::QualifiedTypeIdentity)?;
+                let alias = parsed.node_text(&package).trim();
+                let name = parsed.node_text(&name).trim();
+                let import_path = imports
+                    .get(alias)
+                    .filter(|path| !path.is_empty())
+                    .ok_or(GoDispatchGap::QualifiedTypeIdentity)?;
+                if name.is_empty() {
+                    return Err(GoDispatchGap::QualifiedTypeIdentity);
+                }
+                Ok(format!("@{import_path}::{name}"))
+            }
             "pointer_type" => {
                 let inner = node.named_child(0).ok_or(GoDispatchGap::UnknownCanonType)?;
-                Ok(format!("*{}", Self::canon_type(&inner, parsed)?))
+                Ok(format!("*{}", Self::canon_type(&inner, parsed, imports)?))
             }
             "slice_type" => {
                 let inner = node
                     .child_by_field_name("element")
                     .ok_or(GoDispatchGap::UnknownCanonType)?;
-                Ok(format!("[]{}", Self::canon_type(&inner, parsed)?))
+                Ok(format!("[]{}", Self::canon_type(&inner, parsed, imports)?))
             }
             "array_type" => {
                 let inner = node
@@ -1048,7 +1178,10 @@ impl GoTypeProvider {
                     .child_by_field_name("length")
                     .map(|n| parsed.node_text(&n).trim().to_string())
                     .unwrap_or_default();
-                Ok(format!("[{len}]{}", Self::canon_type(&inner, parsed)?))
+                Ok(format!(
+                    "[{len}]{}",
+                    Self::canon_type(&inner, parsed, imports)?
+                ))
             }
             "map_type" => {
                 let k = node
@@ -1059,8 +1192,8 @@ impl GoTypeProvider {
                     .ok_or(GoDispatchGap::UnknownCanonType)?;
                 Ok(format!(
                     "map[{}]{}",
-                    Self::canon_type(&k, parsed)?,
-                    Self::canon_type(&v, parsed)?
+                    Self::canon_type(&k, parsed, imports)?,
+                    Self::canon_type(&v, parsed, imports)?
                 ))
             }
             "channel_type" => {
@@ -1085,14 +1218,22 @@ impl GoTypeProvider {
                     return Err(GoDispatchGap::UnknownCanonType);
                 };
                 // element type is field `value` in tree-sitter-go 0.23.4 (round-4 claude MAJOR)
-                Ok(format!("{dir} {}", Self::canon_type(&inner, parsed)?))
+                Ok(format!(
+                    "{dir} {}",
+                    Self::canon_type(&inner, parsed, imports)?
+                ))
             }
             "function_type" => {
                 let params = node.child_by_field_name("parameters");
                 let result = node.child_by_field_name("result");
                 Ok(format!(
                     "func{}",
-                    Self::canon_sig(params.as_ref(), result.as_ref(), parsed)?
+                    Self::canon_sig_with_imports(
+                        params.as_ref(),
+                        result.as_ref(),
+                        parsed,
+                        imports,
+                    )?
                 ))
             }
             "interface_type" => {
@@ -1104,7 +1245,39 @@ impl GoTypeProvider {
                     Err(GoDispatchGap::AnonymousInterface)
                 }
             }
-            "generic_type" | "type_arguments" => Err(GoDispatchGap::Generic),
+            "generic_type" => {
+                let base = node
+                    .child_by_field_name("type")
+                    .ok_or(GoDispatchGap::UnknownCanonType)?;
+                let args = node
+                    .child_by_field_name("type_arguments")
+                    .ok_or(GoDispatchGap::UnknownCanonType)?;
+                Ok(format!(
+                    "{}{}",
+                    Self::canon_type(&base, parsed, imports)?,
+                    Self::canon_type(&args, parsed, imports)?
+                ))
+            }
+            "type_arguments" => {
+                let mut cursor = node.walk();
+                let args = node
+                    .named_children(&mut cursor)
+                    .map(|arg| Self::canon_type(&arg, parsed, imports))
+                    .collect::<Result<Vec<_>, _>>()?;
+                if args.is_empty() {
+                    return Err(GoDispatchGap::UnknownCanonType);
+                }
+                Ok(format!("[{}]", args.join(",")))
+            }
+            "type_elem" => {
+                let compact = parsed.node_text(node).replace(char::is_whitespace, "");
+                let mut cursor = node.walk();
+                let children: Vec<_> = node.named_children(&mut cursor).collect();
+                if compact.contains('~') || compact.contains('|') || children.len() != 1 {
+                    return Err(GoDispatchGap::Generic);
+                }
+                Self::canon_type(&children[0], parsed, imports)
+            }
             "variadic_parameter_declaration" => {
                 // handled in canon_sig; reaching here is a structural surprise
                 Err(GoDispatchGap::UnknownCanonType)
@@ -1113,10 +1286,107 @@ impl GoTypeProvider {
             // fail-closed gapped a parenthesized type instead of unwrapping it).
             "parenthesized_type" => {
                 let inner = node.named_child(0).ok_or(GoDispatchGap::UnknownCanonType)?;
-                Self::canon_type(&inner, parsed)
+                Self::canon_type(&inner, parsed, imports)
             }
             _ => Err(GoDispatchGap::UnknownCanonType),
         }
+    }
+
+    /// Compare canonical signatures while preserving the pre-existing rule for two
+    /// unqualified names. A locally-proven bare name carries enough provenance to
+    /// compare with a qualified import, but two bare spellings still compare by name.
+    pub(crate) fn canon_signatures_match(left: &str, right: &str) -> bool {
+        let (Some(left), Some(right)) = (
+            Self::canon_signature_tokens(left),
+            Self::canon_signature_tokens(right),
+        ) else {
+            return false;
+        };
+        left.len() == right.len()
+            && left
+                .iter()
+                .zip(&right)
+                .all(|(left, right)| match (left, right) {
+                    (CanonSignatureToken::Symbol(left), CanonSignatureToken::Symbol(right)) => {
+                        left == right
+                    }
+                    (
+                        CanonSignatureToken::Name {
+                            kind: left_kind,
+                            path: left_path,
+                            name: left_name,
+                        },
+                        CanonSignatureToken::Name {
+                            kind: right_kind,
+                            path: right_path,
+                            name: right_name,
+                        },
+                    ) => {
+                        if left_name != right_name {
+                            return false;
+                        }
+                        match (left_kind, right_kind) {
+                            (CanonNameKind::Qualified, CanonNameKind::Qualified)
+                            | (CanonNameKind::Qualified, CanonNameKind::Local)
+                            | (CanonNameKind::Local, CanonNameKind::Qualified) => {
+                                left_path == right_path
+                            }
+                            (CanonNameKind::Qualified, CanonNameKind::Bare)
+                            | (CanonNameKind::Bare, CanonNameKind::Qualified) => false,
+                            _ => true,
+                        }
+                    }
+                    _ => false,
+                })
+    }
+
+    fn canon_signature_tokens(signature: &str) -> Option<Vec<CanonSignatureToken>> {
+        let mut tokens = Vec::new();
+        let mut rest = signature;
+        while !rest.is_empty() {
+            let first = rest.chars().next()?;
+            if matches!(first, '@' | '~') {
+                let after_marker = &rest[first.len_utf8()..];
+                let separator = after_marker.find("::")?;
+                let path = &after_marker[..separator];
+                if path.is_empty() {
+                    return None;
+                }
+                let after_separator = &after_marker[separator + 2..];
+                let name_len = after_separator
+                    .char_indices()
+                    .take_while(|(_, ch)| *ch == '_' || ch.is_alphanumeric())
+                    .map(|(index, ch)| index + ch.len_utf8())
+                    .last()?;
+                let name = &after_separator[..name_len];
+                tokens.push(CanonSignatureToken::Name {
+                    kind: if first == '@' {
+                        CanonNameKind::Qualified
+                    } else {
+                        CanonNameKind::Local
+                    },
+                    path: path.to_string(),
+                    name: name.to_string(),
+                });
+                rest = &after_separator[name_len..];
+            } else if first == '_' || first.is_alphabetic() {
+                let name_len = rest
+                    .char_indices()
+                    .take_while(|(_, ch)| *ch == '_' || ch.is_alphanumeric())
+                    .map(|(index, ch)| index + ch.len_utf8())
+                    .last()?;
+                tokens.push(CanonSignatureToken::Name {
+                    kind: CanonNameKind::Bare,
+                    path: String::new(),
+                    name: rest[..name_len].to_string(),
+                });
+                rest = &rest[name_len..];
+            } else {
+                tokens.push(CanonSignatureToken::Symbol(first));
+                rest = &rest[first.len_utf8()..];
+            }
+        }
+        Some(tokens)
     }
 
     /// Canonical `(params)(results)`; names dropped, grouped params expanded, variadic
@@ -1125,13 +1395,109 @@ impl GoTypeProvider {
         params: Option<&tree_sitter::Node>,
         result: Option<&tree_sitter::Node>,
         parsed: &ParsedFile,
+        local_import_path: Option<&str>,
     ) -> Result<String, GoDispatchGap> {
-        let ps = Self::canon_param_list(params, parsed)?;
+        let imports = Self::signature_imports(parsed, local_import_path);
+        Self::canon_sig_with_imports(params, result, parsed, &imports)
+    }
+
+    /// Import aliases used only for signature identity. `ParsedFile::extract_imports`
+    /// deliberately uses the last path component for a default Go import, but Go module
+    /// major-version suffixes are not package names: `example/widget/v2` is normally
+    /// referenced as `widget`, and `gopkg.in/yaml.v3` as `yaml`. Add those conventional
+    /// bindings without changing the canonical value (the full import path). Explicit
+    /// aliases remain authoritative; colliding inferred aliases are omitted fail-closed.
+    fn signature_imports(
+        parsed: &ParsedFile,
+        local_import_path: Option<&str>,
+    ) -> BTreeMap<String, String> {
+        let mut imports = parsed.extract_imports();
+        if let Some(local_import_path) = local_import_path.filter(|path| !path.is_empty()) {
+            imports.insert(String::new(), local_import_path.to_string());
+        }
+        if Self::has_dot_import(parsed.tree.root_node()) {
+            imports.insert(".".to_string(), String::new());
+        }
+        let defaults: Vec<(String, String)> = imports
+            .iter()
+            .filter(|(alias, path)| path.rsplit('/').next() == Some(alias.as_str()))
+            .map(|(alias, path)| (alias.clone(), path.clone()))
+            .collect();
+        let explicit_aliases: BTreeSet<String> = imports
+            .iter()
+            .filter(|(alias, path)| path.rsplit('/').next() != Some(alias.as_str()))
+            .map(|(alias, _)| alias.clone())
+            .collect();
+        let mut inferred = BTreeMap::<String, String>::new();
+        let mut ambiguous = BTreeSet::new();
+
+        for (_, path) in defaults {
+            let Some(alias) = Self::versionless_go_import_alias(&path) else {
+                continue;
+            };
+            if explicit_aliases.contains(&alias) || ambiguous.contains(&alias) {
+                continue;
+            }
+            match inferred.get(&alias) {
+                None => {
+                    inferred.insert(alias, path);
+                }
+                Some(existing) if existing == &path => {}
+                Some(_) => {
+                    inferred.remove(&alias);
+                    ambiguous.insert(alias);
+                }
+            }
+        }
+        imports.extend(inferred);
+        imports
+    }
+
+    fn has_dot_import(node: tree_sitter::Node<'_>) -> bool {
+        if node.kind() == "import_spec" {
+            let mut cursor = node.walk();
+            return node
+                .children(&mut cursor)
+                .any(|child| child.kind() == "dot");
+        }
+        let mut cursor = node.walk();
+        let found = node.children(&mut cursor).any(Self::has_dot_import);
+        found
+    }
+
+    fn versionless_go_import_alias(path: &str) -> Option<String> {
+        let mut segments = path.rsplit('/');
+        let last = segments.next()?;
+        if Self::is_go_major_version(last) {
+            return segments
+                .next()
+                .filter(|name| !name.is_empty())
+                .map(str::to_string);
+        }
+        let (name, version) = last.rsplit_once(".v")?;
+        (!name.is_empty() && version.chars().all(|c| c.is_ascii_digit())).then(|| name.to_string())
+    }
+
+    fn is_go_major_version(segment: &str) -> bool {
+        segment.strip_prefix('v').is_some_and(|version| {
+            !version.is_empty() && version.chars().all(|c| c.is_ascii_digit())
+        })
+    }
+
+    fn canon_sig_with_imports(
+        params: Option<&tree_sitter::Node>,
+        result: Option<&tree_sitter::Node>,
+        parsed: &ParsedFile,
+        imports: &BTreeMap<String, String>,
+    ) -> Result<String, GoDispatchGap> {
+        let ps = Self::canon_param_list(params, parsed, imports)?;
         // result may be a single type node OR a parameter_list (multi/parenthesized).
         let rs = match result {
             None => Vec::new(),
-            Some(r) if r.kind() == "parameter_list" => Self::canon_param_list(Some(r), parsed)?,
-            Some(r) => vec![Self::canon_type(r, parsed)?],
+            Some(r) if r.kind() == "parameter_list" => {
+                Self::canon_param_list(Some(r), parsed, imports)?
+            }
+            Some(r) => vec![Self::canon_type(r, parsed, imports)?],
         };
         Ok(format!("({})({})", ps.join(","), rs.join(",")))
     }
@@ -1141,6 +1507,7 @@ impl GoTypeProvider {
     fn canon_param_list(
         list: Option<&tree_sitter::Node>,
         parsed: &ParsedFile,
+        imports: &BTreeMap<String, String>,
     ) -> Result<Vec<String>, GoDispatchGap> {
         let mut out = Vec::new();
         let list = match list {
@@ -1154,7 +1521,7 @@ impl GoTypeProvider {
                     let ty = decl
                         .child_by_field_name("type")
                         .ok_or(GoDispatchGap::UnknownCanonType)?;
-                    let canon = Self::canon_type(&ty, parsed)?;
+                    let canon = Self::canon_type(&ty, parsed, imports)?;
                     // grouped `(a, b int)`: count name children (>=1) -> repeat the type.
                     let names = decl
                         .children(&mut decl.walk())
@@ -1169,7 +1536,7 @@ impl GoTypeProvider {
                     let ty = decl
                         .child_by_field_name("type")
                         .ok_or(GoDispatchGap::UnknownCanonType)?;
-                    out.push(format!("...{}", Self::canon_type(&ty, parsed)?));
+                    out.push(format!("...{}", Self::canon_type(&ty, parsed, imports)?));
                 }
                 _ => {}
             }
@@ -1211,6 +1578,7 @@ impl GoTypeProvider {
             node.child_by_field_name("parameters").as_ref(),
             node.child_by_field_name("result").as_ref(),
             parsed,
+            None,
         )
     }
 
@@ -1238,6 +1606,7 @@ impl GoTypeProvider {
         node: &tree_sitter::Node,
         path: &str,
         parsed: &ParsedFile,
+        local_import_path: Option<&str>,
     ) {
         let name_node = match node.child_by_field_name("name") {
             Some(n) => n,
@@ -1250,7 +1619,7 @@ impl GoTypeProvider {
             None => return,
         };
 
-        let sig = Self::extract_func_signature(node, parsed);
+        let sig = Self::extract_func_signature(node, parsed, local_import_path);
         let generic = Self::signature_has_generic_syntax(node);
         let start_line = node.start_position().row + 1;
         let end_line = node.end_position().row + 1;
@@ -1352,11 +1721,13 @@ impl GoTypeProvider {
     fn extract_func_signature(
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
+        local_import_path: Option<&str>,
     ) -> Result<String, GoDispatchGap> {
         Self::canon_sig(
             node.child_by_field_name("parameters").as_ref(),
             node.child_by_field_name("result").as_ref(),
             parsed,
+            local_import_path,
         )
     }
 
@@ -1656,11 +2027,11 @@ impl GoTypeProvider {
     ) -> bool {
         iface.iter().all(|(method_name, iface_sig)| {
             if let Some(method) = concrete.get(method_name) {
-                return method.signature.as_str() == iface_sig.as_str();
+                return Self::canon_signatures_match(&method.signature, iface_sig);
             }
             embedded
                 .and_then(|e| e.get(method_name))
-                .map(|(_, sig)| sig.as_str() == iface_sig.as_str())
+                .map(|(_, sig)| Self::canon_signatures_match(sig, iface_sig))
                 .unwrap_or(false)
         })
     }
@@ -2882,12 +3253,51 @@ mod canon_tests {
     }
 
     #[test]
+    fn dot_import_leaves_bare_signature_identity_unprovable() {
+        let source = "package p\nimport . \"example/external\"\ntype I interface { F(Context) }\n";
+        assert_eq!(
+            sig_of(source, "F"),
+            Err(GoDispatchGap::QualifiedTypeIdentity)
+        );
+    }
+
+    #[test]
     fn parenthesized_type_unwraps() {
         // `chan (int)` ≡ `chan int` — a parenthesized element type must unwrap, not gap
         // (review MINOR). tree-sitter-go parses `chan (int)` value as a parenthesized_type.
         let paren = "package p\ntype T struct{}\nfunc (t T) C(c chan (int)) {}\n";
         let plain = "package p\ntype I interface { C(c chan int) }\n";
         assert_eq!(sig_of(paren, "C").unwrap(), sig_of(plain, "C").unwrap());
+    }
+
+    #[test]
+    fn qualified_types_preserve_import_identity_through_wrappers_and_generics() {
+        let iface = "package p\nimport (\n\tboxa \"example/box\"\n\tctxa \"context\"\n)\ntype I interface { F(map[string][]*boxa.Box[ctxa.Context]) }\n";
+        let concrete = "package p\nimport (\n\tboxb \"example/box\"\n\tctxb \"context\"\n)\ntype T struct{}\nfunc (T) F(map[string][]*boxb.Box[ctxb.Context]) {}\n";
+
+        assert_eq!(sig_of(iface, "F").unwrap(), sig_of(concrete, "F").unwrap());
+    }
+
+    #[test]
+    fn dotted_major_version_default_name_matches_explicit_alias() {
+        let default_name =
+            "package p\nimport \"gopkg.in/yaml.v3\"\ntype I interface { F(yaml.Node) }\n";
+        let explicit_alias = "package p\nimport yamlalias \"gopkg.in/yaml.v3\"\ntype T struct{}\nfunc (T) F(yamlalias.Node) {}\n";
+
+        assert_eq!(
+            sig_of(default_name, "F").unwrap(),
+            sig_of(explicit_alias, "F").unwrap()
+        );
+    }
+
+    #[test]
+    fn unresolved_qualified_type_alias_fails_closed() {
+        let source = "package p\ntype I interface { F(missing.Context) }\n";
+
+        assert_eq!(
+            sig_of(source, "F"),
+            Err(GoDispatchGap::QualifiedTypeIdentity)
+        );
     }
 }
 

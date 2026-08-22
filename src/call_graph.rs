@@ -1314,7 +1314,7 @@ impl CallGraph {
         };
         cg.refresh_rust_receiver_state(files);
         cg.apply_go_embedding_promotion(files);
-        cg.apply_go_interface_dispatch(files);
+        cg.apply_go_interface_dispatch_with_scope_inputs(files, scope_inputs);
         // P5: S1 func-typed-field index, then S2 registration scan (needs S1
         // already applied — registrations are keyed against it).
         cg.apply_go_func_value_fields(files);
@@ -2823,6 +2823,14 @@ impl CallGraph {
     }
 
     pub fn apply_go_interface_dispatch(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        self.apply_go_interface_dispatch_with_scope_inputs(files, None);
+    }
+
+    pub(crate) fn apply_go_interface_dispatch_with_scope_inputs(
+        &mut self,
+        files: &BTreeMap<String, ParsedFile>,
+        scope_inputs: Option<&ScopeGraphBuildInputs>,
+    ) {
         self.clear_interface_dispatch();
         // The dispatch pass ran (even if there are no Go files → empty result); a raw
         // build_direct_subset graph leaves this false (review MINOR 6 signal).
@@ -2837,7 +2845,12 @@ impl CallGraph {
             self.count_go_owner_identity_profile_conflicts(files);
         let live = crate::live_types::go_admission_live_set(files);
         self.go_interface_live_types = live.clone();
-        let provider = crate::type_providers::go::GoTypeProvider::from_parsed_files(files);
+        let package_import_paths = Self::go_package_import_paths(files, scope_inputs);
+        let provider =
+            crate::type_providers::go::GoTypeProvider::from_parsed_files_with_package_import_paths(
+                files,
+                &package_import_paths,
+            );
         let table = provider.compute_interface_dispatch(&live);
         self.interface_impls = table.impls;
         // Capture per-method arity for later arity-filtered dispatch (Task 2).
@@ -2865,6 +2878,101 @@ impl CallGraph {
                 .entry(format!("{o:?}"))
                 .or_insert(0) += 1;
         }
+    }
+
+    fn go_package_import_paths(
+        files: &BTreeMap<String, ParsedFile>,
+        scope_inputs: Option<&ScopeGraphBuildInputs>,
+    ) -> BTreeMap<String, String> {
+        use std::path::{Component, Path};
+
+        let Some(scope_inputs) = scope_inputs else {
+            return BTreeMap::new();
+        };
+        let repo_root = &scope_inputs.repo_root;
+        if repo_root.as_os_str().is_empty() {
+            return BTreeMap::new();
+        }
+        let mut out = BTreeMap::new();
+        for (path, parsed) in files {
+            if parsed.language != crate::languages::Language::Go {
+                continue;
+            }
+            let relative = Path::new(path);
+            if relative.is_absolute()
+                || relative.components().any(|component| {
+                    matches!(
+                        component,
+                        Component::ParentDir | Component::RootDir | Component::Prefix(_)
+                    )
+                })
+            {
+                continue;
+            }
+            let package_relative = relative.parent().unwrap_or_else(|| Path::new(""));
+            let package_root = repo_root.join(package_relative);
+            let mut module_root = package_root.as_path();
+
+            loop {
+                match std::fs::read_to_string(module_root.join("go.mod")) {
+                    Ok(go_mod) => {
+                        if module_root != repo_root {
+                            break;
+                        }
+                        let Some(module_path) = Self::parse_go_module_path(&go_mod) else {
+                            break;
+                        };
+                        let Some(suffix) =
+                            package_root
+                                .strip_prefix(module_root)
+                                .ok()
+                                .and_then(|suffix| {
+                                    suffix
+                                        .iter()
+                                        .map(|part| part.to_str())
+                                        .collect::<Option<Vec<_>>>()
+                                })
+                        else {
+                            break;
+                        };
+                        let suffix = suffix.join("/");
+                        let import_path = if suffix.is_empty() {
+                            module_path
+                        } else {
+                            format!("{}/{suffix}", module_path.trim_end_matches('/'))
+                        };
+                        out.insert(path.clone(), import_path);
+                        break;
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(_) => break,
+                }
+                if module_root == repo_root {
+                    break;
+                }
+                let Some(parent) = module_root.parent() else {
+                    break;
+                };
+                if !parent.starts_with(repo_root) {
+                    break;
+                }
+                module_root = parent;
+            }
+        }
+        out
+    }
+
+    fn parse_go_module_path(go_mod: &str) -> Option<String> {
+        go_mod.lines().find_map(|line| {
+            let mut words = line.split_whitespace();
+            if words.next() != Some("module") {
+                return None;
+            }
+            words
+                .next()
+                .map(|path| path.trim_matches(['"', '`']).to_string())
+                .filter(|path| !path.is_empty())
+        })
     }
 
     fn clear_go_func_value_fields(&mut self) {
