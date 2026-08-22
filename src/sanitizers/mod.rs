@@ -16,7 +16,7 @@ pub use crate::frameworks::{CallSite, SanitizerCategory, SanitizerRecognizer};
 use crate::languages::Language;
 
 /// Aggregate all active recognizers across categories. Iteration order is by
-/// the const arrays in `shell.rs`, `path.rs`, and `python.rs`.
+/// the const arrays in `shell.rs`, `path.rs`, `js_ts.rs`, and `python.rs`.
 pub fn active_recognizers() -> impl Iterator<Item = &'static SanitizerRecognizer> {
     shell::SHELL_RECOGNIZERS
         .iter()
@@ -25,21 +25,15 @@ pub fn active_recognizers() -> impl Iterator<Item = &'static SanitizerRecognizer
         .chain(python::PYTHON_RECOGNIZERS.iter())
 }
 
-/// Languages with sanitizer recognizers. NOTE: this gate is a second source of truth, parallel to the
-/// recognizer tables chained in [`active_recognizers`] (`SHELL`/`PATH` are language-agnostic; `JS_TS`
-/// covers JavaScript/TypeScript/Tsx; `PYTHON`; Go is matched by paired-check recognizers). Keep the two
-/// in sync: adding a recognizer table for a new language MUST add it here too, or cleansing silently
-/// returns honest-empty for that language. (Deriving this from a `language` field on
-/// `SanitizerRecognizer` is a tracked follow-up.)
+/// Languages with at least one active sanitizer recognizer. Item B (#7): derived from the
+/// recognizer tables themselves (`active_recognizers().any(|r| r.languages.contains(&language))`)
+/// rather than hand-maintained — adding a recognizer table for a new language, or a `languages`
+/// entry to an existing one, is automatically reflected here; there is no longer a second source
+/// of truth to keep in sync. (Currently equivalent to Go/Python/JavaScript/TypeScript/Tsx: Go via
+/// `PATH_RECOGNIZERS`' paired-check family, Python via `PYTHON_RECOGNIZERS`, JS/TS/Tsx via
+/// `JS_TS_RECOGNIZERS`; `SHELL_RECOGNIZERS` is empty per spec §3.9.)
 pub fn sanitizer_supported(language: Language) -> bool {
-    matches!(
-        language,
-        Language::Go
-            | Language::Python
-            | Language::JavaScript
-            | Language::TypeScript
-            | Language::Tsx
-    )
+    active_recognizers().any(|r| r.languages.contains(&language))
 }
 
 /// Check whether a `paired_check` token appears anywhere in the given source slice.
@@ -51,4 +45,33 @@ pub fn sanitizer_supported(language: Language) -> bool {
 /// unrelated `HasPrefix` calls, and guard-after-sink shapes do not suppress.
 pub fn paired_check_satisfied(function_body_source: &str, check_name: &str) -> bool {
     function_body_source.contains(check_name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sanitizer_supported_matches_previous_hardcoded_set_for_every_language() {
+        // Item B (#7) delta 1: `sanitizer_supported` is now derived from the recognizer tables
+        // (`active_recognizers().any(|r| r.languages.contains(&language))`). This test pins that
+        // the derived set is provably equal to the set it replaces (Go via PATH_RECOGNIZERS,
+        // Python, JavaScript, TypeScript, Tsx) for EVERY `Language` variant — a drift guard for
+        // future table edits, not a behavior change.
+        for language in Language::all() {
+            let previously_hardcoded = matches!(
+                language,
+                Language::Go
+                    | Language::Python
+                    | Language::JavaScript
+                    | Language::TypeScript
+                    | Language::Tsx
+            );
+            assert_eq!(
+                sanitizer_supported(language),
+                previously_hardcoded,
+                "sanitizer_supported({language:?}) diverged from the previous hardcoded set"
+            );
+        }
+    }
 }

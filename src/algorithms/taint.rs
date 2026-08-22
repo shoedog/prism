@@ -10613,16 +10613,19 @@ fn js_ts_flat_sink_identifier_has_tainted_request_source(
 }
 
 /// Returns true if the function body containing `line` in `parsed` has at least one
-/// active sanitizer recognizer call whose category equals `category`. Walks the
-/// enclosing function for the line, applies each recognizer's `semantic_check` and
-/// textual `paired_check`, and returns on first match.
+/// active sanitizer recognizer call whose category equals `category` AND whose
+/// `languages` admits `parsed.language` (item B / #7: the same predicate
+/// `sanitizer_call_site` applies). Walks the enclosing function for the line, applies
+/// each recognizer's `semantic_check` and textual `paired_check`, and returns on
+/// first match.
 ///
 /// Used both by `apply_cleansers` (per-FlowPath, all categories) and by the
-/// source==sink fallback (single-category check when no FlowPath exists for the line).
+/// source==sink fallback (single-category check when no FlowPath exists for the line);
+/// `cleansed_categories_for_source` also delegates its per-category matching here, so
+/// this is the single place both advisory entry points are gated by language.
 ///
 /// The walk is intraprocedural (cleanser must live in same function as `line`);
-/// cross-function cleansing is a Phase 1.5+ concern. Phase 1 is Go-only — callers
-/// must gate by language; this helper does not re-check.
+/// cross-function cleansing is a Phase 1.5+ concern.
 fn function_body_cleansed_for(
     parsed: &ParsedFile,
     line: usize,
@@ -10639,6 +10642,9 @@ fn function_body_cleansed_for(
 
     for recognizer in crate::sanitizers::active_recognizers() {
         if recognizer.category != category {
+            continue;
+        }
+        if !recognizer.languages.contains(&parsed.language) {
             continue;
         }
         // Look for a call to the recognizer's call_path within the function.
@@ -10721,7 +10727,10 @@ fn apply_cleansers(path: &mut crate::data_flow::FlowPath, files: &BTreeMap<Strin
 // Tracked: docs/superpowers/specs/2026-06-09-prism-tier2-planA-substrate-hardening-design.md §9.
 /// A4: the single reasoning-facing cleansing adapter. Returns the sanitizer categories present
 /// in the SOURCE FUNCTION BODY (NOT path-proof) as lowercase strings. Gated to Go/Python/JS-TS
-/// exactly like apply_cleansers; honest-empty otherwise.
+/// exactly like apply_cleansers; honest-empty otherwise. Per-recognizer language filtering
+/// (item B / #7) happens one layer down in `function_body_cleansed_for`, which this function
+/// delegates every category check to — there is no independent recognizer-matching logic here
+/// to filter separately.
 pub(crate) fn cleansed_categories_for_source(
     files: &std::collections::BTreeMap<String, ParsedFile>,
     source: &crate::data_flow::VarLocation,
@@ -10790,13 +10799,17 @@ pub(crate) struct SanitizerCallSite {
 /// NOT gated by language, and `sanitizer_supported` (the file-language gate one layer up) admits
 /// Go — so an unqualified name shared across tables (bare `escape` is registered by BOTH
 /// `JS_TS_RECOGNIZERS` and `PYTHON_RECOGNIZERS`) would otherwise match a same-named Go call and
-/// produce a false path-proven `Sanitized` verdict. This filter is intentionally scoped to THIS
-/// verdict-path matcher only — `function_body_cleansed_for` / `cleansed_categories_for_source`
-/// (the advisory tier feeding `sanitizers_present_in_source_fn` / the `Cleansed` warning, and the
-/// CWE sink-suppression engine) deliberately keep iterating `active_recognizers()` unfiltered by
-/// language, matching their existing (pre-P10) behavior byte-for-byte. Narrowing the advisory tier
-/// the same way is a plausible follow-up but out of P10's scope here — it risks fixture
-/// regressions that weren't part of this BLOCKER.
+/// produce a false path-proven `Sanitized` verdict.
+///
+/// Item B (#7): `function_body_cleansed_for` (and `cleansed_categories_for_source`, which
+/// delegates to it) — the advisory tier feeding `sanitizers_present_in_source_fn` / the
+/// `Cleansed` warning, and the CWE sink-suppression engine's `FlowPath.cleansed_for` marks —
+/// now applies the identical `recognizer.languages` predicate. Pre-#7 those two entry points
+/// iterated `active_recognizers()` unfiltered by language (the P10 BLOCKER above intentionally
+/// scoped its fix to this verdict-path matcher only, byte-for-byte preserving the advisory
+/// tier's pre-P10 behavior); a same-name cross-table match there could fire a false `Cleansed`
+/// advisory and, worse, a false CWE sink suppression (a hidden vulnerability) — the unsafe
+/// direction. Both entry points now share this exact filter.
 ///
 /// Returns the matched category plus the discriminating fact (rendered callee text, call's own
 /// file/line) — NOT proof that this specific call sits on any particular taint path. Chain-window
@@ -11735,6 +11748,160 @@ func handler(input string) {
         assert!(
             sanitizer_call_site(&parsed, call).is_none(),
             "a same-name recognizer from another language's table must not match Go"
+        );
+    }
+
+    // --- Item B (#7): advisory tier (`function_body_cleansed_for` /
+    // `cleansed_categories_for_source`) must apply the SAME `recognizer.languages` predicate as
+    // `sanitizer_call_site`. Pre-fix, these two functions iterate `active_recognizers()`
+    // unfiltered by language, so a same-named recognizer from a different language's table
+    // (bare `escape` is registered by BOTH `JS_TS_RECOGNIZERS` and `PYTHON_RECOGNIZERS`) can
+    // produce a false advisory `Cleansed` mark and a false CWE sink suppression.
+
+    #[test]
+    fn test_function_body_cleansed_for_rejects_wrong_language_go_escape() {
+        // Fail-open pole: a Go function whose only "sanitizer-shaped" call is a user-defined
+        // `escape(u)` must NOT be reported as XSS-cleansed — `escape` in the active registry is
+        // only meaningful for JS/TS and Python, never Go.
+        let src = "package m\nfunc f(u string) string {\n\treturn escape(u)\n}\n";
+        let parsed = ParsedFile::parse("t.go", src, Language::Go).unwrap();
+        assert!(
+            !function_body_cleansed_for(&parsed, 3, SanitizerCategory::Xss),
+            "a same-name recognizer from another language's table must not cleanse a Go function"
+        );
+    }
+
+    #[test]
+    fn test_cleansed_categories_for_source_go_escape_not_xss() {
+        let src = "package m\nfunc f(u string) string {\n\treturn escape(u)\n}\n";
+        let mut files = std::collections::BTreeMap::new();
+        files.insert(
+            "t.go".to_string(),
+            ParsedFile::parse("t.go", src, Language::Go).unwrap(),
+        );
+        let source = VarLocation {
+            file: "t.go".into(),
+            function: "f".into(),
+            function_start_line: 2,
+            line: 3,
+            path: AccessPath {
+                base: "u".into(),
+                fields: vec![],
+            },
+            start_byte: 0,
+            end_byte: 0,
+            kind: VarAccessKind::Use,
+        };
+        let cats = cleansed_categories_for_source(&files, &source);
+        assert!(
+            !cats.iter().any(|c| c == "xss"),
+            "Go escape(u) must not surface an xss advisory category: {cats:?}"
+        );
+    }
+
+    #[test]
+    fn test_cleansed_categories_for_source_js_rejects_python_bleach_clean() {
+        // A JS/TS file that happens to call something whose text matches the Python `bleach.clean`
+        // recognizer's `call_path` (nonsensical in real JS, but this is exactly the
+        // wrong-language-table collision this predicate must close) must not surface an xss
+        // advisory category. `bleach.clean` (unlike `markupsafe.escape` / `escape`) has no tail
+        // that collides with any `JS_TS_RECOGNIZERS` bare-name entry via `call_path_matches`'s
+        // language-scoped tail-match branch, so this isolates the cross-table exact-match bug
+        // from that unrelated, intentional same-language tail-matching behavior.
+        let src = "function f(u) {\n  return bleach.clean(u);\n}\n";
+        let mut files = std::collections::BTreeMap::new();
+        files.insert(
+            "t.js".to_string(),
+            ParsedFile::parse("t.js", src, Language::JavaScript).unwrap(),
+        );
+        let source = VarLocation {
+            file: "t.js".into(),
+            function: "f".into(),
+            function_start_line: 1,
+            line: 2,
+            path: AccessPath {
+                base: "u".into(),
+                fields: vec![],
+            },
+            start_byte: 0,
+            end_byte: 0,
+            kind: VarAccessKind::Use,
+        };
+        let cats = cleansed_categories_for_source(&files, &source);
+        assert!(
+            !cats.iter().any(|c| c == "xss"),
+            "JS bleach.clean(u) must not surface an xss advisory category: {cats:?}"
+        );
+    }
+
+    #[test]
+    fn test_cleansed_categories_for_source_python_html_escape_still_positive() {
+        // Same-language positive pole: this must remain unaffected by the language filter.
+        let src = "def f(u):\n    safe = html.escape(u)\n    return safe\n";
+        let mut files = std::collections::BTreeMap::new();
+        files.insert(
+            "t.py".to_string(),
+            ParsedFile::parse("t.py", src, Language::Python).unwrap(),
+        );
+        let source = VarLocation {
+            file: "t.py".into(),
+            function: "f".into(),
+            function_start_line: 1,
+            line: 2,
+            path: AccessPath {
+                base: "u".into(),
+                fields: vec![],
+            },
+            start_byte: 0,
+            end_byte: 0,
+            kind: VarAccessKind::Use,
+        };
+        let cats = cleansed_categories_for_source(&files, &source);
+        assert!(
+            cats.iter().any(|c| c == "xss"),
+            "html.escape must still cleanse for xss in its own language: {cats:?}"
+        );
+    }
+
+    #[test]
+    fn test_cleansed_categories_for_source_js_dompurify_sanitize_still_positive() {
+        // Same-language positive pole for the JS/TS table itself — guards against an inverted
+        // predicate silently disabling the whole `JS_TS_RECOGNIZERS` table.
+        let src = "function f(u) {\n  return DOMPurify.sanitize(u);\n}\n";
+        let mut files = std::collections::BTreeMap::new();
+        files.insert(
+            "t.js".to_string(),
+            ParsedFile::parse("t.js", src, Language::JavaScript).unwrap(),
+        );
+        let source = VarLocation {
+            file: "t.js".into(),
+            function: "f".into(),
+            function_start_line: 1,
+            line: 2,
+            path: AccessPath {
+                base: "u".into(),
+                fields: vec![],
+            },
+            start_byte: 0,
+            end_byte: 0,
+            kind: VarAccessKind::Use,
+        };
+        let cats = cleansed_categories_for_source(&files, &source);
+        assert!(
+            cats.iter().any(|c| c == "xss"),
+            "DOMPurify.sanitize must still cleanse for xss in its own language: {cats:?}"
+        );
+    }
+
+    #[test]
+    fn test_function_body_cleansed_for_go_path_traversal_paired_check_still_positive() {
+        // Go's paired-check family (`filepath.Clean` / `strings.HasPrefix`) is Go-only in
+        // `languages`, so it must be completely unaffected by this fix.
+        let src = "package m\nfunc f(base string, name string) string {\n\tcleaned := filepath.Clean(name)\n\tif strings.HasPrefix(cleaned, base) {\n\t\treturn cleaned\n\t}\n\treturn \"\"\n}\n";
+        let parsed = ParsedFile::parse("t.go", src, Language::Go).unwrap();
+        assert!(
+            function_body_cleansed_for(&parsed, 5, SanitizerCategory::PathTraversal),
+            "Go filepath.Clean + strings.HasPrefix paired check must remain an advisory positive"
         );
     }
 }

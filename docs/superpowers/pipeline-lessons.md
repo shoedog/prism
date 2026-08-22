@@ -216,8 +216,11 @@ close-out; the per-round detail lives in the plan doc's status blocks and
   (2026-07-03 run records + 627-verdict adjudication fold + baseline.md 2026-07-03
   section); P15 re-export tail (measured NO-GO both halves — third under-delivery;
   do not re-queue).
-- Advisory/CWE sanitizer recognizers still cross-match languages (P10 gated the verdict
-  path only; deliberate).
+- ~~Advisory/CWE sanitizer recognizers still cross-match languages~~ — **DONE (item B / #7)**:
+  `function_body_cleansed_for` now applies the same `recognizer.languages` predicate as
+  `sanitizer_call_site` (P10 gated the verdict path only, deliberately, leaving this as a
+  documented follow-up); `cleansed_categories_for_source` inherits the fix by delegation.
+  `sanitizer_supported` is now derived from the recognizer tables instead of hand-maintained.
 - `prune_graph_to_reasoning` keeps forward-hanging leaves only for `SanitizedBy`; any
   future forward-hanging edge kind needs the same treatment (one-class fix in place).
 - `--review-no-diagrams` (P1 residual: diagram payloads dominate compacted review output).
