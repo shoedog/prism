@@ -480,6 +480,8 @@ pub(crate) mod test_support {
             repo_root: dir.path().to_path_buf(),
             cache: CacheMode::NoCache,
             refresh_policy: crate::mcp::RefreshPolicy::WarnOnly,
+            startup: crate::mcp::StartupMode::Eager,
+            first_call_wait: std::time::Duration::from_secs(20),
         };
         let provider = SessionProvider::bootstrap(&cfg).expect("bootstrap");
         NavigationSession {

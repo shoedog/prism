@@ -1,6 +1,7 @@
 #![cfg(feature = "mcp")]
 
 use assert_cmd::Command;
+use predicates::prelude::*;
 use serde_json::Value;
 
 #[test]
@@ -129,6 +130,28 @@ fn prism_mcp_protocol_smoke() {
         agent_result["_meta"]["prism/view_indexing_policy"],
         "code_role_v1"
     );
+}
+
+#[test]
+fn prism_mcp_bounds_first_call_wait_and_accepts_eager() {
+    let repo = tempfile::tempdir().expect("temp repo");
+    std::fs::write(repo.path().join("main.py"), "def main():\n    return 1\n").expect("write repo");
+
+    Command::cargo_bin("prism-mcp")
+        .expect("prism-mcp binary")
+        .args(["--repo", repo.path().to_str().unwrap()])
+        .args(["--eager", "--first-call-wait", "600"])
+        .write_stdin(lifecycle_messages())
+        .assert()
+        .success();
+
+    Command::cargo_bin("prism-mcp")
+        .expect("prism-mcp binary")
+        .args(["--repo", repo.path().to_str().unwrap()])
+        .args(["--first-call-wait", "601"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("0..=600"));
 }
 
 fn lifecycle_messages() -> String {

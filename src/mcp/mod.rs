@@ -12,7 +12,10 @@ pub mod tools_refresh;
 pub mod transport;
 
 pub(crate) use session::{AutoRefreshSummary, RefreshVerification};
-pub use session::{CacheMode, RefreshPolicy, RefreshSummary, ServerConfig, SessionProvider};
+pub use session::{
+    CacheMode, RefreshPolicy, RefreshSummary, ServerConfig, SessionProvider, StartupMode,
+    FIRST_CALL_WAIT_MAX,
+};
 
 pub fn run(cfg: ServerConfig) -> anyhow::Result<()> {
     let mut p = SessionProvider::bootstrap(&cfg)?;

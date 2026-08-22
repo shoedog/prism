@@ -24,6 +24,8 @@ fn provider_with_policy(
         repo_root: dir.path().to_path_buf(),
         cache: crate::mcp::CacheMode::NoCache,
         refresh_policy,
+        startup: crate::mcp::StartupMode::Eager,
+        first_call_wait: std::time::Duration::from_secs(20),
     };
     let provider = crate::mcp::SessionProvider::bootstrap(&cfg).unwrap();
     (dir, provider)
@@ -1099,6 +1101,8 @@ fn auto_full_clean_success_keeps_content_text_byte_identical_to_fresh_result() {
         repo_root: dir.path().to_path_buf(),
         cache: crate::mcp::CacheMode::NoCache,
         refresh_policy: crate::mcp::RefreshPolicy::WarnOnly,
+        startup: crate::mcp::StartupMode::Eager,
+        first_call_wait: std::time::Duration::from_secs(20),
     };
     let mut fresh_provider = crate::mcp::SessionProvider::bootstrap(&cfg).unwrap();
     let fresh = run_provider(
