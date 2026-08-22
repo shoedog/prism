@@ -421,7 +421,6 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "go_bare_value_ref_ambiguous": go_bare_value_ref_ambiguous,
         "go_build_expr_unparsed": go_build_expr_unparsed,
         "go_owner_identity_profile_conflict": cg.go_owner_identity_profile_conflict,
-        "skipped_go_testdata_files": cg.skipped_go_testdata_files,
         "dropped_go_receiver": dropped_go_receiver,
         "callback_registrations_recorded": cg.go_registrations.len(),
         "callback_registration_shadowed_skips": cg.go_registration_shadowed_skips,
@@ -494,6 +493,12 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "param_slots_unknown": cg.param_slots_unknown,
         "level3_indirect_resolved": cg.level3_indirect_resolved,
     });
+    if cg.skipped_go_testdata_files > 0 {
+        stats.as_object_mut().expect("call-stats object").insert(
+            "skipped_go_testdata_files".to_string(),
+            cg.skipped_go_testdata_files.into(),
+        );
+    }
     if !cg.go_file_profiles.is_empty() {
         let object = stats.as_object_mut().expect("call-stats object");
         object.insert(
