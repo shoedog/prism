@@ -126,7 +126,10 @@ use std::path::{Path, PathBuf};
 ///   `resolve_path_guarded`'s empty-segs branch (resolution behavior change:
 ///   new Rust caller edges out of nested modules/blocks that relied on an
 ///   anchor-only glob to bring a bare name into scope).
-const CACHE_VERSION: u32 = 40; // 40: Rust anchor-only glob (super::*/crate::*/self::*) resolution.
+/// - v41: persisted Step-5b arg→param DataFlow edges now select byte-contained
+///   occurrences across multi-line call arguments. The corresponding trace
+///   descent-gate check is in-memory only.
+const CACHE_VERSION: u32 = 41; // 41: byte-contained multi-line Step-5b arg→param edges.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -644,10 +647,10 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_40_for_rust_anchor_only_glob_resolution() {
-        // v40: glob-anchor-fix — Rust super::*/crate::*/self::* resolution.
+    fn cache_version_is_41_for_multiline_step5b_arg_edges() {
+        // v41: byte-contained multi-line Step-5b arg→param DataFlow edges.
         // One transition ships per PR.
-        assert_eq!(super::CACHE_VERSION, 40);
+        assert_eq!(super::CACHE_VERSION, 41);
     }
 
     #[test]

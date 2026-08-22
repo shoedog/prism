@@ -547,7 +547,7 @@ impl CodePropertyGraph {
         }
 
         // --- Step 5b: Interprocedural data flow edges ---
-        for (from, to, w) in Self::collect_step5b_edges(&cg, &var_index, files) {
+        for (from, to, w) in Self::collect_step5b_edges(&cg, &var_index, &graph, files) {
             graph.add_edge(from, to, w);
         }
 
@@ -829,6 +829,7 @@ impl CodePropertyGraph {
     pub(crate) fn collect_step5b_edges(
         cg: &CallGraph,
         var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingEdge> {
         use rayon::prelude::*;
@@ -840,7 +841,7 @@ impl CodePropertyGraph {
         ordered
             .par_iter()
             .map(|(caller_id, sites)| {
-                Self::step5b_edges_for_caller(caller_id, sites, cg, var_index, files)
+                Self::step5b_edges_for_caller(caller_id, sites, cg, var_index, graph, files)
             })
             .collect::<Vec<Vec<PendingEdge>>>()
             .into_iter()
@@ -857,6 +858,7 @@ impl CodePropertyGraph {
         sites: &BTreeSet<CallSite>,
         cg: &CallGraph,
         var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingEdge> {
         let mut out: Vec<PendingEdge> = Vec::new();
@@ -877,9 +879,9 @@ impl CodePropertyGraph {
                     Some(p) => p,
                     None => continue,
                 };
-                let arg_texts =
-                    caller_parsed.call_argument_texts_at(site.start_byte, &site.callee_name);
-                if arg_texts.is_empty() {
+                let args = caller_parsed
+                    .call_argument_texts_and_spans_at(site.start_byte, &site.callee_name);
+                if args.is_empty() {
                     continue;
                 }
                 let callee_parsed = match files.get(&callee_id.file) {
@@ -899,10 +901,10 @@ impl CodePropertyGraph {
                     None => continue,
                 };
                 for (i, param_name) in param_names.iter().enumerate() {
-                    if i >= arg_texts.len() {
+                    if i >= args.len() {
                         break;
                     }
-                    let arg_text = &arg_texts[i];
+                    let (arg_text, arg_span) = &args[i];
                     // Field-sensitive arg binding (from PR #113): prefer the full access path
                     // (e.g. `o.data`) so interproc taint flows from the specific field, falling
                     // back to the base (`o`) — the pre-change behavior — when no field-path var
@@ -920,25 +922,14 @@ impl CodePropertyGraph {
                     let arg_idxs: Vec<NodeIndex> = arg_paths
                         .into_iter()
                         .filter_map(|arg_path| {
-                            let arg_key = (
-                                caller_id.file.clone(),
-                                caller_id.name.clone(),
-                                caller_id.start_line,
-                                site.line,
-                                arg_path.clone(),
-                                VarAccess::Use,
-                            );
-                            var_index.get(&arg_key).copied().or_else(|| {
-                                let def_key = (
-                                    caller_id.file.clone(),
-                                    caller_id.name.clone(),
-                                    caller_id.start_line,
-                                    site.line,
-                                    arg_path,
-                                    VarAccess::Def,
-                                );
-                                var_index.get(&def_key).copied()
-                            })
+                            Self::argument_var_node_in_span(
+                                caller_id,
+                                caller_parsed,
+                                &arg_path,
+                                arg_span,
+                                var_index,
+                                graph,
+                            )
                         })
                         .collect();
                     let param_path = AccessPath::simple(param_name);
@@ -964,10 +955,72 @@ impl CodePropertyGraph {
         out
     }
 
+    /// Select the caller variable occurrence for one call argument. `var_index`
+    /// intentionally has one node per `(function, line, path, access)` key, so
+    /// same-line same-path collisions predate this lookup and remain out of scope.
+    /// For the indexed node we do have, require byte containment in the AST
+    /// argument span. A zero or multi-line match is ambiguous and fails closed.
+    fn argument_var_node_in_span(
+        caller_id: &FunctionId,
+        caller_parsed: &ParsedFile,
+        arg_path: &AccessPath,
+        arg_span: &std::ops::Range<usize>,
+        var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        graph: &DiGraph<CpgNode, CpgEdge>,
+    ) -> Option<NodeIndex> {
+        if arg_span.start >= arg_span.end {
+            return None;
+        }
+        let first_line = caller_parsed.line_for_byte(arg_span.start);
+        let last_line = caller_parsed.line_for_byte(arg_span.end - 1);
+        let contains_arg_occurrence = |idx: NodeIndex| {
+            matches!(
+                &graph[idx],
+                CpgNode::Variable {
+                    start_byte,
+                    end_byte,
+                    ..
+                } if arg_span.start <= *start_byte && *end_byte <= arg_span.end
+            )
+        };
+        let mut candidates = Vec::new();
+        for line in first_line..=last_line {
+            let key = |access| {
+                (
+                    caller_id.file.clone(),
+                    caller_id.name.clone(),
+                    caller_id.start_line,
+                    line,
+                    arg_path.clone(),
+                    access,
+                )
+            };
+            let candidate = var_index
+                .get(&key(VarAccess::Use))
+                .copied()
+                .filter(|&idx| contains_arg_occurrence(idx))
+                .or_else(|| {
+                    var_index
+                        .get(&key(VarAccess::Def))
+                        .copied()
+                        .filter(|&idx| contains_arg_occurrence(idx))
+                });
+            if let Some(idx) = candidate {
+                candidates.push(idx);
+            }
+        }
+        if candidates.len() == 1 {
+            Some(candidates[0])
+        } else {
+            None
+        }
+    }
+
     #[cfg(test)]
     pub(crate) fn collect_step5b_edges_reference(
         cg: &CallGraph,
         var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingEdge> {
         // Serial twin of Step-5b (global lazy param_cache, no prewarm) — the par==serial
@@ -991,9 +1044,9 @@ impl CodePropertyGraph {
                         Some(p) => p,
                         None => continue,
                     };
-                    let arg_texts =
-                        caller_parsed.call_argument_texts_at(site.start_byte, &site.callee_name);
-                    if arg_texts.is_empty() {
+                    let args = caller_parsed
+                        .call_argument_texts_and_spans_at(site.start_byte, &site.callee_name);
+                    if args.is_empty() {
                         continue;
                     }
                     let callee_parsed = match files.get(&callee_id.file) {
@@ -1013,10 +1066,10 @@ impl CodePropertyGraph {
                         None => continue,
                     };
                     for (i, param_name) in param_names.iter().enumerate() {
-                        if i >= arg_texts.len() {
+                        if i >= args.len() {
                             break;
                         }
-                        let arg_text = &arg_texts[i];
+                        let (arg_text, arg_span) = &args[i];
                         // Field-sensitive arg binding — mirrors the production helper so this
                         // serial reference stays the par==serial twin for the parallelization oracle.
                         let full_arg_path = AccessPath::from_expr(arg_text);
@@ -1031,25 +1084,14 @@ impl CodePropertyGraph {
                         let arg_idxs: Vec<NodeIndex> = arg_paths
                             .into_iter()
                             .filter_map(|arg_path| {
-                                let arg_key = (
-                                    caller_id.file.clone(),
-                                    caller_id.name.clone(),
-                                    caller_id.start_line,
-                                    site.line,
-                                    arg_path.clone(),
-                                    VarAccess::Use,
-                                );
-                                var_index.get(&arg_key).copied().or_else(|| {
-                                    let def_key = (
-                                        caller_id.file.clone(),
-                                        caller_id.name.clone(),
-                                        caller_id.start_line,
-                                        site.line,
-                                        arg_path,
-                                        VarAccess::Def,
-                                    );
-                                    var_index.get(&def_key).copied()
-                                })
+                                Self::argument_var_node_in_span(
+                                    caller_id,
+                                    caller_parsed,
+                                    &arg_path,
+                                    arg_span,
+                                    var_index,
+                                    graph,
+                                )
                             })
                             .collect();
                         let param_path = AccessPath::simple(param_name);

@@ -167,9 +167,18 @@ fn step5b_parallel_edge_collect_matches_serial_reference() {
     use super::build::CodePropertyGraph;
     let files = edge_fixture();
     let cpg = CodePropertyGraph::build(&files); // sources cg + var_index (and warms call_args)
-    let par = CodePropertyGraph::collect_step5b_edges(&cpg.call_graph, &cpg.var_index, &files);
-    let serial =
-        CodePropertyGraph::collect_step5b_edges_reference(&cpg.call_graph, &cpg.var_index, &files);
+    let par = CodePropertyGraph::collect_step5b_edges(
+        &cpg.call_graph,
+        &cpg.var_index,
+        &cpg.graph,
+        &files,
+    );
+    let serial = CodePropertyGraph::collect_step5b_edges_reference(
+        &cpg.call_graph,
+        &cpg.var_index,
+        &cpg.graph,
+        &files,
+    );
     assert_eq!(par, serial, "Step-5b DataFlow edge sequence diverged");
     // The fixture's `let y = helper(x);` yields an arg->param DataFlow edge.
     assert!(
@@ -869,7 +878,7 @@ def top():
 }
 
 #[test]
-fn test_multi_line_call_shape_is_currently_not_descended() {
+fn test_multi_line_call_shape_is_descended() {
     let src = r#"def g(p):
     sink(p)
 
@@ -891,8 +900,8 @@ def f():
         .expect("callee parameter");
 
     assert!(
-        !trace.in_frontier(g_param),
-        "multi-line call is an out-of-scope Stage A pin"
+        trace.in_frontier(g_param),
+        "multi-line call argument must descend into the callee parameter"
     );
 }
 

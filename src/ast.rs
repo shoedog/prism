@@ -6611,10 +6611,29 @@ impl ParsedFile {
     /// Like `call_argument_texts`, but selects the call expression whose start
     /// byte == `start_byte` (disambiguates multiple calls on one line).
     pub fn call_argument_texts_at(&self, start_byte: usize, callee_name: &str) -> Vec<String> {
+        self.call_argument_texts_and_spans_at(start_byte, callee_name)
+            .into_iter()
+            .map(|(text, _)| text)
+            .collect()
+    }
+
+    /// Like `call_argument_texts_at`, while retaining each argument node's
+    /// half-open source-byte span. The text-only API remains a wrapper because
+    /// its consumers intentionally do not need occurrence identity.
+    pub(crate) fn call_argument_texts_and_spans_at(
+        &self,
+        start_byte: usize,
+        callee_name: &str,
+    ) -> Vec<(String, std::ops::Range<usize>)> {
         self.call_args_index()
             .by_call
             .get(&(start_byte, callee_name.to_string()))
-            .map(|spans| spans.iter().map(|a| self.arg_text(a)).collect())
+            .map(|spans| {
+                spans
+                    .iter()
+                    .map(|a| (self.arg_text(a), a.start_byte..a.end_byte))
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
