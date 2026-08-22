@@ -6,6 +6,7 @@ TDD: the pure classification + summary logic (`classify`, `dispatch_precision`,
 caddy), deliberately NOT unit-tested.
 """
 import importlib.util
+import io
 import json
 from pathlib import Path
 
@@ -152,9 +153,12 @@ def _identity(name, file, span, package_clause="impl"):
 
 def test_gopls_identity_at_keeps_package_and_method_target_evidence():
     class FakeGoplsAdapter:
-        def _methods(self, rel):
+        _definition_kind = staticmethod(do.GoplsSatisfiers._definition_kind)
+        _identity_with_reason = do.GoplsSatisfiers._identity_with_reason
+
+        def _symbol_at(self, rel, _line):
             assert rel == "good/impl.go"
-            return [("Go", "Impl", 4, 7)]
+            return {"container": "Impl", "start_line": 4, "end_line": 7}
 
         def _package_clause(self, rel):
             assert rel == "good/impl.go"
@@ -338,6 +342,111 @@ def test_load_dispatch_sites_keeps_zero_fanout_and_scores_recall_gap(tmp_path):
     assert rec["classification"] == "recall_gap"
     assert summary["overall"]["recall_gap"] == 1
     assert summary["overall"]["scored_sites"] == 1
+
+
+# ---------------------------------------------------------------------------
+# #14 fix wave 1 — definition-kind dispatch
+# ---------------------------------------------------------------------------
+
+def _run_fake_oracle(tmp_path, *, definition, satisfiers, prism_identities):
+    (tmp_path / "caller.go").write_text("adapter.Adapt()\n")
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"sites": [{
+        "file": "caller.go",
+        "line": 1,
+        "method": "Adapt",
+        "fanout": len(prism_identities),
+        "implementers": [identity["name"] for identity in prism_identities],
+        "implementer_identities": prism_identities,
+        "start_byte": 8,
+        "end_byte": 13,
+    }]}))
+
+    class FakeGopls:
+        implementation_calls = 0
+
+        def __init__(self, *_args, **_kwargs):
+            self._settle_s = 0
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def _did_open(self, _rel):
+            return True
+
+        def _methods(self, _rel):
+            return []
+
+        def resettle(self, **_kwargs):
+            pass
+
+        def method_decl(self, _rel, _line, _char):
+            return definition
+
+        def satisfier_identities(self, _rel, _line, _char):
+            type(self).implementation_calls += 1
+            return satisfiers, len(satisfiers), []
+
+    records, _summary = do.run_oracle(
+        str(manifest), str(tmp_path), ["fake-gopls"], 1,
+        log=io.StringIO(), oracle_factory=FakeGopls,
+    )
+    return records[0], FakeGopls.implementation_calls
+
+
+def test_run_oracle_concrete_definition_is_singleton_ground_truth(tmp_path):
+    adapter = _identity("Adapter", "adapter.go", [32, 64], "caddyfile")
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={
+            "file": "adapter.go", "line": 31, "character": 4,
+            "kind": "concrete", "identity": adapter,
+        },
+        satisfiers=[_identity("Adapter", "configadapters.go", [27, 27], "caddyconfig")],
+        prism_identities=[adapter],
+    )
+    assert record["classification"] == "sound"
+    assert record["definition_kind"] == "concrete"
+    assert record["failure_stage"] is None
+    assert implementation_calls == 0
+
+
+def test_run_oracle_interface_definition_still_uses_implementation(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={
+            "file": "interface.go", "line": 7, "character": 2,
+            "kind": "interface", "identity": None,
+        },
+        satisfiers=[impl],
+        prism_identities=[impl],
+    )
+    assert record["classification"] == "sound"
+    assert record["definition_kind"] == "interface"
+    assert record["failure_stage"] is None
+    assert implementation_calls == 1
+
+
+def test_interface_enclosed_location_is_not_a_concrete_satisfier():
+    class FakeGoplsAdapter:
+        _definition_kind = staticmethod(do.GoplsSatisfiers._definition_kind)
+
+        def _symbol_at(self, _rel, _line):
+            return {"container": "Adapter", "start_line": 26, "end_line": 26,
+                    "enclosing_kind": 11}
+
+        def _package_clause(self, _rel):
+            return "caddyconfig"
+
+    identity, reason = do.GoplsSatisfiers._identity_with_reason(
+        FakeGoplsAdapter(), "configadapters.go", 26
+    )
+    assert identity is None
+    assert reason == "interface_location"
 
 
 # ---------------------------------------------------------------------------

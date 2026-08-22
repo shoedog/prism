@@ -233,6 +233,8 @@ def compare_site(
     prism_identities: list[dict] | None = None,
     gopls_identities: list[dict] | None = None,
     oracle_unresolved: bool = False,
+    definition_kind: str = "unknown",
+    failure_stage: str | None = None,
 ) -> dict:
     """One per-site comparison record with qualified or legacy name-only identity.
 
@@ -314,6 +316,8 @@ def compare_site(
         "interface": interface,
         "method": method,
         "identity_mode": identity_mode,
+        "definition_kind": definition_kind,
+        "failure_stage": failure_stage,
         "prism_implementers": prism_implementers,
         "gopls_satisfiers": None if gopls is None else sorted(item[-1] if isinstance(item, tuple) else item for item in gopls),
         "prism_identities": prism_identity_records,
@@ -693,6 +697,7 @@ class GoplsSatisfiers:
                                 default_timeout=group_timeout)
         self._opened: set[str] = set()
         self._docsym: dict[str, list[tuple]] = {}
+        self._symbol_details: dict[str, list[dict]] = {}
 
     def start(self) -> None:
         # LspClient inherits this process environment at Popen time. Scope the
@@ -741,6 +746,7 @@ class GoplsSatisfiers:
             return self._docsym[rel]
         if not self._did_open(rel):
             self._docsym[rel] = []
+            self._symbol_details[rel] = []
             return []
         from tier_a.oracles import _split_receiver
 
@@ -753,8 +759,9 @@ class GoplsSatisfiers:
         except Exception:
             syms = []
         out: list[tuple] = []
+        details: list[dict] = []
 
-        def walk(nodes, container):
+        def walk(nodes, container, enclosing_kind=None):
             for nd in nodes or []:
                 name, cont = _split_receiver(nd.get("name"), container)
                 rng = nd.get("range", {})
@@ -762,10 +769,19 @@ class GoplsSatisfiers:
                 e = rng.get("end", {}).get("line")
                 if s is not None and e is not None:
                     out.append((name, cont, s, e))
-                walk(nd.get("children", []), nd.get("name"))
+                    details.append({
+                        "name": name,
+                        "container": cont,
+                        "start_line": s,
+                        "end_line": e,
+                        "kind": nd.get("kind"),
+                        "enclosing_kind": enclosing_kind,
+                    })
+                walk(nd.get("children", []), nd.get("name"), nd.get("kind"))
 
         walk(syms, None)
         self._docsym[rel] = out
+        self._symbol_details[rel] = details
         return out
 
     def _type_at(self, rel: str, line0: int) -> str | None:
@@ -778,6 +794,28 @@ class GoplsSatisfiers:
                     best = (span, cont)
         return best[1] if best else None
 
+    def _symbol_at(self, rel: str, line0: int) -> dict | None:
+        """Smallest document symbol enclosing a gopls definition/result location."""
+        self._methods(rel)
+        best = None
+        for symbol in self._symbol_details.get(rel, []):
+            if symbol["start_line"] <= line0 <= symbol["end_line"]:
+                width = symbol["end_line"] - symbol["start_line"]
+                if best is None or width < best[0]:
+                    best = (width, symbol)
+        return None if best is None else best[1]
+
+    @staticmethod
+    def _definition_kind(symbol: dict | None) -> str:
+        """Classify the enclosing Go declaration without inferring from its name."""
+        if symbol is None:
+            return "unknown"
+        # LSP SymbolKind.Interface is 11. Interface methods are children of that
+        # symbol, while concrete Go methods carry a receiver/container themselves.
+        if symbol.get("kind") == 11 or symbol.get("enclosing_kind") == 11:
+            return "interface"
+        return "concrete" if symbol.get("container") else "unknown"
+
     def _package_clause(self, rel: str) -> str | None:
         """Package declaration for one repo-relative Go source file."""
         try:
@@ -789,31 +827,33 @@ class GoplsSatisfiers:
         match = re.search(r"(?m)^\s*package\s+([A-Za-z_][A-Za-z0-9_]*)\b", source)
         return match.group(1) if match else None
 
-    def _identity_at(self, rel: str, line0: int) -> dict | None:
-        """Qualified satisfier identity and method-definition target at a gopls location."""
-        best = None
-        for _name, container, start_line, end_line in self._methods(rel):
-            if start_line <= line0 <= end_line:
-                width = end_line - start_line
-                if best is None or width < best[0]:
-                    best = (width, container, start_line, end_line)
-        if best is None or not best[1]:
-            return None
+    def _identity_with_reason(self, rel: str, line0: int) -> tuple[dict | None, str | None]:
+        """Map one implementation location, preserving the reason when it is not a target."""
+        symbol = self._symbol_at(rel, line0)
+        if symbol is None or not symbol.get("container"):
+            return None, "receiver_unknown"
+        if self._definition_kind(symbol) == "interface":
+            # An implementation result that lands inside an interface is never a
+            # concrete satisfier. Keeping it would fabricate a false positive.
+            return None, "interface_location"
         package_clause = self._package_clause(rel)
         if package_clause is None:
-            return None
+            return None, "package_clause_unknown"
         package_dir = Path(rel).parent.as_posix()
         return {
-            "name": best[1],
+            "name": symbol["container"],
             "file": rel,
-            "span": [best[2] + 1, best[3] + 1],
+            "span": [symbol["start_line"] + 1, symbol["end_line"] + 1],
             "package_dir": "" if package_dir == "." else package_dir,
             "package_clause": package_clause,
-        }
+        }, None
 
-    def method_decl(self, rel: str, line0: int, char0: int) -> tuple[str, int, int] | None:
-        """textDocument/definition at a call's method token -> the interface method's
-        declaration site (rel_file, decl_line0, decl_char0), or None.
+    def _identity_at(self, rel: str, line0: int) -> dict | None:
+        """Qualified concrete satisfier identity and method-definition target."""
+        return self._identity_with_reason(rel, line0)[0]
+
+    def method_decl(self, rel: str, line0: int, char0: int) -> dict:
+        """Definition target, enclosing kind, and normalized target evidence.
 
         This is the gopls-side disambiguator: two call sites that prism lumps into one
         implementer-set group can resolve to DIFFERENT interface declarations (caddy's
@@ -824,7 +864,7 @@ class GoplsSatisfiers:
         from tier_a.oracles import uri_to_rel
 
         if not self._did_open(rel):
-            return None
+            return {"kind": "unknown", "failure_stage": "definition"}
         try:
             raw = self.client.request(
                 "textDocument/definition",
@@ -833,15 +873,33 @@ class GoplsSatisfiers:
                 timeout=self.group_timeout,
             )
         except LspError:
-            return None
+            return {"kind": "unknown", "failure_stage": "timeout"}
         for d in (raw if isinstance(raw, list) else [raw] if raw else []):
             uri = d.get("uri") or d.get("targetUri")
             rng = d.get("range") or d.get("targetSelectionRange") or d.get("targetRange")
             f = uri_to_rel(uri, self.root) if uri else None
             if f is None or rng is None:
                 continue
-            return (f, rng["start"]["line"], rng["start"]["character"])
-        return None
+            try:
+                target_line = rng["start"]["line"]
+                target_char = rng["start"]["character"]
+            except KeyError:
+                continue
+            symbol = self._symbol_at(f, target_line)
+            kind = self._definition_kind(symbol)
+            identity, reason = (
+                self._identity_with_reason(f, target_line)
+                if kind == "concrete" else (None, None)
+            )
+            return {
+                "file": f,
+                "line": target_line,
+                "character": target_char,
+                "kind": kind,
+                "identity": identity,
+                "reason": reason,
+            }
+        return {"kind": "unknown", "failure_stage": "definition"}
 
     def satisfier_types(self, rel: str, line0: int, char0: int) -> tuple[set[str], int] | None:
         """gopls textDocument/implementation at (rel, line0, char0) -> (receiver TYPE name
@@ -992,32 +1050,66 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
 
             gopls_identities: list[dict] | None = None
             oracle_unresolved = False
+            definition_kind = "unknown"
+            failure_stage: str | None = "token" if col is None else None
             iface = None
             if col is not None:
-                # 1) resolve which interface this call dispatches on (its method decl).
+                # 1) Resolve the concrete or interface declaration at this exact call.
                 decl = oracle.method_decl(s["file"], s["line"] - 1, col)
-                if decl is not None:
-                    decl_file, decl_line, decl_char = decl
+                definition_kind = decl.get("kind", "unknown")
+                failure_stage = decl.get("failure_stage")
+                if definition_kind == "concrete":
+                    iface = f"{Path(decl.get('file', s['file'])).stem}:{decl.get('line', 0) + 1}"
+                    concrete_identity = decl.get("identity")
+                    if concrete_identity is None:
+                        gopls_identities = []
+                        oracle_unresolved = True
+                        failure_stage = "mapping"
+                    else:
+                        # `implementation` on a concrete method returns the interface it
+                        # implements, not a concrete satisfier. The definition itself is
+                        # therefore the complete singleton ground truth.
+                        gopls_identities = [concrete_identity]
+                        failure_stage = None
+                elif definition_kind == "interface":
+                    decl_file = decl.get("file")
+                    decl_line = decl.get("line")
+                    decl_char = decl.get("character")
+                    if not isinstance(decl_file, str) or not isinstance(decl_line, int) \
+                            or not isinstance(decl_char, int):
+                        oracle_unresolved = True
+                        gopls_identities = []
+                        failure_stage = "definition"
+                    else:
                     # A persistently empty implementation result is valid evidence only
                     # when prism also minted no edges. Keep that cache entry separate
                     # from fanout>0 sites, whose empty result remains a readiness timeout.
-                    allow_empty = s.get("fanout", 0) == 0
-                    ckey = (decl_file, decl_line, allow_empty)
-                    if ckey not in decl_cache:
-                        # 2) implementation at the decl's method token, with empty-retry
-                        #    (empty for a fanout>0 method => not-ready, not a true zero).
-                        out = oracle.satisfier_identities(decl_file, decl_line, decl_char)
-                        if out is not None and out[1] == 0:
-                            oracle.resettle(settle_s=oracle._settle_s)
+                        allow_empty = s.get("fanout", 0) == 0
+                        ckey = (decl_file, decl_line, allow_empty)
+                        if ckey not in decl_cache:
+                            # 2) implementation at an interface declaration, with an
+                            # empty retry for gopls readiness.
                             out = oracle.satisfier_identities(decl_file, decl_line, decl_char)
-                        if out is not None and (out[1] > 0 or allow_empty):
-                            # the enclosing type at the decl line is the interface name.
-                            label = oracle._type_at(decl_file, decl_line) or \
-                                f"{Path(decl_file).stem}:{decl_line + 1}"
-                            decl_cache[ckey] = (out[0], label, out[2])
-                    cached = decl_cache.get(ckey)
-                    if cached is not None:
-                        gopls_identities, iface, oracle_unresolved = cached
+                            if out is not None and out[1] == 0:
+                                oracle.resettle(settle_s=oracle._settle_s)
+                                out = oracle.satisfier_identities(decl_file, decl_line, decl_char)
+                            if out is not None and (out[1] > 0 or allow_empty):
+                                type_at = getattr(oracle, "_type_at", lambda *_: None)
+                                label = type_at(decl_file, decl_line) or \
+                                    f"{Path(decl_file).stem}:{decl_line + 1}"
+                                decl_cache[ckey] = (out[0], label, out[2])
+                        cached = decl_cache.get(ckey)
+                        if cached is not None:
+                            gopls_identities, iface, oracle_unresolved = cached
+                            failure_stage = "mapping" if oracle_unresolved else None
+                        elif out is None:
+                            failure_stage = "timeout"
+                        else:
+                            failure_stage = "implementation"
+                else:
+                    gopls_identities = []
+                    oracle_unresolved = True
+                    failure_stage = failure_stage or "definition"
             if iface is None:
                 # decl/impl unavailable: fall back to a type-assertion source label, then
                 # a synthetic one. gopls identities stay None => oracle_timeout.
@@ -1031,6 +1123,8 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                     prism_identities=s["implementer_identities"],
                     gopls_identities=gopls_identities,
                     oracle_unresolved=oracle_unresolved,
+                    definition_kind=definition_kind,
+                    failure_stage=failure_stage,
                 )
             else:
                 # Compatibility only: old manifests lack target/package evidence, so the
@@ -1043,6 +1137,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                 record = compare_site(
                     file=s["file"], line=s["line"], interface=iface, method=method,
                     prism_set=prism_set, gopls_set=gopls_set,
+                    definition_kind=definition_kind, failure_stage=failure_stage,
                 )
             # Preserve the manifest site identity in the durable output so baseline
             # deltas cannot collapse distinct calls that share a source line.
