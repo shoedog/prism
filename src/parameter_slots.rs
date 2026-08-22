@@ -146,7 +146,7 @@ fn collect_js_ts_binding_pattern_names(
                 collect_js_ts_binding_pattern_names(parsed, child, names, duplicate);
             }
         }
-        "assignment_pattern" => {
+        "assignment_pattern" | "object_assignment_pattern" => {
             if let Some(left) = node.child_by_field_name("left") {
                 collect_js_ts_binding_pattern_names(parsed, left, names, duplicate);
             }
@@ -236,10 +236,20 @@ fn go_slots<'a>(parsed: &ParsedFile, params: Node<'a>) -> Option<Vec<Node<'a>>> 
             .into_iter()
             .filter(|node| node.kind() == "identifier" && node.end_byte() <= ty.start_byte())
             .collect();
-        if names.is_empty() || names.iter().any(|node| parsed.node_text(node) == "_") {
+        if names.is_empty() {
             break;
         }
-        out.extend(names);
+        let mut hit_blank = false;
+        for name in names {
+            if parsed.node_text(&name) == "_" {
+                hit_blank = true;
+                break;
+            }
+            out.push(name);
+        }
+        if hit_blank {
+            break;
+        }
     }
     Some(out)
 }
@@ -257,6 +267,12 @@ fn rust_slots<'a>(_parsed: &ParsedFile, params: Node<'a>) -> Option<Vec<Node<'a>
                     break;
                 };
                 out.push(name);
+            }
+            "identifier" => {
+                if _parsed.node_text(&parameter) == "_" {
+                    break;
+                }
+                out.push(parameter);
             }
             _ => break,
         }

@@ -20,6 +20,18 @@ fn first_node_of_kind<'a>(
     found
 }
 
+fn nodes_of_kind<'a>(node: tree_sitter::Node<'a>, kind: &str) -> Vec<tree_sitter::Node<'a>> {
+    let mut out = Vec::new();
+    if node.kind() == kind {
+        out.push(node);
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        out.extend(nodes_of_kind(child, kind));
+    }
+    out
+}
+
 #[test]
 fn javascript_slots_keep_defaults_but_stop_at_rest_or_destructuring() {
     assert_eq!(
@@ -71,6 +83,11 @@ fn javascript_duplicate_or_recovered_parameter_lists_are_unknown() {
         None,
         "any parse-recovery node in parameters fails closed",
     );
+    assert_eq!(
+        slots("function f({x = 0}, x) {}", Language::JavaScript),
+        None,
+        "object_assignment_pattern bindings participate in duplicate detection",
+    );
 }
 
 #[test]
@@ -88,6 +105,14 @@ fn typescript_slots_skip_this_and_stop_at_typed_rest_or_destructuring() {
             Language::TypeScript,
         ),
         Some(vec![]),
+    );
+    assert_eq!(
+        slots(
+            "function f({x = 0}: {x?: number}, x: number) {}",
+            Language::TypeScript,
+        ),
+        None,
+        "TypeScript object_assignment_pattern bindings participate in duplicate detection",
     );
 }
 
@@ -130,6 +155,33 @@ fn go_slots_and_binding_occurrences_expand_grouped_declarations() {
         Some(vec!["a".into()]),
         "an unnamed Go declaration is a positional boundary",
     );
+
+    let grouped_blank = ParsedFile::parse(
+        "grouped_blank.go",
+        "package p\nfunc f(a, _ string, c int) {}\n",
+        Language::Go,
+    )
+    .unwrap();
+    let function = grouped_blank.all_functions().into_iter().next().unwrap();
+    assert_eq!(
+        grouped_blank.function_parameter_slots(&function),
+        Some(vec!["a".into()]),
+        "a grouped blank keeps the deterministic prefix before the blank",
+    );
+    assert_eq!(
+        grouped_blank.function_parameter_names(&function),
+        vec!["a", "c"],
+        "Go blanks are not real binding occurrences",
+    );
+    assert_eq!(
+        grouped_blank
+            .function_parameter_occurrences(&function)
+            .into_iter()
+            .map(|(name, _, _)| name)
+            .collect::<Vec<_>>(),
+        vec!["a", "c"],
+        "DFG and reasoning must not receive a blank binding occurrence",
+    );
 }
 
 #[test]
@@ -163,6 +215,32 @@ fn rust_and_python_slots_preserve_prefixes_and_pseudo_parameter_rules() {
         parsed.function_parameter_slots(&closure),
         Some(vec!["a".into()]),
         "Rust closure parameters share the same prefix contract",
+    );
+
+    let untyped = ParsedFile::parse(
+        "untyped.rs",
+        "fn f() { let one = |cb| cb(); let two = |a, (b, c)| a; }",
+        Language::Rust,
+    )
+    .unwrap();
+    let closures = nodes_of_kind(untyped.tree.root_node(), "closure_expression");
+    assert_eq!(
+        untyped.function_parameter_slots(&closures[0]),
+        Some(vec!["cb".into()]),
+        "untyped Rust closure identifiers are runtime slots",
+    );
+    assert_eq!(
+        untyped.function_parameter_slots(&closures[1]),
+        Some(vec!["a".into()]),
+        "an untyped non-simple closure pattern truncates after its prefix",
+    );
+
+    let mutable = ParsedFile::parse("mutable.rs", "fn f(mut x: i32) {}", Language::Rust).unwrap();
+    let function = mutable.all_functions().into_iter().next().unwrap();
+    assert_eq!(
+        mutable.function_parameter_names(&function),
+        vec!["x"],
+        "the non-positional Rust name API preserves main's name-field behavior",
     );
 }
 

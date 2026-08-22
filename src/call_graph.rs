@@ -112,6 +112,11 @@ pub struct CallSite {
     /// edge cannot coexist with an identical source call-site identity.
     #[serde(default)]
     pub origin: CallSiteOrigin,
+    /// Exact target preserved for a Level-3 parameter callback. This is part of
+    /// logical call-site identity so same-name targets from distinct inbound
+    /// callers cannot collapse in the indirect-site set.
+    #[serde(default)]
+    pub pre_resolved_target: Option<FunctionId>,
 }
 
 /// Parameter arity for a method definition (language-agnostic shape).
@@ -817,6 +822,7 @@ impl CallGraph {
                         arg_spread: false,
                         receiver_outcome: None,
                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
+                        pre_resolved_target: None,
                     };
                     calls
                         .entry(caller_id.clone())
@@ -1159,6 +1165,7 @@ impl CallGraph {
                             arg_spread: meta.arg_spread,
                             receiver_outcome: None,
                             origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
+                            pre_resolved_target: None,
                         };
                         file_call_sites.push((caller_id.clone(), site));
                     }
@@ -1936,29 +1943,22 @@ impl CallGraph {
                         ) {
                             continue;
                         }
-                        let args = caller_parsed.call_argument_texts_at(
+                        let args = caller_parsed.call_argument_texts_and_spans_at(
                             caller_site.start_byte,
                             &caller_site.callee_name,
                         );
-                        if let Some(arg_text) = args.get(param_idx) {
-                            if known_fn_names.contains(arg_text) {
+                        if let Some((arg_text, arg_span)) = args.get(param_idx) {
+                            if let Some(target) = self.exact_callback_argument_target(
+                                caller_parsed,
+                                caller_site,
+                                arg_text,
+                                arg_span,
+                                &known_fn_names,
+                            ) {
                                 level3_sites.push((
                                     caller_id.clone(),
-                                    Self::indirect_call_site(caller_id, arg_text.clone(), site),
+                                    Self::indirect_call_site_with_target(caller_id, &target, site),
                                 ));
-                            } else {
-                                let caller_func_source =
-                                    Self::extract_func_source(caller_parsed, &caller_site.caller);
-                                if let Some(resolved) = crate::ast::resolve_fptr_assignment(
-                                    &caller_func_source,
-                                    arg_text,
-                                    &known_fn_names,
-                                ) {
-                                    level3_sites.push((
-                                        caller_id.clone(),
-                                        Self::indirect_call_site(caller_id, resolved, site),
-                                    ));
-                                }
                             }
                         }
                     }
@@ -2003,7 +2003,69 @@ impl CallGraph {
             arg_spread: false,
             receiver_outcome: None,
             origin: CallSiteOrigin::IndirectResolution,
+            pre_resolved_target: None,
         }
+    }
+
+    fn indirect_call_site_with_target(
+        caller_id: &FunctionId,
+        target: &FunctionId,
+        source_site: &CallSite,
+    ) -> CallSite {
+        let mut site = Self::indirect_call_site(caller_id, target.name.clone(), source_site);
+        site.pre_resolved_target = Some(target.clone());
+        site
+    }
+
+    fn exact_callback_argument_target(
+        &self,
+        caller_parsed: &ParsedFile,
+        caller_site: &CallSite,
+        argument: &str,
+        argument_span: &std::ops::Range<usize>,
+        known_fn_names: &BTreeSet<String>,
+    ) -> Option<FunctionId> {
+        let resolve_name = |name: &str| {
+            let site = CallSite {
+                caller: caller_site.caller.clone(),
+                callee_name: name.to_string(),
+                line: caller_parsed.line_for_byte(argument_span.start),
+                kind: CallKind::Call,
+                start_byte: argument_span.start,
+                end_byte: argument_span.end,
+                qualifier: None,
+                receiver_type: None,
+                receiver_recovery: None,
+                receiver_materialized: false,
+                arg_count: None,
+                arg_spread: false,
+                receiver_outcome: None,
+                origin: CallSiteOrigin::Source,
+                pre_resolved_target: None,
+            };
+            match self.resolve_call_site_full(&site).resolved.as_slice() {
+                [resolved]
+                    if resolved.confidence == crate::resolution::ResolutionConfidence::Exact =>
+                {
+                    Some(resolved.target.clone())
+                }
+                _ => None,
+            }
+        };
+
+        if argument
+            .chars()
+            .all(|character| character.is_alphanumeric() || character == '_')
+        {
+            if let Some(target) = resolve_name(argument) {
+                return Some(target);
+            }
+        }
+
+        let caller_func_source = Self::extract_func_source(caller_parsed, &caller_site.caller);
+        let assigned =
+            crate::ast::resolve_fptr_assignment(&caller_func_source, argument, known_fn_names)?;
+        resolve_name(&assigned)
     }
 
     /// Build class facts for inherited-self and recovered receiver resolution.
@@ -3810,6 +3872,7 @@ impl CallGraph {
                         arg_spread: meta.arg_spread,
                         receiver_outcome: None,
                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
+                        pre_resolved_target: None,
                     };
                     calls
                         .entry(caller_id.clone())
@@ -4435,6 +4498,7 @@ impl CallSite {
         usize,
         Option<&str>,
         Option<&str>,
+        Option<&FunctionId>,
     ) {
         (
             &self.caller.name,
@@ -4445,6 +4509,7 @@ impl CallSite {
             self.end_byte,
             self.qualifier.as_deref(),
             self.receiver_type.as_deref(),
+            self.pre_resolved_target.as_ref(),
         )
     }
 }

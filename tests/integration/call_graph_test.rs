@@ -1,5 +1,6 @@
 use crate::common::*;
 use prism::call_graph::CallSiteOrigin;
+use prism::resolution::{ResolutionConfidence, ResolutionKind};
 
 fn build_call_graph_one(file: &str, src: &str) -> CallGraph {
     let parsed = ParsedFile::parse(file, src, Language::Python).unwrap();
@@ -723,12 +724,141 @@ function start() { invoke(0, safe); }
         .iter()
         .find(|id| id.file == "callbacks.js")
         .unwrap();
-    assert!(
-        cg.calls[invoke].iter().any(|site| {
+    let site = cg.calls[invoke]
+        .iter()
+        .find(|site| {
             site.origin == CallSiteOrigin::IndirectResolution && site.callee_name == "safe"
-        }),
-        "plain positional identifiers retain the exact callback edge"
+        })
+        .expect("plain positional identifiers retain the exact callback edge");
+    let resolved = cg.resolve_call_site_full(site);
+    assert!(matches!(
+        resolved.resolved.as_slice(),
+        [target]
+            if target.target.file == "callbacks.js"
+                && target.target.name == "safe"
+                && target.confidence == ResolutionConfidence::Exact
+                && target.kind == ResolutionKind::ParameterCallback
+    ));
+}
+
+#[test]
+fn level3_preserves_the_inbound_argument_function_identity() {
+    let mut files = BTreeMap::new();
+    files.insert(
+        "a.js".to_string(),
+        ParsedFile::parse(
+            "a.js",
+            "export function safe() {}\nexport function invoke(cb) { cb(); }",
+            Language::JavaScript,
+        )
+        .unwrap(),
     );
+    files.insert(
+        "b.js".to_string(),
+        ParsedFile::parse(
+            "b.js",
+            "import { invoke } from './a';\nfunction safe() {}\nfunction start() { invoke(safe); }",
+            Language::JavaScript,
+        )
+        .unwrap(),
+    );
+
+    let cg = CallGraph::build(&files);
+    let assert_target = |graph: &CallGraph| {
+        let a_invoke = graph.functions["invoke"]
+            .iter()
+            .find(|id| id.file == "a.js")
+            .unwrap();
+        let site = graph.calls[a_invoke]
+            .iter()
+            .find(|site| {
+                site.origin == CallSiteOrigin::IndirectResolution && site.callee_name == "safe"
+            })
+            .expect("the exact inbound call still produces a Level-3 site");
+        let resolved = graph.resolve_call_site_full(site);
+        assert!(matches!(
+            resolved.resolved.as_slice(),
+            [target]
+                if target.target.file == "b.js"
+                    && target.target.name == "safe"
+                    && target.confidence == ResolutionConfidence::Exact
+                    && target.kind == ResolutionKind::ParameterCallback
+        ));
+    };
+    assert_target(&cg);
+
+    let restored: CallGraph = bincode::deserialize(&bincode::serialize(&cg).unwrap()).unwrap();
+    assert_target(&restored);
+}
+
+#[test]
+fn level3_keeps_distinct_same_name_callback_targets() {
+    let mut files = BTreeMap::new();
+    files.insert(
+        "a.js".to_string(),
+        ParsedFile::parse(
+            "a.js",
+            "export function invoke(cb) { cb(); }",
+            Language::JavaScript,
+        )
+        .unwrap(),
+    );
+    for path in ["b.js", "c.js"] {
+        files.insert(
+            path.to_string(),
+            ParsedFile::parse(
+                path,
+                "import { invoke } from './a';\nfunction safe() {}\nfunction start() { invoke(safe); }",
+                Language::JavaScript,
+            )
+            .unwrap(),
+        );
+    }
+
+    let cg = CallGraph::build(&files);
+    let a_invoke = cg.functions["invoke"]
+        .iter()
+        .find(|id| id.file == "a.js")
+        .unwrap();
+    let targets: BTreeSet<_> = cg.calls[a_invoke]
+        .iter()
+        .filter(|site| site.origin == CallSiteOrigin::IndirectResolution)
+        .filter_map(|site| {
+            let resolved = cg.resolve_call_site_full(site);
+            match resolved.resolved.as_slice() {
+                [target]
+                    if target.confidence == ResolutionConfidence::Exact
+                        && target.kind == ResolutionKind::ParameterCallback =>
+                {
+                    Some(target.target.file.as_str())
+                }
+                _ => None,
+            }
+        })
+        .collect();
+    assert_eq!(targets, BTreeSet::from(["b.js", "c.js"]));
+}
+
+#[test]
+fn object_assignment_duplicate_parameters_count_as_unknown_slots() {
+    for (path, language, source) in [
+        (
+            "unknown.js",
+            Language::JavaScript,
+            "function f({x = 0}, x) {}",
+        ),
+        (
+            "unknown.ts",
+            Language::TypeScript,
+            "function f({x = 0}: {x?: number}, x: number) {}",
+        ),
+    ] {
+        let parsed = ParsedFile::parse(path, source, language).unwrap();
+        let files = BTreeMap::from([(path.to_string(), parsed)]);
+
+        let cg = CallGraph::build(&files);
+        assert_eq!(cg.param_slots_unknown.get(&language), Some(&1));
+    }
 }
 
 #[test]

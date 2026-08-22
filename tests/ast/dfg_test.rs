@@ -59,6 +59,20 @@ fn go_grouped_parameter_creates_a_definition_for_every_binding() {
 }
 
 #[test]
+fn go_blank_parameter_creates_no_binding_definition() {
+    let source = "package p\nfunc f(a, _ string, c int) { sink(a); sink(c) }\n";
+    let parsed = ParsedFile::parse("blank.go", source, Language::Go).unwrap();
+    let files = BTreeMap::from([("blank.go".to_string(), parsed)]);
+
+    let dfg = DataFlowGraph::build(&files);
+    assert!(
+        dfg.all_defs_of("blank.go", "_").is_empty(),
+        "a Go blank parameter is not a binding definition"
+    );
+    assert_eq!(dfg.all_defs_of("blank.go", "c").len(), 1);
+}
+
+#[test]
 fn nested_augmented_base_peels_to_leftmost() {
     let source = concat!(
         "struct C { config: Cfg }\n",

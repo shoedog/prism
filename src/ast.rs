@@ -5870,10 +5870,24 @@ impl ParsedFile {
     /// Go grouped declarations intentionally expand (`a, b string` yields both
     /// bindings), so DFG and reasoning receive one definition seed per name.
     pub fn function_parameter_names(&self, func_node: &Node<'_>) -> Vec<String> {
-        self.function_parameter_occurrences(func_node)
-            .into_iter()
-            .map(|(name, _, _)| name)
-            .collect()
+        if self.language == Language::Go {
+            return self
+                .function_parameter_occurrences(func_node)
+                .into_iter()
+                .map(|(name, _, _)| name)
+                .collect();
+        }
+
+        let mut names = Vec::new();
+        if let Some(params) = self.find_parameters_node(func_node) {
+            let mut cursor = params.walk();
+            for child in params.children(&mut cursor) {
+                if let Some(name) = self.extract_param_name(&child) {
+                    names.push(name);
+                }
+            }
+        }
+        names
     }
 
     /// Byte-bearing sibling of `function_parameter_names`.
@@ -5925,7 +5939,7 @@ impl ParsedFile {
             let mut cursor = node.walk();
             return node
                 .children(&mut cursor)
-                .filter(|child| child.kind() == "identifier")
+                .filter(|child| child.kind() == "identifier" && self.node_text(child) != "_")
                 .collect();
         }
         self.extract_param_name_node(&node).into_iter().collect()
