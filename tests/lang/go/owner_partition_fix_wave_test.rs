@@ -128,6 +128,38 @@ fn qualified_return_type_uses_the_imported_packages_ordinary_clause() {
 }
 
 #[test]
+fn return_type_partition_decisions_reach_call_stats() {
+    let cg = build_go(&[
+        (
+            "pkg/new_linux.go",
+            "//go:build linux\npackage pkg\ntype Linux struct{}\nfunc (Linux) Dial() {}\nfunc New() Linux { return Linux{} }\n",
+        ),
+        (
+            "pkg/new_windows.go",
+            "//go:build windows\npackage pkg\ntype Windows struct{}\nfunc (Windows) Dial() {}\nfunc New() Windows { return Windows{} }\n",
+        ),
+        (
+            "pkg/use_linux.go",
+            "//go:build linux\npackage pkg\nfunc invokeLinux() { x := New(); x.Dial() }\n",
+        ),
+        (
+            "pkg/use.go",
+            "package pkg\nfunc invokeUnconstrained() { x := New(); x.Dial() }\n",
+        ),
+    ]);
+    let stats = prism::navigation::queries::call_stats(&cg);
+
+    assert_eq!(
+        resolved_method_owners(&cg, "invokeLinux", "Dial"),
+        BTreeSet::from(["Linux".to_string()])
+    );
+    assert!(resolved_method_owners(&cg, "invokeUnconstrained", "Dial").is_empty());
+    assert_eq!(stats["go_owner_identity_partition_recovered"], 1);
+    assert_eq!(stats["go_owner_identity_partition_drop"], 1);
+    assert_eq!(stats["go_owner_identity_partition_affected_sites"], 2);
+}
+
+#[test]
 fn cross_package_p5_registrations_follow_the_invocation_partition() {
     let cg = build_go(&[
         (

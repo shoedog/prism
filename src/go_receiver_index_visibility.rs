@@ -16,19 +16,24 @@ pub(crate) fn resolve_go_return_type_call(
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
     return_types: &GoReturnTypes,
     go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
-) -> Option<String> {
-    let identity = resolve_go_owner_identity(
+) -> crate::go_owner_partition::GoPartitionSelection<String> {
+    let Some(identity) = resolve_go_owner_identity(
         callee_text,
         caller_file,
         imports,
         package_basenames,
         go_file_profiles,
-    )?;
+    ) else {
+        return Default::default();
+    };
+    let Some(facts) = return_types.get(&identity) else {
+        return Default::default();
+    };
     unique_visible_return_type(
         &identity,
         caller_file,
         GoOwnerReferenceMode::from_type_text(callee_text),
-        return_types.get(&identity)?,
+        facts,
         go_file_profiles,
     )
 }
@@ -39,7 +44,9 @@ fn unique_visible_return_type(
     mode: GoOwnerReferenceMode,
     facts: &BTreeSet<GoTypedFact>,
     go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
-) -> Option<String> {
+) -> crate::go_owner_partition::GoPartitionSelection<String> {
+    let all_values: BTreeSet<_> = facts.iter().map(|fact| fact.ty.clone()).collect();
+    let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
     let mut tys = BTreeSet::new();
     for fact in facts {
         let (visible, exact) = exact_declaration_visibility(
@@ -50,14 +57,33 @@ fn unique_visible_return_type(
             go_file_profiles,
         );
         if !visible {
+            evidence.filtered_declarations += 1;
             continue;
         }
+        evidence.visible_declarations += 1;
         if !exact {
-            return None;
+            evidence.uncertain = true;
+            return crate::go_owner_partition::GoPartitionSelection {
+                value: None,
+                evidence,
+            };
         }
         tys.insert(fact.ty.clone());
     }
-    (tys.len() == 1).then(|| tys.into_iter().next().unwrap())
+    evidence.distinct_visible_values = tys.len();
+    evidence.conflict = tys.len() > 1;
+    if evidence.conflict {
+        return crate::go_owner_partition::GoPartitionSelection {
+            value: None,
+            evidence,
+        };
+    }
+    evidence.recovered =
+        all_values.len() > 1 && evidence.filtered_declarations > 0 && tys.len() == 1;
+    crate::go_owner_partition::GoPartitionSelection {
+        value: tys.into_iter().next(),
+        evidence,
+    }
 }
 
 pub(crate) fn unique_visible_type(

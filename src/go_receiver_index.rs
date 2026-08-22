@@ -444,14 +444,15 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
         ctx.call_line,
         ctx.call_start_byte,
     ) {
-        if let Some(ty) = resolve_go_return_type_call(
+        let selection = resolve_go_return_type_call(
             &callee_text,
             ctx.caller_file,
             facts.imports,
             facts.package_basenames,
             facts.return_types,
             facts.go_file_profiles,
-        ) {
+        );
+        if let Some(ty) = selection.value {
             let static_type = owner_key(&peel_type(&ty));
             return (
                 ReceiverClassification {
@@ -461,9 +462,10 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                     }),
                     materialized: true,
                 },
-                Default::default(),
+                selection.evidence,
             );
         }
+        return (baseline, selection.evidence);
     }
     (baseline, Default::default())
 }
