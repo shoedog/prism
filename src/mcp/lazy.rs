@@ -76,7 +76,14 @@ impl LazySessionProvider {
     }
 
     pub fn ensure_ready(&mut self) -> Readiness {
-        if matches!(&self.state, LazyState::Failed { .. }) {
+        let retry_failed = match &self.state {
+            LazyState::Failed { error, at } => {
+                let _ = (error, at);
+                true
+            }
+            LazyState::Building { .. } | LazyState::Ready(_) => false,
+        };
+        if retry_failed {
             self.spawn_build();
         }
 

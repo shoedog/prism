@@ -40,7 +40,7 @@ fn write_file(root: &std::path::Path, name: &str, source: &str) {
 }
 
 fn run_provider(
-    provider: &mut crate::mcp::SessionProvider,
+    provider: &mut impl SessionRuntime,
     registry: &ToolRegistry,
     msgs: Vec<&str>,
 ) -> Vec<serde_json::Value> {
@@ -49,11 +49,195 @@ fn run_provider(
     t.responses().to_vec()
 }
 
+fn assert_warming_result(
+    response: &serde_json::Value,
+    mode: crate::mcp::output::StructuredContentMode,
+) {
+    let result = &response["result"];
+    assert_eq!(result["isError"], true);
+    assert_eq!(result["_meta"]["prism/index_state"], "warming");
+    assert_eq!(result["_meta"]["prism/retryable"], true);
+    let status: serde_json::Value =
+        serde_json::from_str(result["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(status["status"], "warming");
+    assert!(status["elapsed_secs"].is_number());
+    assert!(status["message"].as_str().unwrap().contains("retry"));
+    match mode {
+        crate::mcp::output::StructuredContentMode::Always => {
+            assert_eq!(result["structuredContent"], status);
+        }
+        crate::mcp::output::StructuredContentMode::OmitDefaultPath => {
+            assert!(result.get("structuredContent").is_none());
+        }
+    }
+}
+
+#[test]
+fn lazy_runtime_returns_warming_status_in_both_wire_modes_while_ping_remains_ready() {
+    use std::sync::{mpsc, Arc, Mutex};
+
+    let dir = tempfile::tempdir().unwrap();
+    write_file(dir.path(), "a.py", "def f():\n    return 1\n");
+    let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
+    cfg.cache = crate::mcp::CacheMode::NoCache;
+    let (release, rx) = mpsc::channel();
+    let rx = Arc::new(Mutex::new(rx));
+    let builder_cfg = cfg.clone();
+    let builder: crate::mcp::lazy::SessionBuilder = Arc::new(move || {
+        rx.lock().unwrap().recv().unwrap();
+        crate::mcp::SessionProvider::bootstrap(&builder_cfg)
+    });
+    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
+        &cfg,
+        std::time::Duration::ZERO,
+        builder,
+    )
+    .unwrap();
+
+    let responses = run_provider(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        vec![INIT, INITED, r#"{"jsonrpc":"2.0","id":2,"method":"ping"}"#],
+    );
+    assert_eq!(responses[1]["result"], serde_json::json!({}));
+    assert_eq!(provider.attempts(), 1);
+
+    let request = r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_repo_map","arguments":{}}}"#;
+    for mode in [
+        crate::mcp::output::StructuredContentMode::Always,
+        crate::mcp::output::StructuredContentMode::OmitDefaultPath,
+    ] {
+        let response = call_tool_at_cap_with_mode(
+            &mut provider,
+            &ToolRegistry::all_v1(),
+            request,
+            crate::mcp::output::MAX_RESULT_CHARS,
+            mode,
+        );
+        assert_warming_result(&response, mode);
+        assert_eq!(provider.attempts(), 1);
+    }
+    release.send(()).unwrap();
+}
+
+#[test]
+fn lazy_runtime_validates_bad_calls_before_waiting_or_retrying() {
+    use std::sync::{mpsc, Arc, Mutex};
+
+    let dir = tempfile::tempdir().unwrap();
+    write_file(dir.path(), "a.py", "def f():\n    return 1\n");
+    let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
+    cfg.cache = crate::mcp::CacheMode::NoCache;
+    let (release, rx) = mpsc::channel();
+    let rx = Arc::new(Mutex::new(rx));
+    let builder_cfg = cfg.clone();
+    let builder: crate::mcp::lazy::SessionBuilder = Arc::new(move || {
+        rx.lock().unwrap().recv().unwrap();
+        crate::mcp::SessionProvider::bootstrap(&builder_cfg)
+    });
+    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
+        &cfg,
+        std::time::Duration::from_secs(1),
+        builder,
+    )
+    .unwrap();
+
+    let requests = [
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call"}"#,
+        r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_repo_map","arguments":[]}}"#,
+        r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"unknown","arguments":{}}}"#,
+        r#"{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"refresh_index","arguments":{"force":true}}}"#,
+    ];
+    let started = std::time::Instant::now();
+    for request in requests {
+        let response = call_tool_at_cap_with_mode(
+            &mut provider,
+            &ToolRegistry::all_v1(),
+            request,
+            crate::mcp::output::MAX_RESULT_CHARS,
+            crate::mcp::output::StructuredContentMode::Always,
+        );
+        assert!(
+            response["result"]["isError"].as_bool().unwrap_or(false)
+                || response["error"]["code"] == -32602
+        );
+    }
+    assert!(started.elapsed() < std::time::Duration::from_millis(100));
+    assert_eq!(provider.attempts(), 1);
+    release.send(()).unwrap();
+}
+
+#[test]
+fn lazy_runtime_reports_build_failures_then_retries_until_success() {
+    use std::collections::VecDeque;
+    use std::sync::{Arc, Mutex};
+
+    let dir = tempfile::tempdir().unwrap();
+    write_file(dir.path(), "a.py", "def f():\n    return 1\n");
+    let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
+    cfg.cache = crate::mcp::CacheMode::NoCache;
+    let outcomes = Arc::new(Mutex::new(VecDeque::from(["first", "second", "ready"])));
+    let builder_cfg = cfg.clone();
+    let builder: crate::mcp::lazy::SessionBuilder =
+        Arc::new(
+            move || match outcomes.lock().unwrap().pop_front().unwrap() {
+                "first" => anyhow::bail!("first build failure"),
+                "second" => anyhow::bail!("second build failure"),
+                "ready" => crate::mcp::SessionProvider::bootstrap(&builder_cfg),
+                _ => unreachable!(),
+            },
+        );
+    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
+        &cfg,
+        std::time::Duration::from_secs(1),
+        builder,
+    )
+    .unwrap();
+    let request = r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_repo_map","arguments":{}}}"#;
+
+    for (attempt, cause) in [(1, "first build failure"), (2, "second build failure")] {
+        let response = call_tool_at_cap_with_mode(
+            &mut provider,
+            &ToolRegistry::all_v1(),
+            request,
+            crate::mcp::output::MAX_RESULT_CHARS,
+            crate::mcp::output::StructuredContentMode::Always,
+        );
+        let result = &response["result"];
+        assert_eq!(result["isError"], true);
+        assert_eq!(result["_meta"]["prism/index_state"], "failed");
+        let status: serde_json::Value =
+            serde_json::from_str(result["content"][0]["text"].as_str().unwrap()).unwrap();
+        assert_eq!(status["status"], "build_failed");
+        assert_eq!(status["cause"], cause);
+        assert_eq!(provider.attempts(), attempt);
+    }
+
+    let response = call_tool_at_cap_with_mode(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        request,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::Always,
+    );
+    assert_eq!(response["result"]["isError"], false);
+    assert_eq!(provider.attempts(), 3);
+    assert_eq!(provider.last_error(), None);
+}
+
 struct FailingAutoRuntime {
     provider: crate::mcp::SessionProvider,
 }
 
 impl SessionRuntime for FailingAutoRuntime {
+    fn ensure_ready(&mut self) -> crate::mcp::lazy::Readiness {
+        crate::mcp::lazy::Readiness::Ready
+    }
+
+    fn startup_mode(&self) -> crate::mcp::StartupMode {
+        crate::mcp::StartupMode::Eager
+    }
+
     fn session(&self) -> &crate::navigation::NavigationSession {
         self.provider.session()
     }

@@ -2,6 +2,7 @@ use super::concise_shape::{resolve_concise_shape_mode, ConciseShapeMode};
 use super::freshness::{
     apply_freshness_report, FreshnessProbe, FreshnessReport, FRESHNESS_RESERVE_BYTES,
 };
+use super::lazy::{LazySessionProvider, Readiness};
 use super::output::{
     clamp_user_text, resolve_cap, resolve_structured_content_mode, McpToolResult,
     StructuredContentMode, MAX_RESULT_CHARS_FLOOR, SCHEMA_VERSION,
@@ -9,7 +10,7 @@ use super::output::{
 use super::registry::{ToolContext, ToolRegistry, ToolRuntimeBehavior};
 use super::{
     tools_refresh, AutoRefreshSummary, RefreshPolicy, RefreshSummary, RefreshVerification,
-    SessionProvider,
+    SessionProvider, StartupMode,
 };
 use crate::navigation::NavigationSession;
 use serde_json::{json, Map, Value};
@@ -134,7 +135,9 @@ pub fn serve_stdio(p: &mut SessionProvider, r: &ToolRegistry) -> anyhow::Result<
     serve_runtime(p, r, &mut transport)
 }
 
-trait SessionRuntime {
+pub(super) trait SessionRuntime {
+    fn ensure_ready(&mut self) -> Readiness;
+    fn startup_mode(&self) -> StartupMode;
     fn session(&self) -> &NavigationSession;
     fn freshness(&self) -> Option<&FreshnessProbe>;
     fn known_stale_after_refresh(&self) -> Option<&FreshnessReport>;
@@ -149,6 +152,14 @@ struct StaticRuntime<'a> {
 }
 
 impl SessionRuntime for StaticRuntime<'_> {
+    fn ensure_ready(&mut self) -> Readiness {
+        Readiness::Ready
+    }
+
+    fn startup_mode(&self) -> StartupMode {
+        StartupMode::Eager
+    }
+
     fn session(&self) -> &NavigationSession {
         self.session
     }
@@ -175,6 +186,14 @@ impl SessionRuntime for StaticRuntime<'_> {
 }
 
 impl SessionRuntime for SessionProvider {
+    fn ensure_ready(&mut self) -> Readiness {
+        Readiness::Ready
+    }
+
+    fn startup_mode(&self) -> StartupMode {
+        StartupMode::Eager
+    }
+
     fn session(&self) -> &NavigationSession {
         SessionProvider::session(self)
     }
@@ -197,6 +216,54 @@ impl SessionRuntime for SessionProvider {
 
     fn auto_refresh_index(&mut self) -> anyhow::Result<AutoRefreshSummary> {
         self.auto_refresh()
+    }
+}
+
+impl SessionRuntime for LazySessionProvider {
+    fn ensure_ready(&mut self) -> Readiness {
+        LazySessionProvider::ensure_ready(self)
+    }
+
+    fn startup_mode(&self) -> StartupMode {
+        StartupMode::Lazy
+    }
+
+    fn session(&self) -> &NavigationSession {
+        self.ready()
+            .expect("lazy runtime methods run only after readiness")
+            .session()
+    }
+
+    fn freshness(&self) -> Option<&FreshnessProbe> {
+        Some(
+            self.ready()
+                .expect("lazy runtime methods run only after readiness")
+                .freshness(),
+        )
+    }
+
+    fn known_stale_after_refresh(&self) -> Option<&FreshnessReport> {
+        self.ready()
+            .expect("lazy runtime methods run only after readiness")
+            .known_stale_after_refresh()
+    }
+
+    fn refresh_policy(&self) -> RefreshPolicy {
+        self.ready()
+            .expect("lazy runtime methods run only after readiness")
+            .refresh_policy()
+    }
+
+    fn refresh_index(&mut self) -> anyhow::Result<RefreshSummary> {
+        self.ready_mut()
+            .expect("lazy runtime methods run only after readiness")
+            .refresh()
+    }
+
+    fn auto_refresh_index(&mut self) -> anyhow::Result<AutoRefreshSummary> {
+        self.ready_mut()
+            .expect("lazy runtime methods run only after readiness")
+            .auto_refresh()
     }
 }
 
@@ -432,18 +499,41 @@ fn call_tool_response_with_cap_and_mode(
     };
 
     if tool.runtime_behavior == Some(ToolRuntimeBehavior::RefreshIndex) {
-        let result = if arguments.as_object().is_some_and(|obj| obj.is_empty()) {
-            match runtime.refresh_index() {
+        if !arguments.as_object().is_some_and(|obj| obj.is_empty()) {
+            return Dispatch::Response(success_response(
+                id,
+                tools_refresh::invalid_arguments_result()
+                    .to_call_tool_result_value(structured_content_mode),
+            ));
+        }
+        let result = match runtime.ensure_ready() {
+            Readiness::Ready => match runtime.refresh_index() {
                 Ok(summary) => tools_refresh::refresh_result(&summary),
                 Err(error) => tools_refresh::refresh_error_result(&error),
-            }
-        } else {
-            tools_refresh::invalid_arguments_result()
+            },
+            Readiness::Warming { elapsed } => warming_result(elapsed),
+            Readiness::Failed { error } => build_failure_result(&error),
         };
         return Dispatch::Response(success_response(
             id,
             result.to_call_tool_result_value(structured_content_mode),
         ));
+    }
+
+    match runtime.ensure_ready() {
+        Readiness::Ready => {}
+        Readiness::Warming { elapsed } => {
+            return Dispatch::Response(success_response(
+                id,
+                warming_result(elapsed).to_call_tool_result_value(structured_content_mode),
+            ));
+        }
+        Readiness::Failed { error } => {
+            return Dispatch::Response(success_response(
+                id,
+                build_failure_result(&error).to_call_tool_result_value(structured_content_mode),
+            ));
+        }
     }
 
     let report = effective_stale_report(runtime);
@@ -683,6 +773,48 @@ fn unknown_tool_result(name: &str, registry: &ToolRegistry) -> McpToolResult {
     McpToolResult {
         content_text: format!("unknown tool '{name}'; available [{available}]"),
         structured: None,
+        is_error: true,
+        meta,
+    }
+}
+
+fn warming_result(elapsed: std::time::Duration) -> McpToolResult {
+    retryable_status_result(
+        json!({
+            "status": "warming",
+            "elapsed_secs": elapsed.as_secs(),
+            "message": "prism-mcp is still building the repository index; retry this call shortly — no other action is needed; later calls are fast."
+        }),
+        "warming",
+    )
+}
+
+fn build_failure_result(error: &str) -> McpToolResult {
+    retryable_status_result(
+        json!({
+            "status": "build_failed",
+            "cause": clamp_user_text(error),
+            "message": "the server keeps running; the next tool call retries the build"
+        }),
+        "failed",
+    )
+}
+
+fn retryable_status_result(status: Value, index_state: &'static str) -> McpToolResult {
+    let content_text = serde_json::to_string(&status).expect("status result serializes");
+    let mut meta = Map::new();
+    meta.insert(
+        "prism/schema_version".into(),
+        Value::String(SCHEMA_VERSION.into()),
+    );
+    meta.insert(
+        "prism/index_state".into(),
+        Value::String(index_state.into()),
+    );
+    meta.insert("prism/retryable".into(), Value::Bool(true));
+    McpToolResult {
+        content_text,
+        structured: Some(status),
         is_error: true,
         meta,
     }
