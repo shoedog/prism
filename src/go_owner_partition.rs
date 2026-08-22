@@ -413,7 +413,24 @@ pub fn select_struct_field(
     declarations: &BTreeSet<GoStructDeclaration>,
     profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
 ) -> GoPartitionSelection<String> {
-    let mode = GoOwnerReferenceMode::from_type_text(owner_type_text);
+    select_struct_field_with_mode(
+        owner,
+        caller_file,
+        GoOwnerReferenceMode::from_type_text(owner_type_text),
+        field_name,
+        declarations,
+        profiles,
+    )
+}
+
+pub fn select_struct_field_with_mode(
+    owner: &GoOwnerIdentity,
+    caller_file: &str,
+    mode: GoOwnerReferenceMode,
+    field_name: &str,
+    declarations: &BTreeSet<GoStructDeclaration>,
+    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+) -> GoPartitionSelection<String> {
     let all_values: BTreeSet<Option<String>> = declarations
         .iter()
         .map(|declaration| declaration.fields.get(field_name).cloned())

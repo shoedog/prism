@@ -1382,9 +1382,10 @@ impl CallGraph {
     /// P5 S3 (Go func-value callbacks): consulted from the Go interface-consult
     /// miss path (resolve_call_site_full), ONLY after concrete `owner_lookup`
     /// AND `interface_impls` have both missed or arity-filtered to empty.
-    /// `(recv_ty, name)` is the receiver's recovered static type and the
-    /// called method/field name at the call site being resolved — e.g.
-    /// `cmd.Run()` with `recv_ty = "Command"`, `name = "Run"`.
+    /// `(recv_ty, proven_owner, name)` carries the receiver's recovered static
+    /// type, any package identity already proven by S1/S2, and the called
+    /// method/field name — e.g. `cmd.Run()` with `recv_ty = "Command"`,
+    /// `name = "Run"`.
     ///
     /// If the visible declaration snapshots agree `(owner, name)` is a
     /// func-typed struct field, resolve to the DISTINCT visible S2 registration targets
@@ -1397,25 +1398,21 @@ impl CallGraph {
     fn func_value_field_or_external_drop(
         &self,
         recv_ty: &str,
+        proven_owner: Option<&GoOwnerIdentity>,
         name: &str,
         caller_file: &str,
     ) -> ResolutionOutcome<'_> {
-        let Some(owner) = resolve_go_owner_identity(
-            recv_ty,
-            caller_file,
-            &self.imports,
-            &self.go_package_basenames,
-            &self.go_file_profiles,
-        ) else {
+        let Some(owner) = self.go_receiver_owner(recv_ty, caller_file, proven_owner) else {
             return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
         };
         let Some(declarations) = self.go_field_types.get(&owner) else {
             return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
         };
-        let field = crate::go_owner_partition::select_struct_field(
+        let mode = self.go_owner_reference_mode(&owner, caller_file);
+        let field = crate::go_owner_partition::select_struct_field_with_mode(
             &owner,
             caller_file,
-            recv_ty,
+            mode,
             name,
             declarations,
             &self.go_file_profiles,
@@ -2360,6 +2357,7 @@ impl CallGraph {
                                                     // index before the ExternalReceiver drop.
                                                     return self.func_value_field_or_external_drop(
                                                         recv_ty,
+                                                        site.receiver_owner_identity.as_ref(),
                                                         name,
                                                         &site.caller.file,
                                                     );
@@ -2376,6 +2374,7 @@ impl CallGraph {
                                                 // registration index before the drop.
                                                 return self.func_value_field_or_external_drop(
                                                     recv_ty,
+                                                    site.receiver_owner_identity.as_ref(),
                                                     name,
                                                     &site.caller.file,
                                                 );
@@ -2389,6 +2388,7 @@ impl CallGraph {
                                         // resolution works directly off `recv_ty`, not `iface_key`.
                                         return self.func_value_field_or_external_drop(
                                             recv_ty,
+                                            site.receiver_owner_identity.as_ref(),
                                             name,
                                             &site.caller.file,
                                         );

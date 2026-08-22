@@ -315,15 +315,6 @@ pub struct GoReceiverCtx<'a> {
 /// whereas `var_local`/`type_assertion` gate recoveries that trade off
 /// precision more heuristically. `Legacy` mode is a parity/fall-back mode
 /// for THOSE forms, not a request to disable grounded ones.
-pub fn classify_go_receiver_expanded(
-    ctx: &GoReceiverCtx<'_>,
-    base_classifier: &dyn ReceiverClassifier,
-    facts: &GoReceiverFacts<'_>,
-    var_local: bool,
-) -> ReceiverClassification {
-    classify_go_receiver_expanded_with_partition(ctx, base_classifier, facts, var_local).0
-}
-
 pub(crate) fn classify_go_receiver_expanded_with_partition(
     ctx: &GoReceiverCtx<'_>,
     base_classifier: &dyn ReceiverClassifier,
@@ -529,10 +520,12 @@ fn classify_nested_selector(
     };
     // Recurse through the SAME simple-ident + S1/S3 machinery for the base —
     // terminates in one level since `base_text` is never dotted.
-    let Some(base_recovered) =
-        classify_go_receiver_expanded(&base_ctx, base_classifier, facts, var_local).recovered
-    else {
-        return (None, evidence, false);
+    let (base_classification, base_evidence) =
+        classify_go_receiver_expanded_with_partition(&base_ctx, base_classifier, facts, var_local);
+    evidence.merge(base_evidence);
+    let base_materialized = base_classification.materialized;
+    let Some(base_recovered) = base_classification.recovered else {
+        return (None, evidence, base_materialized);
     };
 
     let mut current_owner = match base_recovered.owner_identity {

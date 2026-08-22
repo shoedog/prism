@@ -589,3 +589,93 @@ fn qualified_return_uses_the_caller_visible_concrete_declaration_kind() {
         BTreeSet::from(["factory/widget_linux.go".to_string()])
     );
 }
+
+#[test]
+fn nested_selector_preserves_a_materialized_unresolved_return_base() {
+    let cg = build_go(&[
+        (
+            "factory/factory.go",
+            "package factory\nimport missing \"example/missing\"\nfunc New() missing.Widget { panic(\"unreachable\") }\n",
+        ),
+        (
+            "other/decoy.go",
+            "package other\ntype Decoy struct{}\nfunc (Decoy) Use() {}\n",
+        ),
+        (
+            "app/use.go",
+            "package app\nimport factory \"example/factory\"\nfunc invoke() { w := factory.New(); w.Part.Use() }\n",
+        ),
+    ]);
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.caller.name == "invoke" && site.callee_name == "Use")
+        .expect("nested unresolved-return method site");
+
+    assert!(site.receiver_materialized);
+    assert!(site.receiver_owner_identity.is_none());
+    assert!(cg.resolve_call_site_full(site).resolved.is_empty());
+}
+
+#[test]
+fn nested_selector_preserves_return_partition_recovery_telemetry() {
+    let cg = build_go(&[
+        (
+            "factory/box_linux.go",
+            "//go:build linux\n\npackage factory\ntype LinuxGadget struct{}\nfunc (LinuxGadget) Use() {}\ntype LinuxBox struct { Part LinuxGadget }\nfunc New() LinuxBox { return LinuxBox{} }\n",
+        ),
+        (
+            "factory/box_windows.go",
+            "//go:build windows\n\npackage factory\ntype WindowsGadget struct{}\nfunc (WindowsGadget) Use() {}\ntype WindowsBox struct { Part WindowsGadget }\nfunc New() WindowsBox { return WindowsBox{} }\n",
+        ),
+        (
+            "app/use_linux.go",
+            "//go:build linux\n\npackage app\nimport factory \"example/factory\"\nfunc invoke() { w := factory.New(); w.Part.Use() }\n",
+        ),
+    ]);
+    let stats = prism::navigation::queries::call_stats(&cg);
+
+    assert_eq!(
+        resolved_method_owners(&cg, "invoke", "Use"),
+        BTreeSet::from(["LinuxGadget".to_string()])
+    );
+    assert_eq!(stats["go_owner_identity_partition_recovered"], 1);
+    assert_eq!(stats["go_owner_identity_partition_drop"], 0);
+}
+
+#[test]
+fn qualified_return_func_value_field_uses_the_proven_package_owner() {
+    let cg = build_go(&[
+        (
+            "factory/command.go",
+            "package factory\ntype Command struct { Run func() }\nfunc factoryHandler() {}\nfunc New() Command { return Command{Run: factoryHandler} }\n",
+        ),
+        (
+            "app/local.go",
+            "package app\ntype Command struct { Run func() }\nfunc appHandler() {}\nfunc setup() { _ = Command{Run: appHandler} }\n",
+        ),
+        (
+            "app/use.go",
+            "package app\nimport factory \"example/factory\"\nfunc invoke() { command := factory.New(); command.Run() }\n",
+        ),
+    ]);
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.caller.name == "invoke" && site.callee_name == "Run")
+        .expect("qualified-return func-value-field site");
+    let owner = site
+        .receiver_owner_identity
+        .as_ref()
+        .expect("qualified-return Command owner");
+
+    assert_eq!(owner.package_dir, "factory");
+    assert_eq!(owner.package_clause, "factory");
+    assert_eq!(owner.name, "Command");
+    assert_eq!(
+        resolved_target_names(&cg, "invoke", "Run"),
+        BTreeSet::from(["factoryHandler".to_string()])
+    );
+}
