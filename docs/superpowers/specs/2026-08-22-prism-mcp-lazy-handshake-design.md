@@ -1,102 +1,127 @@
 # prism-mcp lazy handshake — design (roadmap #11)
 
-Date: 2026-08-22 · Status: DRAFT for sol spec review · Owner-approved approach: **A (lazy-on-first-call, single-threaded) + `--eager`**
-Record: `docs/analysis/2026-08-21-tier-c-partd-readout.md` §Caveats (probe), `docs/analysis/prism-post-plan-roadmap.md` row 11.
+Date: 2026-08-22 · Status: **v2 — A+C, sol round-1 findings folded; for sol round 2** · Owner-approved 2026-08-22: approach **A+C**
+(background bootstrap at spawn, instant handshake, bounded wait on `tools/call` then a structured *warming* result; `--eager` keeps
+today's synchronous startup). Record: `docs/analysis/2026-08-21-tier-c-partd-readout.md` §Caveats; roadmap row 11;
+ledger 2026-08-21 "RECONCILED PLAN (5)" (dual-model: a blocking lazy build just moves a 263 s cold build to the first call, which dies at
+codex's default 60 s per-tool timeout → the first call must return *warming, retry*, not block).
 
 ## 1. Problem (measured)
+`prism::mcp::run` (`src/mcp/mod.rs`) calls `SessionProvider::bootstrap` (`session.rs` → `build_state`: `load_repo` + `NavigationIndex::build*`)
+**before** `serve_stdio` reads stdin; the client's `initialize` waits for the whole index build (TS warm 17–19 s; ruff cold 263 s; prometheus
+cold 24.5 s). codex 0.147 silently drops any MCP server not answering within ~10 s regardless of `startup_timeout_sec`; Claude Code has
+short startup limits too. codex's per-tool-call default is 60 s (harness arms raise it to 600 s; Claude arms set `MCP_TOOL_TIMEOUT=600000`).
+`initialize`, `ping`, `notifications/*`, `tools/list` (static from `ToolRegistry`) need nothing from the index; only the `tools/call` path
+touches `SessionRuntime::session()/freshness()/known_stale_after_refresh()/refresh_index()` (sol reachability audit: no hidden path).
 
-`prism::mcp::run` (`src/mcp/mod.rs`) calls `SessionProvider::bootstrap` (`src/mcp/session.rs::bootstrap` → `build_state`: `load_repo` +
-`NavigationIndex::build*`) **before** `serve_stdio` reads a single byte of stdin. The client's `initialize` therefore waits for the whole
-index build. Warm loads are 17–19 s on the TypeScript bench repo and longer cold; codex 0.147 silently drops any MCP server that has not
-answered within ~10 s regardless of `startup_timeout_sec`/`startup_timeout_ms` (probe-proven; it voided a Part-D slate and leaves every
-TypeScript cell unmeasurable). Claude Code also has short MCP startup limits. Today's documented mitigation is "pre-warm once".
+Fact (compile-probed 2026-08-22): `SessionProvider`, `NavigationSession`, `NavigationIndex`, `LoadedRepo` are `Send` (`Index`/`LoadedRepo`
+also `Sync`); the `#[allow(clippy::arc_with_non_send_sync)]` in `session.rs` is stale. A build thread + `JoinHandle`/channel is enough — no
+actor transport.
 
-Observation that makes the fix small: `initialize`, `ping`, `notifications/*` and `tools/list` (`transport.rs::list_tools` — static from
-`ToolRegistry`) need nothing from the index. Only `tools/call` (and therefore `refresh_index`, auto-refresh and the freshness probe)
-touch `SessionRuntime::session()` / `freshness()`.
+## 2. Design (A+C)
+### 2.1 Startup mode
+`ServerConfig.startup: StartupMode::{Lazy (default), Eager}`; `src/bin/prism-mcp.rs` gains `--eager` and `--first-call-wait <secs>`
+(default 20; `0` = never block, answer *warming* immediately). `mod.rs::run`: Eager → today's path unchanged (`SessionProvider::bootstrap` then
+`serve_stdio`); Lazy → `LazySessionProvider::new(&cfg)` then `serve_stdio`. `serve_stdio` generalizes to `&mut impl SessionRuntime`.
 
-## 2. Design (approach A)
+### 2.2 `src/mcp/lazy.rs` (new module; legacy files get call-site edits only)
+```
+pub struct LazySessionProvider { cfg: ServerConfig, state: LazyState, wait: Duration, last_error: Option<String>,
+                                 builds: Arc<AtomicUsize> /* test hook: number of build attempts */ }
+enum LazyState { Building { rx: Receiver<anyhow::Result<SessionProvider>>, started: Instant },
+                 Ready(SessionProvider), Failed { error: String, at: Instant } }
+pub enum Readiness { Ready, Warming { elapsed: Duration }, Failed { error: String } }
+```
+- `new(cfg)`: `canonical_config` (fail fast on a bad `--repo`, as today) then `spawn_build()`: `std::thread::spawn(move || SessionProvider::bootstrap(&cfg))`
+  sending the result over an mpsc channel (`builds += 1`). The build therefore starts at **spawn** and overlaps the handshake + the
+  agent's first think time; the snapshot boundary is spawn time, the same as eager (ms apart).
+- `ensure_ready(&mut self) -> Readiness`: `Ready` → `Ready`; `Building` → `rx.recv_timeout(remaining budget)` where budget = `wait`
+  (a call that arrives mid-build waits at most `wait`): `Ok(Ok(p))` → `Ready(p)`, `last_error = None` → `Ready`; `Ok(Err(e))` →
+  `Failed{e}` → `Failed`; `Err(Timeout)` → `Warming{elapsed}`; (`Disconnected` = builder panicked → `Failed` with a fixed message);
+  `Failed` → **respawn** the build (retry; `builds += 1`) then behave as `Building` (wait up to budget). Protocol-invalid calls never reach
+  `ensure_ready` (2.3), so they never retry.
+- `impl SessionRuntime for LazySessionProvider`: `ensure_ready` as above; every other trait method delegates to the `Ready` provider and is
+  only reachable after `ensure_ready` returned `Ready` (2.3); `startup_mode() = Lazy`. Test-only constructor
+  `with_builder(cfg, wait, Box<dyn FnOnce() -> anyhow::Result<SessionProvider> + Send>)` (injected slow / failing / succeeding builders;
+  deterministic `builds` count).
 
-### 2.1 Components
-- `session.rs`: new `pub struct LazySessionProvider { cfg: ServerConfig, inner: Option<SessionProvider>, last_error: Option<String> }`
-  with `pub fn new(cfg) -> anyhow::Result<Self>` (runs `canonical_config` only — cheap, fail-fast on a bad `--repo`), and
-  `pub fn ensure_ready(&mut self) -> anyhow::Result<&mut SessionProvider>` (bootstraps exactly once; on error stores `last_error`, returns
-  `Err`; a later call retries). `pub fn is_ready(&self) -> bool` for tests/telemetry.
-- `transport.rs::SessionRuntime` gains `fn ensure_ready(&mut self) -> anyhow::Result<()>`; `StaticRuntime` and `SessionProvider` return
-  `Ok(())`; `LazySessionProvider` implements the trait by delegating every existing method to `inner` **after** `ensure_ready`
-  (`session()`/`freshness()`/`known_stale_after_refresh()` keep their `&self` signatures; they are only reachable after `ensure_ready`
-  — see 2.2 — and `freshness()` returns `None` when not built, which the existing code already tolerates).
-- `transport.rs::call_tool_response_with_cap_and_mode`: first statement `if let Err(e) = runtime.ensure_ready() { return tool error result
-  "prism-mcp index build failed: <clamped cause> (the server keeps running; the next tool call retries the build)" with
-  `is_error: true`, standard `prism/schema_version` meta }`. Nothing else in the call path changes.
-- `refresh_index` when not yet built: `ensure_ready` IS the build — return a `RefreshSummary { status: "refreshed", strategy: "full",
-  fallback_reason: None, generation: 0, indexed_files/tracked_paths from the fresh session, stale_before_refresh: false, … }` (no double
-  build). When built: delegate unchanged.
-- `transport.rs::server_instructions()` (used by `initialize_response`): in lazy mode append `LAZY_NOTICE` — one sentence: "The first
-  tool call builds the repository index (tens of seconds on a large repo, seconds when the cache is warm); later calls are fast." Eager
-  mode keeps today's instructions byte-for-byte.
-- `src/bin/prism-mcp.rs` + `ServerConfig`: new `--eager` flag (`startup: StartupMode::{Lazy, Eager}`, default Lazy). `mod.rs::run`:
-  Eager → today's path unchanged (`SessionProvider::bootstrap` then `serve_stdio`); Lazy → `LazySessionProvider::new` then
-  `serve_stdio` over it.
+### 2.3 `transport.rs` changes (call-site only)
+- `SessionRuntime` gains `fn ensure_ready(&mut self) -> Readiness` (`StaticRuntime`, `SessionProvider` → `Ready`) and
+  `fn startup_mode(&self) -> StartupMode` (`Eager` for both existing impls).
+- `call_tool_response_with_cap_and_mode`: **keep every existing validation first** (request shape `-32602`, arguments object, registry
+  membership / unknown-tool result, `refresh_index` argument check). Then, immediately before the first runtime-dependent operation
+  (`refresh_index()`, freshness/stale report, `session()`): `match runtime.ensure_ready()` → `Warming{elapsed}` → `warming_result(elapsed)`;
+  `Failed{error}` → `build_failure_result(&error)`; `Ready` → continue unchanged (auto-refresh, evidence, caps, modes all untouched).
+- `warming_result`: `McpToolResult { is_error: true, content_text: "prism-mcp is still building the repository index (elapsed Ns). Retry this
+  call shortly — no other action is needed; later calls are fast.", structured: {"status":"warming","elapsed_secs":N},
+  meta: prism/schema_version + "prism/index_state":"warming" }`. `build_failure_result`: `is_error: true`, text "prism-mcp index build
+  failed: <clamped cause>. The server keeps running; the next tool call retries the build.", meta `prism/index_state: "failed"`.
+- `refresh_index` before readiness: `ensure_ready` (bounded wait) → `Ready` → delegate to `SessionProvider::refresh()` unchanged (generation
+  1, verification + one divergence retry, `raced_stale` preserved — the background build plus this refresh is two builds on this rare path;
+  correctness over optimization, per sol). `Warming` → warming result (no refresh performed).
+- `initialize_response(obj, id, mode)` / `server_instructions(mode)`: `Eager` → the exact current string; `Lazy` → a truthful snapshot
+  sentence replacing `SNAPSHOT_NOTICE`'s "loaded when prism-mcp started" ("The repository snapshot is taken when prism-mcp starts and its
+  index is built in the background; until it is ready, tool calls return an `index warming` result — retry shortly. Freshness warnings
+  compare against that startup snapshot.") + `VIEW_NOTICE`. `handle_message` obtains the mode from `runtime.startup_mode()`.
 
-### 2.2 Data flow (lazy)
-spawn → read stdin immediately → `initialize` answered (<10 ms) with instructions incl. LAZY_NOTICE → `notifications/initialized` →
-`tools/list` answered from the registry → first `tools/call` → `ensure_ready` builds (blocking this one call; the client is waiting on a
-tool result, governed by its per-call timeout, not its startup timeout) → dispatch as today → subsequent calls as today. `ping`,
-`tools/list`, unknown methods, malformed input: never trigger a build.
+### 2.4 Error handling
+Bad `--repo`: fail at spawn (as today). Build error: `Failed`, reported on the next valid `tools/call` (cause in text), retried on the
+following valid call; `last_error` cleared on success. Builder panic: `Failed` ("index build panicked"), same retry. Budget `0`: never blocks.
+Shutdown while building: stdin EOF ends the loop; the process exits and the detached build thread dies with it (as a pre-warm with
+`--eager < /dev/null` is the supported way to build-and-exit).
 
-### 2.3 Error handling
-- Bad `--repo` / un-canonicalizable config: fail at spawn as today (`LazySessionProvider::new` runs `canonical_config`).
-- Index build failure (I/O, parse, cache dir unwritable…): the tool call returns an `is_error` result with the cause; the server stays
-  alive; the next `tools/call` retries (no backoff — builds are seconds; an agent rarely retries more than a few times). `last_error` is
-  reported in the result text.
-- Build panics: unchanged from today (process exits; the client sees a dead server).
-
-### 2.4 Non-goals (explicit)
-- No background/eager-async build (the session state is `!Send` — `#[allow(clippy::arc_with_non_send_sync)]` in `session.rs`; a thread
-  would need an actor-pattern transport). Deferred as "approach B" until a measured first-call timeout appears.
-- No bounded-wait "warming, retry" result (needs B). No change to tool semantics, wire shapes, cache layout, or freshness/refresh policy.
+### 2.5 Non-goals
+No status tool, no cancellation, no progress streaming, no change to tool semantics, evidence shapes, cache layout, cache versions, or
+freshness/refresh policy. No change to the nav CLI.
 
 ## 3. Compatibility
-- **Pre-warm recipe**: `prism-mcp --repo X --cache-dir D < /dev/null` relied on eager bootstrap; with lazy default, EOF arrives before any
-  build. `docs/MCP.md` L67–70 / L161 change to `prism-mcp --repo X --cache-dir D --eager < /dev/null` and mention the equivalent
-  `prism nav repo-map --repo X --cache-dir D` (same nav store: `NavigationIndex::build_cached_under`). The "Cold first call" note is
-  rewritten to describe lazy behavior.
-- **Tier-C harness** (`eval/tier_c/arm_runner.py`): prewarm already uses `prism nav repo-map --cache-dir`; `warm_gate_check` (JSON-RPC
-  initialize/tools-list handshake ≤15 s) keeps working and now always passes quickly — it still proves "the server answers the handshake";
-  the prewarm still proves "the cache is warm". No harness change required; optional follow-up: a first-call latency probe in the gate.
-- **First-call budget**: Claude arms set `MCP_TOOL_TIMEOUT=600000`; codex's per-tool-call timeout is separate from its startup drop
-  (believed 60 s default — CONFIRM BY PROBE before declaring TS measurable). TS warm (≤19 s) fits both; cold builds beyond a client's
-  per-call timeout remain "pre-warm once" (documented).
-- **Wire**: `initialize.instructions` gains one sentence in lazy mode only; everything else byte-identical (existing
-  `transport_tests.rs` golden assertions must pass unchanged under `--eager`, and under lazy except for the instructions sentence).
+- **Byte-compat (narrowed):** Eager mode is byte-identical to today (pinned by an exact `initialize` fixture + the existing tool goldens).
+  Lazy differs in (a) `initialize.instructions` (exact delta pinned), (b) the possible *warming*/*build failed* results before readiness,
+  (c) nothing else for a stable filesystem and a successful build. Snapshot boundary ≈ eager (build starts at spawn).
+- **Pre-warm recipe** (`docs/MCP.md` L67–70, L161): `prism-mcp --repo X --cache-dir D --eager < /dev/null` (builds then exits on EOF), or
+  `prism nav --cache-dir D repo-map --repo X` (`--cache-dir` is a `NavArgs` flag and must precede the subcommand). "Cold first call" note
+  rewritten to describe warming results and `--first-call-wait`. New flag rows for `--eager`, `--first-call-wait`.
+- **Tier-C harness (required, sol WRONG-1):** `warm_gate_check` (`eval/tier_c/arm_runner.py`) must launch its throwaway server with
+  `--eager` so "handshake ≤ 15 s" keeps meaning "the cache is warm" (`_prewarm_cpg` is best-effort and never raises). Update its docstring and
+  argv tests; add a pytest that the gate FAILS when the prewarm is absent/mismatched (cold cache) and passes when warm. The agent-facing
+  codex/claude configs stay lazy (that is the point).
+- **First-call budget:** default 20 s wait < codex's 60 s per-tool default and Claude's limits; TS warm ≤ 19 s typically returns real results
+  on the first call; cold large repos return *warming* and succeed on retry.
 
-## 4. Tests (TDD, `cargo test --features mcp`; `src/mcp/transport_tests.rs` harness: `InMemoryTransport` + `run_provider`)
-1. Lazy: `[INIT, INITED, tools/list]` → all answered, `is_ready() == false` (no build). `initialize.instructions` contains LAZY_NOTICE.
-2. Lazy: `[…, tools/call nav_repo_map]` → `is_ready()` flips exactly once; result identical to the eager server's; a second call does not
-   rebuild (generation unchanged; build counter == 1 via a test hook or `is_ready` + generation).
-3. Lazy: `refresh_index` as the first call → builds once, returns status "refreshed"/strategy "full"/generation 0; a subsequent
-   `refresh_index` → generation 1 (existing semantics).
-4. Lazy: bootstrap failure (point `--repo` at a dir that is deleted between `new` and the first call, or an unwritable `--cache-dir`
-   under `CacheMode::Dir`) → `is_error` tool result with the cause; server still answers `ping`; a later call after the cause is fixed
-   succeeds (retry).
-5. `ping` / unknown method / malformed line / `tools/list` never build (`is_ready()` stays false).
-6. Eager (`--eager`): `initialize.instructions` byte-identical to today's; behavior identical (existing tests re-run under eager).
-7. CLI: `prism-mcp --help` shows `--eager`; `--eager` + `--no-cache` and `--eager` + `--cache-dir` accepted.
-8. Pre-warm: `prism-mcp --repo <tmp> --cache-dir <d> --eager < /dev/null` exits 0 and populates `<d>` (integration test via `assert_cmd`).
+## 4. Tests (TDD; `cargo test --features mcp` + default `cargo test`; harness `InMemoryTransport` + `run_provider`; injected builders)
+1. Lazy `[INIT, INITED, tools/list]` → answered; `builds == 1` (spawned at start), state not ready; instructions = exact lazy fixture.
+2. Lazy + blocking builder (never completes), `wait = 0`: `tools/call nav_repo_map` → warming result (is_error, `prism/index_state`
+   warming, elapsed ≥ 0); `ping` still answered; `builds == 1`.
+3. Lazy + builder completing after the call starts (channel-released): with `wait = 5 s` the call returns the real result (identical to eager's);
+   second call does not rebuild (`builds == 1`).
+4. `refresh_index` as the first call (ready builder): generation **1**, status per existing contract; forced-divergence regression (repo
+   changes during the initial build → `raced_stale`, `stale_before_refresh` truthful); `refresh_index` while warming → warming result.
+5. Failing builder: first valid call → build-failure result with the cause (`prism/index_state` failed), `builds == 1`; second valid call →
+   retry (`builds == 2`), still failing → failure; swap to a succeeding builder (deleted-then-recreated repo-root fixture or injected) →
+   third call succeeds, `last_error` cleared (`builds == 3`).
+6. Negatives never build/retry: pre-init `tools/call`, invalid `initialize`, malformed `tools/call` (missing params → `-32602`), unknown
+   tool, invalid `refresh_index` arguments → `builds` unchanged (== 1, the spawn build) and no wait incurred (assert elapsed < budget with
+   a blocking builder).
+7. Eager: exact `initialize` fixture byte-identical to today's; existing transport_tests pass unchanged; `startup_mode() == Eager`.
+8. Lazy delegation after readiness across `WarnOnly` / `AutoFull` / `AutoIncremental` (existing provider tests re-run through the lazy wrapper).
+9. CLI (`assert_cmd`): default selects lazy (handshake answered with no repo read — e.g. `--repo` pointing at a large fixture completes
+   `initialize` in < 1 s); `--eager` selects eager; `--first-call-wait 0`; `--eager --cache-dir D < /dev/null` exits 0 and populates `D`.
+10. Harness pytest: `warm_gate_check` argv contains `--eager`; gate fails on a cold cache, passes warm.
 
-## 5. Acceptance (before merge)
-- Full suite + `--features mcp` green; `cargo fmt`; clippy.
-- Live probe (controller, not the implementer): codex 0.147 against the **cold** TypeScript bench repo (`~/code/bench-repos/TypeScript`),
-  server in lazy mode: server kept (tools exposed), first `nav_*` call succeeds; the read-out's failing probe (eager, same repo) rerun as
-  the control. Record both in the PR body. If codex's per-call timeout kills the first call, record the number and open approach B.
-- `docs/MCP.md` updated; roadmap row 11 → DONE with PR #.
+## 5. Acceptance (controller, before merge)
+- Full suite + `--features mcp` green; fmt; clippy no new warnings; `git diff --check`.
+- Live probe (treatment vs control): codex 0.147 (`codex exec --json`, isolated CODEX_HOME as the harness builds) against the **cold**
+  TypeScript bench repo — lazy default: server kept, prism tools exposed, first `nav_*` call returns a result or a *warming* result and a
+  retry succeeds; control: `--eager` same repo → dropped (the read-out's failing probe). Record both transcripts in the PR body.
+- `docs/MCP.md` updated; roadmap row 11 → DONE (PR #).
 
-## 6. Risks / open questions for sol
-- Q1: `SessionRuntime` trait change vs a separate `LazyRuntime` wrapper in transport — is the trait method the right seam given
-  `StaticRuntime` (tests) and `SessionProvider` both need it?
-- Q2: `refresh_index`-before-build summary shape (generation 0, status "refreshed") — acceptable, or should it delegate and report
-  generation 1 (double build)?
-- Q3: retry-on-every-call for build failures — any pathological case (e.g., a huge repo failing late each time) that argues for a cap?
-- Q4: anything in the auto-refresh / freshness path that assumes `freshness()` is `Some` before the first call?
-- Q5: lazy as the DEFAULT (breaking the old pre-warm recipe silently) vs eager default + `--lazy` opt-in. Owner-approved: lazy default.
+## 6. Open questions for sol (round 2)
+- Q1 `is_error: true` on the *warming* result (tool did not execute; text tells the agent to retry) vs `false` with structured status — which
+  do agents handle better without misreading as "no results"?
+- Q2 `--first-call-wait` default 20 s — too close to codex's 60 s if the client stacks calls? Should the budget be per-call (as specified) or
+  per-session (total)?
+- Q3 retry-on-failure respawn: any failure class where immediate respawn on the next call is harmful (e.g., OOM on a huge repo)? A cap is
+  deliberately not specified.
+- Q4 the lazy instructions sentence — precise enough about the snapshot boundary for freshness semantics?
+- Q5 harness: `--eager` in the gate vs a representative `tools/call` (which would also measure first-call latency) — start with `--eager`?
+- Q6 anything in `auto_refresh`/freshness that assumes it runs on the same thread that built the index (thread-affine state)?
