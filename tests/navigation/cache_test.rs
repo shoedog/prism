@@ -457,7 +457,7 @@ fn two_repos_same_base_are_isolated() {
 }
 
 #[test]
-fn call_edge_sidecar_round_trip_preserves_level3_same_span_targets() {
+fn call_edge_sidecar_round_trip_preserves_disabled_level3_absence() {
     with_dirty_sidecar_load_override(|| {
         let repo_d = tempfile::tempdir().unwrap();
         let cache = tempfile::tempdir().unwrap();
@@ -504,6 +504,6 @@ fn call_edge_sidecar_round_trip_preserves_level3_same_span_targets() {
             })
             .collect();
         safe_files.sort_unstable();
-        assert_eq!(safe_files, vec!["b.js", "c.js"]);
+        assert!(safe_files.is_empty());
     });
 }

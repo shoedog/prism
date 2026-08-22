@@ -618,7 +618,7 @@ fn cache_round_trips_parameter_slot_telemetry() {
         ctx.cpg.call_graph.param_slots_unknown,
         BTreeMap::from([(Language::JavaScript, 1)])
     );
-    assert_eq!(ctx.cpg.call_graph.level3_indirect_resolved, 1);
+    assert_eq!(ctx.cpg.call_graph.level3_indirect_resolved, 0);
 
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
@@ -655,7 +655,7 @@ fn incremental_parameter_slot_telemetry_matches_full_build() {
         incremental.call_graph.param_slots_unknown,
         BTreeMap::from([(Language::JavaScript, 1)])
     );
-    assert_eq!(incremental.call_graph.level3_indirect_resolved, 1);
+    assert_eq!(incremental.call_graph.level3_indirect_resolved, 0);
 }
 
 #[test]
@@ -1608,7 +1608,7 @@ fn incremental_matches_full_for_c_struct_field_callback_assignment_change() {
 }
 
 #[test]
-fn incremental_matches_full_for_c_parameter_callback_outer_caller_change() {
+fn incremental_matches_full_with_c_parameter_callback_minting_disabled() {
     let execute_src = "void execute(void (*cb)()) { cb(); }\n";
     let v1 = parsed_files(&[
         ("execute.c", execute_src, Language::C),
@@ -1639,7 +1639,7 @@ fn incremental_matches_full_for_c_parameter_callback_outer_caller_change() {
 
     let incremental =
         assert_incremental_matches_full(v1, v2, BTreeSet::from(["outer.c".to_string()]));
-    assert!(has_indirect_call_in_file(
+    assert!(!has_indirect_call_in_file(
         &incremental,
         "execute.c",
         "execute",
@@ -1678,7 +1678,7 @@ void run() {
 }
 
 #[test]
-fn incremental_level3_matches_full_rust_block_import_function_identity() {
+fn incremental_matches_full_with_rust_level3_disabled() {
     let lib_v1 = "pub mod m;\nfn safe() {}\nfn invoke(cb: fn()) { cb(); }\nfn start() {\n    { use crate::m::safe; invoke(safe); }\n}\n";
     let lib_v2 = "pub mod m;\nfn safe() {}\nfn invoke(cb: fn()) { cb(); }\nfn start() {\n    { use crate::m::safe; invoke(safe); }\n}\n// changed\n";
     let module = "pub fn safe() {}\n";
@@ -1693,20 +1693,16 @@ fn incremental_level3_matches_full_rust_block_import_function_identity() {
 
     let incremental =
         assert_incremental_matches_full(v1, v2, BTreeSet::from(["src/lib.rs".to_string()]));
-    let site = call_site_in_file(&incremental, "src/lib.rs", "invoke", "safe");
-    let resolved = incremental.call_graph.resolve_call_site_full(&site);
-    assert!(matches!(
-        resolved.resolved.as_slice(),
-        [target]
-            if target.target.file == "src/m.rs"
-                && target.target.name == "safe"
-                && target.confidence == prism::resolution::ResolutionConfidence::Exact
-                && target.kind == prism::resolution::ResolutionKind::ParameterCallback
+    assert!(!has_indirect_call_in_file(
+        &incremental,
+        "src/lib.rs",
+        "invoke",
+        "safe"
     ));
 }
 
 #[test]
-fn incremental_level3_matches_full_js_import_function_identity() {
+fn incremental_matches_full_with_js_level3_disabled() {
     let invoke = "export function invoke(cb) { cb(); }\n";
     let target = "export function safe() {}\n";
     let entry_v1 = "import { invoke } from './invoke';\nimport { safe } from './safe';\nfunction forward() { invoke(safe); }\n";
@@ -1726,15 +1722,11 @@ fn incremental_level3_matches_full_js_import_function_identity() {
 
     let incremental =
         assert_incremental_matches_full(v1, v2, BTreeSet::from(["entry.js".to_string()]));
-    let site = call_site_in_file(&incremental, "invoke.js", "invoke", "safe");
-    let resolved = incremental.call_graph.resolve_call_site_full(&site);
-    assert!(matches!(
-        resolved.resolved.as_slice(),
-        [target]
-            if target.target.file == "safe.js"
-                && target.target.name == "safe"
-                && target.confidence == prism::resolution::ResolutionConfidence::Exact
-                && target.kind == prism::resolution::ResolutionKind::ParameterCallback
+    assert!(!has_indirect_call_in_file(
+        &incremental,
+        "invoke.js",
+        "invoke",
+        "safe"
     ));
 }
 

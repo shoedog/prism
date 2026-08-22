@@ -371,8 +371,8 @@ impl CodePropertyGraph {
             // ALSO whole-program derived — recompute after merge, same
             // rationale as the Go passes above.
             cached_cg.apply_js_export_resolution();
-            // Match full construction: Phase 3 / Level-3 runs only after every
-            // whole-program resolution fact has been restored on the merged graph.
+            // Match full construction: recompute the remaining indirect passes
+            // after every whole-program resolution fact is restored. Level-3 is disabled.
             cached_cg.recompute_indirect_calls(files);
 
             Self::assemble_graph(cached_cg, cached_dfg, files, type_db)

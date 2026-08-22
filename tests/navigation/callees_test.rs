@@ -200,7 +200,7 @@ fn callees_emits_each_resolved_definition_for_one_call_site() {
 }
 
 #[test]
-fn level3_same_span_sites_keep_exact_callback_identity_in_both_directions() {
+fn disabled_level3_emits_no_callback_edges_in_either_direction() {
     let s = session(&[
         ("a.js", "export function invoke(cb) { cb(); }\n"),
         (
@@ -223,19 +223,19 @@ fn level3_same_span_sites_keep_exact_callback_identity_in_both_directions() {
         })
         .collect();
     safe_files.sort_unstable();
-    assert_eq!(safe_files, vec!["b.js", "c.js"]);
+    assert!(safe_files.is_empty());
 
     for file in ["b.js", "c.js"] {
         let callers = queries::callers(&s, Some("safe"), Some(file), None, 1).unwrap();
         assert!(
-            callers.items.iter().any(|item| {
+            !callers.items.iter().any(|item| {
                 matches!(
                     &item.symbol,
                     Some(SymbolRef::Function { file, name, .. })
                         if file == "a.js" && name == "invoke"
                 )
             }),
-            "missing a.js::invoke as caller of {file}::safe"
+            "disabled Level-3 must not report a.js::invoke as caller of {file}::safe"
         );
     }
 }

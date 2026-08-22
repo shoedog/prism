@@ -31,7 +31,7 @@ fn call_stats_reports_kind_counts_and_drops() {
 }
 
 #[test]
-fn call_stats_reports_parameter_slot_and_level3_telemetry() {
+fn call_stats_reports_parameter_slots_and_disabled_level3() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
         dir.path().join("callbacks.js"),
@@ -52,7 +52,7 @@ fn call_stats_reports_parameter_slot_and_level3_telemetry() {
     );
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(v["param_slots_unknown"]["JavaScript"], 1);
-    assert_eq!(v["level3_indirect_resolved"], 1);
+    assert_eq!(v["level3_indirect_resolved"], 0);
 }
 
 #[test]
@@ -404,7 +404,7 @@ fn call_stats_reports_macro_arg_telemetry() {
 }
 
 #[test]
-fn call_stats_dump_sites_emits_per_site_exact_callback_custody() {
+fn call_stats_dump_sites_emits_no_synthetic_callback_custody() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
         dir.path().join("callbacks.js"),
@@ -428,27 +428,18 @@ fn call_stats_dump_sites_emits_per_site_exact_callback_custody() {
         .lines()
         .map(|line| serde_json::from_str(line).unwrap())
         .collect();
-    assert_eq!(sites.len(), 3, "one JSONL record per source/synthetic site");
-    let callback = sites
-        .iter()
-        .find(|site| site["callee_text"] == "safe" && site["origin"] == "IndirectResolution")
-        .expect("Level-3 synthetic callback site");
-    assert_eq!(callback["caller"]["file"], "callbacks.js");
-    assert_eq!(callback["caller"]["name"], "invoke");
-    assert!(callback["source_span"]["start_byte"].is_u64());
-    assert!(callback["source_span"]["end_byte"].is_u64());
-    assert_eq!(callback["call_kind"], "Call");
-    assert_eq!(
-        callback["resolved_targets"][0]["function_id"]["file"],
-        "callbacks.js"
+    assert_eq!(sites.len(), 2, "one JSONL record per source site");
+    assert!(
+        sites
+            .iter()
+            .all(|site| site["origin"] != "IndirectResolution"),
+        "disabled Level-3 must emit no synthetic callback site"
     );
-    assert_eq!(
-        callback["resolved_targets"][0]["function_id"]["name"],
-        "safe"
-    );
-    assert_eq!(
-        callback["resolved_targets"][0]["kind"],
-        "parameter_callback"
-    );
-    assert_eq!(callback["resolved_targets"][0]["confidence"], "exact");
+    assert!(sites.iter().all(|site| {
+        site["resolved_targets"].as_array().map_or(true, |targets| {
+            targets
+                .iter()
+                .all(|target| target["kind"] != "parameter_callback")
+        })
+    }));
 }

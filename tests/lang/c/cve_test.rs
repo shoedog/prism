@@ -60,7 +60,7 @@ void caller_reassign(void) {
 }
 
 #[test]
-fn test_call_graph_level3_parameter_fptr() {
+fn level3_does_not_mint_parameter_fptr_edges() {
     let source = r#"
 void handler_a(int data) {
     // handle A
@@ -93,7 +93,8 @@ void caller_b(void) {
 
     let call_graph = CallGraph::build(&files);
 
-    // execute's cb(data) should resolve to both handler_a and handler_b
+    // Level-3 callback propagation is disabled: retain cb(data), but do not
+    // synthesize either inbound argument as a callee.
     let execute_id = &call_graph.functions.get("execute").unwrap()[0];
     let execute_calls = call_graph.calls.get(execute_id).unwrap();
     let callee_names: BTreeSet<&str> = execute_calls
@@ -102,19 +103,19 @@ void caller_b(void) {
         .collect();
 
     assert!(
-        callee_names.contains("handler_a"),
-        "Level 3: execute(handler_a, 1) should resolve cb to handler_a, got: {:?}",
+        !callee_names.contains("handler_a"),
+        "disabled Level-3 must not mint handler_a, got: {:?}",
         callee_names
     );
     assert!(
-        callee_names.contains("handler_b"),
-        "Level 3: execute(handler_b, 2) should resolve cb to handler_b, got: {:?}",
+        !callee_names.contains("handler_b"),
+        "disabled Level-3 must not mint handler_b, got: {:?}",
         callee_names
     );
 }
 
 #[test]
-fn test_call_graph_level3_address_of_fptr() {
+fn level3_does_not_mint_address_of_fptr_edge() {
     let source = r#"
 void my_handler(int sig) {
     // handle signal
@@ -145,8 +146,8 @@ void setup(void) {
         .collect();
 
     assert!(
-        callee_names.contains("my_handler"),
-        "Level 3: register_handler(&my_handler, 2) should resolve handler to my_handler, got: {:?}",
+        !callee_names.contains("my_handler"),
+        "disabled Level-3 must not mint my_handler, got: {:?}",
         callee_names
     );
 }

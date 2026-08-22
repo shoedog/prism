@@ -112,9 +112,8 @@ pub struct CallSite {
     /// edge cannot coexist with an identical source call-site identity.
     #[serde(default)]
     pub origin: CallSiteOrigin,
-    /// Exact target preserved for a Level-3 parameter callback. This is part of
-    /// logical call-site identity so same-name targets from distinct inbound
-    /// callers cannot collapse in the indirect-site set.
+    /// Exact target field retained for serialized-call-site compatibility.
+    /// Level-3 minting is disabled, so new construction leaves this empty.
     #[serde(default)]
     pub pre_resolved_target: Option<FunctionId>,
 }
@@ -318,8 +317,8 @@ pub struct CallGraph {
     /// by source language. Positional consumers fail closed for these functions.
     #[serde(default)]
     pub param_slots_unknown: BTreeMap<crate::languages::Language, usize>,
-    /// Synthetic callback edges emitted by Level 3 during the last indirect
-    /// resolution pass. Generic indirect origins cannot distinguish this level.
+    /// Reserved Level-3 telemetry. This remains zero while callback minting is
+    /// disabled fail-closed.
     #[serde(default)]
     pub level3_indirect_resolved: usize,
     /// Functions with file-local (static) linkage: `(file, name)` pairs.
@@ -1307,8 +1306,8 @@ impl CallGraph {
         // P4: JS/TS export-fact resolution (re-export chains/barrels) is ALSO
         // whole-program derived, same rationale as the Go passes above.
         cg.apply_js_export_resolution();
-        // Phase 3 / Level-3 is the final derived pass: exact callback values
-        // may consult every whole-program resolution fact installed above.
+        // Recompute the remaining whole-program indirect passes after all
+        // resolution facts are installed. Level-3 callback minting is disabled.
         cg.recompute_indirect_calls(files);
         cg
     }
@@ -1873,107 +1872,8 @@ impl CallGraph {
         }
         extra_sites.extend(level4_sites);
 
-        // Level 3: parameter-passed function pointers (1-hop interprocedural).
-        let mut level3_sites: Vec<(FunctionId, CallSite)> = Vec::new();
-        for (caller_id, sites) in &self.calls {
-            let parsed = match files.get(&caller_id.file) {
-                Some(p) => p,
-                None => continue,
-            };
-
-            let func_node = parsed.all_functions().into_iter().find(|function| {
-                parsed
-                    .language
-                    .function_name(function)
-                    .is_some_and(|name| parsed.node_text(&name) == caller_id.name)
-                    && parsed.node_line_range(function).0 == caller_id.start_line
-            });
-            let param_names = match func_node {
-                Some(ref function) => parsed.function_parameter_slots(function),
-                None => continue,
-            };
-            let Some(param_names) = param_names else {
-                continue;
-            };
-            if param_names.is_empty() {
-                continue;
-            }
-
-            for site in sites {
-                if self.functions.contains_key(&site.callee_name) {
-                    continue;
-                }
-                if !site
-                    .callee_name
-                    .chars()
-                    .all(|c| c.is_alphanumeric() || c == '_')
-                {
-                    continue;
-                }
-
-                let already_resolved = extra_sites.iter().any(|(cid, es)| {
-                    cid == caller_id
-                        && es.line == site.line
-                        && known_fn_names.contains(&es.callee_name)
-                });
-                if already_resolved {
-                    continue;
-                }
-
-                let param_indices: Vec<_> = param_names
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(index, parameter)| {
-                        (parameter == &site.callee_name).then_some(index)
-                    })
-                    .collect();
-                let param_idx = match param_indices.as_slice() {
-                    [index] => *index,
-                    _ => continue,
-                };
-
-                if let Some(caller_sites) = self.callers.get(&caller_id.name) {
-                    for caller_site in caller_sites {
-                        let caller_parsed = match files.get(&caller_site.caller.file) {
-                            Some(p) => p,
-                            None => continue,
-                        };
-
-                        let inbound = self.resolve_call_site_full(caller_site);
-                        if !matches!(
-                            inbound.resolved.as_slice(),
-                            [resolved]
-                                if *resolved.target == *caller_id
-                                    && resolved.confidence
-                                        == crate::resolution::ResolutionConfidence::Exact
-                        ) {
-                            continue;
-                        }
-                        let args = caller_parsed.call_argument_texts_and_spans_at(
-                            caller_site.start_byte,
-                            &caller_site.callee_name,
-                        );
-                        if let Some((arg_text, arg_span)) = args.get(param_idx) {
-                            if let Some(target) = self.exact_callback_argument_target(
-                                caller_parsed,
-                                caller_site,
-                                arg_text,
-                                arg_span,
-                            ) {
-                                level3_sites.push((
-                                    caller_id.clone(),
-                                    Self::indirect_call_site_with_target(caller_id, &target, site),
-                                ));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        let level3_resolved = level3_sites.iter().cloned().collect::<BTreeSet<_>>().len();
-        extra_sites.extend(level3_sites);
-        (extra_sites, level3_resolved)
+        // Level-3 parameter callback minting is disabled fail-closed.
+        (extra_sites, 0)
     }
 
     fn apply_indirect_call_sites(&mut self, sites: Vec<(FunctionId, CallSite)>) {
@@ -2009,96 +1909,6 @@ impl CallGraph {
             receiver_outcome: None,
             origin: CallSiteOrigin::IndirectResolution,
             pre_resolved_target: None,
-        }
-    }
-
-    fn indirect_call_site_with_target(
-        caller_id: &FunctionId,
-        target: &FunctionId,
-        source_site: &CallSite,
-    ) -> CallSite {
-        let mut site = Self::indirect_call_site(caller_id, target.name.clone(), source_site);
-        site.pre_resolved_target = Some(target.clone());
-        site
-    }
-
-    fn exact_callback_argument_target(
-        &self,
-        caller_parsed: &ParsedFile,
-        caller_site: &CallSite,
-        argument: &str,
-        argument_span: &std::ops::Range<usize>,
-    ) -> Option<FunctionId> {
-        let caller_function = Self::function_node_for_id(caller_parsed, &caller_site.caller)?;
-        if caller_parsed.call_span_is_inside_nested_function_like(
-            &caller_function,
-            caller_site.start_byte,
-            caller_site.end_byte,
-        )? || caller_parsed.has_go_dot_import()
-        {
-            return None;
-        }
-
-        if !argument
-            .chars()
-            .all(|character| character.is_alphanumeric() || character == '_')
-        {
-            return None;
-        }
-
-        let bound = self.callback_value_binding_state(
-            caller_parsed,
-            &caller_site.caller,
-            argument,
-            argument_span.start,
-        )?;
-        if bound {
-            return None;
-        }
-        self.exact_free_function_value_reference(&caller_site.caller, argument, argument_span.start)
-    }
-
-    /// `Some(true)` means a local/parameter binding shadows the repository
-    /// function namespace. `None` is an unsupported or degraded binding model
-    /// and therefore declines Level-3 rather than guessing.
-    fn callback_value_binding_state(
-        &self,
-        parsed: &ParsedFile,
-        caller: &FunctionId,
-        name: &str,
-        at_byte: usize,
-    ) -> Option<bool> {
-        use crate::languages::Language;
-
-        match parsed.language {
-            // The persisted index is intentionally sparse: absence means the
-            // modeled function has no parameter/local bindings.
-            Language::JavaScript | Language::TypeScript | Language::Tsx => Some(
-                self.js_ts_function_locals
-                    .get(caller)
-                    .is_some_and(|bindings| bindings.contains(name)),
-            ),
-            Language::Python | Language::Go => {
-                let function = Self::function_node_for_id(parsed, caller)?;
-                parsed
-                    .function_local_value_bindings(&function)
-                    .map(|bindings| bindings.contains(name))
-            }
-            Language::Rust => {
-                let graph = self.scope_graph.as_ref()?;
-                if !graph.complete {
-                    return None;
-                }
-                let file = *graph.file_paths.get(&caller.file)?;
-                Some(
-                    crate::name_resolution::binding_lookup::lookup_visible_binding(
-                        graph, file, at_byte, name,
-                    )
-                    .is_some(),
-                )
-            }
-            Language::C | Language::Cpp => Some(false),
-            _ => None,
         }
     }
 
@@ -5412,7 +5222,7 @@ mod tests {
     }
 
     #[test]
-    fn recompute_indirect_calls_is_idempotent_and_post_merge_matches_full_build() {
+    fn recompute_indirect_calls_is_idempotent_with_level3_disabled() {
         let files_v1 = c_files(&[(
             "callbacks.c",
             "void old_handler() {}\nvoid execute(void (*cb)()) { cb(); }\nvoid outer() { execute(old_handler); }\n",
@@ -5429,7 +5239,8 @@ mod tests {
         merged.recompute_indirect_calls(&files_v2);
         let once = indirect_call_dump(&merged);
         let callers_once = indirect_caller_dump(&merged);
-        assert!(once.iter().any(|entry| entry.contains(":new_handler:")));
+        assert!(!once.iter().any(|entry| entry.contains(":new_handler:")));
+        assert!(!once.iter().any(|entry| entry.contains(":old_handler:")));
 
         merged.recompute_indirect_calls(&files_v2);
         assert_eq!(once, indirect_call_dump(&merged));

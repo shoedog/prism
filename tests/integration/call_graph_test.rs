@@ -503,7 +503,7 @@ int process_c(int x) {
 }
 
 #[test]
-fn test_call_graph_level3_cross_file_callback() {
+fn level3_does_not_mint_cross_file_callback() {
     let executor_source = r#"
 typedef void (*event_cb)(int);
 
@@ -542,8 +542,8 @@ void init_events(void) {
         .collect();
 
     assert!(
-        callee_names.contains("handle_connect"),
-        "Level 3: cross-file on_event(handle_connect, 1) should resolve callback, got: {:?}",
+        !callee_names.contains("handle_connect"),
+        "disabled Level-3 must not mint a cross-file callback edge, got: {:?}",
         callee_names
     );
 }
@@ -707,7 +707,7 @@ fn level3_binds_the_containing_function_identity_not_just_its_name() {
 }
 
 #[test]
-fn level3_js_plain_identifier_parameters_keep_exact_callback_edge() {
+fn level3_does_not_mint_plain_identifier_callback_edge() {
     let source = r#"
 function safe() {}
 function invoke(a, cb) { cb(); }
@@ -720,29 +720,14 @@ function start() { invoke(0, safe); }
     );
 
     let cg = CallGraph::build(&files);
-    let invoke = cg.functions["invoke"]
-        .iter()
-        .find(|id| id.file == "callbacks.js")
-        .unwrap();
-    let site = cg.calls[invoke]
-        .iter()
-        .find(|site| {
-            site.origin == CallSiteOrigin::IndirectResolution && site.callee_name == "safe"
-        })
-        .expect("plain positional identifiers retain the exact callback edge");
-    let resolved = cg.resolve_call_site_full(site);
-    assert!(matches!(
-        resolved.resolved.as_slice(),
-        [target]
-            if target.target.file == "callbacks.js"
-                && target.target.name == "safe"
-                && target.confidence == ResolutionConfidence::Exact
-                && target.kind == ResolutionKind::ParameterCallback
-    ));
+    assert!(
+        !has_level3_target(&cg, "invoke", "callbacks.js", "safe"),
+        "disabled Level-3 must not mint a plain-identifier callback edge"
+    );
 }
 
 #[test]
-fn level3_preserves_the_inbound_argument_function_identity() {
+fn disabled_level3_round_trip_preserves_absence() {
     let mut files = BTreeMap::new();
     files.insert(
         "a.js".to_string(),
@@ -764,35 +749,27 @@ fn level3_preserves_the_inbound_argument_function_identity() {
     );
 
     let cg = CallGraph::build(&files);
-    let assert_target = |graph: &CallGraph| {
+    let assert_absent = |graph: &CallGraph| {
         let a_invoke = graph.functions["invoke"]
             .iter()
             .find(|id| id.file == "a.js")
             .unwrap();
-        let site = graph.calls[a_invoke]
-            .iter()
-            .find(|site| {
+        assert!(
+            !graph.calls[a_invoke].iter().any(|site| {
                 site.origin == CallSiteOrigin::IndirectResolution && site.callee_name == "safe"
-            })
-            .expect("the exact inbound call still produces a Level-3 site");
-        let resolved = graph.resolve_call_site_full(site);
-        assert!(matches!(
-            resolved.resolved.as_slice(),
-            [target]
-                if target.target.file == "b.js"
-                    && target.target.name == "safe"
-                    && target.confidence == ResolutionConfidence::Exact
-                    && target.kind == ResolutionKind::ParameterCallback
-        ));
+            }),
+            "disabled Level-3 must remain absent across serialization"
+        );
+        assert_eq!(graph.level3_indirect_resolved, 0);
     };
-    assert_target(&cg);
+    assert_absent(&cg);
 
     let restored: CallGraph = bincode::deserialize(&bincode::serialize(&cg).unwrap()).unwrap();
-    assert_target(&restored);
+    assert_absent(&restored);
 }
 
 #[test]
-fn level3_keeps_distinct_same_name_callback_targets() {
+fn level3_does_not_mint_distinct_same_name_callback_targets() {
     let mut files = BTreeMap::new();
     files.insert(
         "a.js".to_string(),
@@ -836,7 +813,7 @@ fn level3_keeps_distinct_same_name_callback_targets() {
             }
         })
         .collect();
-    assert_eq!(targets, BTreeSet::from(["b.js", "c.js"]));
+    assert!(targets.is_empty(), "disabled Level-3 must mint no targets");
 }
 
 #[test]
@@ -862,7 +839,7 @@ fn object_assignment_duplicate_parameters_count_as_unknown_slots() {
 }
 
 #[test]
-fn level3_uses_each_inbound_callsite_byte_span_for_arguments() {
+fn level3_does_not_mint_from_same_line_inbound_calls() {
     let source = r#"
 function safe() {}
 function target() {}
@@ -885,11 +862,7 @@ function start() { invoke(0, safe); invoke(0, target); }
         .filter(|site| site.origin == CallSiteOrigin::IndirectResolution)
         .map(|site| site.callee_name.as_str())
         .collect();
-    assert_eq!(
-        resolved,
-        BTreeSet::from(["safe", "target"]),
-        "same-line calls with the same callee must retain their own argument lists"
-    );
+    assert!(resolved.is_empty(), "disabled Level-3 must mint no targets");
 }
 
 fn has_level3_target(cg: &CallGraph, caller: &str, target_file: &str, target_name: &str) -> bool {
@@ -1051,7 +1024,7 @@ fn level3_python_match_and_go_named_result_bindings_shadow_repo_functions() {
 }
 
 #[test]
-fn level3_free_identifier_keeps_exact_function_identity() {
+fn level3_does_not_mint_same_file_free_identifier() {
     let source =
         "function safe() {}\nfunction invoke(cb) { cb(); }\nfunction forward() { invoke(safe); }\n";
     let files = BTreeMap::from([(
@@ -1060,7 +1033,10 @@ fn level3_free_identifier_keeps_exact_function_identity() {
     )]);
     let cg = CallGraph::build(&files);
 
-    assert!(has_level3_target(&cg, "invoke", "free.js", "safe"));
+    assert!(
+        !has_level3_target(&cg, "invoke", "free.js", "safe"),
+        "disabled Level-3 must not mint a same-file free-identifier edge"
+    );
 }
 
 #[test]
@@ -1068,6 +1044,7 @@ fn level3_declines_calls_inside_nested_js_function_values() {
     for source in [
         "function safe() {}\nfunction other() {}\nfunction invoke(cb) { cb(); }\nfunction outer() { const run = (safe) => invoke(safe); run(other); }\n",
         "function safe() {}\nfunction other() {}\nfunction invoke(cb) { cb(); }\nfunction outer() { const run = function(safe) { invoke(safe); }; run(other); }\n",
+        "function safe() {}\nfunction other() {}\nfunction invoke(cb) { cb(); }\nfunction outer() { const run = function* (safe) { invoke(safe); }; run(other).next(); }\n",
     ] {
         let files = BTreeMap::from([(
             "nested.js".to_string(),
@@ -1128,7 +1105,7 @@ fn level3_declines_calls_inside_nested_rust_closure() {
 }
 
 #[test]
-fn level3_imported_identifier_keeps_imported_function_identity() {
+fn level3_does_not_mint_resolvable_import_identifier() {
     let files = BTreeMap::from([
         (
             "invoke.js".to_string(),
@@ -1169,7 +1146,10 @@ fn level3_imported_identifier_keeps_imported_function_identity() {
     ]);
     let cg = CallGraph::build(&files);
 
-    assert!(has_level3_target(&cg, "invoke", "safe.js", "safe"));
+    assert!(
+        !has_level3_target(&cg, "invoke", "safe.js", "safe"),
+        "disabled Level-3 must not mint even a resolvable imported callback edge"
+    );
 }
 
 #[test]

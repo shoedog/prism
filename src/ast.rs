@@ -2067,41 +2067,6 @@ impl ParsedFile {
         Some(out)
     }
 
-    /// Whether `start_byte..end_byte` is nested below another function-like
-    /// scope inside `func_node`. `None` means the span cannot be placed under
-    /// the claimed caller and exact callback propagation must decline.
-    pub(crate) fn call_span_is_inside_nested_function_like(
-        &self,
-        func_node: &Node<'_>,
-        start_byte: usize,
-        end_byte: usize,
-    ) -> Option<bool> {
-        let func_node = self.unwrap_decorated(*func_node);
-        if start_byte >= end_byte
-            || start_byte < func_node.start_byte()
-            || end_byte > func_node.end_byte()
-        {
-            return None;
-        }
-
-        let mut node = self
-            .tree
-            .root_node()
-            .descendant_for_byte_range(start_byte, end_byte)?;
-        loop {
-            if node.id() == func_node.id() {
-                return Some(false);
-            }
-            let kind = node.kind();
-            if self.language.function_node_types().contains(&kind)
-                || matches!(kind, "lambda" | "func_literal" | "closure_expression")
-            {
-                return Some(true);
-            }
-            node = node.parent()?;
-        }
-    }
-
     fn collect_python_go_local_value_bindings(
         &self,
         node: Node<'_>,
@@ -2151,7 +2116,7 @@ impl ParsedFile {
             (Language::Python, "import_statement" | "import_from_statement") => {
                 // Python imports inside a function bind names in that function's
                 // local namespace. Collecting every identifier is deliberately
-                // conservative: an extra local only suppresses Level-3 minting.
+                // conservative: an extra local is safer than an omitted binding.
                 self.collect_identifier_names(node, out);
             }
             (Language::Python, "case_pattern") => {
@@ -2587,27 +2552,6 @@ impl ParsedFile {
                 }
             }
         }
-    }
-
-    /// Go dot imports deliberately remain outside callback-value resolution.
-    /// Their presence makes an unqualified identifier's origin unprovable.
-    pub(crate) fn has_go_dot_import(&self) -> bool {
-        fn contains_dot_import(node: Node<'_>) -> bool {
-            if node.kind() == "import_spec" {
-                let mut cursor = node.walk();
-                if node
-                    .children(&mut cursor)
-                    .any(|child| child.kind() == "dot")
-                {
-                    return true;
-                }
-            }
-            let mut cursor = node.walk();
-            let found = node.children(&mut cursor).any(contains_dot_import);
-            found
-        }
-
-        self.language == Language::Go && contains_dot_import(self.tree.root_node())
     }
 
     fn extract_go_import_spec(&self, node: &Node<'_>, out: &mut BTreeMap<String, String>) {

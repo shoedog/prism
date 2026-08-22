@@ -3,7 +3,7 @@
 //! call_graph.rs under the size cap).
 
 use crate::call_graph::{CallGraph, CallSite, FunctionId, MethodArity, MethodFacts, MethodKind};
-use crate::name_resolution::consumer::{graph_callable_edge, graph_function_value_reference};
+use crate::name_resolution::consumer::graph_callable_edge;
 use crate::name_resolution::engine::resolve_path;
 use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::rust_policy::{RustPolicy, EK_GLOB, NS_TYPE, NS_VALUE};
@@ -1063,138 +1063,6 @@ impl CallGraph {
                     None
                 }
             }
-        }
-    }
-
-    /// Resolve a plain function value in the caller's lexical context without
-    /// pretending the reference is a call. Only a singleton Exact repository
-    /// function is returned; every ambiguous, external, or unsupported case
-    /// declines so Level-3 callback propagation fails closed.
-    pub(crate) fn exact_free_function_value_reference(
-        &self,
-        caller: &FunctionId,
-        name: &str,
-        at_byte: usize,
-    ) -> Option<FunctionId> {
-        if !is_simple_ident(name) {
-            return None;
-        }
-
-        if crate::languages::Language::from_path(&caller.file)
-            == Some(crate::languages::Language::Rust)
-        {
-            let graph = self.scope_graph.as_ref()?;
-            if !graph.complete {
-                return None;
-            }
-            let target = graph_function_value_reference(graph, &caller.file, at_byte, name)?;
-            let ids = self.graph_target_ids(graph, &target);
-            return match ids.as_slice() {
-                [target] if !self.method_owners.contains_key(*target) => Some((*target).clone()),
-                _ => None,
-            };
-        }
-
-        if supports_import_member_resolution(&caller.file) {
-            if let Some(binding) = self.import_bindings.get(&caller.file).and_then(|bindings| {
-                bindings.iter().find(|binding| {
-                    binding.local == name
-                        && binding.eligible
-                        && matches!(
-                            binding.kind,
-                            crate::call_graph::ImportBindingKind::MemberImport
-                        )
-                })
-            }) {
-                let is_js_ts = is_js_ts_import_member_file(&caller.file);
-                if is_js_ts
-                    && self
-                        .js_ts_function_locals
-                        .get(caller)
-                        .is_some_and(|locals| locals.contains(name))
-                {
-                    return None;
-                }
-                let member = binding.member.as_deref().unwrap_or(name);
-                let matched: Vec<&FunctionId> = if is_js_ts {
-                    self.js_ts_import_member_candidates(caller, binding, member)
-                } else if let Some(ids) = self.functions.get(member) {
-                    ids.iter()
-                        .filter(|fid| {
-                            !self.method_owners.contains_key(*fid)
-                                && crate::call_graph::file_matches_module(
-                                    &fid.file,
-                                    &binding.module_path,
-                                    &caller.file,
-                                    &self.indexed_files,
-                                )
-                                && self
-                                    .module_bindings
-                                    .get(&fid.file)
-                                    .and_then(|bindings| bindings.get(member))
-                                    .is_some_and(|kind| {
-                                        matches!(
-                                            kind,
-                                            crate::call_graph::ModuleBindingKind::FunctionDef
-                                        )
-                                    })
-                        })
-                        .collect()
-                } else {
-                    Vec::new()
-                };
-                return match matched.as_slice() {
-                    [target] => Some((*target).clone()),
-                    _ => None,
-                };
-            }
-        }
-
-        let free: Vec<&FunctionId> = self
-            .functions
-            .get(name)?
-            .iter()
-            .filter(|target| !self.method_owners.contains_key(*target))
-            .collect();
-        let local: Vec<&FunctionId> = free
-            .iter()
-            .copied()
-            .filter(|target| target.file == caller.file)
-            .collect();
-        match local.as_slice() {
-            [target] => return Some((*target).clone()),
-            [] => {}
-            _ => return None,
-        }
-
-        if caller.file.ends_with(".go") {
-            let dir = dir_of(&caller.file);
-            let same_package: Vec<&FunctionId> = free
-                .iter()
-                .copied()
-                .filter(|target| dir_of(&target.file) == dir)
-                .collect();
-            if !same_package.is_empty() {
-                let (survivors, _, _, exact_allowed) =
-                    self.go_visible_same_package_candidates(&caller.file, &same_package);
-                return match survivors.as_slice() {
-                    [target] if exact_allowed => Some((*target).clone()),
-                    _ => None,
-                };
-            }
-        }
-
-        let nonstatic: Vec<&FunctionId> = free
-            .into_iter()
-            .filter(|target| {
-                !self
-                    .static_functions
-                    .contains(&(target.file.clone(), name.to_string()))
-            })
-            .collect();
-        match nonstatic.as_slice() {
-            [target] => Some((*target).clone()),
-            _ => None,
         }
     }
 
