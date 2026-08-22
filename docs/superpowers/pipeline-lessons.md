@@ -195,15 +195,14 @@ close-out; the per-round detail lives in the plan doc's status blocks and
 ## Follow-up queue (durable, self-tracking where possible)
 
 - P14 deferrals: return-flow taint (no callee-return→caller-LHS edges exist);
-  multi-line-call args have no Step-5b edge (pinned by
-  `test_multi_line_call_shape_is_currently_not_descended`); recursion descent;
+  ~~multi-line-call args have no Step-5b edge~~ **DONE (#171, 2026-08-22)** — byte-contained arg→param selector + trace-gate containment (the old pin is now `test_multi_line_call_shape_is_descended`); recursion descent;
   first-enqueue depth-lock relaxation (pinned deterministic);
   `src/reasoning/taint_reaches.rs` at 631 lines — module split.
 
 - ~~Nested-test-module `use super::*` callers gap~~ — **DONE (#166)**: anchor-only globs
   (`super::*`/`crate::*`/`self::*`) resolve via `ResolutionPolicy::glob_anchor_expands`;
   832 prism-self globs newly resolved. The fixture flipped `known_fail`→`pass`.
-- Pointer-embedded Go fields (`*Listener`) silently dropped by `extract_one_field`
+- ~~Pointer-embedded Go fields (`*Listener`) silently dropped by `extract_one_field`~~ — **DONE (#174, 2026-08-22)**; was:
   (tree-sitter emits a bare `*` token; `type_str == "*"` → strip → empty → drop) —
   pre-existing, affects the shipped embedding feature AND P11's S2/S4; fails safe.
 - GoOwnerIdentity clause/build-partition blindness (P13 [M1], counted-not-fixed):
