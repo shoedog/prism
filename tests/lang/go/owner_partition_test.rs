@@ -536,3 +536,22 @@ fn p5_clause_partition_is_order_independent_and_qualified_access_targets_ordinar
             .all(|record| record.target.name != "testHandler"));
     }
 }
+
+#[test]
+fn direct_method_on_named_non_struct_type_survives_partition_gate() {
+    let cg = CallGraph::build(&go_files(&[(
+        "pkg/main.go",
+        "package foo\ntype Status int\nfunc (Status) Act() {}\nfunc invoke(s Status) { s.Act() }\n",
+    )]));
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.callee_name == "Act")
+        .expect("Act call site");
+
+    assert_eq!(site.receiver_type.as_deref(), Some("Status"));
+    let outcome = cg.resolve_call_site_full(site);
+    assert_eq!(outcome.resolved.len(), 1);
+    assert_eq!(outcome.resolved[0].target.name, "Act");
+}

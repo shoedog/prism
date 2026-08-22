@@ -25,15 +25,42 @@ pub fn select_own_method(
     method_declarations: &GoMethodDeclarations,
     profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
 ) -> GoPartitionSelection<bool> {
-    let Some(structs) = struct_declarations.get(owner) else {
-        return GoPartitionSelection::default();
-    };
     let named_methods: Vec<_> = method_declarations
         .get(owner)
         .into_iter()
         .flatten()
         .filter(|declaration| declaration.method_name == method_name)
         .collect();
+    let Some(structs) = struct_declarations.get(owner) else {
+        let selected = crate::go_owner_partition::select_profiled_values(
+            owner,
+            caller_file,
+            owner_type_text,
+            named_methods
+                .iter()
+                .map(|method| (method.defining_file.as_str(), &method.function_id)),
+            profiles,
+        );
+        let mut evidence = selected.evidence;
+        let visible = selected.value.unwrap_or_default();
+        return match visible.len() {
+            0 => GoPartitionSelection {
+                value: None,
+                evidence,
+            },
+            1 if !evidence.conflict && !evidence.uncertain => GoPartitionSelection {
+                value: Some(true),
+                evidence,
+            },
+            _ => {
+                evidence.conflict = true;
+                GoPartitionSelection {
+                    value: None,
+                    evidence,
+                }
+            }
+        };
+    };
     let mode = GoOwnerReferenceMode::from_type_text(owner_type_text);
     let mut evidence = GoPartitionEvidence::default();
     let mut all_values = BTreeSet::new();
