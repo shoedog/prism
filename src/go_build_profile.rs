@@ -9,7 +9,7 @@ use crate::languages::Language;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct GoBuildProfile {
     pub package_clause: String,
     pub is_test_file: bool,
@@ -20,7 +20,7 @@ pub struct GoBuildProfile {
     pub build_unparsed: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BuildExpr {
     Tag(String),
     Not(Box<BuildExpr>),

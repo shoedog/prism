@@ -77,7 +77,7 @@ impl<T> Default for GoPartitionSelection<T> {
 /// Apply the one exactness floor shared by every owner-declaration consult.
 /// Qualified references rewrite only the caller's package namespace to the
 /// resolved target identity; test-file and build constraints remain intact.
-fn exact_declaration_visibility(
+pub(crate) fn exact_declaration_visibility(
     owner: &GoOwnerIdentity,
     caller_file: &str,
     mode: GoOwnerReferenceMode,
@@ -103,6 +103,76 @@ fn exact_declaration_visibility(
         && crate::go_build_profile::profile_allows_exact(Some(caller))
         && crate::go_build_profile::visibility_allows_exact(Some(defining), &visibility);
     (visibility.visible, exact)
+}
+
+/// Filter provenance-bearing values, then require every visible build-profile
+/// group to expose the same target set. Multiple registrations within one
+/// profile remain a legitimate P5 fanout; different profile target sets are a
+/// partition conflict and drop.
+pub fn select_profiled_values<'a, T, I>(
+    owner: &GoOwnerIdentity,
+    caller_file: &str,
+    owner_type_text: &str,
+    facts: I,
+    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+) -> GoPartitionSelection<BTreeSet<T>>
+where
+    T: Clone + Ord,
+    I: IntoIterator<Item = (&'a str, T)>,
+{
+    let mode = GoOwnerReferenceMode::from_type_text(owner_type_text);
+    let mut evidence = GoPartitionEvidence::default();
+    let mut all_groups: BTreeMap<crate::go_build_profile::GoBuildProfile, BTreeSet<T>> =
+        BTreeMap::new();
+    let mut visible_groups: BTreeMap<crate::go_build_profile::GoBuildProfile, BTreeSet<T>> =
+        BTreeMap::new();
+    for (defining_file, value) in facts {
+        let Some(profile) = profiles.get(defining_file) else {
+            evidence.uncertain = true;
+            return GoPartitionSelection {
+                value: None,
+                evidence,
+            };
+        };
+        all_groups
+            .entry(profile.clone())
+            .or_default()
+            .insert(value.clone());
+        let (visible, exact) =
+            exact_declaration_visibility(owner, caller_file, mode, defining_file, profiles);
+        if !visible {
+            evidence.filtered_declarations += 1;
+            continue;
+        }
+        evidence.visible_declarations += 1;
+        if !exact {
+            evidence.uncertain = true;
+            return GoPartitionSelection {
+                value: None,
+                evidence,
+            };
+        }
+        visible_groups
+            .entry(profile.clone())
+            .or_default()
+            .insert(value);
+    }
+    let all_sets: BTreeSet<BTreeSet<T>> = all_groups.into_values().collect();
+    let visible_sets: BTreeSet<BTreeSet<T>> = visible_groups.into_values().collect();
+    evidence.distinct_visible_values = visible_sets.len();
+    if visible_sets.len() > 1 {
+        evidence.conflict = true;
+        return GoPartitionSelection {
+            value: None,
+            evidence,
+        };
+    }
+    evidence.recovered =
+        all_sets.len() > 1 && evidence.filtered_declarations > 0 && visible_sets.len() == 1;
+    GoPartitionSelection {
+        value: visible_sets.into_iter().next(),
+        evidence,
+    }
 }
 
 pub fn select_struct_field(

@@ -1140,8 +1140,8 @@ impl CallGraph {
     /// called method/field name at the call site being resolved — e.g.
     /// `cmd.Run()` with `recv_ty = "Command"`, `name = "Run"`.
     ///
-    /// If S1 (`go_func_typed_fields`) confirms `(owner, name)` is a func-typed
-    /// struct field, resolve to the DISTINCT S2 registration targets recorded
+    /// If the visible declaration snapshots agree `(owner, name)` is a
+    /// func-typed struct field, resolve to the DISTINCT visible S2 registration targets
     /// for that field: 1..=3 -> `demoted(.., FuncValueField)` (NameOnly);
     /// >3 -> keep dropped, but reclassified `DropReason::FuncValueFanout`
     /// (too diffuse for a useful edge). Zero known registrations, an
@@ -1163,19 +1163,39 @@ impl CallGraph {
         ) else {
             return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
         };
-        if !self
-            .go_func_typed_fields
-            .contains(&(owner.clone(), name.to_string()))
+        let Some(declarations) = self.go_field_types.get(&owner) else {
+            return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+        };
+        let field = crate::go_owner_partition::select_struct_field(
+            &owner,
+            caller_file,
+            recv_ty,
+            name,
+            declarations,
+            &self.go_file_profiles,
+        );
+        if !field
+            .value
+            .as_deref()
+            .is_some_and(|ty| ty.trim_start().starts_with("func("))
         {
             return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
         }
-        let field_key = (owner, name.to_string());
-        let targets: BTreeSet<&FunctionId> = self
-            .go_registrations
-            .iter()
-            .filter(|r| r.field_key.as_ref() == Some(&field_key))
-            .map(|r| &r.target)
-            .collect();
+        let field_key = (owner.clone(), name.to_string());
+        let targets = crate::go_owner_partition::select_profiled_values(
+            &owner,
+            caller_file,
+            recv_ty,
+            self.go_registrations
+                .iter()
+                .filter(|r| r.field_key.as_ref() == Some(&field_key))
+                .map(|r| (r.site.file.as_str(), &r.target)),
+            &self.go_file_profiles,
+        );
+        if targets.evidence.conflict || targets.evidence.uncertain {
+            return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+        }
+        let targets = targets.value.unwrap_or_default();
         match targets.len() {
             0 => ResolutionOutcome::dropped(DropReason::ExternalReceiver),
             1..=3 => ResolutionOutcome::hit(demoted(targets, ResolutionKind::FuncValueField)),

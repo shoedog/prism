@@ -394,3 +394,114 @@ fn s4_resolver_and_manifest_share_recovered_and_blocked_partition_decisions() {
     assert!(unconstrained_outcome.resolved.is_empty());
     assert_eq!(manifest_act_implementers(&unconstrained), BTreeSet::new());
 }
+
+fn build_p5_partition_fixture(caller_path: &str, caller_header: &str) -> CallGraph {
+    let caller = format!("{caller_header}package foo\nfunc invoke(c Command) {{ c.Run() }}\n");
+    let files = go_files(&[
+        (
+            "pkg/a_linux.go",
+            "//go:build linux\n\npackage foo\ntype Command struct { Run func() }\nfunc linuxHandler() {}\nfunc setupLinux() { _ = Command{Run: linuxHandler} }\n",
+        ),
+        (
+            "pkg/z_windows.go",
+            "//go:build windows\n\npackage foo\ntype Command struct { Run func() }\nfunc windowsHandler() {}\nfunc setupWindows() { _ = Command{Run: windowsHandler} }\n",
+        ),
+        (caller_path, &caller),
+    ]);
+    CallGraph::build(&files)
+}
+
+fn run_targets(cg: &CallGraph) -> BTreeSet<String> {
+    run_targets_in(cg, "invoke")
+}
+
+fn run_targets_in(cg: &CallGraph, caller_name: &str) -> BTreeSet<String> {
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.callee_name == "Run" && site.caller.name == caller_name)
+        .expect("Run call site");
+    cg.resolve_call_site_full(site)
+        .resolved
+        .iter()
+        .map(|callee| callee.target.name.clone())
+        .collect()
+}
+
+#[test]
+fn p5_registration_targets_follow_the_invocation_partition() {
+    let linux = build_p5_partition_fixture("pkg/use_linux.go", "//go:build linux\n\n");
+    assert_eq!(
+        run_targets(&linux),
+        BTreeSet::from(["linuxHandler".to_string()])
+    );
+
+    let windows = build_p5_partition_fixture("pkg/use_windows.go", "//go:build windows\n\n");
+    assert_eq!(
+        run_targets(&windows),
+        BTreeSet::from(["windowsHandler".to_string()])
+    );
+
+    let unconstrained = build_p5_partition_fixture("pkg/use.go", "");
+    assert!(run_targets(&unconstrained).is_empty());
+}
+
+#[test]
+fn p5_func_vs_nonfunc_declarations_conflict_and_nonfunc_registration_is_skipped() {
+    let files = go_files(&[
+        (
+            "pkg/a_linux.go",
+            "//go:build linux\n\npackage foo\ntype Command struct { Run func() }\nfunc linuxHandler() {}\nfunc setupLinux() { _ = Command{Run: linuxHandler} }\n",
+        ),
+        (
+            "pkg/z_windows.go",
+            "//go:build windows\n\npackage foo\ntype Command struct { Run int }\nfunc windowsHandler() {}\nfunc setupWindows() { _ = Command{Run: windowsHandler} }\n",
+        ),
+        (
+            "pkg/use.go",
+            "package foo\nfunc invoke(c Command) { c.Run() }\n",
+        ),
+    ]);
+    let cg = CallGraph::build(&files);
+
+    assert!(run_targets(&cg).is_empty());
+    assert!(cg
+        .go_registrations
+        .iter()
+        .all(|record| record.target.name != "windowsHandler"));
+}
+
+#[test]
+fn p5_clause_partition_is_order_independent_and_qualified_access_targets_ordinary() {
+    for (prod_path, test_path) in [
+        ("foo/a_prod.go", "foo/z_external_test.go"),
+        ("foo/z_prod.go", "foo/a_external_test.go"),
+    ] {
+        let files = go_files(&[
+            (
+                prod_path,
+                "package foo\ntype Command struct { Run func() }\nfunc prodHandler() {}\nfunc setupProd() { _ = Command{Run: prodHandler} }\nfunc invokeProd(c Command) { c.Run() }\n",
+            ),
+            (
+                test_path,
+                "package foo_test\nimport foo \"example/foo\"\ntype Command struct { Run int }\nfunc testHandler() {}\nfunc setupTest() { _ = Command{Run: testHandler} }\nfunc invokeBare(c Command) { c.Run() }\nfunc invokeQualified(c foo.Command) { c.Run() }\n",
+            ),
+        ]);
+        let cg = CallGraph::build(&files);
+
+        assert_eq!(
+            run_targets_in(&cg, "invokeProd"),
+            BTreeSet::from(["prodHandler".to_string()])
+        );
+        assert!(run_targets_in(&cg, "invokeBare").is_empty());
+        assert_eq!(
+            run_targets_in(&cg, "invokeQualified"),
+            BTreeSet::from(["prodHandler".to_string()])
+        );
+        assert!(cg
+            .go_registrations
+            .iter()
+            .all(|record| record.target.name != "testHandler"));
+    }
+}

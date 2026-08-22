@@ -444,16 +444,6 @@ pub struct CallGraph {
     /// `apply_go_func_value_fields`.
     #[serde(default)]
     pub go_package_basenames: BTreeMap<String, BTreeSet<String>>,
-    /// P5 S1: every package-scoped struct identity the Go type provider
-    /// extracted (regardless of func-typed fields). Whole-program derived;
-    /// recomputed by `apply_go_func_value_fields`.
-    #[serde(default)]
-    pub go_known_struct_identities: BTreeSet<crate::resolution::GoOwnerIdentity>,
-    /// P5 S1: `(owner_identity, field_name)` pairs whose declared type begins
-    /// with `func(`. Whole-program derived; recomputed by
-    /// `apply_go_func_value_fields`.
-    #[serde(default)]
-    pub go_func_typed_fields: BTreeSet<(crate::resolution::GoOwnerIdentity, String)>,
     /// P5 S2: recognized Go function-value registration sites. Whole-program
     /// derived (needs S1's package-scoped field-typing, and target resolution
     /// must see the complete function index) — like
@@ -651,8 +641,6 @@ impl CallGraph {
             js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
             go_package_basenames: BTreeMap::new(),
-            go_known_struct_identities: BTreeSet::new(),
-            go_func_typed_fields: BTreeSet::new(),
             go_registrations: BTreeSet::new(),
             go_registration_shadowed_skips: 0,
             go_registration_ambiguous_owner_skips: 0,
@@ -863,8 +851,6 @@ impl CallGraph {
             js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
             go_package_basenames: BTreeMap::new(),
-            go_known_struct_identities: BTreeSet::new(),
-            go_func_typed_fields: BTreeSet::new(),
             go_registrations: BTreeSet::new(),
             go_registration_shadowed_skips: 0,
             go_registration_ambiguous_owner_skips: 0,
@@ -1235,8 +1221,6 @@ impl CallGraph {
             js_export_barrel_conflicts: 0,
             js_ts_function_locals,
             go_package_basenames: BTreeMap::new(),
-            go_known_struct_identities: BTreeSet::new(),
-            go_func_typed_fields: BTreeSet::new(),
             go_registrations: BTreeSet::new(),
             go_registration_shadowed_skips: 0,
             go_registration_ambiguous_owner_skips: 0,
@@ -2867,8 +2851,6 @@ impl CallGraph {
 
     fn clear_go_func_value_fields(&mut self) {
         self.go_package_basenames.clear();
-        self.go_known_struct_identities.clear();
-        self.go_func_typed_fields.clear();
     }
 
     /// P5 S1: recompute the Go func-typed-field index (package-scoped owner
@@ -2898,9 +2880,6 @@ impl CallGraph {
                 .or_default()
                 .insert(dir);
         }
-        let provider = crate::type_providers::go::GoTypeProvider::from_parsed_files(files);
-        self.go_known_struct_identities = provider.go_known_struct_identities();
-        self.go_func_typed_fields = provider.go_func_typed_fields();
     }
 
     fn clear_go_registrations(&mut self) {
@@ -2914,9 +2893,9 @@ impl CallGraph {
     /// P5 S2: scan `files` for recognized Go function-value registrations
     /// (composite-literal keyed field, field assignment, bare call argument)
     /// and record them in `go_registrations`. Whole-program derived (needs
-    /// `go_func_typed_fields`/`go_known_struct_identities` already applied by
-    /// `apply_go_func_value_fields`, and target resolution needs the complete
-    /// `functions`/`method_owners` index) — clears and recomputes from
+    /// declaration snapshots already applied by `apply_go_interface_dispatch`,
+    /// and target resolution needs the complete `functions`/`method_owners`
+    /// index) — clears and recomputes from
     /// scratch, never incrementally patched.
     ///
     /// Walks `parsed.all_functions()` per file (the same per-function
@@ -2955,6 +2934,42 @@ impl CallGraph {
         }
     }
 
+    /// Resolve one P5 field key against all visible declaration snapshots.
+    /// `Err` means the owner itself is unknown (composite literals retain the
+    /// legacy nav-only fallback); `Ok(None)` means a known owner whose visible
+    /// field cannot be proven func-typed and must not register.
+    fn go_func_field_key(
+        &self,
+        owner_type_text: &str,
+        caller_file: &str,
+        field_name: &str,
+    ) -> Result<Option<(crate::resolution::GoOwnerIdentity, String)>, ()> {
+        let owner = crate::resolution::resolve_go_owner_identity(
+            owner_type_text,
+            caller_file,
+            &self.imports,
+            &self.go_package_basenames,
+            &self.go_file_profiles,
+        )
+        .ok_or(())?;
+        let Some(declarations) = self.go_field_types.get(&owner) else {
+            return Err(());
+        };
+        let selected = crate::go_owner_partition::select_struct_field(
+            &owner,
+            caller_file,
+            owner_type_text,
+            field_name,
+            declarations,
+            &self.go_file_profiles,
+        );
+        Ok(selected
+            .value
+            .as_deref()
+            .is_some_and(|ty| ty.trim_start().starts_with("func("))
+            .then(|| (owner, field_name.to_string())))
+    }
+
     /// One raw S2 candidate -> zero or one `RegistrationRecord`, applying the
     /// shared gates (target resolution, shadow check) and the per-form owner
     /// recovery / field-typing gate.
@@ -2966,7 +2981,7 @@ impl CallGraph {
         cand: crate::ast::GoRegistrationCandidate,
     ) {
         use crate::ast::GoRegistrationForm;
-        use crate::resolution::{resolve_go_bare_value_ref, resolve_go_owner_identity};
+        use crate::resolution::resolve_go_bare_value_ref;
 
         // Shared gate (ALL forms): the value must resolve to a known in-repo
         // free function via same-package/import helpers (never bare
@@ -3008,37 +3023,16 @@ impl CallGraph {
             GoRegistrationForm::CompositeLiteralField {
                 struct_type_text,
                 field_name,
-            } => {
-                match resolve_go_owner_identity(
-                    struct_type_text,
-                    &caller_id.file,
-                    &self.imports,
-                    &self.go_package_basenames,
-                    &self.go_file_profiles,
-                ) {
-                    Some(owner) if self.go_known_struct_identities.contains(&owner) => {
-                        if self
-                            .go_func_typed_fields
-                            .contains(&(owner.clone(), field_name.clone()))
-                        {
-                            Some((owner, field_name.clone()))
-                        } else {
-                            // Known struct, field not func-typed: not a
-                            // registration candidate at all — silently skip
-                            // (not a "fallback", not a "skip" to count).
-                            return;
-                        }
-                    }
-                    _ => {
-                        // Unknown/ambiguous struct: fall back to recording
-                        // WITHOUT a field key (nav-only, never feeds S3),
-                        // since the shared gate above already established the
-                        // value resolves unambiguously and isn't shadowed.
-                        self.go_registration_unknown_owner_recorded += 1;
-                        None
-                    }
+            } => match self.go_func_field_key(struct_type_text, &caller_id.file, field_name) {
+                Ok(Some(key)) => Some(key),
+                Ok(None) => return,
+                Err(()) => {
+                    // Unknown/ambiguous struct: fall back to recording WITHOUT
+                    // a field key (nav-only, never feeds S3).
+                    self.go_registration_unknown_owner_recorded += 1;
+                    None
                 }
-            }
+            },
             GoRegistrationForm::FieldAssignment {
                 operand_name,
                 field_name,
@@ -3060,20 +3054,8 @@ impl CallGraph {
                     self.go_registration_ambiguous_owner_skips += 1;
                     return;
                 }
-                match resolve_go_owner_identity(
-                    &operand_type,
-                    &caller_id.file,
-                    &self.imports,
-                    &self.go_package_basenames,
-                    &self.go_file_profiles,
-                ) {
-                    Some(owner)
-                        if self
-                            .go_func_typed_fields
-                            .contains(&(owner.clone(), field_name.clone())) =>
-                    {
-                        Some((owner, field_name.clone()))
-                    }
+                match self.go_func_field_key(&operand_type, &caller_id.file, field_name) {
+                    Ok(Some(key)) => Some(key),
                     _ => {
                         self.go_registration_ambiguous_owner_skips += 1;
                         return;
@@ -3864,8 +3846,6 @@ impl CallGraph {
             // / `apply_go_registrations` on the merged graph (mirrors
             // `apply_go_embedding_promotion` / `apply_go_interface_dispatch`).
             go_package_basenames: BTreeMap::new(),
-            go_known_struct_identities: BTreeSet::new(),
-            go_func_typed_fields: BTreeSet::new(),
             go_registrations: BTreeSet::new(),
             go_registration_shadowed_skips: 0,
             go_registration_ambiguous_owner_skips: 0,
@@ -5813,8 +5793,6 @@ func main() {\n\thelper := func() {}\n\t_ = helper\n\tRegister(helper)\n}\n",
         );
         let cg = CallGraph::build(&files);
         assert!(cg.go_registrations.is_empty());
-        assert!(cg.go_known_struct_identities.is_empty());
-        assert!(cg.go_func_typed_fields.is_empty());
         assert_eq!(cg.go_registration_shadowed_skips, 0);
         assert_eq!(cg.go_registration_ambiguous_owner_skips, 0);
         assert_eq!(cg.go_registration_unknown_owner_recorded, 0);

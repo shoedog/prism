@@ -76,9 +76,9 @@ use std::path::{Path, PathBuf};
 /// - v32: P3 R6MultiOwnerCandidate — Python/JS/TS/Tsx unknown-receiver
 ///   multi-owner collisions resolve via `resolve_call_site` to a capped
 ///   NameOnly candidate instead of dropping, changing CPG Call/Return edges.
-/// - v33: P5 Go func-value callbacks — CallGraph.go_package_basenames /
-///   go_known_struct_identities / go_func_typed_fields (S1) +
-///   go_registrations + registration telemetry counters (S2); new
+/// - v33: P5 Go func-value callbacks — CallGraph.go_package_basenames plus
+///   provider-derived struct/func-field facts (S1) + go_registrations and
+///   registration telemetry counters (S2); new
 ///   ResolutionKind::CallbackRegistration/FuncValueField and
 ///   DropReason::FuncValueFanout (S3, resolution behavior change).
 /// - v34: P7 Python `@property`/`@cached_property` access edges —

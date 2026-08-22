@@ -280,16 +280,14 @@ impl GoTypeProvider {
             .collect()
     }
 
-    /// P5 S1: every package-scoped struct identity extracted (regardless of
-    /// func-typed fields). Captured onto `CallGraph.go_known_struct_identities`
-    /// in `apply_go_func_value_fields`.
+    /// P5 provider projection retained for focused provider tests. Production
+    /// P5 consults use the all-field declaration snapshots on `CallGraph`.
     pub fn go_known_struct_identities(&self) -> BTreeSet<crate::resolution::GoOwnerIdentity> {
         self.data.struct_identities.clone()
     }
 
-    /// P5 S1: `(owner_identity, field_name)` pairs whose declared field type
-    /// begins with `func(`. Captured onto `CallGraph.go_func_typed_fields` in
-    /// `apply_go_func_value_fields`.
+    /// P5 provider projection retained for focused provider tests. Production
+    /// P5 consults use the all-field declaration snapshots on `CallGraph`.
     pub fn go_func_typed_fields(&self) -> BTreeSet<(crate::resolution::GoOwnerIdentity, String)> {
         self.data.func_typed_fields.clone()
     }
@@ -2030,7 +2028,7 @@ mod satisfaction_tests {
     use super::*;
     use crate::ast::ParsedFile;
     use crate::languages::Language;
-    use std::collections::{BTreeMap, BTreeSet};
+    use std::collections::BTreeMap;
 
     fn provider(src: &str) -> GoTypeProvider {
         let mut files = BTreeMap::new();
