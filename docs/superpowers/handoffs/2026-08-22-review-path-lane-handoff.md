@@ -6,6 +6,8 @@
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
 
+> **SUPERSEDED SNAPSHOT — read §8 first.** §0–§7 below are the 10:47 MDT handoff as written; P10 is **MERGED (#176, squash a075c2b2, 18:33Z)** and the docs PR (#175) is this branch. §0 (a)–(c), §1 steps 2–6, §2 row "P10", and §4 rows 1–3 are CLOSED — do not resume P10 wave 3 or re-dispatch the gate. Still open: §4 rows 4–8 and the §7 owner questions.
+
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` (10:47) a codex gpt-5.6-sol agent-mode session is LIVE in `/Users/wesleyjinks/code/slicing-p10-go-owner-partition` (bridge context `fable-itemP10-sol-20260821`, state running, idle 2 min; the blocking `a2a-bridge submit` process for `scratchpad/brief-P10-fix3.md` is alive; its output will land in `/private/tmp/claude-501/-Users-wesleyjinks-code-slicing/490d43a9-3e3c-41c1-b8c2-35d1d489af35/scratchpad/itemP10-fix3.out` when done). No other agent owns the other clones. A separate owner session uses the bridge for `stockTrading-*` contexts — not ours. — **OPEN until wave 3 returns (poll `git -C ~/code/slicing-p10-go-owner-partition log --oneline -3` and `session status` — do NOT start a second turn in that context)**
@@ -53,9 +55,9 @@
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | P10 wave 3 (qualified signature identity by import path) | running (sol) | poll; then §1 steps 3–5 | sol turn | ctx `fable-itemP10-sol-20260821`; clone `~/code/slicing-p10-go-owner-partition`; brief `scratchpad/brief-P10-fix3.md` |
-| 2 | P10 final gate + PR + merge | pending | §1 steps 4–5 | #1 | terra ctx `fable-itemP10-review-terra-20260821` |
-| 3 | Docs PR (roadmap/pipeline-lessons/handoff) | branch created by this handoff | §1 step 6 | #2 (for #3 row) | branch `docs/2026-08-22-lane-handoff` |
+| 1 | ~~P10 wave 3 (qualified signature identity by import path)~~ | CLOSED — 79b9198, then wave 4 d68e2dd (§8) | poll; then §1 steps 3–5 | sol turn | ctx `fable-itemP10-sol-20260821`; clone `~/code/slicing-p10-go-owner-partition`; brief `scratchpad/brief-P10-fix3.md` |
+| 2 | ~~P10 final gate + PR + merge~~ | CLOSED — r3 FIX → r4 APPROVE → #176 merged (§8) | §1 steps 4–5 | #1 | terra ctx `fable-itemP10-review-terra-20260821` |
+| 3 | ~~Docs PR (roadmap/pipeline-lessons/handoff)~~ | CLOSED — PR #175 = this branch (§8) | §1 step 6 | #2 (for #3 row) | branch `docs/2026-08-22-lane-handoff` |
 | 4 | Roadmap #11 prism-mcp lazy handshake | not started (high value: codex drops slow MCP servers; TS unmeasurable) | brainstorm → bounded design → sol spec review | — | read-out §Caveats |
 | 5 | Roadmap #13 sound Level-3 callback resolution | not started (Level-3 minting disabled on main) | design (binding-aware value resolver) | — | PR #173 body; `scratchpad/review-P8r*.out` |
 | 6 | Part-D INSTRUMENT-FAIL audit (did saturated off arms search structurally?) | not started | sample off-arm transcripts of the 6 saturated tasks | — | run root `eval/tier_c/runs/partd/full-gpt-5.5-2026-08-21/` |
