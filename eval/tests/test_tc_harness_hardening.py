@@ -10,9 +10,9 @@ F3 — MCP_TIMEOUT/MCP_TOOL_TIMEOUT env for the claude on-arm subprocess (codex'
 F4 — per-cell warm-initialize gate (warm_gate_check) wired into run_arm_isolated between
      _prewarm_cpg and runner.run.
 
-All subprocess interaction is mocked — no real prism/prism-mcp binary is launched here
-(one real-binary sanity check for resolve_matched_binaries is skipped when the binaries
-are absent, mirroring tests/test_matrix.py's convention).
+All subprocess interaction is mocked except the skip-marked paired-real-binary checks
+for matched-binary resolution and cold-vs-warm cache state, mirroring
+tests/test_matrix.py's convention when those binaries are absent.
 """
 from __future__ import annotations
 
@@ -453,6 +453,59 @@ def test_warm_gate_requires_eager_and_distinguishes_cold_from_warm(monkeypatch):
     assert warm["ok"] is True
     assert "--eager" in cold_argv[0]
     assert "--eager" in warm_argv[0]
+
+
+@pytest.mark.skipif(
+    not (_REAL_PRISM_BIN and os.path.exists(_REAL_PRISM_BIN) and
+         _REAL_PRISM_MCP_BIN and os.path.exists(_REAL_PRISM_MCP_BIN)),
+    reason="PRISM_BIN/PRISM_MCP_BIN not set to real binaries on disk",
+)
+def test_warm_gate_real_cache_distinguishes_cold_from_warm(tmp_path):
+    """A real eager server misses the gate on a fresh cache and passes after prewarm.
+
+    The C fixture is deliberately large enough that an uncached build exceeds the 0.2 s
+    gate on the supported release binaries; the subsequent prewarm and warm gate exercise
+    the exact shared `--cache-dir` cache state the harness relies on.
+    """
+    import subprocess
+
+    fixture = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "c"
+    cache_dir = tmp_path / "prism-cache"
+    timeout_s = 0.2
+
+    cold = warm_gate_check(
+        str(fixture),
+        cache_dir=str(cache_dir),
+        prism_mcp_bin=_REAL_PRISM_MCP_BIN,
+        timeout_s=timeout_s,
+    )
+    assert cold["ok"] is False, cold
+    assert "timed out" in (cold["error"] or "").lower(), cold
+
+    prewarm = subprocess.run(
+        [
+            _REAL_PRISM_BIN,
+            "nav",
+            "--cache-dir",
+            str(cache_dir),
+            "repo-map",
+            "--repo",
+            str(fixture),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert prewarm.returncode == 0, prewarm.stderr
+
+    warm = warm_gate_check(
+        str(fixture),
+        cache_dir=str(cache_dir),
+        prism_mcp_bin=_REAL_PRISM_MCP_BIN,
+        timeout_s=timeout_s,
+    )
+    assert warm["ok"] is True, warm
 
 
 def test_warm_gate_check_never_raises_on_malformed_response(monkeypatch):
