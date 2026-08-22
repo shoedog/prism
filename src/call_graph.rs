@@ -1959,7 +1959,6 @@ impl CallGraph {
                                 caller_site,
                                 arg_text,
                                 arg_span,
-                                &known_fn_names,
                             ) {
                                 level3_sites.push((
                                     caller_id.clone(),
@@ -2029,8 +2028,17 @@ impl CallGraph {
         caller_site: &CallSite,
         argument: &str,
         argument_span: &std::ops::Range<usize>,
-        known_fn_names: &BTreeSet<String>,
     ) -> Option<FunctionId> {
+        let caller_function = Self::function_node_for_id(caller_parsed, &caller_site.caller)?;
+        if caller_parsed.call_span_is_inside_nested_function_like(
+            &caller_function,
+            caller_site.start_byte,
+            caller_site.end_byte,
+        )? || caller_parsed.has_go_dot_import()
+        {
+            return None;
+        }
+
         if !argument
             .chars()
             .all(|character| character.is_alphanumeric() || character == '_')
@@ -2044,36 +2052,10 @@ impl CallGraph {
             argument,
             argument_span.start,
         )?;
-        if !bound {
-            if let Some(target) = self.exact_free_function_value_reference(
-                &caller_site.caller,
-                argument,
-                argument_span.start,
-            ) {
-                return Some(target);
-            }
-        }
-
-        let caller_func_source = Self::extract_func_source_before(
-            caller_parsed,
-            &caller_site.caller,
-            caller_site.start_byte,
-        )?;
-        let assigned =
-            crate::ast::resolve_fptr_assignment(caller_func_source, argument, known_fn_names)?;
-        if self.callback_value_binding_state(
-            caller_parsed,
-            &caller_site.caller,
-            &assigned,
-            argument_span.start,
-        )? {
+        if bound {
             return None;
         }
-        self.exact_free_function_value_reference(
-            &caller_site.caller,
-            &assigned,
-            argument_span.start,
-        )
+        self.exact_free_function_value_reference(&caller_site.caller, argument, argument_span.start)
     }
 
     /// `Some(true)` means a local/parameter binding shadows the repository

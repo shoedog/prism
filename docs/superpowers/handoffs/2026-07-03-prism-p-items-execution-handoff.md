@@ -2,17 +2,17 @@
 
 Cold-start map for continuing the execution of `docs/analysis/prism-llm-and-accuracy-plan.md`. The durable in-repo progress ledger is **`.superpowers/sdd/progress.md`** (git-ignored scratch — read it first; it has per-step history including every review verdict).
 
-## 2026-08-22 — Item P8 parameter-slots final wave
+## 2026-08-22 — Item P8 parameter-slots fail-closed wave 3
 
-- Lane: `param-slots-fail-closed`, parent `8595d0d`; this final-wave commit is intentionally unpushed.
-- Level-3 callback arguments now use binding-aware value-reference resolution. JS/TS, Python, Go, and Rust parameters/locals shadow repository functions; Python local imports/match captures and Go multi-name vars/named results are also fail-closed. Free and imported identifiers retain exact `FunctionId` custody.
-- Full and incremental construction both recompute indirect sites only after whole-program scope/import/export/type facts are restored. Rust block-local imports and JS imports have exact full-vs-incremental identity tests.
-- Navigation `CallSiteKey` includes `pre_resolved_target`; live callers/callees and the sidecar round trip retain two same-span Level-3 targets.
-- The assignment fallback is retained only for exactly one recognized assignment before the inbound call. Later-only or multiple prior assignments mint no target; a post-call reassignment does not rewrite the earlier call.
-- Custody surface: `prism nav call-stats --dump-sites` emits deterministic JSONL per raw site with caller/span/callee, targets, kind, confidence, and drop.
-- Cache versions remain CPG 42 / sidecar 11 as required.
-- Verification: `cargo fmt --all -- --check` clean; full `cargo test` = 3,120 passed / 0 failed / 1 ignored; release build clean; Tier-A matrix all `ok`.
-- Tier-A quick completed evaluation but exited 2 because the baseline was invalid: corpus SHA `8595d0dca844` != configured pin `20c8490591a3`, and rust-analyzer produced 4/6 Q-scoped probes. SUT error rate was 0 and matrix regressions were empty. Pinned outputs: `target-c-method` flip candidate; both expected `oracle_miss_site` probes reported missing. Raw evidence is retained at ignored `eval/runs/2026-08-22-prism.json`; no baseline/report artifact was committed.
+- Lane: `param-slots-fail-closed`, parent `2fe665e`; this one-commit wave is intentionally unpushed. Terra round 4 remains the only pending review; any new constructible WRONG triggers the owner-authorized fallback to disable Level-3 minting.
+- Level-3 no longer resolves callback arguments through local assignments. The shared `resolve_fptr_assignment` helper remains only for Level 1. One prior assignment, a conditional assignment, and a prior assignment followed by a post-call write all now mint no Level-3 target.
+- Inbound callback calls attributed to an outer named function are refused when their byte span is nested inside another function-like scope. JS arrow/function expressions, Python lambdas, Go func literals, and Rust closures are pinned negative; the non-nested same-file free-identifier path remains positive.
+- A recognized Python/JS/TS member import is terminal: exactly one in-repo candidate resolves; zero or multiple candidates return `None` without generic same-name fallback. An unresolved external JS import with an in-repo decoy is pinned negative, while a resolvable import stays positive. Go dot imports remain unmodeled and now refuse Level-3 rather than reaching a cross-package decoy.
+- Restructure-carried checks remain green: cross-file callback, exact inbound `FunctionId`, distinct same-name target dedup/cardinality, per-call byte spans, navigation call-site identity, and bincode/sidecar round trips.
+- TDD evidence: the focused pre-change run failed all eight required/new negative expectations, and the Go dot-import control was separately red. One older redundant local-variable positive surfaced only on the first green run and was then flipped; this is the sole sequencing deviation. The final `cargo test --test integration level3_ -- --nocapture` passed 27 / failed 0.
+- Cache versions remain CPG 42 / sidecar 11; no cache bump and no new target-resolution heuristic were introduced.
+- Verification: `cargo fmt --all -- --check` clean; full `cargo test` = 3,127 passed / 0 failed / 1 ignored; `cargo build --release` clean; Tier-A matrix all `ok`.
+- Tier-A quick completed with SUT error rate 0, no matrix regressions, and no flip-candidates. Its report was baseline-invalid because corpus SHA `2fe665e818a3` differs from configured pin `20c8490591a3` and rust-analyzer produced 4/6 Q-scoped probes. No baseline/report artifact is committed.
 
 ## State
 

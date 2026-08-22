@@ -1143,11 +1143,10 @@ impl CallGraph {
                 } else {
                     Vec::new()
                 };
-                match matched.as_slice() {
-                    [target] => return Some((*target).clone()),
-                    [] => {}
-                    _ => return None,
-                }
+                return match matched.as_slice() {
+                    [target] => Some((*target).clone()),
+                    _ => None,
+                };
             }
         }
 

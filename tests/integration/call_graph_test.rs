@@ -549,7 +549,7 @@ void init_events(void) {
 }
 
 #[test]
-fn test_call_graph_level3_with_local_variable() {
+fn level3_declines_local_variable_assignment() {
     let source = r#"
 void real_handler(int x) {
     // actual implementation
@@ -583,8 +583,8 @@ void setup(void) {
         .collect();
 
     assert!(
-        callee_names.contains("real_handler"),
-        "Level 3+1: invoke(h, 10) where h = real_handler should resolve cb to real_handler, got: {:?}",
+        !callee_names.contains("real_handler"),
+        "a local assignment is not a dominance or must-alias proof, got: {:?}",
         callee_names
     );
 }
@@ -1064,6 +1064,70 @@ fn level3_free_identifier_keeps_exact_function_identity() {
 }
 
 #[test]
+fn level3_declines_calls_inside_nested_js_function_values() {
+    for source in [
+        "function safe() {}\nfunction other() {}\nfunction invoke(cb) { cb(); }\nfunction outer() { const run = (safe) => invoke(safe); run(other); }\n",
+        "function safe() {}\nfunction other() {}\nfunction invoke(cb) { cb(); }\nfunction outer() { const run = function(safe) { invoke(safe); }; run(other); }\n",
+    ] {
+        let files = BTreeMap::from([(
+            "nested.js".to_string(),
+            ParsedFile::parse("nested.js", source, Language::JavaScript).unwrap(),
+        )]);
+        let cg = CallGraph::build(&files);
+
+        assert!(
+            !has_level3_target(&cg, "invoke", "nested.js", "safe"),
+            "a call attributed to outer but nested in a JS function value must not mint Level-3"
+        );
+    }
+}
+
+#[test]
+fn level3_declines_calls_inside_nested_python_lambda() {
+    let source = "def safe(): pass\ndef other(): pass\ndef invoke(cb): cb()\ndef outer():\n    run = lambda safe: invoke(safe)\n    run(other)\n";
+    let files = BTreeMap::from([(
+        "nested.py".to_string(),
+        ParsedFile::parse("nested.py", source, Language::Python).unwrap(),
+    )]);
+    let cg = CallGraph::build(&files);
+
+    assert!(
+        !has_level3_target(&cg, "invoke", "nested.py", "safe"),
+        "a call attributed to outer but nested in a Python lambda must not mint Level-3"
+    );
+}
+
+#[test]
+fn level3_declines_calls_inside_nested_go_func_literal() {
+    let source = "package p\nfunc safe() {}\nfunc other() {}\nfunc invoke(cb func()) { cb() }\nfunc outer() { run := func(safe func()) { invoke(safe) }; run(other) }\n";
+    let files = BTreeMap::from([(
+        "nested.go".to_string(),
+        ParsedFile::parse("nested.go", source, Language::Go).unwrap(),
+    )]);
+    let cg = CallGraph::build(&files);
+
+    assert!(
+        !has_level3_target(&cg, "invoke", "nested.go", "safe"),
+        "a call attributed to outer but nested in a Go func literal must not mint Level-3"
+    );
+}
+
+#[test]
+fn level3_declines_calls_inside_nested_rust_closure() {
+    let source = "fn safe() {}\nfn other() {}\nfn invoke(cb: fn()) { cb(); }\nfn outer() { let run = |safe: fn()| invoke(safe); run(other); }\n";
+    let files = BTreeMap::from([(
+        "nested.rs".to_string(),
+        ParsedFile::parse("nested.rs", source, Language::Rust).unwrap(),
+    )]);
+    let cg = CallGraph::build(&files);
+
+    assert!(
+        !has_level3_target(&cg, "invoke", "nested.rs", "safe"),
+        "a call attributed to outer but nested in a Rust closure must not mint Level-3"
+    );
+}
+
+#[test]
 fn level3_imported_identifier_keeps_imported_function_identity() {
     let files = BTreeMap::from([
         (
@@ -1108,6 +1172,66 @@ fn level3_imported_identifier_keeps_imported_function_identity() {
     assert!(has_level3_target(&cg, "invoke", "safe.js", "safe"));
 }
 
+#[test]
+fn level3_unresolvable_import_does_not_fall_through_to_same_name_repo_function() {
+    let files = BTreeMap::from([
+        (
+            "decoy.js".to_string(),
+            ParsedFile::parse(
+                "decoy.js",
+                "export function safe() {}\n",
+                Language::JavaScript,
+            )
+            .unwrap(),
+        ),
+        (
+            "entry.js".to_string(),
+            ParsedFile::parse(
+                "entry.js",
+                "import { safe } from 'external';\nfunction invoke(cb) { cb(); }\nfunction forward() { invoke(safe); }\n",
+                Language::JavaScript,
+            )
+            .unwrap(),
+        ),
+    ]);
+    let cg = CallGraph::build(&files);
+
+    assert!(
+        !has_level3_target(&cg, "invoke", "decoy.js", "safe"),
+        "a recognized but unresolved import must not fall through to a same-name repo function"
+    );
+}
+
+#[test]
+fn level3_go_dot_import_does_not_fall_through_to_same_name_repo_function() {
+    let files = BTreeMap::from([
+        (
+            "decoy/safe.go".to_string(),
+            ParsedFile::parse(
+                "decoy/safe.go",
+                "package decoy\nfunc safe() {}\n",
+                Language::Go,
+            )
+            .unwrap(),
+        ),
+        (
+            "entry.go".to_string(),
+            ParsedFile::parse(
+                "entry.go",
+                "package p\nimport . \"external/pkg\"\nfunc invoke(cb func()) { cb() }\nfunc forward() { invoke(safe) }\n",
+                Language::Go,
+            )
+            .unwrap(),
+        ),
+    ]);
+    let cg = CallGraph::build(&files);
+
+    assert!(
+        !has_level3_target(&cg, "invoke", "decoy/safe.go", "safe"),
+        "an unmodeled Go dot import must not fall through to a same-name repo function"
+    );
+}
+
 fn level3_assignment_targets(source: &str) -> BTreeSet<String> {
     let files = BTreeMap::from([(
         "callbacks.c".to_string(),
@@ -1123,25 +1247,34 @@ fn level3_assignment_targets(source: &str) -> BTreeSet<String> {
 }
 
 #[test]
-fn level3_assignment_fallback_uses_one_assignment_before_the_inbound_call() {
+fn level3_declines_one_assignment_before_the_inbound_call() {
     let source = "void safe() {}\nvoid invoke(void (*cb)()) { cb(); }\nvoid forward() { void (*callback)() = safe; invoke(callback); }\n";
-    assert_eq!(
-        level3_assignment_targets(source),
-        BTreeSet::from(["safe".into()])
+    assert!(
+        level3_assignment_targets(source).is_empty(),
+        "one prior assignment is not a dominance or must-alias proof"
     );
 }
 
 #[test]
-fn level3_assignment_fallback_ignores_reassignment_after_the_inbound_call() {
+fn level3_declines_conditional_assignment_before_the_inbound_call() {
+    let source = "void safe() {}\nvoid invoke(void (*cb)()) { cb(); }\nvoid forward(int choose) { void (*callback)(); if (choose) callback = safe; invoke(callback); }\n";
+    assert!(
+        level3_assignment_targets(source).is_empty(),
+        "a conditional prior assignment is not a dominance or must-alias proof"
+    );
+}
+
+#[test]
+fn level3_declines_assignment_even_when_reassignment_is_after_the_inbound_call() {
     let source = "void safe() {}\nvoid other() {}\nvoid invoke(void (*cb)()) { cb(); }\nvoid forward() {\n    void (*callback)() = safe;\n    invoke(callback);\n    callback = other;\n}\n";
-    assert_eq!(
-        level3_assignment_targets(source),
-        BTreeSet::from(["safe".into()])
+    assert!(
+        level3_assignment_targets(source).is_empty(),
+        "assignment fallback is not Level-3 evidence even when a later write is out of range"
     );
 }
 
 #[test]
-fn level3_assignment_fallback_skips_after_only_and_ambiguous_assignments() {
+fn level3_declines_after_only_and_multiple_assignments() {
     for source in [
         "void safe() {}\nvoid invoke(void (*cb)()) { cb(); }\nvoid forward() {\n    void (*callback)();\n    invoke(callback);\n    callback = safe;\n}\n",
         "void safe() {}\nvoid other() {}\nvoid invoke(void (*cb)()) { cb(); }\nvoid forward() {\n    void (*callback)() = safe;\n    callback = other;\n    invoke(callback);\n}\n",
