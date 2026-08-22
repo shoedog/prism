@@ -6412,6 +6412,67 @@ mod go_receiver_typing_tests {
     }
 
     #[test]
+    fn cross_package_unqualified_embed_never_mints_embedded_promotion() {
+        let cg = build_go(&[
+            (
+                "a/types.go",
+                "package a\n\
+                 type Base struct{}\n\
+                 type S struct { *Base }\n",
+            ),
+            (
+                "a/run.go",
+                "package a\n\
+                 func run(s S) { s.Serve() }\n",
+            ),
+            (
+                "b/types.go",
+                "package b\n\
+                 type Base struct{}\n\
+                 func (b *Base) Serve() {}\n",
+            ),
+        ]);
+        assert!(
+            cg.resolve_call_site_full(site_in(&cg, "run", "Serve"))
+                .resolved
+                .iter()
+                .all(|candidate| candidate.kind != ResolutionKind::EmbeddedPromotion),
+            "a.S must not promote b.(*Base).Serve"
+        );
+    }
+
+    #[test]
+    fn s2_unrelated_package_interface_does_not_remove_local_pointer_embed() {
+        let cg = build_go(&[
+            (
+                "a/types.go",
+                "package a\n\
+                 type Base struct{}\n\
+                 func (b *Base) Serve() {}\n\
+                 type S struct { *Base }\n",
+            ),
+            (
+                "a/run.go",
+                "package a\n\
+                 func run(s S) { s.Base.Serve() }\n",
+            ),
+            ("z/types.go", "package z\ntype Base interface { Serve() }\n"),
+        ]);
+        let site = site_in(&cg, "run", "Serve");
+        assert_eq!(site.receiver_type.as_deref(), Some("Base"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
+        assert!(cg
+            .resolve_call_site_full(site)
+            .resolved
+            .iter()
+            .any(|candidate| {
+                candidate.target.name == "Serve"
+                    && candidate.confidence == ResolutionConfidence::Exact
+                    && candidate.kind == ResolutionKind::FieldTyped
+            }));
+    }
+
+    #[test]
     fn s4_pointer_embedded_interface_never_routes_or_satisfies() {
         let cg = build_go(&[(
             "main.go",

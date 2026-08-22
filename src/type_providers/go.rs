@@ -708,7 +708,10 @@ impl GoTypeProvider {
             for embedded in embeds {
                 let is_invalid = embedded.is_pointer
                     && match embedded.local_target_name() {
-                        Some(target) => data.interfaces.contains_key(target),
+                        Some(target) => data
+                            .interface_name_owners
+                            .get(target)
+                            .is_some_and(|owners| owners.contains(&owner.package_dir)),
                         None => true,
                     };
                 if is_invalid {
@@ -1460,17 +1463,32 @@ impl GoTypeProvider {
         concrete_methods: &BTreeMap<String, ReceiverMethodSet>,
     ) -> BTreeMap<String, BTreeMap<String, (String, String)>> {
         let mut out: BTreeMap<String, BTreeMap<String, (String, String)>> = BTreeMap::new();
-        for (struct_name, go_struct) in &data.structs {
+        for go_struct in data.structs.values() {
+            let struct_owner = crate::resolution::GoOwnerIdentity {
+                package_dir: crate::resolution::dir_of(&go_struct.file).to_string(),
+                name: go_struct.name.clone(),
+            };
+            let Some(embeds) = data.struct_embeds.get(&struct_owner) else {
+                continue;
+            };
             let mut candidates: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
-            for embedded in &go_struct.embedded {
+            for embedded in embeds {
                 if embedded.is_pointer {
                     continue; // Go rejects `*I` embedded interfaces.
                 }
                 let Some(bare) = embedded.local_target_name() else {
                     continue; // qualified target: no package-aware embedding resolver here.
                 };
+                let local_unique_interface = data
+                    .interface_name_owners
+                    .get(bare)
+                    .map(|owners| owners.len() == 1 && owners.contains(&struct_owner.package_dir))
+                    .unwrap_or(false);
+                if !local_unique_interface {
+                    continue; // not this package's interface, or bare-key map is ambiguous.
+                }
                 let Some(iface) = data.interfaces.get(bare) else {
-                    continue; // not a known in-repo interface (struct embed, or external) -- skip.
+                    continue;
                 };
                 if iface.generic {
                     continue;
@@ -1488,14 +1506,23 @@ impl GoTypeProvider {
             if candidates.is_empty() {
                 continue;
             }
-            let own_fields: BTreeSet<&str> =
-                go_struct.fields.iter().map(|(n, _)| n.as_str()).collect();
+            let own_fields: BTreeSet<&str> = data
+                .field_types
+                .keys()
+                .filter(|(owner, _)| owner == &struct_owner)
+                .map(|(_, field)| field.as_str())
+                .collect();
             let own_methods: BTreeSet<&str> = data
                 .methods
-                .get(struct_name)
-                .map(|ms| ms.iter().map(|m| m.name.as_str()).collect())
+                .get(&struct_owner.name)
+                .map(|ms| {
+                    ms.iter()
+                        .filter(|m| crate::resolution::dir_of(&m.file) == struct_owner.package_dir)
+                        .map(|m| m.name.as_str())
+                        .collect()
+                })
                 .unwrap_or_default();
-            let already = concrete_methods.get(struct_name);
+            let already = concrete_methods.get(&struct_owner.name);
             let mut per_struct = BTreeMap::new();
             for (method_name, ifaces) in candidates {
                 if ifaces.len() != 1 {
@@ -1517,7 +1544,7 @@ impl GoTypeProvider {
                 per_struct.insert(method_name, ifaces.into_iter().next().unwrap());
             }
             if !per_struct.is_empty() {
-                out.insert(struct_name.clone(), per_struct);
+                out.insert(struct_owner.name.clone(), per_struct);
             }
         }
         out
@@ -1729,15 +1756,19 @@ impl GoTypeProvider {
         data: &GoTypeData,
     ) -> Vec<PromotedMethodCandidate> {
         let mut out = Vec::new();
-        for struct_name in data.structs.keys() {
+        for go_struct in data.structs.values() {
+            let struct_owner = crate::resolution::GoOwnerIdentity {
+                package_dir: crate::resolution::dir_of(&go_struct.file).to_string(),
+                name: go_struct.name.clone(),
+            };
             let mut field_depth: BTreeMap<String, usize> = BTreeMap::new();
             let mut cands: Vec<PromotedMethodCandidate> = Vec::new();
-            let mut path: BTreeSet<String> = BTreeSet::new();
-            path.insert(struct_name.clone());
+            let mut path = BTreeSet::new();
+            path.insert(struct_owner.clone());
             Self::walk_embedding(
                 data,
-                struct_name,
-                struct_name,
+                &struct_owner,
+                &struct_owner,
                 0,
                 &mut path,
                 &mut field_depth,
@@ -1758,20 +1789,25 @@ impl GoTypeProvider {
     #[allow(clippy::too_many_arguments)]
     fn walk_embedding(
         data: &GoTypeData,
-        outer: &str,
-        current: &str,
+        outer: &crate::resolution::GoOwnerIdentity,
+        current: &crate::resolution::GoOwnerIdentity,
         depth: usize, // depth of `current` within `outer` (0 = the outer struct itself)
-        path: &mut BTreeSet<String>,
+        path: &mut BTreeSet<crate::resolution::GoOwnerIdentity>,
         field_depth: &mut BTreeMap<String, usize>,
         cands: &mut Vec<PromotedMethodCandidate>,
         value_can_use_pointer_receiver: bool,
     ) {
-        let go_struct = match data.structs.get(current) {
-            Some(s) => s,
+        let embeds = match data.struct_embeds.get(current) {
+            Some(embeds) => embeds,
             None => return,
         };
         // Record this struct's own field names at `depth` (keep the min).
-        for (fname, _) in &go_struct.fields {
+        for (owner, fname) in data
+            .field_types
+            .keys()
+            .filter(|(owner, _)| owner == current)
+        {
+            debug_assert_eq!(owner, current);
             field_depth
                 .entry(fname.clone())
                 .and_modify(|d| {
@@ -1784,11 +1820,14 @@ impl GoTypeProvider {
         // Methods of `current` promote to `outer` (depth>=1; the outer struct's own
         // depth-0 methods are NOT promoted — direct-method-wins is the caller's job).
         if depth >= 1 {
-            if let Some(methods) = data.methods.get(current) {
-                for m in methods {
+            if let Some(methods) = data.methods.get(&current.name) {
+                for m in methods
+                    .iter()
+                    .filter(|m| crate::resolution::dir_of(&m.file) == current.package_dir)
+                {
                     cands.push(PromotedMethodCandidate {
                         promoted: PromotedMethod {
-                            struct_name: outer.to_string(),
+                            struct_name: outer.name.clone(),
                             method: m.name.clone(),
                             func_id: FunctionId {
                                 name: m.name.clone(),
@@ -1803,27 +1842,35 @@ impl GoTypeProvider {
                 }
             }
         }
-        for embedded in &go_struct.embedded {
+        for embedded in embeds {
             let Some(bare) = embedded.local_target_name() else {
                 continue; // qualified target: no package-aware embedding resolver here.
             };
-            if data.interfaces.contains_key(bare) {
+            let target = crate::resolution::GoOwnerIdentity {
+                package_dir: current.package_dir.clone(),
+                name: bare.to_string(),
+            };
+            if data
+                .interface_name_owners
+                .get(bare)
+                .is_some_and(|owners| owners.contains(&current.package_dir))
+            {
                 continue; // embedded interface -> interface dispatch, deferred
             }
-            if !path.insert(bare.to_string()) {
+            if !data.struct_embeds.contains_key(&target) || !path.insert(target.clone()) {
                 continue; // cycle along THIS path only
             }
             Self::walk_embedding(
                 data,
                 outer,
-                bare,
+                &target,
                 depth + 1,
                 path,
                 field_depth,
                 cands,
                 value_can_use_pointer_receiver || embedded.is_pointer,
             );
-            path.remove(bare); // restore for sibling paths (path-local)
+            path.remove(&target); // restore for sibling paths (path-local)
         }
     }
 }
@@ -1986,7 +2033,7 @@ mod dispatch_tests {
     use super::*;
     use crate::ast::ParsedFile;
     use crate::languages::Language;
-    use std::collections::{BTreeMap, BTreeSet};
+    use std::collections::BTreeMap;
 
     fn provider(src: &str) -> GoTypeProvider {
         let mut files = BTreeMap::new();
@@ -2231,14 +2278,21 @@ mod satisfaction_tests {
 #[cfg(test)]
 mod embedding_tests {
     use super::*;
-    use std::collections::BTreeMap;
 
     fn provider(src: &str) -> GoTypeProvider {
-        let mut files = BTreeMap::new();
-        files.insert(
-            "main.go".to_string(),
-            crate::ast::ParsedFile::parse("main.go", src, Language::Go).unwrap(),
-        );
+        provider_files(&[("main.go", src)])
+    }
+
+    fn provider_files(sources: &[(&str, &str)]) -> GoTypeProvider {
+        let files = sources
+            .iter()
+            .map(|(path, source)| {
+                (
+                    (*path).to_string(),
+                    crate::ast::ParsedFile::parse(path, source, Language::Go).unwrap(),
+                )
+            })
+            .collect();
         GoTypeProvider::from_parsed_files(&files)
     }
 
@@ -2331,6 +2385,66 @@ mod embedding_tests {
         assert!(
             satisfiers.contains(&"S".to_string()) && satisfiers.contains(&"*S".to_string()),
             "a *Listener embed promotes its pointer-receiver method into S and *S: {satisfiers:?}"
+        );
+    }
+
+    #[test]
+    fn unqualified_embeds_resolve_only_within_embedding_package() {
+        let p = provider_files(&[
+            (
+                "a/types.go",
+                "package a\n\
+                 type Base struct{}\n\
+                 type S struct { *Base }\n\
+                 type ValueS struct { Base }\n",
+            ),
+            (
+                "b/types.go",
+                "package b\n\
+                 type Base struct{}\n\
+                 func (b *Base) Serve() {}\n",
+            ),
+            ("c/types.go", "package c\ntype I interface { Serve() }\n"),
+        ]);
+        let promoted = p.promoted_struct_methods();
+        assert!(
+            ms(&promoted, "S", "Serve").is_empty() && ms(&promoted, "ValueS", "Serve").is_empty(),
+            "a.Base has no Serve; neither pointer nor value embed may walk b.Base"
+        );
+        let satisfiers = p.satisfier_admission_keys_for_test("I", "Serve");
+        assert!(
+            !satisfiers.contains(&"S".to_string()) && !satisfiers.contains(&"*S".to_string()),
+            "a.S must not satisfy c.I through b.Base: {satisfiers:?}"
+        );
+        assert!(
+            !p.data
+                .satisfaction
+                .get("I")
+                .is_some_and(|satisfiers| satisfiers.contains("S")),
+            "a.S must not appear in c.I's satisfaction membership: {:?}",
+            p.data.satisfaction.get("I")
+        );
+    }
+
+    #[test]
+    fn value_embed_does_not_use_unrelated_package_interface() {
+        let p = provider_files(&[
+            (
+                "a/types.go",
+                "package a\n\
+                 type Base struct{}\n\
+                 type S struct { Base }\n",
+            ),
+            ("c/types.go", "package c\ntype I interface { Serve() }\n"),
+            ("z/types.go", "package z\ntype Base interface { Serve() }\n"),
+        ]);
+        assert!(
+            !p.data
+                .satisfaction
+                .get("I")
+                .is_some_and(|satisfiers| satisfiers.contains("S")),
+            "a.S must not inherit z.Base's interface method: {:?}",
+            p.data.satisfaction.get("I")
         );
     }
 
