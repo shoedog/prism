@@ -637,3 +637,112 @@ def test_run_partc_live_binary_preflight_failure_writes_status_json(tmp_path, mo
     assert data["status"] == "failed"
     assert data["failed_stage"] == "preflight"
     assert "matched-binary preflight FAILED" in data["error"]
+
+
+# ---------------------------------------------------------------------------
+# 2026-08-21 — relative run-store-root voided a Part-D slate (agent-side prism-mcp spawned with
+# cwd = the session checkout resolved a RELATIVE --cache-dir inside the checkout -> cache miss ->
+# cold CPG build at MCP startup -> prism never exposed -> 0-dose ON arms while prewarm + warm gate
+# (run from eval/) passed). These pin: paths are absolutized at the source, agent MCP configs are
+# written absolute defensively, and the warm gate spawns from the checkout cwd like the agents do.
+# ---------------------------------------------------------------------------
+
+def test_resolve_run_paths_absolutizes_relative_root_and_cache(tmp_path, monkeypatch):
+    from tier_c.partd import resolve_run_paths
+    monkeypatch.chdir(tmp_path)
+    root, run_dir, cache = resolve_run_paths("rel/root", "cell-1", None, "/default/root")
+    assert os.path.isabs(root) and os.path.isabs(run_dir) and os.path.isabs(cache)
+    assert root == str(tmp_path / "rel" / "root")
+    assert run_dir == os.path.join(root, "cell-1")
+    assert cache == os.path.join(run_dir, "prism-cache")
+    # explicit RELATIVE cache_dir is absolutized too (negative: not left as given)
+    _, _, cache2 = resolve_run_paths("rel/root", "cell-1", "rel/cache", "/default/root")
+    assert cache2 == str(tmp_path / "rel" / "cache")
+    # None root -> the default (already absolute) is used verbatim
+    root3, _, _ = resolve_run_paths(None, "cell-1", None, "/default/root")
+    assert root3 == "/default/root"
+
+
+def test_build_isolated_codex_home_writes_absolute_cache_dir(tmp_path, monkeypatch):
+    from adoption.codex_env import build_isolated_codex_home
+    monkeypatch.chdir(tmp_path)
+    skill = tmp_path / "skill"; skill.mkdir(); (skill / "SKILL.md").write_text("x")
+    home = build_isolated_codex_home(skill_src=str(skill), mcp_repo="/repo", prism_mcp_bin="/bin/prism-mcp",
+                                     root=str(tmp_path / "home"), auth_src=str(tmp_path / "no-auth.json"),
+                                     cache_dir="rel/prism-cache")
+    cfg = (Path(home) / "config.toml").read_text()
+    assert str(tmp_path / "rel" / "prism-cache") in cfg
+    assert '"rel/prism-cache"' not in cfg
+
+
+def test_prism_mcp_config_writes_absolute_cache_dir(tmp_path, monkeypatch):
+    import tier_c.arm_runner as arm_mod
+    monkeypatch.chdir(tmp_path)
+    path = arm_mod._prism_mcp_config(str(tmp_path), cache_dir="rel/prism-cache")
+    args = json.loads(Path(path).read_text())["mcpServers"]["prism"]["args"]
+    assert str(tmp_path / "rel" / "prism-cache") in args
+    assert "rel/prism-cache" not in args
+
+
+def test_warm_gate_check_spawns_with_repo_root_cwd(monkeypatch):
+    import tier_c.arm_runner as arm_mod
+    lines = [_init_ok_line(), _tools_line(["x"])]
+    inner = _make_fake_popen_factory(lines)
+    seen: dict = {}
+
+    def popen(argv, **kw):
+        seen.update(kw)
+        return inner(argv, **kw)
+
+    monkeypatch.setattr(arm_mod.subprocess, "Popen", popen)
+    warm_gate_check("/repo/checkout", cache_dir="/abs/cache", timeout_s=5.0)
+    assert seen.get("cwd") == "/repo/checkout"
+
+
+def test_warm_gate_check_absolutizes_relative_cache_dir_in_argv(monkeypatch, tmp_path):
+    """PR #172 review: the gate is spawned with cwd=repo_root, so a RELATIVE cache_dir (from any caller)
+    must be absolutized at the callee or it resolves inside the checkout and misses the prewarmed cache."""
+    import tier_c.arm_runner as arm_mod
+    monkeypatch.chdir(tmp_path)
+    captured: list = []
+    lines = [_init_ok_line(), _tools_line(["x"])]
+    monkeypatch.setattr(arm_mod.subprocess, "Popen",
+                        _make_fake_popen_factory(lines, captured_argv=captured))
+    warm_gate_check("/repo/checkout", cache_dir="rel/prism-cache", timeout_s=5.0)
+    assert str(tmp_path / "rel" / "prism-cache") in captured[0]
+    assert "rel/prism-cache" not in captured[0]
+
+
+def test_prewarm_cpg_absolutizes_relative_cache_dir(monkeypatch, tmp_path):
+    import tier_c.arm_runner as arm_mod
+    monkeypatch.chdir(tmp_path)
+    seen: dict = {}
+
+    def fake_run(argv, **kw):
+        seen["argv"] = list(argv)
+        return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(arm_mod.subprocess, "run", fake_run)
+    arm_mod._prewarm_cpg(str(tmp_path / "repo"), cache_dir="rel/prism-cache")
+    assert str(tmp_path / "rel" / "prism-cache") in seen["argv"]
+    assert "rel/prism-cache" not in seen["argv"]
+
+
+def test_warm_gate_check_absolutizes_relative_repo_root(monkeypatch, tmp_path):
+    """PR #172 re-review: with cwd=repo_root, a RELATIVE repo_root would make prism-mcp resolve
+    `<root>/<root>`; both argv --repo and the spawn cwd must be the absolute root."""
+    import tier_c.arm_runner as arm_mod
+    monkeypatch.chdir(tmp_path)
+    captured: list = []
+    lines = [_init_ok_line(), _tools_line(["x"])]
+    inner = _make_fake_popen_factory(lines, captured_argv=captured)
+    seen: dict = {}
+
+    def popen(argv, **kw):
+        seen.update(kw)
+        return inner(argv, **kw)
+
+    monkeypatch.setattr(arm_mod.subprocess, "Popen", popen)
+    warm_gate_check("checkout", cache_dir="/abs/cache", timeout_s=5.0)
+    assert captured[0][captured[0].index("--repo") + 1] == str(tmp_path / "checkout")
+    assert seen.get("cwd") == str(tmp_path / "checkout")
