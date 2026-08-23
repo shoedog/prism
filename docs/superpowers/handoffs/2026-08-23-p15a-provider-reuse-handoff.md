@@ -86,7 +86,13 @@ import-path-aware dispatch site keeps its own construction unchanged.
 ## Fix wave 2 (review r2)
 
 Commit: 7cd9550. All three wave-2 items landed in one commit (the stalled
-turn's uncommitted edits, reviewed then committed whole).
+turn's uncommitted edits, reviewed then committed whole). Follow-up commit
+65256da fixed a full-suite race in the test counter (thread-local attribution).
+
+STATUS: fix wave 2 code committed through 65256da; `cargo fmt --check` clean;
+`cargo test --lib` 717/717 green (twice); `cargo build --release` ok;
+tier-a matrix 104/104 ok. Full gate + AFTER measurements: run by the
+controller.
 
 ### Per-production-path accounting (BEFORE fix1 = 4 constructions; AFTER fix2)
 
@@ -118,11 +124,15 @@ Tests (RED on pre-fix code):
 - fix1 test extended to assert `ctx.cpg.call_graph.shared_plain_go_provider.is_none()`
 
 Test counter: global ARMED bit replaced by owned per-measurement
-`MeasurementToken` (blocking RAII + generation-keyed counters). Constructions
-record the generation they were BUILT under; a drop decrements ITS OWN
-generation, so parallel un-tokenized tests are never attributed to a live
-measurement and LIVE cannot underflow. Thread-local "current generation" was
-rejected: production constructions happen inside rayon worker threads.
+`MeasurementToken` with generation-keyed counters. Attribution is THREAD-LOCAL
+(the token sets it on the acquiring thread; `build_pool::install` propagates it
+onto the pool worker running the build op — cpg/build.rs routes both build
+seams through that wrapper). A first draft used a process-global generation
+and FLAKED in the full suite: a parallel un-tokenized test's Go construction
+was attributed to the live token, inflating its plain count; thread-local
+attribution removed the race (two consecutive full-suite runs green).
+Drops are attributed to the generation the extraction was BUILT under, so
+LIVE cannot underflow.
 
 Import-path note (unchanged from fix1): proven package import paths change the
 canonical METHOD-SIGNATURE TYPE identity used by dispatch satisfaction keys /
