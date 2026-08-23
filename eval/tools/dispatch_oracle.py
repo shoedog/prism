@@ -1060,9 +1060,13 @@ class GoplsSatisfiers:
 
     def _external_definition_kind(self, uri: str, line0: int, char0: int) -> str:
         """Prove whether an external definition is an interface or concrete method."""
+        from tier_a.lsp_client import LspError, LspTimeout
+
+        self._last_external_definition_status = None
         if uri not in self._external_symbol_details:
             if not self._open_external_uri(uri):
                 self._external_symbol_details[uri] = []
+                self._last_external_definition_status = "unresolved"
             else:
                 from tier_a.oracles import _split_receiver
 
@@ -1071,8 +1075,15 @@ class GoplsSatisfiers:
                         "textDocument/documentSymbol", {"textDocument": {"uri": uri}},
                         timeout=self.group_timeout,
                     )
-                except Exception:
+                except LspTimeout:
                     symbols = []
+                    self._last_external_definition_status = "timeout"
+                except LspError:
+                    symbols = []
+                    self._last_external_definition_status = "unresolved"
+                if symbols is not None and not isinstance(symbols, list):
+                    symbols = []
+                    self._last_external_definition_status = "unresolved"
                 details: list[dict] = []
 
                 def walk(nodes, container, enclosing_kind=None):
@@ -1214,7 +1225,7 @@ class GoplsSatisfiers:
         ``next.ServeHTTP`` is ``http.Handler.ServeHTTP`` at one site and
         ``caddyhttp.Handler.ServeHTTP`` at another). Keying the implementation cache by the
         decl location, not by prism's group, queries the interface gopls actually sees."""
-        from tier_a.lsp_client import LspError
+        from tier_a.lsp_client import LspError, LspTimeout
         from tier_a.oracles import uri_to_rel
 
         if not self._did_open(rel):
@@ -1227,33 +1238,60 @@ class GoplsSatisfiers:
                  "position": {"line": line0, "character": char0}},
                 timeout=self.group_timeout,
             )
-        except LspError:
-            return {"kind": "unknown", "failure_stage": "timeout",
+        except LspTimeout:
+            return {"kind": "unknown", "failure_stage": "definition",
                     "oracle_status": "timeout"}
-        for d in (raw if isinstance(raw, list) else [raw] if raw else []):
+        except LspError:
+            return {"kind": "unknown", "failure_stage": "definition",
+                    "oracle_status": "unresolved"}
+        if raw is None:
+            definitions = []
+        elif isinstance(raw, list):
+            definitions = raw
+        elif isinstance(raw, dict):
+            definitions = [raw]
+        else:
+            return {"kind": "unknown", "failure_stage": "definition",
+                    "oracle_status": "unresolved"}
+        for d in definitions:
+            if not isinstance(d, dict):
+                return {"kind": "unknown", "failure_stage": "definition",
+                        "oracle_status": "unresolved"}
             uri = d.get("uri") or d.get("targetUri")
             rng = d.get("range") or d.get("targetSelectionRange") or d.get("targetRange")
+            if uri is not None and not isinstance(uri, str):
+                return {"kind": "unknown", "failure_stage": "definition",
+                        "oracle_status": "unresolved"}
             f = uri_to_rel(uri, self.root) if uri else None
             if rng is None:
                 continue
+            if not isinstance(rng, dict):
+                return {"kind": "unknown", "failure_stage": "definition",
+                        "oracle_status": "unresolved"}
             try:
                 target_line = rng["start"]["line"]
                 target_char = rng["start"]["character"]
-            except KeyError:
-                continue
+            except (KeyError, TypeError):
+                return {"kind": "unknown", "failure_stage": "definition",
+                        "oracle_status": "unresolved"}
             if f is None:
                 if uri is None:
                     continue
                 parsed = urllib.parse.urlparse(uri)
+                external_kind = self._external_definition_kind(
+                    uri, target_line, target_char
+                )
+                external_status = getattr(self, "_last_external_definition_status", None)
                 return {
                     "file": urllib.parse.unquote(parsed.path) if parsed.path else uri,
                     "line": target_line,
                     "character": target_char,
                     "kind": "external",
-                    "external_kind": self._external_definition_kind(
-                        uri, target_line, target_char
-                    ),
+                    "external_kind": external_kind,
                     "identity": None,
+                    **({"failure_stage": "definition",
+                        "oracle_status": external_status}
+                       if external_status is not None else {}),
                 }
             symbol = self._symbol_at(f, target_line, target_char)
             kind = self._definition_kind(symbol)
@@ -1280,10 +1318,11 @@ class GoplsSatisfiers:
         but we could not map them to a container type" (a mapping gap, count>0) from "gopls
         returned an empty list" (count==0, almost always a not-ready artifact for an
         interface method — see run_oracle's retry)."""
-        from tier_a.lsp_client import LspError
+        from tier_a.lsp_client import LspError, LspTimeout
         from tier_a.oracles import uri_to_rel
 
         if not self._did_open(rel):
+            self._last_type_status = "unresolved"
             return None
         try:
             results = self.client.request(
@@ -1292,15 +1331,37 @@ class GoplsSatisfiers:
                  "position": {"line": line0, "character": char0}},
                 timeout=self.group_timeout,
             )
-        except LspError:
+        except LspTimeout:
+            self._last_type_status = "timeout"
             return None
-        results = results or []
+        except LspError:
+            self._last_type_status = "unresolved"
+            return None
+        if results is None:
+            results = []
+        elif not isinstance(results, list):
+            self._last_type_status = "unresolved"
+            return None
+        self._last_type_status = None
         types: set[str] = set()
         for it in results:
-            f = uri_to_rel(it["uri"], self.root)
+            if not isinstance(it, dict):
+                self._last_type_status = "unresolved"
+                return None
+            uri = it.get("uri") or it.get("targetUri")
+            location = it.get("range") or it.get("targetSelectionRange") or it.get("targetRange")
+            if not isinstance(uri, str) or not isinstance(location, dict) or \
+                    not isinstance(location.get("start"), dict):
+                self._last_type_status = "unresolved"
+                return None
+            f = uri_to_rel(uri, self.root)
             if f is None:
                 continue
-            t = self._type_at(f, it["range"]["start"]["line"])
+            line = location["start"].get("line")
+            if not isinstance(line, int):
+                self._last_type_status = "unresolved"
+                return None
+            t = self._type_at(f, line)
             if t:
                 types.add(t)
         return types, len(results)
@@ -1314,10 +1375,11 @@ class GoplsSatisfiers:
         collapsing the entire site into an opaque boolean. The caller can then compare the
         mappable evidence and fail closed only when a missing prism identity could be hidden.
         """
-        from tier_a.lsp_client import LspError
+        from tier_a.lsp_client import LspError, LspTimeout
         from tier_a.oracles import uri_to_rel
 
         if not self._did_open(rel):
+            self._last_implementation_status = "unresolved"
             return None
         try:
             results = self.client.request(
@@ -1326,14 +1388,41 @@ class GoplsSatisfiers:
                  "position": {"line": line0, "character": char0}},
                 timeout=self.group_timeout,
             )
-        except LspError:
+        except LspTimeout:
+            self._last_implementation_status = "timeout"
             return None
-        results = results or []
+        except LspError:
+            self._last_implementation_status = "unresolved"
+            return None
+        if results is None:
+            results = []
+        elif isinstance(results, list):
+            pass
+        elif isinstance(results, dict) and (
+            "uri" in results or "targetUri" in results
+        ):
+            results = [results]
+        else:
+            self._last_implementation_status = "unresolved"
+            return None
+        self._last_implementation_status = None
         identities: list[dict] = []
         unresolved_locations: list[dict] = []
         for result in results:
+            if not isinstance(result, dict):
+                self._last_implementation_status = "unresolved"
+                return None
             uri = result.get("uri") or result.get("targetUri")
             location = result.get("range") or result.get("targetSelectionRange") or result.get("targetRange")
+            if uri is not None and not isinstance(uri, str):
+                self._last_implementation_status = "unresolved"
+                return None
+            if location is not None and (
+                    not isinstance(location, dict)
+                    or not isinstance(location.get("start"), dict)
+            ):
+                self._last_implementation_status = "unresolved"
+                return None
             target_file = uri_to_rel(uri, self.root) if uri else None
             line = None
             if location is not None:
@@ -1512,7 +1601,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                         oracle_unresolved = True
                         implementation_outcome = "external_unknown"
                         failure_stage = "definition"
-                        oracle_status = "unresolved"
+                        oracle_status = oracle_status or "unresolved"
                 if definition_kind == "interface" or (
                         definition_kind == "external"
                         and decl.get("external_kind") == "interface"
@@ -1540,8 +1629,14 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                             label = type_at(decl_file, decl_line) or \
                                 f"{Path(decl_file).stem}:{decl_line + 1}"
                             if out is None:
+                                implementation_status = getattr(
+                                    oracle, "_last_implementation_status", "timeout"
+                                )
                                 terminal = {
-                                    "outcome": "timeout",
+                                    "outcome": (
+                                        "timeout" if implementation_status == "timeout"
+                                        else "implementation_error"
+                                    ),
                                     "identities": None,
                                     "interface": label,
                                     "unresolved_locations": [],
@@ -1569,8 +1664,12 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                         unresolved_locations = terminal["unresolved_locations"]
                         implementation_outcome = terminal["outcome"]
                         if implementation_outcome == "timeout":
-                            failure_stage = "timeout"
+                            failure_stage = "implementation"
                             oracle_status = "timeout"
+                        elif implementation_outcome == "implementation_error":
+                            oracle_unresolved = True
+                            failure_stage = "implementation"
+                            oracle_status = "unresolved"
                         elif implementation_outcome == "partial_mapping":
                             failure_stage = "mapping"
                 elif definition_kind not in {"concrete", "external"}:

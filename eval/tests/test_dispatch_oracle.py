@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+from tier_a.lsp_client import LspServerError, LspTimeout
+
 # dispatch_oracle.py lives in eval/tools/ (a CLI script, not part of the tier_a
 # package), so load it by path the way other tool tests would.
 _TOOL = Path(__file__).resolve().parents[1] / "tools" / "dispatch_oracle.py"
@@ -421,7 +423,7 @@ def test_load_dispatch_sites_keeps_zero_fanout_and_scores_recall_gap(tmp_path):
 
 def _run_fake_oracle(
     tmp_path, *, definition, satisfiers, prism_identities,
-    start_byte=8, end_byte=13,
+    start_byte=8, end_byte=13, implementation_status=None,
 ):
     (tmp_path / "caller.go").write_text("adapter.Adapt()\n")
     manifest = tmp_path / "manifest.json"
@@ -463,6 +465,8 @@ def _run_fake_oracle(
         def satisfier_identities(self, _rel, _line, _char):
             type(self).implementation_calls += 1
             if satisfiers is None:
+                if implementation_status is not None:
+                    self._last_implementation_status = implementation_status
                 return None
             return satisfiers, len(satisfiers), []
 
@@ -650,6 +654,9 @@ def test_interface_decl_cache_reuses_timeout_and_partial_mapping_outcomes(tmp_pa
     assert [record["implementation_outcome"] for record in timeout_records] == [
         "timeout", "timeout",
     ]
+    assert [record["failure_stage"] for record in timeout_records] == [
+        "implementation", "implementation",
+    ]
     assert timeout_calls == 1
 
     partial_records, partial_calls = _run_shared_interface_decl(
@@ -707,13 +714,13 @@ def test_definition_timeout_remains_oracle_timeout(tmp_path):
     impl = _identity("Impl", "impl.go", [3, 5])
     record, implementation_calls = _run_fake_oracle(
         tmp_path,
-        definition={"kind": "unknown", "failure_stage": "timeout",
+        definition={"kind": "unknown", "failure_stage": "definition",
                     "oracle_status": "timeout"},
         satisfiers=[],
         prism_identities=[impl],
     )
     assert record["classification"] == "oracle_timeout"
-    assert record["failure_stage"] == "timeout"
+    assert record["failure_stage"] == "definition"
     assert record["oracle_status"] == "timeout"
     assert implementation_calls == 0
 
@@ -744,9 +751,123 @@ def test_implementation_timeout_remains_oracle_timeout(tmp_path):
         prism_identities=[impl],
     )
     assert record["classification"] == "oracle_timeout"
-    assert record["failure_stage"] == "timeout"
+    assert record["failure_stage"] == "implementation"
     assert record["oracle_status"] == "timeout"
     assert implementation_calls == 1
+
+
+def test_implementation_server_error_remains_oracle_unresolved(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={"file": "interface.go", "line": 7, "character": 2,
+                    "kind": "interface", "identity": None},
+        satisfiers=None,
+        prism_identities=[impl],
+        implementation_status="unresolved",
+    )
+    assert record["classification"] == "oracle_unresolved"
+    assert record["failure_stage"] == "implementation"
+    assert record["oracle_status"] == "unresolved"
+    assert implementation_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("error_factory", "expected_status"),
+    [
+        (lambda: LspTimeout("definition timed out"), "timeout"),
+        (lambda: LspServerError({"code": -32603, "message": "bad definition"}),
+         "unresolved"),
+    ],
+)
+def test_method_decl_preserves_definition_stage_for_lsp_failures(
+    tmp_path, error_factory, expected_status
+):
+    class FakeGoplsAdapter:
+        group_timeout = 1
+        root = str(tmp_path)
+
+        def __init__(self):
+            self.client = self
+
+        def _did_open(self, _rel):
+            return True
+
+        def _uri(self, rel):
+            return f"file:///{rel}"
+
+        def request(self, method, _params, timeout):
+            assert method == "textDocument/definition"
+            assert timeout == 1
+            raise error_factory()
+
+    decl = do.GoplsSatisfiers.method_decl(FakeGoplsAdapter(), "caller.go", 0, 3)
+    assert decl == {
+        "kind": "unknown", "failure_stage": "definition",
+        "oracle_status": expected_status,
+    }
+
+
+def test_method_decl_marks_malformed_definition_response_unresolved(tmp_path):
+    class FakeGoplsAdapter:
+        group_timeout = 1
+        root = str(tmp_path)
+
+        def __init__(self):
+            self.client = self
+
+        def _did_open(self, _rel):
+            return True
+
+        def _uri(self, rel):
+            return f"file:///{rel}"
+
+        def request(self, _method, _params, timeout):
+            assert timeout == 1
+            return {"uri": "file:///bad.go", "range": "not-a-range"}
+
+    assert do.GoplsSatisfiers.method_decl(FakeGoplsAdapter(), "caller.go", 0, 3) == {
+        "kind": "unknown", "failure_stage": "definition",
+        "oracle_status": "unresolved",
+    }
+
+
+@pytest.mark.parametrize(
+    ("result_or_error", "expected_status"),
+    [
+        (lambda: LspTimeout("implementation timed out"), "timeout"),
+        (lambda: LspServerError({"code": -32603, "message": "bad implementation"}),
+         "unresolved"),
+        ({"malformed": True}, "unresolved"),
+        ({"uri": "file:///impl.go", "range": "not-a-range"}, "unresolved"),
+    ],
+)
+def test_satisfier_identities_preserves_implementation_stage_for_lsp_failures(
+    tmp_path, result_or_error, expected_status
+):
+    class FakeGoplsAdapter:
+        group_timeout = 1
+        root = str(tmp_path)
+
+        def __init__(self):
+            self.client = self
+
+        def _did_open(self, _rel):
+            return True
+
+        def _uri(self, rel):
+            return f"file:///{rel}"
+
+        def request(self, method, _params, timeout):
+            assert method == "textDocument/implementation"
+            assert timeout == 1
+            if callable(result_or_error):
+                raise result_or_error()
+            return result_or_error
+
+    adapter = FakeGoplsAdapter()
+    assert do.GoplsSatisfiers.satisfier_identities(adapter, "interface.go", 7, 2) is None
+    assert adapter._last_implementation_status == expected_status
 
 
 def test_run_oracle_interface_definition_still_uses_implementation(tmp_path):
@@ -1098,7 +1219,7 @@ def test_summary_reports_fanout_positive_coverage_and_status_rates():
     )
     for record in (sound, observed_over_approx, unresolved, timeout):
         record["definition_kind"] = "interface"
-    timeout["failure_stage"] = "timeout"
+    timeout["failure_stage"] = "implementation"
     interface_zero = _delta_site(fanout=0, identities=[])
     interface_zero["definition_kind"] = "interface"
     concrete_zero = _delta_site(fanout=0, identities=[], classification="not_dispatch")
@@ -1123,8 +1244,8 @@ def test_summary_reports_fanout_positive_coverage_and_status_rates():
     rates = {entry["failure_stage"]: entry for entry in summary["failure_stage_rates"]}
     assert rates["mapping"]["oracle_unresolved"] == 1
     assert rates["mapping"]["oracle_unresolved_rate"] == pytest.approx(1.0)
-    assert rates["timeout"]["oracle_timeout"] == 1
-    assert rates["timeout"]["oracle_timeout_rate"] == pytest.approx(1.0)
+    assert rates["implementation"]["oracle_timeout"] == 1
+    assert rates["implementation"]["oracle_timeout_rate"] == pytest.approx(1.0)
 
 
 def test_delta_gate_requires_coverage_floors_even_without_delta_blocker():
