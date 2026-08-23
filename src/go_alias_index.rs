@@ -71,6 +71,10 @@ pub struct GoAliasIndex {
     pub variants: GoAliasVariants,
     /// Effective import path -> package dirs proving it (P10 identities).
     pub dirs_by_path: BTreeMap<String, BTreeSet<String>>,
+    /// Package dir -> declared clauses (exact-key lookup; a clause-RANGE scan
+    /// would match every name in the directory because tuple ordering
+    /// compares the clause before the type name).
+    pub clauses_by_dir: BTreeMap<String, BTreeSet<String>>,
 }
 
 /// Shared live telemetry counters (one per provider build; `Rc` so each
@@ -174,16 +178,21 @@ impl<'a> AliasExpansionCtx<'a> {
         let Some(dirs) = self.index.dirs_by_path.get(import_path) else {
             return (out, false);
         };
-        // SOL-W5: all-Defined names keep existing leaf behavior regardless of
-        // profile-certainty outcomes.
+        // EXACT keys only, via the clause index (never a clause-range scan).
         let mut saw_variant = false;
         let mut all_defined = true;
         for dir in dirs {
-            for ((d, _c, n), variants) in self.index.variants.range(
-                (dir.clone(), String::new(), name.to_string())
-                    ..=(dir.clone(), "\u{10FFFF}".to_string(), name.to_string()),
-            ) {
-                let _ = (d, n);
+            let Some(clauses) = self.index.clauses_by_dir.get(dir) else {
+                continue;
+            };
+            for clause in clauses {
+                let Some(variants) = self
+                    .index
+                    .variants
+                    .get(&(dir.clone(), clause.clone(), name.to_string()))
+                else {
+                    continue;
+                };
                 saw_variant = true;
                 if variants.iter().any(|v| v.kind != GoAliasKind::Defined) {
                     all_defined = false;
@@ -194,15 +203,17 @@ impl<'a> AliasExpansionCtx<'a> {
             return (out, false);
         }
         for dir in dirs {
-            let keys: Vec<_> = self
-                .index
-                .variants
-                .range(
-                    (dir.clone(), String::new(), name.to_string())
-                        ..=(dir.clone(), "\u{10FFFF}".to_string(), name.to_string()),
-                )
-                .collect();
-            for ((_d, _c, _n), variants) in keys {
+            let Some(clauses) = self.index.clauses_by_dir.get(dir) else {
+                continue;
+            };
+            for clause in clauses {
+                let Some(variants) = self
+                    .index
+                    .variants
+                    .get(&(dir.clone(), clause.clone(), name.to_string()))
+                else {
+                    continue;
+                };
                 let (mut exact, unc) =
                     self.filter_exact_with(variants, |ctx, consumer_file, declaring_file| {
                         crate::go_owner_partition::exact_cross_package_visibility(

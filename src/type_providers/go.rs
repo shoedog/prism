@@ -1225,13 +1225,15 @@ impl GoTypeProvider {
         if profile.package_clause.trim().is_empty() {
             return;
         }
+        let dir = crate::resolution::dir_of(path).to_string();
+        index
+            .clauses_by_dir
+            .entry(dir.clone())
+            .or_default()
+            .insert(profile.package_clause.clone());
         index
             .variants
-            .entry((
-                crate::resolution::dir_of(path).to_string(),
-                profile.package_clause.clone(),
-                name.to_string(),
-            ))
+            .entry((dir, profile.package_clause.clone(), name.to_string()))
             .or_default()
             .push(crate::go_alias_index::GoAliasVariant {
                 kind,
