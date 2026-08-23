@@ -727,3 +727,162 @@ fn s4_parameterized_alias_shape_recognition_is_not_error_text_dependent() {
     ]);
     assert!(resolved_method_owners(&defined_generic_params, "invoke", "Act").is_empty());
 }
+
+#[test]
+fn s4ox_qualified_lookup_never_admits_the_external_test_clause_own_alias() {
+    // sol-r2-1: `lib_test`'s own `type A = string` must not become a variant
+    // of the IMPORTED lib.A; the valid int edge stays Exact.
+    let cg = build_go(&[
+        ("lib/prod.go", "package lib\ntype A = int\ntype B struct{}\nfunc (B) Act(a A) {}\n"),
+        (
+            "app/use.go",
+            "package app\nimport l \"example.com/prism/lib\"\ntype Doer interface { Act(l.A) }\ntype Holder struct { Doer }\nfunc invoke(h Holder) { h.Act(0) }\n",
+        ),
+        // The external-test package of lib re-declares A and imports lib.
+        (
+            "lib/ext_test.go",
+            "package lib_test\nimport \"example.com/prism/lib\"\ntype A = string\ntype Probe struct{}\nfunc (Probe) Act(a A) {}\n",
+        ),
+    ]);
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|s| s.caller.name == "invoke" && s.callee_name == "Act")
+        .expect("site");
+    let owners: Vec<_> = cg
+        .resolve_call_site_full(site)
+        .resolved
+        .iter()
+        .filter_map(|r| cg.method_owners.get(r.target).cloned())
+        .collect();
+    assert_eq!(owners, vec!["B".to_string()]);
+}
+
+#[test]
+fn s4ox_predeclared_shadowing_requires_exactly_visible_declarations() {
+    // terra-r2-1 / sol-r2-2: an INVISIBLE declaration of `byte`/`rune`
+    // (mutually exclusive build tag, or a _test-only file) must NOT suppress
+    // byte→uint8 / rune→int32 normalization for consumers that cannot see it.
+    let tagged = build_go(&[
+        (
+            "lib/tagged_linux.go",
+            "//go:build linux\npackage lib\ntype byte = int64\ntype rune = int64\n",
+        ),
+        (
+            "lib/defs.go",
+            "package lib\ntype Doer interface { Act(byte); Run(rune) }\ntype Holder struct { Doer }\nfunc invoke(h Holder) { h.Act(uint8(0)); h.Run(int32(0)) }\n",
+        ),
+        (
+            "lib/impl.go",
+            "package lib\ntype Impl struct{}\nfunc (Impl) Act(b uint8) {}\nfunc (Impl) Run(r int32) {}\n",
+        ),
+    ]);
+    for method in ["Act", "Run"] {
+        let site = tagged
+            .calls
+            .values()
+            .flatten()
+            .find(|s| s.caller.name == "invoke" && s.callee_name == method)
+            .expect("site");
+        let owners: Vec<_> = tagged
+            .resolve_call_site_full(site)
+            .resolved
+            .iter()
+            .filter_map(|r| tagged.method_owners.get(r.target).cloned())
+            .collect();
+        assert_eq!(owners, vec!["Impl".to_string()], "{method}");
+    }
+
+    let test_only = build_go(&[
+        ("lib/byte_test.go", "package lib\ntype byte = string\n"),
+        (
+            "lib/defs.go",
+            "package lib\ntype Doer interface { Act(byte) }\ntype Holder struct { Doer }\nfunc invoke(h Holder) { h.Act(uint8(0)) }\n",
+        ),
+        (
+            "lib/impl.go",
+            "package lib\ntype Impl struct{}\nfunc (Impl) Act(b uint8) {}\n",
+        ),
+    ]);
+    let site = test_only
+        .calls
+        .values()
+        .flatten()
+        .find(|s| s.caller.name == "invoke" && s.callee_name == "Act")
+        .expect("site");
+    let owners: Vec<_> = test_only
+        .resolve_call_site_full(site)
+        .resolved
+        .iter()
+        .filter_map(|r| test_only.method_owners.get(r.target).cloned())
+        .collect();
+    assert_eq!(owners, vec!["Impl".to_string()]);
+}
+
+#[test]
+fn s4ox_cycle_guard_keys_are_per_declaration_not_per_consumer() {
+    // sol-r2-3: two packages may both declare local leaves named C; the guard
+    // must key by DECLARATION identity, not consumer directory.
+    let cg = build_go_with_module(
+        &[
+            (
+                "p1/a.go",
+                "package p1\nimport p2 \"example.com/prism/p2\"\ntype A = C\ntype C = p2.B\ntype Doer interface { Act(A) }\ntype Holder struct { Doer }\nfunc invoke(h Holder) { h.Act(0) }\n",
+            ),
+            (
+                "p2/b.go",
+                "package p2\ntype B = C\ntype C = int\n",
+            ),
+            (
+                "p2/impl.go",
+                "package p2\ntype Impl struct{}\nfunc (Impl) Act(i int) {}\n",
+            ),
+        ],
+        "example.com/prism",
+    );
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|s| s.caller.name == "invoke" && s.callee_name == "Act")
+        .expect("site");
+    let owners: Vec<_> = cg
+        .resolve_call_site_full(site)
+        .resolved
+        .iter()
+        .filter_map(|r| cg.method_owners.get(r.target).cloned())
+        .collect();
+    assert_eq!(owners, vec!["Impl".to_string()]);
+}
+
+#[test]
+fn s4ox_transitive_parameterized_aliases_instantiate() {
+    // sol-r2-4: `Both = Twice[int]` expands through the canonical-string
+    // walker and must instantiate Twice's parameter at that hop.
+    let cg = build_go(&[
+        (
+            "lib/defs.go",
+            "package lib\ntype Pair[A any, B any] struct{ a A; b B }\ntype Twice[T any] = Pair[T, T]\ntype Both = Twice[int]\ntype Doer interface { Use(Both); UseDirect(Twice[string]) }\ntype Holder struct { Doer }\nfunc invoke(h Holder) { h.Use(Pair[int, int]{}); h.UseDirect(Pair[string, string]{}) }\n",
+        ),
+        (
+            "lib/impl.go",
+            "package lib\ntype Impl struct{}\nfunc (Impl) Use(p Pair[int, int]) {}\nfunc (Impl) UseDirect(p Pair[string, string]) {}\n",
+        ),
+    ]);
+    for method in ["Use", "UseDirect"] {
+        let site = cg
+            .calls
+            .values()
+            .flatten()
+            .find(|s| s.caller.name == "invoke" && s.callee_name == method)
+            .expect("site");
+        let owners: Vec<_> = cg
+            .resolve_call_site_full(site)
+            .resolved
+            .iter()
+            .filter_map(|r| cg.method_owners.get(r.target).cloned())
+            .collect();
+        assert_eq!(owners, vec!["Impl".to_string()], "{method}");
+    }
+}
