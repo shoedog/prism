@@ -80,14 +80,7 @@ fn tokenize(source: &str) -> Option<Vec<Token>> {
 
     while index < bytes.len() {
         match bytes[index] {
-            b' ' | b'\t' => index += 1,
-            b'\r' => {
-                index += 1;
-                if bytes.get(index) == Some(&b'\n') {
-                    index += 1;
-                }
-                tokens.push(Token::Newline);
-            }
+            b' ' | b'\t' | b'\r' => index += 1,
             b'\n' => {
                 index += 1;
                 tokens.push(Token::Newline);
@@ -102,7 +95,7 @@ fn tokenize(source: &str) -> Option<Vec<Token>> {
             }
             b'/' if bytes.get(index + 1) == Some(&b'/') => {
                 index += 2;
-                while index < bytes.len() && !matches!(bytes[index], b'\r' | b'\n') {
+                while index < bytes.len() && bytes[index] != b'\n' {
                     index += 1;
                 }
             }
@@ -320,6 +313,9 @@ mod tests {
             ("module a.b/c// c\n", "a.b/c"),
             ("module a.b/c//c\n", "a.b/c"),
             ("module \"a.b/c\"// c\n", "a.b/c"),
+            ("module\r example.com/m\n", "example.com/m"),
+            ("module example.com/m\r\n", "example.com/m"),
+            ("// comment\r\nmodule example.com/m\r\n", "example.com/m"),
             ("module (\n    example.com/m\n)\n", "example.com/m"),
             ("module example.com/m/v2\n", "example.com/m/v2"),
             ("module gopkg.in/foo.v0\n", "gopkg.in/foo.v0"),
@@ -344,6 +340,7 @@ mod tests {
     #[test]
     fn rejects_malformed_or_semantically_invalid_module_directives() {
         let cases = [
+            "// no module\rmodule example.com/root\n",
             "module example.com/m trailing\n",
             "module example.com/one\nmodule example.com/two\n",
             "module\n",

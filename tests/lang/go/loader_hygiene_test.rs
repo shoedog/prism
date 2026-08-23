@@ -191,6 +191,33 @@ fn gopkg_in_multielement_v2_module_preserves_proven_identity() {
     );
 }
 
+#[test]
+fn carriage_return_does_not_end_a_go_mod_line_comment() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    write_dispatch_fixture(root);
+    write(root, "go.mod", "// no module\rmodule example.com/root\n");
+
+    let loaded = load_repo(root).unwrap();
+
+    assert!(resolved_owners(&loaded).is_empty());
+}
+
+#[test]
+fn carriage_return_between_module_and_path_preserves_proven_identity() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    write_dispatch_fixture(root);
+    write(root, "go.mod", "module\r example.com/root\n");
+
+    let loaded = load_repo(root).unwrap();
+
+    assert_eq!(
+        resolved_owners(&loaded),
+        BTreeSet::from(["Impl".to_string()])
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn symlinked_go_mod_is_refused_for_identity_even_when_its_target_is_valid() {
