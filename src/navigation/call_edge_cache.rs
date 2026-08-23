@@ -46,8 +46,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v15: effective Go workspace/module/replacement identity changes interface
 // dispatch topology (paired with CPG v46).
 // v16: P17 proven Go concrete receivers route before the legacy bare-interface
-// ladder. Value-rebinding shadow bail and effective-module qualified owner
-// recovery are part of this one PR transition (paired with CPG v47).
+// ladder. Value-rebinding shadow bail, effective-module qualified owner
+// recovery, and new-recovery provenance are part of this one PR transition
+// (paired with CPG v47).
 const NAV_CALL_EDGE_CACHE_VERSION: u32 = 16;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
@@ -335,6 +336,7 @@ mod tests {
             receiver_owner_identity: None,
             receiver_recovery: None,
             receiver_materialized: false,
+            receiver_newly_recovered: false,
             arg_count: None,
             arg_spread: false,
             receiver_outcome: None,

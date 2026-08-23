@@ -36,18 +36,17 @@ fn fixture() -> CallGraph {
              func (Good) M() {}\n\
              func retain() { _ = Good{} }\n\
              func newlyRecoveredExternal() {\n\
+               _ = func(cl io.Closer) error { return cl.Close() }(nil)\n\
+             }\n\
+             func newlyRecoveredInRepo() {\n\
+               func(value Local) { value.M() }(Good{})\n\
+             }\n\
+             func legacyExternal() {\n\
                _ = func() error {\n\
                  var cl io.Closer\n\
                  return cl.Close()\n\
                }()\n\
-             }\n\
-             func newlyRecoveredInRepo() {\n\
-               func() {\n\
-                 var value Local\n\
-                 value.M()\n\
-               }()\n\
-             }\n\
-             func legacyExternal(cl io.Closer) { _ = cl.Close() }\n",
+             }\n",
         ),
     ])
 }
@@ -79,10 +78,12 @@ fn newly_recovered_qualified_external_receiver_drops_before_bare_ladder() {
     let cg = fixture();
     let call = site(&cg, "newlyRecoveredExternal", "Close");
     assert_eq!(call.receiver_type.as_deref(), Some("io.Closer"), "{call:?}");
+    assert!(call.receiver_newly_recovered, "{call:?}");
 
     let outcome = cg.resolve_call_site_full(call);
     assert!(outcome.resolved.is_empty(), "{outcome:?}");
     assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
+    assert_eq!(outcome.telemetry.go_external_receiver_new_recovery_drop, 1);
     assert_eq!(
         outcome.telemetry.go_unproven_receiver_bare_fallback_sites,
         0
@@ -92,6 +93,10 @@ fn newly_recovered_qualified_external_receiver_drops_before_bare_ladder() {
     assert_eq!(manifest["dispatch_route"], "unproven_drop");
     assert_eq!(manifest["fanout"], 0);
     assert_eq!(manifest["implementer_identities"], serde_json::json!([]));
+    assert_eq!(
+        prism::navigation::queries::call_stats(&cg)["go_external_receiver_new_recovery_drop"],
+        1
+    );
 }
 
 #[test]
@@ -99,12 +104,14 @@ fn newly_recovered_in_repo_interface_keeps_interface_dispatch() {
     let cg = fixture();
     let call = site(&cg, "newlyRecoveredInRepo", "M");
     assert_eq!(call.receiver_type.as_deref(), Some("Local"), "{call:?}");
+    assert!(call.receiver_newly_recovered, "{call:?}");
 
     let outcome = cg.resolve_call_site_full(call);
     assert_eq!(outcome.drop, None, "{outcome:?}");
     assert_eq!(outcome.resolved.len(), 1, "{outcome:?}");
     assert_eq!(outcome.resolved[0].target.file, "app/use.go");
     assert_eq!(outcome.resolved[0].kind, ResolutionKind::InterfaceDispatch);
+    assert_eq!(outcome.telemetry.go_external_receiver_new_recovery_drop, 0);
 
     let manifest = manifest_site(&cg, call);
     assert_eq!(manifest["dispatch_route"], "interface_dispatch");
@@ -116,12 +123,14 @@ fn preexisting_recovery_external_receiver_keeps_legacy_bare_output() {
     let cg = fixture();
     let call = site(&cg, "legacyExternal", "Close");
     assert_eq!(call.receiver_type.as_deref(), Some("io.Closer"), "{call:?}");
+    assert!(!call.receiver_newly_recovered, "{call:?}");
 
     let outcome = cg.resolve_call_site_full(call);
     assert_eq!(outcome.drop, None, "{outcome:?}");
     assert_eq!(outcome.resolved.len(), 1, "{outcome:?}");
     assert_eq!(outcome.resolved[0].target.file, "decoy/closer.go");
     assert_eq!(outcome.resolved[0].kind, ResolutionKind::InterfaceDispatch);
+    assert_eq!(outcome.telemetry.go_external_receiver_new_recovery_drop, 0);
     assert_eq!(
         outcome.telemetry.go_unproven_receiver_bare_fallback_sites,
         1

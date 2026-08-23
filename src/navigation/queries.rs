@@ -214,6 +214,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     let mut go_concrete_receiver_promoted_deferred = 0usize;
     let mut go_concrete_receiver_no_selector_drop = 0usize;
     let mut go_r2_on_demand_name_collision_bail = 0usize;
+    let mut go_external_receiver_new_recovery_drop = 0usize;
     let mut go_unproven_receiver_bare_fallback_sites = 0usize;
     let mut go_unproven_receiver_bare_fallback_hits = 0usize;
     let mut go_unproven_receiver_bare_fallback_edges = 0usize;
@@ -292,6 +293,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 out.telemetry.go_concrete_receiver_no_selector_drop;
             go_r2_on_demand_name_collision_bail +=
                 out.telemetry.go_r2_on_demand_name_collision_bail;
+            go_external_receiver_new_recovery_drop +=
+                out.telemetry.go_external_receiver_new_recovery_drop;
             go_unproven_receiver_bare_fallback_sites +=
                 out.telemetry.go_unproven_receiver_bare_fallback_sites;
             go_unproven_receiver_bare_fallback_hits +=
@@ -575,6 +578,10 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
             go_r2_on_demand_name_collision_bail.into(),
         );
         object.insert(
+            "go_external_receiver_new_recovery_drop".to_string(),
+            go_external_receiver_new_recovery_drop.into(),
+        );
+        object.insert(
             "go_unproven_receiver_bare_fallback_sites".to_string(),
             go_unproven_receiver_bare_fallback_sites.into(),
         );
@@ -677,6 +684,7 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                 recv_ty,
                 site.receiver_owner_identity.as_ref(),
                 site.receiver_local_type_shadowed,
+                site.receiver_newly_recovered,
                 &site.callee_name,
                 &site.caller.file,
             );
@@ -737,6 +745,10 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                         .unwrap_or(&[]);
                 }
                 crate::go_concrete_receiver::GoConcreteReceiverRoute::R2OnDemandNameCollisionBail => {
+                    dispatch_route = "unproven_drop";
+                    impls = &[];
+                }
+                crate::go_concrete_receiver::GoConcreteReceiverRoute::ExternalNewRecoveryDrop => {
                     dispatch_route = "unproven_drop";
                     impls = &[];
                 }

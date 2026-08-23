@@ -145,7 +145,8 @@ use std::path::{Path, PathBuf};
 ///   interface-dispatch edges and add module-graph/import-path telemetry.
 /// - v47: P17 proven Go concrete receivers route before the legacy bare-interface
 ///   ladder. Its serialized declaration-kind/import-path evidence and value-
-///   rebinding shadow bail are one PR schema transition (paired with sidecar v16).
+///   rebinding shadow bail plus new-recovery provenance are one PR schema
+///   transition (paired with sidecar v16).
 const CACHE_VERSION: u32 = 47;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;

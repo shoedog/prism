@@ -106,6 +106,12 @@ pub struct CallSite {
     /// unresolved. Excluded from cmp_key like receiver recovery metadata.
     #[serde(default)]
     pub receiver_materialized: bool,
+    /// True only for Go function-literal parameter recovery added on this P17
+    /// branch (the parameter was deliberately unrecoverable on main). Serialized
+    /// for CPG/sidecar parity; excluded from `cmp_key` like the other derived
+    /// receiver provenance fields.
+    #[serde(default)]
+    pub receiver_newly_recovered: bool,
     /// Number of arguments at the call site. `None` = not captured / unknown
     /// (the arity-disambiguation filter treats `None` as "keep").
     /// Excluded from cmp_key — positional data, not part of logical identity.
@@ -886,6 +892,7 @@ impl CallGraph {
                         receiver_local_type_shadowed: false,
                         receiver_recovery: None,
                         receiver_materialized: false,
+                        receiver_newly_recovered: false,
                         arg_count: None,
                         arg_spread: false,
                         receiver_outcome: None,
@@ -1228,6 +1235,12 @@ impl CallGraph {
                             file_imports: file_imports_ref,
                         });
                         let recovered = classification.recovered.as_ref();
+                        let receiver_newly_recovered = recovered.is_some()
+                            && qualifier.as_deref().is_some_and(|receiver| {
+                                parsed.go_func_literal_parameter_binds_receiver(
+                                    &func_node, receiver, start_byte,
+                                )
+                            });
                         let site = CallSite {
                             caller: caller_id.clone(),
                             callee_name,
@@ -1252,6 +1265,7 @@ impl CallGraph {
                                 }),
                             receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                             receiver_materialized: classification.materialized,
+                            receiver_newly_recovered,
                             arg_count: meta.arg_count,
                             arg_spread: meta.arg_spread,
                             receiver_outcome: None,
@@ -2010,6 +2024,7 @@ impl CallGraph {
             receiver_local_type_shadowed: false,
             receiver_recovery: None,
             receiver_materialized: false,
+            receiver_newly_recovered: false,
             arg_count: None,
             arg_spread: false,
             receiver_outcome: None,
@@ -3415,6 +3430,23 @@ impl CallGraph {
                 .and_then(|r| r.go_field_target.as_ref())
                 .map(crate::resolution::go_field_target_outcome);
             updated.receiver_materialized = classification.materialized;
+            let function_literal_parameter_recovery = classification.recovered.is_some()
+                && old_site.qualifier.as_deref().is_some_and(|receiver| {
+                    files
+                        .get(&old_site.caller.file)
+                        .and_then(|parsed| {
+                            Self::function_node_for_id(parsed, &old_site.caller).map(|func_node| {
+                                parsed.go_func_literal_parameter_binds_receiver(
+                                    &func_node,
+                                    receiver,
+                                    old_site.start_byte,
+                                )
+                            })
+                        })
+                        .unwrap_or(false)
+                });
+            updated.receiver_newly_recovered =
+                old_site.receiver_newly_recovered || function_literal_parameter_recovery;
             if updated == old_site {
                 continue; // no change -- skip the take/insert churn.
             }
@@ -3432,6 +3464,7 @@ impl CallGraph {
                         site.receiver_recovery = updated.receiver_recovery;
                         site.receiver_outcome = updated.receiver_outcome.clone();
                         site.receiver_materialized = updated.receiver_materialized;
+                        site.receiver_newly_recovered = updated.receiver_newly_recovered;
                     }
                 }
             }
@@ -3549,6 +3582,7 @@ impl CallGraph {
                             &recovered.static_type,
                             recovered.owner_identity.as_ref(),
                             false,
+                            site.receiver_newly_recovered || site.receiver_type.is_none(),
                             &site.callee_name,
                             &caller.file,
                         ),
@@ -4038,6 +4072,12 @@ impl CallGraph {
                         file_imports: file_imports_ref,
                     });
                     let recovered = classification.recovered.as_ref();
+                    let receiver_newly_recovered = recovered.is_some()
+                        && qualifier.as_deref().is_some_and(|receiver| {
+                            parsed.go_func_literal_parameter_binds_receiver(
+                                &func_node, receiver, start_byte,
+                            )
+                        });
                     let site = CallSite {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
@@ -4058,6 +4098,7 @@ impl CallGraph {
                             }),
                         receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                         receiver_materialized: classification.materialized,
+                        receiver_newly_recovered,
                         arg_count: meta.arg_count,
                         arg_spread: meta.arg_spread,
                         receiver_outcome: None,
@@ -5396,6 +5437,7 @@ mod tests {
             recovery: crate::resolution::ReceiverRecovery::TypedParam,
         });
         a.receiver_materialized = true;
+        a.receiver_newly_recovered = true;
         a.origin = CallSiteOrigin::IndirectResolution;
 
         assert_eq!(a.cmp_key(), b.cmp_key());
@@ -5408,10 +5450,15 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("receiver_materialized");
+        legacy_json
+            .as_object_mut()
+            .unwrap()
+            .remove("receiver_newly_recovered");
         legacy_json.as_object_mut().unwrap().remove("origin");
         let defaulted: CallSite = serde_json::from_value(legacy_json).unwrap();
         assert_eq!(defaulted.receiver_outcome, None);
         assert!(!defaulted.receiver_materialized);
+        assert!(!defaulted.receiver_newly_recovered);
         assert_eq!(defaulted.origin, CallSiteOrigin::Source);
 
         let back: CallSite = bincode::deserialize(&bincode::serialize(&a).unwrap()).unwrap();

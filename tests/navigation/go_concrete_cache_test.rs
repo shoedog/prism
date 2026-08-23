@@ -51,8 +51,13 @@ fn concrete_receiver_outputs_match_no_cache_cold_create_exact_cpg_and_sidecar_hi
     );
     write(
         repo_dir.path(),
+        "decoy/closer.go",
+        "package decoy\ntype Closer interface{ Close() error }\ntype WrongCloser struct{}\nfunc (*WrongCloser) Close() error { return nil }\nfunc retain() { _ = &WrongCloser{} }\n",
+    );
+    write(
+        repo_dir.path(),
         "app/use.go",
-        "package app\nimport q \"example/q\"\nfunc run(a q.A) { a.M() }\n",
+        "package app\nimport (\"io\"; q \"example/q\")\nfunc run(a q.A) { a.M() }\nfunc external() { _ = func(cl io.Closer) error { return cl.Close() }(nil) }\n",
     );
     let repo = Arc::new(load_repo(repo_dir.path()).unwrap());
 
@@ -70,6 +75,19 @@ fn concrete_receiver_outputs_match_no_cache_cold_create_exact_cpg_and_sidecar_hi
     };
     assert_eq!(wire_outputs(&no_cache), wire_outputs(&cold_create));
     assert_eq!(wire_outputs(&no_cache), wire_outputs(&exact_cpg));
+    let manifest = queries::interface_dispatch_manifest(no_cache.index.call_graph());
+    let external = manifest["sites"]
+        .as_array()
+        .expect("manifest sites")
+        .iter()
+        .find(|site| site["file"] == "app/use.go" && site["method"] == "Close")
+        .expect("newly recovered external site");
+    assert_eq!(external["dispatch_route"], "unproven_drop");
+    assert_eq!(external["fanout"], 0);
+    assert_eq!(
+        queries::call_stats(no_cache.index.call_graph())["go_external_receiver_new_recovery_drop"],
+        1
+    );
 
     let no_cache_edges =
         queries::callees(&no_cache, Some("run"), Some("app/use.go"), None, 1).unwrap();

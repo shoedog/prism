@@ -323,6 +323,7 @@ pub(crate) enum GoConcreteReceiverRoute {
         interface_name: String,
     },
     R2OnDemandNameCollisionBail,
+    ExternalNewRecoveryDrop,
     Unproven,
 }
 
@@ -333,9 +334,15 @@ impl CallGraph {
         recv_ty: &str,
         proven_owner: Option<&GoOwnerIdentity>,
         local_proof_shadowed: bool,
+        newly_recovered: bool,
         method_name: &str,
         caller_file: &str,
     ) -> GoConcreteReceiverRoute {
+        if newly_recovered
+            && self.go_new_recovery_qualified_import_is_external(recv_ty, caller_file)
+        {
+            return GoConcreteReceiverRoute::ExternalNewRecoveryDrop;
+        }
         let on_demand = proven_owner.is_none();
         let Some(receiver_owner) = self.go_receiver_owner(recv_ty, caller_file, proven_owner)
         else {
@@ -395,6 +402,42 @@ impl CallGraph {
             GoDeclarationKind::AliasCyclicOrUnresolved
             | GoDeclarationKind::AmbiguousProfileConflict => GoConcreteReceiverRoute::Unproven,
         }
+    }
+
+    fn go_new_recovery_qualified_import_is_external(
+        &self,
+        recv_ty: &str,
+        caller_file: &str,
+    ) -> bool {
+        let recv_ty = recv_ty
+            .trim()
+            .trim_start_matches('&')
+            .trim_start_matches('*')
+            .trim();
+        let Some((qualifier, _)) = recv_ty.rsplit_once('.') else {
+            return false;
+        };
+        let Some(import_path) = self
+            .imports
+            .get(caller_file)
+            .and_then(|imports| imports.get(qualifier))
+        else {
+            return false;
+        };
+        let exact_key = crate::resolution::go_import_path_dir_key(import_path);
+        if self.go_package_basenames.contains_key(&exact_key) {
+            return false;
+        }
+
+        // A live effective-module graph makes absence of the exact key
+        // authoritative: the import is outside the loaded module set. Without
+        // module identity, retain the legacy unique-basename proof when one
+        // exists and classify external only when no in-repo package can match.
+        if self.go_module_graph.active > 0 {
+            return true;
+        }
+        let basename = import_path.rsplit('/').next().unwrap_or(import_path);
+        !self.go_package_basenames.contains_key(basename)
     }
 
     fn go_r2_interface_route(

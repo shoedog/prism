@@ -927,6 +927,7 @@ pub struct ResolutionTelemetry {
     pub go_concrete_receiver_promoted_deferred: usize,
     pub go_concrete_receiver_no_selector_drop: usize,
     pub go_r2_on_demand_name_collision_bail: usize,
+    pub go_external_receiver_new_recovery_drop: usize,
     pub go_unproven_receiver_bare_fallback_sites: usize,
     pub go_unproven_receiver_bare_fallback_hits: usize,
     pub go_unproven_receiver_bare_fallback_edges: usize,
@@ -2322,6 +2323,7 @@ impl CallGraph {
                                 recv_ty,
                                 site.receiver_owner_identity.as_ref(),
                                 site.receiver_local_type_shadowed,
+                                site.receiver_newly_recovered,
                                 name,
                                 &site.caller.file,
                             )
@@ -2406,6 +2408,14 @@ impl CallGraph {
                             crate::go_concrete_receiver::GoConcreteReceiverRoute::R2OnDemandNameCollisionBail => {
                                 let mut telemetry = ResolutionTelemetry::default();
                                 telemetry.go_r2_on_demand_name_collision_bail = 1;
+                                return ResolutionOutcome::dropped_with_telemetry(
+                                    DropReason::ExternalReceiver,
+                                    telemetry,
+                                );
+                            }
+                            crate::go_concrete_receiver::GoConcreteReceiverRoute::ExternalNewRecoveryDrop => {
+                                let mut telemetry = ResolutionTelemetry::default();
+                                telemetry.go_external_receiver_new_recovery_drop = 1;
                                 return ResolutionOutcome::dropped_with_telemetry(
                                     DropReason::ExternalReceiver,
                                     telemetry,
@@ -4047,6 +4057,7 @@ mod scope_resolution_predicate_tests {
             receiver_local_type_shadowed: false,
             receiver_recovery: None,
             receiver_materialized: false,
+            receiver_newly_recovered: false,
             arg_count: None,
             arg_spread: false,
             receiver_outcome: None,

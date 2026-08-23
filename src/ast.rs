@@ -640,6 +640,53 @@ impl ParsedFile {
         )
     }
 
+    /// P17 wave 5 provenance: true when the call is inside a Go function
+    /// literal whose parameter list binds `receiver`. Main deliberately treated
+    /// this parameter as unrecoverable; P17 wave 2 began recovering its declared
+    /// type, so callers use this fact to keep that new path out of the legacy
+    /// bare-interface ladder when the qualified type is external.
+    pub(crate) fn go_func_literal_parameter_binds_receiver(
+        &self,
+        func_node: &Node<'_>,
+        receiver: &str,
+        call_start_byte: usize,
+    ) -> bool {
+        if self.language != Language::Go {
+            return false;
+        }
+
+        fn walk(
+            parsed: &ParsedFile,
+            node: Node<'_>,
+            receiver: &str,
+            call_start_byte: usize,
+        ) -> bool {
+            if call_start_byte < node.start_byte() || call_start_byte >= node.end_byte() {
+                return false;
+            }
+            if node.kind() == "func_literal"
+                && parsed.find_parameters_node(&node).is_some_and(|params| {
+                    let mut cursor = params.walk();
+                    let found = params.children(&mut cursor).any(|param| {
+                        param
+                            .child_by_field_name("type")
+                            .is_some_and(|ty| parsed.go_parameter_binds_name(param, ty, receiver))
+                    });
+                    found
+                })
+            {
+                return true;
+            }
+            let mut cursor = node.walk();
+            let found = node
+                .children(&mut cursor)
+                .any(|child| walk(parsed, child, receiver, call_start_byte));
+            found
+        }
+
+        walk(self, *func_node, receiver, call_start_byte)
+    }
+
     fn receiver_type_evidence_in_fn_mode(
         &self,
         func_node: &Node<'_>,
