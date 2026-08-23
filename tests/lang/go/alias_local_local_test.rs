@@ -203,6 +203,48 @@ fn unshadowed_byte_still_normalizes_to_uint8() {
 }
 
 #[test]
+fn alias_parameters_ignore_comment_decoys() {
+    let cg = build_go(
+        &[
+            (
+                "api/api.go",
+                "package api\n// type A[T any]\ntype A = int\ntype Doer interface{ Use(A) }\ntype Holder struct{ Doer }\nfunc invoke(h Holder, v A){ h.Use(v) }\n",
+            ),
+            (
+                "worker/impl.go",
+                "package worker\ntype Impl struct{}\nfunc (Impl) Use(int){}\n",
+            ),
+        ],
+        Some("example.com/root"),
+    );
+    assert_target_files(&cg, "api/api.go", "invoke", "Use", &["worker/impl.go"]);
+}
+
+#[test]
+fn alias_parameters_ignore_string_literal_decoys() {
+    let cg = build_go(
+        &[
+            (
+                "api/api.go",
+                "package api\nconst decoy = \"type A[T any]\"\ntype A = string\ntype Doer interface{ Use(A) }\ntype Holder struct{ Doer }\nfunc invoke(h Holder, v A){ h.Use(v) }\n",
+            ),
+            (
+                "worker/impl.go",
+                "package worker\ntype Impl struct{}\nfunc (Impl) Use(string){}\n",
+            ),
+        ],
+        Some("example.com/root"),
+    );
+    assert_target_files(
+        &cg,
+        "api/api.go",
+        "invoke",
+        "Use",
+        &["worker/impl.go"],
+    );
+}
+
+#[test]
 fn alias_to_composite_substitutes_nested_pointer_slice_map_and_func() {
     let cg = build_go(
         &[
