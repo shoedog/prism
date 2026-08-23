@@ -355,7 +355,7 @@ impl GoTypeProvider {
         }
     }
 
-    fn local_import_paths(
+    pub(crate) fn local_import_paths(
         package_import_paths: &BTreeMap<String, String>,
         profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
     ) -> BTreeMap<String, String> {

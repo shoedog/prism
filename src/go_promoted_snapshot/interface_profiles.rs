@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub(super) fn extend(
     raw: &mut BTreeMap<GoOwnerIdentity, Vec<RawProfile>>,
     files: &BTreeMap<String, ParsedFile>,
-    package_import_paths: &BTreeMap<String, String>,
+    local_import_paths: &BTreeMap<String, String>,
     interfaces: &GoInterfaceDeclarations,
     structs: &GoStructDeclarations,
     type_declarations: &BTreeMap<GoOwnerIdentity, BTreeSet<String>>,
@@ -20,7 +20,7 @@ pub(super) fn extend(
                 .map(|parsed| {
                     crate::go_type_alias::signature_imports(
                         parsed,
-                        package_import_paths
+                        local_import_paths
                             .get(&declaration.defining_file)
                             .map(String::as_str),
                     )
@@ -71,6 +71,13 @@ pub(super) fn extend(
     }
 }
 
+pub(super) fn local_import_paths(
+    package_import_paths: &BTreeMap<String, String>,
+    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+) -> BTreeMap<String, String> {
+    crate::type_providers::go::GoTypeProvider::local_import_paths(package_import_paths, profiles)
+}
+
 fn selector(raw_type: &str) -> String {
     raw_type
         .trim()
@@ -106,18 +113,12 @@ mod tests {
         let package_paths = BTreeMap::from([
             ("mixed/a.go".to_string(), "example.test/mixed".to_string()),
             ("mixed/b.go".to_string(), "example.test/mixed".to_string()),
-            (
-                "stable/s.go".to_string(),
-                "example.test/stable".to_string(),
-            ),
+            ("stable/s.go".to_string(), "example.test/stable".to_string()),
         ]);
 
         assert_eq!(
             local_import_paths(&package_paths, &profiles),
-            BTreeMap::from([(
-                "stable/s.go".to_string(),
-                "example.test/stable".to_string(),
-            )])
+            BTreeMap::from([("stable/s.go".to_string(), "example.test/stable".to_string(),)])
         );
     }
 }

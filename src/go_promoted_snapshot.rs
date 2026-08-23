@@ -117,10 +117,11 @@ pub(crate) fn build(
     let mut recovered_structs = structs.clone();
     recover_error_structs(files, profiles, &mut recovered_structs);
     let structs = &recovered_structs;
+    let local_import_paths = interface_profiles::local_import_paths(package_import_paths, profiles);
     let aliases = crate::go_type_alias::GoAliasResolver::build(
         files,
         package_import_paths,
-        package_import_paths,
+        &local_import_paths,
         profiles,
     );
     let mut raw = BTreeMap::<GoOwnerIdentity, Vec<RawProfile>>::new();
@@ -133,7 +134,7 @@ pub(crate) fn build(
                 .map(|parsed| {
                     crate::go_type_alias::signature_imports(
                         parsed,
-                        package_import_paths
+                        local_import_paths
                             .get(&declaration.defining_file)
                             .map(String::as_str),
                     )
@@ -209,7 +210,7 @@ pub(crate) fn build(
     interface_profiles::extend(
         &mut raw,
         files,
-        package_import_paths,
+        &local_import_paths,
         interfaces,
         structs,
         type_declarations,
