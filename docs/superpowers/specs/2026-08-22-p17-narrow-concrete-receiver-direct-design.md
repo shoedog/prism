@@ -110,7 +110,7 @@ SERIALIZED ON `CallGraph` (sol r2 W1): the CPG cache restores the whole
 `CallGraph` (cpg_cache.rs:~185/:~315) and `build_with_cached_cpg` (cpg/context.rs:~107) rebuilds only the type registry/live types — a
 "derived, not serialized" index would be ABSENT on an exact CPG hit with a cold sidecar, making the same site R1/direct cold and R3 warm (and a
 freshly generated sidecar would persist the wrong answer). Populate/clear them alongside the existing declaration snapshots in
-`apply_go_interface_dispatch_with_scope_inputs` (call_graph.rs:~2707/~2843). Acceptance requires byte-equal resolver + manifest output across
+`apply_go_interface_dispatch_with_scope_inputs` (call_graph.rs: definition ~2871, callers ~1355/~2868; `clear_interface_dispatch` ~2707). Acceptance requires byte-equal resolver + manifest output across
 no-cache / cold-cache-create / exact-CPG-hit / exact-sidecar-hit (a behavioral parity test, not just version pins).
 
 ## 6. Scope decisions
