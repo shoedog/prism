@@ -212,6 +212,9 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     let mut go_concrete_receiver_direct = 0usize;
     let mut go_concrete_receiver_promoted_deferred = 0usize;
     let mut go_concrete_receiver_no_selector_drop = 0usize;
+    let mut go_unproven_receiver_bare_fallback_sites = 0usize;
+    let mut go_unproven_receiver_bare_fallback_hits = 0usize;
+    let mut go_unproven_receiver_bare_fallback_edges = 0usize;
     let mut go_bare_value_ref_ambiguous = cg.go_bare_value_ref_ambiguous;
     let mut go_build_expr_unparsed: usize = cg.go_build_profile_unparsed.values().sum();
     let mut go_owner_identity_partition =
@@ -283,6 +286,12 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 out.telemetry.go_concrete_receiver_promoted_deferred;
             go_concrete_receiver_no_selector_drop +=
                 out.telemetry.go_concrete_receiver_no_selector_drop;
+            go_unproven_receiver_bare_fallback_sites +=
+                out.telemetry.go_unproven_receiver_bare_fallback_sites;
+            go_unproven_receiver_bare_fallback_hits +=
+                out.telemetry.go_unproven_receiver_bare_fallback_hits;
+            go_unproven_receiver_bare_fallback_edges +=
+                out.telemetry.go_unproven_receiver_bare_fallback_edges;
             let receiver_partition = cg
                 .go_owner_identity_partition_sites
                 .get(&crate::go_owner_partition::site_key(site))
@@ -435,6 +444,9 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "go_concrete_receiver_direct": go_concrete_receiver_direct,
         "go_concrete_receiver_promoted_deferred": go_concrete_receiver_promoted_deferred,
         "go_concrete_receiver_no_selector_drop": go_concrete_receiver_no_selector_drop,
+        "go_unproven_receiver_bare_fallback_sites": go_unproven_receiver_bare_fallback_sites,
+        "go_unproven_receiver_bare_fallback_hits": go_unproven_receiver_bare_fallback_hits,
+        "go_unproven_receiver_bare_fallback_edges": go_unproven_receiver_bare_fallback_edges,
         "go_owner_identity_profile_conflict": cg.go_owner_identity_profile_conflict,
         "dropped_go_receiver": dropped_go_receiver,
         "callback_registrations_recorded": cg.go_registrations.len(),

@@ -868,6 +868,9 @@ pub struct ResolutionTelemetry {
     pub go_concrete_receiver_direct: usize,
     pub go_concrete_receiver_promoted_deferred: usize,
     pub go_concrete_receiver_no_selector_drop: usize,
+    pub go_unproven_receiver_bare_fallback_sites: usize,
+    pub go_unproven_receiver_bare_fallback_hits: usize,
+    pub go_unproven_receiver_bare_fallback_edges: usize,
     pub go_owner_identity_partition: crate::go_owner_partition::GoOwnerPartitionTelemetry,
 }
 
@@ -933,6 +936,15 @@ impl<'a> ResolutionOutcome<'a> {
             drop: Some(reason),
             telemetry,
         }
+    }
+
+    fn with_go_unproven_bare_fallback(mut self, attempted: bool, edges: usize) -> Self {
+        if attempted {
+            self.telemetry.go_unproven_receiver_bare_fallback_sites += 1;
+            self.telemetry.go_unproven_receiver_bare_fallback_hits += usize::from(edges > 0);
+            self.telemetry.go_unproven_receiver_bare_fallback_edges += edges;
+        }
+        self
     }
 }
 
@@ -2653,6 +2665,10 @@ impl CallGraph {
                                         )
                                     };
                                 }
+                                let unproven_bare_fallback = matches!(
+                                    go_route.as_ref(),
+                                    Some(crate::go_concrete_receiver::GoConcreteReceiverRoute::Unproven)
+                                );
                                 match crate::resolution::iface_key(recv_ty) {
                                     Some(k) => {
                                         match self.interface_impls.get(&(k, name.to_string())) {
@@ -2671,29 +2687,44 @@ impl CallGraph {
                                                     // P5 S3: interface dispatch arity-filtered to
                                                     // empty — try the func-typed-field registration
                                                     // index before the ExternalReceiver drop.
-                                                    return self.func_value_field_or_external_drop(
-                                                        recv_ty,
-                                                        site.receiver_owner_identity.as_ref(),
-                                                        name,
-                                                        &site.caller.file,
-                                                    );
+                                                    return self
+                                                        .func_value_field_or_external_drop(
+                                                            recv_ty,
+                                                            site.receiver_owner_identity.as_ref(),
+                                                            name,
+                                                            &site.caller.file,
+                                                        )
+                                                        .with_go_unproven_bare_fallback(
+                                                            unproven_bare_fallback,
+                                                            0,
+                                                        );
                                                 } else {
+                                                    let edges = kept.len();
                                                     return ResolutionOutcome::hit(exact(
                                                         kept,
                                                         ResolutionKind::InterfaceDispatch,
-                                                    ));
+                                                    ))
+                                                    .with_go_unproven_bare_fallback(
+                                                        unproven_bare_fallback,
+                                                        edges,
+                                                    );
                                                 }
                                             }
                                             _ => {
                                                 // P5 S3: no interface impls at all for this
                                                 // (interface, method) — try the func-typed-field
                                                 // registration index before the drop.
-                                                return self.func_value_field_or_external_drop(
-                                                    recv_ty,
-                                                    site.receiver_owner_identity.as_ref(),
-                                                    name,
-                                                    &site.caller.file,
-                                                );
+                                                return self
+                                                    .func_value_field_or_external_drop(
+                                                        recv_ty,
+                                                        site.receiver_owner_identity.as_ref(),
+                                                        name,
+                                                        &site.caller.file,
+                                                    )
+                                                    .with_go_unproven_bare_fallback(
+                                                        unproven_bare_fallback,
+                                                        0,
+                                                    );
                                             }
                                         }
                                     }
@@ -2702,12 +2733,17 @@ impl CallGraph {
                                         // `None` only for a generic instantiation, e.g. `Foo[T]`) —
                                         // still worth an S3 attempt since func-value-field owner
                                         // resolution works directly off `recv_ty`, not `iface_key`.
-                                        return self.func_value_field_or_external_drop(
-                                            recv_ty,
-                                            site.receiver_owner_identity.as_ref(),
-                                            name,
-                                            &site.caller.file,
-                                        );
+                                        return self
+                                            .func_value_field_or_external_drop(
+                                                recv_ty,
+                                                site.receiver_owner_identity.as_ref(),
+                                                name,
+                                                &site.caller.file,
+                                            )
+                                            .with_go_unproven_bare_fallback(
+                                                unproven_bare_fallback,
+                                                0,
+                                            );
                                     }
                                 }
                             }

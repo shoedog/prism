@@ -6,6 +6,7 @@ mod build_profile_test;
 mod common;
 mod concrete_receiver_alias_test;
 mod concrete_receiver_route_test;
+mod concrete_receiver_unproven_test;
 mod lang_test;
 mod loader_hygiene_test;
 mod module_graph_fix2_test;
