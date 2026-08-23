@@ -177,6 +177,27 @@ fn manifest_pins_embedded_interface_dispatch_with_resolver_targets() {
 }
 
 #[test]
+fn pointer_embedded_interface_never_supplies_an_s4_selector() {
+    let cg = build_go(&[(
+        "main.go",
+        "package main\n\
+         type I interface{ M() }\n\
+         type S struct{ *I }\n\
+         type Wrong struct{}\n\
+         func (Wrong) M() {}\n\
+         func retain() { _ = Wrong{} }\n\
+         func run(s S) { s.M() }\n",
+    )]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
+
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(outcome.drop, Some(DropReason::ConcreteReceiverNoSelector));
+    assert_eq!(outcome.telemetry.go_concrete_receiver_no_selector_drop, 1);
+    assert_manifest_route(&cg, "concrete_no_selector_drop");
+    assert!(manifest_target_files(&cg).is_empty());
+}
+
+#[test]
 fn shallower_embedded_interface_wins_over_deeper_concrete_supplier() {
     let cg = build_go(&[(
         "main.go",

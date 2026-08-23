@@ -47,7 +47,7 @@ impl CallGraph {
                 evidence,
             };
         };
-        let mut current = embedded_nodes(owner, &root, BTreeSet::from([owner.clone()]));
+        let mut current = self.embedded_nodes(owner, &root, BTreeSet::from([owner.clone()]));
 
         while !current.is_empty() {
             let mut suppliers = Vec::new();
@@ -107,7 +107,7 @@ impl CallGraph {
                 if own.value == Some(true) {
                     suppliers.push(GoEmbeddedSelectorSupply::Concrete);
                 }
-                next.extend(embedded_nodes(&node.owner, &declaration, node.path));
+                next.extend(self.embedded_nodes(&node.owner, &declaration, node.path));
             }
 
             match suppliers.as_slice() {
@@ -171,29 +171,50 @@ impl CallGraph {
             evidence,
         }
     }
-}
 
-fn embedded_nodes(
-    parent: &GoOwnerIdentity,
-    declaration: &GoStructDeclaration,
-    path: BTreeSet<GoOwnerIdentity>,
-) -> Vec<WalkNode> {
-    declaration
-        .embedded_fields
-        .values()
-        .filter_map(|raw| local_embedded_owner(parent, raw))
-        .filter_map(|owner| {
-            let mut child_path = path.clone();
-            child_path.insert(owner.clone()).then_some(WalkNode {
-                owner,
-                path: child_path,
+    fn embedded_nodes(
+        &self,
+        parent: &GoOwnerIdentity,
+        declaration: &GoStructDeclaration,
+        path: BTreeSet<GoOwnerIdentity>,
+    ) -> Vec<WalkNode> {
+        declaration
+            .embedded_fields
+            .values()
+            .filter_map(|raw| local_embedded_owner(parent, raw))
+            .filter(|(owner, pointer_syntax)| {
+                !self.embedded_pointer_interface(owner, *pointer_syntax)
             })
-        })
-        .collect()
+            .filter_map(|(owner, _)| {
+                let mut child_path = path.clone();
+                child_path.insert(owner.clone()).then_some(WalkNode {
+                    owner,
+                    path: child_path,
+                })
+            })
+            .collect()
+    }
+
+    fn embedded_pointer_interface(&self, owner: &GoOwnerIdentity, pointer_syntax: bool) -> bool {
+        use crate::go_concrete_receiver::GoDeclarationKind;
+
+        self.go_declaration_kind_index
+            .get(owner)
+            .is_some_and(|entry| match &entry.kind {
+                GoDeclarationKind::Interface { interface_of } => {
+                    pointer_syntax || interface_of.is_pointer
+                }
+                GoDeclarationKind::AliasToInterface { target } => {
+                    pointer_syntax || target.is_pointer
+                }
+                _ => false,
+            })
+    }
 }
 
-fn local_embedded_owner(parent: &GoOwnerIdentity, raw: &str) -> Option<GoOwnerIdentity> {
-    let name = raw.trim().trim_start_matches('*').trim();
+fn local_embedded_owner(parent: &GoOwnerIdentity, raw: &str) -> Option<(GoOwnerIdentity, bool)> {
+    let raw = raw.trim();
+    let name = raw.trim_start_matches('*').trim();
     if name.is_empty()
         || name.contains('.')
         || name.contains('[')
@@ -201,9 +222,12 @@ fn local_embedded_owner(parent: &GoOwnerIdentity, raw: &str) -> Option<GoOwnerId
     {
         return None;
     }
-    Some(GoOwnerIdentity {
-        package_dir: parent.package_dir.clone(),
-        package_clause: parent.package_clause.clone(),
-        name: name.to_string(),
-    })
+    Some((
+        GoOwnerIdentity {
+            package_dir: parent.package_dir.clone(),
+            package_clause: parent.package_clause.clone(),
+            name: name.to_string(),
+        },
+        name.len() != raw.len(),
+    ))
 }
