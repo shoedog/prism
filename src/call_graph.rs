@@ -1357,7 +1357,6 @@ impl CallGraph {
         // dispatch keeps its own import-path-aware construction — its owner
         // identities differ when manifests prove import paths.
         let shared_go_provider = Self::plain_go_provider_for_build(files);
-        let t0 = std::time::Instant::now();
         cg.apply_go_embedding_promotion_with_provider(files, shared_go_provider.as_ref());
         cg.apply_go_interface_dispatch_with_scope_inputs(files, scope_inputs);
         // P5: S1 func-typed-field index, then S2 registration scan (needs S1
@@ -1378,12 +1377,6 @@ impl CallGraph {
             receiver_config,
             shared_go_provider.as_ref(),
         );
-        if std::env::var("PRISM_P15A_TIMING").as_deref() == Ok("1") {
-            eprintln!(
-                "[p15a-timing] go-passes total (promotion+dispatch+receivers): {:?}",
-                t0.elapsed()
-            );
-        }
         // P7: python property-access state — needs the complete method_owners
         // / method_class_span / class_bases indexes already populated above,
         // so it runs last, same rationale as the Go passes.
@@ -2946,18 +2939,11 @@ impl CallGraph {
         self.go_import_path_proven_files = package_import_paths.proven_files;
         self.go_import_path_unproven_files = package_import_paths.unproven_files;
         self.go_import_path_unproven_reasons = package_import_paths.reasons.clone();
-        let t0 = std::time::Instant::now();
         let provider =
             crate::type_providers::go::GoTypeProvider::from_parsed_files_with_package_import_paths(
                 files,
                 &package_import_paths.paths,
             );
-        if std::env::var("PRISM_P15A_TIMING").as_deref() == Ok("1") {
-            eprintln!(
-                "[p15a-timing] provider-construct interface-dispatch: {:?}",
-                t0.elapsed()
-            );
-        }
         let table = provider.compute_interface_dispatch(&live);
         self.interface_impls = table.impls;
         // Capture per-method arity for later arity-filtered dispatch (Task 2).
@@ -3319,12 +3305,6 @@ impl CallGraph {
                 &owned
             }
         };
-        if std::env::var("PRISM_P15A_TIMING").as_deref() == Ok("1") {
-            eprintln!(
-                "[p15a-timing] provider-construct receiver-indices: reused={}",
-                shared.is_some()
-            );
-        }
         let field_targets = provider.go_field_targets();
         self.rematerialize_go_receiver_keys(files, receiver_config, &field_targets);
     }
