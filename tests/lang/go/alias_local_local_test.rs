@@ -674,3 +674,56 @@ fn s4_package_declaration_shadows_predeclared_byte_and_rune() {
         .collect();
     assert_eq!(owners, vec!["Impl".to_string()]);
 }
+
+#[test]
+fn s4_parameterized_alias_shape_recognition_is_not_error_text_dependent() {
+    // SMELL-fix 4: a generic DEFINED type (`type G int`, no `=`) never
+    // becomes an alias; a parameterized spec with an unextractable RHS
+    // (`= =`) stays an ALIAS that fails closed instead of expanding.
+    let defined_generic = build_go(&[
+        (
+            "lib/defs.go",
+            "package lib\ntype G[T any] int\ntype Doer interface { Act(G[int]) }\ntype Holder struct { Doer }\nfunc invoke(h Holder) { h.Act(G[int](0)) }\n",
+        ),
+        (
+            "lib/impl.go",
+            "package lib\ntype Impl struct{}\nfunc (Impl) Act(g G[int]) {}\n",
+        ),
+    ]);
+    // Both sides spell G[int]: ordinary generic-defined comparison keeps Exact.
+    assert_eq!(
+        resolved_method_owners(&defined_generic, "invoke", "Act"),
+        BTreeSet::from(["Impl".to_string()])
+    );
+
+    // Doubled `=` (ERROR node "= =", clean "=" token children): recognition
+    // keys on the SHAPE (parameters + any `=`), not on ERROR text position,
+    // and the extractable RHS still expands.
+    let doubled_eq = build_go(&[
+        (
+            "lib/defs.go",
+            "package lib\ntype Pair[A any, B any] struct{ a A; b B }\ntype Twice[T any] = = Pair[T, T]\ntype Doer interface { Act(Twice[int]) }\ntype Holder struct { Doer }\nfunc invoke(h Holder) { h.Act(Pair[int, int]{}) }\n",
+        ),
+        (
+            "lib/impl.go",
+            "package lib\ntype Impl struct{}\nfunc (Impl) Act(p Pair[int, int]) {}\n",
+        ),
+    ]);
+    assert_eq!(
+        resolved_method_owners(&doubled_eq, "invoke", "Act"),
+        BTreeSet::from(["Impl".to_string()])
+    );
+
+    // A parameterized spec WITHOUT any `=` is a generic DEFINED type.
+    let defined_generic_params = build_go(&[
+        (
+            "lib/defs.go",
+            "package lib\ntype Pair[A any, B any] struct{ a A; b B }\ntype Twice[T any] Pair[T, T]\ntype Doer interface { Act(Twice[int]) }\ntype Holder struct { Doer }\nfunc invoke(h Holder) { h.Act(Pair[int, int]{}) }\n",
+        ),
+        (
+            "lib/impl.go",
+            "package lib\ntype Impl struct{}\nfunc (Impl) Act(p Pair[int, int]) {}\n",
+        ),
+    ]);
+    assert!(resolved_method_owners(&defined_generic_params, "invoke", "Act").is_empty());
+}

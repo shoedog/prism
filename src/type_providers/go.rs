@@ -1116,12 +1116,17 @@ impl GoTypeProvider {
         // Parameterized aliases parse as `type_spec` with a type_parameter_list
         // and an ERROR node holding `=` (tree-sitter-go has no generic-alias
         // production). A plain generic definition (`type L[T any] struct…`)
-        // never contains that `=`.
+        // never contains that `=`. Recognition is shape-based, not
+        // ERROR-text-based: an `=` may also appear as a clean token child in a
+        // future grammar; ANY type_spec carrying both parameters and an `=`
+        // whose RHS cannot be extracted stays an (unresolvable) ALIAS — never
+        // silently `Defined`.
         let has_type_params = Self::node_has_any_kind(node, &["type_parameter_list"]);
-        let is_alias = has_type_params
-            && node
-                .children(&mut node.walk())
-                .any(|child| child.kind() == "ERROR" && parsed.node_text(&child).contains('='));
+        let eq_seen = node.children(&mut node.walk()).any(|child| {
+            child.kind() == "="
+                || (child.kind() == "ERROR" && parsed.node_text(&child).contains('='))
+        });
+        let is_alias = has_type_params && eq_seen;
 
         if !is_alias {
             Self::push_alias_variant(
