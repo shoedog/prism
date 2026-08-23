@@ -164,6 +164,40 @@ fn unresolvable_embedded_identity_is_an_explicit_profile_conflict() {
 }
 
 #[test]
+fn resolved_embedded_interface_is_not_an_unresolvable_identity() {
+    let cg = build_go(&[(
+        "s.go",
+        "package p\ntype I interface{ M() }\ntype S struct{ I }\n",
+    )]);
+    let s = owner(&cg, "", "p", "S");
+    assert_eq!(s.verdict, GoPromotedSnapshotVerdict::ProfileUnique);
+    let embedded = s.declarations[0]
+        .embedded_fields
+        .iter()
+        .next()
+        .expect("resolved embedded interface identity");
+    assert_eq!(embedded.target.name, "I");
+    assert!(s.declarations[0].promoted_methods.is_empty());
+}
+
+#[test]
+fn embedded_defined_type_contributes_its_promoted_method() {
+    let cg = build_go(&[(
+        "s.go",
+        "package p\ntype D int\nfunc (D) M() {}\ntype S struct{ D }\n",
+    )]);
+    let s = owner(&cg, "", "p", "S");
+    assert_eq!(s.verdict, GoPromotedSnapshotVerdict::ProfileUnique);
+    let promoted = s.declarations[0]
+        .promoted_methods
+        .iter()
+        .find(|method| method.method == "M")
+        .expect("D.M promoted to S");
+    assert_eq!(promoted.target_owner.name, "D");
+    assert_eq!(promoted.depth, 1);
+}
+
+#[test]
 fn depth_two_profile_conflict_taints_the_outer_owner() {
     let base = base();
     let cg = build_go(&[
