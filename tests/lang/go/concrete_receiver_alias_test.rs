@@ -233,6 +233,66 @@ fn pointer_and_transitive_concrete_aliases_route_to_the_canonical_owner() {
 }
 
 #[test]
+fn pointer_to_interface_alias_keeps_interface_dispatch() {
+    let cg = build_go(&[
+        (
+            "p/types.go",
+            "package p\n\
+             type I interface{ M() }\n\
+             type P = *I\n\
+             type Good struct{}\n\
+             func (Good) M() {}\n\
+             func retain() { _ = Good{} }\n",
+        ),
+        (
+            "app/use.go",
+            "package app\n\
+             import p \"example/p\"\n\
+             func run(value p.P) { value.M() }\n",
+        ),
+    ]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
+
+    assert_only_file(&cg, "run", "M", "p/types.go");
+    assert!(outcome
+        .resolved
+        .iter()
+        .all(|resolved| resolved.kind == ResolutionKind::InterfaceDispatch));
+    assert_eq!(
+        manifest_routes(&cg),
+        BTreeSet::from(["interface_dispatch".into()])
+    );
+    assert_eq!(
+        manifest_target_files(&cg),
+        BTreeSet::from(["p/types.go".into()])
+    );
+}
+
+#[test]
+fn pointer_alias_with_unresolved_pointee_fails_closed_to_r3() {
+    let cg = build_go(&[(
+        "main.go",
+        "package main\n\
+         type Marker interface{ M() }\n\
+         type P = *Missing\n\
+         func run(value P) { value.M() }\n",
+    )]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
+
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
+    assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 0);
+    assert_eq!(
+        outcome.telemetry.go_unproven_receiver_bare_fallback_sites,
+        1
+    );
+    assert_eq!(
+        manifest_routes(&cg),
+        BTreeSet::from(["unproven_drop".into()])
+    );
+}
+
+#[test]
 fn defined_non_interface_uses_its_own_method_set() {
     let cg = build_go(&[(
         "main.go",

@@ -197,8 +197,11 @@ fn resolve_target_text(
     );
     visiting.remove(&target_owner);
     match (is_pointer, resolved?) {
-        (true, ResolvedDeclaration::Interface(mut target))
-        | (true, ResolvedDeclaration::Concrete(mut target)) => {
+        (true, ResolvedDeclaration::Interface(mut target)) => {
+            target.is_pointer = true;
+            Some(ResolvedDeclaration::Interface(target))
+        }
+        (true, ResolvedDeclaration::Concrete(mut target)) => {
             target.is_pointer = true;
             Some(ResolvedDeclaration::Concrete(target))
         }
