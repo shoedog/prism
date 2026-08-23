@@ -337,7 +337,50 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
     };
     let baseline = base_classifier.classify(rctx);
     if baseline.recovered.is_some() {
-        return (baseline, Default::default());
+        if baseline.proof_shadowed {
+            return (baseline, Default::default());
+        }
+        let reuse_calls = ctx.parsed.go_same_scope_short_var_reuse_calls(
+            &ctx.fn_node,
+            ctx.qualifier,
+            ctx.call_start_byte,
+        );
+        if reuse_calls.as_ref().is_ok_and(Vec::is_empty) {
+            return (baseline, Default::default());
+        }
+
+        let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
+        let recovered = baseline.recovered.as_ref().expect("checked above");
+        let original_owner = recovered.owner_identity.clone().or_else(|| {
+            resolve_go_owner_identity(
+                &recovered.static_type,
+                ctx.caller_file,
+                facts.imports,
+                facts.package_basenames,
+                facts.go_file_profiles,
+            )
+        });
+        let unchanged = match (original_owner, reuse_calls) {
+            (Some(original_owner), Ok(calls)) => calls.into_iter().all(|callee| {
+                let selection = resolve_go_return_type_call(
+                    &callee,
+                    ctx.caller_file,
+                    facts.imports,
+                    facts.package_basenames,
+                    facts.return_types,
+                    facts.go_file_profiles,
+                );
+                evidence.merge(selection.evidence);
+                selection.value.as_ref() == Some(&original_owner)
+            }),
+            _ => false,
+        };
+        if unchanged {
+            return (baseline, evidence);
+        }
+        let mut shadowed = baseline;
+        shadowed.proof_shadowed = true;
+        return (shadowed, evidence);
     }
 
     if ctx.qualifier.contains('.') {

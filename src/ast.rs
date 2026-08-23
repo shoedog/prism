@@ -896,6 +896,88 @@ impl ParsedFile {
         walk(self, *func_node, true, receiver, call_line, call_start_byte)
     }
 
+    /// P17 fix wave 3: collect every same-scope multi-name `:=` that REUSES
+    /// `receiver` before the call. Go requires at least one other LHS name to be
+    /// new in that block. Each reuse must assign the receiver from the first
+    /// result of one call so the post-merge return-type index can prove that the
+    /// static type did not change. `Err(())` is fail-closed evidence: a reuse was
+    /// visible, but its RHS could not be compared.
+    pub(crate) fn go_same_scope_short_var_reuse_calls(
+        &self,
+        func_node: &Node<'_>,
+        receiver: &str,
+        call_start_byte: usize,
+    ) -> Result<Vec<String>, ()> {
+        fn walk(
+            this: &ParsedFile,
+            node: Node<'_>,
+            is_root: bool,
+            func_node: &Node<'_>,
+            receiver: &str,
+            call_start_byte: usize,
+            out: &mut Vec<String>,
+        ) -> Result<(), ()> {
+            if node.start_byte() >= call_start_byte {
+                return Ok(());
+            }
+            if !is_root && this.language.function_node_types().contains(&node.kind()) {
+                return Ok(());
+            }
+            if !is_root && node.kind() == "func_literal" {
+                let call_inside =
+                    node.start_byte() <= call_start_byte && call_start_byte < node.end_byte();
+                if !call_inside {
+                    return Ok(());
+                }
+            }
+            if node.kind() == "short_var_declaration"
+                && this.go_short_decl_reuses_in_scope(node, func_node, receiver, call_start_byte)
+            {
+                let left = node.child_by_field_name("left").ok_or(())?;
+                let names = this.go_short_decl_names(left);
+                if names.first().map(String::as_str) != Some(receiver) {
+                    return Err(());
+                }
+                let right = node.child_by_field_name("right").ok_or(())?;
+                let mut rcur = right.walk();
+                let rhs: Vec<Node> = right.named_children(&mut rcur).collect();
+                if rhs.len() != 1 || rhs[0].kind() != "call_expression" {
+                    return Err(());
+                }
+                let func = rhs[0].child_by_field_name("function").ok_or(())?;
+                if !matches!(func.kind(), "identifier" | "selector_expression") {
+                    return Err(());
+                }
+                out.push(this.node_text(&func).trim().to_string());
+            }
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                walk(
+                    this,
+                    child,
+                    false,
+                    func_node,
+                    receiver,
+                    call_start_byte,
+                    out,
+                )?;
+            }
+            Ok(())
+        }
+
+        let mut calls = Vec::new();
+        walk(
+            self,
+            *func_node,
+            true,
+            func_node,
+            receiver,
+            call_start_byte,
+            &mut calls,
+        )?;
+        Ok(calls)
+    }
+
     /// Manual recursive function collection (pre-query fallback).
     /// `pub(crate)` for dual-path consistency testing in `queries::tests`.
     pub(crate) fn collect_functions_manual<'a>(&self, node: Node<'a>, out: &mut Vec<Node<'a>>) {
@@ -6256,6 +6338,152 @@ impl ParsedFile {
         None
     }
 
+    fn go_short_decl_names(&self, left: Node<'_>) -> Vec<String> {
+        if let Some(name) = self.simple_binding_text(&left) {
+            return vec![name];
+        }
+        let mut cursor = left.walk();
+        left.named_children(&mut cursor)
+            .filter_map(|child| self.simple_binding_text(&child))
+            .collect()
+    }
+
+    fn go_enclosing_binding_scope<'a>(&self, node: Node<'a>) -> Option<Node<'a>> {
+        let mut parent = node.parent();
+        while let Some(scope) = parent {
+            if matches!(
+                scope.kind(),
+                "block"
+                    | "expression_case"
+                    | "type_case"
+                    | "communication_case"
+                    | "if_statement"
+                    | "for_statement"
+                    | "expression_switch_statement"
+                    | "type_switch_statement"
+            ) {
+                return Some(scope);
+            }
+            parent = scope.parent();
+        }
+        None
+    }
+
+    fn go_scope_declares_name_before(
+        &self,
+        func_node: &Node<'_>,
+        scope: Node<'_>,
+        name: &str,
+        before_byte: usize,
+    ) -> bool {
+        fn walk(
+            this: &ParsedFile,
+            node: Node<'_>,
+            is_root: bool,
+            name: &str,
+            before_byte: usize,
+        ) -> bool {
+            if node.start_byte() >= before_byte {
+                return false;
+            }
+            if !is_root
+                && (this.language.function_node_types().contains(&node.kind())
+                    || matches!(
+                        node.kind(),
+                        "block"
+                            | "expression_case"
+                            | "type_case"
+                            | "communication_case"
+                            | "func_literal"
+                            | "if_statement"
+                            | "for_statement"
+                            | "expression_switch_statement"
+                            | "type_switch_statement"
+                            | "select_statement"
+                    ))
+            {
+                return false;
+            }
+            if node.kind() == "short_var_declaration" {
+                if let Some(left) = node.child_by_field_name("left") {
+                    return this.go_short_decl_names(left).iter().any(|n| n == name);
+                }
+            }
+            if node.kind() == "var_spec" {
+                let mut cursor = node.walk();
+                if node
+                    .children_by_field_name("name", &mut cursor)
+                    .any(|child| this.node_text(&child).trim() == name)
+                {
+                    return true;
+                }
+            }
+            let mut cursor = node.walk();
+            let found = node
+                .children(&mut cursor)
+                .any(|child| walk(this, child, false, name, before_byte));
+            found
+        }
+
+        let parameter_owner = scope.parent().filter(|parent| {
+            matches!(
+                parent.kind(),
+                "function_declaration" | "method_declaration" | "func_literal"
+            )
+        });
+        let parameter_owner = parameter_owner.or_else(|| {
+            func_node
+                .child_by_field_name("body")
+                .filter(|body| body.start_byte() == scope.start_byte())
+                .map(|_| *func_node)
+        });
+        if parameter_owner.is_some_and(|owner| {
+            self.find_parameters_node(&owner).is_some_and(|params| {
+                let mut cursor = params.walk();
+                let found = params.children(&mut cursor).any(|param| {
+                    param
+                        .child_by_field_name("type")
+                        .is_some_and(|ty| self.go_parameter_binds_name(param, ty, name))
+                });
+                found
+            })
+        }) {
+            return true;
+        }
+
+        walk(self, scope, true, name, before_byte)
+    }
+
+    fn go_short_decl_reuses_in_scope(
+        &self,
+        node: Node<'_>,
+        func_node: &Node<'_>,
+        receiver: &str,
+        call_start_byte: usize,
+    ) -> bool {
+        let Some(scope) = self.go_enclosing_binding_scope(node) else {
+            return false;
+        };
+        if !(scope.start_byte() <= call_start_byte && call_start_byte < scope.end_byte()) {
+            return false;
+        }
+        let Some(left) = node.child_by_field_name("left") else {
+            return false;
+        };
+        let names = self.go_short_decl_names(left);
+        if names.len() < 2
+            || !names.iter().any(|name| name == receiver)
+            || !self.go_scope_declares_name_before(func_node, scope, receiver, node.start_byte())
+        {
+            return false;
+        }
+        names.iter().any(|name| {
+            name != receiver
+                && name != "_"
+                && !self.go_scope_declares_name_before(func_node, scope, name, node.start_byte())
+        })
+    }
+
     fn walk_receiver_bindings(
         &self,
         node: Node<'_>,
@@ -6351,8 +6579,30 @@ impl ParsedFile {
                 let right = node
                     .child_by_field_name("right")
                     .or_else(|| node.child_by_field_name("value"));
-                if let Some(left) = left {
-                    if self.simple_binding_text(&left).as_deref() == Some(receiver) {
+                let visible_scope = self.go_enclosing_binding_scope(node).is_some_and(|scope| {
+                    scope.start_byte() <= call_start_byte && call_start_byte < scope.end_byte()
+                });
+                if let Some(left) = left.filter(|_| visible_scope) {
+                    if self.go_short_decl_reuses_in_scope(
+                        node,
+                        &node
+                            .parent()
+                            .and_then(|mut parent| {
+                                while !self.language.function_node_types().contains(&parent.kind())
+                                    && parent.kind() != "func_literal"
+                                {
+                                    parent = parent.parent()?;
+                                }
+                                Some(parent)
+                            })
+                            .unwrap_or(node),
+                        receiver,
+                        call_start_byte,
+                    ) {
+                        // Go reuses an existing binding for the already-declared
+                        // LHS name. The post-merge pass proves the call's first
+                        // return type still matches before trusting this fact.
+                    } else if self.simple_binding_text(&left).as_deref() == Some(receiver) {
                         *go_lexical_rebinding |= *bindings > 0;
                         *bindings += 1;
                         *found = right.and_then(|r| {
