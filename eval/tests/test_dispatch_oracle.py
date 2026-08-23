@@ -473,6 +473,148 @@ def _run_fake_oracle(
     return records[0], FakeGopls.implementation_calls
 
 
+def _run_shared_interface_decl(tmp_path, *, identity_sets, implementation_results):
+    (tmp_path / "caller.go").write_text("a.Go(); b.Go()\n")
+    spans = [(0, 6), (8, 14)]
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"sites": [
+        {
+            "file": "caller.go", "line": 1, "method": "Go",
+            "fanout": len(identities),
+            "implementers": [identity["name"] for identity in identities],
+            "implementer_identities": identities,
+            "start_byte": spans[index][0], "end_byte": spans[index][1],
+        }
+        for index, identities in enumerate(identity_sets)
+    ]}))
+
+    class FakeGopls:
+        implementation_calls = 0
+
+        def __init__(self, *_args, **_kwargs):
+            self._settle_s = 0
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def _did_open(self, _rel):
+            return True
+
+        def _methods(self, _rel):
+            return []
+
+        def resettle(self, **_kwargs):
+            pass
+
+        def method_decl(self, _rel, _line, _char):
+            return {"file": "iface.go", "line": 4, "character": 2,
+                    "kind": "interface", "identity": None}
+
+        def satisfier_identities(self, _rel, _line, _char):
+            call = type(self).implementation_calls
+            type(self).implementation_calls += 1
+            return implementation_results[min(call, len(implementation_results) - 1)]
+
+    records, _summary = do.run_oracle(
+        str(manifest), str(tmp_path), ["fake-gopls"], 1,
+        log=io.StringIO(), oracle_factory=FakeGopls,
+    )
+    return records, FakeGopls.implementation_calls
+
+
+def test_method_decl_preserves_external_definition_target(tmp_path):
+    class FakeGoplsAdapter:
+        group_timeout = 1
+        root = str(tmp_path)
+
+        def __init__(self):
+            self.client = self
+
+        def _did_open(self, _rel):
+            return True
+
+        def _uri(self, rel):
+            return f"file:///{rel}"
+
+        def request(self, method, _params, timeout):
+            assert method == "textDocument/definition"
+            assert timeout == 1
+            return [{
+                "uri": "file:///stdlib/src/net/http/server.go",
+                "range": {"start": {"line": 52, "character": 3}},
+            }]
+
+    decl = do.GoplsSatisfiers.method_decl(FakeGoplsAdapter(), "caller.go", 1, 2)
+    assert decl == {
+        "file": "/stdlib/src/net/http/server.go", "line": 52, "character": 3,
+        "kind": "external", "identity": None,
+    }
+
+
+def test_external_definition_is_an_excluded_not_dispatch_site(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={
+            "file": "/stdlib/src/net/http/server.go", "line": 52, "character": 3,
+            "kind": "external", "identity": None,
+        },
+        satisfiers=[],
+        prism_identities=[impl],
+    )
+    summary = do.summarize([record])
+    assert record["classification"] == "not_dispatch"
+    assert record["definition_kind"] == "external"
+    assert implementation_calls == 0
+    assert summary["overall"]["external_definition_sites"] == 1
+
+
+def test_interface_decl_cache_reuses_persistent_empty_per_site(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    records, calls = _run_shared_interface_decl(
+        tmp_path,
+        identity_sets=[[impl], []],
+        implementation_results=[([], 0, []), ([], 0, [])],
+    )
+    assert [record["classification"] for record in records] == ["over_approx", "sound"]
+    assert [record["implementation_outcome"] for record in records] == [
+        "persistent_empty", "persistent_empty",
+    ]
+    assert calls == 2
+
+
+def test_interface_decl_cache_reuses_timeout_and_partial_mapping_outcomes(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    timeout_records, timeout_calls = _run_shared_interface_decl(
+        tmp_path,
+        identity_sets=[[impl], [impl]],
+        implementation_results=[None],
+    )
+    assert [record["classification"] for record in timeout_records] == [
+        "oracle_timeout", "oracle_timeout",
+    ]
+    assert [record["implementation_outcome"] for record in timeout_records] == [
+        "timeout", "timeout",
+    ]
+    assert timeout_calls == 1
+
+    partial_records, partial_calls = _run_shared_interface_decl(
+        tmp_path,
+        identity_sets=[[impl], [impl]],
+        implementation_results=[([impl], 1, [{
+            "file": "generated.go", "line": 1, "reason": "receiver_unknown",
+        }])],
+    )
+    assert [record["classification"] for record in partial_records] == ["sound", "sound"]
+    assert [record["implementation_outcome"] for record in partial_records] == [
+        "partial_mapping", "partial_mapping",
+    ]
+    assert partial_calls == 1
+
+
 def test_run_oracle_concrete_definition_is_singleton_ground_truth(tmp_path):
     adapter = _identity("Adapter", "adapter.go", [32, 64], "caddyfile")
     record, implementation_calls = _run_fake_oracle(

@@ -260,6 +260,7 @@ def compare_site(
     oracle_reason: str | None = None,
     not_dispatch: bool = False,
     oracle_status: str | None = None,
+    implementation_outcome: str | None = None,
 ) -> dict:
     """One per-site comparison record with qualified or legacy name-only identity.
 
@@ -366,6 +367,7 @@ def compare_site(
         "definition_kind": definition_kind,
         "failure_stage": failure_stage,
         "oracle_status": oracle_status,
+        "implementation_outcome": implementation_outcome,
         "oracle_reason": oracle_reason,
         "unresolved_locations": unresolved_locations,
         "non_candidate_locations": non_candidate_locations,
@@ -466,6 +468,7 @@ def summarize(sites: list[dict]) -> dict:
         "not_dispatch_sites": 0,
         "interface_zero_fanout_sites": 0,
         "unknown_definition_sites": 0,
+        "external_definition_sites": 0,
         "scored_sites": 0,
     }
     overall_acc = _precision_acc()
@@ -528,6 +531,8 @@ def summarize(sites: list[dict]) -> dict:
             overall["interface_zero_fanout_sites"] += 1
         if s.get("definition_kind") == "unknown":
             overall["unknown_definition_sites"] += 1
+        if s.get("definition_kind") == "external":
+            overall["external_definition_sites"] += 1
         if cls == "not_dispatch":
             g["not_dispatch_sites"] += 1
             overall["not_dispatch_sites"] += 1
@@ -1146,13 +1151,24 @@ class GoplsSatisfiers:
             uri = d.get("uri") or d.get("targetUri")
             rng = d.get("range") or d.get("targetSelectionRange") or d.get("targetRange")
             f = uri_to_rel(uri, self.root) if uri else None
-            if f is None or rng is None:
+            if rng is None:
                 continue
             try:
                 target_line = rng["start"]["line"]
                 target_char = rng["start"]["character"]
             except KeyError:
                 continue
+            if f is None:
+                if uri is None:
+                    continue
+                parsed = urllib.parse.urlparse(uri)
+                return {
+                    "file": urllib.parse.unquote(parsed.path) if parsed.path else uri,
+                    "line": target_line,
+                    "character": target_char,
+                    "kind": "external",
+                    "identity": None,
+                }
             symbol = self._symbol_at(f, target_line, target_char)
             kind = self._definition_kind(symbol)
             identity, reason = (
@@ -1308,14 +1324,14 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
 
     oracle = oracle_factory(repo, cmd, group_timeout=group_timeout)
     records: list[dict] = []
-    # Cache the satisfier set per interface-method declaration and empty-result policy,
+    # Cache the complete terminal implementation outcome per interface-method declaration,
     # not per prism group: gopls disambiguates the interface a call site dispatches on
     # (caddy `next.ServeHTTP` is `http.Handler.ServeHTTP` at some sites and
     # `caddyhttp.Handler.ServeHTTP` at others, even though prism groups them together by
     # implementer set). Keying on the decl location queries the interface gopls sees and is
-    # immune to a prism grouping that lumps two interfaces. Value = (qualified
-    # satisfier identities, display label, and unmappable implementation locations).
-    decl_cache: dict[tuple[str, int, int, bool], tuple[list[dict], str, list[dict]]] = {}
+    # immune to a prism grouping that lumps two interfaces. The one bounded retry happens
+    # before caching so zero- and positive-fanout sites share the same terminal evidence.
+    decl_cache: dict[tuple[str, int, int], dict] = {}
     try:
         t0 = time.monotonic()
         oracle.start()
@@ -1367,6 +1383,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
             failure_stage: str | None = "token" if col is None else None
             oracle_status: str | None = "unresolved" if col is None else None
             not_dispatch = False
+            implementation_outcome: str | None = None
             iface = None
             if col is not None:
                 # 1) Resolve the concrete or interface declaration at this exact call.
@@ -1395,6 +1412,14 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                         gopls_identities = [concrete_identity]
                         not_dispatch = s.get("fanout", len(prism_set)) == 0
                         failure_stage = None
+                elif definition_kind == "external":
+                    # A definition outside this checkout cannot denote one of Prism's
+                    # in-repository dispatch targets. Exclude it like a concrete call,
+                    # while preserving the distinct external-definition accounting.
+                    gopls_identities = []
+                    not_dispatch = True
+                    implementation_outcome = "external_definition"
+                    failure_stage = None
                 elif definition_kind == "interface":
                     decl_file = decl.get("file")
                     decl_line = decl.get("line")
@@ -1406,39 +1431,52 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                         failure_stage = "definition"
                         oracle_status = "unresolved"
                     else:
-                    # A persistently empty implementation result is valid evidence only
-                    # when prism also minted no edges. Keep that cache entry separate
-                    # from fanout>0 sites, whose empty result remains a readiness timeout.
-                        allow_empty = s.get("fanout", 0) == 0
-                        ckey = (decl_file, decl_line, decl_char, allow_empty)
+                        ckey = (decl_file, decl_line, decl_char)
                         if ckey not in decl_cache:
                             # 2) implementation at an interface declaration, with an
-                            # empty retry for gopls readiness.
+                            # empty/concrete-less retry for gopls readiness.
                             out = oracle.satisfier_identities(decl_file, decl_line, decl_char)
-                            if out is not None:
-                                retry_empty = out[1] == 0 or (
-                                    bool(prism_set) and not out[0]
-                                )
-                            else:
-                                retry_empty = False
+                            retry_empty = out is not None and (out[1] == 0 or not out[0])
                             if retry_empty:
                                 oracle.resettle(settle_s=oracle._settle_s)
                                 out = oracle.satisfier_identities(decl_file, decl_line, decl_char)
-                            if out is not None and (out[1] > 0 or allow_empty):
-                                type_at = getattr(oracle, "_type_at", lambda *_: None)
-                                label = type_at(decl_file, decl_line) or \
-                                    f"{Path(decl_file).stem}:{decl_line + 1}"
-                                decl_cache[ckey] = (out[0], label, out[2])
-                        cached = decl_cache.get(ckey)
-                        if cached is not None:
-                            gopls_identities, iface, unresolved_locations = cached
-                            failure_stage = "mapping" if unresolved_locations else None
-                        elif out is None:
+                            type_at = getattr(oracle, "_type_at", lambda *_: None)
+                            label = type_at(decl_file, decl_line) or \
+                                f"{Path(decl_file).stem}:{decl_line + 1}"
+                            if out is None:
+                                terminal = {
+                                    "outcome": "timeout",
+                                    "identities": None,
+                                    "interface": label,
+                                    "unresolved_locations": [],
+                                }
+                            else:
+                                unknown_locations, _non_candidates = _partition_location_evidence(
+                                    out[2]
+                                )
+                                if not out[0] and not unknown_locations:
+                                    outcome = "persistent_empty"
+                                elif unknown_locations:
+                                    outcome = "partial_mapping"
+                                else:
+                                    outcome = "success"
+                                terminal = {
+                                    "outcome": outcome,
+                                    "identities": out[0],
+                                    "interface": label,
+                                    "unresolved_locations": out[2],
+                                }
+                            decl_cache[ckey] = terminal
+                        terminal = decl_cache[ckey]
+                        gopls_identities = terminal["identities"]
+                        iface = terminal["interface"]
+                        unresolved_locations = terminal["unresolved_locations"]
+                        implementation_outcome = terminal["outcome"]
+                        if implementation_outcome == "timeout":
                             failure_stage = "timeout"
                             oracle_status = "timeout"
-                        else:
-                            gopls_identities, unresolved_locations = out[0], out[2]
-                            failure_stage = "mapping" if unresolved_locations else None
+                        elif implementation_outcome == "partial_mapping":
+                            failure_stage = "mapping"
                 else:
                     gopls_identities = []
                     oracle_unresolved = True
@@ -1462,6 +1500,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                     unresolved_locations=unresolved_locations,
                     not_dispatch=not_dispatch,
                     oracle_status=oracle_status,
+                    implementation_outcome=implementation_outcome,
                 )
             else:
                 # Compatibility only: old manifests lack target/package evidence, so the
@@ -1478,6 +1517,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                     unresolved_locations=unresolved_locations,
                     not_dispatch=not_dispatch,
                     oracle_status=oracle_status,
+                    implementation_outcome=implementation_outcome,
                 )
             # Preserve the manifest site identity in the durable output so baseline
             # deltas cannot collapse distinct calls that share a source line.
@@ -1517,7 +1557,8 @@ def _print_summary(summary: dict, log=sys.stdout) -> None:
           file=log)
     print(f"exclusions: not_dispatch={o['not_dispatch_sites']} "
           f"interface_zero_fanout={o['interface_zero_fanout_sites']} "
-          f"unknown_definition={o['unknown_definition_sites']}", file=log)
+          f"unknown_definition={o['unknown_definition_sites']} "
+          f"external_definition={o['external_definition_sites']}", file=log)
     print("per (interface, method):", file=log)
     for g in summary["groups"]:
         print(f"  {g['interface']}.{g['method']}: precision={_format_precision(g['dispatch_precision'])} "
