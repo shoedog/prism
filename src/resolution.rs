@@ -307,10 +307,10 @@ fn go_field_target_from_outcome(
 /// - Bare `T` is unambiguous: Go scoping rules mean it names a type in the
 ///   SAME package as `file`, i.e. the same directory — no lookup needed.
 /// - Qualified `pkg.T` resolves `pkg` via `file`'s import map to a Go import
-///   path, then narrows to an indexed directory whose basename matches the
-///   import path's last segment (the same dir-as-package convention `dir_of`
-///   already encodes elsewhere in this ladder). Zero or multiple matching
-///   directories is ambiguous -> `None` (fail closed): per spec, an
+///   path, then prefers its exact effective-module directory identity. When
+///   that evidence is unavailable it retains the legacy last-segment basename
+///   lookup. Zero or multiple matching directories is ambiguous -> `None`
+///   (fail closed): per spec, an
 ///   unknown/ambiguous owner identity may feed a nav-only registration
 ///   record at most, and NEVER S3.
 /// - A generic instantiation (`T[X]`) is out of scope (named-type
@@ -348,9 +348,12 @@ pub fn resolve_go_owner_identity(
             }
             let import_path = imports.get(file)?.get(pkg)?;
             let seg = import_path.rsplit('/').next().unwrap_or(import_path);
-            let dirs = package_basenames.get(seg)?;
+            let exact_key = go_import_path_dir_key(import_path);
+            let dirs = package_basenames
+                .get(&exact_key)
+                .or_else(|| package_basenames.get(seg))?;
             if dirs.len() != 1 {
-                return None; // ambiguous basename -> fail closed
+                return None; // ambiguous package directory -> fail closed
             }
             let package_dir = dirs.iter().next().unwrap().clone();
             let ordinary_clauses: BTreeSet<&str> = go_file_profiles
@@ -372,6 +375,10 @@ pub fn resolve_go_owner_identity(
             })
         }
     }
+}
+
+pub(crate) fn go_import_path_dir_key(import_path: &str) -> String {
+    format!("@go-import:{import_path}")
 }
 
 /// P5 (Go func-value callbacks, S2): resolve a bare identifier used as a

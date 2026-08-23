@@ -463,14 +463,12 @@ pub struct CallGraph {
     /// JS/TS R4c: caller function -> conservative parameter/local binding names.
     #[serde(default)]
     pub js_ts_function_locals: BTreeMap<FunctionId, BTreeSet<String>>,
-    /// P5 S1 (Go func-value callbacks): directory basename -> set of
-    /// directories containing Go files sharing that basename. Used to resolve
-    /// a qualified `pkg.T` reference's import path to a package-scoped owner
-    /// identity (`resolve_go_owner_identity`); ambiguous (>1) or absent (0) is
-    /// unresolved, which the S1/S2/S3 pipeline treats as an unknown/ambiguous
-    /// owner (never feeds S3). Whole-program derived like
-    /// `interface_impls`/`promoted_aliases`; recomputed by
-    /// `apply_go_func_value_fields`.
+    /// Go package directory index. Plain keys are legacy directory basenames;
+    /// `@go-import:` keys carry effective module import paths proven by the
+    /// module graph. Qualified `pkg.T` lookup prefers the exact key and uses a
+    /// basename only when module identity is unavailable. Ambiguous keys fail
+    /// closed. Whole-program derived alongside interface dispatch and retained
+    /// for P5/receiver rematerialization.
     #[serde(default)]
     pub go_package_basenames: BTreeMap<String, BTreeSet<String>>,
     /// Compatibility projection retained for downstream callers. Production
@@ -2776,6 +2774,7 @@ impl CallGraph {
         self.go_method_declarations.clear();
         self.go_interface_live_types.clear();
         self.go_embedded_interface_methods.clear();
+        self.go_package_basenames.clear();
         self.go_owner_identity_profile_conflict = 0;
         self.go_module_graph = Default::default();
         self.go_import_path_proven_files = 0;
@@ -2939,7 +2938,9 @@ impl CallGraph {
         // P11 S2/S4: capture the field re-projection and the embedded-interface
         // routing map while the provider is live, same pattern as above.
         self.go_field_types = provider.go_struct_declarations();
-        let package_basenames = Self::go_package_basenames(files);
+        let mut package_basenames = Self::go_package_basenames(files);
+        Self::add_go_package_import_paths(&mut package_basenames, &package_import_paths.paths);
+        self.go_package_basenames = package_basenames.clone();
         self.go_declaration_kind_index = provider.go_declaration_kind_index(
             &self.imports,
             &package_basenames,
@@ -2999,7 +3000,6 @@ impl CallGraph {
     }
 
     fn clear_go_func_value_fields(&mut self) {
-        self.go_package_basenames.clear();
         self.go_known_struct_identities.clear();
         self.go_func_typed_fields.clear();
     }
@@ -3019,6 +3019,21 @@ impl CallGraph {
         package_basenames
     }
 
+    fn add_go_package_import_paths(
+        index: &mut BTreeMap<String, BTreeSet<String>>,
+        package_import_paths: &BTreeMap<String, String>,
+    ) {
+        for (file, import_path) in package_import_paths {
+            if import_path.trim().is_empty() {
+                continue;
+            }
+            index
+                .entry(crate::resolution::go_import_path_dir_key(import_path))
+                .or_default()
+                .insert(crate::resolution::dir_of(file).to_string());
+        }
+    }
+
     /// P5 S1: recompute the Go func-typed-field index (package-scoped owner
     /// identity -> which struct fields are func-typed) over `files`.
     /// Whole-program derived, same shape as `apply_go_embedding_promotion` /
@@ -3032,9 +3047,12 @@ impl CallGraph {
         {
             return;
         }
-        // One basename can map to multiple directories; qualified identity
-        // resolution deliberately treats that as ambiguous downstream.
-        self.go_package_basenames = Self::go_package_basenames(files);
+        // Full builds populated exact module import-path keys during interface
+        // dispatch. Preserve those; direct callers without scope inputs retain
+        // the legacy fail-closed basename index.
+        if self.go_package_basenames.is_empty() {
+            self.go_package_basenames = Self::go_package_basenames(files);
+        }
         self.go_known_struct_identities = self.go_field_types.keys().cloned().collect();
         let mut func_typed_fields = BTreeSet::new();
         for (owner, declarations) in &self.go_field_types {

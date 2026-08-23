@@ -49,7 +49,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // ladder, changing resolved call-edge topology (paired with CPG v47).
 // v17: Go value-rebinding shadow bail changes resolved receiver topology
 // (paired with CPG v48).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 17;
+// v18: qualified Go owner recovery uses effective module import paths before
+// basename fallback (paired with CPG v49).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 18;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -375,7 +377,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_go_loader_hygiene() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 17);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 18);
     }
 
     #[test]
