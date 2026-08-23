@@ -210,6 +210,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     let mut go_pkg_clause_partition_exact = 0usize;
     let mut go_build_partition_exact = 0usize;
     let mut go_concrete_receiver_direct = 0usize;
+    let mut go_concrete_receiver_promoted_deferred = 0usize;
+    let mut go_concrete_receiver_no_selector_drop = 0usize;
     let mut go_bare_value_ref_ambiguous = cg.go_bare_value_ref_ambiguous;
     let mut go_build_expr_unparsed: usize = cg.go_build_profile_unparsed.values().sum();
     let mut go_owner_identity_partition =
@@ -266,6 +268,10 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 Some(DropReason::UnknownName) => unknown += 1,
                 Some(DropReason::FuncValueFanout) => func_value_fanout += 1,
                 Some(DropReason::GoSamePkgAllFiltered) => go_same_pkg_all_filtered_drop += 1,
+                Some(
+                    DropReason::ConcreteReceiverPromotedDeferred
+                    | DropReason::ConcreteReceiverNoSelector,
+                ) => {}
                 None => {}
             }
             go_pkg_clause_partition_exact += out.telemetry.go_pkg_clause_partition_exact;
@@ -273,6 +279,10 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
             go_bare_value_ref_ambiguous += out.telemetry.go_bare_value_ref_ambiguous;
             go_build_expr_unparsed += out.telemetry.go_build_expr_unparsed;
             go_concrete_receiver_direct += out.telemetry.go_concrete_receiver_direct;
+            go_concrete_receiver_promoted_deferred +=
+                out.telemetry.go_concrete_receiver_promoted_deferred;
+            go_concrete_receiver_no_selector_drop +=
+                out.telemetry.go_concrete_receiver_no_selector_drop;
             let receiver_partition = cg
                 .go_owner_identity_partition_sites
                 .get(&crate::go_owner_partition::site_key(site))
@@ -423,6 +433,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "go_bare_value_ref_ambiguous": go_bare_value_ref_ambiguous,
         "go_build_expr_unparsed": go_build_expr_unparsed,
         "go_concrete_receiver_direct": go_concrete_receiver_direct,
+        "go_concrete_receiver_promoted_deferred": go_concrete_receiver_promoted_deferred,
+        "go_concrete_receiver_no_selector_drop": go_concrete_receiver_no_selector_drop,
         "go_owner_identity_profile_conflict": cg.go_owner_identity_profile_conflict,
         "dropped_go_receiver": dropped_go_receiver,
         "callback_registrations_recorded": cg.go_registrations.len(),

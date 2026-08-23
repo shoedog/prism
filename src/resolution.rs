@@ -851,6 +851,11 @@ pub enum DropReason {
     /// P13: same-directory Go candidates existed, but package/build profile
     /// filtering proved none visible; do not fall through to FreeSingle.
     GoSamePkgAllFiltered,
+    /// P17 R1(b): the selector is promoted from embedded concrete state whose
+    /// true edge is deferred to the owner/profile-keyed promotion slice.
+    ConcreteReceiverPromotedDeferred,
+    /// P17 R1(e): a proven concrete receiver has no admissible selector lane.
+    ConcreteReceiverNoSelector,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -861,6 +866,8 @@ pub struct ResolutionTelemetry {
     pub go_bare_value_ref_ambiguous: usize,
     pub go_build_expr_unparsed: usize,
     pub go_concrete_receiver_direct: usize,
+    pub go_concrete_receiver_promoted_deferred: usize,
+    pub go_concrete_receiver_no_selector_drop: usize,
     pub go_owner_identity_partition: crate::go_owner_partition::GoOwnerPartitionTelemetry,
 }
 
@@ -1418,6 +1425,61 @@ impl CallGraph {
         crate::go_owner_partition::GoPartitionSelection {
             value: Some(chosen.into_iter().collect()),
             evidence,
+        }
+    }
+
+    fn go_interface_dispatch_outcome(
+        &self,
+        recv_ty: &str,
+        receiver_owner: &GoOwnerIdentity,
+        interface_name: &str,
+        method_name: &str,
+        site: &CallSite,
+        mut evidence: crate::go_owner_partition::GoPartitionEvidence,
+    ) -> ResolutionOutcome<'_> {
+        let ids = self
+            .interface_impls
+            .get(&(interface_name.to_string(), method_name.to_string()))
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+        let visible = self.go_visible_s4_implementers(
+            recv_ty,
+            Some(receiver_owner),
+            interface_name,
+            method_name,
+            &site.caller.file,
+            ids.iter().collect(),
+        );
+        evidence.merge(visible.evidence);
+        if evidence.uncertain || evidence.conflict {
+            return ResolutionOutcome::dropped_with_telemetry(
+                DropReason::ExternalReceiver,
+                ResolutionTelemetry::with_go_owner_partition(evidence, 1),
+            );
+        }
+        let kept: Vec<&FunctionId> = visible
+            .value
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|target| {
+                arity_admits(
+                    site.arg_count,
+                    site.arg_spread,
+                    self.method_arity.get(*target),
+                )
+            })
+            .collect();
+        if kept.is_empty() {
+            ResolutionOutcome::dropped_with_telemetry(
+                DropReason::ExternalReceiver,
+                ResolutionTelemetry::with_go_owner_partition(evidence, 0),
+            )
+        } else {
+            let affected_edges = kept.len();
+            ResolutionOutcome::hit_with_telemetry(
+                exact(kept, ResolutionKind::InterfaceDispatch),
+                ResolutionTelemetry::with_go_owner_partition(evidence, affected_edges),
+            )
         }
     }
 
@@ -2184,6 +2246,73 @@ impl CallGraph {
                                 &site.caller.file,
                             )
                         });
+                    if let Some(route) = go_route.as_ref() {
+                        match route {
+                            crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect {
+                                ..
+                            }
+                            | crate::go_concrete_receiver::GoConcreteReceiverRoute::Unproven => {}
+                            crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcretePromotedDeferred {
+                                ..
+                            } => {
+                                let mut telemetry = ResolutionTelemetry::default();
+                                telemetry.go_concrete_receiver_promoted_deferred = 1;
+                                return ResolutionOutcome::dropped_with_telemetry(
+                                    DropReason::ConcreteReceiverPromotedDeferred,
+                                    telemetry,
+                                );
+                            }
+                            crate::go_concrete_receiver::GoConcreteReceiverRoute::EmbeddedInterfaceDispatch {
+                                owner,
+                                interface_name,
+                                evidence,
+                            } => {
+                                return self.go_interface_dispatch_outcome(
+                                    recv_ty,
+                                    owner,
+                                    interface_name,
+                                    name,
+                                    site,
+                                    *evidence,
+                                );
+                            }
+                            crate::go_concrete_receiver::GoConcreteReceiverRoute::FuncValueField {
+                                owner,
+                            } => {
+                                return self.func_value_field_or_external_drop(
+                                    recv_ty,
+                                    Some(owner),
+                                    name,
+                                    &site.caller.file,
+                                );
+                            }
+                            crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteNoSelector {
+                                evidence,
+                                ..
+                            } => {
+                                let mut telemetry =
+                                    ResolutionTelemetry::with_go_owner_partition(*evidence, 0);
+                                telemetry.go_concrete_receiver_no_selector_drop = 1;
+                                return ResolutionOutcome::dropped_with_telemetry(
+                                    DropReason::ConcreteReceiverNoSelector,
+                                    telemetry,
+                                );
+                            }
+                            crate::go_concrete_receiver::GoConcreteReceiverRoute::InterfaceDispatch {
+                                owner,
+                                interface_name,
+                            } => {
+                                return self.go_interface_dispatch_outcome(
+                                    recv_ty,
+                                    owner,
+                                    interface_name,
+                                    name,
+                                    site,
+                                    crate::go_owner_partition::GoPartitionEvidence::default(),
+                                );
+                            }
+                        }
+                    }
                     if caller_lang == Some(crate::languages::Language::Python) {
                         let clean_key = (caller.file.clone(), recv_ty.to_string());
                         if self.clean_class_spans.contains_key(&clean_key) {

@@ -419,6 +419,22 @@ impl GoTypeProvider {
         crate::go_concrete_receiver::basic_declaration_kind_index(&self.data.type_declarations)
     }
 
+    pub fn go_promoted_concrete_selectors(
+        &self,
+    ) -> BTreeSet<(crate::resolution::GoOwnerIdentity, String)> {
+        self.promoted_struct_methods()
+            .into_iter()
+            .flat_map(|promoted| {
+                self.data
+                    .struct_declarations
+                    .keys()
+                    .filter(move |owner| owner.name == promoted.struct_name)
+                    .cloned()
+                    .map(move |owner| (owner, promoted.method.clone()))
+            })
+            .collect()
+    }
+
     pub fn go_field_targets(
         &self,
     ) -> BTreeMap<(crate::resolution::GoOwnerIdentity, String), crate::resolution::GoFieldTarget>

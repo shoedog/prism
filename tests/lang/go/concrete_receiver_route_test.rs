@@ -172,3 +172,218 @@ fn direct_receiver_fixture_contains_a_discriminating_wrong_interface_target() {
 
     assert_eq!(wrong_targets, BTreeSet::from(["p/interfaces.go"]));
 }
+
+fn resolved_files(cg: &CallGraph, caller: &str, method: &str) -> BTreeSet<String> {
+    cg.resolve_call_site_full(site(cg, caller, method))
+        .resolved
+        .iter()
+        .map(|resolved| resolved.target.file.clone())
+        .collect()
+}
+
+#[test]
+fn proven_interface_owner_routes_on_demand_without_a_bare_name_decoy() {
+    let cg = build_go(&[
+        (
+            "p/types.go",
+            "package p\n\
+             type A interface { M(string) }\n\
+             type Good struct{}\n\
+             func (Good) M(string) {}\n\
+             func retain() { _ = Good{} }\n",
+        ),
+        (
+            "r/types.go",
+            "package r\n\
+             type A interface { M(int) }\n\
+             type Wrong struct{}\n\
+             func (Wrong) M(int) {}\n\
+             func retain() { _ = Wrong{} }\n",
+        ),
+        (
+            "app/use.go",
+            "package app\n\
+             import p \"example/p\"\n\
+             func run(a p.A) { a.M(\"ok\") }\n",
+        ),
+    ]);
+    let call = site(&cg, "run", "M");
+    assert!(call.receiver_owner_identity.is_none());
+    let outcome = cg.resolve_call_site_full(call);
+
+    assert_eq!(
+        resolved_files(&cg, "run", "M"),
+        BTreeSet::from(["p/types.go".to_string()])
+    );
+    assert!(outcome.resolved.iter().all(|resolved| {
+        resolved.kind == ResolutionKind::InterfaceDispatch
+            && resolved.confidence == ResolutionConfidence::Exact
+    }));
+}
+
+#[test]
+fn concrete_embedded_interface_keeps_s4_targets() {
+    let cg = build_go(&[(
+        "holder/types.go",
+        "package holder\n\
+         type I interface { M() }\n\
+         type S struct { I }\n\
+         type Good struct{}\n\
+         func (Good) M() {}\n\
+         func retain() { _ = Good{} }\n\
+         func run(s S) { s.M() }\n",
+    )]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
+
+    assert_eq!(outcome.drop, None, "{outcome:?}");
+    assert_eq!(
+        resolved_files(&cg, "run", "M"),
+        BTreeSet::from(["holder/types.go".to_string()])
+    );
+    assert!(outcome
+        .resolved
+        .iter()
+        .all(|resolved| resolved.kind == ResolutionKind::InterfaceDispatch));
+}
+
+#[test]
+fn concrete_promoted_method_is_terminally_deferred() {
+    let cg = build_go(&[
+        (
+            "q/types.go",
+            "package q\n\
+             type B struct{}\n\
+             func (B) M() {}\n\
+             type S struct { B }\n",
+        ),
+        (
+            "decoy/types.go",
+            "package decoy\n\
+             type S interface { M() }\n\
+             type Wrong struct{}\n\
+             func (Wrong) M() {}\n",
+        ),
+        (
+            "app/use.go",
+            "package app\n\
+             import q \"example/q\"\n\
+             func run(s q.S) { s.M() }\n",
+        ),
+    ]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
+
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(
+        format!("{:?}", outcome.drop),
+        "Some(ConcreteReceiverPromotedDeferred)"
+    );
+    assert_eq!(
+        prism::navigation::queries::call_stats(&cg)["go_concrete_receiver_promoted_deferred"],
+        serde_json::json!(1)
+    );
+}
+
+#[test]
+fn concrete_func_value_field_keeps_p5_and_blocks_interface_decoy() {
+    let cg = build_go(&[
+        (
+            "command/types.go",
+            "package command\n\
+             type Command struct { Run func() }\n\
+             func worker() {}\n\
+             func New() Command { return Command{Run: worker} }\n\
+             func invoke() { c := New(); c.Run() }\n",
+        ),
+        (
+            "decoy/types.go",
+            "package decoy\n\
+             type Command interface { Run() }\n\
+             type Wrong struct{}\n\
+             func (Wrong) Run() {}\n",
+        ),
+    ]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "invoke", "Run"));
+
+    assert_eq!(outcome.drop, None, "{outcome:?}");
+    assert_eq!(outcome.resolved.len(), 1, "{outcome:?}");
+    assert_eq!(outcome.resolved[0].target.file, "command/types.go");
+    assert_eq!(outcome.resolved[0].target.name, "worker");
+    assert_eq!(outcome.resolved[0].kind, ResolutionKind::FuncValueField);
+    assert_eq!(
+        outcome.resolved[0].confidence,
+        ResolutionConfidence::NameOnly
+    );
+}
+
+#[test]
+fn concrete_without_selector_drops_before_the_bare_interface_ladder() {
+    let cg = build_go(&[
+        ("q/types.go", "package q\ntype S struct{}\n"),
+        (
+            "decoy/types.go",
+            "package decoy\n\
+             type S interface { M() }\n\
+             type Wrong struct{}\n\
+             func (Wrong) M() {}\n",
+        ),
+        (
+            "app/use.go",
+            "package app\n\
+             import q \"example/q\"\n\
+             func run(s q.S) { s.M() }\n",
+        ),
+    ]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
+
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(
+        format!("{:?}", outcome.drop),
+        "Some(ConcreteReceiverNoSelector)"
+    );
+    assert_eq!(
+        prism::navigation::queries::call_stats(&cg)["go_concrete_receiver_no_selector_drop"],
+        serde_json::json!(1)
+    );
+}
+
+#[test]
+fn caller_package_writer_interface_is_unchanged() {
+    let cg = build_go(&[(
+        "main.go",
+        "package main\n\
+         type Writer interface { Write() }\n\
+         type Good struct{}\n\
+         func (Good) Write() {}\n\
+         func retain() { _ = Good{} }\n\
+         func run() { var w Writer; w.Write() }\n",
+    )]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "run", "Write"));
+
+    assert_eq!(outcome.drop, None, "{outcome:?}");
+    assert_eq!(
+        resolved_files(&cg, "run", "Write"),
+        BTreeSet::from(["main.go".to_string()])
+    );
+    assert!(outcome
+        .resolved
+        .iter()
+        .all(|resolved| resolved.kind == ResolutionKind::InterfaceDispatch));
+}
+
+#[test]
+fn generic_concrete_receiver_keeps_the_existing_drop() {
+    let cg = build_go(&[(
+        "main.go",
+        "package main\n\
+         type Box[T any] struct{}\n\
+         func (Box[T]) M() {}\n\
+         func run(b Box[int]) { b.M() }\n",
+    )]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
+
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(
+        outcome.drop,
+        Some(prism::resolution::DropReason::ExternalReceiver)
+    );
+}

@@ -110,6 +110,7 @@ pub(crate) enum GoConcreteReceiverRoute {
     },
     ConcreteNoSelector {
         owner: GoOwnerIdentity,
+        evidence: GoPartitionEvidence,
     },
     InterfaceDispatch {
         owner: GoOwnerIdentity,
@@ -151,22 +152,7 @@ impl CallGraph {
 
         match &entry.kind {
             GoDeclarationKind::Struct { target } => {
-                let Some((owner, selection)) = self.go_own_method_partition(
-                    recv_ty,
-                    Some(&target.owner),
-                    method_name,
-                    caller_file,
-                ) else {
-                    return GoConcreteReceiverRoute::Unproven;
-                };
-                if selection.value == Some(true)
-                    && !selection.evidence.conflict
-                    && !selection.evidence.uncertain
-                {
-                    GoConcreteReceiverRoute::ConcreteDirect { owner, selection }
-                } else {
-                    GoConcreteReceiverRoute::Unproven
-                }
+                self.go_concrete_route_for_target(recv_ty, target, method_name, caller_file)
             }
             GoDeclarationKind::Interface { interface_of } => {
                 GoConcreteReceiverRoute::InterfaceDispatch {
@@ -179,6 +165,89 @@ impl CallGraph {
             | GoDeclarationKind::AliasToConcrete { .. }
             | GoDeclarationKind::AliasCyclicOrUnresolved
             | GoDeclarationKind::AmbiguousProfileConflict => GoConcreteReceiverRoute::Unproven,
+        }
+    }
+
+    fn go_concrete_route_for_target(
+        &self,
+        recv_ty: &str,
+        target: &GoCanonicalTypeTarget,
+        method_name: &str,
+        caller_file: &str,
+    ) -> GoConcreteReceiverRoute {
+        let Some((owner, own_method)) =
+            self.go_own_method_partition(recv_ty, Some(&target.owner), method_name, caller_file)
+        else {
+            return GoConcreteReceiverRoute::Unproven;
+        };
+        if own_method.evidence.conflict || own_method.evidence.uncertain {
+            return GoConcreteReceiverRoute::ConcreteNoSelector {
+                owner,
+                evidence: own_method.evidence,
+            };
+        }
+        if own_method.value == Some(true) {
+            return GoConcreteReceiverRoute::ConcreteDirect {
+                owner,
+                selection: own_method,
+            };
+        }
+
+        if self
+            .go_promoted_concrete_selectors
+            .contains(&(owner.clone(), method_name.to_string()))
+        {
+            return GoConcreteReceiverRoute::ConcretePromotedDeferred { owner };
+        }
+
+        let embedded =
+            self.go_embedded_interface_route(recv_ty, Some(&owner), method_name, caller_file);
+        if embedded.evidence.conflict || embedded.evidence.uncertain {
+            return GoConcreteReceiverRoute::ConcreteNoSelector {
+                owner,
+                evidence: embedded.evidence,
+            };
+        }
+        if let Some(interface_name) = embedded.value {
+            return GoConcreteReceiverRoute::EmbeddedInterfaceDispatch {
+                owner,
+                interface_name,
+                evidence: embedded.evidence,
+            };
+        }
+
+        let Some(declarations) = self.go_field_types.get(&owner) else {
+            return GoConcreteReceiverRoute::ConcreteNoSelector {
+                owner,
+                evidence: GoPartitionEvidence::default(),
+            };
+        };
+        let mode = self.go_owner_reference_mode(&owner, caller_file);
+        let field = crate::go_owner_partition::select_struct_field_with_mode(
+            &owner,
+            caller_file,
+            mode,
+            method_name,
+            declarations,
+            &self.go_file_profiles,
+        );
+        if field.evidence.conflict || field.evidence.uncertain {
+            return GoConcreteReceiverRoute::ConcreteNoSelector {
+                owner,
+                evidence: field.evidence,
+            };
+        }
+        if field
+            .value
+            .as_deref()
+            .is_some_and(|ty| ty.trim_start().starts_with("func("))
+        {
+            GoConcreteReceiverRoute::FuncValueField { owner }
+        } else {
+            GoConcreteReceiverRoute::ConcreteNoSelector {
+                owner,
+                evidence: field.evidence,
+            }
         }
     }
 }
