@@ -5195,6 +5195,56 @@ mod tests {
         );
     }
 
+    /// P15a-fix3 (SMELL→deterministic): a FOREIGN thread constructing Go
+    /// providers while a measurement is live must contribute ZERO
+    /// attributions to that measurement. RED on the fix2 first-draft global
+    /// CURRENT_GENERATION (the foreign construction was counted), which
+    /// flaked only under full-suite parallelism; this reproduces it
+    /// deterministically.
+    #[test]
+    fn p15a_fix3_foreign_thread_constructions_not_attributed() {
+        use crate::type_providers::go::test_counters::MeasurementToken;
+        use crate::type_providers::go::GoTypeProvider;
+        use crate::languages::Language::Go;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+
+        let src = "package main\n\ntype S struct{ X int }\n";
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.go".to_string(),
+            ParsedFile::parse("main.go", src, Go).unwrap(),
+        );
+
+        let token = MeasurementToken::acquire();
+        let stop = Arc::new(AtomicBool::new(false));
+        let files = Arc::new(files);
+        let handle = {
+            let files = files.clone();
+            let stop = stop.clone();
+            // The measurement is LIVE for this whole thread's lifetime —
+            // exactly the window in which the old global-generation design
+            // misattributed.
+            std::thread::spawn(move || {
+                while !stop.load(Ordering::SeqCst) {
+                    let _p = GoTypeProvider::from_parsed_files(&files);
+                }
+            })
+        };
+        // Give the foreign thread a fair chance to construct (it would have
+        // inflated PLAIN_CONSTRUCTIONS under the pre-fix design).
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        stop.store(true, Ordering::SeqCst);
+        handle.join().unwrap();
+
+        assert_eq!(
+            token.plain_constructions(),
+            0,
+            "foreign-thread constructions must not be attributed to this measurement"
+        );
+        assert_eq!(token.live(), 0, "nor their drops");
+    }
+
     #[test]
     fn method_class_span_populated_for_python_methods() {
         use crate::languages::Language::Python;
