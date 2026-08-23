@@ -326,3 +326,120 @@ fn duplicate_effective_paths_among_active_modules_invalidate_the_workspace() {
     assert_eq!(graph.provider_path(""), None);
     assert_eq!(graph.provider_path("second"), None);
 }
+
+#[test]
+fn effective_identity_uses_the_nearest_active_provider_and_blocks_inactive_nested_modules() {
+    let root = module("example.com/root");
+    let nested = module("example.com/nested");
+    let deeper = module("example.com/deeper");
+    let mut graph = GoModuleGraph::new(
+        Path::new("/repo"),
+        &snapshot(&[
+            ("go.work", Some("go 1.22\nuse (\n.\n./nested/deeper\n)\n")),
+            ("go.mod", Some(&root)),
+            ("nested/go.mod", Some(&nested)),
+            ("nested/deeper/go.mod", Some(&deeper)),
+        ]),
+    );
+
+    assert_eq!(
+        graph.import_path_for_dir("pkg"),
+        Ok("example.com/root/pkg".to_string())
+    );
+    assert_eq!(
+        graph.import_path_for_dir("nested/pkg"),
+        Err(GoImportPathReason::InactiveModule)
+    );
+    assert_eq!(
+        graph.import_path_for_dir("nested/deeper/pkg/v2"),
+        Ok("example.com/deeper/pkg/v2".to_string())
+    );
+}
+
+#[test]
+fn replacement_identity_uses_the_lhs_instead_of_the_targets_declared_path() {
+    let root = "module example.com/root\nrequire original.example/a v0.0.0\nreplace original.example/a => ./fork\n";
+    let fork = module("fork.example/a");
+    let mut graph = GoModuleGraph::new(
+        Path::new("/repo"),
+        &snapshot(&[("go.mod", Some(root)), ("fork/go.mod", Some(&fork))]),
+    );
+
+    assert_eq!(
+        graph.import_path_for_dir("fork/p"),
+        Ok("original.example/a/p".to_string())
+    );
+}
+
+#[test]
+fn identity_reports_each_fail_closed_reason_at_the_nearest_boundary() {
+    let root = module("example.com/root");
+    let versioned = "module example.com/versioned\n";
+    let active = "module example.com/root\nrequire original.example/a v1.0.0\nreplace original.example/a v1.0.0 => ./versioned\n";
+    let mut graph = GoModuleGraph::new(
+        Path::new("/repo"),
+        &snapshot(&[
+            ("go.mod", Some(active)),
+            ("bad/go.mod", Some("module bad path\n")),
+            ("linked/go.mod", None),
+            ("versioned/go.mod", Some(versioned)),
+        ]),
+    );
+    assert_eq!(
+        graph.import_path_for_dir("bad/pkg"),
+        Err(GoImportPathReason::Malformed)
+    );
+    assert_eq!(
+        graph.import_path_for_dir("linked/pkg"),
+        Err(GoImportPathReason::Symlink)
+    );
+    assert_eq!(
+        graph.import_path_for_dir("versioned/pkg"),
+        Err(GoImportPathReason::ReplaceUnproven)
+    );
+
+    let mut none = GoModuleGraph::new(Path::new("/repo"), &ManifestSnapshot::default());
+    assert_eq!(
+        none.import_path_for_dir("pkg"),
+        Err(GoImportPathReason::NoGoMod)
+    );
+
+    let mut invalid = GoModuleGraph::new(
+        Path::new("/repo"),
+        &snapshot(&[("go.work", Some("go nope\n")), ("go.mod", Some(&root))]),
+    );
+    assert_eq!(
+        invalid.import_path_for_dir("pkg"),
+        Err(GoImportPathReason::WorkspaceInvalid)
+    );
+}
+
+#[test]
+fn directory_identities_are_memoized_and_each_snapshot_manifest_is_parsed_once() {
+    let root = module("example.com/root");
+    let nested = module("example.com/nested");
+    let snapshot = snapshot(&[
+        ("go.work", Some("go 1.22\nuse .\n")),
+        ("go.mod", Some(&root)),
+        ("nested/go.mod", Some(&nested)),
+        ("bad/go.mod", Some("module bad path\n")),
+        ("linked/go.mod", None),
+        ("pkg/testdata/go.mod", Some(&nested)),
+    ]);
+    let mut graph = GoModuleGraph::new(Path::new("/repo"), &snapshot);
+
+    assert_eq!(
+        graph.import_path_for_dir("pkg"),
+        graph.import_path_for_dir("pkg")
+    );
+    assert_eq!(graph.memo_len(), 1);
+    assert_eq!(
+        graph.manifest_parse_counts(),
+        &BTreeMap::from([
+            ("bad/go.mod".to_string(), 1),
+            ("go.mod".to_string(), 1),
+            ("go.work".to_string(), 1),
+            ("nested/go.mod".to_string(), 1),
+        ])
+    );
+}

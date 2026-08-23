@@ -2866,7 +2866,7 @@ impl CallGraph {
         let provider =
             crate::type_providers::go::GoTypeProvider::from_parsed_files_with_package_import_paths(
                 files,
-                &package_import_paths,
+                &package_import_paths.paths,
             );
         let table = provider.compute_interface_dispatch(&live);
         self.interface_impls = table.impls;
@@ -2900,111 +2900,28 @@ impl CallGraph {
     fn go_package_import_paths(
         files: &BTreeMap<String, ParsedFile>,
         scope_inputs: Option<&ScopeGraphBuildInputs>,
-    ) -> BTreeMap<String, String> {
-        use std::path::{Component, Path};
-
+    ) -> crate::go_module_graph::GoImportPathResolution {
         let Some(scope_inputs) = scope_inputs else {
-            return BTreeMap::new();
+            let mut resolution = crate::go_module_graph::GoImportPathResolution::default();
+            resolution.unproven_files = files
+                .values()
+                .filter(|parsed| parsed.language == crate::languages::Language::Go)
+                .count();
+            if resolution.unproven_files > 0 {
+                resolution.reasons.insert(
+                    crate::go_module_graph::GoImportPathReason::NoGoMod
+                        .as_str()
+                        .to_string(),
+                    resolution.unproven_files,
+                );
+            }
+            return resolution;
         };
-        let repo_root = &scope_inputs.repo_root;
-        if repo_root.as_os_str().is_empty() {
-            return BTreeMap::new();
-        }
-        let mut out = BTreeMap::new();
-        for (path, parsed) in files {
-            if parsed.language != crate::languages::Language::Go {
-                continue;
-            }
-            let relative = Path::new(path);
-            if relative.is_absolute()
-                || relative.components().any(|component| {
-                    matches!(
-                        component,
-                        Component::ParentDir | Component::RootDir | Component::Prefix(_)
-                    )
-                })
-            {
-                continue;
-            }
-            let package_relative = relative.parent().unwrap_or_else(|| Path::new(""));
-            let package_root = repo_root.join(package_relative);
-            let mut module_root = package_root.as_path();
-
-            loop {
-                let Some(module_relative) =
-                    module_root
-                        .strip_prefix(repo_root)
-                        .ok()
-                        .and_then(|relative| {
-                            relative
-                                .iter()
-                                .map(|part| part.to_str())
-                                .collect::<Option<Vec<_>>>()
-                        })
-                else {
-                    break;
-                };
-                let manifest_path = if module_relative.is_empty() {
-                    "go.mod".to_string()
-                } else {
-                    format!("{}/go.mod", module_relative.join("/"))
-                };
-                match scope_inputs.manifest_snapshot.get(&manifest_path) {
-                    Some(crate::manifest_snapshot::ManifestSnapshotEntry::Regular {
-                        bytes,
-                        ..
-                    }) => {
-                        if module_root != repo_root {
-                            break;
-                        }
-                        let Ok(go_mod) = std::str::from_utf8(bytes) else {
-                            break;
-                        };
-                        let Some(module_path) = Self::parse_go_module_path(go_mod) else {
-                            break;
-                        };
-                        let Some(suffix) =
-                            package_root
-                                .strip_prefix(module_root)
-                                .ok()
-                                .and_then(|suffix| {
-                                    suffix
-                                        .iter()
-                                        .map(|part| part.to_str())
-                                        .collect::<Option<Vec<_>>>()
-                                })
-                        else {
-                            break;
-                        };
-                        let suffix = suffix.join("/");
-                        let import_path = if suffix.is_empty() {
-                            module_path
-                        } else {
-                            format!("{}/{suffix}", module_path.trim_end_matches('/'))
-                        };
-                        out.insert(path.clone(), import_path);
-                        break;
-                    }
-                    Some(crate::manifest_snapshot::ManifestSnapshotEntry::SymlinkRefused) => break,
-                    None => {}
-                }
-                if module_root == repo_root {
-                    break;
-                }
-                let Some(parent) = module_root.parent() else {
-                    break;
-                };
-                if !parent.starts_with(repo_root) {
-                    break;
-                }
-                module_root = parent;
-            }
-        }
-        out
-    }
-
-    fn parse_go_module_path(go_mod: &str) -> Option<String> {
-        crate::go_mod::parse_module_path(go_mod)
+        let mut graph = crate::go_module_graph::GoModuleGraph::new(
+            &scope_inputs.repo_root,
+            &scope_inputs.manifest_snapshot,
+        );
+        graph.resolve_files(files)
     }
 
     fn clear_go_func_value_fields(&mut self) {

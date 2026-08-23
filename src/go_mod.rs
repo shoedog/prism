@@ -6,6 +6,7 @@ pub(crate) enum Token {
     Newline,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn parse_module_path(go_mod: &str) -> Option<String> {
     let tokens = tokenize(go_mod)?;
     let mut module_path = None;
@@ -49,6 +50,7 @@ pub(crate) fn parse_module_path(go_mod: &str) -> Option<String> {
     module_path.filter(|path| valid_module_path(path))
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn parse_parenthesized_path(tokens: &[Token], mut index: usize) -> Option<(String, usize)> {
     while matches!(tokens.get(index), Some(Token::Newline)) {
         index += 1;

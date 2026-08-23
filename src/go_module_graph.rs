@@ -1,9 +1,12 @@
-use crate::go_mod::{parse_module_path, tokenize, valid_module_path, Token};
+use crate::go_mod::{tokenize, valid_module_path, Token};
 use crate::manifest_snapshot::{ManifestSnapshot, ManifestSnapshotEntry};
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Component, Path, PathBuf};
+use std::path::{Component, Path};
 
+mod paths;
 mod replacements;
+use paths::{normalize_repo_dir, path_to_repo_string};
+mod identity;
 
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
@@ -39,6 +42,15 @@ pub(crate) struct GoModuleGraphTelemetry {
     pub(crate) workspace_invalid: bool,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct GoImportPathResolution {
+    pub(crate) paths: BTreeMap<String, String>,
+    pub(crate) proven_files: usize,
+    pub(crate) unproven_files: usize,
+    pub(crate) reasons: BTreeMap<String, usize>,
+    pub(crate) graph: GoModuleGraphTelemetry,
+}
+
 pub(crate) struct GoModuleGraph {
     telemetry: GoModuleGraphTelemetry,
     active: BTreeSet<String>,
@@ -47,11 +59,13 @@ pub(crate) struct GoModuleGraph {
     replace_unproven: BTreeSet<String>,
     replace_unproven_dirs: BTreeSet<String>,
     memo: BTreeMap<String, Result<String, GoImportPathReason>>,
+    manifest_parse_counts: BTreeMap<String, usize>,
 }
 
 impl GoModuleGraph {
     pub(crate) fn new(repo_root: &Path, snapshot: &ManifestSnapshot) -> Self {
         let mut boundaries = BTreeMap::new();
+        let mut manifest_parse_counts = BTreeMap::new();
         for (path, entry) in snapshot.entries() {
             let Some(dir) = go_mod_dir(path) else {
                 continue;
@@ -60,11 +74,14 @@ impl GoModuleGraph {
                 continue;
             }
             let boundary = match entry {
-                ManifestSnapshotEntry::Regular { bytes, .. } => std::str::from_utf8(bytes)
-                    .ok()
-                    .and_then(parse_go_mod)
-                    .map(ModuleBoundary::Valid)
-                    .unwrap_or(ModuleBoundary::Malformed),
+                ManifestSnapshotEntry::Regular { bytes, .. } => {
+                    *manifest_parse_counts.entry(path.clone()).or_default() += 1;
+                    std::str::from_utf8(bytes)
+                        .ok()
+                        .and_then(parse_go_mod)
+                        .map(ModuleBoundary::Valid)
+                        .unwrap_or(ModuleBoundary::Malformed)
+                }
                 ManifestSnapshotEntry::SymlinkRefused => ModuleBoundary::Symlink,
             };
             boundaries.insert(dir, boundary);
@@ -84,6 +101,7 @@ impl GoModuleGraph {
             replace_unproven: BTreeSet::new(),
             replace_unproven_dirs: BTreeSet::new(),
             memo: BTreeMap::new(),
+            manifest_parse_counts,
         };
         let work = graph.select_active_modules(repo_root, snapshot);
         if !graph.telemetry.workspace_invalid {
@@ -100,6 +118,10 @@ impl GoModuleGraph {
         let mut parsed_work = None;
         match snapshot.get("go.work") {
             Some(ManifestSnapshotEntry::Regular { bytes, .. }) => {
+                *self
+                    .manifest_parse_counts
+                    .entry("go.work".to_string())
+                    .or_default() += 1;
                 let Some(work) = std::str::from_utf8(bytes).ok().and_then(parse_go_work) else {
                     self.invalidate_workspace();
                     return None;
@@ -114,7 +136,10 @@ impl GoModuleGraph {
                         self.invalidate_workspace();
                         return None;
                     }
-                    active.insert(dir);
+                    if !active.insert(dir) {
+                        self.invalidate_workspace();
+                        return None;
+                    }
                 }
                 self.active = active;
                 parsed_work = Some(work);
@@ -160,6 +185,7 @@ impl GoModuleGraph {
         self.providers.clear();
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn telemetry(&self) -> &GoModuleGraphTelemetry {
         &self.telemetry
     }
@@ -187,6 +213,11 @@ impl GoModuleGraph {
     #[cfg(test)]
     fn replacement_dir_is_unproven(&self, dir: &str) -> bool {
         self.replace_unproven_dirs.contains(dir)
+    }
+
+    #[cfg(test)]
+    fn manifest_parse_counts(&self) -> &BTreeMap<String, usize> {
+        &self.manifest_parse_counts
     }
 }
 
@@ -230,20 +261,21 @@ struct Directive {
 }
 
 fn parse_go_mod(source: &str) -> Option<ParsedGoMod> {
-    let module_path = parse_module_path(source)?;
     let directives = parse_directives(source)?;
-    let mut module_count = 0usize;
+    let mut module_path = None;
     let mut singleton_directives = BTreeSet::new();
     let mut requires = BTreeSet::new();
+    let mut replace_keys = BTreeSet::new();
     let mut replaces = Vec::new();
 
     for directive in directives {
         match directive.name.as_str() {
             "module" => {
-                module_count += 1;
-                if directive.args.as_slice() != [module_path.as_str()] {
+                validate_args(&directive.args, 1)?;
+                if module_path.is_some() || !valid_module_path(&directive.args[0]) {
                     return None;
                 }
+                module_path = Some(directive.args[0].clone());
             }
             "go" => validate_singleton(&directive, &mut singleton_directives, valid_go_version)?,
             "toolchain" => validate_singleton(&directive, &mut singleton_directives, |value| {
@@ -263,7 +295,9 @@ fn parse_go_mod(source: &str) -> Option<ParsedGoMod> {
                 {
                     return None;
                 }
-                requires.insert(directive.args[0].clone());
+                if !requires.insert(directive.args[0].clone()) {
+                    return None;
+                }
             }
             "exclude" => {
                 validate_args(&directive.args, 2)?;
@@ -273,7 +307,16 @@ fn parse_go_mod(source: &str) -> Option<ParsedGoMod> {
                     return None;
                 }
             }
-            "replace" => replaces.push(parse_replace(&directive.args)?),
+            "replace" => {
+                let replacement = parse_replace(&directive.args)?;
+                if !replace_keys.insert((
+                    replacement.lhs_path.clone(),
+                    replacement.lhs_version.clone(),
+                )) {
+                    return None;
+                }
+                replaces.push(replacement);
+            }
             "retract" => {
                 if directive.args.is_empty() {
                     return None;
@@ -282,8 +325,8 @@ fn parse_go_mod(source: &str) -> Option<ParsedGoMod> {
             _ => return None,
         }
     }
-    (module_count == 1).then_some(ParsedGoMod {
-        path: module_path,
+    Some(ParsedGoMod {
+        path: module_path?,
         requires,
         replaces,
     })
@@ -292,6 +335,7 @@ fn parse_go_mod(source: &str) -> Option<ParsedGoMod> {
 fn parse_go_work(source: &str) -> Option<ParsedGoWork> {
     let directives = parse_directives(source)?;
     let mut singleton_directives = BTreeSet::new();
+    let mut replace_keys = BTreeSet::new();
     let mut uses = Vec::new();
     let mut replaces = Vec::new();
     for directive in directives {
@@ -305,7 +349,16 @@ fn parse_go_work(source: &str) -> Option<ParsedGoWork> {
                 validate_args(&directive.args, 1)?;
                 uses.push(directive.args[0].clone());
             }
-            "replace" => replaces.push(parse_replace(&directive.args)?),
+            "replace" => {
+                let replacement = parse_replace(&directive.args)?;
+                if !replace_keys.insert((
+                    replacement.lhs_path.clone(),
+                    replacement.lhs_version.clone(),
+                )) {
+                    return None;
+                }
+                replaces.push(replacement);
+            }
             _ => return None,
         }
     }
@@ -467,64 +520,6 @@ fn go_mod_dir(path: &str) -> Option<String> {
 fn manifest_is_excluded(path: &str) -> bool {
     Path::new(path).components().any(
         |component| matches!(component, Component::Normal(name) if name == "vendor" || name == "testdata"),
-    )
-}
-
-fn normalize_repo_dir(repo_root: &Path, base_dir: &str, raw: &str) -> Option<String> {
-    if Path::new(raw).is_absolute() {
-        let root = lexical_absolute(repo_root)?;
-        let target = lexical_absolute(Path::new(raw))?;
-        return path_to_repo_string(target.strip_prefix(root).ok()?);
-    }
-
-    let mut parts = if base_dir.is_empty() {
-        Vec::new()
-    } else {
-        base_dir.split('/').map(str::to_string).collect()
-    };
-    for component in Path::new(raw).components() {
-        match component {
-            Component::CurDir => {}
-            Component::Normal(part) => parts.push(part.to_str()?.to_string()),
-            Component::ParentDir => {
-                parts.pop()?;
-            }
-            Component::RootDir | Component::Prefix(_) => return None,
-        }
-    }
-    Some(parts.join("/"))
-}
-
-fn lexical_absolute(path: &Path) -> Option<PathBuf> {
-    if !path.is_absolute() {
-        return None;
-    }
-    let mut out = PathBuf::new();
-    for component in path.components() {
-        match component {
-            Component::Prefix(prefix) => out.push(prefix.as_os_str()),
-            Component::RootDir => out.push(Path::new("/")),
-            Component::CurDir => {}
-            Component::ParentDir => {
-                if !out.pop() {
-                    return None;
-                }
-            }
-            Component::Normal(part) => out.push(part),
-        }
-    }
-    Some(out)
-}
-
-fn path_to_repo_string(path: &Path) -> Option<String> {
-    Some(
-        path.components()
-            .map(|component| match component {
-                Component::Normal(part) => part.to_str(),
-                _ => None,
-            })
-            .collect::<Option<Vec<_>>>()?
-            .join("/"),
     )
 }
 
