@@ -153,7 +153,7 @@ fn go_promoted_snapshot_is_byte_equal_without_cache_on_exact_hit_and_sidecar_hit
         );
         let repo = Arc::new(load_repo(repo_d.path()).unwrap());
         let bytes = |index: &NavigationIndex| {
-            serde_json::to_vec(index.call_graph().go_promoted_selector_snapshot())
+            bincode::serialize(index.call_graph().go_promoted_selector_snapshot())
                 .expect("serialize promoted-selector snapshot")
         };
 
