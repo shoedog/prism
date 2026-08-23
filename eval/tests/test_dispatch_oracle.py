@@ -429,6 +429,26 @@ def test_run_oracle_concrete_definition_is_singleton_ground_truth(tmp_path):
     assert implementation_calls == 0
 
 
+def test_run_oracle_concrete_zero_fanout_is_not_dispatch(tmp_path):
+    adapter = _identity("Adapter", "adapter.go", [32, 64], "caddyfile")
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={
+            "file": "adapter.go", "line": 31, "character": 4,
+            "kind": "concrete", "identity": adapter,
+        },
+        satisfiers=[],
+        prism_identities=[],
+    )
+    summary = do.summarize([record])
+    assert record["classification"] == "not_dispatch"
+    assert implementation_calls == 0
+    assert summary["overall"]["in_scope_sites"] == 1
+    assert summary["overall"]["not_dispatch_sites"] == 1
+    assert summary["overall"]["scored_sites"] == 0
+    assert summary["overall"]["dispatch_precision"] is None
+
+
 def test_run_oracle_interface_definition_still_uses_implementation(tmp_path):
     impl = _identity("Impl", "impl.go", [3, 5])
     record, implementation_calls = _run_fake_oracle(

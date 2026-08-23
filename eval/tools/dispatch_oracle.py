@@ -257,6 +257,7 @@ def compare_site(
     failure_stage: str | None = None,
     unresolved_locations: list[dict] | None = None,
     oracle_reason: str | None = None,
+    not_dispatch: bool = False,
 ) -> dict:
     """One per-site comparison record with qualified or legacy name-only identity.
 
@@ -337,6 +338,9 @@ def compare_site(
         prism_only_identities = _identity_key_records(prism_only)
         gopls_only_identities = _identity_key_records(gopls_only)
 
+    if not_dispatch:
+        classification = "not_dispatch"
+
     if oracle_reason is None and not unresolved_locations and prism == set() and gopls == set():
         oracle_reason = (
             "empty_satisfier_set" if not non_candidate_locations
@@ -386,12 +390,15 @@ def summarize(sites: list[dict]) -> dict:
     groups: dict[tuple, dict] = {}
     overall = {
         "sites": 0,
+        "in_scope_sites": 0,
         "sound": 0,
         "over_approx": 0,
         "recall_gap": 0,
         "oracle_timeout": 0,
         "oracle_unresolved": 0,
         "target_mismatch": 0,
+        "not_dispatch": 0,
+        "not_dispatch_sites": 0,
         "scored_sites": 0,
     }
     overall_acc = _precision_acc()
@@ -437,6 +444,8 @@ def summarize(sites: list[dict]) -> dict:
                 "oracle_timeout": 0,
                 "oracle_unresolved": 0,
                 "target_mismatch": 0,
+                "not_dispatch": 0,
+                "not_dispatch_sites": 0,
                 "scored_sites": 0,
                 "_acc": _precision_acc(),
             },
@@ -445,7 +454,12 @@ def summarize(sites: list[dict]) -> dict:
         g["sites"] += 1
         g[cls] += 1
         overall["sites"] += 1
+        overall["in_scope_sites"] += 1
         overall[cls] += 1
+        if cls == "not_dispatch":
+            g["not_dispatch_sites"] += 1
+            overall["not_dispatch_sites"] += 1
+            continue
         if cls == "oracle_timeout":
             timeout_groups[key] = (s["interface"], s["method"])
             continue
@@ -1259,6 +1273,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
             unresolved_locations: list[dict] = []
             definition_kind = "unknown"
             failure_stage: str | None = "token" if col is None else None
+            not_dispatch = False
             iface = None
             if col is not None:
                 # 1) Resolve the concrete or interface declaration at this exact call.
@@ -1283,6 +1298,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                         # implements, not a concrete satisfier. The definition itself is
                         # therefore the complete singleton ground truth.
                         gopls_identities = [concrete_identity]
+                        not_dispatch = s.get("fanout", len(prism_set)) == 0
                         failure_stage = None
                 elif definition_kind == "interface":
                     decl_file = decl.get("file")
@@ -1345,6 +1361,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                     definition_kind=definition_kind,
                     failure_stage=failure_stage,
                     unresolved_locations=unresolved_locations,
+                    not_dispatch=not_dispatch,
                 )
             else:
                 # Compatibility only: old manifests lack target/package evidence, so the
@@ -1359,6 +1376,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                     prism_set=prism_set, gopls_set=gopls_set,
                     definition_kind=definition_kind, failure_stage=failure_stage,
                     unresolved_locations=unresolved_locations,
+                    not_dispatch=not_dispatch,
                 )
             # Preserve the manifest site identity in the durable output so baseline
             # deltas cannot collapse distinct calls that share a source line.
