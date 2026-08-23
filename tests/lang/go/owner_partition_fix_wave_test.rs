@@ -21,6 +21,15 @@ fn build_go_with_module(sources: &[(&str, &str)], module_path: &str) -> CallGrap
 }
 
 fn build_go_with_modules(sources: &[(&str, &str)], modules: &[(&str, &str)]) -> CallGraph {
+    build_go_with_module_manifests(sources, modules, &[], None)
+}
+
+fn build_go_with_module_manifests(
+    sources: &[(&str, &str)],
+    modules: &[(&str, &str)],
+    go_mod_additions: &[(&str, &str)],
+    go_work: Option<&str>,
+) -> CallGraph {
     let files: BTreeMap<String, ParsedFile> = sources
         .iter()
         .map(|(path, source)| {
@@ -34,11 +43,18 @@ fn build_go_with_modules(sources: &[(&str, &str)], modules: &[(&str, &str)]) -> 
     for (directory, module_path) in modules {
         let module_root = repo.path().join(directory);
         std::fs::create_dir_all(&module_root).expect("create Go module fixture directory");
+        let additions = go_mod_additions
+            .iter()
+            .find_map(|(candidate, additions)| (*candidate == *directory).then_some(*additions))
+            .unwrap_or_default();
         std::fs::write(
             module_root.join("go.mod"),
-            format!("module {module_path}\n\ngo 1.22\n"),
+            format!("module {module_path}\n\ngo 1.22\n{additions}"),
         )
         .expect("write go.mod fixture");
+    }
+    if let Some(go_work) = go_work {
+        std::fs::write(repo.path().join("go.work"), go_work).expect("write go.work fixture");
     }
     let inputs = prism::repo_loader::scope_graph_build_inputs(repo.path(), &files);
     CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs))
@@ -69,6 +85,78 @@ fn resolved_target_names(cg: &CallGraph, caller: &str, callee: &str) -> BTreeSet
         .resolved
         .iter()
         .map(|resolved| resolved.target.name.clone())
+        .collect()
+}
+
+type DispatchTargetIdentity = (String, String, String, String);
+
+fn resolved_exact_dispatch_identities(
+    cg: &CallGraph,
+    caller: &str,
+    method: &str,
+) -> BTreeSet<DispatchTargetIdentity> {
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.caller.name == caller && site.callee_name == method)
+        .expect("interface dispatch site");
+    cg.resolve_call_site_full(site)
+        .resolved
+        .iter()
+        .map(|resolved| {
+            assert_eq!(
+                resolved.confidence,
+                prism::resolution::ResolutionConfidence::Exact
+            );
+            assert_eq!(
+                resolved.kind,
+                prism::resolution::ResolutionKind::InterfaceDispatch
+            );
+            let target = resolved.target;
+            (
+                target
+                    .file
+                    .rsplit_once('/')
+                    .map(|(directory, _)| directory)
+                    .unwrap_or_default()
+                    .to_string(),
+                cg.go_file_profiles[&target.file].package_clause.clone(),
+                cg.method_owners[target].clone(),
+                target.file.clone(),
+            )
+        })
+        .collect()
+}
+
+fn manifest_dispatch_identities(
+    cg: &CallGraph,
+    caller_file: &str,
+    method: &str,
+) -> BTreeSet<DispatchTargetIdentity> {
+    prism::navigation::queries::interface_dispatch_manifest(cg)["sites"]
+        .as_array()
+        .expect("manifest sites")
+        .iter()
+        .find(|site| site["file"] == caller_file && site["method"] == method)
+        .expect("manifest dispatch site")["implementer_identities"]
+        .as_array()
+        .expect("manifest implementer identities")
+        .iter()
+        .map(|identity| {
+            (
+                identity["package_dir"]
+                    .as_str()
+                    .expect("package_dir")
+                    .to_string(),
+                identity["package_clause"]
+                    .as_str()
+                    .expect("package_clause")
+                    .to_string(),
+                identity["name"].as_str().expect("name").to_string(),
+                identity["file"].as_str().expect("file").to_string(),
+            )
+        })
         .collect()
 }
 
@@ -659,6 +747,102 @@ fn s4_root_local_interface_rejects_nested_bare_and_keeps_qualified_same_path() {
         manifest_owners(&with_qualified_root_implementer, "context.go", "Act"),
         expected
     );
+}
+
+#[test]
+fn workspace_active_nested_bare_signature_matches_qualified_root_reference_with_manifest_parity() {
+    let sources = [
+        (
+            "context.go",
+            "package root\nimport nested \"example.com/nested\"\ntype Doer interface { Act(nested.Context) }\ntype Holder struct { Doer }\nfunc invoke(h Holder, ctx nested.Context) { h.Act(ctx) }\n",
+        ),
+        (
+            "nested/impl.go",
+            "package nested\ntype Context struct{}\ntype Impl struct{}\nfunc (Impl) Act(Context) {}\n",
+        ),
+    ];
+    let modules = [("", "example.com/root"), ("nested", "example.com/nested")];
+    let with_workspace = build_go_with_module_manifests(
+        &sources,
+        &modules,
+        &[],
+        Some("go 1.22\nuse (\n.\n./nested\n)\n"),
+    );
+    let expected = BTreeSet::from([(
+        "nested".to_string(),
+        "nested".to_string(),
+        "Impl".to_string(),
+        "nested/impl.go".to_string(),
+    )]);
+
+    assert_eq!(
+        resolved_exact_dispatch_identities(&with_workspace, "invoke", "Act"),
+        expected
+    );
+    assert_eq!(
+        manifest_dispatch_identities(&with_workspace, "context.go", "Act"),
+        expected
+    );
+
+    let without_workspace = build_go_with_modules(&sources, &modules);
+    assert!(resolved_exact_dispatch_identities(&without_workspace, "invoke", "Act").is_empty());
+    assert!(manifest_dispatch_identities(&without_workspace, "context.go", "Act").is_empty());
+}
+
+#[test]
+fn required_local_replace_matches_fork_identity_and_excludes_declared_path_decoy() {
+    let sources = [
+        (
+            "api.go",
+            "package root\nimport p \"original.example/mod/p\"\ntype Doer interface { Act(p.T) }\ntype Holder struct { Doer }\nfunc invoke(h Holder, value p.T) { h.Act(value) }\n",
+        ),
+        (
+            "fork/p/impl.go",
+            "package p\ntype T struct{}\ntype Impl struct{}\nfunc (Impl) Act(T) {}\n",
+        ),
+        (
+            "decoy/p/impl.go",
+            "package p\ntype T struct{}\ntype Decoy struct{}\nfunc (Decoy) Act(T) {}\n",
+        ),
+    ];
+    let modules = [
+        ("", "example.com/root"),
+        ("fork", "fork.example/mod"),
+        ("decoy", "original.example/mod"),
+    ];
+    let with_requirement = build_go_with_module_manifests(
+        &sources,
+        &modules,
+        &[(
+            "",
+            "require original.example/mod v0.0.0\nreplace original.example/mod => ./fork\n",
+        )],
+        None,
+    );
+    let expected = BTreeSet::from([(
+        "fork/p".to_string(),
+        "p".to_string(),
+        "Impl".to_string(),
+        "fork/p/impl.go".to_string(),
+    )]);
+
+    assert_eq!(
+        resolved_exact_dispatch_identities(&with_requirement, "invoke", "Act"),
+        expected
+    );
+    assert_eq!(
+        manifest_dispatch_identities(&with_requirement, "api.go", "Act"),
+        expected
+    );
+
+    let without_requirement = build_go_with_module_manifests(
+        &sources,
+        &modules,
+        &[("", "replace original.example/mod => ./fork\n")],
+        None,
+    );
+    assert!(resolved_exact_dispatch_identities(&without_requirement, "invoke", "Act").is_empty());
+    assert!(manifest_dispatch_identities(&without_requirement, "api.go", "Act").is_empty());
 }
 
 #[test]
