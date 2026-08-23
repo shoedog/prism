@@ -1075,7 +1075,12 @@ impl GoTypeProvider {
                 imports,
                 go_file_profiles,
             ),
-            _ => {
+            // SOL-W1: the alias index is PACKAGE-LEVEL only. Recurse solely
+            // through the declaration containers a package-level spec can
+            // appear under — never into function bodies, where block-local
+            // `type X = …` declarations would otherwise fabricate "variants"
+            // of same-named package types and gap their signatures.
+            "type_declaration" | "ERROR" | "source_file" => {
                 let mut cursor = node.walk();
                 for child in node.children(&mut cursor) {
                     Self::record_alias_declarations(
@@ -1088,6 +1093,7 @@ impl GoTypeProvider {
                     );
                 }
             }
+            _ => {}
         }
     }
 
@@ -1564,7 +1570,19 @@ impl GoTypeProvider {
                 if let Some(placeholder) = env.type_params.get(name) {
                     return Ok(placeholder.clone());
                 }
-                if Self::is_predeclared_go_type(name) {
+                // SOL-W2: a visible package declaration named like a
+                // predeclared type SHADOWS it — resolve the alias index first
+                // and skip normalization whenever any own-package declaration
+                // of the name exists.
+                let mut shadows_predeclared = false;
+                if let Some(alias) = env.alias {
+                    match alias.expand_own(name) {
+                        Ok(Some(rhs)) => return Self::expanded_alias_type(alias, &rhs),
+                        Ok(None) => shadows_predeclared = alias.own_variants_exist(name),
+                        Err(reason) => return Err(GoDispatchGap::AliasUnresolved(reason)),
+                    }
+                }
+                if !shadows_predeclared && Self::is_predeclared_go_type(name) {
                     // Predeclared normalization in canonical comparison
                     // (spec §5): byte≡uint8, rune≡int32.
                     return Ok(match name {
@@ -1579,19 +1597,11 @@ impl GoTypeProvider {
                 }
                 if let Some(alias) = env.alias {
                     match alias.expand_own(name) {
-                        Ok(Some(rhs)) if rhs.type_params == 0 => {
-                            return alias
-                                .expand_canonical(&rhs.text)
-                                .map_err(GoDispatchGap::AliasUnresolved);
-                        }
-                        Ok(Some(_)) => {
-                            // Bare reference to a parameterized alias: invalid Go.
-                            return Err(GoDispatchGap::AliasUnresolved(
-                                crate::go_alias_index::GoAliasUnresolvedReason::Arity,
-                            ));
-                        }
-                        Ok(None) => {}
-                        Err(reason) => return Err(GoDispatchGap::AliasUnresolved(reason)),
+                        resolved => match resolved {
+                            Ok(Some(rhs)) => return Self::expanded_alias_type(alias, &rhs),
+                            Ok(None) => {}
+                            Err(reason) => return Err(GoDispatchGap::AliasUnresolved(reason)),
+                        },
                     }
                 }
                 Ok(imports
@@ -1617,18 +1627,11 @@ impl GoTypeProvider {
                 }
                 if let Some(alias) = env.alias {
                     match alias.expand_qualified(import_path, type_name) {
-                        Ok(Some(rhs)) if rhs.type_params == 0 => {
-                            return alias
-                                .expand_canonical(&rhs.text)
-                                .map_err(GoDispatchGap::AliasUnresolved);
-                        }
-                        Ok(Some(_)) => {
-                            return Err(GoDispatchGap::AliasUnresolved(
-                                crate::go_alias_index::GoAliasUnresolvedReason::Arity,
-                            ));
-                        }
-                        Ok(None) => {}
-                        Err(reason) => return Err(GoDispatchGap::AliasUnresolved(reason)),
+                        resolved => match resolved {
+                            Ok(Some(rhs)) => return Self::expanded_alias_type(alias, &rhs),
+                            Ok(None) => {}
+                            Err(reason) => return Err(GoDispatchGap::AliasUnresolved(reason)),
+                        },
                     }
                 }
                 Ok(format!("@{import_path}::{type_name}"))
@@ -1782,6 +1785,22 @@ impl GoTypeProvider {
             }
             _ => Err(GoDispatchGap::UnknownCanonType),
         }
+    }
+
+    /// A leaf resolved to an alias RHS: fully expand it, or fail closed on a
+    /// bare reference to a parameterized alias (invalid Go).
+    fn expanded_alias_type(
+        alias: &crate::go_alias_index::AliasExpansionCtx<'_>,
+        rhs: &crate::go_alias_index::GoAliasRhs,
+    ) -> Result<String, GoDispatchGap> {
+        if rhs.type_params != 0 {
+            return Err(GoDispatchGap::AliasUnresolved(
+                crate::go_alias_index::GoAliasUnresolvedReason::Arity,
+            ));
+        }
+        alias
+            .expand_canonical(&rhs.text)
+            .map_err(GoDispatchGap::AliasUnresolved)
     }
 
     /// Compare canonical signatures while preserving the pre-existing name-only rules

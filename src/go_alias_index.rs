@@ -126,9 +126,31 @@ impl<'a> AliasExpansionCtx<'a> {
         )
     }
 
+    /// True when EVERY recorded variant of `key` is `Defined` — an ordinary
+    /// named type whose leaf behavior never involves alias visibility logic
+    /// (SOL-W5: a build-tag certainty cap must not turn it into a gap).
+    fn all_defined(&self, key: &(String, String, String)) -> bool {
+        self.index.variants.get(key).is_some_and(|variants| {
+            !variants.is_empty()
+                && variants
+                    .iter()
+                    .all(|variant| variant.kind == GoAliasKind::Defined)
+        })
+    }
+
+    /// True when ANY package-level declaration variant exists for `name` in
+    /// the consumer's own (dir, clause) — used by canon_type to detect that a
+    /// package declaration SHADOWS a predeclared name (SOL-W2).
+    pub fn own_variants_exist(&self, name: &str) -> bool {
+        self.index.variants.contains_key(&self.own_key(name))
+    }
+
     /// Exactly-visible variants for an OWN-PACKAGE reference.
     fn own_variants(&self, name: &str) -> (Vec<&GoAliasVariant>, bool) {
         let key = self.own_key(name);
+        if self.all_defined(&key) {
+            return (Vec::new(), false);
+        }
         self.filter_exact(key, |ctx, consumer_file, declaring_file| {
             crate::go_owner_partition::exact_declaration_visibility(
                 &crate::resolution::GoOwnerIdentity {
@@ -152,6 +174,25 @@ impl<'a> AliasExpansionCtx<'a> {
         let Some(dirs) = self.index.dirs_by_path.get(import_path) else {
             return (out, false);
         };
+        // SOL-W5: all-Defined names keep existing leaf behavior regardless of
+        // profile-certainty outcomes.
+        let mut saw_variant = false;
+        let mut all_defined = true;
+        for dir in dirs {
+            for ((d, _c, n), variants) in self.index.variants.range(
+                (dir.clone(), String::new(), name.to_string())
+                    ..=(dir.clone(), "\u{10FFFF}".to_string(), name.to_string()),
+            ) {
+                let _ = (d, n);
+                saw_variant = true;
+                if variants.iter().any(|v| v.kind != GoAliasKind::Defined) {
+                    all_defined = false;
+                }
+            }
+        }
+        if saw_variant && all_defined {
+            return (out, false);
+        }
         for dir in dirs {
             let keys: Vec<_> = self
                 .index
@@ -219,10 +260,12 @@ impl<'a> AliasExpansionCtx<'a> {
             self.record_unresolved(GoAliasUnresolvedReason::ProfileUncertain);
             return Err(GoAliasUnresolvedReason::ProfileUncertain);
         }
-        let mut kinds: Vec<(&GoAliasKind, Option<&String>)> = Vec::new();
+        let mut kinds: Vec<(&GoAliasKind, Option<(&String, usize)>)> = Vec::new();
         for variant in variants {
             match &variant.kind {
-                GoAliasKind::Alias { rhs, .. } => kinds.push((&variant.kind, rhs.as_ref())),
+                GoAliasKind::Alias { rhs, type_params } => {
+                    kinds.push((&variant.kind, rhs.as_ref().map(|text| (text, *type_params))));
+                }
                 GoAliasKind::Defined => kinds.push((&variant.kind, None)),
             }
         }
@@ -242,19 +285,17 @@ impl<'a> AliasExpansionCtx<'a> {
             }
             return Ok(None);
         }
-        // All Alias: every RHS (including "failed to canonicalize") must agree.
+        // All Alias: every (RHS, arity) pair — including "failed to
+        // canonicalize" — must agree across exactly-visible profiles.
         let first = kinds[0].1;
-        if kinds[1..].iter().any(|(_, rhs)| rhs != &first) {
+        if kinds[1..].iter().any(|other| other.1 != first) {
             self.record_unresolved(GoAliasUnresolvedReason::DefinedVariant);
             return Err(GoAliasUnresolvedReason::DefinedVariant);
         }
         match first {
-            Some(rhs) => Ok(Some(GoAliasRhs {
-                text: rhs.clone(),
-                type_params: match kinds[0].0 {
-                    GoAliasKind::Alias { type_params, .. } => *type_params,
-                    _ => 0,
-                },
+            Some((text, type_params)) => Ok(Some(GoAliasRhs {
+                text: text.clone(),
+                type_params: type_params,
             })),
             None => {
                 self.record_unresolved(GoAliasUnresolvedReason::Unresolvable);
@@ -371,12 +412,17 @@ impl<'a> AliasExpansionCtx<'a> {
                         }
                         Ok(Some(rhs)) => {
                             let key = self.alias_key_for(marker, &path, &name);
-                            if let Some(key) = key {
-                                if !guard.insert(key.clone()) {
-                                    return Err(self.fail(GoAliasUnresolvedReason::Cycle));
-                                }
+                            let inserted = key.as_ref().map(|key| guard.insert(key.clone()));
+                            if inserted == Some(false) {
+                                return Err(self.fail(GoAliasUnresolvedReason::Cycle));
                             }
-                            out.push_str(&self.expand_canonical_guarded(&rhs.text, guard)?);
+                            // Path-scoped: the guard entry is removed on EVERY
+                            // exit path so sibling leaves can reuse the alias.
+                            let expanded = self.expand_canonical_guarded(&rhs.text, guard);
+                            if let Some(key) = key {
+                                guard.remove(&key);
+                            }
+                            out.push_str(&expanded?);
                         }
                     }
                 }

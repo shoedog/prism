@@ -518,3 +518,159 @@ fn s4_generic_instantiation_wrapping_an_alias_keeps_shape() {
         expected
     );
 }
+
+#[test]
+fn s4_block_local_alias_declarations_never_enter_the_package_index() {
+    // SOL-W1: a block-local `type ID = int` inside an unrelated function body
+    // must not become a package-level variant of the real Defined `ID`.
+    let cg = build_go(&[
+        (
+            "lib/defs.go",
+            "package lib\ntype ID struct{}\ntype Doer interface { Act(ID) }\ntype Holder struct { Doer }\nfunc invoke(h Holder, id ID) { h.Act(id) }\nfunc unrelated() { type ID = int; _ = ID(0) }\n",
+        ),
+        (
+            "lib/impl.go",
+            "package lib\ntype Impl struct{}\nfunc (Impl) Act(i ID) {}\n",
+        ),
+    ]);
+    assert_eq!(
+        resolved_method_owners(&cg, "invoke", "Act"),
+        BTreeSet::from(["Impl".to_string()])
+    );
+    let stats = call_stats(&cg);
+    assert_eq!(
+        stats["go_alias_unresolved"]["defined_variant"]
+            .as_u64()
+            .unwrap_or(0),
+        0
+    );
+}
+
+#[test]
+fn s4_cycle_guard_is_path_scoped_sibling_leaves_expand() {
+    // SOL-W3 / fix-1: the first B's guard entry must be removed before the
+    // second B expands — `func(B, B)` matches `func(int, int)`.
+    let cg = build_go(&[
+        (
+            "lib/defs.go",
+            "package lib\ntype B = int\ntype F = func(B, B)\ntype M = map[B]B\ntype S = []B\ntype Doer interface { UseF(F); UseM(M); UseS(S); UseB(B) }\ntype Holder struct { Doer }\nfunc invoke(h Holder) { h.UseF(nil); h.UseM(nil); h.UseS(nil); h.UseB(0) }\n",
+        ),
+        (
+            "lib/impl.go",
+            "package lib\ntype Impl struct{}\nfunc (Impl) UseF(f func(int, int)) {}\nfunc (Impl) UseM(m map[int]int) {}\nfunc (Impl) UseS(s []int) {}\nfunc (Impl) UseB(b int) {}\n",
+        ),
+    ]);
+
+    for (caller, method) in [
+        ("invoke", "UseF"),
+        ("invoke", "UseM"),
+        ("invoke", "UseS"),
+        ("invoke", "UseB"),
+    ] {
+        let site = cg
+            .calls
+            .values()
+            .flatten()
+            .find(|s| s.caller.name == caller && s.callee_name == method)
+            .expect("site");
+        let owners: Vec<_> = cg
+            .resolve_call_site_full(site)
+            .resolved
+            .iter()
+            .filter_map(|r| cg.method_owners.get(&r.target).cloned())
+            .collect();
+        assert_eq!(
+            owners,
+            vec!["Impl".to_string()],
+            "{method} must keep its true Exact edge"
+        );
+    }
+}
+
+#[test]
+fn s4_package_declaration_shadows_predeclared_byte_and_rune() {
+    // SOL-W2 / fix-2: a visible package declaration named `byte` must be
+    // resolved BEFORE predeclared normalization.
+    let shadowing = build_go(&[
+        ("base/b.go", "package base\ntype ID struct{}\n"),
+        (
+            "lib/defs.go",
+            "package lib\nimport \"example.com/prism/base\"\ntype byte = base.ID\ntype Doer interface { Act(byte) }\ntype Holder struct { Doer }\nfunc invoke(h Holder) { h.Act(base.ID{}) }\n",
+        ),
+        (
+            "lib/impl_shadow.go",
+            "package lib\nimport \"example.com/prism/base\"\ntype ImplShadow struct{}\nfunc (ImplShadow) Act(i base.ID) {}\n",
+        ),
+        (
+            "lib/impl_uint8.go",
+            "package lib\ntype ImplUint8 struct{}\nfunc (ImplUint8) Act(b uint8) {}\n",
+        ),
+    ]);
+    // The alias expands to base.ID: matches the base.ID implementer, never uint8.
+    let site = shadowing
+        .calls
+        .values()
+        .flatten()
+        .find(|s| s.caller.name == "invoke" && s.callee_name == "Act")
+        .expect("site");
+    let owners: Vec<_> = shadowing
+        .resolve_call_site_full(site)
+        .resolved
+        .iter()
+        .filter_map(|r| shadowing.method_owners.get(&r.target).cloned())
+        .collect();
+    assert_eq!(owners, vec!["ImplShadow".to_string()]);
+
+    // A DEFINED shadow (`type rune int32`) also disables normalization.
+    let defined_shadow = build_go(&[
+        (
+            "lib/defs.go",
+            "package lib\ntype rune int32\ntype Doer interface { Act(rune) }\ntype Holder struct { Doer }\nfunc invoke(h Holder) { h.Act(rune(0)) }\n",
+        ),
+        (
+            "lib/impl.go",
+            "package lib\ntype Impl struct{}\nfunc (Impl) Act(r int32) {}\nfunc (Impl) ActR(real rune) {}\n",
+        ),
+    ]);
+    let stats = call_stats(&defined_shadow);
+    // `rune` here is a distinct defined type; it must NOT equal int32.
+    let site = defined_shadow
+        .calls
+        .values()
+        .flatten()
+        .find(|s| s.caller.name == "invoke" && s.callee_name == "Act")
+        .expect("site");
+    let owners: Vec<_> = defined_shadow
+        .resolve_call_site_full(site)
+        .resolved
+        .iter()
+        .filter_map(|r| defined_shadow.method_owners.get(&r.target).cloned())
+        .collect();
+    assert_eq!(owners, Vec::<String>::new());
+    drop(stats);
+
+    // Control: unshadowed byte ↔ uint8 stays Exact.
+    let control = build_go(&[
+        (
+            "lib/defs.go",
+            "package lib\ntype ByteAlias = byte\ntype Doer interface { Act(ByteAlias) }\ntype Holder struct { Doer }\nfunc invoke(h Holder) { h.Act(uint8(0)) }\n",
+        ),
+        (
+            "lib/impl.go",
+            "package lib\ntype Impl struct{}\nfunc (Impl) Act(b uint8) {}\n",
+        ),
+    ]);
+    let site = control
+        .calls
+        .values()
+        .flatten()
+        .find(|s| s.caller.name == "invoke" && s.callee_name == "Act")
+        .expect("site");
+    let owners: Vec<_> = control
+        .resolve_call_site_full(site)
+        .resolved
+        .iter()
+        .filter_map(|r| control.method_owners.get(&r.target).cloned())
+        .collect();
+    assert_eq!(owners, vec!["Impl".to_string()]);
+}
