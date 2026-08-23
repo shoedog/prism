@@ -181,6 +181,37 @@ fn resolved_embedded_interface_is_not_an_unresolvable_identity() {
 }
 
 #[test]
+fn embedded_interface_profile_method_divergence_conflicts_outer_owner() {
+    let cg = build_go(&[
+        ("b_linux.go", "package p\ntype B interface{ M() }\n"),
+        ("b_windows.go", "package p\ntype B interface{ N() }\n"),
+        ("s_linux.go", "package p\ntype S struct{ B }\n"),
+        ("s_windows.go", "package p\ntype S struct{ B }\n"),
+    ]);
+    assert_conflict(&cg, "S");
+    let stats = prism::navigation::queries::call_stats(&cg);
+    assert_eq!(stats["go_promoted_snapshot_owners"], 1);
+    assert_eq!(stats["go_promoted_snapshot_profile_conflicts"], 1);
+}
+
+#[test]
+fn identical_embedded_interface_profiles_keep_outer_owner_unique() {
+    let cg = build_go(&[
+        ("b_linux.go", "package p\ntype B interface{ M() }\n"),
+        ("b_windows.go", "package p\ntype B interface{ M() }\n"),
+        ("s_linux.go", "package p\ntype S struct{ B }\n"),
+        ("s_windows.go", "package p\ntype S struct{ B }\n"),
+    ]);
+    assert_eq!(
+        owner(&cg, "", "p", "S").verdict,
+        GoPromotedSnapshotVerdict::ProfileUnique
+    );
+    let stats = prism::navigation::queries::call_stats(&cg);
+    assert_eq!(stats["go_promoted_snapshot_owners"], 1);
+    assert_eq!(stats["go_promoted_snapshot_profile_conflicts"], 0);
+}
+
+#[test]
 fn embedded_defined_type_contributes_its_promoted_method() {
     let cg = build_go(&[(
         "s.go",
