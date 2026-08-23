@@ -370,8 +370,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_pinned_for_go_loader_hygiene() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 15);
+    fn sidecar_version_is_pinned_for_go_alias_snapshot() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 17);
     }
 
     #[test]

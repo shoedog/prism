@@ -661,8 +661,8 @@ mod tests {
     }
 
     #[test]
-    fn cache_versions_are_pinned_for_go_loader_hygiene() {
-        assert_eq!(super::CACHE_VERSION, 46);
+    fn cache_versions_are_pinned_for_go_alias_snapshot() {
+        assert_eq!(super::CACHE_VERSION, 48);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
