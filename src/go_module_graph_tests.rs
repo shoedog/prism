@@ -139,3 +139,190 @@ fn graph_starts_with_an_empty_directory_identity_memo() {
     let graph = GoModuleGraph::new(Path::new("/repo"), &ManifestSnapshot::default());
     assert_eq!(graph.memo_len(), 0);
 }
+
+#[test]
+fn workspace_replace_overrides_module_replace_before_usability_is_tested() {
+    let root = "module example.com/root\nrequire original.example/a v0.0.0\nreplace original.example/a => ./local-a\n";
+    let local = module("local.example/a");
+    let work = "go 1.22\nuse .\nreplace original.example/a => remote.example/a v1.2.3\n";
+    let graph = GoModuleGraph::new(
+        Path::new("/repo"),
+        &snapshot(&[
+            ("go.mod", Some(root)),
+            ("go.work", Some(work)),
+            ("local-a/go.mod", Some(&local)),
+        ]),
+    );
+
+    assert_eq!(graph.telemetry().replaces_parsed, 2);
+    assert_eq!(graph.telemetry().replaces_applied, 0);
+    assert_eq!(graph.provider_path("local-a"), None);
+    assert!(graph.replacement_is_unproven("original.example/a"));
+}
+
+#[test]
+fn active_module_replace_union_applies_distinct_required_local_targets() {
+    let root = "module example.com/root\nrequire original.example/a v0.0.0\nreplace original.example/a => ./fork-a\n";
+    let second = "module example.com/second\nrequire original.example/b v0.0.0\nreplace original.example/b => ../fork-b\n";
+    let fork_a = module("fork.example/a");
+    let fork_b = module("fork.example/b");
+    let graph = GoModuleGraph::new(
+        Path::new("/repo"),
+        &snapshot(&[
+            ("go.work", Some("go 1.22\nuse (\n.\n./second\n)\n")),
+            ("go.mod", Some(root)),
+            ("second/go.mod", Some(second)),
+            ("fork-a/go.mod", Some(&fork_a)),
+            ("fork-b/go.mod", Some(&fork_b)),
+        ]),
+    );
+
+    assert!(!graph.telemetry().workspace_invalid);
+    assert_eq!(graph.telemetry().replaces_parsed, 2);
+    assert_eq!(graph.telemetry().replaces_applied, 2);
+    assert_eq!(graph.provider_path("fork-a"), Some("original.example/a"));
+    assert_eq!(graph.provider_path("fork-b"), Some("original.example/b"));
+}
+
+#[test]
+fn conflicting_active_module_replaces_invalidate_unless_workspace_overrides() {
+    let root = "module example.com/root\nrequire original.example/a v0.0.0\nreplace original.example/a => ./fork-a\n";
+    let second = "module example.com/second\nreplace original.example/a => ../fork-b\n";
+    let fork_a = module("fork.example/a");
+    let fork_b = module("fork.example/b");
+    let common = [
+        ("go.mod", Some(root)),
+        ("second/go.mod", Some(second)),
+        ("fork-a/go.mod", Some(fork_a.as_str())),
+        ("fork-b/go.mod", Some(fork_b.as_str())),
+    ];
+    let conflicting_work = "go 1.22\nuse (\n.\n./second\n)\n";
+    let overridden_work =
+        "go 1.22\nuse (\n.\n./second\n)\nreplace original.example/a => ./fork-a\n";
+
+    let mut conflicting = vec![("go.work", Some(conflicting_work))];
+    conflicting.extend(common);
+    let graph = GoModuleGraph::new(Path::new("/repo"), &snapshot(&conflicting));
+    assert!(graph.telemetry().workspace_invalid);
+
+    let mut overridden = vec![("go.work", Some(overridden_work))];
+    overridden.extend(common);
+    let graph = GoModuleGraph::new(Path::new("/repo"), &snapshot(&overridden));
+    assert!(!graph.telemetry().workspace_invalid);
+    assert_eq!(graph.provider_path("fork-a"), Some("original.example/a"));
+    assert_eq!(graph.provider_path("fork-b"), None);
+}
+
+#[test]
+fn active_workspace_module_path_wins_over_a_replace_of_itself() {
+    let root = "module example.com/root\nrequire go.etcd.io/etcd/api/v3 v3.0.0\nreplace go.etcd.io/etcd/api/v3 => ./api\n";
+    let api = module("go.etcd.io/etcd/api/v3");
+    let graph = GoModuleGraph::new(
+        Path::new("/repo"),
+        &snapshot(&[
+            ("go.work", Some("go 1.22\nuse (\n.\n./api\n)\n")),
+            ("go.mod", Some(root)),
+            ("api/go.mod", Some(&api)),
+        ]),
+    );
+
+    assert!(!graph.telemetry().workspace_invalid);
+    assert_eq!(graph.telemetry().replaces_parsed, 1);
+    assert_eq!(graph.telemetry().replaces_applied, 0);
+    assert_eq!(graph.provider_path("api"), Some("go.etcd.io/etcd/api/v3"));
+    assert!(!graph.replacement_is_unproven("go.etcd.io/etcd/api/v3"));
+}
+
+#[test]
+fn wildcard_replace_requires_an_active_main_module_requirement() {
+    let root = "module example.com/root\nreplace original.example/a => ./fork\n";
+    let fork = module("fork.example/a");
+    let graph = GoModuleGraph::new(
+        Path::new("/repo"),
+        &snapshot(&[("go.mod", Some(root)), ("fork/go.mod", Some(&fork))]),
+    );
+
+    assert_eq!(graph.telemetry().replaces_parsed, 1);
+    assert_eq!(graph.telemetry().replaces_applied, 0);
+    assert_eq!(graph.provider_path("fork"), None);
+    assert!(!graph.replacement_is_unproven("original.example/a"));
+}
+
+#[test]
+fn version_specific_replace_is_unproven_even_with_a_matching_requirement() {
+    let root = "module example.com/root\nrequire original.example/a v1.0.0\nreplace original.example/a v1.0.0 => ./fork\n";
+    let fork = module("fork.example/a");
+    let graph = GoModuleGraph::new(
+        Path::new("/repo"),
+        &snapshot(&[("go.mod", Some(root)), ("fork/go.mod", Some(&fork))]),
+    );
+
+    assert_eq!(graph.telemetry().replaces_applied, 0);
+    assert!(graph.replacement_is_unproven("original.example/a"));
+    assert!(graph.replacement_dir_is_unproven("fork"));
+}
+
+#[test]
+fn local_replace_target_must_be_inside_regular_and_valid() {
+    let root_template = |target: &str| {
+        format!(
+            "module example.com/root\nrequire original.example/a v0.0.0\nreplace original.example/a => {target}\n"
+        )
+    };
+    let cases = [
+        ("./missing", Vec::new()),
+        (
+            "./malformed",
+            vec![("malformed/go.mod", Some("module bad path\n"))],
+        ),
+        ("./linked", vec![("linked/go.mod", None)]),
+        ("../outside", Vec::new()),
+    ];
+
+    for (target, extras) in cases {
+        let root = root_template(target);
+        let mut entries = vec![("go.mod", Some(root.as_str()))];
+        entries.extend(extras);
+        let graph = GoModuleGraph::new(Path::new("/repo"), &snapshot(&entries));
+        assert_eq!(graph.telemetry().replaces_applied, 0, "target: {target}");
+        assert!(
+            graph.replacement_is_unproven("original.example/a"),
+            "target: {target}"
+        );
+    }
+}
+
+#[test]
+fn relative_parent_replace_that_stays_in_repo_is_applied() {
+    let main = "module example.com/main\nrequire original.example/a v0.0.0\nreplace original.example/a => ../fork\n";
+    let fork = module("fork.example/a");
+    let graph = GoModuleGraph::new(
+        Path::new("/repo"),
+        &snapshot(&[
+            ("go.work", Some("go 1.22\nuse ./main\n")),
+            ("main/go.mod", Some(main)),
+            ("fork/go.mod", Some(&fork)),
+        ]),
+    );
+    assert_eq!(graph.telemetry().replaces_applied, 1);
+    assert_eq!(graph.provider_path("fork"), Some("original.example/a"));
+}
+
+#[test]
+fn duplicate_effective_paths_among_active_modules_invalidate_the_workspace() {
+    let first = module("example.com/duplicate");
+    let second = module("example.com/duplicate");
+    let graph = GoModuleGraph::new(
+        Path::new("/repo"),
+        &snapshot(&[
+            ("go.work", Some("go 1.22\nuse (\n.\n./second\n)\n")),
+            ("go.mod", Some(&first)),
+            ("second/go.mod", Some(&second)),
+        ]),
+    );
+
+    assert!(graph.telemetry().workspace_invalid);
+    assert_eq!(graph.telemetry().active, 0);
+    assert_eq!(graph.provider_path(""), None);
+    assert_eq!(graph.provider_path("second"), None);
+}

@@ -3,6 +3,8 @@ use crate::manifest_snapshot::{ManifestSnapshot, ManifestSnapshotEntry};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path, PathBuf};
 
+mod replacements;
+
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
 )]
@@ -42,6 +44,8 @@ pub(crate) struct GoModuleGraph {
     active: BTreeSet<String>,
     boundaries: BTreeMap<String, ModuleBoundary>,
     providers: BTreeMap<String, String>,
+    replace_unproven: BTreeSet<String>,
+    replace_unproven_dirs: BTreeSet<String>,
     memo: BTreeMap<String, Result<String, GoImportPathReason>>,
 }
 
@@ -77,36 +81,47 @@ impl GoModuleGraph {
             active: BTreeSet::new(),
             boundaries,
             providers: BTreeMap::new(),
+            replace_unproven: BTreeSet::new(),
+            replace_unproven_dirs: BTreeSet::new(),
             memo: BTreeMap::new(),
         };
-        graph.select_active_modules(repo_root, snapshot);
+        let work = graph.select_active_modules(repo_root, snapshot);
+        if !graph.telemetry.workspace_invalid {
+            replacements::apply(&mut graph, repo_root, work.as_ref());
+        }
         graph
     }
 
-    fn select_active_modules(&mut self, repo_root: &Path, snapshot: &ManifestSnapshot) {
+    fn select_active_modules(
+        &mut self,
+        repo_root: &Path,
+        snapshot: &ManifestSnapshot,
+    ) -> Option<ParsedGoWork> {
+        let mut parsed_work = None;
         match snapshot.get("go.work") {
             Some(ManifestSnapshotEntry::Regular { bytes, .. }) => {
                 let Some(work) = std::str::from_utf8(bytes).ok().and_then(parse_go_work) else {
                     self.invalidate_workspace();
-                    return;
+                    return None;
                 };
                 let mut active = BTreeSet::new();
-                for use_path in work.uses {
-                    let Some(dir) = normalize_repo_dir(repo_root, "", &use_path) else {
+                for use_path in &work.uses {
+                    let Some(dir) = normalize_repo_dir(repo_root, "", use_path) else {
                         self.invalidate_workspace();
-                        return;
+                        return None;
                     };
                     if !matches!(self.boundaries.get(&dir), Some(ModuleBoundary::Valid(_))) {
                         self.invalidate_workspace();
-                        return;
+                        return None;
                     }
                     active.insert(dir);
                 }
                 self.active = active;
+                parsed_work = Some(work);
             }
             Some(ManifestSnapshotEntry::SymlinkRefused) => {
                 self.invalidate_workspace();
-                return;
+                return None;
             }
             None => match self.boundaries.get("") {
                 Some(ModuleBoundary::Valid(_)) => {
@@ -114,7 +129,7 @@ impl GoModuleGraph {
                 }
                 Some(ModuleBoundary::Malformed | ModuleBoundary::Symlink) => {
                     self.invalidate_workspace();
-                    return;
+                    return None;
                 }
                 None => {}
             },
@@ -130,11 +145,12 @@ impl GoModuleGraph {
                 .is_some()
             {
                 self.invalidate_workspace();
-                return;
+                return None;
             }
             self.providers.insert(dir.clone(), module.path.clone());
         }
         self.telemetry.active = self.active.len();
+        parsed_work
     }
 
     fn invalidate_workspace(&mut self) {
@@ -156,6 +172,21 @@ impl GoModuleGraph {
     #[cfg(test)]
     fn memo_len(&self) -> usize {
         self.memo.len()
+    }
+
+    #[cfg(test)]
+    fn provider_path(&self, dir: &str) -> Option<&str> {
+        self.providers.get(dir).map(String::as_str)
+    }
+
+    #[cfg(test)]
+    fn replacement_is_unproven(&self, path: &str) -> bool {
+        self.replace_unproven.contains(path)
+    }
+
+    #[cfg(test)]
+    fn replacement_dir_is_unproven(&self, dir: &str) -> bool {
+        self.replace_unproven_dirs.contains(dir)
     }
 }
 
