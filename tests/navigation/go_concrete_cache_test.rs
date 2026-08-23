@@ -31,7 +31,7 @@ fn wire_outputs(session: &NavigationSession) -> (Vec<u8>, Vec<u8>) {
 }
 
 #[test]
-fn concrete_receiver_outputs_match_no_cache_exact_cpg_and_sidecar_hits() {
+fn concrete_receiver_outputs_match_no_cache_cold_create_exact_cpg_and_sidecar_hits() {
     let _guard = ENV_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap();
     let _restore = EnvRestore(std::env::var_os(DIRTY_LOAD_OVERRIDE));
     std::env::set_var(DIRTY_LOAD_OVERRIDE, "1");
@@ -60,11 +60,15 @@ fn concrete_receiver_outputs_match_no_cache_exact_cpg_and_sidecar_hits() {
         repo: repo.clone(),
         index: Arc::new(NavigationIndex::build(&repo)),
     };
-    let _prime = NavigationIndex::build_cached_under(&repo, cache_dir.path());
+    let cold_create = NavigationSession {
+        repo: repo.clone(),
+        index: Arc::new(NavigationIndex::build_cached_under(&repo, cache_dir.path())),
+    };
     let exact_cpg = NavigationSession {
         repo: repo.clone(),
         index: Arc::new(NavigationIndex::build_cached_under(&repo, cache_dir.path())),
     };
+    assert_eq!(wire_outputs(&no_cache), wire_outputs(&cold_create));
     assert_eq!(wire_outputs(&no_cache), wire_outputs(&exact_cpg));
 
     let no_cache_edges =
