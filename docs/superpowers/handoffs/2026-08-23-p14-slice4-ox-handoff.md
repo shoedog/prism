@@ -1,6 +1,6 @@
 # Handoff — roadmap #14 slice 4, implementer Ox (branch `go-alias-aware-local-local-ox`)
 
-Date: 2026-08-23 (fix wave 1 appended) · Base: main@18b585a · Implementation tip: `a8e7d18` · Handoff head: see §Fix wave 1
+Date: 2026-08-23 (fix wave 1 appended) · Base: main@18b585a · Branch IS pushed by the controller (custody confirmed); implementation tip `a8e7d18`, handoff head = fix-wave-2 commit on top of `2b562e2`. Totals include the 1 ignored test.
 
 ## Commits (in order; red-first per pole group)
 1. `3ca0a31` test: 14 RED fixtures for alias-aware `Local↔Local` by path (spec §5 list, resolver + manifest parity, target-file identities).
@@ -133,6 +133,47 @@ table above.
    recorded here as REQUIRED, sufficiency still unproven.
 
 Totals after wave: cargo test **3323 passed / 0 failed**; clippy at baseline **319**; fmt clean.
+
+## Fix wave 2 (FINAL — round 3 declared cap; reviews terra r2 4 WRONG / sol r2 8 WRONG + 2 SMELL)
+Commits after `2b562e2`: `590e8cc`, `543ce76` (Part A), `0bc1d48` (red poles), `6f274ef` (Part B), this doc.
+
+**Part A**
+- sol-r2-1: imported `@path::Name` lookup categorically excludes test-clause declarations — the external-test
+  package's own same-dir/clause re-declaration can no longer pollute an imported leaf
+  (`s4ox_qualified_lookup_never_admits_the_external_test_clause_own_alias`).
+- terra-r2-1 / sol-r2-2: shadowing of `byte`/`rune` now requires a declaration whose build profile applies
+  EVERYWHERE the consumer compiles (`shadows_consumer_profile`). Poles: linux-only alias + windows-constrained
+  consumer keeps byte→uint8/rune→int32 Exact; unconstrained consumer under a single constrained alias fails CLOSED
+  (platform-ambiguous); `_test`-only shadows invisible; unshadowed control kept.
+- sol-r2-3: cycle guard keys by RESOLVED DECLARATION identity, and aliased-RHS bare leaves resolve in the DECLARING
+  package's scope (`expand_scoped`), fixing both false cycles across packages and wrong-scope resolution
+  (`s4ox_cycle_guard_keys_are_per_declaration_not_per_consumer`: p1 A→C→p2.B→C→int chain).
+- sol-r2-4: the canonical-string walker parses generic applications and instantiates parameterized aliases with
+  arity checks during transitive expansion (`s4ox_transitive_parameterized_aliases_instantiate`: Both=Twice[int],
+  Twice[string] direct).
+
+**Part B** (`6f274ef`)
+- terra-r2-2 / sol-r2-5: an alias resolving to an INTERFACE is reclassified after resolution → deferred, Consistent
+  (`s4ox_alias_to_local_interface_is_deferred_not_conflicted`).
+- terra-r2-3 / sol-r2-6: `resolve_local_alias_embed` resolves qualified RHS leaves (`@path::B`) via dirs_by_path +
+  unique clause; the promotion walk consumes the declaration-scoped embed FACTS (no narrower re-resolution), so
+  direct AND alias-qualified concrete embeds record exact target owner/file/depth
+  (`s4ox_qualified_alias_embed_resolves_to_target`).
+- sol-r2-7: promoted selection follows Go's shallowest-selector rule: unique shallowest wins, strictly-shallower
+  fields suppress, equal-depth ambiguity records NOTHING (`s4ox_promotion_follows_go_shallowest_selector_rule`).
+- terra-r2-4 / sol-r2-8: embedded-interface profile comparison covers canonical signatures + embedded types +
+  generic state (`s4ox_embedded_interface_profile_check_includes_signatures`).
+- SMELL-r2-1: targeted tuple-range regression (`s4ox_qualified_alias_lookup_regression_tuple_range`: qualified pkg
+  with requested type + alias + decoys in three files).
+
+**Corpus re-measurement (vs ctrl514):** ripgrep BYTE-IDENTICAL; caddy 1766 (+0); prometheus **2498 (+37)**;
+etcd **2062 (+60)**; hugo 625 (+0). go_alias_expanded 25/33/8; go_alias_unresolved EMPTY everywhere.
+Resolution leaves identical to fix-wave-1 output on all corpora; ONLY the foundation-only
+`go_promoted_snapshot_promoted_methods` counts changed (caddy 119→181, prometheus 290→438, etcd 801→1019,
+hugo 413→773) from the shallowest-selector/facts-driven walk corrections.
+
+**Totals:** cargo test **3332 passed / 0 failed / 1 ignored**; clippy at baseline **319**; fmt clean;
+tier-a matrix-only **104 ok**.
 
 ## Controller checklist
 - [ ] Push wave commits (done locally, not pushed).
