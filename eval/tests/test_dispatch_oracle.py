@@ -572,6 +572,65 @@ def test_run_oracle_uses_each_site_byte_span_and_decl_character_in_cache(tmp_pat
     assert FakeGopls.implementation_chars == [2, 9]
 
 
+def test_run_oracle_fake_manifest_carries_end_to_end_classifications(tmp_path):
+    (tmp_path / "caller.go").write_text("a.Go(); b.Go()\n")
+    good = _identity("Good", "good.go", [3, 5])
+    bad = _identity("Bad", "bad.go", [3, 5])
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"sites": [
+        {"file": "caller.go", "line": 1, "method": "Go", "fanout": 1,
+         "implementers": ["Good"], "implementer_identities": [good],
+         "start_byte": 0, "end_byte": 6},
+        {"file": "caller.go", "line": 1, "method": "Go", "fanout": 1,
+         "implementers": ["Bad"], "implementer_identities": [bad],
+         "start_byte": 8, "end_byte": 14},
+    ]}))
+
+    class FakeGopls:
+        def __init__(self, *_args, **_kwargs):
+            self._settle_s = 0
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def _did_open(self, _rel):
+            return True
+
+        def _methods(self, _rel):
+            return []
+
+        def resettle(self, **_kwargs):
+            pass
+
+        def method_decl(self, _rel, _line, char):
+            return {"file": "concrete.go", "line": 2, "character": char,
+                    "kind": "concrete", "identity": good}
+
+    records, summary = do.run_oracle(
+        str(manifest), str(tmp_path), ["fake-gopls"], 1,
+        log=io.StringIO(), oracle_factory=FakeGopls,
+    )
+    assert [record["classification"] for record in records] == ["sound", "over_approx"]
+    assert summary["overall"]["sound"] == 1
+    assert summary["overall"]["over_approx"] == 1
+
+
+def test_same_directory_external_test_package_is_a_distinct_identity():
+    prism = _identity("Impl", "p/impl.go", [3, 5], "p")
+    gopls = _identity("Impl", "p/impl_test.go", [3, 5], "p_test")
+    record = do.compare_site(
+        file="caller.go", line=1, interface="Runner", method="Go",
+        prism_identities=[prism], gopls_identities=[gopls],
+    )
+    assert record["classification"] == "over_approx"
+    assert record["prism_only_identities"] == [
+        {"package_dir": "p", "package_clause": "p", "name": "Impl"}
+    ]
+
+
 # ---------------------------------------------------------------------------
 # #14 slice 1 delta gate and environment pins
 # ---------------------------------------------------------------------------

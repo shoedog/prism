@@ -384,6 +384,107 @@ fn interface_manifest_implementer_identities_are_additive() {
     );
 }
 
+// #14 fix wave 1: serialize the exact pre-#14 site fixture after mechanically
+// removing the sole additive field. This pins every legacy key, value, and byte
+// ordering to the origin/main emitter semantics rather than sampling two fields.
+#[test]
+fn interface_manifest_existing_fields_match_origin_main_fixture() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         type Slow struct{}\nfunc (s Slow) Go() {}\n\
+         func use() { _ = Fast{}; _ = Slow{} }\n\
+         func dispatch() { var r Runner; r.Go() }\n",
+        Go,
+    )]);
+    let manifest = prism::navigation::queries::interface_dispatch_manifest(&cg);
+    let mut legacy_site = manifest["sites"]
+        .as_array()
+        .expect("sites array")
+        .iter()
+        .find(|site| site["method"] == "Go" && site["fanout"].as_u64() == Some(2))
+        .expect("two-implementer dispatch site")
+        .clone();
+    legacy_site
+        .as_object_mut()
+        .expect("site object")
+        .remove("implementer_identities")
+        .expect("the sole additive field must be present");
+    let fixture = r#"{"end_byte":202,"fanout":2,"file":"main.go","implementers":["Fast","Slow"],"line":8,"method":"Go","receiver_class":"var_local","start_byte":196}"#;
+    assert_eq!(
+        serde_json::to_string(&legacy_site).expect("serialize legacy site"),
+        fixture,
+        "removing the additive field must reproduce origin/main bytes exactly"
+    );
+}
+
+// The legacy name set dedupes build-tag twins, but the new identity array must
+// retain both full targets so the oracle can distinguish their method spans/files.
+#[test]
+fn interface_manifest_identity_dedup_keeps_build_tag_twins() {
+    use prism::languages::Language::Go;
+    let (mut cg, _) = build(&[
+        (
+            "main.go",
+            "package main\n\
+             type Runner interface { Go() }\n\
+             func use() { _ = Impl{} }\n\
+             func dispatch(x any) { x.(Runner).Go() }\n",
+            Go,
+        ),
+        (
+            "impl_darwin.go",
+            "//go:build darwin\npackage main\n\
+             type Impl struct{}\nfunc (Impl) Go() {}\n",
+            Go,
+        ),
+        (
+            "impl_linux.go",
+            "//go:build linux\npackage main\n\
+             type Impl struct{}\nfunc (Impl) Go() {}\n",
+            Go,
+        ),
+    ]);
+    // The provider's bare-name satisfaction map intentionally collapses these
+    // build partitions upstream (resolution work, out of this oracle slice).
+    // Seed the emitter with the two exact FunctionIds it is contracted to retain.
+    let twins = cg
+        .methods
+        .get(&("Impl".to_string(), "Go".to_string()))
+        .expect("both parsed build-tag method targets")
+        .clone();
+    assert_eq!(twins.len(), 2, "CallGraph keeps both file-distinct targets");
+    cg.interface_impls
+        .insert(("Runner".to_string(), "Go".to_string()), twins);
+    let manifest = prism::navigation::queries::interface_dispatch_manifest(&cg);
+    let site = manifest["sites"]
+        .as_array()
+        .expect("sites array")
+        .iter()
+        .find(|site| site["method"] == "Go" && site["fanout"].as_u64() == Some(1))
+        .expect("dispatch with legacy-name dedup");
+    assert_eq!(site["implementers"], serde_json::json!(["Impl"]));
+    assert_eq!(site["fanout"], serde_json::json!(1));
+    let identities = site["implementer_identities"]
+        .as_array()
+        .expect("identity array");
+    assert_eq!(
+        identities.len(),
+        2,
+        "full tuples must not dedup build-tag twins"
+    );
+    assert_eq!(
+        identities
+            .iter()
+            .map(|identity| identity["file"].as_str())
+            .collect::<Vec<_>>(),
+        vec![Some("impl_darwin.go"), Some("impl_linux.go")]
+    );
+}
+
 // Codex re-review MAJOR: the query/manifest S4 consult must distinguish "no
 // S4 route" from "matched S4 route with a missing/empty implementer set" --
 // the latter must use the empty implementer slice and must NOT fall through
