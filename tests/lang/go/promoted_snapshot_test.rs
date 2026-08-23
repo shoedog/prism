@@ -280,3 +280,104 @@ fn snapshot_foundation_does_not_change_resolution_and_survives_caches_byte_ident
     assert_eq!(json["go_promoted_snapshot_profile_conflicts"], 0);
     assert_eq!(json["go_promoted_snapshot_promoted_methods"], 1);
 }
+
+#[test]
+fn s4ox_embedded_alias_resolves_to_its_owner_identity() {
+    // SOL-W6: `type A = B` embedded as S{A} records the exact key
+    // (is_pointer=false, resolved owner B, selector "A").
+    let cg = build_go(&[
+        ("pkg/base.go", "package pkg\ntype B struct{}\nfunc (b B) Act() {}\n"),
+        ("pkg/alias.go", "package pkg\ntype A = B\ntype S struct { A }\n"),
+    ]);
+    let snapshot = cg.go_promoted_snapshot();
+    let s = snapshot
+        .owners
+        .iter()
+        .find(|(owner, _)| owner.name == "S")
+        .map(|(_, v)| v)
+        .expect("S owner");
+    assert_eq!(
+        s.verdict,
+        prism::go_promoted_snapshot::GoPromotionVerdict::Consistent
+    );
+    let embed = s
+        .declarations
+        .values()
+        .next()
+        .unwrap()
+        .embeds
+        .iter()
+        .next()
+        .unwrap();
+    assert_eq!(embed.selector, "A");
+    assert!(!embed.is_pointer);
+    assert!(!embed.is_interface);
+    let resolved = embed.resolved_owner.as_ref().expect("resolved to B");
+    assert_eq!(resolved.name, "B");
+    // Promotion through the ALIAS still walks: B.Act promotes to S at depth 1.
+    assert_eq!(s.promoted.len(), 1);
+    assert_eq!(s.promoted["Act"].depth, 1);
+}
+
+#[test]
+fn s4ox_qualified_embedded_interface_is_deferred_not_conflicted() {
+    // SOL-W7 converse: `struct{ q.I }` resolves q.I and must reclassify it as
+    // an INTERFACE (deferral), never a ProfileConflict.
+    let cg = build_go(&[
+        ("q/q.go", "package q\ntype I interface { M() }\n"),
+        (
+            "pkg/s.go",
+            "package pkg\nimport q \"example.com/prism/q\"\ntype S struct { q.I }\n",
+        ),
+    ]);
+    let snapshot = cg.go_promoted_snapshot();
+    let s = snapshot
+        .owners
+        .iter()
+        .find(|(owner, _)| owner.name == "S")
+        .map(|(_, v)| v)
+        .expect("S owner");
+    let embed = s.declarations.values().next().unwrap().embeds.iter().next().unwrap();
+    assert!(embed.is_interface);
+    assert_eq!(
+        s.verdict,
+        prism::go_promoted_snapshot::GoPromotionVerdict::Consistent
+    );
+}
+
+#[test]
+fn s4ox_profile_divergent_embedded_interface_conflicts() {
+    // fix-3 / SOL-W7: I's method surface varies by profile; untagged S{I}
+    // must be conflicted even though S itself has one declaration.
+    let divergent = build_go(&[
+        ("pkg/i_linux.go", "//go:build linux\npackage pkg\ntype I interface { M() }\n"),
+        ("pkg/i_windows.go", "//go:build windows\npackage pkg\ntype I interface { N() }\n"),
+        ("pkg/s.go", "package pkg\ntype S struct { I }\n"),
+    ]);
+    let (_owners, conflicts, _promoted) = snapshot_counts(&divergent);
+    assert_eq!(conflicts, 1);
+
+    // Control: identical I on both profiles stays Consistent.
+    let identical = build_go(&[
+        ("pkg/i_linux.go", "//go:build linux\npackage pkg\ntype I interface { M() }\n"),
+        ("pkg/i_windows.go", "//go:build windows\npackage pkg\ntype I interface { M() }\n"),
+        ("pkg/s.go", "package pkg\ntype S struct { I }\n"),
+    ]);
+    let (_owners, conflicts, _promoted) = snapshot_counts(&identical);
+    assert_eq!(conflicts, 0);
+}
+
+#[test]
+fn s4ox_own_method_axis_includes_receiver_kind_and_target_identity() {
+    // SOL-W8 (the fifth axis): linux `func (B) M()` vs windows `func (*B) M()`
+    // have the same NAME but different method-set shape => conflict, and the
+    // promoted map must not depend on file insertion order.
+    let cg = build_go(&[
+        ("pkg/base.go", "package pkg\ntype B struct{}\n"),
+        ("pkg/m_linux.go", "//go:build linux\npackage pkg\nfunc (b B) M() {}\n"),
+        ("pkg/m_windows.go", "//go:build windows\npackage pkg\nfunc (b *B) M() {}\n"),
+        ("pkg/s.go", "package pkg\ntype S struct { B }\n"),
+    ]);
+    let (_owners, conflicts, promoted) = snapshot_counts(&cg);
+    assert_eq!((conflicts, promoted), (2, 0));
+}
