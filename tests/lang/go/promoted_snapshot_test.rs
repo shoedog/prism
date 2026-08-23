@@ -309,6 +309,69 @@ fn promoted_method_facts_preserve_depth_two_target_identity() {
 }
 
 #[test]
+fn promoted_method_keeps_only_the_shallowest_selector_depth() {
+    let cg = build_go(&[(
+        "s.go",
+        "package p\ntype D struct{}\nfunc (D) M() {}\ntype B struct{ D }\ntype C struct{}\nfunc (C) M() {}\ntype S struct{ B; C }\n",
+    )]);
+    let promoted = owner(&cg, "", "p", "S").declarations[0]
+        .promoted_methods
+        .iter()
+        .filter(|method| method.method == "M")
+        .collect::<Vec<_>>();
+
+    assert_eq!(promoted.len(), 1, "only the shallowest M is selected");
+    assert_eq!(promoted[0].target_owner.name, "C");
+    assert_eq!(promoted[0].depth, 1);
+    assert!(!promoted[0].field_shadowed);
+}
+
+#[test]
+fn equal_depth_promoted_methods_are_omitted_and_flagged_ambiguous() {
+    let cg = build_go(&[(
+        "s.go",
+        "package p\ntype D struct{}\nfunc (D) M() {}\ntype B struct{ D }\ntype F struct{}\nfunc (F) M() {}\ntype E struct{ F }\ntype S struct{ B; E }\n",
+    )]);
+    let declaration = &owner(&cg, "", "p", "S").declarations[0];
+
+    assert!(
+        declaration
+            .promoted_methods
+            .iter()
+            .all(|method| method.method != "M"),
+        "an ambiguous selector is not a promoted method"
+    );
+    let serialized = serde_json::to_value(declaration).expect("serialize profile snapshot");
+    assert_eq!(
+        serialized["ambiguous_promoted_methods"],
+        serde_json::json!(["M"])
+    );
+}
+
+#[test]
+fn shallower_ordinary_field_keeps_the_method_shadowed_not_selected() {
+    let cg = build_go(&[(
+        "s.go",
+        "package p\ntype D struct{}\nfunc (D) M() {}\ntype B struct{ D }\ntype C struct{ M int }\ntype S struct{ B; C }\n",
+    )]);
+    let promoted = owner(&cg, "", "p", "S").declarations[0]
+        .promoted_methods
+        .iter()
+        .filter(|method| method.method == "M")
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        promoted.len(),
+        1,
+        "retain the shadowing diagnostic candidate"
+    );
+    assert_eq!(promoted[0].target_owner.name, "D");
+    assert_eq!(promoted[0].depth, 2);
+    assert!(promoted[0].field_shadowed);
+    assert!(promoted.iter().all(|method| method.field_shadowed));
+}
+
+#[test]
 fn receiver_method_set_shape_is_a_fifth_profile_safety_axis() {
     let cg = build_go(&[
         (
