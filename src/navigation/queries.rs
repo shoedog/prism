@@ -493,6 +493,12 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "param_slots_unknown": cg.param_slots_unknown,
         "level3_indirect_resolved": cg.level3_indirect_resolved,
     });
+    if cg.skipped_go_testdata_files > 0 {
+        stats.as_object_mut().expect("call-stats object").insert(
+            "skipped_go_testdata_files".to_string(),
+            cg.skipped_go_testdata_files.into(),
+        );
+    }
     if !cg.go_file_profiles.is_empty() {
         let object = stats.as_object_mut().expect("call-stats object");
         object.insert(

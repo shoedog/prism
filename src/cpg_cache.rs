@@ -138,9 +138,12 @@ use std::path::{Path, PathBuf};
 ///   transition on top of main's v42).
 /// - v44: P10 Go owner identities carry package clauses; S2/S4/P5 persist raw
 ///   declaration snapshots, registration provenance, and partition telemetry.
-const CACHE_VERSION: u32 = 44;
+/// - v45: Go `testdata` source exclusion changes the persisted file/dispatch set;
+///   strict go.mod parsing plus the immutable go.mod/go.work/Cargo.toml snapshot
+///   and symlink-refused/go.work topology entries change Go identity and cache keys.
+const CACHE_VERSION: u32 = 45;
 
-pub const SKIP_POLICY_VERSION: u32 = 1;
+pub const SKIP_POLICY_VERSION: u32 = 2;
 
 /// The on-disk cache structure.
 #[derive(Serialize, Deserialize)]
@@ -656,10 +659,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_44_for_go_owner_partition_snapshots() {
-        // v44: P10 clause-bearing identities, declaration snapshots, and telemetry,
-        // stacked on v42 parameter slots and v43 pointer embeds.
-        assert_eq!(super::CACHE_VERSION, 44);
+    fn cache_versions_are_pinned_for_go_loader_hygiene() {
+        assert_eq!(super::CACHE_VERSION, 45);
+        assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
     #[test]

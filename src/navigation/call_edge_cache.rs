@@ -40,7 +40,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 //      qualified and pointer-to-interface embedded targets fail closed (P9; one shipped transition on top of main's v11).
 // v13: P10 clause-bearing Go owner identities and exact build-partition
 // filtering change S2/S4/P5 resolved edge topology.
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 13;
+// v14: Go `testdata` exclusion and snapshot-bound, strict go.mod identity remove
+// stale/invalid Exact edges; go.work and symlink-refused manifest topology now
+// participates in the sidecar fingerprint (paired with CPG v45).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 14;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -365,8 +368,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_13_for_go_owner_partition_snapshots() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 13);
+    fn sidecar_version_is_pinned_for_go_loader_hygiene() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 14);
     }
 
     #[test]

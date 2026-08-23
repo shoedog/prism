@@ -1,5 +1,5 @@
 use prism::ast::ParsedFile;
-use prism::call_graph::{CallGraph, ScopeGraphBuildInputs};
+use prism::call_graph::CallGraph;
 use prism::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -40,8 +40,7 @@ fn build_go_with_modules(sources: &[(&str, &str)], modules: &[(&str, &str)]) -> 
         )
         .expect("write go.mod fixture");
     }
-    let mut inputs = ScopeGraphBuildInputs::from_files_convention(&files);
-    inputs.repo_root = repo.path().to_path_buf();
+    let inputs = prism::repo_loader::scope_graph_build_inputs(repo.path(), &files);
     CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs))
 }
 
@@ -552,7 +551,7 @@ fn s4_local_module_type_matches_its_imported_identity_without_name_only_fallback
             ),
             (
                 "good/impl.go",
-                "package good\nimport caddy \"example/caddy/v2\"\ntype Impl struct{}\nfunc (Impl) Provision(caddy.Context) {}\n",
+                "package good\nimport caddy \"example.com/caddy/v2\"\ntype Impl struct{}\nfunc (Impl) Provision(caddy.Context) {}\n",
             ),
             (
                 "other/context.go",
@@ -560,10 +559,10 @@ fn s4_local_module_type_matches_its_imported_identity_without_name_only_fallback
             ),
             (
                 "bad/impl.go",
-                "package bad\nimport other \"example/caddy/v2/other\"\ntype Decoy struct{}\nfunc (Decoy) Provision(other.Context) {}\n",
+                "package bad\nimport other \"example.com/caddy/v2/other\"\ntype Decoy struct{}\nfunc (Decoy) Provision(other.Context) {}\n",
             ),
         ],
-        "example/caddy/v2",
+        "example.com/caddy/v2",
     );
     let expected = BTreeSet::from(["Impl".to_string()]);
 
@@ -586,14 +585,14 @@ fn s4_nested_module_mixed_bare_and_qualified_types_fail_closed() {
             ),
             (
                 "good/impl.go",
-                "package good\nimport nested \"example/nested\"\ntype Impl struct{}\nfunc (Impl) Act(nested.Context) {}\n",
+                "package good\nimport nested \"example.com/nested\"\ntype Impl struct{}\nfunc (Impl) Act(nested.Context) {}\n",
             ),
             (
                 "bad/impl.go",
-                "package bad\nimport wrong \"example/root/nested\"\ntype Decoy struct{}\nfunc (Decoy) Act(wrong.Context) {}\n",
+                "package bad\nimport wrong \"example.com/root/nested\"\ntype Decoy struct{}\nfunc (Decoy) Act(wrong.Context) {}\n",
             ),
         ],
-        &[("", "example/root"), ("nested", "example/nested")],
+        &[("", "example.com/root"), ("nested", "example.com/nested")],
     );
     assert!(resolved_method_owners(&cg, "invoke", "Act").is_empty());
     assert!(manifest_owners(&cg, "nested/context.go", "Act").is_empty());
@@ -609,14 +608,14 @@ fn s4_nested_module_bare_interface_rejects_root_local_same_name() {
             ),
             (
                 "good/impl.go",
-                "package good\nimport nested \"example/nested\"\ntype Good struct{}\nfunc (Good) Act(nested.Context) {}\n",
+                "package good\nimport nested \"example.com/nested\"\ntype Good struct{}\nfunc (Good) Act(nested.Context) {}\n",
             ),
             (
                 "bad/impl.go",
                 "package bad\ntype Context struct{}\ntype Bad struct{}\nfunc (Bad) Act(Context) {}\n",
             ),
         ],
-        &[("", "example/root"), ("nested", "example/nested")],
+        &[("", "example.com/root"), ("nested", "example.com/nested")],
     );
 
     assert!(resolved_method_owners(&cg, "invoke", "Act").is_empty());
@@ -633,7 +632,7 @@ fn s4_root_local_interface_rejects_nested_bare_and_keeps_qualified_same_path() {
         "nested/impl.go",
         "package nested\ntype Context struct{}\ntype Impl struct{}\nfunc (Impl) Act(Context) {}\n",
     );
-    let modules = &[("", "example/root"), ("nested", "example/nested")];
+    let modules = &[("", "example.com/root"), ("nested", "example.com/nested")];
     let nested_only = build_go_with_modules(&[root_interface, nested_implementer], modules);
 
     assert!(resolved_method_owners(&nested_only, "invoke", "Act").is_empty());
@@ -645,7 +644,7 @@ fn s4_root_local_interface_rejects_nested_bare_and_keeps_qualified_same_path() {
             nested_implementer,
             (
                 "good/impl.go",
-                "package good\nimport root \"example/root\"\ntype Impl2 struct{}\nfunc (Impl2) Act(root.Context) {}\n",
+                "package good\nimport root \"example.com/root\"\ntype Impl2 struct{}\nfunc (Impl2) Act(root.Context) {}\n",
             ),
         ],
         modules,
@@ -675,7 +674,7 @@ fn s4_unqualified_named_types_keep_the_existing_bare_name_rule() {
                 "package other\ntype ID struct{}\ntype Impl struct{}\nfunc (Impl) Act(ID) {}\n",
             ),
         ],
-        "example/root",
+        "example.com/root",
     );
     let expected = BTreeSet::from(["Impl".to_string()]);
 

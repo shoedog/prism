@@ -48,6 +48,7 @@ pub mod diff;
 pub mod framework_entries;
 pub mod frameworks;
 pub mod go_build_profile;
+mod go_mod;
 pub mod go_owner_partition;
 mod go_owner_partition_s4;
 mod go_receiver_index;
@@ -55,6 +56,8 @@ mod go_receiver_index_visibility;
 pub mod js_exports;
 pub mod languages;
 pub mod live_types;
+mod manifest_snapshot;
+pub use manifest_snapshot::ManifestSnapshot;
 #[cfg(feature = "mcp")]
 pub mod mcp;
 pub mod name_resolution;
