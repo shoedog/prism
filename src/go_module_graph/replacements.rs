@@ -63,6 +63,10 @@ pub(super) fn apply(graph: &mut GoModuleGraph, repo_root: &Path, work: Option<&P
             }
         }
     }
+    let workspace_paths = workspace
+        .keys()
+        .map(|key| key.path.clone())
+        .collect::<BTreeSet<_>>();
 
     let mut module_union: BTreeMap<LhsKey, Candidate> = BTreeMap::new();
     for (source_dir, module) in &active_modules {
@@ -73,7 +77,7 @@ pub(super) fn apply(graph: &mut GoModuleGraph, repo_root: &Path, work: Option<&P
                 graph.invalidate_workspace();
                 return;
             }
-            if workspace.contains_key(&key) {
+            if workspace_paths.contains(&key.path) {
                 continue;
             }
             if active_paths.contains(&key.path) {

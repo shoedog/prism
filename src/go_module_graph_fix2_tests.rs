@@ -149,3 +149,46 @@ fn malformed_retract_bounds_follow_active_and_inactive_layering() {
         Err(GoImportPathReason::Malformed)
     );
 }
+
+#[test]
+fn workspace_replace_path_overrides_versioned_module_replace() {
+    let root = "module example.com/root\nrequire original.example/a v1.0.0\nreplace original.example/a v1.0.0 => ./bad\n";
+    let work = "go 1.22\nuse .\nreplace original.example/a => ./good\n";
+    let mut graph = GoModuleGraph::new(
+        Path::new("/repo"),
+        &snapshot(&[
+            ("go.mod", root),
+            ("go.work", work),
+            ("good/go.mod", "module good.example/a\n"),
+            ("bad/go.mod", "module bad.example/a\n"),
+        ]),
+    );
+
+    assert!(!graph.telemetry().workspace_invalid);
+    assert_eq!(graph.telemetry().replaces_parsed, 2);
+    assert_eq!(graph.telemetry().replaces_applied, 1);
+    assert_eq!(graph.provider_path("good"), Some("original.example/a"));
+    assert_eq!(graph.provider_path("bad"), None);
+    assert!(!graph.replacement_is_unproven("original.example/a"));
+    assert!(!graph.replacement_dir_is_unproven("bad"));
+    assert_eq!(
+        graph.import_path_for_dir("good/pkg"),
+        Ok("original.example/a/pkg".to_string())
+    );
+}
+
+#[test]
+fn versioned_module_replace_without_workspace_override_remains_unproven() {
+    let root = "module example.com/root\nrequire original.example/a v1.0.0\nreplace original.example/a v1.0.0 => ./bad\n";
+    let graph = GoModuleGraph::new(
+        Path::new("/repo"),
+        &snapshot(&[("go.mod", root), ("bad/go.mod", "module bad.example/a\n")]),
+    );
+
+    assert!(!graph.telemetry().workspace_invalid);
+    assert_eq!(graph.telemetry().replaces_parsed, 1);
+    assert_eq!(graph.telemetry().replaces_applied, 0);
+    assert_eq!(graph.provider_path("bad"), None);
+    assert!(graph.replacement_is_unproven("original.example/a"));
+    assert!(graph.replacement_dir_is_unproven("bad"));
+}

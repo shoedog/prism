@@ -200,3 +200,86 @@ fn retract_versions_gate_resolver_and_manifest_targets() {
         );
     }
 }
+
+#[test]
+fn workspace_replace_path_override_selects_good_target_with_resolver_manifest_parity() {
+    let cg = build_workspace(
+        &[
+            (
+                "api.go",
+                "package root\nimport a \"original.example/a\"\ntype Doer interface { Act(a.T) }\ntype Holder struct { Doer }\nfunc invoke(h Holder, value a.T) { h.Act(value) }\n",
+            ),
+            (
+                "good/impl.go",
+                "package a\ntype T struct{}\ntype Impl struct{}\nfunc (Impl) Act(T) {}\n",
+            ),
+        ],
+        &[
+            (
+                "go.mod",
+                "module example.com/root\nrequire original.example/a v1.0.0\nreplace original.example/a v1.0.0 => ./bad\n",
+            ),
+            ("good/go.mod", "module good.example/a\n"),
+            ("bad/go.mod", "module bad.example/a\n"),
+        ],
+        Some("go 1.22\nuse .\nreplace original.example/a => ./good\n"),
+    );
+    let expected = BTreeSet::from(["good/impl.go".to_string()]);
+
+    assert_eq!(resolved_target_files(&cg, "invoke", "Act"), expected);
+    assert_eq!(manifest_target_files(&cg, "api.go", "Act"), expected);
+    let stats = prism::navigation::queries::call_stats(&cg);
+    assert_eq!(
+        stats["go_module_graph"],
+        serde_json::json!({
+            "modules": 3,
+            "active": 1,
+            "replaces_parsed": 2,
+            "replaces_applied": 1,
+            "workspace_invalid": false,
+        })
+    );
+    assert_eq!(stats["go_import_path_proven_files"], 2);
+    assert_eq!(stats["go_import_path_unproven_files"], 0);
+    assert_eq!(
+        stats["go_import_path_unproven_reasons"],
+        serde_json::json!({})
+    );
+}
+
+#[test]
+fn module_versioned_replace_without_workspace_override_has_no_exact_targets() {
+    let cg = build_workspace(
+        &[
+            (
+                "api.go",
+                "package root\nimport a \"original.example/a\"\ntype Doer interface { Act(a.T) }\ntype Holder struct { Doer }\nfunc invoke(h Holder, value a.T) { h.Act(value) }\n",
+            ),
+            (
+                "bad/impl.go",
+                "package a\ntype T struct{}\ntype Impl struct{}\nfunc (Impl) Act(T) {}\n",
+            ),
+        ],
+        &[
+            (
+                "go.mod",
+                "module example.com/root\nrequire original.example/a v1.0.0\nreplace original.example/a v1.0.0 => ./bad\n",
+            ),
+            ("bad/go.mod", "module bad.example/a\n"),
+        ],
+        None,
+    );
+
+    assert!(resolved_target_files(&cg, "invoke", "Act").is_empty());
+    assert!(manifest_target_files(&cg, "api.go", "Act").is_empty());
+    let stats = prism::navigation::queries::call_stats(&cg);
+    assert_eq!(stats["go_module_graph"]["replaces_parsed"], 1);
+    assert_eq!(stats["go_module_graph"]["replaces_applied"], 0);
+    assert_eq!(stats["go_module_graph"]["workspace_invalid"], false);
+    assert_eq!(stats["go_import_path_proven_files"], 1);
+    assert_eq!(stats["go_import_path_unproven_files"], 1);
+    assert_eq!(
+        stats["go_import_path_unproven_reasons"],
+        serde_json::json!({"replace_unproven": 1})
+    );
+}
