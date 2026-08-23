@@ -275,6 +275,7 @@ fn multi_module_full_incremental_and_cached_builds_are_identical() {
     let root = dir.path();
     write(root, "go.mod", "module example.com/root\n");
     write(root, "nested/go.mod", "module example.com/nested\n");
+    write(root, "go.work", "go 1.22\nuse (\n.\n./nested\n)\n");
     write(
         root,
         "api.go",
@@ -344,5 +345,33 @@ fn multi_module_full_incremental_and_cached_builds_are_identical() {
         resolved_owners_for(expected, "invokeRoot", "Act"),
         BTreeSet::from(["Impl".to_string()])
     );
-    assert!(resolved_owners_for(expected, "invokeNested", "Work").is_empty());
+    assert_eq!(
+        resolved_owners_for(expected, "invokeNested", "Work"),
+        BTreeSet::from(["NestedImpl".to_string()])
+    );
+}
+
+#[test]
+fn call_graph_consults_active_nested_module_identity_from_the_snapshot() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    write(root, "go.mod", "module example.com/root\n");
+    write(root, "nested/go.mod", "module example.com/nested\n");
+    write(root, "go.work", "go 1.22\nuse (\n.\n./nested\n)\n");
+    write(
+        root,
+        "nested/api.go",
+        "package nested\ntype Context struct{}\ntype Doer interface { Act(Context) }\ntype Holder struct { Doer }\nfunc invoke(h Holder, ctx Context) { h.Act(ctx) }\n",
+    );
+    write(
+        root,
+        "impl.go",
+        "package root\nimport nested \"example.com/nested\"\ntype Impl struct{}\nfunc (Impl) Act(nested.Context) {}\n",
+    );
+
+    let loaded = load_repo(root).unwrap();
+    assert_eq!(
+        resolved_owners(&loaded),
+        BTreeSet::from(["Impl".to_string()])
+    );
 }

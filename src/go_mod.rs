@@ -1,12 +1,21 @@
 #[derive(Debug, PartialEq, Eq)]
-enum Token {
+pub(crate) enum Token {
     Word(String),
     LeftParen,
     RightParen,
     Newline,
 }
 
-pub(crate) fn parse_module_path(go_mod: &str) -> Option<String> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PathKind {
+    /// Go's module.CheckImportPath semantics for an active main module declaration.
+    MainModule,
+    /// Go's module.CheckPath semantics for dependency module paths.
+    Dependency,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn parse_module_path(go_mod: &str, kind: PathKind) -> Option<String> {
     let tokens = tokenize(go_mod)?;
     let mut module_path = None;
     let mut index = 0;
@@ -46,9 +55,10 @@ pub(crate) fn parse_module_path(go_mod: &str) -> Option<String> {
         }
     }
 
-    module_path.filter(|path| valid_module_path(path))
+    module_path.filter(|path| valid_module_path(path, kind))
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn parse_parenthesized_path(tokens: &[Token], mut index: usize) -> Option<(String, usize)> {
     while matches!(tokens.get(index), Some(Token::Newline)) {
         index += 1;
@@ -73,7 +83,7 @@ fn parse_parenthesized_path(tokens: &[Token], mut index: usize) -> Option<(Strin
     Some((path, index))
 }
 
-fn tokenize(source: &str) -> Option<Vec<Token>> {
+pub(crate) fn tokenize(source: &str) -> Option<Vec<Token>> {
     let bytes = source.as_bytes();
     let mut tokens = Vec::new();
     let mut index = 0;
@@ -198,7 +208,7 @@ fn parse_fixed_radix(bytes: &[u8], start: usize, len: usize, radix: u32) -> Opti
     u32::from_str_radix(digits, radix).ok()
 }
 
-fn valid_module_path(path: &str) -> bool {
+pub(crate) fn valid_module_path(path: &str, kind: PathKind) -> bool {
     if path.is_empty()
         || !path.is_ascii()
         || path.starts_with('-')
@@ -207,8 +217,15 @@ fn valid_module_path(path: &str) -> bool {
     {
         return false;
     }
-    if path.split('/').any(|element| !valid_path_element(element)) {
+    if path
+        .split('/')
+        .any(|element| !valid_path_element(element, kind))
+    {
         return false;
+    }
+
+    if kind == PathKind::MainModule {
+        return true;
     }
 
     let first = path.split('/').next().unwrap_or_default();
@@ -224,13 +241,15 @@ fn valid_module_path(path: &str) -> bool {
     split_path_version_is_valid(path)
 }
 
-fn valid_path_element(element: &str) -> bool {
+fn valid_path_element(element: &str, kind: PathKind) -> bool {
     if element.is_empty()
         || element.bytes().all(|byte| byte == b'.')
-        || element.starts_with('.')
+        || (kind == PathKind::Dependency && element.starts_with('.'))
         || element.ends_with('.')
         || element.bytes().any(|byte| {
-            !(byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~'))
+            !(byte.is_ascii_alphanumeric()
+                || matches!(byte, b'-' | b'.' | b'_' | b'~')
+                || (kind == PathKind::MainModule && byte == b'+'))
         })
     {
         return false;
@@ -298,7 +317,7 @@ fn split_gopkg_in_is_valid(path: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_module_path;
+    use super::{parse_module_path, valid_module_path, PathKind};
 
     #[test]
     fn accepts_supported_module_directive_forms() {
@@ -330,7 +349,7 @@ mod tests {
 
         for (source, expected) in cases {
             assert_eq!(
-                parse_module_path(source).as_deref(),
+                parse_module_path(source, PathKind::Dependency).as_deref(),
                 Some(expected),
                 "source: {source:?}"
             );
@@ -364,7 +383,42 @@ mod tests {
         ];
 
         for source in cases {
-            assert_eq!(parse_module_path(source), None, "source: {source:?}");
+            assert_eq!(
+                parse_module_path(source, PathKind::Dependency),
+                None,
+                "source: {source:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn main_modules_use_check_import_path_while_dependencies_use_check_path() {
+        let import_only_paths = [
+            "compliance",
+            "Example.com/m",
+            "example.com/compiler++",
+            "example.com/.hidden",
+            "example.com/m/v1",
+        ];
+
+        for path in import_only_paths {
+            assert!(
+                valid_module_path(path, PathKind::MainModule),
+                "main module path: {path}"
+            );
+            assert!(
+                !valid_module_path(path, PathKind::Dependency),
+                "dependency path: {path}"
+            );
+        }
+
+        assert_eq!(
+            parse_module_path("module compliance\n", PathKind::MainModule).as_deref(),
+            Some("compliance")
+        );
+        for kind in [PathKind::MainModule, PathKind::Dependency] {
+            assert!(!valid_module_path("bad!path", kind));
+            assert_eq!(parse_module_path("module bad!path\n", kind), None);
         }
     }
 }

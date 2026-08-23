@@ -141,7 +141,9 @@ use std::path::{Path, PathBuf};
 /// - v45: Go `testdata` source exclusion changes the persisted file/dispatch set;
 ///   strict go.mod parsing plus the immutable go.mod/go.work/Cargo.toml snapshot
 ///   and symlink-refused/go.work topology entries change Go identity and cache keys.
-const CACHE_VERSION: u32 = 45;
+/// - v46: effective Go workspace/module/replacement identities change persisted
+///   interface-dispatch edges and add module-graph/import-path telemetry.
+const CACHE_VERSION: u32 = 46;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -660,7 +662,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_go_loader_hygiene() {
-        assert_eq!(super::CACHE_VERSION, 45);
+        assert_eq!(super::CACHE_VERSION, 46);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

@@ -461,6 +461,111 @@ fn call_stats_omits_zero_go_testdata_skip_for_byte_compatibility() {
 }
 
 #[test]
+fn call_stats_reports_go_module_graph_and_import_path_conservation() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    for subdir in ["nested", "inactive", "malformed", "linked", "versioned"] {
+        std::fs::create_dir_all(root.join(subdir)).unwrap();
+    }
+    std::fs::write(
+        root.join("go.mod"),
+        "module example.com/root\nrequire original.example/a v1.0.0\nreplace original.example/a v1.0.0 => ./versioned\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("go.work"), "go 1.22\nuse (\n.\n./nested\n)\n").unwrap();
+    std::fs::write(root.join("nested/go.mod"), "module example.com/nested\n").unwrap();
+    std::fs::write(
+        root.join("inactive/go.mod"),
+        "module example.com/inactive\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("malformed/go.mod"), "module bad path\n").unwrap();
+    std::fs::write(
+        root.join("versioned/go.mod"),
+        "module versioned.example/a\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("linked-target"), "module linked.example/a\n").unwrap();
+    std::os::unix::fs::symlink("../linked-target", root.join("linked/go.mod")).unwrap();
+    for file in [
+        "root.go",
+        "nested/nested.go",
+        "inactive/inactive.go",
+        "malformed/malformed.go",
+        "linked/linked.go",
+        "versioned/versioned.go",
+    ] {
+        std::fs::write(root.join(file), "package fixture\nfunc f() {}\n").unwrap();
+    }
+
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--repo"])
+        .arg(root)
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        v["go_module_graph"],
+        serde_json::json!({
+            "modules": 4,
+            "active": 2,
+            "replaces_parsed": 1,
+            "replaces_applied": 0,
+            "workspace_invalid": false,
+        })
+    );
+    assert_eq!(v["go_import_path_proven_files"], 2);
+    assert_eq!(v["go_import_path_unproven_files"], 4);
+    assert_eq!(
+        v["go_import_path_unproven_reasons"],
+        serde_json::json!({
+            "inactive_module": 1,
+            "malformed": 1,
+            "replace_unproven": 1,
+            "symlink": 1,
+        })
+    );
+    let proven = v["go_import_path_proven_files"].as_u64().unwrap();
+    let unproven = v["go_import_path_unproven_files"].as_u64().unwrap();
+    let reason_sum: u64 = v["go_import_path_unproven_reasons"]
+        .as_object()
+        .unwrap()
+        .values()
+        .map(|count| count.as_u64().unwrap())
+        .sum();
+    assert_eq!(proven + unproven, 6);
+    assert_eq!(reason_sum, unproven);
+}
+
+#[test]
+fn call_stats_omits_go_module_extension_for_non_go_byte_compatibility() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("main.rs"), "fn main() {}\n").unwrap();
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--repo"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    for key in [
+        "go_module_graph",
+        "go_import_path_proven_files",
+        "go_import_path_unproven_files",
+        "go_import_path_unproven_reasons",
+    ] {
+        assert!(v.get(key).is_none(), "unexpected non-Go field {key}");
+    }
+}
+
+#[test]
 fn call_stats_dump_sites_emits_no_synthetic_callback_custody() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(

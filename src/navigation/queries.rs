@@ -499,6 +499,32 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
             cg.skipped_go_testdata_files.into(),
         );
     }
+    if cg.go_import_path_proven_files + cg.go_import_path_unproven_files > 0 {
+        let object = stats.as_object_mut().expect("call-stats object");
+        object.insert(
+            "go_module_graph".to_string(),
+            serde_json::json!({
+                "modules": cg.go_module_graph.modules,
+                "active": cg.go_module_graph.active,
+                "replaces_parsed": cg.go_module_graph.replaces_parsed,
+                "replaces_applied": cg.go_module_graph.replaces_applied,
+                "workspace_invalid": cg.go_module_graph.workspace_invalid,
+            }),
+        );
+        object.insert(
+            "go_import_path_proven_files".to_string(),
+            cg.go_import_path_proven_files.into(),
+        );
+        object.insert(
+            "go_import_path_unproven_files".to_string(),
+            cg.go_import_path_unproven_files.into(),
+        );
+        object.insert(
+            "go_import_path_unproven_reasons".to_string(),
+            serde_json::to_value(&cg.go_import_path_unproven_reasons)
+                .expect("Go import-path reason histogram serializes"),
+        );
+    }
     if !cg.go_file_profiles.is_empty() {
         let object = stats.as_object_mut().expect("call-stats object");
         object.insert(
