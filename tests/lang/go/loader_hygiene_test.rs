@@ -275,6 +275,7 @@ fn multi_module_full_incremental_and_cached_builds_are_identical() {
     let root = dir.path();
     write(root, "go.mod", "module example.com/root\n");
     write(root, "nested/go.mod", "module example.com/nested\n");
+    write(root, "go.work", "go 1.22\nuse (\n.\n./nested\n)\n");
     write(
         root,
         "api.go",
@@ -344,7 +345,10 @@ fn multi_module_full_incremental_and_cached_builds_are_identical() {
         resolved_owners_for(expected, "invokeRoot", "Act"),
         BTreeSet::from(["Impl".to_string()])
     );
-    assert!(resolved_owners_for(expected, "invokeNested", "Work").is_empty());
+    assert_eq!(
+        resolved_owners_for(expected, "invokeNested", "Work"),
+        BTreeSet::from(["NestedImpl".to_string()])
+    );
 }
 
 #[test]

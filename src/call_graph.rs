@@ -515,6 +515,18 @@ pub struct CallGraph {
     /// account for files that never enter the parsed-file map.
     #[serde(default)]
     pub skipped_go_testdata_files: usize,
+    /// Effective Go workspace/module/replacement graph summary for call-stats.
+    #[serde(default)]
+    pub(crate) go_module_graph: crate::go_module_graph::GoModuleGraphTelemetry,
+    /// Loaded Go files whose effective import path was proven.
+    #[serde(default)]
+    pub(crate) go_import_path_proven_files: usize,
+    /// Loaded Go files whose effective import path was not proven.
+    #[serde(default)]
+    pub(crate) go_import_path_unproven_files: usize,
+    /// Fail-closed reason histogram for unproven loaded Go files.
+    #[serde(default)]
+    pub(crate) go_import_path_unproven_reasons: BTreeMap<String, usize>,
     /// P10 build-time S2 consult decisions. Whole-program rematerialized with
     /// receiver keys; runtime S4/P5 decisions travel on ResolutionOutcome.
     #[serde(default)]
@@ -698,6 +710,10 @@ impl CallGraph {
             go_build_profile_unparsed: BTreeMap::new(),
             go_owner_identity_profile_conflict: 0,
             skipped_go_testdata_files: 0,
+            go_module_graph: Default::default(),
+            go_import_path_proven_files: 0,
+            go_import_path_unproven_files: 0,
+            go_import_path_unproven_reasons: BTreeMap::new(),
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
@@ -918,6 +934,10 @@ impl CallGraph {
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
             skipped_go_testdata_files: 0,
+            go_module_graph: Default::default(),
+            go_import_path_proven_files: 0,
+            go_import_path_unproven_files: 0,
+            go_import_path_unproven_reasons: BTreeMap::new(),
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
@@ -1300,6 +1320,10 @@ impl CallGraph {
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
             skipped_go_testdata_files: 0,
+            go_module_graph: Default::default(),
+            go_import_path_proven_files: 0,
+            go_import_path_unproven_files: 0,
+            go_import_path_unproven_reasons: BTreeMap::new(),
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
@@ -2721,6 +2745,10 @@ impl CallGraph {
         self.go_interface_live_types.clear();
         self.go_embedded_interface_methods.clear();
         self.go_owner_identity_profile_conflict = 0;
+        self.go_module_graph = Default::default();
+        self.go_import_path_proven_files = 0;
+        self.go_import_path_unproven_files = 0;
+        self.go_import_path_unproven_reasons.clear();
     }
 
     /// Recompute Go embedding promotions over `files` and write owner-index aliases.
@@ -2863,6 +2891,10 @@ impl CallGraph {
         let live = crate::live_types::go_admission_live_set(files);
         self.go_interface_live_types = live.clone();
         let package_import_paths = Self::go_package_import_paths(files, scope_inputs);
+        self.go_module_graph = package_import_paths.graph.clone();
+        self.go_import_path_proven_files = package_import_paths.proven_files;
+        self.go_import_path_unproven_files = package_import_paths.unproven_files;
+        self.go_import_path_unproven_reasons = package_import_paths.reasons.clone();
         let provider =
             crate::type_providers::go::GoTypeProvider::from_parsed_files_with_package_import_paths(
                 files,
@@ -3986,6 +4018,10 @@ impl CallGraph {
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
             skipped_go_testdata_files: 0,
+            go_module_graph: Default::default(),
+            go_import_path_proven_files: 0,
+            go_import_path_unproven_files: 0,
+            go_import_path_unproven_reasons: BTreeMap::new(),
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
