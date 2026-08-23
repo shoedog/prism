@@ -1,20 +1,20 @@
 # Handoff — roadmap #14 slice 4 alias identity and promoted-selector snapshot
 
-**Written:** 2026-08-23T20:04:56Z · **By:** Codex `/root` · **Provider:** codex
-**Workspace:** `/Users/wesleyjinks/code/slicing-p14s4-sol` · branch `go-alias-aware-local-local-sol` · base `18b585a` · **Measured code checkpoint:** `94fcdc9c9bdb092c2b9244d9a7bf48bc7ca055ee` · tree clean before this handoff update
+**Written:** 2026-08-23T20:45:16Z · **By:** Codex `/root` · **Provider:** codex
+**Workspace:** `/Users/wesleyjinks/code/slicing-p14s4-sol` · branch `go-alias-aware-local-local-sol` · base `18b585a` · **Measured code checkpoint:** `c3c364945178c994a9667e54e1337ff707153b62` · tree clean before this handoff update
 **Authority:** owner brief > `docs/superpowers/specs/2026-08-22-go-nested-module-import-identity-design.md` §5/§6 > `docs/superpowers/specs/2026-08-22-p17-narrow-concrete-receiver-direct-design.md` §2 R1(b)
 **Provenance:** `[FRESH]` means measured in this worktree; `[SUPPLIED]` means owner-provided controls/expectations. The installed `bootstrap/handoff-template.md` named by steering was not present, so this follows the repository's existing handoff layout and includes every field requested in the brief.
 
 ## 0. Gating facts
 
 - **Lane ownership:** `[FRESH]` no subagents or other implementer worktrees were inspected or coordinated. This is the independent sol implementation.
-- **Custody:** the controller pushed through `2195b84`. Fix-wave-3 red/green stable points through `94fcdc9` are committed and unpushed; the branch is ahead by two before this handoff commit. Controller owns push; do not amend.
+- **Custody:** the controller pushed through `0c17f09`. Fix-wave-4 red/green stable points through `c3c3649` are committed and unpushed; the branch is ahead by two before this handoff commit. Controller owns push; do not amend.
 - **In flight:** no build, test, call-stats, or eval process remains running.
-- **Review cap:** round 3 was the declared cap. Fix wave 2 closed exactly its two targeted Part-B WRONGs. The controller then disclosed a scoped confirm, not another full review round: it found one bounded WRONG introduced by the selector rewrite plus one Ox SMELL on field-shadow ordering. Fix wave 3 closes both in one retained red/green pair; no cap extension or open-class retry was taken.
+- **Review cap:** round 3 was the declared cap. Fix wave 2 closed exactly its two targeted Part-B WRONGs. The controller then disclosed a scoped confirm, not another full review round: it found one bounded WRONG introduced by the selector rewrite plus one Ox SMELL on field-shadow ordering. Fix wave 3 closed both in one retained red/green pair. The owner subsequently authorized one final targeted combined-confirm B1 item; fix wave 4 closes exactly that alias-shadow implication WRONG without a new full review round or open-class retry.
 
 ## 1. Outcome
 
-Part A is complete: Go aliases are expanded transitively as full canonical type expressions before Exact signature comparison, profile/arity/cycle/provenance failures produce `AliasUnresolved`, and `Local↔Local` now requires equal effective paths while `Bare↔Bare` retains the name rule.
+Part A is complete: Go aliases are expanded transitively as full canonical type expressions before Exact signature comparison, profile/arity/cycle/provenance failures produce `AliasUnresolved`, and `Local↔Local` now requires equal effective paths while `Bare↔Bare` retains the name rule. A package declaration shadows predeclared `byte`/`rune` normalization only when SAT proves `consumer profile ⇒ declaration profile`; a disproven or capped implication means no predeclared shadow, while the existing uncertain actual-alias path remains `AliasUnresolved`.
 
 Part B is complete as a foundation only: `CallGraph` serializes a read-only, owner/profile-keyed promoted-selector snapshot with resolved embed identity, pointer bit, source selector, ordinary fields, own methods, shallowest promoted target/depth/shadow/value-method-set facts, explicit equal-depth ambiguity, and `ProfileConflict`. Selector candidates are now selected independently in each concrete build partition: identical mutually exclusive selections are recorded once with all declaring `FunctionId` profile variants, differing or unprovable selections conflict, and a shallower ordinary field shadows before ambiguity is considered. Interface declarations contribute internal per-profile canonical method signatures and embedded-interface closure facts; unproven signature completeness fails closed, and conflicts propagate through interface hops without publishing interface owners. The snapshot remains unconsumed by every resolution route.
 
@@ -51,6 +51,9 @@ Part B is complete as a foundation only: `CallGraph` serializes a read-only, own
 | `7600b90` | Fix-wave-2 green: canonical signature comparison and fail-closed completeness |
 | `39c0a66` | Fix-wave-3 red: mutually exclusive profile variants and field-before-ambiguity poles |
 | `94fcdc9` | Fix-wave-3 green: build-partition selector selection and merged `FunctionId` variants |
+| `0c17f09` | Fix-wave-3 verified handoff (controller-pushed starting checkpoint) |
+| `de8ead8` | Fix-wave-4 red: narrower/equal/broader/capped alias-shadow implication poles |
+| `c3c3649` | Fix-wave-4 green: consumer-implies-declaration shadow proof and split fail-closed behavior |
 
 No commit was amended and nothing was pushed by this implementer.
 
@@ -108,6 +111,10 @@ The cache test compares bincode bytes for a no-cache build, cache miss, exact CP
 - `local_alias_named_byte_shadows_predeclared_normalization`
 - `defined_rune_shadow_fails_closed_before_predeclared_normalization`
 - `unshadowed_byte_still_normalizes_to_uint8`
+- `narrower_alias_profile_does_not_shadow_predeclared_byte`
+- `equal_alias_profile_shadows_predeclared_byte`
+- `broader_alias_profile_shadows_narrower_consumer`
+- `capped_profile_implication_normalizes_predeclared_but_rejects_actual_alias`
 - `embedded_interface_profile_method_divergence_conflicts_outer_owner`
 - `identical_embedded_interface_profiles_keep_outer_owner_unique`
 - `parameterized_alias_shape_accepts_error_and_clean_grammar_forms`
@@ -125,27 +132,28 @@ The cache test compares bincode bytes for a no-cache build, cache miss, exact CP
 - `mutually_exclusive_receiver_shapes_conflict_untagged_outer`
 - `shallower_ordinary_field_suppresses_equal_depth_ambiguity`
 
-The first three tests assert resolver and manifest target-file parity. Red evidence was retained in commits before each green production commit. Fix wave 3 selected 27 snapshot tests: the two target poles failed and 25 controls passed at `39c0a66`; all 27 passed at `94fcdc9`. The receiver-shape conflict and pre-existing true same-profile ambiguity were green in both states.
+The predeclared-shadow tests assert resolver and manifest target-file parity. Red evidence was retained in commits before each green production commit. Fix wave 3 selected 27 snapshot tests: the two target poles failed and 25 controls passed at `39c0a66`; all 27 passed at `94fcdc9`. The receiver-shape conflict and pre-existing true same-profile ambiguity were green in both states. At `de8ead8`, the narrower-profile and capped-implication targets failed while equal/broader controls and existing actual-alias uncertainty behavior passed; all four new poles and the ordinary-alias profile-variant control pass at `c3c3649`.
 
 ## 4. Verification
 
 | Check | Fresh result |
 |---|---|
 | `cargo fmt --all -- --check` | pass |
-| `git diff --check 18b585a..HEAD` | pass after the final handoff commit (range form; prior lines 3–5 fixed) |
+| `git diff --check 18b585a..c3c3649` | pass; rerun after the final handoff commit |
 | `cargo check` | pass |
 | focused Part A Go target before Part B | 153 passed / 0 failed / 0 ignored |
 | fix-wave-3 Part B snapshot focus | 27 passed / 0 failed / 0 ignored (within the final 185-test Go target) |
-| full Go test binary | 185 passed / 0 failed / 0 ignored |
+| fix-wave-4 focused alias/profile controls | 6 passed / 0 failed / 0 ignored, followed by the complete Go target |
+| full Go test binary | 189 passed / 0 failed / 0 ignored |
 | full navigation test binary | 108 passed / 0 failed / 0 ignored |
-| final retained `cargo test --quiet` | 3,345 passed / 0 failed / 1 ignored across 28 summaries |
-| fix-wave-3 `cargo build --release` | pass in 24.56s; binary `slicing 3.1.2 (94fcdc9c9bdb)` |
+| final retained `cargo test --quiet` | 3,349 passed / 0 failed / 1 ignored across 28 summaries |
+| fix-wave-4 `cargo build --release` | pass in 22.43s; binary `slicing 3.1.2 (c3c364945178)` |
 | `eval/.venv/bin/tier-a --matrix-only --allow-stale-sut` | 104 passed / 0 failed immediately after release rebuild |
-| `eval/.venv/bin/tier-a --quick --allow-drift` | pass; valid report, 104/104 matrix, oracle/SUT error rates 0, clean source/binary/harness all `94fcdc9c9bdb` |
+| `eval/.venv/bin/tier-a --quick --allow-drift` | pass; valid report, 104/104 matrix, oracle/SUT error rates 0, clean source/binary/harness all `c3c364945178` |
 | cache pins | CPG 48 / sidecar 17 |
-| largest slice-owned implementation module | `src/go_build_profile.rs`, 583 lines; `src/go_type_alias.rs` 580, snapshot root 461, selector-resolution child 416 |
+| largest slice-owned implementation module | `src/go_type_alias.rs`, 591 lines; `src/go_build_profile.rs` 586, implication child 45, snapshot root 461, selector-resolution child 416 |
 
-The final Tier-A quick run used `--allow-drift` because the committed corpus pin predates this clean candidate; the flag permits comparison without rewriting pins, baselines, or adjudications. `baseline_invalid=false`, `invalid_reasons=[]`, and the oracle was quiescent. One initial matrix command used an `eval/`-prefixed binary path from inside `eval/`; it failed before selection and was excluded as inadmissible. Generated eval reports/snapshots were removed after their fields were recorded; no baseline or adjudication changed. All five fresh corpora reported `go_alias_unresolved={}`.
+The final Tier-A quick run used `--allow-drift` because the committed corpus pin predates this clean candidate; the flag permits comparison without rewriting pins, baselines, or adjudications. `baseline_invalid=false`, `invalid_reasons=[]`, and the oracle was quiescent. Corpus, binary, and harness were all clean and bound to `c3c364945178`; generated eval reports/snapshots were removed after their fields were recorded, so no baseline or adjudication changed. All five fresh corpora reported `go_alias_unresolved={}`.
 
 ## 5. Five-corpus same-base evidence
 
@@ -211,6 +219,20 @@ The recursive JSON-leaf comparison found no resolution, alias, fanout, gap, or u
 
 Every parsed call-stats leaf is identical to the retained fix-wave-2 output on all five corpora. Thus fix wave 3 moved neither resolution nor snapshot aggregate telemetry; the new per-method profile-variant detail remains inside the serialized foundation snapshot and is not counted by call-stats.
 
+### Fix wave 4 versus retained sol lineage
+
+| Corpus | Complete output versus sol fix wave 2 | Interface Exact | Alias expanded / unresolved | Snapshot owners / conflicts / promoted | Resolution result |
+|---|---|---:|---|---|---|
+| ripgrep | byte-identical | 0 | `0 / {}` | `0 / 0 / 0` | identical |
+| caddy | byte-identical | 1,766 | `0 / {}` | `367 / 60 / 181` | identical |
+| prometheus | byte-identical | 2,498 | `25 / {}` | `1,190 / 39 / 388` | identical |
+| etcd | byte-identical | 2,062 | `33 / {}` | `974 / 61 / 965` | identical |
+| hugo | byte-identical | 625 | `8 / {}` | `972 / 64 / 860` | identical |
+
+All five fresh `c3c3649` outputs parsed as JSON objects, all five stderr files were empty, and every output was byte-identical to `/private/tmp/p14s4-sol-fix2-<corpus>.txt`. Fix wave 3 already proved every leaf identical to that same sol checkpoint, so wave 4 moves no resolution, alias, gap, fanout, snapshot, or unrelated call-stats leaf. Against supplied `ctrl514`, the retained resolution statement is unchanged: only Prometheus Exact `2461→2498` (fanout bucket `7: 9→12`, interface multi-target `414→421`) and etcd Exact `2002→2062` (fanout `1:445→420`, `2:196→202`, `3:93→112`, interface multi-target `315→348`) retain Part-A movement; Ripgrep, Caddy, and Hugo resolution remains identical.
+
+An initial comparison used `/private/tmp/p14s4ox-F3-*`, which belongs to the parallel/Ox lineage and lacked this branch's additive alias/snapshot keys. That comparison was rejected as an inadmissible sol control; its sampled diffs showed only those absent keys, and it was not used for the final corpus claim.
+
 ## 6. Design discrepancies and fifth axis
 
 - The authoritative slice-4 spec still names cache versions 47/16, while the direct owner brief sequences this work after #17 and mandates 48/17. The clone base did not contain #17 when the bump landed; 48/17 was used exactly as instructed. Controller must reconcile stacking before PR.
@@ -218,13 +240,14 @@ Every parsed call-stats leaf is identical to the retained fix-wave-2 output on a
 - Interface owners are internal hop profiles: per-declaration canonical method signatures and embedded-interface identities are compared, and conflicts propagate to outer structs. Canonical signatures come from the dispatch provider's per-declaring-profile alias-aware `canon_type`; missing signature proof conflicts rather than equating by name. Interface owners are not published as outer snapshot owners and remain unconsumed by routing. Defined non-struct embedded types are also internal hop profiles and can contribute promoted methods.
 - Promoted-method selection preserves the embedding selector path and its declaring-profile conjunction. It enumerates the distinct active build partitions within the existing eight-free-tag exactness cap, applies shallower-field shadowing before ambiguity, chooses the shallowest method within each partition, and compares normalized results across partitions. Identical alternatives merge their `FunctionId`s into `profile_variants`; differing or unprovable results conflict.
 - Anonymous invalid struct-embed syntax is retained by tree-sitter below a top-level `ERROR`. Snapshot-local recovery records it as conflict without admitting the malformed declaration to provider routing.
+- Predeclared-name shadowing now asks the directional SAT question `UNSAT(consumer ∧ ¬declaration)`. Proven implication selects the package declaration; a concrete countermodel or more than eight free tags selects no shadow and permits `byte→uint8` / `rune→int32` normalization. Ordinary alias expansion keeps the existing exact profile-visibility gate, so capped or unparsed evidence returns `ProfileUncertain`, surfaced as `AliasUnresolved`, rather than falling through to a false base-type match.
 - No sixth profile-safety axis was discovered through fix wave 3. Build alternatives partition selector evaluation; they do not add a selector-safety dimension.
-- The repository's pre-existing `src/type_providers/go.rs` monolith remains over 600 lines; this slice's new/split modules are below 600 lines. Fix wave 3 leaves the largest modified slice-owned module at 583 lines.
+- The repository's pre-existing `src/type_providers/go.rs` monolith remains over 600 lines; this slice's new/split modules are below 600 lines. Fix wave 4 leaves the largest modified slice-owned module at 591 lines and isolates the implication enumerator in a 45-line child.
 - CPG 48 / sidecar 17 remain unchanged. Old CPG payloads fail closed through bincode decode or the build-identity check before use; the sidecar does not separately serialize this snapshot.
 
 ## 7. Resume order and stop conditions
 
-1. Controller performs the disclosed scoped confirm of fix wave 3; do not open a new full review round past the cap.
+1. Controller reviews the owner-approved final targeted fix-wave-4 commits and this handoff; do not open a new full review round past the cap.
 2. Controller reconciles #17 stacking/cache pins and runs any additional required oracle checks.
 3. Controller pushes the existing commits without amend if accepted.
 
@@ -232,4 +255,4 @@ Do not consume the snapshot for routing in this slice. Do not rebaseline corpora
 
 ## 8. Verdict
 
-**Implementer verdict:** SELF-PASS, not independent approval. Fix wave 2's exactly-two closure remains historical; fix wave 3 closes the one bounded selector-profile WRONG introduced there and folds the field-shadow ordering SMELL under the controller's scoped confirm. Full Rust tests, release build, Tier-A matrix and quick, cache parity, and five-corpus all-leaf parity are green. Acceptance remains gated on the scoped controller confirm and sequencing reconciliation.
+**Implementer verdict:** SELF-PASS, not independent approval. Fix wave 2's exactly-two closure remains historical; fix wave 3 closed the bounded selector-profile WRONG and field-shadow ordering SMELL under the scoped confirm; fix wave 4 closes the owner-approved alias-shadow implication WRONG. Full Rust tests, release build, Tier-A matrix and quick, cache parity, and five-corpus byte parity are green. Acceptance remains gated on controller acceptance and sequencing reconciliation.
