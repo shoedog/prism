@@ -1,5 +1,6 @@
 mod advanced_test;
 mod algo_test;
+mod alias_local_local_test;
 mod build_profile_test;
 #[allow(dead_code)]
 #[path = "../../common/mod.rs"]
