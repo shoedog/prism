@@ -200,6 +200,25 @@ fn aliases_in_two_packages_expand_to_one_base_type() {
 }
 
 #[test]
+fn alias_function_variadic_shape_never_matches_nonvariadic() {
+    let cg = build_go(
+        &[
+            ("base/base.go", "package base\ntype ID struct{}\n"),
+            (
+                "api/api.go",
+                "package api\nimport base \"example.com/root/base\"\ntype Callback = func(...base.ID)\ntype Doer interface{ Use(Callback) }\ntype Holder struct{ Doer }\nfunc invoke(h Holder, v Callback){ h.Use(v) }\n",
+            ),
+            (
+                "worker/impl.go",
+                "package worker\nimport base \"example.com/root/base\"\ntype Impl struct{}\nfunc (Impl) Use(func(base.ID)){}\n",
+            ),
+        ],
+        Some("example.com/root"),
+    );
+    assert_target_files(&cg, "api/api.go", "invoke", "Use", &[]);
+}
+
+#[test]
 fn bare_to_bare_without_module_keeps_the_name_rule() {
     let cg = build_go(
         &[
