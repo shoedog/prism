@@ -39,6 +39,39 @@ fn assert_only_file(cg: &CallGraph, caller: &str, method: &str, expected: &str) 
     }));
 }
 
+fn manifest_routes(cg: &CallGraph) -> BTreeSet<String> {
+    prism::navigation::queries::interface_dispatch_manifest(cg)["sites"]
+        .as_array()
+        .expect("manifest sites")
+        .iter()
+        .map(|site| {
+            site["dispatch_route"]
+                .as_str()
+                .expect("dispatch route")
+                .to_string()
+        })
+        .collect()
+}
+
+fn manifest_target_files(cg: &CallGraph) -> BTreeSet<String> {
+    prism::navigation::queries::interface_dispatch_manifest(cg)["sites"]
+        .as_array()
+        .expect("manifest sites")
+        .iter()
+        .flat_map(|site| {
+            site["implementer_identities"]
+                .as_array()
+                .expect("implementer identities")
+        })
+        .map(|identity| {
+            identity["file"]
+                .as_str()
+                .expect("implementer file")
+                .to_string()
+        })
+        .collect()
+}
+
 #[test]
 fn defined_interface_and_alias_to_interface_keep_interface_dispatch() {
     let cg = build_go(&[
@@ -79,6 +112,14 @@ fn defined_interface_and_alias_to_interface_keep_interface_dispatch() {
             .iter()
             .all(|resolved| resolved.kind == ResolutionKind::InterfaceDispatch));
     }
+    assert_eq!(
+        manifest_routes(&cg),
+        BTreeSet::from(["interface_dispatch".into()])
+    );
+    assert_eq!(
+        manifest_target_files(&cg),
+        BTreeSet::from(["p/types.go".into()])
+    );
 }
 
 #[test]
@@ -102,6 +143,14 @@ fn literal_interface_alias_feeds_satisfaction_and_dispatch() {
 
     assert_only_file(&cg, "run", "M", "p/types.go");
     assert!(cg.interface_impls.contains_key(&("A".into(), "M".into())));
+    assert_eq!(
+        manifest_routes(&cg),
+        BTreeSet::from(["interface_dispatch".into()])
+    );
+    assert_eq!(
+        manifest_target_files(&cg),
+        BTreeSet::from(["p/types.go".into()])
+    );
 }
 
 #[test]
@@ -136,6 +185,11 @@ fn concrete_alias_uses_its_declaration_file_import_environment() {
 
     assert_only_file(&cg, "run", "M", "q/types.go");
     assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 1);
+    assert_eq!(
+        manifest_routes(&cg),
+        BTreeSet::from(["concrete_direct".into()])
+    );
+    assert!(manifest_target_files(&cg).is_empty());
 }
 
 #[test]
@@ -171,6 +225,11 @@ fn pointer_and_transitive_concrete_aliases_route_to_the_canonical_owner() {
 
     assert_only_file(&cg, "run", "M", "q/types.go");
     assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 1);
+    assert_eq!(
+        manifest_routes(&cg),
+        BTreeSet::from(["concrete_direct".into()])
+    );
+    assert!(manifest_target_files(&cg).is_empty());
 }
 
 #[test]
@@ -179,6 +238,7 @@ fn defined_non_interface_uses_its_own_method_set() {
         "main.go",
         "package main\n\
          type Token string\n\
+         type Marker interface{ M() }\n\
          func (Token) M() {}\n\
          func run(t Token) { t.M() }\n",
     )]);
@@ -186,6 +246,11 @@ fn defined_non_interface_uses_its_own_method_set() {
 
     assert_only_file(&cg, "run", "M", "main.go");
     assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 1);
+    assert_eq!(
+        manifest_routes(&cg),
+        BTreeSet::from(["concrete_direct".into()])
+    );
+    assert!(manifest_target_files(&cg).is_empty());
 }
 
 #[test]
@@ -195,6 +260,7 @@ fn alias_cycle_fails_closed_without_a_direct_edge() {
         "package main\n\
          type A = B\n\
          type B = A\n\
+         type Marker interface{ M() }\n\
          func run(a A) { a.M() }\n",
     )]);
     let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
@@ -202,4 +268,9 @@ fn alias_cycle_fails_closed_without_a_direct_edge() {
     assert!(outcome.resolved.is_empty(), "{outcome:?}");
     assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
     assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 0);
+    assert_eq!(
+        manifest_routes(&cg),
+        BTreeSet::from(["unproven_drop".into()])
+    );
+    assert!(manifest_target_files(&cg).is_empty());
 }

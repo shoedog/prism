@@ -408,11 +408,12 @@ fn interface_manifest_existing_fields_match_origin_main_fixture() {
         .find(|site| site["method"] == "Go" && site["fanout"].as_u64() == Some(2))
         .expect("two-implementer dispatch site")
         .clone();
-    legacy_site
-        .as_object_mut()
-        .expect("site object")
-        .remove("implementer_identities")
-        .expect("the sole additive field must be present");
+    let legacy_object = legacy_site.as_object_mut().expect("site object");
+    for additive in ["implementer_identities", "dispatch_route"] {
+        legacy_object
+            .remove(additive)
+            .unwrap_or_else(|| panic!("additive field {additive} must be present"));
+    }
     let fixture = r#"{"end_byte":202,"fanout":2,"file":"main.go","implementers":["Fast","Slow"],"line":8,"method":"Go","receiver_class":"var_local","start_byte":196}"#;
     assert_eq!(
         serde_json::to_string(&legacy_site).expect("serialize legacy site"),
@@ -432,7 +433,7 @@ fn interface_manifest_identity_dedup_keeps_build_tag_twins() {
             "package main\n\
              type Runner interface { Go() }\n\
              func use() { _ = Impl{} }\n\
-             func dispatch(x any) { x.(Runner).Go() }\n",
+             func dispatch(x any) { x.(ExternalRunner).Go() }\n",
             Go,
         ),
         (
@@ -457,8 +458,11 @@ fn interface_manifest_identity_dedup_keeps_build_tag_twins() {
         .expect("both parsed build-tag method targets")
         .clone();
     assert_eq!(twins.len(), 2, "CallGraph keeps both file-distinct targets");
+    // Use an intentionally unproven receiver key so this remains a serializer
+    // test for the unchanged R3 bare lane. A proven `Runner` receiver now
+    // correctly applies profile visibility and rejects these conflicting twins.
     cg.interface_impls
-        .insert(("Runner".to_string(), "Go".to_string()), twins);
+        .insert(("ExternalRunner".to_string(), "Go".to_string()), twins);
     let manifest = prism::navigation::queries::interface_dispatch_manifest(&cg);
     let site = manifest["sites"]
         .as_array()

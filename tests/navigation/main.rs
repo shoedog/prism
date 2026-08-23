@@ -4,6 +4,7 @@ mod callers_test;
 mod ego_test;
 mod framework_entry_test;
 mod func_value_test;
+mod go_concrete_cache_test;
 mod index_test;
 mod inventory_test;
 mod loader_test;

@@ -49,6 +49,27 @@ fn assert_bare_telemetry(cg: &CallGraph, sites: usize, hits: usize, edges: usize
     );
 }
 
+fn manifest_site(cg: &CallGraph) -> serde_json::Value {
+    let manifest = prism::navigation::queries::interface_dispatch_manifest(cg);
+    let sites = manifest["sites"].as_array().expect("manifest sites");
+    assert_eq!(sites.len(), 1, "{manifest:#}");
+    sites[0].clone()
+}
+
+fn manifest_target_files(cg: &CallGraph) -> BTreeSet<String> {
+    manifest_site(cg)["implementer_identities"]
+        .as_array()
+        .expect("implementer identities")
+        .iter()
+        .map(|identity| {
+            identity["file"]
+                .as_str()
+                .expect("implementer file")
+                .to_string()
+        })
+        .collect()
+}
+
 fn ambiguous_basename_fixture(with_interface: bool) -> CallGraph {
     let mut sources = vec![
         (
@@ -58,6 +79,10 @@ fn ambiguous_basename_fixture(with_interface: bool) -> CallGraph {
              func (S) M() {}\n",
         ),
         ("two/q/types.go", "package q\ntype Other struct{}\n"),
+        (
+            "unrelated/types.go",
+            "package unrelated\ntype Other interface { M() }\n",
+        ),
         (
             "app/use.go",
             "package app\n\
@@ -93,6 +118,8 @@ fn ambiguous_import_basename_keeps_the_legacy_bare_interface_hit() {
             && resolved.kind == ResolutionKind::InterfaceDispatch
     }));
     assert_bare_telemetry(&cg, 1, 1, 1);
+    assert_eq!(manifest_site(&cg)["dispatch_route"], "interface_dispatch");
+    assert_eq!(manifest_target_files(&cg), resolved_files(&cg));
 }
 
 #[test]
@@ -103,6 +130,9 @@ fn ambiguous_import_basename_keeps_the_legacy_no_interface_drop() {
     assert!(outcome.resolved.is_empty(), "{outcome:?}");
     assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
     assert_bare_telemetry(&cg, 1, 0, 0);
+    let manifest = manifest_site(&cg);
+    assert_eq!(manifest["dispatch_route"], "unproven_drop");
+    assert_eq!(manifest["implementer_identities"], serde_json::json!([]));
 }
 
 fn duplicate_profile_fixture(identical: bool, with_interface: bool) -> CallGraph {
@@ -131,6 +161,10 @@ fn duplicate_profile_fixture(identical: bool, with_interface: bool) -> CallGraph
             "package app\n\
              import q \"example/q\"\n\
              func run(s q.S) { s.M() }\n",
+        ),
+        (
+            "unrelated/types.go",
+            "package unrelated\ntype Other interface { M() }\n",
         ),
     ];
     if with_interface {
@@ -161,6 +195,8 @@ fn duplicate_profile_owner_keeps_the_legacy_bare_interface_hit() {
         .iter()
         .all(|resolved| resolved.kind == ResolutionKind::InterfaceDispatch));
     assert_bare_telemetry(&cg, 1, 1, 1);
+    assert_eq!(manifest_site(&cg)["dispatch_route"], "interface_dispatch");
+    assert_eq!(manifest_target_files(&cg), resolved_files(&cg));
 }
 
 #[test]
@@ -171,4 +207,7 @@ fn duplicate_profile_owner_keeps_the_legacy_no_interface_drop() {
     assert!(outcome.resolved.is_empty(), "{outcome:?}");
     assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
     assert_bare_telemetry(&cg, 1, 0, 0);
+    let manifest = manifest_site(&cg);
+    assert_eq!(manifest["dispatch_route"], "unproven_drop");
+    assert_eq!(manifest["implementer_identities"], serde_json::json!([]));
 }
