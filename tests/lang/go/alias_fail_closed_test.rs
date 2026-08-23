@@ -116,6 +116,22 @@ fn parameterized_alias_wrong_arity_fails_closed() {
 }
 
 #[test]
+fn unsupported_parameterized_alias_constraint_is_unresolvable() {
+    let cg = build_go(&[
+        (
+            "api/api.go",
+            "package api\ntype Pair[A, B any] struct{ First A; Second B }\ntype Constrained[T ~int] = Pair[T, T]\ntype Doer interface{ Use(Constrained[int]) }\ntype Holder struct{ Doer }\nfunc invoke(h Holder, v Constrained[int]){ h.Use(v) }\n",
+        ),
+        (
+            "worker/impl.go",
+            "package worker\nimport api \"example.com/root/api\"\ntype Impl struct{}\nfunc (Impl) Use(api.Pair[int, int]){}\n",
+        ),
+    ]);
+    assert_target_files(&cg, "api/api.go", "invoke", "Use", &[]);
+    assert_unresolved_reason(&cg, "unresolvable");
+}
+
+#[test]
 fn nested_aliases_expand_transitively() {
     let cg = build_go(&[
         (
