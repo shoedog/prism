@@ -1,4 +1,4 @@
-use crate::go_mod::{tokenize, valid_module_path, Token};
+use crate::go_mod::{tokenize, valid_module_path, PathKind, Token};
 use crate::manifest_snapshot::{ManifestSnapshot, ManifestSnapshotEntry};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path};
@@ -132,7 +132,11 @@ impl GoModuleGraph {
                         self.invalidate_workspace();
                         return None;
                     };
-                    if !matches!(self.boundaries.get(&dir), Some(ModuleBoundary::Valid(_))) {
+                    if !matches!(
+                        self.boundaries.get(&dir),
+                        Some(ModuleBoundary::Valid(module))
+                            if module.path_kind == PathKind::MainModule
+                    ) {
                         self.invalidate_workspace();
                         return None;
                     }
@@ -149,10 +153,12 @@ impl GoModuleGraph {
                 return None;
             }
             None => match self.boundaries.get("") {
-                Some(ModuleBoundary::Valid(_)) => {
+                Some(ModuleBoundary::Valid(module)) if module.path_kind == PathKind::MainModule => {
                     self.active.insert(String::new());
                 }
-                Some(ModuleBoundary::Malformed | ModuleBoundary::Symlink) => {
+                Some(
+                    ModuleBoundary::Valid(_) | ModuleBoundary::Malformed | ModuleBoundary::Symlink,
+                ) => {
                     self.invalidate_workspace();
                     return None;
                 }
@@ -206,6 +212,14 @@ impl GoModuleGraph {
     }
 
     #[cfg(test)]
+    fn module_path_kind(&self, dir: &str) -> Option<PathKind> {
+        let ModuleBoundary::Valid(module) = self.boundaries.get(dir)? else {
+            return None;
+        };
+        Some(module.path_kind)
+    }
+
+    #[cfg(test)]
     fn replacement_is_unproven(&self, path: &str) -> bool {
         self.replace_unproven.contains(path)
     }
@@ -231,6 +245,7 @@ enum ModuleBoundary {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ParsedGoMod {
     path: String,
+    path_kind: PathKind,
     requires: BTreeSet<String>,
     replaces: Vec<Replacement>,
 }
@@ -272,7 +287,9 @@ fn parse_go_mod(source: &str) -> Option<ParsedGoMod> {
         match directive.name.as_str() {
             "module" => {
                 validate_args(&directive.args, 1)?;
-                if module_path.is_some() || !valid_module_path(&directive.args[0]) {
+                if module_path.is_some()
+                    || !valid_module_path(&directive.args[0], PathKind::MainModule)
+                {
                     return None;
                 }
                 module_path = Some(directive.args[0].clone());
@@ -284,13 +301,13 @@ fn parse_go_mod(source: &str) -> Option<ParsedGoMod> {
             "godebug" => validate_args(&directive.args, 1)?,
             "tool" => {
                 validate_args(&directive.args, 1)?;
-                if !valid_module_path(&directive.args[0]) {
+                if !valid_module_path(&directive.args[0], PathKind::Dependency) {
                     return None;
                 }
             }
             "require" => {
                 validate_args(&directive.args, 2)?;
-                if !valid_module_path(&directive.args[0])
+                if !valid_module_path(&directive.args[0], PathKind::Dependency)
                     || !valid_module_version(&directive.args[1])
                 {
                     return None;
@@ -301,7 +318,7 @@ fn parse_go_mod(source: &str) -> Option<ParsedGoMod> {
             }
             "exclude" => {
                 validate_args(&directive.args, 2)?;
-                if !valid_module_path(&directive.args[0])
+                if !valid_module_path(&directive.args[0], PathKind::Dependency)
                     || !valid_module_version(&directive.args[1])
                 {
                     return None;
@@ -327,6 +344,7 @@ fn parse_go_mod(source: &str) -> Option<ParsedGoMod> {
     }
     Some(ParsedGoMod {
         path: module_path?,
+        path_kind: PathKind::MainModule,
         requires,
         replaces,
     })
@@ -474,7 +492,7 @@ fn parse_replace(args: &[String]) -> Option<Replacement> {
     if !(lhs.len() == 1 || lhs.len() == 2) || !(rhs.len() == 1 || rhs.len() == 2) {
         return None;
     }
-    if !valid_module_path(&lhs[0]) {
+    if !valid_module_path(&lhs[0], PathKind::Dependency) {
         return None;
     }
     let lhs_version = lhs.get(1).cloned();
@@ -486,7 +504,10 @@ fn parse_replace(args: &[String]) -> Option<Replacement> {
     }
     let rhs = if rhs.len() == 1 && is_local_path(&rhs[0]) {
         ReplacementRhs::Local(rhs[0].clone())
-    } else if rhs.len() == 2 && valid_module_path(&rhs[0]) && valid_module_version(&rhs[1]) {
+    } else if rhs.len() == 2
+        && valid_module_path(&rhs[0], PathKind::Dependency)
+        && valid_module_version(&rhs[1])
+    {
         ReplacementRhs::Module {
             path: rhs[0].clone(),
             version: rhs[1].clone(),

@@ -85,6 +85,85 @@ fn workspace_can_activate_a_nested_module_without_a_root_go_mod() {
 }
 
 #[test]
+fn prometheus_shaped_workspace_accepts_dotless_active_main_module() {
+    let root = module("github.com/prometheus/prometheus");
+    let compliance = module("compliance");
+    let documentation =
+        module("github.com/prometheus/prometheus/documentation/examples/remote_storage");
+    let sigv4 = module("github.com/prometheus/prometheus/sigv4");
+    let web_ui = module("github.com/prometheus/prometheus/web/ui");
+    let mut graph = GoModuleGraph::new(
+        Path::new("/repo"),
+        &snapshot(&[
+            (
+                "go.work",
+                Some(
+                    "go 1.26\nuse (\n.\n./compliance\n./documentation/examples/remote_storage\n./sigv4\n./web/ui\n)\n",
+                ),
+            ),
+            ("go.mod", Some(&root)),
+            ("compliance/go.mod", Some(&compliance)),
+            (
+                "documentation/examples/remote_storage/go.mod",
+                Some(&documentation),
+            ),
+            ("sigv4/go.mod", Some(&sigv4)),
+            ("web/ui/go.mod", Some(&web_ui)),
+        ]),
+    );
+
+    assert_eq!(graph.telemetry().modules, 5);
+    assert_eq!(graph.telemetry().active, 5);
+    assert!(!graph.telemetry().workspace_invalid);
+    assert_eq!(
+        graph.module_path_kind("compliance"),
+        Some(PathKind::MainModule)
+    );
+    assert_eq!(
+        graph.import_path_for_dir("storage"),
+        Ok("github.com/prometheus/prometheus/storage".to_string())
+    );
+    assert_eq!(
+        graph.import_path_for_dir("compliance/rules"),
+        Ok("compliance/rules".to_string())
+    );
+    assert_eq!(
+        graph.import_path_for_dir("documentation/examples/remote_storage/pkg"),
+        Ok(
+            "github.com/prometheus/prometheus/documentation/examples/remote_storage/pkg"
+                .to_string()
+        )
+    );
+    assert_eq!(
+        graph.import_path_for_dir("sigv4/pkg"),
+        Ok("github.com/prometheus/prometheus/sigv4/pkg".to_string())
+    );
+    assert_eq!(
+        graph.import_path_for_dir("web/ui/module"),
+        Ok("github.com/prometheus/prometheus/web/ui/module".to_string())
+    );
+}
+
+#[test]
+fn active_main_and_dependency_module_paths_keep_distinct_validation() {
+    let cases = [
+        ("module bad!path\n", true),
+        ("module example.com/root\nrequire bad!path v1.0.0\n", true),
+        ("module example.com/root\nrequire compliance v1.0.0\n", true),
+    ];
+
+    for (go_mod, workspace_invalid) in cases {
+        let graph = GoModuleGraph::new(Path::new("/repo"), &snapshot(&[("go.mod", Some(go_mod))]));
+        assert_eq!(
+            graph.telemetry().workspace_invalid,
+            workspace_invalid,
+            "go.mod: {go_mod:?}"
+        );
+        assert_eq!(graph.telemetry().active, 0, "go.mod: {go_mod:?}");
+    }
+}
+
+#[test]
 fn malformed_workspace_or_unproven_use_invalidates_the_whole_workspace() {
     let valid = module("example.com/valid");
     let malformed = "module bad path\n";
