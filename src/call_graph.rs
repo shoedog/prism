@@ -2763,7 +2763,14 @@ impl CallGraph {
             return;
         }
         // 2. Group promotions by (owner_key(struct), method).
+        let t0 = std::time::Instant::now();
         let provider = crate::type_providers::go::GoTypeProvider::from_parsed_files(files);
+        if std::env::var("PRISM_P15A_TIMING").as_deref() == Ok("1") {
+            eprintln!(
+                "[p15a-timing] provider-construct embedding-promotion: {:?}",
+                t0.elapsed()
+            );
+        }
         let mut by_key: BTreeMap<(String, String), Vec<(usize, FunctionId)>> = BTreeMap::new();
         for pm in provider.promoted_struct_methods() {
             let key = (crate::resolution::owner_key(&pm.struct_name), pm.method);
@@ -2895,11 +2902,18 @@ impl CallGraph {
         self.go_import_path_proven_files = package_import_paths.proven_files;
         self.go_import_path_unproven_files = package_import_paths.unproven_files;
         self.go_import_path_unproven_reasons = package_import_paths.reasons.clone();
+        let t0 = std::time::Instant::now();
         let provider =
             crate::type_providers::go::GoTypeProvider::from_parsed_files_with_package_import_paths(
                 files,
                 &package_import_paths.paths,
             );
+        if std::env::var("PRISM_P15A_TIMING").as_deref() == Ok("1") {
+            eprintln!(
+                "[p15a-timing] provider-construct interface-dispatch: {:?}",
+                t0.elapsed()
+            );
+        }
         let table = provider.compute_interface_dispatch(&live);
         self.interface_impls = table.impls;
         // Capture per-method arity for later arity-filtered dispatch (Task 2).
@@ -3242,8 +3256,15 @@ impl CallGraph {
         }
         self.go_return_types = crate::go_receiver_index::extract_go_return_types(files);
         self.go_package_vars = crate::go_receiver_index::extract_go_package_vars(files);
+        let t0 = std::time::Instant::now();
         let field_targets =
             crate::type_providers::go::GoTypeProvider::from_parsed_files(files).go_field_targets();
+        if std::env::var("PRISM_P15A_TIMING").as_deref() == Ok("1") {
+            eprintln!(
+                "[p15a-timing] provider-construct receiver-indices: {:?}",
+                t0.elapsed()
+            );
+        }
         self.rematerialize_go_receiver_keys(files, receiver_config, &field_targets);
     }
 
