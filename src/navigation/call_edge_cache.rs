@@ -45,13 +45,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // participates in the sidecar fingerprint (paired with CPG v45).
 // v15: effective Go workspace/module/replacement identity changes interface
 // dispatch topology (paired with CPG v46).
-// v16: proven Go concrete receivers route before the legacy bare-interface
-// ladder, changing resolved call-edge topology (paired with CPG v47).
-// v17: Go value-rebinding shadow bail changes resolved receiver topology
-// (paired with CPG v48).
-// v18: qualified Go owner recovery uses effective module import paths before
-// basename fallback (paired with CPG v49).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 18;
+// v16: P17 proven Go concrete receivers route before the legacy bare-interface
+// ladder. Value-rebinding shadow bail and effective-module qualified owner
+// recovery are part of this one PR transition (paired with CPG v47).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 16;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -377,7 +374,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_go_loader_hygiene() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 18);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 16);
     }
 
     #[test]

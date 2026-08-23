@@ -116,7 +116,8 @@ does NOT consume it for classification (gopls stays authoritative: `definition_k
 `go_concrete_receiver_direct`, `go_concrete_receiver_promoted_existing` (sites), `go_concrete_receiver_promoted_deferred` (sites),
 `go_concrete_receiver_no_selector_drop`,
 `go_unproven_receiver_bare_fallback_{sites,hits,edges}` (R3, for #17b); derived call edges change → CPG **46→47** and sidecar **15→16**
-(this slice is sequenced AFTER #14 slice 3 = 46/15 per the owner decision; one transition), pin tests updated;
+(this slice is sequenced AFTER #14 slice 3 = 46/15 per the owner decision; one per-PR transition across all implementation/fix waves), pin tests updated;
+CPG **48** / sidecar **17** remain reserved for #14 slice 4, which merges after this PR;
 the declaration-kind index (and the boolean "selector is promoted from an embedded concrete" evidence R1(b)'s deferred-drop needs — derived from
 the existing promoted walk, owner-keyed; LABEL-ONLY: both R1(b)-deferred and R1(e) are drops, so a mis-classification between them can only
 mislabel the diagnostic/telemetry, never mint an edge; no promoted-selector snapshot ships in this slice; the owner/profile-keyed one is #14 slice 4) is

@@ -1,9 +1,9 @@
-# Handoff — P17 narrow concrete-receiver routing, fix wave 2
+# Handoff — P17 narrow concrete-receiver routing, fix wave 3
 
 **Written:** 2026-08-23T18:39:05Z · **By:** Codex `/root`
 **Workspace:** `/Users/wesleyjinks/code/slicing-p17-narrow` · branch `p17-narrow-concrete-receiver`
 **Measured implementation HEAD before this handoff:** `ba8a2be` · base `514cfe3`
-**Cache schema:** CPG `49`, navigation sidecar `18`
+**Cache schema:** CPG `47`, navigation sidecar `16`
 
 ## 0. Gating facts
 
@@ -16,8 +16,8 @@
 
 | Commit | Item | Result |
 |---|---|---|
-| `b7760b0` | `p17-fix2: fail closed on receiver value rebinding` | Applies the proof-shadow bail to type-switch, inner declaration, range, and closure-parameter rebindings; adds resolver/manifest poles; bumps cache schemas to 48/17. |
-| `dc342cb` | `p17-fix2: resolve qualified owners by module import path` | Resolves qualified owners by exact effective-module import path before the legacy basename fallback; adds nested-module function-literal and factory-local poles; bumps schemas to 49/18. |
+| `b7760b0` | `p17-fix2: fail closed on receiver value rebinding` | Applies the proof-shadow bail to type-switch, inner declaration, range, and closure-parameter rebindings; adds resolver/manifest poles. Its schema change is folded into this PR's single 47/16 transition. |
+| `dc342cb` | `p17-fix2: resolve qualified owners by module import path` | Resolves qualified owners by exact effective-module import path before the legacy basename fallback; adds nested-module function-literal and factory-local poles. Its schema change is folded into the same 47/16 transition. |
 | `55b03e0` | `p17-fix2: pin closure rebinding fail-closed contract` | Updates the existing closure regression to assert retained legacy input, proof-shadow evidence, and zero edges. |
 | `ba8a2be` | `p17-fix2: retain proofs only for lexical rebindings` | Separates true Go lexical rebindings from ordinary assignment, preserving the pre-wave assignment-only bail. |
 
@@ -125,7 +125,7 @@ Every R3 record present on main is byte-identical in its legacy projection. New 
 - Resolver and manifest still consume one shared `go_concrete_receiver_route`; no second proof was added.
 - Qualified lookup uses exact effective import path first; unresolved or multiply mapped exact paths fail closed, and legacy basename lookup remains only as fallback when exact evidence is absent.
 - R3 consumer inputs and the bare ladder are unchanged. Generic receivers still record 0/0/0 fallback telemetry when `iface_key` rejects them.
-- Cache pins are CPG 49 and sidecar 18; the four-path cold/no-cache/exact-CPG/sidecar parity test remains green.
+- Cache pins are CPG 47 and sidecar 16; 48/17 remains reserved for #14 slice 4. The four-path cold/no-cache/exact-CPG/sidecar parity test remains green.
 - New modules and dedicated wave-2 tests are under 600 lines (`go_concrete_receiver.rs` 500, `go_selector_supply.rs` 233, fix2 tests 166 and 113).
 - Not done by instruction: gopls oracle. The controller should rerun it, review the corrected 14-site Etcd expectation, push the commits, and publish the PR wave.
 
