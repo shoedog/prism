@@ -132,6 +132,22 @@ fn unsupported_parameterized_alias_constraint_is_unresolvable() {
 }
 
 #[test]
+fn defined_rune_shadow_fails_closed_before_predeclared_normalization() {
+    let cg = build_go(&[
+        (
+            "api/api.go",
+            "package api\ntype rune int32\ntype Doer interface{ Use(rune) }\ntype Holder struct{ Doer }\nfunc invoke(h Holder, v rune){ h.Use(v) }\n",
+        ),
+        (
+            "worker/impl.go",
+            "package worker\ntype Impl struct{}\nfunc (Impl) Use(int32){}\n",
+        ),
+    ]);
+    assert_target_files(&cg, "api/api.go", "invoke", "Use", &[]);
+    assert_unresolved_reason(&cg, "defined_variant");
+}
+
+#[test]
 fn nested_aliases_expand_transitively() {
     let cg = build_go(&[
         (

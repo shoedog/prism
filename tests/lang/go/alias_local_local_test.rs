@@ -162,6 +162,47 @@ fn predeclared_aliases_normalize_byte_and_rune() {
 }
 
 #[test]
+fn local_alias_named_byte_shadows_predeclared_normalization() {
+    let cg = build_go(
+        &[
+            ("base/base.go", "package base\ntype ID struct{}\n"),
+            (
+                "api/api.go",
+                "package api\nimport base \"example.com/root/base\"\ntype byte = base.ID\ntype Doer interface{ Use(byte) }\ntype Holder struct{ Doer }\nfunc invoke(h Holder, v byte){ h.Use(v) }\n",
+            ),
+            (
+                "worker/id.go",
+                "package worker\nimport base \"example.com/root/base\"\ntype IDImpl struct{}\nfunc (IDImpl) Use(base.ID){}\n",
+            ),
+            (
+                "worker/uint.go",
+                "package worker\ntype UintImpl struct{}\nfunc (UintImpl) Use(uint8){}\n",
+            ),
+        ],
+        Some("example.com/root"),
+    );
+    assert_target_files(&cg, "api/api.go", "invoke", "Use", &["worker/id.go"]);
+}
+
+#[test]
+fn unshadowed_byte_still_normalizes_to_uint8() {
+    let cg = build_go(
+        &[
+            (
+                "api/api.go",
+                "package api\ntype Doer interface{ Use(byte) }\ntype Holder struct{ Doer }\nfunc invoke(h Holder, v byte){ h.Use(v) }\n",
+            ),
+            (
+                "worker/impl.go",
+                "package worker\ntype Impl struct{}\nfunc (Impl) Use(uint8){}\n",
+            ),
+        ],
+        Some("example.com/root"),
+    );
+    assert_target_files(&cg, "api/api.go", "invoke", "Use", &["worker/impl.go"]);
+}
+
+#[test]
 fn alias_to_composite_substitutes_nested_pointer_slice_map_and_func() {
     let cg = build_go(
         &[
