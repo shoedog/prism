@@ -205,6 +205,10 @@ pub struct ScopeGraphBuildInputs {
     pub repo_root: PathBuf,
     pub all_file_paths: BTreeSet<String>,
     pub manifest_hashes: BTreeMap<String, String>,
+    #[serde(default)]
+    pub manifest_snapshot: crate::ManifestSnapshot,
+    #[serde(default)]
+    pub skipped_go_testdata_files: usize,
     pub cfg: RustCrateConfig,
     pub complete: bool,
 }
@@ -215,6 +219,8 @@ impl ScopeGraphBuildInputs {
             repo_root: PathBuf::new(),
             all_file_paths: files.keys().cloned().collect(),
             manifest_hashes: BTreeMap::new(),
+            manifest_snapshot: crate::ManifestSnapshot::default(),
+            skipped_go_testdata_files: 0,
             cfg: RustCrateConfig::from_convention(files),
             complete: true,
         }
@@ -504,6 +510,11 @@ pub struct CallGraph {
     /// is not a count of affected consult sites or edges.
     #[serde(default)]
     pub go_owner_identity_profile_conflict: usize,
+    /// Go source files excluded because a path segment is exactly `testdata`.
+    /// Loader-derived and propagated through scope inputs so call-stats can
+    /// account for files that never enter the parsed-file map.
+    #[serde(default)]
+    pub skipped_go_testdata_files: usize,
     /// P10 build-time S2 consult decisions. Whole-program rematerialized with
     /// receiver keys; runtime S4/P5 decisions travel on ResolutionOutcome.
     #[serde(default)]
@@ -686,6 +697,7 @@ impl CallGraph {
             go_file_profiles: BTreeMap::new(),
             go_build_profile_unparsed: BTreeMap::new(),
             go_owner_identity_profile_conflict: 0,
+            skipped_go_testdata_files: 0,
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
@@ -905,6 +917,7 @@ impl CallGraph {
             go_file_profiles,
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
+            skipped_go_testdata_files: 0,
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
@@ -1286,6 +1299,7 @@ impl CallGraph {
             go_file_profiles,
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
+            skipped_go_testdata_files: 0,
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
@@ -2832,6 +2846,9 @@ impl CallGraph {
         scope_inputs: Option<&ScopeGraphBuildInputs>,
     ) {
         self.clear_interface_dispatch();
+        self.skipped_go_testdata_files = scope_inputs
+            .map(|inputs| inputs.skipped_go_testdata_files)
+            .unwrap_or(0);
         // The dispatch pass ran (even if there are no Go files → empty result); a raw
         // build_direct_subset graph leaves this false (review MINOR 6 signal).
         self.interface_dispatch_computed = true;
@@ -2914,12 +2931,36 @@ impl CallGraph {
             let mut module_root = package_root.as_path();
 
             loop {
-                match std::fs::read_to_string(module_root.join("go.mod")) {
-                    Ok(go_mod) => {
+                let Some(module_relative) =
+                    module_root
+                        .strip_prefix(repo_root)
+                        .ok()
+                        .and_then(|relative| {
+                            relative
+                                .iter()
+                                .map(|part| part.to_str())
+                                .collect::<Option<Vec<_>>>()
+                        })
+                else {
+                    break;
+                };
+                let manifest_path = if module_relative.is_empty() {
+                    "go.mod".to_string()
+                } else {
+                    format!("{}/go.mod", module_relative.join("/"))
+                };
+                match scope_inputs.manifest_snapshot.get(&manifest_path) {
+                    Some(crate::manifest_snapshot::ManifestSnapshotEntry::Regular {
+                        bytes,
+                        ..
+                    }) => {
                         if module_root != repo_root {
                             break;
                         }
-                        let Some(module_path) = Self::parse_go_module_path(&go_mod) else {
+                        let Ok(go_mod) = std::str::from_utf8(bytes) else {
+                            break;
+                        };
+                        let Some(module_path) = Self::parse_go_module_path(go_mod) else {
                             break;
                         };
                         let Some(suffix) =
@@ -2944,8 +2985,8 @@ impl CallGraph {
                         out.insert(path.clone(), import_path);
                         break;
                     }
-                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                    Err(_) => break,
+                    Some(crate::manifest_snapshot::ManifestSnapshotEntry::SymlinkRefused) => break,
+                    None => {}
                 }
                 if module_root == repo_root {
                     break;
@@ -2963,16 +3004,7 @@ impl CallGraph {
     }
 
     fn parse_go_module_path(go_mod: &str) -> Option<String> {
-        go_mod.lines().find_map(|line| {
-            let mut words = line.split_whitespace();
-            if words.next() != Some("module") {
-                return None;
-            }
-            words
-                .next()
-                .map(|path| path.trim_matches(['"', '`']).to_string())
-                .filter(|path| !path.is_empty())
-        })
+        crate::go_mod::parse_module_path(go_mod)
     }
 
     fn clear_go_func_value_fields(&mut self) {
@@ -4036,6 +4068,7 @@ impl CallGraph {
             go_file_profiles,
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
+            skipped_go_testdata_files: 0,
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,

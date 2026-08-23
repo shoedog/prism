@@ -404,6 +404,63 @@ fn call_stats_reports_macro_arg_telemetry() {
 }
 
 #[test]
+fn call_stats_reports_go_testdata_skip_and_excludes_its_exact_edge() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join("testdata")).unwrap();
+    std::fs::write(dir.path().join("go.mod"), "module example.com/root\n").unwrap();
+    std::fs::write(
+        dir.path().join("main.go"),
+        "package root\n\
+         type Doer interface { Act(string) }\n\
+         type Holder struct { Doer }\n\
+         func invoke(h Holder) { h.Act(\"ok\") }\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("testdata/impl.go"),
+        "package testdata\n\
+         type Impl struct{}\n\
+         func (Impl) Act(string) {}\n",
+    )
+    .unwrap();
+
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--repo"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(v["kind_exact"].get("interface_dispatch").is_none());
+    assert_eq!(v["skipped_go_testdata_files"], 1);
+}
+
+#[test]
+fn call_stats_omits_zero_go_testdata_skip_for_byte_compatibility() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("main.go"), "package main\nfunc main() {}\n").unwrap();
+
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--repo"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(v.get("skipped_go_testdata_files").is_none());
+}
+
+#[test]
 fn call_stats_dump_sites_emits_no_synthetic_callback_custody() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(

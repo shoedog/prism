@@ -1,6 +1,7 @@
 use crate::ast::ParsedFile;
 use crate::call_graph::ScopeGraphBuildInputs;
 use crate::languages::Language;
+use crate::manifest_snapshot::{ManifestSnapshot, ManifestSnapshotEntry};
 use crate::name_resolution::rust_populator::RustCrateConfig;
 use crate::type_db::TypeDatabase;
 use anyhow::{Context, Result};
@@ -17,6 +18,7 @@ const BUILTIN_SKIP_DIRS: &[&str] = &[".git", "target", "node_modules", "vendor",
 pub enum SkipReason {
     Unsupported,
     Ignored,
+    GoTestdata,
     Symlink,
     Hidden,
     TooLarge { bytes: u64 },
@@ -36,6 +38,7 @@ pub struct LoadedRepo {
     pub files: BTreeMap<String, ParsedFile>,
     pub file_hashes: BTreeMap<String, String>,
     pub manifest_hashes: BTreeMap<String, String>,
+    pub manifest_snapshot: ManifestSnapshot,
     pub scope_graph_inputs: Option<ScopeGraphBuildInputs>,
     pub skipped: Vec<SkippedFile>,
     pub type_db: Option<TypeDatabase>,
@@ -59,24 +62,33 @@ struct ParseOutcome {
 }
 
 pub fn load_repo(root: &Path) -> Result<LoadedRepo> {
-    let (items, candidates) = collect_walk_items(root)?;
+    let (items, candidates, manifest_snapshot) = collect_walk_items(root)?;
     let outcomes = parse_candidates_parallel(candidates);
-    Ok(merge_walk_items(root, items, outcomes))
+    Ok(merge_walk_items(root, items, outcomes, manifest_snapshot))
 }
 
 #[cfg_attr(not(test), allow(dead_code))] // parity twin: used by the in-module loader test
 pub(crate) fn load_repo_serial_reference(root: &Path) -> Result<LoadedRepo> {
-    let (items, candidates) = collect_walk_items(root)?;
+    let (items, candidates, manifest_snapshot) = collect_walk_items(root)?;
     let outcomes = parse_candidates_serial(candidates);
-    Ok(merge_walk_items(root, items, outcomes))
+    Ok(merge_walk_items(root, items, outcomes, manifest_snapshot))
 }
 
-fn collect_walk_items(root: &Path) -> Result<(Vec<MergeItem>, Vec<CandidateData>)> {
+fn collect_walk_items(
+    root: &Path,
+) -> Result<(Vec<MergeItem>, Vec<CandidateData>, ManifestSnapshot)> {
     let mut items = Vec::new();
     let mut candidates = Vec::new();
-    walk(root, root, &mut items, &mut candidates)
-        .with_context(|| format!("failed to read repository root {}", root.display()))?;
-    Ok((items, candidates))
+    let mut manifest_snapshot = ManifestSnapshot::default();
+    walk(
+        root,
+        root,
+        &mut items,
+        &mut candidates,
+        &mut manifest_snapshot,
+    )
+    .with_context(|| format!("failed to read repository root {}", root.display()))?;
+    Ok((items, candidates, manifest_snapshot))
 }
 
 fn parse_candidates_parallel(candidates: Vec<CandidateData>) -> Vec<ParseOutcome> {
@@ -107,7 +119,12 @@ fn parse_candidate(candidate: CandidateData) -> ParseOutcome {
     }
 }
 
-fn merge_walk_items(root: &Path, items: Vec<MergeItem>, outcomes: Vec<ParseOutcome>) -> LoadedRepo {
+fn merge_walk_items(
+    root: &Path,
+    items: Vec<MergeItem>,
+    outcomes: Vec<ParseOutcome>,
+    manifest_snapshot: ManifestSnapshot,
+) -> LoadedRepo {
     let mut files = BTreeMap::new();
     let mut file_hashes = BTreeMap::new();
     let mut skipped = Vec::new();
@@ -146,7 +163,13 @@ fn merge_walk_items(root: &Path, items: Vec<MergeItem>, outcomes: Vec<ParseOutco
 
     debug_assert!(outcomes.next().is_none());
 
-    let scope_graph_inputs = scope_graph_build_inputs(root, &files);
+    let skipped_go_testdata_files = skipped
+        .iter()
+        .filter(|skip| skip.reason == SkipReason::GoTestdata)
+        .count();
+    let mut scope_graph_inputs =
+        scope_graph_build_inputs_from_snapshot(root, &files, manifest_snapshot.clone());
+    scope_graph_inputs.skipped_go_testdata_files = skipped_go_testdata_files;
     let manifest_hashes = scope_graph_inputs.manifest_hashes.clone();
 
     LoadedRepo {
@@ -154,6 +177,7 @@ fn merge_walk_items(root: &Path, items: Vec<MergeItem>, outcomes: Vec<ParseOutco
         files,
         file_hashes,
         manifest_hashes,
+        manifest_snapshot,
         scope_graph_inputs: Some(scope_graph_inputs),
         skipped,
         type_db: None,
@@ -164,26 +188,41 @@ pub fn scope_graph_build_inputs(
     root: &Path,
     files: &BTreeMap<String, ParsedFile>,
 ) -> ScopeGraphBuildInputs {
-    let manifest_hashes = collect_manifest_hashes(root);
-    let cfg = parse_rust_crate_config(root, files, &manifest_hashes)
+    scope_graph_build_inputs_from_snapshot(root, files, collect_manifest_snapshot(root))
+}
+
+fn scope_graph_build_inputs_from_snapshot(
+    root: &Path,
+    files: &BTreeMap<String, ParsedFile>,
+    manifest_snapshot: ManifestSnapshot,
+) -> ScopeGraphBuildInputs {
+    let manifest_hashes = manifest_snapshot.topology_hashes();
+    let cfg = parse_rust_crate_config(files, &manifest_snapshot)
         .unwrap_or_else(|| RustCrateConfig::from_convention(files));
     let complete = has_complete_rust_coverage(root, files);
     ScopeGraphBuildInputs {
         repo_root: root.to_path_buf(),
         all_file_paths: files.keys().cloned().collect(),
         manifest_hashes,
+        manifest_snapshot,
+        skipped_go_testdata_files: 0,
         cfg,
         complete,
     }
 }
 
+#[cfg(test)]
 fn collect_manifest_hashes(root: &Path) -> BTreeMap<String, String> {
-    let mut out = BTreeMap::new();
-    collect_manifest_hashes_inner(root, root, &mut out);
-    out
+    collect_manifest_snapshot(root).topology_hashes()
 }
 
-fn collect_manifest_hashes_inner(root: &Path, dir: &Path, out: &mut BTreeMap<String, String>) {
+fn collect_manifest_snapshot(root: &Path) -> ManifestSnapshot {
+    let mut snapshot = ManifestSnapshot::default();
+    collect_manifest_snapshot_inner(root, root, &mut snapshot);
+    snapshot
+}
+
+fn collect_manifest_snapshot_inner(root: &Path, dir: &Path, snapshot: &mut ManifestSnapshot) {
     let entries = match std::fs::read_dir(dir) {
         Ok(entries) => entries,
         Err(_) => return,
@@ -199,17 +238,21 @@ fn collect_manifest_hashes_inner(root: &Path, dir: &Path, out: &mut BTreeMap<Str
             if BUILTIN_SKIP_DIRS.contains(&name.as_str()) || name.starts_with('.') {
                 continue;
             }
-            collect_manifest_hashes_inner(root, &path, out);
+            collect_manifest_snapshot_inner(root, &path, snapshot);
             continue;
         }
-        if file_type.is_file() && matches!(name.as_str(), "Cargo.toml" | "go.mod") {
+        if is_manifest_name(&name) && file_type.is_symlink() {
+            snapshot.insert_symlink_refused(rel(root, &path));
+        } else if is_manifest_name(&name) && file_type.is_file() {
             if let Ok(bytes) = std::fs::read(&path) {
-                let mut hasher = Sha256::new();
-                hasher.update(&bytes);
-                out.insert(rel(root, &path), format!("{:x}", hasher.finalize()));
+                snapshot.insert_regular(rel(root, &path), bytes);
             }
         }
     }
+}
+
+fn is_manifest_name(name: &str) -> bool {
+    matches!(name, "Cargo.toml" | "go.mod" | "go.work")
 }
 
 fn has_complete_rust_coverage(root: &Path, files: &BTreeMap<String, ParsedFile>) -> bool {
@@ -269,11 +312,24 @@ fn collect_supported_source_paths_inner(
 }
 
 fn parse_rust_crate_config(
-    root: &Path,
     files: &BTreeMap<String, ParsedFile>,
-    manifest_hashes: &BTreeMap<String, String>,
+    manifest_snapshot: &ManifestSnapshot,
 ) -> Option<RustCrateConfig> {
-    if manifest_hashes.is_empty() {
+    let parsed_manifests = manifest_snapshot
+        .entries()
+        .filter_map(|(path, entry)| {
+            if !path.ends_with("Cargo.toml") {
+                return None;
+            }
+            let ManifestSnapshotEntry::Regular { bytes, .. } = entry else {
+                return None;
+            };
+            let text = std::str::from_utf8(bytes).ok()?;
+            let value = text.parse::<toml::Value>().ok()?;
+            Some((path.as_str(), value))
+        })
+        .collect::<Vec<_>>();
+    if parsed_manifests.is_empty() {
         return Some(RustCrateConfig::from_convention(files));
     }
 
@@ -285,20 +341,13 @@ fn parse_rust_crate_config(
     let mut editions_seen: BTreeSet<u16> = BTreeSet::new();
 
     // Collect EVERY discovered `[workspace.package] edition` (not just a last-wins
-    // scalar): prism collects all `Cargo.toml` repo-wide into one `manifest_hashes`,
+    // scalar): prism collects all `Cargo.toml` repo-wide into one manifest snapshot,
     // so a repo may hold multiple workspace roots on opposite anchoring sides. The
     // full set drives the recall-safe second uniformity term (§2.2); a representative
     // scalar resolves the `{ workspace = true }` value form.
     let mut workspace_editions: BTreeSet<u16> = BTreeSet::new();
     let mut workspace_edition: Option<u16> = None;
-    for manifest_path in manifest_hashes.keys() {
-        let abs = root.join(manifest_path);
-        let Ok(text) = std::fs::read_to_string(&abs) else {
-            continue;
-        };
-        let Ok(value) = text.parse::<toml::Value>() else {
-            continue;
-        };
+    for (_, value) in &parsed_manifests {
         if let Some(ed) = value
             .get("workspace")
             .and_then(|w| w.get("package"))
@@ -320,14 +369,7 @@ fn parse_rust_crate_config(
     // recorded; targets are normalized (`..`/`.` collapsed) to the manifest-dir form.
     let mut workspace_dep_paths: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
     let mut workspace_root_dirs: BTreeSet<String> = BTreeSet::new();
-    for manifest_path in manifest_hashes.keys() {
-        let abs = root.join(manifest_path);
-        let Ok(text) = std::fs::read_to_string(&abs) else {
-            continue;
-        };
-        let Ok(value) = text.parse::<toml::Value>() else {
-            continue;
-        };
+    for (manifest_path, value) in &parsed_manifests {
         let manifest_dir = manifest_path
             .strip_suffix("Cargo.toml")
             .unwrap_or("")
@@ -359,14 +401,7 @@ fn parse_rust_crate_config(
     }
     let mut member_in_repo_deps: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
 
-    for manifest_path in manifest_hashes.keys() {
-        let abs = root.join(manifest_path);
-        let Ok(text) = std::fs::read_to_string(&abs) else {
-            continue;
-        };
-        let Ok(value) = text.parse::<toml::Value>() else {
-            continue;
-        };
+    for (manifest_path, value) in &parsed_manifests {
         parsed_any = true;
         let manifest_dir = manifest_path
             .strip_suffix("Cargo.toml")
@@ -449,7 +484,7 @@ fn parse_rust_crate_config(
             }
         }
 
-        collect_dep_renames(&value, &mut cfg.dep_renames);
+        collect_dep_renames(value, &mut cfg.dep_renames);
         // Resolve this member's `workspace = true` deps through its OWNING workspace
         // root's `[workspace.dependencies]` (nearest ancestor dir that declared
         // `[workspace]`); an empty map when the member is not under any workspace root.
@@ -458,7 +493,7 @@ fn parse_rust_crate_config(
         let ws_deps_for_member = owning_ws
             .and_then(|ws| workspace_dep_paths.get(ws))
             .unwrap_or(&empty_ws_deps);
-        let member_deps = parse_member_in_repo_deps(&value, manifest_dir, ws_deps_for_member);
+        let member_deps = parse_member_in_repo_deps(value, manifest_dir, ws_deps_for_member);
         if !member_deps.is_empty() {
             member_in_repo_deps.insert(manifest_dir.to_string(), member_deps);
         }
@@ -641,6 +676,7 @@ fn walk(
     dir: &Path,
     items: &mut Vec<MergeItem>,
     candidates: &mut Vec<CandidateData>,
+    manifest_snapshot: &mut ManifestSnapshot,
 ) -> Result<()> {
     let entries = std::fs::read_dir(dir)?;
 
@@ -682,6 +718,34 @@ fn walk(
             continue;
         }
 
+        if is_manifest_name(&name) {
+            let relp = rel(root, &path);
+            if file_type.is_symlink() {
+                manifest_snapshot.insert_symlink_refused(relp.clone());
+                items.push(MergeItem::Skip(SkippedFile {
+                    path: relp,
+                    reason: SkipReason::Symlink,
+                }));
+                continue;
+            }
+            if file_type.is_file() {
+                match std::fs::read(&path) {
+                    Ok(bytes) => {
+                        manifest_snapshot.insert_regular(relp.clone(), bytes);
+                        items.push(MergeItem::Skip(SkippedFile {
+                            path: relp,
+                            reason: SkipReason::Unsupported,
+                        }));
+                    }
+                    Err(_) => items.push(MergeItem::Skip(SkippedFile {
+                        path: relp,
+                        reason: SkipReason::Unreadable,
+                    })),
+                }
+                continue;
+            }
+        }
+
         if file_type.is_symlink() {
             items.push(MergeItem::Skip(SkippedFile {
                 path: rel(root, &path),
@@ -698,7 +762,7 @@ fn walk(
                 }));
                 continue;
             }
-            if walk(root, &path, items, candidates).is_err() {
+            if walk(root, &path, items, candidates, manifest_snapshot).is_err() {
                 items.push(MergeItem::Skip(SkippedFile {
                     path: rel_dir(root, &path),
                     reason: SkipReason::Unreadable,
@@ -723,6 +787,16 @@ fn walk(
             items.push(MergeItem::Skip(SkippedFile {
                 path: relp,
                 reason: SkipReason::TooLarge { bytes: meta.len() },
+            }));
+            continue;
+        }
+
+        if Language::from_path(&relp) == Some(Language::Go)
+            && relp.split('/').any(|component| component == "testdata")
+        {
+            items.push(MergeItem::Skip(SkippedFile {
+                path: relp,
+                reason: SkipReason::GoTestdata,
             }));
             continue;
         }
