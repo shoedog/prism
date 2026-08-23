@@ -186,10 +186,10 @@ impl<'a> AliasExpansionCtx<'a> {
                 continue;
             };
             for clause in clauses {
-                let Some(variants) = self
-                    .index
-                    .variants
-                    .get(&(dir.clone(), clause.clone(), name.to_string()))
+                let Some(variants) =
+                    self.index
+                        .variants
+                        .get(&(dir.clone(), clause.clone(), name.to_string()))
                 else {
                     continue;
                 };
@@ -207,10 +207,10 @@ impl<'a> AliasExpansionCtx<'a> {
                 continue;
             };
             for clause in clauses {
-                let Some(variants) = self
-                    .index
-                    .variants
-                    .get(&(dir.clone(), clause.clone(), name.to_string()))
+                let Some(variants) =
+                    self.index
+                        .variants
+                        .get(&(dir.clone(), clause.clone(), name.to_string()))
                 else {
                     continue;
                 };
