@@ -1,8 +1,10 @@
 # p15a — Go provider reuse (roadmap #15a) — handoff
 
-STATUS: DONE (code + docs) through fix wave 1. Commits: d81752f (WIP provider
+STATUS: DONE (code + docs) through fix wave 2. Commits: d81752f (WIP provider
 reuse), 2672ddd (remove TEMP timing), 6f7d572 (fix1: reorder dispatch + registry
-reuse), 587bef6 (fix1: WIP construction counter), plus fix1 handoff commit.
+reuse), 587bef6 (fix1: WIP construction counter), 7cd9550 (fix2: WIP transfer
+provider / incremental path — retention, incremental provenance boundary,
+per-measurement test counter).
 Final tree has no timing code; `cargo check` clean; `cargo test --lib p15a_fix1`
 green. Gates + AFTER measurements: run by the controller (this lane's sandbox
 cuts long commands).
@@ -80,6 +82,51 @@ reference into `apply_go_embedding_promotion_with_provider` and
 `apply_go_receiver_indices_with_provider`; both fall back to constructing their own
 provider when passed `None` (non-Go builds never pay for construction). The
 import-path-aware dispatch site keeps its own construction unchanged.
+
+## Fix wave 2 (review r2)
+
+Commit: 7cd9550. All three wave-2 items landed in one commit (the stalled
+turn's uncommitted edits, reviewed then committed whole).
+
+### Per-production-path accounting (BEFORE fix1 = 4 constructions; AFTER fix2)
+
+| production path | plain | import-aware | total | peak live GoTypeData |
+|---|---|---|---|---|
+| full build (`CpgContext::build` / `build_with_scope_graph_inputs`) | 1 | 1 | 2 | 1 |
+| scoped (`CpgContext::build_scoped`) — filtered provider DROPPED, registry builds over all `files` | 1 | 1 | 2 | 1 |
+| incremental rebuild (`NavigationIndex::build_incremental_from_previous` via `build_with_fresh_cpg`) — provider TRANSFERRED into registry | 1 | 1 | 2 | 1 |
+| CLI partial-cache-hit (`run_review`, fresh CPG from current files → `build_with_fresh_cpg`) | 1 | 1 | 2 | 1 |
+| deserialized cache hit (`CpgContext::build_with_cached_cpg`) — provenance untrusted, constructs FRESH for the registry; graph holds nothing | 1 | 0 | 1 | 1 |
+| CPG-only (`algorithms/delta_slice::slice` old-version graph) — stashed plain provider dropped; only DFG edges read | 0 | 0 | 0 | 0 |
+| prebuilt registry (`from_built_cpg` with `None` / AST-only `without_cpg`) | 0 | 0 | 0 | 0 |
+
+Retention invariant: on EVERY path the CPG's `CallGraph` holds NO
+`shared_plain_go_provider` after context construction — the provider is
+`take()`-transferred into the registry (or dropped), never persisted on the
+graph, so a long-lived navigation index / MCP session never pins the full Go
+type data.
+
+Provenance boundary: `build_with_fresh_cpg` (transfer) is used ONLY when the
+CPG was provably rebuilt from the same current `files` map;
+`build_with_cached_cpg` always constructs fresh because a deserialized cache
+may predate file changes.
+
+Tests (RED on pre-fix code):
+- `call_graph::tests::p15a_fix2_pre_token_drop_does_not_underflow_live`
+- `navigation::tests::p15a_fix2_incremental_rebuild_single_plain_extraction`
+  (plain=1, peak live=1, no retained provider)
+- fix1 test extended to assert `ctx.cpg.call_graph.shared_plain_go_provider.is_none()`
+
+Test counter: global ARMED bit replaced by owned per-measurement
+`MeasurementToken` (blocking RAII + generation-keyed counters). Constructions
+record the generation they were BUILT under; a drop decrements ITS OWN
+generation, so parallel un-tokenized tests are never attributed to a live
+measurement and LIVE cannot underflow. Thread-local "current generation" was
+rejected: production constructions happen inside rayon worker threads.
+
+Import-path note (unchanged from fix1): proven package import paths change the
+canonical METHOD-SIGNATURE TYPE identity used by dispatch satisfaction keys /
+declaration snapshots; they do NOT change `GoOwnerIdentity`.
 
 ## Fix wave 1 (review r1)
 

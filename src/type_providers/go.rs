@@ -337,7 +337,10 @@ pub(crate) mod test_counters {
                 .unwrap()
                 .insert(generation, GenerationCounters::default());
             CURRENT_GENERATION.store(generation, Ordering::SeqCst);
-            Self { generation, _lock: lock }
+            Self {
+                generation,
+                _lock: lock,
+            }
         }
 
         fn with<R>(&self, f: impl FnOnce(&GenerationCounters) -> R) -> R {
