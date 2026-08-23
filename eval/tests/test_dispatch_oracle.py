@@ -502,6 +502,61 @@ def test_zero_fanout_empty_implementation_is_sound_with_explicit_reason(tmp_path
     assert record["oracle_reason"] == "empty_satisfier_set"
 
 
+def test_run_oracle_uses_each_site_byte_span_and_decl_character_in_cache(tmp_path):
+    source = "i.M(); j.M()\n"
+    (tmp_path / "caller.go").write_text(source)
+    left = _identity("Left", "left.go", [3, 5])
+    right = _identity("Right", "right.go", [3, 5])
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"sites": [
+        {"file": "caller.go", "line": 1, "method": "M", "fanout": 1,
+         "implementers": ["Left"], "implementer_identities": [left],
+         "start_byte": 0, "end_byte": 5},
+        {"file": "caller.go", "line": 1, "method": "M", "fanout": 1,
+         "implementers": ["Right"], "implementer_identities": [right],
+         "start_byte": 7, "end_byte": 12},
+    ]}))
+
+    class FakeGopls:
+        definition_chars = []
+        implementation_chars = []
+
+        def __init__(self, *_args, **_kwargs):
+            self._settle_s = 0
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def _did_open(self, _rel):
+            return True
+
+        def _methods(self, _rel):
+            return []
+
+        def resettle(self, **_kwargs):
+            pass
+
+        def method_decl(self, _rel, _line, char):
+            type(self).definition_chars.append(char)
+            return {"file": "iface.go", "line": 8, "character": char,
+                    "kind": "interface", "identity": None}
+
+        def satisfier_identities(self, _rel, _line, char):
+            type(self).implementation_chars.append(char)
+            return ([left] if char == 2 else [right]), 1, []
+
+    records, _summary = do.run_oracle(
+        str(manifest), str(tmp_path), ["fake-gopls"], 1,
+        log=io.StringIO(), oracle_factory=FakeGopls,
+    )
+    assert [record["classification"] for record in records] == ["sound", "sound"]
+    assert FakeGopls.definition_chars == [2, 9]
+    assert FakeGopls.implementation_chars == [2, 9]
+
+
 # ---------------------------------------------------------------------------
 # #14 slice 1 delta gate and environment pins
 # ---------------------------------------------------------------------------

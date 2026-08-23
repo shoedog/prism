@@ -526,6 +526,43 @@ def method_token_col(line_text: str, method: str) -> int | None:
     return m.start() if m else None
 
 
+def call_position_from_span(
+    source: str, start_byte: int, end_byte: int, method: str
+) -> tuple[int, int] | None:
+    """LSP (line, UTF-16 column) of a call token inside one manifest byte span.
+
+    The span distinguishes `i.M(); j.M()` without guessing from the line. LSP character
+    offsets are UTF-16 code units, while the manifest offsets are UTF-8 bytes, so both
+    conversions are explicit and invalid byte boundaries fail closed.
+    """
+    raw = source.encode("utf-8")
+    if not isinstance(start_byte, int) or not isinstance(end_byte, int) \
+            or start_byte < 0 or start_byte > end_byte or end_byte > len(raw):
+        return None
+    try:
+        fragment = raw[start_byte:end_byte].decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    token = None
+    for match in re.finditer(rf"(?:(?<=\.)|(?<=::)|\b){re.escape(method)}\s*\(", fragment):
+        token = match.start()
+        break
+    if token is None:
+        match = re.search(rf"\b{re.escape(method)}\b", fragment)
+        if match is None:
+            return None
+        token = match.start()
+    token_byte = start_byte + len(fragment[:token].encode("utf-8"))
+    try:
+        prefix = raw[:token_byte].decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    line0 = prefix.count("\n")
+    line_prefix = prefix.rsplit("\n", 1)[-1]
+    char0 = len(line_prefix.encode("utf-16-le")) // 2
+    return line0, char0
+
+
 def load_dispatch_sites(manifest_path: str) -> list[dict]:
     """All in-scope sites of a `prism nav interface-manifest` document."""
     doc = json.loads(Path(manifest_path).read_text())
@@ -1036,6 +1073,13 @@ def _read_line(root: str, rel: str, line: int) -> str | None:
     return src[line - 1] if 1 <= line <= len(src) else None
 
 
+def _read_source(root: str, rel: str) -> str | None:
+    try:
+        return (Path(root) / rel).read_text(encoding="utf-8", errors="replace")
+    except (FileNotFoundError, IsADirectoryError):
+        return None
+
+
 def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                group_timeout: float, log=sys.stderr,
                oracle_factory=GoplsSatisfiers) -> tuple[list[dict], dict]:
@@ -1055,7 +1099,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
     # implementer set). Keying on the decl location queries the interface gopls sees and is
     # immune to a prism grouping that lumps two interfaces. Value = (qualified
     # satisfier identities, display label, and unmappable implementation locations).
-    decl_cache: dict[tuple[str, int, bool], tuple[list[dict], str, list[dict]]] = {}
+    decl_cache: dict[tuple[str, int, int, bool], tuple[list[dict], str, list[dict]]] = {}
     try:
         t0 = time.monotonic()
         oracle.start()
@@ -1084,7 +1128,21 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
             method = s["method"]
             prism_set = set(s.get("implementers", []))
             line_text = _read_line(repo, s["file"], s["line"])
-            col = method_token_col(line_text or "", method)
+            source = _read_source(repo, s["file"])
+            position = None
+            if source is not None and "start_byte" in s and "end_byte" in s:
+                position = call_position_from_span(
+                    source, s["start_byte"], s["end_byte"], method
+                )
+            # Pre-identity manifests did not promise byte spans. Keep their legacy
+            # behavior explicit; current manifests must provide an exact span.
+            if position is None and ("start_byte" not in s or "end_byte" not in s):
+                col = method_token_col(line_text or "", method)
+                call_line = s["line"] - 1
+            elif position is not None:
+                call_line, col = position
+            else:
+                call_line, col = s["line"] - 1, None
 
             gopls_identities: list[dict] | None = None
             oracle_unresolved = False
@@ -1094,7 +1152,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
             iface = None
             if col is not None:
                 # 1) Resolve the concrete or interface declaration at this exact call.
-                decl = oracle.method_decl(s["file"], s["line"] - 1, col)
+                decl = oracle.method_decl(s["file"], call_line, col)
                 definition_kind = decl.get("kind", "unknown")
                 failure_stage = decl.get("failure_stage")
                 if definition_kind == "concrete":
@@ -1130,7 +1188,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                     # when prism also minted no edges. Keep that cache entry separate
                     # from fanout>0 sites, whose empty result remains a readiness timeout.
                         allow_empty = s.get("fanout", 0) == 0
-                        ckey = (decl_file, decl_line, allow_empty)
+                        ckey = (decl_file, decl_line, decl_char, allow_empty)
                         if ckey not in decl_cache:
                             # 2) implementation at an interface declaration, with an
                             # empty retry for gopls readiness.
