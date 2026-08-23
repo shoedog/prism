@@ -28,6 +28,8 @@ fn construction_discovers_declared_modules_and_root_default_active_set() {
     assert_eq!(graph.telemetry().modules, 2);
     assert_eq!(graph.telemetry().active, 1);
     assert_eq!(graph.active_dirs(), &BTreeSet::from([String::new()]));
+    assert_eq!(graph.module_path_kind(""), Some(PathKind::MainModule));
+    assert_eq!(graph.module_path_kind("nested"), Some(PathKind::Dependency));
     assert!(!graph.telemetry().workspace_invalid);
 }
 
@@ -82,6 +84,47 @@ fn workspace_can_activate_a_nested_module_without_a_root_go_mod() {
     assert_eq!(graph.telemetry().active, 1);
     assert_eq!(graph.active_dirs(), &BTreeSet::from(["nested".to_string()]));
     assert!(!graph.telemetry().workspace_invalid);
+}
+
+#[test]
+fn dotless_root_module_uses_active_main_validation() {
+    let mut graph = GoModuleGraph::new(
+        Path::new("/repo"),
+        &snapshot(&[("go.mod", Some("module compliance\n"))]),
+    );
+
+    assert_eq!(graph.telemetry().modules, 1);
+    assert_eq!(graph.telemetry().active, 1);
+    assert!(!graph.telemetry().workspace_invalid);
+    assert_eq!(graph.module_path_kind(""), Some(PathKind::MainModule));
+    assert_eq!(
+        graph.import_path_for_dir("rules"),
+        Ok("compliance/rules".to_string())
+    );
+}
+
+#[test]
+fn inactive_dotless_module_keeps_strict_dependency_validation() {
+    let root = module("github.com/gohugoio/hugo");
+    let mut graph = GoModuleGraph::new(
+        Path::new("/repo"),
+        &snapshot(&[
+            ("go.mod", Some(&root)),
+            (
+                "internal/warpc/genavif/go.mod",
+                Some("module gohugoio/hugo/internal/warpc/genavif\n"),
+            ),
+        ]),
+    );
+
+    assert_eq!(graph.telemetry().modules, 1);
+    assert_eq!(graph.telemetry().active, 1);
+    assert!(!graph.telemetry().workspace_invalid);
+    assert_eq!(graph.module_path_kind("internal/warpc/genavif"), None);
+    assert_eq!(
+        graph.import_path_for_dir("internal/warpc/genavif/pkg"),
+        Err(GoImportPathReason::Malformed)
+    );
 }
 
 #[test]

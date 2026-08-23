@@ -66,6 +66,12 @@ impl GoModuleGraph {
     pub(crate) fn new(repo_root: &Path, snapshot: &ManifestSnapshot) -> Self {
         let mut boundaries = BTreeMap::new();
         let mut manifest_parse_counts = BTreeMap::new();
+        let active_selection =
+            load_active_module_selection(repo_root, snapshot, &mut manifest_parse_counts);
+        let main_module_dirs = active_selection
+            .as_ref()
+            .ok()
+            .map(|selection| &selection.dirs);
         for (path, entry) in snapshot.entries() {
             let Some(dir) = go_mod_dir(path) else {
                 continue;
@@ -76,9 +82,14 @@ impl GoModuleGraph {
             let boundary = match entry {
                 ManifestSnapshotEntry::Regular { bytes, .. } => {
                     *manifest_parse_counts.entry(path.clone()).or_default() += 1;
+                    let path_kind = if main_module_dirs.is_some_and(|dirs| dirs.contains(&dir)) {
+                        PathKind::MainModule
+                    } else {
+                        PathKind::Dependency
+                    };
                     std::str::from_utf8(bytes)
                         .ok()
-                        .and_then(parse_go_mod)
+                        .and_then(|source| parse_go_mod(source, path_kind))
                         .map(ModuleBoundary::Valid)
                         .unwrap_or(ModuleBoundary::Malformed)
                 }
@@ -103,7 +114,14 @@ impl GoModuleGraph {
             memo: BTreeMap::new(),
             manifest_parse_counts,
         };
-        let work = graph.select_active_modules(repo_root, snapshot);
+        debug_assert!(
+            graph
+                .manifest_parse_counts
+                .values()
+                .all(|count| *count == 1),
+            "each manifest must be parsed at most once from the loader snapshot"
+        );
+        let work = graph.select_active_modules(active_selection);
         if !graph.telemetry.workspace_invalid {
             replacements::apply(&mut graph, repo_root, work.as_ref());
         }
@@ -112,59 +130,23 @@ impl GoModuleGraph {
 
     fn select_active_modules(
         &mut self,
-        repo_root: &Path,
-        snapshot: &ManifestSnapshot,
+        selection: Result<ActiveModuleSelection, ()>,
     ) -> Option<ParsedGoWork> {
-        let mut parsed_work = None;
-        match snapshot.get("go.work") {
-            Some(ManifestSnapshotEntry::Regular { bytes, .. }) => {
-                *self
-                    .manifest_parse_counts
-                    .entry("go.work".to_string())
-                    .or_default() += 1;
-                let Some(work) = std::str::from_utf8(bytes).ok().and_then(parse_go_work) else {
-                    self.invalidate_workspace();
-                    return None;
-                };
-                let mut active = BTreeSet::new();
-                for use_path in &work.uses {
-                    let Some(dir) = normalize_repo_dir(repo_root, "", use_path) else {
-                        self.invalidate_workspace();
-                        return None;
-                    };
-                    if !matches!(
-                        self.boundaries.get(&dir),
-                        Some(ModuleBoundary::Valid(module))
-                            if module.path_kind == PathKind::MainModule
-                    ) {
-                        self.invalidate_workspace();
-                        return None;
-                    }
-                    if !active.insert(dir) {
-                        self.invalidate_workspace();
-                        return None;
-                    }
-                }
-                self.active = active;
-                parsed_work = Some(work);
-            }
-            Some(ManifestSnapshotEntry::SymlinkRefused) => {
+        let Ok(ActiveModuleSelection { dirs, work }) = selection else {
+            self.invalidate_workspace();
+            return None;
+        };
+        for dir in &dirs {
+            if !matches!(
+                self.boundaries.get(dir),
+                Some(ModuleBoundary::Valid(module))
+                    if module.path_kind == PathKind::MainModule
+            ) {
                 self.invalidate_workspace();
                 return None;
             }
-            None => match self.boundaries.get("") {
-                Some(ModuleBoundary::Valid(module)) if module.path_kind == PathKind::MainModule => {
-                    self.active.insert(String::new());
-                }
-                Some(
-                    ModuleBoundary::Valid(_) | ModuleBoundary::Malformed | ModuleBoundary::Symlink,
-                ) => {
-                    self.invalidate_workspace();
-                    return None;
-                }
-                None => {}
-            },
         }
+        self.active = dirs;
 
         let mut path_owners = BTreeMap::new();
         for dir in &self.active {
@@ -181,7 +163,7 @@ impl GoModuleGraph {
             self.providers.insert(dir.clone(), module.path.clone());
         }
         self.telemetry.active = self.active.len();
-        parsed_work
+        work
     }
 
     fn invalidate_workspace(&mut self) {
@@ -256,6 +238,49 @@ struct ParsedGoWork {
     replaces: Vec<Replacement>,
 }
 
+struct ActiveModuleSelection {
+    dirs: BTreeSet<String>,
+    work: Option<ParsedGoWork>,
+}
+
+fn load_active_module_selection(
+    repo_root: &Path,
+    snapshot: &ManifestSnapshot,
+    manifest_parse_counts: &mut BTreeMap<String, usize>,
+) -> Result<ActiveModuleSelection, ()> {
+    match snapshot.get("go.work") {
+        Some(ManifestSnapshotEntry::Regular { bytes, .. }) => {
+            *manifest_parse_counts
+                .entry("go.work".to_string())
+                .or_default() += 1;
+            let work = std::str::from_utf8(bytes)
+                .ok()
+                .and_then(parse_go_work)
+                .ok_or(())?;
+            let mut dirs = BTreeSet::new();
+            for use_path in &work.uses {
+                let dir = normalize_repo_dir(repo_root, "", use_path).ok_or(())?;
+                if !dirs.insert(dir) {
+                    return Err(());
+                }
+            }
+            Ok(ActiveModuleSelection {
+                dirs,
+                work: Some(work),
+            })
+        }
+        Some(ManifestSnapshotEntry::SymlinkRefused) => Err(()),
+        None => {
+            let dirs = if snapshot.get("go.mod").is_some() {
+                BTreeSet::from([String::new()])
+            } else {
+                BTreeSet::new()
+            };
+            Ok(ActiveModuleSelection { dirs, work: None })
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct Replacement {
     lhs_path: String,
@@ -275,7 +300,7 @@ struct Directive {
     args: Vec<String>,
 }
 
-fn parse_go_mod(source: &str) -> Option<ParsedGoMod> {
+fn parse_go_mod(source: &str, path_kind: PathKind) -> Option<ParsedGoMod> {
     let directives = parse_directives(source)?;
     let mut module_path = None;
     let mut singleton_directives = BTreeSet::new();
@@ -287,9 +312,7 @@ fn parse_go_mod(source: &str) -> Option<ParsedGoMod> {
         match directive.name.as_str() {
             "module" => {
                 validate_args(&directive.args, 1)?;
-                if module_path.is_some()
-                    || !valid_module_path(&directive.args[0], PathKind::MainModule)
-                {
+                if module_path.is_some() || !valid_module_path(&directive.args[0], path_kind) {
                     return None;
                 }
                 module_path = Some(directive.args[0].clone());
@@ -344,7 +367,7 @@ fn parse_go_mod(source: &str) -> Option<ParsedGoMod> {
     }
     Some(ParsedGoMod {
         path: module_path?,
-        path_kind: PathKind::MainModule,
+        path_kind,
         requires,
         replaces,
     })
