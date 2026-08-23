@@ -2923,7 +2923,12 @@ impl CallGraph {
         // P11 S2/S4: capture the field re-projection and the embedded-interface
         // routing map while the provider is live, same pattern as above.
         self.go_field_types = provider.go_struct_declarations();
-        self.go_declaration_kind_index = provider.go_declaration_kind_index();
+        let package_basenames = Self::go_package_basenames(files);
+        self.go_declaration_kind_index = provider.go_declaration_kind_index(
+            &self.imports,
+            &package_basenames,
+            &self.go_file_profiles,
+        );
         self.go_promoted_concrete_selectors = provider.go_promoted_concrete_selectors();
         self.go_interface_declarations = provider.go_interface_declarations();
         self.go_method_declarations = provider.go_method_declarations();
@@ -2983,6 +2988,21 @@ impl CallGraph {
         self.go_func_typed_fields.clear();
     }
 
+    fn go_package_basenames(
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> BTreeMap<String, BTreeSet<String>> {
+        let mut package_basenames = BTreeMap::<String, BTreeSet<String>>::new();
+        for (path, parsed) in files {
+            if parsed.language != crate::languages::Language::Go {
+                continue;
+            }
+            let dir = crate::resolution::dir_of(path).to_string();
+            let basename = dir.rsplit('/').next().unwrap_or(&dir).to_string();
+            package_basenames.entry(basename).or_default().insert(dir);
+        }
+        package_basenames
+    }
+
     /// P5 S1: recompute the Go func-typed-field index (package-scoped owner
     /// identity -> which struct fields are func-typed) over `files`.
     /// Whole-program derived, same shape as `apply_go_embedding_promotion` /
@@ -2996,20 +3016,9 @@ impl CallGraph {
         {
             return;
         }
-        // Directory-basename index for qualified `pkg.T` owner resolution
-        // (`resolve_go_owner_identity`) — one basename can map to multiple
-        // directories, which is deliberately treated as ambiguous downstream.
-        for (path, parsed) in files {
-            if parsed.language != crate::languages::Language::Go {
-                continue;
-            }
-            let dir = crate::resolution::dir_of(path).to_string();
-            let basename = dir.rsplit('/').next().unwrap_or(&dir).to_string();
-            self.go_package_basenames
-                .entry(basename)
-                .or_default()
-                .insert(dir);
-        }
+        // One basename can map to multiple directories; qualified identity
+        // resolution deliberately treats that as ambiguous downstream.
+        self.go_package_basenames = Self::go_package_basenames(files);
         self.go_known_struct_identities = self.go_field_types.keys().cloned().collect();
         self.go_func_typed_fields = self
             .go_field_types

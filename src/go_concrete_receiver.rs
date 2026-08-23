@@ -48,35 +48,72 @@ pub struct GoDeclarationKindEntry {
 
 pub type GoDeclarationKindIndex = BTreeMap<GoOwnerIdentity, GoDeclarationKindEntry>;
 
-pub(crate) fn basic_declaration_kind_index(
+pub(crate) fn declaration_kind_index(
     declarations: &GoTypeDeclarations,
+    imports: &BTreeMap<String, BTreeMap<String, String>>,
+    package_basenames: &BTreeMap<String, BTreeSet<String>>,
+    file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
 ) -> GoDeclarationKindIndex {
     declarations
         .iter()
-        .map(|(owner, declarations)| {
-            let declaring_files: BTreeSet<_> = declarations
+        .map(|(owner, owner_declarations)| {
+            let declaring_files: BTreeSet<_> = owner_declarations
                 .iter()
                 .map(|declaration| declaration.defining_file.clone())
                 .collect();
             let (declaring_file, kind) = if declaring_files.len() > 1 {
                 (None, GoDeclarationKind::AmbiguousProfileConflict)
-            } else if declarations.len() != 1 {
+            } else if owner_declarations.len() != 1 {
                 (None, GoDeclarationKind::AliasCyclicOrUnresolved)
             } else {
-                let declaration = declarations.iter().next().expect("one declaration");
-                let target = GoCanonicalTypeTarget {
-                    owner: owner.clone(),
-                    defining_file: declaration.defining_file.clone(),
-                    is_pointer: false,
-                };
+                let declaration = owner_declarations.iter().next().expect("one declaration");
                 let kind = match &declaration.form {
-                    GoTypeDeclarationForm::Struct => GoDeclarationKind::Struct { target },
-                    GoTypeDeclarationForm::Interface => GoDeclarationKind::Interface {
-                        interface_of: target,
+                    GoTypeDeclarationForm::Struct => GoDeclarationKind::Struct {
+                        target: canonical_target(owner, declaration),
                     },
-                    GoTypeDeclarationForm::Defined { .. } | GoTypeDeclarationForm::Alias { .. } => {
-                        GoDeclarationKind::AliasCyclicOrUnresolved
-                    }
+                    GoTypeDeclarationForm::Interface => GoDeclarationKind::Interface {
+                        interface_of: canonical_target(owner, declaration),
+                    },
+                    GoTypeDeclarationForm::Defined { target } => resolve_target_text(
+                        target,
+                        owner,
+                        &declaration.defining_file,
+                        declarations,
+                        imports,
+                        package_basenames,
+                        file_profiles,
+                        &mut BTreeSet::from([owner.clone()]),
+                    )
+                    .map(|resolved| match resolved {
+                        ResolvedDeclaration::Interface(interface_of) => {
+                            GoDeclarationKind::Interface { interface_of }
+                        }
+                        ResolvedDeclaration::Concrete(_) => {
+                            GoDeclarationKind::DefinedNonInterface {
+                                target: canonical_target(owner, declaration),
+                            }
+                        }
+                    })
+                    .unwrap_or(GoDeclarationKind::AliasCyclicOrUnresolved),
+                    GoTypeDeclarationForm::Alias { target } => resolve_target_text(
+                        target,
+                        owner,
+                        &declaration.defining_file,
+                        declarations,
+                        imports,
+                        package_basenames,
+                        file_profiles,
+                        &mut BTreeSet::from([owner.clone()]),
+                    )
+                    .map(|resolved| match resolved {
+                        ResolvedDeclaration::Interface(target) => {
+                            GoDeclarationKind::AliasToInterface { target }
+                        }
+                        ResolvedDeclaration::Concrete(target) => {
+                            GoDeclarationKind::AliasToConcrete { target }
+                        }
+                    })
+                    .unwrap_or(GoDeclarationKind::AliasCyclicOrUnresolved),
                 };
                 (Some(declaration.defining_file.clone()), kind)
             };
@@ -89,6 +126,158 @@ pub(crate) fn basic_declaration_kind_index(
             )
         })
         .collect()
+}
+
+#[derive(Debug, Clone)]
+enum ResolvedDeclaration {
+    Interface(GoCanonicalTypeTarget),
+    Concrete(GoCanonicalTypeTarget),
+}
+
+fn canonical_target(
+    owner: &GoOwnerIdentity,
+    declaration: &GoTypeDeclaration,
+) -> GoCanonicalTypeTarget {
+    GoCanonicalTypeTarget {
+        owner: owner.clone(),
+        defining_file: declaration.defining_file.clone(),
+        is_pointer: false,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn resolve_target_text(
+    target: &str,
+    declaring_owner: &GoOwnerIdentity,
+    declaring_file: &str,
+    declarations: &GoTypeDeclarations,
+    imports: &BTreeMap<String, BTreeMap<String, String>>,
+    package_basenames: &BTreeMap<String, BTreeSet<String>>,
+    file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    visiting: &mut BTreeSet<GoOwnerIdentity>,
+) -> Option<ResolvedDeclaration> {
+    let trimmed = target.trim();
+    let bare = trimmed.trim_start_matches('*').trim();
+    let is_pointer = bare.len() != trimmed.len();
+    if is_definitely_concrete_type(bare) {
+        return Some(ResolvedDeclaration::Concrete(GoCanonicalTypeTarget {
+            owner: declaring_owner.clone(),
+            defining_file: declaring_file.to_string(),
+            is_pointer,
+        }));
+    }
+    let target_owner = crate::resolution::resolve_go_owner_identity(
+        bare,
+        declaring_file,
+        imports,
+        package_basenames,
+        file_profiles,
+    )?;
+    if !visiting.insert(target_owner.clone()) {
+        return None;
+    }
+    let resolved = resolve_declared_owner(
+        &target_owner,
+        declarations,
+        imports,
+        package_basenames,
+        file_profiles,
+        visiting,
+    );
+    visiting.remove(&target_owner);
+    match (is_pointer, resolved?) {
+        (true, ResolvedDeclaration::Interface(mut target))
+        | (true, ResolvedDeclaration::Concrete(mut target)) => {
+            target.is_pointer = true;
+            Some(ResolvedDeclaration::Concrete(target))
+        }
+        (false, resolved) => Some(resolved),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn resolve_declared_owner(
+    owner: &GoOwnerIdentity,
+    declarations: &GoTypeDeclarations,
+    imports: &BTreeMap<String, BTreeMap<String, String>>,
+    package_basenames: &BTreeMap<String, BTreeSet<String>>,
+    file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    visiting: &mut BTreeSet<GoOwnerIdentity>,
+) -> Option<ResolvedDeclaration> {
+    let candidates = declarations.get(owner)?;
+    let files: BTreeSet<_> = candidates
+        .iter()
+        .map(|declaration| declaration.defining_file.as_str())
+        .collect();
+    if files.len() != 1 || candidates.len() != 1 {
+        return None;
+    }
+    let declaration = candidates.iter().next()?;
+    let own_target = canonical_target(owner, declaration);
+    match &declaration.form {
+        GoTypeDeclarationForm::Struct => Some(ResolvedDeclaration::Concrete(own_target)),
+        GoTypeDeclarationForm::Interface => Some(ResolvedDeclaration::Interface(own_target)),
+        GoTypeDeclarationForm::Defined { target } => resolve_target_text(
+            target,
+            owner,
+            &declaration.defining_file,
+            declarations,
+            imports,
+            package_basenames,
+            file_profiles,
+            visiting,
+        )
+        .map(|resolved| match resolved {
+            ResolvedDeclaration::Interface(interface_of) => {
+                ResolvedDeclaration::Interface(interface_of)
+            }
+            ResolvedDeclaration::Concrete(_) => ResolvedDeclaration::Concrete(own_target),
+        }),
+        GoTypeDeclarationForm::Alias { target } => resolve_target_text(
+            target,
+            owner,
+            &declaration.defining_file,
+            declarations,
+            imports,
+            package_basenames,
+            file_profiles,
+            visiting,
+        ),
+    }
+}
+
+fn is_definitely_concrete_type(target: &str) -> bool {
+    let target = target.trim();
+    target.starts_with("struct {")
+        || target.starts_with("struct{")
+        || target.starts_with("[]")
+        || target.starts_with('[')
+        || target.starts_with("map[")
+        || target.starts_with("chan ")
+        || target.starts_with("<-chan ")
+        || target.starts_with("func(")
+        || matches!(
+            target,
+            "bool"
+                | "byte"
+                | "complex64"
+                | "complex128"
+                | "float32"
+                | "float64"
+                | "int"
+                | "int8"
+                | "int16"
+                | "int32"
+                | "int64"
+                | "rune"
+                | "string"
+                | "uint"
+                | "uint8"
+                | "uint16"
+                | "uint32"
+                | "uint64"
+                | "uintptr"
+        )
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -160,10 +349,17 @@ impl CallGraph {
                     interface_name: interface_of.owner.name.clone(),
                 }
             }
-            GoDeclarationKind::DefinedNonInterface { .. }
-            | GoDeclarationKind::AliasToInterface { .. }
-            | GoDeclarationKind::AliasToConcrete { .. }
-            | GoDeclarationKind::AliasCyclicOrUnresolved
+            GoDeclarationKind::DefinedNonInterface { target }
+            | GoDeclarationKind::AliasToConcrete { target } => {
+                self.go_concrete_route_for_target(recv_ty, target, method_name, caller_file)
+            }
+            GoDeclarationKind::AliasToInterface { target } => {
+                GoConcreteReceiverRoute::InterfaceDispatch {
+                    owner: target.owner.clone(),
+                    interface_name: target.owner.name.clone(),
+                }
+            }
+            GoDeclarationKind::AliasCyclicOrUnresolved
             | GoDeclarationKind::AmbiguousProfileConflict => GoConcreteReceiverRoute::Unproven,
         }
     }
