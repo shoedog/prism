@@ -561,6 +561,76 @@ def test_method_decl_preserves_external_definition_target(tmp_path):
     }
 
 
+def test_external_symbol_timeout_is_cached_for_each_site(tmp_path):
+    (tmp_path / "caller.go").write_text("a.Go(); b.Go()\n")
+    impl = _identity("Impl", "impl.go", [3, 5])
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"sites": [
+        {"file": "caller.go", "line": 1, "method": "Go", "fanout": 1,
+         "implementers": ["Impl"], "implementer_identities": [impl],
+         "start_byte": 0, "end_byte": 6},
+        {"file": "caller.go", "line": 1, "method": "Go", "fanout": 1,
+         "implementers": ["Impl"], "implementer_identities": [impl],
+         "start_byte": 8, "end_byte": 14},
+    ]}))
+
+    class FakeGopls:
+        group_timeout = 1
+        document_symbol_calls = 0
+        _definition_kind = staticmethod(do.GoplsSatisfiers._definition_kind)
+        method_decl = do.GoplsSatisfiers.method_decl
+        _external_definition_kind = do.GoplsSatisfiers._external_definition_kind
+
+        def __init__(self, root, *_args, **_kwargs):
+            self.root = root
+            self.client = self
+            self._settle_s = 0
+            self._external_symbol_details = {}
+            self._external_symbol_status = {}
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def _did_open(self, _rel):
+            return True
+
+        def _methods(self, _rel):
+            return []
+
+        def resettle(self, **_kwargs):
+            pass
+
+        def _uri(self, rel):
+            return f"file:///{rel}"
+
+        def _open_external_uri(self, _uri):
+            return True
+
+        def request(self, method, _params, timeout):
+            assert timeout == 1
+            if method == "textDocument/definition":
+                return [{
+                    "uri": "file:///stdlib/src/net/http/server.go",
+                    "range": {"start": {"line": 52, "character": 3}},
+                }]
+            assert method == "textDocument/documentSymbol"
+            type(self).document_symbol_calls += 1
+            raise LspTimeout("external symbols timed out")
+
+    records, _summary = do.run_oracle(
+        str(manifest), str(tmp_path), ["fake-gopls"], 1,
+        log=io.StringIO(), oracle_factory=FakeGopls,
+    )
+    assert [record["classification"] for record in records] == [
+        "oracle_timeout", "oracle_timeout",
+    ]
+    assert [record["oracle_status"] for record in records] == ["timeout", "timeout"]
+    assert FakeGopls.document_symbol_calls == 1
+
+
 def test_external_concrete_definition_with_positive_fanout_is_over_approx(tmp_path):
     impl = _identity("Impl", "impl.go", [3, 5])
     record, implementation_calls = _run_fake_oracle(

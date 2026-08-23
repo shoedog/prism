@@ -942,6 +942,7 @@ class GoplsSatisfiers:
         self._symbol_details: dict[str, list[dict]] = {}
         self._external_opened: set[str] = set()
         self._external_symbol_details: dict[str, list[dict]] = {}
+        self._external_symbol_status: dict[str, str | None] = {}
 
     def start(self) -> None:
         # LspClient inherits this process environment at Popen time. Scope the
@@ -1091,7 +1092,7 @@ class GoplsSatisfiers:
         """Prove whether an external definition is an interface or concrete method."""
         from tier_a.lsp_client import LspError, LspTimeout
 
-        self._last_external_definition_status = None
+        self._last_external_definition_status = self._external_symbol_status.get(uri)
         if uri not in self._external_symbol_details:
             if not self._open_external_uri(uri):
                 self._external_symbol_details[uri] = []
@@ -1136,6 +1137,7 @@ class GoplsSatisfiers:
 
                 walk(symbols, None)
                 self._external_symbol_details[uri] = details
+            self._external_symbol_status[uri] = self._last_external_definition_status
         best = None
         for symbol in self._external_symbol_details[uri]:
             if not symbol["start_line"] <= line0 <= symbol["end_line"]:
