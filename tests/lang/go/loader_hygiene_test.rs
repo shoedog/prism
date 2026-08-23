@@ -168,6 +168,29 @@ fn unspaced_trailing_module_comment_preserves_proven_identity() {
     );
 }
 
+#[test]
+fn gopkg_in_multielement_v2_module_preserves_proven_identity() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    write_dispatch_fixture(root);
+    write(
+        root,
+        "impl/impl.go",
+        "package impl\n\
+         import root \"gopkg.in/user/foo.v2\"\n\
+         type Impl struct{}\n\
+         func (Impl) Act(root.Context) {}\n",
+    );
+    write(root, "go.mod", "module gopkg.in/user/foo.v2\n");
+
+    let loaded = load_repo(root).unwrap();
+
+    assert_eq!(
+        resolved_owners(&loaded),
+        BTreeSet::from(["Impl".to_string()])
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn symlinked_go_mod_is_refused_for_identity_even_when_its_target_is_valid() {

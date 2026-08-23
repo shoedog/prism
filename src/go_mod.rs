@@ -206,15 +206,19 @@ fn parse_fixed_radix(bytes: &[u8], start: usize, len: usize, radix: u32) -> Opti
 }
 
 fn valid_module_path(path: &str) -> bool {
-    if path.is_empty() || !path.is_ascii() {
+    if path.is_empty()
+        || !path.is_ascii()
+        || path.starts_with('-')
+        || path.contains("//")
+        || path.ends_with('/')
+    {
         return false;
     }
-    let elements: Vec<&str> = path.split('/').collect();
-    if elements.iter().any(|element| !valid_path_element(element)) {
+    if path.split('/').any(|element| !valid_path_element(element)) {
         return false;
     }
 
-    let first = elements[0];
+    let first = path.split('/').next().unwrap_or_default();
     if !first.contains('.')
         || first.starts_with('-')
         || first.bytes().any(|byte| {
@@ -224,14 +228,14 @@ fn valid_module_path(path: &str) -> bool {
         return false;
     }
 
-    valid_major_suffix(path, elements.last().copied().unwrap_or_default())
+    split_path_version_is_valid(path)
 }
 
 fn valid_path_element(element: &str) -> bool {
     if element.is_empty()
+        || element.bytes().all(|byte| byte == b'.')
         || element.starts_with('.')
         || element.ends_with('.')
-        || element.contains("..")
         || element.bytes().any(|byte| {
             !(byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~'))
         })
@@ -239,19 +243,21 @@ fn valid_path_element(element: &str) -> bool {
         return false;
     }
 
-    let windows_prefix = element
-        .split('.')
-        .next()
-        .unwrap_or_default()
-        .to_ascii_lowercase();
-    if matches!(windows_prefix.as_str(), "con" | "prn" | "aux" | "nul")
-        || matches!(windows_prefix.as_bytes(), [b'c', b'o', b'm', b'1'..=b'9'])
-        || matches!(windows_prefix.as_bytes(), [b'l', b'p', b't', b'1'..=b'9'])
+    let windows_prefix = element.split('.').next().unwrap_or_default();
+    if ["con", "prn", "aux", "nul"]
+        .iter()
+        .any(|name| windows_prefix.eq_ignore_ascii_case(name))
+        || (windows_prefix.len() == 4
+            && windows_prefix[..3].eq_ignore_ascii_case("com")
+            && matches!(windows_prefix.as_bytes()[3], b'1'..=b'9'))
+        || (windows_prefix.len() == 4
+            && windows_prefix[..3].eq_ignore_ascii_case("lpt")
+            && matches!(windows_prefix.as_bytes()[3], b'1'..=b'9'))
     {
         return false;
     }
 
-    if let Some((_, suffix)) = element.rsplit_once('~') {
+    if let Some((_, suffix)) = windows_prefix.rsplit_once('~') {
         if !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit()) {
             return false;
         }
@@ -259,32 +265,42 @@ fn valid_path_element(element: &str) -> bool {
     true
 }
 
-fn valid_major_suffix(path: &str, final_element: &str) -> bool {
-    if let Some(rest) = path.strip_prefix("gopkg.in/") {
-        let Some((name, major)) = rest.rsplit_once(".v") else {
-            return false;
-        };
-        return !name.is_empty() && !name.contains('/') && valid_numeric_major(major, true);
+fn split_path_version_is_valid(path: &str) -> bool {
+    if path.starts_with("gopkg.in/") {
+        return split_gopkg_in_is_valid(path);
     }
 
-    let Some(major) = final_element.strip_prefix('v') else {
-        return true;
-    };
-    if major.is_empty()
-        || !major
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || byte == b'.')
-    {
+    let bytes = path.as_bytes();
+    let mut index = bytes.len();
+    let mut contains_dot = false;
+    while index > 0 && (bytes[index - 1].is_ascii_digit() || bytes[index - 1] == b'.') {
+        contains_dot |= bytes[index - 1] == b'.';
+        index -= 1;
+    }
+    if index <= 1 || index == bytes.len() || bytes[index - 1] != b'v' || bytes[index - 2] != b'/' {
         return true;
     }
-    valid_numeric_major(major, false)
+
+    let path_major = &path[index - 2..];
+    !contains_dot && path_major.len() > 2 && path_major.as_bytes()[2] != b'0' && path_major != "/v1"
 }
 
-fn valid_numeric_major(major: &str, allow_one: bool) -> bool {
-    !major.is_empty()
-        && major.bytes().all(|byte| byte.is_ascii_digit())
-        && !major.starts_with('0')
-        && (allow_one || major != "1")
+fn split_gopkg_in_is_valid(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    let mut index = if path.ends_with("-unstable") {
+        bytes.len() - "-unstable".len()
+    } else {
+        bytes.len()
+    };
+    while index > 0 && bytes[index - 1].is_ascii_digit() {
+        index -= 1;
+    }
+    if index <= 1 || bytes[index - 1] != b'v' || bytes[index - 2] != b'.' {
+        return false;
+    }
+
+    let path_major = &path[index - 2..];
+    path_major.len() > 2 && (path_major.as_bytes()[2] != b'0' || path_major == ".v0")
 }
 
 #[cfg(test)]
@@ -306,6 +322,14 @@ mod tests {
             ("module \"a.b/c\"// c\n", "a.b/c"),
             ("module (\n    example.com/m\n)\n", "example.com/m"),
             ("module example.com/m/v2\n", "example.com/m/v2"),
+            ("module gopkg.in/foo.v0\n", "gopkg.in/foo.v0"),
+            (
+                "module gopkg.in/foo.v2-unstable\n",
+                "gopkg.in/foo.v2-unstable",
+            ),
+            ("module gopkg.in/user/foo.v2\n", "gopkg.in/user/foo.v2"),
+            ("module example.com/a..b\n", "example.com/a..b"),
+            ("module example.com/foo.bar~1\n", "example.com/foo.bar~1"),
         ];
 
         for (source, expected) in cases {
@@ -327,8 +351,17 @@ mod tests {
             "module example.com/m /* not a go.mod comment */\n",
             "module bad!path\n",
             "module example.com/m/v1\n",
-            "module example.com/CON/pkg\n",
-            "module example.com/a..b\n",
+            "module example.com/m/v0\n",
+            "module gopkg.in/foo\n",
+            "module gopkg.in/foo.v2.1\n",
+            "module gopkg.in/foo.v0-unstable\n",
+            "module \"a//b\"\n",
+            "module example.com/a/\n",
+            "module example.com/../b\n",
+            "module example.com/con/pkg\n",
+            "module example.com/.hidden\n",
+            "module example.com/trailing.\n",
+            "module example.com/foo~1/bar\n",
             "module Example.com/m\n",
             "module example/m\n",
         ];
