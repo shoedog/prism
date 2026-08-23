@@ -8,6 +8,7 @@ mod cpg_test;
 mod cpp_type_provider_test;
 mod dfg_test;
 mod field_test;
+mod go_package_basename_lifecycle_test;
 mod import_test;
 mod java_type_provider_test;
 mod live_types_test;

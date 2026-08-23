@@ -44,7 +44,7 @@ fn fid_dump(fid: &prism::call_graph::FunctionId) -> String {
 
 fn callsite_dump(site: &prism::call_graph::CallSite) -> String {
     format!(
-        "{} -> {} line={} kind={:?} span={}-{} qual={:?} recv={:?} recovery={:?} materialized={} argc={:?} spread={} outcome={:?} origin={:?}",
+        "{} -> {} line={} kind={:?} span={}-{} qual={:?} recv={:?} recovery={:?} materialized={} newly_recovered={} argc={:?} spread={} outcome={:?} origin={:?}",
         fid_dump(&site.caller),
         site.callee_name,
         site.line,
@@ -55,6 +55,7 @@ fn callsite_dump(site: &prism::call_graph::CallSite) -> String {
         site.receiver_type,
         site.receiver_recovery,
         site.receiver_materialized,
+        site.receiver_newly_recovered,
         site.arg_count,
         site.arg_spread,
         site.receiver_outcome,

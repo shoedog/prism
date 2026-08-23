@@ -143,7 +143,11 @@ use std::path::{Path, PathBuf};
 ///   and symlink-refused/go.work topology entries change Go identity and cache keys.
 /// - v46: effective Go workspace/module/replacement identities change persisted
 ///   interface-dispatch edges and add module-graph/import-path telemetry.
-const CACHE_VERSION: u32 = 46;
+/// - v47: P17 proven Go concrete receivers route before the legacy bare-interface
+///   ladder. Its serialized declaration-kind/import-path evidence and value-
+///   rebinding shadow bail plus new-recovery provenance are one PR schema
+///   transition (paired with sidecar v16).
+const CACHE_VERSION: u32 = 47;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -662,7 +666,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_go_loader_hygiene() {
-        assert_eq!(super::CACHE_VERSION, 46);
+        assert_eq!(super::CACHE_VERSION, 47);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
