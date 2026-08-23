@@ -209,6 +209,15 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     let mut go_same_pkg_all_filtered_drop = 0usize;
     let mut go_pkg_clause_partition_exact = 0usize;
     let mut go_build_partition_exact = 0usize;
+    let mut go_concrete_receiver_direct = 0usize;
+    let mut go_concrete_receiver_promoted_existing = 0usize;
+    let mut go_concrete_receiver_promoted_deferred = 0usize;
+    let mut go_concrete_receiver_no_selector_drop = 0usize;
+    let mut go_r2_on_demand_name_collision_bail = 0usize;
+    let mut go_external_receiver_new_recovery_drop = 0usize;
+    let mut go_unproven_receiver_bare_fallback_sites = 0usize;
+    let mut go_unproven_receiver_bare_fallback_hits = 0usize;
+    let mut go_unproven_receiver_bare_fallback_edges = 0usize;
     let mut go_bare_value_ref_ambiguous = cg.go_bare_value_ref_ambiguous;
     let mut go_build_expr_unparsed: usize = cg.go_build_profile_unparsed.values().sum();
     let mut go_owner_identity_partition =
@@ -265,12 +274,33 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 Some(DropReason::UnknownName) => unknown += 1,
                 Some(DropReason::FuncValueFanout) => func_value_fanout += 1,
                 Some(DropReason::GoSamePkgAllFiltered) => go_same_pkg_all_filtered_drop += 1,
+                Some(
+                    DropReason::ConcreteReceiverPromotedDeferred
+                    | DropReason::ConcreteReceiverNoSelector,
+                ) => {}
                 None => {}
             }
             go_pkg_clause_partition_exact += out.telemetry.go_pkg_clause_partition_exact;
             go_build_partition_exact += out.telemetry.go_build_partition_exact;
             go_bare_value_ref_ambiguous += out.telemetry.go_bare_value_ref_ambiguous;
             go_build_expr_unparsed += out.telemetry.go_build_expr_unparsed;
+            go_concrete_receiver_direct += out.telemetry.go_concrete_receiver_direct;
+            go_concrete_receiver_promoted_existing +=
+                out.telemetry.go_concrete_receiver_promoted_existing;
+            go_concrete_receiver_promoted_deferred +=
+                out.telemetry.go_concrete_receiver_promoted_deferred;
+            go_concrete_receiver_no_selector_drop +=
+                out.telemetry.go_concrete_receiver_no_selector_drop;
+            go_r2_on_demand_name_collision_bail +=
+                out.telemetry.go_r2_on_demand_name_collision_bail;
+            go_external_receiver_new_recovery_drop +=
+                out.telemetry.go_external_receiver_new_recovery_drop;
+            go_unproven_receiver_bare_fallback_sites +=
+                out.telemetry.go_unproven_receiver_bare_fallback_sites;
+            go_unproven_receiver_bare_fallback_hits +=
+                out.telemetry.go_unproven_receiver_bare_fallback_hits;
+            go_unproven_receiver_bare_fallback_edges +=
+                out.telemetry.go_unproven_receiver_bare_fallback_edges;
             let receiver_partition = cg
                 .go_owner_identity_partition_sites
                 .get(&crate::go_owner_partition::site_key(site))
@@ -537,6 +567,42 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     if !cg.go_file_profiles.is_empty() {
         let object = stats.as_object_mut().expect("call-stats object");
         object.insert(
+            "go_concrete_receiver_direct".to_string(),
+            go_concrete_receiver_direct.into(),
+        );
+        object.insert(
+            "go_concrete_receiver_promoted_existing".to_string(),
+            go_concrete_receiver_promoted_existing.into(),
+        );
+        object.insert(
+            "go_concrete_receiver_promoted_deferred".to_string(),
+            go_concrete_receiver_promoted_deferred.into(),
+        );
+        object.insert(
+            "go_concrete_receiver_no_selector_drop".to_string(),
+            go_concrete_receiver_no_selector_drop.into(),
+        );
+        object.insert(
+            "go_r2_on_demand_name_collision_bail".to_string(),
+            go_r2_on_demand_name_collision_bail.into(),
+        );
+        object.insert(
+            "go_external_receiver_new_recovery_drop".to_string(),
+            go_external_receiver_new_recovery_drop.into(),
+        );
+        object.insert(
+            "go_unproven_receiver_bare_fallback_sites".to_string(),
+            go_unproven_receiver_bare_fallback_sites.into(),
+        );
+        object.insert(
+            "go_unproven_receiver_bare_fallback_hits".to_string(),
+            go_unproven_receiver_bare_fallback_hits.into(),
+        );
+        object.insert(
+            "go_unproven_receiver_bare_fallback_edges".to_string(),
+            go_unproven_receiver_bare_fallback_edges.into(),
+        );
+        object.insert(
             "go_owner_identity_partition_affected_owners".to_string(),
             cg.go_owner_identity_profile_conflict.into(),
         );
@@ -620,79 +686,151 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             if !cg.interface_method_names.contains(&site.callee_name) {
                 continue;
             }
-            // Slice E: emit the minted implementer SET (owner type names), not just the
-            // count. The fanned-out FunctionIds are mapped to their owning type via
-            // method_owners (fall back to the FunctionId's file stem if absent — a method
-            // with no recorded owner is keyed by its file). Deduped + sorted so the wire
-            // shape is deterministic and `fanout == implementers.len()`. A concrete
-            // (fanout == 0) receiver yields the empty set.
-            // P11 S4: a struct-typed receiver whose method is supplied ONLY
-            // by a directly embedded in-repo interface routes through
-            // the declaration-snapshot S4 route instead of `iface_key` (the
-            // receiver's OWN type isn't an interface name) — consult it
-            // first so this manifest's implementer set matches what
-            // `resolve_call_site_full` actually mints for these sites
-            // (otherwise they'd under-report `implementers: []` here while
-            // resolving Exact at query time). Package-scoped (B2 fix): the
-            // route map is keyed by the receiver struct's `GoOwnerIdentity`,
-            // same resolution `resolve_call_site_full` performs.
-            let s4_route = cg.go_embedded_interface_route(
+            // P17: this is the same full R1/R2/R3 verdict the resolver consumes.
+            // It must be consulted immediately after the denominator predicate,
+            // before the manifest's legacy R3 interface ladder.
+            let go_route = cg.go_concrete_receiver_route(
                 recv_ty,
                 site.receiver_owner_identity.as_ref(),
+                site.receiver_local_type_shadowed,
+                site.receiver_newly_recovered,
                 &site.callee_name,
                 &site.caller.file,
             );
-            // M1 parity fix (codex re-review MAJOR): once the S4 route MATCHES
-            // (the receiver struct's declaration-snapshot route
-            // donates `callee_name` from exactly one embedded in-repo
-            // interface), that route's implementer set is authoritative --
-            // even when EMPTY (no `interface_impls` entry for the providing
-            // interface, or the interface genuinely has no live in-repo
-            // implementer) -- and must NEVER fall through to the bare
-            // `iface_key(recv_ty)` ladder below. Falling through there could
-            // pick up an unrelated same-named interface's implementers (e.g.
-            // `Holder` embeds `Doer` with no implementers, but an unrelated
-            // interface also named `Holder` in a different package has its
-            // own live implementers) and report a wrong implementer set.
-            // Mirrors the resolver's matched-route handling
-            // (`resolution.rs`'s `resolve_call_site` around the M1 fix).
-            let s4_blocked = s4_route.evidence.conflict || s4_route.evidence.uncertain;
-            let s4_iface_name = s4_route.value.as_ref();
-            let interface_presence = site
-                .receiver_owner_identity
-                .as_ref()
-                .map(|owner| cg.go_visible_interface_owner(owner, &site.caller.file));
-            let direct_interface_blocked = interface_presence.as_ref().is_some_and(|selection| {
-                selection.evidence.conflict || selection.evidence.uncertain
-            });
-            let proven_iface_name = site.receiver_owner_identity.as_ref().and_then(|owner| {
-                interface_presence
-                    .as_ref()
-                    .is_some_and(|selection| selection.value == Some(true))
-                    .then_some(&owner.name)
-            });
-            let proven_concrete_owner = site.receiver_owner_identity.is_some()
-                && interface_presence
-                    .as_ref()
-                    .is_some_and(|selection| selection.value == Some(false));
-            let impls: &[FunctionId] = if let Some(iface_name) = s4_iface_name {
-                cg.interface_impls
-                    .get(&(iface_name.clone(), site.callee_name.clone()))
-                    .map(|v| v.as_slice())
-                    .unwrap_or(&[])
-            } else if s4_blocked || direct_interface_blocked || proven_concrete_owner {
-                &[]
-            } else if let Some(iface_name) = proven_iface_name {
-                cg.interface_impls
-                    .get(&(iface_name.clone(), site.callee_name.clone()))
-                    .map(|v| v.as_slice())
-                    .unwrap_or(&[])
-            } else {
-                crate::resolution::iface_key(recv_ty)
-                    .and_then(|k| cg.interface_impls.get(&(k, site.callee_name.clone())))
-                    .map(|v| v.as_slice())
-                    .unwrap_or(&[])
-            };
+            let mut visibility_interface = None;
+            let mut legacy_bare = false;
+            let mut dispatch_route;
+            let impls: &[FunctionId];
+            match &go_route {
+                crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. } => {
+                    dispatch_route = "concrete_direct";
+                    impls = &[];
+                }
+                crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcretePromoted { .. } => {
+                    dispatch_route = "concrete_promoted";
+                    impls = &[];
+                }
+                crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcretePromotedDeferred {
+                    ..
+                } => {
+                    dispatch_route = "concrete_promoted_deferred_drop";
+                    impls = &[];
+                }
+                crate::go_concrete_receiver::GoConcreteReceiverRoute::EmbeddedInterfaceDispatch {
+                    owner,
+                    interface_name,
+                    ..
+                } => {
+                    dispatch_route = "embedded_interface_dispatch";
+                    visibility_interface =
+                        Some((Some(owner.clone()), interface_name.clone()));
+                    impls = cg
+                        .interface_impls
+                        .get(&(interface_name.clone(), site.callee_name.clone()))
+                        .map(Vec::as_slice)
+                        .unwrap_or(&[]);
+                }
+                crate::go_concrete_receiver::GoConcreteReceiverRoute::FuncValueField { .. } => {
+                    dispatch_route = "func_value_field";
+                    impls = &[];
+                }
+                crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteNoSelector {
+                    ..
+                } => {
+                    dispatch_route = "concrete_no_selector_drop";
+                    impls = &[];
+                }
+                crate::go_concrete_receiver::GoConcreteReceiverRoute::InterfaceDispatch {
+                    owner,
+                    interface_name,
+                } => {
+                    dispatch_route = "interface_dispatch";
+                    visibility_interface =
+                        Some((Some(owner.clone()), interface_name.clone()));
+                    impls = cg
+                        .interface_impls
+                        .get(&(interface_name.clone(), site.callee_name.clone()))
+                        .map(Vec::as_slice)
+                        .unwrap_or(&[]);
+                }
+                crate::go_concrete_receiver::GoConcreteReceiverRoute::R2OnDemandNameCollisionBail => {
+                    dispatch_route = "unproven_drop";
+                    impls = &[];
+                }
+                crate::go_concrete_receiver::GoConcreteReceiverRoute::ExternalNewRecoveryDrop => {
+                    dispatch_route = "unproven_drop";
+                    impls = &[];
+                }
+                crate::go_concrete_receiver::GoConcreteReceiverRoute::Unproven => {
+                    // R3 is deliberately unchanged. Retain the old S4/carried-
+                    // interface/bare-name ladder and add only a route diagnostic.
+                    let s4_route = cg.go_embedded_interface_route(
+                        recv_ty,
+                        site.receiver_owner_identity.as_ref(),
+                        &site.callee_name,
+                        &site.caller.file,
+                    );
+                    let s4_blocked =
+                        s4_route.evidence.conflict || s4_route.evidence.uncertain;
+                    let interface_presence = site
+                        .receiver_owner_identity
+                        .as_ref()
+                        .map(|owner| cg.go_visible_interface_owner(owner, &site.caller.file));
+                    let direct_interface_blocked =
+                        interface_presence.as_ref().is_some_and(|selection| {
+                            selection.evidence.conflict || selection.evidence.uncertain
+                        });
+                    let proven_interface_owner = site
+                        .receiver_owner_identity
+                        .as_ref()
+                        .filter(|_| {
+                            interface_presence
+                                .as_ref()
+                                .is_some_and(|selection| selection.value == Some(true))
+                        })
+                        .cloned();
+                    let proven_concrete_owner = site.receiver_owner_identity.is_some()
+                        && interface_presence
+                            .as_ref()
+                            .is_some_and(|selection| selection.value == Some(false));
+                    if let Some(interface_name) = s4_route.value {
+                        dispatch_route = "embedded_interface_dispatch";
+                        visibility_interface = Some((
+                            site.receiver_owner_identity.clone(),
+                            interface_name.clone(),
+                        ));
+                        impls = cg
+                            .interface_impls
+                            .get(&(interface_name, site.callee_name.clone()))
+                            .map(Vec::as_slice)
+                            .unwrap_or(&[]);
+                    } else if s4_blocked || direct_interface_blocked || proven_concrete_owner {
+                        dispatch_route = "unproven_drop";
+                        impls = &[];
+                    } else if let Some(owner) = proven_interface_owner {
+                        dispatch_route = "interface_dispatch";
+                        let interface_name = owner.name.clone();
+                        impls = cg
+                            .interface_impls
+                            .get(&(interface_name.clone(), site.callee_name.clone()))
+                            .map(Vec::as_slice)
+                            .unwrap_or(&[]);
+                        visibility_interface = Some((
+                            site.receiver_owner_identity.clone(),
+                            interface_name,
+                        ));
+                    } else {
+                        dispatch_route = "unproven_drop";
+                        legacy_bare = true;
+                        impls = crate::resolution::iface_key(recv_ty)
+                            .and_then(|key| {
+                                cg.interface_impls.get(&(key, site.callee_name.clone()))
+                            })
+                            .map(Vec::as_slice)
+                            .unwrap_or(&[]);
+                    }
+                }
+            }
             // Arity-disambiguate the name-keyed candidate set BEFORE the owner-name
             // mapping, so `fanout` (= implementers cardinality) reflects the filtered
             // set the resolver would mint. Same shared helper as the resolution mint;
@@ -704,12 +842,11 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                 site.arg_spread,
                 &cg.method_arity,
             );
-            let identity_iface_name = s4_iface_name.or(proven_iface_name);
-            let kept = if let Some(iface_name) = identity_iface_name {
+            let kept = if let Some((owner, interface_name)) = visibility_interface.as_ref() {
                 cg.go_visible_s4_implementers(
                     recv_ty,
-                    site.receiver_owner_identity.as_ref(),
-                    iface_name,
+                    owner.as_ref(),
+                    interface_name,
                     &site.callee_name,
                     &site.caller.file,
                     kept,
@@ -729,6 +866,9 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                     )
                 })
                 .collect();
+            if legacy_bare && !kept.is_empty() {
+                dispatch_route = "interface_dispatch";
+            }
             let implementers: BTreeSet<String> = kept
                 .iter()
                 .map(|fid| {
@@ -787,6 +927,7 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                 "line": site.line,
                 "receiver_class": class(recovery),
                 "method": site.callee_name,
+                "dispatch_route": dispatch_route,
                 "fanout": implementers.len(),
                 "implementers": implementers,
                 "implementer_identities": implementer_identities,

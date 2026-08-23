@@ -307,10 +307,10 @@ fn go_field_target_from_outcome(
 /// - Bare `T` is unambiguous: Go scoping rules mean it names a type in the
 ///   SAME package as `file`, i.e. the same directory — no lookup needed.
 /// - Qualified `pkg.T` resolves `pkg` via `file`'s import map to a Go import
-///   path, then narrows to an indexed directory whose basename matches the
-///   import path's last segment (the same dir-as-package convention `dir_of`
-///   already encodes elsewhere in this ladder). Zero or multiple matching
-///   directories is ambiguous -> `None` (fail closed): per spec, an
+///   path, then prefers its exact effective-module directory identity. When
+///   that evidence is unavailable it retains the legacy last-segment basename
+///   lookup. Zero or multiple matching directories is ambiguous -> `None`
+///   (fail closed): per spec, an
 ///   unknown/ambiguous owner identity may feed a nav-only registration
 ///   record at most, and NEVER S3.
 /// - A generic instantiation (`T[X]`) is out of scope (named-type
@@ -348,9 +348,12 @@ pub fn resolve_go_owner_identity(
             }
             let import_path = imports.get(file)?.get(pkg)?;
             let seg = import_path.rsplit('/').next().unwrap_or(import_path);
-            let dirs = package_basenames.get(seg)?;
+            let exact_key = go_import_path_dir_key(import_path);
+            let dirs = package_basenames
+                .get(&exact_key)
+                .or_else(|| package_basenames.get(seg))?;
             if dirs.len() != 1 {
-                return None; // ambiguous basename -> fail closed
+                return None; // ambiguous package directory -> fail closed
             }
             let package_dir = dirs.iter().next().unwrap().clone();
             let ordinary_clauses: BTreeSet<&str> = go_file_profiles
@@ -372,6 +375,10 @@ pub fn resolve_go_owner_identity(
             })
         }
     }
+}
+
+pub(crate) fn go_import_path_dir_key(import_path: &str) -> String {
+    format!("@go-import:{import_path}")
 }
 
 /// P5 (Go func-value callbacks, S2): resolve a bare identifier used as a
@@ -589,6 +596,9 @@ pub struct RecoveredReceiver {
 pub struct ReceiverClassification {
     pub recovered: Option<RecoveredReceiver>,
     pub materialized: bool,
+    /// A later Go value binding shadows the recovered first declaration. Keep
+    /// the static type only as the legacy R3 ladder input; never prove R1/R2.
+    pub proof_shadowed: bool,
 }
 
 impl ReceiverClassification {
@@ -600,6 +610,15 @@ impl ReceiverClassification {
         Self {
             recovered: Some(recovered),
             materialized: true,
+            proof_shadowed: false,
+        }
+    }
+
+    fn recovered_shadowed(recovered: RecoveredReceiver) -> Self {
+        Self {
+            recovered: Some(recovered),
+            materialized: true,
+            proof_shadowed: true,
         }
     }
 
@@ -607,6 +626,7 @@ impl ReceiverClassification {
         Self {
             recovered: None,
             materialized: true,
+            proof_shadowed: false,
         }
     }
 }
@@ -697,6 +717,23 @@ impl ReceiverRecoveryConfig {
 /// is true), peeled + owner-keyed. Python still scans when the qualifier also
 /// names an import so local receiver bindings can suppress R3.
 fn classify_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> ReceiverClassification {
+    classify_simple_ident_mode(ctx, recover_var, false)
+}
+
+/// Wave-3 Go post-merge exception: classify a same-block multi-name `:=`
+/// reuse without changing the ordinary f16663e classifier projection.
+pub(crate) fn classify_go_same_scope_reuse_receiver(
+    ctx: &ReceiverCtx<'_>,
+    recover_var: bool,
+) -> ReceiverClassification {
+    classify_simple_ident_mode(ctx, recover_var, true)
+}
+
+fn classify_simple_ident_mode(
+    ctx: &ReceiverCtx<'_>,
+    recover_var: bool,
+    enable_go_same_scope_reuse: bool,
+) -> ReceiverClassification {
     use crate::languages::Language;
     if !matches!(
         ctx.parsed.language,
@@ -717,14 +754,34 @@ fn classify_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> ReceiverCl
     if is_import && !matches!(ctx.parsed.language, Language::Python) {
         return ReceiverClassification::none();
     }
-    let (type_found, binding_count) = ctx.parsed.receiver_type_in_fn(
-        &ctx.fn_node,
-        q,
-        ctx.call_line,
-        ctx.call_start_byte,
-        recover_var,
-    );
+    let (type_found, binding_count, first_found) = if enable_go_same_scope_reuse {
+        ctx.parsed.go_same_scope_reuse_receiver_type_evidence_in_fn(
+            &ctx.fn_node,
+            q,
+            ctx.call_line,
+            ctx.call_start_byte,
+            recover_var,
+        )
+    } else {
+        ctx.parsed.receiver_type_evidence_in_fn(
+            &ctx.fn_node,
+            q,
+            ctx.call_line,
+            ctx.call_start_byte,
+            recover_var,
+        )
+    };
     let Some((ty, how)) = type_found else {
+        if matches!(ctx.parsed.language, Language::Go) && binding_count > 1 {
+            if let Some((ty, how)) = first_found {
+                return ReceiverClassification::recovered_shadowed(RecoveredReceiver {
+                    static_type: owner_key(&peel_type(&ty)),
+                    owner_identity: None,
+                    recovery: how,
+                    go_field_target: None,
+                });
+            }
+        }
         // Bindings exist but type is unrecoverable (e.g. `for x in items:`,
         // `with ... as x:`, shadow/destructure) — signal materialized so R3/R3b
         // rungs are suppressed, preventing false edges from import/owner-key
@@ -851,6 +908,11 @@ pub enum DropReason {
     /// P13: same-directory Go candidates existed, but package/build profile
     /// filtering proved none visible; do not fall through to FreeSingle.
     GoSamePkgAllFiltered,
+    /// P17 R1(b): the selector is promoted from embedded concrete state whose
+    /// true edge is deferred to the owner/profile-keyed promotion slice.
+    ConcreteReceiverPromotedDeferred,
+    /// P17 R1(e): a proven concrete receiver has no admissible selector lane.
+    ConcreteReceiverNoSelector,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -860,6 +922,15 @@ pub struct ResolutionTelemetry {
     pub go_same_pkg_all_filtered_drop: usize,
     pub go_bare_value_ref_ambiguous: usize,
     pub go_build_expr_unparsed: usize,
+    pub go_concrete_receiver_direct: usize,
+    pub go_concrete_receiver_promoted_existing: usize,
+    pub go_concrete_receiver_promoted_deferred: usize,
+    pub go_concrete_receiver_no_selector_drop: usize,
+    pub go_r2_on_demand_name_collision_bail: usize,
+    pub go_external_receiver_new_recovery_drop: usize,
+    pub go_unproven_receiver_bare_fallback_sites: usize,
+    pub go_unproven_receiver_bare_fallback_hits: usize,
+    pub go_unproven_receiver_bare_fallback_edges: usize,
     pub go_owner_identity_partition: crate::go_owner_partition::GoOwnerPartitionTelemetry,
 }
 
@@ -925,6 +996,15 @@ impl<'a> ResolutionOutcome<'a> {
             drop: Some(reason),
             telemetry,
         }
+    }
+
+    fn with_go_unproven_bare_fallback(mut self, attempted: bool, edges: usize) -> Self {
+        if attempted {
+            self.telemetry.go_unproven_receiver_bare_fallback_sites += 1;
+            self.telemetry.go_unproven_receiver_bare_fallback_hits += usize::from(edges > 0);
+            self.telemetry.go_unproven_receiver_bare_fallback_edges += edges;
+        }
+        self
     }
 }
 
@@ -1189,7 +1269,15 @@ impl CallGraph {
         Some(resolved)
     }
 
-    fn go_receiver_owner(
+    pub(crate) fn go_existing_embedding_promotion_hit(&self, owner: &str, name: &str) -> bool {
+        self.owner_lookup(owner, name).is_some_and(|resolved| {
+            resolved
+                .iter()
+                .any(|callee| callee.kind == ResolutionKind::EmbeddedPromotion)
+        })
+    }
+
+    pub(crate) fn go_receiver_owner(
         &self,
         recv_ty: &str,
         caller_file: &str,
@@ -1213,7 +1301,7 @@ impl CallGraph {
         )
     }
 
-    fn go_owner_reference_mode(
+    pub(crate) fn go_owner_reference_mode(
         &self,
         owner: &GoOwnerIdentity,
         caller_file: &str,
@@ -1420,7 +1508,62 @@ impl CallGraph {
         }
     }
 
-    fn go_own_method_partition(
+    fn go_interface_dispatch_outcome(
+        &self,
+        recv_ty: &str,
+        receiver_owner: &GoOwnerIdentity,
+        interface_name: &str,
+        method_name: &str,
+        site: &CallSite,
+        mut evidence: crate::go_owner_partition::GoPartitionEvidence,
+    ) -> ResolutionOutcome<'_> {
+        let ids = self
+            .interface_impls
+            .get(&(interface_name.to_string(), method_name.to_string()))
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+        let visible = self.go_visible_s4_implementers(
+            recv_ty,
+            Some(receiver_owner),
+            interface_name,
+            method_name,
+            &site.caller.file,
+            ids.iter().collect(),
+        );
+        evidence.merge(visible.evidence);
+        if evidence.uncertain || evidence.conflict {
+            return ResolutionOutcome::dropped_with_telemetry(
+                DropReason::ExternalReceiver,
+                ResolutionTelemetry::with_go_owner_partition(evidence, 1),
+            );
+        }
+        let kept: Vec<&FunctionId> = visible
+            .value
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|target| {
+                arity_admits(
+                    site.arg_count,
+                    site.arg_spread,
+                    self.method_arity.get(*target),
+                )
+            })
+            .collect();
+        if kept.is_empty() {
+            ResolutionOutcome::dropped_with_telemetry(
+                DropReason::ExternalReceiver,
+                ResolutionTelemetry::with_go_owner_partition(evidence, 0),
+            )
+        } else {
+            let affected_edges = kept.len();
+            ResolutionOutcome::hit_with_telemetry(
+                exact(kept, ResolutionKind::InterfaceDispatch),
+                ResolutionTelemetry::with_go_owner_partition(evidence, affected_edges),
+            )
+        }
+    }
+
+    pub(crate) fn go_own_method_partition(
         &self,
         recv_ty: &str,
         proven_owner: Option<&GoOwnerIdentity>,
@@ -1553,7 +1696,7 @@ impl CallGraph {
         if !field
             .value
             .as_deref()
-            .is_some_and(|ty| ty.trim_start().starts_with("func("))
+            .is_some_and(|ty| self.go_field_type_is_func(&owner, ty))
         {
             return ResolutionOutcome::dropped_with_telemetry(
                 DropReason::ExternalReceiver,
@@ -2174,6 +2317,112 @@ impl CallGraph {
                             return self.go_field_target_lookup(&target, name, recovered_kind);
                         }
                     }
+                    let go_route =
+                        (caller_lang == Some(crate::languages::Language::Go)).then(|| {
+                            self.go_concrete_receiver_route(
+                                recv_ty,
+                                site.receiver_owner_identity.as_ref(),
+                                site.receiver_local_type_shadowed,
+                                site.receiver_newly_recovered,
+                                name,
+                                &site.caller.file,
+                            )
+                        });
+                    if let Some(route) = go_route.as_ref() {
+                        match route {
+                            crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect {
+                                ..
+                            }
+                            | crate::go_concrete_receiver::GoConcreteReceiverRoute::Unproven => {}
+                            crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcretePromoted {
+                                ..
+                            } => {
+                                let Some(resolved) = self.owner_lookup(recv_ty, name) else {
+                                    return ResolutionOutcome::dropped(
+                                        DropReason::ConcreteReceiverPromotedDeferred,
+                                    );
+                                };
+                                let mut telemetry = ResolutionTelemetry::default();
+                                telemetry.go_concrete_receiver_promoted_existing = 1;
+                                return ResolutionOutcome::hit_with_telemetry(resolved, telemetry);
+                            }
+                            crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcretePromotedDeferred {
+                                ..
+                            } => {
+                                let mut telemetry = ResolutionTelemetry::default();
+                                telemetry.go_concrete_receiver_promoted_deferred = 1;
+                                return ResolutionOutcome::dropped_with_telemetry(
+                                    DropReason::ConcreteReceiverPromotedDeferred,
+                                    telemetry,
+                                );
+                            }
+                            crate::go_concrete_receiver::GoConcreteReceiverRoute::EmbeddedInterfaceDispatch {
+                                owner,
+                                interface_name,
+                                evidence,
+                            } => {
+                                return self.go_interface_dispatch_outcome(
+                                    recv_ty,
+                                    owner,
+                                    interface_name,
+                                    name,
+                                    site,
+                                    *evidence,
+                                );
+                            }
+                            crate::go_concrete_receiver::GoConcreteReceiverRoute::FuncValueField {
+                                owner,
+                            } => {
+                                return self.func_value_field_or_external_drop(
+                                    recv_ty,
+                                    Some(owner),
+                                    name,
+                                    &site.caller.file,
+                                );
+                            }
+                            crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteNoSelector {
+                                evidence,
+                                ..
+                            } => {
+                                let mut telemetry =
+                                    ResolutionTelemetry::with_go_owner_partition(*evidence, 0);
+                                telemetry.go_concrete_receiver_no_selector_drop = 1;
+                                return ResolutionOutcome::dropped_with_telemetry(
+                                    DropReason::ConcreteReceiverNoSelector,
+                                    telemetry,
+                                );
+                            }
+                            crate::go_concrete_receiver::GoConcreteReceiverRoute::InterfaceDispatch {
+                                owner,
+                                interface_name,
+                            } => {
+                                return self.go_interface_dispatch_outcome(
+                                    recv_ty,
+                                    owner,
+                                    interface_name,
+                                    name,
+                                    site,
+                                    crate::go_owner_partition::GoPartitionEvidence::default(),
+                                );
+                            }
+                            crate::go_concrete_receiver::GoConcreteReceiverRoute::R2OnDemandNameCollisionBail => {
+                                let mut telemetry = ResolutionTelemetry::default();
+                                telemetry.go_r2_on_demand_name_collision_bail = 1;
+                                return ResolutionOutcome::dropped_with_telemetry(
+                                    DropReason::ExternalReceiver,
+                                    telemetry,
+                                );
+                            }
+                            crate::go_concrete_receiver::GoConcreteReceiverRoute::ExternalNewRecoveryDrop => {
+                                let mut telemetry = ResolutionTelemetry::default();
+                                telemetry.go_external_receiver_new_recovery_drop = 1;
+                                return ResolutionOutcome::dropped_with_telemetry(
+                                    DropReason::ExternalReceiver,
+                                    telemetry,
+                                );
+                            }
+                        }
+                    }
                     if caller_lang == Some(crate::languages::Language::Python) {
                         let clean_key = (caller.file.clone(), recv_ty.to_string());
                         if self.clean_class_spans.contains_key(&clean_key) {
@@ -2281,17 +2530,25 @@ impl CallGraph {
                                 }
                             }
                         }
-                        let own_method_partition =
-                            if caller_lang == Some(crate::languages::Language::Go) {
-                                self.go_own_method_partition(
-                                    recv_ty,
-                                    site.receiver_owner_identity.as_ref(),
-                                    name,
-                                    &caller.file,
-                                )
-                            } else {
-                                None
-                            };
+                        let own_method_partition = if caller_lang
+                            == Some(crate::languages::Language::Go)
+                            && !site.receiver_local_type_shadowed
+                        {
+                            match go_route.as_ref() {
+                                    Some(crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect {
+                                        owner,
+                                        selection,
+                                    }) => Some((owner.clone(), selection.clone())),
+                                    _ => self.go_own_method_partition(
+                                        recv_ty,
+                                        site.receiver_owner_identity.as_ref(),
+                                        name,
+                                        &caller.file,
+                                    ),
+                                }
+                        } else {
+                            None
+                        };
                         if let Some((_, selection)) = &own_method_partition {
                             if selection.evidence.conflict || selection.evidence.uncertain {
                                 return ResolutionOutcome::dropped_with_telemetry(
@@ -2320,7 +2577,13 @@ impl CallGraph {
                             .collect();
                         let direct = match &own_method_partition {
                             Some((_, selection)) if selection.value == Some(false) => None,
-                            Some((owner, _)) if site.receiver_owner_identity.is_some() => {
+                            Some((owner, _))
+                                if site.receiver_owner_identity.is_some()
+                                    || matches!(
+                                        go_route.as_ref(),
+                                        Some(crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. })
+                                    ) =>
+                            {
                                 let ids = self
                                     .go_method_declarations
                                     .get(owner)
@@ -2381,6 +2644,12 @@ impl CallGraph {
                                     telemetry = ResolutionTelemetry::with_go_owner_partition(
                                         evidence, unfiltered,
                                     );
+                                }
+                                if matches!(
+                                    go_route.as_ref(),
+                                    Some(crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. })
+                                ) {
+                                    telemetry.go_concrete_receiver_direct = 1;
                                 }
                                 for callee in &mut resolved {
                                     if callee.kind == ResolutionKind::QualifiedOwner {
@@ -2497,6 +2766,10 @@ impl CallGraph {
                                 }
                                 match crate::resolution::iface_key(recv_ty) {
                                     Some(k) => {
+                                        let unproven_bare_fallback = matches!(
+                                            go_route.as_ref(),
+                                            Some(crate::go_concrete_receiver::GoConcreteReceiverRoute::Unproven)
+                                        );
                                         match self.interface_impls.get(&(k, name.to_string())) {
                                             Some(ids) if !ids.is_empty() => {
                                                 // Arity-disambiguate the name-keyed candidate set
@@ -2513,29 +2786,44 @@ impl CallGraph {
                                                     // P5 S3: interface dispatch arity-filtered to
                                                     // empty — try the func-typed-field registration
                                                     // index before the ExternalReceiver drop.
-                                                    return self.func_value_field_or_external_drop(
-                                                        recv_ty,
-                                                        site.receiver_owner_identity.as_ref(),
-                                                        name,
-                                                        &site.caller.file,
-                                                    );
+                                                    return self
+                                                        .func_value_field_or_external_drop(
+                                                            recv_ty,
+                                                            site.receiver_owner_identity.as_ref(),
+                                                            name,
+                                                            &site.caller.file,
+                                                        )
+                                                        .with_go_unproven_bare_fallback(
+                                                            unproven_bare_fallback,
+                                                            0,
+                                                        );
                                                 } else {
+                                                    let edges = kept.len();
                                                     return ResolutionOutcome::hit(exact(
                                                         kept,
                                                         ResolutionKind::InterfaceDispatch,
-                                                    ));
+                                                    ))
+                                                    .with_go_unproven_bare_fallback(
+                                                        unproven_bare_fallback,
+                                                        edges,
+                                                    );
                                                 }
                                             }
                                             _ => {
                                                 // P5 S3: no interface impls at all for this
                                                 // (interface, method) — try the func-typed-field
                                                 // registration index before the drop.
-                                                return self.func_value_field_or_external_drop(
-                                                    recv_ty,
-                                                    site.receiver_owner_identity.as_ref(),
-                                                    name,
-                                                    &site.caller.file,
-                                                );
+                                                return self
+                                                    .func_value_field_or_external_drop(
+                                                        recv_ty,
+                                                        site.receiver_owner_identity.as_ref(),
+                                                        name,
+                                                        &site.caller.file,
+                                                    )
+                                                    .with_go_unproven_bare_fallback(
+                                                        unproven_bare_fallback,
+                                                        0,
+                                                    );
                                             }
                                         }
                                     }
@@ -3766,8 +4054,10 @@ mod scope_resolution_predicate_tests {
             qualifier: None,
             receiver_type: None,
             receiver_owner_identity: None,
+            receiver_local_type_shadowed: false,
             receiver_recovery: None,
             receiver_materialized: false,
+            receiver_newly_recovered: false,
             arg_count: None,
             arg_spread: false,
             receiver_outcome: None,

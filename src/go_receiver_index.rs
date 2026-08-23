@@ -336,8 +336,52 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
         file_imports: ctx.file_imports,
     };
     let baseline = base_classifier.classify(rctx);
-    if baseline.recovered.is_some() {
-        return (baseline, Default::default());
+    let reuse_calls = ctx.parsed.go_same_scope_short_var_reuse_calls(
+        &ctx.fn_node,
+        ctx.qualifier,
+        ctx.call_start_byte,
+    );
+    let same_scope_reuse = reuse_calls.as_ref().is_ok_and(|calls| !calls.is_empty());
+    let candidate = if same_scope_reuse {
+        crate::resolution::classify_go_same_scope_reuse_receiver(&rctx, var_local)
+    } else {
+        baseline.clone()
+    };
+    if candidate.recovered.is_some() {
+        if candidate.proof_shadowed || !same_scope_reuse {
+            return (candidate, Default::default());
+        }
+
+        let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
+        let recovered = candidate.recovered.as_ref().expect("checked above");
+        let original_owner = recovered.owner_identity.clone().or_else(|| {
+            resolve_go_owner_identity(
+                &recovered.static_type,
+                ctx.caller_file,
+                facts.imports,
+                facts.package_basenames,
+                facts.go_file_profiles,
+            )
+        });
+        let unchanged = match (original_owner, reuse_calls) {
+            (Some(original_owner), Ok(calls)) => calls.into_iter().all(|callee| {
+                let selection = resolve_go_return_type_call(
+                    &callee,
+                    ctx.caller_file,
+                    facts.imports,
+                    facts.package_basenames,
+                    facts.return_types,
+                    facts.go_file_profiles,
+                );
+                evidence.merge(selection.evidence);
+                selection.value.as_ref() == Some(&original_owner)
+            }),
+            _ => false,
+        };
+        if unchanged {
+            return (candidate, evidence);
+        }
+        return (baseline, evidence);
     }
 
     if ctx.qualifier.contains('.') {
@@ -348,6 +392,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                 ReceiverClassification {
                     recovered: Some(rec),
                     materialized: true,
+                    proof_shadowed: false,
                 },
                 evidence,
             );
@@ -357,6 +402,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                 ReceiverClassification {
                     recovered: None,
                     materialized: true,
+                    proof_shadowed: false,
                 },
                 evidence,
             );
@@ -385,13 +431,24 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
     // build's intentionally-disabled `var r T` recovery would be silently
     // re-enabled here (found via a DIFFERENT recover_var value than the
     // config specifies) even though `baseline` just correctly refused it.
-    let (found, bindings) = ctx.parsed.receiver_type_in_fn(
-        &ctx.fn_node,
-        ctx.qualifier,
-        ctx.call_line,
-        ctx.call_start_byte,
-        var_local,
-    );
+    let (found, bindings) = if same_scope_reuse {
+        let (found, bindings, _) = ctx.parsed.go_same_scope_reuse_receiver_type_evidence_in_fn(
+            &ctx.fn_node,
+            ctx.qualifier,
+            ctx.call_line,
+            ctx.call_start_byte,
+            var_local,
+        );
+        (found, bindings)
+    } else {
+        ctx.parsed.receiver_type_in_fn(
+            &ctx.fn_node,
+            ctx.qualifier,
+            ctx.call_line,
+            ctx.call_start_byte,
+            var_local,
+        )
+    };
     if bindings > 1 {
         return (baseline, Default::default()); // ambiguous/shadowed — unchanged.
     }
@@ -406,6 +463,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                     go_field_target: None,
                 }),
                 materialized: true,
+                proof_shadowed: false,
             },
             Default::default(),
         );
@@ -433,6 +491,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                             go_field_target: None,
                         }),
                         materialized: true,
+                        proof_shadowed: false,
                     },
                     Default::default(),
                 );
@@ -468,6 +527,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                         go_field_target: None,
                     }),
                     materialized: true,
+                    proof_shadowed: false,
                 },
                 selection.evidence,
             );
@@ -477,6 +537,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                 ReceiverClassification {
                     recovered: None,
                     materialized: true,
+                    proof_shadowed: false,
                 },
                 selection.evidence,
             );

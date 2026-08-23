@@ -143,7 +143,10 @@ use std::path::{Path, PathBuf};
 ///   and symlink-refused/go.work topology entries change Go identity and cache keys.
 /// - v46: effective Go workspace/module/replacement identities change persisted
 ///   interface-dispatch edges and add module-graph/import-path telemetry.
-/// - v47: reserved for roadmap #17 narrow concrete-receiver routing.
+/// - v47: P17 proven Go concrete receivers route before the legacy bare-interface
+///   ladder. Its serialized declaration-kind/import-path evidence and value-
+///   rebinding shadow bail plus new-recovery provenance are one PR schema
+///   transition (paired with sidecar v16).
 /// - v48: alias-aware Go signature identity plus the serialized promoted-selector snapshot.
 const CACHE_VERSION: u32 = 48;
 

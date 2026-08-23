@@ -408,11 +408,12 @@ fn interface_manifest_existing_fields_match_origin_main_fixture() {
         .find(|site| site["method"] == "Go" && site["fanout"].as_u64() == Some(2))
         .expect("two-implementer dispatch site")
         .clone();
-    legacy_site
-        .as_object_mut()
-        .expect("site object")
-        .remove("implementer_identities")
-        .expect("the sole additive field must be present");
+    let legacy_object = legacy_site.as_object_mut().expect("site object");
+    for additive in ["implementer_identities", "dispatch_route"] {
+        legacy_object
+            .remove(additive)
+            .unwrap_or_else(|| panic!("additive field {additive} must be present"));
+    }
     let fixture = r#"{"end_byte":202,"fanout":2,"file":"main.go","implementers":["Fast","Slow"],"line":8,"method":"Go","receiver_class":"var_local","start_byte":196}"#;
     assert_eq!(
         serde_json::to_string(&legacy_site).expect("serialize legacy site"),
@@ -432,7 +433,7 @@ fn interface_manifest_identity_dedup_keeps_build_tag_twins() {
             "package main\n\
              type Runner interface { Go() }\n\
              func use() { _ = Impl{} }\n\
-             func dispatch(x any) { x.(Runner).Go() }\n",
+             func dispatch(x any) { x.(ExternalRunner).Go() }\n",
             Go,
         ),
         (
@@ -457,8 +458,11 @@ fn interface_manifest_identity_dedup_keeps_build_tag_twins() {
         .expect("both parsed build-tag method targets")
         .clone();
     assert_eq!(twins.len(), 2, "CallGraph keeps both file-distinct targets");
+    // Use an intentionally unproven receiver key so this remains a serializer
+    // test for the unchanged R3 bare lane. A proven `Runner` receiver now
+    // correctly applies profile visibility and rejects these conflicting twins.
     cg.interface_impls
-        .insert(("Runner".to_string(), "Go".to_string()), twins);
+        .insert(("ExternalRunner".to_string(), "Go".to_string()), twins);
     let manifest = prism::navigation::queries::interface_dispatch_manifest(&cg);
     let site = manifest["sites"]
         .as_array()
@@ -3232,7 +3236,7 @@ fn p6_lifetime_typed_param_recovers_among_collisions() {
 }
 
 #[test]
-fn go_embedded_method_resolves_exact() {
+fn go_embedded_concrete_method_keeps_existing_promotion() {
     use prism::languages::Language::Go;
     let (cg, _) = build(&[(
         "main.go",
@@ -3240,42 +3244,46 @@ fn go_embedded_method_resolves_exact() {
         Go,
     )]);
     let site = site_in(&cg, "run", "Ping");
-    let r = cg.resolve_call_site(&site);
-    assert_eq!(r.len(), 1);
-    assert_eq!(r[0].target.name, "Ping");
-    assert_eq!(r[0].target.file, "main.go");
-    assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
-    assert_eq!(r[0].kind, ResolutionKind::EmbeddedPromotion);
+    let outcome = cg.resolve_call_site_full(&site);
+    assert_eq!(outcome.drop, None, "{outcome:?}");
+    assert_eq!(outcome.resolved.len(), 1, "{outcome:?}");
+    assert_eq!(outcome.resolved[0].target.file, "main.go");
+    assert_eq!(outcome.resolved[0].target.start_line, 3);
+    assert_eq!(outcome.resolved[0].kind, ResolutionKind::EmbeddedPromotion);
+    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_existing, 1);
+    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_deferred, 0);
 }
 
 #[test]
-fn go_embedded_transitive_resolves() {
+fn go_embedded_transitive_concrete_method_keeps_existing_promotion() {
     use prism::languages::Language::Go;
     let (cg, _) = build(&[(
         "main.go",
         "package main\ntype C struct{}\nfunc (c C) M() {}\ntype B struct{ C }\ntype A struct{ B }\nfunc run(a A) {\n\ta.M()\n}\n",
         Go,
     )]);
-    let r = cg.resolve_call_site(&site_in(&cg, "run", "M"));
-    assert_eq!(r.len(), 1);
-    assert_eq!(r[0].kind, ResolutionKind::EmbeddedPromotion);
+    let outcome = cg.resolve_call_site_full(&site_in(&cg, "run", "M"));
+    assert_eq!(outcome.drop, None, "{outcome:?}");
+    assert_eq!(outcome.resolved.len(), 1, "{outcome:?}");
+    assert_eq!(outcome.resolved[0].target.start_line, 3);
+    assert_eq!(outcome.resolved[0].kind, ResolutionKind::EmbeddedPromotion);
+    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_existing, 1);
 }
 
 #[test]
-fn go_embedded_pointer_receiver_addressable_resolves() {
+fn go_embedded_pointer_receiver_addressable_keeps_existing_promotion() {
     use prism::languages::Language::Go;
     let (cg, _) = build(&[(
         "main.go",
         "package main\ntype Base struct{}\nfunc (b *Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\nfunc run(w Wrap) {\n\tw.Ping()\n}\n",
         Go,
     )]);
-    let r = cg.resolve_call_site(&site_in(&cg, "run", "Ping"));
-    assert_eq!(
-        r.len(),
-        1,
-        "addressable value receiver can call a pointer-receiver promoted method"
-    );
-    assert_eq!(r[0].kind, ResolutionKind::EmbeddedPromotion);
+    let outcome = cg.resolve_call_site_full(&site_in(&cg, "run", "Ping"));
+    assert_eq!(outcome.drop, None, "{outcome:?}");
+    assert_eq!(outcome.resolved.len(), 1, "{outcome:?}");
+    assert_eq!(outcome.resolved[0].target.start_line, 3);
+    assert_eq!(outcome.resolved[0].kind, ResolutionKind::EmbeddedPromotion);
+    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_existing, 1);
 }
 
 #[test]
@@ -3313,7 +3321,6 @@ fn go_direct_method_wins_over_promoted() {
 #[test]
 fn go_equal_depth_embedding_ambiguity_drops() {
     use prism::languages::Language::Go;
-    use prism::resolution::DropReason;
     let (cg, _) = build(&[(
         "main.go",
         "package main\ntype X struct{}\nfunc (x X) M() {}\ntype Y struct{}\nfunc (y Y) M() {}\ntype A struct {\n\tX\n\tY\n}\nfunc run(a A) {\n\ta.M()\n}\n",
@@ -3322,12 +3329,11 @@ fn go_equal_depth_embedding_ambiguity_drops() {
     let out = cg.resolve_call_site_full(&site_in(&cg, "run", "M"));
     assert!(
         out.resolved.is_empty(),
-        "equal-depth M is ambiguous -> not promoted"
+        "equal-depth M is ambiguous -> no promoted edge"
     );
-    assert!(matches!(
-        out.drop,
-        Some(DropReason::ExternalReceiver) | Some(DropReason::MultiOwnerCollision)
-    ));
+    assert_eq!(out.drop, Some(DropReason::ConcreteReceiverNoSelector));
+    assert_eq!(out.telemetry.go_concrete_receiver_no_selector_drop, 1);
+    assert_eq!(out.telemetry.go_concrete_receiver_promoted_deferred, 0);
 }
 
 #[test]

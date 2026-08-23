@@ -1,6 +1,23 @@
-# #17-narrow — PROVEN concrete-recovered receivers must not reach the bare-name interface-dispatch fallback (design v7, 2026-08-23)
+# #17-narrow — PROVEN concrete-recovered receivers must not reach the bare-name interface-dispatch fallback (design v9, 2026-08-23)
 
-Status: v7 — OWNER DECISION 2026-08-23: R1(b) (promoted-from-embedded-concrete direct routing) REMOVED from this slice after its comparator failed four consecutive scoped confirmations on independent axes (package qualifier → ordinary fields → own-method axis → embedded-alias selector names) — open-class by the convergence test; promoted-concrete selectors on a proven-concrete receiver now take the fail-closed terminal drop (true edge deferred to #14 slice 4's owner/profile-keyed promoted snapshot, which must carry ALL four axes). Everything else was sol-confirmed in the scoped round (F2–F4). v7 = one-pass edit + controller cross-section self-review; committed as design-of-record on branch `p17-narrow-spec` (no further review round per owner). Previously v6 — sol r4 (FIX, "park for owner escalation": W1 profile-safe promotion unprovable with the restricted snapshot — `struct_embeds` last-file-wins across build profiles, go.rs:222/:618 — folded FAIL-CLOSED; W2 = Ox W-1 etcd baseline (already v5); W3 §8 call-stats formula vs route-specific audit — folded per route; SMELLs: `struct{ *B }` compiling non-addressable positive pole (wording was too broad); synthetic alias populates interface satisfaction; §1 ReturnTyped nit) folded. PARKED FOR OWNER ACCEPTANCE per the disclosed r4 rule. Previously v5 — Ox r4 (FIX: 1 WRONG — §8 etcd baseline/counts not resequenced vs §0, a mis-gate scenario; + kind-list nit; 2 SMELL: compiling-source premise explicit; synthetic-decl extraction widens provider diff surface) folded; Ox confirmed the R1(b) applicability simplification (no compiling counterexample). Awaiting sol r4; per the disclosed rule the spec now goes to the OWNER for acceptance (no further self-extension). Previously v4 — sol r3 (5 WRONG: addressability-blind promotion pole; ambiguous-promotion route missing; test-1 not a constructor-local input; test-9 contradicted the #17b carve-out; audit rejected valid R1(d)/(e)) + 3 SMELL (snapshot naming; unnamed interface alias; telemetry units) folded; 3 of the 5 were introduced by the controller's r2 folds → controller cross-section self-review added before dispatch. Round 4 = DISCLOSED ONE-ROUND EXTENSION of the 3-round cap (converging: bounded textual fixes, no new mechanism); a WRONG in r4 parks the spec for owner escalation. Previously v3 — sol r2 (5 WRONG / 1 SMELL: cache rehydration, R3 wording/#17b carve-out, alias canonical target + `type D I`, promoted-evidence carrier, route enum) and Ox r2 (APPROVE, 4 SMELL: shared-consult mandate, receiver_owner_identity consumers, index build-once, test poles) folded; for round 3 (sol ∥ Ox, DECLARED CAP = 3 rounds). Previously v2 — sol r1 (5 WRONG / 2 SMELL) and Ox r1 (3 WRONG / 7 SMELL) folded; for round 2 (sol ∥ Ox). Scope: a small precision PR on main,
+Status: v9 — OWNER-RATIFIED AMENDMENT 2026-08-23 (decision recorded in the controller ledger; this amendment IS the authorization of record):
+two precision rules added during the oracle-driven fix waves, previously implemented but not specified (terra r3 W2): (A) **on-demand R2 name-collision
+bail** — when the shared route proves an INTERFACE owner ON DEMAND (identity not carried on the CallSite) and the interface's bare name is declared by
+MORE THAN ONE package in the dispatch table (the roadmap-#16 collision), the site TERMINALLY DROPS before the bare ladder (zero targets) instead of entering S4 (telemetry
+`go_r2_on_demand_name_collision_bail`, sites; manifest route `unproven_drop`; shadowed-collision sites bail terminally); carried-identity R2 is
+unchanged; when the bare name is unique, on-demand R2 proceeds. Evidence: 16 prometheus `Iterator` sites (chunks.Iterator vs chunkenc.Iterator
+conflation) minted `FakeChunkSeriesIterator` — all → fanout 0. (B) **external new-recovery drop** — a receiver recovered ONLY by this slice's new
+recovery paths (`CallSite.receiver_newly_recovered`, serialized; main left the receiver unrecovered) whose qualified type cannot be proven in the
+effective in-repo module set terminally drops before the bare ladder (route verdict `ExternalNewRecoveryDrop`; telemetry
+`go_external_receiver_new_recovery_drop`, sites; manifest route `unproven_drop`); PRE-EXISTING recovery keeps legacy behavior byte-identically
+(proven per site by the R3 legacy projection audit). Evidence: 4 prometheus external-`io.Closer` sites newly minting `HTTPResourceClient` — all →
+fanout 0. Both rules are fail-closed (they can only remove never mint edges), scoped to NEW proof paths (main-reachable behavior unchanged), and
+covered by resolver+manifest poles (wave-4 collision poles incl. shadowed-collision terminal bail; wave-5 external new-recovery poles incl.
+pre-existing-recovery control). Acceptance carried out: four-corpus oracle delta gates TRUE except the single documented hugo waiver
+(tocss.go:122 — the file is `//go:build extended` while the oracle pins an empty tag set; prism's edge manually verified as a valid unique-name
+`identity.Manager` dispatch; oracle tag-set coverage is a roadmap follow-up), and the direct-lane gopls sample audit: 199 hits / 0 miss / 1 unknown on
+BOTH the wave-4 head 0c63185 (p17d) and the final head a9cc583 (p17e), 50/corpus, seed 23. Known pre-existing recall gap (unchanged from main, label-only relabel `ExternalReceiver`→`ConcreteReceiverNoSelector`, controller-probed):
+qualified embedded interfaces `type S struct{ q.I }` resolve nowhere on main OR this branch — roadmap follow-up with #16. Previously v8 — OWNER CORRECTION 2026-08-23: v7 misstated the deferral boundary. The EXISTING embedding-promotion lane (`apply_go_embedding_promotion` owner-index promotion, #95, with the #174/#176 package-scoped fail-closed gates) remains unchanged. A current `owner_lookup` hit keeps its main behavior; only a miss that would otherwise fall through to the bare-name ladder is deferred from NEW on-demand promoted routing. This correction also folds the controller-accepted Ox r1 and terra r1 findings: depth-aware embedded supplier choice, R3 manifest input parity, named func fields, pointer-to-interface aliases, lexical local-type shadowing, generic telemetry attempt parity, and cold-create cache parity. Previously v7 — OWNER DECISION 2026-08-23: NEW R1(b) on-demand promoted-from-embedded-concrete direct routing REMOVED from this slice after its comparator failed four consecutive scoped confirmations on independent axes (package qualifier → ordinary fields → own-method axis → embedded-alias selector names) — open-class by the convergence test; new promoted-concrete proof remains deferred to #14 slice 4's owner/profile-keyed promoted snapshot, which must carry ALL four axes. Everything else was sol-confirmed in the scoped round (F2–F4). v7 = one-pass edit + controller cross-section self-review; committed as design-of-record on branch `p17-narrow-spec` (no further review round per owner). Previously v6 — sol r4 (FIX, "park for owner escalation": W1 profile-safe promotion unprovable with the restricted snapshot — `struct_embeds` last-file-wins across build profiles, go.rs:222/:618 — folded FAIL-CLOSED; W2 = Ox W-1 etcd baseline (already v5); W3 §8 call-stats formula vs route-specific audit — folded per route; SMELLs: `struct{ *B }` compiling non-addressable positive pole (wording was too broad); synthetic alias populates interface satisfaction; §1 ReturnTyped nit) folded. PARKED FOR OWNER ACCEPTANCE per the disclosed r4 rule. Previously v5 — Ox r4 (FIX: 1 WRONG — §8 etcd baseline/counts not resequenced vs §0, a mis-gate scenario; + kind-list nit; 2 SMELL: compiling-source premise explicit; synthetic-decl extraction widens provider diff surface) folded; Ox confirmed the R1(b) applicability simplification (no compiling counterexample). Awaiting sol r4; per the disclosed rule the spec now goes to the OWNER for acceptance (no further self-extension). Previously v4 — sol r3 (5 WRONG: addressability-blind promotion pole; ambiguous-promotion route missing; test-1 not a constructor-local input; test-9 contradicted the #17b carve-out; audit rejected valid R1(d)/(e)) + 3 SMELL (snapshot naming; unnamed interface alias; telemetry units) folded; 3 of the 5 were introduced by the controller's r2 folds → controller cross-section self-review added before dispatch. Round 4 = DISCLOSED ONE-ROUND EXTENSION of the 3-round cap (converging: bounded textual fixes, no new mechanism); a WRONG in r4 parks the spec for owner escalation. Previously v3 — sol r2 (5 WRONG / 1 SMELL: cache rehydration, R3 wording/#17b carve-out, alias canonical target + `type D I`, promoted-evidence carrier, route enum) and Ox r2 (APPROVE, 4 SMELL: shared-consult mandate, receiver_owner_identity consumers, index build-once, test poles) folded; for round 3 (sol ∥ Ox, DECLARED CAP = 3 rounds). Previously v2 — sol r1 (5 WRONG / 2 SMELL) and Ox r1 (3 WRONG / 7 SMELL) folded; for round 2 (sol ∥ Ox). Scope: a small precision PR on main,
 sequenced AFTER #14 slice 3 (owner decision 2026-08-22: slice 3 merges with the 5 etcd #17-class sites documented; this slice's acceptance must turn them to 0 against `oracle-s3b-etcd.json`).
 
 ## 1. Problem (measured, hardened oracle)
@@ -16,11 +33,13 @@ For a Go call site `recv.name(...)` with a recovered receiver static type `T` (p
 - R1 **proven concrete owner** (declaration-kind index says `T` resolves, in the caller's package/profile view, to a struct or defined non-interface
   type with identity `(dir, clause, name)`): (a) OWN method of `T` → direct Exact to that declaration (own-method partition / QualifiedOwner lane;
   use the owner returned by a SUCCESSFUL partition selection even when it was resolved on demand rather than carried on the `CallSite` — the
-  line-2321 match today only uses carried identities); (b) method PROMOTED from an embedded CONCRETE struct `B` → NOT ROUTED DIRECT IN THIS SLICE (owner decision 2026-08-23): a proven-concrete
-  receiver whose selector `name` is not an own method but IS supplied by an embedded concrete struct takes the terminal drop of (e) with DropReason
-  `ConcreteReceiverPromotedDeferred` (route `concrete_promoted_deferred_drop`, telemetry `go_concrete_receiver_promoted_deferred`, sites) — a
-  fail-closed, precision-safe conversion of today's false interface Exact into a drop; the TRUE `B.name` edge is a pinned recall gap until #14
-  slice 4 ships an owner/profile-keyed promoted-selector snapshot. WHY deferred (record for slice 4): the live provider collapses build profiles —
+  line-2321 match today only uses carried identities); (b) method PROMOTED from an embedded CONCRETE struct `B`: the EXISTING embedding-promotion
+  lane (`apply_go_embedding_promotion` owner-index promotion, #95, with the #174/#176 package-scoped fail-closed gates) is UNCHANGED. When today's
+  `owner_lookup` hits a promoted entry, the site routes direct exactly as on main (no new edges, no removed edges; route label `concrete_promoted`,
+  telemetry `go_concrete_receiver_promoted_existing`). ONLY when the existing lane yields NO hit and the selector is supplied by an embedded
+  concrete struct does the route take `concrete_promoted_deferred_drop` with DropReason `ConcreteReceiverPromotedDeferred` and telemetry
+  `go_concrete_receiver_promoted_deferred` (sites): no new promoted-direct edge via on-demand identity; the profile-safe comparator remains #14
+  slice 4. WHY new routing is deferred (record for slice 4): the live provider collapses build profiles —
   `struct_embeds`/`struct_embed_files` last-file-wins per `GoOwnerIdentity` (type_providers/go.rs:222–226/:618–619), `method_declarations` per
   owner with profiles unioned (:190), `promoted_struct_method_candidates_from_data` refuses duplicate-bare outer names (:~2356) and the public
   projection drops `value_method_set` (:~2345/~2444) — and a profile-safe equality comparator for "several declarations of `S`" must carry, at EVERY
@@ -30,15 +49,20 @@ For a Go call site `recv.name(...)` with a recovered receiver static type `T` (p
   methods, sol r6 selector names, Ox r5 qualifier) — treat the list as necessary, not proven sufficient. Applicability note kept for slice 4:
   on compiling source, promoted-selector existence ⇒ call applicability (value-embed `struct{ B }` + pointer-receiver `M` on a non-addressable
   value is a compile error; pointer-embed `struct{ *B }` puts `(*B).M` in `S`'s value method set so `makeS().M()` compiles) — `value_method_set`
-  is an S4 input, not a direct-routing input. Poles for THIS slice: `type S struct{ B }; func (B) M(); func f(s S){ s.M() }` → `concrete_promoted_
-  deferred_drop` (asserted: zero interface fanout, zero targets); `type S struct{ *B }; func (*B) M(); makeS().M()` → same drop; duplicate
-  build-tagged `S` declarations → `Ambiguous(profile conflict)` ⇒ R3 legacy output (pinned, see §3), NOT an R1 route; (c) method supplied by an embedded INTERFACE field → S4 `go_visible_s4_implementers` via
-  `go_embedded_interface_route` exactly as today (legitimate dynamic dispatch; empty-live fallback stays available there); (d) `name` is a func-valued
-  field → P5 lane as today; (e) none of the above → terminal drop (DropReason: `ConcreteReceiverNoSelector`). Soundness of (e): a receiver
+  is an S4 input, not a direct-routing input. Poles for THIS slice: `type S struct{ B }; func (B) M(); func f(s S){ s.M() }` → the existing lane's
+  Exact `B.M` with route `concrete_promoted`; a sibling where that lane is package-scoped-refused (for example duplicate-bare outer names across
+  packages) → `concrete_promoted_deferred_drop`, zero interface fanout and zero targets; duplicate build-tagged `S` declarations →
+  `Ambiguous(profile conflict)` ⇒ R3 legacy output (pinned, see §3), NOT an R1 route; (c) method supplied by an embedded INTERFACE field → S4
+  `go_visible_s4_implementers` via `go_embedded_interface_route` exactly as today (legitimate dynamic dispatch; empty-live fallback stays available
+  there). Supplier choice between embedded concrete and embedded interface is depth-aware per Go selector rules: the unique shallowest supplier wins;
+  equal depth from two embeddings is an ambiguous selector and terminally drops as `ConcreteReceiverNoSelector`; (d) `name` is a func-valued field,
+  including a named or aliased field type whose declaration-kind graph resolves to underlying `func(...)`, → P5 lane as today; (e) none of the above
+  → terminal drop (DropReason: `ConcreteReceiverNoSelector`). Soundness of (e): a receiver
   proven concrete in the caller's view cannot share its bare name with an interface in that same package (Go forbids duplicate top-level names),
   so the bare-name ladder's only remaining hit would be a cross-package same-bare-name interface — never a true dispatch for a statically concrete
   receiver; embedded-interface supply is exactly (c). (Ox r2 argument, verified.)
-- R2 **proven interface owner** (receiver typed as an interface, incl. alias-to-interface) → interface-owner S4 lane as today.
+- R2 **proven interface owner** (receiver typed as an interface, incl. alias-to-interface and pointer-to-interface aliases such as `type P = *I`)
+  → interface-owner S4 lane as today; an unresolved pointer pointee fails closed to R3.
 - R3 **unproven / ambiguous** (no declaration found for `T` in the view; multi-owner bare name; generic instantiation `Box[int]` — see §6; external type
   with no in-repo declaration) → existing behavior UNCHANGED in this slice. Honest statement (sol r2 W2): today's R3 path is NOT fail-closed —
   the bare `iface_key(recv_ty)` ladder (resolution.rs:~2498) still mints in-repo same-bare-name interface implementers for an EXTERNAL receiver
@@ -47,7 +71,8 @@ For a Go call site `recv.name(...)` with a recovered receiver static type `T` (p
   `Writer` is R2 (proven interface), not an R3 exception. Making R3 terminal (retiring the bare ladder for unproven receivers) is precision-correct
   but changes interface_dispatch counts on every corpus beyond the #17 sites and sacrifices unverified external-interface recall — it is carved out
   as **#17b — OWNER DECISION 2026-08-22: separate, measured first (telemetry population per corpus before #17b's design); own same-base control + oracle delta**, NOT folded here, so this slice stays narrow and its
-  acceptance counts stay attributable. R3 telemetry (units explicit): `go_unproven_receiver_bare_fallback_sites` (R3 sites where the ladder was attempted),
+  acceptance counts stay attributable. R3 telemetry (units explicit): `go_unproven_receiver_bare_fallback_sites` (R3 sites where `iface_key` succeeds
+  and the ladder was actually attempted; rejected generic instantiations are not attempts),
 `go_unproven_receiver_bare_fallback_hits` (sites where it minted ≥1 Exact) and `..._edges` (edges minted) so #17b's population is measured
 before it ships.
 - ReturnTyped sites lacking `receiver_owner_identity` are already hard-dropped at resolution.rs:2147–2153 (ExternalReceiver) — R1 applies to
@@ -75,8 +100,11 @@ include `type_providers/go.rs`, Ox r4); pole added. Tests: `type D I`, `type A =
 transitive alias. "Interface-presence false" is not
 "concrete proven": absent entry ⇒ R3. Identity proof for constructor_local/typed_param/var_local receivers is computed at RESOLVE time from
 `CallSite.receiver_type` + caller file via `resolve_go_owner_identity` + this index (on demand), or at extraction time by populating
-`receiver_owner_identity` when the type is declared in the caller's own package view — pick one and state it in the implementation. MANDATE (either
-choice): resolver and manifest MUST consult ONE shared function (`go_concrete_receiver_route`, the `go_embedded_interface_route` pattern,
+`receiver_owner_identity` when the type is declared in the caller's own package view — pick one and state it in the implementation. Before a package
+declaration proves R1/R2, the shared consult must fail closed to R3 if a lexically visible function-local `type_spec` or
+`type_alias` with the same name shadows it at the call; local declarations in other functions are irrelevant. Walk the enclosing function scopes
+using the existing AST scope machinery; function-local declarations must not be indexed as package declarations. MANDATE: resolver and manifest
+MUST consult ONE shared function (`go_concrete_receiver_route`, the `go_embedded_interface_route` pattern,
 resolution.rs:1235–1259 / queries.rs:604) — no second inline implementation of the proof. If extraction-time population is chosen: three consumers
 already read `receiver_owner_identity` as a "possibly-interface owner" (interface-owner lane resolution.rs:~2214, manifest `proven_concrete_owner`
 queries.rs:~639, `func_value_field_or_external_drop`); populating concrete identities interacts correctly there (interface-presence → `Some(false)` →
@@ -84,25 +112,29 @@ falls to the direct lane) and those branches must NOT be "fixed" — state this 
 ONCE per build, after `GoTypeData` collection completes and before any resolve (profile-conflict → `Ambiguous` computed at build, never per-resolve).
 Placement of the shared route (sol r2): beside `go_receiver_owner`/`go_embedded_interface_route`, invoked in the recovered-receiver branch AFTER
 the terminal `pre_resolved_target` lane and the ReturnTyped-without-owner / FieldTyped (`GoFieldTarget`) pre-drops, BEFORE the interface-owner
-block (resolution.rs:~2213) and therefore before own/direct, embedded S4, bare-interface and P5 fallbacks; terminal before the bare ladder for
+block (resolution.rs:~2213) and therefore before own/direct, embedded S4, bare-interface and P5 fallbacks; the existing `owner_lookup` promotion
+result is consulted before a promoted-deferred decision; terminal before the bare ladder for
 `ConcreteReceiverNoSelector`; it returns the on-demand selected owner so the direct lane drops its carried-identity-only condition
 (resolution.rs:~2323). The manifest invokes the same route immediately after its interface-method denominator predicate (queries.rs:~585).
 `pre_resolved_target` stays authoritative; P10 profile selection stays inside the shared route. Return contract (Ox r3): `go_concrete_receiver_route`
 returns the FULL route verdict (R1 a–e / R2 / R3) and the resolver consumes that verdict — it must NOT fall into the carried-`receiver_owner_identity`-
 gated interface-owner block (~2214) when no identity is carried but the route proved R2 on demand. The serialized index/snapshot types carry `serde`
-derives (covered by the 46→47 / 15→16 bumps).
+derives (covered by the 46→47 / 15→16 bumps). In the R3 manifest branch, legacy output parity requires passing only the pre-change carried
+`receiver_owner_identity` to `go_visible_s4_implementers`, never an on-demand owner recovered by this consult.
 
 ## 4. Manifest / oracle
-`prism nav interface-manifest` emits an additive diagnostic `dispatch_route` ∈ {`concrete_direct`, `concrete_promoted_deferred_drop` (R1(b),
-owner-deferred), `interface_dispatch`,
+`prism nav interface-manifest` emits an additive diagnostic `dispatch_route` ∈ {`concrete_direct`, `concrete_promoted` (an existing R1(b)
+promotion-lane hit), `concrete_promoted_deferred_drop` (a new R1(b) miss, owner-deferred), `interface_dispatch`,
 `embedded_interface_dispatch`, `func_value_field`, `concrete_no_selector_drop` (R1(e) — a PROVEN receiver must never be reported as
-unproven; sol r2 W5), `unproven_drop`}; resolver drop reason, telemetry counter and manifest route are pinned TOGETHER per route (pinned-string test like `interface_manifest_receiver_class_strings`). The oracle
+unproven; sol r2 W5), `unproven_drop` (also carried by v9-A collision-bailed and v9-B external-new-recovery sites)}; resolver drop reason, telemetry counter and manifest route are pinned TOGETHER per route (pinned-string test like `interface_manifest_receiver_class_strings`). The oracle
 does NOT consume it for classification (gopls stays authoritative: `definition_kind` from gopls); it is a parity diagnostic.
 
 ## 5. Telemetry / cache
-`go_concrete_receiver_direct`, `go_concrete_receiver_promoted_deferred` (sites), `go_concrete_receiver_no_selector_drop`,
-`go_unproven_receiver_bare_fallback_{sites,hits,edges}` (R3, for #17b); derived call edges change → CPG **46→47** and sidecar **15→16**
-(this slice is sequenced AFTER #14 slice 3 = 46/15 per the owner decision; one transition), pin tests updated;
+`go_concrete_receiver_direct`, `go_concrete_receiver_promoted_existing` (sites), `go_concrete_receiver_promoted_deferred` (sites),
+`go_concrete_receiver_no_selector_drop`,
+`go_unproven_receiver_bare_fallback_{sites,hits,edges}` (R3, for #17b); `go_r2_on_demand_name_collision_bail` (sites, v9-A); `go_external_receiver_new_recovery_drop` (sites, v9-B); derived call edges change → CPG **46→47** and sidecar **15→16**
+(this slice is sequenced AFTER #14 slice 3 = 46/15 per the owner decision; one per-PR transition across all implementation/fix waves), pin tests updated;
+CPG **48** / sidecar **17** remain reserved for #14 slice 4, which merges after this PR;
 the declaration-kind index (and the boolean "selector is promoted from an embedded concrete" evidence R1(b)'s deferred-drop needs — derived from
 the existing promoted walk, owner-keyed; LABEL-ONLY: both R1(b)-deferred and R1(e) are drops, so a mis-classification between them can only
 mislabel the diagnostic/telemetry, never mint an edge; no promoted-selector snapshot ships in this slice; the owner/profile-keyed one is #14 slice 4) is
@@ -110,12 +142,13 @@ SERIALIZED ON `CallGraph` (sol r2 W1): the CPG cache restores the whole
 `CallGraph` (cpg_cache.rs:~185/:~315) and `build_with_cached_cpg` (cpg/context.rs:~107) rebuilds only the type registry/live types — a
 "derived, not serialized" index would be ABSENT on an exact CPG hit with a cold sidecar, making the same site R1/direct cold and R3 warm (and a
 freshly generated sidecar would persist the wrong answer). Populate/clear them alongside the existing declaration snapshots in
-`apply_go_interface_dispatch_with_scope_inputs` (call_graph.rs: definition ~2871, callers ~1355/~2868; `clear_interface_dispatch` ~2707). Acceptance requires byte-equal resolver + manifest output across
+`apply_go_interface_dispatch_with_scope_inputs` (call_graph.rs:~2707/~2843). Acceptance requires byte-equal resolver + manifest output across
 no-cache / cold-cache-create / exact-CPG-hit / exact-sidecar-hit (a behavioral parity test, not just version pins).
 
 ## 6. Scope decisions
 Generic concrete receivers (`Box[int].M()`): pre-existing drop (`resolve_go_owner_identity` rejects `[`; `iface_key` returns None on instantiation) —
-OUT OF SCOPE here; pin the unchanged drop in tests and acceptance; tracked under roadmap #16/#14 slice 4 (alias/generic canonicalization).
+OUT OF SCOPE here; pin the unchanged drop and zero R3 ladder sites/hits/edges in tests and acceptance; tracked under roadmap #16/#14 slice 4
+(alias/generic canonicalization).
 
 ## 7. Tests (resolver + manifest parity; assert TARGET FILES)
 (1) interface `p.A` + struct `q.A` with method `M`; `a := q.A{}; a.M()` and `a := q.NewA(); a.M()` (constructor_local — the live classifier
@@ -123,7 +156,8 @@ needs a simple local qualifier whose binding is scanned, resolution.rs:~699; a b
 today and is OUT OF SCOPE, sol r3 W3) → Exact `q.A.M` only (red today); pointer-receiver variant;
 (2) typed param `c *q.C` with interface `p.C` → Exact `q.C.M` only; (3) S1-proven return-typed receiver → same; syntactic-only return-typed → pre-drop
 unchanged; (4) receiver typed as interface `p.A` → implementers as today; (5) `type S struct{ I }` (embedded interface) `s.M()` → S4 implementers as
-today (W1 control); (6) `type S struct{ B }` (embedded concrete) `s.M()` → `concrete_promoted_deferred_drop` (zero interface fanout, zero targets; pinned recall gap; was the promotion-lane control before the owner deferred R1(b)); (7) `type Command struct{ Run func() }`
+today (W1 control); (6) `type S struct{ B }` (embedded concrete) `s.M()` → existing-promotion Exact `B.M`, route `concrete_promoted`; sibling
+package-scoped-refused existing-promotion miss → `concrete_promoted_deferred_drop`, zero interface fanout and zero targets; (7) `type Command struct{ Run func() }`
 factory-returned receiver `c.Run()` → P5 edge preserved; (8) `type A = I; func f(a A){ a.M() }` → interface dispatch preserved (alias-to-interface);
 (9) `type A = q.S` alias-to-concrete → direct; plus the cross-package pole where import basename `q` is ambiguous → R3, which in THIS slice
 means the LEGACY output: the fixture MUST include an unrelated same-bare interface `S` with an implementer so the pole is discriminating — assert
@@ -131,13 +165,18 @@ the legacy (false) Exact via the bare ladder AND `go_unproven_receiver_bare_fall
 without a same-bare interface does not pin the carve-out); (10) unproven multi-owner bare type → pin the ACTUAL unchanged output of today's ladder for that shape (qualified, ambiguous import basename — it may reach the ladder rather than a clean drop; Ox r3), no change under this slice; (11) `var w Writer;
 w.Write()` with caller-package interface `Writer` → unchanged; (12) generic receiver → unchanged drop (pinned); (13) cache pins; non-Go byte-identical;
 (14) manifest `dispatch_route` strings pinned; (15) concrete `var_local` (`var c q.C; c.M()`) and `type_assertion` (`x.(q.C).M()`) receivers →
-R1 direct (every Go receiver class covered); (16) cache-parity behavioral test (cold vs exact CPG hit vs sidecar hit byte-equal); (17) owner declared in two build-tagged files (identical
-or not) → `Ambiguous(profile conflict)` → R3 legacy output pinned (with and without a same-bare interface in the fixture).
+R1 direct (every Go receiver class covered); (16) cache-parity behavioral test comparing no-cache, cold-cache-create, exact CPG hit and sidecar hit
+byte-for-byte; (17) owner declared in two build-tagged files (identical or not) → `Ambiguous(profile conflict)` → R3 legacy output pinned (with and
+without a same-bare interface in the fixture). v8 poles: embedded concrete/interface suppliers at unequal depths in both orders plus equal-depth
+ambiguity; `type H func(); type Cmd struct{ Run H }` → P5; `type P = *I` → R2 and unresolved pointee → R3; same-function local interface shadowing a
+package concrete alias and local concrete shadowing a package interface → R3 in resolver and manifest, while a declaration in a different function
+does not shadow; generic R3 telemetry remains 0/0/0.
 
 ## 8. Acceptance (controller)
 Same-base `call-stats --no-cache` vs main, edge-counted PER ROUTE (sol r4 W3): at a changed site with old interface fanout N — R1(a):
 `interface_dispatch` Exact −N, the direct receiver kind (`constructor_local`/`typed_param`/`var_local`/`type_assertion`/`return_typed`) Exact +1,
-total −(N−1); R1(d) P5: `interface_dispatch` −N, `FuncValueField` +1 (NOT a direct kind), total −(N−1); R1(e) and the R1(b) deferred drop:
+total −(N−1); existing R1(b) promotion-lane hits: unchanged Exact target, diagnostic `concrete_promoted` and telemetry only (no new or removed edge);
+R1(d) P5: `interface_dispatch` −N, `FuncValueField` +1 (NOT a direct kind), total −(N−1); R1(e) and NEW R1(b) promotion misses deferred:
 `interface_dispatch` −N, new edges 0, total −N; R1(c)/R2/R3: unchanged. `kinds` totals and site counts reported separately, summed over routes.
 Hardened oracle in `--baseline` delta mode vs the identity-aware baselines — caddy/prometheus/hugo: `oracle-s1ebase-{caddy,prometheus,hugo}.json`
 (slice 3 left their resolution leaves unchanged, 0 newly-exact); **etcd: `oracle-s3b-etcd.json`** (the post-slice-3 state that CONTAINS the 5
@@ -147,7 +186,8 @@ sites): enumerate every changed site by `(file, start_byte, end_byte, method)` a
 listed the false interface identities BEFORE; AFTER the audit is ROUTE-SPECIFIC (sol r3 W5): `concrete_direct` → zero interface fanout and the resolver target equals
 exactly the gopls method-definition identity (full target identities/FunctionIds, never owner names or counts); `func_value_field` (R1(d)) → the
 expected P5 registration target and zero interface fanout (gopls's field declaration is NOT the comparator); `concrete_no_selector_drop` (R1(e)) →
-zero targets and no gopls method definition; `concrete_promoted_deferred_drop` (R1(b) deferred) → zero targets, zero interface fanout, route + telemetry pinned, and the site is listed in the PR as a known recall gap for slice 4; embedded-interface
+zero targets and no gopls method definition; `concrete_promoted` → the existing main target identity unchanged; `concrete_promoted_deferred_drop`
+(new R1(b) miss deferred) → zero targets, zero interface fanout, route + telemetry pinned, and the site is listed in the PR as a known recall gap for slice 4; embedded-interface
 S4 → unchanged visible implementer identities; the
 changed-site population is the FULL OUTER JOIN of before/after site keys (a site that disappears from the manifest is an audited change, never a
 vanished row); no oracle-INTERFACE site lost an implementer; controls (5)–(12) and (16) hold; telemetry reported in stated units (sites vs affected edges);

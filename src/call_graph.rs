@@ -91,6 +91,11 @@ pub struct CallSite {
     /// deserialize to `None` and therefore cannot invent this provenance.
     #[serde(default)]
     pub receiver_owner_identity: Option<crate::resolution::GoOwnerIdentity>,
+    /// A same-function local Go type declaration or later value rebinding
+    /// invalidates on-demand R1/R2 proof at this call. The recovered first type
+    /// remains available only to the unchanged legacy R3 ladder.
+    #[serde(default)]
+    pub receiver_local_type_shadowed: bool,
     /// S3 P6-lite: which syntactic fact recovered `receiver_type`
     /// (telemetry + ResolutionKind split). Excluded from cmp_key —
     /// derived from the same scan as receiver_type.
@@ -101,6 +106,12 @@ pub struct CallSite {
     /// unresolved. Excluded from cmp_key like receiver recovery metadata.
     #[serde(default)]
     pub receiver_materialized: bool,
+    /// True only for Go function-literal parameter recovery added on this P17
+    /// branch (the parameter was deliberately unrecoverable on main). Serialized
+    /// for CPG/sidecar parity; excluded from `cmp_key` like the other derived
+    /// receiver provenance fields.
+    #[serde(default)]
+    pub receiver_newly_recovered: bool,
     /// Number of arguments at the call site. `None` = not captured / unknown
     /// (the arity-disambiguation filter treats `None` as "keep").
     /// Excluded from cmp_key — positional data, not part of logical identity.
@@ -458,14 +469,15 @@ pub struct CallGraph {
     /// JS/TS R4c: caller function -> conservative parameter/local binding names.
     #[serde(default)]
     pub js_ts_function_locals: BTreeMap<FunctionId, BTreeSet<String>>,
-    /// P5 S1 (Go func-value callbacks): directory basename -> set of
-    /// directories containing Go files sharing that basename. Used to resolve
-    /// a qualified `pkg.T` reference's import path to a package-scoped owner
-    /// identity (`resolve_go_owner_identity`); ambiguous (>1) or absent (0) is
-    /// unresolved, which the S1/S2/S3 pipeline treats as an unknown/ambiguous
-    /// owner (never feeds S3). Whole-program derived like
-    /// `interface_impls`/`promoted_aliases`; recomputed by
-    /// `apply_go_func_value_fields`.
+    /// Go package directory index. Plain keys are legacy directory basenames;
+    /// `@go-import:` keys carry effective module import paths proven by the
+    /// module graph. Qualified `pkg.T` lookup prefers the exact key and uses a
+    /// basename only when module identity is unavailable. Ambiguous keys fail
+    /// closed. Whole-program derived alongside interface dispatch and retained
+    /// for P5/receiver rematerialization. Lifecycle invariant: exact
+    /// `@go-import:` keys are populated only by the full dispatch pass after its
+    /// clear, and every dispatch clear invalidates this entire map. P5 may
+    /// preserve only a snapshot whose package directories still match `files`.
     #[serde(default)]
     pub go_package_basenames: BTreeMap<String, BTreeSet<String>>,
     /// Compatibility projection retained for downstream callers. Production
@@ -645,6 +657,15 @@ pub struct CallGraph {
     /// receiver recovery can filter build profiles before requiring one value.
     #[serde(default)]
     pub go_field_types: crate::go_owner_partition::GoStructDeclarations,
+    /// P17: serialized declaration-kind proof used by the shared recovered-Go
+    /// receiver route. Exact CPG hits must retain the same R1/R2/R3 verdict.
+    #[serde(default)]
+    pub go_declaration_kind_index: crate::go_concrete_receiver::GoDeclarationKindIndex,
+    /// P17 compatibility snapshot showing a concrete selector is supplied by
+    /// embedding. The shared route separately checks the existing owner-index
+    /// promotion lane before deferring a newly recovered miss.
+    #[serde(default)]
+    pub go_promoted_concrete_selectors: BTreeSet<(crate::resolution::GoOwnerIdentity, String)>,
     /// P10 S4 interface and method declaration provenance, captured from the
     /// provider alongside `go_field_types` for exact consult-time routing.
     #[serde(default)]
@@ -741,6 +762,8 @@ impl CallGraph {
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
+            go_declaration_kind_index: BTreeMap::new(),
+            go_promoted_concrete_selectors: BTreeSet::new(),
             go_interface_declarations: BTreeMap::new(),
             go_method_declarations: BTreeMap::new(),
             go_interface_live_types: BTreeSet::new(),
@@ -886,8 +909,10 @@ impl CallGraph {
                         ),
                         receiver_type: None,
                         receiver_owner_identity: None,
+                        receiver_local_type_shadowed: false,
                         receiver_recovery: None,
                         receiver_materialized: false,
+                        receiver_newly_recovered: false,
                         arg_count: None,
                         arg_spread: false,
                         receiver_outcome: None,
@@ -980,6 +1005,8 @@ impl CallGraph {
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
+            go_declaration_kind_index: BTreeMap::new(),
+            go_promoted_concrete_selectors: BTreeSet::new(),
             go_interface_declarations: BTreeMap::new(),
             go_method_declarations: BTreeMap::new(),
             go_interface_live_types: BTreeSet::new(),
@@ -1231,6 +1258,12 @@ impl CallGraph {
                             file_imports: file_imports_ref,
                         });
                         let recovered = classification.recovered.as_ref();
+                        let receiver_newly_recovered = recovered.is_some()
+                            && qualifier.as_deref().is_some_and(|receiver| {
+                                parsed.go_func_literal_parameter_binds_receiver(
+                                    &func_node, receiver, start_byte,
+                                )
+                            });
                         let site = CallSite {
                             caller: caller_id.clone(),
                             callee_name,
@@ -1245,8 +1278,17 @@ impl CallGraph {
                             receiver_owner_identity: recovered
                                 .as_ref()
                                 .and_then(|r| r.owner_identity.clone()),
+                            receiver_local_type_shadowed: classification.proof_shadowed
+                                || recovered.as_ref().is_some_and(|r| {
+                                    parsed.go_local_type_shadows(
+                                        &func_node,
+                                        &r.static_type,
+                                        start_byte,
+                                    )
+                                }),
                             receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                             receiver_materialized: classification.materialized,
+                            receiver_newly_recovered,
                             arg_count: meta.arg_count,
                             arg_spread: meta.arg_spread,
                             receiver_outcome: None,
@@ -1370,6 +1412,8 @@ impl CallGraph {
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
+            go_declaration_kind_index: BTreeMap::new(),
+            go_promoted_concrete_selectors: BTreeSet::new(),
             go_interface_declarations: BTreeMap::new(),
             go_method_declarations: BTreeMap::new(),
             go_interface_live_types: BTreeSet::new(),
@@ -2003,8 +2047,10 @@ impl CallGraph {
             qualifier: None,
             receiver_type: None,
             receiver_owner_identity: None,
+            receiver_local_type_shadowed: false,
             receiver_recovery: None,
             receiver_materialized: false,
+            receiver_newly_recovered: false,
             arg_count: None,
             arg_spread: false,
             receiver_outcome: None,
@@ -2766,10 +2812,13 @@ impl CallGraph {
         // early return in that function (which runs AFTER this clear but
         // BEFORE the fresh capture) leaves them empty rather than stale.
         self.go_field_types.clear();
+        self.go_declaration_kind_index.clear();
+        self.go_promoted_concrete_selectors.clear();
         self.go_interface_declarations.clear();
         self.go_method_declarations.clear();
         self.go_interface_live_types.clear();
         self.go_embedded_interface_methods.clear();
+        self.go_package_basenames.clear();
         self.go_owner_identity_profile_conflict = 0;
         self.go_module_graph = Default::default();
         self.go_import_path_proven_files = 0;
@@ -2778,6 +2827,10 @@ impl CallGraph {
         self.go_alias_expanded = 0;
         self.go_alias_unresolved.clear();
         self.go_promoted_selector_snapshot = Default::default();
+        debug_assert!(
+            self.go_package_basenames.is_empty(),
+            "dispatch clear must invalidate every Go package/import-path key"
+        );
     }
 
     /// Recompute Go embedding promotions over `files` and write owner-index aliases.
@@ -2939,6 +2992,15 @@ impl CallGraph {
         // P11 S2/S4: capture the field re-projection and the embedded-interface
         // routing map while the provider is live, same pattern as above.
         self.go_field_types = provider.go_struct_declarations();
+        let mut package_basenames = Self::go_package_basenames(files);
+        Self::add_go_package_import_paths(&mut package_basenames, &package_import_paths.paths);
+        self.go_package_basenames = package_basenames.clone();
+        self.go_declaration_kind_index = provider.go_declaration_kind_index(
+            &self.imports,
+            &package_basenames,
+            &self.go_file_profiles,
+        );
+        self.go_promoted_concrete_selectors = provider.go_promoted_concrete_selectors();
         self.go_interface_declarations = provider.go_interface_declarations();
         self.go_method_declarations = provider.go_method_declarations();
         self.go_embedded_interface_methods = provider.embedded_interface_method_routes();
@@ -3002,9 +3064,58 @@ impl CallGraph {
     }
 
     fn clear_go_func_value_fields(&mut self) {
-        self.go_package_basenames.clear();
         self.go_known_struct_identities.clear();
         self.go_func_typed_fields.clear();
+    }
+
+    fn go_package_basenames(
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> BTreeMap<String, BTreeSet<String>> {
+        let mut package_basenames = BTreeMap::<String, BTreeSet<String>>::new();
+        for (path, parsed) in files {
+            if parsed.language != crate::languages::Language::Go {
+                continue;
+            }
+            let dir = crate::resolution::dir_of(path).to_string();
+            let basename = dir.rsplit('/').next().unwrap_or(&dir).to_string();
+            package_basenames.entry(basename).or_default().insert(dir);
+        }
+        package_basenames
+    }
+
+    fn go_package_basename_snapshot_matches_files(
+        index: &BTreeMap<String, BTreeSet<String>>,
+        fallback: &BTreeMap<String, BTreeSet<String>>,
+    ) -> bool {
+        let current_dirs: BTreeSet<&str> = fallback
+            .values()
+            .flat_map(|dirs| dirs.iter().map(String::as_str))
+            .collect();
+        fallback
+            .iter()
+            .all(|(basename, dirs)| index.get(basename) == Some(dirs))
+            && index.iter().all(|(key, dirs)| {
+                if key.starts_with("@go-import:") {
+                    dirs.iter().all(|dir| current_dirs.contains(dir.as_str()))
+                } else {
+                    fallback.get(key) == Some(dirs)
+                }
+            })
+    }
+
+    fn add_go_package_import_paths(
+        index: &mut BTreeMap<String, BTreeSet<String>>,
+        package_import_paths: &BTreeMap<String, String>,
+    ) {
+        for (file, import_path) in package_import_paths {
+            if import_path.trim().is_empty() {
+                continue;
+            }
+            index
+                .entry(crate::resolution::go_import_path_dir_key(import_path))
+                .or_default()
+                .insert(crate::resolution::dir_of(file).to_string());
+        }
     }
 
     /// P5 S1: recompute the Go func-typed-field index (package-scoped owner
@@ -3014,40 +3125,53 @@ impl CallGraph {
     /// recomputes from scratch — never incrementally patched.
     pub fn apply_go_func_value_fields(&mut self, files: &BTreeMap<String, ParsedFile>) {
         self.clear_go_func_value_fields();
-        if !files
-            .values()
-            .any(|p| p.language == crate::languages::Language::Go)
+        let fallback = Self::go_package_basenames(files);
+        if !self.go_package_basenames.is_empty()
+            && !Self::go_package_basename_snapshot_matches_files(
+                &self.go_package_basenames,
+                &fallback,
+            )
         {
+            // A direct reapply after an edit did not run the full dispatch
+            // clear/rebuild contract. Drop the entire snapshot rather than
+            // retain a stale-but-unique exact import key and prove the wrong
+            // concrete owner. Rebuilding the basename-only fallback is safe.
+            self.go_package_basenames.clear();
+        }
+        // Full builds populated exact module import-path keys during interface
+        // dispatch, immediately after `clear_interface_dispatch`. This pass
+        // never constructs `@go-import:` keys; it preserves a file-matching
+        // snapshot for cached-CPG parity or rebuilds the fail-closed basename
+        // fallback for direct callers.
+        if self.go_package_basenames.is_empty() {
+            self.go_package_basenames = fallback.clone();
+        }
+        debug_assert!(Self::go_package_basename_snapshot_matches_files(
+            &self.go_package_basenames,
+            &fallback,
+        ));
+        debug_assert!(
+            self.go_package_basenames
+                .keys()
+                .all(|key| !key.starts_with("@go-import:"))
+                || self.interface_dispatch_computed,
+            "exact Go import-path keys must originate in the full dispatch pass"
+        );
+        if fallback.is_empty() {
             return;
         }
-        // Directory-basename index for qualified `pkg.T` owner resolution
-        // (`resolve_go_owner_identity`) — one basename can map to multiple
-        // directories, which is deliberately treated as ambiguous downstream.
-        for (path, parsed) in files {
-            if parsed.language != crate::languages::Language::Go {
-                continue;
-            }
-            let dir = crate::resolution::dir_of(path).to_string();
-            let basename = dir.rsplit('/').next().unwrap_or(&dir).to_string();
-            self.go_package_basenames
-                .entry(basename)
-                .or_default()
-                .insert(dir);
-        }
         self.go_known_struct_identities = self.go_field_types.keys().cloned().collect();
-        self.go_func_typed_fields = self
-            .go_field_types
-            .iter()
-            .flat_map(|(owner, declarations)| {
-                declarations.iter().flat_map(move |declaration| {
-                    declaration.fields.iter().filter_map(move |(name, ty)| {
-                        ty.trim_start()
-                            .starts_with("func(")
-                            .then(|| (owner.clone(), name.clone()))
-                    })
-                })
-            })
-            .collect();
+        let mut func_typed_fields = BTreeSet::new();
+        for (owner, declarations) in &self.go_field_types {
+            for declaration in declarations {
+                for (name, ty) in &declaration.fields {
+                    if self.go_field_type_is_func(owner, ty) {
+                        func_typed_fields.insert((owner.clone(), name.clone()));
+                    }
+                }
+            }
+        }
+        self.go_func_typed_fields = func_typed_fields;
     }
 
     fn clear_go_registrations(&mut self) {
@@ -3134,7 +3258,7 @@ impl CallGraph {
         Ok(selected
             .value
             .as_deref()
-            .is_some_and(|ty| ty.trim_start().starts_with("func("))
+            .is_some_and(|ty| self.go_field_type_is_func(&owner, ty))
             .then(|| (owner, field_name.to_string())))
     }
 
@@ -3330,6 +3454,17 @@ impl CallGraph {
                 .recovered
                 .as_ref()
                 .and_then(|r| r.owner_identity.clone());
+            updated.receiver_local_type_shadowed = classification.proof_shadowed
+                || updated.receiver_type.as_ref().is_some_and(|ty| {
+                    files
+                        .get(&old_site.caller.file)
+                        .and_then(|parsed| {
+                            Self::function_node_for_id(parsed, &old_site.caller).map(|func_node| {
+                                parsed.go_local_type_shadows(&func_node, ty, old_site.start_byte)
+                            })
+                        })
+                        .unwrap_or(false)
+                });
             updated.receiver_recovery = classification.recovered.as_ref().map(|r| r.recovery);
             updated.receiver_outcome = classification
                 .recovered
@@ -3337,6 +3472,23 @@ impl CallGraph {
                 .and_then(|r| r.go_field_target.as_ref())
                 .map(crate::resolution::go_field_target_outcome);
             updated.receiver_materialized = classification.materialized;
+            let function_literal_parameter_recovery = classification.recovered.is_some()
+                && old_site.qualifier.as_deref().is_some_and(|receiver| {
+                    files
+                        .get(&old_site.caller.file)
+                        .and_then(|parsed| {
+                            Self::function_node_for_id(parsed, &old_site.caller).map(|func_node| {
+                                parsed.go_func_literal_parameter_binds_receiver(
+                                    &func_node,
+                                    receiver,
+                                    old_site.start_byte,
+                                )
+                            })
+                        })
+                        .unwrap_or(false)
+                });
+            updated.receiver_newly_recovered =
+                old_site.receiver_newly_recovered || function_literal_parameter_recovery;
             if updated == old_site {
                 continue; // no change -- skip the take/insert churn.
             }
@@ -3350,9 +3502,11 @@ impl CallGraph {
                     if site.caller == old_site.caller && site.cmp_key() == old_site.cmp_key() {
                         site.receiver_type = updated.receiver_type.clone();
                         site.receiver_owner_identity = updated.receiver_owner_identity.clone();
+                        site.receiver_local_type_shadowed = updated.receiver_local_type_shadowed;
                         site.receiver_recovery = updated.receiver_recovery;
                         site.receiver_outcome = updated.receiver_outcome.clone();
                         site.receiver_materialized = updated.receiver_materialized;
+                        site.receiver_newly_recovered = updated.receiver_newly_recovered;
                     }
                 }
             }
@@ -3380,7 +3534,7 @@ impl CallGraph {
             .par_iter()
             .copied()
             .map(|(caller, sites)| {
-                Self::go_receiver_updates_for_caller(
+                self.go_receiver_updates_for_caller(
                     caller,
                     sites,
                     files,
@@ -3396,6 +3550,7 @@ impl CallGraph {
     }
 
     fn go_receiver_updates_for_caller(
+        &self,
         caller: &FunctionId,
         sites: &BTreeSet<CallSite>,
         files: &BTreeMap<String, ParsedFile>,
@@ -3459,6 +3614,33 @@ impl CallGraph {
                 crate::go_receiver_index::classify_go_receiver_expanded_with_partition(
                     &ctx, classifier, facts, var_local,
                 );
+            let same_scope_reuse = parsed
+                .go_same_scope_short_var_reuse_calls(&fn_node, qualifier, meta.start_byte)
+                .is_ok_and(|calls| !calls.is_empty());
+            if same_scope_reuse && !classification.proof_shadowed {
+                let direct = classification.recovered.as_ref().is_some_and(|recovered| {
+                    matches!(
+                        self.go_concrete_receiver_route(
+                            &recovered.static_type,
+                            recovered.owner_identity.as_ref(),
+                            false,
+                            site.receiver_newly_recovered || site.receiver_type.is_none(),
+                            &site.callee_name,
+                            &caller.file,
+                        ),
+                        crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. }
+                    )
+                });
+                if !direct {
+                    // Wave 3 narrows the exception to the constructible failure:
+                    // same-block `x, err := reset(x)` may restore an existing
+                    // concrete own-method edge, but must not broaden R2 or any
+                    // non-direct route that f16663e kept behind the R3 shadow
+                    // bail. Skip the update entirely so every legacy CallSite
+                    // field and drop bucket remains byte-identical.
+                    continue;
+                }
+            }
             out.push((caller.clone(), site.clone(), classification, evidence));
         }
         out
@@ -3932,6 +4114,12 @@ impl CallGraph {
                         file_imports: file_imports_ref,
                     });
                     let recovered = classification.recovered.as_ref();
+                    let receiver_newly_recovered = recovered.is_some()
+                        && qualifier.as_deref().is_some_and(|receiver| {
+                            parsed.go_func_literal_parameter_binds_receiver(
+                                &func_node, receiver, start_byte,
+                            )
+                        });
                     let site = CallSite {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
@@ -3946,8 +4134,13 @@ impl CallGraph {
                         receiver_owner_identity: recovered
                             .as_ref()
                             .and_then(|r| r.owner_identity.clone()),
+                        receiver_local_type_shadowed: classification.proof_shadowed
+                            || recovered.as_ref().is_some_and(|r| {
+                                parsed.go_local_type_shadows(&func_node, &r.static_type, start_byte)
+                            }),
                         receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                         receiver_materialized: classification.materialized,
+                        receiver_newly_recovered,
                         arg_count: meta.arg_count,
                         arg_spread: meta.arg_spread,
                         receiver_outcome: None,
@@ -4100,6 +4293,8 @@ impl CallGraph {
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
+            go_declaration_kind_index: BTreeMap::new(),
+            go_promoted_concrete_selectors: BTreeSet::new(),
             go_interface_declarations: BTreeMap::new(),
             go_method_declarations: BTreeMap::new(),
             go_interface_live_types: BTreeSet::new(),
@@ -5287,6 +5482,7 @@ mod tests {
             recovery: crate::resolution::ReceiverRecovery::TypedParam,
         });
         a.receiver_materialized = true;
+        a.receiver_newly_recovered = true;
         a.origin = CallSiteOrigin::IndirectResolution;
 
         assert_eq!(a.cmp_key(), b.cmp_key());
@@ -5299,10 +5495,15 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("receiver_materialized");
+        legacy_json
+            .as_object_mut()
+            .unwrap()
+            .remove("receiver_newly_recovered");
         legacy_json.as_object_mut().unwrap().remove("origin");
         let defaulted: CallSite = serde_json::from_value(legacy_json).unwrap();
         assert_eq!(defaulted.receiver_outcome, None);
         assert!(!defaulted.receiver_materialized);
+        assert!(!defaulted.receiver_newly_recovered);
         assert_eq!(defaulted.origin, CallSiteOrigin::Source);
 
         let back: CallSite = bincode::deserialize(&bincode::serialize(&a).unwrap()).unwrap();
@@ -6391,10 +6592,13 @@ mod go_receiver_typing_tests {
         // `o Other` shadows the outer `o *Outer`. Without the closure-shadow
         // fix, the outer-function walk would see only the OUTER `o` binding
         // (the closure's own param is invisible to `function_node_types()`)
-        // and could leak a stale/wrong recovery. Must fail closed (no
-        // recovery), not silently resolve against the wrong type.
+        // and could leak a stale/wrong R1/R2 proof. P17 retains the first type
+        // only as the legacy R3 input, and marks that proof shadowed so it
+        // cannot mint a direct edge against the outer declaration.
         let site = site_in(&cg, "run", "M");
-        assert_eq!(site.receiver_type, None);
+        assert_eq!(site.receiver_type.as_deref(), Some("Outer"));
+        assert!(site.receiver_local_type_shadowed);
+        assert!(cg.resolve_call_site(site).is_empty());
     }
 
     // ---- B1 (codex impl-review BLOCKER): func_literal lexical-scope fence -
