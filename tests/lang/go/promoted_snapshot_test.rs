@@ -438,3 +438,158 @@ fn s4ox_own_method_axis_includes_receiver_kind_and_target_identity() {
     let (_owners, conflicts, promoted) = snapshot_counts(&cg);
     assert_eq!((conflicts, promoted), (2, 0));
 }
+
+#[test]
+fn s4ox_alias_to_local_interface_is_deferred_not_conflicted() {
+    // terra-r2-2 / sol-r2-5: `type A = I` embedded as S{A} must reclassify
+    // the RESOLVED owner I as an interface and defer, staying Consistent.
+    let cg = build_go(&[
+        ("pkg/i.go", "package pkg\ntype I interface { M() }\ntype A = I\ntype S struct { A }\n"),
+    ]);
+    let snapshot = cg.go_promoted_snapshot();
+    let s = snapshot
+        .owners
+        .iter()
+        .find(|(owner, _)| owner.name == "S")
+        .map(|(_, v)| v)
+        .expect("S");
+    assert_eq!(s.verdict, prism::go_promoted_snapshot::GoPromotionVerdict::Consistent);
+    let embed = s.declarations.values().next().unwrap().embeds.iter().next().unwrap();
+    assert!(embed.is_interface);
+    assert_eq!(embed.selector, "A");
+}
+
+#[test]
+fn s4ox_qualified_alias_embed_resolves_to_target() {
+    // sol-r2-6 (alias half) + terra-r2-3: `type A = q.B` embedded as S{A}
+    // resolves through BOTH hops; S promotes q.B's method at depth 1.
+    fn build_mod(sources: &[(&str, &str)]) -> CallGraph {
+        let files: BTreeMap<String, ParsedFile> = sources
+            .iter()
+            .map(|(path, source)| {
+                (
+                    (*path).to_string(),
+                    ParsedFile::parse(path, source, Language::Go).expect("parse"),
+                )
+            })
+            .collect();
+        let repo = tempfile::tempdir().expect("tempdir");
+        std::fs::write(repo.path().join("go.mod"), "module example.com/prism\n\ngo 1.22\n").unwrap();
+        let inputs = prism::repo_loader::scope_graph_build_inputs(repo.path(), &files);
+        CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs))
+    }
+    let concrete = build_mod(&[
+        ("q/q.go", "package q\ntype B struct{}\nfunc (b B) M() {}\n"),
+        ("pkg/s.go", "package pkg\nimport q \"example.com/prism/q\"\ntype S struct { q.B }\n"),
+    ]);
+    {
+        let snapshot = concrete.go_promoted_snapshot();
+        let s = snapshot.owners.iter().find(|(o, _)| o.name == "S").map(|(_, v)| v).expect("S");
+        assert_eq!(s.verdict, prism::go_promoted_snapshot::GoPromotionVerdict::Consistent);
+        let m = &s.promoted["M"];
+        assert_eq!(m.target_owner.name, "B");
+        assert_eq!(m.depth, 1);
+        assert_eq!(m.function_id.file, "q/q.go");
+    }
+
+    let aliased = build_mod(&[
+        ("q/q.go", "package q\ntype B struct{}\nfunc (b B) M() {}\n"),
+        ("pkg/s.go", "package pkg\nimport q \"example.com/prism/q\"\ntype A = q.B\ntype S struct { A }\n"),
+    ]);
+    let snapshot = aliased.go_promoted_snapshot();
+    let s = snapshot.owners.iter().find(|(o, _)| o.name == "S").map(|(_, v)| v).expect("S");
+    assert_eq!(s.verdict, prism::go_promoted_snapshot::GoPromotionVerdict::Consistent);
+    let embed = s.declarations.values().next().unwrap().embeds.iter().next().unwrap();
+    assert_eq!(embed.resolved_owner.as_ref().expect("resolved q.B").name, "B");
+    assert_eq!(embed.selector, "A");
+    assert_eq!(s.promoted["M"].depth, 1);
+}
+
+#[test]
+fn s4ox_promotion_follows_go_shallowest_selector_rule() {
+    // sol-r2-7: B.M (depth 1) shadows C.M (depth 2); equal-depth ambiguity
+    // records NO method (fail closed), never an arbitrary one.
+    let shadowed = build_go(&[
+        ("pkg/c.go", "package pkg\ntype C struct{}\nfunc (c C) M() {}\n"),
+        ("pkg/b.go", "package pkg\ntype B struct { C }\nfunc (b B) M() {}\n"),
+        ("pkg/s.go", "package pkg\ntype S struct { B }\n"),
+    ]);
+    {
+        let snapshot = shadowed.go_promoted_snapshot();
+        let s = snapshot.owners.iter().find(|(o, _)| o.name == "S").map(|(_, v)| v).expect("S");
+        assert_eq!(s.promoted.len(), 1);
+        assert_eq!(s.promoted["M"].target_owner.name, "B");
+        assert_eq!(s.promoted["M"].depth, 1);
+    }
+
+    let ambiguous = build_go(&[
+        ("pkg/b.go", "package pkg\ntype B struct{}\nfunc (b B) M() {}\n"),
+        ("pkg/c.go", "package pkg\ntype C struct{}\nfunc (c C) M() {}\n"),
+        ("pkg/s.go", "package pkg\ntype S struct { B; C }\n"),
+    ]);
+    {
+        let snapshot = ambiguous.go_promoted_snapshot();
+        let s = snapshot.owners.iter().find(|(o, _)| o.name == "S").map(|(_, v)| v).expect("S");
+        assert!(!s.promoted.contains_key("M"), "equal-depth ambiguity fails closed");
+    }
+}
+
+#[test]
+fn s4ox_embedded_interface_profile_check_includes_signatures() {
+    // terra-r2-4 / sol-r2-8: I{M(int)} vs I{M(string)} is a profile-dependent
+    // surface even though the NAME sets agree.
+    let divergent = build_go(&[
+        ("pkg/i_linux.go", "//go:build linux\npackage pkg\ntype I interface { M(int) }\n"),
+        ("pkg/i_windows.go", "//go:build windows\npackage pkg\ntype I interface { M(string) }\n"),
+        ("pkg/s.go", "package pkg\ntype S struct { I }\n"),
+    ]);
+    let (_owners, conflicts, _promoted) = snapshot_counts(&divergent);
+    assert_eq!(conflicts, 1);
+}
+
+#[test]
+fn s4ox_qualified_alias_lookup_regression_tuple_range() {
+    // SMELL-r2-1: targeted regression for the clause-range root cause — a
+    // qualified package holding the requested alias PLUS unrelated types in
+    // several files must not pollute the leaf's variant set.
+    fn build_mod(sources: &[(&str, &str)]) -> CallGraph {
+        let files: BTreeMap<String, ParsedFile> = sources
+            .iter()
+            .map(|(path, source)| {
+                (
+                    (*path).to_string(),
+                    ParsedFile::parse(path, source, Language::Go).expect("parse"),
+                )
+            })
+            .collect();
+        let repo = tempfile::tempdir().expect("tempdir");
+        std::fs::write(repo.path().join("go.mod"), "module example.com/prism\n\ngo 1.22\n").unwrap();
+        let inputs = prism::repo_loader::scope_graph_build_inputs(repo.path(), &files);
+        CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs))
+    }
+    let cg = build_mod(&[
+        (
+            "base/a.go",
+            "package base\ntype Decoy struct{}\nfunc (Decoy) Act(t T) {}\n",
+        ),
+        ("base/t.go", "package base\ntype T struct{}\ntype AliasT = int\n"),
+        ("base/more.go", "package base\ntype Other struct{}\n"),
+        (
+            "app/use.go",
+            "package app\nimport \"example.com/prism/base\"\ntype Doer interface { Act(base.T) }\ntype Holder struct { Doer }\nfunc invoke(h Holder) { h.Act(base.T{}) }\n",
+        ),
+    ]);
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|s| s.caller.name == "invoke" && s.callee_name == "Act")
+        .expect("site");
+    let owners: Vec<_> = cg
+        .resolve_call_site_full(site)
+        .resolved
+        .iter()
+        .filter_map(|r| cg.method_owners.get(r.target).cloned())
+        .collect();
+    assert_eq!(owners, vec!["Decoy".to_string()]);
+}
