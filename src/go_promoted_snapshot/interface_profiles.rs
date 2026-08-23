@@ -60,6 +60,7 @@ pub(super) fn extend(
                     own_methods,
                     own_method_shapes: BTreeSet::new(),
                     promoted_methods: BTreeSet::new(),
+                    ambiguous_promoted_methods: BTreeSet::new(),
                 },
                 comparison,
                 unresolved: declaration.generic

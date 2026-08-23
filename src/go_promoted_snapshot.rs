@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 mod interface_profiles;
+mod selector_resolution;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GoPromotedSelectorSnapshot {
@@ -62,6 +63,8 @@ pub struct GoPromotedProfileSnapshot {
     /// keeps its name but switches between value and pointer receiver.
     pub own_method_shapes: BTreeSet<GoPromotedOwnMethodShape>,
     pub promoted_methods: BTreeSet<GoPromotedMethodSnapshot>,
+    #[serde(default)]
+    pub ambiguous_promoted_methods: BTreeSet<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -200,6 +203,7 @@ pub(crate) fn build(
                     own_methods,
                     own_method_shapes,
                     promoted_methods: BTreeSet::new(),
+                    ambiguous_promoted_methods: BTreeSet::new(),
                 },
                 comparison,
                 unresolved: methods_uncertain || !unresolved_embedded_fields.is_empty(),
@@ -251,6 +255,7 @@ pub(crate) fn build(
                     own_methods: own_methods.clone(),
                     own_method_shapes: own_method_shapes.clone(),
                     promoted_methods: BTreeSet::new(),
+                    ambiguous_promoted_methods: BTreeSet::new(),
                 },
                 comparison: ComparisonKey {
                     embedded_fields: BTreeSet::new(),
@@ -281,8 +286,17 @@ pub(crate) fn build(
         let mut declarations = Vec::new();
         for raw_profile in profiles_for_owner {
             let mut declaration = raw_profile.snapshot.clone();
-            declaration.promoted_methods =
-                promoted_for_profile(owner, raw_profile, &raw, &conflicts, methods, profiles);
+            let (promoted_methods, ambiguous_promoted_methods) =
+                selector_resolution::promoted_for_profile(
+                    owner,
+                    raw_profile,
+                    &raw,
+                    &conflicts,
+                    methods,
+                    profiles,
+                );
+            declaration.promoted_methods = promoted_methods;
+            declaration.ambiguous_promoted_methods = ambiguous_promoted_methods;
             declarations.push(declaration);
         }
         declarations.sort_by(|left, right| left.defining_file.cmp(&right.defining_file));
@@ -434,150 +448,4 @@ fn visible_methods(
         }
     }
     (visible, uncertain)
-}
-
-fn promoted_for_profile(
-    outer: &GoOwnerIdentity,
-    outer_profile: &RawProfile,
-    raw: &BTreeMap<GoOwnerIdentity, Vec<RawProfile>>,
-    conflicts: &BTreeMap<GoOwnerIdentity, bool>,
-    methods: &GoMethodDeclarations,
-    profiles: &BTreeMap<String, GoBuildProfile>,
-) -> BTreeSet<GoPromotedMethodSnapshot> {
-    let mut field_depth = BTreeMap::new();
-    record_fields(&outer_profile.snapshot, 0, &mut field_depth);
-    let mut candidates = BTreeSet::new();
-    let mut path = BTreeSet::from([outer.clone()]);
-    for embedded in &outer_profile.snapshot.embedded_fields {
-        walk_target(
-            embedded,
-            &outer_profile.snapshot.defining_file,
-            1,
-            embedded.pointer,
-            raw,
-            conflicts,
-            methods,
-            profiles,
-            &mut path,
-            &mut field_depth,
-            &mut candidates,
-        );
-    }
-    candidates
-        .into_iter()
-        .filter(|candidate| {
-            !outer_profile
-                .snapshot
-                .own_methods
-                .contains(&candidate.method)
-        })
-        .map(|mut candidate| {
-            candidate.field_shadowed = field_depth
-                .get(&candidate.method)
-                .is_some_and(|depth| *depth <= candidate.depth);
-            candidate
-        })
-        .collect()
-}
-
-#[allow(clippy::too_many_arguments)]
-fn walk_target(
-    embedded: &GoPromotedEmbeddedField,
-    profile_file: &str,
-    depth: usize,
-    value_can_use_pointer_receiver: bool,
-    raw: &BTreeMap<GoOwnerIdentity, Vec<RawProfile>>,
-    conflicts: &BTreeMap<GoOwnerIdentity, bool>,
-    methods: &GoMethodDeclarations,
-    profiles: &BTreeMap<String, GoBuildProfile>,
-    path: &mut BTreeSet<GoOwnerIdentity>,
-    field_depth: &mut BTreeMap<String, usize>,
-    candidates: &mut BTreeSet<GoPromotedMethodSnapshot>,
-) {
-    if conflicts.get(&embedded.target).copied().unwrap_or(true)
-        || !path.insert(embedded.target.clone())
-    {
-        return;
-    }
-    let mode = reference_mode(profile_file, &embedded.target, profiles);
-    let Some(target_profiles) = raw.get(&embedded.target) else {
-        path.remove(&embedded.target);
-        return;
-    };
-    let visible_profiles = target_profiles.iter().filter(|target_profile| {
-        exact_declaration_visibility(
-            &embedded.target,
-            profile_file,
-            mode,
-            &target_profile.snapshot.defining_file,
-            profiles,
-        ) == (true, true)
-    });
-    for target_profile in visible_profiles {
-        record_fields(&target_profile.snapshot, depth, field_depth);
-        let (visible_methods, uncertain) =
-            visible_methods(&embedded.target, profile_file, mode, methods, profiles);
-        if uncertain {
-            continue;
-        }
-        for method in visible_methods {
-            candidates.insert(GoPromotedMethodSnapshot {
-                method: method.method_name,
-                target: method.function_id,
-                target_owner: embedded.target.clone(),
-                depth,
-                field_shadowed: false,
-                value_method_set: !method.is_pointer_receiver || value_can_use_pointer_receiver,
-            });
-        }
-        for child in &target_profile.snapshot.embedded_fields {
-            walk_target(
-                child,
-                profile_file,
-                depth + 1,
-                value_can_use_pointer_receiver || child.pointer,
-                raw,
-                conflicts,
-                methods,
-                profiles,
-                path,
-                field_depth,
-                candidates,
-            );
-        }
-    }
-    path.remove(&embedded.target);
-}
-
-fn reference_mode(
-    profile_file: &str,
-    target: &GoOwnerIdentity,
-    profiles: &BTreeMap<String, GoBuildProfile>,
-) -> GoOwnerReferenceMode {
-    let same_package = profiles.get(profile_file).is_some_and(|profile| {
-        crate::resolution::dir_of(profile_file) == target.package_dir
-            && profile.package_clause == target.package_clause
-    });
-    if same_package {
-        GoOwnerReferenceMode::Bare
-    } else {
-        GoOwnerReferenceMode::Qualified
-    }
-}
-
-fn record_fields(
-    profile: &GoPromotedProfileSnapshot,
-    depth: usize,
-    field_depth: &mut BTreeMap<String, usize>,
-) {
-    for name in profile
-        .ordinary_fields
-        .iter()
-        .chain(profile.embedded_fields.iter().map(|field| &field.selector))
-    {
-        field_depth
-            .entry(name.clone())
-            .and_modify(|prior| *prior = (*prior).min(depth))
-            .or_insert(depth);
-    }
 }
