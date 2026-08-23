@@ -5203,9 +5203,9 @@ mod tests {
     /// deterministically.
     #[test]
     fn p15a_fix3_foreign_thread_constructions_not_attributed() {
+        use crate::languages::Language::Go;
         use crate::type_providers::go::test_counters::MeasurementToken;
         use crate::type_providers::go::GoTypeProvider;
-        use crate::languages::Language::Go;
         use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
 
