@@ -876,6 +876,92 @@ def test_delta_gate_blocks_a_timed_out_newly_exact_site():
     assert delta["blocking_sites"][0]["classification"] == "oracle_timeout"
 
 
+def test_summary_reports_fanout_positive_coverage_and_status_rates():
+    first = _identity("First", "first.go", [3, 5])
+    second = _identity("Second", "second.go", [3, 5])
+    sound = _delta_site(fanout=2, identities=[first, second])
+    observed_over_approx = _delta_site(
+        fanout=1, identities=[_identity("Observed", "observed.go", [3, 5])],
+        classification="over_approx",
+    )
+    unresolved = _delta_site(
+        fanout=1, identities=[_identity("Unknown", "unknown.go", [3, 5])],
+        classification="oracle_unresolved",
+    )
+    unresolved["failure_stage"] = "mapping"
+    timeout = _delta_site(
+        fanout=1, identities=[_identity("Slow", "slow.go", [3, 5])],
+        classification="oracle_timeout",
+    )
+    for record in (sound, observed_over_approx, unresolved, timeout):
+        record["definition_kind"] = "interface"
+    timeout["failure_stage"] = "timeout"
+    interface_zero = _delta_site(fanout=0, identities=[])
+    interface_zero["definition_kind"] = "interface"
+    concrete_zero = _delta_site(fanout=0, identities=[], classification="not_dispatch")
+    concrete_zero["definition_kind"] = "concrete"
+    unknown_definition = _delta_site(fanout=0, identities=[])
+    unknown_definition["definition_kind"] = "unknown"
+
+    summary = do.summarize([
+        sound, observed_over_approx, unresolved, timeout, interface_zero,
+        concrete_zero, unknown_definition,
+    ])
+    coverage = summary["fanout_positive_coverage"]
+    assert coverage["site_coverage"] == pytest.approx(0.5)
+    assert coverage["edge_coverage"] == pytest.approx(0.6)
+    assert coverage["resolved_sites"] == 2
+    assert coverage["total_sites"] == 4
+    assert coverage["scored_identity_occurrences"] == 3
+    assert coverage["identity_occurrences"] == 5
+    assert summary["overall"]["not_dispatch_sites"] == 1
+    assert summary["overall"]["interface_zero_fanout_sites"] == 1
+    assert summary["overall"]["unknown_definition_sites"] == 1
+    rates = {entry["failure_stage"]: entry for entry in summary["failure_stage_rates"]}
+    assert rates["mapping"]["oracle_unresolved"] == 1
+    assert rates["mapping"]["oracle_unresolved_rate"] == pytest.approx(1.0)
+    assert rates["timeout"]["oracle_timeout"] == 1
+    assert rates["timeout"]["oracle_timeout_rate"] == pytest.approx(1.0)
+
+
+def test_delta_gate_requires_coverage_floors_even_without_delta_blocker():
+    before = _delta_site(fanout=0, identities=[])
+    after = _delta_site(fanout=1, identities=[_identity("Impl", "impl.go", [3, 5])])
+    held = _delta_site(fanout=1, identities=[_identity("Held", "held.go", [3, 5])])
+    held["file"] = "held_caller.go"
+    held["start_byte"] = 200
+    held["end_byte"] = 210
+    held_before = dict(held)
+    held["classification"] = "oracle_unresolved"
+    held["failure_stage"] = "mapping"
+
+    delta = do.delta_summary([after, held], [before, held_before])
+    assert delta["blocking_sites"] == []
+    assert delta["site_coverage"] == pytest.approx(0.5)
+    assert delta["edge_coverage"] == pytest.approx(0.5)
+    assert delta["coverage_ok"] is False
+    assert delta["gate_ok"] is False
+
+    relaxed = do.delta_summary(
+        [after, held], [before, held_before],
+        site_coverage_floor=0.5, edge_coverage_floor=0.5,
+    )
+    assert relaxed["coverage_ok"] is True
+    assert relaxed["gate_ok"] is True
+
+
+def test_delta_gate_requires_each_newly_exact_site_to_be_fully_resolved():
+    before = _delta_site(fanout=0, identities=[])
+    partial = _delta_site(
+        fanout=1, identities=[_identity("Impl", "impl.go", [3, 5])],
+        classification="recall_gap",
+    )
+    delta = do.delta_summary([partial], [before])
+    assert delta["gate_ok"] is False
+    assert delta["blocking_sites"] == delta["newly_exact_sites"]
+    assert delta["blocking_sites"][0]["classification"] == "recall_gap"
+
+
 def test_delta_refuses_mismatched_environment_pins():
     changed_pins = dict(_PINS, GOARCH="amd64")
     with pytest.raises(ValueError, match="environment pins differ"):

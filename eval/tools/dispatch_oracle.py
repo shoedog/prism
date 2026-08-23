@@ -385,6 +385,64 @@ def _precision_acc() -> dict:
     return {"inter": 0, "prism": 0}
 
 
+def _fanout(site: dict) -> int:
+    return site.get("fanout", len(site.get("prism_implementers", [])))
+
+
+def _identity_occurrences(site: dict) -> int:
+    """Count the source manifest identities, without collapsing distinct targets."""
+    if site.get("identity_mode") == "qualified":
+        return len(site.get("prism_identities", []))
+    return len(site.get("prism_implementers", []))
+
+
+def _fanout_positive_coverage(sites: list[dict]) -> dict:
+    """Coverage of fanout-positive observations before judging their correctness."""
+    eligible = [site for site in sites if _fanout(site) > 0]
+    observed = [
+        site for site in eligible
+        if site.get("classification") not in {"oracle_timeout", "oracle_unresolved", "not_dispatch"}
+    ]
+    identity_occurrences = sum(_identity_occurrences(site) for site in eligible)
+    scored_identity_occurrences = sum(
+        _identity_occurrences(site) for site in observed
+    )
+    return {
+        "site_coverage": len(observed) / len(eligible) if eligible else None,
+        "edge_coverage": (
+            scored_identity_occurrences / identity_occurrences
+            if identity_occurrences else None
+        ),
+        "resolved_sites": len(observed),
+        "total_sites": len(eligible),
+        "scored_identity_occurrences": scored_identity_occurrences,
+        "identity_occurrences": identity_occurrences,
+    }
+
+
+def _failure_stage_rates(sites: list[dict]) -> list[dict]:
+    stages: dict[str, dict] = {}
+    for site in sites:
+        stage = site.get("failure_stage") or "none"
+        stats = stages.setdefault(stage, {
+            "failure_stage": stage,
+            "sites": 0,
+            "oracle_timeout": 0,
+            "oracle_unresolved": 0,
+        })
+        stats["sites"] += 1
+        if site.get("classification") in {"oracle_timeout", "oracle_unresolved"}:
+            stats[site["classification"]] += 1
+    rates = []
+    for stage in sorted(stages):
+        stats = stages[stage]
+        total = stats["sites"]
+        stats["oracle_timeout_rate"] = stats["oracle_timeout"] / total
+        stats["oracle_unresolved_rate"] = stats["oracle_unresolved"] / total
+        rates.append(stats)
+    return rates
+
+
 def summarize(sites: list[dict]) -> dict:
     """Per-(interface, method) + overall rollup of compare_site records.
 
@@ -405,6 +463,8 @@ def summarize(sites: list[dict]) -> dict:
         "target_mismatch": 0,
         "not_dispatch": 0,
         "not_dispatch_sites": 0,
+        "interface_zero_fanout_sites": 0,
+        "unknown_definition_sites": 0,
         "scored_sites": 0,
     }
     overall_acc = _precision_acc()
@@ -457,11 +517,16 @@ def summarize(sites: list[dict]) -> dict:
             },
         )
         cls = s["classification"]
+        fanout = _fanout(s)
         g["sites"] += 1
         g[cls] += 1
         overall["sites"] += 1
         overall["in_scope_sites"] += 1
         overall[cls] += 1
+        if s.get("definition_kind") == "interface" and fanout == 0:
+            overall["interface_zero_fanout_sites"] += 1
+        if s.get("definition_kind") == "unknown":
+            overall["unknown_definition_sites"] += 1
         if cls == "not_dispatch":
             g["not_dispatch_sites"] += 1
             overall["not_dispatch_sites"] += 1
@@ -525,6 +590,8 @@ def summarize(sites: list[dict]) -> dict:
     )
     return {
         "overall": overall,
+        "fanout_positive_coverage": _fanout_positive_coverage(sites),
+        "failure_stage_rates": _failure_stage_rates(sites),
         "identity_mode": (
             "name_only" if identity_modes == {"name_only"} else
             "qualified" if identity_modes == {"qualified"} else "mixed"
@@ -713,7 +780,10 @@ def _record_identity_tuples(site: dict) -> set[tuple]:
     return {(name,) for name in site.get("prism_implementers", [])}
 
 
-def delta_summary(current_sites: list[dict], baseline_sites: list[dict]) -> dict:
+def delta_summary(
+    current_sites: list[dict], baseline_sites: list[dict], *,
+    site_coverage_floor: float = 0.90, edge_coverage_floor: float = 0.90,
+) -> dict:
     """Classify only newly exact edges and gate that bounded delta population."""
     baseline_by_site = {_site_key(site): site for site in baseline_sites}
     newly_exact_sites: list[dict] = []
@@ -754,16 +824,25 @@ def delta_summary(current_sites: list[dict], baseline_sites: list[dict]) -> dict
             "new_implementer_identities": new_identity_records,
         })
     newly_exact_sites.sort(key=lambda site: (site["file"], site["line"], site["method"]))
-    blocking_classes = {
-        "over_approx", "oracle_timeout", "oracle_unresolved", "target_mismatch",
-    }
     blocking_sites = [
-        site for site in newly_exact_sites if site["classification"] in blocking_classes
+        site for site in newly_exact_sites if site["classification"] != "sound"
     ]
+    coverage = _fanout_positive_coverage(current_sites)
+    coverage_ok = (
+        coverage["site_coverage"] is not None
+        and coverage["edge_coverage"] is not None
+        and coverage["site_coverage"] >= site_coverage_floor
+        and coverage["edge_coverage"] >= edge_coverage_floor
+    )
     return {
         "newly_exact_sites": newly_exact_sites,
         "blocking_sites": blocking_sites,
-        "gate_ok": not blocking_sites,
+        "site_coverage": coverage["site_coverage"],
+        "edge_coverage": coverage["edge_coverage"],
+        "site_coverage_floor": site_coverage_floor,
+        "edge_coverage_floor": edge_coverage_floor,
+        "coverage_ok": coverage_ok,
+        "gate_ok": not blocking_sites and coverage_ok,
     }
 
 
@@ -1449,6 +1528,16 @@ def _print_summary(summary: dict, log=sys.stdout) -> None:
     print(f"overall dispatch_precision = {_format_precision(o['dispatch_precision'])}  "
           f"(sites={o['sites']} sound={o['sound']} over_approx={o['over_approx']} "
           f"recall_gap={o['recall_gap']} oracle_timeout={o['oracle_timeout']})", file=log)
+    coverage = summary["fanout_positive_coverage"]
+    print("fanout-positive coverage = "
+          f"site:{_format_precision(coverage['site_coverage'])} "
+          f"({coverage['resolved_sites']}/{coverage['total_sites']}) "
+          f"edge:{_format_precision(coverage['edge_coverage'])} "
+          f"({coverage['scored_identity_occurrences']}/{coverage['identity_occurrences']})",
+          file=log)
+    print(f"exclusions: not_dispatch={o['not_dispatch_sites']} "
+          f"interface_zero_fanout={o['interface_zero_fanout_sites']} "
+          f"unknown_definition={o['unknown_definition_sites']}", file=log)
     print("per (interface, method):", file=log)
     for g in summary["groups"]:
         print(f"  {g['interface']}.{g['method']}: precision={_format_precision(g['dispatch_precision'])} "
@@ -1469,7 +1558,11 @@ def _print_summary(summary: dict, log=sys.stdout) -> None:
     if "delta" in summary:
         delta = summary["delta"]
         print(f"\ndelta gate_ok = {delta['gate_ok']} "
-              f"(newly_exact_sites={len(delta['newly_exact_sites'])})", file=log)
+              f"(newly_exact_sites={len(delta['newly_exact_sites'])} "
+              f"site_coverage={_format_precision(delta['site_coverage'])}/"
+              f"{delta['site_coverage_floor']:.2f} "
+              f"edge_coverage={_format_precision(delta['edge_coverage'])}/"
+              f"{delta['edge_coverage_floor']:.2f})", file=log)
         for site in delta["blocking_sites"]:
             print(f"  BLOCK {site['file']}:{site['line']} {site['method']} "
                   f"{site['classification']} ({site['reason']})", file=log)
@@ -1490,7 +1583,15 @@ def main() -> int:
     ap.add_argument("--group-timeout", type=float, default=300.0,
                     help="per-(interface,method) gopls request timeout seconds "
                          "(generous; a slow group is recorded oracle_timeout, not fatal)")
+    ap.add_argument("--site-coverage-floor", type=float, default=0.90,
+                    help="minimum resolved fanout-positive site coverage for a delta gate")
+    ap.add_argument("--edge-coverage-floor", type=float, default=0.90,
+                    help="minimum scored fanout-positive identity coverage for a delta gate")
     args = ap.parse_args()
+    if not 0.0 <= args.site_coverage_floor <= 1.0:
+        ap.error("--site-coverage-floor must be within [0, 1]")
+    if not 0.0 <= args.edge_coverage_floor <= 1.0:
+        ap.error("--edge-coverage-floor must be within [0, 1]")
 
     cmd = make_cmd(args.corpus)
     repo = os.path.abspath(os.path.expanduser(args.repo))
@@ -1507,7 +1608,11 @@ def main() -> int:
             ap.error(str(exc))
     sites, summary = run_oracle(args.manifest, args.repo, cmd, args.group_timeout)
     if baseline is not None:
-        summary["delta"] = delta_summary(sites, baseline.get("sites", []))
+        summary["delta"] = delta_summary(
+            sites, baseline.get("sites", []),
+            site_coverage_floor=args.site_coverage_floor,
+            edge_coverage_floor=args.edge_coverage_floor,
+        )
     out = {
         "manifest": os.path.abspath(args.manifest),
         "repo": repo,
