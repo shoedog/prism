@@ -894,6 +894,71 @@ class GoplsSatisfiers:
             return "interface"
         return "concrete" if symbol.get("container") else "unknown"
 
+    @staticmethod
+    def _skip_go_trivia(source: str, offset: int) -> int | None:
+        """Advance through Go whitespace and comments; None denotes an unterminated block."""
+        size = len(source)
+        while offset < size:
+            if source[offset].isspace() or source[offset] == "\ufeff":
+                offset += 1
+            elif source.startswith("//", offset):
+                newline = source.find("\n", offset + 2)
+                offset = size if newline == -1 else newline + 1
+            elif source.startswith("/*", offset):
+                end = source.find("*/", offset + 2)
+                if end == -1:
+                    return None
+                offset = end + 2
+            else:
+                break
+        return offset
+
+    @staticmethod
+    def _package_clause_from_source(source: str) -> str | None:
+        """Read the first real Go package clause without treating comments/strings as code."""
+        size = len(source)
+        offset = 0
+        while True:
+            offset = GoplsSatisfiers._skip_go_trivia(source, offset)
+            if offset is None or offset >= size:
+                return None
+            quote = source[offset]
+            if quote in {'"', "'", "`"}:
+                if quote == "`":
+                    end = source.find("`", offset + 1)
+                    if end == -1:
+                        return None
+                    offset = end + 1
+                    continue
+                offset += 1
+                while offset < size and source[offset] != quote:
+                    offset += 2 if source[offset] == "\\" else 1
+                if offset >= size:
+                    return None
+                offset += 1
+                continue
+            if quote.isascii() and (quote.isalpha() or quote == "_"):
+                start = offset
+                offset += 1
+                while offset < size and source[offset].isascii() and \
+                        (source[offset].isalnum() or source[offset] == "_"):
+                    offset += 1
+                if source[start:offset] != "package":
+                    continue
+                offset = GoplsSatisfiers._skip_go_trivia(source, offset)
+                if offset is None or offset >= size:
+                    return None
+                if not (source[offset].isascii() and
+                        (source[offset].isalpha() or source[offset] == "_")):
+                    return None
+                start = offset
+                offset += 1
+                while offset < size and source[offset].isascii() and \
+                        (source[offset].isalnum() or source[offset] == "_"):
+                    offset += 1
+                return source[start:offset]
+            offset += 1
+
     def _package_clause(self, rel: str) -> str | None:
         """Package declaration for one repo-relative Go source file."""
         try:
@@ -902,8 +967,7 @@ class GoplsSatisfiers:
             )
         except (FileNotFoundError, IsADirectoryError):
             return None
-        match = re.search(r"(?m)^\s*package\s+([A-Za-z_][A-Za-z0-9_]*)\b", source)
-        return match.group(1) if match else None
+        return GoplsSatisfiers._package_clause_from_source(source)
 
     def _identity_with_reason(self, rel: str, line0: int) -> tuple[dict | None, str | None]:
         """Map one implementation location, preserving the reason when it is not a target."""

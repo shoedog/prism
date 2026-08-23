@@ -168,6 +168,21 @@ def test_gopls_identity_at_keeps_package_and_method_target_evidence():
     assert identity == _identity("Impl", "good/impl.go", [5, 8], package_clause="good")
 
 
+def test_package_clause_ignores_comments_and_string_literals(tmp_path):
+    (tmp_path / "impl.go").write_text(
+        "/*\npackage decoy\n*/\n"
+        "// package another_decoy\n"
+        "var note = \"package string_decoy\"\n"
+        "var raw = `package raw_decoy`\n"
+        "package real\n"
+    )
+
+    class FakeGoplsAdapter:
+        root = str(tmp_path)
+
+    assert do.GoplsSatisfiers._package_clause(FakeGoplsAdapter(), "impl.go") == "real"
+
+
 def test_compare_site_qualified_identity_rejects_same_named_other_package():
     rec = do.compare_site(
         file="caller.go",
