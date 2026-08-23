@@ -468,7 +468,10 @@ pub struct CallGraph {
     /// module graph. Qualified `pkg.T` lookup prefers the exact key and uses a
     /// basename only when module identity is unavailable. Ambiguous keys fail
     /// closed. Whole-program derived alongside interface dispatch and retained
-    /// for P5/receiver rematerialization.
+    /// for P5/receiver rematerialization. Lifecycle invariant: exact
+    /// `@go-import:` keys are populated only by the full dispatch pass after its
+    /// clear, and every dispatch clear invalidates this entire map. P5 may
+    /// preserve only a snapshot whose package directories still match `files`.
     #[serde(default)]
     pub go_package_basenames: BTreeMap<String, BTreeSet<String>>,
     /// Compatibility projection retained for downstream callers. Production
@@ -2780,6 +2783,10 @@ impl CallGraph {
         self.go_import_path_proven_files = 0;
         self.go_import_path_unproven_files = 0;
         self.go_import_path_unproven_reasons.clear();
+        debug_assert!(
+            self.go_package_basenames.is_empty(),
+            "dispatch clear must invalidate every Go package/import-path key"
+        );
     }
 
     /// Recompute Go embedding promotions over `files` and write owner-index aliases.
@@ -3019,6 +3026,26 @@ impl CallGraph {
         package_basenames
     }
 
+    fn go_package_basename_snapshot_matches_files(
+        index: &BTreeMap<String, BTreeSet<String>>,
+        fallback: &BTreeMap<String, BTreeSet<String>>,
+    ) -> bool {
+        let current_dirs: BTreeSet<&str> = fallback
+            .values()
+            .flat_map(|dirs| dirs.iter().map(String::as_str))
+            .collect();
+        fallback
+            .iter()
+            .all(|(basename, dirs)| index.get(basename) == Some(dirs))
+            && index.iter().all(|(key, dirs)| {
+                if key.starts_with("@go-import:") {
+                    dirs.iter().all(|dir| current_dirs.contains(dir.as_str()))
+                } else {
+                    fallback.get(key) == Some(dirs)
+                }
+            })
+    }
+
     fn add_go_package_import_paths(
         index: &mut BTreeMap<String, BTreeSet<String>>,
         package_import_paths: &BTreeMap<String, String>,
@@ -3041,17 +3068,40 @@ impl CallGraph {
     /// recomputes from scratch — never incrementally patched.
     pub fn apply_go_func_value_fields(&mut self, files: &BTreeMap<String, ParsedFile>) {
         self.clear_go_func_value_fields();
-        if !files
-            .values()
-            .any(|p| p.language == crate::languages::Language::Go)
+        let fallback = Self::go_package_basenames(files);
+        if !self.go_package_basenames.is_empty()
+            && !Self::go_package_basename_snapshot_matches_files(
+                &self.go_package_basenames,
+                &fallback,
+            )
         {
-            return;
+            // A direct reapply after an edit did not run the full dispatch
+            // clear/rebuild contract. Drop the entire snapshot rather than
+            // retain a stale-but-unique exact import key and prove the wrong
+            // concrete owner. Rebuilding the basename-only fallback is safe.
+            self.go_package_basenames.clear();
         }
         // Full builds populated exact module import-path keys during interface
-        // dispatch. Preserve those; direct callers without scope inputs retain
-        // the legacy fail-closed basename index.
+        // dispatch, immediately after `clear_interface_dispatch`. This pass
+        // never constructs `@go-import:` keys; it preserves a file-matching
+        // snapshot for cached-CPG parity or rebuilds the fail-closed basename
+        // fallback for direct callers.
         if self.go_package_basenames.is_empty() {
-            self.go_package_basenames = Self::go_package_basenames(files);
+            self.go_package_basenames = fallback.clone();
+        }
+        debug_assert!(Self::go_package_basename_snapshot_matches_files(
+            &self.go_package_basenames,
+            &fallback,
+        ));
+        debug_assert!(
+            self.go_package_basenames
+                .keys()
+                .all(|key| !key.starts_with("@go-import:"))
+                || self.interface_dispatch_computed,
+            "exact Go import-path keys must originate in the full dispatch pass"
+        );
+        if fallback.is_empty() {
+            return;
         }
         self.go_known_struct_identities = self.go_field_types.keys().cloned().collect();
         let mut func_typed_fields = BTreeSet::new();
