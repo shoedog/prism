@@ -139,6 +139,13 @@ impl<'a> CpgContext<'a> {
         mut cpg: CodePropertyGraph,
         type_db: Option<&'a TypeDatabase>,
     ) -> Self {
+        // P15a-fix4: drop the stash UNCONDITIONALLY. A deserialized CPG has
+        // none (serde skips the field), but a caller may pass a FRESHLY BUILT
+        // CPG whose stash is a full live Go dataset — combined with the fresh
+        // registry built below, that retains TWO full extractions for the
+        // lifetime of this context. This constructor never consumes the
+        // stash, so nothing may keep it.
+        drop(cpg.call_graph.shared_plain_go_provider.take());
         cpg.type_db = type_db.cloned();
         // P15a-fix1: cache-loaded contexts keep their own construction — the
         // deserialized CPG's stashed provider (if any) was extracted from a
