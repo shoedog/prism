@@ -1,6 +1,6 @@
 # Handoff — roadmap #14 slice 4, implementer Ox (branch `go-alias-aware-local-local-ox`)
 
-Date: 2026-08-23 · Base: main@18b585a (docs-only descendant of 514cfe3 control base — resolution-identical) · HEAD: `a8e7d18`
+Date: 2026-08-23 (fix wave 1 appended) · Base: main@18b585a · Implementation tip: `a8e7d18` · Handoff head: see §Fix wave 1
 
 ## Commits (in order; red-first per pole group)
 1. `3ca0a31` test: 14 RED fixtures for alias-aware `Local↔Local` by path (spec §5 list, resolver + manifest parity, target-file identities).
@@ -82,6 +82,57 @@ ripgrep: absent (non-Go gate) → byte-identical.
   test-clause methods) are handled as explicit non-conflict deferrals inside the four axes. If a reviewer wants extra
   safety, `conflict_axes` strings ("embed_identity", "ordinary_fields", "own_methods", "anonymous_embed",
   "unresolved_embed") are where a fifth would be inserted.
+
+## Fix wave 1 (controller gate FAIL on prometheus/etcd → root-caused and fixed)
+Commits after `93b263a`: `63517c5`, `8ff8cab`, `b6773ab` (red poles), `598c08c`, `6bbc5ff`, `c6c0c86`.
+
+**ROOT CAUSE of the corpus losses (H-answer, evidence-based):** the QUALIFIED alias lookup scanned variants with a
+clause-RANGE `(dir,"",name)..=(dir,"\u{10FFFF}",name)`. BTreeMap tuple ordering compares the CLAUSE before the type
+name, so every key in the directory fell inside the range: one qualified leaf collected the variant lists of EVERY
+type in that package. One real Alias + garbage Defined ⇒ `DefinedVariant` on ordinary signatures ⇒
+`compute_satisfaction` dropped TRUE Exact edges. Discriminator run (PRISM_ALIAS_DEBUG trace,
+`storage.SeriesRef` @ cmd/prometheus/main.go): 110 "variants" spanning storage/{interface,merge,generic,series,…}.go —
+impossible for one name; H1-coarse/H2/H3 ruled out (same dir/clause, production files, alias-related leaves).
+Block-local alias pollution (SOL-W1) was ALSO real (red test `s4_block_local_…`) but not corpus-visible; fixed anyway.
+
+**Corpus re-measurement AFTER fixes (vs ctrl514):**
+| corpus | interface_dispatch | Δ vs ctrl | go_alias_expanded | go_alias_unresolved |
+|---|---|---|---|---|
+| ripgrep | identical | BYTE-IDENTICAL | — | — |
+| caddy | 1766 | +0 | 0 (key absent) | {} |
+| prometheus | 2498 | **+37** | 25 | {} |
+| etcd | 2062 | **+60** | 33 | {} |
+| hugo | 625 | +0 | 8 | {} |
+
+Zero fanout 1→0 transitions expected (no Exact below control anywhere); gains match sol's branch exactly.
+Remaining diff lines per corpus are ONLY: new telemetry leaves (alias + promoted-snapshot), benign recovery-bucket
+shifts from the gained edges (prometheus ReturnTyped −4/TypedParam −3/dropped_external_receiver −7; etcd fanout
+histogram 1:445→420, 2:196→202, 3:93→112), and NonLocalConstructionFallback counts.
+
+**Site-by-site attribution of remaining losses:** NONE — there are no remaining loss sites; `go_alias_unresolved`
+is empty on all four Go corpora. The earlier handoff claim ("every loss is a spec-mandated mixed-profile leaf") was
+WRONG: `defined_variant` also covered disagreeing all-Alias RHS values AND the range-scan garbage; superseded by the
+table above.
+
+**Fix items landed this wave**
+1. W1 package-level-only index + red regression (`s4_block_local_alias_declarations_never_enter_the_package_index`).
+2. W2/W3 predeclared shadowing order (`s4_package_declaration_shadows_predeclared_byte_and_rune`: shadow-alias pole,
+   Defined-shadow negative pole, unshadowed control).
+3. W3 path-scoped cycle guard incl. error paths (`s4_cycle_guard_is_path_scoped_sibling_leaves_expand`: func(B,B),
+   map[B]B, []B, bare B).
+4. W4 (rhs, arity) variant comparison folded into classify.
+5. W5 all-Defined certainty-cap bypass (exact-key pre-check before visibility filtering).
+6. Shape-based parameterized-alias recognition + doubled-eq / no-eq poles (`s4_parameterized_alias_shape_…`).
+7. Part B W6 embedded-alias owner resolution (`s4ox_embedded_alias_resolves_to_its_owner_identity`, asserts the exact
+   GoEmbedKey and depth-1 promotion through the alias).
+8. Part B W7 qualified-interface reclassification (`s4ox_qualified_embedded_interface_is_deferred_not_conflicted`)
+   AND profile-divergent embedded interfaces now conflict via `embedded_interface_profile` axis
+   (`s4ox_profile_divergent_embedded_interface_conflicts`, with identical-I control) — fix item (3).
+9. Part B W8 own-method shape axis compares (name, receiver-kind) across profiles
+   (`s4ox_own_method_axis_includes_receiver_kind_and_target_identity`) — the fifth profile-safety axis sol found;
+   recorded here as REQUIRED, sufficiency still unproven.
+
+Totals after wave: cargo test **3323 passed / 0 failed**; clippy at baseline **319**; fmt clean.
 
 ## Controller checklist
 - [ ] Push wave commits (done locally, not pushed).
