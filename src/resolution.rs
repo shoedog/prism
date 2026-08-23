@@ -926,6 +926,7 @@ pub struct ResolutionTelemetry {
     pub go_concrete_receiver_promoted_existing: usize,
     pub go_concrete_receiver_promoted_deferred: usize,
     pub go_concrete_receiver_no_selector_drop: usize,
+    pub go_r2_on_demand_name_collision_bail: usize,
     pub go_unproven_receiver_bare_fallback_sites: usize,
     pub go_unproven_receiver_bare_fallback_hits: usize,
     pub go_unproven_receiver_bare_fallback_edges: usize,
@@ -2400,6 +2401,14 @@ impl CallGraph {
                                     name,
                                     site,
                                     crate::go_owner_partition::GoPartitionEvidence::default(),
+                                );
+                            }
+                            crate::go_concrete_receiver::GoConcreteReceiverRoute::R2OnDemandNameCollisionBail => {
+                                let mut telemetry = ResolutionTelemetry::default();
+                                telemetry.go_r2_on_demand_name_collision_bail = 1;
+                                return ResolutionOutcome::dropped_with_telemetry(
+                                    DropReason::ExternalReceiver,
+                                    telemetry,
                                 );
                             }
                         }

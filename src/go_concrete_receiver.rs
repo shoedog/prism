@@ -322,6 +322,7 @@ pub(crate) enum GoConcreteReceiverRoute {
         owner: GoOwnerIdentity,
         interface_name: String,
     },
+    R2OnDemandNameCollisionBail,
     Unproven,
 }
 
@@ -338,6 +339,7 @@ impl CallGraph {
         if local_proof_shadowed {
             return GoConcreteReceiverRoute::Unproven;
         }
+        let on_demand = proven_owner.is_none();
         let Some(receiver_owner) = self.go_receiver_owner(recv_ty, caller_file, proven_owner)
         else {
             return GoConcreteReceiverRoute::Unproven;
@@ -365,23 +367,37 @@ impl CallGraph {
                 self.go_concrete_route_for_target(recv_ty, target, method_name, caller_file)
             }
             GoDeclarationKind::Interface { interface_of } => {
-                GoConcreteReceiverRoute::InterfaceDispatch {
-                    owner: interface_of.owner.clone(),
-                    interface_name: interface_of.owner.name.clone(),
-                }
+                self.go_r2_interface_route(&interface_of.owner, on_demand)
             }
             GoDeclarationKind::DefinedNonInterface { target }
             | GoDeclarationKind::AliasToConcrete { target } => {
                 self.go_concrete_route_for_target(recv_ty, target, method_name, caller_file)
             }
             GoDeclarationKind::AliasToInterface { target } => {
-                GoConcreteReceiverRoute::InterfaceDispatch {
-                    owner: target.owner.clone(),
-                    interface_name: target.owner.name.clone(),
-                }
+                self.go_r2_interface_route(&target.owner, on_demand)
             }
             GoDeclarationKind::AliasCyclicOrUnresolved
             | GoDeclarationKind::AmbiguousProfileConflict => GoConcreteReceiverRoute::Unproven,
+        }
+    }
+
+    fn go_r2_interface_route(
+        &self,
+        interface_owner: &GoOwnerIdentity,
+        on_demand: bool,
+    ) -> GoConcreteReceiverRoute {
+        let declaring_packages: BTreeSet<_> = self
+            .go_interface_declarations
+            .keys()
+            .filter(|owner| owner.name == interface_owner.name)
+            .map(|owner| (&owner.package_dir, &owner.package_clause))
+            .collect();
+        if on_demand && declaring_packages.len() > 1 {
+            return GoConcreteReceiverRoute::R2OnDemandNameCollisionBail;
+        }
+        GoConcreteReceiverRoute::InterfaceDispatch {
+            owner: interface_owner.clone(),
+            interface_name: interface_owner.name.clone(),
         }
     }
 

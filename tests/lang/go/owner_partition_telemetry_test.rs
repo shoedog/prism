@@ -147,6 +147,7 @@ fn call_stats_omits_owner_partition_extension_for_non_go_graphs() {
         "go_concrete_receiver_promoted_existing",
         "go_concrete_receiver_promoted_deferred",
         "go_concrete_receiver_no_selector_drop",
+        "go_r2_on_demand_name_collision_bail",
         "go_unproven_receiver_bare_fallback_sites",
         "go_unproven_receiver_bare_fallback_hits",
         "go_unproven_receiver_bare_fallback_edges",

@@ -213,6 +213,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     let mut go_concrete_receiver_promoted_existing = 0usize;
     let mut go_concrete_receiver_promoted_deferred = 0usize;
     let mut go_concrete_receiver_no_selector_drop = 0usize;
+    let mut go_r2_on_demand_name_collision_bail = 0usize;
     let mut go_unproven_receiver_bare_fallback_sites = 0usize;
     let mut go_unproven_receiver_bare_fallback_hits = 0usize;
     let mut go_unproven_receiver_bare_fallback_edges = 0usize;
@@ -289,6 +290,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 out.telemetry.go_concrete_receiver_promoted_deferred;
             go_concrete_receiver_no_selector_drop +=
                 out.telemetry.go_concrete_receiver_no_selector_drop;
+            go_r2_on_demand_name_collision_bail +=
+                out.telemetry.go_r2_on_demand_name_collision_bail;
             go_unproven_receiver_bare_fallback_sites +=
                 out.telemetry.go_unproven_receiver_bare_fallback_sites;
             go_unproven_receiver_bare_fallback_hits +=
@@ -568,6 +571,10 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
             go_concrete_receiver_no_selector_drop.into(),
         );
         object.insert(
+            "go_r2_on_demand_name_collision_bail".to_string(),
+            go_r2_on_demand_name_collision_bail.into(),
+        );
+        object.insert(
             "go_unproven_receiver_bare_fallback_sites".to_string(),
             go_unproven_receiver_bare_fallback_sites.into(),
         );
@@ -728,6 +735,10 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                         .get(&(interface_name.clone(), site.callee_name.clone()))
                         .map(Vec::as_slice)
                         .unwrap_or(&[]);
+                }
+                crate::go_concrete_receiver::GoConcreteReceiverRoute::R2OnDemandNameCollisionBail => {
+                    dispatch_route = "unproven_drop";
+                    impls = &[];
                 }
                 crate::go_concrete_receiver::GoConcreteReceiverRoute::Unproven => {
                     // R3 is deliberately unchanged. Retain the old S4/carried-

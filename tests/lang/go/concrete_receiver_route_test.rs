@@ -208,7 +208,7 @@ fn proven_interface_owner_routes_on_demand_without_a_bare_name_decoy() {
         (
             "r/types.go",
             "package r\n\
-             type A interface { M(int) }\n\
+             type B interface { M(int) }\n\
              type Wrong struct{}\n\
              func (Wrong) M(int) {}\n\
              func retain() { _ = Wrong{} }\n",

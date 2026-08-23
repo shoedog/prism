@@ -89,6 +89,7 @@ fn on_demand_r2_name_collision_bails_with_zero_fanout_and_telemetry() {
         outcome.telemetry.go_unproven_receiver_bare_fallback_sites,
         0
     );
+    assert_eq!(outcome.telemetry.go_r2_on_demand_name_collision_bail, 1);
 
     let manifest = prism::navigation::queries::interface_dispatch_manifest(&cg);
     let record = manifest_site(&manifest, "app/ondemand.go");
@@ -131,6 +132,7 @@ fn unique_on_demand_interface_name_keeps_s4_dispatch() {
         resolved.confidence == ResolutionConfidence::Exact
             && resolved.kind == ResolutionKind::InterfaceDispatch
     }));
+    assert_eq!(outcome.telemetry.go_r2_on_demand_name_collision_bail, 0);
 
     let manifest = prism::navigation::queries::interface_dispatch_manifest(&cg);
     let record = manifest_site(&manifest, "app/use.go");
@@ -155,6 +157,7 @@ fn carried_interface_identity_ignores_the_on_demand_collision_guard() {
         .resolved
         .iter()
         .all(|resolved| resolved.kind == ResolutionKind::InterfaceDispatch));
+    assert_eq!(outcome.telemetry.go_r2_on_demand_name_collision_bail, 0);
 
     let manifest = prism::navigation::queries::interface_dispatch_manifest(&cg);
     let record = manifest_site(&manifest, "app/carried.go");
