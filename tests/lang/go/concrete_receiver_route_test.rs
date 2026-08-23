@@ -157,6 +157,19 @@ fn syntactic_return_without_a_proven_owner_keeps_the_pre_drop() {
         outcome.drop,
         Some(prism::resolution::DropReason::ExternalReceiver)
     );
+    assert_eq!(
+        outcome.telemetry.go_unproven_receiver_bare_fallback_sites,
+        0
+    );
+    assert_eq!(outcome.telemetry.go_unproven_receiver_bare_fallback_hits, 0);
+    assert_eq!(
+        outcome.telemetry.go_unproven_receiver_bare_fallback_edges,
+        0
+    );
+    let stats = prism::navigation::queries::call_stats(&cg);
+    assert_eq!(stats["go_unproven_receiver_bare_fallback_sites"], 0);
+    assert_eq!(stats["go_unproven_receiver_bare_fallback_hits"], 0);
+    assert_eq!(stats["go_unproven_receiver_bare_fallback_edges"], 0);
 }
 
 #[test]
@@ -401,8 +414,7 @@ fn generic_concrete_receiver_keeps_the_existing_drop() {
     let cg = build_go(&[(
         "main.go",
         "package main\n\
-         type Box[T any] struct{}\n\
-         func (Box[T]) M() {}\n\
+         type Marker interface{ M() }\n\
          func run(b Box[int]) { b.M() }\n",
     )]);
     let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));

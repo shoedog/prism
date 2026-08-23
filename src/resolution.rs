@@ -2686,12 +2686,12 @@ impl CallGraph {
                                         )
                                     };
                                 }
-                                let unproven_bare_fallback = matches!(
-                                    go_route.as_ref(),
-                                    Some(crate::go_concrete_receiver::GoConcreteReceiverRoute::Unproven)
-                                );
                                 match crate::resolution::iface_key(recv_ty) {
                                     Some(k) => {
+                                        let unproven_bare_fallback = matches!(
+                                            go_route.as_ref(),
+                                            Some(crate::go_concrete_receiver::GoConcreteReceiverRoute::Unproven)
+                                        );
                                         match self.interface_impls.get(&(k, name.to_string())) {
                                             Some(ids) if !ids.is_empty() => {
                                                 // Arity-disambiguate the name-keyed candidate set
@@ -2754,17 +2754,12 @@ impl CallGraph {
                                         // `None` only for a generic instantiation, e.g. `Foo[T]`) —
                                         // still worth an S3 attempt since func-value-field owner
                                         // resolution works directly off `recv_ty`, not `iface_key`.
-                                        return self
-                                            .func_value_field_or_external_drop(
-                                                recv_ty,
-                                                site.receiver_owner_identity.as_ref(),
-                                                name,
-                                                &site.caller.file,
-                                            )
-                                            .with_go_unproven_bare_fallback(
-                                                unproven_bare_fallback,
-                                                0,
-                                            );
+                                        return self.func_value_field_or_external_drop(
+                                            recv_ty,
+                                            site.receiver_owner_identity.as_ref(),
+                                            name,
+                                            &site.caller.file,
+                                        );
                                     }
                                 }
                             }

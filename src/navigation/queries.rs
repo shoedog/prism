@@ -672,7 +672,7 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                 &site.callee_name,
                 &site.caller.file,
             );
-            let mut identity_interface = None;
+            let mut visibility_interface = None;
             let mut legacy_bare = false;
             let mut dispatch_route;
             let impls: &[FunctionId];
@@ -697,7 +697,8 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                     ..
                 } => {
                     dispatch_route = "embedded_interface_dispatch";
-                    identity_interface = Some((owner.clone(), interface_name.clone()));
+                    visibility_interface =
+                        Some((Some(owner.clone()), interface_name.clone()));
                     impls = cg
                         .interface_impls
                         .get(&(interface_name.clone(), site.callee_name.clone()))
@@ -719,7 +720,8 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                     interface_name,
                 } => {
                     dispatch_route = "interface_dispatch";
-                    identity_interface = Some((owner.clone(), interface_name.clone()));
+                    visibility_interface =
+                        Some((Some(owner.clone()), interface_name.clone()));
                     impls = cg
                         .interface_impls
                         .get(&(interface_name.clone(), site.callee_name.clone()))
@@ -760,13 +762,10 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                             .is_some_and(|selection| selection.value == Some(false));
                     if let Some(interface_name) = s4_route.value {
                         dispatch_route = "embedded_interface_dispatch";
-                        identity_interface = cg
-                            .go_receiver_owner(
-                                recv_ty,
-                                &site.caller.file,
-                                site.receiver_owner_identity.as_ref(),
-                            )
-                            .map(|owner| (owner, interface_name.clone()));
+                        visibility_interface = Some((
+                            site.receiver_owner_identity.clone(),
+                            interface_name.clone(),
+                        ));
                         impls = cg
                             .interface_impls
                             .get(&(interface_name, site.callee_name.clone()))
@@ -777,12 +776,16 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                         impls = &[];
                     } else if let Some(owner) = proven_interface_owner {
                         dispatch_route = "interface_dispatch";
+                        let interface_name = owner.name.clone();
                         impls = cg
                             .interface_impls
-                            .get(&(owner.name.clone(), site.callee_name.clone()))
+                            .get(&(interface_name.clone(), site.callee_name.clone()))
                             .map(Vec::as_slice)
                             .unwrap_or(&[]);
-                        identity_interface = Some((owner.clone(), owner.name));
+                        visibility_interface = Some((
+                            site.receiver_owner_identity.clone(),
+                            interface_name,
+                        ));
                     } else {
                         dispatch_route = "unproven_drop";
                         legacy_bare = true;
@@ -806,10 +809,10 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                 site.arg_spread,
                 &cg.method_arity,
             );
-            let kept = if let Some((owner, interface_name)) = identity_interface.as_ref() {
+            let kept = if let Some((owner, interface_name)) = visibility_interface.as_ref() {
                 cg.go_visible_s4_implementers(
                     recv_ty,
-                    Some(owner),
+                    owner.as_ref(),
                     interface_name,
                     &site.callee_name,
                     &site.caller.file,

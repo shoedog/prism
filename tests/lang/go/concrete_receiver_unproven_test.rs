@@ -211,3 +211,36 @@ fn duplicate_profile_owner_keeps_the_legacy_no_interface_drop() {
     assert_eq!(manifest["dispatch_route"], "unproven_drop");
     assert_eq!(manifest["implementer_identities"], serde_json::json!([]));
 }
+
+#[test]
+fn ambiguous_owner_embedded_interface_keeps_legacy_manifest_targets() {
+    let cg = build_go(&[
+        (
+            "q/one.go",
+            "package q\n\
+             type I interface{ M() }\n\
+             type S struct{ I }\n\
+             type Good struct{}\n\
+             func (Good) M() {}\n\
+             func retain() { _ = Good{} }\n",
+        ),
+        ("q/two.go", "package q\ntype S struct{ I }\n"),
+        (
+            "app/use.go",
+            "package app\n\
+             import q \"example/q\"\n\
+             func run(s q.S) { s.M() }\n",
+        ),
+    ]);
+    assert!(site(&cg).receiver_owner_identity.is_none());
+    let outcome = cg.resolve_call_site_full(site(&cg));
+
+    assert_eq!(outcome.drop, None, "{outcome:?}");
+    assert_eq!(
+        resolved_files(&cg),
+        BTreeSet::from(["q/one.go".to_string()])
+    );
+    let manifest = manifest_site(&cg);
+    assert_eq!(manifest["dispatch_route"], "embedded_interface_dispatch");
+    assert_eq!(manifest_target_files(&cg), resolved_files(&cg));
+}
