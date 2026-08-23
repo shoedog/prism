@@ -7,7 +7,9 @@ prism resolves Go interface-dispatch call sites (e.g. caddy's
 ``x.(caddy.Module).CaddyModule()``) by *minting an implementer set* — for a recovered
 interface receiver it fans the call out to every in-repo type prism believes satisfies
 that interface (RTA-pruned to live / constructed types). `prism nav interface-manifest`
-emits, per dispatch site, that set as ``implementers`` (and ``fanout`` = its size).
+emits, per dispatch site, that set as ``implementers`` (and ``fanout`` = its size), plus
+the additive ``implementer_identities`` records. Those records carry the implementer's
+name, file, target span, package directory, and package clause.
 
 The open question is *soundness*: is prism's minted set a subset of the types that
 **actually** satisfy the interface, or does it over-approximate (mint a non-satisfier =
@@ -17,9 +19,12 @@ unique ``(interface, method)`` and compares prism's per-site set to gopls's sati
 
 THE TAXONOMY (per dispatch site)
 --------------------------------
-Let ``P`` = prism's minted implementer types, ``G`` = gopls's satisfier types.
+Let ``P`` = prism's minted implementer identities, ``G`` = gopls's satisfier identities.
+For current manifests an identity is ``(package_dir, package_clause, name)`` and its
+target is the concrete ``(file, span)``. Older manifests without identity records use
+name-only comparison and are explicitly marked ``identity_mode: name_only``.
 
-- ``over_approx``  — ``P \\ G`` is non-empty. prism minted a type gopls says does NOT
+- ``over_approx``  — ``P \\ G`` is non-empty. prism minted an identity gopls says does NOT
                      satisfy the interface => a false edge => a **prism_fp candidate**.
                      ``prism_only_types`` lists the offenders. These are the sites the
                      controller's dual-adjudicator κ pass examines. Highest precedence.
@@ -30,30 +35,33 @@ Let ``P`` = prism's minted implementer types, ``G`` = gopls's satisfier types.
                      verdict: prism's 121 ⊆ gopls's satisfier set => sound, the §4 answer.)
 - ``recall_gap``   — ``P`` is EMPTY while ``G`` is non-empty: prism minted nothing for a
                      site that has real satisfiers — a genuine recall hole. Informational,
-                     not a precision bug. (NB: the manifest only feeds fanout>0 sites, so on
-                     real corpora ``P`` is non-empty and this is an edge-case label; the
-                     strict-subset "prism under-covers but is sound" case is ``sound`` above,
-                     and the ``gopls_only_types`` field still records what prism missed.)
+                     not a precision bug. Zero-fanout sites remain in the manifest so this
+                     is a normal, visible non-gating classification.
 - ``oracle_timeout`` — gopls did not answer for this site's ``(interface, method)`` group
                      within the timeout. Recorded, never scored (excluded from precision
                      and from the sound/over_approx/recall_gap tallies).
+- ``oracle_unresolved`` — gopls returned a location that cannot be mapped to a complete
+                     identity, or either side has an unknown package clause. Recorded and
+                     excluded from the precision denominator.
+- ``target_mismatch`` — prism and gopls agree on the qualified identity but not the
+                     concrete target file/span. This is precision-relevant and blocks a
+                     delta gate.
 
 Precedence: ``over_approx`` (any false edge) > ``recall_gap`` (prism empty, gopls non-empty)
 > ``sound``. A false edge is the precision-relevant verdict even when prism also under-covers.
 
 THE GATE METRIC
 ---------------
-``dispatch_precision = |P ∩ G| / |P|`` — summed over all scored (non-timeout) sites for
-the overall figure, and per ``(interface, method)``. It is the §8 dispatch precision/recall
-regression gate.
+``dispatch_precision = |P ∩ G| / |P|`` — summed over all scored sites for the overall
+figure, and per ``(interface, method)``. Timeouts and unresolved oracle identities are
+excluded. If nothing is scored, precision is ``null`` rather than a vacuous 1.0.
 
-  **Baseline dispatch_precision must stay AT-OR-ABOVE on a re-run. A DECREASE is a
-  deliberate, recorded decision (e.g. a refactor that trades precision for recall) — it
-  is never silently accepted. Paste the new summary into the PR and explain the delta.**
-
-A future baseline regenerates the manifest + re-runs this oracle on the same corpus SHA
-and compares ``overall.dispatch_precision`` (and the over_approx site list) to the recorded
-baseline. ``recall_gap`` is reported but does not gate (RTA pruning is by-design precision).
+With ``--baseline`` the current run is compared only at newly exact sites: fanout 0 to
+positive, or newly emitted implementer identities. The delta gate passes only when none of
+those sites are ``over_approx``, ``oracle_timeout``, ``oracle_unresolved``, or
+``target_mismatch``. Environment pins (corpus SHA, Go, gopls, GOOS/GOARCH, tags, and the
+effective GOWORK) must exactly match the baseline before comparison. ``recall_gap`` remains
+visible but non-gating.
 
 RE-RUN COMMAND (the gate)
 -------------------------
@@ -108,10 +116,12 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 import tomllib
 import urllib.parse
+import unicodedata
 from pathlib import Path
 
 # eval/ on sys.path so the tool runs both as `python tools/dispatch_oracle.py` and via
@@ -150,37 +160,267 @@ def dispatch_precision(prism_set: set[str], gopls_set: set[str]) -> float:
     return len(prism_set & gopls_set) / len(prism_set)
 
 
+def _identity_key(identity: dict) -> tuple[str, str, str] | None:
+    """The satisfier-type identity shared by prism and gopls.
+
+    A Go package directory alone is insufficient because `p` and `p_test` can
+    coexist there. Method target evidence is deliberately excluded from this
+    key and checked separately by `_identity_targets`.
+    """
+    package_dir = identity.get("package_dir")
+    package_clause = identity.get("package_clause")
+    name = identity.get("name")
+    if not all(isinstance(value, str) and value for value in (package_clause, name)):
+        return None
+    if not isinstance(package_dir, str):
+        return None
+    return package_dir, package_clause, name
+
+
+def _identity_target(identity: dict) -> tuple[str, int, int] | None:
+    file = identity.get("file")
+    span = identity.get("span")
+    if (
+        not isinstance(file, str)
+        or not isinstance(span, list)
+        or len(span) != 2
+        or not all(isinstance(line, int) for line in span)
+    ):
+        return None
+    return file, span[0], span[1]
+
+
+def _identity_targets(identities: list[dict]) -> dict | None:
+    """Full target evidence grouped by satisfier-type identity, or None if unscorable."""
+    targets: dict[tuple[str, str, str], set[tuple[str, int, int]]] = {}
+    for identity in identities:
+        key = _identity_key(identity)
+        target = _identity_target(identity)
+        if key is None or target is None:
+            return None
+        targets.setdefault(key, set()).add(target)
+    return targets
+
+
+def _identity_key_records(keys) -> list[dict]:
+    return [
+        {"package_dir": package_dir, "package_clause": package_clause, "name": name}
+        for package_dir, package_clause, name in sorted(keys)
+    ]
+
+
+def _identity_records(targets: dict) -> list[dict]:
+    records = []
+    for (package_dir, package_clause, name), values in sorted(targets.items()):
+        for file, start_line, end_line in sorted(values):
+            records.append({
+                "package_dir": package_dir,
+                "package_clause": package_clause,
+                "name": name,
+                "file": file,
+                "span": [start_line, end_line],
+            })
+    return records
+
+
+_NON_CANDIDATE_LOCATION_REASONS = {"interface_location", "outside_repo"}
+
+
+def _partition_location_evidence(locations: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Return (unknown, proven_non_candidate) implementation locations.
+
+    An interface declaration or a file outside the repository cannot be a prism
+    concrete target. Other mapping failures may still conceal an in-repository
+    target, so they remain fail-closed unknown evidence.
+    """
+    unknown: list[dict] = []
+    non_candidates: list[dict] = []
+    for location in locations:
+        if location.get("reason") in _NON_CANDIDATE_LOCATION_REASONS:
+            non_candidates.append(location)
+        else:
+            unknown.append(location)
+    return unknown, non_candidates
+
+
+def _classify_with_unknown_evidence(
+    prism: set, gopls: set, unknown_locations: list[dict]
+) -> str:
+    """Classify mapped evidence without claiming absence hidden by an unknown location."""
+    classification = classify(prism, gopls)
+    if (prism - gopls and unknown_locations) or (
+        not prism and not gopls and unknown_locations
+    ):
+        return "oracle_unresolved"
+    return classification
+
+
 def compare_site(
     file: str,
     line: int,
     interface: str,
     method: str,
-    prism_set: set[str],
-    gopls_set: set[str] | None,
+    prism_set: set[str] | None = None,
+    gopls_set: set[str] | None = None,
+    *,
+    prism_identities: list[dict] | None = None,
+    gopls_identities: list[dict] | None = None,
+    oracle_unresolved: bool = False,
+    definition_kind: str = "unknown",
+    failure_stage: str | None = None,
+    unresolved_locations: list[dict] | None = None,
+    oracle_reason: str | None = None,
+    not_dispatch: bool = False,
+    oracle_status: str | None = None,
+    implementation_outcome: str | None = None,
+    implementation_raw_result_count: int | None = None,
 ) -> dict:
-    """One per-site comparison record. ``gopls_set is None`` => the group timed out."""
-    if gopls_set is None:
-        return {
-            "file": file,
-            "line": line,
-            "interface": interface,
-            "method": method,
-            "prism_implementers": sorted(prism_set),
-            "gopls_satisfiers": None,
-            "classification": "oracle_timeout",
-            "prism_only_types": [],
-            "gopls_only_types": [],
-        }
+    """One per-site comparison record with qualified or legacy name-only identity.
+
+    New manifests provide full identities and must never silently fall back to
+    names. The name-only path is exclusively a compatibility path for manifests
+    emitted by older prism binaries.
+    """
+    unresolved_locations, non_candidate_locations = _partition_location_evidence(
+        list(unresolved_locations or [])
+    )
+    if prism_identities is None:
+        identity_mode = "name_only"
+        prism = set(prism_set or set())
+        gopls = None if gopls_set is None else set(gopls_set)
+        prism_identity_records: list[dict] = []
+        gopls_identity_records: list[dict] | None = None
+        prism_only_identities: list[dict] = []
+        gopls_only_identities: list[dict] = []
+        target_mismatches: list[dict] = []
+        if gopls is None:
+            classification = "oracle_timeout"
+            prism_only = set()
+            gopls_only = set()
+        else:
+            classification = _classify_with_unknown_evidence(
+                prism, gopls, unresolved_locations
+            )
+            prism_only = prism - gopls
+            gopls_only = gopls - prism
+    else:
+        identity_mode = "qualified"
+        prism_targets = _identity_targets(prism_identities)
+        gopls_targets = (
+            _identity_targets(gopls_identities) if gopls_identities is not None else None
+        )
+        prism_identity_records = _identity_records(prism_targets) if prism_targets is not None else []
+        gopls_identity_records = (
+            _identity_records(gopls_targets) if gopls_targets is not None else None
+        )
+        prism = set(prism_targets or {})
+        gopls = None if gopls_targets is None else set(gopls_targets)
+        prism_only = set()
+        gopls_only = set()
+        target_mismatches = []
+        if oracle_unresolved or prism_targets is None or (
+            gopls_identities is not None and gopls_targets is None
+        ):
+            classification = "oracle_unresolved"
+        elif gopls_targets is None:
+            classification = "oracle_timeout"
+        else:
+            prism_only = prism - gopls
+            gopls_only = gopls - prism
+            classification = _classify_with_unknown_evidence(
+                prism, gopls, unresolved_locations
+            )
+            # Proven non-candidates (interfaces and outside-repo locations) are
+            # diagnostic only. Unknown mappings fail closed in both identity modes.
+            if classification not in {"over_approx", "oracle_unresolved"}:
+                for key in sorted(prism & gopls):
+                    prism_targets_for_key = prism_targets[key]
+                    gopls_targets_for_key = gopls_targets[key]
+                    if not prism_targets_for_key <= gopls_targets_for_key:
+                        target_mismatches.append({
+                            "identity": _identity_key_records([key])[0],
+                            "prism_targets": [
+                                {"file": target_file, "span": [start, end]}
+                                for target_file, start, end in sorted(prism_targets_for_key)
+                            ],
+                            "gopls_targets": [
+                                {"file": target_file, "span": [start, end]}
+                                for target_file, start, end in sorted(gopls_targets_for_key)
+                            ],
+                        })
+                if target_mismatches:
+                    classification = "target_mismatch"
+        prism_only_identities = _identity_key_records(prism_only)
+        gopls_only_identities = _identity_key_records(gopls_only)
+
+    # A method-level implementation query can return the interface method's own
+    # declaration for a promoted implementation (for example, `W` embedding `I`).
+    # That non-empty result does not identify W, so it is not evidence that a
+    # prism-only W is absent. Preserve normal N handling when every Prism target
+    # is mapped, but fail closed for unmatched targets rather than calling it an
+    # over-approximation.
+    promoted_ambiguity_locations = []
+    if (
+        isinstance(implementation_raw_result_count, int)
+        and implementation_raw_result_count > 0
+        and prism_only
+    ):
+        promoted_ambiguity_locations = [
+            location for location in non_candidate_locations
+            if location.get("reason") in _NON_CANDIDATE_LOCATION_REASONS
+        ]
+        if promoted_ambiguity_locations:
+            unresolved_locations.extend(promoted_ambiguity_locations)
+            non_candidate_locations = [
+                location for location in non_candidate_locations
+                if location not in promoted_ambiguity_locations
+            ]
+            oracle_reason = oracle_reason or "external_interface_promoted_ambiguous"
+            failure_stage = failure_stage or "mapping"
+
+    if oracle_status == "timeout":
+        classification = "oracle_timeout"
+    elif oracle_status == "unresolved":
+        classification = "oracle_unresolved"
+    elif not_dispatch:
+        classification = "not_dispatch"
+    elif promoted_ambiguity_locations:
+        classification = "oracle_unresolved"
+
+    if oracle_reason is None and not unresolved_locations and prism == set() and gopls == set():
+        oracle_reason = (
+            "empty_satisfier_set" if not non_candidate_locations
+            else "no_concrete_satisfiers"
+        )
+    prism_implementers = (
+        sorted({identity["name"] for identity in prism_identity_records})
+        if identity_mode == "qualified"
+        else sorted(prism_set or set())
+    )
     return {
         "file": file,
         "line": line,
         "interface": interface,
         "method": method,
-        "prism_implementers": sorted(prism_set),
-        "gopls_satisfiers": sorted(gopls_set),
-        "classification": classify(prism_set, gopls_set),
-        "prism_only_types": sorted(prism_set - gopls_set),
-        "gopls_only_types": sorted(gopls_set - prism_set),
+        "identity_mode": identity_mode,
+        "definition_kind": definition_kind,
+        "failure_stage": failure_stage,
+        "oracle_status": oracle_status,
+        "implementation_outcome": implementation_outcome,
+        "implementation_raw_result_count": implementation_raw_result_count,
+        "oracle_reason": oracle_reason,
+        "unresolved_locations": unresolved_locations,
+        "non_candidate_locations": non_candidate_locations,
+        "prism_implementers": prism_implementers,
+        "gopls_satisfiers": None if gopls is None else sorted(item[-1] if isinstance(item, tuple) else item for item in gopls),
+        "prism_identities": prism_identity_records,
+        "gopls_satisfier_identities": gopls_identity_records,
+        "classification": classification,
+        "prism_only_types": sorted(item[-1] if isinstance(item, tuple) else item for item in prism_only),
+        "gopls_only_types": sorted(item[-1] if isinstance(item, tuple) else item for item in gopls_only),
+        "prism_only_identities": prism_only_identities,
+        "gopls_only_identities": gopls_only_identities,
+        "target_mismatches": target_mismatches,
     }
 
 
@@ -188,24 +428,95 @@ def _precision_acc() -> dict:
     return {"inter": 0, "prism": 0}
 
 
+def _fanout(site: dict) -> int:
+    return site.get("fanout", len(site.get("prism_implementers", [])))
+
+
+def _identity_occurrences(site: dict) -> int:
+    """Count the source manifest identities, without collapsing distinct targets."""
+    if site.get("identity_mode") == "qualified":
+        return len(site.get("prism_identities", []))
+    return len(site.get("prism_implementers", []))
+
+
+def _fanout_positive_coverage(sites: list[dict]) -> dict:
+    """Coverage of fanout-positive observations before judging their correctness."""
+    eligible = [site for site in sites if _fanout(site) > 0]
+    observed = [
+        site for site in eligible
+        if site.get("classification") not in {"oracle_timeout", "oracle_unresolved", "not_dispatch"}
+    ]
+    identity_occurrences = sum(_identity_occurrences(site) for site in eligible)
+    scored_identity_occurrences = sum(
+        _identity_occurrences(site) for site in observed
+    )
+    return {
+        "site_coverage": len(observed) / len(eligible) if eligible else None,
+        "edge_coverage": (
+            scored_identity_occurrences / identity_occurrences
+            if identity_occurrences else None
+        ),
+        "resolved_sites": len(observed),
+        "total_sites": len(eligible),
+        "scored_identity_occurrences": scored_identity_occurrences,
+        "identity_occurrences": identity_occurrences,
+    }
+
+
+def _failure_stage_rates(sites: list[dict]) -> list[dict]:
+    stages: dict[str, dict] = {}
+    for site in sites:
+        stage = site.get("failure_stage") or "none"
+        stats = stages.setdefault(stage, {
+            "failure_stage": stage,
+            "sites": 0,
+            "oracle_timeout": 0,
+            "oracle_unresolved": 0,
+        })
+        stats["sites"] += 1
+        if site.get("classification") in {"oracle_timeout", "oracle_unresolved"}:
+            stats[site["classification"]] += 1
+    rates = []
+    for stage in sorted(stages):
+        stats = stages[stage]
+        total = stats["sites"]
+        stats["oracle_timeout_rate"] = stats["oracle_timeout"] / total
+        stats["oracle_unresolved_rate"] = stats["oracle_unresolved"] / total
+        rates.append(stats)
+    return rates
+
+
 def summarize(sites: list[dict]) -> dict:
     """Per-(interface, method) + overall rollup of compare_site records.
 
-    dispatch_precision aggregates as (sum |P∩G|) / (sum |P|) over scored sites; an empty
-    overall denominator is vacuously 1.0. oracle_timeout sites are excluded from precision
-    and from the sound/over_approx/recall_gap tallies (only counted as oracle_timeout).
+    dispatch_precision aggregates as (sum |P∩G|) / (sum |P|) over scored sites. Timeout and
+    unresolved sites are excluded from the type-precision ratio; target mismatches remain
+    type-scored but are separately blocking Exact-target failures in delta mode. An empty
+    aggregate denominator is null, never a vacuous 1.0.
     """
     groups: dict[tuple, dict] = {}
     overall = {
         "sites": 0,
+        "in_scope_sites": 0,
         "sound": 0,
         "over_approx": 0,
         "recall_gap": 0,
         "oracle_timeout": 0,
+        "oracle_unresolved": 0,
+        "target_mismatch": 0,
+        "not_dispatch": 0,
+        "not_dispatch_sites": 0,
+        "interface_zero_fanout_sites": 0,
+        "unknown_definition_sites": 0,
+        "external_definition_sites": 0,
+        "scored_sites": 0,
     }
     overall_acc = _precision_acc()
     over_approx_sites: list[dict] = []
     timeout_groups: dict[tuple, tuple[str, str]] = {}
+    unresolved_sites: list[dict] = []
+    target_mismatch_sites: list[dict] = []
+    identity_modes: set[str] = set()
 
     for s in sites:
         # Group identity is (method, the minted implementer set) — the same (iface_key,
@@ -213,7 +524,24 @@ def summarize(sites: list[dict]) -> dict:
         # declared on two interfaces (distinct sets) stays split; a single interface whose
         # sites carry different display labels stays merged. `interface` is the display
         # label of the first site in the group.
-        key = (s["method"], tuple(s["prism_implementers"]))
+        identity_mode = s.get("identity_mode", "name_only")
+        identity_modes.add(identity_mode)
+        if identity_mode == "qualified":
+            group_implementers = tuple(
+                sorted(
+                    (
+                        identity["package_dir"],
+                        identity["package_clause"],
+                        identity["name"],
+                        identity["file"],
+                        tuple(identity["span"]),
+                    )
+                    for identity in s["prism_identities"]
+                )
+            )
+        else:
+            group_implementers = tuple(s["prism_implementers"])
+        key = (s["method"], identity_mode, group_implementers)
         g = groups.setdefault(
             key,
             {
@@ -224,20 +552,58 @@ def summarize(sites: list[dict]) -> dict:
                 "over_approx": 0,
                 "recall_gap": 0,
                 "oracle_timeout": 0,
+                "oracle_unresolved": 0,
+                "target_mismatch": 0,
+                "not_dispatch": 0,
+                "not_dispatch_sites": 0,
+                "scored_sites": 0,
                 "_acc": _precision_acc(),
             },
         )
         cls = s["classification"]
+        fanout = _fanout(s)
         g["sites"] += 1
         g[cls] += 1
         overall["sites"] += 1
+        overall["in_scope_sites"] += 1
         overall[cls] += 1
+        if s.get("definition_kind") == "interface" and fanout == 0:
+            overall["interface_zero_fanout_sites"] += 1
+        if s.get("definition_kind") == "unknown":
+            overall["unknown_definition_sites"] += 1
+        if s.get("definition_kind") == "external":
+            overall["external_definition_sites"] += 1
+        if cls == "not_dispatch":
+            g["not_dispatch_sites"] += 1
+            overall["not_dispatch_sites"] += 1
+            continue
         if cls == "oracle_timeout":
             timeout_groups[key] = (s["interface"], s["method"])
             continue
-        prism = set(s["prism_implementers"])
-        gopls = set(s["gopls_satisfiers"])
+        if cls == "oracle_unresolved":
+            unresolved_sites.append({
+                "file": s["file"], "line": s["line"], "interface": s["interface"],
+                "method": s["method"], "definition_kind": s.get("definition_kind"),
+                "failure_stage": s.get("failure_stage"),
+                "oracle_reason": s.get("oracle_reason"),
+                "unresolved_locations": s.get("unresolved_locations", []),
+            })
+            continue
+        if identity_mode == "qualified":
+            prism = {
+                (identity["package_dir"], identity["package_clause"], identity["name"])
+                for identity in s["prism_identities"]
+            }
+            gopls = {
+                (identity["package_dir"], identity["package_clause"], identity["name"])
+                for identity in s["gopls_satisfier_identities"]
+            }
+        else:
+            prism = set(s["prism_implementers"])
+            gopls = set(s["gopls_satisfiers"])
         inter = len(prism & gopls)
+        g["scored_sites"] += 1
+        overall["scored_sites"] += 1
         g["_acc"]["inter"] += inter
         g["_acc"]["prism"] += len(prism)
         overall_acc["inter"] += inter
@@ -250,21 +616,38 @@ def summarize(sites: list[dict]) -> dict:
                 "method": s["method"],
                 "prism_only_types": s["prism_only_types"],
             })
+        elif cls == "target_mismatch":
+            target_mismatch_sites.append({
+                "file": s["file"], "line": s["line"], "interface": s["interface"],
+                "method": s["method"], "target_mismatches": s["target_mismatches"],
+            })
 
     group_list = []
     for key in sorted(groups):
         g = groups[key]
         acc = g.pop("_acc")
         g["dispatch_precision"] = (
-            acc["inter"] / acc["prism"] if acc["prism"] else 1.0
+            acc["inter"] / acc["prism"] if acc["prism"] else None
+        )
+        g["sound_site_rate"] = (
+            g["sound"] / g["scored_sites"] if g["scored_sites"] else None
         )
         group_list.append(g)
 
     overall["dispatch_precision"] = (
-        overall_acc["inter"] / overall_acc["prism"] if overall_acc["prism"] else 1.0
+        overall_acc["inter"] / overall_acc["prism"] if overall_acc["prism"] else None
+    )
+    overall["sound_site_rate"] = (
+        overall["sound"] / overall["scored_sites"] if overall["scored_sites"] else None
     )
     return {
         "overall": overall,
+        "fanout_positive_coverage": _fanout_positive_coverage(sites),
+        "failure_stage_rates": _failure_stage_rates(sites),
+        "identity_mode": (
+            "name_only" if identity_modes == {"name_only"} else
+            "qualified" if identity_modes == {"qualified"} else "mixed"
+        ),
         "groups": group_list,
         "over_approx_sites": sorted(
             over_approx_sites, key=lambda r: (r["file"], r["line"])
@@ -273,6 +656,12 @@ def summarize(sites: list[dict]) -> dict:
             {"interface": i, "method": m}
             for (i, m) in sorted(timeout_groups.values())
         ],
+        "oracle_unresolved_sites": sorted(
+            unresolved_sites, key=lambda r: (r["file"], r["line"])
+        ),
+        "target_mismatch_sites": sorted(
+            target_mismatch_sites, key=lambda r: (r["file"], r["line"])
+        ),
     }
 
 
@@ -300,10 +689,219 @@ def method_token_col(line_text: str, method: str) -> int | None:
     return m.start() if m else None
 
 
+def call_position_from_span(
+    source: str, start_byte: int, end_byte: int, method: str
+) -> tuple[int, int] | None:
+    """LSP (line, UTF-16 column) of a call token inside one manifest byte span.
+
+    The span distinguishes `i.M(); j.M()` without guessing from the line. LSP character
+    offsets are UTF-16 code units, while the manifest offsets are UTF-8 bytes, so both
+    conversions are explicit and invalid byte boundaries fail closed.
+    """
+    raw = source.encode("utf-8")
+    if not isinstance(start_byte, int) or not isinstance(end_byte, int) \
+            or start_byte < 0 or start_byte > end_byte or end_byte > len(raw):
+        return None
+    try:
+        fragment = raw[start_byte:end_byte].decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    token = None
+    for match in re.finditer(rf"(?:(?<=\.)|(?<=::)|\b){re.escape(method)}\s*\(", fragment):
+        token = match.start()
+        break
+    if token is None:
+        match = re.search(rf"\b{re.escape(method)}\b", fragment)
+        if match is None:
+            return None
+        token = match.start()
+    token_byte = start_byte + len(fragment[:token].encode("utf-8"))
+    try:
+        prefix = raw[:token_byte].decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    line0 = prefix.count("\n")
+    line_prefix = prefix.rsplit("\n", 1)[-1]
+    char0 = len(line_prefix.encode("utf-16-le")) // 2
+    return line0, char0
+
+
 def load_dispatch_sites(manifest_path: str) -> list[dict]:
-    """The fanout>0 sites of a `prism nav interface-manifest` document (Slice-E shape)."""
+    """All in-scope sites of a `prism nav interface-manifest` document."""
     doc = json.loads(Path(manifest_path).read_text())
-    return [s for s in doc.get("sites", []) if s.get("fanout", 0) > 0]
+    return doc.get("sites", [])
+
+
+def effective_gowork(repo: str) -> str:
+    """The workspace this oracle forces for all Go/gopls observations."""
+    root = Path(repo).expanduser().resolve()
+    work = root / "go.work"
+    return str(work) if work.is_file() else "off"
+
+
+def _command_output(
+    command: list[str], cwd: str, env: dict[str, str], *, allow_empty: bool = False
+) -> str | None:
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=cwd,
+            env=env,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=30,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    output = completed.stdout.strip()
+    return output if completed.returncode == 0 and (output or allow_empty) else None
+
+
+_REQUIRED_ENVIRONMENT_PINS = {
+    "corpus_sha", "go_version", "gopls_version", "GOOS", "GOARCH", "tags", "GOWORK",
+}
+
+
+def _require_environment_pins(pins: dict) -> None:
+    unavailable = sorted(
+        key for key in _REQUIRED_ENVIRONMENT_PINS
+        if key not in pins or pins[key] is None or pins[key] == "unavailable"
+    )
+    if unavailable:
+        raise ValueError(
+            f"required environment pins unavailable: {', '.join(unavailable)}"
+        )
+
+
+def environment_pins(repo: str, cmd: list[str]) -> dict:
+    """Immutable comparison context for a baseline and its branch rerun."""
+    root = str(Path(repo).expanduser().resolve())
+    gowork = effective_gowork(root)
+    env = os.environ.copy()
+    env["GOWORK"] = gowork
+    pins = {
+        "corpus_sha": _command_output(["git", "rev-parse", "HEAD"], root, env) or "unavailable",
+        "go_version": _command_output(["go", "version"], root, env) or "unavailable",
+        "gopls_version": _command_output([cmd[0], "version"], root, env) or "unavailable",
+        "GOOS": _command_output(["go", "env", "GOOS"], root, env) or "unavailable",
+        "GOARCH": _command_output(["go", "env", "GOARCH"], root, env) or "unavailable",
+        "tags": _command_output(["go", "env", "GOFLAGS"], root, env, allow_empty=True),
+        "GOWORK": gowork,
+    }
+    _require_environment_pins(pins)
+    return pins
+
+
+def validate_environment_pins(baseline: dict, current: dict) -> None:
+    """Refuse delta adjudication across different Go/gopls universes."""
+    _require_environment_pins(baseline)
+    _require_environment_pins(current)
+    differences = {
+        key: {"baseline": baseline.get(key), "current": current.get(key)}
+        for key in sorted(set(baseline) | set(current))
+        if baseline.get(key) != current.get(key)
+    }
+    if differences:
+        raise ValueError(f"environment pins differ: {json.dumps(differences, sort_keys=True)}")
+
+
+def _site_key(site: dict) -> tuple:
+    return (
+        site.get("file"),
+        site.get("start_byte"),
+        site.get("end_byte"),
+        site.get("line"),
+        site.get("method"),
+    )
+
+
+def _record_identity_tuples(site: dict) -> set[tuple]:
+    if site.get("identity_mode") == "qualified":
+        return {
+            (
+                identity["package_dir"],
+                identity["package_clause"],
+                identity["name"],
+                identity["file"],
+                tuple(identity["span"]),
+            )
+            for identity in site.get("prism_identities", [])
+        }
+    return {(name,) for name in site.get("prism_implementers", [])}
+
+
+def delta_summary(
+    current_sites: list[dict], baseline_sites: list[dict], *,
+    site_coverage_floor: float = 0.90, edge_coverage_floor: float = 0.90,
+) -> dict:
+    """Classify only newly exact edges and gate that bounded delta population."""
+    baseline_by_site = {_site_key(site): site for site in baseline_sites}
+    newly_exact_sites: list[dict] = []
+    for current in current_sites:
+        baseline = baseline_by_site.get(_site_key(current))
+        current_fanout = current.get("fanout", len(current.get("prism_implementers", [])))
+        baseline_fanout = (
+            baseline.get("fanout", len(baseline.get("prism_implementers", [])))
+            if baseline is not None else 0
+        )
+        current_identities = _record_identity_tuples(current)
+        baseline_identities = _record_identity_tuples(baseline) if baseline is not None else set()
+        if current_fanout > 0 and baseline_fanout == 0:
+            reason = "fanout_0_to_positive"
+            new_identity_tuples = current_identities
+        else:
+            new_identity_tuples = current_identities - baseline_identities
+            if not new_identity_tuples:
+                continue
+            reason = "new_implementer_identities"
+        new_identity_records = [
+            identity
+            for identity in current.get("prism_identities", [])
+            if (
+                identity["package_dir"],
+                identity["package_clause"],
+                identity["name"],
+                identity["file"],
+                tuple(identity["span"]),
+            ) in new_identity_tuples
+        ]
+        fully_resolved = (
+            current["classification"] == "sound"
+            and not current.get("unresolved_locations", [])
+            and current.get("implementation_outcome") != "partial_mapping"
+        )
+        newly_exact_sites.append({
+            "file": current["file"],
+            "line": current["line"],
+            "method": current["method"],
+            "classification": current["classification"],
+            "reason": reason,
+            "fully_resolved": fully_resolved,
+            "new_implementer_identities": new_identity_records,
+        })
+    newly_exact_sites.sort(key=lambda site: (site["file"], site["line"], site["method"]))
+    blocking_sites = [
+        site for site in newly_exact_sites if not site["fully_resolved"]
+    ]
+    coverage = _fanout_positive_coverage(current_sites)
+    coverage_ok = (
+        coverage["site_coverage"] is not None
+        and coverage["edge_coverage"] is not None
+        and coverage["site_coverage"] >= site_coverage_floor
+        and coverage["edge_coverage"] >= edge_coverage_floor
+    )
+    return {
+        "newly_exact_sites": newly_exact_sites,
+        "blocking_sites": blocking_sites,
+        "site_coverage": coverage["site_coverage"],
+        "edge_coverage": coverage["edge_coverage"],
+        "site_coverage_floor": site_coverage_floor,
+        "edge_coverage_floor": edge_coverage_floor,
+        "coverage_ok": coverage_ok,
+        "gate_ok": not blocking_sites and coverage_ok,
+    }
 
 
 def interface_label(line_text: str | None, method: str, ordinal: int) -> str:
@@ -352,14 +950,31 @@ class GoplsSatisfiers:
         self.root = os.path.abspath(repo)
         self.group_timeout = group_timeout
         self._settle_s, self._cap_s = settle_s, cap_s
+        self.gowork = effective_gowork(self.root)
         root_uri = "file://" + urllib.parse.quote(self.root)
         self.client = LspClient(cmd, cwd=self.root, root_uri=root_uri,
                                 default_timeout=group_timeout)
         self._opened: set[str] = set()
         self._docsym: dict[str, list[tuple]] = {}
+        self._symbol_details: dict[str, list[dict]] = {}
+        self._external_opened: set[str] = set()
+        self._external_symbol_details: dict[str, list[dict]] = {}
+        self._external_symbol_status: dict[str, str | None] = {}
 
     def start(self) -> None:
-        self.client.start()
+        # LspClient inherits this process environment at Popen time. Scope the
+        # override to launch so unrelated tooling in this Python process keeps its
+        # original environment, while gopls cannot inherit a parent workspace.
+        had_gowork = "GOWORK" in os.environ
+        previous_gowork = os.environ.get("GOWORK")
+        os.environ["GOWORK"] = self.gowork
+        try:
+            self.client.start()
+        finally:
+            if had_gowork:
+                os.environ["GOWORK"] = previous_gowork
+            else:
+                os.environ.pop("GOWORK", None)
         _settle(self.client, self._cap_s, self._settle_s)
 
     def resettle(self, settle_s: float | None = None) -> None:
@@ -393,6 +1008,7 @@ class GoplsSatisfiers:
             return self._docsym[rel]
         if not self._did_open(rel):
             self._docsym[rel] = []
+            self._symbol_details[rel] = []
             return []
         from tier_a.oracles import _split_receiver
 
@@ -405,19 +1021,38 @@ class GoplsSatisfiers:
         except Exception:
             syms = []
         out: list[tuple] = []
+        details: list[dict] = []
 
-        def walk(nodes, container):
+        def walk(nodes, container, enclosing_kind=None):
             for nd in nodes or []:
                 name, cont = _split_receiver(nd.get("name"), container)
                 rng = nd.get("range", {})
-                s = rng.get("start", {}).get("line")
-                e = rng.get("end", {}).get("line")
+                start = rng.get("start", {})
+                end = rng.get("end", {})
+                s = start.get("line")
+                e = end.get("line")
                 if s is not None and e is not None:
+                    selection = nd.get("selectionRange", rng)
                     out.append((name, cont, s, e))
-                walk(nd.get("children", []), nd.get("name"))
+                    details.append({
+                        "name": name,
+                        "container": cont,
+                        "start_line": s,
+                        "end_line": e,
+                        "start_character": start.get("character", 0),
+                        "end_character": end.get("character", 0),
+                        "selection_start_line": selection.get("start", {}).get("line", s),
+                        "selection_start_character": selection.get("start", {}).get("character", 0),
+                        "selection_end_line": selection.get("end", {}).get("line", e),
+                        "selection_end_character": selection.get("end", {}).get("character", 0),
+                        "kind": nd.get("kind"),
+                        "enclosing_kind": enclosing_kind,
+                    })
+                walk(nd.get("children", []), nd.get("name"), nd.get("kind"))
 
         walk(syms, None)
         self._docsym[rel] = out
+        self._symbol_details[rel] = details
         return out
 
     def _type_at(self, rel: str, line0: int) -> str | None:
@@ -430,20 +1065,220 @@ class GoplsSatisfiers:
                     best = (span, cont)
         return best[1] if best else None
 
-    def method_decl(self, rel: str, line0: int, char0: int) -> tuple[str, int, int] | None:
-        """textDocument/definition at a call's method token -> the interface method's
-        declaration site (rel_file, decl_line0, decl_char0), or None.
+    def _symbol_at(self, rel: str, line0: int, char0: int = 0) -> dict | None:
+        """Smallest document symbol enclosing an exact gopls location."""
+        self._methods(rel)
+        best = None
+        for symbol in self._symbol_details.get(rel, []):
+            if symbol["start_line"] <= line0 <= symbol["end_line"]:
+                start_char = symbol.get("start_character", 0)
+                end_char = symbol.get("end_character", 0)
+                if line0 == symbol["start_line"] and char0 < start_char:
+                    continue
+                if line0 == symbol["end_line"] and end_char and char0 > end_char:
+                    continue
+                width = (
+                    symbol["end_line"] - symbol["start_line"],
+                    end_char - start_char if symbol["start_line"] == symbol["end_line"]
+                    else end_char,
+                )
+                if best is None or width < best[0]:
+                    best = (width, symbol)
+        return None if best is None else best[1]
+
+    def _open_external_uri(self, uri: str) -> bool:
+        """Open a local out-of-repo Go file so gopls can expose its symbols."""
+        if uri in self._external_opened:
+            return True
+        parsed = urllib.parse.urlparse(uri)
+        if parsed.scheme != "file":
+            return False
+        path = urllib.parse.unquote(parsed.path)
+        if not path or not os.path.isfile(path):
+            return False
+        try:
+            text = Path(path).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return False
+        self.client.notify("textDocument/didOpen", {"textDocument": {
+            "uri": uri, "languageId": "go", "version": 1, "text": text}})
+        self._external_opened.add(uri)
+        return True
+
+    def _external_definition_kind(self, uri: str, line0: int, char0: int) -> str:
+        """Prove whether an external definition is an interface or concrete method."""
+        from tier_a.lsp_client import LspError, LspTimeout
+
+        self._last_external_definition_status = self._external_symbol_status.get(uri)
+        if uri not in self._external_symbol_details:
+            if not self._open_external_uri(uri):
+                self._external_symbol_details[uri] = []
+                self._last_external_definition_status = "unresolved"
+            else:
+                from tier_a.oracles import _split_receiver
+
+                try:
+                    symbols = self.client.request(
+                        "textDocument/documentSymbol", {"textDocument": {"uri": uri}},
+                        timeout=self.group_timeout,
+                    )
+                except LspTimeout:
+                    symbols = []
+                    self._last_external_definition_status = "timeout"
+                except LspError:
+                    symbols = []
+                    self._last_external_definition_status = "unresolved"
+                if symbols is not None and not isinstance(symbols, list):
+                    symbols = []
+                    self._last_external_definition_status = "unresolved"
+                details: list[dict] = []
+
+                def walk(nodes, container, enclosing_kind=None):
+                    for node in nodes or []:
+                        name, receiver = _split_receiver(node.get("name"), container)
+                        rng = node.get("range", {})
+                        start, end = rng.get("start", {}), rng.get("end", {})
+                        start_line, end_line = start.get("line"), end.get("line")
+                        if start_line is not None and end_line is not None:
+                            details.append({
+                                "name": name,
+                                "container": receiver,
+                                "start_line": start_line,
+                                "end_line": end_line,
+                                "start_character": start.get("character", 0),
+                                "end_character": end.get("character", 0),
+                                "kind": node.get("kind"),
+                                "enclosing_kind": enclosing_kind,
+                            })
+                        walk(node.get("children", []), node.get("name"), node.get("kind"))
+
+                walk(symbols, None)
+                self._external_symbol_details[uri] = details
+            self._external_symbol_status[uri] = self._last_external_definition_status
+        best = None
+        for symbol in self._external_symbol_details[uri]:
+            if not symbol["start_line"] <= line0 <= symbol["end_line"]:
+                continue
+            if line0 == symbol["start_line"] and char0 < symbol["start_character"]:
+                continue
+            if line0 == symbol["end_line"] and symbol["end_character"] and \
+                    char0 > symbol["end_character"]:
+                continue
+            width = (
+                symbol["end_line"] - symbol["start_line"],
+                symbol["end_character"] - symbol["start_character"]
+                if symbol["start_line"] == symbol["end_line"] else symbol["end_character"],
+            )
+            if best is None or width < best[0]:
+                best = (width, symbol)
+        return self._definition_kind(None if best is None else best[1])
+
+    @staticmethod
+    def _definition_kind(symbol: dict | None) -> str:
+        """Classify the enclosing Go declaration without inferring from its name."""
+        if symbol is None:
+            return "unknown"
+        # LSP SymbolKind.Interface is 11. Interface methods are children of that
+        # symbol, while concrete Go methods carry a receiver/container themselves.
+        if symbol.get("kind") == 11 or symbol.get("enclosing_kind") == 11:
+            return "interface"
+        return "concrete" if symbol.get("container") else "unknown"
+
+    @staticmethod
+    def _skip_go_trivia(source: str, offset: int) -> int | None:
+        """Advance through Go whitespace and comments; None denotes an unterminated block."""
+        size = len(source)
+        while offset < size:
+            if source[offset].isspace() or source[offset] == "\ufeff":
+                offset += 1
+            elif source.startswith("//", offset):
+                newline = source.find("\n", offset + 2)
+                offset = size if newline == -1 else newline + 1
+            elif source.startswith("/*", offset):
+                end = source.find("*/", offset + 2)
+                if end == -1:
+                    return None
+                offset = end + 2
+            else:
+                break
+        return offset
+
+    @staticmethod
+    def _package_clause_from_source(source: str) -> str | None:
+        """Read a Go package clause, which must be the first non-trivia token."""
+        def ident_start(char: str) -> bool:
+            return char == "_" or unicodedata.category(char).startswith("L")
+
+        def ident_continue(char: str) -> bool:
+            return ident_start(char) or unicodedata.category(char) == "Nd"
+
+        size = len(source)
+        offset = GoplsSatisfiers._skip_go_trivia(source, 0)
+        if offset is None or offset >= size or not source.startswith("package", offset):
+            return None
+        after_keyword = offset + len("package")
+        if after_keyword < size and ident_continue(source[after_keyword]):
+            return None
+        offset = GoplsSatisfiers._skip_go_trivia(source, after_keyword)
+        if offset is None or offset >= size or not ident_start(source[offset]):
+            return None
+        start = offset
+        offset += 1
+        while offset < size and ident_continue(source[offset]):
+            offset += 1
+        return source[start:offset]
+
+    def _package_clause(self, rel: str) -> str | None:
+        """Package declaration for one repo-relative Go source file."""
+        try:
+            source = (Path(self.root) / rel).read_text(
+                encoding="utf-8", errors="replace"
+            )
+        except (FileNotFoundError, IsADirectoryError):
+            return None
+        return GoplsSatisfiers._package_clause_from_source(source)
+
+    def _identity_with_reason(
+        self, rel: str, line0: int, char0: int = 0
+    ) -> tuple[dict | None, str | None]:
+        """Map one implementation location, preserving the reason when it is not a target."""
+        symbol = self._symbol_at(rel, line0, char0)
+        if symbol is None or not symbol.get("container"):
+            return None, "receiver_unknown"
+        if self._definition_kind(symbol) == "interface":
+            # An implementation result that lands inside an interface is never a
+            # concrete satisfier. Keeping it would fabricate a false positive.
+            return None, "interface_location"
+        package_clause = self._package_clause(rel)
+        if package_clause is None:
+            return None, "package_clause_unknown"
+        package_dir = Path(rel).parent.as_posix()
+        return {
+            "name": symbol["container"],
+            "file": rel,
+            "span": [symbol["start_line"] + 1, symbol["end_line"] + 1],
+            "package_dir": "" if package_dir == "." else package_dir,
+            "package_clause": package_clause,
+        }, None
+
+    def _identity_at(self, rel: str, line0: int, char0: int = 0) -> dict | None:
+        """Qualified concrete satisfier identity and method-definition target."""
+        return self._identity_with_reason(rel, line0, char0)[0]
+
+    def method_decl(self, rel: str, line0: int, char0: int) -> dict:
+        """Definition target, enclosing kind, and normalized target evidence.
 
         This is the gopls-side disambiguator: two call sites that prism lumps into one
         implementer-set group can resolve to DIFFERENT interface declarations (caddy's
         ``next.ServeHTTP`` is ``http.Handler.ServeHTTP`` at one site and
         ``caddyhttp.Handler.ServeHTTP`` at another). Keying the implementation cache by the
         decl location, not by prism's group, queries the interface gopls actually sees."""
-        from tier_a.lsp_client import LspError
+        from tier_a.lsp_client import LspError, LspTimeout
         from tier_a.oracles import uri_to_rel
 
         if not self._did_open(rel):
-            return None
+            return {"kind": "unknown", "failure_stage": "definition",
+                    "oracle_status": "unresolved"}
         try:
             raw = self.client.request(
                 "textDocument/definition",
@@ -451,16 +1286,77 @@ class GoplsSatisfiers:
                  "position": {"line": line0, "character": char0}},
                 timeout=self.group_timeout,
             )
+        except LspTimeout:
+            return {"kind": "unknown", "failure_stage": "definition",
+                    "oracle_status": "timeout"}
         except LspError:
-            return None
-        for d in (raw if isinstance(raw, list) else [raw] if raw else []):
+            return {"kind": "unknown", "failure_stage": "definition",
+                    "oracle_status": "unresolved"}
+        if raw is None:
+            definitions = []
+        elif isinstance(raw, list):
+            definitions = raw
+        elif isinstance(raw, dict):
+            definitions = [raw]
+        else:
+            return {"kind": "unknown", "failure_stage": "definition",
+                    "oracle_status": "unresolved"}
+        for d in definitions:
+            if not isinstance(d, dict):
+                return {"kind": "unknown", "failure_stage": "definition",
+                        "oracle_status": "unresolved"}
             uri = d.get("uri") or d.get("targetUri")
             rng = d.get("range") or d.get("targetSelectionRange") or d.get("targetRange")
+            if uri is not None and not isinstance(uri, str):
+                return {"kind": "unknown", "failure_stage": "definition",
+                        "oracle_status": "unresolved"}
             f = uri_to_rel(uri, self.root) if uri else None
-            if f is None or rng is None:
+            if rng is None:
                 continue
-            return (f, rng["start"]["line"], rng["start"]["character"])
-        return None
+            if not isinstance(rng, dict):
+                return {"kind": "unknown", "failure_stage": "definition",
+                        "oracle_status": "unresolved"}
+            try:
+                target_line = rng["start"]["line"]
+                target_char = rng["start"]["character"]
+            except (KeyError, TypeError):
+                return {"kind": "unknown", "failure_stage": "definition",
+                        "oracle_status": "unresolved"}
+            if f is None:
+                if uri is None:
+                    continue
+                parsed = urllib.parse.urlparse(uri)
+                external_kind = self._external_definition_kind(
+                    uri, target_line, target_char
+                )
+                external_status = getattr(self, "_last_external_definition_status", None)
+                return {
+                    "file": urllib.parse.unquote(parsed.path) if parsed.path else uri,
+                    "line": target_line,
+                    "character": target_char,
+                    "kind": "external",
+                    "external_kind": external_kind,
+                    "identity": None,
+                    **({"failure_stage": "definition",
+                        "oracle_status": external_status}
+                       if external_status is not None else {}),
+                }
+            symbol = self._symbol_at(f, target_line, target_char)
+            kind = self._definition_kind(symbol)
+            identity, reason = (
+                self._identity_with_reason(f, target_line, target_char)
+                if kind == "concrete" else (None, None)
+            )
+            return {
+                "file": f,
+                "line": target_line,
+                "character": target_char,
+                "kind": kind,
+                "identity": identity,
+                "reason": reason,
+            }
+        return {"kind": "unknown", "failure_stage": "definition",
+                "oracle_status": "unresolved"}
 
     def satisfier_types(self, rel: str, line0: int, char0: int) -> tuple[set[str], int] | None:
         """gopls textDocument/implementation at (rel, line0, char0) -> (receiver TYPE name
@@ -470,10 +1366,11 @@ class GoplsSatisfiers:
         but we could not map them to a container type" (a mapping gap, count>0) from "gopls
         returned an empty list" (count==0, almost always a not-ready artifact for an
         interface method — see run_oracle's retry)."""
-        from tier_a.lsp_client import LspError
+        from tier_a.lsp_client import LspError, LspTimeout
         from tier_a.oracles import uri_to_rel
 
         if not self._did_open(rel):
+            self._last_type_status = "unresolved"
             return None
         try:
             results = self.client.request(
@@ -482,18 +1379,131 @@ class GoplsSatisfiers:
                  "position": {"line": line0, "character": char0}},
                 timeout=self.group_timeout,
             )
-        except LspError:
+        except LspTimeout:
+            self._last_type_status = "timeout"
             return None
-        results = results or []
+        except LspError:
+            self._last_type_status = "unresolved"
+            return None
+        if results is None:
+            results = []
+        elif not isinstance(results, list):
+            self._last_type_status = "unresolved"
+            return None
+        self._last_type_status = None
         types: set[str] = set()
         for it in results:
-            f = uri_to_rel(it["uri"], self.root)
+            if not isinstance(it, dict):
+                self._last_type_status = "unresolved"
+                return None
+            uri = it.get("uri") or it.get("targetUri")
+            location = it.get("range") or it.get("targetSelectionRange") or it.get("targetRange")
+            if not isinstance(uri, str) or not isinstance(location, dict) or \
+                    not isinstance(location.get("start"), dict):
+                self._last_type_status = "unresolved"
+                return None
+            f = uri_to_rel(uri, self.root)
             if f is None:
                 continue
-            t = self._type_at(f, it["range"]["start"]["line"])
+            line = location["start"].get("line")
+            if not isinstance(line, int):
+                self._last_type_status = "unresolved"
+                return None
+            t = self._type_at(f, line)
             if t:
                 types.add(t)
         return types, len(results)
+
+    def satisfier_identities(
+        self, rel: str, line0: int, char0: int
+    ) -> tuple[list[dict], int, list[dict]] | None:
+        """gopls implementation locations as qualified identities and method targets.
+
+        Unmappable locations are retained with their file, line, and reason instead of
+        collapsing the entire site into an opaque boolean. The caller can then compare the
+        mappable evidence and fail closed only when a missing prism identity could be hidden.
+        """
+        from tier_a.lsp_client import LspError, LspTimeout
+        from tier_a.oracles import uri_to_rel
+
+        if not self._did_open(rel):
+            self._last_implementation_status = "unresolved"
+            return None
+        try:
+            results = self.client.request(
+                "textDocument/implementation",
+                {"textDocument": {"uri": self._uri(rel)},
+                 "position": {"line": line0, "character": char0}},
+                timeout=self.group_timeout,
+            )
+        except LspTimeout:
+            self._last_implementation_status = "timeout"
+            return None
+        except LspError:
+            self._last_implementation_status = "unresolved"
+            return None
+        if results is None:
+            results = []
+        elif isinstance(results, list):
+            pass
+        elif isinstance(results, dict) and (
+            "uri" in results or "targetUri" in results
+        ):
+            results = [results]
+        else:
+            self._last_implementation_status = "unresolved"
+            return None
+        self._last_implementation_status = None
+        identities: list[dict] = []
+        unresolved_locations: list[dict] = []
+        for result in results:
+            if not isinstance(result, dict):
+                self._last_implementation_status = "unresolved"
+                return None
+            uri = result.get("uri") or result.get("targetUri")
+            location = result.get("range") or result.get("targetSelectionRange") or result.get("targetRange")
+            if uri is not None and not isinstance(uri, str):
+                self._last_implementation_status = "unresolved"
+                return None
+            if location is not None and (
+                    not isinstance(location, dict)
+                    or not isinstance(location.get("start"), dict)
+            ):
+                self._last_implementation_status = "unresolved"
+                return None
+            target_file = uri_to_rel(uri, self.root) if uri else None
+            line = None
+            if location is not None:
+                line0 = location.get("start", {}).get("line")
+                line = line0 + 1 if isinstance(line0, int) else None
+                char0 = location.get("start", {}).get("character")
+            else:
+                char0 = None
+            if target_file is None:
+                parsed = urllib.parse.urlparse(uri) if uri else None
+                unresolved_locations.append({
+                    "file": urllib.parse.unquote(parsed.path) if parsed and parsed.path else uri,
+                    "line": line,
+                    "reason": "outside_repo" if uri else "location_uri_missing",
+                })
+                continue
+            if location is None or line is None:
+                unresolved_locations.append({
+                    "file": target_file,
+                    "line": line,
+                    "reason": "location_missing",
+                })
+                continue
+            identity, reason = self._identity_with_reason(target_file, line - 1, char0 or 0)
+            if identity is None:
+                unresolved_locations.append({
+                    "file": target_file,
+                    "line": line,
+                    "reason": reason or "mapping_unknown",
+                })
+            else:
+                identities.append(identity)
+        return identities, len(results), unresolved_locations
 
 
 def make_cmd(corpus: str | None) -> list[str]:
@@ -518,24 +1528,33 @@ def _read_line(root: str, rel: str, line: int) -> str | None:
     return src[line - 1] if 1 <= line <= len(src) else None
 
 
+def _read_source(root: str, rel: str) -> str | None:
+    try:
+        return (Path(root) / rel).read_text(encoding="utf-8", errors="replace")
+    except (FileNotFoundError, IsADirectoryError):
+        return None
+
+
 def run_oracle(manifest_path: str, repo: str, cmd: list[str],
-               group_timeout: float, log=sys.stderr) -> tuple[list[dict], dict]:
+               group_timeout: float, log=sys.stderr,
+               oracle_factory=GoplsSatisfiers) -> tuple[list[dict], dict]:
     """Load the manifest, query gopls once per unique (interface, method) group, and build
     per-site compare records + a summary. Returns (sites, summary)."""
     repo = os.path.abspath(os.path.expanduser(repo))
     dispatch = load_dispatch_sites(manifest_path)
 
-    print(f"dispatch sites (fanout>0): {len(dispatch)}", file=log)
+    print(f"dispatch sites (all in-scope): {len(dispatch)}", file=log)
 
-    oracle = GoplsSatisfiers(repo, cmd, group_timeout=group_timeout)
+    oracle = oracle_factory(repo, cmd, group_timeout=group_timeout)
     records: list[dict] = []
-    # Cache the satisfier set per INTERFACE-METHOD DECLARATION location (file, decl_line),
+    # Cache the complete terminal implementation outcome per interface-method declaration,
     # not per prism group: gopls disambiguates the interface a call site dispatches on
     # (caddy `next.ServeHTTP` is `http.Handler.ServeHTTP` at some sites and
     # `caddyhttp.Handler.ServeHTTP` at others, even though prism groups them together by
     # implementer set). Keying on the decl location queries the interface gopls sees and is
-    # immune to a prism grouping that lumps two interfaces. Value = (types, label).
-    decl_cache: dict[tuple[str, int], tuple[set[str], str]] = {}
+    # immune to a prism grouping that lumps two interfaces. The one bounded retry happens
+    # before caching so zero- and positive-fanout sites share the same terminal evidence.
+    decl_cache: dict[tuple[str, int, int], dict] = {}
     try:
         t0 = time.monotonic()
         oracle.start()
@@ -559,67 +1578,247 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
         print(f"warmed {warmed}/{len(warm_files)} files in {round(time.monotonic() - tw, 1)}s",
               file=log)
 
-        scored = 0
         for si, s in enumerate(dispatch, 1):
             method = s["method"]
             prism_set = set(s.get("implementers", []))
             line_text = _read_line(repo, s["file"], s["line"])
-            col = method_token_col(line_text or "", method)
+            source = _read_source(repo, s["file"])
+            position = None
+            if source is not None and "start_byte" in s and "end_byte" in s:
+                position = call_position_from_span(
+                    source, s["start_byte"], s["end_byte"], method
+                )
+            # Pre-identity manifests did not promise byte spans. Keep their legacy
+            # behavior explicit; current manifests must provide an exact span.
+            if position is None and ("start_byte" not in s or "end_byte" not in s):
+                col = method_token_col(line_text or "", method)
+                call_line = s["line"] - 1
+            elif position is not None:
+                call_line, col = position
+            else:
+                call_line, col = s["line"] - 1, None
 
-            gopls_set: set[str] | None = None
+            gopls_identities: list[dict] | None = None
+            oracle_unresolved = False
+            unresolved_locations: list[dict] = []
+            definition_kind = "unknown"
+            failure_stage: str | None = "token" if col is None else None
+            oracle_status: str | None = "unresolved" if col is None else None
+            not_dispatch = False
+            implementation_outcome: str | None = None
+            implementation_raw_result_count: int | None = None
             iface = None
             if col is not None:
-                # 1) resolve which interface this call dispatches on (its method decl).
-                decl = oracle.method_decl(s["file"], s["line"] - 1, col)
-                if decl is not None:
-                    decl_file, decl_line, decl_char = decl
-                    ckey = (decl_file, decl_line)
-                    if ckey not in decl_cache:
-                        # 2) implementation at the decl's method token, with empty-retry
-                        #    (empty for a fanout>0 method => not-ready, not a true zero).
-                        out = oracle.satisfier_types(decl_file, decl_line, decl_char)
-                        if out is not None and out[1] == 0:
-                            oracle.resettle(settle_s=oracle._settle_s)
-                            out = oracle.satisfier_types(decl_file, decl_line, decl_char)
-                        if out is not None and out[1] > 0:
-                            # the enclosing type at the decl line is the interface name.
-                            label = oracle._type_at(decl_file, decl_line) or \
+                # 1) Resolve the concrete or interface declaration at this exact call.
+                decl = oracle.method_decl(s["file"], call_line, col)
+                definition_kind = decl.get("kind", "unknown")
+                failure_stage = decl.get("failure_stage")
+                oracle_status = decl.get("oracle_status")
+                if definition_kind == "concrete":
+                    iface = f"{Path(decl.get('file', s['file'])).stem}:{decl.get('line', 0) + 1}"
+                    concrete_identity = decl.get("identity")
+                    if concrete_identity is None:
+                        gopls_identities = []
+                        oracle_unresolved = True
+                        failure_stage = "mapping"
+                        oracle_status = "unresolved"
+                        unresolved_locations.append({
+                            "file": decl.get("file"),
+                            "line": (decl.get("line") + 1)
+                            if isinstance(decl.get("line"), int) else None,
+                            "reason": decl.get("reason") or "definition_target_unmapped",
+                        })
+                    else:
+                        # `implementation` on a concrete method returns the interface it
+                        # implements, not a concrete satisfier. The definition itself is
+                        # therefore the complete singleton ground truth.
+                        gopls_identities = [concrete_identity]
+                        not_dispatch = s.get("fanout", len(prism_set)) == 0
+                        failure_stage = None
+                elif definition_kind == "external":
+                    external_kind = decl.get("external_kind", "unknown")
+                    if external_kind == "concrete":
+                        # An external concrete method is not dispatch. A positive Prism
+                        # fanout therefore compares against the empty concrete target set.
+                        gopls_identities = []
+                        not_dispatch = s.get("fanout", len(prism_set)) == 0
+                        implementation_outcome = "external_concrete"
+                        failure_stage = None
+                    elif external_kind != "interface":
+                        gopls_identities = []
+                        oracle_unresolved = True
+                        implementation_outcome = "external_unknown"
+                        failure_stage = "definition"
+                        oracle_status = oracle_status or "unresolved"
+                if definition_kind == "interface" or (
+                        definition_kind == "external"
+                        and decl.get("external_kind") == "interface"
+                ):
+                    decl_file = decl.get("file")
+                    decl_line = decl.get("line")
+                    decl_char = decl.get("character")
+                    if not isinstance(decl_file, str) or not isinstance(decl_line, int) \
+                            or not isinstance(decl_char, int):
+                        oracle_unresolved = True
+                        gopls_identities = []
+                        failure_stage = "definition"
+                        oracle_status = "unresolved"
+                    else:
+                        ckey = (decl_file, decl_line, decl_char)
+                        if ckey not in decl_cache:
+                            # 2) implementation at an interface declaration, with an
+                            # empty/concrete-less retry for gopls readiness.
+                            out = oracle.satisfier_identities(decl_file, decl_line, decl_char)
+                            retry_empty = out is not None and (out[1] == 0 or not out[0])
+                            if retry_empty:
+                                oracle.resettle(settle_s=oracle._settle_s)
+                                out = oracle.satisfier_identities(decl_file, decl_line, decl_char)
+                            type_at = getattr(oracle, "_type_at", lambda *_: None)
+                            label = type_at(decl_file, decl_line) or \
                                 f"{Path(decl_file).stem}:{decl_line + 1}"
-                            decl_cache[ckey] = (out[0], label)
-                    cached = decl_cache.get(ckey)
-                    if cached is not None:
-                        gopls_set, iface = cached
+                            if out is None:
+                                implementation_status = getattr(
+                                    oracle, "_last_implementation_status", "timeout"
+                                )
+                                terminal = {
+                                    "outcome": (
+                                        "timeout" if implementation_status == "timeout"
+                                        else "implementation_error"
+                                    ),
+                                    "identities": None,
+                                    "interface": label,
+                                    "unresolved_locations": [],
+                                    "raw_result_count": None,
+                                }
+                            else:
+                                unknown_locations, non_candidate_locations = _partition_location_evidence(
+                                    out[2]
+                                )
+                                if not out[0] and out[1] > 0 and non_candidate_locations:
+                                    outcome = "non_candidate_only"
+                                elif not out[0] and not unknown_locations:
+                                    outcome = "persistent_empty"
+                                elif unknown_locations:
+                                    outcome = "partial_mapping"
+                                else:
+                                    outcome = "success"
+                                terminal = {
+                                    "outcome": outcome,
+                                    "identities": out[0],
+                                    "interface": label,
+                                    "unresolved_locations": out[2],
+                                    "raw_result_count": out[1],
+                                }
+                            decl_cache[ckey] = terminal
+                        terminal = decl_cache[ckey]
+                        gopls_identities = terminal["identities"]
+                        iface = terminal["interface"]
+                        unresolved_locations = terminal["unresolved_locations"]
+                        implementation_outcome = terminal["outcome"]
+                        implementation_raw_result_count = terminal["raw_result_count"]
+                        if implementation_outcome == "timeout":
+                            failure_stage = "implementation"
+                            oracle_status = "timeout"
+                        elif implementation_outcome == "implementation_error":
+                            oracle_unresolved = True
+                            failure_stage = "implementation"
+                            oracle_status = "unresolved"
+                        elif implementation_outcome in {"partial_mapping", "non_candidate_only"}:
+                            failure_stage = "mapping"
+                elif definition_kind not in {"concrete", "external"}:
+                    gopls_identities = []
+                    oracle_unresolved = True
+                    failure_stage = failure_stage or "definition"
+                    oracle_status = oracle_status or "unresolved"
             if iface is None:
                 # decl/impl unavailable: fall back to a type-assertion source label, then
-                # a synthetic one. gopls_set stays None => the site is oracle_timeout.
+                # a synthetic one. gopls identities stay None => oracle_timeout.
                 m = _ASSERT_RE.search(line_text) if line_text else None
                 iface = m.group(1) if m else interface_label(line_text, method, si)
 
-            if gopls_set is not None:
-                scored += 1
-            records.append(compare_site(
-                file=s["file"], line=s["line"], interface=iface,
-                method=method, prism_set=prism_set, gopls_set=gopls_set))
+            if "implementer_identities" in s:
+                record = compare_site(
+                    file=s["file"], line=s["line"], interface=iface, method=method,
+                    prism_set=prism_set,
+                    prism_identities=s["implementer_identities"],
+                    gopls_identities=gopls_identities,
+                    oracle_unresolved=oracle_unresolved,
+                    definition_kind=definition_kind,
+                    failure_stage=failure_stage,
+                    unresolved_locations=unresolved_locations,
+                    not_dispatch=not_dispatch,
+                    oracle_status=oracle_status,
+                    implementation_outcome=implementation_outcome,
+                    implementation_raw_result_count=implementation_raw_result_count,
+                )
+            else:
+                # Compatibility only: old manifests lack target/package evidence, so the
+                # comparison is explicitly marked name_only rather than pretending it is
+                # qualified by the new gopls adapter.
+                gopls_set = (
+                    None if gopls_identities is None
+                    else {identity["name"] for identity in gopls_identities}
+                )
+                record = compare_site(
+                    file=s["file"], line=s["line"], interface=iface, method=method,
+                    prism_set=prism_set, gopls_set=gopls_set,
+                    definition_kind=definition_kind, failure_stage=failure_stage,
+                    unresolved_locations=unresolved_locations,
+                    not_dispatch=not_dispatch,
+                    oracle_status=oracle_status,
+                    implementation_outcome=implementation_outcome,
+                    implementation_raw_result_count=implementation_raw_result_count,
+                )
+            # Preserve the manifest site identity in the durable output so baseline
+            # deltas cannot collapse distinct calls that share a source line.
+            record["fanout"] = s.get("fanout", len(prism_set))
+            record["start_byte"] = s.get("start_byte")
+            record["end_byte"] = s.get("end_byte")
+            records.append(record)
 
-        print(f"scored {scored}/{len(dispatch)} sites; "
+        summary = summarize(records)
+        overall = summary["overall"]
+        print(f"scored {overall['scored_sites']}/{len(dispatch)} sites; "
+              f"excluded not_dispatch={overall['not_dispatch_sites']} "
+              f"oracle_timeout={overall['oracle_timeout']} "
+              f"oracle_unresolved={overall['oracle_unresolved']}; "
               f"{len(decl_cache)} unique interface-method declarations; "
-              f"{len(dispatch) - scored} oracle_timeout in "
               f"{round(time.monotonic() - t0, 1)}s total", file=log)
     finally:
         oracle.stop()
 
-    return records, summarize(records)
+    return records, summary
+
+
+def _format_precision(value: float | None) -> str:
+    return "null" if value is None else f"{value:.4f}"
 
 
 def _print_summary(summary: dict, log=sys.stdout) -> None:
     o = summary["overall"]
     print("\n=== dispatch oracle summary ===", file=log)
-    print(f"overall dispatch_precision = {o['dispatch_precision']:.4f}  "
+    print(f"overall dispatch_precision (edge-weighted) = "
+          f"{_format_precision(o['dispatch_precision'])}; "
+          f"sound_site_rate = {_format_precision(o['sound_site_rate'])} "
+          f"({o['sound']}/{o['scored_sites']} scored sites)  "
           f"(sites={o['sites']} sound={o['sound']} over_approx={o['over_approx']} "
           f"recall_gap={o['recall_gap']} oracle_timeout={o['oracle_timeout']})", file=log)
+    coverage = summary["fanout_positive_coverage"]
+    print("fanout-positive coverage = "
+          f"site:{_format_precision(coverage['site_coverage'])} "
+          f"({coverage['resolved_sites']}/{coverage['total_sites']}) "
+          f"edge:{_format_precision(coverage['edge_coverage'])} "
+          f"({coverage['scored_identity_occurrences']}/{coverage['identity_occurrences']})",
+          file=log)
+    print(f"exclusions: not_dispatch={o['not_dispatch_sites']} "
+          f"interface_zero_fanout={o['interface_zero_fanout_sites']} "
+          f"unknown_definition={o['unknown_definition_sites']} "
+          f"external_definition={o['external_definition_sites']}", file=log)
     print("per (interface, method):", file=log)
     for g in summary["groups"]:
-        print(f"  {g['interface']}.{g['method']}: precision={g['dispatch_precision']:.4f} "
+        print(f"  {g['interface']}.{g['method']}: "
+              f"dispatch_precision(edge-weighted)={_format_precision(g['dispatch_precision'])} "
+              f"sound_site_rate={_format_precision(g['sound_site_rate'])} "
               f"sites={g['sites']} sound={g['sound']} over_approx={g['over_approx']} "
               f"recall_gap={g['recall_gap']} oracle_timeout={g['oracle_timeout']}", file=log)
     if summary["over_approx_sites"]:
@@ -634,6 +1833,17 @@ def _print_summary(summary: dict, log=sys.stdout) -> None:
         print(f"\noracle_timeout groups ({len(summary['oracle_timeout_groups'])}):", file=log)
         for r in summary["oracle_timeout_groups"]:
             print(f"  {r['interface']}.{r['method']}", file=log)
+    if "delta" in summary:
+        delta = summary["delta"]
+        print(f"\ndelta gate_ok = {delta['gate_ok']} "
+              f"(newly_exact_sites={len(delta['newly_exact_sites'])} "
+              f"site_coverage={_format_precision(delta['site_coverage'])}/"
+              f"{delta['site_coverage_floor']:.2f} "
+              f"edge_coverage={_format_precision(delta['edge_coverage'])}/"
+              f"{delta['edge_coverage_floor']:.2f})", file=log)
+        for site in delta["blocking_sites"]:
+            print(f"  BLOCK {site['file']}:{site['line']} {site['method']} "
+                  f"{site['classification']} ({site['reason']})", file=log)
 
 
 def main() -> int:
@@ -646,18 +1856,47 @@ def main() -> int:
     ap.add_argument("--corpus", default=None,
                     help="corpus name in corpora.toml (reads the gopls cmd); default PATH gopls")
     ap.add_argument("--out", required=True, help="output comparison.json path")
+    ap.add_argument("--baseline", default=None,
+                    help="prior dispatch-oracle output; enables pin-checked delta gating")
     ap.add_argument("--group-timeout", type=float, default=300.0,
                     help="per-(interface,method) gopls request timeout seconds "
                          "(generous; a slow group is recorded oracle_timeout, not fatal)")
+    ap.add_argument("--site-coverage-floor", type=float, default=0.90,
+                    help="minimum resolved fanout-positive site coverage for a delta gate")
+    ap.add_argument("--edge-coverage-floor", type=float, default=0.90,
+                    help="minimum scored fanout-positive identity coverage for a delta gate")
     args = ap.parse_args()
+    if not 0.0 <= args.site_coverage_floor <= 1.0:
+        ap.error("--site-coverage-floor must be within [0, 1]")
+    if not 0.0 <= args.edge_coverage_floor <= 1.0:
+        ap.error("--edge-coverage-floor must be within [0, 1]")
 
     cmd = make_cmd(args.corpus)
+    repo = os.path.abspath(os.path.expanduser(args.repo))
+    pins = environment_pins(repo, cmd)
+    baseline = None
+    if args.baseline:
+        baseline = json.loads(Path(args.baseline).read_text())
+        baseline_pins = baseline.get("environment")
+        if not isinstance(baseline_pins, dict):
+            ap.error("baseline has no environment pins; re-baseline with the hardened oracle")
+        try:
+            validate_environment_pins(baseline_pins, pins)
+        except ValueError as exc:
+            ap.error(str(exc))
     sites, summary = run_oracle(args.manifest, args.repo, cmd, args.group_timeout)
+    if baseline is not None:
+        summary["delta"] = delta_summary(
+            sites, baseline.get("sites", []),
+            site_coverage_floor=args.site_coverage_floor,
+            edge_coverage_floor=args.edge_coverage_floor,
+        )
     out = {
         "manifest": os.path.abspath(args.manifest),
-        "repo": os.path.abspath(os.path.expanduser(args.repo)),
+        "repo": repo,
         "corpus": args.corpus,
         "oracle_cmd": cmd,
+        "environment": pins,
         "sites": sites,
         "summary": summary,
     }

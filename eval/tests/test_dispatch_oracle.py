@@ -6,9 +6,13 @@ TDD: the pure classification + summary logic (`classify`, `dispatch_precision`,
 caddy), deliberately NOT unit-tested.
 """
 import importlib.util
+import io
+import json
 from pathlib import Path
 
 import pytest
+
+from tier_a.lsp_client import LspServerError, LspTimeout
 
 # dispatch_oracle.py lives in eval/tools/ (a CLI script, not part of the tier_a
 # package), so load it by path the way other tool tests would.
@@ -136,6 +140,168 @@ def test_compare_site_with_oracle_timeout_marker():
 
 
 # ---------------------------------------------------------------------------
+# #14 slice 1 qualified identities — fake adapter, no live gopls
+# ---------------------------------------------------------------------------
+
+def _identity(name, file, span, package_clause="impl"):
+    return {
+        "name": name,
+        "file": file,
+        "span": span,
+        "package_dir": str(Path(file).parent) if Path(file).parent != Path(".") else "",
+        "package_clause": package_clause,
+    }
+
+
+def test_gopls_identity_at_keeps_package_and_method_target_evidence():
+    class FakeGoplsAdapter:
+        _definition_kind = staticmethod(do.GoplsSatisfiers._definition_kind)
+        _identity_with_reason = do.GoplsSatisfiers._identity_with_reason
+
+        def _symbol_at(self, rel, _line, _char=0):
+            assert rel == "good/impl.go"
+            return {"container": "Impl", "start_line": 4, "end_line": 7}
+
+        def _package_clause(self, rel):
+            assert rel == "good/impl.go"
+            return "good"
+
+    identity = do.GoplsSatisfiers._identity_at(FakeGoplsAdapter(), "good/impl.go", 5)
+    assert identity == _identity("Impl", "good/impl.go", [5, 8], package_clause="good")
+
+
+def test_symbol_at_disambiguates_same_line_declarations_by_character():
+    symbols = [
+        {
+            "name": "(*Left).M", "kind": 6,
+            "range": {"start": {"line": 4, "character": 0},
+                      "end": {"line": 4, "character": 12}},
+            "selectionRange": {"start": {"line": 4, "character": 8},
+                               "end": {"line": 4, "character": 9}},
+        },
+        {
+            "name": "(*Right).M", "kind": 6,
+            "range": {"start": {"line": 4, "character": 14},
+                      "end": {"line": 4, "character": 27}},
+            "selectionRange": {"start": {"line": 4, "character": 23},
+                               "end": {"line": 4, "character": 24}},
+        },
+    ]
+
+    class FakeGoplsAdapter:
+        _methods = do.GoplsSatisfiers._methods
+        _symbol_at = do.GoplsSatisfiers._symbol_at
+        group_timeout = 1
+
+        def __init__(self):
+            self._docsym = {}
+            self._symbol_details = {}
+            self.client = self
+
+        def _did_open(self, _rel):
+            return True
+
+        def _uri(self, rel):
+            return f"file:///{rel}"
+
+        def request(self, method, _params, timeout):
+            assert method == "textDocument/documentSymbol"
+            assert timeout == 1
+            return symbols
+
+    adapter = FakeGoplsAdapter()
+    left = adapter._symbol_at("same.go", 4, 8)
+    right = adapter._symbol_at("same.go", 4, 23)
+    assert left["container"] == "Left"
+    assert right["container"] == "Right"
+    assert right["selection_start_character"] == 23
+
+
+def test_package_clause_ignores_leading_comments(tmp_path):
+    (tmp_path / "impl.go").write_text(
+        "/*\npackage decoy\n*/\n"
+        "// package another_decoy\n"
+        "package real\n"
+        "var note = \"package string_decoy\"\n"
+        "var raw = `package raw_decoy`\n"
+    )
+
+    class FakeGoplsAdapter:
+        root = str(tmp_path)
+
+    assert do.GoplsSatisfiers._package_clause(FakeGoplsAdapter(), "impl.go") == "real"
+
+
+def test_package_clause_accepts_unicode_identifier_and_requires_first_token():
+    assert do.GoplsSatisfiers._package_clause_from_source(
+        "/* package decoy */\npackage π\n"
+    ) == "π"
+    assert do.GoplsSatisfiers._package_clause_from_source(
+        "var note = \"package decoy\"\npackage real\n"
+    ) is None
+
+
+def test_compare_site_qualified_identity_rejects_same_named_other_package():
+    rec = do.compare_site(
+        file="caller.go",
+        line=10,
+        interface="Runner",
+        method="Go",
+        prism_identities=[_identity("Impl", "bad/impl.go", [10, 12], "bad")],
+        gopls_identities=[_identity("Impl", "good/impl.go", [10, 12], "good")],
+    )
+    assert rec["identity_mode"] == "qualified"
+    assert rec["classification"] == "over_approx"
+    assert rec["prism_only_identities"] == [
+        {"package_dir": "bad", "package_clause": "bad", "name": "Impl"}
+    ]
+
+
+def test_compare_site_qualified_identity_requires_exact_method_target():
+    rec = do.compare_site(
+        file="caller.go",
+        line=10,
+        interface="Runner",
+        method="Go",
+        prism_identities=[_identity("Impl", "impl_darwin.go", [3, 5])],
+        gopls_identities=[_identity("Impl", "impl_linux.go", [3, 5])],
+    )
+    assert rec["classification"] == "target_mismatch"
+    assert rec["target_mismatches"] == [
+        {
+            "identity": {"package_dir": "", "package_clause": "impl", "name": "Impl"},
+            "prism_targets": [{"file": "impl_darwin.go", "span": [3, 5]}],
+            "gopls_targets": [{"file": "impl_linux.go", "span": [3, 5]}],
+        }
+    ]
+
+
+def test_compare_site_unknown_package_clause_is_oracle_unresolved():
+    unresolved = _identity("Impl", "impl.go", [3, 5], package_clause=None)
+    rec = do.compare_site(
+        file="caller.go",
+        line=10,
+        interface="Runner",
+        method="Go",
+        prism_identities=[unresolved],
+        gopls_identities=[_identity("Impl", "impl.go", [3, 5])],
+    )
+    assert rec["classification"] == "oracle_unresolved"
+
+
+def test_summarize_marks_legacy_manifest_comparison_name_only():
+    legacy = do.compare_site(
+        file="caller.go",
+        line=10,
+        interface="Runner",
+        method="Go",
+        prism_set={"Impl"},
+        gopls_set={"Impl"},
+    )
+    assert do.summarize([legacy])["identity_mode"] == "name_only"
+
+
+# ---------------------------------------------------------------------------
 # summarize — per-(interface,method) + overall rollup
 # ---------------------------------------------------------------------------
 
@@ -157,6 +323,7 @@ def test_summarize_counts_and_overall_precision():
 
     # overall: |prism ∩ gopls| summed / |prism| summed = (1 + 1 + 1) / (1 + 1 + 2) = 3/4
     assert summary["overall"]["dispatch_precision"] == pytest.approx(0.75)
+    assert summary["overall"]["sound_site_rate"] == pytest.approx(2 / 3)
     assert summary["overall"]["sites"] == 3
     assert summary["overall"]["sound"] == 2
     assert summary["overall"]["recall_gap"] == 0
@@ -171,9 +338,11 @@ def test_summarize_counts_and_overall_precision():
     assert cm["recall_gap"] == 0
     assert cm["over_approx"] == 0
     assert cm["dispatch_precision"] == pytest.approx(1.0)   # (1+1)/(1+1)
+    assert cm["sound_site_rate"] == pytest.approx(1.0)
     h = per[("Handler", "ServeHTTP")]
     assert h["over_approx"] == 1
     assert h["dispatch_precision"] == pytest.approx(0.5)
+    assert h["sound_site_rate"] == pytest.approx(0.0)
 
 
 def test_summarize_lists_over_approx_sites_for_adjudication():
@@ -209,7 +378,1197 @@ def test_summarize_oracle_timeout_excluded_from_precision():
 def test_summarize_empty_sites():
     summary = do.summarize([])
     assert summary["overall"]["sites"] == 0
-    assert summary["overall"]["dispatch_precision"] == pytest.approx(1.0)
+    assert summary["overall"]["scored_sites"] == 0
+    assert summary["overall"]["dispatch_precision"] is None
+    assert summary["overall"]["sound_site_rate"] is None
     assert summary["groups"] == []
     assert summary["over_approx_sites"] == []
     assert summary["oracle_timeout_groups"] == []
+
+
+def test_print_summary_labels_site_rate_and_edge_weighted_precision():
+    summary = do.summarize([
+        _site("good.go", 1, "I", "M", {"A", "B"}, {"A", "B"}),
+        _site("bad.go", 2, "I", "M", {"C"}, set()),
+    ])
+    log = io.StringIO()
+    do._print_summary(summary, log)
+    assert (
+        "overall dispatch_precision (edge-weighted) = 0.6667; "
+        "sound_site_rate = 0.5000 (1/2 scored sites)"
+        in log.getvalue()
+    )
+
+
+def test_load_dispatch_sites_keeps_zero_fanout_and_scores_recall_gap(tmp_path):
+    manifest = tmp_path / "manifest.json"
+    zero = {
+        "file": "caller.go",
+        "line": 10,
+        "method": "Go",
+        "fanout": 0,
+        "implementers": [],
+        "implementer_identities": [],
+    }
+    fanned = {
+        "file": "caller.go",
+        "line": 20,
+        "method": "Go",
+        "fanout": 1,
+        "implementers": ["Impl"],
+        "implementer_identities": [_identity("Impl", "impl.go", [3, 5])],
+    }
+    manifest.write_text(json.dumps({"sites": [zero, fanned]}))
+    assert do.load_dispatch_sites(manifest) == [zero, fanned]
+
+    rec = do.compare_site(
+        file=zero["file"],
+        line=zero["line"],
+        interface="Runner",
+        method=zero["method"],
+        prism_identities=zero["implementer_identities"],
+        gopls_identities=[_identity("Impl", "impl.go", [3, 5])],
+    )
+    summary = do.summarize([rec])
+    assert rec["classification"] == "recall_gap"
+    assert summary["overall"]["recall_gap"] == 1
+    assert summary["overall"]["scored_sites"] == 1
+
+
+# ---------------------------------------------------------------------------
+# #14 fix wave 1 — definition-kind dispatch
+# ---------------------------------------------------------------------------
+
+def _run_fake_oracle(
+    tmp_path, *, definition, satisfiers, prism_identities,
+    start_byte=8, end_byte=13, implementation_status=None, legacy=False,
+    unresolved_locations=None,
+):
+    (tmp_path / "caller.go").write_text("adapter.Adapt()\n")
+    manifest = tmp_path / "manifest.json"
+    site = {
+        "file": "caller.go",
+        "line": 1,
+        "method": "Adapt",
+        "fanout": len(prism_identities),
+        "implementers": [identity["name"] for identity in prism_identities],
+        "start_byte": start_byte,
+        "end_byte": end_byte,
+    }
+    if not legacy:
+        site["implementer_identities"] = prism_identities
+    manifest.write_text(json.dumps({"sites": [site]}))
+    unresolved_locations = list(unresolved_locations or [])
+
+    class FakeGopls:
+        implementation_calls = 0
+
+        def __init__(self, *_args, **_kwargs):
+            self._settle_s = 0
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def _did_open(self, _rel):
+            return True
+
+        def _methods(self, _rel):
+            return []
+
+        def resettle(self, **_kwargs):
+            pass
+
+        def method_decl(self, _rel, _line, _char):
+            return definition
+
+        def satisfier_identities(self, _rel, _line, _char):
+            type(self).implementation_calls += 1
+            if satisfiers is None:
+                if implementation_status is not None:
+                    self._last_implementation_status = implementation_status
+                return None
+            return satisfiers, len(satisfiers) + len(unresolved_locations), unresolved_locations
+
+    records, _summary = do.run_oracle(
+        str(manifest), str(tmp_path), ["fake-gopls"], 1,
+        log=io.StringIO(), oracle_factory=FakeGopls,
+    )
+    return records[0], FakeGopls.implementation_calls
+
+
+def _run_shared_interface_decl(tmp_path, *, identity_sets, implementation_results):
+    (tmp_path / "caller.go").write_text("a.Go(); b.Go()\n")
+    spans = [(0, 6), (8, 14)]
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"sites": [
+        {
+            "file": "caller.go", "line": 1, "method": "Go",
+            "fanout": len(identities),
+            "implementers": [identity["name"] for identity in identities],
+            "implementer_identities": identities,
+            "start_byte": spans[index][0], "end_byte": spans[index][1],
+        }
+        for index, identities in enumerate(identity_sets)
+    ]}))
+
+    class FakeGopls:
+        implementation_calls = 0
+
+        def __init__(self, *_args, **_kwargs):
+            self._settle_s = 0
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def _did_open(self, _rel):
+            return True
+
+        def _methods(self, _rel):
+            return []
+
+        def resettle(self, **_kwargs):
+            pass
+
+        def method_decl(self, _rel, _line, _char):
+            return {"file": "iface.go", "line": 4, "character": 2,
+                    "kind": "interface", "identity": None}
+
+        def satisfier_identities(self, _rel, _line, _char):
+            call = type(self).implementation_calls
+            type(self).implementation_calls += 1
+            return implementation_results[min(call, len(implementation_results) - 1)]
+
+    records, _summary = do.run_oracle(
+        str(manifest), str(tmp_path), ["fake-gopls"], 1,
+        log=io.StringIO(), oracle_factory=FakeGopls,
+    )
+    return records, FakeGopls.implementation_calls
+
+
+def test_method_decl_preserves_external_definition_target(tmp_path):
+    class FakeGoplsAdapter:
+        group_timeout = 1
+        root = str(tmp_path)
+
+        def __init__(self):
+            self.client = self
+
+        def _did_open(self, _rel):
+            return True
+
+        def _uri(self, rel):
+            return f"file:///{rel}"
+
+        def _external_definition_kind(self, _uri, _line, _char):
+            return "unknown"
+
+        def request(self, method, _params, timeout):
+            assert method == "textDocument/definition"
+            assert timeout == 1
+            return [{
+                "uri": "file:///stdlib/src/net/http/server.go",
+                "range": {"start": {"line": 52, "character": 3}},
+            }]
+
+    decl = do.GoplsSatisfiers.method_decl(FakeGoplsAdapter(), "caller.go", 1, 2)
+    assert decl == {
+        "file": "/stdlib/src/net/http/server.go", "line": 52, "character": 3,
+        "kind": "external", "external_kind": "unknown", "identity": None,
+    }
+
+
+def test_external_symbol_timeout_is_cached_for_each_site(tmp_path):
+    (tmp_path / "caller.go").write_text("a.Go(); b.Go()\n")
+    impl = _identity("Impl", "impl.go", [3, 5])
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"sites": [
+        {"file": "caller.go", "line": 1, "method": "Go", "fanout": 1,
+         "implementers": ["Impl"], "implementer_identities": [impl],
+         "start_byte": 0, "end_byte": 6},
+        {"file": "caller.go", "line": 1, "method": "Go", "fanout": 1,
+         "implementers": ["Impl"], "implementer_identities": [impl],
+         "start_byte": 8, "end_byte": 14},
+    ]}))
+
+    class FakeGopls:
+        group_timeout = 1
+        document_symbol_calls = 0
+        _definition_kind = staticmethod(do.GoplsSatisfiers._definition_kind)
+        method_decl = do.GoplsSatisfiers.method_decl
+        _external_definition_kind = do.GoplsSatisfiers._external_definition_kind
+
+        def __init__(self, root, *_args, **_kwargs):
+            self.root = root
+            self.client = self
+            self._settle_s = 0
+            self._external_symbol_details = {}
+            self._external_symbol_status = {}
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def _did_open(self, _rel):
+            return True
+
+        def _methods(self, _rel):
+            return []
+
+        def resettle(self, **_kwargs):
+            pass
+
+        def _uri(self, rel):
+            return f"file:///{rel}"
+
+        def _open_external_uri(self, _uri):
+            return True
+
+        def request(self, method, _params, timeout):
+            assert timeout == 1
+            if method == "textDocument/definition":
+                return [{
+                    "uri": "file:///stdlib/src/net/http/server.go",
+                    "range": {"start": {"line": 52, "character": 3}},
+                }]
+            assert method == "textDocument/documentSymbol"
+            type(self).document_symbol_calls += 1
+            raise LspTimeout("external symbols timed out")
+
+    records, _summary = do.run_oracle(
+        str(manifest), str(tmp_path), ["fake-gopls"], 1,
+        log=io.StringIO(), oracle_factory=FakeGopls,
+    )
+    assert [record["classification"] for record in records] == [
+        "oracle_timeout", "oracle_timeout",
+    ]
+    assert [record["oracle_status"] for record in records] == ["timeout", "timeout"]
+    assert FakeGopls.document_symbol_calls == 1
+
+
+def test_external_concrete_definition_with_positive_fanout_is_over_approx(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={
+            "file": "/stdlib/src/net/http/server.go", "line": 52, "character": 3,
+            "kind": "external", "external_kind": "concrete", "identity": None,
+        },
+        satisfiers=[],
+        prism_identities=[impl],
+    )
+    summary = do.summarize([record])
+    assert record["classification"] == "over_approx"
+    assert record["definition_kind"] == "external"
+    assert implementation_calls == 0
+    assert summary["overall"]["external_definition_sites"] == 1
+
+
+def test_external_interface_definition_queries_in_repo_implementations(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={
+            "file": "/stdlib/src/net/http/server.go", "line": 52, "character": 3,
+            "kind": "external", "external_kind": "interface", "identity": None,
+        },
+        satisfiers=[impl],
+        prism_identities=[impl],
+    )
+    assert record["classification"] == "sound"
+    assert record["definition_kind"] == "external"
+    assert implementation_calls == 1
+
+
+def test_external_concrete_zero_fanout_is_not_dispatch(tmp_path):
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={
+            "file": "/stdlib/src/net/http/server.go", "line": 52, "character": 3,
+            "kind": "external", "external_kind": "concrete", "identity": None,
+        },
+        satisfiers=[],
+        prism_identities=[],
+    )
+    assert record["classification"] == "not_dispatch"
+    assert record["definition_kind"] == "external"
+    assert implementation_calls == 0
+
+
+def test_external_definition_with_unprovable_kind_is_oracle_unresolved(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={
+            "file": "/stdlib/src/net/http/server.go", "line": 52, "character": 3,
+            "kind": "external", "external_kind": "unknown", "identity": None,
+        },
+        satisfiers=[],
+        prism_identities=[impl],
+    )
+    assert record["classification"] == "oracle_unresolved"
+    assert record["definition_kind"] == "external"
+    assert record["failure_stage"] == "definition"
+    assert implementation_calls == 0
+
+
+def test_interface_decl_cache_reuses_persistent_empty_per_site(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    records, calls = _run_shared_interface_decl(
+        tmp_path,
+        identity_sets=[[impl], []],
+        implementation_results=[([], 0, []), ([], 0, [])],
+    )
+    assert [record["classification"] for record in records] == ["over_approx", "sound"]
+    assert [record["implementation_outcome"] for record in records] == [
+        "persistent_empty", "persistent_empty",
+    ]
+    assert calls == 2
+
+
+def test_interface_decl_cache_reuses_timeout_and_partial_mapping_outcomes(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    timeout_records, timeout_calls = _run_shared_interface_decl(
+        tmp_path,
+        identity_sets=[[impl], [impl]],
+        implementation_results=[None],
+    )
+    assert [record["classification"] for record in timeout_records] == [
+        "oracle_timeout", "oracle_timeout",
+    ]
+    assert [record["implementation_outcome"] for record in timeout_records] == [
+        "timeout", "timeout",
+    ]
+    assert [record["failure_stage"] for record in timeout_records] == [
+        "implementation", "implementation",
+    ]
+    assert timeout_calls == 1
+
+    partial_records, partial_calls = _run_shared_interface_decl(
+        tmp_path,
+        identity_sets=[[impl], [impl]],
+        implementation_results=[([impl], 1, [{
+            "file": "generated.go", "line": 1, "reason": "receiver_unknown",
+        }])],
+    )
+    assert [record["classification"] for record in partial_records] == ["sound", "sound"]
+    assert [record["implementation_outcome"] for record in partial_records] == [
+        "partial_mapping", "partial_mapping",
+    ]
+    assert partial_calls == 1
+
+
+def test_run_oracle_concrete_definition_is_singleton_ground_truth(tmp_path):
+    adapter = _identity("Adapter", "adapter.go", [32, 64], "caddyfile")
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={
+            "file": "adapter.go", "line": 31, "character": 4,
+            "kind": "concrete", "identity": adapter,
+        },
+        satisfiers=[_identity("Adapter", "configadapters.go", [27, 27], "caddyconfig")],
+        prism_identities=[adapter],
+    )
+    assert record["classification"] == "sound"
+    assert record["definition_kind"] == "concrete"
+    assert record["failure_stage"] is None
+    assert implementation_calls == 0
+
+
+def test_run_oracle_concrete_zero_fanout_is_not_dispatch(tmp_path):
+    adapter = _identity("Adapter", "adapter.go", [32, 64], "caddyfile")
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={
+            "file": "adapter.go", "line": 31, "character": 4,
+            "kind": "concrete", "identity": adapter,
+        },
+        satisfiers=[],
+        prism_identities=[],
+    )
+    summary = do.summarize([record])
+    assert record["classification"] == "not_dispatch"
+    assert implementation_calls == 0
+    assert summary["overall"]["in_scope_sites"] == 1
+    assert summary["overall"]["not_dispatch_sites"] == 1
+    assert summary["overall"]["scored_sites"] == 0
+    assert summary["overall"]["dispatch_precision"] is None
+
+
+def test_definition_timeout_remains_oracle_timeout(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={"kind": "unknown", "failure_stage": "definition",
+                    "oracle_status": "timeout"},
+        satisfiers=[],
+        prism_identities=[impl],
+    )
+    assert record["classification"] == "oracle_timeout"
+    assert record["failure_stage"] == "definition"
+    assert record["oracle_status"] == "timeout"
+    assert implementation_calls == 0
+
+
+def test_token_mapping_failure_is_oracle_unresolved(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={"kind": "concrete", "identity": impl},
+        satisfiers=[],
+        prism_identities=[impl],
+        start_byte=99,
+        end_byte=100,
+    )
+    assert record["classification"] == "oracle_unresolved"
+    assert record["failure_stage"] == "token"
+    assert record["oracle_status"] == "unresolved"
+    assert implementation_calls == 0
+
+
+def test_implementation_timeout_remains_oracle_timeout(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={"file": "interface.go", "line": 7, "character": 2,
+                    "kind": "interface", "identity": None},
+        satisfiers=None,
+        prism_identities=[impl],
+    )
+    assert record["classification"] == "oracle_timeout"
+    assert record["failure_stage"] == "implementation"
+    assert record["oracle_status"] == "timeout"
+    assert implementation_calls == 1
+
+
+def test_implementation_server_error_remains_oracle_unresolved(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={"file": "interface.go", "line": 7, "character": 2,
+                    "kind": "interface", "identity": None},
+        satisfiers=None,
+        prism_identities=[impl],
+        implementation_status="unresolved",
+    )
+    assert record["classification"] == "oracle_unresolved"
+    assert record["failure_stage"] == "implementation"
+    assert record["oracle_status"] == "unresolved"
+    assert implementation_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("error_factory", "expected_status"),
+    [
+        (lambda: LspTimeout("definition timed out"), "timeout"),
+        (lambda: LspServerError({"code": -32603, "message": "bad definition"}),
+         "unresolved"),
+    ],
+)
+def test_method_decl_preserves_definition_stage_for_lsp_failures(
+    tmp_path, error_factory, expected_status
+):
+    class FakeGoplsAdapter:
+        group_timeout = 1
+        root = str(tmp_path)
+
+        def __init__(self):
+            self.client = self
+
+        def _did_open(self, _rel):
+            return True
+
+        def _uri(self, rel):
+            return f"file:///{rel}"
+
+        def request(self, method, _params, timeout):
+            assert method == "textDocument/definition"
+            assert timeout == 1
+            raise error_factory()
+
+    decl = do.GoplsSatisfiers.method_decl(FakeGoplsAdapter(), "caller.go", 0, 3)
+    assert decl == {
+        "kind": "unknown", "failure_stage": "definition",
+        "oracle_status": expected_status,
+    }
+
+
+def test_method_decl_marks_malformed_definition_response_unresolved(tmp_path):
+    class FakeGoplsAdapter:
+        group_timeout = 1
+        root = str(tmp_path)
+
+        def __init__(self):
+            self.client = self
+
+        def _did_open(self, _rel):
+            return True
+
+        def _uri(self, rel):
+            return f"file:///{rel}"
+
+        def request(self, _method, _params, timeout):
+            assert timeout == 1
+            return {"uri": "file:///bad.go", "range": "not-a-range"}
+
+    assert do.GoplsSatisfiers.method_decl(FakeGoplsAdapter(), "caller.go", 0, 3) == {
+        "kind": "unknown", "failure_stage": "definition",
+        "oracle_status": "unresolved",
+    }
+
+
+@pytest.mark.parametrize(
+    ("result_or_error", "expected_status"),
+    [
+        (lambda: LspTimeout("implementation timed out"), "timeout"),
+        (lambda: LspServerError({"code": -32603, "message": "bad implementation"}),
+         "unresolved"),
+        ({"malformed": True}, "unresolved"),
+        ({"uri": "file:///impl.go", "range": "not-a-range"}, "unresolved"),
+    ],
+)
+def test_satisfier_identities_preserves_implementation_stage_for_lsp_failures(
+    tmp_path, result_or_error, expected_status
+):
+    class FakeGoplsAdapter:
+        group_timeout = 1
+        root = str(tmp_path)
+
+        def __init__(self):
+            self.client = self
+
+        def _did_open(self, _rel):
+            return True
+
+        def _uri(self, rel):
+            return f"file:///{rel}"
+
+        def request(self, method, _params, timeout):
+            assert method == "textDocument/implementation"
+            assert timeout == 1
+            if callable(result_or_error):
+                raise result_or_error()
+            return result_or_error
+
+    adapter = FakeGoplsAdapter()
+    assert do.GoplsSatisfiers.satisfier_identities(adapter, "interface.go", 7, 2) is None
+    assert adapter._last_implementation_status == expected_status
+
+
+def test_run_oracle_interface_definition_still_uses_implementation(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={
+            "file": "interface.go", "line": 7, "character": 2,
+            "kind": "interface", "identity": None,
+        },
+        satisfiers=[impl],
+        prism_identities=[impl],
+    )
+    assert record["classification"] == "sound"
+    assert record["definition_kind"] == "interface"
+    assert record["failure_stage"] is None
+    assert implementation_calls == 1
+
+
+def test_interface_enclosed_location_is_not_a_concrete_satisfier():
+    class FakeGoplsAdapter:
+        _definition_kind = staticmethod(do.GoplsSatisfiers._definition_kind)
+
+        def _symbol_at(self, _rel, _line, _char=0):
+            return {"container": "Adapter", "start_line": 26, "end_line": 26,
+                    "enclosing_kind": 11}
+
+        def _package_clause(self, _rel):
+            return "caddyconfig"
+
+    identity, reason = do.GoplsSatisfiers._identity_with_reason(
+        FakeGoplsAdapter(), "configadapters.go", 26
+    )
+    assert identity is None
+    assert reason == "interface_location"
+
+
+def test_mappable_satisfier_set_is_scored_when_extra_non_candidate_is_present():
+    impl = _identity("Impl", "impl.go", [3, 5])
+    unmappable = {"file": "/go/src/net/http/server.go", "line": 90,
+                  "reason": "outside_repo"}
+    record = do.compare_site(
+        file="caller.go", line=1, interface="Runner", method="Go",
+        prism_identities=[impl], gopls_identities=[impl],
+        unresolved_locations=[unmappable], failure_stage="mapping",
+        implementation_raw_result_count=2,
+    )
+    assert record["classification"] == "sound"
+    assert record["unresolved_locations"] == []
+    assert record["non_candidate_locations"] == [unmappable]
+    assert record["failure_stage"] == "mapping"
+
+
+def test_unresolved_location_blocks_only_when_it_can_hide_prism_only_identity():
+    matched = _identity("Impl", "impl.go", [3, 5])
+    missing = _identity("Other", "other.go", [7, 9])
+    record = do.compare_site(
+        file="caller.go", line=1, interface="Runner", method="Go",
+        prism_identities=[matched, missing], gopls_identities=[matched],
+        unresolved_locations=[{"file": "generated.go", "line": 1,
+                               "reason": "receiver_unknown"}],
+        failure_stage="mapping",
+    )
+    assert record["classification"] == "oracle_unresolved"
+
+
+def test_legacy_unknown_location_blocks_prism_only_identity(tmp_path):
+    hidden = _identity("Hidden", "hidden.go", [3, 5])
+    record, _implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={"file": "interface.go", "line": 7, "character": 2,
+                    "kind": "interface", "identity": None},
+        satisfiers=[],
+        prism_identities=[hidden],
+        legacy=True,
+        unresolved_locations=[{
+            "file": "generated.go", "line": 1, "reason": "receiver_unknown",
+        }],
+    )
+    assert record["identity_mode"] == "name_only"
+    assert record["classification"] == "oracle_unresolved"
+
+
+def test_legacy_zero_fanout_unknown_location_is_unresolved(tmp_path):
+    record, _implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={"file": "interface.go", "line": 7, "character": 2,
+                    "kind": "interface", "identity": None},
+        satisfiers=[],
+        prism_identities=[],
+        legacy=True,
+        unresolved_locations=[{
+            "file": "generated.go", "line": 1, "reason": "receiver_unknown",
+        }],
+    )
+    assert record["identity_mode"] == "name_only"
+    assert record["classification"] == "oracle_unresolved"
+
+
+def test_legacy_zero_fanout_raw_empty_result_is_sound(tmp_path):
+    record, _implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={"file": "interface.go", "line": 7, "character": 2,
+                    "kind": "interface", "identity": None},
+        satisfiers=[],
+        prism_identities=[],
+        legacy=True,
+    )
+    assert record["identity_mode"] == "name_only"
+    assert record["classification"] == "sound"
+    assert record["oracle_reason"] == "empty_satisfier_set"
+
+
+def test_interface_location_is_excluded_when_concrete_prism_target_is_mapped():
+    impl = _identity("Impl", "impl.go", [3, 5])
+    record = do.compare_site(
+        file="caller.go", line=1, interface="Runner", method="Go",
+        prism_identities=[impl], gopls_identities=[impl],
+        unresolved_locations=[{"file": "interface.go", "line": 7,
+                               "reason": "interface_location"}],
+        failure_stage="mapping",
+    )
+    assert record["classification"] == "sound"
+    assert record["unresolved_locations"] == []
+    assert record["non_candidate_locations"] == [{
+        "file": "interface.go", "line": 7, "reason": "interface_location",
+    }]
+
+
+def test_interface_only_first_result_retries_before_scoring_prism_target(tmp_path):
+    (tmp_path / "caller.go").write_text("receiver.Go()\n")
+    impl = _identity("Impl", "impl.go", [3, 5])
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"sites": [{
+        "file": "caller.go", "line": 1, "method": "Go", "fanout": 1,
+        "implementers": ["Impl"], "implementer_identities": [impl],
+        "start_byte": 9, "end_byte": 11,
+    }]}))
+
+    class FakeGopls:
+        implementation_calls = 0
+
+        def __init__(self, *_args, **_kwargs):
+            self._settle_s = 0
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def _did_open(self, _rel):
+            return True
+
+        def _methods(self, _rel):
+            return []
+
+        def resettle(self, **_kwargs):
+            pass
+
+        def method_decl(self, _rel, _line, _char):
+            return {"file": "iface.go", "line": 3, "character": 1,
+                    "kind": "interface", "identity": None}
+
+        def satisfier_identities(self, _rel, _line, _char):
+            type(self).implementation_calls += 1
+            if type(self).implementation_calls == 1:
+                return [], 1, [{
+                    "file": "other_interface.go", "line": 3,
+                    "reason": "interface_location",
+                }]
+            return [impl], 1, []
+
+    records, _summary = do.run_oracle(
+        str(manifest), str(tmp_path), ["fake-gopls"], 1,
+        log=io.StringIO(), oracle_factory=FakeGopls,
+    )
+    assert records[0]["classification"] == "sound"
+    assert FakeGopls.implementation_calls == 2
+
+
+def test_promoted_interface_method_location_is_unresolved_not_over_approx(tmp_path):
+    (tmp_path / "caller.go").write_text("receiver.Go()\n")
+    promoted = _identity("W", "wrapper.go", [3, 5])
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"sites": [{
+        "file": "caller.go", "line": 1, "method": "Go", "fanout": 1,
+        "implementers": ["W"], "implementer_identities": [promoted],
+        "start_byte": 9, "end_byte": 11,
+    }]}))
+
+    class FakeGopls:
+        implementation_calls = 0
+
+        def __init__(self, *_args, **_kwargs):
+            self._settle_s = 0
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def _did_open(self, _rel):
+            return True
+
+        def _methods(self, _rel):
+            return []
+
+        def resettle(self, **_kwargs):
+            pass
+
+        def method_decl(self, _rel, _line, _char):
+            return {"file": "iface.go", "line": 3, "character": 1,
+                    "kind": "interface", "identity": None}
+
+        def satisfier_identities(self, _rel, _line, _char):
+            type(self).implementation_calls += 1
+            return [], 1, [{
+                "file": "iface.go", "line": 4, "reason": "interface_location",
+            }]
+
+    records, _summary = do.run_oracle(
+        str(manifest), str(tmp_path), ["fake-gopls"], 1,
+        log=io.StringIO(), oracle_factory=FakeGopls,
+    )
+    assert records[0]["classification"] == "oracle_unresolved"
+    assert records[0]["oracle_reason"] == "external_interface_promoted_ambiguous"
+    assert records[0]["implementation_raw_result_count"] == 1
+    assert FakeGopls.implementation_calls == 2
+
+
+def test_zero_fanout_empty_implementation_is_sound_with_explicit_reason(tmp_path):
+    record, _implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={
+            "file": "interface.go", "line": 7, "character": 2,
+            "kind": "interface", "identity": None,
+        },
+        satisfiers=[],
+        prism_identities=[],
+    )
+    assert record["classification"] == "sound"
+    assert record["oracle_reason"] == "empty_satisfier_set"
+
+
+def test_run_oracle_uses_each_site_byte_span_and_decl_character_in_cache(tmp_path):
+    source = "i.M(); j.M()\n"
+    (tmp_path / "caller.go").write_text(source)
+    left = _identity("Left", "left.go", [3, 5])
+    right = _identity("Right", "right.go", [3, 5])
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"sites": [
+        {"file": "caller.go", "line": 1, "method": "M", "fanout": 1,
+         "implementers": ["Left"], "implementer_identities": [left],
+         "start_byte": 0, "end_byte": 5},
+        {"file": "caller.go", "line": 1, "method": "M", "fanout": 1,
+         "implementers": ["Right"], "implementer_identities": [right],
+         "start_byte": 7, "end_byte": 12},
+    ]}))
+
+    class FakeGopls:
+        definition_chars = []
+        implementation_chars = []
+
+        def __init__(self, *_args, **_kwargs):
+            self._settle_s = 0
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def _did_open(self, _rel):
+            return True
+
+        def _methods(self, _rel):
+            return []
+
+        def resettle(self, **_kwargs):
+            pass
+
+        def method_decl(self, _rel, _line, char):
+            type(self).definition_chars.append(char)
+            return {"file": "iface.go", "line": 8, "character": char,
+                    "kind": "interface", "identity": None}
+
+        def satisfier_identities(self, _rel, _line, char):
+            type(self).implementation_chars.append(char)
+            return ([left] if char == 2 else [right]), 1, []
+
+    records, _summary = do.run_oracle(
+        str(manifest), str(tmp_path), ["fake-gopls"], 1,
+        log=io.StringIO(), oracle_factory=FakeGopls,
+    )
+    assert [record["classification"] for record in records] == ["sound", "sound"]
+    assert FakeGopls.definition_chars == [2, 9]
+    assert FakeGopls.implementation_chars == [2, 9]
+
+
+def test_run_oracle_fake_manifest_carries_end_to_end_classifications(tmp_path):
+    (tmp_path / "caller.go").write_text("a.Go(); b.Go()\n")
+    good = _identity("Good", "good.go", [3, 5])
+    bad = _identity("Bad", "bad.go", [3, 5])
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"sites": [
+        {"file": "caller.go", "line": 1, "method": "Go", "fanout": 1,
+         "implementers": ["Good"], "implementer_identities": [good],
+         "start_byte": 0, "end_byte": 6},
+        {"file": "caller.go", "line": 1, "method": "Go", "fanout": 1,
+         "implementers": ["Bad"], "implementer_identities": [bad],
+         "start_byte": 8, "end_byte": 14},
+    ]}))
+
+    class FakeGopls:
+        def __init__(self, *_args, **_kwargs):
+            self._settle_s = 0
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def _did_open(self, _rel):
+            return True
+
+        def _methods(self, _rel):
+            return []
+
+        def resettle(self, **_kwargs):
+            pass
+
+        def method_decl(self, _rel, _line, char):
+            return {"file": "concrete.go", "line": 2, "character": char,
+                    "kind": "concrete", "identity": good}
+
+    records, summary = do.run_oracle(
+        str(manifest), str(tmp_path), ["fake-gopls"], 1,
+        log=io.StringIO(), oracle_factory=FakeGopls,
+    )
+    assert [record["classification"] for record in records] == ["sound", "over_approx"]
+    assert summary["overall"]["sound"] == 1
+    assert summary["overall"]["over_approx"] == 1
+
+
+def test_run_oracle_stdout_scored_count_excludes_not_dispatch(tmp_path):
+    (tmp_path / "caller.go").write_text("a.Go(); b.Go(); c.Go()\n")
+    good = _identity("Good", "good.go", [3, 5])
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"sites": [
+        {"file": "caller.go", "line": 1, "method": "Go", "fanout": 1,
+         "implementers": ["Good"], "implementer_identities": [good],
+         "start_byte": 0, "end_byte": 6},
+        {"file": "caller.go", "line": 1, "method": "Go", "fanout": 0,
+         "implementers": [], "implementer_identities": [],
+         "start_byte": 8, "end_byte": 14},
+        {"file": "caller.go", "line": 1, "method": "Go", "fanout": 1,
+         "implementers": ["Good"], "implementer_identities": [good],
+         "start_byte": 16, "end_byte": 22},
+    ]}))
+
+    class FakeGopls:
+        def __init__(self, *_args, **_kwargs):
+            self._settle_s = 0
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def _did_open(self, _rel):
+            return True
+
+        def _methods(self, _rel):
+            return []
+
+        def resettle(self, **_kwargs):
+            pass
+
+        def method_decl(self, _rel, _line, char):
+            if char == 18:
+                return {"kind": "unknown", "failure_stage": "definition",
+                        "oracle_status": "timeout"}
+            return {"file": "concrete.go", "line": 2, "character": char,
+                    "kind": "concrete", "identity": good}
+
+    log = io.StringIO()
+    records, summary = do.run_oracle(
+        str(manifest), str(tmp_path), ["fake-gopls"], 1,
+        log=log, oracle_factory=FakeGopls,
+    )
+    assert [record["classification"] for record in records] == [
+        "sound", "not_dispatch", "oracle_timeout",
+    ]
+    assert summary["overall"]["scored_sites"] == 1
+    assert (
+        "scored 1/3 sites; excluded not_dispatch=1 oracle_timeout=1 "
+        "oracle_unresolved=0; 0 unique interface-method declarations;"
+        in log.getvalue()
+    )
+
+
+def test_same_directory_external_test_package_is_a_distinct_identity():
+    prism = _identity("Impl", "p/impl.go", [3, 5], "p")
+    gopls = _identity("Impl", "p/impl_test.go", [3, 5], "p_test")
+    record = do.compare_site(
+        file="caller.go", line=1, interface="Runner", method="Go",
+        prism_identities=[prism], gopls_identities=[gopls],
+    )
+    assert record["classification"] == "over_approx"
+    assert record["prism_only_identities"] == [
+        {"package_dir": "p", "package_clause": "p", "name": "Impl"}
+    ]
+
+
+# ---------------------------------------------------------------------------
+# #14 slice 1 delta gate and environment pins
+# ---------------------------------------------------------------------------
+
+_PINS = {
+    "corpus_sha": "abc123",
+    "go_version": "go version go1.25.0 darwin/arm64",
+    "gopls_version": "golang.org/x/tools/gopls v0.22.0",
+    "GOOS": "darwin",
+    "GOARCH": "arm64",
+    "tags": "integration",
+    "GOWORK": "/repo/go.work",
+}
+
+
+def _delta_site(*, fanout, identities, classification="sound"):
+    gopls = identities or [_identity("Impl", "impl.go", [3, 5])]
+    rec = do.compare_site(
+        file="caller.go",
+        line=10,
+        interface="Runner",
+        method="Go",
+        prism_identities=identities,
+        gopls_identities=gopls,
+    )
+    rec["fanout"] = fanout
+    rec["start_byte"] = 100
+    rec["end_byte"] = 110
+    if classification != rec["classification"]:
+        rec["classification"] = classification
+    return rec
+
+
+def test_delta_reports_newly_exact_fanout_and_identity_transitions():
+    before = _delta_site(fanout=0, identities=[])
+    after = _delta_site(fanout=1, identities=[_identity("Impl", "impl.go", [3, 5])])
+    delta = do.delta_summary([after], [before])
+    assert delta["gate_ok"] is True
+    assert delta["newly_exact_sites"] == [
+        {
+            "file": "caller.go",
+            "line": 10,
+            "method": "Go",
+            "classification": "sound",
+            "reason": "fanout_0_to_positive",
+            "fully_resolved": True,
+            "new_implementer_identities": [_identity("Impl", "impl.go", [3, 5])],
+        }
+    ]
+
+    changed = _delta_site(fanout=1, identities=[_identity("Impl", "impl_linux.go", [3, 5])])
+    delta = do.delta_summary([changed], [after])
+    assert delta["newly_exact_sites"][0]["reason"] == "new_implementer_identities"
+    assert delta["newly_exact_sites"][0]["new_implementer_identities"] == [
+        _identity("Impl", "impl_linux.go", [3, 5])
+    ]
+
+
+def test_delta_gate_blocks_a_timed_out_newly_exact_site():
+    before = _delta_site(fanout=0, identities=[])
+    timeout = _delta_site(
+        fanout=1,
+        identities=[_identity("Impl", "impl.go", [3, 5])],
+        classification="oracle_timeout",
+    )
+    delta = do.delta_summary([timeout], [before])
+    assert delta["gate_ok"] is False
+    assert delta["blocking_sites"] == delta["newly_exact_sites"]
+    assert delta["blocking_sites"][0]["classification"] == "oracle_timeout"
+
+
+def test_summary_reports_fanout_positive_coverage_and_status_rates():
+    first = _identity("First", "first.go", [3, 5])
+    second = _identity("Second", "second.go", [3, 5])
+    sound = _delta_site(fanout=2, identities=[first, second])
+    observed_over_approx = _delta_site(
+        fanout=1, identities=[_identity("Observed", "observed.go", [3, 5])],
+        classification="over_approx",
+    )
+    unresolved = _delta_site(
+        fanout=1, identities=[_identity("Unknown", "unknown.go", [3, 5])],
+        classification="oracle_unresolved",
+    )
+    unresolved["failure_stage"] = "mapping"
+    timeout = _delta_site(
+        fanout=1, identities=[_identity("Slow", "slow.go", [3, 5])],
+        classification="oracle_timeout",
+    )
+    for record in (sound, observed_over_approx, unresolved, timeout):
+        record["definition_kind"] = "interface"
+    timeout["failure_stage"] = "implementation"
+    interface_zero = _delta_site(fanout=0, identities=[])
+    interface_zero["definition_kind"] = "interface"
+    concrete_zero = _delta_site(fanout=0, identities=[], classification="not_dispatch")
+    concrete_zero["definition_kind"] = "concrete"
+    unknown_definition = _delta_site(fanout=0, identities=[])
+    unknown_definition["definition_kind"] = "unknown"
+
+    summary = do.summarize([
+        sound, observed_over_approx, unresolved, timeout, interface_zero,
+        concrete_zero, unknown_definition,
+    ])
+    coverage = summary["fanout_positive_coverage"]
+    assert coverage["site_coverage"] == pytest.approx(0.5)
+    assert coverage["edge_coverage"] == pytest.approx(0.6)
+    assert coverage["resolved_sites"] == 2
+    assert coverage["total_sites"] == 4
+    assert coverage["scored_identity_occurrences"] == 3
+    assert coverage["identity_occurrences"] == 5
+    assert summary["overall"]["not_dispatch_sites"] == 1
+    assert summary["overall"]["interface_zero_fanout_sites"] == 1
+    assert summary["overall"]["unknown_definition_sites"] == 1
+    rates = {entry["failure_stage"]: entry for entry in summary["failure_stage_rates"]}
+    assert rates["mapping"]["oracle_unresolved"] == 1
+    assert rates["mapping"]["oracle_unresolved_rate"] == pytest.approx(1.0)
+    assert rates["implementation"]["oracle_timeout"] == 1
+    assert rates["implementation"]["oracle_timeout_rate"] == pytest.approx(1.0)
+
+
+def test_delta_gate_requires_coverage_floors_even_without_delta_blocker():
+    before = _delta_site(fanout=0, identities=[])
+    after = _delta_site(fanout=1, identities=[_identity("Impl", "impl.go", [3, 5])])
+    held = _delta_site(fanout=1, identities=[_identity("Held", "held.go", [3, 5])])
+    held["file"] = "held_caller.go"
+    held["start_byte"] = 200
+    held["end_byte"] = 210
+    held_before = dict(held)
+    held["classification"] = "oracle_unresolved"
+    held["failure_stage"] = "mapping"
+
+    delta = do.delta_summary([after, held], [before, held_before])
+    assert delta["blocking_sites"] == []
+    assert delta["site_coverage"] == pytest.approx(0.5)
+    assert delta["edge_coverage"] == pytest.approx(0.5)
+    assert delta["coverage_ok"] is False
+    assert delta["gate_ok"] is False
+
+    relaxed = do.delta_summary(
+        [after, held], [before, held_before],
+        site_coverage_floor=0.5, edge_coverage_floor=0.5,
+    )
+    assert relaxed["coverage_ok"] is True
+    assert relaxed["gate_ok"] is True
+
+
+def test_delta_gate_requires_each_newly_exact_site_to_be_fully_resolved():
+    before = _delta_site(fanout=0, identities=[])
+    partial = _delta_site(
+        fanout=1, identities=[_identity("Impl", "impl.go", [3, 5])],
+    )
+    partial["unresolved_locations"] = [{
+        "file": "generated.go", "line": 1, "reason": "receiver_unknown",
+    }]
+    partial["implementation_outcome"] = "partial_mapping"
+    delta = do.delta_summary([partial], [before])
+    assert delta["gate_ok"] is False
+    assert delta["blocking_sites"] == delta["newly_exact_sites"]
+    assert delta["blocking_sites"][0]["classification"] == "sound"
+    assert delta["blocking_sites"][0]["fully_resolved"] is False
+
+
+def test_delta_refuses_mismatched_environment_pins():
+    changed_pins = dict(_PINS, GOARCH="amd64")
+    with pytest.raises(ValueError, match="environment pins differ"):
+        do.validate_environment_pins(_PINS, changed_pins)
+
+
+def test_environment_pins_use_effective_go_env_and_refuse_unavailable(tmp_path):
+    outputs = {
+        ("git", "rev-parse", "HEAD"): "abc123",
+        ("go", "version"): "go version go1.25.0 darwin/arm64",
+        ("gopls", "version"): "golang.org/x/tools/gopls v0.22.0",
+        ("go", "env", "GOOS"): "darwin",
+        ("go", "env", "GOARCH"): "arm64",
+        ("go", "env", "GOFLAGS"): "-tags=effective",
+    }
+    commands = []
+    original = do._command_output
+    try:
+        def fake_command_output(command, _cwd, _env, **_kwargs):
+            commands.append(tuple(command))
+            return outputs.get(tuple(command))
+
+        do._command_output = fake_command_output
+        pins = do.environment_pins(str(tmp_path), ["gopls", "serve"])
+        assert pins["tags"] == "-tags=effective"
+        assert ("go", "env", "GOFLAGS") in commands
+        with pytest.raises(ValueError, match="required environment pins unavailable"):
+            do.validate_environment_pins(
+                dict(pins, GOARCH="unavailable"),
+                dict(pins, GOARCH="unavailable"),
+            )
+    finally:
+        do._command_output = original
