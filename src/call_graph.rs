@@ -5195,18 +5195,87 @@ mod tests {
         );
     }
 
-    /// P15a-fix3 (SMELL→deterministic): a FOREIGN thread constructing Go
-    /// providers while a measurement is live must contribute ZERO
-    /// attributions to that measurement. RED on the fix2 first-draft global
-    /// CURRENT_GENERATION (the foreign construction was counted), which
-    /// flaked only under full-suite parallelism; this reproduces it
-    /// deterministically.
+    /// P15a-fix4: EVERY CpgContext constructor must leave the CPG's stashed
+    /// plain Go provider as None — transferred into the registry or dropped —
+    /// so no constructor can pin a full Go dataset on a long-lived context.
+    /// Parameterized over all real constructors.
+    #[test]
+    fn p15a_fix4_all_constructors_leave_no_stashed_provider() {
+        use crate::cpg::CpgContext;
+        use crate::languages::Language::Go;
+        use crate::type_provider::TypeRegistry;
+
+        let src = "package main\n\ntype S struct{ X int }\n\nfunc (s S) Get() int { return s.X }\n\nfunc main() { var s S; _ = s.Get() }\n";
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.go".to_string(),
+            ParsedFile::parse("main.go", src, Go).unwrap(),
+        );
+        let fresh_cpg = || crate::cpg::CodePropertyGraph::build_enriched(&files, None);
+
+        let cases: Vec<(&str, CpgContext)> = vec![
+            ("build", CpgContext::build(&files, None)),
+            (
+                "build_with_scope_graph_inputs",
+                CpgContext::build_with_scope_graph_inputs(&files, None, None),
+            ),
+            (
+                "build_with_fresh_cpg",
+                CpgContext::build_with_fresh_cpg(&files, fresh_cpg(), None),
+            ),
+            // Deserialized-cache-hit constructor with a FRESH CPG input: the
+            // stash would otherwise survive alongside the fresh registry.
+            (
+                "build_with_cached_cpg(fresh cpg)",
+                CpgContext::build_with_cached_cpg(&files, fresh_cpg(), None),
+            ),
+            ("without_cpg", CpgContext::without_cpg(&files, None)),
+        ];
+        for (name, ctx) in cases {
+            assert!(
+                ctx.cpg.call_graph.shared_plain_go_provider.is_none(),
+                "{name} must not retain the shared plain Go provider"
+            );
+        }
+
+        // build_scoped takes a DiffInput; a one-file repo falls back to the
+        // full build — either way the invariant must hold.
+        let scoped = CpgContext::build_scoped(
+            &files,
+            &crate::diff::DiffInput {
+                files: vec![crate::diff::DiffInfo {
+                    file_path: "main.go".to_string(),
+                    modify_type: crate::diff::ModifyType::Modified,
+                    diff_lines: BTreeSet::from([1]),
+                }],
+            },
+            None,
+        );
+        assert!(
+            scoped.cpg.call_graph.shared_plain_go_provider.is_none(),
+            "build_scoped must not retain the shared plain Go provider"
+        );
+
+        let reg =
+            CpgContext::build_with_registry(&files, None, TypeRegistry::empty());
+        assert!(
+            reg.cpg.call_graph.shared_plain_go_provider.is_none(),
+            "build_with_registry must not retain the shared plain Go provider"
+        );
+    }
+
+    /// P15a-fix3/fix4: a FOREIGN thread constructing Go providers while a
+    /// measurement is live must contribute ZERO attributions to that
+    /// measurement. RED on the fix2 first-draft global CURRENT_GENERATION
+    /// (the foreign construction was counted), which flaked only under
+    /// full-suite parallelism. P15a-fix4: fully deterministic — the foreign
+    /// thread SIGNALS after its first construction (mpsc) and the assertions
+    /// run only after that signal, so the test never depends on a sleep.
     #[test]
     fn p15a_fix3_foreign_thread_constructions_not_attributed() {
         use crate::languages::Language::Go;
         use crate::type_providers::go::test_counters::MeasurementToken;
         use crate::type_providers::go::GoTypeProvider;
-        use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
 
         let src = "package main\n\ntype S struct{ X int }\n";
@@ -5217,7 +5286,8 @@ mod tests {
         );
 
         let token = MeasurementToken::acquire();
-        let stop = Arc::new(AtomicBool::new(false));
+        let (constructed_tx, constructed_rx) = std::sync::mpsc::channel::<()>();
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let files = Arc::new(files);
         let handle = {
             let files = files.clone();
@@ -5226,15 +5296,22 @@ mod tests {
             // exactly the window in which the old global-generation design
             // misattributed.
             std::thread::spawn(move || {
-                while !stop.load(Ordering::SeqCst) {
+                loop {
                     let _p = GoTypeProvider::from_parsed_files(&files);
+                    let _ = constructed_tx.send(());
+                    if stop.load(std::sync::atomic::Ordering::SeqCst) {
+                        break;
+                    }
                 }
             })
         };
-        // Give the foreign thread a fair chance to construct (it would have
-        // inflated PLAIN_CONSTRUCTIONS under the pre-fix design).
-        std::thread::sleep(std::time::Duration::from_millis(20));
-        stop.store(true, Ordering::SeqCst);
+        // Block until the foreign thread has PROVEN at least one construction
+        // inside the live-measurement window (would have inflated the counts
+        // under the pre-fix design).
+        constructed_rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .expect("foreign thread did not complete a construction");
+        stop.store(true, std::sync::atomic::Ordering::SeqCst);
         handle.join().unwrap();
 
         assert_eq!(
