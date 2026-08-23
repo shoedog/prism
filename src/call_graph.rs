@@ -2934,11 +2934,14 @@ impl CallGraph {
         scope_inputs: Option<&ScopeGraphBuildInputs>,
     ) -> crate::go_module_graph::GoImportPathResolution {
         let Some(scope_inputs) = scope_inputs else {
-            let mut resolution = crate::go_module_graph::GoImportPathResolution::default();
-            resolution.unproven_files = files
+            let unproven_files = files
                 .values()
                 .filter(|parsed| parsed.language == crate::languages::Language::Go)
                 .count();
+            let mut resolution = crate::go_module_graph::GoImportPathResolution {
+                unproven_files,
+                ..Default::default()
+            };
             if resolution.unproven_files > 0 {
                 resolution.reasons.insert(
                     crate::go_module_graph::GoImportPathReason::NoGoMod
