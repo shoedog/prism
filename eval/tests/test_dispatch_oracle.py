@@ -539,6 +539,9 @@ def test_method_decl_preserves_external_definition_target(tmp_path):
         def _uri(self, rel):
             return f"file:///{rel}"
 
+        def _external_definition_kind(self, _uri, _line, _char):
+            return "unknown"
+
         def request(self, method, _params, timeout):
             assert method == "textDocument/definition"
             assert timeout == 1
@@ -550,26 +553,74 @@ def test_method_decl_preserves_external_definition_target(tmp_path):
     decl = do.GoplsSatisfiers.method_decl(FakeGoplsAdapter(), "caller.go", 1, 2)
     assert decl == {
         "file": "/stdlib/src/net/http/server.go", "line": 52, "character": 3,
-        "kind": "external", "identity": None,
+        "kind": "external", "external_kind": "unknown", "identity": None,
     }
 
 
-def test_external_definition_is_an_excluded_not_dispatch_site(tmp_path):
+def test_external_concrete_definition_with_positive_fanout_is_over_approx(tmp_path):
     impl = _identity("Impl", "impl.go", [3, 5])
     record, implementation_calls = _run_fake_oracle(
         tmp_path,
         definition={
             "file": "/stdlib/src/net/http/server.go", "line": 52, "character": 3,
-            "kind": "external", "identity": None,
+            "kind": "external", "external_kind": "concrete", "identity": None,
         },
         satisfiers=[],
         prism_identities=[impl],
     )
     summary = do.summarize([record])
-    assert record["classification"] == "not_dispatch"
+    assert record["classification"] == "over_approx"
     assert record["definition_kind"] == "external"
     assert implementation_calls == 0
     assert summary["overall"]["external_definition_sites"] == 1
+
+
+def test_external_interface_definition_queries_in_repo_implementations(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={
+            "file": "/stdlib/src/net/http/server.go", "line": 52, "character": 3,
+            "kind": "external", "external_kind": "interface", "identity": None,
+        },
+        satisfiers=[impl],
+        prism_identities=[impl],
+    )
+    assert record["classification"] == "sound"
+    assert record["definition_kind"] == "external"
+    assert implementation_calls == 1
+
+
+def test_external_concrete_zero_fanout_is_not_dispatch(tmp_path):
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={
+            "file": "/stdlib/src/net/http/server.go", "line": 52, "character": 3,
+            "kind": "external", "external_kind": "concrete", "identity": None,
+        },
+        satisfiers=[],
+        prism_identities=[],
+    )
+    assert record["classification"] == "not_dispatch"
+    assert record["definition_kind"] == "external"
+    assert implementation_calls == 0
+
+
+def test_external_definition_with_unprovable_kind_is_oracle_unresolved(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={
+            "file": "/stdlib/src/net/http/server.go", "line": 52, "character": 3,
+            "kind": "external", "external_kind": "unknown", "identity": None,
+        },
+        satisfiers=[],
+        prism_identities=[impl],
+    )
+    assert record["classification"] == "oracle_unresolved"
+    assert record["definition_kind"] == "external"
+    assert record["failure_stage"] == "definition"
+    assert implementation_calls == 0
 
 
 def test_interface_decl_cache_reuses_persistent_empty_per_site(tmp_path):

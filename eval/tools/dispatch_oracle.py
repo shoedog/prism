@@ -911,6 +911,8 @@ class GoplsSatisfiers:
         self._opened: set[str] = set()
         self._docsym: dict[str, list[tuple]] = {}
         self._symbol_details: dict[str, list[dict]] = {}
+        self._external_opened: set[str] = set()
+        self._external_symbol_details: dict[str, list[dict]] = {}
 
     def start(self) -> None:
         # LspClient inherits this process environment at Popen time. Scope the
@@ -1036,6 +1038,81 @@ class GoplsSatisfiers:
                 if best is None or width < best[0]:
                     best = (width, symbol)
         return None if best is None else best[1]
+
+    def _open_external_uri(self, uri: str) -> bool:
+        """Open a local out-of-repo Go file so gopls can expose its symbols."""
+        if uri in self._external_opened:
+            return True
+        parsed = urllib.parse.urlparse(uri)
+        if parsed.scheme != "file":
+            return False
+        path = urllib.parse.unquote(parsed.path)
+        if not path or not os.path.isfile(path):
+            return False
+        try:
+            text = Path(path).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return False
+        self.client.notify("textDocument/didOpen", {"textDocument": {
+            "uri": uri, "languageId": "go", "version": 1, "text": text}})
+        self._external_opened.add(uri)
+        return True
+
+    def _external_definition_kind(self, uri: str, line0: int, char0: int) -> str:
+        """Prove whether an external definition is an interface or concrete method."""
+        if uri not in self._external_symbol_details:
+            if not self._open_external_uri(uri):
+                self._external_symbol_details[uri] = []
+            else:
+                from tier_a.oracles import _split_receiver
+
+                try:
+                    symbols = self.client.request(
+                        "textDocument/documentSymbol", {"textDocument": {"uri": uri}},
+                        timeout=self.group_timeout,
+                    )
+                except Exception:
+                    symbols = []
+                details: list[dict] = []
+
+                def walk(nodes, container, enclosing_kind=None):
+                    for node in nodes or []:
+                        name, receiver = _split_receiver(node.get("name"), container)
+                        rng = node.get("range", {})
+                        start, end = rng.get("start", {}), rng.get("end", {})
+                        start_line, end_line = start.get("line"), end.get("line")
+                        if start_line is not None and end_line is not None:
+                            details.append({
+                                "name": name,
+                                "container": receiver,
+                                "start_line": start_line,
+                                "end_line": end_line,
+                                "start_character": start.get("character", 0),
+                                "end_character": end.get("character", 0),
+                                "kind": node.get("kind"),
+                                "enclosing_kind": enclosing_kind,
+                            })
+                        walk(node.get("children", []), node.get("name"), node.get("kind"))
+
+                walk(symbols, None)
+                self._external_symbol_details[uri] = details
+        best = None
+        for symbol in self._external_symbol_details[uri]:
+            if not symbol["start_line"] <= line0 <= symbol["end_line"]:
+                continue
+            if line0 == symbol["start_line"] and char0 < symbol["start_character"]:
+                continue
+            if line0 == symbol["end_line"] and symbol["end_character"] and \
+                    char0 > symbol["end_character"]:
+                continue
+            width = (
+                symbol["end_line"] - symbol["start_line"],
+                symbol["end_character"] - symbol["start_character"]
+                if symbol["start_line"] == symbol["end_line"] else symbol["end_character"],
+            )
+            if best is None or width < best[0]:
+                best = (width, symbol)
+        return self._definition_kind(None if best is None else best[1])
 
     @staticmethod
     def _definition_kind(symbol: dict | None) -> str:
@@ -1173,6 +1250,9 @@ class GoplsSatisfiers:
                     "line": target_line,
                     "character": target_char,
                     "kind": "external",
+                    "external_kind": self._external_definition_kind(
+                        uri, target_line, target_char
+                    ),
                     "identity": None,
                 }
             symbol = self._symbol_at(f, target_line, target_char)
@@ -1419,14 +1499,24 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                         not_dispatch = s.get("fanout", len(prism_set)) == 0
                         failure_stage = None
                 elif definition_kind == "external":
-                    # A definition outside this checkout cannot denote one of Prism's
-                    # in-repository dispatch targets. Exclude it like a concrete call,
-                    # while preserving the distinct external-definition accounting.
-                    gopls_identities = []
-                    not_dispatch = True
-                    implementation_outcome = "external_definition"
-                    failure_stage = None
-                elif definition_kind == "interface":
+                    external_kind = decl.get("external_kind", "unknown")
+                    if external_kind == "concrete":
+                        # An external concrete method is not dispatch. A positive Prism
+                        # fanout therefore compares against the empty concrete target set.
+                        gopls_identities = []
+                        not_dispatch = s.get("fanout", len(prism_set)) == 0
+                        implementation_outcome = "external_concrete"
+                        failure_stage = None
+                    elif external_kind != "interface":
+                        gopls_identities = []
+                        oracle_unresolved = True
+                        implementation_outcome = "external_unknown"
+                        failure_stage = "definition"
+                        oracle_status = "unresolved"
+                if definition_kind == "interface" or (
+                        definition_kind == "external"
+                        and decl.get("external_kind") == "interface"
+                ):
                     decl_file = decl.get("file")
                     decl_line = decl.get("line")
                     decl_char = decl.get("character")
@@ -1483,7 +1573,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                             oracle_status = "timeout"
                         elif implementation_outcome == "partial_mapping":
                             failure_stage = "mapping"
-                else:
+                elif definition_kind not in {"concrete", "external"}:
                     gopls_identities = []
                     oracle_unresolved = True
                     failure_stage = failure_stage or "definition"
