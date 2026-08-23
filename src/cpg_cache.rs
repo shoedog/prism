@@ -143,7 +143,12 @@ use std::path::{Path, PathBuf};
 ///   and symlink-refused/go.work topology entries change Go identity and cache keys.
 /// - v46: effective Go workspace/module/replacement identities change persisted
 ///   interface-dispatch edges and add module-graph/import-path telemetry.
-const CACHE_VERSION: u32 = 46;
+/// - v47 (#17-narrow, merged between #14 slices 3 and 4): concrete-receiver
+///   dispatch routing changes (route labels + fail-closed promoted drops).
+/// - v48 (#14 slice 4): alias-aware Local↔Local by path changes Exact-edge
+///   populations; owner/profile-keyed promoted-selector snapshot adds
+///   serialized state and telemetry to the CallGraph.
+const CACHE_VERSION: u32 = 48;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -661,8 +666,8 @@ mod tests {
     }
 
     #[test]
-    fn cache_versions_are_pinned_for_go_loader_hygiene() {
-        assert_eq!(super::CACHE_VERSION, 46);
+    fn cache_versions_are_pinned_for_slice4_alias_aware_local_local() {
+        assert_eq!(super::CACHE_VERSION, 48);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
