@@ -125,9 +125,20 @@ fn interface_profile_consistent(inputs: &SnapshotInputs<'_>, iface: &GoOwnerIden
     let Some(declarations) = inputs.interface_declarations.get(iface) else {
         return false;
     };
-    let mut surfaces: BTreeSet<BTreeSet<String>> = BTreeSet::new();
+    // terra-r2-4 / sol-r2-8: the promoted-method SIGNATURE surface is part of
+    // profile safety — compare canonical signatures (plus embedded types and
+    // generic state), not just method names.
+    let mut surfaces: BTreeSet<(BTreeMap<String, String>, Vec<String>, bool)> = BTreeSet::new();
     for declaration in declarations {
-        surfaces.insert(declaration.methods.iter().cloned().collect());
+        surfaces.insert((
+            declaration.method_signatures.clone(),
+            declaration
+                .embedded_types
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            declaration.generic,
+        ));
         if surfaces.len() > 1 {
             return false;
         }
@@ -161,8 +172,23 @@ fn resolve_local_alias_embed(
     else {
         return None;
     };
-    // Single local leaf (`B` or `~path::B`) in the owning package.
+    // Single leaf: bare `B`, local `~path::B`, or QUALIFIED `@path::B`
+    // (terra-r2-3 / sol-r2-6).
     let compact = text.trim();
+    if let Some(rest) = compact.strip_prefix('@') {
+        let (path, name) = rest.rsplit_once("::")?;
+        let dirs = inputs.alias_index.dirs_by_path.get(path)?;
+        if dirs.len() != 1 {
+            return None;
+        }
+        let dir = dirs.iter().next()?;
+        let clause = unique_clause_per_dir(inputs.profiles).get(dir)?.clone();
+        return Some(GoOwnerIdentity {
+            package_dir: dir.clone(),
+            package_clause: clause,
+            name: name.to_string(),
+        });
+    }
     let name = if let Some(rest) = compact.strip_prefix('~') {
         rest.rsplit("::").next()
     } else if !compact.is_empty() && compact.chars().all(|ch| ch == '_' || ch.is_alphanumeric()) {
@@ -170,9 +196,6 @@ fn resolve_local_alias_embed(
     } else {
         None
     }?;
-    if compact.starts_with('@') {
-        return None; // qualified alias targets go through resolve_qualified_embed
-    }
     Some(GoOwnerIdentity {
         package_dir: owner.package_dir.clone(),
         package_clause: owner.package_clause.clone(),
@@ -277,6 +300,16 @@ pub fn compute(inputs: &SnapshotInputs<'_>) -> GoPromotedSelectorSnapshot {
                     // SOL-W6: `type A = B` embedded as S{A} resolves to owner B
                     // through the alias index while keeping selector "A".
                     resolved = resolve_local_alias_embed(inputs, owner, selector);
+                    // terra-r2-2 / sol-r2-5: an alias whose RESOLVED owner is
+                    // an interface is reclassified (deferred), never treated
+                    // as a concrete embed.
+                    if let Some(resolved_owner) = &resolved {
+                        if inputs.interface_owners.contains(resolved_owner) {
+                            embedded_interface_owner = Some(resolved_owner.clone());
+                            is_interface = true;
+                            resolved = None;
+                        }
+                    }
                 }
                 if resolved.is_none() && !is_interface {
                     match resolve_qualified_embed(inputs, &declaration.defining_file, raw_type) {
@@ -422,32 +455,78 @@ pub fn compute(inputs: &SnapshotInputs<'_>) -> GoPromotedSelectorSnapshot {
         }
     }
 
+    // Promotion walks consume the DECLARATION-SCOPED embed facts already
+    // computed above (sol-r2-6): qualified and alias-resolved targets carry
+    // their exact owner identity; no narrower re-resolution.
+    let fact_view: BTreeMap<GoOwnerIdentity, GoDeclarationFacts> = owners
+        .iter()
+        .map(|(owner, entry)| {
+            let mut merged = GoDeclarationFacts::default();
+            for facts in entry.declarations.values() {
+                merged.embeds.extend(facts.embeds.iter().cloned());
+                merged.field_names.extend(facts.field_names.iter().cloned());
+                for (name, info) in &facts.own_methods {
+                    merged.own_methods.insert(name.clone(), info.clone());
+                }
+            }
+            (owner.clone(), merged)
+        })
+        .collect();
+
     // Promoted methods only where the whole reachable path is Consistent.
     for (owner, entry) in owners.iter_mut() {
         if entry.verdict != GoPromotionVerdict::Consistent {
             continue;
         }
-        let mut walker = PromotionWalker::default();
+        let struct_owners: BTreeSet<GoOwnerIdentity> =
+            inputs.struct_declarations.keys().cloned().collect();
+        let mut walker = PromotionWalker {
+            method_declarations: inputs.method_declarations,
+            struct_owners: &struct_owners,
+            candidates: Vec::new(),
+        };
         let mut field_depth = BTreeMap::new();
+        // Direct methods of the outer struct win at depth 0.
+        if let Some(outer_facts) = fact_view.get(owner) {
+            for name in outer_facts.own_methods.keys() {
+                record_depth(&mut field_depth, name, 0);
+            }
+        }
         let mut path = BTreeSet::new();
         path.insert(owner.clone());
-        walker.walk(inputs, owner, owner, 0, &mut path, &mut field_depth);
-        walker.field_depth = field_depth;
-        let mut promoted = BTreeMap::new();
+        walker.walk(&fact_view, owner, 0, &mut path, &mut field_depth);
+        // sol-r2-7: Go's shallowest-selector rule — keep the UNIQUE shallowest
+        // candidate per method; equal-depth ties record NOTHING (fail closed).
+        let mut by_method: BTreeMap<String, Vec<PromotionCandidate>> = BTreeMap::new();
         for candidate in walker.candidates {
-            let shadowed = walker
-                .field_depth
-                .get(&candidate.method_name)
-                .is_some_and(|depth| *depth <= candidate.depth);
+            by_method
+                .entry(candidate.method_name.clone())
+                .or_default()
+                .push(candidate);
+        }
+        let mut promoted = BTreeMap::new();
+        for (method_name, candidates) in by_method {
+            let min_depth = candidates
+                .iter()
+                .map(|c| c.depth)
+                .min()
+                .unwrap_or(usize::MAX);
+            let shallowest: Vec<&PromotionCandidate> =
+                candidates.iter().filter(|c| c.depth == min_depth).collect();
+            let [best] = shallowest.as_slice() else {
+                continue; // ambiguity: fail closed
+            };
+            let shadowed = field_depth
+                .get(&method_name)
+                .is_some_and(|depth| *depth <= best.depth);
             promoted.insert(
-                candidate.method_name,
+                method_name,
                 GoPromotedMethodInfo {
-                    target_owner: candidate.target_owner,
-                    function_id: candidate.function_id,
-                    depth: candidate.depth,
+                    target_owner: best.target_owner.clone(),
+                    function_id: best.function_id.clone(),
+                    depth: best.depth,
                     shadowed_by_field: shadowed,
-                    value_method_set: !candidate.is_pointer_receiver
-                        || candidate.pointer_embed_path,
+                    value_method_set: !best.is_pointer_receiver || best.pointer_embed_path,
                 },
             );
         }
@@ -514,37 +593,42 @@ struct PromotionCandidate {
     pointer_embed_path: bool,
 }
 
-#[derive(Default)]
-struct PromotionWalker {
+struct PromotionWalker<'a> {
+    method_declarations: &'a crate::go_owner_partition::GoMethodDeclarations,
+    struct_owners: &'a BTreeSet<GoOwnerIdentity>,
     candidates: Vec<PromotionCandidate>,
-    field_depth: BTreeMap<String, usize>,
 }
 
-impl PromotionWalker {
-    #[allow(clippy::too_many_arguments)]
+impl<'a> PromotionWalker<'a> {
+    fn method_declarations_of(
+        &self,
+        owner: &GoOwnerIdentity,
+    ) -> Option<&'a crate::go_owner_partition::GoMethodDeclarationsEntry> {
+        self.method_declarations.get(owner)
+    }
+}
+
+fn inputs_missing_struct(walker: &PromotionWalker<'_>, target: &GoOwnerIdentity) -> bool {
+    !walker.struct_owners.contains(target)
+}
+
+impl<'a> PromotionWalker<'a> {
     fn walk(
         &mut self,
-        inputs: &SnapshotInputs<'_>,
-        _outer: &GoOwnerIdentity,
+        facts_by_owner: &BTreeMap<GoOwnerIdentity, GoDeclarationFacts>,
         current: &GoOwnerIdentity,
         depth: usize,
         path: &mut BTreeSet<GoOwnerIdentity>,
         field_depth: &mut BTreeMap<String, usize>,
     ) {
-        let Some(declarations) = inputs.struct_declarations.get(current) else {
+        let Some(facts) = facts_by_owner.get(current) else {
             return;
         };
-        let Some(declaration) = declarations.iter().next() else {
-            return;
-        };
-        for field in declaration.fields.keys() {
-            record_depth(field_depth, field, depth);
-        }
-        for selector in declaration.embedded_fields.keys() {
-            record_depth(field_depth, selector, depth);
+        for name in &facts.field_names {
+            record_depth(field_depth, name, depth);
         }
         if depth >= 1 {
-            if let Some(methods) = inputs.method_declarations.get(current) {
+            if let Some(methods) = self.method_declarations_of(current) {
                 for method in methods {
                     self.candidates.push(PromotionCandidate {
                         method_name: method.method_name.clone(),
@@ -557,30 +641,23 @@ impl PromotionWalker {
                 }
             }
         }
-        for (selector, raw_type) in &declaration.embedded_fields {
-            let is_pointer = raw_type.trim_start().starts_with('*');
-            let mut target = inputs
-                .field_targets
-                .get(&(current.clone(), selector.clone()))
-                .map(|target| target.owner.clone())
-                .or_else(|| resolve_local_alias_embed(inputs, current, selector));
-            // SOL-W7 converse: a qualified embed resolving to an INTERFACE has
-            // no struct to walk into.
-            if let Some(resolved) = &target {
-                if inputs.interface_owners.contains(resolved) {
-                    target = None;
-                }
+        for embed in &facts.embeds {
+            if embed.is_interface {
+                continue; // interface dispatch, deferred
             }
-            let Some(target) = target else {
+            let Some(target) = &embed.resolved_owner else {
                 continue;
             };
+            if inputs_missing_struct(self, target) {
+                continue;
+            }
             if !path.insert(target.clone()) {
                 continue;
             }
             let before = self.candidates.len();
-            self.walk(inputs, _outer, &target, depth + 1, path, field_depth);
-            path.remove(&target);
-            if is_pointer {
+            self.walk(facts_by_owner, target, depth + 1, path, field_depth);
+            path.remove(target);
+            if embed.is_pointer {
                 for candidate in &mut self.candidates[before..] {
                     candidate.pointer_embed_path = true;
                 }

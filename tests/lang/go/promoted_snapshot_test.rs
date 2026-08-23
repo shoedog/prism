@@ -443,9 +443,10 @@ fn s4ox_own_method_axis_includes_receiver_kind_and_target_identity() {
 fn s4ox_alias_to_local_interface_is_deferred_not_conflicted() {
     // terra-r2-2 / sol-r2-5: `type A = I` embedded as S{A} must reclassify
     // the RESOLVED owner I as an interface and defer, staying Consistent.
-    let cg = build_go(&[
-        ("pkg/i.go", "package pkg\ntype I interface { M() }\ntype A = I\ntype S struct { A }\n"),
-    ]);
+    let cg = build_go(&[(
+        "pkg/i.go",
+        "package pkg\ntype I interface { M() }\ntype A = I\ntype S struct { A }\n",
+    )]);
     let snapshot = cg.go_promoted_snapshot();
     let s = snapshot
         .owners
@@ -453,8 +454,19 @@ fn s4ox_alias_to_local_interface_is_deferred_not_conflicted() {
         .find(|(owner, _)| owner.name == "S")
         .map(|(_, v)| v)
         .expect("S");
-    assert_eq!(s.verdict, prism::go_promoted_snapshot::GoPromotionVerdict::Consistent);
-    let embed = s.declarations.values().next().unwrap().embeds.iter().next().unwrap();
+    assert_eq!(
+        s.verdict,
+        prism::go_promoted_snapshot::GoPromotionVerdict::Consistent
+    );
+    let embed = s
+        .declarations
+        .values()
+        .next()
+        .unwrap()
+        .embeds
+        .iter()
+        .next()
+        .unwrap();
     assert!(embed.is_interface);
     assert_eq!(embed.selector, "A");
 }
@@ -474,18 +486,33 @@ fn s4ox_qualified_alias_embed_resolves_to_target() {
             })
             .collect();
         let repo = tempfile::tempdir().expect("tempdir");
-        std::fs::write(repo.path().join("go.mod"), "module example.com/prism\n\ngo 1.22\n").unwrap();
+        std::fs::write(
+            repo.path().join("go.mod"),
+            "module example.com/prism\n\ngo 1.22\n",
+        )
+        .unwrap();
         let inputs = prism::repo_loader::scope_graph_build_inputs(repo.path(), &files);
         CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs))
     }
     let concrete = build_mod(&[
         ("q/q.go", "package q\ntype B struct{}\nfunc (b B) M() {}\n"),
-        ("pkg/s.go", "package pkg\nimport q \"example.com/prism/q\"\ntype S struct { q.B }\n"),
+        (
+            "pkg/s.go",
+            "package pkg\nimport q \"example.com/prism/q\"\ntype S struct { q.B }\n",
+        ),
     ]);
     {
         let snapshot = concrete.go_promoted_snapshot();
-        let s = snapshot.owners.iter().find(|(o, _)| o.name == "S").map(|(_, v)| v).expect("S");
-        assert_eq!(s.verdict, prism::go_promoted_snapshot::GoPromotionVerdict::Consistent);
+        let s = snapshot
+            .owners
+            .iter()
+            .find(|(o, _)| o.name == "S")
+            .map(|(_, v)| v)
+            .expect("S");
+        assert_eq!(
+            s.verdict,
+            prism::go_promoted_snapshot::GoPromotionVerdict::Consistent
+        );
         let m = &s.promoted["M"];
         assert_eq!(m.target_owner.name, "B");
         assert_eq!(m.depth, 1);
@@ -494,13 +521,35 @@ fn s4ox_qualified_alias_embed_resolves_to_target() {
 
     let aliased = build_mod(&[
         ("q/q.go", "package q\ntype B struct{}\nfunc (b B) M() {}\n"),
-        ("pkg/s.go", "package pkg\nimport q \"example.com/prism/q\"\ntype A = q.B\ntype S struct { A }\n"),
+        (
+            "pkg/s.go",
+            "package pkg\nimport q \"example.com/prism/q\"\ntype A = q.B\ntype S struct { A }\n",
+        ),
     ]);
     let snapshot = aliased.go_promoted_snapshot();
-    let s = snapshot.owners.iter().find(|(o, _)| o.name == "S").map(|(_, v)| v).expect("S");
-    assert_eq!(s.verdict, prism::go_promoted_snapshot::GoPromotionVerdict::Consistent);
-    let embed = s.declarations.values().next().unwrap().embeds.iter().next().unwrap();
-    assert_eq!(embed.resolved_owner.as_ref().expect("resolved q.B").name, "B");
+    let s = snapshot
+        .owners
+        .iter()
+        .find(|(o, _)| o.name == "S")
+        .map(|(_, v)| v)
+        .expect("S");
+    assert_eq!(
+        s.verdict,
+        prism::go_promoted_snapshot::GoPromotionVerdict::Consistent
+    );
+    let embed = s
+        .declarations
+        .values()
+        .next()
+        .unwrap()
+        .embeds
+        .iter()
+        .next()
+        .unwrap();
+    assert_eq!(
+        embed.resolved_owner.as_ref().expect("resolved q.B").name,
+        "B"
+    );
     assert_eq!(embed.selector, "A");
     assert_eq!(s.promoted["M"].depth, 1);
 }
@@ -510,27 +559,52 @@ fn s4ox_promotion_follows_go_shallowest_selector_rule() {
     // sol-r2-7: B.M (depth 1) shadows C.M (depth 2); equal-depth ambiguity
     // records NO method (fail closed), never an arbitrary one.
     let shadowed = build_go(&[
-        ("pkg/c.go", "package pkg\ntype C struct{}\nfunc (c C) M() {}\n"),
-        ("pkg/b.go", "package pkg\ntype B struct { C }\nfunc (b B) M() {}\n"),
+        (
+            "pkg/c.go",
+            "package pkg\ntype C struct{}\nfunc (c C) M() {}\n",
+        ),
+        (
+            "pkg/b.go",
+            "package pkg\ntype B struct { C }\nfunc (b B) M() {}\n",
+        ),
         ("pkg/s.go", "package pkg\ntype S struct { B }\n"),
     ]);
     {
         let snapshot = shadowed.go_promoted_snapshot();
-        let s = snapshot.owners.iter().find(|(o, _)| o.name == "S").map(|(_, v)| v).expect("S");
+        let s = snapshot
+            .owners
+            .iter()
+            .find(|(o, _)| o.name == "S")
+            .map(|(_, v)| v)
+            .expect("S");
         assert_eq!(s.promoted.len(), 1);
         assert_eq!(s.promoted["M"].target_owner.name, "B");
         assert_eq!(s.promoted["M"].depth, 1);
     }
 
     let ambiguous = build_go(&[
-        ("pkg/b.go", "package pkg\ntype B struct{}\nfunc (b B) M() {}\n"),
-        ("pkg/c.go", "package pkg\ntype C struct{}\nfunc (c C) M() {}\n"),
+        (
+            "pkg/b.go",
+            "package pkg\ntype B struct{}\nfunc (b B) M() {}\n",
+        ),
+        (
+            "pkg/c.go",
+            "package pkg\ntype C struct{}\nfunc (c C) M() {}\n",
+        ),
         ("pkg/s.go", "package pkg\ntype S struct { B; C }\n"),
     ]);
     {
         let snapshot = ambiguous.go_promoted_snapshot();
-        let s = snapshot.owners.iter().find(|(o, _)| o.name == "S").map(|(_, v)| v).expect("S");
-        assert!(!s.promoted.contains_key("M"), "equal-depth ambiguity fails closed");
+        let s = snapshot
+            .owners
+            .iter()
+            .find(|(o, _)| o.name == "S")
+            .map(|(_, v)| v)
+            .expect("S");
+        assert!(
+            !s.promoted.contains_key("M"),
+            "equal-depth ambiguity fails closed"
+        );
     }
 }
 
@@ -539,8 +613,14 @@ fn s4ox_embedded_interface_profile_check_includes_signatures() {
     // terra-r2-4 / sol-r2-8: I{M(int)} vs I{M(string)} is a profile-dependent
     // surface even though the NAME sets agree.
     let divergent = build_go(&[
-        ("pkg/i_linux.go", "//go:build linux\npackage pkg\ntype I interface { M(int) }\n"),
-        ("pkg/i_windows.go", "//go:build windows\npackage pkg\ntype I interface { M(string) }\n"),
+        (
+            "pkg/i_linux.go",
+            "//go:build linux\npackage pkg\ntype I interface { M(int) }\n",
+        ),
+        (
+            "pkg/i_windows.go",
+            "//go:build windows\npackage pkg\ntype I interface { M(string) }\n",
+        ),
         ("pkg/s.go", "package pkg\ntype S struct { I }\n"),
     ]);
     let (_owners, conflicts, _promoted) = snapshot_counts(&divergent);
@@ -563,7 +643,11 @@ fn s4ox_qualified_alias_lookup_regression_tuple_range() {
             })
             .collect();
         let repo = tempfile::tempdir().expect("tempdir");
-        std::fs::write(repo.path().join("go.mod"), "module example.com/prism\n\ngo 1.22\n").unwrap();
+        std::fs::write(
+            repo.path().join("go.mod"),
+            "module example.com/prism\n\ngo 1.22\n",
+        )
+        .unwrap();
         let inputs = prism::repo_loader::scope_graph_build_inputs(repo.path(), &files);
         CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs))
     }

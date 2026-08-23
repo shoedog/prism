@@ -55,6 +55,7 @@ pub struct GoMethodDeclaration {
 pub type GoStructDeclarations = BTreeMap<GoOwnerIdentity, BTreeSet<GoStructDeclaration>>;
 pub type GoInterfaceDeclarations = BTreeMap<GoOwnerIdentity, BTreeSet<GoInterfaceDeclaration>>;
 pub type GoMethodDeclarations = BTreeMap<GoOwnerIdentity, BTreeSet<GoMethodDeclaration>>;
+pub type GoMethodDeclarationsEntry = BTreeSet<GoMethodDeclaration>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GoOwnerReferenceMode {
