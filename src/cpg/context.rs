@@ -74,18 +74,42 @@ impl<'a> CpgContext<'a> {
         Self::from_built_cpg(files, cpg, type_db, None)
     }
 
-    fn from_built_cpg(
+    /// Build a CpgContext from a FRESHLY REBUILT CPG — one constructed from
+    /// the same current `files` map this context is built over (e.g. the
+    /// incremental rebuild in `NavigationIndex::build_incremental_from_previous`
+    /// or the CLI partial-cache-hit path).
+    ///
+    /// P15a-fix2 provenance boundary: because the graph provably came from the
+    /// current `files`, its stashed plain Go provider is TRANSFERRED into the
+    /// registry (single extraction, no re-dispatch). This is distinct from
+    /// `build_with_cached_cpg`, whose deserialized CPG may have been extracted
+    /// from a stale file set and therefore always constructs fresh.
+    pub fn build_with_fresh_cpg(
         files: &'a BTreeMap<String, ParsedFile>,
         cpg: CodePropertyGraph,
+        type_db: Option<&'a TypeDatabase>,
+    ) -> Self {
+        Self::from_built_cpg(files, cpg, type_db, None)
+    }
+
+    fn from_built_cpg(
+        files: &'a BTreeMap<String, ParsedFile>,
+        mut cpg: CodePropertyGraph,
         type_db: Option<&'a TypeDatabase>,
         scope: Option<CpgScope>,
     ) -> Self {
         // P15a-fix1: reuse the plain Go provider the CPG build already
-        // extracted (Arc-backed clone — no re-extraction). Only full-context
-        // builds reach here via `build`/`build_with_scope_graph_inputs`,
-        // whose CPG was constructed from the SAME complete `files` map;
-        // scoped / cache-loaded / AST-only contexts construct their own.
-        let shared_go_provider = cpg.call_graph.shared_plain_go_provider.clone();
+        // extracted. P15a-fix2: TRANSFER (`take`), not clone — a clone left
+        // the full GoTypeData pinned on the CallGraph for the lifetime of the
+        // CPG (navigation index, MCP session), turning the build-time peak
+        // fix into steady-state retention. After this move the CPG's
+        // CallGraph holds NO provider.
+        //
+        // Only fresh-context builds reach here via `build`/
+        // `build_with_scope_graph_inputs`/`build_with_fresh_cpg`, whose CPG
+        // was constructed from the SAME complete `files` map; scoped /
+        // cache-loaded / AST-only contexts construct their own.
+        let shared_go_provider = cpg.call_graph.shared_plain_go_provider.take();
         let types = Self::build_registry(files, type_db, shared_go_provider);
         // collect_live_types recursively walks each file's AST (the C/C++/Python
         // live-type scan), which overflows the caller thread on deeply-nested
@@ -204,7 +228,12 @@ impl<'a> CpgContext<'a> {
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
 
-        let cpg = CodePropertyGraph::build_enriched_without_scope_graph(&filtered, type_db);
+        let mut cpg = CodePropertyGraph::build_enriched_without_scope_graph(&filtered, type_db);
+        // P15a-fix2: the filtered CPG was built from `filtered`, but this
+        // context's registry is built over ALL `files` — a different file set.
+        // Its stashed provider must NOT be reused; drop it so the scoped CPG
+        // never pins Go type data after build.
+        drop(cpg.call_graph.shared_plain_go_provider.take());
         let types = Self::build_registry(files, type_db, None);
         // Collect live types from ALL files (not just scoped) for accurate RTA.
         let live_types = types.collect_live_types(files);

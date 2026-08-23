@@ -151,7 +151,14 @@ impl NavigationIndex {
             repo.type_db.clone(),
             repo.scope_graph_inputs.as_ref(),
         );
-        Self::from_ctx(CpgContext::build_with_cached_cpg(
+        // P15a-fix2 provenance boundary: this CPG was FRESHLY REBUILT from
+        // the same current `repo.files`, so its stashed plain Go provider
+        // transfers into the registry exactly like the full path (one plain
+        // extraction total, peak live = 1, and nothing retained on the graph).
+        // A truly deserialized cache hit must keep using
+        // `CpgContext::build_with_cached_cpg`, which constructs fresh because
+        // the cached provider's provenance cannot be trusted.
+        Self::from_ctx(CpgContext::build_with_fresh_cpg(
             &repo.files,
             cpg,
             repo.type_db.as_ref(),
@@ -591,6 +598,63 @@ mod tests {
             &changed_files,
         ));
         NavigationSession { repo, index }
+    }
+
+    /// P15a-fix2: the incremental REBUILD path (`build_incremental_from_previous`,
+    /// used by MCP `refresh_index`) constructs a fresh CPG from the current
+    /// `repo.files`, so it must transfer that CPG's stashed plain Go provider
+    /// into the registry — exactly ONE plain construction and peak live = 1.
+    /// RED on the pre-fix code, which routed through `build_with_cached_cpg`
+    /// (registry got None) and did dispatch + TWO plain extractions with two
+    /// live datasets.
+    #[test]
+    fn p15a_fix2_incremental_rebuild_single_plain_extraction() {
+        use crate::type_providers::go::test_counters::MeasurementToken;
+
+        let dir = tempfile::tempdir().unwrap();
+        write_files(
+            dir.path(),
+            &[
+                (
+                    "types.go",
+                    "package main\ntype Greeter interface{ Greet() string }\n",
+                ),
+                (
+                    "main.go",
+                    "package main\nfunc (g Greeter) greet() {}\nfunc main() {}\n",
+                ),
+            ],
+        );
+        let v1 = full_session(dir.path());
+
+        write_files(
+            dir.path(),
+            &[(
+                "main.go",
+                "package main\nfunc (g Greeter) greet() {}\nfunc main() { _ = 1 }\n",
+            )],
+        );
+        let repo = Arc::new(load_repo(dir.path()).unwrap());
+        let token = MeasurementToken::acquire();
+        let index = NavigationIndex::build_incremental_from_previous(
+            v1.index.as_ref(),
+            &repo,
+            &BTreeSet::from(["main.go".to_string()]),
+        );
+        assert_eq!(
+            token.plain_constructions(),
+            1,
+            "incremental rebuild must reuse the rebuild's single plain extraction"
+        );
+        assert_eq!(
+            token.peak_live(),
+            1,
+            "at most 1 full GoTypeData may be alive at a time"
+        );
+        assert!(
+            index.cpg.call_graph.shared_plain_go_provider.is_none(),
+            "incrementally rebuilt index must not retain the shared provider"
+        );
     }
 
     fn function_names_for_callers(

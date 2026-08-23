@@ -5103,11 +5103,38 @@ mod tests {
     // plain providers for promotion AND receiver rematerialization AND the
     // registry (3 plain constructions; peak live 2 while dispatch's
     // import-aware extraction coexisted with the retained shared one).
+    // P15a-fix2: generation-keyed drops — a provider built BEFORE the token
+    // but dropped DURING the measurement must not decrement its live count
+    // (RED on the pre-fix global ARMED design, which underflowed LIVE).
+    #[test]
+    fn p15a_fix2_pre_token_drop_does_not_underflow_live() {
+        use crate::languages::Language::Go;
+        use crate::type_providers::go::{test_counters::MeasurementToken, GoTypeProvider};
+
+        let src = "package main\n\ntype S struct{ X int }\n";
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.go".to_string(),
+            ParsedFile::parse("main.go", src, Go).unwrap(),
+        );
+
+        // Built before any measurement — attributed to generation 0.
+        let stale = GoTypeProvider::from_parsed_files(&files);
+
+        let token = MeasurementToken::acquire();
+        drop(stale);
+        assert_eq!(
+            token.live(),
+            0,
+            "a pre-token extraction's drop must not affect this measurement"
+        );
+    }
+
     #[test]
     fn p15a_fix1_single_plain_provider_peak_live_one_through_full_context_path() {
         use crate::cpg::CpgContext;
         use crate::languages::Language::Go;
-        use crate::type_providers::go::test_counters;
+        use crate::type_providers::go::test_counters::MeasurementToken;
 
         let src = "package main\n\ntype S struct{ X int }\n\nfunc (s S) Get() int { return s.X }\n\nfunc main() { var s S; _ = s.Get() }\n";
         let mut files = BTreeMap::new();
@@ -5116,26 +5143,32 @@ mod tests {
             ParsedFile::parse("main.go", src, Go).unwrap(),
         );
 
-        test_counters::arm();
+        let token = MeasurementToken::acquire();
         let ctx = CpgContext::build(&files, None);
-        let plain = test_counters::PLAIN_CONSTRUCTIONS.load(std::sync::atomic::Ordering::SeqCst);
-        let import_aware =
-            test_counters::IMPORT_AWARE_CONSTRUCTIONS.load(std::sync::atomic::Ordering::SeqCst);
-        let peak = test_counters::PEAK_LIVE.load(std::sync::atomic::Ordering::SeqCst);
-        assert_eq!(plain, 1, "expected exactly 1 plain construction");
         assert_eq!(
-            import_aware, 1,
+            token.plain_constructions(),
+            1,
+            "expected exactly 1 plain construction"
+        );
+        assert_eq!(
+            token.import_aware_constructions(),
+            1,
             "expected exactly 1 import-aware construction"
         );
-        assert_eq!(peak, 1, "at most 1 full GoTypeData may be alive at a time");
-        // The registry actually received the shared extraction.
-        drop(ctx);
-        test_counters::disarm();
         assert_eq!(
-            test_counters::LIVE.load(std::sync::atomic::Ordering::SeqCst),
-            0,
-            "all extractions released"
+            token.peak_live(),
+            1,
+            "at most 1 full GoTypeData may be alive at a time"
         );
+        // P15a-fix2: the provider was TRANSFERRED into the registry — the
+        // CPG's CallGraph holds NO provider after context construction, so a
+        // long-lived CPG never pins the full Go type data.
+        assert!(
+            ctx.cpg.call_graph.shared_plain_go_provider.is_none(),
+            "CPG must not retain the shared plain Go provider after build"
+        );
+        drop(ctx);
+        assert_eq!(token.live(), 0, "all extractions released");
     }
 
     #[test]
