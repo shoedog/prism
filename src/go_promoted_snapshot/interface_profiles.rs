@@ -80,3 +80,44 @@ fn selector(raw_type: &str) -> String {
         .unwrap_or(raw_type)
         .to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::languages::Language;
+
+    #[test]
+    fn snapshot_local_paths_use_the_provider_clause_filter() {
+        let files = BTreeMap::from([
+            (
+                "mixed/a.go".to_string(),
+                ParsedFile::parse("mixed/a.go", "package a\n", Language::Go).unwrap(),
+            ),
+            (
+                "mixed/b.go".to_string(),
+                ParsedFile::parse("mixed/b.go", "package b\n", Language::Go).unwrap(),
+            ),
+            (
+                "stable/s.go".to_string(),
+                ParsedFile::parse("stable/s.go", "package stable\n", Language::Go).unwrap(),
+            ),
+        ]);
+        let (profiles, _) = crate::go_build_profile::extract_go_file_profiles(&files);
+        let package_paths = BTreeMap::from([
+            ("mixed/a.go".to_string(), "example.test/mixed".to_string()),
+            ("mixed/b.go".to_string(), "example.test/mixed".to_string()),
+            (
+                "stable/s.go".to_string(),
+                "example.test/stable".to_string(),
+            ),
+        ]);
+
+        assert_eq!(
+            local_import_paths(&package_paths, &profiles),
+            BTreeMap::from([(
+                "stable/s.go".to_string(),
+                "example.test/stable".to_string(),
+            )])
+        );
+    }
+}
