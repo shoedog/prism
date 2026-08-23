@@ -144,6 +144,7 @@ fn call_stats_omits_owner_partition_extension_for_non_go_graphs() {
         "go_owner_identity_partition_affected_sites",
         "go_owner_identity_partition_affected_edges",
         "go_concrete_receiver_direct",
+        "go_concrete_receiver_promoted_existing",
         "go_concrete_receiver_promoted_deferred",
         "go_concrete_receiver_no_selector_drop",
         "go_unproven_receiver_bare_fallback_sites",

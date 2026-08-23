@@ -182,10 +182,10 @@ fn call_stats_recovery_counter_moves_on_recovered_owner_site() {
 }
 
 #[test]
-fn call_stats_reports_concrete_promoted_deferred_and_ambiguity() {
+fn call_stats_reports_existing_concrete_promotion_and_ambiguity() {
     let dir = tempfile::tempdir().unwrap();
-    // One terminally deferred concrete promotion (Wrap.Ping) + one equal-depth
-    // ambiguity (A.M via X,Y).
+    // One existing concrete promotion (Wrap.Ping) + one equal-depth ambiguity
+    // (A.M via X,Y).
     std::fs::write(
         dir.path().join("main.go"),
         "package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\nfunc run(w Wrap) {\n\tw.Ping()\n}\ntype X struct{}\nfunc (x X) M() {}\ntype Y struct{}\nfunc (y Y) M() {}\ntype A struct {\n\tX\n\tY\n}\n",
@@ -203,11 +203,9 @@ fn call_stats_reports_concrete_promoted_deferred_and_ambiguity() {
         String::from_utf8_lossy(&out.stderr)
     );
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert!(
-        v["kinds"].get("embedded_promotion").is_none(),
-        "a proven concrete promoted selector must not mint the old edge: {v:#}"
-    );
-    assert_eq!(v["go_concrete_receiver_promoted_deferred"], 1);
+    assert_eq!(v["kinds"]["embedded_promotion"], 1, "{v:#}");
+    assert_eq!(v["go_concrete_receiver_promoted_existing"], 1);
+    assert_eq!(v["go_concrete_receiver_promoted_deferred"], 0);
     assert_eq!(v["embedding_gaps"]["ambiguous"], 1);
     assert!(v["interface_gaps"].is_object());
     assert!(v["interface_overapprox"].is_object());

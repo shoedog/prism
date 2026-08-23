@@ -3236,7 +3236,7 @@ fn p6_lifetime_typed_param_recovers_among_collisions() {
 }
 
 #[test]
-fn go_embedded_concrete_method_is_terminally_deferred() {
+fn go_embedded_concrete_method_keeps_existing_promotion() {
     use prism::languages::Language::Go;
     let (cg, _) = build(&[(
         "main.go",
@@ -3245,16 +3245,17 @@ fn go_embedded_concrete_method_is_terminally_deferred() {
     )]);
     let site = site_in(&cg, "run", "Ping");
     let outcome = cg.resolve_call_site_full(&site);
-    assert!(outcome.resolved.is_empty(), "{outcome:?}");
-    assert_eq!(
-        outcome.drop,
-        Some(DropReason::ConcreteReceiverPromotedDeferred)
-    );
-    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_deferred, 1);
+    assert_eq!(outcome.drop, None, "{outcome:?}");
+    assert_eq!(outcome.resolved.len(), 1, "{outcome:?}");
+    assert_eq!(outcome.resolved[0].target.file, "main.go");
+    assert_eq!(outcome.resolved[0].target.start_line, 3);
+    assert_eq!(outcome.resolved[0].kind, ResolutionKind::EmbeddedPromotion);
+    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_existing, 1);
+    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_deferred, 0);
 }
 
 #[test]
-fn go_embedded_transitive_concrete_method_is_terminally_deferred() {
+fn go_embedded_transitive_concrete_method_keeps_existing_promotion() {
     use prism::languages::Language::Go;
     let (cg, _) = build(&[(
         "main.go",
@@ -3262,16 +3263,15 @@ fn go_embedded_transitive_concrete_method_is_terminally_deferred() {
         Go,
     )]);
     let outcome = cg.resolve_call_site_full(&site_in(&cg, "run", "M"));
-    assert!(outcome.resolved.is_empty(), "{outcome:?}");
-    assert_eq!(
-        outcome.drop,
-        Some(DropReason::ConcreteReceiverPromotedDeferred)
-    );
-    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_deferred, 1);
+    assert_eq!(outcome.drop, None, "{outcome:?}");
+    assert_eq!(outcome.resolved.len(), 1, "{outcome:?}");
+    assert_eq!(outcome.resolved[0].target.start_line, 3);
+    assert_eq!(outcome.resolved[0].kind, ResolutionKind::EmbeddedPromotion);
+    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_existing, 1);
 }
 
 #[test]
-fn go_embedded_pointer_receiver_addressable_is_terminally_deferred() {
+fn go_embedded_pointer_receiver_addressable_keeps_existing_promotion() {
     use prism::languages::Language::Go;
     let (cg, _) = build(&[(
         "main.go",
@@ -3279,13 +3279,11 @@ fn go_embedded_pointer_receiver_addressable_is_terminally_deferred() {
         Go,
     )]);
     let outcome = cg.resolve_call_site_full(&site_in(&cg, "run", "Ping"));
-    assert!(outcome.resolved.is_empty(), "{outcome:?}");
-    assert_eq!(
-        outcome.drop,
-        Some(DropReason::ConcreteReceiverPromotedDeferred),
-        "addressable value receiver promotion is recognized but terminally deferred"
-    );
-    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_deferred, 1);
+    assert_eq!(outcome.drop, None, "{outcome:?}");
+    assert_eq!(outcome.resolved.len(), 1, "{outcome:?}");
+    assert_eq!(outcome.resolved[0].target.start_line, 3);
+    assert_eq!(outcome.resolved[0].kind, ResolutionKind::EmbeddedPromotion);
+    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_existing, 1);
 }
 
 #[test]
@@ -3333,8 +3331,9 @@ fn go_equal_depth_embedding_ambiguity_drops() {
         out.resolved.is_empty(),
         "equal-depth M is ambiguous -> no promoted edge"
     );
-    assert_eq!(out.drop, Some(DropReason::ConcreteReceiverPromotedDeferred));
-    assert_eq!(out.telemetry.go_concrete_receiver_promoted_deferred, 1);
+    assert_eq!(out.drop, Some(DropReason::ConcreteReceiverNoSelector));
+    assert_eq!(out.telemetry.go_concrete_receiver_no_selector_drop, 1);
+    assert_eq!(out.telemetry.go_concrete_receiver_promoted_deferred, 0);
 }
 
 #[test]

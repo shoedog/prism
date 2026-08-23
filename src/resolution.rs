@@ -866,6 +866,7 @@ pub struct ResolutionTelemetry {
     pub go_bare_value_ref_ambiguous: usize,
     pub go_build_expr_unparsed: usize,
     pub go_concrete_receiver_direct: usize,
+    pub go_concrete_receiver_promoted_existing: usize,
     pub go_concrete_receiver_promoted_deferred: usize,
     pub go_concrete_receiver_no_selector_drop: usize,
     pub go_unproven_receiver_bare_fallback_sites: usize,
@@ -1207,6 +1208,14 @@ impl CallGraph {
             }
         }
         Some(resolved)
+    }
+
+    pub(crate) fn go_existing_embedding_promotion_hit(&self, owner: &str, name: &str) -> bool {
+        self.owner_lookup(owner, name).is_some_and(|resolved| {
+            resolved
+                .iter()
+                .any(|callee| callee.kind == ResolutionKind::EmbeddedPromotion)
+        })
     }
 
     pub(crate) fn go_receiver_owner(
@@ -2264,6 +2273,18 @@ impl CallGraph {
                                 ..
                             }
                             | crate::go_concrete_receiver::GoConcreteReceiverRoute::Unproven => {}
+                            crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcretePromoted {
+                                ..
+                            } => {
+                                let Some(resolved) = self.owner_lookup(recv_ty, name) else {
+                                    return ResolutionOutcome::dropped(
+                                        DropReason::ConcreteReceiverPromotedDeferred,
+                                    );
+                                };
+                                let mut telemetry = ResolutionTelemetry::default();
+                                telemetry.go_concrete_receiver_promoted_existing = 1;
+                                return ResolutionOutcome::hit_with_telemetry(resolved, telemetry);
+                            }
                             crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcretePromotedDeferred {
                                 ..
                             } => {

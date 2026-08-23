@@ -247,7 +247,33 @@ fn concrete_embedded_interface_keeps_s4_targets() {
 }
 
 #[test]
-fn concrete_promoted_method_is_terminally_deferred() {
+fn concrete_promoted_method_keeps_existing_owner_lookup_edge() {
+    let cg = build_go(&[(
+        "main.go",
+        "package main\n\
+         type Marker interface { M() }\n\
+         type B struct{}\n\
+         func (B) M() {}\n\
+         type S struct { B }\n\
+         func run(s S) { s.M() }\n",
+    )]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
+
+    assert_eq!(outcome.drop, None, "{outcome:?}");
+    assert_eq!(outcome.resolved.len(), 1, "{outcome:?}");
+    assert_eq!(outcome.resolved[0].target.file, "main.go");
+    assert_eq!(outcome.resolved[0].target.start_line, 4);
+    assert_eq!(outcome.resolved[0].kind, ResolutionKind::EmbeddedPromotion);
+    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_existing, 1);
+    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_deferred, 0);
+    assert_eq!(
+        prism::navigation::queries::call_stats(&cg)["go_concrete_receiver_promoted_existing"],
+        serde_json::json!(1)
+    );
+}
+
+#[test]
+fn concrete_promoted_method_is_deferred_when_existing_lane_is_package_refused() {
     let cg = build_go(&[
         (
             "q/types.go",

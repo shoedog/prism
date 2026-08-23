@@ -105,6 +105,27 @@ fn manifest_pins_promoted_deferred_drop_with_resolver_telemetry() {
 }
 
 #[test]
+fn manifest_pins_existing_promoted_edge_with_resolver_telemetry() {
+    let cg = build_go(&[(
+        "main.go",
+        "package main\n\
+         type Marker interface{ M() }\n\
+         type B struct{}\n\
+         func (B) M() {}\n\
+         type S struct{ B }\n\
+         func run(s S) { s.M() }\n",
+    )]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
+
+    assert_eq!(outcome.drop, None, "{outcome:?}");
+    assert_eq!(outcome.resolved.len(), 1, "{outcome:?}");
+    assert_eq!(outcome.resolved[0].target.file, "main.go");
+    assert_eq!(outcome.resolved[0].kind, ResolutionKind::EmbeddedPromotion);
+    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_existing, 1);
+    assert_manifest_route(&cg, "concrete_promoted");
+}
+
+#[test]
 fn manifest_pins_interface_dispatch_with_resolver_targets() {
     let cg = build_go(&[(
         "main.go",
@@ -153,6 +174,71 @@ fn manifest_pins_embedded_interface_dispatch_with_resolver_targets() {
         manifest_target_files(&cg),
         resolver_target_files(&cg, "run", "M")
     );
+}
+
+#[test]
+fn shallower_embedded_interface_wins_over_deeper_concrete_supplier() {
+    let cg = build_go(&[(
+        "main.go",
+        "package main\n\
+         type I interface{ M() }\n\
+         type C struct{}\n\
+         func (C) M() {}\n\
+         type Inner struct{ C }\n\
+         type S struct{ I; Inner }\n\
+         type Good struct{}\n\
+         func (Good) M() {}\n\
+         func retain() { _ = Good{} }\n\
+         func run(s S) { s.M() }\n",
+    )]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
+
+    assert_eq!(outcome.drop, None, "{outcome:?}");
+    assert!(!outcome.resolved.is_empty(), "{outcome:?}");
+    assert!(outcome
+        .resolved
+        .iter()
+        .all(|resolved| resolved.kind == ResolutionKind::InterfaceDispatch));
+    assert_manifest_route(&cg, "embedded_interface_dispatch");
+}
+
+#[test]
+fn shallower_embedded_concrete_wins_over_deeper_interface_supplier() {
+    let cg = build_go(&[(
+        "main.go",
+        "package main\n\
+         type I interface{ M() }\n\
+         type C struct{}\n\
+         func (C) M() {}\n\
+         type Inner struct{ I }\n\
+         type S struct{ C; Inner }\n\
+         func run(s S) { s.M() }\n",
+    )]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
+
+    assert_eq!(outcome.drop, None, "{outcome:?}");
+    assert_eq!(outcome.resolved.len(), 1, "{outcome:?}");
+    assert_eq!(outcome.resolved[0].kind, ResolutionKind::EmbeddedPromotion);
+    assert_manifest_route(&cg, "concrete_promoted");
+}
+
+#[test]
+fn equal_depth_embedded_interface_and_concrete_is_ambiguous() {
+    let cg = build_go(&[(
+        "main.go",
+        "package main\n\
+         type I interface{ M() }\n\
+         type C struct{}\n\
+         func (C) M() {}\n\
+         type S struct{ I; C }\n\
+         func run(s S) { s.M() }\n",
+    )]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
+
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(outcome.drop, Some(DropReason::ConcreteReceiverNoSelector));
+    assert_eq!(outcome.telemetry.go_concrete_receiver_no_selector_drop, 1);
+    assert_manifest_route(&cg, "concrete_no_selector_drop");
 }
 
 #[test]

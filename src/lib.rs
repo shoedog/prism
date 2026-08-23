@@ -55,6 +55,7 @@ pub mod go_owner_partition;
 mod go_owner_partition_s4;
 mod go_receiver_index;
 mod go_receiver_index_visibility;
+mod go_selector_supply;
 pub mod js_exports;
 pub mod languages;
 pub mod live_types;

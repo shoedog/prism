@@ -210,6 +210,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     let mut go_pkg_clause_partition_exact = 0usize;
     let mut go_build_partition_exact = 0usize;
     let mut go_concrete_receiver_direct = 0usize;
+    let mut go_concrete_receiver_promoted_existing = 0usize;
     let mut go_concrete_receiver_promoted_deferred = 0usize;
     let mut go_concrete_receiver_no_selector_drop = 0usize;
     let mut go_unproven_receiver_bare_fallback_sites = 0usize;
@@ -282,6 +283,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
             go_bare_value_ref_ambiguous += out.telemetry.go_bare_value_ref_ambiguous;
             go_build_expr_unparsed += out.telemetry.go_build_expr_unparsed;
             go_concrete_receiver_direct += out.telemetry.go_concrete_receiver_direct;
+            go_concrete_receiver_promoted_existing +=
+                out.telemetry.go_concrete_receiver_promoted_existing;
             go_concrete_receiver_promoted_deferred +=
                 out.telemetry.go_concrete_receiver_promoted_deferred;
             go_concrete_receiver_no_selector_drop +=
@@ -553,6 +556,10 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
             go_concrete_receiver_direct.into(),
         );
         object.insert(
+            "go_concrete_receiver_promoted_existing".to_string(),
+            go_concrete_receiver_promoted_existing.into(),
+        );
+        object.insert(
             "go_concrete_receiver_promoted_deferred".to_string(),
             go_concrete_receiver_promoted_deferred.into(),
         );
@@ -672,6 +679,10 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             match &go_route {
                 crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. } => {
                     dispatch_route = "concrete_direct";
+                    impls = &[];
+                }
+                crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcretePromoted { .. } => {
+                    dispatch_route = "concrete_promoted";
                     impls = &[];
                 }
                 crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcretePromotedDeferred {

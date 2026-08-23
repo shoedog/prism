@@ -639,8 +639,9 @@ pub struct CallGraph {
     /// receiver route. Exact CPG hits must retain the same R1/R2/R3 verdict.
     #[serde(default)]
     pub go_declaration_kind_index: crate::go_concrete_receiver::GoDeclarationKindIndex,
-    /// P17 label-only proof that a concrete selector is supplied by embedded
-    /// concrete promotion. Both positive and negative routes remain terminal.
+    /// P17 compatibility snapshot showing a concrete selector is supplied by
+    /// embedding. The shared route separately checks the existing owner-index
+    /// promotion lane before deferring a newly recovered miss.
     #[serde(default)]
     pub go_promoted_concrete_selectors: BTreeSet<(crate::resolution::GoOwnerIdentity, String)>,
     /// P10 S4 interface and method declaration provenance, captured from the

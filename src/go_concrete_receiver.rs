@@ -286,6 +286,9 @@ pub(crate) enum GoConcreteReceiverRoute {
         owner: GoOwnerIdentity,
         selection: GoPartitionSelection<bool>,
     },
+    ConcretePromoted {
+        owner: GoOwnerIdentity,
+    },
     ConcretePromotedDeferred {
         owner: GoOwnerIdentity,
     },
@@ -389,29 +392,6 @@ impl CallGraph {
             };
         }
 
-        if self
-            .go_promoted_concrete_selectors
-            .contains(&(owner.clone(), method_name.to_string()))
-        {
-            return GoConcreteReceiverRoute::ConcretePromotedDeferred { owner };
-        }
-
-        let embedded =
-            self.go_embedded_interface_route(recv_ty, Some(&owner), method_name, caller_file);
-        if embedded.evidence.conflict || embedded.evidence.uncertain {
-            return GoConcreteReceiverRoute::ConcreteNoSelector {
-                owner,
-                evidence: embedded.evidence,
-            };
-        }
-        if let Some(interface_name) = embedded.value {
-            return GoConcreteReceiverRoute::EmbeddedInterfaceDispatch {
-                owner,
-                interface_name,
-                evidence: embedded.evidence,
-            };
-        }
-
         let Some(declarations) = self.go_field_types.get(&owner) else {
             return GoConcreteReceiverRoute::ConcreteNoSelector {
                 owner,
@@ -433,16 +413,69 @@ impl CallGraph {
                 evidence: field.evidence,
             };
         }
-        if field
-            .value
-            .as_deref()
-            .is_some_and(|ty| ty.trim_start().starts_with("func("))
-        {
-            GoConcreteReceiverRoute::FuncValueField { owner }
-        } else {
-            GoConcreteReceiverRoute::ConcreteNoSelector {
+        if let Some(field_type) = field.value.as_deref() {
+            return if field_type.trim_start().starts_with("func(") {
+                GoConcreteReceiverRoute::FuncValueField { owner }
+            } else {
+                GoConcreteReceiverRoute::ConcreteNoSelector {
+                    owner,
+                    evidence: field.evidence,
+                }
+            };
+        }
+
+        let supply = self.go_embedded_selector_supply(&owner, method_name, caller_file);
+        if supply.evidence.conflict || supply.evidence.uncertain {
+            return GoConcreteReceiverRoute::ConcreteNoSelector {
                 owner,
-                evidence: field.evidence,
+                evidence: supply.evidence,
+            };
+        }
+        match supply.value {
+            Some(crate::go_selector_supply::GoEmbeddedSelectorSupply::Concrete) => {
+                if self.go_existing_embedding_promotion_hit(recv_ty, method_name) {
+                    GoConcreteReceiverRoute::ConcretePromoted { owner }
+                } else {
+                    GoConcreteReceiverRoute::ConcretePromotedDeferred { owner }
+                }
+            }
+            Some(crate::go_selector_supply::GoEmbeddedSelectorSupply::Interface(
+                interface_name,
+            )) => GoConcreteReceiverRoute::EmbeddedInterfaceDispatch {
+                owner,
+                interface_name,
+                evidence: supply.evidence,
+            },
+            Some(crate::go_selector_supply::GoEmbeddedSelectorSupply::NoSelector) => {
+                GoConcreteReceiverRoute::ConcreteNoSelector {
+                    owner,
+                    evidence: supply.evidence,
+                }
+            }
+            None => {
+                let embedded = self.go_embedded_interface_route(
+                    recv_ty,
+                    Some(&owner),
+                    method_name,
+                    caller_file,
+                );
+                if embedded.evidence.conflict || embedded.evidence.uncertain {
+                    return GoConcreteReceiverRoute::ConcreteNoSelector {
+                        owner,
+                        evidence: embedded.evidence,
+                    };
+                }
+                if let Some(interface_name) = embedded.value {
+                    return GoConcreteReceiverRoute::EmbeddedInterfaceDispatch {
+                        owner,
+                        interface_name,
+                        evidence: embedded.evidence,
+                    };
+                }
+                GoConcreteReceiverRoute::ConcreteNoSelector {
+                    owner,
+                    evidence: field.evidence,
+                }
             }
         }
     }
