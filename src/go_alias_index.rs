@@ -295,7 +295,7 @@ impl<'a> AliasExpansionCtx<'a> {
         match first {
             Some((text, type_params)) => Ok(Some(GoAliasRhs {
                 text: text.clone(),
-                type_params: type_params,
+                type_params,
             })),
             None => {
                 self.record_unresolved(GoAliasUnresolvedReason::Unresolvable);

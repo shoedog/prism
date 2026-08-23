@@ -26,6 +26,26 @@ fn build_go(sources: &[(&str, &str)]) -> CallGraph {
     CallGraph::build(&files)
 }
 
+fn build_go_with_module(sources: &[(&str, &str)], module_path: &str) -> CallGraph {
+    let files: BTreeMap<String, ParsedFile> = sources
+        .iter()
+        .map(|(path, source)| {
+            (
+                (*path).to_string(),
+                ParsedFile::parse(path, source, Language::Go).expect("parse Go fixture"),
+            )
+        })
+        .collect();
+    let repo = tempfile::tempdir().expect("temporary Go module root");
+    std::fs::write(
+        repo.path().join("go.mod"),
+        format!("module {module_path}\n\ngo 1.22\n"),
+    )
+    .expect("write go.mod fixture");
+    let inputs = prism::repo_loader::scope_graph_build_inputs(repo.path(), &files);
+    CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs))
+}
+
 fn stats(cg: &CallGraph) -> serde_json::Value {
     prism::navigation::queries::call_stats(cg)
 }
@@ -286,8 +306,14 @@ fn s4ox_embedded_alias_resolves_to_its_owner_identity() {
     // SOL-W6: `type A = B` embedded as S{A} records the exact key
     // (is_pointer=false, resolved owner B, selector "A").
     let cg = build_go(&[
-        ("pkg/base.go", "package pkg\ntype B struct{}\nfunc (b B) Act() {}\n"),
-        ("pkg/alias.go", "package pkg\ntype A = B\ntype S struct { A }\n"),
+        (
+            "pkg/base.go",
+            "package pkg\ntype B struct{}\nfunc (b B) Act() {}\n",
+        ),
+        (
+            "pkg/alias.go",
+            "package pkg\ntype A = B\ntype S struct { A }\n",
+        ),
     ]);
     let snapshot = cg.go_promoted_snapshot();
     let s = snapshot
@@ -323,13 +349,18 @@ fn s4ox_embedded_alias_resolves_to_its_owner_identity() {
 fn s4ox_qualified_embedded_interface_is_deferred_not_conflicted() {
     // SOL-W7 converse: `struct{ q.I }` resolves q.I and must reclassify it as
     // an INTERFACE (deferral), never a ProfileConflict.
-    let cg = build_go(&[
-        ("q/q.go", "package q\ntype I interface { M() }\n"),
-        (
-            "pkg/s.go",
-            "package pkg\nimport q \"example.com/prism/q\"\ntype S struct { q.I }\n",
-        ),
-    ]);
+    // Qualified resolution needs the module-graph path proof, so this fixture
+    // runs under a go.mod (P10 identity), not the bare builder.
+    let cg = build_go_with_module(
+        &[
+            ("q/q.go", "package q\ntype I interface { M() }\n"),
+            (
+                "pkg/s.go",
+                "package pkg\nimport q \"example.com/prism/q\"\ntype S struct { q.I }\n",
+            ),
+        ],
+        "example.com/prism",
+    );
     let snapshot = cg.go_promoted_snapshot();
     let s = snapshot
         .owners
@@ -337,7 +368,15 @@ fn s4ox_qualified_embedded_interface_is_deferred_not_conflicted() {
         .find(|(owner, _)| owner.name == "S")
         .map(|(_, v)| v)
         .expect("S owner");
-    let embed = s.declarations.values().next().unwrap().embeds.iter().next().unwrap();
+    let embed = s
+        .declarations
+        .values()
+        .next()
+        .unwrap()
+        .embeds
+        .iter()
+        .next()
+        .unwrap();
     assert!(embed.is_interface);
     assert_eq!(
         s.verdict,
@@ -350,8 +389,14 @@ fn s4ox_profile_divergent_embedded_interface_conflicts() {
     // fix-3 / SOL-W7: I's method surface varies by profile; untagged S{I}
     // must be conflicted even though S itself has one declaration.
     let divergent = build_go(&[
-        ("pkg/i_linux.go", "//go:build linux\npackage pkg\ntype I interface { M() }\n"),
-        ("pkg/i_windows.go", "//go:build windows\npackage pkg\ntype I interface { N() }\n"),
+        (
+            "pkg/i_linux.go",
+            "//go:build linux\npackage pkg\ntype I interface { M() }\n",
+        ),
+        (
+            "pkg/i_windows.go",
+            "//go:build windows\npackage pkg\ntype I interface { N() }\n",
+        ),
         ("pkg/s.go", "package pkg\ntype S struct { I }\n"),
     ]);
     let (_owners, conflicts, _promoted) = snapshot_counts(&divergent);
@@ -359,8 +404,14 @@ fn s4ox_profile_divergent_embedded_interface_conflicts() {
 
     // Control: identical I on both profiles stays Consistent.
     let identical = build_go(&[
-        ("pkg/i_linux.go", "//go:build linux\npackage pkg\ntype I interface { M() }\n"),
-        ("pkg/i_windows.go", "//go:build windows\npackage pkg\ntype I interface { M() }\n"),
+        (
+            "pkg/i_linux.go",
+            "//go:build linux\npackage pkg\ntype I interface { M() }\n",
+        ),
+        (
+            "pkg/i_windows.go",
+            "//go:build windows\npackage pkg\ntype I interface { M() }\n",
+        ),
         ("pkg/s.go", "package pkg\ntype S struct { I }\n"),
     ]);
     let (_owners, conflicts, _promoted) = snapshot_counts(&identical);
@@ -374,8 +425,14 @@ fn s4ox_own_method_axis_includes_receiver_kind_and_target_identity() {
     // promoted map must not depend on file insertion order.
     let cg = build_go(&[
         ("pkg/base.go", "package pkg\ntype B struct{}\n"),
-        ("pkg/m_linux.go", "//go:build linux\npackage pkg\nfunc (b B) M() {}\n"),
-        ("pkg/m_windows.go", "//go:build windows\npackage pkg\nfunc (b *B) M() {}\n"),
+        (
+            "pkg/m_linux.go",
+            "//go:build linux\npackage pkg\nfunc (b B) M() {}\n",
+        ),
+        (
+            "pkg/m_windows.go",
+            "//go:build windows\npackage pkg\nfunc (b *B) M() {}\n",
+        ),
         ("pkg/s.go", "package pkg\ntype S struct { B }\n"),
     ]);
     let (_owners, conflicts, promoted) = snapshot_counts(&cg);

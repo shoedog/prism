@@ -577,7 +577,7 @@ fn s4_cycle_guard_is_path_scoped_sibling_leaves_expand() {
             .resolve_call_site_full(site)
             .resolved
             .iter()
-            .filter_map(|r| cg.method_owners.get(&r.target).cloned())
+            .filter_map(|r| cg.method_owners.get(r.target).cloned())
             .collect();
         assert_eq!(
             owners,
@@ -617,7 +617,7 @@ fn s4_package_declaration_shadows_predeclared_byte_and_rune() {
         .resolve_call_site_full(site)
         .resolved
         .iter()
-        .filter_map(|r| shadowing.method_owners.get(&r.target).cloned())
+        .filter_map(|r| shadowing.method_owners.get(r.target).cloned())
         .collect();
     assert_eq!(owners, vec!["ImplShadow".to_string()]);
 
@@ -644,7 +644,7 @@ fn s4_package_declaration_shadows_predeclared_byte_and_rune() {
         .resolve_call_site_full(site)
         .resolved
         .iter()
-        .filter_map(|r| defined_shadow.method_owners.get(&r.target).cloned())
+        .filter_map(|r| defined_shadow.method_owners.get(r.target).cloned())
         .collect();
     assert_eq!(owners, Vec::<String>::new());
     drop(stats);
@@ -670,7 +670,7 @@ fn s4_package_declaration_shadows_predeclared_byte_and_rune() {
         .resolve_call_site_full(site)
         .resolved
         .iter()
-        .filter_map(|r| control.method_owners.get(&r.target).cloned())
+        .filter_map(|r| control.method_owners.get(r.target).cloned())
         .collect();
     assert_eq!(owners, vec!["Impl".to_string()]);
 }

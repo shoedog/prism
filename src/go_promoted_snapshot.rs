@@ -111,6 +111,73 @@ pub struct SnapshotInputs<'a> {
     /// Owners known to be INTERFACES (embedded interfaces defer to interface
     /// dispatch instead of counting as unresolvable embeds).
     pub interface_owners: &'a BTreeSet<GoOwnerIdentity>,
+    /// Per-file interface declarations (for embedded-interface profile
+    /// comparison: the method-name surface must not vary by profile).
+    pub interface_declarations: &'a crate::go_owner_partition::GoInterfaceDeclarations,
+    /// The slice-4 alias index, for resolving `type A = B` embedded selectors
+    /// to their owner identity (SOL-W6).
+    pub alias_index: &'a crate::go_alias_index::GoAliasIndex,
+}
+
+/// The interface's method-name surface is identical across every declaring
+/// file/profile.
+fn interface_profile_consistent(inputs: &SnapshotInputs<'_>, iface: &GoOwnerIdentity) -> bool {
+    let Some(declarations) = inputs.interface_declarations.get(iface) else {
+        return false;
+    };
+    let mut surfaces: BTreeSet<BTreeSet<String>> = BTreeSet::new();
+    for declaration in declarations {
+        surfaces.insert(declaration.methods.iter().cloned().collect());
+        if surfaces.len() > 1 {
+            return false;
+        }
+    }
+    true
+}
+
+/// Resolve a LOCAL embedded selector through the alias index: `type A = B`
+/// embedded as `S{A}` resolves its owner identity to B while keeping the
+/// written selector name (SOL-W6).
+fn resolve_local_alias_embed(
+    inputs: &SnapshotInputs<'_>,
+    owner: &GoOwnerIdentity,
+    selector: &str,
+) -> Option<GoOwnerIdentity> {
+    let variants = inputs.alias_index.variants.get(&(
+        owner.package_dir.clone(),
+        owner.package_clause.clone(),
+        selector.to_string(),
+    ))?;
+    // Every variant must be an Alias whose RHS canonicalizes identically;
+    // anything else fails closed (None → unresolved_embed axis).
+    let first = variants.first()?;
+    if !variants.iter().all(|variant| variant.kind == first.kind) {
+        return None;
+    }
+    let crate::go_alias_index::GoAliasKind::Alias {
+        rhs: Some(text),
+        type_params: 0,
+    } = &first.kind
+    else {
+        return None;
+    };
+    // Single local leaf (`B` or `~path::B`) in the owning package.
+    let compact = text.trim();
+    let name = if let Some(rest) = compact.strip_prefix('~') {
+        rest.rsplit("::").next()
+    } else if !compact.is_empty() && compact.chars().all(|ch| ch == '_' || ch.is_alphanumeric()) {
+        Some(compact)
+    } else {
+        None
+    }?;
+    if compact.starts_with('@') {
+        return None; // qualified alias targets go through resolve_qualified_embed
+    }
+    Some(GoOwnerIdentity {
+        package_dir: owner.package_dir.clone(),
+        package_clause: owner.package_clause.clone(),
+        name: name.to_string(),
+    })
 }
 
 /// Unique ordinary package clause per directory (`_test` clauses excluded);
@@ -200,14 +267,39 @@ pub fn compute(inputs: &SnapshotInputs<'_>) -> GoPromotedSelectorSnapshot {
                     package_clause: owner.package_clause.clone(),
                     name: selector.clone(),
                 };
-                let is_interface =
-                    resolved.is_none() && inputs.interface_owners.contains(&interface_candidate);
+                let mut embedded_interface_owner: Option<GoOwnerIdentity> = None;
+                if inputs.interface_owners.contains(&interface_candidate) {
+                    // Local embedded interface (selector IS the iface name).
+                    embedded_interface_owner = Some(interface_candidate);
+                }
+                let mut is_interface = embedded_interface_owner.is_some();
                 if resolved.is_none() && !is_interface {
-                    resolved =
-                        resolve_qualified_embed(inputs, &declaration.defining_file, raw_type);
+                    // SOL-W6: `type A = B` embedded as S{A} resolves to owner B
+                    // through the alias index while keeping selector "A".
+                    resolved = resolve_local_alias_embed(inputs, owner, selector);
+                }
+                if resolved.is_none() && !is_interface {
+                    match resolve_qualified_embed(inputs, &declaration.defining_file, raw_type) {
+                        Some(qualified) if inputs.interface_owners.contains(&qualified) => {
+                            // SOL-W7 converse: a QUALIFIED embed that resolves
+                            // to an interface identity is reclassified as an
+                            // interface, never walked as a struct.
+                            embedded_interface_owner = Some(qualified.clone());
+                            is_interface = true;
+                            resolved = None;
+                        }
+                        qualified => resolved = qualified,
+                    }
                 }
                 if resolved.is_none() && !is_interface {
                     axes.insert("unresolved_embed".to_string());
+                }
+                // fix-3 / SOL-W7: an embedded INTERFACE whose method surface
+                // varies across its declaring profiles poisons this owner.
+                if let Some(iface) = &embedded_interface_owner {
+                    if !interface_profile_consistent(inputs, iface) {
+                        axes.insert("embedded_interface_profile".to_string());
+                    }
                 }
                 facts.embeds.insert(GoEmbedKey {
                     is_pointer,
@@ -261,7 +353,10 @@ pub fn compute(inputs: &SnapshotInputs<'_>) -> GoPromotedSelectorSnapshot {
                         names_by_profile
                             .entry(profile.clone())
                             .or_default()
-                            .insert(method.method_name.clone());
+                            .insert(format!(
+                                "{}:{}",
+                                method.method_name, method.is_pointer_receiver
+                            ));
                     }
                 }
             }
@@ -286,9 +381,18 @@ pub fn compute(inputs: &SnapshotInputs<'_>) -> GoPromotedSelectorSnapshot {
                         if facts.field_names != first.field_names {
                             axes.insert("ordinary_fields".to_string());
                         }
-                        if facts.own_methods.keys().collect::<BTreeSet<_>>()
-                            != first.own_methods.keys().collect::<BTreeSet<_>>()
-                        {
+                        // SOL-W8: compare method facts as (name,
+                        // receiver-kind) pairs — name sets alone collapse
+                        // profile-specific receiver shapes, while raw
+                        // FunctionIds legitimately differ per declaring file.
+                        let shape = |facts: &GoDeclarationFacts| {
+                            facts
+                                .own_methods
+                                .iter()
+                                .map(|(name, info)| (name.clone(), info.is_pointer_receiver))
+                                .collect::<BTreeMap<_, _>>()
+                        };
+                        if shape(facts) != shape(first) {
                             axes.insert("own_methods".to_string());
                         }
                     }
@@ -455,11 +559,19 @@ impl PromotionWalker {
         }
         for (selector, raw_type) in &declaration.embedded_fields {
             let is_pointer = raw_type.trim_start().starts_with('*');
-            let Some(target) = inputs
+            let mut target = inputs
                 .field_targets
                 .get(&(current.clone(), selector.clone()))
                 .map(|target| target.owner.clone())
-            else {
+                .or_else(|| resolve_local_alias_embed(inputs, current, selector));
+            // SOL-W7 converse: a qualified embed resolving to an INTERFACE has
+            // no struct to walk into.
+            if let Some(resolved) = &target {
+                if inputs.interface_owners.contains(resolved) {
+                    target = None;
+                }
+            }
+            let Some(target) = target else {
                 continue;
             };
             if !path.insert(target.clone()) {

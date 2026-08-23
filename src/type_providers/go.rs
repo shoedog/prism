@@ -510,6 +510,8 @@ impl GoTypeProvider {
             dirs_by_path: &self.data.alias_index.dirs_by_path,
             imports_by_file: &imports_by_file,
             interface_owners: &interface_owners,
+            interface_declarations: &self.data.interface_declarations,
+            alias_index: &self.data.alias_index,
         })
     }
 
@@ -1602,11 +1604,9 @@ impl GoTypeProvider {
                 }
                 if let Some(alias) = env.alias {
                     match alias.expand_own(name) {
-                        resolved => match resolved {
-                            Ok(Some(rhs)) => return Self::expanded_alias_type(alias, &rhs),
-                            Ok(None) => {}
-                            Err(reason) => return Err(GoDispatchGap::AliasUnresolved(reason)),
-                        },
+                        Ok(Some(rhs)) => return Self::expanded_alias_type(alias, &rhs),
+                        Ok(None) => {}
+                        Err(reason) => return Err(GoDispatchGap::AliasUnresolved(reason)),
                     }
                 }
                 Ok(imports
@@ -1632,11 +1632,9 @@ impl GoTypeProvider {
                 }
                 if let Some(alias) = env.alias {
                     match alias.expand_qualified(import_path, type_name) {
-                        resolved => match resolved {
-                            Ok(Some(rhs)) => return Self::expanded_alias_type(alias, &rhs),
-                            Ok(None) => {}
-                            Err(reason) => return Err(GoDispatchGap::AliasUnresolved(reason)),
-                        },
+                        Ok(Some(rhs)) => return Self::expanded_alias_type(alias, &rhs),
+                        Ok(None) => {}
+                        Err(reason) => return Err(GoDispatchGap::AliasUnresolved(reason)),
                     }
                 }
                 Ok(format!("@{import_path}::{type_name}"))
