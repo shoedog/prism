@@ -331,9 +331,13 @@ impl CallGraph {
         &self,
         recv_ty: &str,
         proven_owner: Option<&GoOwnerIdentity>,
+        local_type_shadowed: bool,
         method_name: &str,
         caller_file: &str,
     ) -> GoConcreteReceiverRoute {
+        if local_type_shadowed {
+            return GoConcreteReceiverRoute::Unproven;
+        }
         let Some(receiver_owner) = self.go_receiver_owner(recv_ty, caller_file, proven_owner)
         else {
             return GoConcreteReceiverRoute::Unproven;

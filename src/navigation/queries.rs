@@ -669,6 +669,7 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             let go_route = cg.go_concrete_receiver_route(
                 recv_ty,
                 site.receiver_owner_identity.as_ref(),
+                site.receiver_local_type_shadowed,
                 &site.callee_name,
                 &site.caller.file,
             );

@@ -706,6 +706,69 @@ impl ParsedFile {
         (found, bindings)
     }
 
+    /// Whether a same-named function-local Go type declaration is lexically
+    /// visible at this call. Package-qualified types cannot be shadowed by a
+    /// local declaration and are rejected up front.
+    pub(crate) fn go_local_type_shadows(
+        &self,
+        func_node: &Node<'_>,
+        receiver_type: &str,
+        call_start_byte: usize,
+    ) -> bool {
+        if self.language != Language::Go {
+            return false;
+        }
+        let type_name = receiver_type
+            .trim()
+            .trim_start_matches('&')
+            .trim_start_matches('*')
+            .trim();
+        if type_name.is_empty() || type_name.contains('.') || type_name.contains('[') {
+            return false;
+        }
+
+        fn scope_contains_call(node: Node<'_>, call_start_byte: usize) -> bool {
+            let mut parent = node.parent();
+            while let Some(scope) = parent {
+                if matches!(
+                    scope.kind(),
+                    "block" | "expression_case" | "type_case" | "communication_case"
+                ) {
+                    return scope.start_byte() <= call_start_byte
+                        && call_start_byte < scope.end_byte();
+                }
+                parent = scope.parent();
+            }
+            false
+        }
+
+        fn walk(
+            parsed: &ParsedFile,
+            node: Node<'_>,
+            type_name: &str,
+            call_start_byte: usize,
+        ) -> bool {
+            if node.start_byte() >= call_start_byte {
+                return false;
+            }
+            if matches!(node.kind(), "type_spec" | "type_alias")
+                && node
+                    .child_by_field_name("name")
+                    .is_some_and(|name| parsed.node_text(&name).trim() == type_name)
+                && scope_contains_call(node, call_start_byte)
+            {
+                return true;
+            }
+            let mut cursor = node.walk();
+            let found = node
+                .children(&mut cursor)
+                .any(|child| walk(parsed, child, type_name, call_start_byte));
+            found
+        }
+
+        walk(self, *func_node, type_name, call_start_byte)
+    }
+
     /// P11 S1: locate the (at most one, per `receiver_type_in_fn`'s own
     /// `bindings <= 1` shadow-safety gate) Go `short_var_declaration`
     /// statement that binds `receiver` at the FIRST LHS position with a

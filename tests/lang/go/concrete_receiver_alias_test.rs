@@ -334,3 +334,107 @@ fn alias_cycle_fails_closed_without_a_direct_edge() {
     );
     assert!(manifest_target_files(&cg).is_empty());
 }
+
+#[test]
+fn local_interface_shadows_package_concrete_alias_at_call() {
+    let cg = build_go(&[
+        (
+            "q/types.go",
+            "package q\ntype S struct{}\nfunc (S) M() {}\n",
+        ),
+        (
+            "p/types.go",
+            "package p\n\
+             import q \"example/q\"\n\
+             type A = q.S\n\
+             type Marker interface{ M() }\n",
+        ),
+        (
+            "p/run.go",
+            "package p\n\
+             func run() {\n\
+               type A interface{ M() }\n\
+               var a A\n\
+               a.M()\n\
+             }\n",
+        ),
+    ]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
+
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
+    assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 0);
+    assert_eq!(
+        outcome.telemetry.go_unproven_receiver_bare_fallback_sites,
+        1
+    );
+    assert_eq!(
+        manifest_routes(&cg),
+        BTreeSet::from(["unproven_drop".into()])
+    );
+}
+
+#[test]
+fn local_concrete_shadows_package_interface_at_call() {
+    let cg = build_go(&[(
+        "main.go",
+        "package main\n\
+         type A interface{ M() }\n\
+         type Good struct{}\n\
+         func (Good) M() {}\n\
+         func retain() { _ = Good{} }\n\
+         func run() {\n\
+           type A struct{}\n\
+           var a A\n\
+           a.M()\n\
+         }\n",
+    )]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
+
+    assert_only_file(&cg, "run", "M", "main.go");
+    assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 0);
+    assert_eq!(
+        outcome.telemetry.go_unproven_receiver_bare_fallback_sites,
+        1
+    );
+    assert_eq!(outcome.telemetry.go_unproven_receiver_bare_fallback_hits, 1);
+    assert_eq!(
+        outcome.telemetry.go_unproven_receiver_bare_fallback_edges,
+        1
+    );
+    assert_eq!(
+        manifest_routes(&cg),
+        BTreeSet::from(["interface_dispatch".into()])
+    );
+}
+
+#[test]
+fn local_type_in_different_function_does_not_shadow_package_alias() {
+    let cg = build_go(&[
+        (
+            "q/types.go",
+            "package q\ntype S struct{}\nfunc (S) M() {}\n",
+        ),
+        (
+            "p/types.go",
+            "package p\n\
+             import q \"example/q\"\n\
+             type A = q.S\n\
+             type Marker interface{ M() }\n",
+        ),
+        (
+            "p/run.go",
+            "package p\n\
+             func shadow() { type A interface{ M() }; var _ A }\n\
+             func run(a A) { a.M() }\n",
+        ),
+    ]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
+
+    assert_only_file(&cg, "run", "M", "q/types.go");
+    assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 1);
+    assert_eq!(
+        manifest_routes(&cg),
+        BTreeSet::from(["concrete_direct".into()])
+    );
+}

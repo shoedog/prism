@@ -103,6 +103,7 @@ fn call_site(file: &str, name: &str, byte: usize) -> CallSite {
         qualifier: None,
         receiver_type: None,
         receiver_owner_identity: None,
+        receiver_local_type_shadowed: false,
         receiver_recovery: None,
         receiver_materialized: false,
         arg_count: None,

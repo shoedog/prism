@@ -91,6 +91,10 @@ pub struct CallSite {
     /// deserialize to `None` and therefore cannot invent this provenance.
     #[serde(default)]
     pub receiver_owner_identity: Option<crate::resolution::GoOwnerIdentity>,
+    /// A same-function local Go type declaration shadows the recovered bare
+    /// package type at this call. Derived from lexical AST scopes.
+    #[serde(default)]
+    pub receiver_local_type_shadowed: bool,
     /// S3 P6-lite: which syntactic fact recovered `receiver_type`
     /// (telemetry + ResolutionKind split). Excluded from cmp_key —
     /// derived from the same scan as receiver_type.
@@ -877,6 +881,7 @@ impl CallGraph {
                         ),
                         receiver_type: None,
                         receiver_owner_identity: None,
+                        receiver_local_type_shadowed: false,
                         receiver_recovery: None,
                         receiver_materialized: false,
                         arg_count: None,
@@ -1235,6 +1240,9 @@ impl CallGraph {
                             receiver_owner_identity: recovered
                                 .as_ref()
                                 .and_then(|r| r.owner_identity.clone()),
+                            receiver_local_type_shadowed: recovered.as_ref().is_some_and(|r| {
+                                parsed.go_local_type_shadows(&func_node, &r.static_type, start_byte)
+                            }),
                             receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                             receiver_materialized: classification.materialized,
                             arg_count: meta.arg_count,
@@ -1992,6 +2000,7 @@ impl CallGraph {
             qualifier: None,
             receiver_type: None,
             receiver_owner_identity: None,
+            receiver_local_type_shadowed: false,
             receiver_recovery: None,
             receiver_materialized: false,
             arg_count: None,
@@ -3314,6 +3323,17 @@ impl CallGraph {
                 .recovered
                 .as_ref()
                 .and_then(|r| r.owner_identity.clone());
+            updated.receiver_local_type_shadowed =
+                updated.receiver_type.as_ref().is_some_and(|ty| {
+                    files
+                        .get(&old_site.caller.file)
+                        .and_then(|parsed| {
+                            Self::function_node_for_id(parsed, &old_site.caller).map(|func_node| {
+                                parsed.go_local_type_shadows(&func_node, ty, old_site.start_byte)
+                            })
+                        })
+                        .unwrap_or(false)
+                });
             updated.receiver_recovery = classification.recovered.as_ref().map(|r| r.recovery);
             updated.receiver_outcome = classification
                 .recovered
@@ -3334,6 +3354,7 @@ impl CallGraph {
                     if site.caller == old_site.caller && site.cmp_key() == old_site.cmp_key() {
                         site.receiver_type = updated.receiver_type.clone();
                         site.receiver_owner_identity = updated.receiver_owner_identity.clone();
+                        site.receiver_local_type_shadowed = updated.receiver_local_type_shadowed;
                         site.receiver_recovery = updated.receiver_recovery;
                         site.receiver_outcome = updated.receiver_outcome.clone();
                         site.receiver_materialized = updated.receiver_materialized;
@@ -3930,6 +3951,9 @@ impl CallGraph {
                         receiver_owner_identity: recovered
                             .as_ref()
                             .and_then(|r| r.owner_identity.clone()),
+                        receiver_local_type_shadowed: recovered.as_ref().is_some_and(|r| {
+                            parsed.go_local_type_shadows(&func_node, &r.static_type, start_byte)
+                        }),
                         receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                         receiver_materialized: classification.materialized,
                         arg_count: meta.arg_count,

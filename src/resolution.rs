@@ -2263,6 +2263,7 @@ impl CallGraph {
                             self.go_concrete_receiver_route(
                                 recv_ty,
                                 site.receiver_owner_identity.as_ref(),
+                                site.receiver_local_type_shadowed,
                                 name,
                                 &site.caller.file,
                             )
@@ -3976,6 +3977,7 @@ mod scope_resolution_predicate_tests {
             qualifier: None,
             receiver_type: None,
             receiver_owner_identity: None,
+            receiver_local_type_shadowed: false,
             receiver_recovery: None,
             receiver_materialized: false,
             arg_count: None,
