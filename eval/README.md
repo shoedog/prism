@@ -162,8 +162,11 @@ Prism binaries have no identities, so the oracle falls back to names and marks t
 
 It is **re-usable on any Go corpus** in `corpora.toml` and is the gate future baselines
 must hold. Zero-fanout manifest sites are included: if gopls has satisfiers they are a visible,
-non-gating `recall_gap`. `dispatch_precision` is `null` (not a vacuous 1.0) when its scored
-edge denominator is empty; `scored_sites` distinguishes that case from a timeout-only run.
+non-gating `recall_gap`. `summary.overall.dispatch_precision` is the edge-weighted precision
+figure — the aggregate `|P ∩ G| / |P|` over scored sites — and is `null` (not a vacuous 1.0)
+when its scored edge denominator is empty. The separate `sound_site_rate` is the site-level
+`sound / scored_sites` rate; it is not a precision substitute. `scored_sites` distinguishes an
+empty denominator from a timeout-only run.
 
 Regenerate the manifest with the current prism, then run the oracle (needs `gopls` on PATH
 and the harness env; gopls can be slow on large corpora, so the per-group timeout is
@@ -200,11 +203,11 @@ corpus SHA, Go/gopls versions, `GOOS`, `GOARCH`, tags, and `GOWORK`. The tool fo
 to the corpus-root `go.work` when present, otherwise `off`, so an ambient parent workspace
 cannot alter the comparison universe.
 
-The summary (printed to stdout and in `comparison.json` under `summary`) reports overall and
-per-`(interface, method)` precision, `scored_sites`, all classifications, and the offending
-identity/target evidence. Per-site records include legacy display names plus qualified
-identities, targets, and classifications. The full taxonomy and gopls-query design are in
-the `tools/dispatch_oracle.py` module docstring.
+The summary (printed to stdout and in `comparison.json` under `summary`) reports edge-weighted
+`dispatch_precision`, separate `sound_site_rate`, per-`(interface, method)` metrics,
+`scored_sites`, all classifications, and the offending identity/target evidence. Per-site
+records include legacy display names plus qualified identities, targets, and classifications.
+The full taxonomy and gopls-query design are in the `tools/dispatch_oracle.py` module docstring.
 
 ## Snapshots and Baselines
 

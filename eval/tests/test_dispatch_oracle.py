@@ -323,6 +323,7 @@ def test_summarize_counts_and_overall_precision():
 
     # overall: |prism ∩ gopls| summed / |prism| summed = (1 + 1 + 1) / (1 + 1 + 2) = 3/4
     assert summary["overall"]["dispatch_precision"] == pytest.approx(0.75)
+    assert summary["overall"]["sound_site_rate"] == pytest.approx(2 / 3)
     assert summary["overall"]["sites"] == 3
     assert summary["overall"]["sound"] == 2
     assert summary["overall"]["recall_gap"] == 0
@@ -337,9 +338,11 @@ def test_summarize_counts_and_overall_precision():
     assert cm["recall_gap"] == 0
     assert cm["over_approx"] == 0
     assert cm["dispatch_precision"] == pytest.approx(1.0)   # (1+1)/(1+1)
+    assert cm["sound_site_rate"] == pytest.approx(1.0)
     h = per[("Handler", "ServeHTTP")]
     assert h["over_approx"] == 1
     assert h["dispatch_precision"] == pytest.approx(0.5)
+    assert h["sound_site_rate"] == pytest.approx(0.0)
 
 
 def test_summarize_lists_over_approx_sites_for_adjudication():
@@ -377,9 +380,24 @@ def test_summarize_empty_sites():
     assert summary["overall"]["sites"] == 0
     assert summary["overall"]["scored_sites"] == 0
     assert summary["overall"]["dispatch_precision"] is None
+    assert summary["overall"]["sound_site_rate"] is None
     assert summary["groups"] == []
     assert summary["over_approx_sites"] == []
     assert summary["oracle_timeout_groups"] == []
+
+
+def test_print_summary_labels_site_rate_and_edge_weighted_precision():
+    summary = do.summarize([
+        _site("good.go", 1, "I", "M", {"A", "B"}, {"A", "B"}),
+        _site("bad.go", 2, "I", "M", {"C"}, set()),
+    ])
+    log = io.StringIO()
+    do._print_summary(summary, log)
+    assert (
+        "overall dispatch_precision (edge-weighted) = 0.6667; "
+        "sound_site_rate = 0.5000 (1/2 scored sites)"
+        in log.getvalue()
+    )
 
 
 def test_load_dispatch_sites_keeps_zero_fanout_and_scores_recall_gap(tmp_path):

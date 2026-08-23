@@ -618,10 +618,16 @@ def summarize(sites: list[dict]) -> dict:
         g["dispatch_precision"] = (
             acc["inter"] / acc["prism"] if acc["prism"] else None
         )
+        g["sound_site_rate"] = (
+            g["sound"] / g["scored_sites"] if g["scored_sites"] else None
+        )
         group_list.append(g)
 
     overall["dispatch_precision"] = (
         overall_acc["inter"] / overall_acc["prism"] if overall_acc["prism"] else None
+    )
+    overall["sound_site_rate"] = (
+        overall["sound"] / overall["scored_sites"] if overall["scored_sites"] else None
     )
     return {
         "overall": overall,
@@ -1780,7 +1786,10 @@ def _format_precision(value: float | None) -> str:
 def _print_summary(summary: dict, log=sys.stdout) -> None:
     o = summary["overall"]
     print("\n=== dispatch oracle summary ===", file=log)
-    print(f"overall dispatch_precision = {_format_precision(o['dispatch_precision'])}  "
+    print(f"overall dispatch_precision (edge-weighted) = "
+          f"{_format_precision(o['dispatch_precision'])}; "
+          f"sound_site_rate = {_format_precision(o['sound_site_rate'])} "
+          f"({o['sound']}/{o['scored_sites']} scored sites)  "
           f"(sites={o['sites']} sound={o['sound']} over_approx={o['over_approx']} "
           f"recall_gap={o['recall_gap']} oracle_timeout={o['oracle_timeout']})", file=log)
     coverage = summary["fanout_positive_coverage"]
@@ -1796,7 +1805,9 @@ def _print_summary(summary: dict, log=sys.stdout) -> None:
           f"external_definition={o['external_definition_sites']}", file=log)
     print("per (interface, method):", file=log)
     for g in summary["groups"]:
-        print(f"  {g['interface']}.{g['method']}: precision={_format_precision(g['dispatch_precision'])} "
+        print(f"  {g['interface']}.{g['method']}: "
+              f"dispatch_precision(edge-weighted)={_format_precision(g['dispatch_precision'])} "
+              f"sound_site_rate={_format_precision(g['sound_site_rate'])} "
               f"sites={g['sites']} sound={g['sound']} over_approx={g['over_approx']} "
               f"recall_gap={g['recall_gap']} oracle_timeout={g['oracle_timeout']}", file=log)
     if summary["over_approx_sites"]:
