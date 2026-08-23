@@ -1,6 +1,10 @@
 # p15a — Go provider reuse (roadmap #15a) — handoff
 
-STATUS: DONE (code + docs) through fix wave 3. Commits: d81752f (WIP provider
+STATUS: DONE (code + docs) through fix wave 4. Wave 4 (targeted confirm):
+c82ba91 (fix4: unconditional stash drop in build_with_cached_cpg), 9f2a396 +
+c8c054b (fix4: all-constructors no-stash regression + synchronized
+foreign-thread test). Sweep state: EVERY CpgContext constructor leaves the
+stash None, asserted parameterized over all constructors. Commits: d81752f (WIP provider
 reuse), 2672ddd (remove TEMP timing), 6f7d572 (fix1: reorder dispatch + registry
 reuse), 587bef6 (fix1: WIP construction counter), 7cd9550 (fix2: WIP transfer
 provider / incremental path — retention, incremental provenance boundary,
@@ -127,7 +131,7 @@ or registry build runs in the path.
 | incremental rebuild (`NavigationIndex::build_incremental_from_previous` → `build_incremental_with_scope_graph_inputs` + `build_with_fresh_cpg`) — stash transferred | 1 | 1 | 2 | 1 |
 | CLI partial-cache-hit (`run_review` fresh rebuild → `build_with_fresh_cpg`) — stash transferred | 1 | 1 | 2 | 1 |
 | SCOPED (`CpgContext::build_scoped`) — filtered-subset CPG build (1 plain + 1 import-aware), filtered plain DROPPED, then FRESH plain for the registry over ALL files ⇒ 2 plain total | 2 | 1 | 3 | 1 |
-| deserialized cache hit (`CpgContext::build_with_cached_cpg`) — no CPG build; registry constructs fresh | 1 | 0 | 1 | 1 |
+| deserialized cache hit (`CpgContext::build_with_cached_cpg`) — BOTH inputs, universally true: (a) deserialized CPG → stash already None (serde skips the field), registry constructs fresh ⇒ 1 plain; (b) fresh-CPG input (e.g. `build_with_cached_cpg(files, CodePropertyGraph::build(files), None)`) → stash DROPPED unconditionally (fix4 — otherwise it survived alongside the fresh registry ⇒ 2 live datasets), registry constructs fresh ⇒ 1 plain | 1 | 0 | 1 | 1 |
 | DELTA / CPG-only (`algorithms/delta_slice::slice` old-version graph via `build_enriched`) — 1 plain + 1 import-aware constructed, stash then dropped | 1 | 1 | 2 | 1 |
 | AST-only (`CpgContext::without_cpg`) / registry-only callers | 1* | 0 | 1* | 1 |
 
