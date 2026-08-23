@@ -271,13 +271,7 @@ fn capped_profile_implication_normalizes_predeclared_but_rejects_actual_alias() 
             "package worker\ntype IntImpl struct{}\nfunc (IntImpl) Use(int64){}\n",
         ),
     ]);
-    assert_target_files(
-        &cg,
-        "api/defs.go",
-        "invokeByte",
-        "Act",
-        &["worker/uint.go"],
-    );
+    assert_target_files(&cg, "api/defs.go", "invokeByte", "Act", &["worker/uint.go"]);
     assert_target_files(&cg, "api/defs.go", "invokeAlias", "Use", &[]);
     assert_unresolved_reason(&cg, "profile_uncertain");
 }

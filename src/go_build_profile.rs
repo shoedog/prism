@@ -9,6 +9,9 @@ use crate::languages::Language;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+mod implication;
+pub(crate) use implication::{build_profile_implies, GoBuildImplication};
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct GoBuildProfile {
     pub package_clause: String,

@@ -1,7 +1,7 @@
 //! Profile-aware Go type-alias declaration snapshots and canonical expansion.
 
 use crate::ast::ParsedFile;
-use crate::go_build_profile::GoBuildProfile;
+use crate::go_build_profile::{build_profile_implies, GoBuildImplication, GoBuildProfile};
 use crate::go_owner_partition::{exact_declaration_visibility, GoOwnerReferenceMode};
 use crate::languages::Language;
 use crate::resolution::{dir_of, GoOwnerIdentity};
@@ -444,6 +444,14 @@ impl GoAliasResolver {
         let Some(declarations) = self.declarations.get(&owner) else {
             return Ok(None);
         };
+        let shadows_predeclared = matches!(
+            named.identity,
+            NameIdentity::Bare
+                | NameIdentity::Path {
+                    qualified: false,
+                    ..
+                }
+        ) && predeclared(&named.name).is_some();
         let mut visible = Vec::new();
         for declaration in declarations {
             let (potentially_visible, exact) = exact_declaration_visibility(
@@ -453,6 +461,17 @@ impl GoAliasResolver {
                 &declaration.defining_file,
                 &self.profiles,
             );
+            if shadows_predeclared {
+                let implication = self
+                    .profiles
+                    .get(caller_file)
+                    .zip(self.profiles.get(&declaration.defining_file))
+                    .map(|(consumer, defining)| build_profile_implies(consumer, defining));
+                if exact && implication == Some(GoBuildImplication::Proven) {
+                    visible.push(declaration);
+                }
+                continue;
+            }
             if potentially_visible && !exact {
                 return Err(AliasUnresolvedReason::ProfileUncertain);
             }
@@ -467,15 +486,7 @@ impl GoAliasResolver {
             .iter()
             .all(|decl| matches!(decl.kind, AliasDeclarationKind::Defined))
         {
-            return if matches!(
-                named.identity,
-                NameIdentity::Bare
-                    | NameIdentity::Path {
-                        qualified: false,
-                        ..
-                    }
-            ) && predeclared(&named.name).is_some()
-            {
+            return if shadows_predeclared {
                 Err(AliasUnresolvedReason::DefinedVariant)
             } else {
                 Ok(None)
