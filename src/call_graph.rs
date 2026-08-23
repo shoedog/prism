@@ -5256,8 +5256,7 @@ mod tests {
             "build_scoped must not retain the shared plain Go provider"
         );
 
-        let reg =
-            CpgContext::build_with_registry(&files, None, TypeRegistry::empty());
+        let reg = CpgContext::build_with_registry(&files, None, TypeRegistry::empty());
         assert!(
             reg.cpg.call_graph.shared_plain_go_provider.is_none(),
             "build_with_registry must not retain the shared plain Go provider"
@@ -5295,13 +5294,11 @@ mod tests {
             // The measurement is LIVE for this whole thread's lifetime —
             // exactly the window in which the old global-generation design
             // misattributed.
-            std::thread::spawn(move || {
-                loop {
-                    let _p = GoTypeProvider::from_parsed_files(&files);
-                    let _ = constructed_tx.send(());
-                    if stop.load(std::sync::atomic::Ordering::SeqCst) {
-                        break;
-                    }
+            std::thread::spawn(move || loop {
+                let _p = GoTypeProvider::from_parsed_files(&files);
+                let _ = constructed_tx.send(());
+                if stop.load(std::sync::atomic::Ordering::SeqCst) {
+                    break;
                 }
             })
         };
