@@ -480,6 +480,39 @@ impl GoTypeProvider {
         self.data.embedded_interface_routes.clone()
     }
 
+    /// Slice 4 part B: owner/profile-keyed promoted-selector snapshot
+    /// (foundation only — never consumed for routing in this slice).
+    pub fn go_promoted_selector_snapshot(
+        &self,
+        files: &BTreeMap<String, ParsedFile>,
+        package_import_paths: &BTreeMap<String, String>,
+    ) -> crate::go_promoted_snapshot::GoPromotedSelectorSnapshot {
+        let (go_file_profiles, _) = crate::go_build_profile::extract_go_file_profiles(files);
+        let local_import_paths = Self::local_import_paths(package_import_paths, &go_file_profiles);
+        let mut imports_by_file = BTreeMap::new();
+        for (path, parsed) in files {
+            if parsed.language != Language::Go {
+                continue;
+            }
+            let local = local_import_paths
+                .get(path)
+                .map(String::as_str)
+                .or_else(|| package_import_paths.get(path).map(String::as_str));
+            imports_by_file.insert(path.clone(), Self::signature_imports(parsed, local));
+        }
+        let interface_owners: BTreeSet<crate::resolution::GoOwnerIdentity> =
+            self.data.interface_declarations.keys().cloned().collect();
+        crate::go_promoted_snapshot::compute(&crate::go_promoted_snapshot::SnapshotInputs {
+            struct_declarations: &self.data.struct_declarations,
+            method_declarations: &self.data.method_declarations,
+            field_targets: &self.data.field_targets,
+            profiles: &go_file_profiles,
+            dirs_by_path: &self.data.alias_index.dirs_by_path,
+            imports_by_file: &imports_by_file,
+            interface_owners: &interface_owners,
+        })
+    }
+
     /// Slice 4 telemetry: alias leaves expanded during canonicalization.
     pub fn go_alias_expanded(&self) -> usize {
         self.data.alias_expanded
@@ -586,6 +619,58 @@ impl GoTypeProvider {
                 }
                 "method_declaration" => {
                     Self::extract_method(data, &child, path, parsed, local_import_path, alias);
+                }
+                // Grammar ERRORs wrap otherwise-usable declarations (e.g. an
+                // anonymous inline struct embed); recover their subtrees so a
+                // broken field never erases the whole owner.
+                "ERROR" => {
+                    Self::extract_error_recoverable(
+                        data,
+                        &child,
+                        path,
+                        parsed,
+                        local_import_path,
+                        alias,
+                    );
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn extract_error_recoverable(
+        data: &mut GoTypeData,
+        node: &tree_sitter::Node,
+        path: &str,
+        parsed: &ParsedFile,
+        local_import_path: Option<&str>,
+        alias: Option<&crate::go_alias_index::AliasExpansionCtx<'_>>,
+    ) {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            match child.kind() {
+                "type_declaration" => {
+                    Self::extract_type_declaration(
+                        data,
+                        &child,
+                        path,
+                        parsed,
+                        local_import_path,
+                        alias,
+                    );
+                }
+                "method_declaration" => {
+                    Self::extract_method(data, &child, path, parsed, local_import_path, alias);
+                }
+                kind if kind == "ERROR" || kind == "source_file" => {
+                    Self::extract_error_recoverable(
+                        data,
+                        &child,
+                        path,
+                        parsed,
+                        local_import_path,
+                        alias,
+                    );
                 }
                 _ => {}
             }
@@ -1175,6 +1260,21 @@ impl GoTypeProvider {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
+            // An inline ANONYMOUS struct embed has no grammar production: the
+            // parse yields an ERROR sibling of the field list (`{ struct…`).
+            // Record it as an unresolvable embedded selector so the snapshot
+            // flags the owner fail-closed.
+            if child.kind() == "ERROR" {
+                let compact = parsed.node_text(&child).replace(char::is_whitespace, "");
+                if compact.starts_with("{struct") {
+                    embedded.push(GoEmbeddedField {
+                        name: "<anonymous>".to_string(),
+                        raw_type: "struct{}".to_string(),
+                        is_pointer: false,
+                    });
+                    fields.push(("<anonymous>".to_string(), "struct{}".to_string()));
+                }
+            }
             if child.kind() == "field_declaration_list" {
                 let mut inner = child.walk();
                 for field in child.children(&mut inner) {

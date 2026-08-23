@@ -514,6 +514,9 @@ pub struct CallGraph {
     /// canonicalization.
     #[serde(default)]
     pub(crate) go_alias_expanded: usize,
+    /// Slice 4 part B: owner/profile-keyed promoted-selector snapshot.
+    #[serde(default)]
+    pub(crate) go_promoted_snapshot: crate::go_promoted_snapshot::GoPromotedSelectorSnapshot,
     /// Slice 4 fail-closed reason histogram (`defined_variant`, `cycle`, …).
     #[serde(default)]
     pub(crate) go_alias_unresolved: BTreeMap<String, usize>,
@@ -718,6 +721,7 @@ impl CallGraph {
             go_owner_identity_profile_conflict: 0,
             go_alias_expanded: 0,
             go_alias_unresolved: BTreeMap::new(),
+            go_promoted_snapshot: Default::default(),
             skipped_go_testdata_files: 0,
             go_module_graph: Default::default(),
             go_import_path_proven_files: 0,
@@ -944,6 +948,7 @@ impl CallGraph {
             go_owner_identity_profile_conflict: 0,
             go_alias_expanded: 0,
             go_alias_unresolved: BTreeMap::new(),
+            go_promoted_snapshot: Default::default(),
             skipped_go_testdata_files: 0,
             go_module_graph: Default::default(),
             go_import_path_proven_files: 0,
@@ -1332,6 +1337,7 @@ impl CallGraph {
             go_owner_identity_profile_conflict: 0,
             go_alias_expanded: 0,
             go_alias_unresolved: BTreeMap::new(),
+            go_promoted_snapshot: Default::default(),
             skipped_go_testdata_files: 0,
             go_module_graph: Default::default(),
             go_import_path_proven_files: 0,
@@ -2741,6 +2747,20 @@ impl CallGraph {
         self.embedding_gaps.clear();
     }
 
+    /// Slice 4 part B (foundation only): read-only view of the
+    /// owner/profile-keyed promoted-selector snapshot.
+    pub fn go_promoted_snapshot(&self) -> &crate::go_promoted_snapshot::GoPromotedSelectorSnapshot {
+        &self.go_promoted_snapshot
+    }
+
+    /// Test/injection seam: replace the snapshot wholesale. NEVER consulted
+    /// by routing in this slice.
+    pub fn go_promoted_snapshot_mut(
+        &mut self,
+    ) -> &mut crate::go_promoted_snapshot::GoPromotedSelectorSnapshot {
+        &mut self.go_promoted_snapshot
+    }
+
     fn clear_interface_dispatch(&mut self) {
         self.interface_impls.clear();
         self.interface_gaps.clear();
@@ -2760,6 +2780,7 @@ impl CallGraph {
         self.go_owner_identity_profile_conflict = 0;
         self.go_alias_expanded = 0;
         self.go_alias_unresolved.clear();
+        self.go_promoted_snapshot = Default::default();
         self.go_module_graph = Default::default();
         self.go_import_path_proven_files = 0;
         self.go_import_path_unproven_files = 0;
@@ -2938,6 +2959,9 @@ impl CallGraph {
         // Slice 4 (roadmap #14 §5): alias expansion telemetry.
         self.go_alias_expanded = provider.go_alias_expanded();
         self.go_alias_unresolved = provider.go_alias_unresolved();
+        // Slice 4 part B (foundation only): snapshot captured, NOT consulted.
+        self.go_promoted_snapshot =
+            provider.go_promoted_selector_snapshot(files, &package_import_paths.paths);
         for o in &table.overapprox {
             *self
                 .interface_overapprox
@@ -4039,6 +4063,7 @@ impl CallGraph {
             go_owner_identity_profile_conflict: 0,
             go_alias_expanded: 0,
             go_alias_unresolved: BTreeMap::new(),
+            go_promoted_snapshot: Default::default(),
             skipped_go_testdata_files: 0,
             go_module_graph: Default::default(),
             go_import_path_proven_files: 0,

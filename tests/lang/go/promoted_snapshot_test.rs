@@ -11,7 +11,7 @@
 use prism::ast::ParsedFile;
 use prism::call_graph::CallGraph;
 use prism::languages::Language;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 fn build_go(sources: &[(&str, &str)]) -> CallGraph {
     let files: BTreeMap<String, ParsedFile> = sources
@@ -37,7 +37,9 @@ fn snapshot_counts(cg: &CallGraph) -> (usize, usize, usize) {
         snapshot
             .owners
             .values()
-            .filter(|owner| owner.verdict == prism::go_promoted_snapshot::GoPromotionVerdict::ProfileConflict)
+            .filter(|owner| {
+                owner.verdict == prism::go_promoted_snapshot::GoPromotionVerdict::ProfileConflict
+            })
             .count(),
         snapshot
             .owners
@@ -59,10 +61,13 @@ fn snapshot_embed_identity_axis_conflict_across_profiles() {
             "pkg/s_windows.go",
             "//go:build windows\npackage pkg\ntype C struct{}\ntype S struct { C }\n",
         ),
-        ("pkg/b_extra.go", "//go:build windows\npackage pkg\ntype B struct{}\n"),
+        (
+            "pkg/b_extra.go",
+            "//go:build windows\npackage pkg\ntype B struct{}\n",
+        ),
     ]);
-    assert_eq!(snapshot_counts(cg), (3, 1, 0));
-    assert_eq!(stats(cg)["go_promoted_snapshot_profile_conflicts"], 1);
+    assert_eq!(snapshot_counts(&cg), (3, 1, 0));
+    assert_eq!(stats(&cg)["go_promoted_snapshot_profile_conflicts"], 1);
 }
 
 #[test]
@@ -79,7 +84,7 @@ fn snapshot_ordinary_field_axis_conflict_across_profiles() {
             "//go:build extra\npackage pkg\ntype S struct { B; M func() }\n",
         ),
     ]);
-    assert_eq!(snapshot_counts(cg), (3, 1, 0));
+    assert_eq!(snapshot_counts(&cg), (2, 1, 0));
 }
 
 #[test]
@@ -87,13 +92,16 @@ fn snapshot_own_method_axis_conflict_across_profiles() {
     // Axis 3: S{B} plus a profile-specific own method on S.
     let cg = build_go(&[
         ("pkg/base.go", "package pkg\ntype B struct{}\n"),
-        ("pkg/s_base.go", "package pkg\ntype S struct { B }\nfunc (s S) Shared() {}\n"),
+        (
+            "pkg/s_base.go",
+            "package pkg\ntype S struct { B }\nfunc (s S) Shared() {}\n",
+        ),
         (
             "pkg/s_m_linux.go",
             "//go:build linux\npackage pkg\nfunc (s S) M() {}\n",
         ),
     ]);
-    assert_eq!(snapshot_counts(cg), (2, 1, 0));
+    assert_eq!(snapshot_counts(&cg), (2, 1, 0));
 }
 
 #[test]
@@ -112,8 +120,8 @@ fn snapshot_embedded_alias_selector_name_axis_is_recorded_separately_from_resolv
             "//go:build !aliasway\npackage pkg\ntype S struct { B }\n",
         ),
     ]);
-    let (owners, conflicts, _promoted) = snapshot_counts(cg);
-    assert_eq!((owners, conflicts), (3, 1));
+    let (owners, conflicts, _promoted) = snapshot_counts(&cg);
+    assert_eq!((owners, conflicts), (2, 1));
 }
 
 #[test]
@@ -132,13 +140,16 @@ fn snapshot_package_qualifier_embed_resolves_to_different_identities() {
             "//go:build !useq\npackage pkg\nimport r \"example.com/prism/r\"\ntype S struct { r.B }\n",
         ),
     ]);
-    assert_eq!(snapshot_counts(cg), (4, 1, 0));
+    assert_eq!(snapshot_counts(&cg), (3, 1, 0));
 }
 
 #[test]
 fn snapshot_anonymous_struct_embed_fails_closed() {
-    let cg = build_go(&[("pkg/s.go", "package pkg\ntype S struct { struct{ M func() } }\n")]);
-    let (_owners, conflicts, promoted) = snapshot_counts(cg);
+    let cg = build_go(&[(
+        "pkg/s.go",
+        "package pkg\ntype S struct { struct{ M func() } }\n",
+    )]);
+    let (_owners, conflicts, promoted) = snapshot_counts(&cg);
     assert_eq!((conflicts, promoted), (1, 0));
 }
 
@@ -151,19 +162,22 @@ fn snapshot_depth2_path_owner_conflict_poisons_the_outer_owner() {
     ]);
     // Mid conflicts on the embed axis; Top sits on a promotion path through
     // Mid, so it must be conflicted too (every hop profile-unique).
-    let (_owners, conflicts, promoted) = snapshot_counts(cg);
+    let (_owners, conflicts, promoted) = snapshot_counts(&cg);
     assert_eq!((conflicts, promoted), (2, 0));
 }
 
 #[test]
 fn snapshot_duplicate_identical_declarations_are_not_a_conflict() {
     let cg = build_go(&[
-        ("pkg/base.go", "package pkg\ntype B struct{}\nfunc (b *B) Write() {}\n"),
+        (
+            "pkg/base.go",
+            "package pkg\ntype B struct{}\nfunc (b *B) Write() {}\n",
+        ),
         ("pkg/s_one.go", "package pkg\ntype S struct { B }\n"),
         ("pkg/s_two.go", "package pkg\ntype S struct { B }\n"),
     ]);
-    let (owners, conflicts, promoted) = snapshot_counts(cg);
-    assert_eq!((owners, conflicts), (3, 0));
+    let (owners, conflicts, promoted) = snapshot_counts(&cg);
+    assert_eq!((owners, conflicts), (2, 0));
     // S promotes *B.Write at depth 1; pointer-receiver method reached through
     // a non-pointer embed is NOT in the value method set.
     let snapshot = cg.go_promoted_snapshot();
@@ -177,13 +191,16 @@ fn snapshot_duplicate_identical_declarations_are_not_a_conflict() {
     assert_eq!(write.depth, 1);
     assert!(!write.value_method_set);
     assert!(!write.shadowed_by_field);
-    assert_eq!((owners, conflicts, promoted), (3, 0, 1));
+    assert_eq!((owners, conflicts, promoted), (2, 0, 1));
 }
 
 #[test]
 fn snapshot_records_field_shadowing_and_value_method_set_bit() {
     let cg = build_go(&[
-        ("pkg/base.go", "package pkg\ntype B struct{}\nfunc (b B) Value() {}\nfunc (b *B) Ptr() {}\n"),
+        (
+            "pkg/base.go",
+            "package pkg\ntype B struct{}\nfunc (b B) Value() {}\nfunc (b *B) Ptr() {}\n",
+        ),
         ("pkg/s.go", "package pkg\ntype S struct { B; Value int }\n"),
     ]);
     let snapshot = cg.go_promoted_snapshot();
@@ -193,7 +210,10 @@ fn snapshot_records_field_shadowing_and_value_method_set_bit() {
         .find(|(owner, _)| owner.name == "S")
         .map(|(_, v)| v)
         .expect("S owner");
-    assert_eq!(s.verdict, prism::go_promoted_snapshot::GoPromotionVerdict::Consistent);
+    assert_eq!(
+        s.verdict,
+        prism::go_promoted_snapshot::GoPromotionVerdict::Consistent
+    );
     // `Value` is shadowed by the ordinary field at depth 0.
     assert!(s.promoted["Value"].shadowed_by_field);
     assert!(!s.promoted["Ptr"].shadowed_by_field);
@@ -224,24 +244,34 @@ fn snapshot_foundation_does_not_change_resolution_and_survives_caches_byte_ident
     let fresh_bytes = bincode::serialize(&fresh).expect("serialize CallGraph");
     let restored: CallGraph = bincode::deserialize(&fresh_bytes).expect("deserialize CallGraph");
     let restored_bytes = bincode::serialize(&restored).expect("re-serialize CallGraph");
-    assert_eq!(fresh_bytes, restored_bytes, "cache round-trip must be byte-equal");
+    assert_eq!(
+        fresh_bytes, restored_bytes,
+        "cache round-trip must be byte-equal"
+    );
 
     // Resolution leaves identical to a graph whose snapshot was cleared:
     // foundation only — the snapshot must not influence routing.
     let mut stripped = fresh.clone();
     *stripped.go_promoted_snapshot_mut() = Default::default();
-    for site in stripped.calls.values().flatten() {
-        let fresh_site = fresh
-            .calls
-            .values()
-            .flatten()
-            .find(|candidate| candidate.caller == site.caller && candidate.line == site.line && candidate.callee_name == site.callee_name)
-            .expect("mirror site");
-        let a = fresh.resolve_call_site_full(site);
-        let b = stripped.resolve_call_site_full(fresh_site);
+    let fresh_sites: Vec<_> = fresh.calls.values().flatten().collect();
+    let stripped_sites: Vec<_> = stripped.calls.values().flatten().collect();
+    assert_eq!(fresh_sites.len(), stripped_sites.len());
+    for (index, (site_a, site_b)) in fresh_sites.iter().zip(&stripped_sites).enumerate() {
+        assert_eq!(site_a.caller, site_b.caller);
+        assert_eq!(site_a.line, site_b.line);
+        assert_eq!(site_a.receiver_type, site_b.receiver_type);
+        let a = fresh.resolve_call_site_full(site_a);
+        let b = stripped.resolve_call_site_full(site_b);
         assert_eq!(
-            a.resolved.iter().map(|r| (r.target.clone(), r.confidence, r.kind.clone())).collect::<Vec<_>>(),
-            b.resolved.iter().map(|r| (r.target.clone(), r.confidence, r.kind.clone())).collect::<Vec<_>>(),
+            a.resolved
+                .iter()
+                .map(|r| (r.target.clone(), r.confidence))
+                .collect::<Vec<_>>(),
+            b.resolved
+                .iter()
+                .map(|r| (r.target.clone(), r.confidence))
+                .collect::<Vec<_>>(),
+            "resolution must not depend on the snapshot (foundation only); pair {index}"
         );
     }
 

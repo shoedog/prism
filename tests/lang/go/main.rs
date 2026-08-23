@@ -10,6 +10,6 @@ mod loader_hygiene_test;
 mod module_graph_fix2_test;
 mod owner_partition_fix_wave_test;
 mod owner_partition_telemetry_test;
-mod promoted_snapshot_test;
 mod owner_partition_test;
+mod promoted_snapshot_test;
 mod span_test;

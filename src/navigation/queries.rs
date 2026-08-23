@@ -537,6 +537,19 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     }
     if !cg.go_file_profiles.is_empty() {
         let object = stats.as_object_mut().expect("call-stats object");
+        // Slice 4 part B (foundation only): promoted-selector snapshot sizes.
+        object.insert(
+            "go_promoted_snapshot_owners".to_string(),
+            cg.go_promoted_snapshot.owner_count().into(),
+        );
+        object.insert(
+            "go_promoted_snapshot_profile_conflicts".to_string(),
+            cg.go_promoted_snapshot.conflict_count().into(),
+        );
+        object.insert(
+            "go_promoted_snapshot_promoted_methods".to_string(),
+            cg.go_promoted_snapshot.promoted_method_count().into(),
+        );
         object.insert(
             "go_owner_identity_partition_affected_owners".to_string(),
             cg.go_owner_identity_profile_conflict.into(),
@@ -800,6 +813,12 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
     serde_json::json!({
         "sites": sites,
         "interface_dispatch_computed": cg.interface_dispatch_computed,
+        // Slice 4 part B (foundation only): additive diagnostic.
+        "promoted_snapshot": {
+            "owners": cg.go_promoted_snapshot.owner_count(),
+            "profile_conflicts": cg.go_promoted_snapshot.conflict_count(),
+            "promoted_methods": cg.go_promoted_snapshot.promoted_method_count(),
+        },
     })
 }
 

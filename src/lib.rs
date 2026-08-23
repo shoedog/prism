@@ -53,6 +53,7 @@ mod go_mod;
 mod go_module_graph;
 pub mod go_owner_partition;
 mod go_owner_partition_s4;
+pub mod go_promoted_snapshot;
 mod go_receiver_index;
 mod go_receiver_index_visibility;
 pub mod js_exports;
