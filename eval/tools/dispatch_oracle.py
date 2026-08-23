@@ -821,17 +821,23 @@ def delta_summary(
                 tuple(identity["span"]),
             ) in new_identity_tuples
         ]
+        fully_resolved = (
+            current["classification"] == "sound"
+            and not current.get("unresolved_locations", [])
+            and current.get("implementation_outcome") != "partial_mapping"
+        )
         newly_exact_sites.append({
             "file": current["file"],
             "line": current["line"],
             "method": current["method"],
             "classification": current["classification"],
             "reason": reason,
+            "fully_resolved": fully_resolved,
             "new_implementer_identities": new_identity_records,
         })
     newly_exact_sites.sort(key=lambda site: (site["file"], site["line"], site["method"]))
     blocking_sites = [
-        site for site in newly_exact_sites if site["classification"] != "sound"
+        site for site in newly_exact_sites if not site["fully_resolved"]
     ]
     coverage = _fanout_positive_coverage(current_sites)
     coverage_ok = (

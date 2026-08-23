@@ -1002,6 +1002,7 @@ def test_delta_reports_newly_exact_fanout_and_identity_transitions():
             "method": "Go",
             "classification": "sound",
             "reason": "fanout_0_to_positive",
+            "fully_resolved": True,
             "new_implementer_identities": [_identity("Impl", "impl.go", [3, 5])],
         }
     ]
@@ -1105,12 +1106,16 @@ def test_delta_gate_requires_each_newly_exact_site_to_be_fully_resolved():
     before = _delta_site(fanout=0, identities=[])
     partial = _delta_site(
         fanout=1, identities=[_identity("Impl", "impl.go", [3, 5])],
-        classification="recall_gap",
     )
+    partial["unresolved_locations"] = [{
+        "file": "generated.go", "line": 1, "reason": "receiver_unknown",
+    }]
+    partial["implementation_outcome"] = "partial_mapping"
     delta = do.delta_summary([partial], [before])
     assert delta["gate_ok"] is False
     assert delta["blocking_sites"] == delta["newly_exact_sites"]
-    assert delta["blocking_sites"][0]["classification"] == "recall_gap"
+    assert delta["blocking_sites"][0]["classification"] == "sound"
+    assert delta["blocking_sites"][0]["fully_resolved"] is False
 
 
 def test_delta_refuses_mismatched_environment_pins():
