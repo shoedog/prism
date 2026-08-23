@@ -195,10 +195,40 @@ fn embedded_interface_profile_method_divergence_conflicts_outer_owner() {
 }
 
 #[test]
+fn embedded_interface_profile_signature_divergence_conflicts_outer_owner() {
+    let cg = build_go(&[
+        ("i_linux.go", "package p\ntype I interface{ M(int) }\n"),
+        ("i_windows.go", "package p\ntype I interface{ M(string) }\n"),
+        ("s_linux.go", "package p\ntype S struct{ I }\n"),
+        ("s_windows.go", "package p\ntype S struct{ I }\n"),
+    ]);
+
+    assert_conflict(&cg, "S");
+}
+
+#[test]
+fn embedded_interface_profile_alias_signature_divergence_conflicts_outer_owner() {
+    let cg = build_go(&[
+        (
+            "i_linux.go",
+            "package p\ntype A = int\ntype I interface{ M(A) }\n",
+        ),
+        (
+            "i_windows.go",
+            "package p\ntype A = string\ntype I interface{ M(A) }\n",
+        ),
+        ("s_linux.go", "package p\ntype S struct{ I }\n"),
+        ("s_windows.go", "package p\ntype S struct{ I }\n"),
+    ]);
+
+    assert_conflict(&cg, "S");
+}
+
+#[test]
 fn identical_embedded_interface_profiles_keep_outer_owner_unique() {
     let cg = build_go(&[
-        ("b_linux.go", "package p\ntype B interface{ M() }\n"),
-        ("b_windows.go", "package p\ntype B interface{ M() }\n"),
+        ("b_linux.go", "package p\ntype B interface{ M(int) }\n"),
+        ("b_windows.go", "package p\ntype B interface{ M(int) }\n"),
         ("s_linux.go", "package p\ntype S struct{ B }\n"),
         ("s_windows.go", "package p\ntype S struct{ B }\n"),
     ]);
