@@ -5238,6 +5238,54 @@ mod tests {
             );
         }
 
+        // Scoped FILTERED-SUBSET branch (terra final-confirm): a one-file repo
+        // falls back to the full build, so exercise a 3-file repo whose diff
+        // touches only one file — the filtered branch must also end None.
+        {
+            // Eight files, only a.go changed and nothing references it:
+            // scope = {a.go} = 1/8 ≤ 50%, so the filtered-subset branch runs.
+            let mut multi = BTreeMap::new();
+            multi.insert(
+                "a.go".to_string(),
+                ParsedFile::parse(
+                    "a.go",
+                    "package main\n\ntype A struct{ X int }\n\nfunc (a A) Get() int { return a.X }\n",
+                    Go,
+                )
+                .unwrap(),
+            );
+            for i in 0..7 {
+                let name = format!("b{i}.go");
+                let body = format!(
+                    "package main\n\ntype B{i} struct{{ Y int }}\n\nfunc (b B{i}) Put{i}() int {{ return b.Y }}\n"
+                );
+                multi.insert(name.clone(), ParsedFile::parse(&name, &body, Go).unwrap());
+            }
+            let scoped_subset = CpgContext::build_scoped(
+                &multi,
+                &crate::diff::DiffInput {
+                    files: vec![crate::diff::DiffInfo {
+                        file_path: "a.go".to_string(),
+                        modify_type: crate::diff::ModifyType::Modified,
+                        diff_lines: BTreeSet::from([5]),
+                    }],
+                },
+                None,
+            );
+            assert!(
+                scoped_subset.scope.is_some(),
+                "3-file scoped fixture must take the filtered-subset branch"
+            );
+            assert!(
+                scoped_subset
+                    .cpg
+                    .call_graph
+                    .shared_plain_go_provider
+                    .is_none(),
+                "build_scoped (filtered subset) must not retain the shared plain Go provider"
+            );
+        }
+
         // build_scoped takes a DiffInput; a one-file repo falls back to the
         // full build — either way the invariant must hold.
         let scoped = CpgContext::build_scoped(
