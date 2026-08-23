@@ -720,12 +720,17 @@ impl ParsedFile {
             }
         }
 
+        let go_filter_bindings_to_call_scope = matches!(self.language, Language::Go)
+            && self
+                .go_same_scope_short_var_reuse_calls(func_node, receiver, call_start_byte)
+                .map_or(true, |calls| !calls.is_empty());
         self.walk_receiver_bindings(
             *func_node,
             true,
             receiver,
             call_line,
             call_start_byte,
+            go_filter_bindings_to_call_scope,
             &mut found,
             &mut first_found,
             &mut bindings,
@@ -6491,6 +6496,7 @@ impl ParsedFile {
         receiver: &str,
         call_line: usize,
         call_start_byte: usize,
+        go_filter_bindings_to_call_scope: bool,
         found: &mut Option<(String, crate::resolution::ReceiverRecovery)>,
         first_found: &mut Option<(String, crate::resolution::ReceiverRecovery)>,
         bindings: &mut usize,
@@ -6579,9 +6585,10 @@ impl ParsedFile {
                 let right = node
                     .child_by_field_name("right")
                     .or_else(|| node.child_by_field_name("value"));
-                let visible_scope = self.go_enclosing_binding_scope(node).is_some_and(|scope| {
-                    scope.start_byte() <= call_start_byte && call_start_byte < scope.end_byte()
-                });
+                let visible_scope = !go_filter_bindings_to_call_scope
+                    || self.go_enclosing_binding_scope(node).is_some_and(|scope| {
+                        scope.start_byte() <= call_start_byte && call_start_byte < scope.end_byte()
+                    });
                 if let Some(left) = left.filter(|_| visible_scope) {
                     if self.go_short_decl_reuses_in_scope(
                         node,
@@ -6852,6 +6859,7 @@ impl ParsedFile {
                 receiver,
                 call_line,
                 call_start_byte,
+                go_filter_bindings_to_call_scope,
                 found,
                 first_found,
                 bindings,

@@ -3459,7 +3459,7 @@ impl CallGraph {
             .par_iter()
             .copied()
             .map(|(caller, sites)| {
-                Self::go_receiver_updates_for_caller(
+                self.go_receiver_updates_for_caller(
                     caller,
                     sites,
                     files,
@@ -3475,6 +3475,7 @@ impl CallGraph {
     }
 
     fn go_receiver_updates_for_caller(
+        &self,
         caller: &FunctionId,
         sites: &BTreeSet<CallSite>,
         files: &BTreeMap<String, ParsedFile>,
@@ -3534,10 +3535,34 @@ impl CallGraph {
                 file_imports,
                 caller_file: &caller.file,
             };
-            let (classification, evidence) =
+            let (mut classification, evidence) =
                 crate::go_receiver_index::classify_go_receiver_expanded_with_partition(
                     &ctx, classifier, facts, var_local,
                 );
+            let same_scope_reuse = parsed
+                .go_same_scope_short_var_reuse_calls(&fn_node, qualifier, meta.start_byte)
+                .is_ok_and(|calls| !calls.is_empty());
+            if same_scope_reuse && !classification.proof_shadowed {
+                let direct = classification.recovered.as_ref().is_some_and(|recovered| {
+                    matches!(
+                        self.go_concrete_receiver_route(
+                            &recovered.static_type,
+                            recovered.owner_identity.as_ref(),
+                            false,
+                            &site.callee_name,
+                            &caller.file,
+                        ),
+                        crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. }
+                    )
+                });
+                if !direct {
+                    // Wave 3 narrows the exception to the constructible failure:
+                    // same-block `x, err := reset(x)` may restore an existing
+                    // concrete own-method edge, but must not broaden R2 or any
+                    // non-direct route that f16663e kept behind the R3 shadow bail.
+                    classification.proof_shadowed = true;
+                }
+            }
             out.push((caller.clone(), site.clone(), classification, evidence));
         }
         out

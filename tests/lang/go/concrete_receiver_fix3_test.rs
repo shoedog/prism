@@ -40,7 +40,7 @@ fn fixture() -> CallGraph {
         (
             "app/use.go",
             "package app\n\
-             import q \"example/q\"\n\
+             import (p \"example/p\"; q \"example/q\")\n\
              func sameScope(x *q.C) {\n\
                x, err := q.Reset(x)\n\
                _ = err\n\
@@ -69,17 +69,35 @@ fn fixture() -> CallGraph {
                if x, err := q.Reset(x); err == nil {\n\
                  x.M()\n\
                }\n\
+             }\n\
+             func unrelatedSiblingScope() {\n\
+               { x := &q.C{}; _ = x }\n\
+               f := func(x p.C) { x.M() }\n\
+               _ = f\n\
+             }\n\
+             type LocalI interface{ N() }\n\
+             type LocalImpl struct{}\n\
+             func (*LocalImpl) N() {}\n\
+             func resetInterface(x LocalI) (LocalI, error) { return x, nil }\n\
+             func interfaceReuse(x LocalI) {\n\
+               x, err := resetInterface(x)\n\
+               _ = err\n\
+               x.N()\n\
              }\n",
         ),
     ])
 }
 
 fn site<'a>(cg: &'a CallGraph, caller: &str) -> &'a CallSite {
+    site_named(cg, caller, "M")
+}
+
+fn site_named<'a>(cg: &'a CallGraph, caller: &str, callee: &str) -> &'a CallSite {
     cg.calls
         .values()
         .flatten()
-        .find(|site| site.caller.name == caller && site.callee_name == "M")
-        .unwrap_or_else(|| panic!("missing {caller}->M"))
+        .find(|site| site.caller.name == caller && site.callee_name == callee)
+        .unwrap_or_else(|| panic!("missing {caller}->{callee}"))
 }
 
 fn manifest_route(cg: &CallGraph, call: &CallSite) -> String {
@@ -137,4 +155,38 @@ fn changed_static_type_and_nested_shadow_still_fail_closed_to_r3() {
         );
         assert_eq!(manifest_route(&cg, call), "interface_dispatch");
     }
+}
+
+#[test]
+fn unrelated_sibling_scope_does_not_enable_a_new_receiver_proof() {
+    let cg = fixture();
+    let call = site(&cg, "unrelatedSiblingScope");
+    let outcome = cg.resolve_call_site_full(call);
+    assert_eq!(call.receiver_type, None, "{call:?}");
+    assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 0);
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert!(
+        prism::navigation::queries::interface_dispatch_manifest(&cg)["sites"]
+            .as_array()
+            .expect("manifest sites")
+            .iter()
+            .all(|entry| entry["file"] != call.caller.file || entry["line"] != call.line),
+        "unrelated-scope legacy suppression must remain outside the manifest"
+    );
+}
+
+#[test]
+fn same_scope_reuse_only_revives_a_proven_concrete_direct_route() {
+    let cg = fixture();
+    let call = site_named(&cg, "interfaceReuse", "N");
+    let outcome = cg.resolve_call_site_full(call);
+    assert!(call.receiver_local_type_shadowed, "{call:?}");
+    assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 0);
+    assert!(
+        outcome
+            .resolved
+            .iter()
+            .all(|resolved| resolved.kind == ResolutionKind::InterfaceDispatch),
+        "{outcome:?}"
+    );
 }
