@@ -34,6 +34,10 @@ pub(super) fn apply(graph: &mut GoModuleGraph, repo_root: &Path, work: Option<&P
             (dir.clone(), module.clone())
         })
         .collect::<Vec<_>>();
+    let active_paths = active_modules
+        .iter()
+        .map(|(_, module)| module.path.clone())
+        .collect::<BTreeSet<_>>();
     graph.telemetry.replaces_parsed = work.map_or(0, |work| work.replaces.len())
         + active_modules
             .iter()
@@ -72,6 +76,9 @@ pub(super) fn apply(graph: &mut GoModuleGraph, repo_root: &Path, work: Option<&P
             if workspace.contains_key(&key) {
                 continue;
             }
+            if active_paths.contains(&key.path) {
+                continue;
+            }
             let candidate = Candidate {
                 replacement: replacement.clone(),
                 source_dir: source_dir.clone(),
@@ -94,10 +101,6 @@ pub(super) fn apply(graph: &mut GoModuleGraph, repo_root: &Path, work: Option<&P
     let required = active_modules
         .iter()
         .flat_map(|(_, module)| module.requires.iter().cloned())
-        .collect::<BTreeSet<_>>();
-    let active_paths = active_modules
-        .iter()
-        .map(|(_, module)| module.path.clone())
         .collect::<BTreeSet<_>>();
     let mut by_path: BTreeMap<String, Vec<Candidate>> = BTreeMap::new();
     for (key, candidate) in module_union {

@@ -6,6 +6,7 @@ mod build_profile_test;
 mod common;
 mod lang_test;
 mod loader_hygiene_test;
+mod module_graph_fix2_test;
 mod owner_partition_fix_wave_test;
 mod owner_partition_telemetry_test;
 mod owner_partition_test;
