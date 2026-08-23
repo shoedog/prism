@@ -1,108 +1,132 @@
-# Handoff — P17 narrow concrete-receiver routing, fix wave 1
+# Handoff — P17 narrow concrete-receiver routing, fix wave 2
 
-**Written:** 2026-08-23T17:50:09Z · **By:** Codex `/root`
+**Written:** 2026-08-23T18:39:05Z · **By:** Codex `/root`
 **Workspace:** `/Users/wesleyjinks/code/slicing-p17-narrow` · branch `p17-narrow-concrete-receiver`
-**Measured implementation HEAD before this handoff:** `a07ab99` · base `514cfe3`
-**Cache schema:** CPG `47`, navigation sidecar `16`
+**Measured implementation HEAD before this handoff:** `ba8a2be` · base `514cfe3`
+**Cache schema:** CPG `49`, navigation sidecar `18`
 
 ## 0. Gating facts
 
-- The controller amended the owner decision after wave 1: existing `apply_go_embedding_promotion` edges are preserved; only misses from that lane remain deferred. The authoritative branch design is now v8 in `docs/superpowers/specs/2026-08-22-p17-narrow-concrete-receiver-direct-design.md` (`5839378`).
+- The authoritative design remains v8 (`5839378`): existing `apply_go_embedding_promotion` edges are preserved and only misses remain deferred. Fix wave 2 did not edit the spec.
 - No subagents were used. No push was performed. The controller owns the push and the gopls oracle.
-- The implementation and all requested implementer-owned gates are complete. The only unrun gate is gopls, explicitly reserved to the controller.
-- Temporary read-only evidence remains under `/private/tmp`: base worktree `p17-base-514cfe3`, wave-1 worktree `p17-wave1-5bb05e0`, and site-keyed manifest captures. They were retained for controller review.
+- Temporary audit logging and the temporary R3 manifest bit were removed. The final release binary was rebuilt afterward and passed Tier-A 104/104.
+- Read-only evidence is retained under `/private/tmp`, including the base and wave-1 worktrees, final manifests, audit manifests, test logs, and five corpus call-stat captures.
 
 ## 1. Fix-wave commits
 
 | Commit | Item | Result |
 |---|---|---|
-| `5839378` | `p17-fix1: amend concrete receiver design to v8` | Records the existing-promotion preservation rule, depth-aware supplier choice, and fix-wave poles. |
-| `fd1ec86` | `p17-fix1: preserve existing concrete promotions` | Consults the existing owner lookup before deferred drop; adds `concrete_promoted`, telemetry, and depth-aware concrete/interface supplier routing. |
-| `4d72a51` | `p17-fix1: preserve unproven receiver behavior` | Restores carried-identity-only R3 manifest input and counts a bare fallback attempt only after `iface_key` succeeds. |
-| `431f71d` | `p17-fix1: resolve named func value fields` | Resolves named/aliased function field types through the declaration graph before P5. |
-| `86cff77` | `p17-fix1: classify pointer interface aliases` | Routes `type P = *I` as interface; unresolved pointees fail closed. |
-| `86ee7a3` | `p17-fix1: fail closed on local type shadows` | Records lexically visible function-local type shadowing on `CallSite`; the shared route returns R3. |
-| `0674bf3` | `p17-fix1: compare cold cache creation output` | Compares cold-create manifest/call-stats wires as the fourth cache path. |
-| `a07ab99` | `p17-fix1: reject pointer interface selector supply` | Full-suite repair: invalid embedded `*I` cannot become S4 supply, while `type P = *I` receiver routing and pointer-to-concrete promotion remain intact. |
+| `b7760b0` | `p17-fix2: fail closed on receiver value rebinding` | Applies the proof-shadow bail to type-switch, inner declaration, range, and closure-parameter rebindings; adds resolver/manifest poles; bumps cache schemas to 48/17. |
+| `dc342cb` | `p17-fix2: resolve qualified owners by module import path` | Resolves qualified owners by exact effective-module import path before the legacy basename fallback; adds nested-module function-literal and factory-local poles; bumps schemas to 49/18. |
+| `55b03e0` | `p17-fix2: pin closure rebinding fail-closed contract` | Updates the existing closure regression to assert retained legacy input, proof-shadow evidence, and zero edges. |
+| `ba8a2be` | `p17-fix2: retain proofs only for lexical rebindings` | Separates true Go lexical rebindings from ordinary assignment, preserving the pre-wave assignment-only bail. |
 
-## 2. Behavioral evidence
+## 2. Root-cause record
+
+### A — Hugo type-switch rebinding
+
+At `tpl/tplimpl/templates.go:205/:212`, `switch in := in.(type)` rebinds `in` in each case. The old recovery used the outer `tpl.Template` parameter for an on-demand R2 proof and minted two false interface implementers. The alternative considered was a manifest-only consumer error; resolver and manifest both consumed the same wrong outer proof, falsifying that alternative. The fix records a lexical value rebind on the `CallSite`; the shared route returns R3, and both final sites are `unproven_drop`, fanout 0.
+
+The first broad suite found two adjacent representation contracts. A closure-param regression expected recovery erasure, while wave 2 intentionally retains the first type only as R3 input; it now asserts `receiver_local_type_shadowed` and zero edges. A second test used ordinary `r = x`, not a declaration rebind; the first implementation over-broadly retained that proof. `ba8a2be` adds a lexical-rebinding discriminator, so assignment-only duplicates keep the old `None` bail.
+
+### B — Etcd qualified `integration.Cluster`
+
+- H1 supplied by the controller: qualified lookup selected the same-bare interface and returned R2.
+- H2 supplied by the controller: receiver recovery lost the qualifier and reached R3.
+- Discriminating trace: `recv_ty="integration.Cluster"`, but `proven_owner=None` and `receiver_owner=None`. The qualifier was retained, falsifying H2; no R2 owner was selected, falsifying literal H1.
+- Settled cause: import alias recovery preserved the qualified type, but owner lookup reduced the import to its last path segment. Etcd has both `tests/framework/integration` and `tests/integration`, so basename lookup was ambiguous and failed to R3; the unchanged R3 ladder then minted the same-bare `interfaces.Cluster` false edges.
+- Fix: build exact `@go-import:<effective path>` keys once from the effective module graph, prefer that identity, and retain the legacy basename lookup only when exact evidence is unavailable. Ambiguous exact paths still fail closed.
+
+Final Etcd routes: `revision_test.go:114/:126 Client` and `v3_failover_test.go:93 Endpoints` are `concrete_direct`, fanout 0.
+
+## 3. Red/green and full gates
 
 ### Named focused tests
 
-- `cargo test --test lang_go concrete_receiver_ --no-fail-fast`: **43 passed, 0 failed, 0 ignored** after the final pointer-embed pole was added. The earlier pre-pole run was 42/0/0.
-- `go_embedded_concrete_method_keeps_existing_promotion`, `go_embedded_transitive_concrete_method_keeps_existing_promotion`, `go_embedded_pointer_receiver_addressable_keeps_existing_promotion`, `go_embedded_method_labeled_on_receiver_var_path`, `go_embedded_interface_field_not_promoted`: **5/0/0**.
-- `call_stats_reports_existing_concrete_promotion_and_ambiguity`: **1/0/0**.
-- `concrete_receiver_outputs_match_no_cache_cold_create_exact_cpg_and_sidecar_hits`: **1/0/0**.
-- `local_interface_shadows_package_concrete_alias_at_call`, `local_concrete_shadows_package_interface_at_call`, `local_type_in_different_function_does_not_shadow_package_alias`: all passed inside the 7/0/0 `local_` filter.
-- `pointer_embedded_interface_never_supplies_an_s4_selector`: red before `a07ab99` with false Exact `InterfaceDispatch` to `Wrong.M`, then green.
-- Existing `s4_pointer_embedded_interface_never_routes_or_satisfies`: candidate red before `a07ab99`; same-environment base `514cfe3` control green 1/0/0; final candidate green 1/0/0.
-- `pointer_to_interface_alias_keeps_interface_dispatch` and `go_embedded_pointer_receiver_addressable_keeps_existing_promotion`: both green after the bounded pointer-embed repair.
+- `concrete_receiver_fix2_test::{value_rebindings_fail_closed_to_r3_without_outer_concrete_direct_edges,type_switch_interface_rebinding_uses_the_legacy_r3_fallback,single_receiver_bindings_keep_r1_and_r2_routes}`: **3 passed, 0 failed, 0 ignored**. Before `b7760b0`, the type-switch/inner/range poles could use the outer proof.
+- `concrete_receiver_qualified_fix2_test::qualified_nested_module_receivers_resolve_exact_import_owner`: **1/0/0** covering both a function-literal parameter and a `pkg.NewX` local in a nested module. Before `dc342cb`, the literal-param pole reached R3 and minted two false interface edges.
+- `call_graph::go_receiver_typing_tests::s2_closure_param_rebinding_base_inside_closure_fails_closed`: **1/0/0** with the final behavioral contract.
+- `resolution_test::var_local_shadowed_binding_bails`: **1/0/0**, proving ordinary assignment did not inherit the new lexical-rebind behavior.
+- Adjacent controls: owner-partition **17/0/0**, owner-partition fix-wave **30/0/0**, module-graph fix2 **5/0/0**, and cache-version pins all passed.
 
 ### Full gates
 
 | Gate | Result |
 |---|---|
-| `cargo fmt` and `cargo fmt -- --check` | passed |
-| `git diff --check` | passed |
-| `cargo test --quiet` | **3,334 passed, 0 failed, 1 ignored** |
-| `cargo build --release` | passed |
-| `eval/.venv/bin/tier-a --matrix-only --allow-stale-sut` after the release build | **104 passed, 0 failed**; `go/embedded_method` passed |
+| `cargo fmt` and `git diff --check` | passed |
+| `cargo test` | **3,338 passed, 0 failed, 1 ignored** across 28 result groups |
+| `cargo build --release` | passed after all temporary audit code was removed |
+| `eval/.venv/bin/tier-a --matrix-only --allow-stale-sut` immediately after the final release build | **104 passed, 0 failed**; `go/embedded_method` passed |
 | gopls oracle | not run; controller-owned by explicit instruction |
 
-The first full-suite attempt was not retained as green: it stopped at the library target with 713 passed, 1 failed, 0 ignored on the invalid embedded `*I` regression. Base passed the same test in the same environment. Commit `a07ab99` fixed that bounded failure; the final full run above is the acceptance result.
+The first broad run stopped at 713/1/0 on the stale closure representation assertion. After that bounded update, the second run reached 2,348/1/1 and exposed the assignment-only overreach. The final full run above is the retained acceptance result.
 
-## 3. Same-base corpus evidence
+## 4. Required manifest checks and Etcd oracle classification
 
-All candidate results use the final release implementation with `prism nav --no-cache call-stats`; controls are controller-provided `ctrl514-*.txt` from main `514cfe3`. Values are `base -> candidate (delta)`. Missing direct-kind entries are zero.
+- Hugo `tpl/tplimpl/templates.go:205` and `:212`: `unproven_drop`, fanout 0, no implementer identities.
+- Etcd `revision_test.go:114/:126` and `v3_failover_test.go:93`: `concrete_direct`, fanout 0, no implementer identities.
 
-| Corpus | interface Exact | constructor Exact | typed-param Exact | var Exact | assertion Exact | return Exact | field-typed Exact | embedded-promotion Exact | P5 NameOnly | NLCF | multi-target sites |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| caddy | 1766 -> 1776 (+10) | 241 -> 258 (+17) | 107 -> 1972 (+1865) | 0 -> 0 | 0 -> 0 | 233 -> 233 | 15 -> 15 | 84 -> 87 (+3) | 0 -> 0 | 3 -> 3 | 21 -> 21 |
-| prometheus | 2461 -> 2294 (-167) | 978 -> 1441 (+463) | 770 -> 1349 (+579) | 0 -> 0 | 0 -> 0 | 2135 -> 2135 | 125 -> 125 | 58 -> 58 | 1 -> 1 | 143 -> 143 | 3855 -> 3813 (-42) |
-| etcd | 2002 -> 1924 (-78) | 109 -> 116 (+7) | 230 -> 489 (+259) | 0 -> 0 | 0 -> 0 | 1064 -> 1064 | 38 -> 38 | 42 -> 54 (+12) | 0 -> 0 | 578 -> 578 | 515 -> 417 (-98) |
-| hugo | 625 -> 654 (+29) | 193 -> 201 (+8) | 440 -> 592 (+152) | 0 -> 0 | 0 -> 0 | 2927 -> 2927 | 92 -> 92 | 46 -> 52 (+6) | 0 -> 0 | 330 -> 330 | 2568 -> 2565 (-3) |
+The controller's item C attributed the 11 cache sites to promoted methods of `*clientv3.Client`. The live input and its own oracle artifact contradict that attribution: every receiver is `c` from `cache.New(...) -> *cache.Cache`, Etcd declares `Cache.RequestProgress` at `cache/cache.go:109`, `Cache.Watch` at `:116`, and `Cache.Get` at `:192`, and the oracle records `gopls_satisfier` as `cache.Cache`. Exact import-path proof therefore correctly makes these R1(a), not R1(c). No #16/R1(c) site exists among these 14.
 
-New telemetry and wave-1 route deltas:
+| File:line | Method | Final route | Classification |
+|---|---|---|---|
+| `cache_test.go:455` | Watch | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Watch` |
+| `cache_test.go:514` | Watch | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Watch` |
+| `cache_test.go:569` | Watch | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Watch` |
+| `cache_test.go:586` | RequestProgress | `concrete_direct` | #17-fixed R1(a), `cache.Cache.RequestProgress` |
+| `cache_test.go:618` | Watch | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Watch` |
+| `cache_test.go:637` | Watch | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Watch` |
+| `cache_test.go:659` | Watch | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Watch` |
+| `cache_test.go:1383` | Get | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Get` |
+| `cache_test.go:1453` | Watch | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Watch` |
+| `cache_test.go:1507` | Watch | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Watch` |
+| `cache_test.go:1559` | Get | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Get` |
+| `revision_test.go:114` | Client | `concrete_direct` | B, #17-fixed R1(a), `integration.Cluster.Client` |
+| `revision_test.go:126` | Client | `concrete_direct` | B, #17-fixed R1(a), `integration.Cluster.Client` |
+| `v3_failover_test.go:93` | Endpoints | `concrete_direct` | B, #17-fixed R1(a), `integration.Cluster.Endpoints` |
 
-| Corpus | direct | existing promoted | deferred promoted, wave 1 -> current | no-selector, wave 1 -> current | R3 sites / hits / edges |
-|---|---:|---:|---:|---:|---:|
-| caddy | 2470 | 7 | 7 -> 0 | 431 -> 431 | 1978 / 19 / 1339 |
-| prometheus | 4876 | 19 | 19 -> 0 | 91 -> 91 | 4295 / 7 / 7 |
-| etcd | 1703 | 12 | 12 -> 0 | 80 -> 89 | 6618 / 164 / 196 |
-| hugo | 3811 | 11 | 11 -> 0 | 684 -> 688 | 3641 / 6 / 7 |
+## 5. Same-base and wave-1 corpus evidence
 
-The promotion-only expectation “interface dispatch unchanged from wave 1” holds for Caddy and Prometheus. Etcd is +20 and Hugo +1 versus wave 1 because of the separately required OX-S2 depth-aware rule, not fallback leakage:
+All final values use the final release implementation with `prism nav --no-cache call-stats`. Controls are controller-provided `ctrl514-*.txt` from main `514cfe3`. Values are `base -> final (delta)`; missing kinds are zero.
 
-- Etcd: five `concrete_no_selector_drop -> embedded_interface_dispatch` sites, four visible package-scoped implementers each, add 20 Exact edges; fifteen zero-fanout embedded routes become no-selector; seven deferred sites become `concrete_promoted`.
-- Hugo: one `concrete_no_selector_drop -> embedded_interface_dispatch` site adds one Exact edge; six zero-fanout embedded routes become no-selector; three deferred sites become `concrete_promoted`.
-- No concrete route has interface fanout.
+| Corpus | interface Exact | constructor Exact | typed-param Exact | var/assert Exact | return Exact | field Exact | embedded Exact | P5 NameOnly | NLCF | multi-target |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| caddy | 1766 -> 1777 (+11) | 241 -> 258 (+17) | 107 -> 1978 (+1871) | 0/0 -> 0/0 | 233 -> 233 | 15 -> 16 (+1) | 84 -> 87 (+3) | 0 -> 0 | 3 -> 3 | 21 -> 21 |
+| prometheus | 2461 -> 2752 (+291) | 978 -> 1472 (+494) | 770 -> 1522 (+752) | 0/0 -> 0/0 | 2135 -> 2144 (+9) | 125 -> 182 (+57) | 58 -> 58 | 1 -> 1 | 143 -> 143 | 3855 -> 3904 (+49) |
+| etcd | 2002 -> 2528 (+526) | 109 -> 118 (+9) | 230 -> 750 (+520) | 0/0 -> 0/0 | 1064 -> 1593 (+529) | 38 -> 103 (+65) | 42 -> 54 (+12) | 0 -> 0 | 578 -> 578 | 515 -> 609 (+94) |
+| hugo | 625 -> 756 (+131) | 193 -> 205 (+12) | 440 -> 1144 (+704) | 0/0 -> 0/0 | 2927 -> 2952 (+25) | 92 -> 117 (+25) | 46 -> 52 (+6) | 0 -> 0 | 330 -> 330 | 2568 -> 2583 (+15) |
 
-Ripgrep is byte-identical: **3,019 base bytes == 3,019 candidate bytes**.
+Wave-1-to-wave-2 leaf values are shown as `final (delta from wave 1)`. The broad typed/return/field populations are the requested function-literal recovery and exact import-path proof paths, not an R3 ladder edit.
 
-## 4. R3 manifest parity
+| Corpus | interface | constructor | typed | return | field | embedded | multi | direct | existing promoted | deferred | no-selector | R3 sites / hits / edges |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| caddy | 1777 (+1) | 258 (0) | 1978 (+6) | 233 (0) | 16 (+1) | 87 (0) | 21 (0) | 2477 (+7) | 7 (0) | 0 (0) | 433 (+2) | 2466 (+488) / 19 (0) / 1339 (0) |
+| prometheus | 2752 (+458) | 1472 (+31) | 1522 (+173) | 2144 (+9) | 182 (+57) | 58 (0) | 3904 (+91) | 5102 (+226) | 19 (0) | 0 (0) | 97 (+6) | 5471 (+1176) / 32 (+25) / 50 (+43) |
+| etcd | 2528 (+604) | 118 (+2) | 750 (+261) | 1593 (+529) | 103 (+65) | 54 (0) | 609 (+192) | 2561 (+858) | 12 (0) | 0 (0) | 77 (-12) | 7152 (+534) / 89 (-75) / 113 (-83) |
+| hugo | 756 (+102) | 205 (+4) | 1144 (+552) | 2952 (+25) | 117 (+25) | 52 (0) | 2583 (+18) | 4405 (+594) | 11 (0) | 0 (0) | 695 (+7) | 4232 (+591) / 3 (-3) / 14 (+7) |
 
-The normal manifest intentionally serializes both successful R3 bare hits and proven R2 hits as `interface_dispatch`. For an admissible R3-only control, a temporary environment-gated audit bit was derived from the single shared `go_concrete_receiver_route` verdict, then removed before the final build. Base and candidate records were matched by `(file,start_byte,end_byte,method)` and projected to legacy fields by removing candidate-only route/audit diagnostics.
+P5 and NLCF are unchanged from wave 1 in every corpus. Ripgrep is byte-identical: **3,019 base bytes == 3,019 final bytes**, and `cmp` returned 0.
 
-| Corpus | proof-R3 manifest sites | R3 hit sites / edges | R3 drops | missing in base | changed legacy records |
-|---|---:|---:|---:|---:|---:|
-| caddy | 90 | 19 / 1339 | 71 | 0 | 0 |
-| prometheus | 2497 | 7 / 7 | 2490 | 0 | 0 |
-| etcd | 3892 | 164 / 196 | 3728 | 0 | 0 |
-| hugo | 1490 | 6 / 7 | 1484 | 0 | 0 |
+## 6. R3 manifest parity
 
-This covers the OX-S1 branch: current R3 manifest output is byte-equivalent to main for every legacy record, including successful bare-ladder hits.
+A temporary environment-gated bit derived directly from the one shared route verdict marked final `Unproven` sites. It was removed before the final build. Candidate records were matched to base by `(file,start_byte,end_byte,method)` and projected to legacy fields by deleting candidate-only diagnostics.
 
-## 5. Invariants and residual work
+| Corpus | final proof-R3 sites | hits / edges | drops | matched base records | changed matched legacy records | new records / edges |
+|---|---:|---:|---:|---:|---:|---:|
+| caddy | 95 | 19 / 1339 | 76 | 90 | 0 | 5 / 0 |
+| prometheus | 2852 | 32 / 50 | 2820 | 2497 | 0 | 355 / 43 |
+| etcd | 4172 | 89 / 113 | 4083 | 3722 | 0 | 450 / 0 |
+| hugo | 1655 | 3 / 14 | 1652 | 1422 | 0 | 233 / 12 |
 
-- Resolver and manifest consume the one shared `go_concrete_receiver_route`; no inline second proof exists.
-- Existing promotion remains the #95/#174/#176 owner-index lane. `concrete_promoted` labels it; `concrete_promoted_deferred_drop` applies only after that lane misses.
-- Depth chooses the shallowest selector supplier; equal-depth mixed suppliers terminally drop as `ConcreteReceiverNoSelector`.
-- Pointer-to-interface aliases are R2 receiver types, but pointer-to-interface embedded fields are not valid S4 supply.
-- R3 uses carried identity only and otherwise preserves the bare ladder byte-for-byte; generic receivers do not increment fallback telemetry when `iface_key` rejects them.
-- The declaration graph remains P10-identity/profile keyed, serialized, import-environment aware, transitive, and fail-closed.
-- New modules and changed dedicated test files remain under 600 lines (`go_concrete_receiver.rs` 500, `go_selector_supply.rs` 233, `go_func_type.rs` 124; largest changed dedicated test file 440).
-- Controller next actions: run the reserved gopls oracle, review this handoff commit, and push. Do not rerun or reinterpret the v7 terminal-promotion behavior; v8 supersedes it.
+Every R3 record present on main is byte-identical in its legacy projection. New records arise because wave 2 newly recovers function-literal and exact qualified receiver inputs; they do not reflect a change to the R3 branch or its carried-identity input.
 
-## 6. Final verdict
+## 7. Invariants, residual work, and verdict
 
-**SURVIVED (self-pass, not independent):** proven concrete-recovered receivers do not reach the bare-name interface-dispatch fallback. Evidence: red-first route poles, exact target-file assertions, final 3,334/0/1 Rust suite, 104/104 Tier-A including `go/embedded_method`, four-path cache parity, five-corpus route/telemetry comparison, R3 same-base manifest parity, and non-Go byte identity.
+- Resolver and manifest still consume one shared `go_concrete_receiver_route`; no second proof was added.
+- Qualified lookup uses exact effective import path first; unresolved or multiply mapped exact paths fail closed, and legacy basename lookup remains only as fallback when exact evidence is absent.
+- R3 consumer inputs and the bare ladder are unchanged. Generic receivers still record 0/0/0 fallback telemetry when `iface_key` rejects them.
+- Cache pins are CPG 49 and sidecar 18; the four-path cold/no-cache/exact-CPG/sidecar parity test remains green.
+- New modules and dedicated wave-2 tests are under 600 lines (`go_concrete_receiver.rs` 500, `go_selector_supply.rs` 233, fix2 tests 166 and 113).
+- Not done by instruction: gopls oracle. The controller should rerun it, review the corrected 14-site Etcd expectation, push the commits, and publish the PR wave.
+
+**SURVIVED (self-pass, not independent):** the two oracle WRONG paths are closed, existing matched R3 output is unchanged, the final suite is 3,338/0/1, Tier-A is 104/104, and all requested corpus/manifest evidence is pinned above.
