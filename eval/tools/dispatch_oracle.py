@@ -261,6 +261,7 @@ def compare_site(
     not_dispatch: bool = False,
     oracle_status: str | None = None,
     implementation_outcome: str | None = None,
+    implementation_raw_result_count: int | None = None,
 ) -> dict:
     """One per-site comparison record with qualified or legacy name-only identity.
 
@@ -341,12 +342,39 @@ def compare_site(
         prism_only_identities = _identity_key_records(prism_only)
         gopls_only_identities = _identity_key_records(gopls_only)
 
+    # A method-level implementation query can return the interface method's own
+    # declaration for a promoted implementation (for example, `W` embedding `I`).
+    # That non-empty result does not identify W, so it is not evidence that a
+    # prism-only W is absent. Preserve normal N handling when every Prism target
+    # is mapped, but fail closed for unmatched targets rather than calling it an
+    # over-approximation.
+    promoted_ambiguity_locations = []
+    if (
+        isinstance(implementation_raw_result_count, int)
+        and implementation_raw_result_count > 0
+        and prism_only
+    ):
+        promoted_ambiguity_locations = [
+            location for location in non_candidate_locations
+            if location.get("reason") in _NON_CANDIDATE_LOCATION_REASONS
+        ]
+        if promoted_ambiguity_locations:
+            unresolved_locations.extend(promoted_ambiguity_locations)
+            non_candidate_locations = [
+                location for location in non_candidate_locations
+                if location not in promoted_ambiguity_locations
+            ]
+            oracle_reason = oracle_reason or "external_interface_promoted_ambiguous"
+            failure_stage = failure_stage or "mapping"
+
     if oracle_status == "timeout":
         classification = "oracle_timeout"
     elif oracle_status == "unresolved":
         classification = "oracle_unresolved"
     elif not_dispatch:
         classification = "not_dispatch"
+    elif promoted_ambiguity_locations:
+        classification = "oracle_unresolved"
 
     if oracle_reason is None and not unresolved_locations and prism == set() and gopls == set():
         oracle_reason = (
@@ -368,6 +396,7 @@ def compare_site(
         "failure_stage": failure_stage,
         "oracle_status": oracle_status,
         "implementation_outcome": implementation_outcome,
+        "implementation_raw_result_count": implementation_raw_result_count,
         "oracle_reason": oracle_reason,
         "unresolved_locations": unresolved_locations,
         "non_candidate_locations": non_candidate_locations,
@@ -1558,6 +1587,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
             oracle_status: str | None = "unresolved" if col is None else None
             not_dispatch = False
             implementation_outcome: str | None = None
+            implementation_raw_result_count: int | None = None
             iface = None
             if col is not None:
                 # 1) Resolve the concrete or interface declaration at this exact call.
@@ -1639,12 +1669,15 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                                     "identities": None,
                                     "interface": label,
                                     "unresolved_locations": [],
+                                    "raw_result_count": None,
                                 }
                             else:
-                                unknown_locations, _non_candidates = _partition_location_evidence(
+                                unknown_locations, non_candidate_locations = _partition_location_evidence(
                                     out[2]
                                 )
-                                if not out[0] and not unknown_locations:
+                                if not out[0] and out[1] > 0 and non_candidate_locations:
+                                    outcome = "non_candidate_only"
+                                elif not out[0] and not unknown_locations:
                                     outcome = "persistent_empty"
                                 elif unknown_locations:
                                     outcome = "partial_mapping"
@@ -1655,6 +1688,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                                     "identities": out[0],
                                     "interface": label,
                                     "unresolved_locations": out[2],
+                                    "raw_result_count": out[1],
                                 }
                             decl_cache[ckey] = terminal
                         terminal = decl_cache[ckey]
@@ -1662,6 +1696,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                         iface = terminal["interface"]
                         unresolved_locations = terminal["unresolved_locations"]
                         implementation_outcome = terminal["outcome"]
+                        implementation_raw_result_count = terminal["raw_result_count"]
                         if implementation_outcome == "timeout":
                             failure_stage = "implementation"
                             oracle_status = "timeout"
@@ -1669,7 +1704,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                             oracle_unresolved = True
                             failure_stage = "implementation"
                             oracle_status = "unresolved"
-                        elif implementation_outcome == "partial_mapping":
+                        elif implementation_outcome in {"partial_mapping", "non_candidate_only"}:
                             failure_stage = "mapping"
                 elif definition_kind not in {"concrete", "external"}:
                     gopls_identities = []
@@ -1695,6 +1730,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                     not_dispatch=not_dispatch,
                     oracle_status=oracle_status,
                     implementation_outcome=implementation_outcome,
+                    implementation_raw_result_count=implementation_raw_result_count,
                 )
             else:
                 # Compatibility only: old manifests lack target/package evidence, so the
@@ -1712,6 +1748,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                     not_dispatch=not_dispatch,
                     oracle_status=oracle_status,
                     implementation_outcome=implementation_outcome,
+                    implementation_raw_result_count=implementation_raw_result_count,
                 )
             # Preserve the manifest site identity in the durable output so baseline
             # deltas cannot collapse distinct calls that share a source line.

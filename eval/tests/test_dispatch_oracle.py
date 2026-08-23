@@ -913,6 +913,7 @@ def test_mappable_satisfier_set_is_scored_when_extra_non_candidate_is_present():
         file="caller.go", line=1, interface="Runner", method="Go",
         prism_identities=[impl], gopls_identities=[impl],
         unresolved_locations=[unmappable], failure_stage="mapping",
+        implementation_raw_result_count=2,
     )
     assert record["classification"] == "sound"
     assert record["unresolved_locations"] == []
@@ -998,6 +999,57 @@ def test_interface_only_first_result_retries_before_scoring_prism_target(tmp_pat
         log=io.StringIO(), oracle_factory=FakeGopls,
     )
     assert records[0]["classification"] == "sound"
+    assert FakeGopls.implementation_calls == 2
+
+
+def test_promoted_interface_method_location_is_unresolved_not_over_approx(tmp_path):
+    (tmp_path / "caller.go").write_text("receiver.Go()\n")
+    promoted = _identity("W", "wrapper.go", [3, 5])
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"sites": [{
+        "file": "caller.go", "line": 1, "method": "Go", "fanout": 1,
+        "implementers": ["W"], "implementer_identities": [promoted],
+        "start_byte": 9, "end_byte": 11,
+    }]}))
+
+    class FakeGopls:
+        implementation_calls = 0
+
+        def __init__(self, *_args, **_kwargs):
+            self._settle_s = 0
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def _did_open(self, _rel):
+            return True
+
+        def _methods(self, _rel):
+            return []
+
+        def resettle(self, **_kwargs):
+            pass
+
+        def method_decl(self, _rel, _line, _char):
+            return {"file": "iface.go", "line": 3, "character": 1,
+                    "kind": "interface", "identity": None}
+
+        def satisfier_identities(self, _rel, _line, _char):
+            type(self).implementation_calls += 1
+            return [], 1, [{
+                "file": "iface.go", "line": 4, "reason": "interface_location",
+            }]
+
+    records, _summary = do.run_oracle(
+        str(manifest), str(tmp_path), ["fake-gopls"], 1,
+        log=io.StringIO(), oracle_factory=FakeGopls,
+    )
+    assert records[0]["classification"] == "oracle_unresolved"
+    assert records[0]["oracle_reason"] == "external_interface_promoted_ambiguous"
+    assert records[0]["implementation_raw_result_count"] == 1
     assert FakeGopls.implementation_calls == 2
 
 
