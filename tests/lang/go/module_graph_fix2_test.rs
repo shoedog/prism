@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 fn build_workspace(
     sources: &[(&str, &str)],
     manifests: &[(&str, &str)],
-    go_work: &str,
+    go_work: Option<&str>,
 ) -> CallGraph {
     let files: BTreeMap<String, ParsedFile> = sources
         .iter()
@@ -24,7 +24,9 @@ fn build_workspace(
             .expect("create manifest directory");
         std::fs::write(path, contents).expect("write manifest fixture");
     }
-    std::fs::write(repo.path().join("go.work"), go_work).expect("write go.work fixture");
+    if let Some(go_work) = go_work {
+        std::fs::write(repo.path().join("go.work"), go_work).expect("write go.work fixture");
+    }
     let inputs = prism::repo_loader::scope_graph_build_inputs(repo.path(), &files);
     CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs))
 }
@@ -80,7 +82,7 @@ fn active_main_wins_before_cross_module_replace_conflict_with_target_file_parity
                 "module example.com/b\n\ngo 1.22\nreplace example.com/a => ../fork-b\n",
             ),
         ],
-        "go 1.22\nuse (\n.\n./b\n)\n",
+        Some("go 1.22\nuse (\n.\n./b\n)\n"),
     );
     let expected = BTreeSet::from(["b/impl.go".to_string()]);
 
@@ -95,5 +97,46 @@ fn active_main_wins_before_cross_module_replace_conflict_with_target_file_parity
             "replaces_applied": 0,
             "workspace_invalid": false,
         })
+    );
+}
+
+#[test]
+fn invalid_active_root_version_blocks_resolver_and_manifest_targets() {
+    let cg = build_workspace(
+        &[
+            (
+                "api.go",
+                "package root\nimport p \"example.com/root/p\"\ntype Doer interface { Act(p.T) }\ntype Holder struct { Doer }\nfunc invoke(h Holder, value p.T) { h.Act(value) }\n",
+            ),
+            (
+                "p/impl.go",
+                "package p\ntype T struct{}\ntype Impl struct{}\nfunc (Impl) Act(T) {}\n",
+            ),
+        ],
+        &[(
+            "go.mod",
+            "module example.com/root\n\ngo 1.22\nrequire example.com/a vbogus\n",
+        )],
+        None,
+    );
+
+    assert!(resolved_target_files(&cg, "invoke", "Act").is_empty());
+    assert!(manifest_target_files(&cg, "api.go", "Act").is_empty());
+    let stats = prism::navigation::queries::call_stats(&cg);
+    assert_eq!(
+        stats["go_module_graph"],
+        serde_json::json!({
+            "modules": 0,
+            "active": 0,
+            "replaces_parsed": 0,
+            "replaces_applied": 0,
+            "workspace_invalid": true,
+        })
+    );
+    assert_eq!(stats["go_import_path_proven_files"], 0);
+    assert_eq!(stats["go_import_path_unproven_files"], 2);
+    assert_eq!(
+        stats["go_import_path_unproven_reasons"],
+        serde_json::json!({"workspace_invalid": 2})
     );
 }

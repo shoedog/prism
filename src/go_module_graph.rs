@@ -5,6 +5,7 @@ use std::path::{Component, Path};
 
 mod paths;
 mod replacements;
+mod semver;
 use paths::{normalize_repo_dir, path_to_repo_string};
 mod identity;
 
@@ -502,7 +503,7 @@ fn valid_go_version(version: &str) -> bool {
 }
 
 fn valid_module_version(version: &str) -> bool {
-    version.starts_with('v') && version.len() > 1 && version.is_ascii()
+    semver::semver_is_valid(version)
 }
 
 fn parse_replace(args: &[String]) -> Option<Replacement> {
@@ -567,6 +568,9 @@ fn manifest_is_excluded(path: &str) -> bool {
     )
 }
 
+#[cfg(test)]
+#[path = "go_module_graph_fix2_tests.rs"]
+mod fix2_tests;
 #[cfg(test)]
 #[path = "go_module_graph_tests.rs"]
 mod tests;
