@@ -410,7 +410,10 @@ def test_load_dispatch_sites_keeps_zero_fanout_and_scores_recall_gap(tmp_path):
 # #14 fix wave 1 — definition-kind dispatch
 # ---------------------------------------------------------------------------
 
-def _run_fake_oracle(tmp_path, *, definition, satisfiers, prism_identities):
+def _run_fake_oracle(
+    tmp_path, *, definition, satisfiers, prism_identities,
+    start_byte=8, end_byte=13,
+):
     (tmp_path / "caller.go").write_text("adapter.Adapt()\n")
     manifest = tmp_path / "manifest.json"
     manifest.write_text(json.dumps({"sites": [{
@@ -420,8 +423,8 @@ def _run_fake_oracle(tmp_path, *, definition, satisfiers, prism_identities):
         "fanout": len(prism_identities),
         "implementers": [identity["name"] for identity in prism_identities],
         "implementer_identities": prism_identities,
-        "start_byte": 8,
-        "end_byte": 13,
+        "start_byte": start_byte,
+        "end_byte": end_byte,
     }]}))
 
     class FakeGopls:
@@ -450,6 +453,8 @@ def _run_fake_oracle(tmp_path, *, definition, satisfiers, prism_identities):
 
         def satisfier_identities(self, _rel, _line, _char):
             type(self).implementation_calls += 1
+            if satisfiers is None:
+                return None
             return satisfiers, len(satisfiers), []
 
     records, _summary = do.run_oracle(
@@ -494,6 +499,52 @@ def test_run_oracle_concrete_zero_fanout_is_not_dispatch(tmp_path):
     assert summary["overall"]["not_dispatch_sites"] == 1
     assert summary["overall"]["scored_sites"] == 0
     assert summary["overall"]["dispatch_precision"] is None
+
+
+def test_definition_timeout_remains_oracle_timeout(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={"kind": "unknown", "failure_stage": "timeout",
+                    "oracle_status": "timeout"},
+        satisfiers=[],
+        prism_identities=[impl],
+    )
+    assert record["classification"] == "oracle_timeout"
+    assert record["failure_stage"] == "timeout"
+    assert record["oracle_status"] == "timeout"
+    assert implementation_calls == 0
+
+
+def test_token_mapping_failure_is_oracle_unresolved(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={"kind": "concrete", "identity": impl},
+        satisfiers=[],
+        prism_identities=[impl],
+        start_byte=99,
+        end_byte=100,
+    )
+    assert record["classification"] == "oracle_unresolved"
+    assert record["failure_stage"] == "token"
+    assert record["oracle_status"] == "unresolved"
+    assert implementation_calls == 0
+
+
+def test_implementation_timeout_remains_oracle_timeout(tmp_path):
+    impl = _identity("Impl", "impl.go", [3, 5])
+    record, implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={"file": "interface.go", "line": 7, "character": 2,
+                    "kind": "interface", "identity": None},
+        satisfiers=None,
+        prism_identities=[impl],
+    )
+    assert record["classification"] == "oracle_timeout"
+    assert record["failure_stage"] == "timeout"
+    assert record["oracle_status"] == "timeout"
+    assert implementation_calls == 1
 
 
 def test_run_oracle_interface_definition_still_uses_implementation(tmp_path):

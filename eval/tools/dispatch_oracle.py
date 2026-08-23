@@ -258,6 +258,7 @@ def compare_site(
     unresolved_locations: list[dict] | None = None,
     oracle_reason: str | None = None,
     not_dispatch: bool = False,
+    oracle_status: str | None = None,
 ) -> dict:
     """One per-site comparison record with qualified or legacy name-only identity.
 
@@ -338,7 +339,11 @@ def compare_site(
         prism_only_identities = _identity_key_records(prism_only)
         gopls_only_identities = _identity_key_records(gopls_only)
 
-    if not_dispatch:
+    if oracle_status == "timeout":
+        classification = "oracle_timeout"
+    elif oracle_status == "unresolved":
+        classification = "oracle_unresolved"
+    elif not_dispatch:
         classification = "not_dispatch"
 
     if oracle_reason is None and not unresolved_locations and prism == set() and gopls == set():
@@ -359,6 +364,7 @@ def compare_site(
         "identity_mode": identity_mode,
         "definition_kind": definition_kind,
         "failure_stage": failure_stage,
+        "oracle_status": oracle_status,
         "oracle_reason": oracle_reason,
         "unresolved_locations": unresolved_locations,
         "non_candidate_locations": non_candidate_locations,
@@ -1065,7 +1071,8 @@ class GoplsSatisfiers:
         from tier_a.oracles import uri_to_rel
 
         if not self._did_open(rel):
-            return {"kind": "unknown", "failure_stage": "definition"}
+            return {"kind": "unknown", "failure_stage": "definition",
+                    "oracle_status": "unresolved"}
         try:
             raw = self.client.request(
                 "textDocument/definition",
@@ -1074,7 +1081,8 @@ class GoplsSatisfiers:
                 timeout=self.group_timeout,
             )
         except LspError:
-            return {"kind": "unknown", "failure_stage": "timeout"}
+            return {"kind": "unknown", "failure_stage": "timeout",
+                    "oracle_status": "timeout"}
         for d in (raw if isinstance(raw, list) else [raw] if raw else []):
             uri = d.get("uri") or d.get("targetUri")
             rng = d.get("range") or d.get("targetSelectionRange") or d.get("targetRange")
@@ -1100,7 +1108,8 @@ class GoplsSatisfiers:
                 "identity": identity,
                 "reason": reason,
             }
-        return {"kind": "unknown", "failure_stage": "definition"}
+        return {"kind": "unknown", "failure_stage": "definition",
+                "oracle_status": "unresolved"}
 
     def satisfier_types(self, rel: str, line0: int, char0: int) -> tuple[set[str], int] | None:
         """gopls textDocument/implementation at (rel, line0, char0) -> (receiver TYPE name
@@ -1297,6 +1306,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
             unresolved_locations: list[dict] = []
             definition_kind = "unknown"
             failure_stage: str | None = "token" if col is None else None
+            oracle_status: str | None = "unresolved" if col is None else None
             not_dispatch = False
             iface = None
             if col is not None:
@@ -1304,6 +1314,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                 decl = oracle.method_decl(s["file"], call_line, col)
                 definition_kind = decl.get("kind", "unknown")
                 failure_stage = decl.get("failure_stage")
+                oracle_status = decl.get("oracle_status")
                 if definition_kind == "concrete":
                     iface = f"{Path(decl.get('file', s['file'])).stem}:{decl.get('line', 0) + 1}"
                     concrete_identity = decl.get("identity")
@@ -1311,6 +1322,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                         gopls_identities = []
                         oracle_unresolved = True
                         failure_stage = "mapping"
+                        oracle_status = "unresolved"
                         unresolved_locations.append({
                             "file": decl.get("file"),
                             "line": (decl.get("line") + 1)
@@ -1333,6 +1345,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                         oracle_unresolved = True
                         gopls_identities = []
                         failure_stage = "definition"
+                        oracle_status = "unresolved"
                     else:
                     # A persistently empty implementation result is valid evidence only
                     # when prism also minted no edges. Keep that cache entry separate
@@ -1363,12 +1376,15 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                             failure_stage = "mapping" if unresolved_locations else None
                         elif out is None:
                             failure_stage = "timeout"
+                            oracle_status = "timeout"
                         else:
-                            failure_stage = "implementation"
+                            gopls_identities, unresolved_locations = out[0], out[2]
+                            failure_stage = "mapping" if unresolved_locations else None
                 else:
                     gopls_identities = []
                     oracle_unresolved = True
                     failure_stage = failure_stage or "definition"
+                    oracle_status = oracle_status or "unresolved"
             if iface is None:
                 # decl/impl unavailable: fall back to a type-assertion source label, then
                 # a synthetic one. gopls identities stay None => oracle_timeout.
@@ -1386,6 +1402,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                     failure_stage=failure_stage,
                     unresolved_locations=unresolved_locations,
                     not_dispatch=not_dispatch,
+                    oracle_status=oracle_status,
                 )
             else:
                 # Compatibility only: old manifests lack target/package evidence, so the
@@ -1401,6 +1418,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                     definition_kind=definition_kind, failure_stage=failure_stage,
                     unresolved_locations=unresolved_locations,
                     not_dispatch=not_dispatch,
+                    oracle_status=oracle_status,
                 )
             # Preserve the manifest site identity in the durable output so baseline
             # deltas cannot collapse distinct calls that share a source line.
