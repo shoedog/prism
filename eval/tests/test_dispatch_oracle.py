@@ -215,19 +215,28 @@ def test_symbol_at_disambiguates_same_line_declarations_by_character():
     assert right["selection_start_character"] == 23
 
 
-def test_package_clause_ignores_comments_and_string_literals(tmp_path):
+def test_package_clause_ignores_leading_comments(tmp_path):
     (tmp_path / "impl.go").write_text(
         "/*\npackage decoy\n*/\n"
         "// package another_decoy\n"
+        "package real\n"
         "var note = \"package string_decoy\"\n"
         "var raw = `package raw_decoy`\n"
-        "package real\n"
     )
 
     class FakeGoplsAdapter:
         root = str(tmp_path)
 
     assert do.GoplsSatisfiers._package_clause(FakeGoplsAdapter(), "impl.go") == "real"
+
+
+def test_package_clause_accepts_unicode_identifier_and_requires_first_token():
+    assert do.GoplsSatisfiers._package_clause_from_source(
+        "/* package decoy */\npackage π\n"
+    ) == "π"
+    assert do.GoplsSatisfiers._package_clause_from_source(
+        "var note = \"package decoy\"\npackage real\n"
+    ) is None
 
 
 def test_compare_site_qualified_identity_rejects_same_named_other_package():

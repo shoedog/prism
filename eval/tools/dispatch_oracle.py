@@ -121,6 +121,7 @@ import sys
 import time
 import tomllib
 import urllib.parse
+import unicodedata
 from pathlib import Path
 
 # eval/ on sys.path so the tool runs both as `python tools/dispatch_oracle.py` and via
@@ -1057,49 +1058,28 @@ class GoplsSatisfiers:
 
     @staticmethod
     def _package_clause_from_source(source: str) -> str | None:
-        """Read the first real Go package clause without treating comments/strings as code."""
+        """Read a Go package clause, which must be the first non-trivia token."""
+        def ident_start(char: str) -> bool:
+            return char == "_" or unicodedata.category(char).startswith("L")
+
+        def ident_continue(char: str) -> bool:
+            return ident_start(char) or unicodedata.category(char) == "Nd"
+
         size = len(source)
-        offset = 0
-        while True:
-            offset = GoplsSatisfiers._skip_go_trivia(source, offset)
-            if offset is None or offset >= size:
-                return None
-            quote = source[offset]
-            if quote in {'"', "'", "`"}:
-                if quote == "`":
-                    end = source.find("`", offset + 1)
-                    if end == -1:
-                        return None
-                    offset = end + 1
-                    continue
-                offset += 1
-                while offset < size and source[offset] != quote:
-                    offset += 2 if source[offset] == "\\" else 1
-                if offset >= size:
-                    return None
-                offset += 1
-                continue
-            if quote.isascii() and (quote.isalpha() or quote == "_"):
-                start = offset
-                offset += 1
-                while offset < size and source[offset].isascii() and \
-                        (source[offset].isalnum() or source[offset] == "_"):
-                    offset += 1
-                if source[start:offset] != "package":
-                    continue
-                offset = GoplsSatisfiers._skip_go_trivia(source, offset)
-                if offset is None or offset >= size:
-                    return None
-                if not (source[offset].isascii() and
-                        (source[offset].isalpha() or source[offset] == "_")):
-                    return None
-                start = offset
-                offset += 1
-                while offset < size and source[offset].isascii() and \
-                        (source[offset].isalnum() or source[offset] == "_"):
-                    offset += 1
-                return source[start:offset]
+        offset = GoplsSatisfiers._skip_go_trivia(source, 0)
+        if offset is None or offset >= size or not source.startswith("package", offset):
+            return None
+        after_keyword = offset + len("package")
+        if after_keyword < size and ident_continue(source[after_keyword]):
+            return None
+        offset = GoplsSatisfiers._skip_go_trivia(source, after_keyword)
+        if offset is None or offset >= size or not ident_start(source[offset]):
+            return None
+        start = offset
+        offset += 1
+        while offset < size and ident_continue(source[offset]):
             offset += 1
+        return source[start:offset]
 
     def _package_clause(self, rel: str) -> str | None:
         """Package declaration for one repo-relative Go source file."""
