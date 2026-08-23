@@ -142,6 +142,7 @@ struct PromotedMethodCandidate {
 
 /// Inner data for GoTypeProvider, shared via Arc when registered as both
 /// TypeProvider and DispatchProvider.
+#[derive(Debug)]
 pub struct GoTypeData {
     /// Struct definitions by name.
     structs: BTreeMap<String, GoStruct>,
@@ -275,7 +276,7 @@ struct ReceiverMethodSet {
 ///
 /// Uses `Arc<GoTypeData>` so the same extracted data can be shared when
 /// registered as both `TypeProvider` and `DispatchProvider` in the registry.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GoTypeProvider {
     pub data: Arc<GoTypeData>,
 }

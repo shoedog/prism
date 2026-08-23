@@ -656,6 +656,15 @@ pub struct CallGraph {
     #[serde(default)]
     pub go_package_vars:
         BTreeMap<(String, String), BTreeSet<crate::go_receiver_index::GoTypedFact>>,
+    /// P15a-fix1: the plain (import-path-free) `GoTypeProvider` extracted once
+    /// during this build, retained (Arc-backed, cheap clone) so
+    /// `CpgContext::build_registry` can reuse it instead of re-extracting.
+    /// Only populated by full-context build paths whose provider was built
+    /// from the same complete `files` map; never serialized (`#[serde(skip)]`)
+    /// so cache bytes are unchanged. Scoped / cache-loaded / AST-only paths
+    /// leave it `None` and construct their own.
+    #[serde(skip)]
+    pub(crate) shared_plain_go_provider: Option<crate::type_providers::go::GoTypeProvider>,
 }
 
 impl CallGraph {
@@ -733,6 +742,7 @@ impl CallGraph {
             go_interface_live_types: BTreeSet::new(),
             go_embedded_interface_methods: BTreeMap::new(),
             go_package_vars: BTreeMap::new(),
+            shared_plain_go_provider: None,
         }
     }
 
@@ -962,6 +972,7 @@ impl CallGraph {
             go_interface_live_types: BTreeSet::new(),
             go_embedded_interface_methods: BTreeMap::new(),
             go_package_vars: BTreeMap::new(),
+            shared_plain_go_provider: None,
         }
     }
 
@@ -1349,16 +1360,29 @@ impl CallGraph {
             go_interface_live_types: BTreeSet::new(),
             go_embedded_interface_methods: BTreeMap::new(),
             go_package_vars: BTreeMap::new(),
+            shared_plain_go_provider: None,
         };
         cg.refresh_rust_receiver_state(files);
+        // P15a-fix1: interface dispatch runs BEFORE the shared plain provider
+        // is constructed. Dispatch and embedding promotion are mutually
+        // independent — each reads only `files` (+ scope inputs for dispatch)
+        // and writes disjoint CallGraph fields, and every downstream consumer
+        // (`apply_go_func_value_fields` / `apply_go_registrations` /
+        // receiver rematerialization) runs after BOTH regardless of their
+        // relative order. Constructing the import-path-aware provider first
+        // guarantees at most ONE full `GoTypeData` is alive at any moment
+        // (the plain one is built only after the dispatch construction has
+        // been dropped).
+        cg.apply_go_interface_dispatch_with_scope_inputs(files, scope_inputs);
         // P15a: extract the plain Go type data ONCE per build and share it
         // between embedding promotion and receiver rematerialization (both use
-        // the import-path-free `from_parsed_files` extraction). Interface
-        // dispatch keeps its own import-path-aware construction — its owner
-        // identities differ when manifests prove import paths.
+        // the import-path-free `from_parsed_files` extraction). A cheap
+        // Arc-backed clone is retained on the graph so `CpgContext::
+        // build_registry` reuses the same extraction instead of a fourth
+        // construction on the no-cache navigation path.
         let shared_go_provider = Self::plain_go_provider_for_build(files);
+        cg.shared_plain_go_provider = shared_go_provider.clone();
         cg.apply_go_embedding_promotion_with_provider(files, shared_go_provider.as_ref());
-        cg.apply_go_interface_dispatch_with_scope_inputs(files, scope_inputs);
         // P5: S1 func-typed-field index, then S2 registration scan (needs S1
         // already applied — registrations are keyed against it).
         cg.apply_go_func_value_fields(files);
@@ -4122,6 +4146,7 @@ impl CallGraph {
             go_interface_live_types: BTreeSet::new(),
             go_embedded_interface_methods: BTreeMap::new(),
             go_package_vars: BTreeMap::new(),
+            shared_plain_go_provider: None,
         }
     }
 

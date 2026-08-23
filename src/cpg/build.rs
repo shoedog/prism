@@ -332,14 +332,19 @@ impl CodePropertyGraph {
             cached_cg.rebuild_scope_graph(files, scope_inputs);
             // Phase-IP: Go embedding/interface dispatch are whole-program — recompute
             // after scope/Rust receiver state to mirror full-build derived ordering.
+            // P15a-fix1: dispatch runs BEFORE the plain provider is constructed
+            // (same rationale as the full build — at most one full extraction
+            // alive at a time; promotion and dispatch are mutually independent
+            // and all downstream consumers run after both).
+            cached_cg.apply_go_interface_dispatch_with_scope_inputs(files, scope_inputs);
             // P15a: one plain provider shared by embedding promotion +
-            // receiver rematerialization (interface dispatch keeps its own
-            // import-path-aware construction).
+            // receiver rematerialization, retained (Arc clone) on the graph
+            // for `CpgContext::build_registry` reuse.
             let shared_go_provider =
                 crate::call_graph::CallGraph::plain_go_provider_for_build(files);
+            cached_cg.shared_plain_go_provider = shared_go_provider.clone();
             cached_cg
                 .apply_go_embedding_promotion_with_provider(files, shared_go_provider.as_ref());
-            cached_cg.apply_go_interface_dispatch_with_scope_inputs(files, scope_inputs);
             // P5: Go func-value callbacks are ALSO whole-program derived (S1
             // field-typing needs every Go file's struct declarations; S2
             // registration target resolution needs the complete function

@@ -80,7 +80,13 @@ impl<'a> CpgContext<'a> {
         type_db: Option<&'a TypeDatabase>,
         scope: Option<CpgScope>,
     ) -> Self {
-        let types = Self::build_registry(files, type_db);
+        // P15a-fix1: reuse the plain Go provider the CPG build already
+        // extracted (Arc-backed clone — no re-extraction). Only full-context
+        // builds reach here via `build`/`build_with_scope_graph_inputs`,
+        // whose CPG was constructed from the SAME complete `files` map;
+        // scoped / cache-loaded / AST-only contexts construct their own.
+        let shared_go_provider = cpg.call_graph.shared_plain_go_provider.clone();
+        let types = Self::build_registry(files, type_db, shared_go_provider);
         // collect_live_types recursively walks each file's AST (the C/C++/Python
         // live-type scan), which overflows the caller thread on deeply-nested
         // files. Run it on the large-stack pool so a directly-built or
@@ -110,7 +116,10 @@ impl<'a> CpgContext<'a> {
         type_db: Option<&'a TypeDatabase>,
     ) -> Self {
         cpg.type_db = type_db.cloned();
-        let types = Self::build_registry(files, type_db);
+        // P15a-fix1: cache-loaded contexts keep their own construction — the
+        // deserialized CPG's stashed provider (if any) was extracted from a
+        // possibly different (stale) file set than the current `files`.
+        let types = Self::build_registry(files, type_db, None);
         // collect_live_types recursively walks each file's AST (the C/C++/Python
         // live-type scan), which overflows the caller thread on deeply-nested
         // files. Run it on the large-stack pool so a directly-built or
@@ -196,7 +205,7 @@ impl<'a> CpgContext<'a> {
             .collect();
 
         let cpg = CodePropertyGraph::build_enriched_without_scope_graph(&filtered, type_db);
-        let types = Self::build_registry(files, type_db);
+        let types = Self::build_registry(files, type_db, None);
         // Collect live types from ALL files (not just scoped) for accurate RTA.
         let live_types = types.collect_live_types(files);
         CpgContext {
@@ -219,7 +228,7 @@ impl<'a> CpgContext<'a> {
         files: &'a BTreeMap<String, ParsedFile>,
         type_db: Option<&'a TypeDatabase>,
     ) -> Self {
-        let types = Self::build_registry(files, type_db);
+        let types = Self::build_registry(files, type_db, None);
         let live_types = types.collect_live_types(files);
         CpgContext {
             cpg: CodePropertyGraph::empty(),
@@ -264,6 +273,7 @@ impl<'a> CpgContext<'a> {
     fn build_registry(
         files: &BTreeMap<String, ParsedFile>,
         type_db: Option<&TypeDatabase>,
+        shared_go_provider: Option<GoTypeProvider>,
     ) -> TypeRegistry {
         let mut registry = TypeRegistry::empty();
 
@@ -281,8 +291,11 @@ impl<'a> CpgContext<'a> {
             .values()
             .any(|pf| pf.language == crate::languages::Language::Go);
         if has_go {
-            let go_provider = GoTypeProvider::from_parsed_files(files);
+            // P15a-fix1: reuse the build's own extraction when provided
+            // (same immutable `files` map); otherwise construct fresh.
             // Clone shares the Arc<GoTypeData> — single backing store.
+            let go_provider =
+                shared_go_provider.unwrap_or_else(|| GoTypeProvider::from_parsed_files(files));
             let go_dispatch = go_provider.clone();
             registry.register_provider(Box::new(go_provider));
             registry.register_dispatch_provider(Box::new(go_dispatch));
