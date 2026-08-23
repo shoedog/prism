@@ -156,7 +156,7 @@ def test_gopls_identity_at_keeps_package_and_method_target_evidence():
         _definition_kind = staticmethod(do.GoplsSatisfiers._definition_kind)
         _identity_with_reason = do.GoplsSatisfiers._identity_with_reason
 
-        def _symbol_at(self, rel, _line):
+        def _symbol_at(self, rel, _line, _char=0):
             assert rel == "good/impl.go"
             return {"container": "Impl", "start_line": 4, "end_line": 7}
 
@@ -166,6 +166,53 @@ def test_gopls_identity_at_keeps_package_and_method_target_evidence():
 
     identity = do.GoplsSatisfiers._identity_at(FakeGoplsAdapter(), "good/impl.go", 5)
     assert identity == _identity("Impl", "good/impl.go", [5, 8], package_clause="good")
+
+
+def test_symbol_at_disambiguates_same_line_declarations_by_character():
+    symbols = [
+        {
+            "name": "(*Left).M", "kind": 6,
+            "range": {"start": {"line": 4, "character": 0},
+                      "end": {"line": 4, "character": 12}},
+            "selectionRange": {"start": {"line": 4, "character": 8},
+                               "end": {"line": 4, "character": 9}},
+        },
+        {
+            "name": "(*Right).M", "kind": 6,
+            "range": {"start": {"line": 4, "character": 14},
+                      "end": {"line": 4, "character": 27}},
+            "selectionRange": {"start": {"line": 4, "character": 23},
+                               "end": {"line": 4, "character": 24}},
+        },
+    ]
+
+    class FakeGoplsAdapter:
+        _methods = do.GoplsSatisfiers._methods
+        _symbol_at = do.GoplsSatisfiers._symbol_at
+        group_timeout = 1
+
+        def __init__(self):
+            self._docsym = {}
+            self._symbol_details = {}
+            self.client = self
+
+        def _did_open(self, _rel):
+            return True
+
+        def _uri(self, rel):
+            return f"file:///{rel}"
+
+        def request(self, method, _params, timeout):
+            assert method == "textDocument/documentSymbol"
+            assert timeout == 1
+            return symbols
+
+    adapter = FakeGoplsAdapter()
+    left = adapter._symbol_at("same.go", 4, 8)
+    right = adapter._symbol_at("same.go", 4, 23)
+    assert left["container"] == "Left"
+    assert right["container"] == "Right"
+    assert right["selection_start_character"] == 23
 
 
 def test_package_clause_ignores_comments_and_string_literals(tmp_path):
@@ -470,7 +517,7 @@ def test_interface_enclosed_location_is_not_a_concrete_satisfier():
     class FakeGoplsAdapter:
         _definition_kind = staticmethod(do.GoplsSatisfiers._definition_kind)
 
-        def _symbol_at(self, _rel, _line):
+        def _symbol_at(self, _rel, _line, _char=0):
             return {"container": "Adapter", "start_line": 26, "end_line": 26,
                     "enclosing_kind": 11}
 

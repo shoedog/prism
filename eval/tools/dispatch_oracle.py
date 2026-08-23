@@ -881,15 +881,24 @@ class GoplsSatisfiers:
             for nd in nodes or []:
                 name, cont = _split_receiver(nd.get("name"), container)
                 rng = nd.get("range", {})
-                s = rng.get("start", {}).get("line")
-                e = rng.get("end", {}).get("line")
+                start = rng.get("start", {})
+                end = rng.get("end", {})
+                s = start.get("line")
+                e = end.get("line")
                 if s is not None and e is not None:
+                    selection = nd.get("selectionRange", rng)
                     out.append((name, cont, s, e))
                     details.append({
                         "name": name,
                         "container": cont,
                         "start_line": s,
                         "end_line": e,
+                        "start_character": start.get("character", 0),
+                        "end_character": end.get("character", 0),
+                        "selection_start_line": selection.get("start", {}).get("line", s),
+                        "selection_start_character": selection.get("start", {}).get("character", 0),
+                        "selection_end_line": selection.get("end", {}).get("line", e),
+                        "selection_end_character": selection.get("end", {}).get("character", 0),
                         "kind": nd.get("kind"),
                         "enclosing_kind": enclosing_kind,
                     })
@@ -910,13 +919,23 @@ class GoplsSatisfiers:
                     best = (span, cont)
         return best[1] if best else None
 
-    def _symbol_at(self, rel: str, line0: int) -> dict | None:
-        """Smallest document symbol enclosing a gopls definition/result location."""
+    def _symbol_at(self, rel: str, line0: int, char0: int = 0) -> dict | None:
+        """Smallest document symbol enclosing an exact gopls location."""
         self._methods(rel)
         best = None
         for symbol in self._symbol_details.get(rel, []):
             if symbol["start_line"] <= line0 <= symbol["end_line"]:
-                width = symbol["end_line"] - symbol["start_line"]
+                start_char = symbol.get("start_character", 0)
+                end_char = symbol.get("end_character", 0)
+                if line0 == symbol["start_line"] and char0 < start_char:
+                    continue
+                if line0 == symbol["end_line"] and end_char and char0 > end_char:
+                    continue
+                width = (
+                    symbol["end_line"] - symbol["start_line"],
+                    end_char - start_char if symbol["start_line"] == symbol["end_line"]
+                    else end_char,
+                )
                 if best is None or width < best[0]:
                     best = (width, symbol)
         return None if best is None else best[1]
@@ -1007,9 +1026,11 @@ class GoplsSatisfiers:
             return None
         return GoplsSatisfiers._package_clause_from_source(source)
 
-    def _identity_with_reason(self, rel: str, line0: int) -> tuple[dict | None, str | None]:
+    def _identity_with_reason(
+        self, rel: str, line0: int, char0: int = 0
+    ) -> tuple[dict | None, str | None]:
         """Map one implementation location, preserving the reason when it is not a target."""
-        symbol = self._symbol_at(rel, line0)
+        symbol = self._symbol_at(rel, line0, char0)
         if symbol is None or not symbol.get("container"):
             return None, "receiver_unknown"
         if self._definition_kind(symbol) == "interface":
@@ -1028,9 +1049,9 @@ class GoplsSatisfiers:
             "package_clause": package_clause,
         }, None
 
-    def _identity_at(self, rel: str, line0: int) -> dict | None:
+    def _identity_at(self, rel: str, line0: int, char0: int = 0) -> dict | None:
         """Qualified concrete satisfier identity and method-definition target."""
-        return self._identity_with_reason(rel, line0)[0]
+        return self._identity_with_reason(rel, line0, char0)[0]
 
     def method_decl(self, rel: str, line0: int, char0: int) -> dict:
         """Definition target, enclosing kind, and normalized target evidence.
@@ -1065,10 +1086,10 @@ class GoplsSatisfiers:
                 target_char = rng["start"]["character"]
             except KeyError:
                 continue
-            symbol = self._symbol_at(f, target_line)
+            symbol = self._symbol_at(f, target_line, target_char)
             kind = self._definition_kind(symbol)
             identity, reason = (
-                self._identity_with_reason(f, target_line)
+                self._identity_with_reason(f, target_line, target_char)
                 if kind == "concrete" else (None, None)
             )
             return {
@@ -1148,6 +1169,9 @@ class GoplsSatisfiers:
             if location is not None:
                 line0 = location.get("start", {}).get("line")
                 line = line0 + 1 if isinstance(line0, int) else None
+                char0 = location.get("start", {}).get("character")
+            else:
+                char0 = None
             if target_file is None:
                 parsed = urllib.parse.urlparse(uri) if uri else None
                 unresolved_locations.append({
@@ -1163,7 +1187,7 @@ class GoplsSatisfiers:
                     "reason": "location_missing",
                 })
                 continue
-            identity, reason = self._identity_with_reason(target_file, line - 1)
+            identity, reason = self._identity_with_reason(target_file, line - 1, char0 or 0)
             if identity is None:
                 unresolved_locations.append({
                     "file": target_file,
