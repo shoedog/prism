@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 mod canon;
 mod types;
 pub(crate) use canon::signature_imports;
-use canon::{alias_parameters, parse_expr};
+use canon::{alias_parameters, parse_expr, predeclared};
 use types::{
     AliasDeclaration, AliasDeclarationKind, AliasExpr, AliasUnresolvedReason, NameIdentity,
     NamedType, OwnerHint,
@@ -276,7 +276,18 @@ impl GoAliasResolver {
         match expr {
             AliasExpr::Named(named) => self
                 .expand_named(&named, Vec::new(), caller_file, visiting)
-                .map(|expanded| expanded.unwrap_or(AliasExpr::Named(named))),
+                .map(|expanded| {
+                    expanded.unwrap_or_else(|| match (&named.identity, predeclared(&named.name)) {
+                        (NameIdentity::Bare, Some(normalized))
+                        | (
+                            NameIdentity::Path {
+                                qualified: false, ..
+                            },
+                            Some(normalized),
+                        ) => AliasExpr::Atom(normalized.to_string()),
+                        _ => AliasExpr::Named(named),
+                    })
+                }),
             AliasExpr::Generic(base, args) => {
                 let args = args
                     .into_iter()
@@ -399,12 +410,26 @@ impl GoAliasResolver {
                 visible.push(declaration);
             }
         }
-        if visible.is_empty()
-            || visible
-                .iter()
-                .all(|decl| matches!(decl.kind, AliasDeclarationKind::Defined))
-        {
+        if visible.is_empty() {
             return Ok(None);
+        }
+        if visible
+            .iter()
+            .all(|decl| matches!(decl.kind, AliasDeclarationKind::Defined))
+        {
+            return if matches!(
+                named.identity,
+                NameIdentity::Bare
+                    | NameIdentity::Path {
+                        qualified: false,
+                        ..
+                    }
+            ) && predeclared(&named.name).is_some()
+            {
+                Err(AliasUnresolvedReason::DefinedVariant)
+            } else {
+                Ok(None)
+            };
         }
         if visible
             .iter()

@@ -21,9 +21,6 @@ pub(super) fn parse_expr(
             if type_params.contains(name) {
                 return Ok(AliasExpr::Param(name.to_string()));
             }
-            if let Some(normalized) = predeclared(name) {
-                return Ok(AliasExpr::Atom(normalized.to_string()));
-            }
             if imports.contains_key(".") {
                 return Err(CanonTypeError::QualifiedTypeIdentity);
             }
@@ -374,7 +371,7 @@ pub(super) fn alias_parameters(
     (names, supported)
 }
 
-fn predeclared(name: &str) -> Option<&str> {
+pub(super) fn predeclared(name: &str) -> Option<&str> {
     match name {
         "byte" => Some("uint8"),
         "rune" => Some("int32"),
