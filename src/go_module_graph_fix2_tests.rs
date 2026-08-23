@@ -75,3 +75,77 @@ fn malformed_version_in_inactive_module_is_subtree_local() {
         Err(GoImportPathReason::Malformed)
     );
 }
+
+#[test]
+fn valid_retract_versions_preserve_active_identities() {
+    for directive in [
+        "retract v1.0.0",
+        "retract [v1.0.0, v1.2.0] // security rationale",
+        "retract [v1.2.0, v1.0.0]",
+    ] {
+        let go_mod = format!("module example.com/root\n{directive}\n");
+        let mut graph = GoModuleGraph::new(
+            Path::new("/repo"),
+            &snapshot(&[("go.mod", go_mod.as_str())]),
+        );
+
+        assert!(
+            !graph.telemetry().workspace_invalid,
+            "directive: {directive}"
+        );
+        assert_eq!(graph.telemetry().active, 1, "directive: {directive}");
+        assert_eq!(
+            graph.import_path_for_dir("pkg"),
+            Ok("example.com/root/pkg".to_string()),
+            "directive: {directive}"
+        );
+    }
+}
+
+#[test]
+fn malformed_retract_bounds_follow_active_and_inactive_layering() {
+    for directive in [
+        "retract vbogus",
+        "retract [v1.0.0, vbogus]",
+        "retract [v1. 0.0, v1.2.0]",
+    ] {
+        let go_mod = format!("module example.com/root\n{directive}\n");
+        let mut graph = GoModuleGraph::new(
+            Path::new("/repo"),
+            &snapshot(&[("go.mod", go_mod.as_str())]),
+        );
+
+        assert!(
+            graph.telemetry().workspace_invalid,
+            "directive: {directive}"
+        );
+        assert_eq!(graph.telemetry().active, 0, "directive: {directive}");
+        assert_eq!(
+            graph.import_path_for_dir("pkg"),
+            Err(GoImportPathReason::WorkspaceInvalid),
+            "directive: {directive}"
+        );
+    }
+
+    let mut graph = GoModuleGraph::new(
+        Path::new("/repo"),
+        &snapshot(&[
+            ("go.mod", "module example.com/root\n"),
+            (
+                "inactive/go.mod",
+                "module example.com/inactive\nretract vbogus\n",
+            ),
+        ]),
+    );
+
+    assert!(!graph.telemetry().workspace_invalid);
+    assert_eq!(graph.telemetry().active, 1);
+    assert_eq!(
+        graph.import_path_for_dir("pkg"),
+        Ok("example.com/root/pkg".to_string())
+    );
+    assert_eq!(
+        graph.import_path_for_dir("inactive/pkg"),
+        Err(GoImportPathReason::Malformed)
+    );
+}

@@ -29,6 +29,25 @@ pub(super) fn semver_is_valid(version: &str) -> bool {
     index == bytes.len()
 }
 
+pub(super) fn retract_is_valid(args: &[String]) -> bool {
+    if matches!(args, [version] if semver_is_valid(version)) {
+        return true;
+    }
+    let value = args.join(" ");
+    let Some(interval) = value
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+    else {
+        return false;
+    };
+    let mut bounds = interval.split(',');
+    matches!(
+        (bounds.next(), bounds.next(), bounds.next()),
+        (Some(low), Some(high), None)
+            if semver_is_valid(low.trim()) && semver_is_valid(high.trim())
+    )
+}
+
 fn parse_integer(bytes: &[u8], index: &mut usize) -> bool {
     let start = *index;
     while bytes.get(*index).is_some_and(u8::is_ascii_digit) {

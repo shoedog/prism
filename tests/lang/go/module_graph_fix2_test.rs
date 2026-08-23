@@ -140,3 +140,63 @@ fn invalid_active_root_version_blocks_resolver_and_manifest_targets() {
         serde_json::json!({"workspace_invalid": 2})
     );
 }
+
+#[test]
+fn retract_versions_gate_resolver_and_manifest_targets() {
+    let sources = [
+        (
+            "api.go",
+            "package root\nimport p \"example.com/root/p\"\ntype Doer interface { Act(p.T) }\ntype Holder struct { Doer }\nfunc invoke(h Holder, value p.T) { h.Act(value) }\n",
+        ),
+        (
+            "p/impl.go",
+            "package p\ntype T struct{}\ntype Impl struct{}\nfunc (Impl) Act(T) {}\n",
+        ),
+    ];
+    let expected = BTreeSet::from(["p/impl.go".to_string()]);
+
+    for directive in [
+        "retract v1.0.0",
+        "retract [v1.0.0, v1.2.0] // security rationale",
+    ] {
+        let go_mod = format!("module example.com/root\n\ngo 1.22\n{directive}\n");
+        let cg = build_workspace(&sources, &[("go.mod", go_mod.as_str())], None);
+
+        assert_eq!(
+            resolved_target_files(&cg, "invoke", "Act"),
+            expected,
+            "directive: {directive}"
+        );
+        assert_eq!(
+            manifest_target_files(&cg, "api.go", "Act"),
+            expected,
+            "directive: {directive}"
+        );
+        let stats = prism::navigation::queries::call_stats(&cg);
+        assert_eq!(stats["go_module_graph"]["workspace_invalid"], false);
+        assert_eq!(stats["go_import_path_proven_files"], 2);
+        assert_eq!(stats["go_import_path_unproven_files"], 0);
+    }
+
+    for directive in ["retract vbogus", "retract [v1.0.0, vbogus]"] {
+        let go_mod = format!("module example.com/root\n\ngo 1.22\n{directive}\n");
+        let cg = build_workspace(&sources, &[("go.mod", go_mod.as_str())], None);
+
+        assert!(
+            resolved_target_files(&cg, "invoke", "Act").is_empty(),
+            "directive: {directive}"
+        );
+        assert!(
+            manifest_target_files(&cg, "api.go", "Act").is_empty(),
+            "directive: {directive}"
+        );
+        let stats = prism::navigation::queries::call_stats(&cg);
+        assert_eq!(stats["go_module_graph"]["workspace_invalid"], true);
+        assert_eq!(stats["go_import_path_proven_files"], 0);
+        assert_eq!(stats["go_import_path_unproven_files"], 2);
+        assert_eq!(
+            stats["go_import_path_unproven_reasons"],
+            serde_json::json!({"workspace_invalid": 2})
+        );
+    }
+}

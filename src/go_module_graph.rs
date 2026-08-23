@@ -358,11 +358,8 @@ fn parse_go_mod(source: &str, path_kind: PathKind) -> Option<ParsedGoMod> {
                 }
                 replaces.push(replacement);
             }
-            "retract" => {
-                if directive.args.is_empty() {
-                    return None;
-                }
-            }
+            "retract" if semver::retract_is_valid(&directive.args) => {}
+            "retract" => return None,
             _ => return None,
         }
     }
