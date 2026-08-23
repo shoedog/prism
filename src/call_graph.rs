@@ -1351,7 +1351,14 @@ impl CallGraph {
             go_package_vars: BTreeMap::new(),
         };
         cg.refresh_rust_receiver_state(files);
-        cg.apply_go_embedding_promotion(files);
+        // P15a: extract the plain Go type data ONCE per build and share it
+        // between embedding promotion and receiver rematerialization (both use
+        // the import-path-free `from_parsed_files` extraction). Interface
+        // dispatch keeps its own import-path-aware construction — its owner
+        // identities differ when manifests prove import paths.
+        let shared_go_provider = Self::plain_go_provider_for_build(files);
+        let t0 = std::time::Instant::now();
+        cg.apply_go_embedding_promotion_with_provider(files, shared_go_provider.as_ref());
         cg.apply_go_interface_dispatch_with_scope_inputs(files, scope_inputs);
         // P5: S1 func-typed-field index, then S2 registration scan (needs S1
         // already applied — registrations are keyed against it).
@@ -1366,7 +1373,17 @@ impl CallGraph {
         // draft hardcoded `ReceiverRecoveryConfig::default()` here, silently
         // re-enabling var_local/type_assertion recovery even when this build
         // explicitly disabled them via `build_with_receiver_config`).
-        cg.apply_go_receiver_indices(files, receiver_config);
+        cg.apply_go_receiver_indices_with_provider(
+            files,
+            receiver_config,
+            shared_go_provider.as_ref(),
+        );
+        if std::env::var("PRISM_P15A_TIMING").as_deref() == Ok("1") {
+            eprintln!(
+                "[p15a-timing] go-passes total (promotion+dispatch+receivers): {:?}",
+                t0.elapsed()
+            );
+        }
         // P7: python property-access state — needs the complete method_owners
         // / method_class_span / class_bases indexes already populated above,
         // so it runs last, same rationale as the Go passes.
@@ -2751,9 +2768,37 @@ impl CallGraph {
         self.go_import_path_unproven_reasons.clear();
     }
 
+    /// P15a: lazily construct the import-path-free Go provider for the whole
+    /// build only when the file set contains Go files (non-Go repos pay
+    /// nothing). Shared by embedding promotion + receiver rematerialization.
+    pub(crate) fn plain_go_provider_for_build(
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> Option<crate::type_providers::go::GoTypeProvider> {
+        if files
+            .values()
+            .any(|p| p.language == crate::languages::Language::Go)
+        {
+            Some(crate::type_providers::go::GoTypeProvider::from_parsed_files(files))
+        } else {
+            None
+        }
+    }
+
     /// Recompute Go embedding promotions over `files` and write owner-index aliases.
     /// Idempotent: clears prior aliases first (incremental replace).
     pub fn apply_go_embedding_promotion(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        self.apply_go_embedding_promotion_with_provider(files, None);
+    }
+
+    /// Build-path variant that reuses a caller-constructed plain
+    /// `GoTypeProvider` (`from_parsed_files`) instead of re-extracting the
+    /// whole Go type data. `shared` MUST have been built from the same `files`
+    /// map; `None` constructs one internally (public-API behavior).
+    pub(crate) fn apply_go_embedding_promotion_with_provider(
+        &mut self,
+        files: &BTreeMap<String, ParsedFile>,
+        shared: Option<&crate::type_providers::go::GoTypeProvider>,
+    ) {
         // 1. Remove prior promoted aliases (preserving direct methods on the key).
         self.clear_promoted_embedding();
         if !files
@@ -2762,15 +2807,14 @@ impl CallGraph {
         {
             return;
         }
-        // 2. Group promotions by (owner_key(struct), method).
-        let t0 = std::time::Instant::now();
-        let provider = crate::type_providers::go::GoTypeProvider::from_parsed_files(files);
-        if std::env::var("PRISM_P15A_TIMING").as_deref() == Ok("1") {
-            eprintln!(
-                "[p15a-timing] provider-construct embedding-promotion: {:?}",
-                t0.elapsed()
-            );
-        }
+        let owned;
+        let provider = match shared {
+            Some(p) => p,
+            None => {
+                owned = crate::type_providers::go::GoTypeProvider::from_parsed_files(files);
+                &owned
+            }
+        };
         let mut by_key: BTreeMap<(String, String), Vec<(usize, FunctionId)>> = BTreeMap::new();
         for pm in provider.promoted_struct_methods() {
             let key = (crate::resolution::owner_key(&pm.struct_name), pm.method);
@@ -3247,6 +3291,17 @@ impl CallGraph {
         files: &BTreeMap<String, ParsedFile>,
         receiver_config: &crate::resolution::ReceiverRecoveryConfig,
     ) {
+        self.apply_go_receiver_indices_with_provider(files, receiver_config, None);
+    }
+
+    /// Build-path variant that reuses a caller-constructed plain
+    /// `GoTypeProvider` (see `apply_go_embedding_promotion_with_provider`).
+    pub(crate) fn apply_go_receiver_indices_with_provider(
+        &mut self,
+        files: &BTreeMap<String, ParsedFile>,
+        receiver_config: &crate::resolution::ReceiverRecoveryConfig,
+        shared: Option<&crate::type_providers::go::GoTypeProvider>,
+    ) {
         self.clear_go_receiver_indices();
         if !files
             .values()
@@ -3256,15 +3311,21 @@ impl CallGraph {
         }
         self.go_return_types = crate::go_receiver_index::extract_go_return_types(files);
         self.go_package_vars = crate::go_receiver_index::extract_go_package_vars(files);
-        let t0 = std::time::Instant::now();
-        let field_targets =
-            crate::type_providers::go::GoTypeProvider::from_parsed_files(files).go_field_targets();
+        let owned;
+        let provider = match shared {
+            Some(p) => p,
+            None => {
+                owned = crate::type_providers::go::GoTypeProvider::from_parsed_files(files);
+                &owned
+            }
+        };
         if std::env::var("PRISM_P15A_TIMING").as_deref() == Ok("1") {
             eprintln!(
-                "[p15a-timing] provider-construct receiver-indices: {:?}",
-                t0.elapsed()
+                "[p15a-timing] provider-construct receiver-indices: reused={}",
+                shared.is_some()
             );
         }
+        let field_targets = provider.go_field_targets();
         self.rematerialize_go_receiver_keys(files, receiver_config, &field_targets);
     }
 

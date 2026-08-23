@@ -332,7 +332,13 @@ impl CodePropertyGraph {
             cached_cg.rebuild_scope_graph(files, scope_inputs);
             // Phase-IP: Go embedding/interface dispatch are whole-program — recompute
             // after scope/Rust receiver state to mirror full-build derived ordering.
-            cached_cg.apply_go_embedding_promotion(files);
+            // P15a: one plain provider shared by embedding promotion +
+            // receiver rematerialization (interface dispatch keeps its own
+            // import-path-aware construction).
+            let shared_go_provider =
+                crate::call_graph::CallGraph::plain_go_provider_for_build(files);
+            cached_cg
+                .apply_go_embedding_promotion_with_provider(files, shared_go_provider.as_ref());
             cached_cg.apply_go_interface_dispatch_with_scope_inputs(files, scope_inputs);
             // P5: Go func-value callbacks are ALSO whole-program derived (S1
             // field-typing needs every Go file's struct declarations; S2
@@ -351,9 +357,10 @@ impl CodePropertyGraph {
             // (`CallGraph::build_direct_subset` above already always uses
             // the default config too — see its doc), so this matches the
             // pre-existing incremental-rebuild behavior exactly.
-            cached_cg.apply_go_receiver_indices(
+            cached_cg.apply_go_receiver_indices_with_provider(
                 files,
                 &crate::resolution::ReceiverRecoveryConfig::default(),
+                shared_go_provider.as_ref(),
             );
             // P7: Python property accesses are ALSO whole-program derived
             // (S2's unknown-receiver fanout needs the complete cross-file S1
