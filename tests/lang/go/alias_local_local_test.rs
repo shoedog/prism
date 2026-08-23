@@ -203,6 +203,96 @@ fn unshadowed_byte_still_normalizes_to_uint8() {
 }
 
 #[test]
+fn narrower_alias_profile_does_not_shadow_predeclared_byte() {
+    let cg = build_go(
+        &[
+            (
+                "api/byte_linux_arm64.go",
+                "package api\ntype byte = int64\n",
+            ),
+            (
+                "api/defs_linux.go",
+                "package api\ntype Doer interface{ Act(byte) }\ntype Holder struct{ Doer }\nfunc invoke(h Holder, v byte){ h.Act(v) }\n",
+            ),
+            (
+                "worker/uint.go",
+                "package worker\ntype UintImpl struct{}\nfunc (UintImpl) Act(uint8){}\n",
+            ),
+            (
+                "worker/int.go",
+                "package worker\ntype IntImpl struct{}\nfunc (IntImpl) Act(int64){}\n",
+            ),
+        ],
+        Some("example.com/root"),
+    );
+    assert_target_files(
+        &cg,
+        "api/defs_linux.go",
+        "invoke",
+        "Act",
+        &["worker/uint.go"],
+    );
+}
+
+#[test]
+fn equal_alias_profile_shadows_predeclared_byte() {
+    let cg = build_go(
+        &[
+            ("api/byte_linux.go", "package api\ntype byte = int64\n"),
+            (
+                "api/defs_linux.go",
+                "package api\ntype Doer interface{ Act(byte) }\ntype Holder struct{ Doer }\nfunc invoke(h Holder, v byte){ h.Act(v) }\n",
+            ),
+            (
+                "worker/uint.go",
+                "package worker\ntype UintImpl struct{}\nfunc (UintImpl) Act(uint8){}\n",
+            ),
+            (
+                "worker/int.go",
+                "package worker\ntype IntImpl struct{}\nfunc (IntImpl) Act(int64){}\n",
+            ),
+        ],
+        Some("example.com/root"),
+    );
+    assert_target_files(
+        &cg,
+        "api/defs_linux.go",
+        "invoke",
+        "Act",
+        &["worker/int.go"],
+    );
+}
+
+#[test]
+fn broader_alias_profile_shadows_narrower_consumer() {
+    let cg = build_go(
+        &[
+            ("api/byte_linux.go", "package api\ntype byte = int64\n"),
+            (
+                "api/defs_linux_arm64.go",
+                "package api\ntype Doer interface{ Act(byte) }\ntype Holder struct{ Doer }\nfunc invoke(h Holder, v byte){ h.Act(v) }\n",
+            ),
+            (
+                "worker/uint.go",
+                "package worker\ntype UintImpl struct{}\nfunc (UintImpl) Act(uint8){}\n",
+            ),
+            (
+                "worker/int.go",
+                "package worker\ntype IntImpl struct{}\nfunc (IntImpl) Act(int64){}\n",
+            ),
+        ],
+        Some("example.com/root"),
+    );
+    assert_target_files(
+        &cg,
+        "api/defs_linux_arm64.go",
+        "invoke",
+        "Act",
+        &["worker/int.go"],
+    );
+}
+
+#[test]
 fn alias_parameters_ignore_comment_decoys() {
     let cg = build_go(
         &[

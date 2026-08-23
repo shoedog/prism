@@ -252,6 +252,37 @@ fn uncertain_alias_profile_fails_closed() {
 }
 
 #[test]
+fn capped_profile_implication_normalizes_predeclared_but_rejects_actual_alias() {
+    let cg = build_go(&[
+        (
+            "api/aliases.go",
+            "//go:build t0 && t1 && t2 && t3 && t4 && t5 && t6 && t7 && t8\n\npackage api\ntype byte = int64\ntype A = int64\n",
+        ),
+        (
+            "api/defs.go",
+            "//go:build t0\n\npackage api\ntype ByteDoer interface{ Act(byte) }\ntype ByteHolder struct{ ByteDoer }\nfunc invokeByte(h ByteHolder, v byte){ h.Act(v) }\ntype AliasDoer interface{ Use(A) }\ntype AliasHolder struct{ AliasDoer }\nfunc invokeAlias(h AliasHolder, v A){ h.Use(v) }\n",
+        ),
+        (
+            "worker/uint.go",
+            "package worker\ntype UintImpl struct{}\nfunc (UintImpl) Act(uint8){}\n",
+        ),
+        (
+            "worker/int.go",
+            "package worker\ntype IntImpl struct{}\nfunc (IntImpl) Use(int64){}\n",
+        ),
+    ]);
+    assert_target_files(
+        &cg,
+        "api/defs.go",
+        "invokeByte",
+        "Act",
+        &["worker/uint.go"],
+    );
+    assert_target_files(&cg, "api/defs.go", "invokeAlias", "Use", &[]);
+    assert_unresolved_reason(&cg, "profile_uncertain");
+}
+
+#[test]
 fn alias_cycle_fails_closed() {
     let cg = build_go(&[
         (
