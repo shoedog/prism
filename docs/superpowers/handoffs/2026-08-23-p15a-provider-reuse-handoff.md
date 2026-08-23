@@ -1,10 +1,28 @@
 # p15a — Go provider reuse (roadmap #15a) — handoff
 
-STATUS: DONE (code + docs) through fix wave 2. Commits: d81752f (WIP provider
+STATUS: DONE (code + docs) through fix wave 3. Commits: d81752f (WIP provider
 reuse), 2672ddd (remove TEMP timing), 6f7d572 (fix1: reorder dispatch + registry
 reuse), 587bef6 (fix1: WIP construction counter), 7cd9550 (fix2: WIP transfer
 provider / incremental path — retention, incremental provenance boundary,
-per-measurement test counter).
+per-measurement test counter), 65256da (fix2: thread-local counter
+attribution), 165c78a (fix3: drop stash in build_with_registry), 6adccfa+
+f57a7d8 (fix3: deterministic cross-attribution regression).
+
+## Fix wave 3 (review r3, converged round — same 2 WRONGs from both reviewers)
+
+- WRONG (retention): `build_with_registry` neither transferred nor dropped the
+  CPG build's stashed plain provider ⇒ long-lived context pinned a SECOND full
+  Go dataset. FIXED: `take()` + drop; regression
+  `p15a_fix3_build_with_registry_drops_stashed_go_provider` (RED confirmed by
+  temporarily removing the drop).
+- WRONG (handoff accounting): per-path table rows for SCOPED and DELTA/CPG-only
+  were false; `build_with_registry` row missing. Table rewritten from the code
+  (see above).
+- SMELL→done: deterministic regression for the counter race —
+  `p15a_fix3_foreign_thread_constructions_not_attributed` spawns a foreign
+  thread constructing Go providers while a measurement is live and asserts
+  zero cross-attribution (RED confirmed by temporarily restoring global
+  generation attribution).
 Final tree has no timing code; `cargo check` clean; `cargo test --lib p15a_fix1`
 green. Gates + AFTER measurements: run by the controller (this lane's sandbox
 cuts long commands).
@@ -94,17 +112,33 @@ STATUS: fix wave 2 code committed through 65256da; `cargo fmt --check` clean;
 tier-a matrix 104/104 ok. Full gate + AFTER measurements: run by the
 controller.
 
-### Per-production-path accounting (BEFORE fix1 = 4 constructions; AFTER fix2)
+### Per-production-path accounting (corrected fix wave 3 — rewritten from the code; BEFORE fix1 = 4 constructions on the full path)
 
-| production path | plain | import-aware | total | peak live GoTypeData |
+Counts are full GoTypeData CONSTRUCTIONS per no-cache Go build; peak live is
+the max concurrently-alive extractions. Every path that builds a CPG pays
+exactly one dispatch-import-aware construction (interface dispatch is never
+deduped); the plain construction count depends on how many times a CPG build
+or registry build runs in the path.
+
+| production path (real entry point) | plain | import-aware | total | peak live |
 |---|---|---|---|---|
-| full build (`CpgContext::build` / `build_with_scope_graph_inputs`) | 1 | 1 | 2 | 1 |
-| scoped (`CpgContext::build_scoped`) — filtered provider DROPPED, registry builds over all `files` | 1 | 1 | 2 | 1 |
-| incremental rebuild (`NavigationIndex::build_incremental_from_previous` via `build_with_fresh_cpg`) — provider TRANSFERRED into registry | 1 | 1 | 2 | 1 |
-| CLI partial-cache-hit (`run_review`, fresh CPG from current files → `build_with_fresh_cpg`) | 1 | 1 | 2 | 1 |
-| deserialized cache hit (`CpgContext::build_with_cached_cpg`) — provenance untrusted, constructs FRESH for the registry; graph holds nothing | 1 | 0 | 1 | 1 |
-| CPG-only (`algorithms/delta_slice::slice` old-version graph) — stashed plain provider dropped; only DFG edges read | 0 | 0 | 0 | 0 |
-| prebuilt registry (`from_built_cpg` with `None` / AST-only `without_cpg`) | 0 | 0 | 0 | 0 |
+| full build (`CpgContext::build` / `build_with_scope_graph_inputs`) — stash transferred to registry | 1 | 1 | 2 | 1 |
+| prebuilt-registry (`CpgContext::build_with_registry`) — caller's registry used; stash DROPPED (fix3) | 1 | 1 | 2 | 1 |
+| incremental rebuild (`NavigationIndex::build_incremental_from_previous` → `build_incremental_with_scope_graph_inputs` + `build_with_fresh_cpg`) — stash transferred | 1 | 1 | 2 | 1 |
+| CLI partial-cache-hit (`run_review` fresh rebuild → `build_with_fresh_cpg`) — stash transferred | 1 | 1 | 2 | 1 |
+| SCOPED (`CpgContext::build_scoped`) — filtered-subset CPG build (1 plain + 1 import-aware), filtered plain DROPPED, then FRESH plain for the registry over ALL files ⇒ 2 plain total | 2 | 1 | 3 | 1 |
+| deserialized cache hit (`CpgContext::build_with_cached_cpg`) — no CPG build; registry constructs fresh | 1 | 0 | 1 | 1 |
+| DELTA / CPG-only (`algorithms/delta_slice::slice` old-version graph via `build_enriched`) — 1 plain + 1 import-aware constructed, stash then dropped | 1 | 1 | 2 | 1 |
+| AST-only (`CpgContext::without_cpg`) / registry-only callers | 1* | 0 | 1* | 1 |
+
+\* only if Go files present and the registry build registers the Go provider;
+`without_cpg` itself constructs nothing beyond its registry.
+
+Wave-2 table corrections (found by review r3, both reviewers): SCOPED was
+listed as 1 plain + 1 import-aware but is actually 2 plain + 1 import-aware
+(the filtered CPG's own plain construction precedes the drop); DELTA/CPG-only
+was listed as 0/0 but constructs 1 plain + 1 import-aware before dropping the
+stash. `build_with_registry` was missing entirely.
 
 Retention invariant: on EVERY path the CPG's `CallGraph` holds NO
 `shared_plain_go_provider` after context construction — the provider is
