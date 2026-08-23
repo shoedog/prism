@@ -147,7 +147,8 @@ use std::path::{Path, PathBuf};
 ///   ladder. Its serialized declaration-kind/import-path evidence and value-
 ///   rebinding shadow bail plus new-recovery provenance are one PR schema
 ///   transition (paired with sidecar v16).
-const CACHE_VERSION: u32 = 47;
+/// - v48: alias-aware Go signature identity plus the serialized promoted-selector snapshot.
+const CACHE_VERSION: u32 = 48;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -665,8 +666,8 @@ mod tests {
     }
 
     #[test]
-    fn cache_versions_are_pinned_for_go_loader_hygiene() {
-        assert_eq!(super::CACHE_VERSION, 47);
+    fn cache_versions_are_pinned_for_go_alias_snapshot() {
+        assert_eq!(super::CACHE_VERSION, 48);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

@@ -127,6 +127,64 @@ fn build_cached_writes_then_hits_with_equal_query_output() {
 }
 
 #[test]
+fn go_promoted_snapshot_is_byte_equal_without_cache_on_exact_hit_and_sidecar_hit() {
+    with_dirty_sidecar_load_override(|| {
+        let repo_d = tempfile::tempdir().unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        write(
+            repo_d.path(),
+            "base.go",
+            "package p\ntype B struct{}\nfunc (B) M() {}\n",
+        );
+        write(
+            repo_d.path(),
+            "s_linux.go",
+            "package p\ntype S struct{ B }\n",
+        );
+        write(
+            repo_d.path(),
+            "s_windows.go",
+            "package p\ntype S struct{ B }\n",
+        );
+        write(
+            repo_d.path(),
+            "use.go",
+            "package p\nfunc use(s S) { s.M() }\n",
+        );
+        let repo = Arc::new(load_repo(repo_d.path()).unwrap());
+        let bytes = |index: &NavigationIndex| {
+            bincode::serialize(index.call_graph().go_promoted_selector_snapshot())
+                .expect("serialize promoted-selector snapshot")
+        };
+
+        let no_cache = NavigationIndex::build(&repo);
+        let expected = bytes(&no_cache);
+        assert!(!expected.is_empty());
+
+        let cache_miss = NavigationIndex::build_cached_under(&repo, cache.path());
+        assert_eq!(expected, bytes(&cache_miss));
+
+        let exact_hit = Arc::new(NavigationIndex::build_cached_under(&repo, cache.path()));
+        assert_eq!(expected, bytes(&exact_hit));
+        let exact_session = NavigationSession {
+            repo: repo.clone(),
+            index: exact_hit,
+        };
+        let _ = queries::callers(&exact_session, Some("M"), None, None, 1).unwrap();
+        let sidecar = nav_cache_subdir(cache.path(), &repo).join("resolved-call-edge-index.bin");
+        assert!(sidecar.exists(), "call query must publish the sidecar");
+
+        let sidecar_hit = Arc::new(NavigationIndex::build_cached_under(&repo, cache.path()));
+        let sidecar_session = NavigationSession {
+            repo,
+            index: sidecar_hit,
+        };
+        let _ = queries::callers(&sidecar_session, Some("M"), None, None, 1).unwrap();
+        assert_eq!(expected, bytes(&sidecar_session.index));
+    });
+}
+
+#[test]
 fn call_edge_sidecar_is_lazy_then_hits() {
     with_dirty_sidecar_load_override(|| {
         let repo_d = tempfile::tempdir().unwrap();

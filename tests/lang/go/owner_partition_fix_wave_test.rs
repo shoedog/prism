@@ -846,7 +846,7 @@ fn required_local_replace_matches_fork_identity_and_excludes_declared_path_decoy
 }
 
 #[test]
-fn s4_unqualified_named_types_keep_the_existing_bare_name_rule() {
+fn s4_unqualified_named_types_with_two_proven_paths_do_not_match() {
     let cg = build_go_with_module(
         &[
             (
@@ -860,7 +860,7 @@ fn s4_unqualified_named_types_keep_the_existing_bare_name_rule() {
         ],
         "example.com/root",
     );
-    let expected = BTreeSet::from(["Impl".to_string()]);
+    let expected = BTreeSet::new();
 
     assert_eq!(resolved_method_owners(&cg, "invoke", "Act"), expected);
     assert_eq!(manifest_owners(&cg, "lib/defs.go", "Act"), expected);

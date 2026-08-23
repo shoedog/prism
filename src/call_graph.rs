@@ -539,6 +539,16 @@ pub struct CallGraph {
     /// Fail-closed reason histogram for unproven loaded Go files.
     #[serde(default)]
     pub(crate) go_import_path_unproven_reasons: BTreeMap<String, usize>,
+    /// Canonical signature leaves whose visible alias declarations expanded.
+    #[serde(default)]
+    pub go_alias_expanded: usize,
+    /// Alias leaves rejected before Exact dispatch, grouped by stable reason.
+    #[serde(default)]
+    pub go_alias_unresolved: BTreeMap<String, usize>,
+    /// Slice 4 foundation: owner/profile-keyed promoted-selector facts. This is
+    /// serialized for cache parity but deliberately not consumed by routing.
+    #[serde(default)]
+    go_promoted_selector_snapshot: crate::go_promoted_snapshot::GoPromotedSelectorSnapshot,
     /// P10 build-time S2 consult decisions. Whole-program rematerialized with
     /// receiver keys; runtime S4/P5 decisions travel on ResolutionOutcome.
     #[serde(default)]
@@ -735,6 +745,9 @@ impl CallGraph {
             go_import_path_proven_files: 0,
             go_import_path_unproven_files: 0,
             go_import_path_unproven_reasons: BTreeMap::new(),
+            go_alias_expanded: 0,
+            go_alias_unresolved: BTreeMap::new(),
+            go_promoted_selector_snapshot: Default::default(),
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
@@ -757,6 +770,13 @@ impl CallGraph {
             go_embedded_interface_methods: BTreeMap::new(),
             go_package_vars: BTreeMap::new(),
         }
+    }
+
+    /// Read-only access to the serialized promoted-selector foundation facts.
+    pub fn go_promoted_selector_snapshot(
+        &self,
+    ) -> &crate::go_promoted_snapshot::GoPromotedSelectorSnapshot {
+        &self.go_promoted_selector_snapshot
     }
 
     /// Build a lightweight call graph with only direct calls (Phases 1-2).
@@ -963,6 +983,9 @@ impl CallGraph {
             go_import_path_proven_files: 0,
             go_import_path_unproven_files: 0,
             go_import_path_unproven_reasons: BTreeMap::new(),
+            go_alias_expanded: 0,
+            go_alias_unresolved: BTreeMap::new(),
+            go_promoted_selector_snapshot: Default::default(),
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
@@ -1366,6 +1389,9 @@ impl CallGraph {
             go_import_path_proven_files: 0,
             go_import_path_unproven_files: 0,
             go_import_path_unproven_reasons: BTreeMap::new(),
+            go_alias_expanded: 0,
+            go_alias_unresolved: BTreeMap::new(),
+            go_promoted_selector_snapshot: Default::default(),
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
@@ -2798,6 +2824,9 @@ impl CallGraph {
         self.go_import_path_proven_files = 0;
         self.go_import_path_unproven_files = 0;
         self.go_import_path_unproven_reasons.clear();
+        self.go_alias_expanded = 0;
+        self.go_alias_unresolved.clear();
+        self.go_promoted_selector_snapshot = Default::default();
         debug_assert!(
             self.go_package_basenames.is_empty(),
             "dispatch clear must invalidate every Go package/import-path key"
@@ -2953,6 +2982,9 @@ impl CallGraph {
                 files,
                 &package_import_paths.paths,
             );
+        let alias_telemetry = provider.alias_telemetry();
+        self.go_alias_expanded = alias_telemetry.expanded;
+        self.go_alias_unresolved = alias_telemetry.unresolved;
         let table = provider.compute_interface_dispatch(&live);
         self.interface_impls = table.impls;
         // Capture per-method arity for later arity-filtered dispatch (Task 2).
@@ -2972,6 +3004,16 @@ impl CallGraph {
         self.go_interface_declarations = provider.go_interface_declarations();
         self.go_method_declarations = provider.go_method_declarations();
         self.go_embedded_interface_methods = provider.embedded_interface_method_routes();
+        let go_type_declaration_files = provider.go_type_declaration_files();
+        self.go_promoted_selector_snapshot = crate::go_promoted_snapshot::build(
+            files,
+            &package_import_paths.paths,
+            &self.go_file_profiles,
+            &go_type_declaration_files,
+            &self.go_field_types,
+            &self.go_interface_declarations,
+            &self.go_method_declarations,
+        );
         // Manifest denominator from raw snapshots, before any clause/profile
         // last-writer collapse in the provider compatibility maps.
         self.interface_method_names = self
@@ -4218,6 +4260,9 @@ impl CallGraph {
             go_import_path_proven_files: 0,
             go_import_path_unproven_files: 0,
             go_import_path_unproven_reasons: BTreeMap::new(),
+            go_alias_expanded: 0,
+            go_alias_unresolved: BTreeMap::new(),
+            go_promoted_selector_snapshot: Default::default(),
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,

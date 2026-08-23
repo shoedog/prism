@@ -49,7 +49,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // ladder. Value-rebinding shadow bail, effective-module qualified owner
 // recovery, and new-recovery provenance are part of this one PR transition
 // (paired with CPG v47).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 16;
+// v17: alias-aware Go signature identity (paired with CPG v48).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 17;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -375,8 +376,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_pinned_for_go_loader_hygiene() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 16);
+    fn sidecar_version_is_pinned_for_go_alias_snapshot() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 17);
     }
 
     #[test]
