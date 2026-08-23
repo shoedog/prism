@@ -717,6 +717,23 @@ impl ReceiverRecoveryConfig {
 /// is true), peeled + owner-keyed. Python still scans when the qualifier also
 /// names an import so local receiver bindings can suppress R3.
 fn classify_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> ReceiverClassification {
+    classify_simple_ident_mode(ctx, recover_var, false)
+}
+
+/// Wave-3 Go post-merge exception: classify a same-block multi-name `:=`
+/// reuse without changing the ordinary f16663e classifier projection.
+pub(crate) fn classify_go_same_scope_reuse_receiver(
+    ctx: &ReceiverCtx<'_>,
+    recover_var: bool,
+) -> ReceiverClassification {
+    classify_simple_ident_mode(ctx, recover_var, true)
+}
+
+fn classify_simple_ident_mode(
+    ctx: &ReceiverCtx<'_>,
+    recover_var: bool,
+    enable_go_same_scope_reuse: bool,
+) -> ReceiverClassification {
     use crate::languages::Language;
     if !matches!(
         ctx.parsed.language,
@@ -737,13 +754,23 @@ fn classify_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> ReceiverCl
     if is_import && !matches!(ctx.parsed.language, Language::Python) {
         return ReceiverClassification::none();
     }
-    let (type_found, binding_count, first_found) = ctx.parsed.receiver_type_evidence_in_fn(
-        &ctx.fn_node,
-        q,
-        ctx.call_line,
-        ctx.call_start_byte,
-        recover_var,
-    );
+    let (type_found, binding_count, first_found) = if enable_go_same_scope_reuse {
+        ctx.parsed.go_same_scope_reuse_receiver_type_evidence_in_fn(
+            &ctx.fn_node,
+            q,
+            ctx.call_line,
+            ctx.call_start_byte,
+            recover_var,
+        )
+    } else {
+        ctx.parsed.receiver_type_evidence_in_fn(
+            &ctx.fn_node,
+            q,
+            ctx.call_line,
+            ctx.call_start_byte,
+            recover_var,
+        )
+    };
     let Some((ty, how)) = type_found else {
         if matches!(ctx.parsed.language, Language::Go) && binding_count > 1 {
             if let Some((ty, how)) = first_found {

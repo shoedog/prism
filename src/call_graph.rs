@@ -3535,7 +3535,7 @@ impl CallGraph {
                 file_imports,
                 caller_file: &caller.file,
             };
-            let (mut classification, evidence) =
+            let (classification, evidence) =
                 crate::go_receiver_index::classify_go_receiver_expanded_with_partition(
                     &ctx, classifier, facts, var_local,
                 );
@@ -3559,8 +3559,10 @@ impl CallGraph {
                     // Wave 3 narrows the exception to the constructible failure:
                     // same-block `x, err := reset(x)` may restore an existing
                     // concrete own-method edge, but must not broaden R2 or any
-                    // non-direct route that f16663e kept behind the R3 shadow bail.
-                    classification.proof_shadowed = true;
+                    // non-direct route that f16663e kept behind the R3 shadow
+                    // bail. Skip the update entirely so every legacy CallSite
+                    // field and drop bucket remains byte-identical.
+                    continue;
                 }
             }
             out.push((caller.clone(), site.clone(), classification, evidence));

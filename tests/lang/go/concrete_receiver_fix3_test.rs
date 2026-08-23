@@ -131,7 +131,7 @@ fn same_scope_multi_name_short_declarations_reuse_the_receiver_binding() {
         assert_eq!(
             resolved_files(&cg, call),
             BTreeSet::from(["q/types.go".into()]),
-            "{caller}: {outcome:?}"
+            "{caller}: {call:?} {outcome:?}"
         );
         assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 1);
         assert_eq!(manifest_route(&cg, call), "concrete_direct");

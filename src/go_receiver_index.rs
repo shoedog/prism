@@ -336,21 +336,24 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
         file_imports: ctx.file_imports,
     };
     let baseline = base_classifier.classify(rctx);
-    if baseline.recovered.is_some() {
-        if baseline.proof_shadowed {
-            return (baseline, Default::default());
-        }
-        let reuse_calls = ctx.parsed.go_same_scope_short_var_reuse_calls(
-            &ctx.fn_node,
-            ctx.qualifier,
-            ctx.call_start_byte,
-        );
-        if reuse_calls.as_ref().is_ok_and(Vec::is_empty) {
-            return (baseline, Default::default());
+    let reuse_calls = ctx.parsed.go_same_scope_short_var_reuse_calls(
+        &ctx.fn_node,
+        ctx.qualifier,
+        ctx.call_start_byte,
+    );
+    let same_scope_reuse = reuse_calls.as_ref().is_ok_and(|calls| !calls.is_empty());
+    let candidate = if same_scope_reuse {
+        crate::resolution::classify_go_same_scope_reuse_receiver(&rctx, var_local)
+    } else {
+        baseline.clone()
+    };
+    if candidate.recovered.is_some() {
+        if candidate.proof_shadowed || !same_scope_reuse {
+            return (candidate, Default::default());
         }
 
         let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
-        let recovered = baseline.recovered.as_ref().expect("checked above");
+        let recovered = candidate.recovered.as_ref().expect("checked above");
         let original_owner = recovered.owner_identity.clone().or_else(|| {
             resolve_go_owner_identity(
                 &recovered.static_type,
@@ -376,11 +379,9 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
             _ => false,
         };
         if unchanged {
-            return (baseline, evidence);
+            return (candidate, evidence);
         }
-        let mut shadowed = baseline;
-        shadowed.proof_shadowed = true;
-        return (shadowed, evidence);
+        return (baseline, evidence);
     }
 
     if ctx.qualifier.contains('.') {
@@ -430,13 +431,24 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
     // build's intentionally-disabled `var r T` recovery would be silently
     // re-enabled here (found via a DIFFERENT recover_var value than the
     // config specifies) even though `baseline` just correctly refused it.
-    let (found, bindings) = ctx.parsed.receiver_type_in_fn(
-        &ctx.fn_node,
-        ctx.qualifier,
-        ctx.call_line,
-        ctx.call_start_byte,
-        var_local,
-    );
+    let (found, bindings) = if same_scope_reuse {
+        let (found, bindings, _) = ctx.parsed.go_same_scope_reuse_receiver_type_evidence_in_fn(
+            &ctx.fn_node,
+            ctx.qualifier,
+            ctx.call_line,
+            ctx.call_start_byte,
+            var_local,
+        );
+        (found, bindings)
+    } else {
+        ctx.parsed.receiver_type_in_fn(
+            &ctx.fn_node,
+            ctx.qualifier,
+            ctx.call_line,
+            ctx.call_start_byte,
+            var_local,
+        )
+    };
     if bindings > 1 {
         return (baseline, Default::default()); // ambiguous/shadowed — unchanged.
     }

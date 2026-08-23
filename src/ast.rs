@@ -606,6 +606,53 @@ impl ParsedFile {
         usize,
         Option<(String, crate::resolution::ReceiverRecovery)>,
     ) {
+        self.receiver_type_evidence_in_fn_mode(
+            func_node,
+            receiver,
+            call_line,
+            call_start_byte,
+            recover_var,
+            false,
+        )
+    }
+
+    /// Wave-3 exception used only by the post-merge direct-route proof. The
+    /// ordinary classifier above deliberately retains f16663e's projection.
+    pub(crate) fn go_same_scope_reuse_receiver_type_evidence_in_fn(
+        &self,
+        func_node: &Node<'_>,
+        receiver: &str,
+        call_line: usize,
+        call_start_byte: usize,
+        recover_var: bool,
+    ) -> (
+        Option<(String, crate::resolution::ReceiverRecovery)>,
+        usize,
+        Option<(String, crate::resolution::ReceiverRecovery)>,
+    ) {
+        self.receiver_type_evidence_in_fn_mode(
+            func_node,
+            receiver,
+            call_line,
+            call_start_byte,
+            recover_var,
+            true,
+        )
+    }
+
+    fn receiver_type_evidence_in_fn_mode(
+        &self,
+        func_node: &Node<'_>,
+        receiver: &str,
+        call_line: usize,
+        call_start_byte: usize,
+        recover_var: bool,
+        enable_go_same_scope_reuse: bool,
+    ) -> (
+        Option<(String, crate::resolution::ReceiverRecovery)>,
+        usize,
+        Option<(String, crate::resolution::ReceiverRecovery)>,
+    ) {
         use crate::languages::Language;
         use crate::resolution::ReceiverRecovery;
 
@@ -720,7 +767,8 @@ impl ParsedFile {
             }
         }
 
-        let go_filter_bindings_to_call_scope = matches!(self.language, Language::Go)
+        let go_filter_bindings_to_call_scope = enable_go_same_scope_reuse
+            && matches!(self.language, Language::Go)
             && self
                 .go_same_scope_short_var_reuse_calls(func_node, receiver, call_start_byte)
                 .map_or(true, |calls| !calls.is_empty());
@@ -6590,22 +6638,27 @@ impl ParsedFile {
                         scope.start_byte() <= call_start_byte && call_start_byte < scope.end_byte()
                     });
                 if let Some(left) = left.filter(|_| visible_scope) {
-                    if self.go_short_decl_reuses_in_scope(
-                        node,
-                        &node
-                            .parent()
-                            .and_then(|mut parent| {
-                                while !self.language.function_node_types().contains(&parent.kind())
-                                    && parent.kind() != "func_literal"
-                                {
-                                    parent = parent.parent()?;
-                                }
-                                Some(parent)
-                            })
-                            .unwrap_or(node),
-                        receiver,
-                        call_start_byte,
-                    ) {
+                    if go_filter_bindings_to_call_scope
+                        && self.go_short_decl_reuses_in_scope(
+                            node,
+                            &node
+                                .parent()
+                                .and_then(|mut parent| {
+                                    while !self
+                                        .language
+                                        .function_node_types()
+                                        .contains(&parent.kind())
+                                        && parent.kind() != "func_literal"
+                                    {
+                                        parent = parent.parent()?;
+                                    }
+                                    Some(parent)
+                                })
+                                .unwrap_or(node),
+                            receiver,
+                            call_start_byte,
+                        )
+                    {
                         // Go reuses an existing binding for the already-declared
                         // LHS name. The post-merge pass proves the call's first
                         // return type still matches before trusting this fact.
