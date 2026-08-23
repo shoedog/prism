@@ -196,9 +196,7 @@ cd eval && uv run python tools/dispatch_oracle.py \
 ```
 
 The delta contains `newly_exact_sites` for `fanout: 0 → >0` transitions or new full
-implementer identities. Its `gate_ok` is true only when none of those delta sites is
-`over_approx`, `oracle_timeout`, `oracle_unresolved`, or `target_mismatch`; `recall_gap` **and** the run's fanout-positive coverage meets both floors — site coverage ≥ 0.90 and edge coverage ≥ 0.90 (`summary.fanout_positive_coverage`; `--site-coverage-floor` / `--edge-coverage-floor` if exposed, defaults 0.90). A run with no delta blockers but 50% fanout-positive coverage therefore FAILS the gate; `not_dispatch`, `interface_zero_fanout`, `external_definition` and `unknown_definition` are reported exclusions, not failures.
-remains visible but non-gating. The baseline pair is refused unless its pins agree exactly:
+implementer identities. Its `gate_ok` is true only when (a) none of those delta sites is `over_approx`, `oracle_timeout`, `oracle_unresolved`, or `target_mismatch` — `recall_gap` remains visible but non-gating — **and** (b) the run's fanout-positive coverage meets both floors: site coverage ≥ 0.90 and edge coverage ≥ 0.90 (`summary.fanout_positive_coverage`; `--site-coverage-floor` / `--edge-coverage-floor`, defaults 0.90). A run with no delta blockers but 50% fanout-positive coverage therefore FAILS the gate; `not_dispatch`, `interface_zero_fanout`, `external_definition` and `unknown_definition` are reported exclusions, not failures. The baseline pair is refused unless its pins agree exactly:
 corpus SHA, Go/gopls versions, `GOOS`, `GOARCH`, tags, and `GOWORK`. The tool forces `GOWORK`
 to the corpus-root `go.work` when present, otherwise `off`, so an ambient parent workspace
 cannot alter the comparison universe.
