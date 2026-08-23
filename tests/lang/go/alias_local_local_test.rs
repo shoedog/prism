@@ -152,8 +152,14 @@ fn s4_alias_to_same_package_local_type_expands_to_the_rhs() {
         "lib/impl.go".to_string(),
     )]);
 
-    assert_eq!(resolved_exact_dispatch_identities(&cg, "invoke", "Act"), expected);
-    assert_eq!(manifest_dispatch_identities(&cg, "lib/defs.go", "Act"), expected);
+    assert_eq!(
+        resolved_exact_dispatch_identities(&cg, "invoke", "Act"),
+        expected
+    );
+    assert_eq!(
+        manifest_dispatch_identities(&cg, "lib/defs.go", "Act"),
+        expected
+    );
 }
 
 #[test]
@@ -176,8 +182,14 @@ fn s4_alias_to_qualified_type_expands_through_the_import_map() {
         "app/impl.go".to_string(),
     )]);
 
-    assert_eq!(resolved_exact_dispatch_identities(&cg, "invoke", "Act"), expected);
-    assert_eq!(manifest_dispatch_identities(&cg, "lib/defs.go", "Act"), expected);
+    assert_eq!(
+        resolved_exact_dispatch_identities(&cg, "invoke", "Act"),
+        expected
+    );
+    assert_eq!(
+        manifest_dispatch_identities(&cg, "lib/defs.go", "Act"),
+        expected
+    );
 }
 
 #[test]
@@ -200,8 +212,14 @@ fn s4_alias_to_instantiated_generic_keeps_exact_against_direct_instantiation() {
         "app/impl.go".to_string(),
     )]);
 
-    assert_eq!(resolved_exact_dispatch_identities(&cg, "invoke", "Use"), expected);
-    assert_eq!(manifest_dispatch_identities(&cg, "lib/defs.go", "Use"), expected);
+    assert_eq!(
+        resolved_exact_dispatch_identities(&cg, "invoke", "Use"),
+        expected
+    );
+    assert_eq!(
+        manifest_dispatch_identities(&cg, "lib/defs.go", "Use"),
+        expected
+    );
 }
 
 #[test]
@@ -223,8 +241,14 @@ fn s4_parameterized_alias_expands_with_arity_checked_binding() {
         "lib/impl.go".to_string(),
     )]);
 
-    assert_eq!(resolved_exact_dispatch_identities(&cg, "invoke", "Use"), expected);
-    assert_eq!(manifest_dispatch_identities(&cg, "lib/defs.go", "Use"), expected);
+    assert_eq!(
+        resolved_exact_dispatch_identities(&cg, "invoke", "Use"),
+        expected
+    );
+    assert_eq!(
+        manifest_dispatch_identities(&cg, "lib/defs.go", "Use"),
+        expected
+    );
 }
 
 #[test]
@@ -268,8 +292,14 @@ fn s4_byte_and_rune_aliases_normalize_to_uint8_and_int32() {
             "Impl".to_string(),
             "lib/impl.go".to_string(),
         )]);
-        assert_eq!(resolved_exact_dispatch_identities(&cg, caller, method), expected);
-        assert_eq!(manifest_dispatch_identities(&cg, "lib/defs.go", method), expected);
+        assert_eq!(
+            resolved_exact_dispatch_identities(&cg, caller, method),
+            expected
+        );
+        assert_eq!(
+            manifest_dispatch_identities(&cg, "lib/defs.go", method),
+            expected
+        );
     }
 }
 
@@ -310,7 +340,10 @@ fn s4_aliases_in_two_packages_to_one_base_type_keep_exact() {
         "y/y.go".to_string(),
     )]);
 
-    assert_eq!(resolved_exact_dispatch_identities(&cg, "invoke", "Act"), expected);
+    assert_eq!(
+        resolved_exact_dispatch_identities(&cg, "invoke", "Act"),
+        expected
+    );
     assert_eq!(manifest_dispatch_identities(&cg, "x/x.go", "Act"), expected);
 }
 
@@ -431,12 +464,7 @@ fn s4_alias_cycle_fails_closed() {
 
     assert!(resolved_exact_dispatch_identities(&cg, "invoke", "Act").is_empty());
     let stats = call_stats(&cg);
-    assert!(
-        stats["go_alias_unresolved"]["cycle"]
-            .as_u64()
-            .unwrap_or(0)
-            >= 1
-    );
+    assert!(stats["go_alias_unresolved"]["cycle"].as_u64().unwrap_or(0) >= 1);
 }
 
 #[test]
@@ -481,6 +509,12 @@ fn s4_generic_instantiation_wrapping_an_alias_keeps_shape() {
         "app/impl.go".to_string(),
     )]);
 
-    assert_eq!(resolved_exact_dispatch_identities(&cg, "invoke", "Use"), expected);
-    assert_eq!(manifest_dispatch_identities(&cg, "lib/defs.go", "Use"), expected);
+    assert_eq!(
+        resolved_exact_dispatch_identities(&cg, "invoke", "Use"),
+        expected
+    );
+    assert_eq!(
+        manifest_dispatch_identities(&cg, "lib/defs.go", "Use"),
+        expected
+    );
 }

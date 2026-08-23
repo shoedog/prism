@@ -510,6 +510,13 @@ pub struct CallGraph {
     /// is not a count of affected consult sites or edges.
     #[serde(default)]
     pub go_owner_identity_profile_conflict: usize,
+    /// Slice 4 (roadmap #14 §5): alias leaves expanded during signature
+    /// canonicalization.
+    #[serde(default)]
+    pub(crate) go_alias_expanded: usize,
+    /// Slice 4 fail-closed reason histogram (`defined_variant`, `cycle`, …).
+    #[serde(default)]
+    pub(crate) go_alias_unresolved: BTreeMap<String, usize>,
     /// Go source files excluded because a path segment is exactly `testdata`.
     /// Loader-derived and propagated through scope inputs so call-stats can
     /// account for files that never enter the parsed-file map.
@@ -709,6 +716,8 @@ impl CallGraph {
             go_file_profiles: BTreeMap::new(),
             go_build_profile_unparsed: BTreeMap::new(),
             go_owner_identity_profile_conflict: 0,
+            go_alias_expanded: 0,
+            go_alias_unresolved: BTreeMap::new(),
             skipped_go_testdata_files: 0,
             go_module_graph: Default::default(),
             go_import_path_proven_files: 0,
@@ -933,6 +942,8 @@ impl CallGraph {
             go_file_profiles,
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
+            go_alias_expanded: 0,
+            go_alias_unresolved: BTreeMap::new(),
             skipped_go_testdata_files: 0,
             go_module_graph: Default::default(),
             go_import_path_proven_files: 0,
@@ -1319,6 +1330,8 @@ impl CallGraph {
             go_file_profiles,
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
+            go_alias_expanded: 0,
+            go_alias_unresolved: BTreeMap::new(),
             skipped_go_testdata_files: 0,
             go_module_graph: Default::default(),
             go_import_path_proven_files: 0,
@@ -2745,12 +2758,13 @@ impl CallGraph {
         self.go_interface_live_types.clear();
         self.go_embedded_interface_methods.clear();
         self.go_owner_identity_profile_conflict = 0;
+        self.go_alias_expanded = 0;
+        self.go_alias_unresolved.clear();
         self.go_module_graph = Default::default();
         self.go_import_path_proven_files = 0;
         self.go_import_path_unproven_files = 0;
         self.go_import_path_unproven_reasons.clear();
     }
-
     /// Recompute Go embedding promotions over `files` and write owner-index aliases.
     /// Idempotent: clears prior aliases first (incremental replace).
     pub fn apply_go_embedding_promotion(&mut self, files: &BTreeMap<String, ParsedFile>) {
@@ -2921,6 +2935,9 @@ impl CallGraph {
         for g in &table.gaps {
             *self.interface_gaps.entry(format!("{g:?}")).or_insert(0) += 1;
         }
+        // Slice 4 (roadmap #14 §5): alias expansion telemetry.
+        self.go_alias_expanded = provider.go_alias_expanded();
+        self.go_alias_unresolved = provider.go_alias_unresolved();
         for o in &table.overapprox {
             *self
                 .interface_overapprox
@@ -4020,6 +4037,8 @@ impl CallGraph {
             go_file_profiles,
             go_build_profile_unparsed,
             go_owner_identity_profile_conflict: 0,
+            go_alias_expanded: 0,
+            go_alias_unresolved: BTreeMap::new(),
             skipped_go_testdata_files: 0,
             go_module_graph: Default::default(),
             go_import_path_proven_files: 0,

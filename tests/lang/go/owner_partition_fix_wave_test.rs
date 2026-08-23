@@ -846,7 +846,11 @@ fn required_local_replace_matches_fork_identity_and_excludes_declared_path_decoy
 }
 
 #[test]
-fn s4_unqualified_named_types_keep_the_existing_bare_name_rule() {
+fn s4_unqualified_named_types_in_proven_paths_no_longer_match_by_name() {
+    // Renamed (slice 4, #14 §5): with go.mod-proven paths on BOTH sides the
+    // comparator compares Local paths, so same-named distinct defined types in
+    // two packages no longer match. The Bare↔Bare (no go.mod) name rule lives
+    // on in alias_local_local_test::s4_bare_bare_without_gomod_still_keeps_the_name_rule.
     let cg = build_go_with_module(
         &[
             (
@@ -860,10 +864,9 @@ fn s4_unqualified_named_types_keep_the_existing_bare_name_rule() {
         ],
         "example.com/root",
     );
-    let expected = BTreeSet::from(["Impl".to_string()]);
 
-    assert_eq!(resolved_method_owners(&cg, "invoke", "Act"), expected);
-    assert_eq!(manifest_owners(&cg, "lib/defs.go", "Act"), expected);
+    assert!(resolved_method_owners(&cg, "invoke", "Act").is_empty());
+    assert!(manifest_owners(&cg, "lib/defs.go", "Act").is_empty());
 }
 
 #[test]

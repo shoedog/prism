@@ -525,6 +525,16 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 .expect("Go import-path reason histogram serializes"),
         );
     }
+    if cg.go_alias_expanded > 0 || !cg.go_alias_unresolved.is_empty() {
+        let object = stats.as_object_mut().expect("call-stats object");
+        // Slice 4 (roadmap #14 §5): alias expansion telemetry.
+        object.insert("go_alias_expanded".to_string(), cg.go_alias_expanded.into());
+        object.insert(
+            "go_alias_unresolved".to_string(),
+            serde_json::to_value(&cg.go_alias_unresolved)
+                .expect("alias unresolved histogram serializes"),
+        );
+    }
     if !cg.go_file_profiles.is_empty() {
         let object = stats.as_object_mut().expect("call-stats object");
         object.insert(
