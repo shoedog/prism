@@ -18,6 +18,51 @@ use types::{
 };
 pub(crate) use types::{CanonTypeError, GoAliasTelemetry};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AliasSyntax {
+    Alias,
+    Defined,
+    Unresolved,
+}
+
+fn classify_alias_syntax(node: &tree_sitter::Node<'_>) -> AliasSyntax {
+    classify_alias_shape(
+        node.kind(),
+        node.child_by_field_name("type_parameters").is_some()
+            || node_has_kind(node, "type_parameter_list"),
+        node_has_token(node, "="),
+        node_has_kind(node, "ERROR"),
+    )
+}
+
+fn classify_alias_shape(
+    kind: &str,
+    has_type_parameters: bool,
+    has_equals: bool,
+    has_error: bool,
+) -> AliasSyntax {
+    match (kind, has_type_parameters, has_equals, has_error) {
+        ("type_alias", _, _, _) | ("type_spec", true, true, true) => AliasSyntax::Alias,
+        ("type_spec", true, true, false) => AliasSyntax::Unresolved,
+        _ => AliasSyntax::Defined,
+    }
+}
+
+fn node_has_token(node: &tree_sitter::Node<'_>, token: &str) -> bool {
+    node_has_kind(node, token)
+}
+
+fn node_has_kind(node: &tree_sitter::Node<'_>, kind: &str) -> bool {
+    if node.kind() == kind {
+        return true;
+    }
+    let mut cursor = node.walk();
+    let found = node
+        .children(&mut cursor)
+        .any(|child| node_has_kind(&child, kind));
+    found
+}
+
 pub(crate) struct GoAliasResolver {
     declarations: BTreeMap<GoOwnerIdentity, Vec<AliasDeclaration>>,
     profiles: BTreeMap<String, GoBuildProfile>,
@@ -228,23 +273,29 @@ impl GoAliasResolver {
                     package_clause: profile.package_clause.clone(),
                     name: name.clone(),
                 };
-                let parameterized_alias = child.kind() == "type_spec"
-                    && child.child_by_field_name("type_parameters").is_some()
-                    && parsed.node_text(&child).contains('=')
-                    && child
-                        .children(&mut child.walk())
-                        .any(|node| node.kind() == "ERROR");
-                let kind = if child.kind() == "type_alias" || parameterized_alias {
+                let syntax = classify_alias_syntax(&child);
+                let kind = if syntax != AliasSyntax::Defined {
                     let (param_names, constraints_supported) =
                         alias_parameters(parsed, &child, &name);
                     let type_params: BTreeSet<String> = param_names.iter().cloned().collect();
-                    let rhs = child
-                        .child_by_field_name("type")
-                        .ok_or(AliasUnresolvedReason::Unresolvable)
-                        .and_then(|node| {
-                            parse_expr(&node, parsed, &imports, path, Some(&profile), &type_params)
+                    let rhs = if syntax == AliasSyntax::Unresolved {
+                        Err(AliasUnresolvedReason::Unresolvable)
+                    } else {
+                        child
+                            .child_by_field_name("type")
+                            .ok_or(AliasUnresolvedReason::Unresolvable)
+                            .and_then(|node| {
+                                parse_expr(
+                                    &node,
+                                    parsed,
+                                    &imports,
+                                    path,
+                                    Some(&profile),
+                                    &type_params,
+                                )
                                 .map_err(|_| AliasUnresolvedReason::Unresolvable)
-                        });
+                            })
+                    };
                     AliasDeclarationKind::Alias {
                         params: param_names,
                         rhs: if constraints_supported {
