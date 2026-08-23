@@ -1,5 +1,5 @@
 #[derive(Debug, PartialEq, Eq)]
-enum Token {
+pub(crate) enum Token {
     Word(String),
     LeftParen,
     RightParen,
@@ -73,7 +73,7 @@ fn parse_parenthesized_path(tokens: &[Token], mut index: usize) -> Option<(Strin
     Some((path, index))
 }
 
-fn tokenize(source: &str) -> Option<Vec<Token>> {
+pub(crate) fn tokenize(source: &str) -> Option<Vec<Token>> {
     let bytes = source.as_bytes();
     let mut tokens = Vec::new();
     let mut index = 0;
@@ -198,7 +198,7 @@ fn parse_fixed_radix(bytes: &[u8], start: usize, len: usize, radix: u32) -> Opti
     u32::from_str_radix(digits, radix).ok()
 }
 
-fn valid_module_path(path: &str) -> bool {
+pub(crate) fn valid_module_path(path: &str) -> bool {
     if path.is_empty()
         || !path.is_ascii()
         || path.starts_with('-')
