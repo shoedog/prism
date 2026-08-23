@@ -10,7 +10,7 @@ corrections) are folded below; the slice that closes each finding is marked **[R
 | **1 oracle hardening** | `interface-manifest` package-qualified identities `(package_dir, package_clause, type_name)` + target method file/span; `dispatch_oracle.py` qualified compare, `oracle_unresolved`, zero-fanout scoring, `--baseline` delta mode (over_approx / timeout / unresolved in the delta block), no vacuous 1.0, pinned environment; re-baseline main | [R1-3] [R1-4] | its own pytest + synthetic collision fixtures (`good.Impl`/`bad.Impl`; `p`/`p_test`; build-tagged twins) red on today's tool | none (additive manifest fields) |
 | **2 loader/parser/cache hygiene** | Go `testdata/` excluded from Go inputs; go.mod tokenizer + `module` directive grammar (incl. parenthesized) + semantic module-path validation; symlinked `go.mod`/`go.work` = hashed terminal boundary (`symlink_refused` topology entry); `go.work` topology-hashed; one immutable manifest snapshot shared by hashing and parsing; `SKIP_POLICY_VERSION` 1→2; cache transition | [R1-5] [R1-6] [R1-7] | full suite, tier-a, same-base control (5 corpora); hardened oracle ≥ baselines (run after slice 1 merges) | CPG 45 / sidecar 14 |
 | **3 effective module identity** | `GoModuleGraph`: declared (nearest `go.mod`) + active set (`go.work` `use` — relative or absolute in-repo — or root) + **applicable** local `replace` (workspace version of an active main module always wins; `go.work` replaces first; then the union of active modules' replaces, conflicts fail closed; a replace applies only when its LHS path is required by an active main module; version-specific replaces fail closed) → **effective** import path per dir, memoized; whole-workspace fail-closed on malformed `go.work`/`use`/active `go.mod`; nested `Local` tokens; telemetry | [R1-1] (+ #15b) | same-base control + hardened oracle in delta mode (`gate_ok`) | CPG 46 / sidecar 15 |
-| **4 alias-aware step 2** | clause/profile-scoped type-alias expansion substituting the ENTIRE canonical RHS type expression (generics, pointers, slices, maps, funcs, predeclared, nested aliases; profile variants must agree) before `Local`/`Qualified` tokens; then `Local↔Local` by path | [R1-2] | same as 3 | CPG 47 / sidecar 16 |
+| **4 alias-aware step 2** | clause/profile-scoped type-alias expansion substituting the ENTIRE canonical RHS type expression (generics, pointers, slices, maps, funcs, predeclared, nested aliases; profile variants must agree) before `Local`/`Qualified` tokens; then `Local↔Local` by path | [R1-2] | same as 3 | CPG 48 / sidecar 17 (after #17-narrow) |
 Order: 1 ‖ 2 for IMPLEMENTATION (independent files; 2 bumps cache, 1 does not), but slice 2's oracle ACCEPTANCE runs only after slice 1 has merged and main is re-baselined with the hardened oracle → 3 (needs 1's gate and 2's parser/symlink/snapshot rules) → 4. If slices merge back-to-back,
 the cache transitions stay one-per-PR by convention (no mid-branch multi-bumps).
 
@@ -144,7 +144,21 @@ Oracle delta gate: `gate_ok` required per corpus, OR a documented exception wher
   proven packages → empty (red today: name match); alias cycle → fail closed; `_test`-clause alias invisible; generic instantiation wrapping an
   alias keeps shape; the P10 fixture `s4_unqualified_named_types_keep_the_existing_bare_name_rule` is renamed to state that its two proven-path types
   no longer match, with a separate `Bare↔Bare` (no go.mod) variant keeping the name rule.
-- Cache: **CPG 47 / sidecar 16**. Gate as slice 3; the step's recall loss is visible via slice 1's zero-fanout scoring (1→0 transitions).
+- Cache: **CPG 48 / sidecar 17** (sequenced after #17-narrow's 47/16). Gate as slice 3; the step's recall loss is visible via slice 1's zero-fanout scoring (1→0 transitions).
+- Clarifications recorded 2026-08-23 after two independent implementations (sol, Ox) of this slice MISSED the same two points (spec ambiguity, not
+  implementer error): (a) predeclared normalization ORDER — `byte → uint8`, `rune → int32` (and the `any` normalization) apply ONLY to an UNSHADOWED
+  predeclared identifier; a visible package-level declaration named like a predeclared identifier (alias `type byte = base.ID` or defined `type rune
+  int32`) takes precedence — resolve visible declarations FIRST, normalize only when nothing shadows the name (poles: shadowing alias → no `uint8` match,
+  `base.ID` matches; Defined shadow → no normalization / fail closed; unshadowed → byte↔uint8 Exact kept); (b) the promoted-selector snapshot's
+  "every hop" profile-safety rule INCLUDES embedded-INTERFACE owners: an embedded interface whose method-name set differs by declaring profile
+  (`interface{M()}` linux vs `interface{N()}` windows) makes the embedding struct `ProfileConflict`; a profile-identical one does not; qualified
+  interface embeds (`q.I`) must be recognised as interfaces before any struct-owner-only recursion (else a false conflict). Explicit requirements
+  learned from the second implementation's defects: the alias index is PACKAGE-LEVEL only (block-local `type X = …` inside function bodies must NOT
+  merge with package declarations); the alias cycle guard is a recursion STACK popped on every return path, never a global visited set;
+  parameterized-alias profile variants compare (canonical RHS, type_params), not RHS alone; an all-`Defined` name never enters alias-visibility logic
+  (so the build-tag SAT certainty cap cannot turn it into `ProfileUncertain`); Part B resolves embedded ALIASES to their owner identity through the
+  alias index before recording (selector name kept separately); own-method comparison carries receiver kind (value/pointer) and target/profile identity;
+  the fifth profile-safety axis = receiver method-set SHAPE (value vs pointer receiver).
 
 ## 6. Acceptance summary per slice
 Full suite; tier-a `--matrix-only` 0 regr; fmt; clippy no new warnings; `git diff --check`; same-base `call-stats --no-cache` vs the then-current
