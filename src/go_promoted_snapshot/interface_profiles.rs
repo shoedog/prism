@@ -50,6 +50,7 @@ pub(super) fn extend(
                 ordinary_fields: BTreeSet::new(),
                 own_methods: own_methods.clone(),
                 own_method_shapes: BTreeSet::new(),
+                interface_method_signatures: declaration.method_signatures.clone(),
             };
             raw.entry(owner.clone()).or_default().push(RawProfile {
                 snapshot: GoPromotedProfileSnapshot {
@@ -64,6 +65,7 @@ pub(super) fn extend(
                 },
                 comparison,
                 unresolved: declaration.generic
+                    || declaration.method_signatures.len() != declaration.methods.len()
                     || !unresolved_embedded_fields.is_empty()
                     || structs.contains_key(owner)
                     || !type_declarations.contains_key(owner),

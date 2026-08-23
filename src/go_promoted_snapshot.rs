@@ -96,6 +96,7 @@ struct ComparisonKey {
     ordinary_fields: BTreeSet<String>,
     own_methods: BTreeSet<String>,
     own_method_shapes: BTreeSet<GoPromotedOwnMethodShape>,
+    interface_method_signatures: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone)]
@@ -193,6 +194,7 @@ pub(crate) fn build(
                 ordinary_fields: ordinary_fields.clone(),
                 own_methods: own_methods.clone(),
                 own_method_shapes: own_method_shapes.clone(),
+                interface_method_signatures: BTreeMap::new(),
             };
             raw.entry(owner.clone()).or_default().push(RawProfile {
                 snapshot: GoPromotedProfileSnapshot {
@@ -262,6 +264,7 @@ pub(crate) fn build(
                     ordinary_fields: BTreeSet::new(),
                     own_methods,
                     own_method_shapes,
+                    interface_method_signatures: BTreeMap::new(),
                 },
                 unresolved: methods_uncertain,
             });
