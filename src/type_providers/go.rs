@@ -276,6 +276,71 @@ struct ReceiverMethodSet {
 ///
 /// Uses `Arc<GoTypeData>` so the same extracted data can be shared when
 /// registered as both `TypeProvider` and `DispatchProvider` in the registry.
+/// P15a-fix1: TEST-ONLY construction/live-instance counters for the
+/// single-extraction guarantee (peak live providers = 1). Compiled out of
+/// non-test builds entirely. Tests opt in by calling `arm()` around the code
+/// region under measurement and `disarm()` after dropping the results —
+/// un-armed constructions (e.g. other tests running in parallel) are never
+/// counted, which keeps the global counters deterministic.
+#[cfg(test)]
+pub(crate) mod test_counters {
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+    static ARMED: AtomicBool = AtomicBool::new(false);
+    pub static PLAIN_CONSTRUCTIONS: AtomicUsize = AtomicUsize::new(0);
+    pub static IMPORT_AWARE_CONSTRUCTIONS: AtomicUsize = AtomicUsize::new(0);
+    pub static LIVE: AtomicUsize = AtomicUsize::new(0);
+    pub static PEAK_LIVE: AtomicUsize = AtomicUsize::new(0);
+
+    /// Reset all counters and arm counting until `disarm()`.
+    pub fn arm() {
+        PLAIN_CONSTRUCTIONS.store(0, Ordering::SeqCst);
+        IMPORT_AWARE_CONSTRUCTIONS.store(0, Ordering::SeqCst);
+        LIVE.store(0, Ordering::SeqCst);
+        PEAK_LIVE.store(0, Ordering::SeqCst);
+        ARMED.store(true, Ordering::SeqCst);
+    }
+
+    pub fn disarm() {
+        ARMED.store(false, Ordering::SeqCst);
+    }
+
+    pub(crate) fn record_construction(plain: bool) {
+        if !ARMED.load(Ordering::SeqCst) {
+            return;
+        }
+        if plain {
+            PLAIN_CONSTRUCTIONS.fetch_add(1, Ordering::SeqCst);
+        } else {
+            IMPORT_AWARE_CONSTRUCTIONS.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    pub(crate) fn record_live() {
+        if !ARMED.load(Ordering::SeqCst) {
+            return;
+        }
+        let now = LIVE.fetch_add(1, Ordering::SeqCst) + 1;
+        PEAK_LIVE.fetch_max(now, Ordering::SeqCst);
+    }
+
+    pub(crate) fn record_drop() {
+        if !ARMED.load(Ordering::SeqCst) {
+            return;
+        }
+        LIVE.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+#[cfg(test)]
+impl Drop for GoTypeData {
+    fn drop(&mut self) {
+        // Fires when the LAST Arc<GoTypeData> for an extraction is released,
+        // so LIVE tracks whole extractions, not Arc clones.
+        test_counters::record_drop();
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct GoTypeProvider {
     pub data: Arc<GoTypeData>,
@@ -284,7 +349,7 @@ pub struct GoTypeProvider {
 impl GoTypeProvider {
     /// Build a GoTypeProvider by scanning all Go parsed files.
     pub fn from_parsed_files(files: &BTreeMap<String, ParsedFile>) -> Self {
-        Self::from_parsed_files_with_package_import_paths(files, &BTreeMap::new())
+        Self::from_parsed_files_inner(files, &BTreeMap::new(), true)
     }
 
     /// Build with each file's package import path when repository manifests prove it.
@@ -293,6 +358,14 @@ impl GoTypeProvider {
     pub(crate) fn from_parsed_files_with_package_import_paths(
         files: &BTreeMap<String, ParsedFile>,
         package_import_paths: &BTreeMap<String, String>,
+    ) -> Self {
+        Self::from_parsed_files_inner(files, package_import_paths, false)
+    }
+
+    fn from_parsed_files_inner(
+        files: &BTreeMap<String, ParsedFile>,
+        package_import_paths: &BTreeMap<String, String>,
+        plain_entry: bool,
     ) -> Self {
         let mut inner = GoTypeData {
             structs: BTreeMap::new(),
@@ -336,9 +409,17 @@ impl GoTypeProvider {
 
         Self::remove_unproven_pointer_embed_pseudo_fields(&mut inner, &go_file_profiles);
         Self::compute_satisfaction(&mut inner);
-        GoTypeProvider {
+        let provider = GoTypeProvider {
             data: Arc::new(inner),
+        };
+        // P15a-fix1: test-only instrumentation (zero cost in release/non-test
+        // builds — every counter access is behind `#[cfg(test)]`).
+        #[cfg(test)]
+        {
+            test_counters::record_construction(plain_entry);
+            test_counters::record_live();
         }
+        provider
     }
 
     fn local_import_paths(

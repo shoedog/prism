@@ -5096,6 +5096,48 @@ fn has_static_specifier(parsed: &ParsedFile, func_node: &tree_sitter::Node<'_>) 
 mod tests {
     use super::*;
 
+    // P15a-fix1: the full production build path (CallGraph passes + CpgContext
+    // registry) must perform exactly ONE plain (import-path-free) provider
+    // construction and ONE import-aware construction, with at most ONE full
+    // `GoTypeData` alive at any moment. RED on the pre-fix code, which built
+    // plain providers for promotion AND receiver rematerialization AND the
+    // registry (3 plain constructions; peak live 2 while dispatch's
+    // import-aware extraction coexisted with the retained shared one).
+    #[test]
+    fn p15a_fix1_single_plain_provider_peak_live_one_through_full_context_path() {
+        use crate::cpg::CpgContext;
+        use crate::languages::Language::Go;
+        use crate::type_providers::go::test_counters;
+
+        let src = "package main\n\ntype S struct{ X int }\n\nfunc (s S) Get() int { return s.X }\n\nfunc main() { var s S; _ = s.Get() }\n";
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.go".to_string(),
+            ParsedFile::parse("main.go", src, Go).unwrap(),
+        );
+
+        test_counters::arm();
+        let ctx = CpgContext::build(&files, None);
+        let plain = test_counters::PLAIN_CONSTRUCTIONS.load(std::sync::atomic::Ordering::SeqCst);
+        let import_aware =
+            test_counters::IMPORT_AWARE_CONSTRUCTIONS.load(std::sync::atomic::Ordering::SeqCst);
+        let peak = test_counters::PEAK_LIVE.load(std::sync::atomic::Ordering::SeqCst);
+        assert_eq!(plain, 1, "expected exactly 1 plain construction");
+        assert_eq!(
+            import_aware, 1,
+            "expected exactly 1 import-aware construction"
+        );
+        assert_eq!(peak, 1, "at most 1 full GoTypeData may be alive at a time");
+        // The registry actually received the shared extraction.
+        drop(ctx);
+        test_counters::disarm();
+        assert_eq!(
+            test_counters::LIVE.load(std::sync::atomic::Ordering::SeqCst),
+            0,
+            "all extractions released"
+        );
+    }
+
     #[test]
     fn method_class_span_populated_for_python_methods() {
         use crate::languages::Language::Python;
