@@ -464,7 +464,7 @@ def test_interface_enclosed_location_is_not_a_concrete_satisfier():
     assert reason == "interface_location"
 
 
-def test_mappable_satisfier_set_is_scored_when_extra_location_is_unresolved():
+def test_mappable_satisfier_set_is_scored_when_extra_non_candidate_is_present():
     impl = _identity("Impl", "impl.go", [3, 5])
     unmappable = {"file": "/go/src/net/http/server.go", "line": 90,
                   "reason": "outside_repo"}
@@ -474,7 +474,8 @@ def test_mappable_satisfier_set_is_scored_when_extra_location_is_unresolved():
         unresolved_locations=[unmappable], failure_stage="mapping",
     )
     assert record["classification"] == "sound"
-    assert record["unresolved_locations"] == [unmappable]
+    assert record["unresolved_locations"] == []
+    assert record["non_candidate_locations"] == [unmappable]
     assert record["failure_stage"] == "mapping"
 
 
@@ -491,7 +492,7 @@ def test_unresolved_location_blocks_only_when_it_can_hide_prism_only_identity():
     assert record["classification"] == "oracle_unresolved"
 
 
-def test_interface_location_remains_fail_closed_even_when_prism_is_mapped():
+def test_interface_location_is_excluded_when_concrete_prism_target_is_mapped():
     impl = _identity("Impl", "impl.go", [3, 5])
     record = do.compare_site(
         file="caller.go", line=1, interface="Runner", method="Go",
@@ -500,7 +501,63 @@ def test_interface_location_remains_fail_closed_even_when_prism_is_mapped():
                                "reason": "interface_location"}],
         failure_stage="mapping",
     )
-    assert record["classification"] == "oracle_unresolved"
+    assert record["classification"] == "sound"
+    assert record["unresolved_locations"] == []
+    assert record["non_candidate_locations"] == [{
+        "file": "interface.go", "line": 7, "reason": "interface_location",
+    }]
+
+
+def test_interface_only_first_result_retries_before_scoring_prism_target(tmp_path):
+    (tmp_path / "caller.go").write_text("receiver.Go()\n")
+    impl = _identity("Impl", "impl.go", [3, 5])
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"sites": [{
+        "file": "caller.go", "line": 1, "method": "Go", "fanout": 1,
+        "implementers": ["Impl"], "implementer_identities": [impl],
+        "start_byte": 9, "end_byte": 11,
+    }]}))
+
+    class FakeGopls:
+        implementation_calls = 0
+
+        def __init__(self, *_args, **_kwargs):
+            self._settle_s = 0
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def _did_open(self, _rel):
+            return True
+
+        def _methods(self, _rel):
+            return []
+
+        def resettle(self, **_kwargs):
+            pass
+
+        def method_decl(self, _rel, _line, _char):
+            return {"file": "iface.go", "line": 3, "character": 1,
+                    "kind": "interface", "identity": None}
+
+        def satisfier_identities(self, _rel, _line, _char):
+            type(self).implementation_calls += 1
+            if type(self).implementation_calls == 1:
+                return [], 1, [{
+                    "file": "other_interface.go", "line": 3,
+                    "reason": "interface_location",
+                }]
+            return [impl], 1, []
+
+    records, _summary = do.run_oracle(
+        str(manifest), str(tmp_path), ["fake-gopls"], 1,
+        log=io.StringIO(), oracle_factory=FakeGopls,
+    )
+    assert records[0]["classification"] == "sound"
+    assert FakeGopls.implementation_calls == 2
 
 
 def test_zero_fanout_empty_implementation_is_sound_with_explicit_reason(tmp_path):

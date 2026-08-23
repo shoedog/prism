@@ -222,6 +222,26 @@ def _identity_records(targets: dict) -> list[dict]:
     return records
 
 
+_NON_CANDIDATE_LOCATION_REASONS = {"interface_location", "outside_repo"}
+
+
+def _partition_location_evidence(locations: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Return (unknown, proven_non_candidate) implementation locations.
+
+    An interface declaration or a file outside the repository cannot be a prism
+    concrete target. Other mapping failures may still conceal an in-repository
+    target, so they remain fail-closed unknown evidence.
+    """
+    unknown: list[dict] = []
+    non_candidates: list[dict] = []
+    for location in locations:
+        if location.get("reason") in _NON_CANDIDATE_LOCATION_REASONS:
+            non_candidates.append(location)
+        else:
+            unknown.append(location)
+    return unknown, non_candidates
+
+
 def compare_site(
     file: str,
     line: int,
@@ -244,7 +264,9 @@ def compare_site(
     names. The name-only path is exclusively a compatibility path for manifests
     emitted by older prism binaries.
     """
-    unresolved_locations = list(unresolved_locations or [])
+    unresolved_locations, non_candidate_locations = _partition_location_evidence(
+        list(unresolved_locations or [])
+    )
     if prism_identities is None:
         identity_mode = "name_only"
         prism = set(prism_set or set())
@@ -277,11 +299,7 @@ def compare_site(
         prism_only = set()
         gopls_only = set()
         target_mismatches = []
-        fatal_mapping = any(
-            location.get("reason") == "interface_location"
-            for location in unresolved_locations
-        )
-        if oracle_unresolved or fatal_mapping or prism_targets is None or (
+        if oracle_unresolved or prism_targets is None or (
             gopls_identities is not None and gopls_targets is None
         ):
             classification = "oracle_unresolved"
@@ -291,10 +309,12 @@ def compare_site(
             prism_only = prism - gopls
             gopls_only = gopls - prism
             classification = classify(prism, gopls)
-            # An extra unmappable implementation location is not evidence against
-            # already matched prism identities. It only blocks when it could account
-            # for an otherwise prism-only identity; interface locations remain fatal.
-            if unresolved_locations and (not prism or prism_only):
+            # Unknown in-repo mappings only block when they could conceal a prism
+            # target. Proven non-candidates (interfaces and outside-repo locations)
+            # are diagnostic only and never poison concrete satisfier evidence.
+            if prism_only and unresolved_locations:
+                classification = "oracle_unresolved"
+            elif not prism and not gopls and unresolved_locations:
                 classification = "oracle_unresolved"
             if classification != "over_approx":
                 for key in sorted(prism & gopls):
@@ -318,7 +338,10 @@ def compare_site(
         gopls_only_identities = _identity_key_records(gopls_only)
 
     if oracle_reason is None and not unresolved_locations and prism == set() and gopls == set():
-        oracle_reason = "empty_satisfier_set"
+        oracle_reason = (
+            "empty_satisfier_set" if not non_candidate_locations
+            else "no_concrete_satisfiers"
+        )
     prism_implementers = (
         sorted({identity["name"] for identity in prism_identity_records})
         if identity_mode == "qualified"
@@ -334,6 +357,7 @@ def compare_site(
         "failure_stage": failure_stage,
         "oracle_reason": oracle_reason,
         "unresolved_locations": unresolved_locations,
+        "non_candidate_locations": non_candidate_locations,
         "prism_implementers": prism_implementers,
         "gopls_satisfiers": None if gopls is None else sorted(item[-1] if isinstance(item, tuple) else item for item in gopls),
         "prism_identities": prism_identity_records,
@@ -1279,7 +1303,13 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                             # 2) implementation at an interface declaration, with an
                             # empty retry for gopls readiness.
                             out = oracle.satisfier_identities(decl_file, decl_line, decl_char)
-                            if out is not None and out[1] == 0:
+                            if out is not None:
+                                retry_empty = out[1] == 0 or (
+                                    bool(prism_set) and not out[0]
+                                )
+                            else:
+                                retry_empty = False
+                            if retry_empty:
                                 oracle.resettle(settle_s=oracle._settle_s)
                                 out = oracle.satisfier_identities(decl_file, decl_line, decl_char)
                             if out is not None and (out[1] > 0 or allow_empty):
