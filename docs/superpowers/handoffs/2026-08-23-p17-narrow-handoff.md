@@ -11,7 +11,7 @@
 - The guard is limited to Go function-literal parameter recovery added by P17 wave 2. Main deliberately treated that parameter as unrecoverable. A serialized `CallSite.receiver_newly_recovered` bit preserves that provenance across cold, exact-CPG, and sidecar paths.
 - The shared `go_concrete_receiver_route` returns `ExternalNewRecoveryDrop` only when that bit is set and the recovered type is qualified through an import that cannot be proven in the effective in-repo module set. With an active module graph, absence of an exact `@go-import:` key proves externality; without module identity, an in-repo basename keeps the site out of this terminal route.
 - Pre-existing external recovery is unchanged. The pole with closure-local `var cl io.Closer; cl.Close()` still reaches the legacy bare-name ladder and retains its false-but-pre-existing Exact edge. No R3 ladder code changed.
-- The owner-authorized wave-5 rule supersedes the wave-4 handoff's unresolved note for these four sites. Earlier R2 collision, concrete direct, promotion, S4, P5, alias, rebinding, cache, and module-identity behavior remains green.
+- The wave-5 rule (ratified by the owner via design v9's amendment — see the spec's Status paragraph; the controller ledger records the decision) supersedes the wave-4 handoff's unresolved note for these four sites. Earlier R2 collision, concrete direct, promotion, S4, P5, alias, rebinding, cache, and module-identity behavior remains green.
 - No subagents were used. No push or gopls oracle was run.
 
 ## 1. Fix-wave-5 commits
