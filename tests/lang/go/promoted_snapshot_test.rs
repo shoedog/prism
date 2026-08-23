@@ -389,6 +389,76 @@ fn equal_depth_promoted_methods_are_omitted_and_flagged_ambiguous() {
 }
 
 #[test]
+fn mutually_exclusive_identical_methods_are_profile_variants_not_ambiguous() {
+    let cg = build_go(&[
+        (
+            "b_linux.go",
+            "package p\ntype B struct{}\nfunc (B) M() {}\n",
+        ),
+        (
+            "b_windows.go",
+            "package p\ntype B struct{}\nfunc (B) M() {}\n",
+        ),
+        ("s.go", "package p\ntype S struct{ B }\n"),
+    ]);
+    let s = owner(&cg, "", "p", "S");
+    assert_eq!(s.verdict, GoPromotedSnapshotVerdict::ProfileUnique);
+    let declaration = &s.declarations[0];
+    let promoted = declaration
+        .promoted_methods
+        .iter()
+        .filter(|method| method.method == "M")
+        .collect::<Vec<_>>();
+    assert_eq!(promoted.len(), 1, "build alternatives select one M");
+    assert!(!declaration.ambiguous_promoted_methods.contains("M"));
+    let serialized = serde_json::to_value(promoted[0]).expect("serialize promoted method");
+    let variant_files = serialized["profile_variants"]
+        .as_array()
+        .expect("profile variants are explicit")
+        .iter()
+        .map(|variant| variant["file"].as_str().expect("variant file"))
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(
+        variant_files,
+        std::collections::BTreeSet::from(["b_linux.go", "b_windows.go"])
+    );
+}
+
+#[test]
+fn mutually_exclusive_receiver_shapes_conflict_untagged_outer() {
+    let cg = build_go(&[
+        (
+            "b_linux.go",
+            "package p\ntype B struct{}\nfunc (B) M() {}\n",
+        ),
+        (
+            "b_windows.go",
+            "package p\ntype B struct{}\nfunc (*B) M() {}\n",
+        ),
+        ("s.go", "package p\ntype S struct{ B }\n"),
+    ]);
+    assert_conflict(&cg, "B");
+    assert_conflict(&cg, "S");
+}
+
+#[test]
+fn shallower_ordinary_field_suppresses_equal_depth_ambiguity() {
+    let cg = build_go(&[(
+        "s.go",
+        "package p\ntype D struct{}\nfunc (D) M() {}\ntype B struct{ D }\ntype F struct{}\nfunc (F) M() {}\ntype E struct{ F }\ntype C struct{ M int }\ntype S struct{ B; E; C }\n",
+    )]);
+    let declaration = &owner(&cg, "", "p", "S").declarations[0];
+    assert!(!declaration.ambiguous_promoted_methods.contains("M"));
+    let shadowed = declaration
+        .promoted_methods
+        .iter()
+        .filter(|method| method.method == "M")
+        .collect::<Vec<_>>();
+    assert_eq!(shadowed.len(), 2, "retain both shadow diagnostics");
+    assert!(shadowed.iter().all(|method| method.field_shadowed));
+}
+
+#[test]
 fn shallower_ordinary_field_keeps_the_method_shadowed_not_selected() {
     let cg = build_go(&[(
         "s.go",
