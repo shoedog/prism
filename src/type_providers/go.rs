@@ -172,6 +172,9 @@ pub struct GoTypeData {
     /// defined types, and aliases. Profile conflicts in any of those collapse
     /// under `GoOwnerIdentity`, so pointer-embed proof fails closed on them.
     type_declaration_files: BTreeMap<crate::resolution::GoOwnerIdentity, BTreeSet<String>>,
+    /// P17: provenance-bearing named-type declarations. Alias/defined targets
+    /// retain the declaration file so canonicalization uses that file's imports.
+    type_declarations: crate::go_concrete_receiver::GoTypeDeclarations,
     /// P5 S1: `(owner_identity, field_name)` pairs whose declared type begins
     /// with `func(` (named-type indirection, e.g. `type Handler func()`, is
     /// out of scope — noted, not attempted). Package-scoped so a registration
@@ -305,6 +308,7 @@ impl GoTypeProvider {
             struct_identities: BTreeSet::new(),
             struct_declaration_files: BTreeMap::new(),
             type_declaration_files: BTreeMap::new(),
+            type_declarations: BTreeMap::new(),
             func_typed_fields: BTreeSet::new(),
             struct_declarations: BTreeMap::new(),
             interface_declarations: BTreeMap::new(),
@@ -409,6 +413,10 @@ impl GoTypeProvider {
 
     pub fn go_method_declarations(&self) -> crate::go_owner_partition::GoMethodDeclarations {
         self.data.method_declarations.clone()
+    }
+
+    pub fn go_declaration_kind_index(&self) -> crate::go_concrete_receiver::GoDeclarationKindIndex {
+        crate::go_concrete_receiver::basic_declaration_kind_index(&self.data.type_declarations)
     }
 
     pub fn go_field_targets(
@@ -560,12 +568,25 @@ impl GoTypeProvider {
         if name.is_empty() {
             return;
         }
-        Self::record_type_declaration(data, path, &name, parsed);
-
         let type_node = match node.child_by_field_name("type") {
             Some(n) => n,
             None => return,
         };
+        if let Some(owner) = Self::record_type_declaration(data, path, &name, parsed) {
+            let form = match type_node.kind() {
+                "struct_type" => crate::go_concrete_receiver::GoTypeDeclarationForm::Struct,
+                "interface_type" => crate::go_concrete_receiver::GoTypeDeclarationForm::Interface,
+                _ => crate::go_concrete_receiver::GoTypeDeclarationForm::Defined {
+                    target: parsed.node_text(&type_node).trim().to_string(),
+                },
+            };
+            data.type_declarations.entry(owner).or_default().insert(
+                crate::go_concrete_receiver::GoTypeDeclaration {
+                    defining_file: path.to_string(),
+                    form,
+                },
+            );
+        }
 
         let line = node.start_position().row + 1;
 
@@ -697,19 +718,26 @@ impl GoTypeProvider {
         }
     }
 
-    fn record_type_declaration(data: &mut GoTypeData, path: &str, name: &str, parsed: &ParsedFile) {
+    fn record_type_declaration(
+        data: &mut GoTypeData,
+        path: &str,
+        name: &str,
+        parsed: &ParsedFile,
+    ) -> Option<crate::resolution::GoOwnerIdentity> {
         let (profile, _) = crate::go_build_profile::extract_go_file_profile(path, parsed);
         if profile.package_clause.trim().is_empty() {
-            return;
+            return None;
         }
+        let owner = crate::resolution::GoOwnerIdentity {
+            package_dir: crate::resolution::dir_of(path).to_string(),
+            package_clause: profile.package_clause,
+            name: name.to_string(),
+        };
         data.type_declaration_files
-            .entry(crate::resolution::GoOwnerIdentity {
-                package_dir: crate::resolution::dir_of(path).to_string(),
-                package_clause: profile.package_clause,
-                name: name.to_string(),
-            })
+            .entry(owner.clone())
             .or_default()
             .insert(path.to_string());
+        Some(owner)
     }
 
     fn has_generic_syntax(node: &tree_sitter::Node) -> bool {
@@ -820,7 +848,16 @@ impl GoTypeProvider {
         let name = parsed.node_text(&name_node).trim().to_string();
         let target = parsed.node_text(&type_node).trim().to_string();
         if !name.is_empty() && !target.is_empty() {
-            Self::record_type_declaration(data, path, &name, parsed);
+            if let Some(owner) = Self::record_type_declaration(data, path, &name, parsed) {
+                data.type_declarations.entry(owner).or_default().insert(
+                    crate::go_concrete_receiver::GoTypeDeclaration {
+                        defining_file: path.to_string(),
+                        form: crate::go_concrete_receiver::GoTypeDeclarationForm::Alias {
+                            target: target.clone(),
+                        },
+                    },
+                );
+            }
             data.aliases.insert(name, target);
         }
     }

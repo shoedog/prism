@@ -860,6 +860,7 @@ pub struct ResolutionTelemetry {
     pub go_same_pkg_all_filtered_drop: usize,
     pub go_bare_value_ref_ambiguous: usize,
     pub go_build_expr_unparsed: usize,
+    pub go_concrete_receiver_direct: usize,
     pub go_owner_identity_partition: crate::go_owner_partition::GoOwnerPartitionTelemetry,
 }
 
@@ -1189,7 +1190,7 @@ impl CallGraph {
         Some(resolved)
     }
 
-    fn go_receiver_owner(
+    pub(crate) fn go_receiver_owner(
         &self,
         recv_ty: &str,
         caller_file: &str,
@@ -1213,7 +1214,7 @@ impl CallGraph {
         )
     }
 
-    fn go_owner_reference_mode(
+    pub(crate) fn go_owner_reference_mode(
         &self,
         owner: &GoOwnerIdentity,
         caller_file: &str,
@@ -1420,7 +1421,7 @@ impl CallGraph {
         }
     }
 
-    fn go_own_method_partition(
+    pub(crate) fn go_own_method_partition(
         &self,
         recv_ty: &str,
         proven_owner: Option<&GoOwnerIdentity>,
@@ -2174,6 +2175,15 @@ impl CallGraph {
                             return self.go_field_target_lookup(&target, name, recovered_kind);
                         }
                     }
+                    let go_route =
+                        (caller_lang == Some(crate::languages::Language::Go)).then(|| {
+                            self.go_concrete_receiver_route(
+                                recv_ty,
+                                site.receiver_owner_identity.as_ref(),
+                                name,
+                                &site.caller.file,
+                            )
+                        });
                     if caller_lang == Some(crate::languages::Language::Python) {
                         let clean_key = (caller.file.clone(), recv_ty.to_string());
                         if self.clean_class_spans.contains_key(&clean_key) {
@@ -2281,17 +2291,24 @@ impl CallGraph {
                                 }
                             }
                         }
-                        let own_method_partition =
-                            if caller_lang == Some(crate::languages::Language::Go) {
-                                self.go_own_method_partition(
-                                    recv_ty,
-                                    site.receiver_owner_identity.as_ref(),
-                                    name,
-                                    &caller.file,
-                                )
-                            } else {
-                                None
-                            };
+                        let own_method_partition = if caller_lang
+                            == Some(crate::languages::Language::Go)
+                        {
+                            match go_route.as_ref() {
+                                    Some(crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect {
+                                        owner,
+                                        selection,
+                                    }) => Some((owner.clone(), selection.clone())),
+                                    _ => self.go_own_method_partition(
+                                        recv_ty,
+                                        site.receiver_owner_identity.as_ref(),
+                                        name,
+                                        &caller.file,
+                                    ),
+                                }
+                        } else {
+                            None
+                        };
                         if let Some((_, selection)) = &own_method_partition {
                             if selection.evidence.conflict || selection.evidence.uncertain {
                                 return ResolutionOutcome::dropped_with_telemetry(
@@ -2320,7 +2337,13 @@ impl CallGraph {
                             .collect();
                         let direct = match &own_method_partition {
                             Some((_, selection)) if selection.value == Some(false) => None,
-                            Some((owner, _)) if site.receiver_owner_identity.is_some() => {
+                            Some((owner, _))
+                                if site.receiver_owner_identity.is_some()
+                                    || matches!(
+                                        go_route.as_ref(),
+                                        Some(crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. })
+                                    ) =>
+                            {
                                 let ids = self
                                     .go_method_declarations
                                     .get(owner)
@@ -2381,6 +2404,12 @@ impl CallGraph {
                                     telemetry = ResolutionTelemetry::with_go_owner_partition(
                                         evidence, unfiltered,
                                     );
+                                }
+                                if matches!(
+                                    go_route.as_ref(),
+                                    Some(crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. })
+                                ) {
+                                    telemetry.go_concrete_receiver_direct = 1;
                                 }
                                 for callee in &mut resolved {
                                     if callee.kind == ResolutionKind::QualifiedOwner {

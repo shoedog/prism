@@ -635,6 +635,10 @@ pub struct CallGraph {
     /// receiver recovery can filter build profiles before requiring one value.
     #[serde(default)]
     pub go_field_types: crate::go_owner_partition::GoStructDeclarations,
+    /// P17: serialized declaration-kind proof used by the shared recovered-Go
+    /// receiver route. Exact CPG hits must retain the same R1/R2/R3 verdict.
+    #[serde(default)]
+    pub go_declaration_kind_index: crate::go_concrete_receiver::GoDeclarationKindIndex,
     /// P10 S4 interface and method declaration provenance, captured from the
     /// provider alongside `go_field_types` for exact consult-time routing.
     #[serde(default)]
@@ -728,6 +732,7 @@ impl CallGraph {
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
+            go_declaration_kind_index: BTreeMap::new(),
             go_interface_declarations: BTreeMap::new(),
             go_method_declarations: BTreeMap::new(),
             go_interface_live_types: BTreeSet::new(),
@@ -957,6 +962,7 @@ impl CallGraph {
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
+            go_declaration_kind_index: BTreeMap::new(),
             go_interface_declarations: BTreeMap::new(),
             go_method_declarations: BTreeMap::new(),
             go_interface_live_types: BTreeSet::new(),
@@ -1344,6 +1350,7 @@ impl CallGraph {
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
+            go_declaration_kind_index: BTreeMap::new(),
             go_interface_declarations: BTreeMap::new(),
             go_method_declarations: BTreeMap::new(),
             go_interface_live_types: BTreeSet::new(),
@@ -2740,6 +2747,7 @@ impl CallGraph {
         // early return in that function (which runs AFTER this clear but
         // BEFORE the fresh capture) leaves them empty rather than stale.
         self.go_field_types.clear();
+        self.go_declaration_kind_index.clear();
         self.go_interface_declarations.clear();
         self.go_method_declarations.clear();
         self.go_interface_live_types.clear();
@@ -2907,6 +2915,7 @@ impl CallGraph {
         // P11 S2/S4: capture the field re-projection and the embedded-interface
         // routing map while the provider is live, same pattern as above.
         self.go_field_types = provider.go_struct_declarations();
+        self.go_declaration_kind_index = provider.go_declaration_kind_index();
         self.go_interface_declarations = provider.go_interface_declarations();
         self.go_method_declarations = provider.go_method_declarations();
         self.go_embedded_interface_methods = provider.embedded_interface_method_routes();
@@ -4055,6 +4064,7 @@ impl CallGraph {
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
+            go_declaration_kind_index: BTreeMap::new(),
             go_interface_declarations: BTreeMap::new(),
             go_method_declarations: BTreeMap::new(),
             go_interface_live_types: BTreeSet::new(),
