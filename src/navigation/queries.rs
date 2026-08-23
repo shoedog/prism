@@ -423,6 +423,13 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "go_owner_identity_profile_conflict": cg.go_owner_identity_profile_conflict,
         "go_alias_expanded": cg.go_alias_expanded,
         "go_alias_unresolved": cg.go_alias_unresolved,
+        "go_promoted_snapshot_owners": cg.go_promoted_selector_snapshot().owners.len(),
+        "go_promoted_snapshot_profile_conflicts": cg
+            .go_promoted_selector_snapshot()
+            .profile_conflicts(),
+        "go_promoted_snapshot_promoted_methods": cg
+            .go_promoted_selector_snapshot()
+            .promoted_methods(),
         "dropped_go_receiver": dropped_go_receiver,
         "callback_registrations_recorded": cg.go_registrations.len(),
         "callback_registration_shadowed_skips": cg.go_registration_shadowed_skips,
@@ -792,6 +799,11 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
     serde_json::json!({
         "sites": sites,
         "interface_dispatch_computed": cg.interface_dispatch_computed,
+        "go_promoted_snapshot": {
+            "owners": cg.go_promoted_selector_snapshot().owners.len(),
+            "profile_conflicts": cg.go_promoted_selector_snapshot().profile_conflicts(),
+            "promoted_methods": cg.go_promoted_selector_snapshot().promoted_methods(),
+        },
     })
 }
 

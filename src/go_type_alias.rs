@@ -13,7 +13,8 @@ mod types;
 pub(crate) use canon::signature_imports;
 use canon::{alias_parameters, parse_expr};
 use types::{
-    AliasDeclaration, AliasDeclarationKind, AliasExpr, AliasUnresolvedReason, NamedType, OwnerHint,
+    AliasDeclaration, AliasDeclarationKind, AliasExpr, AliasUnresolvedReason, NameIdentity,
+    NamedType, OwnerHint,
 };
 pub(crate) use types::{CanonTypeError, GoAliasTelemetry};
 
@@ -77,6 +78,99 @@ impl GoAliasResolver {
 
     pub(crate) fn telemetry(&self) -> GoAliasTelemetry {
         self.telemetry.borrow().clone()
+    }
+
+    /// Resolve an embedded field's declared type to the concrete owner it names.
+    /// The returned pointer bit includes pointer-ness introduced by an alias RHS,
+    /// while callers retain the field's source selector separately.
+    pub(crate) fn resolve_embedded_owner(
+        &self,
+        raw_type: &str,
+        caller_file: &str,
+        imports: &BTreeMap<String, String>,
+    ) -> Result<(bool, GoOwnerIdentity), ()> {
+        let raw = raw_type.trim();
+        let (written_pointer, base) = match raw.strip_prefix('*') {
+            Some(base) => (true, base.trim()),
+            None => (false, raw),
+        };
+        if base.is_empty()
+            || base.contains(|ch: char| ch.is_whitespace())
+            || base.contains(['[', ']', '{', '}', '(', ')'])
+        {
+            return Err(());
+        }
+        let parts: Vec<&str> = base.split('.').collect();
+        let (identity, owner_hint, name) = match parts.as_slice() {
+            [name] if !name.is_empty() => {
+                let profile = self.profiles.get(caller_file).ok_or(())?;
+                if profile.package_clause.is_empty() {
+                    return Err(());
+                }
+                (
+                    NameIdentity::Bare,
+                    OwnerHint::Local {
+                        package_dir: dir_of(caller_file).to_string(),
+                        clause: profile.package_clause.clone(),
+                    },
+                    (*name).to_string(),
+                )
+            }
+            [qualifier, name] if !qualifier.is_empty() && !name.is_empty() => {
+                let import_path = imports.get(*qualifier).cloned().ok_or(())?;
+                (
+                    NameIdentity::Path {
+                        path: import_path.clone(),
+                        qualified: true,
+                    },
+                    OwnerHint::ImportPath(import_path),
+                    (*name).to_string(),
+                )
+            }
+            _ => return Err(()),
+        };
+        let named = NamedType {
+            identity,
+            owner_hint,
+            name,
+        };
+        let expanded = self
+            .expand_named(&named, Vec::new(), caller_file, &mut BTreeSet::new())
+            .map_err(|_| ())?
+            .unwrap_or(AliasExpr::Named(named));
+        let (alias_pointer, named) = match expanded {
+            AliasExpr::Named(named) => (false, named),
+            AliasExpr::Pointer(inner) => match *inner {
+                AliasExpr::Named(named) if !written_pointer => (true, named),
+                _ => return Err(()),
+            },
+            _ => return Err(()),
+        };
+        let owner = match named.owner_hint {
+            OwnerHint::Local {
+                package_dir,
+                clause,
+            } => GoOwnerIdentity {
+                package_dir,
+                package_clause: clause,
+                name: named.name,
+            },
+            OwnerHint::ImportPath(path) => {
+                let packages = self.packages_by_import_path.get(&path).ok_or(())?;
+                if packages.len() != 1 {
+                    return Err(());
+                }
+                let (package_dir, package_clause) =
+                    packages.iter().next().expect("one resolved package");
+                GoOwnerIdentity {
+                    package_dir: package_dir.clone(),
+                    package_clause: package_clause.clone(),
+                    name: named.name,
+                }
+            }
+            OwnerHint::None => return Err(()),
+        };
+        Ok((written_pointer || alias_pointer, owner))
     }
 
     pub(crate) fn canonicalize(

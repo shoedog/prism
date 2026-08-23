@@ -533,6 +533,10 @@ pub struct CallGraph {
     /// Alias leaves rejected before Exact dispatch, grouped by stable reason.
     #[serde(default)]
     pub go_alias_unresolved: BTreeMap<String, usize>,
+    /// Slice 4 foundation: owner/profile-keyed promoted-selector facts. This is
+    /// serialized for cache parity but deliberately not consumed by routing.
+    #[serde(default)]
+    go_promoted_selector_snapshot: crate::go_promoted_snapshot::GoPromotedSelectorSnapshot,
     /// P10 build-time S2 consult decisions. Whole-program rematerialized with
     /// receiver keys; runtime S4/P5 decisions travel on ResolutionOutcome.
     #[serde(default)]
@@ -722,6 +726,7 @@ impl CallGraph {
             go_import_path_unproven_reasons: BTreeMap::new(),
             go_alias_expanded: 0,
             go_alias_unresolved: BTreeMap::new(),
+            go_promoted_selector_snapshot: Default::default(),
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
@@ -742,6 +747,13 @@ impl CallGraph {
             go_embedded_interface_methods: BTreeMap::new(),
             go_package_vars: BTreeMap::new(),
         }
+    }
+
+    /// Read-only access to the serialized promoted-selector foundation facts.
+    pub fn go_promoted_selector_snapshot(
+        &self,
+    ) -> &crate::go_promoted_snapshot::GoPromotedSelectorSnapshot {
+        &self.go_promoted_selector_snapshot
     }
 
     /// Build a lightweight call graph with only direct calls (Phases 1-2).
@@ -948,6 +960,7 @@ impl CallGraph {
             go_import_path_unproven_reasons: BTreeMap::new(),
             go_alias_expanded: 0,
             go_alias_unresolved: BTreeMap::new(),
+            go_promoted_selector_snapshot: Default::default(),
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
@@ -1336,6 +1349,7 @@ impl CallGraph {
             go_import_path_unproven_reasons: BTreeMap::new(),
             go_alias_expanded: 0,
             go_alias_unresolved: BTreeMap::new(),
+            go_promoted_selector_snapshot: Default::default(),
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,
@@ -2763,6 +2777,7 @@ impl CallGraph {
         self.go_import_path_unproven_reasons.clear();
         self.go_alias_expanded = 0;
         self.go_alias_unresolved.clear();
+        self.go_promoted_selector_snapshot = Default::default();
     }
 
     /// Recompute Go embedding promotions over `files` and write owner-index aliases.
@@ -2927,6 +2942,16 @@ impl CallGraph {
         self.go_interface_declarations = provider.go_interface_declarations();
         self.go_method_declarations = provider.go_method_declarations();
         self.go_embedded_interface_methods = provider.embedded_interface_method_routes();
+        let go_type_declaration_files = provider.go_type_declaration_files();
+        self.go_promoted_selector_snapshot = crate::go_promoted_snapshot::build(
+            files,
+            &package_import_paths.paths,
+            &self.go_file_profiles,
+            &go_type_declaration_files,
+            &self.go_field_types,
+            &self.go_interface_declarations,
+            &self.go_method_declarations,
+        );
         // Manifest denominator from raw snapshots, before any clause/profile
         // last-writer collapse in the provider compatibility maps.
         self.interface_method_names = self
@@ -4044,6 +4069,7 @@ impl CallGraph {
             go_import_path_unproven_reasons: BTreeMap::new(),
             go_alias_expanded: 0,
             go_alias_unresolved: BTreeMap::new(),
+            go_promoted_selector_snapshot: Default::default(),
             go_owner_identity_partition: Default::default(),
             go_owner_identity_partition_sites: BTreeMap::new(),
             go_bare_value_ref_ambiguous: 0,

@@ -426,6 +426,12 @@ impl GoTypeProvider {
         self.data.method_declarations.clone()
     }
 
+    pub(crate) fn go_type_declaration_files(
+        &self,
+    ) -> BTreeMap<crate::resolution::GoOwnerIdentity, BTreeSet<String>> {
+        self.data.type_declaration_files.clone()
+    }
+
     pub fn go_field_targets(
         &self,
     ) -> BTreeMap<(crate::resolution::GoOwnerIdentity, String), crate::resolution::GoFieldTarget>
@@ -615,7 +621,8 @@ impl GoTypeProvider {
 
         match type_node.kind() {
             "struct_type" => {
-                let (fields, embedded) = Self::extract_struct_fields(&type_node, parsed);
+                let (fields, embedded, unresolved_embedded) =
+                    Self::extract_struct_fields(&type_node, parsed);
                 // P5 S1: package-scoped owner identity, distinct from the bare
                 // `name` key `data.structs` uses (spec-review MAJOR-1).
                 let (profile, _) = crate::go_build_profile::extract_go_file_profile(path, parsed);
@@ -642,6 +649,7 @@ impl GoTypeProvider {
                                 .iter()
                                 .map(|e| (e.name.clone(), e.raw_type.clone()))
                                 .collect(),
+                            unresolved_embedded_fields: unresolved_embedded,
                             embedded_types: embedded
                                 .iter()
                                 .filter(|e| !e.is_pointer && e.local_target_name().is_some())
@@ -878,9 +886,14 @@ impl GoTypeProvider {
     fn extract_struct_fields(
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
-    ) -> (Vec<(String, String)>, Vec<GoEmbeddedField>) {
+    ) -> (
+        Vec<(String, String)>,
+        Vec<GoEmbeddedField>,
+        BTreeSet<String>,
+    ) {
         let mut fields = Vec::new();
         let mut embedded = Vec::new();
+        let mut unresolved_embedded = BTreeSet::new();
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
@@ -888,12 +901,18 @@ impl GoTypeProvider {
                 let mut inner = child.walk();
                 for field in child.children(&mut inner) {
                     if field.kind() == "field_declaration" {
-                        Self::extract_one_field(&field, parsed, &mut fields, &mut embedded);
+                        Self::extract_one_field(
+                            &field,
+                            parsed,
+                            &mut fields,
+                            &mut embedded,
+                            &mut unresolved_embedded,
+                        );
                     }
                 }
             }
         }
-        (fields, embedded)
+        (fields, embedded, unresolved_embedded)
     }
 
     /// Extract a single field_declaration.
@@ -902,6 +921,7 @@ impl GoTypeProvider {
         parsed: &ParsedFile,
         fields: &mut Vec<(String, String)>,
         embedded: &mut Vec<GoEmbeddedField>,
+        unresolved_embedded: &mut BTreeSet<String>,
     ) {
         let mut names: Vec<String> = Vec::new();
         let mut cursor = node.walk();
@@ -942,6 +962,8 @@ impl GoTypeProvider {
                 };
                 fields.push((embedded_name.to_string(), embedded_field.raw_type.clone()));
                 embedded.push(embedded_field);
+            } else {
+                unresolved_embedded.insert(raw_type);
             }
         } else {
             for name in names {

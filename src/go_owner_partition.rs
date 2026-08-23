@@ -29,6 +29,11 @@ pub struct GoStructDeclaration {
     /// distinct from `embedded_types`, whose entries are safe S4 interface
     /// candidates (local, non-pointer names only).
     pub embedded_fields: BTreeMap<String, String>,
+    /// Anonymous field syntax that has no resolvable Go selector identity.
+    /// Retained so profile-safe promotion snapshots can fail closed instead of
+    /// silently treating the declaration as having no embedded fields.
+    #[serde(default)]
+    pub unresolved_embedded_fields: BTreeSet<String>,
     pub embedded_types: BTreeSet<String>,
 }
 
