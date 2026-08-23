@@ -6423,10 +6423,13 @@ mod go_receiver_typing_tests {
         // `o Other` shadows the outer `o *Outer`. Without the closure-shadow
         // fix, the outer-function walk would see only the OUTER `o` binding
         // (the closure's own param is invisible to `function_node_types()`)
-        // and could leak a stale/wrong recovery. Must fail closed (no
-        // recovery), not silently resolve against the wrong type.
+        // and could leak a stale/wrong R1/R2 proof. P17 retains the first type
+        // only as the legacy R3 input, and marks that proof shadowed so it
+        // cannot mint a direct edge against the outer declaration.
         let site = site_in(&cg, "run", "M");
-        assert_eq!(site.receiver_type, None);
+        assert_eq!(site.receiver_type.as_deref(), Some("Outer"));
+        assert!(site.receiver_local_type_shadowed);
+        assert!(cg.resolve_call_site(site).is_empty());
     }
 
     // ---- B1 (codex impl-review BLOCKER): func_literal lexical-scope fence -
