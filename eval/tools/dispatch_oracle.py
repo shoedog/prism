@@ -1530,7 +1530,6 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
         print(f"warmed {warmed}/{len(warm_files)} files in {round(time.monotonic() - tw, 1)}s",
               file=log)
 
-        scored = 0
         for si, s in enumerate(dispatch, 1):
             method = s["method"]
             prism_set = set(s.get("implementers", []))
@@ -1719,18 +1718,20 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
             record["fanout"] = s.get("fanout", len(prism_set))
             record["start_byte"] = s.get("start_byte")
             record["end_byte"] = s.get("end_byte")
-            if record["classification"] not in {"oracle_timeout", "oracle_unresolved"}:
-                scored += 1
             records.append(record)
 
-        print(f"scored {scored}/{len(dispatch)} sites; "
+        summary = summarize(records)
+        overall = summary["overall"]
+        print(f"scored {overall['scored_sites']}/{len(dispatch)} sites; "
+              f"excluded not_dispatch={overall['not_dispatch_sites']} "
+              f"oracle_timeout={overall['oracle_timeout']} "
+              f"oracle_unresolved={overall['oracle_unresolved']}; "
               f"{len(decl_cache)} unique interface-method declarations; "
-              f"{len(dispatch) - scored} timeout_or_unresolved in "
               f"{round(time.monotonic() - t0, 1)}s total", file=log)
     finally:
         oracle.stop()
 
-    return records, summarize(records)
+    return records, summary
 
 
 def _format_precision(value: float | None) -> str:
