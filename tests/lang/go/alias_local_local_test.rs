@@ -730,9 +730,29 @@ fn s4_parameterized_alias_shape_recognition_is_not_error_text_dependent() {
 
 #[test]
 fn s4ox_qualified_lookup_never_admits_the_external_test_clause_own_alias() {
+    fn build_mod(sources: &[(&str, &str)]) -> CallGraph {
+        let files: BTreeMap<String, ParsedFile> = sources
+            .iter()
+            .map(|(path, source)| {
+                (
+                    (*path).to_string(),
+                    ParsedFile::parse(path, source, Language::Go).expect("parse"),
+                )
+            })
+            .collect();
+        let repo = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            repo.path().join("go.mod"),
+            "module example.com/prism\n\ngo 1.22\n",
+        )
+        .unwrap();
+        let inputs = prism::repo_loader::scope_graph_build_inputs(repo.path(), &files);
+        CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs))
+    }
+
     // sol-r2-1: `lib_test`'s own `type A = string` must not become a variant
     // of the IMPORTED lib.A; the valid int edge stays Exact.
-    let cg = build_go(&[
+    let cg = build_mod(&[
         ("lib/prod.go", "package lib\ntype A = int\ntype B struct{}\nfunc (B) Act(a A) {}\n"),
         (
             "app/use.go",
@@ -769,13 +789,15 @@ fn s4ox_predeclared_shadowing_requires_exactly_visible_declarations() {
             "lib/tagged_linux.go",
             "//go:build linux\npackage lib\ntype byte = int64\ntype rune = int64\n",
         ),
+        // Windows-only consumer: the linux declaration is INVISIBLE to it, so
+        // byte→uint8 / rune→int32 normalization MUST still apply.
         (
-            "lib/defs.go",
-            "package lib\ntype Doer interface { Act(byte); Run(rune) }\ntype Holder struct { Doer }\nfunc invoke(h Holder) { h.Act(uint8(0)); h.Run(int32(0)) }\n",
+            "lib/defs_windows.go",
+            "//go:build windows\npackage lib\ntype Doer interface { Act(byte); Run(rune) }\ntype Holder struct { Doer }\nfunc invoke(h Holder) { h.Act(uint8(0)); h.Run(int32(0)) }\n",
         ),
         (
-            "lib/impl.go",
-            "package lib\ntype Impl struct{}\nfunc (Impl) Act(b uint8) {}\nfunc (Impl) Run(r int32) {}\n",
+            "lib/impl_windows.go",
+            "//go:build windows\npackage lib\ntype Impl struct{}\nfunc (Impl) Act(b uint8) {}\nfunc (Impl) Run(r int32) {}\n",
         ),
     ]);
     for method in ["Act", "Run"] {
@@ -792,6 +814,42 @@ fn s4ox_predeclared_shadowing_requires_exactly_visible_declarations() {
             .filter_map(|r| tagged.method_owners.get(r.target).cloned())
             .collect();
         assert_eq!(owners, vec!["Impl".to_string()], "{method}");
+    }
+
+    // An UNCONSTRAINED interface file sees only the linux alias; its `byte`
+    // meaning is platform-dependent -> fail closed (no false uint8 match).
+    let ambiguous = build_go(&[
+        (
+            "lib/tagged_linux.go",
+            "//go:build linux\npackage lib\ntype byte = int64\n",
+        ),
+        (
+            "lib/defs2.go",
+            "package lib\ntype Doer interface { Act(byte) }\ntype Holder struct { Doer }\nfunc invoke(h Holder) { h.Act(uint8(0)) }\n",
+        ),
+        (
+            "lib/impl2.go",
+            "package lib\ntype Impl struct{}\nfunc (Impl) Act(b uint8) {}\n",
+        ),
+    ]);
+    {
+        let site = ambiguous
+            .calls
+            .values()
+            .flatten()
+            .find(|s| s.caller.name == "invoke" && s.callee_name == "Act")
+            .expect("site");
+        let owners: Vec<_> = ambiguous
+            .resolve_call_site_full(site)
+            .resolved
+            .iter()
+            .filter_map(|r| ambiguous.method_owners.get(r.target).cloned())
+            .collect();
+        assert_eq!(
+            owners,
+            Vec::<String>::new(),
+            "ambiguous-platform leaf must not mint Exact"
+        );
     }
 
     let test_only = build_go(&[
