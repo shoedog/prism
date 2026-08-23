@@ -121,6 +121,8 @@ precision gate compares bare receiver NAMES (`manifest` + `dispatch_oracle.py`),
 - Gate: same-base control (5 corpora; every Exact loss attributed; every Exact gain scored by the hardened oracle in delta mode: `gate_ok` required)
   + precision ≥ slice-1 baselines per corpus.
 
+Oracle delta gate: `gate_ok` required per corpus, OR a documented exception where every blocking site is attributed to a tracked pre-existing class with owner sign-off. 2026-08-22 owner decision: etcd's 5 blocking sites (cache_test.go:1383/1559 Get → RecordingClient; revision_test.go:114/126 Client; v3_failover_test.go:93 Endpoints) are the roadmap-#17 concrete-receiver class surfaced by identity recovery (0 lost-exact, 370 sound); slice 3 merges with this exception and #17-narrow's acceptance must turn them to 0 (`oracle-s3b-etcd.json` is that baseline).
+
 ## 5. Slice 4 — alias-aware `Local↔Local` by path
 - Alias expansion **[R1-2]**: record every `type A = <type expr>` per declaring (dir, clause, profile) (P10 identity; `_test` clause aliases
   invisible to production), keeping the RHS as a canonicalized TYPE EXPRESSION (not a named leaf). `canon_type`, on a `type_identifier`/
