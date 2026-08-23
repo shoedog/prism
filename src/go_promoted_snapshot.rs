@@ -14,6 +14,8 @@ use crate::resolution::GoOwnerIdentity;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+mod interface_profiles;
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GoPromotedSelectorSnapshot {
     pub owners: BTreeMap<GoOwnerIdentity, GoPromotedOwnerSnapshot>,
@@ -204,6 +206,16 @@ pub(crate) fn build(
         }
     }
 
+    interface_profiles::extend(
+        &mut raw,
+        files,
+        package_import_paths,
+        interfaces,
+        structs,
+        type_declarations,
+        &aliases,
+    );
+
     // Defined non-struct types can be embedded and contribute own methods.
     // Keep them as internal hop profiles; only struct owners are published.
     for (owner, declaring_files) in type_declarations {
@@ -250,16 +262,9 @@ pub(crate) fn build(
         }
     }
 
-    let terminal_owners = interfaces.keys().cloned().collect::<BTreeSet<_>>();
     let mut conflicts = BTreeMap::new();
     for owner in raw.keys() {
-        owner_conflicts(
-            owner,
-            &raw,
-            &terminal_owners,
-            &mut conflicts,
-            &mut BTreeSet::new(),
-        );
+        owner_conflicts(owner, &raw, &mut conflicts, &mut BTreeSet::new());
     }
 
     let mut owners = BTreeMap::new();
@@ -375,13 +380,9 @@ fn collect_error_type_declarations<'a>(
 fn owner_conflicts(
     owner: &GoOwnerIdentity,
     raw: &BTreeMap<GoOwnerIdentity, Vec<RawProfile>>,
-    terminal_owners: &BTreeSet<GoOwnerIdentity>,
     memo: &mut BTreeMap<GoOwnerIdentity, bool>,
     visiting: &mut BTreeSet<GoOwnerIdentity>,
 ) -> bool {
-    if terminal_owners.contains(owner) {
-        return false;
-    }
     if let Some(conflict) = memo.get(owner) {
         return *conflict;
     }
@@ -401,7 +402,7 @@ fn owner_conflicts(
     let downstream = profiles
         .iter()
         .flat_map(|profile| &profile.snapshot.embedded_fields)
-        .any(|embedded| owner_conflicts(&embedded.target, raw, terminal_owners, memo, visiting));
+        .any(|embedded| owner_conflicts(&embedded.target, raw, memo, visiting));
     visiting.remove(owner);
     let conflict = direct || downstream;
     memo.insert(owner.clone(), conflict);
