@@ -287,27 +287,33 @@ struct ReceiverMethodSet {
 ///
 /// P15a-fix2: per-measurement OWNERSHIP instead of a racy global arm bit.
 ///
-/// WHY NOT THREAD-LOCAL TOKENS: the production build paths construct the
-/// provider inside `build_pool().install(...)` (rayon worker threads), so a
-/// thread-local current generation never sees the constructions. Instead, a
-/// `MeasurementToken` OWNS the measurement exclusively for its lifetime
-/// (blocking, RAII — a second concurrent acquirer waits) and installs a
-/// unique generation as the attribution target; every extraction records the
-/// generation it was BUILT under, so a provider created before the token but
-/// dropped during it decrements ITS OWN (earlier or zero) generation — never
-/// the live one. Counters are per-generation maps, so nothing a parallel
-/// un-tokenized test does is ever attributed to a live measurement.
+/// WHY THREAD-LOCAL GENERATIONS (P15a-fix2, second iteration): the first
+/// draft used one process-global CURRENT_GENERATION, and the full suite
+/// flaked — a PARALLEL un-tokenized test's Go construction was attributed to
+/// the live token's generation, inflating its plain count. The fix: the
+/// attribution target is a THREAD-LOCAL generation. A `MeasurementToken` sets
+/// it on the acquiring thread; `build_pool::install` propagates it onto the
+/// pool worker that runs the build op (the only non-test thread production
+/// constructions happen on). Any other test's threads see their own
+/// thread-local — 0 unless they hold their own token — so foreign
+/// constructions are never attributed to a live measurement, and drops are
+/// attributed to the generation the extraction was BUILT under (never
+/// underflowing a later measurement).
 #[cfg(test)]
 pub(crate) mod test_counters {
+    use std::cell::Cell;
     use std::collections::BTreeMap;
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::{Mutex, MutexGuard};
 
     static NEXT_GENERATION: AtomicU64 = AtomicU64::new(1);
-    static CURRENT_GENERATION: AtomicU64 = AtomicU64::new(0);
     /// Owned mutual exclusion for measurements. Held by the live token.
     static MEASUREMENT_LOCK: Mutex<()> = Mutex::new(());
     static COUNTERS: Mutex<BTreeMap<u64, GenerationCounters>> = Mutex::new(BTreeMap::new());
+
+    thread_local! {
+        static CURRENT_GENERATION: Cell<u64> = const { Cell::new(0) };
+    }
 
     #[derive(Default)]
     struct GenerationCounters {
@@ -326,9 +332,9 @@ pub(crate) mod test_counters {
     }
 
     impl MeasurementToken {
-        /// Start measuring. Blocks until no other measurement is active, so
-        /// concurrent Go-provider tests measure serially and deterministically
-        /// instead of racing on shared counters.
+        /// Start measuring on THIS thread. Blocks until no other measurement
+        /// is active, so concurrent Go-provider tests measure serially and
+        /// deterministically instead of racing on shared counters.
         pub fn acquire() -> Self {
             let lock = MEASUREMENT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
             let generation = NEXT_GENERATION.fetch_add(1, Ordering::SeqCst);
@@ -336,7 +342,7 @@ pub(crate) mod test_counters {
                 .lock()
                 .unwrap()
                 .insert(generation, GenerationCounters::default());
-            CURRENT_GENERATION.store(generation, Ordering::SeqCst);
+            CURRENT_GENERATION.with(|c| c.set(generation));
             Self {
                 generation,
                 _lock: lock,
@@ -370,15 +376,34 @@ pub(crate) mod test_counters {
 
     impl Drop for MeasurementToken {
         fn drop(&mut self) {
-            CURRENT_GENERATION.store(0, Ordering::SeqCst);
+            CURRENT_GENERATION.with(|c| c.set(0));
             COUNTERS.lock().unwrap().remove(&self.generation);
         }
     }
 
-    /// Generation currently being measured; 0 = none. Constructions outside
-    /// any token are never counted.
+    /// Generation currently being measured on THIS thread; 0 = none.
+    /// Constructions outside any token (or outside an install-inherited
+    /// worker) are never counted.
     pub(crate) fn current_generation() -> u64 {
-        CURRENT_GENERATION.load(Ordering::SeqCst)
+        CURRENT_GENERATION.with(Cell::get)
+    }
+
+    /// RAII: run a closure with this thread's generation set to `generation`
+    /// (used by `build_pool::install` to propagate the measuring thread's
+    /// attribution onto the pool worker that executes the build op).
+    pub(crate) struct GenerationGuard(u64);
+
+    impl Drop for GenerationGuard {
+        fn drop(&mut self) {
+            CURRENT_GENERATION.with(|c| c.set(self.0));
+        }
+    }
+
+    pub(crate) fn inherit_generation<R>(generation: u64, f: impl FnOnce() -> R) -> R {
+        let previous = current_generation();
+        CURRENT_GENERATION.with(|c| c.set(generation));
+        let _guard = GenerationGuard(previous);
+        f()
     }
 
     pub(crate) fn record_construction(plain: bool) {

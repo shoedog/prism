@@ -38,5 +38,17 @@ pub(crate) fn build_pool() -> &'static rayon::ThreadPool {
 /// workers in one place rather than wrapping each site. `op` runs on a pool
 /// worker; the caller blocks until it returns.
 pub fn install<R: Send>(op: impl FnOnce() -> R + Send) -> R {
+    #[cfg(test)]
+    {
+        // P15a-fix2 (test-only): propagate the measuring thread's counter
+        // generation onto the pool worker that runs `op`, so Go-provider
+        // constructions inside the build are attributed to the live
+        // MeasurementToken instead of being invisible to it.
+        let generation = crate::type_providers::go::test_counters::current_generation();
+        build_pool().install(move || {
+            crate::type_providers::go::test_counters::inherit_generation(generation, op)
+        })
+    }
+    #[cfg(not(test))]
     build_pool().install(op)
 }

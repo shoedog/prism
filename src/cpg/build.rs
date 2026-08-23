@@ -206,7 +206,9 @@ impl CodePropertyGraph {
         // Run the whole build (DFG + call-graph + assemble, all recursive AST
         // walks) on the large-stack pool so deep ASTs don't overflow a default
         // ~2 MiB rayon worker. install() makes every nested par_iter use it.
-        build_pool().install(|| Self::build_impl_inner(files, type_db, scope_inputs))
+        // Routed through the shared wrapper so test counter generations are
+        // inherited by the worker (P15a-fix2).
+        crate::build_pool::install(|| Self::build_impl_inner(files, type_db, scope_inputs))
     }
 
     /// The body of `build_impl`, split out so a full-rebuild fallback that is
@@ -281,8 +283,10 @@ impl CodePropertyGraph {
     ) -> Self {
         // Same large-stack pool as build_impl — the subset CG/DFG builds and the
         // assemble below are the same recursive AST walks (install() routes every
-        // nested par_iter onto big-stack workers).
-        build_pool().install(move || {
+        // nested par_iter onto big-stack workers). Routed through the shared
+        // wrapper so test counter generations are inherited by the worker
+        // (P15a-fix2).
+        crate::build_pool::install(move || {
             // P8 F1 fix (codex re-review BLOCKER): Rust macro-arg call
             // extraction (`rust_macro_args::is_transparent_arg_macro`)
             // depends on the repo-wide macro shadow set, but this
