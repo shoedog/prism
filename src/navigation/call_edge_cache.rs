@@ -45,7 +45,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // participates in the sidecar fingerprint (paired with CPG v45).
 // v15: effective Go workspace/module/replacement identity changes interface
 // dispatch topology (paired with CPG v46).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 15;
+// v16: reserved for roadmap #17 narrow concrete-receiver routing.
+// v17: alias-aware Go signature identity (paired with CPG v48).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 17;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
