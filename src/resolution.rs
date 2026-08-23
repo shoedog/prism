@@ -1637,7 +1637,7 @@ impl CallGraph {
         if !field
             .value
             .as_deref()
-            .is_some_and(|ty| ty.trim_start().starts_with("func("))
+            .is_some_and(|ty| self.go_field_type_is_func(&owner, ty))
         {
             return ResolutionOutcome::dropped_with_telemetry(
                 DropReason::ExternalReceiver,

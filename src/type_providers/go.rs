@@ -176,8 +176,8 @@ pub struct GoTypeData {
     /// retain the declaration file so canonicalization uses that file's imports.
     type_declarations: crate::go_concrete_receiver::GoTypeDeclarations,
     /// P5 S1: `(owner_identity, field_name)` pairs whose declared type begins
-    /// with `func(` (named-type indirection, e.g. `type Handler func()`, is
-    /// out of scope — noted, not attempted). Package-scoped so a registration
+    /// with `func(`. Named-type indirection is resolved later through P17's
+    /// declaration-kind graph. Package-scoped so a registration
     /// in one package cannot donate a false hit to a same-named struct in
     /// another (spec-review MAJOR-1).
     func_typed_fields: BTreeSet<(crate::resolution::GoOwnerIdentity, String)>,

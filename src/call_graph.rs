@@ -3021,19 +3021,17 @@ impl CallGraph {
         // resolution deliberately treats that as ambiguous downstream.
         self.go_package_basenames = Self::go_package_basenames(files);
         self.go_known_struct_identities = self.go_field_types.keys().cloned().collect();
-        self.go_func_typed_fields = self
-            .go_field_types
-            .iter()
-            .flat_map(|(owner, declarations)| {
-                declarations.iter().flat_map(move |declaration| {
-                    declaration.fields.iter().filter_map(move |(name, ty)| {
-                        ty.trim_start()
-                            .starts_with("func(")
-                            .then(|| (owner.clone(), name.clone()))
-                    })
-                })
-            })
-            .collect();
+        let mut func_typed_fields = BTreeSet::new();
+        for (owner, declarations) in &self.go_field_types {
+            for declaration in declarations {
+                for (name, ty) in &declaration.fields {
+                    if self.go_field_type_is_func(owner, ty) {
+                        func_typed_fields.insert((owner.clone(), name.clone()));
+                    }
+                }
+            }
+        }
+        self.go_func_typed_fields = func_typed_fields;
     }
 
     fn clear_go_registrations(&mut self) {
@@ -3120,7 +3118,7 @@ impl CallGraph {
         Ok(selected
             .value
             .as_deref()
-            .is_some_and(|ty| ty.trim_start().starts_with("func("))
+            .is_some_and(|ty| self.go_field_type_is_func(&owner, ty))
             .then(|| (owner, field_name.to_string())))
     }
 

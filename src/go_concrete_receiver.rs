@@ -44,6 +44,8 @@ pub enum GoDeclarationKind {
 pub struct GoDeclarationKindEntry {
     pub declaring_file: Option<String>,
     pub kind: GoDeclarationKind,
+    #[serde(default)]
+    pub underlying_func: bool,
 }
 
 pub type GoDeclarationKindIndex = BTreeMap<GoOwnerIdentity, GoDeclarationKindEntry>;
@@ -117,11 +119,20 @@ pub(crate) fn declaration_kind_index(
                 };
                 (Some(declaration.defining_file.clone()), kind)
             };
+            let underlying_func = declaring_file.is_some()
+                && crate::go_func_type::declaration_resolves_to_func(
+                    owner,
+                    declarations,
+                    imports,
+                    package_basenames,
+                    file_profiles,
+                );
             (
                 owner.clone(),
                 GoDeclarationKindEntry {
                     declaring_file,
                     kind,
+                    underlying_func,
                 },
             )
         })
@@ -414,7 +425,7 @@ impl CallGraph {
             };
         }
         if let Some(field_type) = field.value.as_deref() {
-            return if field_type.trim_start().starts_with("func(") {
+            return if self.go_field_type_is_func(&owner, field_type) {
                 GoConcreteReceiverRoute::FuncValueField { owner }
             } else {
                 GoConcreteReceiverRoute::ConcreteNoSelector {

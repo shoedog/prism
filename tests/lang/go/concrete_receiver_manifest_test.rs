@@ -262,6 +262,46 @@ fn manifest_pins_func_value_field_with_resolver_target() {
 }
 
 #[test]
+fn named_func_value_field_keeps_p5_and_manifest_route() {
+    let cg = build_go(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface{ Run() }\n\
+         type H func()\n\
+         type Command struct{ Run H }\n\
+         func worker() {}\n\
+         func New() Command { return Command{Run: worker} }\n\
+         func invoke() { c := New(); c.Run() }\n",
+    )]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "invoke", "Run"));
+
+    assert_eq!(outcome.drop, None, "{outcome:?}");
+    assert_eq!(outcome.resolved.len(), 1, "{outcome:?}");
+    assert_eq!(outcome.resolved[0].target.name, "worker");
+    assert_eq!(outcome.resolved[0].kind, ResolutionKind::FuncValueField);
+    assert_manifest_route(&cg, "func_value_field");
+}
+
+#[test]
+fn pointer_to_named_func_field_is_not_callable_p5() {
+    let cg = build_go(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface{ Run() }\n\
+         type H func()\n\
+         type Command struct{ Run *H }\n\
+         func worker() {}\n\
+         func New() Command { return Command{} }\n\
+         func invoke() { c := New(); c.Run() }\n",
+    )]);
+    let outcome = cg.resolve_call_site_full(site(&cg, "invoke", "Run"));
+
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(outcome.drop, Some(DropReason::ConcreteReceiverNoSelector));
+    assert_manifest_route(&cg, "concrete_no_selector_drop");
+}
+
+#[test]
 fn manifest_pins_concrete_no_selector_with_resolver_telemetry() {
     let cg = build_go(&[(
         "main.go",
