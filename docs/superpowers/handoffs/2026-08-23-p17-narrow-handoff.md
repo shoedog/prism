@@ -136,6 +136,6 @@ Retained evidence:
 - `/private/tmp/p17-fix5-prometheus-manifest.json`
 - Wave-4 comparison controls: `/private/tmp/p17-fix4-final-callstats-*.txt` and `/private/tmp/p17-fix4-final-prometheus-manifest.json`
 
-Not done: push and gopls oracle, by instruction. No known implementation blocker remains.
+Not done: push, by instruction. The final review round and gopls oracle were controller-owned.
 
-**COMPLETE:** the final four external-`io.Closer` false edges are removed, every other manifest record is preserved, all required tests/builds/corpora are recorded, and the branch is ready for controller review/push.
+**CLOSE-OUT:** Implementation and controller gates green (suite, tier-a, corpora, oracle with the single documented hugo env-gap waiver, direct-lane audit); design conformance restored by the v9 amendment (ca26ba9); final review round and gopls oracle were controller-owned.
