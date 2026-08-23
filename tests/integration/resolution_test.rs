@@ -3236,7 +3236,7 @@ fn p6_lifetime_typed_param_recovers_among_collisions() {
 }
 
 #[test]
-fn go_embedded_method_resolves_exact() {
+fn go_embedded_concrete_method_is_terminally_deferred() {
     use prism::languages::Language::Go;
     let (cg, _) = build(&[(
         "main.go",
@@ -3244,42 +3244,48 @@ fn go_embedded_method_resolves_exact() {
         Go,
     )]);
     let site = site_in(&cg, "run", "Ping");
-    let r = cg.resolve_call_site(&site);
-    assert_eq!(r.len(), 1);
-    assert_eq!(r[0].target.name, "Ping");
-    assert_eq!(r[0].target.file, "main.go");
-    assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
-    assert_eq!(r[0].kind, ResolutionKind::EmbeddedPromotion);
+    let outcome = cg.resolve_call_site_full(&site);
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(
+        outcome.drop,
+        Some(DropReason::ConcreteReceiverPromotedDeferred)
+    );
+    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_deferred, 1);
 }
 
 #[test]
-fn go_embedded_transitive_resolves() {
+fn go_embedded_transitive_concrete_method_is_terminally_deferred() {
     use prism::languages::Language::Go;
     let (cg, _) = build(&[(
         "main.go",
         "package main\ntype C struct{}\nfunc (c C) M() {}\ntype B struct{ C }\ntype A struct{ B }\nfunc run(a A) {\n\ta.M()\n}\n",
         Go,
     )]);
-    let r = cg.resolve_call_site(&site_in(&cg, "run", "M"));
-    assert_eq!(r.len(), 1);
-    assert_eq!(r[0].kind, ResolutionKind::EmbeddedPromotion);
+    let outcome = cg.resolve_call_site_full(&site_in(&cg, "run", "M"));
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(
+        outcome.drop,
+        Some(DropReason::ConcreteReceiverPromotedDeferred)
+    );
+    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_deferred, 1);
 }
 
 #[test]
-fn go_embedded_pointer_receiver_addressable_resolves() {
+fn go_embedded_pointer_receiver_addressable_is_terminally_deferred() {
     use prism::languages::Language::Go;
     let (cg, _) = build(&[(
         "main.go",
         "package main\ntype Base struct{}\nfunc (b *Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\nfunc run(w Wrap) {\n\tw.Ping()\n}\n",
         Go,
     )]);
-    let r = cg.resolve_call_site(&site_in(&cg, "run", "Ping"));
+    let outcome = cg.resolve_call_site_full(&site_in(&cg, "run", "Ping"));
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
     assert_eq!(
-        r.len(),
-        1,
-        "addressable value receiver can call a pointer-receiver promoted method"
+        outcome.drop,
+        Some(DropReason::ConcreteReceiverPromotedDeferred),
+        "addressable value receiver promotion is recognized but terminally deferred"
     );
-    assert_eq!(r[0].kind, ResolutionKind::EmbeddedPromotion);
+    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_deferred, 1);
 }
 
 #[test]
@@ -3317,7 +3323,6 @@ fn go_direct_method_wins_over_promoted() {
 #[test]
 fn go_equal_depth_embedding_ambiguity_drops() {
     use prism::languages::Language::Go;
-    use prism::resolution::DropReason;
     let (cg, _) = build(&[(
         "main.go",
         "package main\ntype X struct{}\nfunc (x X) M() {}\ntype Y struct{}\nfunc (y Y) M() {}\ntype A struct {\n\tX\n\tY\n}\nfunc run(a A) {\n\ta.M()\n}\n",
@@ -3326,12 +3331,10 @@ fn go_equal_depth_embedding_ambiguity_drops() {
     let out = cg.resolve_call_site_full(&site_in(&cg, "run", "M"));
     assert!(
         out.resolved.is_empty(),
-        "equal-depth M is ambiguous -> not promoted"
+        "equal-depth M is ambiguous -> no promoted edge"
     );
-    assert!(matches!(
-        out.drop,
-        Some(DropReason::ExternalReceiver) | Some(DropReason::MultiOwnerCollision)
-    ));
+    assert_eq!(out.drop, Some(DropReason::ConcreteReceiverPromotedDeferred));
+    assert_eq!(out.telemetry.go_concrete_receiver_promoted_deferred, 1);
 }
 
 #[test]
