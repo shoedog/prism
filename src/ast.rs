@@ -619,6 +619,7 @@ impl ParsedFile {
         let mut found: Option<(String, ReceiverRecovery)> = None;
         let mut first_found: Option<(String, ReceiverRecovery)> = None;
         let mut bindings = 0usize;
+        let mut go_lexical_rebinding = false;
 
         if let Some(params) = self.find_parameters_node(func_node) {
             let mut cursor = params.walk();
@@ -728,10 +729,15 @@ impl ParsedFile {
             &mut found,
             &mut first_found,
             &mut bindings,
+            &mut go_lexical_rebinding,
             recover_var,
         );
         if bindings > 1 {
-            return (None, bindings, first_found);
+            return (
+                None,
+                bindings,
+                go_lexical_rebinding.then_some(first_found).flatten(),
+            );
         }
         (found, bindings, first_found)
     }
@@ -6260,6 +6266,7 @@ impl ParsedFile {
         found: &mut Option<(String, crate::resolution::ReceiverRecovery)>,
         first_found: &mut Option<(String, crate::resolution::ReceiverRecovery)>,
         bindings: &mut usize,
+        go_lexical_rebinding: &mut bool,
         recover_var: bool,
     ) {
         use crate::languages::Language;
@@ -6346,6 +6353,7 @@ impl ParsedFile {
                     .or_else(|| node.child_by_field_name("value"));
                 if let Some(left) = left {
                     if self.simple_binding_text(&left).as_deref() == Some(receiver) {
+                        *go_lexical_rebinding |= *bindings > 0;
                         *bindings += 1;
                         *found = right.and_then(|r| {
                             self.constructor_type(&r)
@@ -6353,6 +6361,7 @@ impl ParsedFile {
                                 .map(|ty| (ty, ReceiverRecovery::ConstructorLocal))
                         });
                     } else if self.node_binds_name(left, receiver) {
+                        *go_lexical_rebinding |= *bindings > 0;
                         *bindings += 1;
                         *found = None;
                     }
@@ -6370,6 +6379,7 @@ impl ParsedFile {
                         if self.simple_binding_text(&alias).as_deref() == Some(receiver)
                             || self.node_binds_name(alias, receiver)
                         {
+                            *go_lexical_rebinding |= *bindings > 0;
                             *bindings += 1;
                             *found = None;
                         }
@@ -6389,6 +6399,7 @@ impl ParsedFile {
                         if self.simple_binding_text(&left).as_deref() == Some(receiver)
                             || self.node_binds_name(left, receiver)
                         {
+                            *go_lexical_rebinding |= *bindings > 0;
                             *bindings += 1;
                             *found = None;
                         }
@@ -6404,6 +6415,7 @@ impl ParsedFile {
                     .iter()
                     .any(|n| self.simple_binding_text(n).as_deref() == Some(receiver));
                 if matched {
+                    *go_lexical_rebinding |= *bindings > 0;
                     *bindings += 1;
                     if let Some(ty) = node.child_by_field_name("type") {
                         // `var r T` / `var a, b T` — the declared type applies to every name.
@@ -6555,6 +6567,7 @@ impl ParsedFile {
                             continue;
                         };
                         if self.go_parameter_binds_name(param, ty, receiver) {
+                            *go_lexical_rebinding |= *bindings > 0;
                             *bindings += 1;
                             *found = Some((
                                 self.node_text(&ty).to_string(),
@@ -6592,6 +6605,7 @@ impl ParsedFile {
                 found,
                 first_found,
                 bindings,
+                go_lexical_rebinding,
                 recover_var,
             );
         }
