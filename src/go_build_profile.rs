@@ -409,6 +409,53 @@ fn collect_profile_tags(p: &GoBuildProfile, out: &mut BTreeSet<String>) {
     }
 }
 
+/// Enumerate the distinct sets of profile files active in concrete Go build
+/// worlds. Snapshot consumers use this to compare mutually exclusive build
+/// alternatives without treating their declarations as coexisting symbols.
+/// `None` means the partition cannot be proven within the shared exactness cap.
+pub(crate) fn active_profile_partitions(
+    profiles: &BTreeMap<String, GoBuildProfile>,
+    files: &BTreeSet<String>,
+) -> Option<BTreeSet<BTreeSet<String>>> {
+    let selected = files
+        .iter()
+        .map(|file| profiles.get(file).map(|profile| (file, profile)))
+        .collect::<Option<Vec<_>>>()?;
+    if selected.iter().any(|(_, profile)| profile.build_unparsed) {
+        return None;
+    }
+
+    let mut tags = BTreeSet::new();
+    for (_, profile) in &selected {
+        collect_profile_tags(profile, &mut tags);
+    }
+    let free = tags
+        .into_iter()
+        .filter(|tag| !is_goos(tag) && !is_goarch(tag) && tag != "unix")
+        .collect::<Vec<_>>();
+    if free.len() > 8 {
+        return None;
+    }
+
+    let mut partitions = BTreeSet::new();
+    for goos in GOOS {
+        for goarch in GOARCH {
+            for mask in 0..(1usize << free.len()) {
+                partitions.insert(
+                    selected
+                        .iter()
+                        .filter(|(_, profile)| {
+                            profile_satisfied(profile, goos, goarch, &free, mask)
+                        })
+                        .map(|(file, _)| (*file).clone())
+                        .collect(),
+                );
+            }
+        }
+    }
+    Some(partitions)
+}
+
 fn collect_expr_tags(expr: &BuildExpr, out: &mut BTreeSet<String>) {
     match expr {
         BuildExpr::Tag(t) => {

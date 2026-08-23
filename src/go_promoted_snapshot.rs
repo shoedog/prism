@@ -84,6 +84,10 @@ pub struct GoPromotedOwnMethodShape {
 pub struct GoPromotedMethodSnapshot {
     pub method: String,
     pub target: FunctionId,
+    /// All mutually exclusive declaring functions that produce this same
+    /// selector result. `target` is the stable first representative.
+    #[serde(default)]
+    pub profile_variants: BTreeSet<FunctionId>,
     pub target_owner: GoOwnerIdentity,
     pub depth: usize,
     pub field_shadowed: bool,
@@ -281,7 +285,7 @@ pub(crate) fn build(
         if !structs.contains_key(owner) {
             continue;
         }
-        let verdict = if conflicts.get(owner).copied().unwrap_or(true) {
+        let mut verdict = if conflicts.get(owner).copied().unwrap_or(true) {
             GoPromotedSnapshotVerdict::ProfileConflict
         } else {
             GoPromotedSnapshotVerdict::ProfileUnique
@@ -289,7 +293,7 @@ pub(crate) fn build(
         let mut declarations = Vec::new();
         for raw_profile in profiles_for_owner {
             let mut declaration = raw_profile.snapshot.clone();
-            let (promoted_methods, ambiguous_promoted_methods) =
+            let (promoted_methods, ambiguous_promoted_methods, selection_conflict) =
                 selector_resolution::promoted_for_profile(
                     owner,
                     raw_profile,
@@ -298,6 +302,9 @@ pub(crate) fn build(
                     methods,
                     profiles,
                 );
+            if selection_conflict {
+                verdict = GoPromotedSnapshotVerdict::ProfileConflict;
+            }
             declaration.promoted_methods = promoted_methods;
             declaration.ambiguous_promoted_methods = ambiguous_promoted_methods;
             declarations.push(declaration);
