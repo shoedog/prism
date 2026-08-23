@@ -170,7 +170,13 @@ impl<'a> CpgContext<'a> {
         type_db: Option<&TypeDatabase>,
         registry: TypeRegistry,
     ) -> Self {
-        let cpg = CodePropertyGraph::build_enriched(files, type_db);
+        let mut cpg = CodePropertyGraph::build_enriched(files, type_db);
+        // P15a-fix3: the CPG build stashed its plain Go provider for a later
+        // `from_built_cpg` transfer, but this constructor uses the
+        // CALLER-SUPPLIED registry — nothing consumes the stash, so leaving
+        // it on the CallGraph would pin a SECOND full Go dataset for the
+        // lifetime of this (long-lived) context. Drop it.
+        drop(cpg.call_graph.shared_plain_go_provider.take());
         let live_types = registry.collect_live_types(files);
         CpgContext {
             cpg,

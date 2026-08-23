@@ -5171,6 +5171,30 @@ mod tests {
         assert_eq!(token.live(), 0, "all extractions released");
     }
 
+    /// P15a-fix3: `build_with_registry` uses a CALLER-SUPPLIED registry, so
+    /// nothing consumes the plain Go provider stashed by the CPG build — the
+    /// stash must be dropped, or this (long-lived) context pins a SECOND full
+    /// Go dataset. RED on pre-fix code (stash was Some).
+    #[test]
+    fn p15a_fix3_build_with_registry_drops_stashed_go_provider() {
+        use crate::cpg::CpgContext;
+        use crate::languages::Language::Go;
+        use crate::type_provider::TypeRegistry;
+
+        let src = "package main\n\ntype S struct{ X int }\n\nfunc (s S) Get() int { return s.X }\n\nfunc main() { var s S; _ = s.Get() }\n";
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.go".to_string(),
+            ParsedFile::parse("main.go", src, Go).unwrap(),
+        );
+
+        let ctx = CpgContext::build_with_registry(&files, None, TypeRegistry::empty());
+        assert!(
+            ctx.cpg.call_graph.shared_plain_go_provider.is_none(),
+            "build_with_registry must drop the CPG's stashed plain Go provider"
+        );
+    }
+
     #[test]
     fn method_class_span_populated_for_python_methods() {
         use crate::languages::Language::Python;
