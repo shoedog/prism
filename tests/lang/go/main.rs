@@ -5,6 +5,7 @@ mod build_profile_test;
 #[path = "../../common/mod.rs"]
 mod common;
 mod concrete_receiver_alias_test;
+mod concrete_receiver_fix2_test;
 mod concrete_receiver_manifest_test;
 mod concrete_receiver_route_test;
 mod concrete_receiver_unproven_test;

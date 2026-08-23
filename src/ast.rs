@@ -581,6 +581,31 @@ impl ParsedFile {
         call_start_byte: usize,
         recover_var: bool,
     ) -> (Option<(String, crate::resolution::ReceiverRecovery)>, usize) {
+        let (found, bindings, _) = self.receiver_type_evidence_in_fn(
+            func_node,
+            receiver,
+            call_line,
+            call_start_byte,
+            recover_var,
+        );
+        (found, bindings)
+    }
+
+    /// P17 fix wave 2: the ordinary scan result plus the first recoverable
+    /// binding. Go on-demand receiver proof uses the first fact only to retain
+    /// the legacy ladder input when a later lexical rebinding forces R3.
+    pub(crate) fn receiver_type_evidence_in_fn(
+        &self,
+        func_node: &Node<'_>,
+        receiver: &str,
+        call_line: usize,
+        call_start_byte: usize,
+        recover_var: bool,
+    ) -> (
+        Option<(String, crate::resolution::ReceiverRecovery)>,
+        usize,
+        Option<(String, crate::resolution::ReceiverRecovery)>,
+    ) {
         use crate::languages::Language;
         use crate::resolution::ReceiverRecovery;
 
@@ -588,10 +613,11 @@ impl ParsedFile {
             self.language,
             Language::Rust | Language::Go | Language::Python
         ) {
-            return (None, 0);
+            return (None, 0, None);
         }
 
         let mut found: Option<(String, ReceiverRecovery)> = None;
+        let mut first_found: Option<(String, ReceiverRecovery)> = None;
         let mut bindings = 0usize;
 
         if let Some(params) = self.find_parameters_node(func_node) {
@@ -649,6 +675,9 @@ impl ParsedFile {
                 }
             }
         }
+        if bindings == 1 {
+            first_found = found.clone();
+        }
 
         // Python: count bare (untyped) parameters as bindings — `def run(Foo):`
         // shadows an import/class of the same name. Typed params were already
@@ -697,13 +726,14 @@ impl ParsedFile {
             call_line,
             call_start_byte,
             &mut found,
+            &mut first_found,
             &mut bindings,
             recover_var,
         );
         if bindings > 1 {
-            return (None, bindings);
+            return (None, bindings, first_found);
         }
-        (found, bindings)
+        (found, bindings, first_found)
     }
 
     /// Whether a same-named function-local Go type declaration is lexically
@@ -6228,6 +6258,7 @@ impl ParsedFile {
         call_line: usize,
         call_start_byte: usize,
         found: &mut Option<(String, crate::resolution::ReceiverRecovery)>,
+        first_found: &mut Option<(String, crate::resolution::ReceiverRecovery)>,
         bindings: &mut usize,
         recover_var: bool,
     ) {
@@ -6324,6 +6355,43 @@ impl ParsedFile {
                     } else if self.node_binds_name(left, receiver) {
                         *bindings += 1;
                         *found = None;
+                    }
+                }
+            }
+            (Language::Go, "type_switch_statement") => {
+                let mut cursor = node.walk();
+                let call_in_case = node.named_children(&mut cursor).any(|case| {
+                    case.kind() == "type_case"
+                        && case.start_byte() <= call_start_byte
+                        && call_start_byte < case.end_byte()
+                });
+                if call_in_case {
+                    if let Some(alias) = node.child_by_field_name("alias") {
+                        if self.simple_binding_text(&alias).as_deref() == Some(receiver)
+                            || self.node_binds_name(alias, receiver)
+                        {
+                            *bindings += 1;
+                            *found = None;
+                        }
+                    }
+                }
+            }
+            (Language::Go, "range_clause") => {
+                let call_in_body = node
+                    .parent()
+                    .filter(|parent| parent.kind() == "for_statement")
+                    .and_then(|parent| parent.child_by_field_name("body"))
+                    .is_some_and(|body| {
+                        body.start_byte() <= call_start_byte && call_start_byte < body.end_byte()
+                    });
+                if call_in_body && self.node_text(&node).contains(":=") {
+                    if let Some(left) = node.child_by_field_name("left") {
+                        if self.simple_binding_text(&left).as_deref() == Some(receiver)
+                            || self.node_binds_name(left, receiver)
+                        {
+                            *bindings += 1;
+                            *found = None;
+                        }
                     }
                 }
             }
@@ -6465,14 +6533,12 @@ impl ParsedFile {
             // subtree is out of scope for `receiver` — `return` immediately,
             // skipping the generic recursion below (never `continue`/fall
             // through, or a sibling-closure local would still leak via that
-            // trailing walk). Only when the call IS inside do we treat a
-            // same-name closure parameter as an unrecoverable rebinding
-            // (same shape as the shadow-only arms above) and fall through
-            // to the generic recursion, which then correctly scans ONLY
-            // this literal's own body for the call's real binding — nearest
-            // (innermost) binding wins, enclosing-scope bindings seen
-            // earlier in the same top-level walk are still visible per
-            // normal Go shadowing.
+            // trailing walk). Only when the call IS inside do we record the
+            // closure parameter's declared type. It is recoverable when this
+            // is the only same-name binding; if an outer binding was already
+            // seen, P17's first-fact evidence marks the receiver proof
+            // shadowed and routes through R3. The generic recursion then scans
+            // ONLY this literal's body for later local rebindings.
             (Language::Go, "func_literal") if !is_root => {
                 let call_inside =
                     call_start_byte >= node.start_byte() && call_start_byte < node.end_byte();
@@ -6490,7 +6556,10 @@ impl ParsedFile {
                         };
                         if self.go_parameter_binds_name(param, ty, receiver) {
                             *bindings += 1;
-                            *found = None;
+                            *found = Some((
+                                self.node_text(&ty).to_string(),
+                                ReceiverRecovery::TypedParam,
+                            ));
                         }
                     }
                 }
@@ -6508,6 +6577,9 @@ impl ParsedFile {
             }
             _ => {}
         }
+        if *bindings == 1 && first_found.is_none() {
+            *first_found = found.clone();
+        }
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
@@ -6518,6 +6590,7 @@ impl ParsedFile {
                 call_line,
                 call_start_byte,
                 found,
+                first_found,
                 bindings,
                 recover_var,
             );

@@ -47,7 +47,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // dispatch topology (paired with CPG v46).
 // v16: proven Go concrete receivers route before the legacy bare-interface
 // ladder, changing resolved call-edge topology (paired with CPG v47).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 16;
+// v17: Go value-rebinding shadow bail changes resolved receiver topology
+// (paired with CPG v48).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 17;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -373,7 +375,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_go_loader_hygiene() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 16);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 17);
     }
 
     #[test]

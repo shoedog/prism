@@ -348,6 +348,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                 ReceiverClassification {
                     recovered: Some(rec),
                     materialized: true,
+                    proof_shadowed: false,
                 },
                 evidence,
             );
@@ -357,6 +358,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                 ReceiverClassification {
                     recovered: None,
                     materialized: true,
+                    proof_shadowed: false,
                 },
                 evidence,
             );
@@ -406,6 +408,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                     go_field_target: None,
                 }),
                 materialized: true,
+                proof_shadowed: false,
             },
             Default::default(),
         );
@@ -433,6 +436,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                             go_field_target: None,
                         }),
                         materialized: true,
+                        proof_shadowed: false,
                     },
                     Default::default(),
                 );
@@ -468,6 +472,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                         go_field_target: None,
                     }),
                     materialized: true,
+                    proof_shadowed: false,
                 },
                 selection.evidence,
             );
@@ -477,6 +482,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                 ReceiverClassification {
                     recovered: None,
                     materialized: true,
+                    proof_shadowed: false,
                 },
                 selection.evidence,
             );

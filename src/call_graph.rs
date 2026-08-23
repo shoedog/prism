@@ -91,8 +91,9 @@ pub struct CallSite {
     /// deserialize to `None` and therefore cannot invent this provenance.
     #[serde(default)]
     pub receiver_owner_identity: Option<crate::resolution::GoOwnerIdentity>,
-    /// A same-function local Go type declaration shadows the recovered bare
-    /// package type at this call. Derived from lexical AST scopes.
+    /// A same-function local Go type declaration or later value rebinding
+    /// invalidates on-demand R1/R2 proof at this call. The recovered first type
+    /// remains available only to the unchanged legacy R3 ladder.
     #[serde(default)]
     pub receiver_local_type_shadowed: bool,
     /// S3 P6-lite: which syntactic fact recovered `receiver_type`
@@ -1240,9 +1241,14 @@ impl CallGraph {
                             receiver_owner_identity: recovered
                                 .as_ref()
                                 .and_then(|r| r.owner_identity.clone()),
-                            receiver_local_type_shadowed: recovered.as_ref().is_some_and(|r| {
-                                parsed.go_local_type_shadows(&func_node, &r.static_type, start_byte)
-                            }),
+                            receiver_local_type_shadowed: classification.proof_shadowed
+                                || recovered.as_ref().is_some_and(|r| {
+                                    parsed.go_local_type_shadows(
+                                        &func_node,
+                                        &r.static_type,
+                                        start_byte,
+                                    )
+                                }),
                             receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                             receiver_materialized: classification.materialized,
                             arg_count: meta.arg_count,
@@ -3323,8 +3329,8 @@ impl CallGraph {
                 .recovered
                 .as_ref()
                 .and_then(|r| r.owner_identity.clone());
-            updated.receiver_local_type_shadowed =
-                updated.receiver_type.as_ref().is_some_and(|ty| {
+            updated.receiver_local_type_shadowed = classification.proof_shadowed
+                || updated.receiver_type.as_ref().is_some_and(|ty| {
                     files
                         .get(&old_site.caller.file)
                         .and_then(|parsed| {
@@ -3951,9 +3957,10 @@ impl CallGraph {
                         receiver_owner_identity: recovered
                             .as_ref()
                             .and_then(|r| r.owner_identity.clone()),
-                        receiver_local_type_shadowed: recovered.as_ref().is_some_and(|r| {
-                            parsed.go_local_type_shadows(&func_node, &r.static_type, start_byte)
-                        }),
+                        receiver_local_type_shadowed: classification.proof_shadowed
+                            || recovered.as_ref().is_some_and(|r| {
+                                parsed.go_local_type_shadows(&func_node, &r.static_type, start_byte)
+                            }),
                         receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                         receiver_materialized: classification.materialized,
                         arg_count: meta.arg_count,

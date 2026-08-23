@@ -589,6 +589,9 @@ pub struct RecoveredReceiver {
 pub struct ReceiverClassification {
     pub recovered: Option<RecoveredReceiver>,
     pub materialized: bool,
+    /// A later Go value binding shadows the recovered first declaration. Keep
+    /// the static type only as the legacy R3 ladder input; never prove R1/R2.
+    pub proof_shadowed: bool,
 }
 
 impl ReceiverClassification {
@@ -600,6 +603,15 @@ impl ReceiverClassification {
         Self {
             recovered: Some(recovered),
             materialized: true,
+            proof_shadowed: false,
+        }
+    }
+
+    fn recovered_shadowed(recovered: RecoveredReceiver) -> Self {
+        Self {
+            recovered: Some(recovered),
+            materialized: true,
+            proof_shadowed: true,
         }
     }
 
@@ -607,6 +619,7 @@ impl ReceiverClassification {
         Self {
             recovered: None,
             materialized: true,
+            proof_shadowed: false,
         }
     }
 }
@@ -717,7 +730,7 @@ fn classify_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> ReceiverCl
     if is_import && !matches!(ctx.parsed.language, Language::Python) {
         return ReceiverClassification::none();
     }
-    let (type_found, binding_count) = ctx.parsed.receiver_type_in_fn(
+    let (type_found, binding_count, first_found) = ctx.parsed.receiver_type_evidence_in_fn(
         &ctx.fn_node,
         q,
         ctx.call_line,
@@ -725,6 +738,16 @@ fn classify_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> ReceiverCl
         recover_var,
     );
     let Some((ty, how)) = type_found else {
+        if matches!(ctx.parsed.language, Language::Go) && binding_count > 1 {
+            if let Some((ty, how)) = first_found {
+                return ReceiverClassification::recovered_shadowed(RecoveredReceiver {
+                    static_type: owner_key(&peel_type(&ty)),
+                    owner_identity: None,
+                    recovery: how,
+                    go_field_target: None,
+                });
+            }
+        }
         // Bindings exist but type is unrecoverable (e.g. `for x in items:`,
         // `with ... as x:`, shadow/destructure) — signal materialized so R3/R3b
         // rungs are suppressed, preventing false edges from import/owner-key
@@ -2456,6 +2479,7 @@ impl CallGraph {
                         }
                         let own_method_partition = if caller_lang
                             == Some(crate::languages::Language::Go)
+                            && !site.receiver_local_type_shadowed
                         {
                             match go_route.as_ref() {
                                     Some(crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect {
