@@ -122,11 +122,13 @@ fn tokenize(source: &str) -> Option<Vec<Token>> {
             _ => {
                 let start = index;
                 while index < bytes.len()
-                    && !matches!(bytes[index], b' ' | b'\t' | b'\r' | b'\n' | b'(' | b')')
+                    && !matches!(
+                        bytes[index],
+                        b' ' | b'\t' | b'\r' | b'\n' | b'(' | b')' | b'"' | b'`'
+                    )
+                    && !(bytes[index] == b'/' && bytes.get(index + 1) == Some(&b'/'))
                 {
-                    if matches!(bytes[index], b'"' | b'`')
-                        || (bytes[index] == b'/' && bytes.get(index + 1) == Some(&b'*'))
-                    {
+                    if bytes[index] == b'/' && bytes.get(index + 1) == Some(&b'*') {
                         return None;
                     }
                     index += 1;
@@ -299,6 +301,9 @@ mod tests {
                 "module example.com/m // trailing comment\n",
                 "example.com/m",
             ),
+            ("module a.b/c// c\n", "a.b/c"),
+            ("module a.b/c//c\n", "a.b/c"),
+            ("module \"a.b/c\"// c\n", "a.b/c"),
             ("module (\n    example.com/m\n)\n", "example.com/m"),
             ("module example.com/m/v2\n", "example.com/m/v2"),
         ];

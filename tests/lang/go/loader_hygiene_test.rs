@@ -149,6 +149,25 @@ fn loaded_manifest_snapshot_is_the_only_identity_source() {
     );
 }
 
+#[test]
+fn unspaced_trailing_module_comment_preserves_proven_identity() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    write_dispatch_fixture(root);
+    write(
+        root,
+        "go.mod",
+        "module example.com/root// trailing comment\n",
+    );
+
+    let loaded = load_repo(root).unwrap();
+
+    assert_eq!(
+        resolved_owners(&loaded),
+        BTreeSet::from(["Impl".to_string()])
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn symlinked_go_mod_is_refused_for_identity_even_when_its_target_is_valid() {
