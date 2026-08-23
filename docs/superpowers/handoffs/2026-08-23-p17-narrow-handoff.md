@@ -1,162 +1,155 @@
-# Handoff — P17 narrow concrete-receiver routing, fix wave 3
+# Handoff — P17 narrow concrete-receiver routing, fix wave 4
 
-**Written:** 2026-08-23T19:44:10Z · **By:** Codex `/root`
+**Written:** 2026-08-23T20:14:47Z · **By:** Codex `/root`
 **Workspace:** `/Users/wesleyjinks/code/slicing-p17-narrow` · branch `p17-narrow-concrete-receiver`
-**Measured implementation HEAD before this handoff:** `f2a6ccb` · base `514cfe3`
+**Measured implementation HEAD before this handoff:** `405e220` · base `514cfe3`
 **Cache schema:** CPG `47`, navigation sidecar `16`
 
-## 0. Gating facts
+## 0. Status and scope boundary
 
-- The authoritative design is v8. Fix wave 3 updated §5 to state that this PR makes one schema transition, main's 46/15 to 47/16; 48/17 remains reserved for #14 slice 4.
-- No subagents were used. No push was performed. The controller owns the push and gopls oracle.
-- The ordinary receiver classifier and all non-direct same-scope-reuse sites retain the exact f16663e projection. The exception is post-merge-only and may survive only when the shared `go_concrete_receiver_route` verdict is `ConcreteDirect`.
-- Final evidence is retained under `/private/tmp`: the f16663e controls, committed candidate call-stat captures, and the final full-test log.
+- Implemented the requested package-name collision guard for on-demand R2: when the CallSite carries no owner identity and more than one package declares the proven interface bare name, the shared route returns a terminal `R2OnDemandNameCollisionBail` verdict.
+- Resolver output is `ExternalReceiver` with zero targets and telemetry `go_r2_on_demand_name_collision_bail=1`. Manifest output is `dispatch_route=unproven_drop`, fanout 0. Carried-identity R2 and unique-name on-demand R2 are unchanged.
+- A corpus probe found that 16 of the controller's 20 Prometheus records were already marked `receiver_local_type_shadowed`; they therefore reached the R3 bare ladder before the first implementation's collision check. The terminal collision proof now runs after owner/declaration/profile validation but before the shadow-to-R3 return. All R1/R2 edge-minting remains behind the shadow bail, and non-collision R3 output is unchanged.
+- **Unresolved controller/spec discrepancy:** four of the requested 20 Prometheus records are parameters of external `io.Closer`. The corpus contains zero in-repo `type Closer interface` declarations, so those sites have neither an on-demand R2 proof nor a >1-package interface-declaration collision. They remain R3 legacy `interface_dispatch` records. Suppressing them would require a new external/R3 rule, contrary to “R3 unchanged” and “no #16 scope creep.” Exact records are pinned in §4.
+- No subagents were used. No push or gopls oracle was run.
 
-## 1. Fix-wave-3 commits
+## 1. Fix-wave-4 commits
 
-| Commit | Item | Result |
-|---|---|---|
-| `1c3c013` | `p17-fix3: preserve same-scope short declaration reuse` | Adds same-block multi-name `:=` reuse/type-identity proof and direct/changed-type/nested-shadow/nested-reuse poles. |
-| `6118217` | `p17-fix3: collapse cache schema to one PR transition` | Pins CPG 47 and sidecar 16 and corrects design §5. |
-| `866c347` | `p17-fix3: enforce Go package-key lifecycle` | Enforces the `go_package_basenames` clear/rebuild invariant and adds the edit/reapply regression. |
-| `dcb1f32` | `p17-fix3: narrow short declaration reuse to direct routes` | Uses the one shared route verdict so the reuse exception cannot broaden R2, promotion, P5, or no-selector output. |
-| `f2a6ccb` | `p17-fix3: preserve non-direct reuse projection` | Isolates the special AST scan to post-merge direct proof and skips non-direct updates byte-for-byte. |
-
-The pushed wave-2 head was `f16663e`; its four fix-wave-2 commits remain immediately below these commits.
-
-## 2. Root-cause and discriminator log
-
-### Item 1 — same-scope `:=` reuse
-
-- Initial hypothesis: `walk_receiver_bindings` counted every later LHS occurrence as a new Go binding, so `x, err := reset(x)` set `go_lexical_rebinding` even though `x` is reused in the same block. Alternative: the wrong edge came from a changed return type rather than binding identity. Discriminator: a same-owner `Reset(*q.C) (*q.C, error)` pole lost direct proof while `Different() (*q.D, error)` also failed closed. The same-owner pole established the binding bug; resolving every reuse RHS through the return-type index distinguishes and rejects the changed-type pole.
-- First corpus follow-up hypothesis: remaining Hugo deltas were real same-block reuses of interface/external receivers; alternative: the AST scope predicate still admitted sibling declarations. Live source showed `var contentrc hugio.ReadSeekCloser; contentrc, err := ...` and `reflect.Value` reuses in the same block, proving the first hypothesis. Those were non-R1(a) routes.
-- Final fix: the ordinary classifier remains f16663e-identical. A post-merge special scan ignores a qualifying reuse only after its return owner matches the original owner. The resolver then consumes the existing shared route verdict; only `ConcreteDirect` is materialized. Every non-direct verdict skips the update entirely, preserving receiver fields, drop buckets, and R3 output.
-- A nested constructor pole exposed a second mechanism: `x := &q.C{}` was counted but not constructor-recovered, and the existing S1 retry on `q.Reset` supplied the type. The special evidence mode now feeds that same retry; no new recovery ladder was added.
-
-### Item 2 — cache versions
-
-The 48/17 values treated review waves as independent schema releases. This PR has one externally visible schema transition, so `CACHE_VERSION` is 47 and `NAV_CALL_EDGE_CACHE_VERSION` is 16. Pin tests and design §5 agree; 48/17 is reserved for the later #14 slice-4 PR.
-
-### Item 3 — package-key lifecycle
-
-`clear_go_func_value_fields` intentionally preserves `go_package_basenames` for exact cached-CPG parity, but a direct func-value reapply after a file edit could otherwise retain stale `@go-import:` keys. The enforced invariant is: exact import-path keys originate only in the full scope-input dispatch build; clearing dispatch clears the entire map; P5 may preserve only a snapshot whose package directories still match current files. A mismatch clears the snapshot and rebuilds the fail-closed basename-only projection. Debug assertions pin both halves.
-
-## 3. Red/green and full gates
-
-### Named focused tests
-
-- `concrete_receiver_fix3_test::{same_scope_multi_name_short_declarations_reuse_the_receiver_binding,changed_static_type_and_nested_shadow_still_fail_closed_to_r3,unrelated_sibling_scope_does_not_enable_a_new_receiver_proof,same_scope_reuse_only_revives_a_proven_concrete_direct_route}`: **4/0/0**. Before item 1, the same-owner pole reached R3; before `dcb1f32`, the interface reuse was not shadowed.
-- `concrete_receiver_fix2_test::*`: **3/0/0**, retaining type-switch/inner/range value-rebinding behavior.
-- `func_value_reapply_after_edit_discards_stale_import_path_keys`: **1/0/0**. Before `866c347`, the old exact import key survived reapply.
-- `cache_versions_are_pinned_for_go_loader_hygiene` and `sidecar_version_is_pinned_for_go_loader_hygiene`: green at **47/16**.
-- `concrete_receiver_outputs_match_no_cache_cold_create_exact_cpg_and_sidecar_hits`: green; it compares no-cache, cold-create, exact CPG hit, and sidecar hit wire outputs.
-
-### Full gates
-
-| Gate | Result |
+| Commit | Result |
 |---|---|
-| `cargo fmt --all -- --check` and `git diff --check` | passed |
-| `cargo test -- --format terse` | **3,343 passed, 0 failed, 1 ignored** across 28 result groups; retained log `/private/tmp/p17-fix3-final-cargo-test.log` |
-| `cargo build --release` | passed after the final committed code |
-| `eval/.venv/bin/tier-a --matrix-only --allow-stale-sut` immediately after that release build | **104 passed, 0 failed**; `go/embedded_method` passed |
-| gopls oracle | not run; controller-owned by explicit instruction |
+| `d7e9ae0` — `p17-fix4: add on-demand R2 collision poles` | Red resolver/manifest poles for duplicate interface names, unique interface names, and carried identity. The duplicate pole initially minted two false Exact edges. |
+| `9883ec0` — `p17-fix4: bail on-demand R2 name collisions` | Adds the shared terminal verdict, package-identity census, resolver telemetry, call-stats key, and manifest label. |
+| `405e220` — `p17-fix4: terminally bail shadowed interface collisions` | Moves only the terminal collision check ahead of the existing shadow-to-R3 return and adds the corpus-mirroring same-type rebinding pole. |
 
-## 4. Required manifest checks and Etcd oracle classification
+Wave-3 commits `1c3c013`, `6118217`, `866c347`, `dcb1f32`, and `f2a6ccb` remain immediately below these commits. They retain the 47/16 cache transition and direct-only same-scope-reuse behavior.
 
-- Hugo `tpl/tplimpl/templates.go:205/:212`: `unproven_drop`, fanout 0, no outer-interface implementers.
-- Etcd `revision_test.go:114/:126` and `v3_failover_test.go:93`: `concrete_direct`, fanout 0.
+## 2. Hypothesis / probe / result log
 
-The live Etcd fixture and oracle artifact classify the 11 cache sites below as own methods of `*cache.Cache`; the three Cluster sites are the wave-2 qualified-owner fix. No #16/R1(c) site remains among these 14.
+### Ordinary on-demand R2 collision
 
-| File:line | Method | Final route | Classification |
+- Hypothesis: the shared consult receives the original carried CallSite owner separately from its internal on-demand lookup. Alternative: a caller passes an on-demand owner as though it were carried. Discriminator: resolver and manifest call sites both pass `site.receiver_owner_identity.as_ref()` directly; the synthetic `var it p.Iterator` pole has `None`, while the `p.NewIterator()` pole has `Some(p.Iterator)`.
+- Hypothesis: distinct interface packages can be counted without the lossy bare dispatch table. Alternative: only the bare `interface_impls` projection survives. Discriminator: serialized `go_interface_declarations` is keyed by `(package_dir, package_clause, name)` and contains both synthetic fixture owners.
+- Red result: `var it p.Iterator; it.Next()` with `p.Iterator` and `q.Iterator` minted `p.PImpl.Next` and `q.QImpl.Next`, both Exact `InterfaceDispatch`.
+- Green result: the site has zero targets, `unproven_drop`, and collision telemetry 1; unique `UniqueIterator` and carried `p.Iterator` stay S4.
+
+### Prometheus shadowed collision
+
+- Initial H1: the named corpus sites unexpectedly carry owner identity, bypassing an on-demand-only guard. Alternative H2: they are on-demand but the declaration census contains only one `Iterator` package. A temporary, uncommitted trace falsified both: `proven=None`, resolved owner `tsdb/chunkenc.Iterator`, and packages `{tsdb/chunkenc, tsdb/chunks}`.
+- H3: `receiver_local_type_shadowed` causes the early `Unproven` verdict. Alternative H4: owner/declaration/profile validation fails first. The second temporary trace showed `shadow=true` and immediate shadow exit at the named sites.
+- The same-type rebinding pole reproduced the corpus: before `405e220`, it emitted two false Exact edges plus legacy fallback telemetry sites/hits/edges `1/1/2`. After the correction it terminally bails with all legacy fallback counters zero.
+- The temporary trace was removed before the final build; `rg 'P17FIX4(DBG|START|EXIT)' src` is empty.
+
+### Hugo `AddIdentity`
+
+- `resources/resource_transformers/tocss/scss/tocss.go:122` has receiver field `ResourceTransformationCtx.DependencyManager identity.Manager`. The corpus has exactly one `Manager` interface declaration, at `identity/identity.go:279`, and `AddIdentity` is declared on it at line 281. The collision guard therefore correctly does not bail.
+- The file has `//go:build extended`, while the controller oracle environment reports empty tags. This explains the unresolved gopls definition without making the Prism edge type-incorrect. Final manifest remains `interface_dispatch`, fanout 1, implementer `nopManager`.
+
+## 3. Tests and build gates
+
+### Named poles
+
+- `on_demand_r2_name_collision_bails_with_zero_fanout_and_telemetry`
+- `shadowed_on_demand_interface_collision_still_takes_the_terminal_bail`
+- `unique_on_demand_interface_name_keeps_s4_dispatch`
+- `carried_interface_identity_ignores_the_on_demand_collision_guard`
+
+Focused final results: fix-wave-4 poles **4 passed / 0 failed / 0 ignored**; complete Go binary **189/0/0**.
+
+| Gate | Final result |
+|---|---|
+| `cargo fmt -- --check` and `git diff --check` | passed |
+| `cargo test` | **3,347 passed, 0 failed, 1 ignored** |
+| `cargo build --release` | passed after removing temporary diagnostics |
+| `eval/.venv/bin/tier-a --matrix-only --allow-stale-sut` immediately after release build | **104 passed, 0 failed**; `go/embedded_method` passed |
+| gopls oracle | not run; controller-owned by instruction |
+
+## 4. Manifest verification
+
+Final Prometheus manifest: `/private/tmp/p17-fix4-final-prometheus-manifest.json`.
+
+### Closed Iterator collision records: 16/16
+
+| Records | Count | Final result |
+|---|---:|---|
+| `storage/fanout_test.go:97/98/124/125/202/203/229/230` | 8 | `unproven_drop`, fanout 0 |
+| `rules/manager_test.go:620/621` | 2 | `unproven_drop`, fanout 0 |
+| `tsdb/compact_test.go:1127` (two `Next` sites), `:1130`, `:1150` | 4 | `unproven_drop`, fanout 0 |
+| `tsdb/head_read.go:751/754` | 2 | `unproven_drop`, fanout 0 |
+
+`FakeChunkSeriesIterator` is absent from the final manifest.
+
+### Four records outside the authorized collision rule
+
+| File:line | Receiver | Final route/fanout | Why not changed |
 |---|---|---|---|
-| `cache_test.go:455` | Watch | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Watch` |
-| `cache_test.go:514` | Watch | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Watch` |
-| `cache_test.go:569` | Watch | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Watch` |
-| `cache_test.go:586` | RequestProgress | `concrete_direct` | #17-fixed R1(a), `cache.Cache.RequestProgress` |
-| `cache_test.go:618` | Watch | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Watch` |
-| `cache_test.go:637` | Watch | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Watch` |
-| `cache_test.go:659` | Watch | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Watch` |
-| `cache_test.go:1383` | Get | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Get` |
-| `cache_test.go:1453` | Watch | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Watch` |
-| `cache_test.go:1507` | Watch | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Watch` |
-| `cache_test.go:1559` | Get | `concrete_direct` | #17-fixed R1(a), `cache.Cache.Get` |
-| `revision_test.go:114` | Client | `concrete_direct` | B, #17-fixed R1(a), `integration.Cluster.Client` |
-| `revision_test.go:126` | Client | `concrete_direct` | B, #17-fixed R1(a), `integration.Cluster.Client` |
-| `v3_failover_test.go:93` | Endpoints | `concrete_direct` | B, #17-fixed R1(a), `integration.Cluster.Endpoints` |
+| `tsdb/head_append_v2_test.go:1508` | `cl io.Closer` | `interface_dispatch` / 1 (`HTTPResourceClient`) | external interface; no in-repo `Closer` declaration or R2 proof |
+| `tsdb/head_append_v2_test.go:1517` | `cl io.Closer` | `interface_dispatch` / 1 (`HTTPResourceClient`) | same |
+| `tsdb/head_test.go:4176` | `cl io.Closer` | `interface_dispatch` / 1 (`HTTPResourceClient`) | same |
+| `tsdb/head_test.go:4185` | `cl io.Closer` | `interface_dispatch` / 1 (`HTTPResourceClient`) | same |
 
-## 5. Corpus evidence
+These four require controller direction: either remove them from the wave-4 collision acceptance population or authorize a separately specified R3/external fail-closed rule.
 
-All values use the final committed release binary and `prism nav --no-cache call-stats`.
+## 5. Five-corpus call-stats
 
-### Delta from fix-wave-2 head `f16663e`
+All candidate values use the final release binary with `prism nav --no-cache call-stats`. Controls are controller-generated `ctrl514-*.txt` from main `514cfe3`. NLCF is `interface_overapprox.NonLocalConstructionFallback`.
 
-| Corpus | Result versus f16663e |
-|---|---|
-| ripgrep | byte-identical |
-| caddy | byte-identical |
-| prometheus | `go_concrete_receiver_direct +4`; Exact/kind `return_typed +4`; `dropped_go_receiver.none -4`; `dropped_multi_owner -4`; every interface, promotion, no-selector, and R3 telemetry leaf unchanged |
-| etcd | byte-identical |
-| hugo | byte-identical |
+### Delta from wave-3 committed output
 
-Thus item 1 is the only numeric mover, and it only restores four direct edges at same-scope-reuse sites.
+Every direct Exact kind, P5 NameOnly, NLCF, promotion telemetry, and concrete no-selector telemetry is unchanged.
 
-### Same-base main control (`514cfe3`) to final
-
-Values are `base -> final (delta)`; missing kinds are zero. NLCF is `interface_overapprox.NonLocalConstructionFallback`.
-
-| Corpus | interface Exact | constructor Exact | typed-param Exact | return Exact | field Exact | embedded Exact | P5 NameOnly | NLCF | multi-target |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| caddy | 1766 -> 1777 (+11) | 241 -> 258 (+17) | 107 -> 1978 (+1871) | 233 -> 233 | 15 -> 16 (+1) | 84 -> 87 (+3) | 0 -> 0 | 3 -> 3 | 21 -> 21 |
-| prometheus | 2461 -> 2752 (+291) | 978 -> 1472 (+494) | 770 -> 1522 (+752) | 2135 -> 2148 (+13) | 125 -> 182 (+57) | 58 -> 58 | 1 -> 1 | 143 -> 143 | 3855 -> 3904 (+49) |
-| etcd | 2002 -> 2528 (+526) | 109 -> 118 (+9) | 230 -> 750 (+520) | 1064 -> 1593 (+529) | 38 -> 103 (+65) | 42 -> 54 (+12) | 0 -> 0 | 578 -> 578 | 515 -> 609 (+94) |
-| hugo | 625 -> 756 (+131) | 193 -> 205 (+12) | 440 -> 1144 (+704) | 2927 -> 2952 (+25) | 92 -> 117 (+25) | 46 -> 52 (+6) | 0 -> 0 | 330 -> 330 | 2568 -> 2583 (+15) |
-
-New telemetry keys are absent/zero on main; final counts are:
-
-| Corpus | direct | existing promoted | deferred promoted | no-selector drop | R3 sites / hits / edges |
+| Corpus | interface Exact | multi-target sites | legacy R3 sites/hits/edges | collision bails | external drops |
 |---|---:|---:|---:|---:|---:|
-| caddy | 2477 | 7 | 0 | 433 | 2466 / 19 / 1339 |
-| prometheus | 5106 | 19 | 0 | 97 | 5471 / 32 / 50 |
-| etcd | 2561 | 12 | 0 | 77 | 7152 / 89 / 113 |
-| hugo | 4405 | 11 | 0 | 695 | 4232 / 3 / 14 |
+| ripgrep | 0 -> 0 | 0 -> 0 | 0/0/0 -> 0/0/0 | 0 | 615 -> 615 |
+| caddy | 1777 -> 1757 (-20) | 21 -> 21 | 2466/19/1339 unchanged | 20 | 2643 -> 2663 (+20) |
+| prometheus | 2752 -> 2310 (-442 edges) | 3904 -> 3794 (-110) | 5471/32/50 -> 5453/16/34 | 188 | 6688 -> 6830 (+142) |
+| etcd | 2528 -> 2426 (-102 edges) | 609 -> 606 (-3) | 7152/89/113 unchanged | 166 | 8787 -> 8886 (+99) |
+| hugo | 756 -> 667 (-89 edges) | 2583 -> 2582 (-1) | 4232/3/14 unchanged | 199 | 4969 -> 5056 (+87) |
 
-Ripgrep remains byte-identical to main: **3,019 base bytes == 3,019 final bytes**.
+Telemetry is site-counted; `kind_exact.interface_dispatch` is edge-counted, so fanout makes edge reductions larger than bail-site counts.
 
-## 6. R3 parity retained from wave 2
+### Same-base main control to final
 
-The wave-2 temporary route audit matched candidate/base records by `(file,start_byte,end_byte,method)` and removed candidate-only diagnostics before comparing legacy projections.
+Values are `base -> final`.
 
-| Corpus | final proof-R3 sites | hits / edges | matched base records | changed matched legacy records |
-|---|---:|---:|---:|---:|
-| caddy | 95 | 19 / 1339 | 90 | 0 |
-| prometheus | 2852 | 32 / 50 | 2497 | 0 |
-| etcd | 4172 | 89 / 113 | 3722 | 0 |
-| hugo | 1655 | 3 / 14 | 1422 | 0 |
+| Corpus | interface | constructor | typed-param | return | field | embedded | P5 | NLCF | multi-target |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| ripgrep | 0 -> 0 | 314 -> 314 | 315 -> 315 | 1269 -> 1269 | 273 -> 273 | 0 -> 0 | 0 -> 0 | 0 -> 0 | 0 -> 0 |
+| caddy | 1766 -> 1757 | 241 -> 258 | 107 -> 1978 | 233 -> 233 | 15 -> 16 | 84 -> 87 | 0 -> 0 | 3 -> 3 | 21 -> 21 |
+| prometheus | 2461 -> 2310 | 978 -> 1472 | 770 -> 1522 | 2135 -> 2148 | 125 -> 182 | 58 -> 58 | 1 -> 1 | 143 -> 143 | 3855 -> 3794 |
+| etcd | 2002 -> 2426 | 109 -> 118 | 230 -> 750 | 1064 -> 1593 | 38 -> 103 | 42 -> 54 | 0 -> 0 | 578 -> 578 | 515 -> 606 |
+| hugo | 625 -> 667 | 193 -> 205 | 440 -> 1144 | 2927 -> 2952 | 92 -> 117 | 46 -> 52 | 0 -> 0 | 330 -> 330 | 2568 -> 2582 |
 
-Wave 3 leaves those R3 telemetry leaves unchanged versus f16663e and restores the exact f16663e CallSite/drop projection for all non-direct reuses.
+| Corpus | direct | existing promoted | deferred promoted | no-selector | R3 sites/hits/edges | collision bails |
+|---|---:|---:|---:|---:|---:|---:|
+| caddy | 2477 | 7 | 0 | 433 | 2466/19/1339 | 20 |
+| prometheus | 5106 | 19 | 0 | 97 | 5453/16/34 | 188 |
+| etcd | 2561 | 12 | 0 | 77 | 7152/89/113 | 166 |
+| hugo | 4405 | 11 | 0 | 695 | 4232/3/14 | 199 |
 
-## 7. Per-file size limit and residual work
+Ripgrep is byte-identical to main: **3,019 bytes == 3,019 bytes** (`cmp` exit 0).
 
-Every file newly added by this PR is below the 600-line per-file limit:
+## 6. Per-file limit and retained artifacts
+
+Every file newly added by this PR remains below the 600-line per-file limit. Final measured counts include:
 
 | File | Lines |
 |---|---:|
-| `docs/superpowers/handoffs/2026-08-23-p17-narrow-handoff.md` | 162 |
-| `docs/superpowers/specs/2026-08-22-p17-narrow-concrete-receiver-direct-design.md` | 181 |
-| `src/go_concrete_receiver.rs` | 500 |
-| `src/go_func_type.rs` | 124 |
-| `src/go_selector_supply.rs` | 233 |
-| `tests/ast/go_package_basename_lifecycle_test.rs` | 67 |
-| `tests/lang/go/concrete_receiver_alias_test.rs` | 440 |
-| `tests/lang/go/concrete_receiver_fix2_test.rs` | 166 |
+| `src/go_concrete_receiver.rs` | 532 |
+| `tests/lang/go/concrete_receiver_fix4_test.rs` | 200 |
 | `tests/lang/go/concrete_receiver_fix3_test.rs` | 192 |
+| `tests/lang/go/concrete_receiver_fix2_test.rs` | 166 |
+| `tests/lang/go/concrete_receiver_alias_test.rs` | 440 |
 | `tests/lang/go/concrete_receiver_manifest_test.rs` | 367 |
-| `tests/lang/go/concrete_receiver_qualified_fix2_test.rs` | 113 |
 | `tests/lang/go/concrete_receiver_route_test.rs` | 427 |
 | `tests/lang/go/concrete_receiver_unproven_test.rs` | 246 |
 | `tests/navigation/go_concrete_cache_test.rs` | 91 |
 
-Not done by instruction: gopls oracle and push. The controller should rerun the oracle, push the wave-3 commits, and publish the PR wave.
+Final evidence:
 
-**SURVIVED (self-pass, not independent):** all enumerated wave-3 findings are closed; only four intended Prometheus direct edges differ from f16663e; the final suite is 3,343/0/1; Tier-A is 104/104; cache pins are 47/16; and the requested corpus evidence is pinned above.
+- `/private/tmp/p17-fix4-final-callstats-{ripgrep,caddy,prometheus,etcd,hugo}.txt`
+- `/private/tmp/p17-fix4-final-prometheus-manifest.json`
+- `/private/tmp/p17-fix4-final-hugo-manifest.json`
+
+Not done: push and gopls oracle, by instruction. The four external-`io.Closer` records above remain blocked on a scope/design decision.
+
+**PARTIAL SURVIVAL:** the authorized on-demand R2 name-collision guard, telemetry, tests, 104/104 Tier-A, five-corpus evidence, and all 16 Iterator blocker records are complete. The controller's 20/20 manifest acceptance cannot be claimed without changing R3/external behavior beyond the authorized rule.
