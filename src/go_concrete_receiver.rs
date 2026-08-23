@@ -336,9 +336,6 @@ impl CallGraph {
         method_name: &str,
         caller_file: &str,
     ) -> GoConcreteReceiverRoute {
-        if local_proof_shadowed {
-            return GoConcreteReceiverRoute::Unproven;
-        }
         let on_demand = proven_owner.is_none();
         let Some(receiver_owner) = self.go_receiver_owner(recv_ty, caller_file, proven_owner)
         else {
@@ -360,6 +357,25 @@ impl CallGraph {
         );
         if !visible || !exact {
             return GoConcreteReceiverRoute::Unproven;
+        }
+        if local_proof_shadowed {
+            let collision_route = match &entry.kind {
+                GoDeclarationKind::Interface { interface_of } => {
+                    self.go_r2_interface_route(&interface_of.owner, on_demand)
+                }
+                GoDeclarationKind::AliasToInterface { target } => {
+                    self.go_r2_interface_route(&target.owner, on_demand)
+                }
+                _ => GoConcreteReceiverRoute::Unproven,
+            };
+            return if matches!(
+                collision_route,
+                GoConcreteReceiverRoute::R2OnDemandNameCollisionBail
+            ) {
+                collision_route
+            } else {
+                GoConcreteReceiverRoute::Unproven
+            };
         }
 
         match &entry.kind {

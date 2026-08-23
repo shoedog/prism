@@ -73,6 +73,18 @@ fn colliding_interfaces() -> CallGraph {
              import p \"example/p\"\n\
              func carried() { it := p.NewIterator(); it.Next() }\n",
         ),
+        (
+            "app/rebound.go",
+            "package app\n\
+             import p \"example/p\"\n\
+             func reset(it p.Iterator) (p.Iterator, error) { return it, nil }\n\
+             func rebound() {\n\
+                 var it p.Iterator\n\
+                 it, err := reset(it)\n\
+                 _ = err\n\
+                 it.Next()\n\
+             }\n",
+        ),
     ])
 }
 
@@ -98,7 +110,29 @@ fn on_demand_r2_name_collision_bails_with_zero_fanout_and_telemetry() {
     assert_eq!(record["implementer_identities"], serde_json::json!([]));
 
     let stats = prism::navigation::queries::call_stats(&cg);
-    assert_eq!(stats["go_r2_on_demand_name_collision_bail"], 1);
+    assert_eq!(stats["go_r2_on_demand_name_collision_bail"], 2);
+}
+
+#[test]
+fn shadowed_on_demand_interface_collision_still_takes_the_terminal_bail() {
+    let cg = colliding_interfaces();
+    let call = site(&cg, "rebound");
+    assert!(call.receiver_owner_identity.is_none(), "{call:?}");
+    assert!(call.receiver_local_type_shadowed, "{call:?}");
+
+    let outcome = cg.resolve_call_site_full(call);
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
+    assert_eq!(outcome.telemetry.go_r2_on_demand_name_collision_bail, 1);
+    assert_eq!(
+        outcome.telemetry.go_unproven_receiver_bare_fallback_sites,
+        0
+    );
+
+    let manifest = prism::navigation::queries::interface_dispatch_manifest(&cg);
+    let record = manifest_site(&manifest, "app/rebound.go");
+    assert_eq!(record["dispatch_route"], "unproven_drop");
+    assert_eq!(record["fanout"], 0);
 }
 
 #[test]
