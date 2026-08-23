@@ -31,7 +31,11 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput, old_repo: &Path) -> Result<Slic
     }
 
     // Build CPG for the old version with the same type enrichment as the new version
-    let old_cpg = CodePropertyGraph::build_enriched(&old_files, ctx.type_db());
+    let mut old_cpg = CodePropertyGraph::build_enriched(&old_files, ctx.type_db());
+    // P15a-fix2: this is a CPG-only build (no CpgContext consumes it) — drop
+    // the stashed plain Go provider so the old-version graph never pins Go
+    // type data; only its DFG edges are read below.
+    drop(old_cpg.call_graph.shared_plain_go_provider.take());
 
     // Find edges that differ between versions
     let old_edges: BTreeSet<(String, usize, String, usize)> = old_cpg

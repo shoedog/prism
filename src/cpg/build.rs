@@ -206,7 +206,9 @@ impl CodePropertyGraph {
         // Run the whole build (DFG + call-graph + assemble, all recursive AST
         // walks) on the large-stack pool so deep ASTs don't overflow a default
         // ~2 MiB rayon worker. install() makes every nested par_iter use it.
-        build_pool().install(|| Self::build_impl_inner(files, type_db, scope_inputs))
+        // Routed through the shared wrapper so test counter generations are
+        // inherited by the worker (P15a-fix2).
+        crate::build_pool::install(|| Self::build_impl_inner(files, type_db, scope_inputs))
     }
 
     /// The body of `build_impl`, split out so a full-rebuild fallback that is
@@ -281,8 +283,10 @@ impl CodePropertyGraph {
     ) -> Self {
         // Same large-stack pool as build_impl — the subset CG/DFG builds and the
         // assemble below are the same recursive AST walks (install() routes every
-        // nested par_iter onto big-stack workers).
-        build_pool().install(move || {
+        // nested par_iter onto big-stack workers). Routed through the shared
+        // wrapper so test counter generations are inherited by the worker
+        // (P15a-fix2).
+        crate::build_pool::install(move || {
             // P8 F1 fix (codex re-review BLOCKER): Rust macro-arg call
             // extraction (`rust_macro_args::is_transparent_arg_macro`)
             // depends on the repo-wide macro shadow set, but this
@@ -332,8 +336,19 @@ impl CodePropertyGraph {
             cached_cg.rebuild_scope_graph(files, scope_inputs);
             // Phase-IP: Go embedding/interface dispatch are whole-program — recompute
             // after scope/Rust receiver state to mirror full-build derived ordering.
-            cached_cg.apply_go_embedding_promotion(files);
+            // P15a-fix1: dispatch runs BEFORE the plain provider is constructed
+            // (same rationale as the full build — at most one full extraction
+            // alive at a time; promotion and dispatch are mutually independent
+            // and all downstream consumers run after both).
             cached_cg.apply_go_interface_dispatch_with_scope_inputs(files, scope_inputs);
+            // P15a: one plain provider shared by embedding promotion +
+            // receiver rematerialization, retained (Arc clone) on the graph
+            // for `CpgContext::build_registry` reuse.
+            let shared_go_provider =
+                crate::call_graph::CallGraph::plain_go_provider_for_build(files);
+            cached_cg.shared_plain_go_provider = shared_go_provider.clone();
+            cached_cg
+                .apply_go_embedding_promotion_with_provider(files, shared_go_provider.as_ref());
             // P5: Go func-value callbacks are ALSO whole-program derived (S1
             // field-typing needs every Go file's struct declarations; S2
             // registration target resolution needs the complete function
@@ -351,9 +366,10 @@ impl CodePropertyGraph {
             // (`CallGraph::build_direct_subset` above already always uses
             // the default config too — see its doc), so this matches the
             // pre-existing incremental-rebuild behavior exactly.
-            cached_cg.apply_go_receiver_indices(
+            cached_cg.apply_go_receiver_indices_with_provider(
                 files,
                 &crate::resolution::ReceiverRecoveryConfig::default(),
+                shared_go_provider.as_ref(),
             );
             // P7: Python property accesses are ALSO whole-program derived
             // (S2's unknown-receiver fanout needs the complete cross-file S1

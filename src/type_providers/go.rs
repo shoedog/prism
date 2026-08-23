@@ -143,6 +143,7 @@ struct PromotedMethodCandidate {
 
 /// Inner data for GoTypeProvider, shared via Arc when registered as both
 /// TypeProvider and DispatchProvider.
+#[derive(Debug)]
 pub struct GoTypeData {
     /// Struct definitions by name.
     structs: BTreeMap<String, GoStruct>,
@@ -200,6 +201,11 @@ pub struct GoTypeData {
     /// by the embedded type's bare name). Package-scoped, same rationale as
     /// `func_typed_fields` above.
     field_types: BTreeMap<(crate::resolution::GoOwnerIdentity, String), String>,
+    /// P15a-fix2 (test-only): the counter generation this extraction was
+    /// BUILT under, so its drop is attributed to its own generation and can
+    /// never decrement a later measurement's live count.
+    #[cfg(test)]
+    measurement_generation: u64,
     /// Proven local embedded-struct targets for S2. Unlike `field_types`, each
     /// route retains the target package identity and the visible declaration's
     /// exact build profile, so downstream method lookup never widens back to a
@@ -281,7 +287,174 @@ struct ReceiverMethodSet {
 ///
 /// Uses `Arc<GoTypeData>` so the same extracted data can be shared when
 /// registered as both `TypeProvider` and `DispatchProvider` in the registry.
-#[derive(Clone)]
+/// P15a-fix1: TEST-ONLY construction/live-instance counters for the
+/// single-extraction guarantee (peak live providers = 1). Compiled out of
+/// non-test builds entirely.
+///
+/// P15a-fix2: per-measurement OWNERSHIP instead of a racy global arm bit.
+///
+/// WHY THREAD-LOCAL GENERATIONS (P15a-fix2, second iteration): the first
+/// draft used one process-global CURRENT_GENERATION, and the full suite
+/// flaked — a PARALLEL un-tokenized test's Go construction was attributed to
+/// the live token's generation, inflating its plain count. The fix: the
+/// attribution target is a THREAD-LOCAL generation. A `MeasurementToken` sets
+/// it on the acquiring thread; `build_pool::install` propagates it onto the
+/// pool worker that runs the build op (the only non-test thread production
+/// constructions happen on). Any other test's threads see their own
+/// thread-local — 0 unless they hold their own token — so foreign
+/// constructions are never attributed to a live measurement, and drops are
+/// attributed to the generation the extraction was BUILT under (never
+/// underflowing a later measurement).
+#[cfg(test)]
+pub(crate) mod test_counters {
+    use std::cell::Cell;
+    use std::collections::BTreeMap;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::{Mutex, MutexGuard};
+
+    static NEXT_GENERATION: AtomicU64 = AtomicU64::new(1);
+    /// Owned mutual exclusion for measurements. Held by the live token.
+    static MEASUREMENT_LOCK: Mutex<()> = Mutex::new(());
+    static COUNTERS: Mutex<BTreeMap<u64, GenerationCounters>> = Mutex::new(BTreeMap::new());
+
+    thread_local! {
+        static CURRENT_GENERATION: Cell<u64> = const { Cell::new(0) };
+    }
+
+    #[derive(Default)]
+    struct GenerationCounters {
+        plain_constructions: usize,
+        import_aware_constructions: usize,
+        constructed: usize,
+        freed: usize,
+        peak_live: usize,
+    }
+
+    /// Per-measurement handle on the counters. Hold it across construction
+    /// AND the drops of every result under measurement.
+    pub struct MeasurementToken {
+        generation: u64,
+        _lock: MutexGuard<'static, ()>,
+    }
+
+    impl MeasurementToken {
+        /// Start measuring on THIS thread. Blocks until no other measurement
+        /// is active, so concurrent Go-provider tests measure serially and
+        /// deterministically instead of racing on shared counters.
+        pub fn acquire() -> Self {
+            let lock = MEASUREMENT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+            let generation = NEXT_GENERATION.fetch_add(1, Ordering::SeqCst);
+            COUNTERS
+                .lock()
+                .unwrap()
+                .insert(generation, GenerationCounters::default());
+            CURRENT_GENERATION.with(|c| c.set(generation));
+            Self {
+                generation,
+                _lock: lock,
+            }
+        }
+
+        fn with<R>(&self, f: impl FnOnce(&GenerationCounters) -> R) -> R {
+            let map = COUNTERS.lock().unwrap();
+            let counters = map
+                .get(&self.generation)
+                .expect("token's generation removed before drop");
+            f(counters)
+        }
+
+        pub fn plain_constructions(&self) -> usize {
+            self.with(|c| c.plain_constructions)
+        }
+
+        pub fn import_aware_constructions(&self) -> usize {
+            self.with(|c| c.import_aware_constructions)
+        }
+
+        pub fn live(&self) -> usize {
+            self.with(|c| c.constructed - c.freed)
+        }
+
+        pub fn peak_live(&self) -> usize {
+            self.with(|c| c.peak_live)
+        }
+    }
+
+    impl Drop for MeasurementToken {
+        fn drop(&mut self) {
+            CURRENT_GENERATION.with(|c| c.set(0));
+            COUNTERS.lock().unwrap().remove(&self.generation);
+        }
+    }
+
+    /// Generation currently being measured on THIS thread; 0 = none.
+    /// Constructions outside any token (or outside an install-inherited
+    /// worker) are never counted.
+    pub(crate) fn current_generation() -> u64 {
+        CURRENT_GENERATION.with(Cell::get)
+    }
+
+    /// RAII: run a closure with this thread's generation set to `generation`
+    /// (used by `build_pool::install` to propagate the measuring thread's
+    /// attribution onto the pool worker that executes the build op).
+    pub(crate) struct GenerationGuard(u64);
+
+    impl Drop for GenerationGuard {
+        fn drop(&mut self) {
+            CURRENT_GENERATION.with(|c| c.set(self.0));
+        }
+    }
+
+    pub(crate) fn inherit_generation<R>(generation: u64, f: impl FnOnce() -> R) -> R {
+        let previous = current_generation();
+        CURRENT_GENERATION.with(|c| c.set(generation));
+        let _guard = GenerationGuard(previous);
+        f()
+    }
+
+    pub(crate) fn record_construction(plain: bool) {
+        let generation = current_generation();
+        if generation == 0 {
+            return;
+        }
+        let mut map = COUNTERS.lock().unwrap();
+        let Some(c) = map.get_mut(&generation) else {
+            return;
+        };
+        if plain {
+            c.plain_constructions += 1;
+        } else {
+            c.import_aware_constructions += 1;
+        }
+        c.constructed += 1;
+        let live = c.constructed - c.freed;
+        c.peak_live = c.peak_live.max(live);
+    }
+
+    /// Attributed to the generation the dropped extraction was BUILT under,
+    /// which may be an earlier (already-finished) generation or none at all —
+    /// those are ignored, so a stale provider's drop can never push a live
+    /// measurement below zero.
+    pub(crate) fn record_drop(generation: u64) {
+        if generation == 0 {
+            return;
+        }
+        if let Some(c) = COUNTERS.lock().unwrap().get_mut(&generation) {
+            c.freed += 1;
+        }
+    }
+}
+
+#[cfg(test)]
+impl Drop for GoTypeData {
+    fn drop(&mut self) {
+        // Fires when the LAST Arc<GoTypeData> for an extraction is released,
+        // so LIVE tracks whole extractions, not Arc clones.
+        test_counters::record_drop(self.measurement_generation);
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct GoTypeProvider {
     pub data: Arc<GoTypeData>,
 }
@@ -289,7 +462,7 @@ pub struct GoTypeProvider {
 impl GoTypeProvider {
     /// Build a GoTypeProvider by scanning all Go parsed files.
     pub fn from_parsed_files(files: &BTreeMap<String, ParsedFile>) -> Self {
-        Self::from_parsed_files_with_package_import_paths(files, &BTreeMap::new())
+        Self::from_parsed_files_inner(files, &BTreeMap::new(), true)
     }
 
     /// Build with each file's package import path when repository manifests prove it.
@@ -298,6 +471,14 @@ impl GoTypeProvider {
     pub(crate) fn from_parsed_files_with_package_import_paths(
         files: &BTreeMap<String, ParsedFile>,
         package_import_paths: &BTreeMap<String, String>,
+    ) -> Self {
+        Self::from_parsed_files_inner(files, package_import_paths, false)
+    }
+
+    fn from_parsed_files_inner(
+        files: &BTreeMap<String, ParsedFile>,
+        package_import_paths: &BTreeMap<String, String>,
+        plain_entry: bool,
     ) -> Self {
         let mut inner = GoTypeData {
             structs: BTreeMap::new(),
@@ -319,6 +500,8 @@ impl GoTypeProvider {
             interface_declarations: BTreeMap::new(),
             method_declarations: BTreeMap::new(),
             field_types: BTreeMap::new(),
+            #[cfg(test)]
+            measurement_generation: test_counters::current_generation(),
             field_targets: BTreeMap::new(),
             embedded_interface_promotions: BTreeMap::new(),
             struct_embeds: BTreeMap::new(),
@@ -354,9 +537,16 @@ impl GoTypeProvider {
 
         Self::remove_unproven_pointer_embed_pseudo_fields(&mut inner, &go_file_profiles);
         Self::compute_satisfaction(&mut inner);
-        GoTypeProvider {
+        let provider = GoTypeProvider {
             data: Arc::new(inner),
+        };
+        // P15a-fix1: test-only instrumentation (zero cost in release/non-test
+        // builds — every counter access is behind `#[cfg(test)]`).
+        #[cfg(test)]
+        {
+            test_counters::record_construction(plain_entry);
         }
+        provider
     }
 
     pub(crate) fn local_import_paths(

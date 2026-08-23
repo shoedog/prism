@@ -687,6 +687,15 @@ pub struct CallGraph {
     #[serde(default)]
     pub go_package_vars:
         BTreeMap<(String, String), BTreeSet<crate::go_receiver_index::GoTypedFact>>,
+    /// P15a-fix1: the plain (import-path-free) `GoTypeProvider` extracted once
+    /// during this build, retained (Arc-backed, cheap clone) so
+    /// `CpgContext::build_registry` can reuse it instead of re-extracting.
+    /// Only populated by full-context build paths whose provider was built
+    /// from the same complete `files` map; never serialized (`#[serde(skip)]`)
+    /// so cache bytes are unchanged. Scoped / cache-loaded / AST-only paths
+    /// leave it `None` and construct their own.
+    #[serde(skip)]
+    pub(crate) shared_plain_go_provider: Option<crate::type_providers::go::GoTypeProvider>,
 }
 
 impl CallGraph {
@@ -769,6 +778,7 @@ impl CallGraph {
             go_interface_live_types: BTreeSet::new(),
             go_embedded_interface_methods: BTreeMap::new(),
             go_package_vars: BTreeMap::new(),
+            shared_plain_go_provider: None,
         }
     }
 
@@ -1012,6 +1022,7 @@ impl CallGraph {
             go_interface_live_types: BTreeSet::new(),
             go_embedded_interface_methods: BTreeMap::new(),
             go_package_vars: BTreeMap::new(),
+            shared_plain_go_provider: None,
         }
     }
 
@@ -1419,10 +1430,29 @@ impl CallGraph {
             go_interface_live_types: BTreeSet::new(),
             go_embedded_interface_methods: BTreeMap::new(),
             go_package_vars: BTreeMap::new(),
+            shared_plain_go_provider: None,
         };
         cg.refresh_rust_receiver_state(files);
-        cg.apply_go_embedding_promotion(files);
+        // P15a-fix1: interface dispatch runs BEFORE the shared plain provider
+        // is constructed. Dispatch and embedding promotion are mutually
+        // independent — each reads only `files` (+ scope inputs for dispatch)
+        // and writes disjoint CallGraph fields, and every downstream consumer
+        // (`apply_go_func_value_fields` / `apply_go_registrations` /
+        // receiver rematerialization) runs after BOTH regardless of their
+        // relative order. Constructing the import-path-aware provider first
+        // guarantees at most ONE full `GoTypeData` is alive at any moment
+        // (the plain one is built only after the dispatch construction has
+        // been dropped).
         cg.apply_go_interface_dispatch_with_scope_inputs(files, scope_inputs);
+        // P15a: extract the plain Go type data ONCE per build and share it
+        // between embedding promotion and receiver rematerialization (both use
+        // the import-path-free `from_parsed_files` extraction). A cheap
+        // Arc-backed clone is retained on the graph so `CpgContext::
+        // build_registry` reuses the same extraction instead of a fourth
+        // construction on the no-cache navigation path.
+        let shared_go_provider = Self::plain_go_provider_for_build(files);
+        cg.shared_plain_go_provider = shared_go_provider.clone();
+        cg.apply_go_embedding_promotion_with_provider(files, shared_go_provider.as_ref());
         // P5: S1 func-typed-field index, then S2 registration scan (needs S1
         // already applied — registrations are keyed against it).
         cg.apply_go_func_value_fields(files);
@@ -1436,7 +1466,11 @@ impl CallGraph {
         // draft hardcoded `ReceiverRecoveryConfig::default()` here, silently
         // re-enabling var_local/type_assertion recovery even when this build
         // explicitly disabled them via `build_with_receiver_config`).
-        cg.apply_go_receiver_indices(files, receiver_config);
+        cg.apply_go_receiver_indices_with_provider(
+            files,
+            receiver_config,
+            shared_go_provider.as_ref(),
+        );
         // P7: python property-access state — needs the complete method_owners
         // / method_class_span / class_bases indexes already populated above,
         // so it runs last, same rationale as the Go passes.
@@ -2833,9 +2867,37 @@ impl CallGraph {
         );
     }
 
+    /// P15a: lazily construct the import-path-free Go provider for the whole
+    /// build only when the file set contains Go files (non-Go repos pay
+    /// nothing). Shared by embedding promotion + receiver rematerialization.
+    pub(crate) fn plain_go_provider_for_build(
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> Option<crate::type_providers::go::GoTypeProvider> {
+        if files
+            .values()
+            .any(|p| p.language == crate::languages::Language::Go)
+        {
+            Some(crate::type_providers::go::GoTypeProvider::from_parsed_files(files))
+        } else {
+            None
+        }
+    }
+
     /// Recompute Go embedding promotions over `files` and write owner-index aliases.
     /// Idempotent: clears prior aliases first (incremental replace).
     pub fn apply_go_embedding_promotion(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        self.apply_go_embedding_promotion_with_provider(files, None);
+    }
+
+    /// Build-path variant that reuses a caller-constructed plain
+    /// `GoTypeProvider` (`from_parsed_files`) instead of re-extracting the
+    /// whole Go type data. `shared` MUST have been built from the same `files`
+    /// map; `None` constructs one internally (public-API behavior).
+    pub(crate) fn apply_go_embedding_promotion_with_provider(
+        &mut self,
+        files: &BTreeMap<String, ParsedFile>,
+        shared: Option<&crate::type_providers::go::GoTypeProvider>,
+    ) {
         // 1. Remove prior promoted aliases (preserving direct methods on the key).
         self.clear_promoted_embedding();
         if !files
@@ -2844,8 +2906,14 @@ impl CallGraph {
         {
             return;
         }
-        // 2. Group promotions by (owner_key(struct), method).
-        let provider = crate::type_providers::go::GoTypeProvider::from_parsed_files(files);
+        let owned;
+        let provider = match shared {
+            Some(p) => p,
+            None => {
+                owned = crate::type_providers::go::GoTypeProvider::from_parsed_files(files);
+                &owned
+            }
+        };
         let mut by_key: BTreeMap<(String, String), Vec<(usize, FunctionId)>> = BTreeMap::new();
         for pm in provider.promoted_struct_methods() {
             let key = (crate::resolution::owner_key(&pm.struct_name), pm.method);
@@ -3399,6 +3467,17 @@ impl CallGraph {
         files: &BTreeMap<String, ParsedFile>,
         receiver_config: &crate::resolution::ReceiverRecoveryConfig,
     ) {
+        self.apply_go_receiver_indices_with_provider(files, receiver_config, None);
+    }
+
+    /// Build-path variant that reuses a caller-constructed plain
+    /// `GoTypeProvider` (see `apply_go_embedding_promotion_with_provider`).
+    pub(crate) fn apply_go_receiver_indices_with_provider(
+        &mut self,
+        files: &BTreeMap<String, ParsedFile>,
+        receiver_config: &crate::resolution::ReceiverRecoveryConfig,
+        shared: Option<&crate::type_providers::go::GoTypeProvider>,
+    ) {
         self.clear_go_receiver_indices();
         if !files
             .values()
@@ -3408,8 +3487,15 @@ impl CallGraph {
         }
         self.go_return_types = crate::go_receiver_index::extract_go_return_types(files);
         self.go_package_vars = crate::go_receiver_index::extract_go_package_vars(files);
-        let field_targets =
-            crate::type_providers::go::GoTypeProvider::from_parsed_files(files).go_field_targets();
+        let owned;
+        let provider = match shared {
+            Some(p) => p,
+            None => {
+                owned = crate::type_providers::go::GoTypeProvider::from_parsed_files(files);
+                &owned
+            }
+        };
+        let field_targets = provider.go_field_targets();
         self.rematerialize_go_receiver_keys(files, receiver_config, &field_targets);
     }
 
@@ -4300,6 +4386,7 @@ impl CallGraph {
             go_interface_live_types: BTreeSet::new(),
             go_embedded_interface_methods: BTreeMap::new(),
             go_package_vars: BTreeMap::new(),
+            shared_plain_go_provider: None,
         }
     }
 
@@ -5248,6 +5335,277 @@ fn has_static_specifier(parsed: &ParsedFile, func_node: &tree_sitter::Node<'_>) 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // P15a-fix1: the full production build path (CallGraph passes + CpgContext
+    // registry) must perform exactly ONE plain (import-path-free) provider
+    // construction and ONE import-aware construction, with at most ONE full
+    // `GoTypeData` alive at any moment. RED on the pre-fix code, which built
+    // plain providers for promotion AND receiver rematerialization AND the
+    // registry (3 plain constructions; peak live 2 while dispatch's
+    // import-aware extraction coexisted with the retained shared one).
+    // P15a-fix2: generation-keyed drops — a provider built BEFORE the token
+    // but dropped DURING the measurement must not decrement its live count
+    // (RED on the pre-fix global ARMED design, which underflowed LIVE).
+    #[test]
+    fn p15a_fix2_pre_token_drop_does_not_underflow_live() {
+        use crate::languages::Language::Go;
+        use crate::type_providers::go::{test_counters::MeasurementToken, GoTypeProvider};
+
+        let src = "package main\n\ntype S struct{ X int }\n";
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.go".to_string(),
+            ParsedFile::parse("main.go", src, Go).unwrap(),
+        );
+
+        // Built before any measurement — attributed to generation 0.
+        let stale = GoTypeProvider::from_parsed_files(&files);
+
+        let token = MeasurementToken::acquire();
+        drop(stale);
+        assert_eq!(
+            token.live(),
+            0,
+            "a pre-token extraction's drop must not affect this measurement"
+        );
+    }
+
+    #[test]
+    fn p15a_fix1_single_plain_provider_peak_live_one_through_full_context_path() {
+        use crate::cpg::CpgContext;
+        use crate::languages::Language::Go;
+        use crate::type_providers::go::test_counters::MeasurementToken;
+
+        let src = "package main\n\ntype S struct{ X int }\n\nfunc (s S) Get() int { return s.X }\n\nfunc main() { var s S; _ = s.Get() }\n";
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.go".to_string(),
+            ParsedFile::parse("main.go", src, Go).unwrap(),
+        );
+
+        let token = MeasurementToken::acquire();
+        let ctx = CpgContext::build(&files, None);
+        assert_eq!(
+            token.plain_constructions(),
+            1,
+            "expected exactly 1 plain construction"
+        );
+        assert_eq!(
+            token.import_aware_constructions(),
+            1,
+            "expected exactly 1 import-aware construction"
+        );
+        assert_eq!(
+            token.peak_live(),
+            1,
+            "at most 1 full GoTypeData may be alive at a time"
+        );
+        // P15a-fix2: the provider was TRANSFERRED into the registry — the
+        // CPG's CallGraph holds NO provider after context construction, so a
+        // long-lived CPG never pins the full Go type data.
+        assert!(
+            ctx.cpg.call_graph.shared_plain_go_provider.is_none(),
+            "CPG must not retain the shared plain Go provider after build"
+        );
+        drop(ctx);
+        assert_eq!(token.live(), 0, "all extractions released");
+    }
+
+    /// P15a-fix3: `build_with_registry` uses a CALLER-SUPPLIED registry, so
+    /// nothing consumes the plain Go provider stashed by the CPG build — the
+    /// stash must be dropped, or this (long-lived) context pins a SECOND full
+    /// Go dataset. RED on pre-fix code (stash was Some).
+    #[test]
+    fn p15a_fix3_build_with_registry_drops_stashed_go_provider() {
+        use crate::cpg::CpgContext;
+        use crate::languages::Language::Go;
+        use crate::type_provider::TypeRegistry;
+
+        let src = "package main\n\ntype S struct{ X int }\n\nfunc (s S) Get() int { return s.X }\n\nfunc main() { var s S; _ = s.Get() }\n";
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.go".to_string(),
+            ParsedFile::parse("main.go", src, Go).unwrap(),
+        );
+
+        let ctx = CpgContext::build_with_registry(&files, None, TypeRegistry::empty());
+        assert!(
+            ctx.cpg.call_graph.shared_plain_go_provider.is_none(),
+            "build_with_registry must drop the CPG's stashed plain Go provider"
+        );
+    }
+
+    /// P15a-fix4: EVERY CpgContext constructor must leave the CPG's stashed
+    /// plain Go provider as None — transferred into the registry or dropped —
+    /// so no constructor can pin a full Go dataset on a long-lived context.
+    /// Parameterized over all real constructors.
+    #[test]
+    fn p15a_fix4_all_constructors_leave_no_stashed_provider() {
+        use crate::cpg::CpgContext;
+        use crate::languages::Language::Go;
+        use crate::type_provider::TypeRegistry;
+
+        let src = "package main\n\ntype S struct{ X int }\n\nfunc (s S) Get() int { return s.X }\n\nfunc main() { var s S; _ = s.Get() }\n";
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.go".to_string(),
+            ParsedFile::parse("main.go", src, Go).unwrap(),
+        );
+        let fresh_cpg = || crate::cpg::CodePropertyGraph::build_enriched(&files, None);
+
+        let cases: Vec<(&str, CpgContext)> = vec![
+            ("build", CpgContext::build(&files, None)),
+            (
+                "build_with_scope_graph_inputs",
+                CpgContext::build_with_scope_graph_inputs(&files, None, None),
+            ),
+            (
+                "build_with_fresh_cpg",
+                CpgContext::build_with_fresh_cpg(&files, fresh_cpg(), None),
+            ),
+            // Deserialized-cache-hit constructor with a FRESH CPG input: the
+            // stash would otherwise survive alongside the fresh registry.
+            (
+                "build_with_cached_cpg(fresh cpg)",
+                CpgContext::build_with_cached_cpg(&files, fresh_cpg(), None),
+            ),
+            ("without_cpg", CpgContext::without_cpg(&files, None)),
+        ];
+        for (name, ctx) in cases {
+            assert!(
+                ctx.cpg.call_graph.shared_plain_go_provider.is_none(),
+                "{name} must not retain the shared plain Go provider"
+            );
+        }
+
+        // Scoped FILTERED-SUBSET branch (terra final-confirm): a one-file repo
+        // falls back to the full build, so exercise a 3-file repo whose diff
+        // touches only one file — the filtered branch must also end None.
+        {
+            // Eight files, only a.go changed and nothing references it:
+            // scope = {a.go} = 1/8 ≤ 50%, so the filtered-subset branch runs.
+            let mut multi = BTreeMap::new();
+            multi.insert(
+                "a.go".to_string(),
+                ParsedFile::parse(
+                    "a.go",
+                    "package main\n\ntype A struct{ X int }\n\nfunc (a A) Get() int { return a.X }\n",
+                    Go,
+                )
+                .unwrap(),
+            );
+            for i in 0..7 {
+                let name = format!("b{i}.go");
+                let body = format!(
+                    "package main\n\ntype B{i} struct{{ Y int }}\n\nfunc (b B{i}) Put{i}() int {{ return b.Y }}\n"
+                );
+                multi.insert(name.clone(), ParsedFile::parse(&name, &body, Go).unwrap());
+            }
+            let scoped_subset = CpgContext::build_scoped(
+                &multi,
+                &crate::diff::DiffInput {
+                    files: vec![crate::diff::DiffInfo {
+                        file_path: "a.go".to_string(),
+                        modify_type: crate::diff::ModifyType::Modified,
+                        diff_lines: BTreeSet::from([5]),
+                    }],
+                },
+                None,
+            );
+            assert!(
+                scoped_subset.scope.is_some(),
+                "3-file scoped fixture must take the filtered-subset branch"
+            );
+            assert!(
+                scoped_subset
+                    .cpg
+                    .call_graph
+                    .shared_plain_go_provider
+                    .is_none(),
+                "build_scoped (filtered subset) must not retain the shared plain Go provider"
+            );
+        }
+
+        // build_scoped takes a DiffInput; a one-file repo falls back to the
+        // full build — either way the invariant must hold.
+        let scoped = CpgContext::build_scoped(
+            &files,
+            &crate::diff::DiffInput {
+                files: vec![crate::diff::DiffInfo {
+                    file_path: "main.go".to_string(),
+                    modify_type: crate::diff::ModifyType::Modified,
+                    diff_lines: BTreeSet::from([1]),
+                }],
+            },
+            None,
+        );
+        assert!(
+            scoped.cpg.call_graph.shared_plain_go_provider.is_none(),
+            "build_scoped must not retain the shared plain Go provider"
+        );
+
+        let reg = CpgContext::build_with_registry(&files, None, TypeRegistry::empty());
+        assert!(
+            reg.cpg.call_graph.shared_plain_go_provider.is_none(),
+            "build_with_registry must not retain the shared plain Go provider"
+        );
+    }
+
+    /// P15a-fix3/fix4: a FOREIGN thread constructing Go providers while a
+    /// measurement is live must contribute ZERO attributions to that
+    /// measurement. RED on the fix2 first-draft global CURRENT_GENERATION
+    /// (the foreign construction was counted), which flaked only under
+    /// full-suite parallelism. P15a-fix4: fully deterministic — the foreign
+    /// thread SIGNALS after its first construction (mpsc) and the assertions
+    /// run only after that signal, so the test never depends on a sleep.
+    #[test]
+    fn p15a_fix3_foreign_thread_constructions_not_attributed() {
+        use crate::languages::Language::Go;
+        use crate::type_providers::go::test_counters::MeasurementToken;
+        use crate::type_providers::go::GoTypeProvider;
+        use std::sync::Arc;
+
+        let src = "package main\n\ntype S struct{ X int }\n";
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.go".to_string(),
+            ParsedFile::parse("main.go", src, Go).unwrap(),
+        );
+
+        let token = MeasurementToken::acquire();
+        let (constructed_tx, constructed_rx) = std::sync::mpsc::channel::<()>();
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let files = Arc::new(files);
+        let handle = {
+            let files = files.clone();
+            let stop = stop.clone();
+            // The measurement is LIVE for this whole thread's lifetime —
+            // exactly the window in which the old global-generation design
+            // misattributed.
+            std::thread::spawn(move || loop {
+                let _p = GoTypeProvider::from_parsed_files(&files);
+                let _ = constructed_tx.send(());
+                if stop.load(std::sync::atomic::Ordering::SeqCst) {
+                    break;
+                }
+            })
+        };
+        // Block until the foreign thread has PROVEN at least one construction
+        // inside the live-measurement window (would have inflated the counts
+        // under the pre-fix design).
+        constructed_rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .expect("foreign thread did not complete a construction");
+        stop.store(true, std::sync::atomic::Ordering::SeqCst);
+        handle.join().unwrap();
+
+        assert_eq!(
+            token.plain_constructions(),
+            0,
+            "foreign-thread constructions must not be attributed to this measurement"
+        );
+        assert_eq!(token.live(), 0, "nor their drops");
+    }
 
     #[test]
     fn method_class_span_populated_for_python_methods() {

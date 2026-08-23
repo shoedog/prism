@@ -867,7 +867,10 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     type_db.clone(),
                     Some(&scope_graph_inputs),
                 );
-                let ctx = CpgContext::build_with_cached_cpg(&files, cpg, type_db.as_ref());
+                // P15a-fix2: this CPG was freshly rebuilt from the current
+                // `files`, so its stashed plain Go provider transfers into
+                // the registry (same provenance as a full build).
+                let ctx = CpgContext::build_with_fresh_cpg(&files, cpg, type_db.as_ref());
 
                 // Save updated cache.
                 if let (Some(cache_dir), Some(hashes)) = (&cli.cache_dir, &file_hashes) {
