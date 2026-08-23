@@ -329,25 +329,19 @@ fn parse_results(
 pub(super) fn alias_parameters(
     parsed: &ParsedFile,
     node: &tree_sitter::Node<'_>,
-    name: &str,
 ) -> (Vec<String>, bool) {
-    let text = parsed.node_text(node);
-    let header = text
-        .split_once('=')
-        .map(|(header, _)| header)
-        .unwrap_or(text);
-    let bracketed = header
-        .find('[')
-        .and_then(|start| header.rfind(']').map(|end| &header[start + 1..end]))
-        .or_else(|| {
-            let needle = format!("type {name}[");
-            let start = parsed.source.find(&needle)? + needle.len();
-            let tail = &parsed.source[start..];
-            let end = tail.find(']')?;
-            Some(&tail[..end])
-        });
-    let Some(list) = bracketed else {
+    let Some(parameters) = node
+        .child_by_field_name("type_parameters")
+        .or_else(|| named_descendant(node, "type_parameter_list"))
+    else {
         return (Vec::new(), true);
+    };
+    let text = parsed.node_text(&parameters).trim();
+    let Some(list) = text
+        .strip_prefix('[')
+        .and_then(|text| text.strip_suffix(']'))
+    else {
+        return (Vec::new(), false);
     };
     let mut names = Vec::new();
     let mut pending = Vec::new();
@@ -369,6 +363,19 @@ pub(super) fn alias_parameters(
         supported = false;
     }
     (names, supported)
+}
+
+fn named_descendant<'a>(node: &tree_sitter::Node<'a>, kind: &str) -> Option<tree_sitter::Node<'a>> {
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if child.kind() == kind {
+            return Some(child);
+        }
+        if let Some(found) = named_descendant(&child, kind) {
+            return Some(found);
+        }
+    }
+    None
 }
 
 pub(super) fn predeclared(name: &str) -> Option<&str> {

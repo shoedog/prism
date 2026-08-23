@@ -235,13 +235,7 @@ fn alias_parameters_ignore_string_literal_decoys() {
         ],
         Some("example.com/root"),
     );
-    assert_target_files(
-        &cg,
-        "api/api.go",
-        "invoke",
-        "Use",
-        &["worker/impl.go"],
-    );
+    assert_target_files(&cg, "api/api.go", "invoke", "Use", &["worker/impl.go"]);
 }
 
 #[test]

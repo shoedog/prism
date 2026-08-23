@@ -275,8 +275,7 @@ impl GoAliasResolver {
                 };
                 let syntax = classify_alias_syntax(&child);
                 let kind = if syntax != AliasSyntax::Defined {
-                    let (param_names, constraints_supported) =
-                        alias_parameters(parsed, &child, &name);
+                    let (param_names, constraints_supported) = alias_parameters(parsed, &child);
                     let type_params: BTreeSet<String> = param_names.iter().cloned().collect();
                     let rhs = if syntax == AliasSyntax::Unresolved {
                         Err(AliasUnresolvedReason::Unresolvable)
