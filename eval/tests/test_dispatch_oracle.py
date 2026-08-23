@@ -631,3 +631,32 @@ def test_delta_refuses_mismatched_environment_pins():
     changed_pins = dict(_PINS, GOARCH="amd64")
     with pytest.raises(ValueError, match="environment pins differ"):
         do.validate_environment_pins(_PINS, changed_pins)
+
+
+def test_environment_pins_use_effective_go_env_and_refuse_unavailable(tmp_path):
+    outputs = {
+        ("git", "rev-parse", "HEAD"): "abc123",
+        ("go", "version"): "go version go1.25.0 darwin/arm64",
+        ("gopls", "version"): "golang.org/x/tools/gopls v0.22.0",
+        ("go", "env", "GOOS"): "darwin",
+        ("go", "env", "GOARCH"): "arm64",
+        ("go", "env", "GOFLAGS"): "-tags=effective",
+    }
+    commands = []
+    original = do._command_output
+    try:
+        def fake_command_output(command, _cwd, _env, **_kwargs):
+            commands.append(tuple(command))
+            return outputs.get(tuple(command))
+
+        do._command_output = fake_command_output
+        pins = do.environment_pins(str(tmp_path), ["gopls", "serve"])
+        assert pins["tags"] == "-tags=effective"
+        assert ("go", "env", "GOFLAGS") in commands
+        with pytest.raises(ValueError, match="required environment pins unavailable"):
+            do.validate_environment_pins(
+                dict(pins, GOARCH="unavailable"),
+                dict(pins, GOARCH="unavailable"),
+            )
+    finally:
+        do._command_output = original

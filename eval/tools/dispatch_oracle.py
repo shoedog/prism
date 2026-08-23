@@ -576,7 +576,9 @@ def effective_gowork(repo: str) -> str:
     return str(work) if work.is_file() else "off"
 
 
-def _command_output(command: list[str], cwd: str, env: dict[str, str]) -> str | None:
+def _command_output(
+    command: list[str], cwd: str, env: dict[str, str], *, allow_empty: bool = False
+) -> str | None:
     try:
         completed = subprocess.run(
             command,
@@ -591,7 +593,23 @@ def _command_output(command: list[str], cwd: str, env: dict[str, str]) -> str | 
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return None
     output = completed.stdout.strip()
-    return output if completed.returncode == 0 and output else None
+    return output if completed.returncode == 0 and (output or allow_empty) else None
+
+
+_REQUIRED_ENVIRONMENT_PINS = {
+    "corpus_sha", "go_version", "gopls_version", "GOOS", "GOARCH", "tags", "GOWORK",
+}
+
+
+def _require_environment_pins(pins: dict) -> None:
+    unavailable = sorted(
+        key for key in _REQUIRED_ENVIRONMENT_PINS
+        if key not in pins or pins[key] is None or pins[key] == "unavailable"
+    )
+    if unavailable:
+        raise ValueError(
+            f"required environment pins unavailable: {', '.join(unavailable)}"
+        )
 
 
 def environment_pins(repo: str, cmd: list[str]) -> dict:
@@ -600,19 +618,23 @@ def environment_pins(repo: str, cmd: list[str]) -> dict:
     gowork = effective_gowork(root)
     env = os.environ.copy()
     env["GOWORK"] = gowork
-    return {
+    pins = {
         "corpus_sha": _command_output(["git", "rev-parse", "HEAD"], root, env) or "unavailable",
         "go_version": _command_output(["go", "version"], root, env) or "unavailable",
         "gopls_version": _command_output([cmd[0], "version"], root, env) or "unavailable",
         "GOOS": _command_output(["go", "env", "GOOS"], root, env) or "unavailable",
         "GOARCH": _command_output(["go", "env", "GOARCH"], root, env) or "unavailable",
-        "tags": env.get("GOFLAGS", ""),
+        "tags": _command_output(["go", "env", "GOFLAGS"], root, env, allow_empty=True),
         "GOWORK": gowork,
     }
+    _require_environment_pins(pins)
+    return pins
 
 
 def validate_environment_pins(baseline: dict, current: dict) -> None:
     """Refuse delta adjudication across different Go/gopls universes."""
+    _require_environment_pins(baseline)
+    _require_environment_pins(current)
     differences = {
         key: {"baseline": baseline.get(key), "current": current.get(key)}
         for key in sorted(set(baseline) | set(current))
