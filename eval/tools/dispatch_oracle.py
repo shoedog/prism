@@ -243,6 +243,18 @@ def _partition_location_evidence(locations: list[dict]) -> tuple[list[dict], lis
     return unknown, non_candidates
 
 
+def _classify_with_unknown_evidence(
+    prism: set, gopls: set, unknown_locations: list[dict]
+) -> str:
+    """Classify mapped evidence without claiming absence hidden by an unknown location."""
+    classification = classify(prism, gopls)
+    if (prism - gopls and unknown_locations) or (
+        not prism and not gopls and unknown_locations
+    ):
+        return "oracle_unresolved"
+    return classification
+
+
 def compare_site(
     file: str,
     line: int,
@@ -286,7 +298,9 @@ def compare_site(
             prism_only = set()
             gopls_only = set()
         else:
-            classification = classify(prism, gopls)
+            classification = _classify_with_unknown_evidence(
+                prism, gopls, unresolved_locations
+            )
             prism_only = prism - gopls
             gopls_only = gopls - prism
     else:
@@ -313,15 +327,12 @@ def compare_site(
         else:
             prism_only = prism - gopls
             gopls_only = gopls - prism
-            classification = classify(prism, gopls)
-            # Unknown in-repo mappings only block when they could conceal a prism
-            # target. Proven non-candidates (interfaces and outside-repo locations)
-            # are diagnostic only and never poison concrete satisfier evidence.
-            if prism_only and unresolved_locations:
-                classification = "oracle_unresolved"
-            elif not prism and not gopls and unresolved_locations:
-                classification = "oracle_unresolved"
-            if classification != "over_approx":
+            classification = _classify_with_unknown_evidence(
+                prism, gopls, unresolved_locations
+            )
+            # Proven non-candidates (interfaces and outside-repo locations) are
+            # diagnostic only. Unknown mappings fail closed in both identity modes.
+            if classification not in {"over_approx", "oracle_unresolved"}:
                 for key in sorted(prism & gopls):
                     prism_targets_for_key = prism_targets[key]
                     gopls_targets_for_key = gopls_targets[key]

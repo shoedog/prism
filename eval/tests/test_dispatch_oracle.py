@@ -441,20 +441,24 @@ def test_load_dispatch_sites_keeps_zero_fanout_and_scores_recall_gap(tmp_path):
 
 def _run_fake_oracle(
     tmp_path, *, definition, satisfiers, prism_identities,
-    start_byte=8, end_byte=13, implementation_status=None,
+    start_byte=8, end_byte=13, implementation_status=None, legacy=False,
+    unresolved_locations=None,
 ):
     (tmp_path / "caller.go").write_text("adapter.Adapt()\n")
     manifest = tmp_path / "manifest.json"
-    manifest.write_text(json.dumps({"sites": [{
+    site = {
         "file": "caller.go",
         "line": 1,
         "method": "Adapt",
         "fanout": len(prism_identities),
         "implementers": [identity["name"] for identity in prism_identities],
-        "implementer_identities": prism_identities,
         "start_byte": start_byte,
         "end_byte": end_byte,
-    }]}))
+    }
+    if not legacy:
+        site["implementer_identities"] = prism_identities
+    manifest.write_text(json.dumps({"sites": [site]}))
+    unresolved_locations = list(unresolved_locations or [])
 
     class FakeGopls:
         implementation_calls = 0
@@ -486,7 +490,7 @@ def _run_fake_oracle(
                 if implementation_status is not None:
                     self._last_implementation_status = implementation_status
                 return None
-            return satisfiers, len(satisfiers), []
+            return satisfiers, len(satisfiers) + len(unresolved_locations), unresolved_locations
 
     records, _summary = do.run_oracle(
         str(manifest), str(tmp_path), ["fake-gopls"], 1,
@@ -1020,6 +1024,53 @@ def test_unresolved_location_blocks_only_when_it_can_hide_prism_only_identity():
         failure_stage="mapping",
     )
     assert record["classification"] == "oracle_unresolved"
+
+
+def test_legacy_unknown_location_blocks_prism_only_identity(tmp_path):
+    hidden = _identity("Hidden", "hidden.go", [3, 5])
+    record, _implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={"file": "interface.go", "line": 7, "character": 2,
+                    "kind": "interface", "identity": None},
+        satisfiers=[],
+        prism_identities=[hidden],
+        legacy=True,
+        unresolved_locations=[{
+            "file": "generated.go", "line": 1, "reason": "receiver_unknown",
+        }],
+    )
+    assert record["identity_mode"] == "name_only"
+    assert record["classification"] == "oracle_unresolved"
+
+
+def test_legacy_zero_fanout_unknown_location_is_unresolved(tmp_path):
+    record, _implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={"file": "interface.go", "line": 7, "character": 2,
+                    "kind": "interface", "identity": None},
+        satisfiers=[],
+        prism_identities=[],
+        legacy=True,
+        unresolved_locations=[{
+            "file": "generated.go", "line": 1, "reason": "receiver_unknown",
+        }],
+    )
+    assert record["identity_mode"] == "name_only"
+    assert record["classification"] == "oracle_unresolved"
+
+
+def test_legacy_zero_fanout_raw_empty_result_is_sound(tmp_path):
+    record, _implementation_calls = _run_fake_oracle(
+        tmp_path,
+        definition={"file": "interface.go", "line": 7, "character": 2,
+                    "kind": "interface", "identity": None},
+        satisfiers=[],
+        prism_identities=[],
+        legacy=True,
+    )
+    assert record["identity_mode"] == "name_only"
+    assert record["classification"] == "sound"
+    assert record["oracle_reason"] == "empty_satisfier_set"
 
 
 def test_interface_location_is_excluded_when_concrete_prism_target_is_mapped():
