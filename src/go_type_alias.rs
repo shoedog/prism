@@ -471,3 +471,60 @@ impl GoAliasResolver {
         result
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parameterized_alias_shape_accepts_error_and_clean_grammar_forms() {
+        assert_eq!(
+            classify_alias_shape("type_spec", true, true, true),
+            AliasSyntax::Alias
+        );
+        assert_eq!(
+            classify_alias_shape("type_alias", true, true, false),
+            AliasSyntax::Alias
+        );
+        assert_eq!(
+            classify_alias_shape("type_spec", true, true, false),
+            AliasSyntax::Unresolved
+        );
+        assert_eq!(
+            classify_alias_shape("type_spec", true, false, false),
+            AliasSyntax::Defined
+        );
+    }
+
+    #[test]
+    fn current_grammar_parameterized_alias_fingerprint_stays_recognized() {
+        let parsed = ParsedFile::parse(
+            "alias.go",
+            "package p\ntype Pair[A, B any] struct{}\ntype Twice[T any] = Pair[T, T]\n",
+            Language::Go,
+        )
+        .expect("parse parameterized alias");
+        let root = parsed.tree.root_node();
+        let alias = named_descendant(root, "type_spec")
+            .find(|node| node.child_by_field_name("type_parameters").is_some())
+            .expect("current grammar parameterized alias type_spec");
+        assert!(node_has_token(&alias, "="));
+        assert!(node_has_kind(&alias, "ERROR"));
+        assert_eq!(classify_alias_syntax(&alias), AliasSyntax::Alias);
+    }
+
+    fn named_descendant<'a>(
+        node: tree_sitter::Node<'a>,
+        kind: &'a str,
+    ) -> impl Iterator<Item = tree_sitter::Node<'a>> {
+        let mut stack = vec![node];
+        std::iter::from_fn(move || loop {
+            let next = stack.pop()?;
+            let mut cursor = next.walk();
+            stack.extend(next.named_children(&mut cursor));
+            if next.kind() == kind {
+                return Some(next);
+            }
+        })
+    }
+}
