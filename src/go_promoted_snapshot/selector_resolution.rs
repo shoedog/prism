@@ -233,7 +233,7 @@ fn select_in_world(
         .filter(|field| field.name == method && field.required_profiles.is_subset(active))
         .map(|field| field.depth)
         .min();
-    if field_depth.is_some_and(|depth| depth < shallowest_depth) {
+    if field_depth.is_some_and(|depth| depth <= shallowest_depth) {
         return outcome_for_shapes(shallowest, true, OutcomeKind::Shadowed);
     }
 

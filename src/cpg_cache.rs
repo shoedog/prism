@@ -148,7 +148,8 @@ use std::path::{Path, PathBuf};
 ///   rebinding shadow bail plus new-recovery provenance are one PR schema
 ///   transition (paired with sidecar v16).
 /// - v48: alias-aware Go signature identity plus the serialized promoted-selector snapshot.
-const CACHE_VERSION: u32 = 48;
+/// - v49: promoted-selector snapshots shadow methods at equal field depth.
+const CACHE_VERSION: u32 = 49;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -666,8 +667,8 @@ mod tests {
     }
 
     #[test]
-    fn cache_versions_are_pinned_for_go_alias_snapshot() {
-        assert_eq!(super::CACHE_VERSION, 48);
+    fn cache_versions_are_pinned_for_promoted_snapshot_equal_depth_repair() {
+        assert_eq!(super::CACHE_VERSION, 49);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

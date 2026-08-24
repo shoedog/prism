@@ -24,6 +24,10 @@ pub struct FunctionId {
     pub end_line: usize,
 }
 
+#[cfg(test)]
+#[path = "call_graph/promoted_snapshot_consult_test.rs"]
+mod promoted_snapshot_consult_test;
+
 #[derive(
     Debug,
     Clone,
@@ -545,8 +549,8 @@ pub struct CallGraph {
     /// Alias leaves rejected before Exact dispatch, grouped by stable reason.
     #[serde(default)]
     pub go_alias_unresolved: BTreeMap<String, usize>,
-    /// Slice 4 foundation: owner/profile-keyed promoted-selector facts. This is
-    /// serialized for cache parity but deliberately not consumed by routing.
+    /// Owner/profile-keyed promoted-selector facts, serialized for cache parity
+    /// and consulted by deferred concrete promoted-selector routing.
     #[serde(default)]
     go_promoted_selector_snapshot: crate::go_promoted_snapshot::GoPromotedSelectorSnapshot,
     /// P10 build-time S2 consult decisions. Whole-program rematerialized with

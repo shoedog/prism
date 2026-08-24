@@ -50,7 +50,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // recovery, and new-recovery provenance are part of this one PR transition
 // (paired with CPG v47).
 // v17: alias-aware Go signature identity (paired with CPG v48).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 17;
+// v18: deferred concrete promoted selectors consult the serialized snapshot;
+// resolved targets change while CPG serialization remains v48.
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 18;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -376,8 +378,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_pinned_for_go_alias_snapshot() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 17);
+    fn sidecar_version_is_pinned_for_promoted_snapshot_consult() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 18);
     }
 
     #[test]
