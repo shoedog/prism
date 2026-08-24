@@ -1,0 +1,71 @@
+# #16 — Package-qualified interface identity in the Go dispatch table (design v7 — C1)
+
+**Date:** 2026-08-23. **Base:** main @ a77cf10 (resolution-identical to d8f992c). **Roadmap:** row 16 (+ #17 qualified-embed relabel). **Status:** v6 — C1 redesign per owner decision 2026-08-23 ("go with C1"); folds sol c1-r1 (FIX: 3 WRONG + 1 SMELL, all bounded): **W1** promoted-concrete supply added to the walk via the R1(b) snapshot (the proven walk alone misses embedded-struct-promoted methods today's table records); **W2** gates upgraded to per-site implementer-level preservation (subset-sound hides loss); **W3** census widened to ALL R3-eligible consult attempts (C1 turns some misses into hits — e.g. generic-shadowing recovery); **S4** visibility-primitive split stated exactly. Additionally folds sol c1-r2 (FIX: 2 WRONG + 1 SMELL, controller-verified): the shipped equal-depth field/method snapshot defect (repaired via R1(b)'s v5 amendment; C1 consumes only the repaired snapshot), the promoted-supply FunctionId join + generic/signature/satisfaction-match guards, and the named-site disposition gate (metrics.go:56). Round 3 (final) of the fresh declared cap 3, sol ∥ Ox. **v7 = the cap-round folds** — sol c1-r3 (FIX, "residual-bounded, no new open territory"): receiver text resolves via `go_receiver_owner` BEFORE the global index (W1), cache line corrected to CPG-stays-49 post-amended-R1(b) (W2), promoted signature-mismatch red-first negative (S3); plus Ox r1's five SMELLs (preservation-claim scoping, named collision-killed dispositions, census-probe code-sharing, arity-emptied routing note, sequencing). Closure = one scoped confirm of these folds (the disclosed extension), then implementation (serialized behind amended R1(b)).
+
+## 1. Problem (unchanged; measured on mainD)
+
+The bare R3 interface ladder consults `interface_impls`, a build-time table keyed by bare interface name, whose satisfaction is computed over bare-collapsed last-writer maps. Measured residue: all 8 oracle over_approx sites (7× prometheus `Put`→`pool`, 1× hugo `Stop`) + caddy metrics.go:56 `ServeHTTP` (unscored, mechanism-confirmed) arrive through this consult; the same consult carries the sound caddy `CaddyModule` 11×fanout-121 registry recall + `CertMagicStorage` + etcd's 24 sound sites (#17b audit) — the recall floor.
+
+## 2. Decision record
+
+Three shapes were escalated: **A** static table + full profile witnesses + consult-time ordering; **B** pure on-demand recompute (loses bare-lane RTA semantics); **C1** on-demand recompute **with consult-time RTA in the sol-r3-prescribed order** (`caller-profile filter → live selection → fallback`). Owner picked **C1**. Rationale: sol's r2/r3 counterexample class (profile witnesses, embedded flattening, live/fallback ordering) is *structural* to build-time tables; C1 reuses the proven lane's caller-scoped machinery — one implementation, no skew class — while preserving today's RTA/fallback semantics as an explicit, gateable consult step (where #18's fallback gating later lands). **Preservation claim scoped precisely (Ox r1 S1/S2): the walk's fail-closed strictness and the visible-set fallback condition CAN diverge from today's unfiltered table on specific sites — every such delta is forced into the open by §4's census categories, never silent.**
+
+## 3. Design (normative)
+
+### 3.1 Name→identity index (single universe)
+
+`bare_name → BTreeSet<GoOwnerIdentity>` built from `go_interface_declarations` restricted to `dispatchable` declarations — the SAME universe the consult walk reads (no index/build skew). **Identity selection order (c1-r3 W1): FIRST resolve the receiver type text against the caller via the existing `go_receiver_owner` machinery (imports/qualified text, resolution.rs:303-370) — a caller-resolved identity proceeds to §3.2 regardless of global same-name collisions (a valid `p.A` must not die to an unrelated `q.A`); ONLY unresolved bare text falls to the global index**: 0 identities → existing drop; ≥2 → existing no-impl drop path + `go_bare_iface_collision_drop` telemetry; unique → §3.2. No permissive fall-through.
+
+### 3.2 The bare consult (ordering is the contract)
+
+At resolution.rs:2773, for a unique identity, replace the table lookup with:
+
+1. **Caller-scoped satisfaction walk** — one shared fn extracted from the proven lane (`select_interface_signatures_with_mode` + the satisfier walk in `go_visible_s4_implementers`, resolution.rs:1364-1470). Visibility primitives exactly as the proven lane splits them (c1-r1 S4): interface recursion uses owner/mode-aware `exact_declaration_visibility` (go_owner_partition_s4.rs:259); concrete method declarations use `exact_cross_package_visibility` (resolution.rs:1418). Ambiguity/`uncertain`/`conflict` ⇒ fail-closed drop. Satisfier method sets are the union of TWO caller-profile-safe sources (c1-r1 W1 — the proven walk alone misses embedded-struct-promoted methods that today's table records via `insert_sat_keys` over promoted method sets):
+   - **direct**: `go_method_declarations`, caller-filtered as in the proven walk;
+   - **promoted**: the R1(b) promoted-selector snapshot (`go_promoted_selector_snapshot`) **as repaired by R1(b)'s v5 amendment** (equal-depth field/method ⇒ shadowed, matching the static provider's `<=` rule — the c1-r2 W1 defect; C1 consumes only the repaired snapshot), consulted under EXACTLY the R1(b) rules (ProfileUnique + single declaration + exact variant coherence + not field-shadowed/ambiguous), **plus the R1(b) generic/signature guard (c1-r2 S3): join `promoted.target` to `go_method_declarations` by unique `FunctionId`, require `!generic && signature.is_some()`, and here additionally require the canonical signature to MATCH the interface method's signature (interface satisfaction needs it; the R1(b) same-selector mint does not)**. Anything else ⇒ that owner contributes no promoted entry, counted in census/telemetry — fail-closed, never a new comparator.
+   The walk yields `(admission_key, FunctionId)` satisfier pairs (per-owner value/pointer matches compose `admission_key(type_name, is_pointer)`; promoted entries use the snapshot's `value_method_set`). The proven lane calls the SAME extracted fn for its direct source (behavior-preserving refactor, gated by proven-row byte comparison; whether the proven lane also gains the promoted source is a separate follow-up decision, NOT this slice — its rows must stay byte-identical).
+2. **Live selection** — intersect satisfier admission keys with `CallGraph.go_interface_live_types` (already retained AND serialized, `#[serde(default)]`, populated in apply — call_graph.rs:677/3042). Non-empty ⇒ that subset.
+3. **Fallback** — empty intersection ⇒ the full step-1 satisfier set, kept Exact, `go_bare_fallback_fired` telemetry — mirroring today's receiver-kind-aware-empty fallback (`NonLocalConstructionFallback` semantics), now profile-correct. **#18's gating applies to exactly this step later; out of scope here.**
+4. **Arity filter** — the existing shared helper, in the same consult position it occupies today (after candidate selection); **an arity-emptied set routes through `func_value_field_or_external_drop` exactly as today's bare arm does (Ox r1 impl note; resolution.rs:2779-2799)**.
+5. Mint Exact `InterfaceDispatch` from the survivors; telemetry `go_bare_walk_{sites,hits,edges}` + the collision/fallback counters, plumbed `ResolutionTelemetry` → queries accumulation → `call_stats` emission with drop-counter conservation.
+
+### 3.3 What does NOT change (slice 1)
+
+The static table build (`compute_interface_dispatch`) still runs untouched: stats/gaps/fanout/`fallback_fired` telemetry views stay byte-stable; the proven-lane dead reads (queries.rs 728/751/803/814; resolution 1521/2479/2714 candidate args) stay as-is (r2-W3: candidates are ignored there). Table retirement is a follow-up once its telemetry views derive elsewhere.
+
+### 3.4 Manifest
+
+Only the legacy-bare arm (queries.rs:827) changes: it mirrors §3.2 via the same shared consult fn (route strings distinguishing collision/walk/fallback outcomes), so oracle rows mirror resolver mints. Proven arms untouched, gated by per-site byte comparison vs main.
+
+## 4. Slice-0 census (pre-implementation gate — TEMP probe, #17b pattern, worktree-only)
+
+For **every R3-eligible bare consult attempt — hits AND misses** (c1-r1 W3: C1 turns some misses into hits, e.g. a dispatchable `a.I` recovered from under a later-file generic `z.I[T]` that empties today's table): compute today's minted set vs the C1 pipeline's set (walk with both supplies → live → fallback → arity), plus the consulted name's identity count; oracle-join every NEWLY minted set. **The census probe must share the extracted consult code path (or be byte-diffed against its output on the full attempt set) — a diverging simulation would invalidate the gate (Ox r1 S4).** REQUIRED findings before implementation proceeds:
+- **Implementer-level preservation (c1-r1 W2): for EVERY currently-sound bare hit, the C1 minted set is compared per-implementer, not per-site** — a nonempty strict subset would still score `sound` in the oracle (dispatch_oracle.py:140-147), so subset losses are census findings, each requiring an explicit owner disposition; **previously-sound sites newly killed outright — by collision-drop or walk strictness — are NAMED dispositions in the same list (Ox r1 S3)**; the caddy `CaddyModule` (11×121) + `CertMagicStorage` and etcd-24 floor must survive implementer-for-implementer — else STOP + escalate.
+- Per-site disposition of the 8 over_approx: killed by collision-drop, killed by walk semantics (visibility/signature/uncertain), or **surviving** — survivors are named in the census report and become an explicit follow-up decision, never silently accepted.
+- **Named unscored-but-mechanism-confirmed sites get the same explicit disposition (c1-r2 W2):** caddy `metrics.go:56 ServeHTTP` (worklist row 42) — its current false `caddyhttp.ServeHTTP` mint's target set under C1 is reported per-implementer; an unchanged false edge cannot silently ride through the delta-only gates.
+- Fanout deltas where live-pruning prunes today (B's known semantic delta, now quantified).
+
+## 5. Acceptance gates
+
+1. Census (§4) passed and attached to the PR.
+2. Red-first fixtures: **promoted-satisfier preservation — live `T struct{ Base }` + `Base.M` + live direct `U.M` on unique `I { M() }` ⇒ C1 mints BOTH `Base.M` (promoted, snapshot-proven) and `U.M` (c1-r1 W1/W2)**; promoted supply fail-closed — same shape with a ProfileConflict `T` ⇒ only `U.M`; **promoted signature-mismatch negative (c1-r3 S3): `Base.M(int)` + `T struct{ Base }` + `I { M(string) }` ⇒ `T` contributes nothing (the C1-only canonical-signature-match predicate gets its own red-first test — R1(b)'s generic/join-miss fixtures do not exercise it)**; caller-resolved qualified dispatch survives a global collision — `p.A` valid + unrelated `q.A` ⇒ Exact (c1-r3 W1); cross-package same-name interfaces (collision drop); unique-name registry survival (fanout>1); **the r3 ordering case** — Windows-only `W.M` constructed/live, Linux-only `L.M` not, Linux caller on unique `I.M` ⇒ profile filter first, live selection second, fallback to `L` (never `W`); dispatchable + later-file generic same-name coexistence; single-identity two-profile declarations (identical ⇒ recall survives; differing ⇒ per-declaration walk behavior pinned); embedded-flattened requirements (walk inherits proven behavior — pinned); unexported-method namespace restriction; collision + profile-conflict interaction; walk `uncertain`/`conflict` ⇒ drop.
+3. Same-base 5-corpus control vs the post-#189 recut mainD controls: deltas confined to bare-arm counters/kinds + census-predicted site changes; ripgrep byte-identical; static-table telemetry views byte-stable; proven-route manifest rows byte-identical per site.
+4. Oracle delta vs recut `oracle-mainD-*.json` ×4: gate_ok TRUE; census kill-list realized; no recall transitions outside the census's predicted set.
+5. #17b audit re-run: over_approx census 8→(8 − killed), sound unchanged.
+6. Cache: **nav sidecar bump** (outcomes change) — assigned at integration time AFTER the amended R1(b) lands its **CPG 48→49 + sidecar 17→18** (this PR then takes sidecar 18→19); **CPG stays 49** — the post-R1(b) value (c1-r3 W2; this PR adds no new serialized state; live set already covered). Four-path cache-parity battery + an explicit cache-hit assertion that the deserialized live set is non-empty on Go corpora.
+7. Suite + tier-a `--matrix-only` at every wave; fmt clean.
+
+## 6. Risks
+
+- **R1: shared-fn extraction regresses the proven lane** — proven-row byte comparison + same-base control are the tripwire.
+- **R2: fanout shifts from live-pruning differences** — census quantifies before code exists.
+- **R3: walk cost per bare site** — bounded by name-index unique hits (~hundreds per corpus at most); memoize by `(identity, method, dir_of(caller_file), profile-key)` only if the corpus control shows measurable build-time regression.
+- **R4: sidecar-version collision with R1(b)** — explicit sequencing in §5.6; single bump per PR.
+
+## 7. Delivery
+
+Spec review now (fresh cap 3, this document). Implementation SERIALIZED BEHIND R1(b) (same files: resolution.rs, queries.rs, telemetry); slice-0 census runs during R1(b)'s gate window. Implementer sol (bridge clone); code review terra ∥ Ox; controller runs corpus/oracle gates and pushes.
+
+## A. History (v1–v3, retired)
+
+v1 (attribution over bare satisfaction) — sol r1 FIX: 4W+1S (table not load-bearing for proven lanes; attribution unsound; census incomplete). v2 (identity-first static build) — sol r2 FIX: 3W+2S (profile-less table can't carry caller-profile semantics; file-count conflict drops; manifest scope). v3 (profile-bearing SatEntry + consult filtering) — sol r3 FIX + **PARK**: witness insufficiency for whole-method-set coherence; RTA-before-profile ordering; embedded-flattened equivalence — the open class that forced the fork. Owner decision 2026-08-23: C1. All r1–r3 findings that survive translation to C1 are carried in §5.2's fixture list.
