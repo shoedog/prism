@@ -207,6 +207,22 @@ check by the controller — terra's r3 BLOCKER (`Local↔Bare` matched by name) 
 constructible false Exact; (4) when an implementer context passes ~80% of its window (and has compacted), dispatch the next wave to
 a fresh context with a self-contained brief — wave 4 did, and returned a 2-arm fix in 19 min.
 
+### Lesson 18 (2026-08-23, #184 post-#186 merge integration): whole-file conflict resolution silently discards the other side's auto-merged changes
+
+Resolving a HUNK-level conflict with whole-file `git checkout --ours <file>` (or `--theirs`) is not a conflict resolution — it is a
+file-level revert. During the #184 merge, whole-file `--ours` on `src/cpg_cache.rs` and `src/navigation/call_edge_cache.rs` took back
+each file entirely, and with it silently discarded main's *auto-merged* #17 sidecar changes in those same files
+(`receiver_newly_recovered` serialization) — changes git had already merged cleanly and that the conflicting hunks never touched. The
+release binary built from that tree was silently wrong — built from sources missing work that was already on main and already merged
+cleanly, with nothing in the build output to say so. **Correct
+procedure:** `git checkout -m <file>` (recreates the conflict markers from the merge stages) and then resolve per hunk, so the
+auto-merged regions of the file survive untouched; whole-file `--ours`/`--theirs` is legitimate only when you intend to discard the
+other side's changes to *the whole file*. The tripwire that caught it was a full-suite battery with COMPLETE saved logs: the
+discarded field surfaced as a lib-test compile error (E0063, missing field in a struct literal) that appeared **only** in the full
+log — earlier probes piped through `tail -N` had scrolled it off and reported a clean-looking tail. **Corollary:** a battery log is a
+complete file, never a `tail -N` capture, and totals are computed from the whole log (`awk` over the `test result:` lines), not read
+off the end of it — a truncated log is an inadmissible probe (steering: evidence admissibility), not a cheap one.
+
 ## Follow-up queue (durable, self-tracking where possible)
 
 - P14 deferrals: return-flow taint (no callee-return→caller-LHS edges exist);

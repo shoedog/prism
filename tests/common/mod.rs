@@ -1,6 +1,10 @@
 // Shared test helpers and fixture generators used across test files.
 
 #![allow(dead_code)]
+// This module is compiled into every umbrella test target, and each target uses a
+// different subset of the re-exports below — an import unused by one target is load
+// bearing for another, so the warning is suppressed rather than the import removed.
+#![allow(unused_imports)]
 
 pub use prism::access_path::AccessPath;
 pub use prism::algorithms;

@@ -41,7 +41,7 @@ fn test_thin_slice_subset_of_leftflow() {
 
 #[test]
 fn test_thin_slice_has_data_deps() {
-    let (files, sources, diff) = make_python_test();
+    let (files, _, diff) = make_python_test();
     let result = algorithms::run_slicing_compat(
         &files,
         &diff,
@@ -77,7 +77,7 @@ fn test_barrier_slice_python() {
 
 #[test]
 fn test_relevant_slice_includes_alternates() {
-    let (files, sources, diff) = make_python_test();
+    let (files, _, diff) = make_python_test();
     let result = algorithms::run_slicing_compat(
         &files,
         &diff,

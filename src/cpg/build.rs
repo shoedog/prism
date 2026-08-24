@@ -15,7 +15,6 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::{CpgEdge, CpgNode, StmtKind, VarAccess};
 use crate::ast::ParsedFile;
-use crate::build_pool::build_pool;
 
 /// The normalized parameter-name list for a resolved callee, as Step 5b computes it.
 /// Pure function of `(callee.file, callee.name, callee.start_line)` + the immutable
