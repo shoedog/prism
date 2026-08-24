@@ -2886,6 +2886,26 @@ fn return_flow_same_line_double_assignment_binds_call_to_its_ast_parent() {
 }
 
 #[test]
+fn return_flow_two_callers_share_one_synthetic_identity_and_return_input_set() {
+    let cpg = return_flow_fixture(
+        "app.py",
+        "def f(u):\n    return u + 'x'\n\ndef first(user):\n    a = f(user)\n    sink(a)\n\ndef second(user):\n    b = f(user)\n    sink(b)\n",
+        Language::Python,
+    );
+    let return_values = cpg
+        .graph
+        .node_weights()
+        .filter(|node| matches!(node, CpgNode::ReturnValue { .. }))
+        .count();
+    assert_eq!(return_values, 1, "one required synthetic identity");
+    assert_eq!(edge_kind_count(&cpg, "ReturnInput"), 1);
+    assert_eq!(edge_kind_count(&cpg, "ReturnFlow"), 2);
+    assert_eq!(cpg.return_flow_stats.return_input_edges, 1);
+    assert_eq!(cpg.return_flow_stats.return_flow_edges, 2);
+    assert_eq!(cpg.return_flow_stats.return_flow_suppression_certified, 2);
+}
+
+#[test]
 fn return_flow_mixed_modeled_and_bare_returns_voids_shortcut_suppression() {
     let cpg = return_flow_fixture(
         "app.go",

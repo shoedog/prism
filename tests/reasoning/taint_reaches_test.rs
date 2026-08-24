@@ -1525,6 +1525,52 @@ fn return_flow_python_keyword_label_is_not_a_semantic_return_input() {
     assert_ne!(sink_source(&evidence).reachability, Reachability::Reached);
 }
 
+fn assert_nested_callable_return_does_not_escape(
+    path: &str,
+    source: &str,
+    source_line: usize,
+    sink_line: usize,
+) {
+    let fixture = fixture(&[(path, source)]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: path.into(),
+            line: source_line,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: path.into(),
+            line: sink_line,
+        }]),
+    )
+    .expect("taint_reaches");
+    assert_ne!(
+        sink_source(&evidence).reachability,
+        Reachability::Reached,
+        "a nested callable's return must not become the outer function's return: {evidence:#?}"
+    );
+}
+
+#[test]
+fn return_flow_go_func_literal_return_is_fenced_from_outer_function() {
+    assert_nested_callable_return_does_not_escape(
+        "app.go",
+        "package main\nfunc f() string {\n    s := read()\n    g := func() string { return s }\n    _ = g\n    return \"safe\"\n}\nfunc run() {\n    x := f()\n    sink(x)\n}\n",
+        3,
+        10,
+    );
+}
+
+#[test]
+fn return_flow_javascript_arrow_return_is_fenced_from_outer_function() {
+    assert_nested_callable_return_does_not_escape(
+        "app.js",
+        "function f() {\n  const s = read();\n  const g = () => { return s; };\n  return \"safe\";\n}\nfunction run() {\n  const x = f();\n  sink(x);\n}\n",
+        2,
+        8,
+    );
+}
+
 #[test]
 fn return_literal_synthetic_is_not_source_seedable() {
     let fixture = fixture(&[(
