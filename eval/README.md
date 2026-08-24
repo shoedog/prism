@@ -201,10 +201,30 @@ corpus SHA, Go/gopls versions, `GOOS`, `GOARCH`, tags, and `GOWORK`. The tool fo
 to the corpus-root `go.work` when present, otherwise `off`, so an ambient parent workspace
 cannot alter the comparison universe.
 
+**Build-tag coverage.** gopls only type-checks the files the current build configuration
+selects, so every dispatch site in a file behind a `//go:build` line the default (empty) tag
+set does not satisfy used to fail at the `definition` stage and stand as an unadjudicated
+`oracle_unresolved` — hugo's `scss/tocss.go` (`//go:build extended`) was exactly that. After
+the default pass the oracle derives each such file's required tag set from its constraint
+expression (and its `_<goos>_<goarch>` filename) and re-adjudicates **only those
+still-unadjudicated sites** in one extra gopls session per tag set (`GOFLAGS=-tags=...`, with
+its own decl cache — a different build configuration can have a different satisfier set).
+Sites are never removed from the denominator: a file whose constraint no tag set can satisfy
+under the pinned `GOOS`/`GOARCH` (`//go:build linux` on darwin, `sync_darwin.go` on linux)
+stays counted, stays `oracle_unresolved`, and is named in
+`summary.build_constraints.unadjudicated_sites`. A prism identity whose defining file the
+adjudicating tag set *excludes* cannot be judged absent by that session, so it fails closed
+to `oracle_unresolved` instead of minting a false `over_approx`. `summary.build_constraints`
+is emitted only when some in-scope file needed the pass, so corpora without one are
+byte-identical to a pre-build-tag run. The environment pins are unchanged — the derived tag
+sets are corpus content, not a pin — so existing baselines stay comparable.
+
 The summary (printed to stdout and in `comparison.json` under `summary`) reports edge-weighted
 `dispatch_precision`, separate `sound_site_rate`, per-`(interface, method)` metrics,
 `scored_sites`, all classifications, and the offending identity/target evidence. Per-site
-records include legacy display names plus qualified identities, targets, and classifications.
+records include legacy display names plus qualified identities, targets, and classifications;
+a site re-adjudicated under build tags also carries `build_tags`, `build_constraint`, and
+`build_tag_status`.
 The full taxonomy and gopls-query design are in the `tools/dispatch_oracle.py` module docstring.
 
 ## Snapshots and Baselines

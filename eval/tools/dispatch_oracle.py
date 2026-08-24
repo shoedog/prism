@@ -109,6 +109,21 @@ IMPLEMENTATION DETAILS
 - The interface display label is the enclosing type at the decl (gopls), falling back to a
   ``x.(pkg.Iface).Method()`` type-assertion source label, then a synthetic ``<iface-of:..>``.
   The label is cosmetic — the rollup identity is the implementer set, never the label.
+- Build tags: gopls only type-checks the files the CURRENT build configuration selects, so
+  every site in a file behind a ``//go:build`` line the default (empty) tag set does not
+  satisfy fails at the ``definition`` stage — hugo's ``scss/tocss.go`` (``//go:build
+  extended``) was exactly this. After the default pass, the oracle derives each such file's
+  required tag set from its constraint expression (and its ``_<goos>_<goarch>`` filename)
+  and re-adjudicates ONLY those still-unadjudicated sites in one extra gopls session per
+  tag set (``GOFLAGS=-tags=...``, its own decl cache — a different build configuration can
+  have a different satisfier set). Sites are never dropped from the denominator: a file
+  whose constraint no tag set can satisfy under the pinned GOOS/GOARCH (``//go:build
+  linux`` on darwin) stays counted, stays ``oracle_unresolved``, and is named in
+  ``summary.build_constraints.unadjudicated_sites``. A prism identity defined in a file the
+  adjudicating tag set EXCLUDES cannot be judged absent by that session, so it fails closed
+  to ``oracle_unresolved`` instead of minting a false ``over_approx``. The report key is
+  emitted only when some in-scope file needed the pass, keeping corpora without one
+  byte-identical.
 """
 from __future__ import annotations
 
@@ -274,6 +289,7 @@ def compare_site(
     oracle_status: str | None = None,
     implementation_outcome: str | None = None,
     implementation_raw_result_count: int | None = None,
+    excluded_identity_files: set[str] | None = None,
 ) -> dict:
     """One per-site comparison record with qualified or legacy name-only identity.
 
@@ -378,13 +394,35 @@ def compare_site(
             oracle_reason = oracle_reason or "external_interface_promoted_ambiguous"
             failure_stage = failure_stage or "mapping"
 
+    # A site adjudicated under an explicit build-tag set is compared against the
+    # type universe of THAT build configuration, in which some files are excluded.
+    # prism is build-tag agnostic, so a prism identity defined in a file the tag
+    # set excludes cannot be judged absent by this session: fail closed to
+    # oracle_unresolved rather than minting a false over_approx.
+    tag_excluded_locations = []
+    if excluded_identity_files and prism_only and identity_mode == "qualified":
+        for identity in prism_identity_records:
+            key = (
+                identity["package_dir"], identity["package_clause"], identity["name"]
+            )
+            if key in prism_only and identity["file"] in excluded_identity_files:
+                tag_excluded_locations.append({
+                    "file": identity["file"],
+                    "line": identity["span"][0],
+                    "reason": "implementer_excluded_by_tags",
+                })
+    if tag_excluded_locations:
+        unresolved_locations.extend(tag_excluded_locations)
+        oracle_reason = oracle_reason or "implementer_excluded_by_tags"
+        failure_stage = failure_stage or "mapping"
+
     if oracle_status == "timeout":
         classification = "oracle_timeout"
     elif oracle_status == "unresolved":
         classification = "oracle_unresolved"
     elif not_dispatch:
         classification = "not_dispatch"
-    elif promoted_ambiguity_locations:
+    elif promoted_ambiguity_locations or tag_excluded_locations:
         classification = "oracle_unresolved"
 
     if oracle_reason is None and not unresolved_locations and prism == set() and gopls == set():
@@ -917,6 +955,357 @@ def interface_label(line_text: str | None, method: str, ordinal: int) -> str:
 
 
 # ===========================================================================
+# Go build-constraint awareness (pure; unit-tested in
+# eval/tests/test_dispatch_oracle.py)
+# ===========================================================================
+#
+# WHY: gopls only type-checks the files the *current* build configuration
+# selects. A file behind `//go:build extended` (hugo's site tocss.go) has no
+# package metadata under the default empty tag set, so every dispatch site in it
+# fails at the `definition` stage and is recorded `oracle_unresolved` — counted
+# in the coverage denominator, never adjudicated. Excluding those sites would be
+# re-waivering, so instead the oracle derives the tag set each constrained file
+# needs and re-adjudicates it in a second gopls session pinned to that tag set.
+#
+# A file whose constraint cannot be satisfied by ADDING tags under the pinned
+# GOOS/GOARCH (`//go:build linux` on darwin, `sync_darwin.go` on linux) is not
+# adjudicable in this environment: it stays counted, stays `oracle_unresolved`,
+# and is reported by name in `summary.build_constraints.unadjudicated_sites`.
+
+GO_KNOWN_OS = frozenset({
+    "aix", "android", "darwin", "dragonfly", "freebsd", "hurd", "illumos",
+    "ios", "js", "linux", "nacl", "netbsd", "openbsd", "plan9", "solaris",
+    "wasip1", "windows", "zos",
+})
+GO_KNOWN_ARCH = frozenset({
+    "386", "amd64", "amd64p32", "arm", "armbe", "arm64", "arm64be", "loong64",
+    "mips", "mipsle", "mips64", "mips64le", "mips64p32", "mips64p32le", "ppc",
+    "ppc64", "ppc64le", "riscv", "riscv64", "s390", "s390x", "sparc",
+    "sparc64", "wasm",
+})
+# go/build's unixOS: the GOOS values for which the `unix` build tag is true.
+GO_UNIX_OS = frozenset({
+    "aix", "android", "darwin", "dragonfly", "freebsd", "hurd", "illumos",
+    "ios", "linux", "netbsd", "openbsd", "solaris",
+})
+GO_COMPILERS = frozenset({"gc", "gccgo"})
+
+_GO_RELEASE_TAG_RE = re.compile(r"go1\.(\d+)$")
+_GO_VERSION_RE = re.compile(r"go1\.(\d+)")
+_BUILD_IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_.]*")
+# The tags a `-tags=` flag cannot usefully provide: GOOS/GOARCH/compiler names
+# are decided by the pinned environment (go/build would honor them as plain
+# tags, but the package would then be type-checked for the wrong platform), and
+# `cgo` / `unix` / `go1.N` / `goexperiment.*` are derived, not settable.
+_UNSETTABLE_TAGS = GO_KNOWN_OS | GO_KNOWN_ARCH | GO_COMPILERS | {"cgo", "unix"}
+
+# Bound on the brute-force tag search. Real constraints carry one or two free
+# identifiers; a wider expression is reported unadjudicable rather than searched.
+MAX_CANDIDATE_TAGS = 8
+
+
+class BuildConstraintSyntaxError(ValueError):
+    """A `//go:build` line this oracle cannot parse (reported, never assumed true)."""
+
+
+def release_tag_max(go_version: str | None) -> int | None:
+    """Highest satisfied `go1.N` release tag, from `go version` output."""
+    if not go_version:
+        return None
+    match = _GO_VERSION_RE.search(go_version)
+    return int(match.group(1)) if match else None
+
+
+def build_env(goos: str, goarch: str, *, cgo: bool = True,
+              compiler: str = "gc", release_max: int | None = None) -> dict:
+    """The pinned build configuration constraints are evaluated against."""
+    return {
+        "goos": goos,
+        "goarch": goarch,
+        "cgo": bool(cgo),
+        "compiler": compiler,
+        "release_max": release_max,
+    }
+
+
+def parse_build_expression(expr: str):
+    """`//go:build` expression -> AST of ('tag', name) / ('not', n) / ('and'|'or', [n])."""
+    tokens: list[str] = []
+    index, size = 0, len(expr)
+    while index < size:
+        char = expr[index]
+        if char.isspace():
+            index += 1
+            continue
+        if expr.startswith("&&", index) or expr.startswith("||", index):
+            tokens.append(expr[index:index + 2])
+            index += 2
+            continue
+        if char in "()!":
+            tokens.append(char)
+            index += 1
+            continue
+        match = _BUILD_IDENT_RE.match(expr, index)
+        if match is None:
+            raise BuildConstraintSyntaxError(f"unexpected character {char!r} in {expr!r}")
+        tokens.append(match.group(0))
+        index = match.end()
+
+    position = 0
+
+    def peek() -> str | None:
+        return tokens[position] if position < len(tokens) else None
+
+    def take() -> str:
+        nonlocal position
+        token = tokens[position]
+        position += 1
+        return token
+
+    def parse_unary():
+        token = peek()
+        if token is None:
+            raise BuildConstraintSyntaxError(f"truncated expression {expr!r}")
+        if token == "!":
+            take()
+            return ("not", parse_unary())
+        if token == "(":
+            take()
+            node = parse_or()
+            if peek() != ")":
+                raise BuildConstraintSyntaxError(f"unbalanced parenthesis in {expr!r}")
+            take()
+            return node
+        if token in {")", "&&", "||"}:
+            raise BuildConstraintSyntaxError(f"unexpected {token!r} in {expr!r}")
+        return ("tag", take())
+
+    def parse_and():
+        nodes = [parse_unary()]
+        while peek() == "&&":
+            take()
+            nodes.append(parse_unary())
+        return nodes[0] if len(nodes) == 1 else ("and", nodes)
+
+    def parse_or():
+        nodes = [parse_and()]
+        while peek() == "||":
+            take()
+            nodes.append(parse_and())
+        return nodes[0] if len(nodes) == 1 else ("or", nodes)
+
+    if not tokens:
+        raise BuildConstraintSyntaxError("empty build expression")
+    tree = parse_or()
+    if position != len(tokens):
+        raise BuildConstraintSyntaxError(f"trailing token {tokens[position]!r} in {expr!r}")
+    return tree
+
+
+def _plus_build_expression(lines: list[str]):
+    """Legacy `// +build` lines -> AST (AND of lines, OR of terms, AND of comma parts)."""
+    line_nodes = []
+    for line in lines:
+        terms = []
+        for term in line.split():
+            parts = []
+            for part in term.split(","):
+                if not part:
+                    raise BuildConstraintSyntaxError(f"empty +build option in {line!r}")
+                negated = part.startswith("!")
+                name = part[1:] if negated else part
+                if not name or _BUILD_IDENT_RE.fullmatch(name) is None:
+                    raise BuildConstraintSyntaxError(f"bad +build option {part!r}")
+                parts.append(("not", ("tag", name)) if negated else ("tag", name))
+            terms.append(parts[0] if len(parts) == 1 else ("and", parts))
+        if not terms:
+            # `// +build` with no options constrains nothing (go/build ignores it).
+            continue
+        line_nodes.append(terms[0] if len(terms) == 1 else ("or", terms))
+    if not line_nodes:
+        return None
+    return line_nodes[0] if len(line_nodes) == 1 else ("and", line_nodes)
+
+
+def source_build_constraint(source: str) -> tuple[object | None, str | None, str]:
+    """(AST, raw text, syntax) for a Go source file's build constraint.
+
+    `//go:build` wins when present, exactly as the go command does; otherwise the
+    legacy `// +build` lines are combined. Only the header (everything before the
+    package clause) is scanned, which is where the go command requires them.
+    """
+    plus_lines: list[str] = []
+    for raw_line in source.splitlines():
+        line = raw_line.strip()
+        if line.startswith("package ") or line == "package":
+            break
+        if line.startswith("//go:build"):
+            expr = line[len("//go:build"):]
+            if expr and not expr[0].isspace():
+                continue  # e.g. `//go:buildsomething` is an ordinary comment
+            return parse_build_expression(expr.strip()), line, "go:build"
+        if line.startswith("// +build"):
+            plus_lines.append(line[len("// +build"):].strip())
+    if plus_lines:
+        node = _plus_build_expression(plus_lines)
+        if node is not None:
+            return node, "\n".join(f"// +build {line}" for line in plus_lines), "+build"
+    return None, None, "none"
+
+
+def filename_os_arch(path: str) -> tuple[str | None, str | None]:
+    """(GOOS, GOARCH) a filename pins, per go/build's goodOSArchFile rules.
+
+    Everything before the first `_` is ignored, so `js.go` is unconstrained while
+    `sync_darwin.go` and `foo_linux_amd64.go` are pinned.
+    """
+    name = os.path.basename(path).split(".", 1)[0]
+    underscore = name.find("_")
+    if underscore < 0:
+        return None, None
+    parts = name[underscore:].split("_")
+    if parts and parts[-1] == "test":
+        parts = parts[:-1]
+    count = len(parts)
+    if count >= 3 and parts[-2] in GO_KNOWN_OS and parts[-1] in GO_KNOWN_ARCH:
+        return parts[-2], parts[-1]
+    if count >= 2 and parts[-1] in GO_KNOWN_OS:
+        return parts[-1], None
+    if count >= 2 and parts[-1] in GO_KNOWN_ARCH:
+        return None, parts[-1]
+    return None, None
+
+
+def _matches_tag(name: str, tags: frozenset[str], env: dict) -> bool:
+    """go/build's matchTag, restricted to what a pinned environment can decide."""
+    if name == "cgo":
+        return bool(env.get("cgo"))
+    if name in (env.get("goos"), env.get("goarch"), env.get("compiler")):
+        return True
+    if env.get("goos") == "android" and name == "linux":
+        return True
+    if env.get("goos") == "illumos" and name == "solaris":
+        return True
+    if env.get("goos") == "ios" and name == "darwin":
+        return True
+    if name == "unix" and env.get("goos") in GO_UNIX_OS:
+        return True
+    release = _GO_RELEASE_TAG_RE.fullmatch(name)
+    if release:
+        release_max = env.get("release_max")
+        return release_max is not None and int(release.group(1)) <= release_max
+    return name in tags
+
+
+def evaluate_build_constraint(node, tags, env: dict) -> bool:
+    """Whether a parsed constraint holds for `env` with `tags` supplied via -tags."""
+    if node is None:
+        return True
+    tag_set = frozenset(tags)
+    kind = node[0]
+    if kind == "tag":
+        return _matches_tag(node[1], tag_set, env)
+    if kind == "not":
+        return not evaluate_build_constraint(node[1], tag_set, env)
+    if kind == "and":
+        return all(evaluate_build_constraint(child, tag_set, env) for child in node[1])
+    if kind == "or":
+        return any(evaluate_build_constraint(child, tag_set, env) for child in node[1])
+    raise BuildConstraintSyntaxError(f"unknown constraint node {node!r}")
+
+
+def candidate_build_tags(node, env: dict) -> list[str]:
+    """Sorted free identifiers a `-tags=` flag could still flip in this expression."""
+    found: set[str] = set()
+
+    def walk(current):
+        if current is None:
+            return
+        kind = current[0]
+        if kind == "tag":
+            name = current[1]
+            if name in _UNSETTABLE_TAGS or _GO_RELEASE_TAG_RE.fullmatch(name) \
+                    or name.startswith("goexperiment."):
+                return
+            found.add(name)
+        elif kind == "not":
+            walk(current[1])
+        else:
+            for child in current[1]:
+                walk(child)
+
+    walk(node)
+    return sorted(found)
+
+
+def _subsets_by_size(items: list[str]):
+    """All subsets, smallest first then lexicographic — a deterministic search order."""
+    from itertools import combinations
+
+    for size in range(len(items) + 1):
+        for combination in combinations(items, size):
+            yield list(combination)
+
+
+def resolve_build_tags(node, env: dict, *,
+                       max_candidates: int = MAX_CANDIDATE_TAGS) -> dict:
+    """Smallest deterministic tag set that makes `node` true, or why none can.
+
+    status: satisfied (no tags needed) | tags_required | unsatisfiable.
+    """
+    if evaluate_build_constraint(node, (), env):
+        return {"status": "satisfied", "tags": [], "reason": None}
+    candidates = candidate_build_tags(node, env)
+    if not candidates:
+        return {"status": "unsatisfiable", "tags": [], "reason": "no_settable_tags"}
+    if len(candidates) > max_candidates:
+        return {"status": "unsatisfiable", "tags": [],
+                "reason": "candidate_search_bounded"}
+    for subset in _subsets_by_size(candidates):
+        if subset and evaluate_build_constraint(node, subset, env):
+            return {"status": "tags_required", "tags": subset, "reason": None}
+    return {"status": "unsatisfiable", "tags": [], "reason": "no_tag_set_satisfies"}
+
+
+def file_build_requirement(rel_path: str, source: str | None, env: dict) -> dict:
+    """What a repo-relative Go file needs before gopls will type-check it.
+
+    Returns status in {unconstrained, satisfied, tags_required, unsatisfiable,
+    unparseable, source_unreadable} plus the tags to supply and the raw
+    constraint text for reporting.
+    """
+    goos, goarch = filename_os_arch(rel_path)
+    if (goos is not None and goos != env.get("goos")) or \
+            (goarch is not None and goarch != env.get("goarch")):
+        return {
+            "status": "unsatisfiable",
+            "tags": [],
+            "reason": "filename_os_arch",
+            "constraint": os.path.basename(rel_path),
+            "syntax": "filename",
+        }
+    if source is None:
+        return {"status": "source_unreadable", "tags": [], "reason": "source_unreadable",
+                "constraint": None, "syntax": "none"}
+    try:
+        node, raw, syntax = source_build_constraint(source)
+    except BuildConstraintSyntaxError as exc:
+        return {"status": "unparseable", "tags": [], "reason": str(exc),
+                "constraint": None, "syntax": "unparseable"}
+    if node is None:
+        return {"status": "unconstrained", "tags": [], "reason": None,
+                "constraint": None, "syntax": syntax}
+    resolved = resolve_build_tags(node, env)
+    return {
+        "status": resolved["status"],
+        "tags": resolved["tags"],
+        "reason": resolved["reason"],
+        "constraint": raw,
+        "syntax": syntax,
+    }
+
+
+# ===========================================================================
 # Live gopls oracle (integration; smoke-run, not unit-tested)
 # ===========================================================================
 
@@ -944,13 +1333,15 @@ class GoplsSatisfiers:
     to receiver TYPE names via documentSymbol + _split_receiver (smallest containing span)."""
 
     def __init__(self, repo: str, cmd: list[str], group_timeout: float,
-                 settle_s: float = 5.0, cap_s: float = 300.0):
+                 settle_s: float = 5.0, cap_s: float = 300.0,
+                 build_tags: tuple[str, ...] = ()):
         from tier_a.lsp_client import LspClient
 
         self.root = os.path.abspath(repo)
         self.group_timeout = group_timeout
         self._settle_s, self._cap_s = settle_s, cap_s
         self.gowork = effective_gowork(self.root)
+        self.build_tags = tuple(build_tags)
         root_uri = "file://" + urllib.parse.quote(self.root)
         self.client = LspClient(cmd, cwd=self.root, root_uri=root_uri,
                                 default_timeout=group_timeout)
@@ -961,20 +1352,37 @@ class GoplsSatisfiers:
         self._external_symbol_details: dict[str, list[dict]] = {}
         self._external_symbol_status: dict[str, str | None] = {}
 
+    def _goflags(self) -> str:
+        """GOFLAGS for this session: the ambient value plus this session's -tags.
+
+        Appending last makes our tag set win over an ambient `-tags=` (the go
+        command takes the last occurrence of a repeated flag). The default
+        session has no tags and therefore leaves GOFLAGS untouched.
+        """
+        ambient = os.environ.get("GOFLAGS", "")
+        flag = "-tags=" + ",".join(self.build_tags)
+        return f"{ambient} {flag}".strip() if ambient else flag
+
     def start(self) -> None:
         # LspClient inherits this process environment at Popen time. Scope the
         # override to launch so unrelated tooling in this Python process keeps its
         # original environment, while gopls cannot inherit a parent workspace.
-        had_gowork = "GOWORK" in os.environ
-        previous_gowork = os.environ.get("GOWORK")
-        os.environ["GOWORK"] = self.gowork
+        # The same scoping carries this session's build tags: gopls shells out to
+        # the go command, which reads -tags from GOFLAGS, so a tag-pinned session
+        # type-checks the files a `//go:build` line hides from the default view.
+        overrides = {"GOWORK": self.gowork}
+        if self.build_tags:
+            overrides["GOFLAGS"] = self._goflags()
+        previous = {key: os.environ.get(key) for key in overrides}
+        os.environ.update(overrides)
         try:
             self.client.start()
         finally:
-            if had_gowork:
-                os.environ["GOWORK"] = previous_gowork
-            else:
-                os.environ.pop("GOWORK", None)
+            for key, value in previous.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
         _settle(self.client, self._cap_s, self._settle_s)
 
     def resettle(self, settle_s: float | None = None) -> None:
@@ -1535,18 +1943,24 @@ def _read_source(root: str, rel: str) -> str | None:
         return None
 
 
-def run_oracle(manifest_path: str, repo: str, cmd: list[str],
-               group_timeout: float, log=sys.stderr,
-               oracle_factory=GoplsSatisfiers) -> tuple[list[dict], dict]:
-    """Load the manifest, query gopls once per unique (interface, method) group, and build
-    per-site compare records + a summary. Returns (sites, summary)."""
-    repo = os.path.abspath(os.path.expanduser(repo))
-    dispatch = load_dispatch_sites(manifest_path)
+def _adjudication_pass(indexed_sites: list[tuple[int, dict]], repo: str, cmd: list[str],
+                       group_timeout: float, oracle_factory, *,
+                       build_tags: tuple[str, ...] = (),
+                       warm_files: list[str] | None = None,
+                       excluded_by_ordinal: dict[int, set[str]] | None = None,
+                       label: str = "", log=sys.stderr) -> tuple[dict[int, dict], int, float]:
+    """Adjudicate `[(ordinal, site)]` against ONE gopls session -> {ordinal: record}.
 
-    print(f"dispatch sites (all in-scope): {len(dispatch)}", file=log)
-
-    oracle = oracle_factory(repo, cmd, group_timeout=group_timeout)
-    records: list[dict] = []
+    `build_tags` pins that session's `-tags` (empty for the default pass, which is
+    therefore byte-identical to the pre-build-tag oracle). Each pass owns its decl
+    cache: the same interface declaration can have a different satisfier set under a
+    different build configuration, so caches must never be shared across tag sets.
+    """
+    prefix = label and f"{label} "
+    excluded_by_ordinal = excluded_by_ordinal or {}
+    oracle = oracle_factory(repo, cmd, group_timeout=group_timeout,
+                            build_tags=tuple(build_tags))
+    results: dict[int, dict] = {}
     # Cache the complete terminal implementation outcome per interface-method declaration,
     # not per prism group: gopls disambiguates the interface a call site dispatches on
     # (caddy `next.ServeHTTP` is `http.Handler.ServeHTTP` at some sites and
@@ -1558,7 +1972,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
     try:
         t0 = time.monotonic()
         oracle.start()
-        print(f"gopls settled in {round(time.monotonic() - t0, 1)}s", file=log)
+        print(f"{prefix}gopls settled in {round(time.monotonic() - t0, 1)}s", file=log)
 
         # Warmup (race mitigation): gopls answers cross-package textDocument/implementation
         # with an empty list until it has type-checked the relevant packages, and the
@@ -1568,17 +1982,18 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
         # query (e.g. caddy CaddyModule) can race and return 0 satisfiers, mis-scored as a
         # precision-0 over_approx.
         tw = time.monotonic()
-        warm_files = sorted({s["file"] for s in dispatch})
+        if warm_files is None:
+            warm_files = sorted({site["file"] for _ordinal, site in indexed_sites})
         warmed = 0
         for f in warm_files:
             if oracle._did_open(f):
                 oracle._methods(f)  # documentSymbol -> forces package type-check
                 warmed += 1
         oracle.resettle()
-        print(f"warmed {warmed}/{len(warm_files)} files in {round(time.monotonic() - tw, 1)}s",
-              file=log)
+        print(f"{prefix}warmed {warmed}/{len(warm_files)} files in "
+              f"{round(time.monotonic() - tw, 1)}s", file=log)
 
-        for si, s in enumerate(dispatch, 1):
+        for si, s in indexed_sites:
             method = s["method"]
             prism_set = set(s.get("implementers", []))
             line_text = _read_line(repo, s["file"], s["line"])
@@ -1750,6 +2165,7 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
                     oracle_status=oracle_status,
                     implementation_outcome=implementation_outcome,
                     implementation_raw_result_count=implementation_raw_result_count,
+                    excluded_identity_files=excluded_by_ordinal.get(si),
                 )
             else:
                 # Compatibility only: old manifests lack target/package evidence, so the
@@ -1774,18 +2190,284 @@ def run_oracle(manifest_path: str, repo: str, cmd: list[str],
             record["fanout"] = s.get("fanout", len(prism_set))
             record["start_byte"] = s.get("start_byte")
             record["end_byte"] = s.get("end_byte")
-            records.append(record)
-
-        summary = summarize(records)
-        overall = summary["overall"]
-        print(f"scored {overall['scored_sites']}/{len(dispatch)} sites; "
-              f"excluded not_dispatch={overall['not_dispatch_sites']} "
-              f"oracle_timeout={overall['oracle_timeout']} "
-              f"oracle_unresolved={overall['oracle_unresolved']}; "
-              f"{len(decl_cache)} unique interface-method declarations; "
-              f"{round(time.monotonic() - t0, 1)}s total", file=log)
+            results[si] = record
+        elapsed = time.monotonic() - t0
     finally:
         oracle.stop()
+
+    return results, len(decl_cache), elapsed
+
+
+# ---------------------------------------------------------------------------
+# Build-tag adjudication pass
+# ---------------------------------------------------------------------------
+
+# Classifications that mean "this site was never adjudicated". They are counted in
+# the coverage denominator, so repairing them is coverage, and dropping them is not.
+UNADJUDICATED = frozenset({"oracle_timeout", "oracle_unresolved"})
+
+
+def repo_build_env(repo: str) -> dict | None:
+    """The pinned build configuration of a corpus checkout, or None if `go` is absent."""
+    root = str(Path(repo).expanduser().resolve())
+    env = os.environ.copy()
+    env["GOWORK"] = effective_gowork(root)
+    goos = _command_output(["go", "env", "GOOS"], root, env)
+    goarch = _command_output(["go", "env", "GOARCH"], root, env)
+    if not goos or not goarch:
+        return None
+    cgo = _command_output(["go", "env", "CGO_ENABLED"], root, env)
+    return build_env(
+        goos, goarch,
+        cgo=cgo != "0",
+        release_max=release_tag_max(_command_output(["go", "version"], root, env)),
+    )
+
+
+class _BuildConstraintIndex:
+    """Per-file build constraints, read once and reused across tag sets."""
+
+    def __init__(self, repo: str, env: dict):
+        self.repo = repo
+        self.env = env
+        self._requirements: dict[str, dict] = {}
+        self._nodes: dict[str, tuple[str, object]] = {}
+
+    def requirement(self, rel: str) -> dict:
+        if rel not in self._requirements:
+            self._requirements[rel] = file_build_requirement(
+                rel, _read_source(self.repo, rel), self.env
+            )
+        return self._requirements[rel]
+
+    def _node(self, rel: str) -> tuple[str, object]:
+        if rel not in self._nodes:
+            goos, goarch = filename_os_arch(rel)
+            if (goos is not None and goos != self.env.get("goos")) or \
+                    (goarch is not None and goarch != self.env.get("goarch")):
+                self._nodes[rel] = ("excluded", None)
+            else:
+                source = _read_source(self.repo, rel)
+                if source is None:
+                    self._nodes[rel] = ("unknown", None)
+                else:
+                    try:
+                        node, _raw, _syntax = source_build_constraint(source)
+                    except BuildConstraintSyntaxError:
+                        self._nodes[rel] = ("unknown", None)
+                    else:
+                        self._nodes[rel] = ("expr", node)
+        return self._nodes[rel]
+
+    def excluded_under(self, rel: str, tags: tuple[str, ...]) -> bool:
+        """Whether `-tags=tags` excludes this file from the build.
+
+        An unreadable or unparseable header is NOT claimed as excluded: suppressing
+        a real over_approx is worse than surfacing one for adjudication.
+        """
+        kind, node = self._node(rel)
+        if kind == "excluded":
+            return True
+        if kind == "unknown":
+            return False
+        return not evaluate_build_constraint(node, tags, self.env)
+
+
+def build_constraint_plan(dispatch: list[dict], records: list[dict],
+                          index: _BuildConstraintIndex) -> tuple[dict, list[int]]:
+    """Group unadjudicated sites in constrained files by the tag set they need.
+
+    Returns ({tags tuple: [ordinal]}, [ordinal blocked by an unsatisfiable constraint]).
+    Sites in unconstrained or already-satisfied files are absent from both: they were
+    unadjudicated for some other reason, which build tags cannot repair.
+    """
+    plan: dict[tuple[str, ...], list[int]] = {}
+    blocked: list[int] = []
+    for ordinal, (site, record) in enumerate(zip(dispatch, records), 1):
+        if record["classification"] not in UNADJUDICATED:
+            continue
+        requirement = index.requirement(site["file"])
+        if requirement["status"] == "tags_required":
+            plan.setdefault(tuple(requirement["tags"]), []).append(ordinal)
+        elif requirement["status"] in {"unsatisfiable", "unparseable"}:
+            blocked.append(ordinal)
+    return plan, blocked
+
+
+def _unadjudicated_record(record: dict, requirement: dict) -> dict:
+    return {
+        "file": record["file"],
+        "line": record["line"],
+        "method": record["method"],
+        "fanout": record.get("fanout", 0),
+        "classification": record["classification"],
+        "constraint": requirement.get("constraint"),
+        "constraint_status": requirement.get("status"),
+        "reason": requirement.get("reason"),
+        "tags": list(requirement.get("tags", [])),
+    }
+
+
+def adjudicate_build_constrained(dispatch: list[dict], records: list[dict], repo: str,
+                                 cmd: list[str], group_timeout: float, oracle_factory,
+                                 log=sys.stderr) -> dict | None:
+    """Re-adjudicate unadjudicated sites whose file the default build excludes.
+
+    One extra gopls session per required tag set, each warmed on the sites' own files
+    and on the files defining their minted implementers. Returns the report for
+    `summary.build_constraints`, or None when no in-scope file needs one (which keeps
+    the output byte-identical for corpora with no constrained unadjudicated sites).
+    """
+    env = repo_build_env(repo)
+    if env is None:
+        print("build-constraint pass skipped: `go env` unavailable", file=log)
+        return None
+    index = _BuildConstraintIndex(repo, env)
+    plan, blocked = build_constraint_plan(dispatch, records, index)
+    if not plan and not blocked:
+        return None
+
+    tag_sets = []
+    for tags in sorted(plan):
+        ordinals = plan[tags]
+        indexed_sites = [(ordinal, dispatch[ordinal - 1]) for ordinal in ordinals]
+        warm_files = sorted({site["file"] for _ordinal, site in indexed_sites} | {
+            identity["file"]
+            for _ordinal, site in indexed_sites
+            for identity in site.get("implementer_identities", [])
+            if isinstance(identity.get("file"), str)
+        })
+        excluded_by_ordinal = {}
+        for ordinal, site in indexed_sites:
+            excluded = {
+                identity["file"]
+                for identity in site.get("implementer_identities", [])
+                if isinstance(identity.get("file"), str)
+                and index.excluded_under(identity["file"], tags)
+            }
+            if excluded:
+                excluded_by_ordinal[ordinal] = excluded
+        label = f"[tags={','.join(tags)}]"
+        print(f"{label} re-adjudicating {len(indexed_sites)} unadjudicated sites "
+              f"(warming {len(warm_files)} files)", file=log)
+        results, decls, elapsed = _adjudication_pass(
+            indexed_sites, repo, cmd, group_timeout, oracle_factory,
+            build_tags=tags, warm_files=warm_files,
+            excluded_by_ordinal=excluded_by_ordinal, label=label, log=log,
+        )
+        adjudicated = 0
+        for ordinal, site in indexed_sites:
+            requirement = index.requirement(site["file"])
+            retried = results.get(ordinal)
+            annotation = {
+                "build_constraint": requirement.get("constraint"),
+                "build_tags": list(tags),
+            }
+            if retried is not None and retried["classification"] not in UNADJUDICATED:
+                retried.update(annotation)
+                retried["build_tag_status"] = "adjudicated_under_tags"
+                records[ordinal - 1] = retried
+                adjudicated += 1
+            else:
+                # Keep the default-session record (its evidence is unchanged) and say
+                # plainly that the tagged session did not adjudicate it either.
+                records[ordinal - 1].update(annotation)
+                records[ordinal - 1]["build_tag_status"] = "unadjudicated_under_tags"
+        print(f"{label} adjudicated {adjudicated}/{len(indexed_sites)} sites; "
+              f"{decls} unique interface-method declarations; "
+              f"{round(elapsed, 1)}s", file=log)
+        tag_sets.append({
+            "tags": list(tags),
+            "files": sorted({site["file"] for _ordinal, site in indexed_sites}),
+            "sites": len(indexed_sites),
+            "adjudicated": adjudicated,
+            "still_unadjudicated": len(indexed_sites) - adjudicated,
+        })
+
+    for ordinal in blocked:
+        requirement = index.requirement(dispatch[ordinal - 1]["file"])
+        records[ordinal - 1]["build_constraint"] = requirement.get("constraint")
+        records[ordinal - 1]["build_tags"] = []
+        records[ordinal - 1]["build_tag_status"] = (
+            "unparseable_constraint" if requirement["status"] == "unparseable"
+            else "unsatisfiable_under_pins"
+        )
+
+    unadjudicated = sorted(
+        (
+            _unadjudicated_record(
+                records[ordinal - 1],
+                index.requirement(dispatch[ordinal - 1]["file"]),
+            )
+            for ordinal in sorted(
+                {o for ordinals in plan.values() for o in ordinals} | set(blocked)
+            )
+            if records[ordinal - 1]["classification"] in UNADJUDICATED
+        ),
+        key=lambda entry: (entry["file"], entry["line"], entry["method"]),
+    )
+    constrained_files = sorted(
+        (
+            {"file": rel, **{
+                key: index.requirement(rel).get(key)
+                for key in ("constraint", "status", "reason")
+            }, "tags": list(index.requirement(rel).get("tags", []))}
+            for rel in {
+                dispatch[ordinal - 1]["file"]
+                for ordinal in (
+                    {o for ordinals in plan.values() for o in ordinals} | set(blocked)
+                )
+            }
+        ),
+        key=lambda entry: entry["file"],
+    )
+    return {
+        "build_environment": {
+            "GOOS": env["goos"], "GOARCH": env["goarch"],
+            "cgo": env["cgo"], "compiler": env["compiler"],
+            "release_max": env["release_max"],
+        },
+        "tag_sets": tag_sets,
+        "constrained_files": constrained_files,
+        "unadjudicated_sites": unadjudicated,
+    }
+
+
+def run_oracle(manifest_path: str, repo: str, cmd: list[str],
+               group_timeout: float, log=sys.stderr,
+               oracle_factory=GoplsSatisfiers) -> tuple[list[dict], dict]:
+    """Load the manifest, query gopls once per unique (interface, method) group, and build
+    per-site compare records + a summary. Returns (sites, summary).
+
+    Sites the default build configuration cannot type-check (a `//go:build` line hides
+    their file) get a second, tag-pinned adjudication pass; anything still unadjudicable
+    under the pinned GOOS/GOARCH stays counted and is named in
+    ``summary.build_constraints.unadjudicated_sites``."""
+    repo = os.path.abspath(os.path.expanduser(repo))
+    dispatch = load_dispatch_sites(manifest_path)
+
+    print(f"dispatch sites (all in-scope): {len(dispatch)}", file=log)
+
+    t0 = time.monotonic()
+    results, decls, _elapsed = _adjudication_pass(
+        list(enumerate(dispatch, 1)), repo, cmd, group_timeout, oracle_factory, log=log,
+    )
+    records = [results[ordinal] for ordinal in range(1, len(dispatch) + 1)]
+
+    constraints = adjudicate_build_constrained(
+        dispatch, records, repo, cmd, group_timeout, oracle_factory, log=log,
+    )
+
+    summary = summarize(records)
+    if constraints is not None:
+        summary["build_constraints"] = constraints
+    overall = summary["overall"]
+    print(f"scored {overall['scored_sites']}/{len(dispatch)} sites; "
+          f"excluded not_dispatch={overall['not_dispatch_sites']} "
+          f"oracle_timeout={overall['oracle_timeout']} "
+          f"oracle_unresolved={overall['oracle_unresolved']}; "
+          f"{decls} unique interface-method declarations; "
+          f"{round(time.monotonic() - t0, 1)}s total", file=log)
 
     return records, summary
 
@@ -1833,6 +2515,24 @@ def _print_summary(summary: dict, log=sys.stdout) -> None:
         print(f"\noracle_timeout groups ({len(summary['oracle_timeout_groups'])}):", file=log)
         for r in summary["oracle_timeout_groups"]:
             print(f"  {r['interface']}.{r['method']}", file=log)
+    if "build_constraints" in summary:
+        constraints = summary["build_constraints"]
+        print("\nbuild-constrained adjudication "
+              f"(GOOS={constraints['build_environment']['GOOS']} "
+              f"GOARCH={constraints['build_environment']['GOARCH']}):", file=log)
+        for tag_set in constraints["tag_sets"]:
+            print(f"  -tags={','.join(tag_set['tags'])}: "
+                  f"adjudicated {tag_set['adjudicated']}/{tag_set['sites']} sites "
+                  f"in {len(tag_set['files'])} files", file=log)
+        if constraints["unadjudicated_sites"]:
+            print(f"  still unadjudicated ({len(constraints['unadjudicated_sites'])}) "
+                  "— counted in coverage, never dropped:", file=log)
+            for site in constraints["unadjudicated_sites"]:
+                print(f"    {site['file']}:{site['line']} {site['method']} "
+                      f"fanout={site['fanout']} [{site['constraint']}] "
+                      f"{site['constraint_status']}/{site['reason']}", file=log)
+        else:
+            print("  still unadjudicated: NONE", file=log)
     if "delta" in summary:
         delta = summary["delta"]
         print(f"\ndelta gate_ok = {delta['gate_ok']} "
