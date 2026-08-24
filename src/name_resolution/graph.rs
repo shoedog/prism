@@ -117,6 +117,14 @@ pub struct ScopeGraph {
     pub local_facts: BTreeMap<(FileId, usize), LocalFact>,
     pub edges: Vec<Edge>,
     pub macro_wildcards: Vec<MacroWildcard>,
+    /// Deferred-glob expansion telemetry for resolution walked over **this**
+    /// graph (spec §3.5). Scoped here rather than in a process-global so a
+    /// measurement (`navigation::queries::call_stats`) that resets and snapshots
+    /// it cannot pick up resolution another thread performed against a different
+    /// graph. Not serialized and not part of the graph's identity — see
+    /// [`GraphGlobStats`](crate::name_resolution::glob_stats::GraphGlobStats).
+    #[serde(skip)]
+    pub glob_stats: crate::name_resolution::glob_stats::GraphGlobStats,
 }
 
 impl ScopeGraph {

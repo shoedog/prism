@@ -195,7 +195,16 @@ pub fn call_site_dump(cg: &CallGraph) -> Vec<serde_json::Value> {
 }
 
 pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
-    crate::name_resolution::glob_stats::GLOBAL.reset();
+    // Glob-expansion telemetry is scoped to the graph this pass resolves over,
+    // never a process-global: the reset→snapshot window below is otherwise open
+    // to any concurrent resolution elsewhere in the process (a `call_stats` on a
+    // different graph, `call_site_dump`, another repo's index build), which is
+    // exactly the CI flake this scoping fixed. A `None` scope_graph means no
+    // scope graph exists, hence no glob expansion to count.
+    let glob_stats = cg.scope_graph.as_ref().map(|g| &g.glob_stats);
+    if let Some(stats) = glob_stats {
+        stats.reset();
+    }
 
     use crate::resolution::{DropReason, ResolutionConfidence};
 
@@ -384,7 +393,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
             }
         }
     }
-    let ge = crate::name_resolution::glob_stats::GLOBAL.snapshot();
+    let ge = glob_stats.map(|stats| stats.snapshot()).unwrap_or_default();
     let mut interface_fanout: BTreeMap<usize, usize> = BTreeMap::new();
     for ids in cg.interface_impls.values() {
         *interface_fanout.entry(ids.len()).or_default() += 1;
