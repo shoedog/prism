@@ -1073,6 +1073,10 @@ impl CodePropertyGraph {
         files: &BTreeMap<String, ParsedFile>,
     ) -> ReturnFlowStats {
         let mut stats = ReturnFlowStats::default();
+        let mut return_value_index: BTreeMap<
+            (String, String, usize, usize, usize, usize),
+            NodeIndex,
+        > = BTreeMap::new();
 
         for (caller_id, sites) in &cg.calls {
             let Some(caller_parsed) = files.get(&caller_id.file) else {
@@ -1221,58 +1225,71 @@ impl CodePropertyGraph {
                         let endpoint = if let Some(endpoint) = endpoint {
                             endpoint
                         } else {
-                            let synthetic = graph.add_node(CpgNode::ReturnValue {
-                                file: resolved.target.file.clone(),
-                                function: resolved.target.name.clone(),
-                                function_start_line: resolved.target.start_line,
-                                line: value.line,
-                                return_start_byte: ret.start_byte,
-                                return_end_byte: ret.end_byte,
-                                child_slot: value.slot,
-                                start_byte: value.start_byte,
-                                end_byte: value.end_byte,
-                            });
-                            location_index
-                                .entry((resolved.target.file.clone(), value.line))
-                                .or_default()
-                                .push(synthetic);
-                            if let Some(&function) = func_index.get(&(
+                            let identity = (
                                 resolved.target.file.clone(),
                                 resolved.target.name.clone(),
                                 resolved.target.start_line,
-                            )) {
-                                graph.add_edge(function, synthetic, CpgEdge::Contains);
-                            }
+                                ret.start_byte,
+                                ret.end_byte,
+                                value.slot,
+                            );
+                            if let Some(&synthetic) = return_value_index.get(&identity) {
+                                synthetic
+                            } else {
+                                let synthetic = graph.add_node(CpgNode::ReturnValue {
+                                    file: resolved.target.file.clone(),
+                                    function: resolved.target.name.clone(),
+                                    function_start_line: resolved.target.start_line,
+                                    line: value.line,
+                                    return_start_byte: ret.start_byte,
+                                    return_end_byte: ret.end_byte,
+                                    child_slot: value.slot,
+                                    start_byte: value.start_byte,
+                                    end_byte: value.end_byte,
+                                });
+                                return_value_index.insert(identity, synthetic);
+                                location_index
+                                    .entry((resolved.target.file.clone(), value.line))
+                                    .or_default()
+                                    .push(synthetic);
+                                if let Some(&function) = func_index.get(&(
+                                    resolved.target.file.clone(),
+                                    resolved.target.name.clone(),
+                                    resolved.target.start_line,
+                                )) {
+                                    graph.add_edge(function, synthetic, CpgEdge::Contains);
+                                }
 
-                            let mut inputs: Vec<NodeIndex> = graph
-                                .node_indices()
-                                .filter(|&idx| {
-                                    matches!(
-                                        &graph[idx],
-                                        CpgNode::Variable {
-                                            file,
-                                            function,
-                                            function_start_line,
-                                            access: VarAccess::Use,
-                                            start_byte,
-                                            end_byte,
-                                            ..
-                                        } if file == &resolved.target.file
-                                            && function == &resolved.target.name
-                                            && *function_start_line == resolved.target.start_line
-                                            && value.start_byte <= *start_byte
-                                            && *end_byte <= value.end_byte
-                                            && callee_parsed
-                                                .is_semantic_value_use(*start_byte, *end_byte)
-                                    )
-                                })
-                                .collect();
-                            inputs.sort_by_key(|idx| idx.index());
-                            for input in inputs {
-                                graph.add_edge(input, synthetic, CpgEdge::ReturnInput);
-                                stats.return_input_edges += 1;
+                                let mut inputs: Vec<NodeIndex> = graph
+                                    .node_indices()
+                                    .filter(|&idx| {
+                                        matches!(
+                                            &graph[idx],
+                                            CpgNode::Variable {
+                                                file,
+                                                function,
+                                                function_start_line,
+                                                access: VarAccess::Use,
+                                                start_byte,
+                                                end_byte,
+                                                ..
+                                            } if file == &resolved.target.file
+                                                && function == &resolved.target.name
+                                                && *function_start_line == resolved.target.start_line
+                                                && value.start_byte <= *start_byte
+                                                && *end_byte <= value.end_byte
+                                                && callee_parsed
+                                                    .is_semantic_value_use(*start_byte, *end_byte)
+                                        )
+                                    })
+                                    .collect();
+                                inputs.sort_by_key(|idx| idx.index());
+                                for input in inputs {
+                                    graph.add_edge(input, synthetic, CpgEdge::ReturnInput);
+                                    stats.return_input_edges += 1;
+                                }
+                                synthetic
                             }
-                            synthetic
                         };
                         modeled.push((endpoint, target));
                     }

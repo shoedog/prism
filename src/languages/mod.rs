@@ -111,6 +111,24 @@ impl Language {
         }
     }
 
+    /// Lexical callable boundaries for walks whose facts must stay inside one
+    /// function. This is intentionally broader than `function_node_types()`:
+    /// anonymous closures are boundaries even when they are not independently
+    /// indexed as functions.
+    pub(crate) fn callable_boundary_node_types(&self) -> Vec<&'static str> {
+        let mut types = self.function_node_types();
+        types.extend(match self {
+            Self::Python => vec!["lambda"],
+            Self::JavaScript | Self::TypeScript | Self::Tsx => vec!["generator_function"],
+            Self::Go => vec!["func_literal"],
+            Self::Java | Self::Cpp => vec!["lambda_expression"],
+            Self::Rust => vec!["closure_expression"],
+            Self::Lua => vec!["function_definition"],
+            Self::C | Self::Terraform | Self::Bash => Vec::new(),
+        });
+        types
+    }
+
     /// Whether a node kind is an identifier/variable reference.
     pub fn is_identifier_node(&self, kind: &str) -> bool {
         // Common identifier types shared across most languages
@@ -1490,6 +1508,30 @@ mod method_owner_class_node_tests {
     use super::Language;
     use crate::ast::ParsedFile;
     use tree_sitter::Node;
+
+    #[test]
+    fn callable_boundaries_cover_anonymous_forms_without_changing_function_index_types() {
+        for (language, kind) in [
+            (Language::Python, "lambda"),
+            (Language::JavaScript, "arrow_function"),
+            (Language::JavaScript, "function_expression"),
+            (Language::JavaScript, "generator_function"),
+            (Language::TypeScript, "arrow_function"),
+            (Language::Tsx, "function_expression"),
+            (Language::Go, "func_literal"),
+            (Language::Java, "lambda_expression"),
+            (Language::Cpp, "lambda_expression"),
+            (Language::Rust, "closure_expression"),
+            (Language::Lua, "function_definition"),
+        ] {
+            assert!(
+                language.callable_boundary_node_types().contains(&kind),
+                "missing {language:?} callable boundary {kind}"
+            );
+        }
+        assert!(!Language::Go.function_node_types().contains(&"func_literal"));
+        assert!(!Language::Python.function_node_types().contains(&"lambda"));
+    }
 
     fn first_function<'a>(parsed: &'a ParsedFile, name: &str) -> Node<'a> {
         parsed

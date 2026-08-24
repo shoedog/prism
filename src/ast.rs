@@ -5433,12 +5433,13 @@ impl ParsedFile {
             return; // Don't recurse into return children
         }
 
-        // Don't recurse into nested function definitions. Fence on node IDENTITY,
-        // not kind: a nested `def`/`function_definition` has the SAME kind as the
-        // enclosing function, so a kind-based check let nested returns be collected
-        // as the outer function's (corrupts contract postconditions; the decorated
-        // unwrap above makes this reachable for decorated functions).
-        if self.language.function_node_types().contains(&kind) && node.id() != func_node.id() {
+        // Don't recurse into nested callable scopes. Fence on node IDENTITY,
+        // not kind: a nested definition may have the SAME kind as the enclosing
+        // function, while anonymous closures may not be included in
+        // `function_node_types()` at all.
+        if self.language.callable_boundary_node_types().contains(&kind)
+            && node.id() != func_node.id()
+        {
             return;
         }
 
