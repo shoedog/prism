@@ -1,4 +1,4 @@
-use super::{CallGraph, CallSite};
+use super::{CallGraph, CallSite, FunctionId};
 use crate::ast::ParsedFile;
 use crate::go_concrete_receiver::GoConcreteReceiverRoute;
 use crate::go_promoted_snapshot::{GoPromotedOwnerSnapshot, GoPromotedSnapshotVerdict};
@@ -133,6 +133,44 @@ fn mutate_deserialized_owner(mut cg: CallGraph, mutate: impl FnOnce(&mut Value))
     let mut serialized = serde_json::to_value(snapshot).expect("serialize promoted owner snapshot");
     mutate(&mut serialized);
     replace_receiver_snapshot(&mut cg, deserialize_owner(serialized));
+    cg
+}
+
+fn promoted_target(cg: &CallGraph) -> FunctionId {
+    let owner = receiver_owner(cg);
+    cg.go_promoted_selector_snapshot
+        .owners
+        .get(&owner)
+        .expect("receiver snapshot")
+        .declarations[0]
+        .promoted_methods
+        .iter()
+        .find(|method| method.method == "M")
+        .expect("promoted M")
+        .target
+        .clone()
+}
+
+fn mutate_target_declaration(
+    mut cg: CallGraph,
+    mut mutate: impl FnMut(&mut crate::go_owner_partition::GoMethodDeclaration),
+) -> CallGraph {
+    let target = promoted_target(&cg);
+    let mut matches = 0;
+    for declarations in cg.go_method_declarations.values_mut() {
+        let original = std::mem::take(declarations);
+        *declarations = original
+            .into_iter()
+            .map(|mut declaration| {
+                if declaration.function_id == target {
+                    matches += 1;
+                    mutate(&mut declaration);
+                }
+                declaration
+            })
+            .collect();
+    }
+    assert_eq!(matches, 1, "fixture must have one target declaration");
     cg
 }
 
@@ -394,5 +432,82 @@ fn promoted_snapshot_singleton_variant_not_target_deserialized_stays_dropped() {
         snapshot["declarations"][0]["promoted_methods"][0]["profile_variants"] =
             serde_json::json!([other]);
     });
+    assert_negative(&cg, Some("go_promoted_snapshot_variant_drop"));
+}
+
+#[test]
+fn promoted_snapshot_generic_receiver_declaration_stays_dropped() {
+    let donor = build_go(&[(
+        "q/generic.go",
+        "package q\ntype B[T any] struct{}\nfunc (B[T]) M() {}\n",
+    )]);
+    let (owner, declaration) = donor
+        .go_method_declarations
+        .iter()
+        .flat_map(|(owner, declarations)| {
+            declarations
+                .iter()
+                .map(move |declaration| (owner, declaration))
+        })
+        .find(|(_, declaration)| declaration.method_name == "M" && declaration.generic)
+        .expect("generic receiver method declaration");
+    let target = declaration.function_id.clone();
+    let target_value = serde_json::to_value(&target).expect("serialize generic target");
+    let mut cg = mutate_deserialized_owner(depth_one_fixture(), |snapshot| {
+        let promoted = &mut snapshot["declarations"][0]["promoted_methods"][0];
+        promoted["target"] = target_value.clone();
+        promoted["profile_variants"] = serde_json::json!([target_value]);
+    });
+    cg.go_method_declarations
+        .entry(owner.clone())
+        .or_default()
+        .insert(declaration.clone());
+    assert!(cg
+        .go_method_declarations
+        .values()
+        .flatten()
+        .any(|declaration| declaration.function_id == target && declaration.generic));
+    assert_negative(&cg, Some("go_promoted_snapshot_variant_drop"));
+}
+
+#[test]
+fn promoted_snapshot_declaration_join_miss_deserialized_stays_dropped() {
+    let cg = mutate_deserialized_owner(depth_one_fixture(), |snapshot| {
+        let promoted = &mut snapshot["declarations"][0]["promoted_methods"][0];
+        let mut missing = promoted["target"].clone();
+        missing["file"] = serde_json::json!("q/missing.go");
+        promoted["target"] = missing.clone();
+        promoted["profile_variants"] = serde_json::json!([missing]);
+    });
+    assert_negative(&cg, Some("go_promoted_snapshot_variant_drop"));
+}
+
+#[test]
+fn promoted_snapshot_missing_signature_declaration_stays_dropped() {
+    let cg = mutate_target_declaration(depth_one_fixture(), |declaration| {
+        declaration.signature = None;
+    });
+    assert_negative(&cg, Some("go_promoted_snapshot_variant_drop"));
+}
+
+#[test]
+fn promoted_snapshot_non_unique_function_id_join_stays_dropped() {
+    let mut cg = depth_one_fixture();
+    let target = promoted_target(&cg);
+    let duplicate = cg
+        .go_method_declarations
+        .values()
+        .flatten()
+        .find(|declaration| declaration.function_id == target)
+        .expect("target declaration")
+        .clone();
+    cg.go_method_declarations
+        .entry(crate::resolution::GoOwnerIdentity {
+            package_dir: "duplicate".to_string(),
+            package_clause: "duplicate".to_string(),
+            name: "Duplicate".to_string(),
+        })
+        .or_default()
+        .insert(duplicate);
     assert_negative(&cg, Some("go_promoted_snapshot_variant_drop"));
 }

@@ -105,6 +105,7 @@ pub(crate) enum GoPromotedSnapshotConsult<'a> {
 
 pub(crate) fn consult_promoted_snapshot<'a>(
     snapshot: &'a GoPromotedSelectorSnapshot,
+    methods: &GoMethodDeclarations,
     owner: &GoOwnerIdentity,
     method: &str,
 ) -> GoPromotedSnapshotConsult<'a> {
@@ -133,6 +134,19 @@ pub(crate) fn consult_promoted_snapshot<'a>(
         return GoPromotedSnapshotConsult::Miss;
     }
     if promoted.profile_variants.len() != 1 || !promoted.profile_variants.contains(&promoted.target)
+    {
+        return GoPromotedSnapshotConsult::VariantDrop;
+    }
+    let mut matching_declarations = methods
+        .values()
+        .flat_map(|declarations| declarations.iter())
+        .filter(|declaration| declaration.function_id == promoted.target);
+    let Some(method_declaration) = matching_declarations.next() else {
+        return GoPromotedSnapshotConsult::VariantDrop;
+    };
+    if matching_declarations.next().is_some()
+        || method_declaration.generic
+        || method_declaration.signature.is_none()
     {
         return GoPromotedSnapshotConsult::VariantDrop;
     }

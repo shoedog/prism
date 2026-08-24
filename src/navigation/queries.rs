@@ -740,6 +740,7 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                 } => {
                     dispatch_route = match crate::go_promoted_snapshot::consult_promoted_snapshot(
                         cg.go_promoted_selector_snapshot(),
+                        &cg.go_method_declarations,
                         owner,
                         &site.callee_name,
                     ) {

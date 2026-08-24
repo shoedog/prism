@@ -2356,6 +2356,7 @@ impl CallGraph {
                                 let mut telemetry = ResolutionTelemetry::default();
                                 match crate::go_promoted_snapshot::consult_promoted_snapshot(
                                     self.go_promoted_selector_snapshot(),
+                                    &self.go_method_declarations,
                                     owner,
                                     name,
                                 ) {
