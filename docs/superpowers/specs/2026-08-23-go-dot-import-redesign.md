@@ -1,4 +1,4 @@
-# #4b — Go dot-import resolution (redesign v4)
+# #4b — Go dot-import resolution (redesign v6)
 
 **Date:** 2026-08-23. **Base:** main @ 15cb62c. **Supersedes:** the REJECTED Item-D design (six WRONGs; see `2026-08-21-go-dot-import-resolution-deferred.md`). **Measured value:** 4 zap `observer.New` tier-a sites adjudicated `prism_fn` (recall gap; fails safe today). **Reviews:** sol ∥ Ox, declared cap 3; v2 folded sol r1 (5 WRONG); v3 folds sol r2 (3 WRONG + 1 SMELL, "converging — narrower remaining seams"): internal local-vs-dot conflicts drop outright (r2-W1), resolved directories require exactly one nonempty non-test package clause (r2-W2), the review-mode switch joins CPG cache identity (r2-W3), and the external/unproven telemetry split keeps per-path proof provenance or collapses (r2-S4). Round 3 (cap): FIX with ONE residual-bounded WRONG — mixed-clause poison (folded here as v4); closure = one scoped confirm (disclosed extension). **Size:** S–M, single PR.
 
@@ -48,3 +48,26 @@ Hook points for NEW resolution (rejection item 2): (a) the same-package **zero-s
 - R1: rung-order interference with the same-package partition semantics — gate 2's control + the zero-survivor fixture.
 - R2: dot-imports are rare (zap-style codebases); value is bounded — measured by gate 3's 4 sites + the counters' corpus census (disclosed in the PR).
 - R3: cache-version collision with the two in-flight lanes — §2.3 sequencing.
+
+## 5. POST-SETTLEMENT REVIEW OUTCOME (2026-08-23): was PARKED — owner decision: FOLD v5 (below)
+
+The kimi-k3 parallel retro (post-settlement) verified all six rejection dispositions as real, then found two WRONGs of the SAME class as sol's r3-W1 (poison/gate completeness): **W1** — gate 2 forbids the dominance losses step 0 designedly produces (no gate authorizes counter-accompanied `LocalDef`/`SamePackage` decrements; no recall budget); **W2 (controller-verified: resolution.rs:3177-3181)** — R5 mints repo-wide `FreeSingle` Exact for Go unqualified calls with zero same-dir candidates, so a poisoned file still mints an unproven cross-package Exact BELOW the rung, and hook-(b)'s ordering vs R5 is unspecified (no fixture; gate 3's zap sites are all hook-(a) shape). Third instance of the class ⇒ PARKED per convergence discipline.
+
+**Proposed closing principle (for the owner):** one total-dominance rule — for a Go caller file with ≥1 dot-import, the ENTIRE unqualified-call ladder below the same-package rung fails closed unless the dot-rung's full proof discharges; poison at any step ⇒ terminal drop for that call (R5 included); counter-accompanied `LocalDef`/`SamePackage` losses pre-authorized and recall-budgeted in gate 2. Plus kimi's S3-S6 (test-file candidate exclusion; precise clause-set definition; oracle gate reframed as empty-delta tripwire; visibility-qualified step-0 export check). No implementation until the owner decides fold-v5-with-fresh-cap vs shelve.
+
+
+## 6. v5→v6 — the total-dominance fold (owner: "fold v5"; fresh declared cap 2, sol ∥ kimi-k3; v6 folds sol r1: 2 WRONG + heading SMELL)
+
+**The closing principle (kimi-W2 + class):** for a Go caller file with ≥1 dot-import, the ENTIRE unqualified-call ladder below the same-package rung is governed by the dot-rung's proof state:
+- **Poisoned** (any dot-import unproven/external, or any proven dot-imported directory mixed-clause) ⇒ TERMINAL drop for every unqualified call in the file that reaches below the same-package rung — **R5 (`FreeSingle`/`FreeMulti`, resolution.rs:3177-3181) included**; hook (b) is explicitly placed BEFORE R5 and R5 is gated off for poisoned files. Counters name the poison kind.
+- **Clean, name absent from every proven dot-imported package** ⇒ the ladder continues EXACTLY as today (R5 unchanged) — no behavior change for the non-dot-relevant population.
+- **Clean, name exported by exactly one proven package, zero local/same-package survivors** ⇒ `GoDotImport` Exact per §2.2.
+- Anything else ⇒ drop with its counter.
+
+**Gate 2 rewrite (kimi-W1, sol-v5-W1):** authorized deltas, matched at SITE level 1:1 (edge counts reported alongside): (i) `FreeSingle` → `GoDotImport` RECLASSIFICATION — a clean dot-import uniquely exporting the name is FreeSingle today and becomes GoDotImport; matched against `GoDotImport` gains, no poison counter involved; (ii) counter-matched TERMINAL losses for `LocalDef`/`SamePackage`/`FreeSingle`/`FreeMulti` (each site loss matched by exactly one poison/conflict counter increment; unmatched losses fail the gate); (iii) the new `go_dot_import_*` counters themselves. Fixtures: clean hook-(b) reclassification (FreeSingle→GoDotImport); poisoned-`FreeMulti` terminal loss. The recall budget is explicit: total authorized losses per corpus are reported in the PR census (Risks updated).
+
+**kimi-S3:** candidate enumeration hard-excludes `is_test_file` declarations (never inherits `exact_cross_package_visibility`'s same-dir test carve-out); fixture pins the same-dir same-clause test-file case.
+**kimi-S4 (corrected per sol-v5-W2):** clause-set definition: collect EVERY nonempty `package` clause from the directory's `!is_test_file` files — **no name-based suffix filtering of ordinary files** (a non-test `b.go` declaring `package p_test` makes the set mixed ⇒ poison; external test packages are already removed by the `_test.go` file exclusion, go_build_profile.rs:64-72). The directory qualifies iff exactly ONE clause remains. Negative fixture: ordinary file with a `_test`-suffixed clause ⇒ poison. (zap's `observer` dir with internal `_test.go` files under `package observer` qualifies.)
+**kimi-S5:** gate 4 (oracle) is an empty-delta tripwire ONLY (dot-import edges sit outside the manifest denominator); gate 2 is the regression guard.
+**kimi-S6:** step 0's "exports the called name" check applies step 3's build-constraint-certain, visibility-qualified enumeration (a tag-excluded export neither poisons nor counts).
+**New fixtures:** poisoned file + repo-wide unique namesake ⇒ NO R5 Exact (the W2 shape); clean dot-file with name absent ⇒ R5 today-identical; loss-accounting fixture (a designed LocalDef drop with its matching counter).
