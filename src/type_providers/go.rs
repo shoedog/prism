@@ -478,7 +478,9 @@ impl GoTypeProvider {
     fn from_parsed_files_inner(
         files: &BTreeMap<String, ParsedFile>,
         package_import_paths: &BTreeMap<String, String>,
-        plain_entry: bool,
+        // Read only by the `#[cfg(test)]` construction counter at the end of this
+        // function (P15a-fix1); genuinely unused in non-test builds.
+        #[cfg_attr(not(test), allow(unused_variables))] plain_entry: bool,
     ) -> Self {
         let mut inner = GoTypeData {
             structs: BTreeMap::new(),

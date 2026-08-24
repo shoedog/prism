@@ -1,7 +1,5 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
-use std::fs;
-use tempfile::TempDir;
 
 fn prism_cmd() -> Command {
     Command::cargo_bin("prism").unwrap()

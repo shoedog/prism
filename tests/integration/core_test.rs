@@ -213,7 +213,7 @@ fn test_full_flow_c() {
 
 #[test]
 fn test_full_flow_cpp() {
-    let (files, sources, diff) = make_cpp_test();
+    let (files, _, diff) = make_cpp_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::FullFlow);
     let result = algorithms::run_slicing_compat(&files, &diff, &config, None).unwrap();
 

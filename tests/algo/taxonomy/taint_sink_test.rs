@@ -52,7 +52,7 @@ fn test_taint_from_diff() {
 
 #[test]
 fn test_taint_c_buffer_overflow() {
-    let (files, sources, diff) = make_c_test();
+    let (files, _, diff) = make_c_test();
     let result = algorithms::run_slicing_compat(
         &files,
         &diff,
