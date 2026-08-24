@@ -69,6 +69,34 @@ Over **every** R3-eligible bare consult attempt, compute today's minted set vs t
 
 Implementation proceeds directly on current main (R1(b) landed; no serialization needed). Implementer via bridge clone; code review terra ∥ parallel seat; controller runs corpus/oracle batteries and pushes. **Follow-on A** — positive, scope-aware receiver type-origin binding (predeclared identifiers, type parameters, local declarations and shadowing, aliases, carried cross-file identities), resolved *before* validation — is its own design and plan. B1 is shaped so A is additive: A replaces only identity establishment, while the walk, live selection, arity filter, and telemetry here are downstream and unchanged. **A's acceptance target:** recover the sites B1 forfeits (etcd-24 plus the former `unique_index` population), with zero false edges, and clear both §4 inventories.
 
+## 7-PARK. ⛔ PARKED (third time, 2026-08-24) — **class still open; recommend reversing the sequence to "A first".**
+
+sol r2 (final round of the cap) returned FIX with the lead finding again **OPEN-CLASS**, and stated explicitly: *"The open class is not closed. This lane should park and return to the owner as A first."* The controller concurs and verified the mechanism in source.
+
+**Why B1-strict still does not close it.** Requiring exact import-path qualification proves that *an alias maps to one directory*. It does **not** prove that the receiver's type text originated in that alias's file scope. Package-variable recovery transports raw type text across files and discards its origin namespace: `GoTypedFact` retains `defining_file`, but `unique_visible_type` returns only `Option<String>` (`go_receiver_index_visibility.rs` ~200 — verified), and recovery then re-interprets that string in the **caller's** import namespace with `owner_identity: None` (`go_receiver_index.rs` ~481 — verified). Constructible in valid Go, with no stale table and no duplicate key:
+
+```go
+// p/a.go
+import ext "external.example/api"
+var V ext.I
+// p/b.go
+import ext "example.com/app/decoy"
+func F() { V.M() }        // V is external.example/api.I …
+// decoy: type I interface{ M() }; type D struct{}; func (D) M() {}
+```
+
+`ext.I` is transported into `b.go`, where the exact lookup yields `example.com/app/decoy.I`, which **validates** and can mint `D.M`. Reachability was checked, not assumed: with identical mutually-exclusive decoy declarations the declaration-kind index becomes `Unproven` (`go_concrete_receiver.rs` ~62) so the site reaches this subconsult, and the required identical-two-profile behaviour lets the wrong identity's walk mint.
+
+**Sequence of refuted premises, for the record.** v7 `dispatchable` filter → v8 universe membership → v9 receiver-text qualifier → v10 absence-of-hazards → v12 "identity establishment" → v13 exact-import-path evidence. Each was a cheaper stand-in for *what the receiver binds to*; each was refuted by a constructible case. The owner approved "B then A" on the controller's recommendation that B was safe and cheap. **That premise is now refuted twice with concrete mechanisms, so the recommendation is withdrawn.**
+
+**Two findings that make A cheaper than it looked** — worth carrying into its design:
+1. **The provenance already exists and is thrown away at two named seams.** `defining_file` is retained on `GoTypedFact` and discarded by `unique_visible_type`; `owner_identity` is carried for some origins and stored as `None` by package-variable recovery. A is substantially *plumb what we already have through two seams*, not build type inference from scratch.
+2. **v13's bare-drop would have forfeited sites that already carry owners** — upstream deliberately converts qualified `ReturnTyped`/`FieldTyped` origins to bare names *with carried owners*, and B1-strict drops them for recall. Using carried provenance is both more correct and higher-recall than any text rule.
+
+**Also true regardless of #16:** with a single decoy declaration this class can already mint through the existing concrete-receiver route on `main`, before any C1 change. **The defect is not introduced by C1** — C1 simply cannot close it either.
+
+**Recommendation: do A first**, as its own design (scope-aware receiver type-origin binding: carry `defining_file`/`owner_identity` through recovery, resolve qualified text in its origin namespace, and handle predeclared identifiers, type parameters, local declarations and shadowing, aliases, dot-imports). #16's bare consult then becomes a small follow-on that consumes proven identities, and the measured wins it was chasing (the 8 over-approx kills, etcd-24, caddy's +6) come back into reach without a proxy. **Do not merge or implement this branch.**
+
 ## 8. History
 
 v1–v3 (static-table shapes) parked at cap for an open profile-witness class. C1 chosen by the owner 2026-08-23; v4–v8 folded successive review rounds and **v8 merged as the then design-of-record (#195)**. Its re-census passed the amended floor on all four corpora but surfaced a stdlib-receiver false edge; v9/v10 tried to make the identity-invalid fallback safe and were **parked as open-class** (#201). v11 removed the fallback but retained contradictory gates and stale citations and was **parked as an artifact defect** (#202), with the review finding one real hole — an unresolvable-identity path that re-entered the global index and could resurrect the very false edge. This v12 adopts B1 and is a clean rewrite; full history is in git and in PRs #195, #201, #202.
