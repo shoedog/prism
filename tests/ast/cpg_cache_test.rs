@@ -106,6 +106,19 @@ fn cpg_node_dump(node: &prism::cpg::CpgNode) -> String {
         } => format!(
             "var {file}:{function}:{function_start_line}:{line}:{path:?}:{access:?}:{start_byte}-{end_byte}"
         ),
+        prism::cpg::CpgNode::ReturnValue {
+            file,
+            function,
+            function_start_line,
+            line,
+            return_start_byte,
+            return_end_byte,
+            child_slot,
+            start_byte,
+            end_byte,
+        } => format!(
+            "return {file}:{function}:{function_start_line}:{line}:{return_start_byte}-{return_end_byte}:{child_slot}:{start_byte}-{end_byte}"
+        ),
     }
 }
 
@@ -354,6 +367,45 @@ fn has_indirect_call_in_file(
 // ---------------------------------------------------------------------------
 // Round-trip tests: build CPG → save → load → verify identical results
 // ---------------------------------------------------------------------------
+
+#[test]
+fn cache_v50_round_trips_return_flow_nodes_edges_indexes_and_stats() {
+    use prism::cpg::{CpgEdge, CpgNode};
+
+    let mut sources = BTreeMap::new();
+    sources.insert(
+        "app.py".to_string(),
+        "def decorate(user):\n    return user + 'x'\n\ndef run(user):\n    value = decorate(user)\n    sink(value)\n"
+            .to_string(),
+    );
+    let files = parsed_files(&[("app.py", sources["app.py"].as_str(), Language::Python)]);
+    let cold = CpgContext::build(&files, None).cpg;
+    assert!(cold
+        .graph
+        .node_weights()
+        .any(|node| matches!(node, CpgNode::ReturnValue { .. })));
+    assert!(cold
+        .graph
+        .edge_weights()
+        .any(|edge| matches!(edge, CpgEdge::ReturnInput)));
+    assert!(cold
+        .graph
+        .edge_weights()
+        .any(|edge| matches!(edge, CpgEdge::ReturnFlow { .. })));
+
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&cold, &hashes, false, cache_dir.path()).unwrap();
+    let hit = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
+
+    assert_eq!(
+        normalized_cpg_behavior(&cold),
+        normalized_cpg_behavior(&hit)
+    );
+    assert_eq!(cold.return_flow_stats, hit.return_flow_stats);
+    assert_eq!(node_byte_dump(&cold), node_byte_dump(&hit));
+    assert_eq!(cold.edge_dump(), hit.edge_dump());
+}
 
 #[test]
 fn cache_v6_round_trips_edge_confidence() {

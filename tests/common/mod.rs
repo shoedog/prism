@@ -113,6 +113,14 @@ pub fn node_byte_dump(cpg: &CodePropertyGraph) -> Vec<String> {
                 end_byte,
                 ..
             } => format!("stmt {line} [{start_byte},{end_byte})"),
+            CpgNode::ReturnValue {
+                function,
+                line,
+                child_slot,
+                start_byte,
+                end_byte,
+                ..
+            } => format!("return {function}:{line}:{child_slot} [{start_byte},{end_byte})"),
         })
         .collect();
     out.sort();

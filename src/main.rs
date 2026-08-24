@@ -113,6 +113,10 @@ struct ReviewArgs {
     #[arg(long)]
     taint_source: Vec<String>,
 
+    /// Taint: follow singleton-Exact callee return values to caller LHSs.
+    #[arg(long, default_value_t = false)]
+    taint_return_flow: bool,
+
     /// Conditioned slice: condition predicate (e.g., "x==5", "x!=null")
     #[arg(long)]
     condition: Option<String>,
@@ -525,7 +529,11 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                     println!("{}", serde_json::to_string(&site)?);
                 }
             } else {
-                let stats = prism::navigation::queries::call_stats(session.index.call_graph());
+                let mut stats = prism::navigation::queries::call_stats(session.index.call_graph());
+                stats.as_object_mut().expect("call-stats object").insert(
+                    "return_flow".into(),
+                    serde_json::to_value(&session.index.cpg().return_flow_stats)?,
+                );
                 println!("{}", serde_json::to_string_pretty(&stats)?);
             }
             Ok(())
@@ -1265,6 +1273,7 @@ fn run_algorithm(
                     .collect(),
                 taint_from_diff: cli.taint_source.is_empty(),
                 extra_sinks: Vec::new(),
+                return_flow: cli.taint_return_flow,
             };
             prism::algorithms::taint::slice(ctx, diff_input, &taint_config)
         }

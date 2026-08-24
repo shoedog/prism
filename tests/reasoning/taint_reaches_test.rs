@@ -1384,3 +1384,220 @@ fn descent_depth_matches_displayed_bypass_chain() {
         "the displayed bypass chain routes through the wrapper (w -> h), not the direct sanitized call"
     );
 }
+
+// --- #2 return-flow taint (design v5) ---------------------------------------
+
+fn assert_return_flow_reached(file: &str, src: &str, source_line: usize, sink_line: usize) {
+    let fixture = fixture(&[(file, src)]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: file.into(),
+            line: source_line,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: file.into(),
+            line: sink_line,
+        }]),
+    )
+    .expect("taint_reaches");
+    let source = sink_source(&evidence);
+    assert_eq!(source.reachability, Reachability::Reached, "{evidence:#?}");
+    assert!(
+        evidence
+            .graph
+            .as_ref()
+            .is_some_and(|graph| graph.edges.iter().any(|edge| edge.kind == "ReturnFlow")),
+        "the winning witness must contain ReturnFlow: {evidence:#?}"
+    );
+}
+
+#[test]
+fn return_flow_callee_internal_source_reaches_go_caller_lhs() {
+    assert_return_flow_reached(
+        "app.go",
+        "package main\nfunc f() string {\n    s := read()\n    return s\n}\nfunc run() {\n    x := f()\n    sink(x)\n}\n",
+        3,
+        8,
+    );
+}
+
+#[test]
+fn return_flow_callee_internal_source_reaches_python_caller_lhs() {
+    assert_return_flow_reached(
+        "app.py",
+        "def f():\n    s = read()\n    return s\n\ndef run():\n    x = f()\n    sink(x)\n",
+        2,
+        7,
+    );
+}
+
+#[test]
+fn return_flow_callee_internal_source_reaches_javascript_caller_lhs() {
+    assert_return_flow_reached(
+        "app.js",
+        "function f() {\n  const s = read();\n  return s;\n}\nfunction run() {\n  const x = f();\n  sink(x);\n}\n",
+        2,
+        7,
+    );
+}
+
+#[test]
+fn return_flow_callee_internal_source_reaches_typescript_caller_lhs() {
+    assert_return_flow_reached(
+        "app.ts",
+        "function f(): string {\n  const s = read();\n  return s;\n}\nfunction run(): void {\n  const x = f();\n  sink(x);\n}\n",
+        2,
+        7,
+    );
+}
+
+#[test]
+fn return_input_binary_expression_reaches_caller_lhs() {
+    let fixture = fixture(&[(
+        "app.py",
+        "def f(user):\n    return user + 'x'\n\ndef run():\n    user = input()\n    value = f(user)\n    sink(value)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 5,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 7,
+        }]),
+    )
+    .expect("taint_reaches");
+    assert_eq!(sink_source(&evidence).reachability, Reachability::Reached);
+    let graph = evidence.graph.as_ref().expect("witness graph");
+    assert!(graph.edges.iter().any(|edge| edge.kind == "ReturnInput"));
+    assert!(graph.edges.iter().any(|edge| edge.kind == "ReturnFlow"));
+}
+
+#[test]
+fn return_flow_sanitizer_suppresses_assignment_shortcut_and_is_bypass_proven() {
+    let fixture = fixture(&[(
+        "app.py",
+        "def f(user):\n    return html.escape(user)\n\ndef run():\n    user = input()\n    safe = f(user)\n    sink(safe)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 5,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 7,
+        }]),
+    )
+    .expect("taint_reaches");
+    let source = sink_source(&evidence);
+    assert_eq!(
+        source.reachability,
+        Reachability::Sanitized,
+        "{evidence:#?}"
+    );
+    assert_eq!(source.sanitized_by.len(), 1, "{evidence:#?}");
+    assert_eq!(source.sanitized_by[0].callee_text, "html.escape");
+}
+
+#[test]
+fn return_flow_python_keyword_label_is_not_a_semantic_return_input() {
+    let fixture = fixture(&[(
+        "app.py",
+        "def target(*, s):\n    return 0\n\ndef f():\n    s = input()\n    other = clean()\n    return target(s=other)\n\ndef run():\n    value = f()\n    sink(value)\n",
+    )]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 5,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 11,
+        }]),
+    )
+    .expect("taint_reaches");
+    assert_ne!(sink_source(&evidence).reachability, Reachability::Reached);
+}
+
+fn assert_nested_callable_return_does_not_escape(
+    path: &str,
+    source: &str,
+    source_line: usize,
+    sink_line: usize,
+) {
+    let fixture = fixture(&[(path, source)]);
+    let evidence = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: path.into(),
+            line: source_line,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: path.into(),
+            line: sink_line,
+        }]),
+    )
+    .expect("taint_reaches");
+    assert_ne!(
+        sink_source(&evidence).reachability,
+        Reachability::Reached,
+        "a nested callable's return must not become the outer function's return: {evidence:#?}"
+    );
+}
+
+#[test]
+fn return_flow_go_func_literal_return_is_fenced_from_outer_function() {
+    assert_nested_callable_return_does_not_escape(
+        "app.go",
+        "package main\nfunc f() string {\n    s := read()\n    g := func() string { return s }\n    _ = g\n    return \"safe\"\n}\nfunc run() {\n    x := f()\n    sink(x)\n}\n",
+        3,
+        10,
+    );
+}
+
+#[test]
+fn return_flow_rust_async_block_return_is_fenced_from_outer_function() {
+    assert_nested_callable_return_does_not_escape(
+        "app.rs",
+        "fn f() -> String {\n    let s = source();\n    let _future = async { return s; };\n    return safe();\n}\nfn run() {\n    let x = f();\n    sink(x);\n}\n",
+        2,
+        8,
+    );
+}
+
+#[test]
+fn return_flow_javascript_arrow_return_is_fenced_from_outer_function() {
+    assert_nested_callable_return_does_not_escape(
+        "app.js",
+        "function f() {\n  const s = read();\n  const g = () => { return s; };\n  return \"safe\";\n}\nfunction run() {\n  const x = f();\n  sink(x);\n}\n",
+        2,
+        8,
+    );
+}
+
+#[test]
+fn return_literal_synthetic_is_not_source_seedable() {
+    let fixture = fixture(&[(
+        "app.py",
+        "def f():\n    return 0\n\ndef run():\n    value = f()\n    sink(value)\n",
+    )]);
+    let error = taint_reaches(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 2,
+        }],
+        Some(&[SeedSpec::Loc {
+            file: "app.py".into(),
+            line: 6,
+        }]),
+    )
+    .expect_err("a return-value synthetic must never resolve as a source seed");
+    assert!(matches!(error, QueryError::SymbolNotFound { .. }));
+}

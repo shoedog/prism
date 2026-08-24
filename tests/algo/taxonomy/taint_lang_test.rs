@@ -517,6 +517,54 @@ def handler(request):
 }
 
 #[test]
+fn tier1_return_flow_config_is_default_off_and_opt_in_on() {
+    let source = "package main\n\
+func f() string {\n\
+    s := input()\n\
+    return s\n\
+}\n\
+func run() {\n\
+    command := f()\n\
+    exec.Command(command)\n\
+}\n";
+    let path = "src/main.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let files = BTreeMap::from([(path.to_string(), parsed)]);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::new(),
+        }],
+    };
+    let ctx = CpgContext::build(&files, None);
+    let base = prism::algorithms::taint::TaintConfig {
+        sources: vec![(path.into(), 3)],
+        taint_from_diff: false,
+        ..Default::default()
+    };
+    assert!(!base.return_flow, "Tier-1 return flow must default off");
+    let off = prism::algorithms::taint::slice(&ctx, &diff, &base).unwrap();
+    let on = prism::algorithms::taint::slice(
+        &ctx,
+        &diff,
+        &prism::algorithms::taint::TaintConfig {
+            return_flow: true,
+            ..base
+        },
+    )
+    .unwrap();
+    assert!(
+        off.findings.is_empty(),
+        "default-off must not cross the return"
+    );
+    assert!(
+        !on.findings.is_empty(),
+        "opt-in return flow must reach exec.Command"
+    );
+}
+
+#[test]
 fn test_go_multi_return_taint_flow() {
     let source = r#"
 package main

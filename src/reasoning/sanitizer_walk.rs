@@ -82,7 +82,7 @@ pub fn sanitized_hits_on_chain(
         // so no separate same-file/same-function pre-check is needed here — the `CallDescent` skip
         // above is the sole cross-function guard (Stage A's interim function-identity check is gone).
         if let Some((site, call_start_byte, call_end_byte)) =
-            sanitizer_transition(files, cpg, use_idx, def_idx)
+            sanitizer_transition(files, cpg, use_idx, def_idx, relation)
         {
             let key = (site.file.clone(), site.line, site.callee_text.clone());
             if seen.insert(key) {
@@ -129,7 +129,7 @@ pub fn sanitizer_bypass_exclusions(
         if hop_root != root || relation == Relation::CallDescent {
             continue;
         }
-        if sanitizer_transition(files, cpg, parent, node).is_some() {
+        if sanitizer_transition(files, cpg, parent, node, Some(relation)).is_some() {
             out.insert((parent, node));
         }
     }
@@ -141,7 +141,11 @@ fn sanitizer_transition(
     cpg: &CodePropertyGraph,
     use_idx: NodeIndex,
     def_idx: NodeIndex,
+    relation: Option<Relation>,
 ) -> Option<(SanitizerSite, usize, usize)> {
+    if relation == Some(Relation::ReturnInput) {
+        return return_input_sanitizer_transition(files, cpg, use_idx, def_idx);
+    }
     let use_loc = cpg.to_var_location(use_idx)?;
     if !matches!(use_loc.kind, VarAccessKind::Use) {
         return None;
@@ -173,6 +177,56 @@ fn sanitizer_transition(
         cur = node.parent();
     }
     None
+}
+
+/// The single return-expression sanitizer transition: a semantic ReturnInput
+/// Use must occupy the matched sanitizer call's data argument, and the target
+/// must be the exact ReturnValue node for that call expression.
+fn return_input_sanitizer_transition(
+    files: &BTreeMap<String, ParsedFile>,
+    cpg: &CodePropertyGraph,
+    use_idx: NodeIndex,
+    return_idx: NodeIndex,
+) -> Option<(SanitizerSite, usize, usize)> {
+    let use_loc = cpg.to_var_location(use_idx)?;
+    if !matches!(use_loc.kind, VarAccessKind::Use) {
+        return None;
+    }
+    let crate::cpg::CpgNode::ReturnValue {
+        file,
+        start_byte,
+        end_byte,
+        ..
+    } = cpg.node(return_idx)
+    else {
+        return None;
+    };
+    if file != &use_loc.file {
+        return None;
+    }
+    let parsed = files.get(file)?;
+    let call_node = parsed
+        .tree
+        .root_node()
+        .descendant_for_byte_range(*start_byte, *end_byte)?;
+    if !parsed.language.is_call_node(call_node.kind()) {
+        return None;
+    }
+    let call = sanitizer_call_site(parsed, &call_node)?;
+    let args = parsed.language.call_arguments(&call_node)?;
+    if !use_in_data_argument(parsed, &args, call.data_param, &use_loc) {
+        return None;
+    }
+    Some((
+        SanitizerSite {
+            category: sanitizer_category_str(call.category).to_string(),
+            callee_text: call.callee_text,
+            file: call.file,
+            line: call.line,
+        },
+        *start_byte,
+        *end_byte,
+    ))
 }
 
 fn sanitizer_site_for_assignment(

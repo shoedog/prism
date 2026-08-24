@@ -6,7 +6,8 @@ use petgraph::graph::NodeIndex;
 
 use crate::algorithms::taint::cleansed_categories_for_source;
 use crate::cpg::{
-    BoundaryKind, CodePropertyGraph, OrderingWarning, Relation, SameLineOrderView, Trace,
+    BoundaryKind, CodePropertyGraph, OrderingWarning, Relation, ReturnFlowMode, SameLineOrderView,
+    Trace,
 };
 use crate::data_flow::VarLocation;
 use crate::navigation::types::{
@@ -50,12 +51,13 @@ pub fn taint_reaches(
     }
 
     let order = AstOrderView::new(&session.index.cpg, &session.repo.files);
-    let trace = session.index.cpg.taint_trace_nodes(
+    let trace = session.index.cpg.taint_trace_nodes_with_mode(
         &source_roots
             .iter()
             .map(|seed| seed.node)
             .collect::<Vec<_>>(),
         Some(&order),
+        ReturnFlowMode::On,
     );
 
     match sinks {
@@ -220,10 +222,11 @@ fn witness_mode(
                             trace,
                             source.node,
                         );
-                        let rewalk = session.index.cpg.taint_trace_nodes_excluding(
+                        let rewalk = session.index.cpg.taint_trace_nodes_excluding_with_mode(
                             &[source.node],
                             order,
                             &excluded,
+                            ReturnFlowMode::On,
                         );
                         let mut bypass_ordering_warnings = Vec::new();
                         let bypass_reachability = reachability_for_node_from_ordered(
@@ -558,6 +561,7 @@ fn boundary_warnings(cpg: &CodePropertyGraph, trace: &Trace) -> Vec<Warning> {
             let kind = match boundary.kind {
                 BoundaryKind::CrossFunction => "cross-function",
                 BoundaryKind::SelfFunctionParam => "self-function parameter",
+                BoundaryKind::SelfFunctionReturn => "self-function return",
             };
             Some(Warning {
                 kind: WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary {

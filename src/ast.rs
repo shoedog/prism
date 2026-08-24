@@ -87,6 +87,33 @@ pub struct ReturnInfo {
     pub value_kind: Option<String>,
     /// Whether this return is inside a conditional branch.
     pub is_conditional: bool,
+    /// Stable identity of the return statement itself.
+    pub start_byte: usize,
+    pub end_byte: usize,
+    /// Position-bearing return children. Go expression lists expose one entry
+    /// per child; every other explicit/trailing return exposes one entry.
+    pub values: Vec<ReturnValueInfo>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReturnValueInfo {
+    pub slot: usize,
+    pub line: usize,
+    pub text: String,
+    pub kind: String,
+    pub start_byte: usize,
+    pub end_byte: usize,
+}
+
+/// An assignment/declaration whose complete RHS value is one exact call node.
+/// The LHS spans are bound to this AST parent, never recovered by line alone.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssignmentCallInfo {
+    pub start_byte: usize,
+    pub end_byte: usize,
+    pub rhs_start_byte: usize,
+    pub rhs_end_byte: usize,
+    pub lvalues: Vec<PathSpan>,
 }
 
 /// One function definition captured at parse time. Plain owned data: the
@@ -3515,6 +3542,95 @@ impl ParsedFile {
         spans
     }
 
+    /// Recover the exact AST parent for a call that is itself an assignment or
+    /// declaration RHS. Nested calls are rejected: only the RHS slot whose
+    /// byte range exactly equals the supplied call range is admitted.
+    pub fn assignment_for_exact_call(
+        &self,
+        call_start_byte: usize,
+        call_end_byte: usize,
+    ) -> Option<AssignmentCallInfo> {
+        let leaf = self
+            .tree
+            .root_node()
+            .descendant_for_byte_range(call_start_byte, call_end_byte)?;
+        let mut current = Some(leaf);
+        while let Some(node) = current {
+            if self.language.is_assignment_node(node.kind())
+                || self.language.is_declaration_node(node.kind())
+            {
+                let rhs = self
+                    .language
+                    .assignment_value(&node)
+                    .or_else(|| self.language.declaration_value(&node))?;
+                let rhs_slots: Vec<Node<'_>> =
+                    if matches!(rhs.kind(), "expression_list" | "variable_list") {
+                        let mut cursor = rhs.walk();
+                        rhs.named_children(&mut cursor).collect()
+                    } else {
+                        vec![rhs]
+                    };
+                let rhs_slot = rhs_slots.iter().position(|slot| {
+                    slot.start_byte() == call_start_byte && slot.end_byte() == call_end_byte
+                })?;
+
+                let lhs = self
+                    .language
+                    .assignment_target(&node)
+                    .or_else(|| self.language.declaration_name(&node))?;
+                let mut lvalues = Vec::new();
+                self.extract_lvalue_spans_from_node(lhs, &mut lvalues);
+                lvalues.sort_by_key(|span| (span.start_byte, span.end_byte));
+                if rhs_slots.len() > 1 {
+                    if rhs_slots.len() != lvalues.len() {
+                        return None;
+                    }
+                    lvalues = vec![lvalues[rhs_slot].clone()];
+                }
+                return Some(AssignmentCallInfo {
+                    start_byte: node.start_byte(),
+                    end_byte: node.end_byte(),
+                    rhs_start_byte: rhs.start_byte(),
+                    rhs_end_byte: rhs.end_byte(),
+                    lvalues,
+                });
+            }
+            current = node.parent();
+        }
+        None
+    }
+
+    /// True when a byte-bearing DFG Use is a semantic value/receiver use, not
+    /// a call's callee label or a Python keyword-argument label.
+    pub fn is_semantic_value_use(&self, start_byte: usize, end_byte: usize) -> bool {
+        let Some(leaf) = self
+            .tree
+            .root_node()
+            .descendant_for_byte_range(start_byte, end_byte)
+        else {
+            return false;
+        };
+        let mut current = Some(leaf);
+        while let Some(node) = current {
+            if node.kind() == "keyword_argument" {
+                if node.child_by_field_name("name").is_some_and(|name| {
+                    name.start_byte() <= start_byte && end_byte <= name.end_byte()
+                }) {
+                    return false;
+                }
+            }
+            if self.language.is_call_node(node.kind()) {
+                if self.language.call_function_name(&node).is_some_and(|name| {
+                    name.start_byte() <= start_byte && end_byte <= name.end_byte()
+                }) {
+                    return false;
+                }
+            }
+            current = node.parent();
+        }
+        true
+    }
+
     /// Extract L-value AccessPaths from a matched assignment/declaration node.
     fn extract_assignment_lvalue_paths(
         &self,
@@ -5253,6 +5369,7 @@ impl ParsedFile {
 
             // Extract the return value expression (first named child that
             // isn't the `return` keyword itself).
+            let mut values = Vec::new();
             let mut value_text = None;
             let mut value_kind = None;
 
@@ -5260,13 +5377,30 @@ impl ParsedFile {
                 // Go: return may have an expression_list child
                 if let Some(child) = node.named_child(0) {
                     let ck = child.kind();
+                    value_text = Some(self.node_text(&child).to_string());
+                    value_kind = Some(ck.to_string());
                     if ck == "expression_list" {
-                        value_text = Some(self.node_text(&child).to_string());
-                        value_kind = Some(ck.to_string());
+                        let mut cursor = child.walk();
+                        for (slot, value) in child.named_children(&mut cursor).enumerate() {
+                            values.push(ReturnValueInfo {
+                                slot,
+                                line: value.start_position().row + 1,
+                                text: self.node_text(&value).to_string(),
+                                kind: value.kind().to_string(),
+                                start_byte: value.start_byte(),
+                                end_byte: value.end_byte(),
+                            });
+                        }
                     } else {
                         // Single expression (not expression_list)
-                        value_text = Some(self.node_text(&child).to_string());
-                        value_kind = Some(ck.to_string());
+                        values.push(ReturnValueInfo {
+                            slot: 0,
+                            line: child.start_position().row + 1,
+                            text: self.node_text(&child).to_string(),
+                            kind: ck.to_string(),
+                            start_byte: child.start_byte(),
+                            end_byte: child.end_byte(),
+                        });
                     }
                 }
             } else {
@@ -5274,6 +5408,14 @@ impl ParsedFile {
                 if let Some(child) = node.named_child(0) {
                     value_text = Some(self.node_text(&child).to_string());
                     value_kind = Some(child.kind().to_string());
+                    values.push(ReturnValueInfo {
+                        slot: 0,
+                        line: child.start_position().row + 1,
+                        text: self.node_text(&child).to_string(),
+                        kind: child.kind().to_string(),
+                        start_byte: child.start_byte(),
+                        end_byte: child.end_byte(),
+                    });
                 }
             }
 
@@ -5284,16 +5426,20 @@ impl ParsedFile {
                 value_text,
                 value_kind,
                 is_conditional,
+                start_byte: node.start_byte(),
+                end_byte: node.end_byte(),
+                values,
             });
             return; // Don't recurse into return children
         }
 
-        // Don't recurse into nested function definitions. Fence on node IDENTITY,
-        // not kind: a nested `def`/`function_definition` has the SAME kind as the
-        // enclosing function, so a kind-based check let nested returns be collected
-        // as the outer function's (corrupts contract postconditions; the decorated
-        // unwrap above makes this reachable for decorated functions).
-        if self.language.function_node_types().contains(&kind) && node.id() != func_node.id() {
+        // Don't recurse into nested callable scopes. Fence on node IDENTITY,
+        // not kind: a nested definition may have the SAME kind as the enclosing
+        // function, while anonymous closures may not be included in
+        // `function_node_types()` at all.
+        if self.language.callable_boundary_node_types().contains(&kind)
+            && node.id() != func_node.id()
+        {
             return;
         }
 
@@ -5382,6 +5528,16 @@ impl ParsedFile {
                         value_text: Some(self.node_text(&child).to_string()),
                         value_kind: Some(ck.to_string()),
                         is_conditional: self.is_inside_conditional(&child, func_node),
+                        start_byte: child.start_byte(),
+                        end_byte: child.end_byte(),
+                        values: vec![ReturnValueInfo {
+                            slot: 0,
+                            line,
+                            text: self.node_text(&child).to_string(),
+                            kind: ck.to_string(),
+                            start_byte: child.start_byte(),
+                            end_byte: child.end_byte(),
+                        }],
                     });
                 }
                 return;
@@ -5424,9 +5580,19 @@ impl ParsedFile {
         let is_conditional = self.is_inside_conditional(&last_child, func_node);
         out.push(ReturnInfo {
             line,
-            value_text: Some(text),
+            value_text: Some(text.clone()),
             value_kind: Some(kind.to_string()),
             is_conditional,
+            start_byte: last_child.start_byte(),
+            end_byte: last_child.end_byte(),
+            values: vec![ReturnValueInfo {
+                slot: 0,
+                line,
+                text,
+                kind: kind.to_string(),
+                start_byte: last_child.start_byte(),
+                end_byte: last_child.end_byte(),
+            }],
         });
     }
 
@@ -5485,6 +5651,16 @@ impl ParsedFile {
                                 value_text: Some(self.node_text(&arm_value).to_string()),
                                 value_kind: Some(vk.to_string()),
                                 is_conditional: true,
+                                start_byte: arm_value.start_byte(),
+                                end_byte: arm_value.end_byte(),
+                                values: vec![ReturnValueInfo {
+                                    slot: 0,
+                                    line,
+                                    text: self.node_text(&arm_value).to_string(),
+                                    kind: vk.to_string(),
+                                    start_byte: arm_value.start_byte(),
+                                    end_byte: arm_value.end_byte(),
+                                }],
                             });
                         }
                     }
@@ -8017,6 +8193,29 @@ mod tests {
             "only the outer's return, not the nested fn's"
         );
         assert_eq!(returns[0].value_text.as_deref(), Some("1"));
+    }
+
+    #[test]
+    fn return_value_nodes_preserves_go_legacy_expression_list_and_adds_slots() {
+        let p = ParsedFile::parse(
+            "a.go",
+            "package p\nfunc pair(a string) (string, error) { return a, nil }\n",
+            Language::Go,
+        )
+        .unwrap();
+        let func = p.all_functions().into_iter().next().expect("pair");
+        let returns = p.return_value_nodes(&func);
+        assert_eq!(returns.len(), 1);
+        assert_eq!(returns[0].value_text.as_deref(), Some("a, nil"));
+        assert_eq!(returns[0].value_kind.as_deref(), Some("expression_list"));
+        assert_eq!(
+            returns[0]
+                .values
+                .iter()
+                .map(|value| value.text.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a", "nil"]
+        );
     }
 
     #[test]

@@ -2687,3 +2687,273 @@ func invoke(cmd *Command, v int) {\n\tcmd.Run(v)\n}\n";
         "singleton func_value_field must still create an arg->param DataFlow edge into helper's x"
     );
 }
+
+// --- #2 return-flow taint (design v5) ---------------------------------------
+
+fn return_flow_fixture(path: &str, src: &str, language: Language) -> CodePropertyGraph {
+    let parsed = ParsedFile::parse(path, src, language).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    CodePropertyGraph::build(&files)
+}
+
+fn edge_kind_count(cpg: &CodePropertyGraph, kind: &str) -> usize {
+    cpg.graph
+        .edge_weights()
+        .filter(|edge| format!("{edge:?}").starts_with(kind))
+        .count()
+}
+
+#[test]
+fn return_flow_singleton_exact_predicate_rejects_nameonly_multi_and_mixed() {
+    use crate::call_graph::FunctionId;
+    use crate::resolution::{
+        ResolutionKind, ResolutionOutcome, ResolutionTelemetry, ResolvedCallee,
+    };
+    let first = FunctionId {
+        file: "a.py".into(),
+        name: "f".into(),
+        start_line: 1,
+        end_line: 2,
+    };
+    let second = FunctionId {
+        file: "b.py".into(),
+        name: "f".into(),
+        start_line: 1,
+        end_line: 2,
+    };
+    let outcome = |resolved| ResolutionOutcome {
+        resolved,
+        drop: None,
+        telemetry: ResolutionTelemetry::default(),
+    };
+    let exact = ResolvedCallee {
+        target: &first,
+        confidence: ResolutionConfidence::Exact,
+        kind: ResolutionKind::FreeSingle,
+    };
+    assert!(super::build::singleton_exact(&outcome(vec![exact.clone()])).is_some());
+    assert!(super::build::singleton_exact(&outcome(vec![ResolvedCallee {
+        confidence: ResolutionConfidence::NameOnly,
+        ..exact.clone()
+    }]))
+    .is_none());
+    assert!(super::build::singleton_exact(&outcome(vec![
+        exact.clone(),
+        ResolvedCallee {
+            target: &second,
+            ..exact.clone()
+        },
+    ]))
+    .is_none());
+    assert!(super::build::singleton_exact(&outcome(vec![
+        exact.clone(),
+        ResolvedCallee {
+            target: &second,
+            confidence: ResolutionConfidence::NameOnly,
+            ..exact
+        },
+    ]))
+    .is_none());
+}
+
+#[test]
+fn return_flow_nameonly_trait_callee_is_fail_closed() {
+    let source = "trait Transform {\n    fn f(&self, x: String) -> String { x }\n}\nfn run(t: &dyn Transform, user: String) {\n    let value = t.f(user);\n    sink(value);\n}\n";
+    let parsed = ParsedFile::parse("app.rs", source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert("app.rs".to_string(), parsed);
+    let cpg = CodePropertyGraph::build(&files);
+    let site = cpg
+        .call_graph
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.callee_name == "f")
+        .expect("trait call site");
+    let outcome = cpg.call_graph.resolve_call_site_full(site);
+    assert_eq!(outcome.resolved.len(), 1, "{outcome:?}");
+    assert_eq!(
+        outcome.resolved[0].confidence,
+        ResolutionConfidence::NameOnly
+    );
+    assert_eq!(edge_kind_count(&cpg, "ReturnFlow"), 0);
+    assert_eq!(cpg.return_flow_stats.return_flow_skipped_nameonly, 1);
+}
+
+#[test]
+fn return_flow_multi_exact_interface_dispatch_is_fail_closed() {
+    let cpg = return_flow_fixture(
+        "app.go",
+        "package main\ntype I interface { F(string) string }\ntype A struct{}\ntype B struct{}\nfunc (A) F(x string) string { return x }\nfunc (B) F(x string) string { return x }\nfunc run(i I, user string) {\n    value := i.F(user)\n    sink(value)\n}\n",
+        Language::Go,
+    );
+    assert_eq!(edge_kind_count(&cpg, "ReturnFlow"), 0);
+    assert_eq!(cpg.return_flow_stats.return_flow_skipped_multi, 1);
+}
+
+#[test]
+fn return_flow_non_simple_lhs_is_skipped() {
+    let cpg = return_flow_fixture(
+        "app.py",
+        "def f(x):\n    return x\n\ndef run(user, obj):\n    obj.value = f(user)\n    sink(obj.value)\n",
+        Language::Python,
+    );
+    assert_eq!(edge_kind_count(&cpg, "ReturnFlow"), 0);
+    assert_eq!(cpg.return_flow_stats.return_flow_skipped_non_simple_lhs, 1);
+}
+
+#[test]
+fn return_flow_multi_value_arity_mismatch_is_skipped() {
+    let cpg = return_flow_fixture(
+        "app.go",
+        "package main\nfunc pair(x string) (string, string) { return x, x }\nfunc run(user string) {\n    a, b, c := pair(user)\n    sink(a, b, c)\n}\n",
+        Language::Go,
+    );
+    assert_eq!(edge_kind_count(&cpg, "ReturnFlow"), 0);
+    assert_eq!(cpg.return_flow_stats.return_flow_skipped_arity_mismatch, 1);
+}
+
+#[test]
+fn return_flow_named_bare_return_is_skipped() {
+    let cpg = return_flow_fixture(
+        "app.go",
+        "package main\nfunc f(x string) (out string) {\n    out = x\n    return\n}\nfunc run(user string) {\n    value := f(user)\n    sink(value)\n}\n",
+        Language::Go,
+    );
+    assert_eq!(edge_kind_count(&cpg, "ReturnFlow"), 0);
+    assert_eq!(cpg.return_flow_stats.return_flow_skipped_named_return, 1);
+}
+
+#[test]
+fn return_flow_forwarded_multi_value_return_is_skipped() {
+    let cpg = return_flow_fixture(
+        "app.go",
+        "package main\nfunc pair(x string) (string, string) { return x, x }\nfunc forwarded(x string) (string, string) { return pair(x) }\nfunc run(user string) {\n    a, b := forwarded(user)\n    sink(a, b)\n}\n",
+        Language::Go,
+    );
+    assert_eq!(edge_kind_count(&cpg, "ReturnFlow"), 0);
+    assert_eq!(
+        cpg.return_flow_stats.return_flow_skipped_forwarded_return,
+        1
+    );
+}
+
+#[test]
+fn return_flow_nested_function_return_is_fenced() {
+    let cpg = return_flow_fixture(
+        "app.py",
+        "def outer():\n    def never_called():\n        tainted = read()\n        return tainted\n    return 0\n\ndef run():\n    value = outer()\n    sink(value)\n",
+        Language::Python,
+    );
+    assert_eq!(edge_kind_count(&cpg, "ReturnInput"), 0);
+}
+
+#[test]
+fn return_flow_same_line_double_assignment_binds_call_to_its_ast_parent() {
+    let cpg = return_flow_fixture(
+        "app.js",
+        "function left(x) { return x; }\nfunction right() { return 0; }\nfunction run(user) { let a = left(user), b = right(); sink(a, b); }\n",
+        Language::JavaScript,
+    );
+    let bindings: Vec<(String, String)> = cpg
+        .graph
+        .edge_indices()
+        .filter(|&edge| matches!(cpg.graph[edge], CpgEdge::ReturnFlow { .. }))
+        .filter_map(|edge| cpg.graph.edge_endpoints(edge))
+        .map(|(from, to)| {
+            let source = match cpg.node(from) {
+                CpgNode::Variable { path, .. } => path.to_string(),
+                CpgNode::ReturnValue { .. } => "<return-value>".into(),
+                node => panic!("unexpected return endpoint: {node:?}"),
+            };
+            let target = match cpg.node(to) {
+                CpgNode::Variable { path, .. } => path.to_string(),
+                node => panic!("unexpected caller target: {node:?}"),
+            };
+            (source, target)
+        })
+        .collect();
+    assert!(bindings.contains(&("x".into(), "a".into())), "{bindings:?}");
+    assert!(
+        bindings.contains(&("<return-value>".into(), "b".into())),
+        "{bindings:?}"
+    );
+    assert!(
+        !bindings.contains(&("x".into(), "b".into())),
+        "{bindings:?}"
+    );
+}
+
+#[test]
+fn return_flow_two_callers_share_one_synthetic_identity_and_return_input_set() {
+    let cpg = return_flow_fixture(
+        "app.py",
+        "def f(u):\n    return u + 'x'\n\ndef first(user):\n    a = f(user)\n    sink(a)\n\ndef second(user):\n    b = f(user)\n    sink(b)\n",
+        Language::Python,
+    );
+    let return_values = cpg
+        .graph
+        .node_weights()
+        .filter(|node| matches!(node, CpgNode::ReturnValue { .. }))
+        .count();
+    assert_eq!(return_values, 1, "one required synthetic identity");
+    assert_eq!(edge_kind_count(&cpg, "ReturnInput"), 1);
+    assert_eq!(edge_kind_count(&cpg, "ReturnFlow"), 2);
+    assert_eq!(cpg.return_flow_stats.return_input_edges, 1);
+    assert_eq!(cpg.return_flow_stats.return_flow_edges, 2);
+    assert_eq!(cpg.return_flow_stats.return_flow_suppression_certified, 2);
+}
+
+#[test]
+fn return_flow_mixed_modeled_and_bare_returns_voids_shortcut_suppression() {
+    let cpg = return_flow_fixture(
+        "app.go",
+        "package main\nfunc f(user string) string {\n    if user == \"\" { return user }\n    return\n}\nfunc run(user string) {\n    value := f(user)\n    sink(value)\n}\n",
+        Language::Go,
+    );
+    let trace = cpg.taint_trace_with_mode(&[("app.go".into(), 6)], ReturnFlowMode::On);
+    assert_eq!(
+        cpg.return_flow_stats
+            .return_flow_suppression_void_incomplete_returns,
+        1
+    );
+    assert!(
+        cpg.nodes_at("app.go", 8)
+            .into_iter()
+            .any(|node| trace.in_frontier(node)),
+        "a void replacement certificate must retain the conservative same-line shortcut"
+    );
+}
+
+#[test]
+fn return_flow_nested_unbound_use_voids_shortcut_suppression() {
+    let cpg = return_flow_fixture(
+        "app.py",
+        "def inner(x):\n    return x\n\ndef outer(x):\n    return 0\n\ndef run(user):\n    value = outer(inner(user))\n    sink(value)\n",
+        Language::Python,
+    );
+    let trace = cpg.taint_trace_with_mode(&[("app.py".into(), 7)], ReturnFlowMode::On);
+    assert_eq!(
+        cpg.return_flow_stats
+            .return_flow_suppression_void_unbound_uses,
+        1
+    );
+    assert!(
+        cpg.nodes_at("app.py", 9)
+            .into_iter()
+            .any(|node| trace.in_frontier(node)),
+        "an unbound nested Use must retain the conservative same-line shortcut"
+    );
+}
+
+#[test]
+fn return_flow_self_and_mutual_recursion_stay_bounded() {
+    let cpg = return_flow_fixture(
+        "app.py",
+        "def self_rec(x):\n    return self_rec(x)\n\ndef a(x):\n    return b(x)\n\ndef b(x):\n    return a(x)\n\ndef run(user):\n    x = self_rec(user)\n    y = a(user)\n    sink(x, y)\n",
+        Language::Python,
+    );
+    let trace = cpg.taint_trace_with_mode(&[("app.py".into(), 10)], ReturnFlowMode::On);
+    assert!(trace.frontier().len() <= cpg.graph.node_count());
+}

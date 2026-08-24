@@ -23,7 +23,7 @@
 
 use crate::access_path::AccessPath;
 use crate::call_graph::CallGraph;
-use crate::cpg::{CodePropertyGraph, CpgEdge, CpgNode, VarAccess};
+use crate::cpg::{CodePropertyGraph, CpgEdge, CpgNode, ReturnFlowStats, VarAccess};
 use crate::data_flow::DataFlowGraph;
 
 use petgraph::graph::{DiGraph, NodeIndex};
@@ -149,7 +149,8 @@ use std::path::{Path, PathBuf};
 ///   transition (paired with sidecar v16).
 /// - v48: alias-aware Go signature identity plus the serialized promoted-selector snapshot.
 /// - v49: promoted-selector snapshots shadow methods at equal field depth.
-const CACHE_VERSION: u32 = 49;
+/// - v50: return-flow synthetic nodes/edges plus construction telemetry.
+const CACHE_VERSION: u32 = 50;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -200,6 +201,8 @@ struct SerializedCpg {
     call_graph: CallGraph,
     /// The data flow graph.
     dfg: DataFlowGraph,
+    /// Return-flow construction counters survive cold/cache-hit parity.
+    return_flow_stats: ReturnFlowStats,
 }
 
 /// Human-readable metadata written alongside the binary cache for debugging.
@@ -325,6 +328,7 @@ pub fn save_cache_with_topology(
             edges,
             call_graph: cpg.call_graph.clone(),
             dfg: cpg.dfg.clone(),
+            return_flow_stats: cpg.return_flow_stats.clone(),
         },
     };
 
@@ -577,6 +581,12 @@ fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
                     .or_default()
                     .push(idx);
             }
+            CpgNode::ReturnValue { file, line, .. } => {
+                location_index
+                    .entry((file.clone(), *line))
+                    .or_default()
+                    .push(idx);
+            }
         }
     }
     for nodes in name_index.values_mut() {
@@ -606,7 +616,7 @@ fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
         });
     }
 
-    CodePropertyGraph::from_parts(
+    let mut cpg = CodePropertyGraph::from_parts(
         graph,
         func_index,
         name_index,
@@ -614,7 +624,9 @@ fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
         location_index,
         ser.call_graph,
         ser.dfg,
-    )
+    );
+    cpg.return_flow_stats = ser.return_flow_stats;
+    cpg
 }
 
 /// Simple timestamp without requiring the chrono crate.
@@ -667,8 +679,8 @@ mod tests {
     }
 
     #[test]
-    fn cache_versions_are_pinned_for_promoted_snapshot_equal_depth_repair() {
-        assert_eq!(super::CACHE_VERSION, 49);
+    fn cache_versions_are_pinned_for_return_flow_taint() {
+        assert_eq!(super::CACHE_VERSION, 50);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -846,6 +858,7 @@ mod tests {
                 edges: vec![],
                 call_graph: CallGraph::empty(),
                 dfg: DataFlowGraph::empty(),
+                return_flow_stats: ReturnFlowStats::default(),
             },
         };
         std::fs::write(
@@ -879,6 +892,7 @@ mod tests {
                 edges: vec![],
                 call_graph: CallGraph::empty(),
                 dfg: DataFlowGraph::empty(),
+                return_flow_stats: ReturnFlowStats::default(),
             },
         };
         std::fs::write(

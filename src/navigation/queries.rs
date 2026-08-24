@@ -1127,7 +1127,7 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
                 why: vec![],
                 snippet: None,
             }),
-            CpgNode::Statement { .. } => {} // statements not first-class in v1 (spec §8 R3-M3)
+            CpgNode::Statement { .. } | CpgNode::ReturnValue { .. } => {} // statements/synthetic return values are not first-class nodes-at evidence
         }
     }
     // Enclosing function (innermost), as evidence on the line.
@@ -1480,6 +1480,8 @@ fn edge_kind(e: &CpgEdge) -> &'static str {
         CpgEdge::ControlFlow => "ControlFlow",
         CpgEdge::Call(_) => "Call",
         CpgEdge::Return(_) => "Return",
+        CpgEdge::ReturnFlow { .. } => "ReturnFlow",
+        CpgEdge::ReturnInput => "ReturnInput",
         CpgEdge::Contains => "Contains",
         CpgEdge::FieldOf => "FieldOf",
     }
@@ -1494,6 +1496,8 @@ fn parse_ego_edges(edges: &[&str]) -> Result<BTreeSet<&'static str>, QueryError>
             "ControlFlow" => "ControlFlow",
             "Call" => "Call",
             "Return" => "Return",
+            "ReturnFlow" => "ReturnFlow",
+            "ReturnInput" => "ReturnInput",
             "Contains" => "Contains",
             "FieldOf" => "FieldOf",
             _ => {
@@ -1574,6 +1578,29 @@ fn node_symbol_loc(s: &NavigationSession, ni: NodeIndex) -> (SymbolRef, Location
                 file: file.clone(),
                 line: *line,
                 kind: format!("{kind:?}"),
+                start_byte: *start_byte,
+                end_byte: *end_byte,
+                ordinal: 0,
+            },
+            Location {
+                file: file.clone(),
+                start_line: *line,
+                end_line: *line,
+                start_byte: *start_byte,
+                end_byte: *end_byte,
+            },
+        ),
+        CpgNode::ReturnValue {
+            file,
+            line,
+            start_byte,
+            end_byte,
+            ..
+        } => (
+            SymbolRef::Statement {
+                file: file.clone(),
+                line: *line,
+                kind: "ReturnValue".into(),
                 start_byte: *start_byte,
                 end_byte: *end_byte,
                 ordinal: 0,

@@ -233,6 +233,8 @@ pub fn witness_graph_for_node(
             Some(Relation::AssignmentPropagation) => "AssignmentPropagation",
             Some(Relation::RecoveredDefUse) => "RecoveredDefUse",
             Some(Relation::CallDescent) => "CallDescent",
+            Some(Relation::ReturnInput) => "ReturnInput",
+            Some(Relation::ReturnFlow) => "ReturnFlow",
         };
         edges.push(GraphEdge {
             from: idx_of[&from],
@@ -341,6 +343,8 @@ pub fn witness_graph_for_chain(
             Some(Relation::AssignmentPropagation) => "AssignmentPropagation",
             Some(Relation::RecoveredDefUse) => "RecoveredDefUse",
             Some(Relation::CallDescent) => "CallDescent",
+            Some(Relation::ReturnInput) => "ReturnInput",
+            Some(Relation::ReturnFlow) => "ReturnFlow",
         };
         edges.push(GraphEdge {
             from: idx_of[&from],
@@ -366,6 +370,32 @@ pub fn node_to_graph_node(cpg: &CodePropertyGraph, n: NodeIndex) -> GraphNode {
 }
 
 fn node_of(cpg: &CodePropertyGraph, n: NodeIndex) -> GraphNode {
+    if let CpgNode::ReturnValue {
+        file,
+        line,
+        start_byte,
+        end_byte,
+        ..
+    } = cpg.node(n)
+    {
+        return GraphNode {
+            symbol: Some(SymbolRef::Statement {
+                file: file.clone(),
+                line: *line,
+                kind: "ReturnValue".into(),
+                start_byte: *start_byte,
+                end_byte: *end_byte,
+                ordinal: 0,
+            }),
+            location: Location {
+                file: file.clone(),
+                start_line: *line,
+                end_line: *line,
+                start_byte: *start_byte,
+                end_byte: *end_byte,
+            },
+        };
+    }
     let loc = cpg.to_var_location(n);
     let (file, line, function, path, access, start_byte, end_byte) = match &loc {
         Some(l) => (
