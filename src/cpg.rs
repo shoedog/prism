@@ -38,10 +38,10 @@ use crate::access_path::AccessPath;
 #[cfg(test)]
 use std::collections::{BTreeMap, BTreeSet};
 
-pub use build::CodePropertyGraph;
+pub use build::{CodePropertyGraph, ReturnFlowStats};
 pub use context::{CpgContext, CpgScope};
 pub use trace::{
     BoundaryEdge, BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning,
-    Relation, SameLineOrderView, Trace,
+    Relation, ReturnFlowMode, SameLineOrderView, Trace,
 };
 pub use types::{CpgEdge, CpgNode, StmtKind, VarAccess};

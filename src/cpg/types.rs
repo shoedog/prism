@@ -41,6 +41,20 @@ pub enum CpgNode {
         start_byte: usize,
         end_byte: usize,
     },
+
+    /// A non-seedable endpoint for a non-simple returned expression. Identity
+    /// is the fenced function plus return-statement span and child slot.
+    ReturnValue {
+        file: String,
+        function: String,
+        function_start_line: usize,
+        line: usize,
+        return_start_byte: usize,
+        return_end_byte: usize,
+        child_slot: usize,
+        start_byte: usize,
+        end_byte: usize,
+    },
 }
 
 impl PartialEq for CpgNode {
@@ -105,6 +119,33 @@ impl PartialEq for CpgNode {
                     && line == other_line
                     && access == other_access
             }
+            (
+                CpgNode::ReturnValue {
+                    file,
+                    function,
+                    function_start_line,
+                    return_start_byte,
+                    return_end_byte,
+                    child_slot,
+                    ..
+                },
+                CpgNode::ReturnValue {
+                    file: other_file,
+                    function: other_function,
+                    function_start_line: other_function_start_line,
+                    return_start_byte: other_return_start_byte,
+                    return_end_byte: other_return_end_byte,
+                    child_slot: other_child_slot,
+                    ..
+                },
+            ) => {
+                file == other_file
+                    && function == other_function
+                    && function_start_line == other_function_start_line
+                    && return_start_byte == other_return_start_byte
+                    && return_end_byte == other_return_end_byte
+                    && child_slot == other_child_slot
+            }
             _ => false,
         }
     }
@@ -166,6 +207,13 @@ pub enum CpgEdge {
     /// Return: a function returns to the call site, with the same confidence as its Call.
     Return(ResolutionConfidence),
 
+    /// A modeled callee return endpoint flows to the exact caller assignment
+    /// target. The certificate bit is identical on every edge for an assignment.
+    ReturnFlow { suppress_shortcut: bool },
+
+    /// A semantic value/receiver Use flows into a non-simple ReturnValue node.
+    ReturnInput,
+
     /// Containment: a function contains this statement or variable.
     Contains,
 
@@ -207,6 +255,7 @@ impl CpgNode {
             CpgNode::Function { file, .. } => file,
             CpgNode::Statement { file, .. } => file,
             CpgNode::Variable { file, .. } => file,
+            CpgNode::ReturnValue { file, .. } => file,
         }
     }
 
@@ -216,6 +265,7 @@ impl CpgNode {
             CpgNode::Function { start_line, .. } => *start_line,
             CpgNode::Statement { line, .. } => *line,
             CpgNode::Variable { line, .. } => *line,
+            CpgNode::ReturnValue { line, .. } => *line,
         }
     }
 
@@ -266,6 +316,9 @@ impl CpgEdge {
 
     /// Whether this is a call or return edge.
     pub fn is_interprocedural(&self) -> bool {
-        matches!(self, CpgEdge::Call(_) | CpgEdge::Return(_))
+        matches!(
+            self,
+            CpgEdge::Call(_) | CpgEdge::Return(_) | CpgEdge::ReturnFlow { .. }
+        )
     }
 }

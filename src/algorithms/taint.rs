@@ -1239,6 +1239,9 @@ pub struct TaintConfig {
     pub taint_from_diff: bool,
     /// Additional sink patterns to check. Prefix with '=' for exact identifier match.
     pub extra_sinks: Vec<String>,
+    /// Opt in to singleton-Exact callee-return flow. Default-off preserves the
+    /// Tier-1/review wire until the separate default-on decision.
+    pub return_flow: bool,
 }
 
 impl Default for TaintConfig {
@@ -1247,6 +1250,7 @@ impl Default for TaintConfig {
             sources: Vec::new(),
             taint_from_diff: true,
             extra_sinks: Vec::new(),
+            return_flow: false,
         }
     }
 }
@@ -11019,7 +11023,11 @@ pub fn slice(
         js_ts_framework_source_access_ranges_by_line(ctx.files, &framework_source_set);
 
     // Forward propagation from each source (CFG-constrained when available)
-    let mut paths = ctx.cpg.taint_forward_cfg(&taint_sources);
+    let mut paths = if taint_config.return_flow {
+        ctx.cpg.taint_forward_cfg_with_return_flow(&taint_sources)
+    } else {
+        ctx.cpg.taint_forward_cfg(&taint_sources)
+    };
     synthesize_target_seed_paths(&framework_sources, ctx, &mut paths);
 
     // Sanitizer propagation hook (spec §3.6): for each path, walk the function

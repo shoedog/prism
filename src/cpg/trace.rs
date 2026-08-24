@@ -6,6 +6,7 @@ use crate::resolution::ResolutionConfidence;
 
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
+use petgraph::Direction;
 
 use super::{CodePropertyGraph, CpgEdge, CpgNode, VarAccess};
 
@@ -21,6 +22,12 @@ type DescentGateKey = (
 );
 
 pub const MAX_TAINT_DESCENT_DEPTH: usize = 2;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReturnFlowMode {
+    Off,
+    On,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Relation {
@@ -39,6 +46,11 @@ pub enum Relation {
     /// across one recovery gate. Stage A keeps it as a taint parent edge for witness
     /// and leaves a future stage to expose this depth in evidence.
     CallDescent,
+    /// A semantic Use inside a non-simple return expression flows to its
+    /// non-seedable ReturnValue endpoint.
+    ReturnInput,
+    /// A callee return endpoint ascends to the exact caller LHS.
+    ReturnFlow,
 }
 
 /// A def-use edge crossing a `(file,function,function_start_line)` boundary, recorded but not
@@ -49,6 +61,7 @@ pub enum Relation {
 pub enum BoundaryKind {
     CrossFunction,
     SelfFunctionParam,
+    SelfFunctionReturn,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -143,6 +156,14 @@ impl CodePropertyGraph {
     /// the seed, so the parent walk-back never dead-ends. Determinism: neighbors sorted by
     /// NodeIndex; first enqueue per root wins the parent slot; DataFlow beats same-line.
     pub fn taint_trace(&self, sources: &[(String, usize)]) -> Trace {
+        self.taint_trace_with_mode(sources, ReturnFlowMode::Off)
+    }
+
+    pub fn taint_trace_with_mode(
+        &self,
+        sources: &[(String, usize)],
+        return_flow_mode: ReturnFlowMode,
+    ) -> Trace {
         let has_cfg = self.has_cfg_edges();
         let mut trace = Trace::default();
         let mut descent_gate_cache = BTreeMap::new();
@@ -219,6 +240,7 @@ impl CodePropertyGraph {
                     &mut descent_gate_cache,
                     &mut depths,
                     &no_exclusions,
+                    return_flow_mode,
                 );
             }
         }
@@ -234,7 +256,17 @@ impl CodePropertyGraph {
         order: Option<&dyn SameLineOrderView>,
     ) -> Trace {
         let no_exclusions = BTreeSet::new();
-        self.taint_trace_nodes_impl(roots, order, &no_exclusions)
+        self.taint_trace_nodes_impl(roots, order, &no_exclusions, ReturnFlowMode::Off)
+    }
+
+    pub fn taint_trace_nodes_with_mode(
+        &self,
+        roots: &[NodeIndex],
+        order: Option<&dyn SameLineOrderView>,
+        return_flow_mode: ReturnFlowMode,
+    ) -> Trace {
+        let no_exclusions = BTreeSet::new();
+        self.taint_trace_nodes_impl(roots, order, &no_exclusions, return_flow_mode)
     }
 
     /// P14 fix-wave BLOCKER fix: like [`Self::taint_trace_nodes`], but every hop `(from, to)` in
@@ -252,7 +284,17 @@ impl CodePropertyGraph {
         order: Option<&dyn SameLineOrderView>,
         excluded_hops: &BTreeSet<(NodeIndex, NodeIndex)>,
     ) -> Trace {
-        self.taint_trace_nodes_impl(roots, order, excluded_hops)
+        self.taint_trace_nodes_impl(roots, order, excluded_hops, ReturnFlowMode::Off)
+    }
+
+    pub fn taint_trace_nodes_excluding_with_mode(
+        &self,
+        roots: &[NodeIndex],
+        order: Option<&dyn SameLineOrderView>,
+        excluded_hops: &BTreeSet<(NodeIndex, NodeIndex)>,
+        return_flow_mode: ReturnFlowMode,
+    ) -> Trace {
+        self.taint_trace_nodes_impl(roots, order, excluded_hops, return_flow_mode)
     }
 
     fn taint_trace_nodes_impl(
@@ -260,6 +302,7 @@ impl CodePropertyGraph {
         roots: &[NodeIndex],
         order: Option<&dyn SameLineOrderView>,
         excluded_hops: &BTreeSet<(NodeIndex, NodeIndex)>,
+        return_flow_mode: ReturnFlowMode,
     ) -> Trace {
         let has_cfg = self.has_cfg_edges();
         let mut trace = Trace::default();
@@ -325,6 +368,7 @@ impl CodePropertyGraph {
                     &mut descent_gate_cache,
                     &mut depths,
                     excluded_hops,
+                    return_flow_mode,
                 );
             }
         }
@@ -344,6 +388,7 @@ impl CodePropertyGraph {
         descent_gate_cache: &mut BTreeMap<DescentGateKey, bool>,
         depths: &mut BTreeMap<(NodeIndex, NodeIndex), usize>,
         excluded_hops: &BTreeSet<(NodeIndex, NodeIndex)>,
+        return_flow_mode: ReturnFlowMode,
     ) {
         if !matches!(self.graph[root], CpgNode::Variable { .. }) {
             return;
@@ -358,7 +403,7 @@ impl CodePropertyGraph {
 
         while let Some(node) = queue.pop_front() {
             let node_depth = *depths.get(&(root, node)).unwrap_or(&0);
-            for (next, rel) in self.taint_neighbors(node) {
+            for (next, rel) in self.taint_neighbors(node, return_flow_mode) {
                 // P14 fix-wave BLOCKER fix: an excluded hop is simply not taken — no ordering
                 // check, no boundary/descent/CFG handling, no `BoundaryEdge` record. Checked first
                 // so `taint_trace_nodes_excluding`'s re-walk (used to bypass-prove a `Sanitized`
@@ -376,6 +421,38 @@ impl CodePropertyGraph {
                 let Some(next_fn) = self.node_file_fn(next) else {
                     continue;
                 };
+
+                // Return ascent is handled before the generic cross-function
+                // branch: it has its own singleton-Exact gate and consumes the
+                // same bounded interprocedural depth budget as call descent.
+                if rel == Relation::ReturnFlow {
+                    let boundary_kind = if next_fn == node_fn {
+                        BoundaryKind::SelfFunctionReturn
+                    } else {
+                        BoundaryKind::CrossFunction
+                    };
+                    let can_ascend = next_fn != node_fn
+                        && node_depth < MAX_TAINT_DESCENT_DEPTH
+                        && self.return_flow_ascent_allowed(node, next);
+                    if can_ascend {
+                        if enqueued.insert(next) {
+                            trace.frontier_by_root.entry(root).or_default().insert(next);
+                            trace
+                                .parents_by_root
+                                .insert((root, next), (node, Relation::ReturnFlow));
+                            depths.insert((root, next), node_depth + 1);
+                            queue.push_back(next);
+                        }
+                    } else {
+                        trace.boundary.insert(BoundaryEdge {
+                            root,
+                            from: node,
+                            to: next,
+                            kind: boundary_kind,
+                        });
+                    }
+                    continue;
+                }
 
                 // A neighbor is a boundary (taint exits into a callee in v1) if it crosses into a
                 // different function, or if a recursive/self call's arg→param DataFlow edge lands back in
@@ -488,6 +565,12 @@ impl CodePropertyGraph {
     fn node_file_fn(&self, idx: NodeIndex) -> Option<(String, String, usize)> {
         match &self.graph[idx] {
             CpgNode::Variable {
+                file,
+                function,
+                function_start_line,
+                ..
+            } => Some((file.clone(), function.clone(), *function_start_line)),
+            CpgNode::ReturnValue {
                 file,
                 function,
                 function_start_line,
@@ -666,7 +749,102 @@ impl CodePropertyGraph {
                 || (site.start_byte <= source_start_byte && source_end_byte <= site.end_byte))
     }
 
-    fn taint_neighbors(&self, node: NodeIndex) -> Vec<(NodeIndex, Relation)> {
+    fn return_flow_ascent_allowed(&self, from: NodeIndex, to: NodeIndex) -> bool {
+        let Some((callee_file, callee_name, callee_start)) = self.node_file_fn(from) else {
+            return false;
+        };
+        let CpgNode::Variable {
+            file: caller_file,
+            function: caller_name,
+            function_start_line: caller_start,
+            ..
+        } = &self.graph[to]
+        else {
+            return false;
+        };
+        let caller = crate::call_graph::FunctionId {
+            file: caller_file.clone(),
+            name: caller_name.clone(),
+            start_line: *caller_start,
+            end_line: usize::MAX,
+        };
+        self.call_graph
+            .calls
+            .iter()
+            .filter(|(id, _)| {
+                id.file == caller.file
+                    && id.name == caller.name
+                    && id.start_line == caller.start_line
+            })
+            .flat_map(|(_, sites)| sites)
+            .any(|site| {
+                super::build::singleton_exact(&self.call_graph.resolve_call_site_full(site))
+                    .is_some_and(|resolved| {
+                        resolved.target.file == callee_file
+                            && resolved.target.name == callee_name
+                            && resolved.target.start_line == callee_start
+                    })
+            })
+    }
+
+    fn assignment_shortcut_suppressed(&self, use_idx: NodeIndex, def_idx: NodeIndex) -> bool {
+        let CpgNode::Variable {
+            file: caller_file,
+            function: caller_name,
+            function_start_line: caller_start,
+            start_byte: use_start,
+            end_byte: use_end,
+            ..
+        } = &self.graph[use_idx]
+        else {
+            return false;
+        };
+
+        self.graph
+            .edges_directed(def_idx, Direction::Incoming)
+            .filter(|edge| {
+                matches!(
+                    edge.weight(),
+                    CpgEdge::ReturnFlow {
+                        suppress_shortcut: true
+                    }
+                )
+            })
+            .any(|edge| {
+                let Some((callee_file, callee_name, callee_start)) =
+                    self.node_file_fn(edge.source())
+                else {
+                    return false;
+                };
+                self.call_graph
+                    .calls
+                    .iter()
+                    .filter(|(id, _)| {
+                        id.file == *caller_file
+                            && id.name == *caller_name
+                            && id.start_line == *caller_start
+                    })
+                    .flat_map(|(_, sites)| sites)
+                    .any(|site| {
+                        site.start_byte <= *use_start
+                            && *use_end <= site.end_byte
+                            && super::build::singleton_exact(
+                                &self.call_graph.resolve_call_site_full(site),
+                            )
+                            .is_some_and(|resolved| {
+                                resolved.target.file == callee_file
+                                    && resolved.target.name == callee_name
+                                    && resolved.target.start_line == callee_start
+                            })
+                    })
+            })
+    }
+
+    fn taint_neighbors(
+        &self,
+        node: NodeIndex,
+        return_flow_mode: ReturnFlowMode,
+    ) -> Vec<(NodeIndex, Relation)> {
         let mut out = Vec::new();
         let mut df: Vec<NodeIndex> = self
             .graph
@@ -677,6 +855,29 @@ impl CodePropertyGraph {
         // General DFG neighbors can cross lines; NodeIndex order is build-deterministic.
         df.sort_by_key(|i| i.index());
         out.extend(df.into_iter().map(|t| (t, Relation::DataFlow)));
+
+        if return_flow_mode == ReturnFlowMode::On {
+            let mut returned: Vec<(NodeIndex, Relation)> = self
+                .graph
+                .edges(node)
+                .filter_map(|edge| match edge.weight() {
+                    CpgEdge::ReturnInput => Some((edge.target(), Relation::ReturnInput)),
+                    CpgEdge::ReturnFlow { .. } => Some((edge.target(), Relation::ReturnFlow)),
+                    _ => None,
+                })
+                .collect();
+            returned.sort_by_key(|(target, relation)| {
+                (
+                    match relation {
+                        Relation::ReturnInput => 0,
+                        Relation::ReturnFlow => 1,
+                        _ => 2,
+                    },
+                    target.index(),
+                )
+            });
+            out.extend(returned);
+        }
 
         match &self.graph[node] {
             // Use → same-line same-function `Def`s (assignment propagation: `x = y`, the use of `y`
@@ -705,7 +906,8 @@ impl CodePropertyGraph {
                                     function_start_line: def_start_line,
                                     ..
                                 } if def_fn == function && def_start_line == function_start_line
-                            )
+                            ) && (return_flow_mode == ReturnFlowMode::Off
+                                || !self.assignment_shortcut_suppressed(node, o))
                         })
                         .collect();
                     same.sort_by_key(|&i| self.node_sort_key(i));
@@ -761,6 +963,42 @@ impl CodePropertyGraph {
         self.forward_reachable_in_function_ordered(start, None, &mut warnings)
     }
 
+    /// Tier-1 opt-in adapter: preserve the existing FlowPath fan shape while
+    /// sourcing reachability from the same mode-aware trace walker as Tier-2.
+    pub fn taint_forward_cfg_with_return_flow(
+        &self,
+        sources: &[(String, usize)],
+    ) -> Vec<crate::data_flow::FlowPath> {
+        let trace = self.taint_trace_with_mode(sources, ReturnFlowMode::On);
+        let mut paths = Vec::new();
+        for (root, frontier) in &trace.frontier_by_root {
+            let Some(source) = self.to_var_location(*root) else {
+                continue;
+            };
+            let mut targets: Vec<_> = frontier
+                .iter()
+                .filter(|&&node| node != *root)
+                .filter_map(|&node| self.to_var_location(node))
+                .collect();
+            targets.sort();
+            targets.dedup();
+            if targets.is_empty() {
+                continue;
+            }
+            paths.push(crate::data_flow::FlowPath {
+                edges: targets
+                    .into_iter()
+                    .map(|target| crate::data_flow::FlowEdge {
+                        from: source.clone(),
+                        to: target,
+                    })
+                    .collect(),
+                cleansed_for: BTreeSet::new(),
+            });
+        }
+        paths
+    }
+
     pub(crate) fn forward_reachable_in_function_ordered(
         &self,
         start: NodeIndex,
@@ -777,7 +1015,7 @@ impl CodePropertyGraph {
             if !visited.insert(node) {
                 continue;
             }
-            for (next, rel) in self.taint_neighbors(node) {
+            for (next, rel) in self.taint_neighbors(node, ReturnFlowMode::Off) {
                 if !self.ordering_admits_collect(node, next, rel, order, ordering_warnings) {
                     continue;
                 }
