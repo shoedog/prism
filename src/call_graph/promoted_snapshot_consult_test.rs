@@ -289,6 +289,49 @@ fn promoted_snapshot_embedded_target_qualifier_conflict_stays_dropped() {
 }
 
 #[test]
+fn promoted_snapshot_conflict_dual_counts_and_hit_conservation_hold() {
+    let donor = build_go(&[
+        ("base.go", "package p\ntype B struct{}\nfunc (B) M() {}\n"),
+        ("s_linux.go", "package p\ntype S struct{ B }\n"),
+        ("s_windows.go", "package p\ntype S struct{ B; M int }\n"),
+    ]);
+    let conflict = graft_deserialized_owner(depth_one_fixture(), assert_conflict_donor(&donor));
+    let conflict_outcome = conflict.resolve_call_site_full(site(&conflict));
+    assert_eq!(
+        conflict_outcome
+            .telemetry
+            .go_promoted_snapshot_conflict_drop,
+        1
+    );
+    assert_eq!(
+        conflict_outcome
+            .telemetry
+            .go_concrete_receiver_promoted_deferred,
+        1
+    );
+    let conflict_stats = crate::navigation::queries::call_stats(&conflict);
+    assert_eq!(conflict_stats["go_promoted_snapshot_conflict_drop"], 1);
+    assert_eq!(conflict_stats["go_concrete_receiver_promoted_deferred"], 1);
+
+    let mut control = depth_one_fixture();
+    let owner = receiver_owner(&control);
+    control.go_promoted_selector_snapshot.owners.remove(&owner);
+    let control_stats = crate::navigation::queries::call_stats(&control);
+    let candidate_stats = crate::navigation::queries::call_stats(&depth_one_fixture());
+    assert_eq!(
+        control_stats["go_concrete_receiver_promoted_deferred"]
+            .as_u64()
+            .expect("control deferred counter"),
+        candidate_stats["go_concrete_receiver_promoted_deferred"]
+            .as_u64()
+            .expect("candidate deferred counter")
+            + candidate_stats["go_promoted_snapshot_hits"]
+                .as_u64()
+                .expect("candidate snapshot hit counter")
+    );
+}
+
+#[test]
 fn promoted_snapshot_ordinary_field_profile_conflict_stays_dropped() {
     let donor = build_go(&[
         ("base.go", "package p\ntype B struct{}\nfunc (B) M() {}\n"),
