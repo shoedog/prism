@@ -1,7 +1,13 @@
-//! Process-global, per-measurement telemetry for deferred-glob expansion
-//! (spec §3.5). Reset at `call_stats` entry, snapshot after the re-resolution
-//! pass. The counters are expansion-event counts, not final-edge counts; the
-//! realized edge buy is read from `kind_exact`/`unresolved_unknown_name`.
+//! Per-measurement telemetry for deferred-glob expansion (spec §3.5). Reset at
+//! `call_stats` entry, snapshot after the re-resolution pass. The counters are
+//! expansion-event counts, not final-edge counts; the realized edge buy is read
+//! from `kind_exact`/`unresolved_unknown_name`.
+//!
+//! The sink is **scoped to one `ScopeGraph`** ([`GraphGlobStats`], carried as
+//! `ScopeGraph::glob_stats`), not process-global: a measurement over graph A can
+//! never observe resolution performed concurrently against graph B. [`GLOBAL`]
+//! remains only as the last-resort sink for engine calls made without a graph
+//! scope; nothing reads it.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -106,8 +112,8 @@ impl GlobExpandStats {
             .fetch_add(1, Ordering::Relaxed);
     }
 
-    pub fn reset(&self) {
-        for a in [
+    fn counters(&self) -> [&AtomicUsize; 13] {
+        [
             &self.resolved_l1,
             &self.resolved_l2,
             &self.depth_exceeded,
@@ -121,7 +127,11 @@ impl GlobExpandStats {
             &self.member_hidden_continue_hit,
             &self.member_hidden_continue_empty,
             &self.member_hidden_continue_poison,
-        ] {
+        ]
+    }
+
+    pub fn reset(&self) {
+        for a in self.counters() {
             a.store(0, Ordering::Relaxed);
         }
     }
@@ -146,8 +156,57 @@ impl GlobExpandStats {
     }
 }
 
-/// The process-global sink used by production resolution. Tests can inject a
-/// local `&GlobExpandStats` via engine entries added with the expansion logic.
+/// The glob-expansion sink owned by one [`ScopeGraph`](crate::name_resolution::graph::ScopeGraph).
+///
+/// Every engine entry point receives the graph it walks, so routing the sink
+/// through the graph makes the telemetry **scoped to the measurement** without
+/// threading a parameter down the whole resolution ladder: two graphs resolving
+/// concurrently in one process write to two different sinks.
+///
+/// It is telemetry, not graph state: `#[serde(skip)]`-ed at the field (so the
+/// serialized bytes and the cache version are unchanged), `PartialEq` is always
+/// `true` (two graphs that differ only in how much resolution has run through
+/// them are the same graph), and `Clone` carries the current counts over.
+#[derive(Default)]
+pub struct GraphGlobStats(GlobExpandStats);
+
+impl std::ops::Deref for GraphGlobStats {
+    type Target = GlobExpandStats;
+
+    fn deref(&self) -> &GlobExpandStats {
+        &self.0
+    }
+}
+
+impl Clone for GraphGlobStats {
+    fn clone(&self) -> Self {
+        let out = GraphGlobStats::default();
+        for (dst, src) in out.0.counters().into_iter().zip(self.0.counters()) {
+            dst.store(src.load(Ordering::Relaxed), Ordering::Relaxed);
+        }
+        out
+    }
+}
+
+impl std::fmt::Debug for GraphGlobStats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("GraphGlobStats")
+            .field(&self.snapshot())
+            .finish()
+    }
+}
+
+impl PartialEq for GraphGlobStats {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+
+impl Eq for GraphGlobStats {}
+
+/// Last-resort sink for engine calls made without a graph scope. Nothing reads
+/// it — measurements read the per-graph [`GraphGlobStats`] instead — so writes
+/// landing here are inert rather than cross-contaminating.
 pub static GLOBAL: GlobExpandStats = GlobExpandStats {
     resolved_l1: GlobExpandStats::z(),
     resolved_l2: GlobExpandStats::z(),

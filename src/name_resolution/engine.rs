@@ -39,7 +39,7 @@ use crate::name_resolution::types::{
 /// lexical-ascent gate (the Rust module-boundary stop). Returns the per-candidate
 /// [`Resolution`].
 pub fn resolve(graph: &ScopeGraph, q: &ResolveQuery, policy: &dyn ResolutionPolicy) -> Resolution {
-    let mut guard = CycleGuard::with_stats(None);
+    let mut guard = CycleGuard::with_stats(Some(&graph.glob_stats));
     resolve_bare(graph, q, policy, &mut guard)
 }
 
@@ -62,7 +62,7 @@ pub fn resolve_path(
     at: &SourceLoc,
     policy: &dyn ResolutionPolicy,
 ) -> Resolution {
-    let mut guard = CycleGuard::with_stats(None);
+    let mut guard = CycleGuard::with_stats(Some(&graph.glob_stats));
     resolve_path_guarded(
         graph, path, ns, anchor, from, anchor_ns, at, policy, &mut guard,
     )
@@ -152,6 +152,9 @@ impl<'s> CycleGuard<'s> {
         self.glob_depth -= 1;
     }
 
+    /// The sink for this walk. Both public entry points pass the walked graph's
+    /// own [`ScopeGraph::glob_stats`], so `GLOBAL` is only reached by a guard
+    /// built without any sink at all — nothing measures it.
     fn stats(&self) -> &GlobExpandStats {
         self.stats
             .unwrap_or(&crate::name_resolution::glob_stats::GLOBAL)
