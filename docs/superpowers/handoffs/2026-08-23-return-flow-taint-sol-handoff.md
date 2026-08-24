@@ -1,14 +1,14 @@
 # Handoff — roadmap #2 return-flow taint (spec v5)
 
-**Written:** 2026-08-24T02:35:14Z · **By:** Codex `/root` · **Provider:** codex  
-**Workspace:** `/Users/wesleyjinks/code/slicing-2rf-sol` · branch `return-flow-taint` · base `0ca571c5e80e12fb3c00e68f5ec0ea53a247d158` · code checkpoint `58d41b317ecab1c37bd66c5180f0a4c0805bee9e`  
+**Written:** 2026-08-24T02:35:14Z · **Updated:** 2026-08-24T02:57:47Z · **By:** Codex `/root` · **Provider:** codex
+**Workspace:** `/Users/wesleyjinks/code/slicing-2rf-sol` · branch `return-flow-taint` · base `0ca571c5e80e12fb3c00e68f5ec0ea53a247d158` · code checkpoint `0487a63`
 **Authority:** owner brief > untracked supplied `docs/superpowers/specs/2026-08-23-return-flow-taint-design.md` v5 §2/§3  
 **Template:** the installed `bootstrap/handoff-template.md` named by steering was not present, so this follows the repository handoff layout and retains every requested raw-data field.
 
 ## 0. Gating facts
 
 - No subagents were used. The sibling resolution lane was not inspected or modified.
-- Nothing was pushed and neither implementation commit was amended.
+- No commit was amended. The owner explicitly authorized pushing this fix wave after its handoff commit; final push evidence is returned outside this pre-push artifact.
 - No test, build, or byte-gate process remains running.
 - The supplied design document remains untracked and was not committed.
 - Tier-A matrix/quick and corpus batteries were not run here; the owner assigned those gates to the controller.
@@ -16,7 +16,7 @@
 
 ## 1. Outcome
 
-Implemented singleton-Exact return-flow taint with span-bound, nested-function-fenced return enumeration; non-seedable synthetic return-value identities; semantic-only `ReturnInput`; replacement-path-certified assignment-shortcut suppression; shared build/trace singleton predicate; same-budget ascent before cross-function boundary handling; recursion boundaries; Tier-2-on/Tier-1-opt-in/other-consumers-off mode routing; identical bypass mode; one authoritative sanitizer transition; serialized cache/counter custody; and CPG 49 to 50 with navigation sidecar unchanged at 18.
+Implemented singleton-Exact return-flow taint with span-bound, nested-callable-fenced return enumeration; non-seedable canonical synthetic return-value identities; semantic-only `ReturnInput`; replacement-path-certified assignment-shortcut suppression; shared build/trace singleton predicate; same-budget ascent before cross-function boundary handling; recursion boundaries; Tier-2-on/Tier-1-opt-in/other-consumers-off mode routing; identical bypass mode; one authoritative sanitizer transition; serialized cache/counter custody; and CPG 49 to 50 with navigation sidecar unchanged at 18. Fix wave `0485296..0487a63` closes the PR #193 review findings: Go/other anonymous callable returns cannot leak into their enclosing function, and multiple callers reuse one synthetic identity plus one `ReturnInput` set.
 
 ## 2. Commit ledger
 
@@ -24,8 +24,10 @@ Implemented singleton-Exact return-flow taint with span-bound, nested-function-f
 |---|---|
 | `d986ab6` | Green implementation: return-flow schema, construction, tracing, sanitizer reasoning, mode seam, counters, cache bump, and gate-1 tests |
 | `58d41b3` | Green custody closure: legacy Go return compatibility, Tier-1 seam, counter assertions, cache/index round trip, and exhaustive test-helper schema consumers |
+| `0485296` | RED: constructible Go closure false-reach, JS arrow boundary control, and duplicate two-caller synthetic/counter regression |
+| `0487a63` | GREEN: closed callable-boundary set and build-local canonical return-value identity index |
 
-Both commits contain the required `Co-Authored-By` and `Claude-Session` trailers.
+All implementation/fix-wave commits contain the required `Co-Authored-By` and `Claude-Session` trailers.
 
 ## 3. Changed files
 
@@ -38,6 +40,7 @@ Both commits contain the required `Co-Authored-By` and `Claude-Session` trailers
 - `src/cpg/types.rs`
 - `src/cpg_cache.rs`
 - `src/main.rs`
+- `src/languages/mod.rs`
 - `src/navigation/queries.rs` — exhaustive schema/edge rendering only; no dispatch arms changed
 - `src/reasoning/sanitizer_walk.rs`
 - `src/reasoning/shape.rs`
@@ -79,6 +82,10 @@ Both commits contain the required `Co-Authored-By` and `Claude-Session` trailers
 - `return_flow_self_and_mutual_recursion_stay_bounded`
 - `return_flow_python_keyword_label_is_not_a_semantic_return_input`
 - `return_literal_synthetic_is_not_source_seedable`
+- `return_flow_go_func_literal_return_is_fenced_from_outer_function`
+- `return_flow_javascript_arrow_return_is_fenced_from_outer_function`
+- `return_flow_two_callers_share_one_synthetic_identity_and_return_input_set`
+- `callable_boundaries_cover_anonymous_forms_without_changing_function_index_types`
 
 ### Custody and compatibility
 
@@ -91,13 +98,13 @@ Both commits contain the required `Co-Authored-By` and `Claude-Session` trailers
 
 - `cargo fmt --all`: pass.
 - `git diff --check`: pass.
-- Focused return-flow unit filter: 13 passed, 0 failed.
-- `cargo test --test reasoning`: 67 passed, 0 failed.
+- Focused return-flow unit filter: 14 passed, 0 failed.
+- `cargo test --test reasoning`: 69 passed, 0 failed.
 - `cargo test --test ast`: 447 passed, 0 failed.
 - Tier-1 seam focused test: 1 passed, 0 failed.
 - CLI counter focused test: 1 passed, 0 failed.
 - Legacy Go return focused test: 1 passed, 0 failed.
-- Full `cargo test --quiet`: **3,459 passed, 0 failed, 1 ignored** across 28 test/doc targets.
+- Full `cargo test --quiet`: **3,463 passed, 0 failed, 1 ignored** across 28 test/doc targets.
 - `cargo build --release`: pass.
 - Tier-A matrix/quick: not run; controller-owned.
 - Corpus/call-stats batteries: not run; controller-owned.
@@ -119,10 +126,12 @@ Both commits contain the required `Co-Authored-By` and `Claude-Session` trailers
   - `return_flow_suppression_certified`
   - `return_flow_suppression_void_incomplete_returns`
   - `return_flow_suppression_void_unbound_uses`
+- Corrected two-caller dedup pins: `return_flow_edges=2`, `return_input_edges=1`, `return_flow_suppression_certified=2`.
+- Existing single-caller CLI pins remain `return_flow_edges=1`, `return_input_edges=1`, `return_flow_suppression_certified=1`.
 
 ## 7. Same-base per-consumer byte gates
 
-Control: detached base `0ca571c5e80e12fb3c00e68f5ec0ea53a247d158`, built in the same environment. Fixture contains `value = decorate(user)` where `decorate` returns `user + "x"`, so candidate CPG construction mints a synthetic node plus `ReturnInput`/`ReturnFlow`; it also contains a non-empty local chop path. Gate artifacts are ignored under `target/return-flow-byte-gates-58d41b3/`.
+Control: detached base `0ca571c5e80e12fb3c00e68f5ec0ea53a247d158`, built in the same environment. The complete table was rerun after fix-wave release build with fresh `base-cache-v3` / `candidate-cache-v3` directories. Fixture contains `value = decorate(user)` where `decorate` returns `user + "x"`, so candidate CPG construction mints a synthetic node plus `ReturnInput`/`ReturnFlow`; it also contains a non-empty local chop path. Gate artifacts are ignored under `target/return-flow-byte-gates-58d41b3/`.
 
 | Consumer | Result | Bytes each | SHA-256 |
 |---|---:|---:|---|
@@ -139,10 +148,11 @@ Control: detached base `0ca571c5e80e12fb3c00e68f5ec0ea53a247d158`, built in the 
 - A first cache command named nonexistent target `ast_cpg_cache`; rerun against full target `ast` and passed 447/447.
 - A first chop pair emitted zero bytes; it was discarded and replaced with a non-empty 85-byte intra-function chop control.
 - The initial duplicate-function fixture was proven multi-Exact, not NameOnly; it was replaced with a Rust trait call asserting one `NameOnly` resolution before asserting the skip counter.
+- A combined fix-wave focused command yielded during compilation without exposing its session handle; that partial output was discarded and the two-caller identity test rerun directly to a completed green result.
 
 ## 9. Final custody
 
-- Worktree code is committed through `58d41b3`; this handoff is the only post-gate tracked addition.
+- Worktree code is committed through `0487a63`; this fix-wave handoff refresh is the only post-gate tracked addition.
 - Supplied design document remains the sole non-ignored untracked file.
 - Detached base worktree remains at `/private/tmp/slicing-return-flow-base-0ca571c` for controller reuse.
 - No STOP.
