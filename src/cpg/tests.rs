@@ -2758,13 +2758,27 @@ fn return_flow_singleton_exact_predicate_rejects_nameonly_multi_and_mixed() {
 }
 
 #[test]
-fn return_flow_nameonly_duplicate_callee_is_fail_closed() {
-    let cpg = return_flow_fixture(
-        "app.py",
-        "def f(x):\n    return x\n\ndef f(x):\n    return x\n\ndef run(user):\n    value = f(user)\n    sink(value)\n",
-        Language::Python,
+fn return_flow_nameonly_trait_callee_is_fail_closed() {
+    let source = "trait Transform {\n    fn f(&self, x: String) -> String { x }\n}\nfn run(t: &dyn Transform, user: String) {\n    let value = t.f(user);\n    sink(value);\n}\n";
+    let parsed = ParsedFile::parse("app.rs", source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert("app.rs".to_string(), parsed);
+    let cpg = CodePropertyGraph::build(&files);
+    let site = cpg
+        .call_graph
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.callee_name == "f")
+        .expect("trait call site");
+    let outcome = cpg.call_graph.resolve_call_site_full(site);
+    assert_eq!(outcome.resolved.len(), 1, "{outcome:?}");
+    assert_eq!(
+        outcome.resolved[0].confidence,
+        ResolutionConfidence::NameOnly
     );
     assert_eq!(edge_kind_count(&cpg, "ReturnFlow"), 0);
+    assert_eq!(cpg.return_flow_stats.return_flow_skipped_nameonly, 1);
 }
 
 #[test]
@@ -2775,6 +2789,7 @@ fn return_flow_multi_exact_interface_dispatch_is_fail_closed() {
         Language::Go,
     );
     assert_eq!(edge_kind_count(&cpg, "ReturnFlow"), 0);
+    assert_eq!(cpg.return_flow_stats.return_flow_skipped_multi, 1);
 }
 
 #[test]
@@ -2785,6 +2800,7 @@ fn return_flow_non_simple_lhs_is_skipped() {
         Language::Python,
     );
     assert_eq!(edge_kind_count(&cpg, "ReturnFlow"), 0);
+    assert_eq!(cpg.return_flow_stats.return_flow_skipped_non_simple_lhs, 1);
 }
 
 #[test]
@@ -2795,6 +2811,7 @@ fn return_flow_multi_value_arity_mismatch_is_skipped() {
         Language::Go,
     );
     assert_eq!(edge_kind_count(&cpg, "ReturnFlow"), 0);
+    assert_eq!(cpg.return_flow_stats.return_flow_skipped_arity_mismatch, 1);
 }
 
 #[test]
@@ -2805,6 +2822,7 @@ fn return_flow_named_bare_return_is_skipped() {
         Language::Go,
     );
     assert_eq!(edge_kind_count(&cpg, "ReturnFlow"), 0);
+    assert_eq!(cpg.return_flow_stats.return_flow_skipped_named_return, 1);
 }
 
 #[test]
@@ -2815,6 +2833,10 @@ fn return_flow_forwarded_multi_value_return_is_skipped() {
         Language::Go,
     );
     assert_eq!(edge_kind_count(&cpg, "ReturnFlow"), 0);
+    assert_eq!(
+        cpg.return_flow_stats.return_flow_skipped_forwarded_return,
+        1
+    );
 }
 
 #[test]

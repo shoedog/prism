@@ -608,3 +608,42 @@ fn call_stats_dump_sites_emits_no_synthetic_callback_custody() {
         })
     }));
 }
+
+#[test]
+fn call_stats_emits_one_return_flow_subobject_with_all_custody_counters() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("app.py"),
+        "def decorate(user):\n    return user + 'x'\n\ndef run(user):\n    value = decorate(user)\n    sink(value)\n",
+    )
+    .unwrap();
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--repo"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let value: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        value["return_flow"],
+        serde_json::json!({
+            "return_flow_edges": 1,
+            "return_input_edges": 1,
+            "return_flow_skipped_nameonly": 0,
+            "return_flow_skipped_multi": 0,
+            "return_flow_skipped_mixed": 0,
+            "return_flow_skipped_non_simple_lhs": 0,
+            "return_flow_skipped_arity_mismatch": 0,
+            "return_flow_skipped_named_return": 0,
+            "return_flow_skipped_forwarded_return": 0,
+            "return_flow_suppression_certified": 1,
+            "return_flow_suppression_void_incomplete_returns": 0,
+            "return_flow_suppression_void_unbound_uses": 0,
+        })
+    );
+}

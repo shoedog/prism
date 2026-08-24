@@ -72,6 +72,25 @@ fn cpg_enclosing_function_name(
                 _ => None,
             })
             .or_else(|| Some(function.clone())),
+        CpgNode::ReturnValue {
+            file,
+            function,
+            function_start_line,
+            ..
+        } => g
+            .node_indices()
+            .find_map(|n| match &g[n] {
+                CpgNode::Function {
+                    name,
+                    file: fn_file,
+                    start_line,
+                    ..
+                } if fn_file == file && name == function && start_line == function_start_line => {
+                    Some(name.clone())
+                }
+                _ => None,
+            })
+            .or_else(|| Some(function.clone())),
         CpgNode::Statement { file, line, .. } => g.node_indices().find_map(|n| match &g[n] {
             CpgNode::Function {
                 name,

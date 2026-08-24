@@ -5370,11 +5370,15 @@ impl ParsedFile {
             // Extract the return value expression (first named child that
             // isn't the `return` keyword itself).
             let mut values = Vec::new();
+            let mut value_text = None;
+            let mut value_kind = None;
 
             if kind == "return_statement" && self.language == Language::Go {
                 // Go: return may have an expression_list child
                 if let Some(child) = node.named_child(0) {
                     let ck = child.kind();
+                    value_text = Some(self.node_text(&child).to_string());
+                    value_kind = Some(ck.to_string());
                     if ck == "expression_list" {
                         let mut cursor = child.walk();
                         for (slot, value) in child.named_children(&mut cursor).enumerate() {
@@ -5402,6 +5406,8 @@ impl ParsedFile {
             } else {
                 // All other languages: first named child is the expression
                 if let Some(child) = node.named_child(0) {
+                    value_text = Some(self.node_text(&child).to_string());
+                    value_kind = Some(child.kind().to_string());
                     values.push(ReturnValueInfo {
                         slot: 0,
                         line: child.start_position().row + 1,
@@ -5417,8 +5423,8 @@ impl ParsedFile {
 
             out.push(ReturnInfo {
                 line,
-                value_text: values.first().map(|value| value.text.clone()),
-                value_kind: values.first().map(|value| value.kind.clone()),
+                value_text,
+                value_kind,
                 is_conditional,
                 start_byte: node.start_byte(),
                 end_byte: node.end_byte(),
@@ -8186,6 +8192,29 @@ mod tests {
             "only the outer's return, not the nested fn's"
         );
         assert_eq!(returns[0].value_text.as_deref(), Some("1"));
+    }
+
+    #[test]
+    fn return_value_nodes_preserves_go_legacy_expression_list_and_adds_slots() {
+        let p = ParsedFile::parse(
+            "a.go",
+            "package p\nfunc pair(a string) (string, error) { return a, nil }\n",
+            Language::Go,
+        )
+        .unwrap();
+        let func = p.all_functions().into_iter().next().expect("pair");
+        let returns = p.return_value_nodes(&func);
+        assert_eq!(returns.len(), 1);
+        assert_eq!(returns[0].value_text.as_deref(), Some("a, nil"));
+        assert_eq!(returns[0].value_kind.as_deref(), Some("expression_list"));
+        assert_eq!(
+            returns[0]
+                .values
+                .iter()
+                .map(|value| value.text.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a", "nil"]
+        );
     }
 
     #[test]
