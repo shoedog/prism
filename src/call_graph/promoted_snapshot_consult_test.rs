@@ -329,6 +329,24 @@ fn promoted_snapshot_field_shadowed_flag_stays_dropped() {
 }
 
 #[test]
+fn promoted_snapshot_equal_depth_field_method_collision_stays_dropped() {
+    let donor = build_go(&[(
+        "types.go",
+        "package p\ntype A struct{}\nfunc (A) M() {}\ntype B struct{ M int }\ntype T struct{ A; B }\n",
+    )]);
+    let snapshot = owner_snapshot(&donor, "T");
+    assert!(
+        snapshot.declarations[0]
+            .promoted_methods
+            .iter()
+            .all(|method| method.method != "M" || method.field_shadowed),
+        "equal-depth field must leave no usable promoted M: {snapshot:#?}"
+    );
+    let cg = graft_deserialized_owner(depth_one_fixture(), snapshot);
+    assert_negative(&cg, None);
+}
+
+#[test]
 fn promoted_snapshot_ambiguous_method_flag_stays_dropped() {
     let donor = build_go(&[(
         "types.go",
