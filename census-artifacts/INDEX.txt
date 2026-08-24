@@ -1,0 +1,8 @@
+v8 Slice-0 re-census artifacts (Caddy, Prometheus, etcd, Hugo).
+
+For each corpus:
+- <corpus>-today-manifest.json: today's interface manifest.
+- <corpus>-c1-rewritten-manifest.json: manifest rewritten with the C1 probe result.
+- <corpus>-per-attempt-records.json: every R3-eligible bare attempt, including
+  identity_valid, route, walk disposition, current/C1 target identities, losses,
+  and additions.
