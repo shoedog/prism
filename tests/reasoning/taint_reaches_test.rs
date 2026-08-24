@@ -1562,6 +1562,16 @@ fn return_flow_go_func_literal_return_is_fenced_from_outer_function() {
 }
 
 #[test]
+fn return_flow_rust_async_block_return_is_fenced_from_outer_function() {
+    assert_nested_callable_return_does_not_escape(
+        "app.rs",
+        "fn f() -> String {\n    let s = source();\n    let _future = async { return s; };\n    return safe();\n}\nfn run() {\n    let x = f();\n    sink(x);\n}\n",
+        2,
+        8,
+    );
+}
+
+#[test]
 fn return_flow_javascript_arrow_return_is_fenced_from_outer_function() {
     assert_nested_callable_return_does_not_escape(
         "app.js",
