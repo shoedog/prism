@@ -122,7 +122,7 @@ impl Language {
             Self::JavaScript | Self::TypeScript | Self::Tsx => vec!["generator_function"],
             Self::Go => vec!["func_literal"],
             Self::Java | Self::Cpp => vec!["lambda_expression"],
-            Self::Rust => vec!["closure_expression"],
+            Self::Rust => vec!["closure_expression", "async_block", "gen_block"],
             Self::Lua => vec!["function_definition"],
             Self::C | Self::Terraform | Self::Bash => Vec::new(),
         });
@@ -1531,6 +1531,19 @@ mod method_owner_class_node_tests {
         }
         assert!(!Language::Go.function_node_types().contains(&"func_literal"));
         assert!(!Language::Python.function_node_types().contains(&"lambda"));
+
+        let rust_boundaries = Language::Rust.callable_boundary_node_types();
+        let rust_function_types = Language::Rust.function_node_types();
+        // `return` in an async block terminates that future, not the enclosing function.
+        assert!(rust_boundaries.contains(&"async_block"));
+        assert!(!rust_function_types.contains(&"async_block"));
+        // `return` in a gen block terminates that iterator, not the enclosing function.
+        assert!(rust_boundaries.contains(&"gen_block"));
+        assert!(!rust_function_types.contains(&"gen_block"));
+        // `return` in a try block exits the enclosing function, so it must remain unfenced.
+        assert!(!rust_boundaries.contains(&"try_block"));
+        // A const block cannot carry an enclosing-function `return`, so it needs no fence.
+        assert!(!rust_boundaries.contains(&"const_block"));
     }
 
     fn first_function<'a>(parsed: &'a ParsedFile, name: &str) -> Node<'a> {
