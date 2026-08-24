@@ -82,7 +82,7 @@ fn manifest_pins_concrete_direct_with_resolver_telemetry() {
 }
 
 #[test]
-fn manifest_pins_promoted_deferred_drop_with_resolver_telemetry() {
+fn manifest_pins_promoted_snapshot_hit_with_resolver_telemetry() {
     let cg = build_go(&[
         (
             "q/types.go",
@@ -96,12 +96,13 @@ fn manifest_pins_promoted_deferred_drop_with_resolver_telemetry() {
     ]);
     let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
 
-    assert_eq!(
-        outcome.drop,
-        Some(DropReason::ConcreteReceiverPromotedDeferred)
-    );
-    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_deferred, 1);
-    assert_manifest_route(&cg, "concrete_promoted_deferred_drop");
+    assert_eq!(outcome.drop, None, "{outcome:?}");
+    assert_eq!(outcome.resolved.len(), 1, "{outcome:?}");
+    assert_eq!(outcome.resolved[0].target.file, "q/types.go");
+    assert_eq!(outcome.resolved[0].kind, ResolutionKind::EmbeddedPromotion);
+    assert_eq!(outcome.telemetry.go_promoted_snapshot_hits, 1);
+    assert_eq!(outcome.telemetry.go_concrete_receiver_promoted_deferred, 0);
+    assert_manifest_route(&cg, "concrete_promoted_snapshot");
 }
 
 #[test]

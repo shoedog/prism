@@ -286,7 +286,7 @@ fn concrete_promoted_method_keeps_existing_owner_lookup_edge() {
 }
 
 #[test]
-fn concrete_promoted_method_is_deferred_when_existing_lane_is_package_refused() {
+fn concrete_promoted_method_uses_snapshot_when_existing_lane_is_package_refused() {
     let cg = build_go(&[
         (
             "q/types.go",
@@ -311,14 +311,16 @@ fn concrete_promoted_method_is_deferred_when_existing_lane_is_package_refused() 
     ]);
     let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
 
-    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(outcome.drop, None, "{outcome:?}");
+    assert_eq!(outcome.resolved.len(), 1, "{outcome:?}");
+    assert_eq!(outcome.resolved[0].target.file, "q/types.go");
+    assert_eq!(outcome.resolved[0].kind, ResolutionKind::EmbeddedPromotion);
+    assert_eq!(outcome.telemetry.go_promoted_snapshot_hits, 1);
+    let stats = prism::navigation::queries::call_stats(&cg);
+    assert_eq!(stats["go_promoted_snapshot_hits"], serde_json::json!(1));
     assert_eq!(
-        format!("{:?}", outcome.drop),
-        "Some(ConcreteReceiverPromotedDeferred)"
-    );
-    assert_eq!(
-        prism::navigation::queries::call_stats(&cg)["go_concrete_receiver_promoted_deferred"],
-        serde_json::json!(1)
+        stats["go_concrete_receiver_promoted_deferred"],
+        serde_json::json!(0)
     );
 }
 
