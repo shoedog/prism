@@ -1,0 +1,3 @@
+{"source_span":{"file":"app/a.go","line":3,"start_byte":10,"end_byte":20},"callee_text":"s.M","resolved_targets":[]}
+{"source_span":{"file":"app/b.go","line":4,"start_byte":30,"end_byte":40},"callee_text":"s.M","resolved_targets":[{"function_id":{"file":"q/b.go","name":"M","start_line":8,"end_line":9},"kind":"embedded_promotion","confidence":"exact"}]}
+{"source_span":{"file":"app/c.go","line":5,"start_byte":50,"end_byte":60},"callee_text":"s.N","resolved_targets":[]}
