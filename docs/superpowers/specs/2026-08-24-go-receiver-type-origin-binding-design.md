@@ -1,4 +1,4 @@
-# A — Go receiver type-origin binding (design v1)
+# A — Go receiver type-origin binding (design v2)
 
 **Status:** design, owner-approved 2026-08-24 ("A first"). **Base:** current `main` (post-#190, post-#193; CPG 50, nav sidecar 18). **Supersedes the sequencing of** #16, which is parked (PR #203 §7-PARK) pending this work.
 
@@ -15,7 +15,13 @@ A Go receiver's *type text* is routinely recovered in one file and then re-inter
 
 `V`'s type text `ext.I` is transported into `b.go`, resolved there, and yields the decoy interface — which then validates and mints wrong targets. This is the defect class that refuted six successive #16 rules (`dispatchable` filter → universe membership → receiver-text qualifier → absence-of-hazards → identity establishment → exact-import-path evidence). **It is not introduced by #16** — with a single decoy declaration it already mints through the existing concrete-receiver route on `main`.
 
-## 2. Key insight — this is plumbing, not type inference
+## 2. Key insight — mostly plumbing, but plumbing alone is NOT sufficient (sol r1 W1/W2)
+
+Carrying origin-correct owners is necessary and is most of the work, but two things must land **first** or the plumbing will confidently carry *wrong* owners:
+- **The shared resolver's basename fallback must not be admissible for provenance-bearing facts.** Resolving `ext.I` against its true defining file still falls from an absent exact import key to a unique directory basename, so an external `outside.example/decoy` can bind to an in-repo `decoy`. Origin-correctness does not save it. A **strict receiver-owner resolution mode** — exact import-path / effective-module identity only — is a prerequisite, not a refinement. (The shared resolver is *not* changed globally.)
+- **A bare name is converted straight into a same-package owner without proving it denotes a package type.** So `var V I` in a dot-import file would be "proven" as `p.I`, and a type-parameter receiver `T` as `p.T` — both then carry `Some(owner)`, which means the fail-closed guard can no longer catch them. Poison and binder facts must therefore precede owner population, not follow it.
+
+With those in place, the rest genuinely is plumbing:
 
 The provenance already exists and the correct pattern is already implemented twice. `GoTypedFact` carries `{ty, defining_file}`; three sibling consults live in `go_receiver_index_visibility.rs`:
 
@@ -29,18 +35,21 @@ The provenance already exists and the correct pattern is already implemented twi
 
 Correspondingly, `ReturnTyped` and `FieldTyped` — the two kinds that *do* carry owners — are hard-dropped when the owner is missing, but **`VarDecl` has no equivalent guard**. That asymmetry is the hole.
 
-## 3. Design — four slices, in order
+## 3. Design — four slices, in order (restructured per sol r1 W2 and its recommended order)
 
-**Slice 1 — make provenance expressible (seams 1 + 2).** Replace `unique_visible_type` with an owner-returning consult mirroring `unique_visible_return_owner`: resolve each fact's text against **its own `defining_file`**, return the resolved `GoOwnerIdentity` alongside the raw text, and emit real `GoPartitionEvidence` instead of `Default::default()` (S3 is currently invisible to owner-partition telemetry). Package-variable recovery then carries `owner_identity: Some(..)`. Two facts whose texts are *textually* identical but resolve to different owners must be treated as ambiguous and fail closed — today they collapse into one string and look unique.
+**Slice 0 — prerequisites: strict resolution + poison/binder facts.** These must precede any owner population.
+- **Strict receiver-owner resolution mode:** provenance-bearing receiver facts resolve only via exact import-path / effective-module identity; the directory-basename fallback is inadmissible. Red-first: same-basename external negative (`outside.example/decoy` vs in-repo `decoy`) ⇒ no owner, no mint.
+- **Dot-import markers:** record that a file had `import . "pkg"` (today it is erased with no marker). **Poison only bare names lacking a proven lexical or package declaration — not every bare receiver in the file (sol r1 W5).** Positive control that must keep minting: `package p; import . "example/ext"; type Local struct{}; func (Local) M() {}; func F(v Local) { v.M() }`.
+- **Go type-parameter binders:** collect them (the existing collector matches tree-sitter-Rust kinds and is unreachable for Go) and treat a receiver bound by one as unprovable.
+- **Terminal local-type poisoning:** a locally-declared type shadowing the receiver type name is terminal, not merely a flag consumed downstream.
 
-**Slice 2 — resolve eagerly where the file is already known (seam 3).** At the post-merge local-binding path, `defining_file == caller_file`, so the owner is derivable with no new plumbing. Resolving there makes `proven_owner.is_none()` mean *genuinely unprovable* rather than *not yet computed*, which is the precondition for slice 3.
+**Slice 1 — make provenance expressible (seams 1 + 2), using slice 0's strict mode.** Replace `unique_visible_type` with an owner-returning consult mirroring `unique_visible_return_owner`: resolve each fact's text against **its own `defining_file`**, return the resolved `GoOwnerIdentity` alongside the raw text, and emit real `GoPartitionEvidence` instead of `Default::default()` (S3 is currently invisible to owner-partition telemetry). Package-variable recovery then carries `owner_identity: Some(..)`. Two facts whose texts are *textually* identical but resolve to different owners must be treated as ambiguous and fail closed — today they collapse into one string and look unique.
 
-**Slice 3 — fail closed on absent provenance.** With slices 1–2 landed, extend the existing `ReturnTyped` no-owner hard-drop to the remaining recovery kinds: a Go receiver reaching resolution without a proven owner drops rather than re-binding against the caller's imports. **Order matters** — doing this before slices 1–2 would forfeit recall that those slices are about to make provable.
+**Slice 2 — resolve eagerly where the file is already known (seam 3).** At the post-merge local-binding path, `defining_file == caller_file`, so the owner is derivable with no new plumbing. Resolving there makes `proven_owner.is_none()` mean *genuinely unprovable* rather than *not yet computed*, which is the precondition for slice 3. **Exclude `proof_shadowed` sites (sol r1 W3):** origin identity is not proof that the binding is still live. A live test pins a shadowed `Iterator` with two package owners dropping *because* `owner_identity` is `None`; attaching the first binding's owner flips `on_demand` to false, so the shadow branch stops returning its collision bail and falls through to the legacy bare ladder. Either exclude shadowed sites here, or make shadowing a terminal drop before owner-based routing.
 
-**Slice 4 — scope holes provenance cannot fix.** These need new facts, not carried ones:
-- **Go type parameters have no binder set anywhere.** `func (s *Store[T]) f() { var v T; v.M() }` yields receiver text `T`, which binds to a package-level `T` if one exists — no gate catches it, because `T` contains no `[`. Collect Go type-parameter binders (the existing collector matches tree-sitter-Rust node kinds and is unreachable for Go) and drop receivers bound by one.
-- **Dot imports are erased from the import map** with no marker, so a file with `import . "pkg"` is indistinguishable from a file with none. Record the marker and treat any bare receiver in such a file as unprovable.
-- **Local type declarations** are already handled as a poison flag; confirm coverage and keep it.
+**Slice 3 — fail closed on absent provenance, through ONE shared terminal predicate.** With slices 0–2 landed, a Go receiver reaching resolution without a proven owner drops rather than re-binding against the caller's imports. **The guard must be a single predicate consumed by resolution, manifest generation, and the sidecar (sol r1 W4):** the existing `ReturnTyped` guard lives only in the resolver, while the interface manifest reaches its legacy bare-name lookup independently — so today a site can drop in the resolver and still appear as an interface dispatch in the manifest. Negative tests assert resolver / manifest / sidecar **parity**. **Order matters** — doing this before slices 0–2 would forfeit recall those slices are about to make provable.
+
+*(The former slice 4 has been promoted into slice 0 — its facts are prerequisites, not follow-ups.)*
 
 ## 4. Non-goals
 
@@ -48,13 +57,15 @@ No general Go type inference. No change to the shared `resolve_go_owner_identity
 
 ## 5. Risks
 
-- **`CallSite::cmp_key` includes `receiver_type` but not `receiver_owner_identity`.** Two sites differing only in proven owner currently compare **equal** in the `BTreeSet<CallSite>`. Populating owners can therefore merge or split sites. This must be settled explicitly — either add the owner to the key (and measure the site-count delta) or prove the collision is unreachable. **Treat as a blocking design question for slice 1.**
-- **Cache.** `receiver_owner_identity` is `#[serde(default)]`, so old rows deserialize to `None` — silently reintroducing the defect for retained files. A CPG/sidecar version bump is required so stale rows rebuild rather than degrade.
+- **`CallSite` identity (corrected — sol r1 S6; the v1 statement was wrong).** Populating a field that `cmp_key` omits **cannot** merge or split the `BTreeSet`: the ordering key is unchanged, and a source occurrence is already identified by caller/callee/span/qualifier/type. The real hazard is the opposite: **adding** the owner to the key would let `None` and `Some(owner)` revisions of the same occurrence coexist across an overlapping merge, producing duplicate site and resolution counts — and it would not repair the existing `Eq`/`Ord` mismatch, since other derived fields remain excluded either way. **Decision: keep the occurrence key and add a competing-owner invariant** — two different proven owners for one occurrence is an ambiguity that drops, not two call sites. Do not add this field alone; redesigning equality would require reworking all merge/rematerialization logic together.
+- **Cache (claim narrowed — sol r1 S8).** `receiver_owner_identity` already exists in the serialized schema and caches are additionally fenced by binary build identity, so `#[serde(default)]` alone does **not** establish that current rows silently degrade. A CPG/sidecar bump is still warranted as a topology-release fence, and the gate below asserts a deserialized site carries its owner — but the design must not claim a defect it has not demonstrated.
+- **S3 index keying (sol r1 S8).** The package-var index is keyed by `(dir, name)` with no package clause, so ordinary `p` and external-test `p_test` vars of the same name share a bucket. **Slice 1 must specify how ownership/reference mode is derived** rather than leaving it to §8; the consult-time profile filter also *fails open* for files lacking a build profile.
 - **Recall.** Slice 3 forfeits sites whose provenance is genuinely absent. Size it in the census before enabling, and report the decrement rather than discovering it in the oracle.
 
 ## 6. Gates
 
-1. Red-first fixtures: the cross-file alias counterexample above ⇒ no mint (currently mints); two same-dir facts with textually identical types resolving to different owners ⇒ ambiguous, fail closed; Go type-parameter receiver ⇒ drop; dot-import file bare receiver ⇒ drop; and positive controls that S1/S2 behaviour is unchanged.
+1. **Per-slice fixture matrix — not one combined list (sol r1 S7).** Each slice ships only fixtures it can actually satisfy; slice 1 cannot satisfy type-parameter or dot-import expectations, which belong to slice 0. Slice 0: same-basename external negative; type-parameter receiver ⇒ drop; dot-import bare name lacking a declaration ⇒ drop **plus** the locally-declared `Local.M` positive that must keep minting. Slice 1: the cross-file alias counterexample ⇒ no mint (currently mints); a **positive** S3 case asserting the exact real owner and target (not merely "no wrong mint"); two same-dir facts with textually identical types resolving to different owners ⇒ ambiguous, fail closed; `p` vs `p_test` keying pinned. Slice 2: shadowed-site exclusion preserves the existing collision-bail drop. Slice 3: resolver / manifest / sidecar parity negatives. Throughout: positive controls that S1/S2 behaviour is unchanged.
+1b. **Slice 1 is behavioural, not merely plumbing (sol r1 S7):** moving `owner_identity` from `None` to `Some` flips the `on_demand` routing branch, so its gates must include resolver/manifest/cache parity for the populated owner.
 2. Same-base 5-corpus control cut at the implementation branch's **actual** base (`mainD`/`mainE` are stale). Deltas confined to receiver-provenance counters plus census-predicted site changes.
 3. Oracle join with baselines recut at the same base; report `sound`/`recall_gap`/`over_approx` movement per slice, not just at the end.
 4. Site-count parity check for the `cmp_key` question, with the delta explained.
@@ -65,8 +76,9 @@ No general Go type inference. No change to the shared `resolve_go_owner_identity
 
 Slices land in order 1 → 2 → 3 → 4, each its own PR with its own review round; slice 1 carries the `cmp_key` decision. **#16 follow-on:** once owners are proven, #16's bare consult reduces to "consume the proven identity, walk, live-select, arity-filter" with no text rule, no membership proxy, and no fallback — and the wins it was chasing (the 8 over-approx kills, the etcd-24 recovery, caddy's +6 identities) come back into reach without a proxy.
 
-## 8. Open questions carried from the mapping
+## 8. Open questions
 
-- Does `receiver_owner_identity` survive the CPG cache round-trip today? (`#[serde(default)]` says old rows degrade to `None`; the cache-bump gate above assumes it must not.)
-- Is the S3 `(dir, name)` key collision between `foo` and `foo_test` packages reachable when a file lacks a build profile? The visibility test **fails open** for profile-less files.
 - Is `indirect_call_site` dropping receiver provenance intentional? The source site is in scope but unused for receiver fields.
+- (Resolved into the design: the S3 `(dir, name)` keying question is now a slice-1 requirement, §5; the cache-degradation question is narrowed in §5 to a topology fence with an explicit assertion rather than an assumed defect.)
+
+**Producer census (sol r1, confirming scope is bounded):** S1 return facts, S2 field declarations, and S3 package variables are the *only* cross-file receiver-text producers. Typed parameters, constructor locals, local `var`, and type assertions all originate in the caller file and merely lack owners today; `indirect_call_site` produces no receiver text at all. The remaining defects are bounded to the strict resolver, the prerequisite poison/binder facts, shadow validity, and the second manifest consumer — **not another open class.**
