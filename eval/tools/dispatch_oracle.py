@@ -121,9 +121,13 @@ IMPLEMENTATION DETAILS
   linux`` on darwin) stays counted, stays ``oracle_unresolved``, and is named in
   ``summary.build_constraints.unadjudicated_sites``. A prism identity defined in a file the
   adjudicating tag set EXCLUDES cannot be judged absent by that session, so it fails closed
-  to ``oracle_unresolved`` instead of minting a false ``over_approx``. The report key is
-  emitted only when some in-scope file needed the pass, keeping corpora without one
-  byte-identical.
+  to ``oracle_unresolved`` instead of minting a false ``over_approx``; a legacy name-only
+  manifest carries no file evidence at all, so under a tag set ANY prism-only name fails
+  closed the same way. Platform aliases follow the go command (``foo_linux.go`` IS selected
+  for GOOS=android, ``foo_darwin.go`` for ios, ``foo_solaris.go`` for illumos), and both
+  directives require the go separator — ``// +buildextended`` is an ordinary comment. The
+  report key is emitted only when some in-scope file needed the pass, keeping corpora
+  without one byte-identical.
 """
 from __future__ import annotations
 
@@ -290,6 +294,7 @@ def compare_site(
     implementation_outcome: str | None = None,
     implementation_raw_result_count: int | None = None,
     excluded_identity_files: set[str] | None = None,
+    tagged_adjudication: bool = False,
 ) -> dict:
     """One per-site comparison record with qualified or legacy name-only identity.
 
@@ -400,20 +405,30 @@ def compare_site(
     # set excludes cannot be judged absent by this session: fail closed to
     # oracle_unresolved rather than minting a false over_approx.
     tag_excluded_locations = []
-    if excluded_identity_files and prism_only and identity_mode == "qualified":
+    if prism_only and identity_mode == "qualified":
         for identity in prism_identity_records:
             key = (
                 identity["package_dir"], identity["package_clause"], identity["name"]
             )
-            if key in prism_only and identity["file"] in excluded_identity_files:
+            if key in prism_only and identity["file"] in (excluded_identity_files or ()):
                 tag_excluded_locations.append({
                     "file": identity["file"],
                     "line": identity["span"][0],
                     "reason": "implementer_excluded_by_tags",
                 })
+    elif prism_only and tagged_adjudication:
+        # Legacy name-only manifests carry no file evidence at all, so a tag-pinned
+        # session cannot show WHERE a prism-only NAME is defined — it may live in a
+        # file this very tag set excludes. Absence is unprovable here: fail closed
+        # instead of upgrading a compatibility-path site to a false over_approx.
+        tag_excluded_locations.append({
+            "file": file,
+            "line": line,
+            "reason": "legacy_identity_evidence_unavailable",
+        })
     if tag_excluded_locations:
         unresolved_locations.extend(tag_excluded_locations)
-        oracle_reason = oracle_reason or "implementer_excluded_by_tags"
+        oracle_reason = oracle_reason or tag_excluded_locations[0]["reason"]
         failure_stage = failure_stage or "mapping"
 
     if oracle_status == "timeout":
@@ -1119,8 +1134,11 @@ def _plus_build_expression(lines: list[str]):
                 parts.append(("not", ("tag", name)) if negated else ("tag", name))
             terms.append(parts[0] if len(parts) == 1 else ("and", parts))
         if not terms:
-            # `// +build` with no options constrains nothing (go/build ignores it).
-            continue
+            # go/build's parsePlusBuildExpr yields tag("ignore") for an option-less
+            # `// +build`, which excludes the file until `-tags=ignore` is supplied.
+            # Recording that (rather than "unconstrained") keeps such a file's sites
+            # visible to the planner instead of silently unreported.
+            terms.append(("tag", "ignore"))
         line_nodes.append(terms[0] if len(terms) == 1 else ("or", terms))
     if not line_nodes:
         return None
@@ -1133,6 +1151,12 @@ def source_build_constraint(source: str) -> tuple[object | None, str | None, str
     `//go:build` wins when present, exactly as the go command does; otherwise the
     legacy `// +build` lines are combined. Only the header (everything before the
     package clause) is scanned, which is where the go command requires them.
+
+    Both directives require the go command's separator: go/build splits the comment
+    body into fields and demands the FIRST field be exactly `+build`, so
+    `// +buildextended` is an ordinary comment, not an `extended` constraint —
+    treating it as one would re-adjudicate a file under a build universe the go
+    command never selects it in. `//go:buildextended` is likewise ordinary.
     """
     plus_lines: list[str] = []
     for raw_line in source.splitlines():
@@ -1144,8 +1168,11 @@ def source_build_constraint(source: str) -> tuple[object | None, str | None, str
             if expr and not expr[0].isspace():
                 continue  # e.g. `//go:buildsomething` is an ordinary comment
             return parse_build_expression(expr.strip()), line, "go:build"
-        if line.startswith("// +build"):
-            plus_lines.append(line[len("// +build"):].strip())
+        if not line.startswith("//"):
+            continue
+        fields = line[len("//"):].split()
+        if fields and fields[0] == "+build":
+            plus_lines.append(" ".join(fields[1:]))
     if plus_lines:
         node = _plus_build_expression(plus_lines)
         if node is not None:
@@ -1195,6 +1222,24 @@ def _matches_tag(name: str, tags: frozenset[str], env: dict) -> bool:
         release_max = env.get("release_max")
         return release_max is not None and int(release.group(1)) <= release_max
     return name in tags
+
+
+def filename_selects_file(rel_path: str, env: dict) -> bool:
+    """Whether the pinned GOOS/GOARCH selects a `_<goos>_<goarch>`-suffixed filename.
+
+    go/build routes the filename OS/ARCH through the SAME matcher as a build tag, so
+    the platform aliases apply: `foo_linux.go` IS built for GOOS=android, `foo_darwin.go`
+    for GOOS=ios, `foo_solaris.go` for GOOS=illumos. Comparing the literal names would
+    withhold coverage from files the go command actually selects. The tag set is empty
+    on purpose: `-tags=linux` would satisfy go/build's matcher on darwin, but the
+    package would then be type-checked for the wrong platform — see `_UNSETTABLE_TAGS`.
+    """
+    goos, goarch = filename_os_arch(rel_path)
+    if goos is not None and not _matches_tag(goos, frozenset(), env):
+        return False
+    if goarch is not None and not _matches_tag(goarch, frozenset(), env):
+        return False
+    return True
 
 
 def evaluate_build_constraint(node, tags, env: dict) -> bool:
@@ -1274,9 +1319,7 @@ def file_build_requirement(rel_path: str, source: str | None, env: dict) -> dict
     unparseable, source_unreadable} plus the tags to supply and the raw
     constraint text for reporting.
     """
-    goos, goarch = filename_os_arch(rel_path)
-    if (goos is not None and goos != env.get("goos")) or \
-            (goarch is not None and goarch != env.get("goarch")):
+    if not filename_selects_file(rel_path, env):
         return {
             "status": "unsatisfiable",
             "tags": [],
@@ -2166,6 +2209,7 @@ def _adjudication_pass(indexed_sites: list[tuple[int, dict]], repo: str, cmd: li
                     implementation_outcome=implementation_outcome,
                     implementation_raw_result_count=implementation_raw_result_count,
                     excluded_identity_files=excluded_by_ordinal.get(si),
+                    tagged_adjudication=bool(build_tags),
                 )
             else:
                 # Compatibility only: old manifests lack target/package evidence, so the
@@ -2184,6 +2228,7 @@ def _adjudication_pass(indexed_sites: list[tuple[int, dict]], repo: str, cmd: li
                     oracle_status=oracle_status,
                     implementation_outcome=implementation_outcome,
                     implementation_raw_result_count=implementation_raw_result_count,
+                    tagged_adjudication=bool(build_tags),
                 )
             # Preserve the manifest site identity in the durable output so baseline
             # deltas cannot collapse distinct calls that share a source line.
@@ -2242,9 +2287,7 @@ class _BuildConstraintIndex:
 
     def _node(self, rel: str) -> tuple[str, object]:
         if rel not in self._nodes:
-            goos, goarch = filename_os_arch(rel)
-            if (goos is not None and goos != self.env.get("goos")) or \
-                    (goarch is not None and goarch != self.env.get("goarch")):
+            if not filename_selects_file(rel, self.env):
                 self._nodes[rel] = ("excluded", None)
             else:
                 source = _read_source(self.repo, rel)

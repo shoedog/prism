@@ -214,7 +214,12 @@ under the pinned `GOOS`/`GOARCH` (`//go:build linux` on darwin, `sync_darwin.go`
 stays counted, stays `oracle_unresolved`, and is named in
 `summary.build_constraints.unadjudicated_sites`. A prism identity whose defining file the
 adjudicating tag set *excludes* cannot be judged absent by that session, so it fails closed
-to `oracle_unresolved` instead of minting a false `over_approx`. `summary.build_constraints`
+to `oracle_unresolved` instead of minting a false `over_approx`; a legacy name-only manifest
+has no file evidence at all, so under a tag set *any* prism-only name fails closed the same
+way. Platform aliases follow the go command (`foo_linux.go` **is** selected for `GOOS=android`,
+`foo_darwin.go` for `ios`, `foo_solaris.go` for `illumos`), and both directives require the go
+separator — `// +buildextended` is an ordinary comment, not an `extended` constraint.
+`summary.build_constraints`
 is emitted only when some in-scope file needed the pass, so corpora without one are
 byte-identical to a pre-build-tag run. The environment pins are unchanged — the derived tag
 sets are corpus content, not a pin — so existing baselines stay comparable.
