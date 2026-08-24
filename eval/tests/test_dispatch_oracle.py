@@ -1572,3 +1572,530 @@ def test_environment_pins_use_effective_go_env_and_refuse_unavailable(tmp_path):
             )
     finally:
         do._command_output = original
+
+
+# ---------------------------------------------------------------------------
+# Build-constraint awareness (roadmap increment 5)
+#
+# gopls only type-checks the files the current build configuration selects, so a
+# `//go:build extended` file (hugo scss/tocss.go) is unadjudicable under the
+# default empty tag set. These pin the pure logic that derives the tag set such a
+# file needs, and the fail-closed rules around adjudicating under one.
+# ---------------------------------------------------------------------------
+
+def _darwin_env():
+    return do.build_env("darwin", "arm64", cgo=True, release_max=26)
+
+
+def test_parse_build_expression_precedence_and_negation():
+    env = _darwin_env()
+    # && binds tighter than ||: pin the tree shape, not just the truth value.
+    node = do.parse_build_expression("windows || linux && arm64")
+    assert node == ("or", [("tag", "windows"),
+                           ("and", [("tag", "linux"), ("tag", "arm64")])])
+    assert do.evaluate_build_constraint(node, (), env) is False
+    assert do.evaluate_build_constraint(
+        do.parse_build_expression("!windows && arm64"), (), env
+    ) is True
+    assert do.evaluate_build_constraint(
+        do.parse_build_expression("(a || b) && arm64"), ("b",), env
+    ) is True
+
+
+def test_parse_build_expression_rejects_malformed_input():
+    for expr in ("&&", "a &&", "(a", "a)", "a b"):
+        with pytest.raises(do.BuildConstraintSyntaxError):
+            do.parse_build_expression(expr)
+
+
+def test_evaluate_build_constraint_knows_derived_go_tags():
+    env = _darwin_env()
+
+    def holds(expr, tags=()):
+        return do.evaluate_build_constraint(do.parse_build_expression(expr), tags, env)
+
+    assert holds("unix") is True          # darwin is a unix GOOS
+    assert holds("cgo") is True
+    assert holds("gc") is True
+    assert holds("go1.13") is True        # release tag <= toolchain
+    assert holds("go1.99") is False
+    assert holds("darwin && arm64") is True
+    assert holds("extended") is False
+    assert holds("extended", ("extended",)) is True
+
+
+def test_filename_os_arch_ignores_everything_before_the_first_underscore():
+    # go/build's rule: `js.go` is an ordinary file, `sync_darwin.go` is pinned.
+    assert do.filename_os_arch("tpl/js.go") == (None, None)
+    assert do.filename_os_arch("tpl/js_test.go") == (None, None)
+    assert do.filename_os_arch("fileutil/sync_darwin.go") == ("darwin", None)
+    assert do.filename_os_arch("fileutil/sync_linux_test.go") == ("linux", None)
+    assert do.filename_os_arch("a/foo_linux_amd64.go") == ("linux", "amd64")
+    assert do.filename_os_arch("a/foo_amd64.go") == (None, "amd64")
+    assert do.filename_os_arch("a/plan.go") == (None, None)
+
+
+def test_source_build_constraint_prefers_go_build_over_legacy_plus_build():
+    node, raw, syntax = do.source_build_constraint(
+        "//go:build extended\n// +build ignored\n\npackage scss\n"
+    )
+    assert (node, syntax) == (("tag", "extended"), "go:build")
+    assert raw == "//go:build extended"
+
+
+def test_source_build_constraint_reads_legacy_plus_build_lines():
+    node, _raw, syntax = do.source_build_constraint(
+        "// +build linux,amd64 darwin\n// +build !race\n\npackage a\n"
+    )
+    assert syntax == "+build"
+    assert node == ("and", [
+        ("or", [("and", [("tag", "linux"), ("tag", "amd64")]), ("tag", "darwin")]),
+        ("not", ("tag", "race")),
+    ])
+
+
+def test_source_build_constraint_stops_at_the_package_clause():
+    # A `//go:build` line after the package clause is an ordinary comment, and
+    # `//go:buildx` is not a constraint directive at all.
+    assert do.source_build_constraint("package a\n//go:build extended\n")[0] is None
+    assert do.source_build_constraint("//go:buildextended\n\npackage a\n")[0] is None
+
+
+def test_file_build_requirement_derives_the_tag_set_a_file_needs():
+    extended = do.file_build_requirement(
+        "resources/tocss/scss/tocss.go", "//go:build extended\n\npackage scss\n",
+        _darwin_env(),
+    )
+    assert extended["status"] == "tags_required"
+    assert extended["tags"] == ["extended"]
+    assert extended["constraint"] == "//go:build extended"
+
+
+def test_file_build_requirement_marks_a_satisfied_constraint_as_needing_nothing():
+    env = _darwin_env()
+    for source in ("//go:build !windows\n\npackage a\n",
+                   "//go:build go1.13\n\npackage a\n",
+                   "//go:build !slicelabels && !dedupelabels\n\npackage a\n"):
+        requirement = do.file_build_requirement("a/b.go", source, env)
+        assert requirement["status"] == "satisfied"
+        assert requirement["tags"] == []
+
+
+def test_file_build_requirement_reports_constraints_no_tag_set_can_satisfy():
+    env = _darwin_env()
+    # GOOS/GOARCH/cgo are decided by the pinned environment: `-tags=linux` would
+    # satisfy go/build's matcher but type-check the package for the wrong platform,
+    # so these are reported unadjudicable instead of adjudicated under a lie.
+    assert do.file_build_requirement(
+        "a/b.go", "//go:build linux\n\npackage a\n", env
+    ) == {"status": "unsatisfiable", "tags": [], "reason": "no_settable_tags",
+          "constraint": "//go:build linux", "syntax": "go:build"}
+    assert do.file_build_requirement(
+        "a/b.go", "//go:build cgo && amd64\n\npackage a\n", env
+    )["reason"] == "no_settable_tags"
+    filename = do.file_build_requirement("a/sync_linux.go", "package a\n", env)
+    assert filename["status"] == "unsatisfiable"
+    assert filename["reason"] == "filename_os_arch"
+
+
+def test_file_build_requirement_reports_an_unparseable_constraint():
+    requirement = do.file_build_requirement(
+        "a/b.go", "//go:build a &&\n\npackage a\n", _darwin_env()
+    )
+    assert requirement["status"] == "unparseable"
+
+
+def test_resolve_build_tags_picks_the_smallest_then_lexicographic_tag_set():
+    env = _darwin_env()
+    assert do.resolve_build_tags(
+        do.parse_build_expression("(a && b) || c"), env
+    )["tags"] == ["c"]
+    assert do.resolve_build_tags(
+        do.parse_build_expression("zebra || alpha"), env
+    )["tags"] == ["alpha"]
+    assert do.resolve_build_tags(
+        do.parse_build_expression("a && b"), env
+    )["tags"] == ["a", "b"]
+
+
+def test_resolve_build_tags_bounds_the_search():
+    env = _darwin_env()
+    wide = " && ".join(f"t{index}" for index in range(do.MAX_CANDIDATE_TAGS + 1))
+    resolved = do.resolve_build_tags(do.parse_build_expression(wide), env)
+    assert resolved == {"status": "unsatisfiable", "tags": [],
+                        "reason": "candidate_search_bounded"}
+
+
+# --- planning: which unadjudicated sites a tag set can repair -----------------
+
+def test_build_constraint_plan_groups_unadjudicated_sites_by_required_tags():
+    def site(file):
+        return {"file": file, "line": 1, "method": "M"}
+
+    def record(file, classification):
+        return {"file": file, "line": 1, "method": "M",
+                "classification": classification}
+
+    dispatch = [site("tagged.go"), site("plain.go"), site("tagged.go"),
+                site("other.go"), site("blocked.go")]
+    records = [
+        record("tagged.go", "oracle_unresolved"),
+        record("plain.go", "oracle_unresolved"),   # unconstrained: tags cannot help
+        record("tagged.go", "sound"),              # already adjudicated: left alone
+        record("other.go", "oracle_timeout"),
+        record("blocked.go", "oracle_unresolved"),
+    ]
+
+    class Index:
+        def requirement(self, rel):
+            return {
+                "tagged.go": {"status": "tags_required", "tags": ["extended"]},
+                "plain.go": {"status": "unconstrained", "tags": []},
+                "other.go": {"status": "tags_required", "tags": ["withdeploy"]},
+                "blocked.go": {"status": "unsatisfiable", "tags": [],
+                               "reason": "no_settable_tags"},
+            }[rel]
+
+    plan, blocked = do.build_constraint_plan(dispatch, records, Index())
+    assert plan == {("extended",): [1], ("withdeploy",): [4]}
+    assert blocked == [5]
+
+
+def test_build_constraint_index_reads_real_constraints_and_tag_exclusion(tmp_path):
+    for rel, source in {
+        "scss/tocss.go": "//go:build extended\n\npackage scss\n",
+        "scss/client_notavailable.go": "//go:build !extended\n\npackage scss\n",
+        "identity/identity.go": "package identity\n",
+    }.items():
+        path = tmp_path / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source)
+    index = do._BuildConstraintIndex(str(tmp_path), _darwin_env())
+    assert index.requirement("scss/tocss.go")["tags"] == ["extended"]
+    # `!extended` is satisfied by DEFAULT yet excluded once -tags=extended is set:
+    # exclusion has to be re-evaluated per tag set, not read off the default status.
+    assert index.requirement("scss/client_notavailable.go")["status"] == "satisfied"
+    assert index.excluded_under("scss/client_notavailable.go", ("extended",)) is True
+    assert index.excluded_under("scss/client_notavailable.go", ()) is False
+    assert index.excluded_under("identity/identity.go", ("extended",)) is False
+    # An unreadable header is never CLAIMED as excluded: suppressing a real
+    # over_approx is worse than surfacing one.
+    assert index.excluded_under("missing.go", ("extended",)) is False
+
+
+# --- fail-closed comparison under an explicit tag set ------------------------
+
+def test_compare_site_fails_closed_when_a_prism_identity_is_excluded_by_tags():
+    record = do.compare_site(
+        file="scss/tocss.go", line=122, interface="Manager", method="AddIdentity",
+        prism_identities=[_identity("Client", "scss/client_notavailable.go", [10, 20],
+                                    "scss")],
+        gopls_identities=[],
+        excluded_identity_files={"scss/client_notavailable.go"},
+    )
+    # gopls cannot see a type whose file this tag set excludes, so "prism minted a
+    # non-satisfier" is not a claim this session is entitled to make.
+    assert record["classification"] == "oracle_unresolved"
+    assert record["unresolved_locations"] == [{
+        "file": "scss/client_notavailable.go", "line": 10,
+        "reason": "implementer_excluded_by_tags",
+    }]
+    assert record["oracle_reason"] == "implementer_excluded_by_tags"
+
+
+def test_compare_site_keeps_sound_when_the_excluded_file_is_not_prism_only():
+    identity = _identity("Manager", "identity/identity.go", [382, 383], "identity")
+    record = do.compare_site(
+        file="scss/tocss.go", line=122, interface="Manager", method="AddIdentity",
+        prism_identities=[identity], gopls_identities=[identity],
+        excluded_identity_files={"scss/client_notavailable.go"},
+    )
+    assert record["classification"] == "sound"
+    assert record["unresolved_locations"] == []
+
+
+# --- end to end: the second, tag-pinned pass --------------------------------
+
+def _tagged_run(tmp_path, *, source, tagged_answer, legacy=False):
+    """One site in `caller.go`; the default session never resolves it.
+
+    `legacy=True` emits a pre-identity manifest (names only, no
+    `implementer_identities`) — the compatibility path.
+    """
+    (tmp_path / "caller.go").write_text(source)
+    manifest = tmp_path / "manifest.json"
+    site = {
+        "file": "caller.go",
+        "line": source[:source.index("ctx")].count("\n") + 1,
+        "method": "AddIdentity", "fanout": 1,
+        "implementers": ["Client"] if legacy else ["nopManager"],
+        "start_byte": source.index("ctx"), "end_byte": len(source.rstrip()),
+    }
+    if not legacy:
+        site["implementer_identities"] = [
+            _identity("nopManager", "identity.go", [382, 383], "identity")
+        ]
+    manifest.write_text(json.dumps({"sites": [site]}))
+
+    class FakeGopls:
+        sessions = []
+
+        def __init__(self, *_args, build_tags=(), **_kwargs):
+            self.build_tags = tuple(build_tags)
+            self._settle_s = 0
+            type(self).sessions.append(self.build_tags)
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def _did_open(self, _rel):
+            return True
+
+        def _methods(self, _rel):
+            return []
+
+        def _type_at(self, _rel, _line):
+            return "Manager"
+
+        def resettle(self, **_kwargs):
+            pass
+
+        def method_decl(self, _rel, _line, _char):
+            if not self.build_tags:
+                return {"kind": "unknown", "failure_stage": "definition",
+                        "oracle_status": "unresolved"}
+            return {"file": "identity.go", "line": 280, "character": 1,
+                    "kind": "interface", "identity": None}
+
+        def satisfier_identities(self, _rel, _line, _char):
+            if tagged_answer is None:
+                self._last_implementation_status = "timeout"
+                return None
+            return tagged_answer, len(tagged_answer), []
+
+    records, summary = do.run_oracle(
+        str(manifest), str(tmp_path), ["fake-gopls"], 1,
+        log=io.StringIO(), oracle_factory=FakeGopls,
+    )
+    return records, summary, FakeGopls.sessions
+
+
+def test_run_oracle_readjudicates_a_go_build_constrained_site_under_its_tags(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(do, "repo_build_env", lambda _repo: _darwin_env())
+    satisfier = _identity("nopManager", "identity.go", [382, 383], "identity")
+    records, summary, sessions = _tagged_run(
+        tmp_path,
+        source="//go:build extended\n\npackage scss\n\nctx.AddIdentity(x)\n",
+        tagged_answer=[satisfier],
+    )
+    # The default session left it unadjudicated; the -tags=extended session settled it.
+    assert sessions == [(), ("extended",)]
+    assert records[0]["classification"] == "sound"
+    assert records[0]["build_tags"] == ["extended"]
+    assert records[0]["build_constraint"] == "//go:build extended"
+    assert records[0]["build_tag_status"] == "adjudicated_under_tags"
+    constraints = summary["build_constraints"]
+    assert constraints["tag_sets"] == [{
+        "tags": ["extended"], "files": ["caller.go"],
+        "sites": 1, "adjudicated": 1, "still_unadjudicated": 0,
+    }]
+    assert constraints["unadjudicated_sites"] == []
+    # The site is adjudicated, so it now COUNTS as covered rather than waived.
+    assert summary["fanout_positive_coverage"]["site_coverage"] == 1.0
+    assert summary["overall"]["oracle_unresolved"] == 0
+
+
+def test_run_oracle_keeps_an_unrepaired_constrained_site_counted_and_named(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(do, "repo_build_env", lambda _repo: _darwin_env())
+    records, summary, sessions = _tagged_run(
+        tmp_path,
+        source="//go:build extended\n\npackage scss\n\nctx.AddIdentity(x)\n",
+        tagged_answer=None,
+    )
+    assert sessions == [(), ("extended",)]
+    # Still unadjudicated => still in the coverage denominator, and named.
+    assert records[0]["classification"] in do.UNADJUDICATED
+    assert records[0]["build_tag_status"] == "unadjudicated_under_tags"
+    assert summary["fanout_positive_coverage"]["total_sites"] == 1
+    assert summary["fanout_positive_coverage"]["site_coverage"] == 0.0
+    assert summary["build_constraints"]["tag_sets"][0]["still_unadjudicated"] == 1
+    assert summary["build_constraints"]["unadjudicated_sites"] == [{
+        "file": "caller.go", "line": 5, "method": "AddIdentity", "fanout": 1,
+        "classification": records[0]["classification"],
+        "constraint": "//go:build extended", "constraint_status": "tags_required",
+        "reason": None, "tags": ["extended"],
+    }]
+
+
+def test_run_oracle_names_a_site_no_tag_set_can_adjudicate(tmp_path, monkeypatch):
+    monkeypatch.setattr(do, "repo_build_env", lambda _repo: _darwin_env())
+    records, summary, sessions = _tagged_run(
+        tmp_path,
+        source="//go:build linux\n\npackage scss\n\nctx.AddIdentity(x)\n",
+        tagged_answer=None,
+    )
+    # No second session: `linux` on darwin is not something -tags can supply.
+    assert sessions == [()]
+    assert records[0]["classification"] == "oracle_unresolved"
+    assert records[0]["build_tag_status"] == "unsatisfiable_under_pins"
+    assert summary["build_constraints"]["tag_sets"] == []
+    assert summary["build_constraints"]["unadjudicated_sites"][0]["reason"] == \
+        "no_settable_tags"
+    assert summary["build_constraints"]["constrained_files"] == [{
+        "file": "caller.go", "constraint": "//go:build linux",
+        "status": "unsatisfiable", "reason": "no_settable_tags", "tags": [],
+    }]
+
+
+def test_run_oracle_omits_the_build_constraint_report_without_constrained_sites(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(do, "repo_build_env", lambda _repo: _darwin_env())
+    satisfier = _identity("nopManager", "identity.go", [382, 383], "identity")
+    records, summary, sessions = _tagged_run(
+        tmp_path,
+        source="package scss\n\nctx.AddIdentity(x)\n",
+        tagged_answer=[satisfier],
+    )
+    # Unconstrained file: exactly one session, no report key, byte-stable output.
+    assert sessions == [()]
+    assert "build_constraints" not in summary
+    assert "build_tags" not in records[0]
+
+
+# --- fix wave (terra r1): three constructible fail-closed gaps -----------------
+
+def test_compare_site_fails_closed_for_a_legacy_manifest_under_build_tags():
+    """WRONG 1: a name-only manifest has no file evidence, so a tag-pinned session
+    cannot prove a prism-only NAME is not a satisfier — the type may live in a file
+    THIS tag set excludes. Without the guard the site upgrades to over_approx."""
+    tagged = do.compare_site(
+        file="scss/tocss.go", line=122, interface="Manager", method="AddIdentity",
+        prism_set={"Client"}, gopls_set={"Other"},
+        tagged_adjudication=True,
+    )
+    assert tagged["identity_mode"] == "name_only"
+    assert tagged["classification"] == "oracle_unresolved"
+    assert tagged["oracle_reason"] == "legacy_identity_evidence_unavailable"
+    assert tagged["unresolved_locations"] == [{
+        "file": "scss/tocss.go", "line": 122,
+        "reason": "legacy_identity_evidence_unavailable",
+    }]
+    # Control: the DEFAULT session compares the whole build universe, so the same
+    # evidence there is a real over_approx and must stay one.
+    default = do.compare_site(
+        file="scss/tocss.go", line=122, interface="Manager", method="AddIdentity",
+        prism_set={"Client"}, gopls_set={"Other"},
+    )
+    assert default["classification"] == "over_approx"
+    assert default["unresolved_locations"] == []
+
+
+def test_compare_site_legacy_under_tags_still_scores_a_subset_soundly():
+    # Fail-closed applies only to unprovable ABSENCE; a name-only subset is still sound.
+    record = do.compare_site(
+        file="scss/tocss.go", line=122, interface="Manager", method="AddIdentity",
+        prism_set={"Client"}, gopls_set={"Client", "Other"},
+        tagged_adjudication=True,
+    )
+    assert record["classification"] == "sound"
+    assert record["unresolved_locations"] == []
+
+
+def test_run_oracle_never_upgrades_a_legacy_site_under_an_excluding_tag_set(
+    tmp_path, monkeypatch
+):
+    """WRONG 1 end to end: old manifest mints `Client`; the site needs -tags=extended;
+    the tagged session does not return `Client`. The site must stay unadjudicated
+    (counted + named), never become a scored over_approx."""
+    monkeypatch.setattr(do, "repo_build_env", lambda _repo: _darwin_env())
+    records, summary, sessions = _tagged_run(
+        tmp_path,
+        source="//go:build extended\n\npackage scss\n\nctx.AddIdentity(x)\n",
+        tagged_answer=[_identity("Other", "identity.go", [10, 12], "identity")],
+        legacy=True,
+    )
+    assert sessions == [(), ("extended",)]
+    assert records[0]["identity_mode"] == "name_only"
+    assert records[0]["classification"] == "oracle_unresolved"
+    assert summary["overall"]["over_approx"] == 0
+    assert summary["build_constraints"]["tag_sets"][0] == {
+        "tags": ["extended"], "files": ["caller.go"],
+        "sites": 1, "adjudicated": 0, "still_unadjudicated": 1,
+    }
+    assert summary["build_constraints"]["unadjudicated_sites"][0]["file"] == "caller.go"
+
+
+def test_source_build_constraint_requires_the_go_plus_build_separator():
+    """WRONG 2: go/build demands the first comment field be exactly `+build`, so
+    `// +buildextended` is an ordinary comment — not an `extended` constraint."""
+    assert do.source_build_constraint("// +buildextended\n\npackage a\n")[0] is None
+    assert do.source_build_constraint("// +build-extended\n\npackage a\n")[0] is None
+    # The forms the go command DOES accept, including a missing space after `//`.
+    assert do.source_build_constraint("// +build extended\n\npackage a\n")[0] == \
+        ("tag", "extended")
+    assert do.source_build_constraint("//+build extended\n\npackage a\n")[0] == \
+        ("tag", "extended")
+    assert do.source_build_constraint("//   +build   extended\n\npackage a\n")[0] == \
+        ("tag", "extended")
+    # An option-less `+build` is go/build's tag("ignore"), not "unconstrained".
+    assert do.source_build_constraint("// +build\n\npackage a\n")[0] == ("tag", "ignore")
+
+
+def test_file_build_requirement_ignores_a_plus_build_without_a_separator():
+    requirement = do.file_build_requirement(
+        "a/b.go", "// +buildextended\n\npackage a\n", _darwin_env()
+    )
+    assert requirement["status"] == "unconstrained"
+    assert requirement["tags"] == []
+
+
+def test_filename_os_arch_selection_follows_go_platform_aliases():
+    """WRONG 3: go/build routes a filename's GOOS through the tag matcher, so the
+    aliases apply — `foo_linux.go` IS built for GOOS=android. Literal equality
+    falsely withheld coverage from files the go command selects."""
+    android = do.build_env("android", "arm64", release_max=26)
+    ios = do.build_env("ios", "arm64", release_max=26)
+    illumos = do.build_env("illumos", "amd64", release_max=26)
+    darwin = _darwin_env()
+
+    def status(rel, env):
+        return do.file_build_requirement(rel, "package a\n", env)["status"]
+
+    assert do.filename_selects_file("a/foo_linux.go", android) is True
+    assert status("a/foo_linux.go", android) == "unconstrained"
+    assert do.filename_selects_file("a/foo_darwin.go", ios) is True
+    assert status("a/foo_darwin.go", ios) == "unconstrained"
+    assert do.filename_selects_file("a/foo_solaris.go", illumos) is True
+    # The aliases are one-way and platform-specific: darwin does not select linux,
+    # android does not select windows, and a wrong GOARCH still excludes.
+    assert do.filename_selects_file("a/foo_linux.go", darwin) is False
+    assert status("a/foo_linux.go", darwin) == "unsatisfiable"
+    assert do.filename_selects_file("a/foo_windows.go", android) is False
+    assert do.filename_selects_file("a/foo_linux_amd64.go", android) is False
+
+
+def test_build_constraint_index_excludes_by_alias_aware_filename(tmp_path):
+    (tmp_path / "foo_linux.go").write_text("package a\n")
+    android = do._BuildConstraintIndex(str(tmp_path), do.build_env("android", "arm64"))
+    darwin = do._BuildConstraintIndex(str(tmp_path), _darwin_env())
+    assert android.excluded_under("foo_linux.go", ()) is False
+    assert darwin.excluded_under("foo_linux.go", ()) is True
+
+
+def test_gopls_session_scopes_build_tags_to_goflags(tmp_path, monkeypatch):
+    session = do.GoplsSatisfiers(str(tmp_path), ["gopls", "serve"], 1,
+                                 build_tags=("extended", "withdeploy"))
+    monkeypatch.delenv("GOFLAGS", raising=False)
+    assert session._goflags() == "-tags=extended,withdeploy"
+    # An ambient GOFLAGS is preserved, with our tag set appended so it wins.
+    monkeypatch.setenv("GOFLAGS", "-mod=mod")
+    assert session._goflags() == "-mod=mod -tags=extended,withdeploy"
+    assert do.GoplsSatisfiers(str(tmp_path), ["gopls", "serve"], 1).build_tags == ()
