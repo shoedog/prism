@@ -18,22 +18,29 @@ of the eight known over-approx sites, so only seven of eight remain killed.
 - `cargo test go_bare_interface_identity_validation_tests --lib`
   - RED before v8 implementation: the invalid-fallback route and validation bit
     did not exist.
-  - GREEN after v8 implementation: 2 passed, 0 failed.
+  - GREEN after v8 implementation and edge completion: 4 passed, 0 failed.
+    These tests pin unique recovery, zero-identity drop, collision drop, and the
+    validated-non-dispatchable no-fallback negative.
 - `cargo build --release`
   - PASS immediately before the corpus run.
-- `PRISM_C1_CENSUS=1 target/release/prism nav interface-manifest --repo <corpus>`
-  - Caddy: PASS, 91 R3-eligible attempts.
-  - Prometheus: PASS, 2,309 R3-eligible attempts.
-  - etcd: PASS, 3,716 R3-eligible attempts.
-  - Hugo: PASS, 1,485 R3-eligible attempts.
+- `env PRISM_C1_CENSUS=1 target/release/prism nav interface-manifest --repo /Users/wesleyjinks/code/bench-repos/caddy > /private/tmp/c1-v8-caddy.json`
+  - PASS: 91 R3-eligible attempts.
+- `env PRISM_C1_CENSUS=1 target/release/prism nav interface-manifest --repo /Users/wesleyjinks/code/bench-repos/prometheus > /private/tmp/c1-v8-prometheus.json`
+  - PASS: 2,309 R3-eligible attempts.
+- `env PRISM_C1_CENSUS=1 target/release/prism nav interface-manifest --repo /Users/wesleyjinks/code/bench-repos/etcd > /private/tmp/c1-v8-etcd.json`
+  - PASS: 3,716 R3-eligible attempts.
+- `env PRISM_C1_CENSUS=1 target/release/prism nav interface-manifest --repo /Users/wesleyjinks/code/bench-repos/hugo > /private/tmp/c1-v8-hugo.json`
+  - PASS: 1,485 R3-eligible attempts.
 - `cargo test --quiet`
-  - FULL SUITE PASS: 3,437 passed, 0 failed, 1 ignored.
+  - FULL SUITE PASS: 3,439 passed, 0 failed, 1 ignored.
 - `cargo fmt --all -- --check`
   - PASS.
 - `git diff --check`
   - PASS.
 - `cd eval && uv run tier-a --matrix-only --allow-stale-sut`
   - NOT RUN: host-level access to the managed `uv` cache was rejected.
+
+## Verified
 
 All corpus commands exited zero and emitted parseable JSON. The attempted nav
 cache writes outside the workspace were refused, but each command rebuilt and
@@ -160,15 +167,15 @@ Each `*-per-attempt-records.json` contains the prior record shape plus
 | etcd | 0 | 202 | 101 | 3,412 | 1 |
 | Hugo | 11 | 587 | 11 | 876 | 0 |
 
-### Not verified
+## Not verified
 
-- The Tier-A matrix and quick runs were not executed because host-level `uv`
-  access was rejected.
-- No gopls oracle observation was produced for Caddy's six newly restored
-  qualified identities or the Hugo survivor. The managed `uv` environment was
-  unavailable, system Python is 3.9 without `tomllib`, and the proposed
-  sandbox-only compatibility shim was not authorized.
+- **environment-limited — Excluded:** Tier-A matrix and quick runs. Host-level
+  access to the managed `uv` cache was rejected, so neither command executed.
+- **environment-limited — Excluded:** gopls oracle adjudication of Caddy's six
+  newly restored qualified identities and the Hugo survivor. The managed `uv`
+  environment was unavailable, system Python is 3.9 without `tomllib`, and the
+  proposed sandbox-only compatibility shim was not authorized.
 - No production bare-arm wiring, production telemetry, or cache-version change
-  was made. The Rust probe and its two v8 tests remain worktree-only.
+  was made. The Rust probe and its four v8 tests remain worktree-only.
 
 CPG remains 49 and the navigation sidecar remains 18.
