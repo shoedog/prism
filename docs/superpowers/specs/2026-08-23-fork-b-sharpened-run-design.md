@@ -44,3 +44,36 @@ The audit (Opus lane, saved transcripts, 6/6 auditable): **67/67 recovered D-sit
 **Per-cell admissibility (all required before a number enters the aggregate):** dose > 0 (on-arm prism tool calls observed in the transcript); warm-gate handshake logged with timing; prompt-leakage check — the Part-C prompt for the cell is inspected for task-token leakage of the B1.1 class before the arm runs; off-arm rescore uses the SAME saved outputs the June run banked (no regeneration). Inadmissible cells are named and excluded, never imputed.
 
 **Custody:** run dirs under `eval/tier_c/runs/partc/` with run-id `b2-<date>`; all cell JSONs + judge outputs durable-copied to `~/code/prism-lane-artifacts/2026-08-23-next10/fork-b/b2/`; read-out appended to this document.
+
+## B2 READ-OUT (2026-08-24) — 3 of 4 cells admissible; pre-registered shape-change trigger FIRES, but attribution is confounded
+
+**Run:** 4 cells `<repo>:spec:opus-4.8`, SUT main@`f423401` (post-#193), off arms reused verbatim from `isorow-2026-06-28` (verified **byte-identical** to the June raw streams), codex-judge rescore per cell. Artifacts: `~/code/prism-lane-artifacts/2026-08-23-next10/fork-b/b2/` (prism-caches stripped).
+
+### Admissibility (pre-registered gate)
+| cell | lang | administered | dose | leaked | verdict |
+|---|---|---|---|---|---|
+| ruff | rust | ✓ | 3 calls (callers/callees), 1 tool error | no | **admissible** |
+| prometheus | go | ✓ | 3 calls (callers/callees/repo_map), 0 errors | no | **admissible** (recovered — see below) |
+| excalidraw | ts | ✓ | 4 calls (callers/callees/repo_map), 1 tool error | no | **admissible** |
+| pydantic | python | ✗ | — | — | **INADMISSIBLE — excluded, not imputed** |
+
+- **pydantic**: the ON arm produced no output at all (`status.json`: `failed_stage: "on"`, `arm exited 1`); no `.on.out.md`/`.on.raw.jsonl` exist and the rescore correctly failed. Nothing to score. Python is **unmeasured** in this row.
+- **prometheus**: the live cell exited 1, but the crash was in `head_to_head_annotated` (the ensemble opus judge, `claude judge exited 1` — plausibly the same API-overload window that hit pydantic). Head-to-head is explicitly **not** the banked endpoint. Both arms' raw streams were saved, and the rescore reconstructed and scored the cell successfully — so the banked number exists and is admissible. This is the rescore path working as designed.
+
+### Banked endpoint — Δcitation-precision (codex judge; |Δ| ≥ 0.10 = signal)
+| lang | precision off | precision on | **Δ** | vs old Part-C row |
+|---|---|---|---|---|
+| Go (prometheus) | 0.364 | 0.769 | **+0.406** | same sign, **larger** (was +0.18..0.26) |
+| Rust (ruff) | 0.778 | 0.634 | **−0.144** | **SIGN INVERSION** (was +0.18..0.26) |
+| TS (excalidraw) | 0.750 | 0.750 | **0.000** | collapsed to wash (was +0.23) |
+| Python (pydantic) | — | — | **no data** | (was ~0) |
+
+**Pre-registered criterion (3) FIRES:** the shape changed vs the old-SUT row (Rust inverted; TS → wash), which by the pre-registration triggers an **owner A-vs-C re-read** — recorded here rather than silently reinterpreted.
+
+### ⚠ Attribution caveat — the trigger must NOT be banked as a prism finding yet
+The off arms are **June (2026-06-29)**; the on arms are **August (2026-08-23)**. They differ in prism-availability **and** in run date, i.e. two months of model drift plus sampling noise. The pre-registration justified reuse as "no SUT dependence," which is true of the SUT but **not** of the arm model — so a same-window control was never run. Per the attribution rule (a control must come from the same environment that produced the effect), **the Rust inversion and the TS collapse are hypotheses, not findings**: model drift alone would produce the same output. The Go gain survives this caveat better only in the weak sense that its sign matches the old row.
+
+Also note: `recall_*` values in these cells are not usable (prometheus `recall_on` = 1.05, excalidraw `recall` 15.0 → 3.0 — a known claim-count normalization defect noted in `cli.py`). Precision is computed separately and is unaffected; recall is not banked and should not be quoted.
+
+### Recommended next step (owner decision, spend)
+Re-run the **off** arms in the current window for ruff + excalidraw (2 cells, prism-off, no warm gate needed) and rescore all three cells together. That converts the shape question from confounded to attributable for the cost of two off arms. Until then the honest statement is: **Go shows a large positive Δ; Rust and TS are unresolved pending a same-window control; Python is unmeasured (harness failure, re-run needed).**
