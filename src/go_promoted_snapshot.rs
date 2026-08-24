@@ -1,7 +1,7 @@
 //! Profile-keyed Go promoted-selector facts.
 //!
-//! This is a serialized foundation snapshot only. Resolution continues to use
-//! the existing promotion indexes until a later slice explicitly consumes it.
+//! Resolution consults this serialized snapshot for concrete promoted selectors
+//! that the existing promotion indexes defer.
 
 use crate::ast::ParsedFile;
 use crate::call_graph::FunctionId;
@@ -92,6 +92,52 @@ pub struct GoPromotedMethodSnapshot {
     pub depth: usize,
     pub field_shadowed: bool,
     pub value_method_set: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GoPromotedSnapshotConsult<'a> {
+    Hit(&'a FunctionId),
+    Miss,
+    ConflictDrop,
+    VariantDrop,
+    InvariantDrop,
+}
+
+pub(crate) fn consult_promoted_snapshot<'a>(
+    snapshot: &'a GoPromotedSelectorSnapshot,
+    owner: &GoOwnerIdentity,
+    method: &str,
+) -> GoPromotedSnapshotConsult<'a> {
+    let Some(owner_snapshot) = snapshot.owners.get(owner) else {
+        return GoPromotedSnapshotConsult::Miss;
+    };
+    if owner_snapshot.verdict == GoPromotedSnapshotVerdict::ProfileConflict {
+        return GoPromotedSnapshotConsult::ConflictDrop;
+    }
+    if owner_snapshot.declarations.len() != 1 {
+        return GoPromotedSnapshotConsult::InvariantDrop;
+    }
+
+    let declaration = &owner_snapshot.declarations[0];
+    if declaration.ambiguous_promoted_methods.contains(method) {
+        return GoPromotedSnapshotConsult::Miss;
+    }
+    let Some(promoted) = declaration
+        .promoted_methods
+        .iter()
+        .find(|promoted| promoted.method == method)
+    else {
+        return GoPromotedSnapshotConsult::Miss;
+    };
+    if promoted.field_shadowed {
+        return GoPromotedSnapshotConsult::Miss;
+    }
+    if promoted.profile_variants.len() != 1 || !promoted.profile_variants.contains(&promoted.target)
+    {
+        return GoPromotedSnapshotConsult::VariantDrop;
+    }
+
+    GoPromotedSnapshotConsult::Hit(&promoted.target)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

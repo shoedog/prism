@@ -212,6 +212,10 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     let mut go_concrete_receiver_direct = 0usize;
     let mut go_concrete_receiver_promoted_existing = 0usize;
     let mut go_concrete_receiver_promoted_deferred = 0usize;
+    let mut go_promoted_snapshot_hits = 0usize;
+    let mut go_promoted_snapshot_conflict_drop = 0usize;
+    let mut go_promoted_snapshot_variant_drop = 0usize;
+    let mut go_promoted_snapshot_invariant_drop = 0usize;
     let mut go_concrete_receiver_no_selector_drop = 0usize;
     let mut go_r2_on_demand_name_collision_bail = 0usize;
     let mut go_external_receiver_new_recovery_drop = 0usize;
@@ -289,6 +293,11 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 out.telemetry.go_concrete_receiver_promoted_existing;
             go_concrete_receiver_promoted_deferred +=
                 out.telemetry.go_concrete_receiver_promoted_deferred;
+            go_promoted_snapshot_hits += out.telemetry.go_promoted_snapshot_hits;
+            go_promoted_snapshot_conflict_drop += out.telemetry.go_promoted_snapshot_conflict_drop;
+            go_promoted_snapshot_variant_drop += out.telemetry.go_promoted_snapshot_variant_drop;
+            go_promoted_snapshot_invariant_drop +=
+                out.telemetry.go_promoted_snapshot_invariant_drop;
             go_concrete_receiver_no_selector_drop +=
                 out.telemetry.go_concrete_receiver_no_selector_drop;
             go_r2_on_demand_name_collision_bail +=
@@ -579,6 +588,22 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
             go_concrete_receiver_promoted_deferred.into(),
         );
         object.insert(
+            "go_promoted_snapshot_hits".to_string(),
+            go_promoted_snapshot_hits.into(),
+        );
+        object.insert(
+            "go_promoted_snapshot_conflict_drop".to_string(),
+            go_promoted_snapshot_conflict_drop.into(),
+        );
+        object.insert(
+            "go_promoted_snapshot_variant_drop".to_string(),
+            go_promoted_snapshot_variant_drop.into(),
+        );
+        object.insert(
+            "go_promoted_snapshot_invariant_drop".to_string(),
+            go_promoted_snapshot_invariant_drop.into(),
+        );
+        object.insert(
             "go_concrete_receiver_no_selector_drop".to_string(),
             go_concrete_receiver_no_selector_drop.into(),
         );
@@ -711,9 +736,18 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                     impls = &[];
                 }
                 crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcretePromotedDeferred {
-                    ..
+                    owner,
                 } => {
-                    dispatch_route = "concrete_promoted_deferred_drop";
+                    dispatch_route = match crate::go_promoted_snapshot::consult_promoted_snapshot(
+                        cg.go_promoted_selector_snapshot(),
+                        owner,
+                        &site.callee_name,
+                    ) {
+                        crate::go_promoted_snapshot::GoPromotedSnapshotConsult::Hit(_) => {
+                            "concrete_promoted_snapshot"
+                        }
+                        _ => "concrete_promoted_deferred_drop",
+                    };
                     impls = &[];
                 }
                 crate::go_concrete_receiver::GoConcreteReceiverRoute::EmbeddedInterfaceDispatch {

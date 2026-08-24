@@ -925,6 +925,10 @@ pub struct ResolutionTelemetry {
     pub go_concrete_receiver_direct: usize,
     pub go_concrete_receiver_promoted_existing: usize,
     pub go_concrete_receiver_promoted_deferred: usize,
+    pub go_promoted_snapshot_hits: usize,
+    pub go_promoted_snapshot_conflict_drop: usize,
+    pub go_promoted_snapshot_variant_drop: usize,
+    pub go_promoted_snapshot_invariant_drop: usize,
     pub go_concrete_receiver_no_selector_drop: usize,
     pub go_r2_on_demand_name_collision_bail: usize,
     pub go_external_receiver_new_recovery_drop: usize,
@@ -2347,9 +2351,37 @@ impl CallGraph {
                                 return ResolutionOutcome::hit_with_telemetry(resolved, telemetry);
                             }
                             crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcretePromotedDeferred {
-                                ..
+                                owner,
                             } => {
                                 let mut telemetry = ResolutionTelemetry::default();
+                                match crate::go_promoted_snapshot::consult_promoted_snapshot(
+                                    self.go_promoted_selector_snapshot(),
+                                    owner,
+                                    name,
+                                ) {
+                                    crate::go_promoted_snapshot::GoPromotedSnapshotConsult::Hit(
+                                        target,
+                                    ) => {
+                                        telemetry.go_promoted_snapshot_hits = 1;
+                                        return ResolutionOutcome::hit_with_telemetry(
+                                            exact(
+                                                std::iter::once(target),
+                                                ResolutionKind::EmbeddedPromotion,
+                                            ),
+                                            telemetry,
+                                        );
+                                    }
+                                    crate::go_promoted_snapshot::GoPromotedSnapshotConsult::ConflictDrop => {
+                                        telemetry.go_promoted_snapshot_conflict_drop = 1;
+                                    }
+                                    crate::go_promoted_snapshot::GoPromotedSnapshotConsult::VariantDrop => {
+                                        telemetry.go_promoted_snapshot_variant_drop = 1;
+                                    }
+                                    crate::go_promoted_snapshot::GoPromotedSnapshotConsult::InvariantDrop => {
+                                        telemetry.go_promoted_snapshot_invariant_drop = 1;
+                                    }
+                                    crate::go_promoted_snapshot::GoPromotedSnapshotConsult::Miss => {}
+                                }
                                 telemetry.go_concrete_receiver_promoted_deferred = 1;
                                 return ResolutionOutcome::dropped_with_telemetry(
                                     DropReason::ConcreteReceiverPromotedDeferred,
