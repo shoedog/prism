@@ -33,9 +33,9 @@ The audit (Opus lane, saved transcripts, 6/6 auditable): **67/67 recovered D-sit
 
 ## B2 PRE-REGISTRATION (2026-08-23, owner spend acked — written BEFORE any live arm)
 
-**Cells:** the four June Part-C corpus rows at their pinned SHAs (ruff-26287/rust, prometheus-18896/go, pydantic-13300/python, excalidraw-11479/ts), stage **spec**, arm model **gpt-5.5** (matches the B1.2 instrument-validated cells; enables June off-arm reuse). SUT = current main (post-#193, CPG 50), matched-binary preflight (F1) + warm gate with `--warm-gate-timeout-s 240` (B1.2 TS lesson).
+**Cells:** the four June Part-C corpus rows at their pinned SHAs (ruff-26287/rust, prometheus-18896/go, pydantic-13300/python, excalidraw-11479/ts), stage **spec**, arm model **opus-4.8** (AMENDED pre-launch, disclosed: only the opus-4.8 off arms were preserved as raw streams — `runs/partc/isorow-2026-06-28-<repo>/<repo>-spec-opus-4.8.off.raw.jsonl` — which the admissibility rule and `_reconstruct_arm_from_files` require; the June gpt-5.5 off arms survive only as rendered .md transcripts. gpt-5.5 would force 8 live cells; opus-4.8 honors rescore-over-rerun). SUT = current main (post-#193, CPG 50), matched-binary preflight (F1) + warm gate with `--warm-gate-timeout-s 240` (B1.2 TS lesson).
 
-**Arms & spend shape:** OFF arms are NOT re-run — the June `full-2026-06-24` gpt-5.5 off-arm outputs are saved and the off arm has no SUT dependence (same model/prompts/checkout SHA); they are RESCORED with the B2 judge (rescore-over-rerun rule). ON arms: 4 live cells. Estimated ≤ half the acked 8–20M envelope.
+**Arms & spend shape:** OFF arms are NOT re-run — the isorow-2026-06-28 opus-4.8 off-arm raw streams are saved and the off arm has no SUT dependence (same model/prompts/checkout SHA); they are RESCORED with the B2 judge (rescore-over-rerun rule). ON arms: 4 live cells. Estimated ≤ half the acked 8–20M envelope.
 
 **Endpoint (sole banked number):** per-language Δcitation-precision = precision(on) − precision(off), judged by **codex-xhigh**, identical judge config both arms, run-average. NOT ΔdR, NOT head-to-head; judge-dependent signals beyond citation-precision are reported but not banked.
 
