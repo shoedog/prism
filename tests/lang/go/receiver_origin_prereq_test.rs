@@ -349,7 +349,6 @@ fn receiver_origin_prereq_missing_declaration_profile_is_not_proof() {
 }
 
 #[test]
-#[ignore = "Slice 1 must carry the package variable type owner from its defining file"]
 fn receiver_origin_prereq_slice1_cross_file_package_var_alias_sentinel() {
     let fixture = build_go(&[
         (

@@ -54,7 +54,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // resolved targets change while CPG serialization remains v48.
 // v19: receiver-origin prerequisite screening removes unproven Go receiver
 // edges from the resolved navigation topology (paired with CPG v51).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 19;
+// v20: package-variable receivers carry defining-file owners (paired with CPG v52).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 20;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -380,8 +381,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_pinned_for_go_receiver_origin_prerequisites() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 19);
+    fn sidecar_version_is_pinned_for_go_receiver_owner_carrying() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 20);
     }
 
     #[test]
