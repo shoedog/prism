@@ -656,6 +656,15 @@ pub struct CallGraph {
     /// never incrementally patched.
     #[serde(default)]
     pub go_return_types: crate::go_receiver_index::GoReturnTypes,
+    /// Go files containing at least one dot import. Kept separate from
+    /// `imports` because `.` is evidence that a bare type may be externally
+    /// supplied, not a qualifier that can be resolved by name.
+    #[serde(default)]
+    pub go_dot_import_files: BTreeSet<String>,
+    /// Terminal receiver-prerequisite drops, grouped by stable reason. This is
+    /// rebuilt alongside receiver rematerialization and is diagnostic only.
+    #[serde(default)]
+    pub go_receiver_prereq_drops: BTreeMap<String, usize>,
     /// P11 S2/P10: clause-keyed per-declaration struct snapshots. Field
     /// presence/absence and raw type remain attached to the defining file so
     /// receiver recovery can filter build profiles before requiring one value.
@@ -774,6 +783,8 @@ impl CallGraph {
             framework_entries: BTreeSet::new(),
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
+            go_dot_import_files: BTreeSet::new(),
+            go_receiver_prereq_drops: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
             go_declaration_kind_index: BTreeMap::new(),
             go_promoted_concrete_selectors: BTreeSet::new(),
@@ -1018,6 +1029,8 @@ impl CallGraph {
             framework_entries: BTreeSet::new(),
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
+            go_dot_import_files: BTreeSet::new(),
+            go_receiver_prereq_drops: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
             go_declaration_kind_index: BTreeMap::new(),
             go_promoted_concrete_selectors: BTreeSet::new(),
@@ -1426,6 +1439,8 @@ impl CallGraph {
             framework_entries: BTreeSet::new(),
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
+            go_dot_import_files: BTreeSet::new(),
+            go_receiver_prereq_drops: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
             go_declaration_kind_index: BTreeMap::new(),
             go_promoted_concrete_selectors: BTreeSet::new(),
@@ -3440,6 +3455,8 @@ impl CallGraph {
     fn clear_go_receiver_indices(&mut self) {
         self.go_return_types.clear();
         self.go_package_vars.clear();
+        self.go_dot_import_files.clear();
+        self.go_receiver_prereq_drops.clear();
         self.go_owner_identity_partition = Default::default();
         self.go_owner_identity_partition_sites.clear();
     }
@@ -3491,6 +3508,13 @@ impl CallGraph {
         }
         self.go_return_types = crate::go_receiver_index::extract_go_return_types(files);
         self.go_package_vars = crate::go_receiver_index::extract_go_package_vars(files);
+        self.go_dot_import_files = files
+            .iter()
+            .filter(|(_, parsed)| {
+                parsed.language == crate::languages::Language::Go && parsed.go_has_dot_import()
+            })
+            .map(|(path, _)| path.clone())
+            .collect();
         let owned;
         let provider = match shared {
             Some(p) => p,
@@ -3521,10 +3545,18 @@ impl CallGraph {
                 package_basenames: &self.go_package_basenames,
                 imports: &self.imports,
                 go_file_profiles: &self.go_file_profiles,
+                declaration_kinds: &self.go_declaration_kind_index,
+                dot_import_files: &self.go_dot_import_files,
             };
             self.compute_go_receiver_updates(files, &facts, receiver_config)
         };
-        for (caller, old_site, classification, evidence) in updates {
+        for (caller, old_site, classification, evidence, prereq_drop) in updates {
+            if let Some(reason) = prereq_drop {
+                *self
+                    .go_receiver_prereq_drops
+                    .entry(reason.as_str().to_string())
+                    .or_default() += 1;
+            }
             let mut site_telemetry =
                 crate::go_owner_partition::GoOwnerPartitionTelemetry::default();
             site_telemetry.observe(evidence, 1);
@@ -3615,6 +3647,7 @@ impl CallGraph {
         CallSite,
         crate::resolution::ReceiverClassification,
         crate::go_owner_partition::GoPartitionEvidence,
+        Option<crate::go_receiver_index::GoReceiverPrereqDrop>,
     )> {
         use rayon::prelude::*;
 
@@ -3652,6 +3685,7 @@ impl CallGraph {
         CallSite,
         crate::resolution::ReceiverClassification,
         crate::go_owner_partition::GoPartitionEvidence,
+        Option<crate::go_receiver_index::GoReceiverPrereqDrop>,
     )> {
         let mut out = Vec::new();
         let Some(parsed) = files.get(&caller.file) else {
@@ -3700,14 +3734,22 @@ impl CallGraph {
                 file_imports,
                 caller_file: &caller.file,
             };
-            let (classification, evidence) =
+            let (raw_classification, mut evidence, origin) =
                 crate::go_receiver_index::classify_go_receiver_expanded_with_partition(
                     &ctx, classifier, facts, var_local,
                 );
+            let (classification, screen_evidence, prereq_drop) =
+                crate::go_receiver_index::screen_go_receiver_prerequisites(
+                    &ctx,
+                    raw_classification,
+                    origin,
+                    facts,
+                );
+            evidence.merge(screen_evidence);
             let same_scope_reuse = parsed
                 .go_same_scope_short_var_reuse_calls(&fn_node, qualifier, meta.start_byte)
                 .is_ok_and(|calls| !calls.is_empty());
-            if same_scope_reuse && !classification.proof_shadowed {
+            if prereq_drop.is_none() && same_scope_reuse && !classification.proof_shadowed {
                 let direct = classification.recovered.as_ref().is_some_and(|recovered| {
                     matches!(
                         self.go_concrete_receiver_route(
@@ -3731,7 +3773,13 @@ impl CallGraph {
                     continue;
                 }
             }
-            out.push((caller.clone(), site.clone(), classification, evidence));
+            out.push((
+                caller.clone(),
+                site.clone(),
+                classification,
+                evidence,
+                prereq_drop,
+            ));
         }
         out
     }
@@ -4382,6 +4430,8 @@ impl CallGraph {
             framework_entries: BTreeSet::new(),
             framework_entry_unresolved_handlers: 0,
             go_return_types: BTreeMap::new(),
+            go_dot_import_files: BTreeSet::new(),
+            go_receiver_prereq_drops: BTreeMap::new(),
             go_field_types: BTreeMap::new(),
             go_declaration_kind_index: BTreeMap::new(),
             go_promoted_concrete_selectors: BTreeSet::new(),
@@ -6614,6 +6664,21 @@ mod go_receiver_typing_tests {
         CallGraph::build(&map)
     }
 
+    fn build_go_module(files: &[(&str, &str)], module: &str) -> CallGraph {
+        let mut map = BTreeMap::new();
+        for (path, src) in files {
+            map.insert(path.to_string(), ParsedFile::parse(path, src, Go).unwrap());
+        }
+        let root = tempfile::tempdir().expect("temporary Go module");
+        std::fs::write(
+            root.path().join("go.mod"),
+            format!("module {module}\n\ngo 1.24\n"),
+        )
+        .expect("write go.mod fixture");
+        let inputs = crate::repo_loader::scope_graph_build_inputs(root.path(), &map);
+        CallGraph::build_with_scope_graph_inputs(&map, Some(&inputs))
+    }
+
     fn site_in<'a>(cg: &'a CallGraph, caller: &str, callee: &str) -> &'a CallSite {
         cg.calls
             .iter()
@@ -6763,21 +6828,24 @@ mod go_receiver_typing_tests {
 
     #[test]
     fn s1_import_qualified_call_rhs_resolves_via_package_dir() {
-        let cg = build_go(&[
-            (
-                "factory/factory.go",
-                "package factory\n\
+        let cg = build_go_module(
+            &[
+                (
+                    "factory/factory.go",
+                    "package factory\n\
                  type Widget struct{}\n\
                  func (w *Widget) Use() {}\n\
                  func New() *Widget { return &Widget{} }\n",
-            ),
-            (
-                "main.go",
-                "package main\n\
+                ),
+                (
+                    "main.go",
+                    "package main\n\
                  import \"example.com/repo/factory\"\n\
                  func run() {\n\tw := factory.New()\n\tw.Use()\n}\n",
-            ),
-        ]);
+                ),
+            ],
+            "example.com/repo",
+        );
         let site = site_in(&cg, "run", "Use");
         assert_eq!(site.receiver_type.as_deref(), Some("Widget"));
         assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::ReturnTyped));

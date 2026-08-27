@@ -18,6 +18,30 @@ fn build(
     (CallGraph::build(&files), files)
 }
 
+fn build_go_module(
+    sources: &[(&str, &str)],
+    module: &str,
+) -> (CallGraph, BTreeMap<String, prism::ast::ParsedFile>) {
+    let mut files = BTreeMap::new();
+    for (path, src) in sources {
+        files.insert(
+            path.to_string(),
+            prism::ast::ParsedFile::parse(path, src, prism::languages::Language::Go).unwrap(),
+        );
+    }
+    let root = tempfile::tempdir().expect("temporary Go module");
+    std::fs::write(
+        root.path().join("go.mod"),
+        format!("module {module}\n\ngo 1.24\n"),
+    )
+    .expect("write go.mod fixture");
+    let inputs = prism::repo_loader::scope_graph_build_inputs(root.path(), &files);
+    (
+        CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs)),
+        files,
+    )
+}
+
 fn build_without_scope_graph(
     sources: &[(&str, &str, prism::languages::Language)],
 ) -> (CallGraph, BTreeMap<String, prism::ast::ParsedFile>) {
@@ -427,6 +451,7 @@ fn interface_manifest_existing_fields_match_origin_main_fixture() {
 #[test]
 fn interface_manifest_identity_dedup_keeps_build_tag_twins() {
     use prism::languages::Language::Go;
+    use prism::resolution::ReceiverRecovery;
     let (mut cg, _) = build(&[
         (
             "main.go",
@@ -458,9 +483,22 @@ fn interface_manifest_identity_dedup_keeps_build_tag_twins() {
         .expect("both parsed build-tag method targets")
         .clone();
     assert_eq!(twins.len(), 2, "CallGraph keeps both file-distinct targets");
-    // Use an intentionally unproven receiver key so this remains a serializer
-    // test for the unchanged R3 bare lane. A proven `Runner` receiver now
-    // correctly applies profile visibility and rejects these conflicting twins.
+    // The post-merge prerequisite screen clears this deliberately undeclared
+    // receiver. Reconstruct the pre-Slice-0 legacy site in this serializer-only
+    // graph mutation so the emitter exercises the unchanged R3 bare lane; a
+    // production proven owner correctly applies profile visibility and rejects
+    // these conflicting twins.
+    let mut dispatch_site = site_in(&cg, "dispatch", "Go").clone();
+    assert_eq!(dispatch_site.receiver_type, None);
+    let dispatch_calls = cg
+        .calls
+        .get_mut(&dispatch_site.caller)
+        .expect("dispatch caller calls");
+    assert!(dispatch_calls.remove(&dispatch_site));
+    dispatch_site.receiver_type = Some("ExternalRunner".to_string());
+    dispatch_site.receiver_recovery = Some(ReceiverRecovery::TypeAssertion);
+    dispatch_site.receiver_owner_identity = None;
+    assert!(dispatch_calls.insert(dispatch_site));
     cg.interface_impls
         .insert(("ExternalRunner".to_string(), "Go".to_string()), twins);
     let manifest = prism::navigation::queries::interface_dispatch_manifest(&cg);
@@ -3504,12 +3542,13 @@ fn type_assertion_grammar_pin_normalization() {
     use prism::resolution::ReceiverRecovery;
     let cases = [
         ("x.(Runner).Go()", "Runner"),
-        ("x.(pkg.Runner).Go()", "pkg.Runner"), // owner_key keeps pkg.; iface_key strips at route time
         ("x.(*Fast).Go()", "Fast"),
         ("x.((Runner)).Go()", "Runner"), // parenthesized_type unwrapped
     ];
     for (call, want) in cases {
-        let src = format!("package main\nfunc run(x any) {{ {call} }}\n");
+        let src = format!(
+            "package main\ntype Runner interface {{ Go() }}\ntype Fast struct{{}}\nfunc run(x any) {{ {call} }}\n"
+        );
         let (cg, _) = build(&[("main.go", Box::leak(src.into_boxed_str()), Go)]);
         let site = site_in(&cg, "run", "Go");
         assert_eq!(site.receiver_type.as_deref(), Some(want), "call {call}");
@@ -3519,6 +3558,32 @@ fn type_assertion_grammar_pin_normalization() {
             "call {call}"
         );
     }
+
+    let qualified = "x.(pkg.Runner).Go()";
+    let (cg, _) = build_go_module(
+        &[
+            (
+                "pkg/types.go",
+                "package pkg\ntype Runner interface { Go() }\n",
+            ),
+            (
+                "main.go",
+                "package main\nimport pkg \"example.test/root/pkg\"\nfunc run(x any) { x.(pkg.Runner).Go() }\n",
+            ),
+        ],
+        "example.test/root",
+    );
+    let site = site_in(&cg, "run", "Go");
+    assert_eq!(
+        site.receiver_type.as_deref(),
+        Some("pkg.Runner"),
+        "call {qualified}"
+    );
+    assert_eq!(
+        site.receiver_recovery,
+        Some(ReceiverRecovery::TypeAssertion),
+        "call {qualified}"
+    );
 }
 
 // ---------------------------------------------------------------------------

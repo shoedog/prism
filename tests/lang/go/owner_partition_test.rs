@@ -279,7 +279,7 @@ fn s2_qualified_owner_from_external_test_uses_ordinary_clause_in_both_orders() {
                 "package foo_test\nimport foo \"example/foo\"\nfunc use(t foo.T) { t.f.Dial() }\n",
             ),
         ]);
-        let cg = CallGraph::build(&files);
+        let cg = super::test_support::build_parsed_go_with_module(&files, "example");
         let outcome = dial_outcome(&cg);
 
         assert_eq!(outcome.resolved.len(), 1, "order case {prod_path}");
@@ -363,22 +363,16 @@ fn act_outcome(cg: &CallGraph) -> prism::resolution::ResolutionOutcome<'_> {
     cg.resolve_call_site_full(site)
 }
 
-fn manifest_act_implementers(cg: &CallGraph) -> BTreeSet<String> {
+fn manifest_has_act_site(cg: &CallGraph) -> bool {
     prism::navigation::queries::interface_dispatch_manifest(cg)["sites"]
         .as_array()
         .expect("manifest sites")
         .iter()
-        .find(|site| site["method"] == "Act")
-        .expect("Act manifest site")["implementers"]
-        .as_array()
-        .expect("implementers")
-        .iter()
-        .map(|value| value.as_str().expect("implementer string").to_string())
-        .collect()
+        .any(|site| site["method"] == "Act")
 }
 
 #[test]
-fn s4_resolver_and_manifest_share_recovered_and_blocked_partition_decisions() {
+fn s4_duplicate_declarations_stop_before_resolver_and_manifest_routing() {
     let linux = build_s4_struct_partition_fixture("pkg/use_linux.go", "//go:build linux\n\n");
     let linux_outcome = act_outcome(&linux);
     let linux_resolved: BTreeSet<String> = linux_outcome
@@ -386,13 +380,23 @@ fn s4_resolver_and_manifest_share_recovered_and_blocked_partition_decisions() {
         .iter()
         .filter_map(|callee| linux.method_owners.get(callee.target).cloned())
         .collect();
-    assert_eq!(linux_resolved, BTreeSet::from(["Impl".to_string()]));
-    assert_eq!(manifest_act_implementers(&linux), linux_resolved);
+    assert!(linux_resolved.is_empty());
+    assert!(!manifest_has_act_site(&linux));
+    assert_eq!(
+        prism::navigation::queries::call_stats(&linux)["go_receiver_prereq_drops"]
+            ["declaration_unproven"],
+        1
+    );
 
     let unconstrained = build_s4_struct_partition_fixture("pkg/use.go", "");
     let unconstrained_outcome = act_outcome(&unconstrained);
     assert!(unconstrained_outcome.resolved.is_empty());
-    assert_eq!(manifest_act_implementers(&unconstrained), BTreeSet::new());
+    assert!(!manifest_has_act_site(&unconstrained));
+    assert_eq!(
+        prism::navigation::queries::call_stats(&unconstrained)["go_receiver_prereq_drops"]
+            ["declaration_unproven"],
+        1
+    );
 }
 
 fn build_p5_partition_fixture(caller_path: &str, caller_header: &str) -> CallGraph {
@@ -430,21 +434,30 @@ fn run_targets_in(cg: &CallGraph, caller_name: &str) -> BTreeSet<String> {
 }
 
 #[test]
-fn p5_registration_targets_follow_the_invocation_partition() {
+fn p5_duplicate_declarations_stop_at_prerequisite_membrane() {
     let linux = build_p5_partition_fixture("pkg/use_linux.go", "//go:build linux\n\n");
+    assert!(run_targets(&linux).is_empty());
     assert_eq!(
-        run_targets(&linux),
-        BTreeSet::from(["linuxHandler".to_string()])
+        prism::navigation::queries::call_stats(&linux)["go_receiver_prereq_drops"]
+            ["declaration_unproven"],
+        1
     );
 
     let windows = build_p5_partition_fixture("pkg/use_windows.go", "//go:build windows\n\n");
+    assert!(run_targets(&windows).is_empty());
     assert_eq!(
-        run_targets(&windows),
-        BTreeSet::from(["windowsHandler".to_string()])
+        prism::navigation::queries::call_stats(&windows)["go_receiver_prereq_drops"]
+            ["declaration_unproven"],
+        1
     );
 
     let unconstrained = build_p5_partition_fixture("pkg/use.go", "");
     assert!(run_targets(&unconstrained).is_empty());
+    assert_eq!(
+        prism::navigation::queries::call_stats(&unconstrained)["go_receiver_prereq_drops"]
+            ["declaration_unproven"],
+        1
+    );
 }
 
 #[test]
@@ -519,7 +532,7 @@ fn p5_clause_partition_is_order_independent_and_qualified_access_targets_ordinar
                 "package foo_test\nimport foo \"example/foo\"\ntype Command struct { Run int }\nfunc testHandler() {}\nfunc setupTest() { _ = Command{Run: testHandler} }\nfunc invokeBare(c Command) { c.Run() }\nfunc invokeQualified(c foo.Command) { c.Run() }\n",
             ),
         ]);
-        let cg = CallGraph::build(&files);
+        let cg = super::test_support::build_parsed_go_with_module(&files, "example");
 
         assert_eq!(
             run_targets_in(&cg, "invokeProd"),

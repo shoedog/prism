@@ -19,7 +19,7 @@ fn parse_go(sources: &[(&str, &str)]) -> BTreeMap<String, ParsedFile> {
 }
 
 fn build_go(sources: &[(&str, &str)]) -> CallGraph {
-    CallGraph::build(&parse_go(sources))
+    super::test_support::build_go(sources)
 }
 
 fn build_field_partition(caller_path: &str, caller_header: &str) -> CallGraph {
@@ -110,7 +110,7 @@ fn s2_and_direct_partition_decisions_count_one_affected_call_site() {
 }
 
 #[test]
-fn direct_method_conflicting_visible_build_survivors_report_drop() {
+fn direct_method_conflicting_declarations_stop_at_prerequisite_membrane() {
     let cg = build_go(&[
         (
             "pkg/a.go",
@@ -130,7 +130,8 @@ fn direct_method_conflicting_visible_build_survivors_report_drop() {
     assert!(act_owners(&cg).is_empty());
     assert_eq!(stats["go_owner_identity_partition_recovered"], 0);
     assert_eq!(stats["go_owner_identity_partition_drop"], 1);
-    assert_eq!(stats["go_owner_identity_partition_affected_edges"], 2);
+    assert_eq!(stats["go_owner_identity_partition_affected_edges"], 1);
+    assert_eq!(stats["go_receiver_prereq_drops"]["declaration_unproven"], 1);
 }
 
 #[test]
@@ -173,17 +174,25 @@ fn build_callback_partition(caller_path: &str, caller_header: &str) -> CallGraph
 }
 
 #[test]
-fn p5_runtime_partition_telemetry_reports_both_poles() {
+fn p5_duplicate_declarations_stop_before_runtime_partition_recovery() {
     let recovered = call_stats(&build_callback_partition(
         "pkg/use_linux.go",
         "//go:build linux\n\n",
     ));
-    assert_eq!(recovered["go_owner_identity_partition_recovered"], 1);
-    assert_eq!(recovered["go_owner_identity_partition_drop"], 0);
+    assert_eq!(recovered["go_owner_identity_partition_recovered"], 0);
+    assert_eq!(recovered["go_owner_identity_partition_drop"], 1);
+    assert_eq!(
+        recovered["go_receiver_prereq_drops"]["declaration_unproven"],
+        1
+    );
 
     let dropped = call_stats(&build_callback_partition("pkg/use.go", ""));
     assert_eq!(dropped["go_owner_identity_partition_recovered"], 0);
     assert_eq!(dropped["go_owner_identity_partition_drop"], 1);
+    assert_eq!(
+        dropped["go_receiver_prereq_drops"]["declaration_unproven"],
+        1
+    );
 }
 
 fn build_s4_partition(caller_path: &str, caller_header: &str) -> CallGraph {
@@ -206,17 +215,25 @@ fn build_s4_partition(caller_path: &str, caller_header: &str) -> CallGraph {
 }
 
 #[test]
-fn s4_runtime_partition_telemetry_reports_both_poles() {
+fn s4_duplicate_declarations_stop_before_runtime_partition_recovery() {
     let recovered = call_stats(&build_s4_partition(
         "pkg/use_linux.go",
         "//go:build linux\n\n",
     ));
-    assert_eq!(recovered["go_owner_identity_partition_recovered"], 1);
-    assert_eq!(recovered["go_owner_identity_partition_drop"], 0);
+    assert_eq!(recovered["go_owner_identity_partition_recovered"], 0);
+    assert_eq!(recovered["go_owner_identity_partition_drop"], 1);
+    assert_eq!(
+        recovered["go_receiver_prereq_drops"]["declaration_unproven"],
+        1
+    );
 
     let dropped = call_stats(&build_s4_partition("pkg/use.go", ""));
     assert_eq!(dropped["go_owner_identity_partition_recovered"], 0);
     assert_eq!(dropped["go_owner_identity_partition_drop"], 1);
+    assert_eq!(
+        dropped["go_receiver_prereq_drops"]["declaration_unproven"],
+        1
+    );
 }
 
 #[test]
@@ -494,15 +511,27 @@ fn act_owners(cg: &CallGraph) -> BTreeSet<String> {
 }
 
 #[test]
-fn s4_own_method_presence_is_partitioned_before_direct_owner_lookup() {
+fn s4_own_method_duplicate_declarations_stop_at_prerequisite_membrane() {
     let linux = build_s4_own_method_partition("pkg/use_linux.go", "//go:build linux\n\n");
-    assert_eq!(act_owners(&linux), BTreeSet::from(["Impl".to_string()]));
+    assert!(act_owners(&linux).is_empty());
+    assert_eq!(
+        call_stats(&linux)["go_receiver_prereq_drops"]["declaration_unproven"],
+        1
+    );
 
     let windows = build_s4_own_method_partition("pkg/use_windows.go", "//go:build windows\n\n");
-    assert_eq!(act_owners(&windows), BTreeSet::from(["Holder".to_string()]));
+    assert!(act_owners(&windows).is_empty());
+    assert_eq!(
+        call_stats(&windows)["go_receiver_prereq_drops"]["declaration_unproven"],
+        1
+    );
 
     let unconstrained = build_s4_own_method_partition("pkg/use.go", "");
     assert!(act_owners(&unconstrained).is_empty());
+    assert_eq!(
+        call_stats(&unconstrained)["go_receiver_prereq_drops"]["declaration_unproven"],
+        1
+    );
 }
 
 #[test]

@@ -322,6 +322,47 @@ pub fn resolve_go_owner_identity(
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
     go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
 ) -> Option<GoOwnerIdentity> {
+    resolve_go_owner_identity_with_mode(
+        type_text,
+        file,
+        imports,
+        package_basenames,
+        go_file_profiles,
+        GoOwnerResolutionMode::Legacy,
+    )
+}
+
+#[derive(Clone, Copy)]
+enum GoOwnerResolutionMode {
+    Legacy,
+    ReceiverExact,
+}
+
+pub(crate) fn resolve_go_receiver_owner_identity(
+    type_text: &str,
+    file: &str,
+    imports: &BTreeMap<String, BTreeMap<String, String>>,
+    package_basenames: &BTreeMap<String, BTreeSet<String>>,
+    go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+) -> Option<GoOwnerIdentity> {
+    resolve_go_owner_identity_with_mode(
+        type_text,
+        file,
+        imports,
+        package_basenames,
+        go_file_profiles,
+        GoOwnerResolutionMode::ReceiverExact,
+    )
+}
+
+fn resolve_go_owner_identity_with_mode(
+    type_text: &str,
+    file: &str,
+    imports: &BTreeMap<String, BTreeMap<String, String>>,
+    package_basenames: &BTreeMap<String, BTreeSet<String>>,
+    go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    mode: GoOwnerResolutionMode,
+) -> Option<GoOwnerIdentity> {
     let t = type_text
         .trim()
         .trim_start_matches('&')
@@ -347,11 +388,16 @@ pub fn resolve_go_owner_identity(
                 return None;
             }
             let import_path = imports.get(file)?.get(pkg)?;
-            let seg = import_path.rsplit('/').next().unwrap_or(import_path);
             let exact_key = go_import_path_dir_key(import_path);
-            let dirs = package_basenames
-                .get(&exact_key)
-                .or_else(|| package_basenames.get(seg))?;
+            let dirs = match mode {
+                GoOwnerResolutionMode::ReceiverExact => package_basenames.get(&exact_key)?,
+                GoOwnerResolutionMode::Legacy => {
+                    let seg = import_path.rsplit('/').next().unwrap_or(import_path);
+                    package_basenames
+                        .get(&exact_key)
+                        .or_else(|| package_basenames.get(seg))?
+                }
+            };
             if dirs.len() != 1 {
                 return None; // ambiguous package directory -> fail closed
             }
@@ -1296,7 +1342,7 @@ impl CallGraph {
                 });
             return namespace_exists.then(|| owner.clone());
         }
-        resolve_go_owner_identity(
+        resolve_go_receiver_owner_identity(
             recv_ty,
             caller_file,
             &self.imports,

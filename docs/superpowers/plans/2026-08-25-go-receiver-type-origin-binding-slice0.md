@@ -2,9 +2,9 @@
 
 > **For agentic workers:** implement this plan task-by-task with red-first tests. Do not combine Slice 0 with owner-carrying Slices 1–2 or the blanket no-owner terminal predicate in Slice 3.
 
-**Status:** plan v4, review `APPROVE`. **Base:** `main` / merged design v3 at `4e60dfc52acd6d370b59feeca30f45d788dab02e`. **Branch:** `a-receiver-provenance-slice0-plan`.
+**Status:** plan v5, review `APPROVE`; Task-1 compiled-reality correction folded. **Base:** `main` / merged design v3 at `4e60dfc52acd6d370b59feeca30f45d788dab02e`. **Branch:** `a-receiver-provenance-slice0-plan`.
 
-**Goal:** Install the four prerequisites required before receiver owners may be populated: exact-import receiver-owner resolution, declaration-backed owner admission, Go type-parameter and dot-import evidence, and terminal local-type-declaration poisoning. The slice must eliminate the constructible wrong edges in §2 while preserving ordinary declared local receivers and all existing value-rebinding behavior.
+**Goal:** Install the four prerequisites required before receiver owners may be populated: exact-import receiver-owner resolution, declaration-backed owner admission, Go type-parameter and dot-import evidence, and terminal local-type-declaration poisoning. The slice must eliminate the constructible wrong outputs in §2 while preserving ordinary declared local receivers and all existing value-rebinding behavior.
 
 **Design-of-record:** `docs/superpowers/specs/2026-08-24-go-receiver-type-origin-binding-design.md`, Slice 0 and gates.
 
@@ -17,6 +17,8 @@
 **Round-2 correction record:** one closed-enumerable `WRONG` was folded: an emitted prerequisite drop is now pushed unconditionally and cannot be swallowed by the pre-existing same-scope-reuse “skip update” exception.
 
 **Confirmation record:** no new behavioral `WRONG`. The remaining instance of round 1's closed `SMELL` was enumerated and removed: Tasks 1–4 are one RED-to-GREEN custody unit, so neither failing tests nor new cache-relevant fields/topology are committed at an intermediate checkpoint.
+
+**Task-1 compiled-reality correction:** the local-type fixture refuted the planned wrong-target claim: base already returns zero resolver targets but retains `receiver_type` and admits the exact call site to the manifest. The row and RED contract now name that observed incorrect public artifact; no mechanism or production scope changed.
 
 ---
 
@@ -59,7 +61,7 @@ Each negative names a constructible wrong result on the base tree. Every row mus
 | Dot-imported bare name | `import . "outside.example/api"; func F(v I){ v.M() }` plus an unrelated source `I` interface elsewhere can fall through by bare name. | The file's dot-import marker plus absent local/package declaration makes the recovered type inadmissible and terminal. |
 | Go function type parameter | `func F[T any](v T){ v.M() }` plus a package-level source type `T` can bind `T` to the package declaration and mint its method. | The lexical type-parameter binder wins; terminal drop. |
 | Generic method receiver parameter | `type Store[T any] struct{}; func (s *Store[T]) F(v T){ v.M() }` plus a package-level decoy `T` can be rebound. | The receiver-spec binder is recognized; terminal drop. |
-| Local type declaration | A package-level `Iterator` plus `func F(v Iterator){ type Iterator interface{ Next() bool }; v.Next() }` can enter R3 after the current combined shadow flag and mint package implementers. | Local type-declaration evidence is terminal before owner/R3 routing. |
+| Local type declaration | A package-level `Iterator` plus `func F(v Iterator){ type Iterator interface{ Next() bool }; v.Next() }` already returns zero resolver targets, but retains `receiver_type = Some("Iterator")` and admits the exact call site to the interface manifest rather than applying the terminal prerequisite membrane. | Local type-declaration evidence clears recovery before owner/R3 routing; the exact site is absent from the manifest and sidecar. |
 
 Required positive/edge controls:
 
@@ -222,7 +224,7 @@ The CPG bump to 51 covers the new serialized whole-program facts/counters and ch
 
 - [ ] Add one build helper that accepts `.go` sources plus `go.mod`/`go.work` inputs through the real `repo_loader` path. Strict-import tests without an authority file are invalid probes.
 - [ ] Add the seven negative cases and six controls from §2. Assert all three public observables: `resolve_call_site_full`, `interface_dispatch_manifest`, and navigation `callees`/sidecar output.
-- [ ] For each negative, assert the pre-change wrong target by exact file/owner, not merely non-empty fanout.
+- [ ] For six target-mint negatives, assert the pre-change wrong target by exact file/owner, not merely non-empty fanout. For the local-type negative, assert the exact retained `CallSite` identity and manifest admission observed in compiled reality.
 - [ ] Add the ignored Slice 1 cross-file alias sentinel, labeled with the exact future condition required to unignore it.
 - [ ] Extend the four-path cache test fixture with one prerequisite drop and one positive retained edge.
 
@@ -233,7 +235,7 @@ cargo test --test lang_go receiver_origin_prereq -- --nocapture
 cargo test --test navigation concrete_receiver_outputs_match_no_cache_cold_create_exact_cpg_and_sidecar_hits -- --nocapture
 ```
 
-Expected RED: each new negative resolves to the named unrelated target or otherwise appears in the manifest/sidecar; positive controls remain green. A test that selects zero sites or fails fixture parsing is inadmissible and must be repaired before proceeding.
+Expected RED: six target-mint negatives resolve to the named unrelated target; the local-type negative retains the named site in the manifest; the missing-profile edge control also mints its named target; positive controls remain green. A test that selects zero sites or fails fixture parsing is inadmissible and must be repaired before proceeding.
 
 **Task boundary:** capture the RED output in the handoff, then keep the tests uncommitted through Tasks 2–4. Tests, production correction, cache fences, and final evidence form one slice commit so no committed branch point is intentionally red. Do not weaken assertions to make the base green.
 

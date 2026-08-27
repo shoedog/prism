@@ -479,6 +479,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
             .go_promoted_selector_snapshot()
             .promoted_methods(),
         "dropped_go_receiver": dropped_go_receiver,
+        "go_receiver_prereq_drops": cg.go_receiver_prereq_drops,
         "callback_registrations_recorded": cg.go_registrations.len(),
         "callback_registration_shadowed_skips": cg.go_registration_shadowed_skips,
         "callback_registration_ambiguous_owner_skips": cg.go_registration_ambiguous_owner_skips,

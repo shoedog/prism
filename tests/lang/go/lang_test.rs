@@ -63,8 +63,8 @@ fn test_resonance_slice_go() {
 }
 
 #[test]
-fn test_go_typed_receiver_recovery_still_drops_miss_as_external() {
-    use prism::resolution::{DropReason, ReceiverRecovery};
+fn test_go_typed_receiver_recovery_without_declaration_stops_at_prerequisite_membrane() {
+    use prism::resolution::DropReason;
     let src = "package p\n\ntype AccessPath struct{}\nfunc (a *AccessPath) Truncate() {}\nfunc run() {\n    items := NewVec()\n    items.Truncate()\n}\n";
     let mut files = BTreeMap::new();
     files.insert(
@@ -78,14 +78,17 @@ fn test_go_typed_receiver_recovery_still_drops_miss_as_external() {
         .find(|(fid, _)| fid.name == "run")
         .and_then(|(_, sites)| sites.iter().find(|s| s.callee_name == "Truncate"))
         .expect("run->Truncate");
-    assert_eq!(site.receiver_type.as_deref(), Some("Vec"));
-    assert_eq!(
-        site.receiver_recovery,
-        Some(ReceiverRecovery::ConstructorLocal)
-    );
+    assert_eq!(site.receiver_type, None, "{site:?}");
+    assert_eq!(site.receiver_recovery, None, "{site:?}");
+    assert!(site.receiver_materialized, "{site:?}");
     assert_eq!(
         cg.resolve_call_site_full(site).drop,
         Some(DropReason::ExternalReceiver)
+    );
+    assert_eq!(
+        prism::navigation::queries::call_stats(&cg)["go_receiver_prereq_drops"]
+            ["declaration_unproven"],
+        1
     );
 }
 

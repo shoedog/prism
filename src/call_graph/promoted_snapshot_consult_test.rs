@@ -41,12 +41,12 @@ fn build_go_module(sources: &[(&str, &str)]) -> CallGraph {
 }
 
 fn deferred_fixture(source: &str) -> CallGraph {
-    build_go(&[
+    build_go_module(&[
         ("q/types.go", source),
         ("p/marker.go", "package p\ntype Marker interface{ M() }\n"),
         (
             "app/use.go",
-            "package app\nimport q \"example/q\"\nfunc run(s q.S) { s.M() }\n",
+            "package app\nimport q \"example.test/root/q\"\nfunc run(s q.S) { s.M() }\n",
         ),
     ])
 }

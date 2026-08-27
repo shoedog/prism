@@ -150,7 +150,9 @@ use std::path::{Path, PathBuf};
 /// - v48: alias-aware Go signature identity plus the serialized promoted-selector snapshot.
 /// - v49: promoted-selector snapshots shadow methods at equal field depth.
 /// - v50: return-flow synthetic nodes/edges plus construction telemetry.
-const CACHE_VERSION: u32 = 50;
+/// - v51: Go receiver-origin prerequisites add serialized dot-import evidence
+///   and drop counters and change receiver materialization/resolved topology.
+const CACHE_VERSION: u32 = 51;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -679,8 +681,8 @@ mod tests {
     }
 
     #[test]
-    fn cache_versions_are_pinned_for_return_flow_taint() {
-        assert_eq!(super::CACHE_VERSION, 50);
+    fn cache_versions_are_pinned_for_go_receiver_origin_prerequisites() {
+        assert_eq!(super::CACHE_VERSION, 51);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

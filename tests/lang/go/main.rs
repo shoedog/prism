@@ -22,4 +22,6 @@ mod owner_partition_fix_wave_test;
 mod owner_partition_telemetry_test;
 mod owner_partition_test;
 mod promoted_snapshot_test;
+mod receiver_origin_prereq_test;
 mod span_test;
+mod test_support;

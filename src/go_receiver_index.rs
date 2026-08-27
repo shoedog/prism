@@ -31,7 +31,7 @@ use crate::ast::ParsedFile;
 use crate::go_receiver_index_visibility::{resolve_go_return_type_call, unique_visible_type};
 use crate::languages::Language;
 use crate::resolution::{
-    dir_of, owner_key, peel_type, resolve_go_owner_identity, GoOwnerIdentity,
+    dir_of, owner_key, peel_type, resolve_go_receiver_owner_identity, GoOwnerIdentity,
     ReceiverClassification, ReceiverClassifier, ReceiverCtx, ReceiverRecovery, RecoveredReceiver,
 };
 use crate::type_providers::go::GoTypeProvider;
@@ -269,6 +269,185 @@ pub struct GoReceiverFacts<'a> {
     pub package_basenames: &'a BTreeMap<String, std::collections::BTreeSet<String>>,
     pub imports: &'a BTreeMap<String, BTreeMap<String, String>>,
     pub go_file_profiles: &'a BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    pub declaration_kinds: &'a crate::go_concrete_receiver::GoDeclarationKindIndex,
+    pub dot_import_files: &'a BTreeSet<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GoReceiverPrereqOrigin {
+    CallerFile,
+    CarriedOwner,
+    CrossFileUncarried,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum GoReceiverPrereqDrop {
+    StrictImportUnresolved,
+    DeclarationUnproven,
+    DotImportBareUnproven,
+    TypeParameter,
+    LocalTypeDeclaration,
+}
+
+impl GoReceiverPrereqDrop {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::StrictImportUnresolved => "strict_import_unresolved",
+            Self::DeclarationUnproven => "declaration_unproven",
+            Self::DotImportBareUnproven => "dot_import_bare_unproven",
+            Self::TypeParameter => "type_parameter",
+            Self::LocalTypeDeclaration => "local_type_declaration",
+        }
+    }
+}
+
+fn drop_receiver_prerequisite(
+    mut classification: ReceiverClassification,
+    reason: GoReceiverPrereqDrop,
+) -> (
+    ReceiverClassification,
+    crate::go_owner_partition::GoPartitionEvidence,
+    Option<GoReceiverPrereqDrop>,
+) {
+    classification.recovered = None;
+    classification.materialized = true;
+    (classification, Default::default(), Some(reason))
+}
+
+fn declaration_is_admissible(
+    owner: &GoOwnerIdentity,
+    caller_file: &str,
+    mode: crate::go_owner_partition::GoOwnerReferenceMode,
+    facts: &GoReceiverFacts<'_>,
+) -> (bool, crate::go_owner_partition::GoPartitionEvidence) {
+    let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
+    let Some(entry) = facts.declaration_kinds.get(owner) else {
+        return (false, evidence);
+    };
+    if matches!(
+        &entry.kind,
+        crate::go_concrete_receiver::GoDeclarationKind::AliasCyclicOrUnresolved
+            | crate::go_concrete_receiver::GoDeclarationKind::AmbiguousProfileConflict
+    ) {
+        evidence.conflict = matches!(
+            &entry.kind,
+            crate::go_concrete_receiver::GoDeclarationKind::AmbiguousProfileConflict
+        );
+        evidence.uncertain = true;
+        return (false, evidence);
+    }
+    let Some(declaring_file) = entry.declaring_file.as_deref() else {
+        evidence.uncertain = true;
+        return (false, evidence);
+    };
+    let (visible, exact) = crate::go_owner_partition::exact_declaration_visibility(
+        owner,
+        caller_file,
+        mode,
+        declaring_file,
+        facts.go_file_profiles,
+    );
+    if visible {
+        evidence.visible_declarations = 1;
+    } else {
+        evidence.filtered_declarations = 1;
+    }
+    evidence.uncertain = visible && !exact;
+    (visible && exact, evidence)
+}
+
+pub(crate) fn screen_go_receiver_prerequisites(
+    ctx: &GoReceiverCtx<'_>,
+    classification: ReceiverClassification,
+    origin: GoReceiverPrereqOrigin,
+    facts: &GoReceiverFacts<'_>,
+) -> (
+    ReceiverClassification,
+    crate::go_owner_partition::GoPartitionEvidence,
+    Option<GoReceiverPrereqDrop>,
+) {
+    let Some(recovered) = classification.recovered.as_ref() else {
+        return (classification, Default::default(), None);
+    };
+    if origin == GoReceiverPrereqOrigin::CrossFileUncarried {
+        return (classification, Default::default(), None);
+    }
+
+    if origin == GoReceiverPrereqOrigin::CarriedOwner {
+        let Some(owner) = recovered.owner_identity.as_ref() else {
+            return drop_receiver_prerequisite(
+                classification,
+                GoReceiverPrereqDrop::DeclarationUnproven,
+            );
+        };
+        let same_namespace = facts
+            .go_file_profiles
+            .get(ctx.caller_file)
+            .is_some_and(|profile| {
+                dir_of(ctx.caller_file) == owner.package_dir
+                    && profile.package_clause == owner.package_clause
+            });
+        let mode = if same_namespace {
+            crate::go_owner_partition::GoOwnerReferenceMode::Bare
+        } else {
+            crate::go_owner_partition::GoOwnerReferenceMode::Qualified
+        };
+        let (admissible, evidence) = declaration_is_admissible(owner, ctx.caller_file, mode, facts);
+        if admissible {
+            return (classification, evidence, None);
+        }
+        let (classification, _, reason) =
+            drop_receiver_prerequisite(classification, GoReceiverPrereqDrop::DeclarationUnproven);
+        return (classification, evidence, reason);
+    }
+
+    let static_type = recovered.static_type.clone();
+    if ctx
+        .parsed
+        .go_type_parameter_binds_receiver(&ctx.fn_node, &static_type)
+    {
+        return drop_receiver_prerequisite(classification, GoReceiverPrereqDrop::TypeParameter);
+    }
+    if ctx
+        .parsed
+        .go_local_type_shadows(&ctx.fn_node, &static_type, ctx.call_start_byte)
+    {
+        return drop_receiver_prerequisite(
+            classification,
+            GoReceiverPrereqDrop::LocalTypeDeclaration,
+        );
+    }
+
+    let mode = crate::go_owner_partition::GoOwnerReferenceMode::from_type_text(&static_type);
+    let bare_dot_import = mode == crate::go_owner_partition::GoOwnerReferenceMode::Bare
+        && facts.dot_import_files.contains(ctx.caller_file);
+    let Some(owner) = resolve_go_receiver_owner_identity(
+        &static_type,
+        ctx.caller_file,
+        facts.imports,
+        facts.package_basenames,
+        facts.go_file_profiles,
+    ) else {
+        let reason = if bare_dot_import {
+            GoReceiverPrereqDrop::DotImportBareUnproven
+        } else if mode == crate::go_owner_partition::GoOwnerReferenceMode::Qualified {
+            GoReceiverPrereqDrop::StrictImportUnresolved
+        } else {
+            GoReceiverPrereqDrop::DeclarationUnproven
+        };
+        return drop_receiver_prerequisite(classification, reason);
+    };
+    let (admissible, evidence) = declaration_is_admissible(&owner, ctx.caller_file, mode, facts);
+    if admissible {
+        return (classification, evidence, None);
+    }
+    let reason = if bare_dot_import {
+        GoReceiverPrereqDrop::DotImportBareUnproven
+    } else {
+        GoReceiverPrereqDrop::DeclarationUnproven
+    };
+    let (classification, _, reason) = drop_receiver_prerequisite(classification, reason);
+    (classification, evidence, reason)
 }
 
 /// Per-call-site inputs for the post-merge Go classification. Mirrors
@@ -324,6 +503,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
 ) -> (
     ReceiverClassification,
     crate::go_owner_partition::GoPartitionEvidence,
+    GoReceiverPrereqOrigin,
 ) {
     let rctx = ReceiverCtx {
         receiver_expr: Some(ctx.receiver_expr),
@@ -349,13 +529,17 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
     };
     if candidate.recovered.is_some() {
         if candidate.proof_shadowed || !same_scope_reuse {
-            return (candidate, Default::default());
+            return (
+                candidate,
+                Default::default(),
+                GoReceiverPrereqOrigin::CallerFile,
+            );
         }
 
         let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
         let recovered = candidate.recovered.as_ref().expect("checked above");
         let original_owner = recovered.owner_identity.clone().or_else(|| {
-            resolve_go_owner_identity(
+            resolve_go_receiver_owner_identity(
                 &recovered.static_type,
                 ctx.caller_file,
                 facts.imports,
@@ -379,9 +563,9 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
             _ => false,
         };
         if unchanged {
-            return (candidate, evidence);
+            return (candidate, evidence, GoReceiverPrereqOrigin::CallerFile);
         }
-        return (baseline, evidence);
+        return (baseline, evidence, GoReceiverPrereqOrigin::CallerFile);
     }
 
     if ctx.qualifier.contains('.') {
@@ -395,6 +579,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                     proof_shadowed: false,
                 },
                 evidence,
+                GoReceiverPrereqOrigin::CarriedOwner,
             );
         }
         if materialized {
@@ -405,9 +590,10 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                     proof_shadowed: false,
                 },
                 evidence,
+                GoReceiverPrereqOrigin::CallerFile,
             );
         }
-        return (baseline, evidence);
+        return (baseline, evidence, GoReceiverPrereqOrigin::CallerFile);
     }
 
     // Same suppression gate `classify_simple_ident` applies (resolution.rs):
@@ -423,7 +609,11 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
         .map(|m| m.contains_key(ctx.qualifier))
         .unwrap_or(false);
     if !is_simple_ident_text(ctx.qualifier) || is_kw || is_recv || is_import {
-        return (baseline, Default::default());
+        return (
+            baseline,
+            Default::default(),
+            GoReceiverPrereqOrigin::CallerFile,
+        );
     }
 
     // `var_local` (not hardcoded `true`): must match the SAME flag
@@ -450,7 +640,11 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
         )
     };
     if bindings > 1 {
-        return (baseline, Default::default()); // ambiguous/shadowed — unchanged.
+        return (
+            baseline,
+            Default::default(),
+            GoReceiverPrereqOrigin::CallerFile,
+        ); // ambiguous/shadowed — unchanged.
     }
     if let Some((ty, how)) = found {
         let static_type = owner_key(&peel_type(&ty));
@@ -466,6 +660,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                 proof_shadowed: false,
             },
             Default::default(),
+            GoReceiverPrereqOrigin::CallerFile,
         );
     }
     if bindings == 0 {
@@ -494,10 +689,15 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                         proof_shadowed: false,
                     },
                     Default::default(),
+                    GoReceiverPrereqOrigin::CrossFileUncarried,
                 );
             }
         }
-        return (baseline, Default::default());
+        return (
+            baseline,
+            Default::default(),
+            GoReceiverPrereqOrigin::CallerFile,
+        );
     }
     // bindings == 1 && found.is_none(): exactly one qualifying local
     // statement bound this name but its type wasn't recoverable via the
@@ -530,6 +730,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                     proof_shadowed: false,
                 },
                 selection.evidence,
+                GoReceiverPrereqOrigin::CarriedOwner,
             );
         }
         if selection.evidence.conflict || selection.evidence.uncertain {
@@ -540,11 +741,20 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                     proof_shadowed: false,
                 },
                 selection.evidence,
+                GoReceiverPrereqOrigin::CallerFile,
             );
         }
-        return (baseline, selection.evidence);
+        return (
+            baseline,
+            selection.evidence,
+            GoReceiverPrereqOrigin::CallerFile,
+        );
     }
-    (baseline, Default::default())
+    (
+        baseline,
+        Default::default(),
+        GoReceiverPrereqOrigin::CallerFile,
+    )
 }
 
 /// S2: base + up to 2 field hops, AST-shaped, any miss (unresolved base,
@@ -585,18 +795,23 @@ fn classify_nested_selector(
     };
     // Recurse through the SAME simple-ident + S1/S3 machinery for the base —
     // terminates in one level since `base_text` is never dotted.
-    let (base_classification, base_evidence) =
+    let (base_classification, base_evidence, base_origin) =
         classify_go_receiver_expanded_with_partition(&base_ctx, base_classifier, facts, var_local);
     evidence.merge(base_evidence);
     let base_materialized = base_classification.materialized;
     let Some(base_recovered) = base_classification.recovered else {
         return (None, evidence, base_materialized);
     };
+    if base_origin == GoReceiverPrereqOrigin::CrossFileUncarried
+        && base_recovered.owner_identity.is_none()
+    {
+        return (None, evidence, true);
+    }
 
     let mut current_owner = match base_recovered.owner_identity {
         Some(owner) => owner,
         None => {
-            let Some(owner) = resolve_go_owner_identity(
+            let Some(owner) = resolve_go_receiver_owner_identity(
                 &base_recovered.static_type,
                 ctx.caller_file,
                 facts.imports,

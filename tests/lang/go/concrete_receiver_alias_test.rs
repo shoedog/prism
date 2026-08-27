@@ -1,20 +1,9 @@
-use prism::ast::ParsedFile;
 use prism::call_graph::{CallGraph, CallSite};
-use prism::languages::Language;
 use prism::resolution::{DropReason, ResolutionConfidence, ResolutionKind};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 fn build_go(sources: &[(&str, &str)]) -> CallGraph {
-    let files: BTreeMap<String, ParsedFile> = sources
-        .iter()
-        .map(|(path, source)| {
-            (
-                (*path).to_string(),
-                ParsedFile::parse(path, source, Language::Go).expect("parse Go fixture"),
-            )
-        })
-        .collect();
-    CallGraph::build(&files)
+    super::test_support::build_go(sources)
 }
 
 fn site<'a>(cg: &'a CallGraph, caller: &str, method: &str) -> &'a CallSite {
@@ -23,6 +12,20 @@ fn site<'a>(cg: &'a CallGraph, caller: &str, method: &str) -> &'a CallSite {
         .flatten()
         .find(|site| site.caller.name == caller && site.callee_name == method)
         .unwrap_or_else(|| panic!("missing {caller}->{method} call site"))
+}
+
+fn assert_terminal_prerequisite_drop(cg: &CallGraph, caller: &str, reason: &str) {
+    let call = site(cg, caller, "M");
+    let outcome = cg.resolve_call_site_full(call);
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
+    assert_eq!(call.receiver_type, None, "{call:?}");
+    assert!(call.receiver_materialized, "{call:?}");
+    assert_eq!(manifest_routes(cg), BTreeSet::new());
+    assert_eq!(
+        prism::navigation::queries::call_stats(cg)["go_receiver_prereq_drops"][reason],
+        1
+    );
 }
 
 fn assert_only_file(cg: &CallGraph, caller: &str, method: &str, expected: &str) {
@@ -269,7 +272,7 @@ fn pointer_to_interface_alias_keeps_interface_dispatch() {
 }
 
 #[test]
-fn pointer_alias_with_unresolved_pointee_fails_closed_to_r3() {
+fn pointer_alias_with_unresolved_pointee_stops_at_prerequisite_membrane() {
     let cg = build_go(&[(
         "main.go",
         "package main\n\
@@ -277,19 +280,7 @@ fn pointer_alias_with_unresolved_pointee_fails_closed_to_r3() {
          type P = *Missing\n\
          func run(value P) { value.M() }\n",
     )]);
-    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
-
-    assert!(outcome.resolved.is_empty(), "{outcome:?}");
-    assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
-    assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 0);
-    assert_eq!(
-        outcome.telemetry.go_unproven_receiver_bare_fallback_sites,
-        1
-    );
-    assert_eq!(
-        manifest_routes(&cg),
-        BTreeSet::from(["unproven_drop".into()])
-    );
+    assert_terminal_prerequisite_drop(&cg, "run", "declaration_unproven");
 }
 
 #[test]
@@ -314,7 +305,7 @@ fn defined_non_interface_uses_its_own_method_set() {
 }
 
 #[test]
-fn alias_cycle_fails_closed_without_a_direct_edge() {
+fn alias_cycle_stops_at_prerequisite_membrane() {
     let cg = build_go(&[(
         "main.go",
         "package main\n\
@@ -323,20 +314,12 @@ fn alias_cycle_fails_closed_without_a_direct_edge() {
          type Marker interface{ M() }\n\
          func run(a A) { a.M() }\n",
     )]);
-    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
-
-    assert!(outcome.resolved.is_empty(), "{outcome:?}");
-    assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
-    assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 0);
-    assert_eq!(
-        manifest_routes(&cg),
-        BTreeSet::from(["unproven_drop".into()])
-    );
+    assert_terminal_prerequisite_drop(&cg, "run", "declaration_unproven");
     assert!(manifest_target_files(&cg).is_empty());
 }
 
 #[test]
-fn local_interface_shadows_package_concrete_alias_at_call() {
+fn local_interface_shadow_stops_at_prerequisite_membrane() {
     let cg = build_go(&[
         (
             "q/types.go",
@@ -359,23 +342,11 @@ fn local_interface_shadows_package_concrete_alias_at_call() {
              }\n",
         ),
     ]);
-    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
-
-    assert!(outcome.resolved.is_empty(), "{outcome:?}");
-    assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
-    assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 0);
-    assert_eq!(
-        outcome.telemetry.go_unproven_receiver_bare_fallback_sites,
-        1
-    );
-    assert_eq!(
-        manifest_routes(&cg),
-        BTreeSet::from(["unproven_drop".into()])
-    );
+    assert_terminal_prerequisite_drop(&cg, "run", "local_type_declaration");
 }
 
 #[test]
-fn local_concrete_shadows_package_interface_at_call() {
+fn local_concrete_shadow_cannot_rebind_the_package_interface() {
     let cg = build_go(&[(
         "main.go",
         "package main\n\
@@ -389,23 +360,7 @@ fn local_concrete_shadows_package_interface_at_call() {
            a.M()\n\
          }\n",
     )]);
-    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
-
-    assert_only_file(&cg, "run", "M", "main.go");
-    assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 0);
-    assert_eq!(
-        outcome.telemetry.go_unproven_receiver_bare_fallback_sites,
-        1
-    );
-    assert_eq!(outcome.telemetry.go_unproven_receiver_bare_fallback_hits, 1);
-    assert_eq!(
-        outcome.telemetry.go_unproven_receiver_bare_fallback_edges,
-        1
-    );
-    assert_eq!(
-        manifest_routes(&cg),
-        BTreeSet::from(["interface_dispatch".into()])
-    );
+    assert_terminal_prerequisite_drop(&cg, "run", "local_type_declaration");
 }
 
 #[test]
