@@ -56,9 +56,9 @@ fn colliding_interfaces() -> CallGraph {
         (
             "q/types.go",
             "package q\n\
-             type Iterator interface { Next() bool }\n\
+             type Iterator interface { Next(int) bool }\n\
              type QImpl struct{}\n\
-             func (QImpl) Next() bool { return true }\n\
+             func (QImpl) Next(int) bool { return true }\n\
              func retain() { _ = QImpl{} }\n",
         ),
         (
