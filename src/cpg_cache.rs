@@ -153,7 +153,8 @@ use std::path::{Path, PathBuf};
 /// - v51: Go receiver-origin prerequisites add serialized dot-import evidence
 ///   and drop counters and change receiver materialization/resolved topology.
 /// - v52: Go package-variable receiver facts carry their defining-file owner.
-const CACHE_VERSION: u32 = 52;
+/// - v53: admissible unshadowed caller-local Go receivers carry exact owners.
+const CACHE_VERSION: u32 = 53;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -682,8 +683,8 @@ mod tests {
     }
 
     #[test]
-    fn cache_versions_are_pinned_for_go_receiver_owner_carrying() {
-        assert_eq!(super::CACHE_VERSION, 52);
+    fn cache_versions_are_pinned_for_go_receiver_local_owner_carrying() {
+        assert_eq!(super::CACHE_VERSION, 53);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

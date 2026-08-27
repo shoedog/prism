@@ -1,5 +1,5 @@
 use prism::call_graph::{CallGraph, CallSite};
-use prism::resolution::{DropReason, ResolutionConfidence, ResolutionKind};
+use prism::resolution::{DropReason, GoOwnerIdentity, ResolutionConfidence, ResolutionKind};
 use std::collections::BTreeSet;
 
 fn build_go(sources: &[(&str, &str)]) -> CallGraph {
@@ -7,11 +7,22 @@ fn build_go(sources: &[(&str, &str)]) -> CallGraph {
 }
 
 fn site<'a>(cg: &'a CallGraph, caller: &str) -> &'a CallSite {
-    cg.calls
+    let matches: Vec<_> = cg
+        .calls
         .values()
         .flatten()
-        .find(|site| site.caller.name == caller && site.callee_name == "Next")
-        .unwrap_or_else(|| panic!("missing {caller}->Next call site"))
+        .filter(|site| site.caller.name == caller && site.callee_name == "Next")
+        .collect();
+    assert_eq!(matches.len(), 1, "expected one {caller}->Next site");
+    matches[0]
+}
+
+fn expected_owner(name: &str) -> GoOwnerIdentity {
+    GoOwnerIdentity {
+        package_dir: "p".to_string(),
+        package_clause: "p".to_string(),
+        name: name.to_string(),
+    }
 }
 
 fn resolved_files(cg: &CallGraph, caller: &str) -> BTreeSet<String> {
@@ -78,28 +89,34 @@ fn colliding_interfaces() -> CallGraph {
 }
 
 #[test]
-fn on_demand_r2_name_collision_bails_with_zero_fanout_and_telemetry() {
+fn eager_local_owner_bypasses_the_bare_name_collision_guard() {
     let cg = colliding_interfaces();
     let call = site(&cg, "onDemand");
-    assert!(call.receiver_owner_identity.is_none(), "{call:?}");
+    assert_eq!(
+        call.receiver_owner_identity.as_ref(),
+        Some(&expected_owner("Iterator")),
+        "{call:?}"
+    );
 
     let outcome = cg.resolve_call_site_full(call);
-    assert!(outcome.resolved.is_empty(), "{outcome:?}");
-    assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
+    assert_eq!(outcome.drop, None, "{outcome:?}");
     assert_eq!(
-        outcome.telemetry.go_unproven_receiver_bare_fallback_sites,
-        0
+        resolved_files(&cg, "onDemand"),
+        BTreeSet::from(["p/types.go".into()])
     );
-    assert_eq!(outcome.telemetry.go_r2_on_demand_name_collision_bail, 1);
+    assert!(outcome.resolved.iter().all(|resolved| {
+        resolved.confidence == ResolutionConfidence::Exact
+            && resolved.kind == ResolutionKind::InterfaceDispatch
+    }));
+    assert_eq!(outcome.telemetry.go_r2_on_demand_name_collision_bail, 0);
 
     let manifest = prism::navigation::queries::interface_dispatch_manifest(&cg);
     let record = manifest_site(&manifest, "app/ondemand.go");
-    assert_eq!(record["dispatch_route"], "unproven_drop");
-    assert_eq!(record["fanout"], 0);
-    assert_eq!(record["implementer_identities"], serde_json::json!([]));
+    assert_eq!(record["dispatch_route"], "interface_dispatch");
+    assert_eq!(record["fanout"], 1);
 
     let stats = prism::navigation::queries::call_stats(&cg);
-    assert_eq!(stats["go_r2_on_demand_name_collision_bail"], 2);
+    assert_eq!(stats["go_r2_on_demand_name_collision_bail"], 1);
 }
 
 #[test]
@@ -143,7 +160,11 @@ fn unique_on_demand_interface_name_keeps_s4_dispatch() {
         ),
     ]);
     let call = site(&cg, "unique");
-    assert!(call.receiver_owner_identity.is_none(), "{call:?}");
+    assert_eq!(
+        call.receiver_owner_identity.as_ref(),
+        Some(&expected_owner("UniqueIterator")),
+        "{call:?}"
+    );
 
     let outcome = cg.resolve_call_site_full(call);
     assert_eq!(outcome.drop, None, "{outcome:?}");

@@ -129,6 +129,27 @@ fn concrete_receiver_outputs_match_no_cache_cold_create_exact_cpg_and_sidecar_hi
             }),
             "{package_site:?}"
         );
+        let local_site = session
+            .index
+            .call_graph()
+            .calls
+            .values()
+            .flatten()
+            .find(|site| {
+                site.caller.file == "app/use.go"
+                    && site.caller.name == "run"
+                    && site.callee_name == "M"
+            })
+            .expect("run M site");
+        assert_eq!(
+            local_site.receiver_owner_identity.as_ref(),
+            Some(&GoOwnerIdentity {
+                package_dir: "q".to_string(),
+                package_clause: "q".to_string(),
+                name: "A".to_string(),
+            }),
+            "{local_site:?}"
+        );
     }
     let manifest = queries::interface_dispatch_manifest(no_cache.index.call_graph());
     assert!(
@@ -191,6 +212,25 @@ fn concrete_receiver_outputs_match_no_cache_cold_create_exact_cpg_and_sidecar_hi
     assert_eq!(
         sidecar_hit.index.call_graph().go_dot_import_files,
         expected_dot_imports
+    );
+    let sidecar_local_site = sidecar_hit
+        .index
+        .call_graph()
+        .calls
+        .values()
+        .flatten()
+        .find(|site| {
+            site.caller.file == "app/use.go" && site.caller.name == "run" && site.callee_name == "M"
+        })
+        .expect("sidecar-hit run M site");
+    assert_eq!(
+        sidecar_local_site.receiver_owner_identity.as_ref(),
+        Some(&GoOwnerIdentity {
+            package_dir: "q".to_string(),
+            package_clause: "q".to_string(),
+            name: "A".to_string(),
+        }),
+        "{sidecar_local_site:?}"
     );
     assert_eq!(
         no_cache_edges,

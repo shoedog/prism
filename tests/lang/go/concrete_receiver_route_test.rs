@@ -1,5 +1,5 @@
 use prism::call_graph::{CallGraph, CallSite};
-use prism::resolution::{ReceiverRecovery, ResolutionConfidence, ResolutionKind};
+use prism::resolution::{GoOwnerIdentity, ReceiverRecovery, ResolutionConfidence, ResolutionKind};
 use std::collections::BTreeSet;
 
 fn build_go(sources: &[(&str, &str)]) -> CallGraph {
@@ -17,11 +17,21 @@ fn site<'a>(cg: &'a CallGraph, caller: &str, method: &str) -> &'a CallSite {
 fn assert_direct(
     cg: &CallGraph,
     caller: &str,
+    owner_name: &str,
     recovery: ReceiverRecovery,
     expected_kind: ResolutionKind,
 ) {
     let site = site(cg, caller, "M");
     assert_eq!(site.receiver_recovery, Some(recovery));
+    assert_eq!(
+        site.receiver_owner_identity.as_ref(),
+        Some(&GoOwnerIdentity {
+            package_dir: "q".to_string(),
+            package_clause: "q".to_string(),
+            name: owner_name.to_string(),
+        }),
+        "{caller}: {site:?}"
+    );
     let outcome = cg.resolve_call_site_full(site);
     assert_eq!(outcome.drop, None, "{caller}: {outcome:?}");
     assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 1);
@@ -77,18 +87,21 @@ fn concrete_constructor_and_factory_receivers_select_only_the_declaring_file() {
     assert_direct(
         &cg,
         "composite",
+        "A",
         ReceiverRecovery::ConstructorLocal,
         ResolutionKind::ConstructorLocal,
     );
     assert_direct(
         &cg,
         "factory",
+        "A",
         ReceiverRecovery::ReturnTyped,
         ResolutionKind::ReturnTyped,
     );
     assert_direct(
         &cg,
         "pointer",
+        "P",
         ReceiverRecovery::ConstructorLocal,
         ResolutionKind::ConstructorLocal,
     );
@@ -101,12 +114,14 @@ fn concrete_typed_param_and_s1_return_typed_receivers_are_direct() {
     assert_direct(
         &cg,
         "typed",
+        "C",
         ReceiverRecovery::TypedParam,
         ResolutionKind::TypedParam,
     );
     assert_direct(
         &cg,
         "returned",
+        "C",
         ReceiverRecovery::ReturnTyped,
         ResolutionKind::ReturnTyped,
     );
@@ -119,12 +134,14 @@ fn concrete_var_and_type_assertion_receivers_are_direct() {
     assert_direct(
         &cg,
         "variable",
+        "C",
         ReceiverRecovery::VarDecl,
         ResolutionKind::TypedParam,
     );
     assert_direct(
         &cg,
         "asserted",
+        "C",
         ReceiverRecovery::TypeAssertion,
         ResolutionKind::TypedParam,
     );
@@ -210,7 +227,15 @@ fn proven_interface_owner_routes_on_demand_without_a_bare_name_decoy() {
         ),
     ]);
     let call = site(&cg, "run", "M");
-    assert!(call.receiver_owner_identity.is_none());
+    assert_eq!(
+        call.receiver_owner_identity.as_ref(),
+        Some(&GoOwnerIdentity {
+            package_dir: "p".to_string(),
+            package_clause: "p".to_string(),
+            name: "A".to_string(),
+        }),
+        "{call:?}"
+    );
     let outcome = cg.resolve_call_site_full(call);
 
     assert_eq!(
