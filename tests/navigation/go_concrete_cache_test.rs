@@ -1,6 +1,7 @@
 use prism::navigation::types::SymbolRef;
 use prism::navigation::{cache::nav_cache_subdir, queries, NavigationIndex, NavigationSession};
 use prism::repo_loader::load_repo;
+use prism::resolution::GoOwnerIdentity;
 use std::collections::BTreeSet;
 use std::sync::{Arc, Mutex, OnceLock};
 
@@ -73,7 +74,12 @@ fn concrete_receiver_outputs_match_no_cache_cold_create_exact_cpg_and_sidecar_hi
     write(
         repo_dir.path(),
         "app/use.go",
-        "package app\nimport (\"io\"; q \"example/q\")\nfunc run(a q.A) { a.M() }\nfunc external() { _ = func(cl io.Closer) error { return cl.Close() }(nil) }\nfunc poison(e error) string { return e.Error() }\n",
+        "package app\nimport (\"io\"; q \"example/q\"; ext \"example/p\")\nfunc run(a q.A) { a.M() }\nfunc packageRun() { Shared.M() }\nfunc external() { _ = func(cl io.Closer) error { return cl.Close() }(nil) }\nfunc poison(e error) string { return e.Error() }\n",
+    );
+    write(
+        repo_dir.path(),
+        "app/vars.go",
+        "package app\nimport ext \"example/q\"\nvar Shared ext.A\n",
     );
     write(
         repo_dir.path(),
@@ -102,6 +108,27 @@ fn concrete_receiver_outputs_match_no_cache_cold_create_exact_cpg_and_sidecar_hi
             session.index.call_graph().go_dot_import_files,
             expected_dot_imports
         );
+        let package_site = session
+            .index
+            .call_graph()
+            .calls
+            .values()
+            .flatten()
+            .find(|site| {
+                site.caller.file == "app/use.go"
+                    && site.caller.name == "packageRun"
+                    && site.callee_name == "M"
+            })
+            .expect("packageRun M site");
+        assert_eq!(
+            package_site.receiver_owner_identity.as_ref(),
+            Some(&GoOwnerIdentity {
+                package_dir: "q".to_string(),
+                package_clause: "q".to_string(),
+                name: "A".to_string(),
+            }),
+            "{package_site:?}"
+        );
     }
     let manifest = queries::interface_dispatch_manifest(no_cache.index.call_graph());
     assert!(
@@ -128,6 +155,13 @@ fn concrete_receiver_outputs_match_no_cache_cold_create_exact_cpg_and_sidecar_hi
     let exact_cpg_edges =
         queries::callees(&exact_cpg, Some("run"), Some("app/use.go"), None, 1).unwrap();
     assert_eq!(no_cache_edges, exact_cpg_edges);
+    let no_cache_package =
+        queries::callees(&no_cache, Some("packageRun"), Some("app/use.go"), None, 1).unwrap();
+    let exact_cpg_package =
+        queries::callees(&exact_cpg, Some("packageRun"), Some("app/use.go"), None, 1).unwrap();
+    assert_eq!(no_cache_package, exact_cpg_package);
+    assert!(evidence_has_file(&no_cache_package, "q/types.go"));
+    assert!(!evidence_has_file(&no_cache_package, "p/types.go"));
     let no_cache_poison =
         queries::callees(&no_cache, Some("poison"), Some("app/use.go"), None, 1).unwrap();
     let exact_cpg_poison =
@@ -161,6 +195,17 @@ fn concrete_receiver_outputs_match_no_cache_cold_create_exact_cpg_and_sidecar_hi
     assert_eq!(
         no_cache_edges,
         queries::callees(&sidecar_hit, Some("run"), Some("app/use.go"), None, 1).unwrap()
+    );
+    assert_eq!(
+        no_cache_package,
+        queries::callees(
+            &sidecar_hit,
+            Some("packageRun"),
+            Some("app/use.go"),
+            None,
+            1,
+        )
+        .unwrap()
     );
     assert_eq!(
         no_cache_poison,

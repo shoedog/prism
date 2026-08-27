@@ -1,4 +1,4 @@
-//! Exact visibility for Go return-typed receiver facts.
+//! Exact visibility for Go cross-file receiver facts.
 
 use crate::go_owner_partition::{exact_declaration_visibility, GoOwnerReferenceMode};
 use crate::go_receiver_index::{GoReturnTypes, GoTypedFact};
@@ -203,45 +203,105 @@ fn unique_visible_return_owner(
     }
 }
 
-pub(crate) fn unique_visible_type(
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct GoResolvedPackageVarType {
+    pub owner: crate::resolution::GoOwnerIdentity,
+    pub raw_type: String,
+}
+
+pub(crate) fn unique_visible_package_var_type(
     caller_file: &str,
     facts: &BTreeSet<GoTypedFact>,
+    imports: &BTreeMap<String, BTreeMap<String, String>>,
+    package_basenames: &BTreeMap<String, BTreeSet<String>>,
     go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
-) -> Option<String> {
-    let caller_profile = go_file_profiles.get(caller_file);
-    let mut tys = BTreeSet::new();
-    for fact in facts {
-        let defining_profile = go_file_profiles.get(&fact.defining_file);
-        let visibility = match (caller_profile, defining_profile) {
-            (Some(caller), Some(defining)) => {
-                if crate::resolution::dir_of(caller_file)
-                    == crate::resolution::dir_of(&fact.defining_file)
-                {
-                    Some(crate::go_build_profile::go_same_package_visible_detailed(
-                        caller, defining,
-                    ))
-                } else {
-                    let mut imported = caller.clone();
-                    imported.package_clause = defining.package_clause.clone();
-                    imported.is_test_file = false;
-                    Some(crate::go_build_profile::go_same_package_visible_detailed(
-                        &imported, defining,
-                    ))
-                }
-            }
-            _ => None,
+) -> crate::go_owner_partition::GoPartitionSelection<GoResolvedPackageVarType> {
+    let all_values: BTreeSet<_> = facts.iter().map(|fact| fact.ty.clone()).collect();
+    let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
+    let Some(caller_profile) = go_file_profiles.get(caller_file) else {
+        evidence.uncertain = true;
+        return crate::go_owner_partition::GoPartitionSelection {
+            value: None,
+            evidence,
         };
-        let visible = visibility.as_ref().map_or(true, |vis| vis.visible);
-        if visible {
-            let exact_allowed = visibility.as_ref().map_or_else(
-                || crate::go_build_profile::profile_allows_exact(defining_profile),
-                |vis| crate::go_build_profile::visibility_allows_exact(defining_profile, vis),
-            );
-            if !exact_allowed {
-                return None;
-            }
-            tys.insert(fact.ty.clone());
-        }
+    };
+    if !crate::go_build_profile::profile_allows_exact(Some(caller_profile)) {
+        evidence.uncertain = true;
+        return crate::go_owner_partition::GoPartitionSelection {
+            value: None,
+            evidence,
+        };
     }
-    (tys.len() == 1).then(|| tys.into_iter().next().unwrap())
+
+    let mut visible_types = BTreeSet::new();
+    let mut owners = BTreeSet::new();
+    let mut resolved = BTreeSet::new();
+    for fact in facts {
+        if crate::resolution::dir_of(caller_file) != crate::resolution::dir_of(&fact.defining_file)
+        {
+            evidence.uncertain = true;
+            return crate::go_owner_partition::GoPartitionSelection {
+                value: None,
+                evidence,
+            };
+        }
+        let Some(defining_profile) = go_file_profiles.get(&fact.defining_file) else {
+            evidence.uncertain = true;
+            return crate::go_owner_partition::GoPartitionSelection {
+                value: None,
+                evidence,
+            };
+        };
+        let visibility = crate::go_build_profile::go_same_package_visible_detailed(
+            caller_profile,
+            defining_profile,
+        );
+        if !visibility.visible {
+            evidence.filtered_declarations += 1;
+            continue;
+        }
+        evidence.visible_declarations += 1;
+        if !crate::go_build_profile::visibility_allows_exact(Some(defining_profile), &visibility) {
+            evidence.uncertain = true;
+            return crate::go_owner_partition::GoPartitionSelection {
+                value: None,
+                evidence,
+            };
+        }
+        let Some(owner) = resolve_go_receiver_owner_identity(
+            &fact.ty,
+            &fact.defining_file,
+            imports,
+            package_basenames,
+            go_file_profiles,
+        ) else {
+            evidence.uncertain = true;
+            return crate::go_owner_partition::GoPartitionSelection {
+                value: None,
+                evidence,
+            };
+        };
+        visible_types.insert(fact.ty.clone());
+        owners.insert(owner.clone());
+        resolved.insert(GoResolvedPackageVarType {
+            owner,
+            raw_type: fact.ty.clone(),
+        });
+    }
+    evidence.distinct_visible_values = visible_types.len().max(owners.len());
+    evidence.conflict = visible_types.len() > 1 || owners.len() > 1;
+    if evidence.conflict {
+        return crate::go_owner_partition::GoPartitionSelection {
+            value: None,
+            evidence,
+        };
+    }
+    evidence.recovered = all_values.len() > 1
+        && evidence.filtered_declarations > 0
+        && visible_types.len() == 1
+        && owners.len() == 1;
+    crate::go_owner_partition::GoPartitionSelection {
+        value: resolved.into_iter().next(),
+        evidence,
+    }
 }

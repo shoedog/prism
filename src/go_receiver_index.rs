@@ -28,7 +28,9 @@
 //! doctrine 5).
 
 use crate::ast::ParsedFile;
-use crate::go_receiver_index_visibility::{resolve_go_return_type_call, unique_visible_type};
+use crate::go_receiver_index_visibility::{
+    resolve_go_return_type_call, unique_visible_package_var_type,
+};
 use crate::languages::Language;
 use crate::resolution::{
     dir_of, owner_key, peel_type, resolve_go_receiver_owner_identity, GoOwnerIdentity,
@@ -673,23 +675,40 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                 dir_of(ctx.caller_file).to_string(),
                 ctx.qualifier.to_string(),
             );
-            if let Some(ty) = facts.package_vars.get(&key).and_then(|entries| {
-                unique_visible_type(ctx.caller_file, entries, facts.go_file_profiles)
-            }) {
-                let static_type = owner_key(&peel_type(&ty));
+            if let Some(entries) = facts.package_vars.get(&key) {
+                let selection = unique_visible_package_var_type(
+                    ctx.caller_file,
+                    entries,
+                    facts.imports,
+                    facts.package_basenames,
+                    facts.go_file_profiles,
+                );
+                let crate::go_owner_partition::GoPartitionSelection { value, evidence } = selection;
+                let Some(resolved) = value else {
+                    return (
+                        ReceiverClassification {
+                            recovered: None,
+                            materialized: true,
+                            proof_shadowed: false,
+                        },
+                        evidence,
+                        GoReceiverPrereqOrigin::CrossFileUncarried,
+                    );
+                };
+                let static_type = owner_key(&peel_type(&resolved.raw_type));
                 return (
                     ReceiverClassification {
                         recovered: Some(RecoveredReceiver {
                             static_type,
-                            owner_identity: None,
+                            owner_identity: Some(resolved.owner),
                             recovery: ReceiverRecovery::VarDecl,
                             go_field_target: None,
                         }),
                         materialized: true,
                         proof_shadowed: false,
                     },
-                    Default::default(),
-                    GoReceiverPrereqOrigin::CrossFileUncarried,
+                    evidence,
+                    GoReceiverPrereqOrigin::CarriedOwner,
                 );
             }
         }

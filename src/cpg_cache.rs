@@ -152,7 +152,8 @@ use std::path::{Path, PathBuf};
 /// - v50: return-flow synthetic nodes/edges plus construction telemetry.
 /// - v51: Go receiver-origin prerequisites add serialized dot-import evidence
 ///   and drop counters and change receiver materialization/resolved topology.
-const CACHE_VERSION: u32 = 51;
+/// - v52: Go package-variable receiver facts carry their defining-file owner.
+const CACHE_VERSION: u32 = 52;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -681,8 +682,8 @@ mod tests {
     }
 
     #[test]
-    fn cache_versions_are_pinned_for_go_receiver_origin_prerequisites() {
-        assert_eq!(super::CACHE_VERSION, 51);
+    fn cache_versions_are_pinned_for_go_receiver_owner_carrying() {
+        assert_eq!(super::CACHE_VERSION, 52);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
