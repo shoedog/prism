@@ -1,20 +1,9 @@
-use prism::ast::ParsedFile;
 use prism::call_graph::{CallGraph, CallSite};
-use prism::languages::Language;
 use prism::resolution::{DropReason, ResolutionKind};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 fn build_go(sources: &[(&str, &str)]) -> CallGraph {
-    let files: BTreeMap<String, ParsedFile> = sources
-        .iter()
-        .map(|(path, source)| {
-            (
-                (*path).to_string(),
-                ParsedFile::parse(path, source, Language::Go).expect("parse Go fixture"),
-            )
-        })
-        .collect();
-    CallGraph::build(&files)
+    super::test_support::build_go(sources)
 }
 
 fn site<'a>(cg: &'a CallGraph, caller: &str, method: &str) -> &'a CallSite {
@@ -340,7 +329,7 @@ fn manifest_pins_concrete_no_selector_with_resolver_telemetry() {
 }
 
 #[test]
-fn manifest_pins_unproven_drop_with_resolver_telemetry() {
+fn manifest_omits_strict_import_unresolved_prerequisite_drop() {
     let cg = build_go(&[
         (
             "one/q/types.go",
@@ -353,16 +342,30 @@ fn manifest_pins_unproven_drop_with_resolver_telemetry() {
         ),
         (
             "app/use.go",
-            "package app\nimport q \"example/one/q\"\nfunc run(s q.S) { s.M() }\n",
+            "package app\nimport q \"outside.example/one/q\"\nfunc run(s q.S) { s.M() }\n",
         ),
     ]);
-    let outcome = cg.resolve_call_site_full(site(&cg, "run", "M"));
+    let call = site(&cg, "run", "M");
+    let outcome = cg.resolve_call_site_full(call);
 
+    assert_eq!(call.receiver_type, None, "{call:?}");
+    assert!(call.receiver_materialized, "{call:?}");
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
     assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
     assert_eq!(
         outcome.telemetry.go_unproven_receiver_bare_fallback_sites,
-        1
+        0
     );
     assert_eq!(outcome.telemetry.go_unproven_receiver_bare_fallback_hits, 0);
-    assert_manifest_route(&cg, "unproven_drop");
+    assert_eq!(
+        prism::navigation::queries::call_stats(&cg)["go_receiver_prereq_drops"]
+            ["strict_import_unresolved"],
+        1
+    );
+    assert!(
+        prism::navigation::queries::interface_dispatch_manifest(&cg)["sites"]
+            .as_array()
+            .expect("manifest sites")
+            .is_empty()
+    );
 }

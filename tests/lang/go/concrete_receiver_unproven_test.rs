@@ -1,8 +1,8 @@
 use prism::ast::ParsedFile;
 use prism::call_graph::{CallGraph, CallSite};
 use prism::languages::Language;
-use prism::resolution::{DropReason, ResolutionConfidence, ResolutionKind};
-use std::collections::{BTreeMap, BTreeSet};
+use prism::resolution::DropReason;
+use std::collections::BTreeMap;
 
 fn build_go(sources: &[(&str, &str)]) -> CallGraph {
     let files: BTreeMap<String, ParsedFile> = sources
@@ -25,14 +25,6 @@ fn site(cg: &CallGraph) -> &CallSite {
         .expect("missing run->M call site")
 }
 
-fn resolved_files(cg: &CallGraph) -> BTreeSet<String> {
-    cg.resolve_call_site_full(site(cg))
-        .resolved
-        .iter()
-        .map(|resolved| resolved.target.file.clone())
-        .collect()
-}
-
 fn assert_bare_telemetry(cg: &CallGraph, sites: usize, hits: usize, edges: usize) {
     let stats = prism::navigation::queries::call_stats(cg);
     assert_eq!(
@@ -49,25 +41,26 @@ fn assert_bare_telemetry(cg: &CallGraph, sites: usize, hits: usize, edges: usize
     );
 }
 
-fn manifest_site(cg: &CallGraph) -> serde_json::Value {
+fn assert_terminal_prerequisite_drop(cg: &CallGraph, reason: &str) {
+    let call = site(cg);
+    let outcome = cg.resolve_call_site_full(call);
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
+    assert_eq!(call.receiver_type, None, "{call:?}");
+    assert!(call.receiver_materialized, "{call:?}");
+    assert_bare_telemetry(cg, 0, 0, 0);
+    assert_eq!(
+        prism::navigation::queries::call_stats(cg)["go_receiver_prereq_drops"][reason],
+        1
+    );
     let manifest = prism::navigation::queries::interface_dispatch_manifest(cg);
-    let sites = manifest["sites"].as_array().expect("manifest sites");
-    assert_eq!(sites.len(), 1, "{manifest:#}");
-    sites[0].clone()
-}
-
-fn manifest_target_files(cg: &CallGraph) -> BTreeSet<String> {
-    manifest_site(cg)["implementer_identities"]
-        .as_array()
-        .expect("implementer identities")
-        .iter()
-        .map(|identity| {
-            identity["file"]
-                .as_str()
-                .expect("implementer file")
-                .to_string()
-        })
-        .collect()
+    assert!(
+        manifest["sites"]
+            .as_array()
+            .expect("manifest sites")
+            .is_empty(),
+        "{manifest:#}"
+    );
 }
 
 fn ambiguous_basename_fixture(with_interface: bool) -> CallGraph {
@@ -104,35 +97,15 @@ fn ambiguous_basename_fixture(with_interface: bool) -> CallGraph {
 }
 
 #[test]
-fn ambiguous_import_basename_keeps_the_legacy_bare_interface_hit() {
+fn ambiguous_import_basename_with_interface_stops_at_prerequisite_membrane() {
     let cg = ambiguous_basename_fixture(true);
-    let outcome = cg.resolve_call_site_full(site(&cg));
-
-    assert_eq!(
-        resolved_files(&cg),
-        BTreeSet::from(["iface/types.go".to_string()]),
-        "{outcome:?}"
-    );
-    assert!(outcome.resolved.iter().all(|resolved| {
-        resolved.confidence == ResolutionConfidence::Exact
-            && resolved.kind == ResolutionKind::InterfaceDispatch
-    }));
-    assert_bare_telemetry(&cg, 1, 1, 1);
-    assert_eq!(manifest_site(&cg)["dispatch_route"], "interface_dispatch");
-    assert_eq!(manifest_target_files(&cg), resolved_files(&cg));
+    assert_terminal_prerequisite_drop(&cg, "strict_import_unresolved");
 }
 
 #[test]
-fn ambiguous_import_basename_keeps_the_legacy_no_interface_drop() {
+fn ambiguous_import_basename_without_interface_stops_at_prerequisite_membrane() {
     let cg = ambiguous_basename_fixture(false);
-    let outcome = cg.resolve_call_site_full(site(&cg));
-
-    assert!(outcome.resolved.is_empty(), "{outcome:?}");
-    assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
-    assert_bare_telemetry(&cg, 1, 0, 0);
-    let manifest = manifest_site(&cg);
-    assert_eq!(manifest["dispatch_route"], "unproven_drop");
-    assert_eq!(manifest["implementer_identities"], serde_json::json!([]));
+    assert_terminal_prerequisite_drop(&cg, "strict_import_unresolved");
 }
 
 fn duplicate_profile_fixture(identical: bool, with_interface: bool) -> CallGraph {
@@ -177,44 +150,24 @@ fn duplicate_profile_fixture(identical: bool, with_interface: bool) -> CallGraph
              func retain() { _ = Wrong{} }\n",
         ));
     }
-    build_go(&sources)
+    super::test_support::build_go(&sources)
 }
 
 #[test]
-fn duplicate_profile_owner_keeps_the_legacy_bare_interface_hit() {
+fn duplicate_profile_owner_with_interface_stops_at_prerequisite_membrane() {
     let cg = duplicate_profile_fixture(true, true);
-    let outcome = cg.resolve_call_site_full(site(&cg));
-
-    assert_eq!(
-        resolved_files(&cg),
-        BTreeSet::from(["iface/types.go".to_string()]),
-        "{outcome:?}"
-    );
-    assert!(outcome
-        .resolved
-        .iter()
-        .all(|resolved| resolved.kind == ResolutionKind::InterfaceDispatch));
-    assert_bare_telemetry(&cg, 1, 1, 1);
-    assert_eq!(manifest_site(&cg)["dispatch_route"], "interface_dispatch");
-    assert_eq!(manifest_target_files(&cg), resolved_files(&cg));
+    assert_terminal_prerequisite_drop(&cg, "declaration_unproven");
 }
 
 #[test]
-fn duplicate_profile_owner_keeps_the_legacy_no_interface_drop() {
+fn duplicate_profile_owner_without_interface_stops_at_prerequisite_membrane() {
     let cg = duplicate_profile_fixture(false, false);
-    let outcome = cg.resolve_call_site_full(site(&cg));
-
-    assert!(outcome.resolved.is_empty(), "{outcome:?}");
-    assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
-    assert_bare_telemetry(&cg, 1, 0, 0);
-    let manifest = manifest_site(&cg);
-    assert_eq!(manifest["dispatch_route"], "unproven_drop");
-    assert_eq!(manifest["implementer_identities"], serde_json::json!([]));
+    assert_terminal_prerequisite_drop(&cg, "declaration_unproven");
 }
 
 #[test]
-fn ambiguous_owner_embedded_interface_keeps_legacy_manifest_targets() {
-    let cg = build_go(&[
+fn ambiguous_owner_embedded_interface_stops_at_prerequisite_membrane() {
+    let cg = super::test_support::build_go(&[
         (
             "q/one.go",
             "package q\n\
@@ -232,15 +185,5 @@ fn ambiguous_owner_embedded_interface_keeps_legacy_manifest_targets() {
              func run(s q.S) { s.M() }\n",
         ),
     ]);
-    assert!(site(&cg).receiver_owner_identity.is_none());
-    let outcome = cg.resolve_call_site_full(site(&cg));
-
-    assert_eq!(outcome.drop, None, "{outcome:?}");
-    assert_eq!(
-        resolved_files(&cg),
-        BTreeSet::from(["q/one.go".to_string()])
-    );
-    let manifest = manifest_site(&cg);
-    assert_eq!(manifest["dispatch_route"], "embedded_interface_dispatch");
-    assert_eq!(manifest_target_files(&cg), resolved_files(&cg));
+    assert_terminal_prerequisite_drop(&cg, "declaration_unproven");
 }

@@ -4,16 +4,7 @@ use prism::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 
 fn build_go(sources: &[(&str, &str)]) -> CallGraph {
-    let files: BTreeMap<String, ParsedFile> = sources
-        .iter()
-        .map(|(path, source)| {
-            (
-                (*path).to_string(),
-                ParsedFile::parse(path, source, Language::Go).expect("parse Go fixture"),
-            )
-        })
-        .collect();
-    CallGraph::build(&files)
+    super::test_support::build_go(sources)
 }
 
 fn build_go_with_module(sources: &[(&str, &str)], module_path: &str) -> CallGraph {
@@ -276,7 +267,7 @@ fn return_type_partition_decisions_reach_call_stats() {
 }
 
 #[test]
-fn cross_package_p5_registrations_follow_the_invocation_partition() {
+fn cross_package_p5_duplicate_declarations_stop_at_prerequisite_membrane() {
     let cg = build_go(&[
         (
             "lib/command_linux.go",
@@ -316,15 +307,14 @@ fn cross_package_p5_registrations_follow_the_invocation_partition() {
         BTreeSet::from(["linuxHandler".to_string(), "windowsHandler".to_string()])
     );
 
-    assert_eq!(
-        resolved_target_names(&cg, "invokeLinux", "Run"),
-        BTreeSet::from(["linuxHandler".to_string()])
-    );
-    assert_eq!(
-        resolved_target_names(&cg, "invokeWindows", "Run"),
-        BTreeSet::from(["windowsHandler".to_string()])
-    );
+    assert!(resolved_target_names(&cg, "invokeLinux", "Run").is_empty());
+    assert!(resolved_target_names(&cg, "invokeWindows", "Run").is_empty());
     assert!(resolved_target_names(&cg, "invokeUnconstrained", "Run").is_empty());
+    assert_eq!(
+        prism::navigation::queries::call_stats(&cg)["go_receiver_prereq_drops"]
+            ["declaration_unproven"],
+        3
+    );
 }
 
 #[test]
@@ -961,7 +951,7 @@ fn s4_identity_never_reintroduces_a_bare_signature_decoy() {
 }
 
 #[test]
-fn qualified_return_uses_the_caller_visible_concrete_declaration_kind() {
+fn qualified_return_with_conflicting_declaration_kind_stops_at_prerequisite_membrane() {
     let cg = build_go(&[
         (
             "factory/widget_linux.go",
@@ -977,9 +967,11 @@ fn qualified_return_uses_the_caller_visible_concrete_declaration_kind() {
         ),
     ]);
 
+    assert!(resolved_target_files(&cg, "invoke", "Use").is_empty());
     assert_eq!(
-        resolved_target_files(&cg, "invoke", "Use"),
-        BTreeSet::from(["factory/widget_linux.go".to_string()])
+        prism::navigation::queries::call_stats(&cg)["go_receiver_prereq_drops"]
+            ["declaration_unproven"],
+        1
     );
 }
 

@@ -869,6 +869,106 @@ impl ParsedFile {
         (found, bindings, first_found)
     }
 
+    /// Whether this Go file contains a dot import. Dot imports stay separate
+    /// from the named-import map because `.` is not a resolvable qualifier.
+    pub(crate) fn go_has_dot_import(&self) -> bool {
+        if self.language != Language::Go {
+            return false;
+        }
+
+        fn walk(node: Node<'_>) -> bool {
+            if node.kind() == "import_spec" {
+                let mut cursor = node.walk();
+                return node
+                    .children(&mut cursor)
+                    .any(|child| child.kind() == "dot");
+            }
+            let mut cursor = node.walk();
+            let found = node.children(&mut cursor).any(walk);
+            found
+        }
+
+        walk(self.tree.root_node())
+    }
+
+    /// True when the recovered bare receiver type is bound by the enclosing
+    /// Go declaration's own generic parameters. Free functions declare them in
+    /// `type_parameters`; methods declare receiver-specific names in the
+    /// receiver type's `type_arguments` (`Store[T]`).
+    pub(crate) fn go_type_parameter_binds_receiver(
+        &self,
+        func_node: &Node<'_>,
+        receiver_type: &str,
+    ) -> bool {
+        if self.language != Language::Go {
+            return false;
+        }
+        let receiver_type = receiver_type
+            .trim()
+            .trim_start_matches('&')
+            .trim_start_matches('*')
+            .trim();
+        if receiver_type.is_empty()
+            || receiver_type.contains('.')
+            || receiver_type.contains('[')
+            || !receiver_type
+                .chars()
+                .all(|ch| ch.is_alphanumeric() || ch == '_')
+        {
+            return false;
+        }
+
+        if let Some(params) = func_node.child_by_field_name("type_parameters") {
+            let mut cursor = params.walk();
+            if params.children(&mut cursor).any(|declaration| {
+                if declaration.kind() != "type_parameter_declaration" {
+                    return false;
+                }
+                let mut names = declaration.walk();
+                let found = declaration.children(&mut names).any(|name| {
+                    name.kind() == "identifier" && self.node_text(&name) == receiver_type
+                });
+                found
+            }) {
+                return true;
+            }
+        }
+
+        if func_node.kind() != "method_declaration" {
+            return false;
+        }
+        let Some(receiver) = func_node.child_by_field_name("receiver") else {
+            return false;
+        };
+
+        fn receiver_args_bind(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
+            if node.kind() == "type_arguments" {
+                let mut cursor = node.walk();
+                return node.named_children(&mut cursor).any(|arg| {
+                    if matches!(arg.kind(), "type_identifier" | "identifier") {
+                        return parsed.node_text(&arg).trim() == name;
+                    }
+                    if arg.kind() != "type_elem" {
+                        return false;
+                    }
+                    let mut elem_cursor = arg.walk();
+                    let found = arg.named_children(&mut elem_cursor).any(|elem| {
+                        matches!(elem.kind(), "type_identifier" | "identifier")
+                            && parsed.node_text(&elem).trim() == name
+                    });
+                    found
+                });
+            }
+            let mut cursor = node.walk();
+            let found = node
+                .named_children(&mut cursor)
+                .any(|child| receiver_args_bind(parsed, child, name));
+            found
+        }
+
+        receiver_args_bind(self, receiver, receiver_type)
+    }
+
     /// Whether a same-named function-local Go type declaration is lexically
     /// visible at this call. Package-qualified types cannot be shadowed by a
     /// local declaration and are rejected up front.
@@ -8608,5 +8708,52 @@ mod tests {
         let (nodes, used_fallback) = pf.all_functions_inner();
         assert!(used_fallback); // the drift detector
         assert_eq!(nodes.len(), 2); // full sequence via fallback — never silently skipped
+    }
+
+    #[test]
+    fn go_dot_import_marker_pins_single_grouped_and_named_shapes() {
+        for source in [
+            "package p\nimport . \"example.com/a\"\n",
+            "package p\nimport (\n . \"example.com/a\"\n x \"example.com/x\"\n)\n",
+        ] {
+            let parsed = ParsedFile::parse("p.go", source, Language::Go).unwrap();
+            assert!(parsed.go_has_dot_import(), "{source}");
+            assert!(!parsed.extract_imports().contains_key("."), "{source}");
+        }
+        let named = ParsedFile::parse(
+            "p.go",
+            "package p\nimport x \"example.com/x\"\n",
+            Language::Go,
+        )
+        .unwrap();
+        assert!(!named.go_has_dot_import());
+    }
+
+    #[test]
+    fn go_type_parameter_binder_pins_function_and_method_receiver_shapes() {
+        let parsed = ParsedFile::parse(
+            "p.go",
+            "package p\nfunc free[T any](v T) {}\ntype Store[U any] struct{}\nfunc (s *Store[T]) method(v T) {}\nfunc plain(v T) {}\nfunc nested(v T) { type Local[T any] struct{}; _ = Local[int]{} }\n",
+            Language::Go,
+        )
+        .unwrap();
+        let function = |name: &str| {
+            parsed
+                .all_functions()
+                .into_iter()
+                .find(|node| {
+                    parsed
+                        .language
+                        .function_name(node)
+                        .is_some_and(|n| parsed.node_text(&n) == name)
+                })
+                .unwrap_or_else(|| panic!("missing {name}"))
+        };
+        assert!(parsed.go_type_parameter_binds_receiver(&function("free"), "T"));
+        assert!(parsed.go_type_parameter_binds_receiver(&function("method"), "T"));
+        assert!(!parsed.go_type_parameter_binds_receiver(&function("plain"), "T"));
+        assert!(!parsed.go_type_parameter_binds_receiver(&function("nested"), "T"));
+        assert!(!parsed.go_type_parameter_binds_receiver(&function("free"), "pkg.T"));
+        assert!(!parsed.go_type_parameter_binds_receiver(&function("free"), "Store[T]"));
     }
 }

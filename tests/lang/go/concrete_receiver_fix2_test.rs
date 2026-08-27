@@ -1,23 +1,9 @@
-use prism::ast::ParsedFile;
 use prism::call_graph::{CallGraph, CallSite};
-use prism::languages::Language;
 use prism::resolution::{DropReason, ResolutionKind};
-use std::collections::{BTreeMap, BTreeSet};
-
-fn parsed_files(sources: &[(&str, &str)]) -> BTreeMap<String, ParsedFile> {
-    sources
-        .iter()
-        .map(|(path, source)| {
-            (
-                (*path).to_string(),
-                ParsedFile::parse(path, source, Language::Go).expect("parse Go fixture"),
-            )
-        })
-        .collect()
-}
+use std::collections::BTreeSet;
 
 fn build_go(sources: &[(&str, &str)]) -> CallGraph {
-    CallGraph::build(&parsed_files(sources))
+    super::test_support::build_go(sources)
 }
 
 fn site<'a>(cg: &'a CallGraph, caller: &str, method: &str) -> &'a CallSite {

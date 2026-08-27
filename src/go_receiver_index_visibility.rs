@@ -2,7 +2,7 @@
 
 use crate::go_owner_partition::{exact_declaration_visibility, GoOwnerReferenceMode};
 use crate::go_receiver_index::{GoReturnTypes, GoTypedFact};
-use crate::resolution::resolve_go_owner_identity;
+use crate::resolution::resolve_go_receiver_owner_identity;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Resolve a call-RHS callee reference (`newDemux` or `pkg.New`, as written)
@@ -17,14 +17,20 @@ pub(crate) fn resolve_go_return_type_call(
     return_types: &GoReturnTypes,
     go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
 ) -> crate::go_owner_partition::GoPartitionSelection<crate::resolution::GoOwnerIdentity> {
-    let Some(identity) = resolve_go_owner_identity(
+    let Some(identity) = resolve_go_receiver_owner_identity(
         callee_text,
         caller_file,
         imports,
         package_basenames,
         go_file_profiles,
     ) else {
-        return Default::default();
+        return crate::go_owner_partition::GoPartitionSelection {
+            value: None,
+            evidence: crate::go_owner_partition::GoPartitionEvidence {
+                uncertain: true,
+                ..Default::default()
+            },
+        };
     };
     let Some(facts) = return_types.get(&identity) else {
         return Default::default();
@@ -93,7 +99,7 @@ pub(crate) fn resolve_go_struct_field_owner(
         let Some(field_type) = field_type else {
             continue;
         };
-        let Some(field_owner) = resolve_go_owner_identity(
+        let Some(field_owner) = resolve_go_receiver_owner_identity(
             &field_type,
             &declaration.defining_file,
             imports,
@@ -163,7 +169,7 @@ fn unique_visible_return_owner(
                 evidence,
             };
         }
-        let Some(return_owner) = resolve_go_owner_identity(
+        let Some(return_owner) = resolve_go_receiver_owner_identity(
             &fact.ty,
             &fact.defining_file,
             imports,
