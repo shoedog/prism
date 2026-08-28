@@ -12,7 +12,7 @@ Fail closed when a recovered Go receiver reaches an edge-authorizing consumer wi
 2. Consume that predicate immediately before receiver routing in both independent production consumers: `CallGraph::resolve_call_site_full` and `navigation::queries::interface_dispatch_manifest`.
 3. Let the navigation call-edge index inherit the resolver verdict; it is not a third independent predicate consumer.
 4. Preserve all Slice 1/2 positives: package variables, fields, returns, typed parameters, constructor locals, local `var` declarations, and type assertions already carry exact declaration-backed owners.
-5. Preserve prerequisite/materialized drops whose receiver type was removed, direct calls without receiver recovery, shadow semantics, `CallSite::cmp_key`, owner resolver signatures, and the legacy resolver for non-receiver consumers.
+5. Preserve prerequisite/materialized drops whose receiver type was removed, direct calls without receiver recovery, `CallSite::cmp_key`, owner resolver signatures, and the legacy resolver for non-receiver consumers. Shadowed sites remain ownerless and edge-free but now terminate before the old collision-bail telemetry/manifest route.
 
 This slice does not add inference, populate owners, alter interface implementation discovery, revive parked #16 behavior, or change the global basename fallback.
 
@@ -108,6 +108,6 @@ The LSP navigation skill was required but its MCP tools are unavailable in this 
 - An ownerless recovered Go site cannot invoke caller-file rebinding, legacy bare-interface lookup, or produce a navigation edge.
 - The cross-file alias mutation remains dropped by resolver/sidecar and is absent from the manifest; no consumer exposes `decoy/types.go`.
 - Every owner-bearing Slice 1/2 positive remains byte-for-byte equivalent in target identity and route.
-- Prerequisite, shadow, and direct-call behavior remains unchanged.
+- Prerequisite and direct-call behavior remains unchanged; shadowed recovered sites retain no owner/edge and are absent from the manifest at the new terminal boundary.
 - CPG and sidecar versions are paired at `54` and `22`; all four cache paths agree.
 - Full-suite totals, Tier-A results, five-corpus/oracle deltas, review verdicts, and exclusions are recorded in the living handoff.

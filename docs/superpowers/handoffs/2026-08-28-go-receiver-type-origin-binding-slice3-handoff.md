@@ -8,7 +8,7 @@
 ## 0. Gating facts
 
 **Lane ownership:** `[MEASURED]` dedicated clean worktree/branch; no subagent dispatched. Primary `slicing` worktree has unrelated untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` and remains untouched.
-**Custody exposure:** `[MEASURED]` plan/initial handoff are committed at `afdfb70`, first reconciliation at `f0ff6f2`, and compiled RED matrix/plan correction at `e218a6a`; only this immediate handoff reconciliation is pending its checkpoint.
+**Custody exposure:** `[MEASURED]` plan/initial handoff are committed at `afdfb70`, first reconciliation at `f0ff6f2`, compiled RED matrix/plan correction at `e218a6a`, and RED reconciliation at `ca86f02`; the focused-GREEN source/test/doc delta is pending its immediate implementation checkpoint.
 **In flight / irreversible:** none.
 **Authority:** owner said `authorized - proceed` after Slice 2 closeout, authorizing Slice 3 execution. Publication/merge authority will be reconciled against the owner's prior explicit push/merge authorization before remote mutation.
 
@@ -32,8 +32,8 @@
 | Predicate contract | done | Go caller + recovered type/recovery + absent owner is terminal. Current positives for all local/cross-file recovery forms are owner-bearing; remaining absent owners are unproven/materialized/shadow cases. |
 | Planning custody | done | `[MEASURED]` plan and initial handoff committed together at `afdfb70`; preserve it. |
 | RED matrix | done | `[MEASURED]` resolver parity `1/1` and navigation parity `1/1` are already green; manifest `0/1` fails on the exact unauthorized zero-fanout ownerless record; CPG pin `0/1` fails `53 != 54`; sidecar pin `0/1` fails `21 != 22`. |
-| Implementation | not started | One shared predicate; resolver and manifest consumers; CPG `54`, sidecar `22`. |
-| Verification | not started | Focused, full suite, Tier-A, five corpora, oracle, site-count parity, exact-base controls as needed. |
+| Implementation | done, checkpoint pending | One shared predicate has exactly two consumers; resolver/manifest terminalize before routing; CPG `54`/sidecar `22`; shadowed negative now pins the earlier terminal boundary. |
+| Verification | in progress | `[MEASURED]` focused GREEN: owner carrying `7/7`, route `13/13`, shadow/collision `4/4`, prerequisites `13/13`, navigation/cache `2/2`. Full suite/Tier-A/corpora/oracle remain. |
 | Review | not started | Declared cap: two rounds; classify all findings `WRONG` or `SMELL`. |
 | Publication | not started | Push/PR/merge only after verification and authority reconciliation. |
 
@@ -44,6 +44,8 @@
 | H1: resolver and manifest are the only independent consumers; sidecar reuses resolver. | Resolver has ownerless special guard; manifest independently routes and runs legacy lookup; nav edge builder calls `resolve_call_site_full`. | A third path independently constructs receiver-derived edges; or manifest already delegates. | `[MEASURED]` supported; no third mint found. |
 | H2: after Slices 0–2, any recovered Go site without owner is genuinely unproven. | All valid recovery forms retain exact owners; absent-owner rows are negative/materialized/shadow or explicit mutations. | A current positive resolves correctly while ownerless, indicating a missed producer. | `[MEASURED]` supported by source and fixture census. |
 | H3: removing the real cross-file site's owner reconstructs the caller-alias rebinding defect in all consumers. | Resolver/manifest/nav expose `decoy/types.go` before the predicate. | The current route already drops, or failure is caused by malformed mutation. | `[MEASURED]` falsified for resolver/nav: both already drop. Manifest alone emits the ownerless zero-fanout record, proving the bounded parity defect. |
+| H4: the shared predicate flips only the manifest RED while preserving resolver/nav controls. | Parity/pin selectors turn green without positive regression. | Manifest remains present or resolver/nav acquire an edge/regression. | `[MEASURED]` supported: language parity `2/2`, navigation `1/1`, pins `2/2`. |
+| H5: early terminalization changes the shadowed collision-bail telemetry/manifest record. | Candidate fails the old telemetry/manifest expectations while exact base passes them. | Exact base fails identically. | `[MEASURED]` attributed: old expectations candidate `2/4`, exact base `4/4`; updated contract exact base RED `2/4`, candidate GREEN `4/4`. Edge/owner result remains unchanged. |
 
 ## 4. Invariants and traps
 
@@ -52,7 +54,7 @@
 - Check before `go_receiver_owner` or any legacy bare lookup; a late filter can still corrupt telemetry/manifest fanout.
 - Do not weaken the guard to recovery kinds; all present recovery kinds require owner proof for Go.
 - Do not gate rows with no recovered type/recovery; prerequisite/materialized drops and direct calls retain their existing paths.
-- Do not change global owner resolution, owner population, shadowing, `cmp_key`, or parked #16 dispatch behavior.
+- Do not change global owner resolution, owner population, shadow classification, `cmp_key`, or parked #16 dispatch behavior. The shared predicate intentionally supersedes the old shadow collision-bail telemetry/manifest record while preserving its ownerless zero-edge result.
 - The LSP skill was selected, but its MCP tools are unavailable. Exhaustive bounded `rg` plus compiled tests is the disclosed semantic-navigation substitute.
 
 ## 5. Identifiers
@@ -67,8 +69,9 @@
 | Plan | `docs/superpowers/plans/2026-08-28-go-receiver-type-origin-binding-slice3.md` |
 | Handoff | `docs/superpowers/handoffs/2026-08-28-go-receiver-type-origin-binding-slice3-handoff.md` |
 | Design | `docs/superpowers/specs/2026-08-24-go-receiver-type-origin-binding-design.md` |
-| Current cache pins | CPG `53`; sidecar `21` |
-| Planned cache pins | CPG `54`; sidecar `22` |
+| Base cache pins | CPG `53`; sidecar `21` |
+| Candidate cache pins | CPG `54`; sidecar `22` |
+| Exact-base control worktree | `/private/tmp/slicing-s3-base-7fc719ae` |
 | Review cap | `2` |
 
 ## 6. Owner questions
