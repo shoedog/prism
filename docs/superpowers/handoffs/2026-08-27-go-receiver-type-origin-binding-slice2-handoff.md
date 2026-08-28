@@ -1,25 +1,25 @@
 # Handoff — Go receiver type-origin binding Slice 2 eager local owners
 
-**Written:** 2026-08-27T22:45:43Z · **By:** Codex `/root` · **Provider:** codex
-**Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-s2` · `a-receiver-provenance-slice2-eager-local-owner` · **Measured implementation state:** `[MEASURED]` checkpoint `ce680af256b372de68f16c530b62c8ee9221414e`; tree clean before this final handoff refresh · Probe `git status --short --branch` · Output inline in the active Codex session
+**Written:** 2026-08-28T03:33:27Z · **By:** Codex `/root` · **Provider:** codex
+**Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-s2-custody` · `a-receiver-provenance-slice2-custody` · **Measured merged state:** `[MEASURED]` `origin/main` `63b504cd01489e3b029f53cec5717ee7be261d7a`, merge of PR #209; custody branch clean before this reconciliation · Probes `gh pr view 209 --json ...`, `git fetch origin`, `git status --short --branch` · Output inline in the active Codex session
 **Predecessor:** Codex continuation of Claude session `a3bf14f1-6b47-464b-ba09-fc62e2ad7efb`
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by Codex from merged Slice 1 custody, design v3, and exact current source/test reads. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
 
 ## 0. Gating facts — settle these before starting anything below
 
-**(a) Lane ownership** — another session/agent alive in this lane? `[MEASURED]` no subagent was dispatched and this fresh Slice 2 branch is the only worktree on its branch — **RESOLVED for this worker 2026-08-27**
-**(b) Custody exposure** — unpushed commits, uncommitted work, single-copy/untracked artifacts: `[MEASURED]` planning is committed at `68769da`, RED/cache work at `315d17d`, and implementation at `ce680af`; this refresh is the branch-tip handoff checkpoint (derive its exact SHA live); generated Tier-A outputs were moved recoverably to `/private/tmp/s2-receiver-oracle.RAwhLJ/tier-a-generated/` and are not repository changes — **RESOLVED after the required clean-tree resume check**
-**(c) In flight / irreversible** — running process, held lock, half-applied migration: `[MEASURED]` all build, test, corpus, and oracle processes exited; no migration exists — **RESOLVED for known sessions 2026-08-27**
-**(d) Authorization granted but not exercised** — none for Slice 2 publication. The owner's earlier quote, `authorized to push/merge`, was exercised for Slice 1 and is not silently reused for a new slice.
+**(a) Lane ownership** — another session/agent alive in this lane? `[MEASURED]` no subagent was dispatched and this custody branch is the only worktree on its branch — **RESOLVED for this worker 2026-08-28**
+**(b) Custody exposure** — unpushed commits, uncommitted work, single-copy/untracked artifacts: `[MEASURED]` PR #209 merged all four Slice 2 commits at `63b504cd`; this custody reconciliation is the only remaining Slice 2 artifact to publish. Generated Tier-A and oracle evidence remains recoverable at `/private/tmp/s2-receiver-oracle.RAwhLJ` and was intentionally not committed — **RESOLVED through implementation merge; custody refresh in progress**
+**(c) In flight / irreversible** — running process, held lock, half-applied migration: `[MEASURED]` PR #209 is merged and all five hosted checks are complete and green. Coverage finished successfully after merge; it was explicitly removed from the wait gate by the owner — **RESOLVED for known sessions 2026-08-28**
+**(d) Authorization granted but not exercised** — none for Slice 2. The owner's `approved, proceed` authority was exercised for push, PR #209 creation, and merge at `63b504cd`.
 
 ## 1. Resume order
 
-1. In `/Users/wesleyjinks/code/slicing-a-receiver-provenance-s2`, require `git rev-parse HEAD` and `git rev-parse origin/main` to share base `1a82bb0de43e2c1bac1eb8717a4166099c4e0c20`, then read `docs/superpowers/plans/2026-08-27-go-receiver-type-origin-binding-slice2.md`.
+1. Require live `origin/main` to contain Slice 2 merge `63b504cd01489e3b029f53cec5717ee7be261d7a`, then read `docs/superpowers/plans/2026-08-27-go-receiver-type-origin-binding-slice2.md` and the Slice 3 design boundary before starting the next slice.
 2. Preserve planning commit `68769da6bf8c902fb286ddbfad49c46f13061ed0`; do not rewrite it.
 3. Preserve implementation checkpoint `ce680af256b372de68f16c530b62c8ee9221414e`; do not widen it into Slice 3 absent-provenance behavior.
 4. Preserve the completed two-round review and the verification/exclusions below; do not rerun or silently extend the review cap without new code.
-5. Ask for fresh Slice 2 publication authority; only then push, open a PR, wait for every required hosted check, and merge when green.
+5. Treat Slice 2 as closed after this custody reconciliation lands. Obtain fresh scope/authority before implementing or publishing Slice 3.
 
 **STOP conditions:** any proposed change populates a `proof_shadowed` owner; bypasses strict declaration admissibility; changes `CallSite::cmp_key`; implements Slice 3 absent-provenance behavior; changes cross-file owner semantics; treats a zero-selected or self-failing probe as evidence; modifies generated Tier-A artifacts; or publishes by reusing Slice 1 authority.
 
@@ -38,14 +38,14 @@
 | Five-corpus aggregate gate | done | `[MEASURED]` total call-site parity held on all five exact-base/candidate pairs; ripgrep was leaf-identical. Caddy, Prometheus, etcd, and Hugo changed only local Go receiver/interface dispatch plus downstream return-flow bookkeeping. |
 | Dispatch oracle gate | done | `[MEASURED]` all 289 newly exact sites and 594 added implementer identities were scored at site coverage `1.0`, edge coverage `1.0`, precision `1.0`, zero blockers, and `gate_ok=true`; exact-base environment pins matched. |
 | Capped self-review | done | `[MEASURED]` two rounds completed at the declared cap. Round 1 found no WRONG and no SMELL. Round 2 found no WRONG and one handoff-only SMELL, fixed in this refresh. No extension was needed. |
-| Publication | blocked | Fresh Slice 2 push/PR/merge authority has not been granted. |
+| Publication | done | `[MEASURED]` PR #209 merged at `63b504cd01489e3b029f53cec5717ee7be261d7a` on 2026-08-28T03:28:05Z. Format, Clippy, Test Suite, Language Coverage Matrix, and Coverage all completed successfully; Coverage finished after the owner-authorized merge. |
 
 ## 3. Corrections to standing documents and memory
 
 | Location | Stale or false assertion | Correction |
 |---|---|---|
 | Slice 1 handoff §4 | Describes its custody reconciliation as in progress. | `[MEASURED]` PR #208 is merged at `1a82bb0d` and all five hosted checks, including coverage, completed successfully. This Slice 2 handoff supersedes that operational state; the merged historical file is not rewritten here. |
-| Memory receiver-design entry | Predates Slice 0/1 landing. | `[MEASURED]` live Git supersedes that operational state: Slices 0 and 1 are merged. Memory is not edited without explicit owner request. |
+| Memory receiver-design entry | Predates Slice 0/1/2 landing. | `[MEASURED]` live Git supersedes that operational state: Slices 0, 1, and 2 are merged through `63b504cd`. Memory is not edited without explicit owner request. |
 | Initial Slice 2 collision fixture | Used identical `Next() bool` method sets and expected only `p.PImpl`; Go structural interface satisfaction correctly admitted both `PImpl` and `QImpl`, so the target set could not distinguish owner-aware from bare routing. | `[MEASURED]` `q.Iterator` now uses `Next(int) bool`; the ownerless path still has the intended bare-name collision, while proven `p.Iterator` admits only `PImpl`. |
 
 ## 4. Open work
@@ -58,7 +58,8 @@
 | 4 | Cache fences | done | Preserve CPG `52->53` and sidecar `20->21`; four-path parity is GREEN. | None | cache pins |
 | 5 | Verification | done | Preserve the exact-base controls, generated-artifact exclusion, and oracle evidence summarized below. | None | full suite; Tier-A; five corpora |
 | 6 | Capped review | done | Preserve the two-round record; no extension was needed. | None | review cap `2` |
-| 7 | Publication | blocked | Obtain fresh authority, then push, open PR, wait for all required checks, and merge only when green. | Owner authority and reviewed green candidate | branch `a-receiver-provenance-slice2-eager-local-owner` |
+| 7 | Publication | done | Preserve PR #209 and merge `63b504cd`; do not rewrite the merged branch. | None | PR #209; head `24dab5c`; merge `63b504cd` |
+| 8 | Next slice | not started | Rebind the Slice 3 contract and create a fresh bounded plan/worktree only under new scope. | Owner scope/authority | Slice 3 absent-provenance terminal predicate |
 
 ## 5. Invariants and traps — do not do these
 
@@ -78,6 +79,8 @@
 | Planning commit | `68769da6bf8c902fb286ddbfad49c46f13061ed0` |
 | RED/cache checkpoint | `315d17d4fd01b4bfc638e02e2ae1e06ce0048195` |
 | Implementation checkpoint | `ce680af256b372de68f16c530b62c8ee9221414e` |
+| Reviewed branch tip | `24dab5c72cc48574ea112bde53e96c4b0a721327` |
+| Implementation PR / merge | `#209` / `63b504cd01489e3b029f53cec5717ee7be261d7a` |
 | Slice 1 implementation merge | `d9aae91f10d8a8355f052607cefeebe18f0f46fd` |
 | Branch | `a-receiver-provenance-slice2-eager-local-owner` |
 | Worktree | `/Users/wesleyjinks/code/slicing-a-receiver-provenance-s2` |
@@ -111,4 +114,4 @@ Every manifest pair had zero missing keys, zero new keys, and zero removed imple
 
 **§2c verdict:** PASS — implementation and every local/external gate are green or bounded by an exact-base control · claim: "one post-merge screen mutation can populate every admissible unshadowed caller-local owner without changing shadowed or cross-file behavior" · pass: SELF-PASS (NOT INDEPENDENT) after two capped diff-review rounds · evidence tier: TEST-AND-ORACLE-BACKED · record: compiled RED→GREEN, full suite, exact-base Clippy/Tier-A controls, five-corpus site parity, pin-checked gopls deltas, and review classifications in the active Codex Slice 2 session
 
-**Question the owner owes an answer to:** Is this reviewed green Slice 2 candidate authorized for push, PR creation, and merge after all required hosted checks are green?
+**Questions the owner owes an answer to:** None for Slice 2. Slice 3 requires a fresh bounded plan and publication authority.
