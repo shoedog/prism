@@ -360,7 +360,7 @@ fn declaration_is_admissible(
 
 pub(crate) fn screen_go_receiver_prerequisites(
     ctx: &GoReceiverCtx<'_>,
-    classification: ReceiverClassification,
+    mut classification: ReceiverClassification,
     origin: GoReceiverPrereqOrigin,
     facts: &GoReceiverFacts<'_>,
 ) -> (
@@ -441,6 +441,13 @@ pub(crate) fn screen_go_receiver_prerequisites(
     };
     let (admissible, evidence) = declaration_is_admissible(&owner, ctx.caller_file, mode, facts);
     if admissible {
+        if !classification.proof_shadowed {
+            classification
+                .recovered
+                .as_mut()
+                .expect("screened receiver recovery")
+                .owner_identity = Some(owner);
+        }
         return (classification, evidence, None);
     }
     let reason = if bare_dot_import {
