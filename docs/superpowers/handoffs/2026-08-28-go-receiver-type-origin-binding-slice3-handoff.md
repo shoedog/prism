@@ -8,14 +8,14 @@
 ## 0. Gating facts
 
 **Lane ownership:** `[MEASURED]` dedicated clean worktree/branch; no subagent dispatched. Primary `slicing` worktree has unrelated untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` and remains untouched.
-**Custody exposure:** plan and this living handoff are initially uncommitted pending the first stable-point commit.
+**Custody exposure:** `[MEASURED]` plan and initial handoff are committed at `afdfb70`; this handoff-only reconciliation is the sole pending byte set until its immediate checkpoint.
 **In flight / irreversible:** none.
 **Authority:** owner said `authorized - proceed` after Slice 2 closeout, authorizing Slice 3 execution. Publication/merge authority will be reconciled against the owner's prior explicit push/merge authorization before remote mutation.
 
 ## 1. Resume order
 
 1. Require `HEAD`/base `7fc719ae21ba130c554c318c3f8306093a804c92` and read the Slice 3 plan.
-2. Commit the plan/handoff stable point without folding production code into it.
+2. Preserve planning commit `afdfb70`; do not fold production code into or rewrite it.
 3. Add the cross-file alias lost-provenance negatives and prove compiled RED across resolver, manifest, and navigation sidecar.
 4. Implement only the shared predicate, its two consumers, and paired cache fences.
 5. Run focused/full/Tier-A/corpus/oracle controls and the capped two-round review.
@@ -30,7 +30,7 @@
 | Slice 2 landing | done | `[MEASURED]` exact base is terminal closeout merge `7fc719ae`; implementation/custody merges are in its history. |
 | Design/census | done | `[MEASURED]` design §§1–8, `CallSite`, rematerialization, resolver, manifest, navigation edge builder, ownerless assertions, and cache pins read on exact base. Exactly two independent consumers found; sidecar reuses resolver. |
 | Predicate contract | done | Go caller + recovered type/recovery + absent owner is terminal. Current positives for all local/cross-file recovery forms are owner-bearing; remaining absent owners are unproven/materialized/shadow cases. |
-| Planning custody | in progress | Commit plan and living handoff as the first stable point. |
+| Planning custody | done | `[MEASURED]` plan and initial handoff committed together at `afdfb70`; preserve it. |
 | RED matrix | not started | Add cross-file alias owner-stripping mutation; require wrong decoy resolver/manifest/navigation behavior on base. |
 | Implementation | not started | One shared predicate; resolver and manifest consumers; CPG `54`, sidecar `22`. |
 | Verification | not started | Focused, full suite, Tier-A, five corpora, oracle, site-count parity, exact-base controls as needed. |
@@ -60,6 +60,7 @@
 | Item | Verbatim |
 |---|---|
 | Base | `7fc719ae21ba130c554c318c3f8306093a804c92` |
+| Planning commit | `afdfb70` |
 | Branch | `a-receiver-provenance-slice3-terminal-owner-predicate` |
 | Worktree | `/Users/wesleyjinks/code/slicing-a-receiver-provenance-s3` |
 | Plan | `docs/superpowers/plans/2026-08-28-go-receiver-type-origin-binding-slice3.md` |
