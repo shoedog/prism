@@ -8,7 +8,7 @@
 ## 0. Gating facts
 
 **Lane ownership:** `[MEASURED]` dedicated clean worktree/branch; no subagent dispatched. Primary `slicing` worktree has unrelated untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` and remains untouched.
-**Custody exposure:** `[MEASURED]` plan and initial handoff are committed at `afdfb70`; this handoff-only reconciliation is the sole pending byte set until its immediate checkpoint.
+**Custody exposure:** `[MEASURED]` plan/initial handoff are committed at `afdfb70` and their first reconciliation at `f0ff6f2`; compiled RED tests and this measured-plan correction are pending the immediate RED checkpoint.
 **In flight / irreversible:** none.
 **Authority:** owner said `authorized - proceed` after Slice 2 closeout, authorizing Slice 3 execution. Publication/merge authority will be reconciled against the owner's prior explicit push/merge authorization before remote mutation.
 
@@ -31,7 +31,7 @@
 | Design/census | done | `[MEASURED]` design §§1–8, `CallSite`, rematerialization, resolver, manifest, navigation edge builder, ownerless assertions, and cache pins read on exact base. Exactly two independent consumers found; sidecar reuses resolver. |
 | Predicate contract | done | Go caller + recovered type/recovery + absent owner is terminal. Current positives for all local/cross-file recovery forms are owner-bearing; remaining absent owners are unproven/materialized/shadow cases. |
 | Planning custody | done | `[MEASURED]` plan and initial handoff committed together at `afdfb70`; preserve it. |
-| RED matrix | not started | Add cross-file alias owner-stripping mutation; require wrong decoy resolver/manifest/navigation behavior on base. |
+| RED matrix | done | `[MEASURED]` resolver parity `1/1` and navigation parity `1/1` are already green; manifest `0/1` fails on the exact unauthorized zero-fanout ownerless record; CPG pin `0/1` fails `53 != 54`; sidecar pin `0/1` fails `21 != 22`. |
 | Implementation | not started | One shared predicate; resolver and manifest consumers; CPG `54`, sidecar `22`. |
 | Verification | not started | Focused, full suite, Tier-A, five corpora, oracle, site-count parity, exact-base controls as needed. |
 | Review | not started | Declared cap: two rounds; classify all findings `WRONG` or `SMELL`. |
@@ -43,7 +43,7 @@
 |---|---|---|---|
 | H1: resolver and manifest are the only independent consumers; sidecar reuses resolver. | Resolver has ownerless special guard; manifest independently routes and runs legacy lookup; nav edge builder calls `resolve_call_site_full`. | A third path independently constructs receiver-derived edges; or manifest already delegates. | `[MEASURED]` supported; no third mint found. |
 | H2: after Slices 0–2, any recovered Go site without owner is genuinely unproven. | All valid recovery forms retain exact owners; absent-owner rows are negative/materialized/shadow or explicit mutations. | A current positive resolves correctly while ownerless, indicating a missed producer. | `[MEASURED]` supported by source and fixture census. |
-| H3: removing the real cross-file site's owner reconstructs the caller-alias rebinding defect. | Resolver/manifest/nav expose `decoy/types.go` before the predicate. | The current route already drops, or failure is caused by malformed mutation. | pending compiled RED. |
+| H3: removing the real cross-file site's owner reconstructs the caller-alias rebinding defect in all consumers. | Resolver/manifest/nav expose `decoy/types.go` before the predicate. | The current route already drops, or failure is caused by malformed mutation. | `[MEASURED]` falsified for resolver/nav: both already drop. Manifest alone emits the ownerless zero-fanout record, proving the bounded parity defect. |
 
 ## 4. Invariants and traps
 

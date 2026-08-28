@@ -24,13 +24,14 @@ Use the existing cross-file alias fixture:
 - `app/use.go` calls `Shared.M()` with `ext -> decoy`.
 - The correctly materialized site carries owner `api.I` and resolves only `api/types.go`.
 
-Clone/mutate that real site by removing only `receiver_owner_identity`, leaving recovered text `ext.I`. On the exact base, `go_receiver_owner` rebinds the transported text against `app/use.go`, so the resolver and manifest can authorize the constructibly wrong `decoy/types.go` target; the navigation edge index exposes the same wrong callee through its resolver-derived sidecar.
+Clone/mutate that real site by removing only `receiver_owner_identity`, leaving recovered text `ext.I`. Exact-base RED measurement narrowed the design's predicted asymmetry: the resolver already drops the mutation as `ExternalReceiver`, and the navigation edge index inherits that drop, but the manifest still emits an unauthorized oracle-facing record for the ownerless site (`dispatch_route: "unproven_drop"`, `fanout: 0`).
 
-RED requires all three public observations to fail before production changes:
+The parity matrix before production changes is:
 
-1. Resolver: the ownerless mutation resolves no target and reports `ExternalReceiver`.
-2. Manifest: the ownerless stored site is absent, with no legacy bare dispatch.
-3. Navigation sidecar: `callees` exposes no `decoy/types.go` function evidence.
+1. Resolver: GREEN control — the ownerless mutation resolves no target and reports `ExternalReceiver`.
+2. Manifest: RED — the ownerless stored site must be absent, but exact base emits the zero-fanout record.
+3. Navigation sidecar: GREEN control — `callees` exposes neither `api/types.go` nor `decoy/types.go` evidence.
+4. Cache fences: RED — test pins require CPG `54` and sidecar `22` while exact base remains `53`/`21`.
 
 The unmodified owner-bearing fixture is the positive control and must continue resolving only `api/types.go` in resolver, manifest, and navigation output.
 
@@ -65,7 +66,7 @@ Resolution checks the predicate before computing `receiver_resolution_kind` or i
 
 ## 5. RED/GREEN order
 
-1. Add only the resolver/manifest/navigation negative assertions and require compiled, nonzero-selected failures on exact base.
+1. Add only the resolver/manifest/navigation parity assertions and cache-pin expectations. Require the manifest and both pins to fail, with resolver/navigation controls already green, all with nonzero selected tests.
 2. Add the shared predicate and consume it in the resolver and manifest.
 3. Run the exact RED selectors GREEN plus Slice 0–2 positive/negative controls.
 4. Bump both topology versions and run the four-path cache battery.
@@ -105,7 +106,7 @@ The LSP navigation skill was required but its MCP tools are unavailable in this 
 
 - Both independent consumers call the same terminal predicate.
 - An ownerless recovered Go site cannot invoke caller-file rebinding, legacy bare-interface lookup, or produce a navigation edge.
-- The cross-file alias mutation cannot resolve or expose `decoy/types.go` in resolver, manifest, or sidecar output.
+- The cross-file alias mutation remains dropped by resolver/sidecar and is absent from the manifest; no consumer exposes `decoy/types.go`.
 - Every owner-bearing Slice 1/2 positive remains byte-for-byte equivalent in target identity and route.
 - Prerequisite, shadow, and direct-call behavior remains unchanged.
 - CPG and sidecar versions are paired at `54` and `22`; all four cache paths agree.

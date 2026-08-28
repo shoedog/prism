@@ -78,9 +78,8 @@ fn manifest_fanout(cg: &CallGraph, call: &CallSite) -> u64 {
         .expect("manifest fanout")
 }
 
-#[test]
-fn receiver_owner_carrying_uses_package_var_defining_file_alias() {
-    let cg = build_go(&[
+fn cross_file_alias_fixture() -> CallGraph {
+    build_go(&[
         (
             "api/types.go",
             "package api\ntype I interface{ M(); ApiOnly() }\ntype Real struct{}\nfunc (Real) M() {}\nfunc (Real) ApiOnly() {}\nfunc retain() { var _ I = Real{} }\n",
@@ -97,7 +96,38 @@ fn receiver_owner_carrying_uses_package_var_defining_file_alias() {
             "app/use.go",
             "package app\nimport ext \"example.com/root/decoy\"\nfunc run() { Shared.M() }\n",
         ),
-    ]);
+    ])
+}
+
+fn strip_receiver_owner(cg: &mut CallGraph) -> CallSite {
+    let original = site(cg, "app/use.go", "run", "M").clone();
+    assert!(original.receiver_type.is_some(), "{original:?}");
+    assert!(original.receiver_recovery.is_some(), "{original:?}");
+    assert!(original.receiver_owner_identity.is_some(), "{original:?}");
+
+    let mut ownerless = original.clone();
+    ownerless.receiver_owner_identity = None;
+    let calls = cg
+        .calls
+        .get_mut(&original.caller)
+        .expect("run caller bucket");
+    assert!(calls.remove(&original));
+    assert!(calls.insert(ownerless.clone()));
+
+    let reverse = cg
+        .callers
+        .get_mut(&original.callee_name)
+        .expect("M reverse bucket")
+        .iter_mut()
+        .find(|candidate| **candidate == original)
+        .expect("mirrored run M site");
+    reverse.receiver_owner_identity = None;
+    ownerless
+}
+
+#[test]
+fn receiver_owner_carrying_uses_package_var_defining_file_alias() {
+    let cg = cross_file_alias_fixture();
     let call = site(&cg, "app/use.go", "run", "M");
     assert_eq!(
         call.receiver_owner_identity.as_ref(),
@@ -110,6 +140,36 @@ fn receiver_owner_carrying_uses_package_var_defining_file_alias() {
         "{call:?}"
     );
     assert!(manifest_has_site(&cg, call), "{call:?}");
+}
+
+#[test]
+fn receiver_owner_missing_is_terminal_for_resolver() {
+    let mut cg = cross_file_alias_fixture();
+    let ownerless = strip_receiver_owner(&mut cg);
+
+    let outcome = cg.resolve_call_site_full(&ownerless);
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
+}
+
+#[test]
+fn receiver_owner_missing_is_terminal_for_manifest() {
+    let mut cg = cross_file_alias_fixture();
+    let ownerless = strip_receiver_owner(&mut cg);
+    let manifest = queries::interface_dispatch_manifest(&cg);
+
+    assert!(
+        !manifest["sites"]
+            .as_array()
+            .expect("manifest sites")
+            .iter()
+            .any(|entry| {
+                entry["file"] == ownerless.caller.file
+                    && entry["line"] == ownerless.line
+                    && entry["method"] == ownerless.callee_name
+            }),
+        "{manifest}"
+    );
 }
 
 #[test]
