@@ -47,7 +47,9 @@ Expected production files:
 Expected test files:
 
 - `tests/lang/go/receiver_owner_carrying_test.rs` — resolver/manifest lost-provenance negative plus the existing owner-bearing positive.
+- `tests/lang/go/concrete_receiver_fix4_test.rs` — preserve the shadowed site's ownerless zero-edge result while pinning its earlier terminal telemetry/manifest absence.
 - `tests/navigation/go_concrete_cache_test.rs` — navigation sidecar negative and positive parity.
+- `tests/integration/resolution_test.rs` — convert the obsolete ownerless legacy-emitter twin fixture into a populated-bucket terminal negative.
 
 No `CallSite` field, equality/key change, generated Tier-A artifact, oracle baseline, or new dispatch behavior is committed.
 
