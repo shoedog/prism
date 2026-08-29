@@ -1,6 +1,6 @@
 # Handoff — Go receiver type-origin binding Slice 3 terminal owner predicate
 
-**Written:** 2026-08-29T14:48:12Z · **By:** Codex `/root` · **Provider:** codex
+**Written:** 2026-08-29T20:26:05Z · **By:** Codex `/root` · **Provider:** codex
 **Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-s3` · `a-receiver-provenance-slice3-terminal-owner-predicate` · **Base:** `[MEASURED]` `7fc719ae21ba130c554c318c3f8306093a804c92` (`origin/main` at worktree creation)
 **Predecessor:** Slice 2 terminal closeout PR #211, merged at `7fc719ae21ba130c554c318c3f8306093a804c92`; Codex continuation of Claude session `a3bf14f1-6b47-464b-ba09-fc62e2ad7efb`
 **Truth ordering:** measured live state > explicit owner/design authority within scope > this handoff > earlier handoffs and summaries. Conflicts stay open until remeasured.
@@ -8,7 +8,7 @@
 ## 0. Gating facts
 
 **Lane ownership:** `[MEASURED]` dedicated clean worktree/branch; no subagent dispatched. Primary `slicing` worktree has unrelated untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` and remains untouched.
-**Custody exposure:** `[MEASURED]` plan/initial handoff are committed at `afdfb70`, first reconciliation at `f0ff6f2`, RED matrix at `e218a6a`, RED reconciliation at `ca86f02`, implementation at `89ea24e`, implementation reconciliation at `d7542c4`, bounded integration-test contract repair at `1a1e016`, its reconciliation at `068fa9a`, enumerated fix2/fix3 ownerless contract repair at `52348c9`, its reconciliation at `aef6c0c`, and full-suite verification at `ecbc8d6`; the Tier-A qualified result in this refresh awaits its immediate checkpoint.
+**Custody exposure:** `[MEASURED]` plan/initial handoff are committed at `afdfb70`, first reconciliation at `f0ff6f2`, RED matrix at `e218a6a`, RED reconciliation at `ca86f02`, implementation at `89ea24e`, implementation reconciliation at `d7542c4`, bounded integration-test contract repair at `1a1e016`, its reconciliation at `068fa9a`, enumerated fix2/fix3 ownerless contract repair at `52348c9`, its reconciliation at `aef6c0c`, full-suite verification at `ecbc8d6`, and qualified Tier-A controls at `f3035c0`; the five-corpus/oracle claim in this refresh awaits its immediate checkpoint.
 **In flight / irreversible:** none.
 **Authority:** owner said `authorized - proceed` after Slice 2 closeout, authorizing Slice 3 execution. Publication/merge authority will be reconciled against the owner's prior explicit push/merge authorization before remote mutation.
 
@@ -33,7 +33,7 @@
 | Planning custody | done | `[MEASURED]` plan and initial handoff committed together at `afdfb70`; preserve it. |
 | RED matrix | done | `[MEASURED]` resolver parity `1/1` and navigation parity `1/1` are already green; manifest `0/1` fails on the exact unauthorized zero-fanout ownerless record; CPG pin `0/1` fails `53 != 54`; sidecar pin `0/1` fails `21 != 22`. |
 | Implementation | done | `[MEASURED]` checkpoint `89ea24e`: one shared predicate has exactly two consumers; resolver/manifest terminalize before routing; CPG `54`/sidecar `22`; shadowed negative pins the earlier terminal boundary. |
-| Verification | in progress | `[MEASURED]` focused GREEN and candidate full suite GREEN across 28 summaries: `3,488 passed`, `0 failed`, `1 ignored`; release build GREEN. Clippy candidate/base each have 171 identical diagnostic headers. Tier-A matrix `104/104 ok`. Quick is ineligible on both candidate and exact base solely for pinned corpus-SHA drift; both have zero oracle/SUT errors, the same pinned outcomes (`flip_candidate`, two `missing`, `ok`), and unchanged missing inventory `28`; no candidate-only regression. Corpus/oracle gates remain. |
+| Verification | done with disclosed exclusions | `[MEASURED]` focused GREEN; full suite `3,488 passed / 0 failed / 1 ignored`; release GREEN. Clippy candidate/base each have 171 identical pre-existing diagnostic headers. Tier-A matrix `104/104 ok`; quick is ineligible on candidate/base solely for pinned corpus-SHA drift, with no candidate-only regression. Five-corpus call-site parity and all four refreshed exact-base oracle gates pass; quantified recall cost is in §6. |
 | Review | not started | Declared cap: two rounds; classify all findings `WRONG` or `SMELL`. |
 | Publication | not started | Push/PR/merge only after verification and authority reconciliation. |
 
@@ -52,6 +52,8 @@
 | H9: the enumerated expectation updates close the full-suite failure population. | Complete captured rerun has zero failures and final doc-test summary. | Any failing summary, truncated log, or missing target completion. | `[MEASURED]` supported: 28 summaries aggregate to `3,488 passed`, `0 failed`, `1 ignored`; command exit `0`. |
 | H10: Tier-A quick exit `2` is an accuracy regression. | Candidate report contains a case-level regression absent on base. | Ineligibility with identical exact-base control outcomes. | `[MEASURED]` falsified: candidate and base are both invalid only for corpus-SHA drift versus pinned `20c8490591a3`; both have `104/104` matrix `ok`, zero oracle/SUT errors, and identical pinned outcomes. Candidate matched inventory is `7,029` vs base `7,021`; missing counts remain `28`. |
 | H11: the first base-control failure indicates bytes exhausted rather than an oracle failure. | `df` shows near-zero bytes and large reproducible debug targets; inode pool remains available. | Adequate bytes or exhausted inodes. | `[MEASURED]` supported: 117 MiB free, 5.5 GiB measured debug trees, 80% inode use. The ENOSPC run was discarded; cleaning only dev profiles recovered space, and the fresh release+quick control completed. |
+| H12: Slice 3 preserves call-site occurrences and changes only ownerless recovered routes. | Five pinned corpora retain total call-site counts; ripgrep is byte-identical; Go deltas are terminal drops/removed manifest rows with no added or changed retained rows. | Any total-count drift, cross-language leaf delta, added row, or changed retained implementer set. | `[MEASURED]` supported: all five totals match; ripgrep call-stats SHA matches; caddy/prometheus/etcd/hugo removed `1/59/0/16` manifest rows and `0/23/0/12` edges, with zero additions or retained-row changes. |
+| H13: removing ownerless rows introduces no new precision defect and exposes only the designed recall cost. | Refreshed candidate oracles have zero newly Exact/blocking sites, full coverage, and over-approximation does not rise; removed rows account exactly for classification movement. | Any blocker, coverage below floor, new over-approximation, pin mismatch, or unexplained count delta. | `[MEASURED]` supported: all four gates true at site/edge coverage `1.0`; over-approx remains `0`; movement is caddy not-dispatch `-1`, prometheus sound/recall-gap/not-dispatch `-5/-18/-36`, etcd unchanged, hugo `-4/-8/-4`. |
 
 ## 4. Invariants and traps
 
@@ -77,6 +79,7 @@
 | Enumerated ownerless-test checkpoint | `52348c9` |
 | Enumerated ownerless-test reconciliation | `aef6c0c` |
 | Full-suite verification checkpoint | `ecbc8d6` |
+| Tier-A controls checkpoint | `f3035c0` |
 | Branch | `a-receiver-provenance-slice3-terminal-owner-predicate` |
 | Worktree | `/Users/wesleyjinks/code/slicing-a-receiver-provenance-s3` |
 | Plan | `docs/superpowers/plans/2026-08-28-go-receiver-type-origin-binding-slice3.md` |
@@ -87,8 +90,23 @@
 | Exact-base control worktree | `/private/tmp/slicing-s3-base-7fc719ae` |
 | Candidate Tier-A evidence | `/private/tmp/slicing-s3-tier-a-candidate-ecbc8d6` |
 | Exact-base Tier-A evidence | `/private/tmp/slicing-s3-tier-a-base-7fc719ae` |
+| Five-corpus/oracle evidence | `/private/tmp/slicing-s3-receiver-oracle.UU5Ufy` |
+| Candidate release binary SHA-256 | `7fa0daaa12921b7b06a8f1d5d3e6479d76c5b249529c56479746ae45169f2529` |
+| Exact-base release binary SHA-256 | `c538e12d6f83fb364823235ac210669173be8ed0cbe13515b0cc2a85908e4a0f` |
 | Review cap | `2` |
 
-## 6. Owner questions
+## 6. Five-corpus and oracle ledger
+
+| Corpus | Total call sites base/candidate | Manifest sites base/candidate | Removed rows / edges | Sound base/candidate | Recall gap base/candidate | Over-approx base/candidate | Delta gate |
+|---|---:|---:|---:|---:|---:|---:|---|
+| ripgrep | `14,169 / 14,169` | n/a | `0 / 0` | n/a | n/a | n/a | call-stats byte-identical |
+| caddy | `20,594 / 20,594` | `452 / 451` | `1 / 0` | `42 / 42` | `15 / 15` | `0 / 0` | true; coverage `1.0 / 1.0` |
+| prometheus | `110,647 / 110,647` | `3,089 / 3,030` | `59 / 23` | `693 / 688` | `269 / 251` | `0 / 0` | true; coverage `1.0 / 1.0` |
+| etcd | `69,207 / 69,207` | `3,495 / 3,495` | `0 / 0` | `1,866 / 1,866` | `242 / 242` | `0 / 0` | true; coverage `1.0 / 1.0` |
+| hugo | `58,681 / 58,681` | `1,802 / 1,786` | `16 / 12` | `586 / 582` | `364 / 356` | `0 / 0` | true; coverage `1.0 / 1.0` |
+
+No manifest added a row or changed a retained keyed row/implementer set. Caddy removes one zero-fanout `not_dispatch` row. Prometheus removes five sound fanout-positive sites/23 interface edges plus 54 zero-fanout rows; its resolver also removes 31 ownerless constructor-local and six ownerless typed-parameter direct edges, so return-flow leaves move downstream. Hugo removes two fanout-positive sites/12 interface edges plus 14 zero-fanout rows; its resolver also removes four constructor-local and eight typed-parameter direct edges. Etcd's manifest/oracle is identical; seven legacy fallback attempts are suppressed outside the manifest denominator. Hugo's `extended` and `withdeploy` tag passes adjudicated all constrained sites. Every candidate oracle has zero newly Exact sites, zero blockers, and `gate_ok=true` against the freshly cut exact-base oracle.
+
+## 7. Owner questions
 
 None blocking implementation. Reconfirm remote publication authority at the publication boundary if the current `authorized - proceed` plus earlier explicit push/merge authority is not treated as continuing authority for this slice.
