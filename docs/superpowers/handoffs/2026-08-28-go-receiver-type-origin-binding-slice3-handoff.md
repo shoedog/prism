@@ -1,6 +1,6 @@
 # Handoff — Go receiver type-origin binding Slice 3 terminal owner predicate
 
-**Written:** 2026-08-29T03:25:19Z · **By:** Codex `/root` · **Provider:** codex
+**Written:** 2026-08-29T14:48:12Z · **By:** Codex `/root` · **Provider:** codex
 **Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-s3` · `a-receiver-provenance-slice3-terminal-owner-predicate` · **Base:** `[MEASURED]` `7fc719ae21ba130c554c318c3f8306093a804c92` (`origin/main` at worktree creation)
 **Predecessor:** Slice 2 terminal closeout PR #211, merged at `7fc719ae21ba130c554c318c3f8306093a804c92`; Codex continuation of Claude session `a3bf14f1-6b47-464b-ba09-fc62e2ad7efb`
 **Truth ordering:** measured live state > explicit owner/design authority within scope > this handoff > earlier handoffs and summaries. Conflicts stay open until remeasured.
@@ -8,7 +8,7 @@
 ## 0. Gating facts
 
 **Lane ownership:** `[MEASURED]` dedicated clean worktree/branch; no subagent dispatched. Primary `slicing` worktree has unrelated untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` and remains untouched.
-**Custody exposure:** `[MEASURED]` plan/initial handoff are committed at `afdfb70`, first reconciliation at `f0ff6f2`, RED matrix at `e218a6a`, RED reconciliation at `ca86f02`, implementation at `89ea24e`, implementation reconciliation at `d7542c4`, bounded integration-test contract repair at `1a1e016`, its reconciliation at `068fa9a`, enumerated fix2/fix3 ownerless contract repair at `52348c9`, and its reconciliation at `aef6c0c`; the full-suite verification claim in this refresh awaits its immediate checkpoint.
+**Custody exposure:** `[MEASURED]` plan/initial handoff are committed at `afdfb70`, first reconciliation at `f0ff6f2`, RED matrix at `e218a6a`, RED reconciliation at `ca86f02`, implementation at `89ea24e`, implementation reconciliation at `d7542c4`, bounded integration-test contract repair at `1a1e016`, its reconciliation at `068fa9a`, enumerated fix2/fix3 ownerless contract repair at `52348c9`, its reconciliation at `aef6c0c`, and full-suite verification at `ecbc8d6`; the Tier-A qualified result in this refresh awaits its immediate checkpoint.
 **In flight / irreversible:** none.
 **Authority:** owner said `authorized - proceed` after Slice 2 closeout, authorizing Slice 3 execution. Publication/merge authority will be reconciled against the owner's prior explicit push/merge authorization before remote mutation.
 
@@ -33,7 +33,7 @@
 | Planning custody | done | `[MEASURED]` plan and initial handoff committed together at `afdfb70`; preserve it. |
 | RED matrix | done | `[MEASURED]` resolver parity `1/1` and navigation parity `1/1` are already green; manifest `0/1` fails on the exact unauthorized zero-fanout ownerless record; CPG pin `0/1` fails `53 != 54`; sidecar pin `0/1` fails `21 != 22`. |
 | Implementation | done | `[MEASURED]` checkpoint `89ea24e`: one shared predicate has exactly two consumers; resolver/manifest terminalize before routing; CPG `54`/sidecar `22`; shadowed negative pins the earlier terminal boundary. |
-| Verification | in progress | `[MEASURED]` focused GREEN: owner carrying `7/7`, route `13/13`, shadow/collision `4/4`, prerequisites `13/13`, navigation/cache `2/2`, fix2 `3/3`, fix3 `4/4`. Format/check green. Clippy candidate/base each have 171 identical diagnostic headers. Exact-base RED: fix2 `1 passed/2 failed`, fix3 `3 passed/1 failed`; candidate full suite GREEN across 28 summaries: `3,488 passed`, `0 failed`, `1 ignored`. Release/Tier-A/corpus/oracle gates remain. |
+| Verification | in progress | `[MEASURED]` focused GREEN and candidate full suite GREEN across 28 summaries: `3,488 passed`, `0 failed`, `1 ignored`; release build GREEN. Clippy candidate/base each have 171 identical diagnostic headers. Tier-A matrix `104/104 ok`. Quick is ineligible on both candidate and exact base solely for pinned corpus-SHA drift; both have zero oracle/SUT errors, the same pinned outcomes (`flip_candidate`, two `missing`, `ok`), and unchanged missing inventory `28`; no candidate-only regression. Corpus/oracle gates remain. |
 | Review | not started | Declared cap: two rounds; classify all findings `WRONG` or `SMELL`. |
 | Publication | not started | Push/PR/merge only after verification and authority reconciliation. |
 
@@ -50,6 +50,8 @@
 | H7: full-suite failure is an obsolete ownerless legacy-emitter expectation. | Fixture synthetically sets owner `None`; base passes old expectation; updated terminal assertion is base RED/candidate GREEN. | Owner-bearing fixture or identical base failure. | `[MEASURED]` supported: old test base `1/1`, candidate `0/1`; converted populated-bucket negative base `0/1`, candidate `1/1`. |
 | H8: the remaining three full-suite failures are obsolete ownerless R3 expectations rather than producer regressions. | Updated negatives fail only on exact-base legacy rows/edges; owner-bearing positives pass in the same binaries; candidate is green. | Compile/fixture failure, owner-bearing positive failure, or updated exact-base green. | `[MEASURED]` supported: no-fail-fast found no other target failure; fix2 base `1 passed/2 failed` vs candidate `3/3`, fix3 base `3 passed/1 failed` vs candidate `4/4`. Exact-base failures expose the old fallback telemetry, interface-dispatch edges, or manifest presence. |
 | H9: the enumerated expectation updates close the full-suite failure population. | Complete captured rerun has zero failures and final doc-test summary. | Any failing summary, truncated log, or missing target completion. | `[MEASURED]` supported: 28 summaries aggregate to `3,488 passed`, `0 failed`, `1 ignored`; command exit `0`. |
+| H10: Tier-A quick exit `2` is an accuracy regression. | Candidate report contains a case-level regression absent on base. | Ineligibility with identical exact-base control outcomes. | `[MEASURED]` falsified: candidate and base are both invalid only for corpus-SHA drift versus pinned `20c8490591a3`; both have `104/104` matrix `ok`, zero oracle/SUT errors, and identical pinned outcomes. Candidate matched inventory is `7,029` vs base `7,021`; missing counts remain `28`. |
+| H11: the first base-control failure indicates bytes exhausted rather than an oracle failure. | `df` shows near-zero bytes and large reproducible debug targets; inode pool remains available. | Adequate bytes or exhausted inodes. | `[MEASURED]` supported: 117 MiB free, 5.5 GiB measured debug trees, 80% inode use. The ENOSPC run was discarded; cleaning only dev profiles recovered space, and the fresh release+quick control completed. |
 
 ## 4. Invariants and traps
 
@@ -74,6 +76,7 @@
 | Integration-test reconciliation | `068fa9a` |
 | Enumerated ownerless-test checkpoint | `52348c9` |
 | Enumerated ownerless-test reconciliation | `aef6c0c` |
+| Full-suite verification checkpoint | `ecbc8d6` |
 | Branch | `a-receiver-provenance-slice3-terminal-owner-predicate` |
 | Worktree | `/Users/wesleyjinks/code/slicing-a-receiver-provenance-s3` |
 | Plan | `docs/superpowers/plans/2026-08-28-go-receiver-type-origin-binding-slice3.md` |
@@ -82,6 +85,8 @@
 | Base cache pins | CPG `53`; sidecar `21` |
 | Candidate cache pins | CPG `54`; sidecar `22` |
 | Exact-base control worktree | `/private/tmp/slicing-s3-base-7fc719ae` |
+| Candidate Tier-A evidence | `/private/tmp/slicing-s3-tier-a-candidate-ecbc8d6` |
+| Exact-base Tier-A evidence | `/private/tmp/slicing-s3-tier-a-base-7fc719ae` |
 | Review cap | `2` |
 
 ## 6. Owner questions
