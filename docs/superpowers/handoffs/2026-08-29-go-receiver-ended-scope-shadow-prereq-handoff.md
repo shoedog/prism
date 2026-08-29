@@ -1,7 +1,7 @@
 # Handoff — Go receiver ended-scope shadow prerequisite
 
-**Written:** 2026-08-29T21:52:27Z · **By:** Codex `/root` · **Provider:** codex
-**Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq` · `a-receiver-provenance-scope-aware-shadow-prereq` · **Measured state:** `[MEASURED]` HEAD `7fc719ae21ba130c554c318c3f8306093a804c92` · Tree DIRTY only for the untracked plan and this handoff · Probe `git status --short --branch; git rev-parse HEAD` · Output inline in the authoring turn
+**Written:** 2026-08-29T21:56:36Z · **By:** Codex `/root` · **Provider:** codex
+**Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq` · `a-receiver-provenance-scope-aware-shadow-prereq` · **Measured state:** `[MEASURED]` HEAD `85099b1` · Tree CLEAN · Probe `git status --short --branch; git log -1 --oneline` · Output inline in the reconciliation turn
 **Predecessor:** Codex `/root` continuation of the Slice 3 review STOP at `a9ff284ab7fbb67516324841c5da3a156c2c8d0b`
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,7 +9,7 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` `git worktree list --porcelain` showed this newly created dedicated branch/worktree and no prior owner; no subagent was dispatched — **RESOLVED 2026-08-29 by owner-authorized lane creation**
-**(b) Custody exposure** — `[MEASURED]` one untracked plan plus this handoff are the only expected tree changes before the planning checkpoint; Slice 3 remains clean at `a9ff284` in its separate worktree — **OPEN until the initial planning checkpoint is committed**
+**(b) Custody exposure** — `[MEASURED]` plan and initial handoff are committed at `85099b1`; Slice 3 remains clean at `a9ff284` in its separate worktree; this refresh is the immediate reconciliation — **RESOLVED 2026-08-29 by planning checkpoint**
 **(c) In flight / irreversible** — `[MEASURED]` no build, test, editor, or remote mutation is in flight — **RESOLVED 2026-08-29**
 **(d) Authorization granted but not exercised** — owner verbatim: `authorized`, answering the request to authorize a prerequisite slice repairing scope-aware Go receiver owner/shadow production. Earlier standing authorization also permits push/merge after gates are green.
 
@@ -30,7 +30,7 @@
 | Exact base/lane | done | `[MEASURED]` dedicated branch/worktree created at Slice 2 merge `7fc719ae`; Slice 3 is preserved separately at `a9ff284`. |
 | Failure mechanism | done | `[MEASURED]` ordinary Go binding scan counts prior declarations by byte position; its scope filter is enabled only with the special same-scope-reuse mode. Prometheus parameter `b unsafeLabelAdder` is poisoned by inner-loop `b := ...` whose block ends before `b.Add(...)`. |
 | Population census | done | `[MEASURED]` removed sound rows were enumerated. The prerequisite addresses only the supported typed-parameter false shadow; explicit existing contracts park non-direct reuse, assignment retyping, and local field-alias gaps. |
-| Plan/handoff | next | These two untracked documents await immediate planning custody. |
+| Plan/handoff | done | `[MEASURED]` plan and initial handoff committed at `85099b1`; this refresh reconciles that checkpoint. |
 | RED | pending | Add exact-owner assertions that compile and fail at `7fc719ae`, with active-shadow negative. |
 | Production | pending | `src/ast.rs` only; split visibility/reuse booleans and apply visibility to `:=` plus `var`. |
 | Verification/review | pending | Full suite, Tier-A, Prometheus recheck, and capped two-round review. |
@@ -54,8 +54,8 @@
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Planning custody | next | Commit the plan and this handoff with explicit paths. | None | base `7fc719ae` |
-| 2 | RED contract | pending | Add ended-scope exact-owner tests and active-shadow control; run exact selector on base. | Planning checkpoint | `receiver_owner_carrying_test.rs` |
+| 1 | Planning custody | done | Preserve checkpoint `85099b1`. | None | base `7fc719ae` |
+| 2 | RED contract | next | Add ended-scope exact-owner tests and active-shadow control; run exact selector on base. | None | `receiver_owner_carrying_test.rs` |
 | 3 | Bounded repair | pending | Split declaration visibility from reuse mode; filter Go `:=`/`var` scopes. | Admissible RED | `src/ast.rs` |
 | 4 | Verification/review | pending | Full/Tier-A/Prometheus/two-round review. | Focused GREEN | review cap `2` |
 | 5 | Publication and Slice 3 continuation | pending | Merge prerequisite, rebase Slice 3, rerun its gates. | Review approval | Slice 3 `a9ff284` |
@@ -77,6 +77,7 @@
 | Worktree | `/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq` |
 | Plan | `docs/superpowers/plans/2026-08-29-go-receiver-ended-scope-shadow-prereq.md` |
 | Handoff | `docs/superpowers/handoffs/2026-08-29-go-receiver-ended-scope-shadow-prereq-handoff.md` |
+| Planning checkpoint | `85099b1` |
 | Slice 3 branch | `a-receiver-provenance-slice3-terminal-owner-predicate` |
 | Slice 3 worktree | `/Users/wesleyjinks/code/slicing-a-receiver-provenance-s3` |
 | Slice 3 preserved HEAD | `a9ff284ab7fbb67516324841c5da3a156c2c8d0b` |
