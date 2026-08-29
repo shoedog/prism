@@ -8,7 +8,7 @@
 ## 0. Gating facts
 
 **Lane ownership:** `[MEASURED]` dedicated clean worktree/branch; no subagent dispatched. Primary `slicing` worktree has unrelated untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` and remains untouched.
-**Custody exposure:** `[MEASURED]` plan/initial handoff are committed at `afdfb70`, first reconciliation at `f0ff6f2`, RED matrix at `e218a6a`, RED reconciliation at `ca86f02`, implementation at `89ea24e`, implementation reconciliation at `d7542c4`, bounded integration-test contract repair at `1a1e016`, its reconciliation at `068fa9a`, enumerated fix2/fix3 ownerless contract repair at `52348c9`, its reconciliation at `aef6c0c`, full-suite verification at `ecbc8d6`, qualified Tier-A controls at `f3035c0`, and five-corpus/oracle evidence at `938d7be`; the review-round-1 STOP finding in this refresh awaits its immediate checkpoint.
+**Custody exposure:** `[MEASURED]` plan/initial handoff are committed at `afdfb70`, first reconciliation at `f0ff6f2`, RED matrix at `e218a6a`, RED reconciliation at `ca86f02`, implementation at `89ea24e`, implementation reconciliation at `d7542c4`, bounded integration-test contract repair at `1a1e016`, its reconciliation at `068fa9a`, enumerated fix2/fix3 ownerless contract repair at `52348c9`, its reconciliation at `aef6c0c`, full-suite verification at `ecbc8d6`, qualified Tier-A controls at `f3035c0`, five-corpus/oracle evidence at `938d7be`, and the review-round-1 STOP finding at `b3a51f6`; this refresh is the immediate custody reconciliation.
 **In flight / irreversible:** none.
 **Authority:** owner said `authorized - proceed` after Slice 2 closeout, authorizing Slice 3 execution. Publication/merge authority will be reconciled against the owner's prior explicit push/merge authorization before remote mutation.
 
@@ -82,6 +82,7 @@
 | Full-suite verification checkpoint | `ecbc8d6` |
 | Tier-A controls checkpoint | `f3035c0` |
 | Five-corpus/oracle checkpoint | `938d7be` |
+| Review-round-1 STOP checkpoint | `b3a51f6` |
 | Branch | `a-receiver-provenance-slice3-terminal-owner-predicate` |
 | Worktree | `/Users/wesleyjinks/code/slicing-a-receiver-provenance-s3` |
 | Plan | `docs/superpowers/plans/2026-08-28-go-receiver-type-origin-binding-slice3.md` |
