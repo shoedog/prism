@@ -48,6 +48,8 @@ Expected test files:
 
 - `tests/lang/go/receiver_owner_carrying_test.rs` — resolver/manifest lost-provenance negative plus the existing owner-bearing positive.
 - `tests/lang/go/concrete_receiver_fix4_test.rs` — preserve the shadowed site's ownerless zero-edge result while pinning its earlier terminal telemetry/manifest absence.
+- `tests/lang/go/concrete_receiver_fix2_test.rs` — terminalize ownerless type-switch, short-declaration, and range rebindings instead of retaining legacy R3 rows/edges.
+- `tests/lang/go/concrete_receiver_fix3_test.rs` — terminalize ownerless changed-type and nested-shadow recoveries while preserving owner-bearing same-scope positives.
 - `tests/navigation/go_concrete_cache_test.rs` — navigation sidecar negative and positive parity.
 - `tests/integration/resolution_test.rs` — convert the obsolete ownerless legacy-emitter twin fixture into a populated-bucket terminal negative.
 
@@ -83,6 +85,8 @@ Focused:
 cargo test --test lang_go receiver_owner_carrying -- --nocapture
 cargo test --test lang_go concrete_receiver_route -- --nocapture
 cargo test --test lang_go concrete_receiver_fix4 -- --nocapture
+cargo test --test lang_go concrete_receiver_fix2 -- --nocapture
+cargo test --test lang_go concrete_receiver_fix3 -- --nocapture
 cargo test --test lang_go receiver_origin_prereq -- --nocapture
 cargo test --test navigation go_concrete_cache -- --nocapture
 ```

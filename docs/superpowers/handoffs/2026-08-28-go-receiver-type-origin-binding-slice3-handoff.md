@@ -1,6 +1,6 @@
 # Handoff — Go receiver type-origin binding Slice 3 terminal owner predicate
 
-**Written:** 2026-08-28T14:46:22Z · **By:** Codex `/root` · **Provider:** codex
+**Written:** 2026-08-29T03:20:17Z · **By:** Codex `/root` · **Provider:** codex
 **Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-s3` · `a-receiver-provenance-slice3-terminal-owner-predicate` · **Base:** `[MEASURED]` `7fc719ae21ba130c554c318c3f8306093a804c92` (`origin/main` at worktree creation)
 **Predecessor:** Slice 2 terminal closeout PR #211, merged at `7fc719ae21ba130c554c318c3f8306093a804c92`; Codex continuation of Claude session `a3bf14f1-6b47-464b-ba09-fc62e2ad7efb`
 **Truth ordering:** measured live state > explicit owner/design authority within scope > this handoff > earlier handoffs and summaries. Conflicts stay open until remeasured.
@@ -8,7 +8,7 @@
 ## 0. Gating facts
 
 **Lane ownership:** `[MEASURED]` dedicated clean worktree/branch; no subagent dispatched. Primary `slicing` worktree has unrelated untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` and remains untouched.
-**Custody exposure:** `[MEASURED]` plan/initial handoff are committed at `afdfb70`, first reconciliation at `f0ff6f2`, RED matrix at `e218a6a`, RED reconciliation at `ca86f02`, implementation at `89ea24e`, implementation reconciliation at `d7542c4`, and bounded integration-test contract repair at `1a1e016`; only this handoff reconciliation awaits its immediate checkpoint.
+**Custody exposure:** `[MEASURED]` plan/initial handoff are committed at `afdfb70`, first reconciliation at `f0ff6f2`, RED matrix at `e218a6a`, RED reconciliation at `ca86f02`, implementation at `89ea24e`, implementation reconciliation at `d7542c4`, bounded integration-test contract repair at `1a1e016`, and its reconciliation at `068fa9a`; the enumerated fix2/fix3 ownerless contract repair plus this refresh await their immediate checkpoint.
 **In flight / irreversible:** none.
 **Authority:** owner said `authorized - proceed` after Slice 2 closeout, authorizing Slice 3 execution. Publication/merge authority will be reconciled against the owner's prior explicit push/merge authorization before remote mutation.
 
@@ -33,7 +33,7 @@
 | Planning custody | done | `[MEASURED]` plan and initial handoff committed together at `afdfb70`; preserve it. |
 | RED matrix | done | `[MEASURED]` resolver parity `1/1` and navigation parity `1/1` are already green; manifest `0/1` fails on the exact unauthorized zero-fanout ownerless record; CPG pin `0/1` fails `53 != 54`; sidecar pin `0/1` fails `21 != 22`. |
 | Implementation | done | `[MEASURED]` checkpoint `89ea24e`: one shared predicate has exactly two consumers; resolver/manifest terminalize before routing; CPG `54`/sidecar `22`; shadowed negative pins the earlier terminal boundary. |
-| Verification | in progress | `[MEASURED]` focused GREEN: owner carrying `7/7`, route `13/13`, shadow/collision `4/4`, prerequisites `13/13`, navigation/cache `2/2`. Format/check green. Clippy candidate/base each have 171 identical diagnostic headers. Full suite found one obsolete synthetic ownerless-emitter expectation; converted test is exact-base RED `0/1`, candidate GREEN `1/1`; full rerun pending. |
+| Verification | in progress | `[MEASURED]` focused GREEN: owner carrying `7/7`, route `13/13`, shadow/collision `4/4`, prerequisites `13/13`, navigation/cache `2/2`, fix2 `3/3`, fix3 `4/4`. Format/check green. Clippy candidate/base each have 171 identical diagnostic headers. `cargo test --no-fail-fast` enumerated exactly three obsolete ownerless R3 expectations after the integration repair; updated fix2 expectations are exact-base RED `1 passed/2 failed`, fix3 exact-base RED `3 passed/1 failed`, and candidate GREEN. Full-suite rerun pending. |
 | Review | not started | Declared cap: two rounds; classify all findings `WRONG` or `SMELL`. |
 | Publication | not started | Push/PR/merge only after verification and authority reconciliation. |
 
@@ -48,6 +48,7 @@
 | H5: early terminalization changes the shadowed collision-bail telemetry/manifest record. | Candidate fails the old telemetry/manifest expectations while exact base passes them. | Exact base fails identically. | `[MEASURED]` attributed: old expectations candidate `2/4`, exact base `4/4`; updated contract exact base RED `2/4`, candidate GREEN `4/4`. Edge/owner result remains unchanged. |
 | H6: Clippy failures are exact-base-identical repository debt. | Candidate/base sorted diagnostic headers match with no changed-region diagnostic. | Any header delta or new-code diagnostic. | `[MEASURED]` supported after discarding one sandbox-lock capture: valid logs each contain 171 headers, zero multiset difference; no new-region diagnostic. |
 | H7: full-suite failure is an obsolete ownerless legacy-emitter expectation. | Fixture synthetically sets owner `None`; base passes old expectation; updated terminal assertion is base RED/candidate GREEN. | Owner-bearing fixture or identical base failure. | `[MEASURED]` supported: old test base `1/1`, candidate `0/1`; converted populated-bucket negative base `0/1`, candidate `1/1`. |
+| H8: the remaining three full-suite failures are obsolete ownerless R3 expectations rather than producer regressions. | Updated negatives fail only on exact-base legacy rows/edges; owner-bearing positives pass in the same binaries; candidate is green. | Compile/fixture failure, owner-bearing positive failure, or updated exact-base green. | `[MEASURED]` supported: no-fail-fast found no other target failure; fix2 base `1 passed/2 failed` vs candidate `3/3`, fix3 base `3 passed/1 failed` vs candidate `4/4`. Exact-base failures expose the old fallback telemetry, interface-dispatch edges, or manifest presence. |
 
 ## 4. Invariants and traps
 
@@ -69,6 +70,7 @@
 | Implementation checkpoint | `89ea24e` |
 | Implementation reconciliation | `d7542c4` |
 | Integration-test checkpoint | `1a1e016` |
+| Integration-test reconciliation | `068fa9a` |
 | Branch | `a-receiver-provenance-slice3-terminal-owner-predicate` |
 | Worktree | `/Users/wesleyjinks/code/slicing-a-receiver-provenance-s3` |
 | Plan | `docs/superpowers/plans/2026-08-28-go-receiver-type-origin-binding-slice3.md` |
