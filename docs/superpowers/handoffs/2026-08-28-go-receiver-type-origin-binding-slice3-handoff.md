@@ -8,7 +8,7 @@
 ## 0. Gating facts
 
 **Lane ownership:** `[MEASURED]` dedicated clean worktree/branch; no subagent dispatched. Primary `slicing` worktree has unrelated untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` and remains untouched.
-**Custody exposure:** `[MEASURED]` plan/initial handoff are committed at `afdfb70`, first reconciliation at `f0ff6f2`, RED matrix at `e218a6a`, RED reconciliation at `ca86f02`, implementation at `89ea24e`, and implementation reconciliation at `d7542c4`; the bounded integration-test contract repair and this evidence update await their immediate checkpoint.
+**Custody exposure:** `[MEASURED]` plan/initial handoff are committed at `afdfb70`, first reconciliation at `f0ff6f2`, RED matrix at `e218a6a`, RED reconciliation at `ca86f02`, implementation at `89ea24e`, implementation reconciliation at `d7542c4`, and bounded integration-test contract repair at `1a1e016`; only this handoff reconciliation awaits its immediate checkpoint.
 **In flight / irreversible:** none.
 **Authority:** owner said `authorized - proceed` after Slice 2 closeout, authorizing Slice 3 execution. Publication/merge authority will be reconciled against the owner's prior explicit push/merge authorization before remote mutation.
 
@@ -68,6 +68,7 @@
 | RED checkpoint | `e218a6a` |
 | Implementation checkpoint | `89ea24e` |
 | Implementation reconciliation | `d7542c4` |
+| Integration-test checkpoint | `1a1e016` |
 | Branch | `a-receiver-provenance-slice3-terminal-owner-predicate` |
 | Worktree | `/Users/wesleyjinks/code/slicing-a-receiver-provenance-s3` |
 | Plan | `docs/superpowers/plans/2026-08-28-go-receiver-type-origin-binding-slice3.md` |
