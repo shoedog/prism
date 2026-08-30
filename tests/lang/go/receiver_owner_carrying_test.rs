@@ -63,6 +63,21 @@ fn manifest_has_site(cg: &CallGraph, call: &CallSite) -> bool {
         })
 }
 
+fn manifest_fanout(cg: &CallGraph, call: &CallSite) -> u64 {
+    queries::interface_dispatch_manifest(cg)["sites"]
+        .as_array()
+        .expect("manifest sites")
+        .iter()
+        .find(|entry| {
+            entry["file"] == call.caller.file
+                && entry["line"] == call.line
+                && entry["method"] == call.callee_name
+        })
+        .unwrap_or_else(|| panic!("missing manifest site: {call:?}"))["fanout"]
+        .as_u64()
+        .expect("manifest fanout")
+}
+
 #[test]
 fn receiver_owner_carrying_uses_package_var_defining_file_alias() {
     let cg = build_go(&[
@@ -372,9 +387,8 @@ fn receiver_owner_carrying_keeps_an_active_inner_shadow_unproven() {
     assert_eq!(call.receiver_owner_identity, None, "{call:?}");
 }
 
-#[test]
-fn ended_scope_owner_keeps_independent_implementer_with_tagged_name_collision() {
-    let cg = build_go(&[
+fn tagged_name_collision_fixture(include_independent: bool) -> CallGraph {
+    let mut sources = vec![
         (
             "api/decoder.go",
             "package api\n\
@@ -383,13 +397,6 @@ fn ended_scope_owner_keeps_independent_implementer_with_tagged_name_collision() 
                { b := byte(1); _ = b }\n\
                b.Add(\"name\", \"value\")\n\
              }\n",
-        ),
-        (
-            "schema/good.go",
-            "package schema\n\
-             type Good struct{}\n\
-             func (Good) Add(name, value string) {}\n\
-             func retainGood() { _ = Good{} }\n",
         ),
         (
             "labels/labels_slice.go",
@@ -415,7 +422,22 @@ fn ended_scope_owner_keeps_independent_implementer_with_tagged_name_collision() 
              func (*ScratchBuilder) Add(name, value string) {}\n\
              func retainDefault() { _ = &ScratchBuilder{} }\n",
         ),
-    ]);
+    ];
+    if include_independent {
+        sources.push((
+            "schema/good.go",
+            "package schema\n\
+             type Good struct{}\n\
+             func (Good) Add(name, value string) {}\n\
+             func retainGood() { _ = Good{} }\n",
+        ));
+    }
+    build_go(&sources)
+}
+
+#[test]
+fn ended_scope_owner_keeps_independent_implementer_with_tagged_name_collision() {
+    let cg = tagged_name_collision_fixture(true);
     let call = site(&cg, "api/decoder.go", "parse", "Add");
 
     assert!(!call.receiver_local_type_shadowed, "{call:?}");
@@ -429,5 +451,20 @@ fn ended_scope_owner_keeps_independent_implementer_with_tagged_name_collision() 
         BTreeSet::from(["schema/good.go".to_string()]),
         "an unrelated build-tag collision must not erase the exact implementer: {call:?}"
     );
-    assert!(manifest_has_site(&cg, call), "{call:?}");
+    assert_eq!(manifest_fanout(&cg, call), 1, "{call:?}");
+}
+
+#[test]
+fn ended_scope_owner_drops_a_conflict_only_implementer_population() {
+    let cg = tagged_name_collision_fixture(false);
+    let call = site(&cg, "api/decoder.go", "parse", "Add");
+
+    assert!(!call.receiver_local_type_shadowed, "{call:?}");
+    assert_eq!(
+        call.receiver_owner_identity.as_ref(),
+        Some(&owner("api", "api", "Adder")),
+        "{call:?}"
+    );
+    assert!(resolved_files(&cg, call).is_empty(), "{call:?}");
+    assert_eq!(manifest_fanout(&cg, call), 0, "{call:?}");
 }
