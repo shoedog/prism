@@ -1,7 +1,7 @@
 # Handoff — Go receiver ended-scope shadow prerequisite
 
-**Written:** 2026-08-30T23:00:10Z · **By:** Codex `/root` · **Provider:** codex
-**Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq` · `a-receiver-provenance-scope-aware-shadow-prereq` · **Measured state:** `[MEASURED]` HEAD `8e8bda1` · Tree CLEAN after generated Tier-A cleanup · Probe `git status --short --branch; git log -4 --oneline` · Output captured in the verification turn
+**Written:** 2026-08-30T23:04:44Z · **By:** Codex `/root` · **Provider:** codex
+**Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq` · `a-receiver-provenance-scope-aware-shadow-prereq` · **Measured state:** `[MEASURED]` HEAD `db6dab7` · Tree DIRTY only with the round-1 two-sided RED and this custody refresh · Probe `git status --short --branch; git rev-parse --short HEAD` · Output captured in the review turn
 **Predecessor:** Codex `/root` continuation of the Slice 3 review STOP at `a9ff284ab7fbb67516324841c5da3a156c2c8d0b`
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -19,8 +19,8 @@
 1. From `/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq`, require base ancestor `7fc719ae21ba130c554c318c3f8306093a804c92`, HEAD at or after `8e8bda1`, and read `docs/superpowers/plans/2026-08-29-go-receiver-ended-scope-shadow-prereq.md`.
 2. Preserve RED checkpoint `f379e50` and implementation checkpoint `bcd8a0b`; do not fold the parked assignment/reuse/field-alias gaps into this lane.
 3. Preserve full-suite `3,491/0/1`, same-environment Clippy results, release/Tier-A artifacts, and the fresh exact-base/pre-fix/fixed Prometheus manifests.
-4. Keep the authorized routing repair in `src/resolution.rs` plus focused tests: an unrelated build-tag collision must not erase an independent exact satisfier, while the conflicting owner itself remains excluded and a conflict-only population still drops.
-5. Rerun all gates and the declared two-round review with `WRONG` before `SMELL`; only then publish/merge, rebase Slice 3, and reverify it.
+4. Complete the round-1 bounded fix in `src/resolution.rs`: quarantine an uncertain concrete owner just as locally as a conflicting owner, preserve an independent exact satisfier, and retain the uncertainty-only drop.
+5. Rerun all gates, then perform review round 2 with `WRONG` before `SMELL`; only then publish/merge, rebase Slice 3, and reverify it.
 
 **STOP conditions:** production scope expands beyond `src/ast.rs` and the authorized `src/resolution.rs` follow-on; assignment/reuse/field-alias routing changes; an in-scope declaration becomes invisible; the Prometheus line-302 sound edge is not restored; a probe fails for its own reason; or candidate attribution lacks a same-environment exact-base control.
 
@@ -34,7 +34,7 @@
 | Plan/handoff | done | `[MEASURED]` plan and initial handoff committed at `85099b1`; this refresh reconciles that checkpoint. |
 | RED | done | `[MEASURED]` registered names enumerated after discarding a zero-selection probe. Exact-base positive run selected three and failed `0/3`, each with recovered `I`, owner `None`, and false shadow; exact active-shadow control passed `1/1`. Checkpoint `f379e50`. |
 | Production | done | `[MEASURED]` checkpoint `bcd8a0b` repairs AST declaration visibility; checkpoint `8e8bda1` quarantines conflicting structural method sets per concrete owner, preserves independent exact satisfiers, and retains the conflict-only drop. No other production surface changed. |
-| Verification/review | in progress | `[MEASURED]` focused suites are `11/11`, `30/30`, and telemetry `16/16`; full suite has 28 summaries totaling `3,491 passed / 0 failed / 1 ignored`, exit `0`; Clippy exits `0` with the same 243 warning headers and no changed-region diagnostic. Release SHA is `aca356c9...`; Tier-A matrix is `104/104`; quick has zero oracle/SUT errors and is invalid only for expected corpus-SHA drift. Prometheus line 302 is restored exactly; all 193 routing-repair deltas are uniform zero-to-exact interface restorations with no route changes or conflicting `labels.ScratchBuilder` admission. Capped review remains. |
+| Verification/review | in progress | `[MEASURED]` pre-review gates were green. Review round 1 found one bounded WRONG: a valid greater-than-eight-custom-tag profile makes one unrelated concrete owner uncertain, and the global early return erases an independent exact owner. Corrected RED selected exactly two: uncertainty-only negative passed `1/1`; exact-plus-uncertain positive failed `0/1` with `{}` instead of `schema/good.go`. Production repair and complete gate rerun remain before round 2. |
 | Publication | pending | Push/PR/merge after green gates; then Slice 3 rebase/reverification. |
 
 ### Hypothesis-probe-result log
@@ -51,6 +51,7 @@
 | H8: conflict can be quarantined per concrete owner without relaxing the conflict-only drop. | Independent exact `schema.Good` survives with recovery telemetry; the tagged `labels.ScratchBuilder` owner stays absent; without `Good`, resolver and manifest stay empty with conflict-drop telemetry. | Either test admits `ScratchBuilder`, loses `Good`, or converts the conflict-only case into a hit. | `[MEASURED]` supported: compiled pair is `2/2`; positive has one exact edge/recovered telemetry and negative has zero fanout plus one conflict drop. Owner, identity, and telemetry modules are `11/11`, `30/30`, and `16/16`. |
 | H9: the corpus impact is the same closed conflict-abort mechanism, not route mutation. | Every pre-fix/fixed delta is interface fanout `0` to exact positive fanout; no route changes or conflicted owner admissions. | Any positive-to-positive mutation, route change, after-zero row, or `labels.ScratchBuilder` target. | `[MEASURED]` supported: 193 changed rows split `58` to fanout 1, `20` to fanout 2, and `115` to fanout 4; all were zero before, all are positive after, route-change count is zero, and the only ScratchBuilder-named target is the intended `schema` implementation. |
 | H10: the combined prerequisite clears repository and accuracy gates. | Full suite/Clippy/release/Tier-A matrix are green; Tier-A quick has no behavioral invalid reason. | Any test failure, changed-region Clippy diagnostic, matrix miss, or non-provenance quick invalid reason. | `[MEASURED]` supported: full suite `3,491/0/1`; Clippy exit `0`; release SHA `aca356c9...`; matrix `104/104`; quick oracle/SUT rates `0`, sole invalid reason `corpus_sha_drift: 8e8bda1aa22a != pinned 20c8490591a3`. |
+| H11: an unrelated uncertain structural owner globally aborts an independent exact satisfier. | A valid greater-than-eight-custom-tag declaration yields an uncertainty-only drop, but also erases exact `schema.Good` when both are present. | The positive retains `schema.Good`, the negative mints an edge, or the build header is malformed. | `[MEASURED]` supported: repository parser/SAT tests establish the valid uncertain profile; corrected `lang_go` selector ran exactly two, negative passed and positive failed with `{}` versus `{schema/good.go}`. The prior nonexistent-target command is discarded as inadmissible. |
 
 ## 3. Corrections to standing documents and memory
 
@@ -67,7 +68,7 @@
 | 2 | RED contract | done | Preserve `f379e50` and the `0/3` plus `1/1` outputs. | None | `receiver_owner_carrying_test.rs` |
 | 3 | Bounded repair | done | Preserve checkpoint `bcd8a0b`. | None | `src/ast.rs` |
 | 4 | Owner-aware dispatch collision repair | done | Preserve checkpoints `c07030a` and `8e8bda1`. | None | Prometheus `decoder.go:302` |
-| 5 | Verification/review | in progress | Run the declared two-round review against the complete diff and 193-row closed corpus population; do not extend beyond cap silently. | None | review cap `2` |
+| 5 | Review-round uncertainty repair | in progress | Preserve the two-sided RED, quarantine uncertainty per concrete owner in `src/resolution.rs`, rerun all gates, then execute round 2. | None | review round `1/2` |
 | 6 | Publication and Slice 3 continuation | pending | Merge prerequisite, rebase Slice 3, rerun its gates. | Review approval | Slice 3 `a9ff284` |
 
 ## 5. Invariants and traps — do not do these

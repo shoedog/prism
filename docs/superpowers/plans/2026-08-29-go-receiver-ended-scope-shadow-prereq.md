@@ -44,10 +44,12 @@ The follow-on must partition structural satisfaction per concrete owner:
 
 - a concrete owner with conflicting visible declarations for a required method remains excluded;
 - an unrelated conflicting owner must not erase another independently exact satisfier;
+- a concrete owner whose visibility is uncertain remains excluded, but that unrelated uncertainty must not erase another independently exact satisfier;
 - if no independently exact satisfier remains, preserve the existing conflict drop;
+- if only uncertain owners remain, preserve the existing uncertainty drop;
 - do not use the lossy bare-name `interface_impls` candidates as identity authority, suppress the recovered owner, or fall back to ownerless routing.
 
-Add a focused negative control proving the conflicting owner stays excluded, alongside the compiled RED that requires the independent `schema` satisfier in both resolver and manifest output. No other production file is authorized.
+The uncertainty clause is the bounded closed finding from review round 1: the repository's valid greater-than-eight-custom-tag SAT boundary produces `(visible=true, exact=false)`, and the pre-fix global early return erases an unrelated exact satisfier. Add two-sided controls for both conflict and uncertainty, requiring the independent `schema` satisfier in resolver and manifest output while conflict-only and uncertainty-only populations still drop. No other production file is authorized.
 
 ## Verification
 
@@ -58,7 +60,7 @@ Add a focused negative control proving the conflicting owner stays excluded, alo
    - `cd eval && uv run tier-a --matrix-only --allow-stale-sut`
    - `cd eval && uv run tier-a --quick --allow-stale-sut`
 5. Re-run the pinned Prometheus manifest/oracle comparison. Line 302 must retain its sound edge; the explicitly parked ownerless rows must remain unchanged.
-6. Require the tagged-collision positive and conflict-only negative in both resolver and manifest surfaces.
+6. Require the tagged-collision/uncertain-profile positives and their conflict-only/uncertainty-only negatives in both resolver and manifest surfaces.
 7. Run the declared two-round `WRONG`-before-`SMELL` review. Stop on any valid recovered Go positive still made ownerless by this bounded mechanism.
 
 ## Publication and successor

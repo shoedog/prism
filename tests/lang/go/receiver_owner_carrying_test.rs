@@ -487,3 +487,88 @@ fn ended_scope_owner_drops_a_conflict_only_implementer_population() {
     );
     assert_eq!(manifest_fanout(&cg, call), 0, "{call:?}");
 }
+
+fn uncertain_profile_fixture(include_independent: bool) -> CallGraph {
+    let mut sources = vec![
+        (
+            "api/decoder.go",
+            "package api\n\
+             type Adder interface{ Add(name, value string) }\n\
+             func parse(b Adder) {\n\
+               { b := byte(1); _ = b }\n\
+               b.Add(\"name\", \"value\")\n\
+             }\n",
+        ),
+        (
+            "noisy/maybe.go",
+            "//go:build !t0 && t1 && t2 && t3 && t4 && t5 && t6 && t7 && t8\n\
+             package noisy\n\
+             type Maybe struct{}\n\
+             func (Maybe) Add(name, value string) {}\n\
+             func retainMaybe() { _ = Maybe{} }\n",
+        ),
+    ];
+    if include_independent {
+        sources.push((
+            "schema/good.go",
+            "package schema\n\
+             type Good struct{}\n\
+             func (Good) Add(name, value string) {}\n\
+             func retainGood() { _ = Good{} }\n",
+        ));
+    }
+    build_go(&sources)
+}
+
+#[test]
+fn ended_scope_owner_uncertain_profile_keeps_independent_implementer() {
+    let cg = uncertain_profile_fixture(true);
+    let call = site(&cg, "api/decoder.go", "parse", "Add");
+
+    assert!(!call.receiver_local_type_shadowed, "{call:?}");
+    assert_eq!(
+        call.receiver_owner_identity.as_ref(),
+        Some(&owner("api", "api", "Adder")),
+        "{call:?}"
+    );
+    let outcome = cg.resolve_call_site_full(call);
+    assert_eq!(
+        outcome
+            .resolved
+            .iter()
+            .map(|resolved| resolved.target.file.clone())
+            .collect::<BTreeSet<_>>(),
+        BTreeSet::from(["schema/good.go".to_string()]),
+        "an unrelated uncertain owner must not erase the exact implementer: {call:?}"
+    );
+    assert_eq!(outcome.telemetry.go_owner_identity_partition.drops, 0);
+    assert_eq!(outcome.telemetry.go_owner_identity_partition.recovered, 1);
+    assert_eq!(
+        outcome.telemetry.go_owner_identity_partition.affected_edges,
+        1
+    );
+    assert_eq!(manifest_fanout(&cg, call), 1, "{call:?}");
+}
+
+#[test]
+fn ended_scope_owner_uncertain_profile_only_population_still_drops() {
+    let cg = uncertain_profile_fixture(false);
+    let call = site(&cg, "api/decoder.go", "parse", "Add");
+
+    assert!(!call.receiver_local_type_shadowed, "{call:?}");
+    assert_eq!(
+        call.receiver_owner_identity.as_ref(),
+        Some(&owner("api", "api", "Adder")),
+        "{call:?}"
+    );
+    let outcome = cg.resolve_call_site_full(call);
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
+    assert_eq!(outcome.telemetry.go_owner_identity_partition.drops, 0);
+    assert_eq!(outcome.telemetry.go_owner_identity_partition.recovered, 0);
+    assert_eq!(
+        outcome.telemetry.go_owner_identity_partition.affected_edges,
+        0
+    );
+    assert_eq!(manifest_fanout(&cg, call), 0, "{call:?}");
+}
