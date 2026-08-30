@@ -1,7 +1,7 @@
 # Handoff — Go receiver ended-scope shadow prerequisite
 
-**Written:** 2026-08-30T23:04:44Z · **By:** Codex `/root` · **Provider:** codex
-**Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq` · `a-receiver-provenance-scope-aware-shadow-prereq` · **Measured state:** `[MEASURED]` HEAD `db6dab7` · Tree DIRTY only with the round-1 two-sided RED and this custody refresh · Probe `git status --short --branch; git rev-parse --short HEAD` · Output captured in the review turn
+**Written:** 2026-08-30T23:12:48Z · **By:** Codex `/root` · **Provider:** codex
+**Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq` · `a-receiver-provenance-scope-aware-shadow-prereq` · **Measured state:** `[MEASURED]` HEAD `804a348ca9215740aca5c6104d0736dd106cbf3b` · Tree CLEAN before this verification refresh · Probe `git status --short --branch; git rev-parse HEAD` · Output captured in the verification turn
 **Predecessor:** Codex `/root` continuation of the Slice 3 review STOP at `a9ff284ab7fbb67516324841c5da3a156c2c8d0b`
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,18 +9,18 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` `git worktree list --porcelain` showed this newly created dedicated branch/worktree and no prior owner; no subagent was dispatched — **RESOLVED 2026-08-29 by owner-authorized lane creation**
-**(b) Custody exposure** — `[MEASURED]` earlier checkpoints remain committed; owner authorization is at `0afc2a7`, two-sided collision tests at `c07030a`, and the bounded partition repair at `8e8bda1`; retained verification artifacts are hashed below; Slice 3 remains clean at `a9ff284` — **RESOLVED 2026-08-30 by production and retained-evidence custody**
+**(b) Custody exposure** — `[MEASURED]` earlier checkpoints remain committed; round-1 uncertainty RED is `ba73a23`, bounded production repair is `804a348`, and retained post-fix verification artifacts are hashed below; Slice 3 remains clean at `a9ff284` — **RESOLVED 2026-08-30 by production and retained-evidence custody**
 **(c) In flight / irreversible** — `[MEASURED]` no build, test, editor, or remote mutation is in flight — **RESOLVED 2026-08-29**
 **(d) Authorization exercised** — owner verbatim: `authorized`, first for the scope-aware receiver prerequisite and again for the bounded `src/resolution.rs` owner-aware partition follow-on. Earlier standing authorization also permits push/merge after gates are green.
 **(e) Production authority boundary** — `[MEASURED]` fresh exact base retains the Prometheus line-302 `schema` edge while the AST candidate loses it after owner recovery; the minimized candidate RED reproduces the owner-aware routing defect. Production scope now permits `src/ast.rs` plus the bounded `src/resolution.rs` follow-on and no other semantic surface — **RESOLVED 2026-08-30 by owner authorization**
 
 ## 1. Resume order
 
-1. From `/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq`, require base ancestor `7fc719ae21ba130c554c318c3f8306093a804c92`, HEAD at or after `8e8bda1`, and read `docs/superpowers/plans/2026-08-29-go-receiver-ended-scope-shadow-prereq.md`.
+1. From `/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq`, require base ancestor `7fc719ae21ba130c554c318c3f8306093a804c92`, HEAD at or after `804a348`, and read `docs/superpowers/plans/2026-08-29-go-receiver-ended-scope-shadow-prereq.md`.
 2. Preserve RED checkpoint `f379e50` and implementation checkpoint `bcd8a0b`; do not fold the parked assignment/reuse/field-alias gaps into this lane.
-3. Preserve full-suite `3,491/0/1`, same-environment Clippy results, release/Tier-A artifacts, and the fresh exact-base/pre-fix/fixed Prometheus manifests.
-4. Complete the round-1 bounded fix in `src/resolution.rs`: quarantine an uncertain concrete owner just as locally as a conflicting owner, preserve an independent exact satisfier, and retain the uncertainty-only drop.
-5. Rerun all gates, then perform review round 2 with `WRONG` before `SMELL`; only then publish/merge, rebase Slice 3, and reverify it.
+3. Preserve post-fix full-suite `3,493/0/1`, same-environment Clippy results, release/Tier-A artifacts, and byte-exact Prometheus parity.
+4. Perform review round 2 with `WRONG` before `SMELL`; attack order dependence, mixed conflict plus uncertainty, pointer/value method sets, and resolver/manifest parity.
+5. Only after round-2 approval publish/merge, rebase Slice 3, and reverify it.
 
 **STOP conditions:** production scope expands beyond `src/ast.rs` and the authorized `src/resolution.rs` follow-on; assignment/reuse/field-alias routing changes; an in-scope declaration becomes invisible; the Prometheus line-302 sound edge is not restored; a probe fails for its own reason; or candidate attribution lacks a same-environment exact-base control.
 
@@ -33,8 +33,8 @@
 | Population census | done | `[MEASURED]` removed sound rows were enumerated. The prerequisite addresses only the supported typed-parameter false shadow; explicit existing contracts park non-direct reuse, assignment retyping, and local field-alias gaps. |
 | Plan/handoff | done | `[MEASURED]` plan and initial handoff committed at `85099b1`; this refresh reconciles that checkpoint. |
 | RED | done | `[MEASURED]` registered names enumerated after discarding a zero-selection probe. Exact-base positive run selected three and failed `0/3`, each with recovered `I`, owner `None`, and false shadow; exact active-shadow control passed `1/1`. Checkpoint `f379e50`. |
-| Production | done | `[MEASURED]` checkpoint `bcd8a0b` repairs AST declaration visibility; checkpoint `8e8bda1` quarantines conflicting structural method sets per concrete owner, preserves independent exact satisfiers, and retains the conflict-only drop. No other production surface changed. |
-| Verification/review | in progress | `[MEASURED]` pre-review gates were green. Review round 1 found one bounded WRONG: a valid greater-than-eight-custom-tag profile makes one unrelated concrete owner uncertain, and the global early return erases an independent exact owner. Corrected RED selected exactly two: uncertainty-only negative passed `1/1`; exact-plus-uncertain positive failed `0/1` with `{}` instead of `schema/good.go`. Production repair and complete gate rerun remain before round 2. |
+| Production | done | `[MEASURED]` checkpoint `bcd8a0b` repairs AST declaration visibility; `8e8bda1` quarantines conflicting structural method sets; review fix `804a348` quarantines uncertain structural method sets per concrete owner. Independent exact satisfiers survive and conflict-only/uncertainty-only populations still drop. No other production surface changed. |
+| Verification/review | in progress | `[MEASURED]` review round 1 found one bounded WRONG and its two-sided RED is `ba73a23`; production fix is `804a348`. Focused modules are `13/13`, `30/30`, `16/16`; full suite is `3,493/0/1`; Clippy and release are green; Prometheus manifest is byte-identical to the prior conflict-fixed artifact; Tier-A matrix is `104/104` and quick has only corpus-SHA invalidity. Round 2 remains. |
 | Publication | pending | Push/PR/merge after green gates; then Slice 3 rebase/reverification. |
 
 ### Hypothesis-probe-result log
@@ -52,6 +52,7 @@
 | H9: the corpus impact is the same closed conflict-abort mechanism, not route mutation. | Every pre-fix/fixed delta is interface fanout `0` to exact positive fanout; no route changes or conflicted owner admissions. | Any positive-to-positive mutation, route change, after-zero row, or `labels.ScratchBuilder` target. | `[MEASURED]` supported: 193 changed rows split `58` to fanout 1, `20` to fanout 2, and `115` to fanout 4; all were zero before, all are positive after, route-change count is zero, and the only ScratchBuilder-named target is the intended `schema` implementation. |
 | H10: the combined prerequisite clears repository and accuracy gates. | Full suite/Clippy/release/Tier-A matrix are green; Tier-A quick has no behavioral invalid reason. | Any test failure, changed-region Clippy diagnostic, matrix miss, or non-provenance quick invalid reason. | `[MEASURED]` supported: full suite `3,491/0/1`; Clippy exit `0`; release SHA `aca356c9...`; matrix `104/104`; quick oracle/SUT rates `0`, sole invalid reason `corpus_sha_drift: 8e8bda1aa22a != pinned 20c8490591a3`. |
 | H11: an unrelated uncertain structural owner globally aborts an independent exact satisfier. | A valid greater-than-eight-custom-tag declaration yields an uncertainty-only drop, but also erases exact `schema.Good` when both are present. | The positive retains `schema.Good`, the negative mints an edge, or the build header is malformed. | `[MEASURED]` supported: repository parser/SAT tests establish the valid uncertain profile; corrected `lang_go` selector ran exactly two, negative passed and positive failed with `{}` versus `{schema/good.go}`. The prior nonexistent-target command is discarded as inadmissible. |
+| H12: quarantining uncertainty per owner fixes the closed WRONG without broader drift. | Two-sided GREEN, complete suite/Clippy/release gates, byte-identical Prometheus manifest, and behaviorally clean Tier-A. | Uncertain owner admission, negative hit, any suite/static failure, corpus delta, or non-provenance Tier-A invalid reason. | `[MEASURED]` supported: focused `13/13`, `30/30`, `16/16`; full suite 28 summaries at `3,493/0/1`; Clippy exit `0` with 243 headers and no changed-region warning; release SHA `18c969aa...`; Prometheus SHA remains `6d420dc7...`; matrix `104/104`; quick errors `0/0`, sole invalid reason `corpus_sha_drift: 804a348ca921 != pinned 20c8490591a3`. |
 
 ## 3. Corrections to standing documents and memory
 
@@ -68,8 +69,9 @@
 | 2 | RED contract | done | Preserve `f379e50` and the `0/3` plus `1/1` outputs. | None | `receiver_owner_carrying_test.rs` |
 | 3 | Bounded repair | done | Preserve checkpoint `bcd8a0b`. | None | `src/ast.rs` |
 | 4 | Owner-aware dispatch collision repair | done | Preserve checkpoints `c07030a` and `8e8bda1`. | None | Prometheus `decoder.go:302` |
-| 5 | Review-round uncertainty repair | in progress | Preserve the two-sided RED, quarantine uncertainty per concrete owner in `src/resolution.rs`, rerun all gates, then execute round 2. | None | review round `1/2` |
-| 6 | Publication and Slice 3 continuation | pending | Merge prerequisite, rebase Slice 3, rerun its gates. | Review approval | Slice 3 `a9ff284` |
+| 5 | Review-round uncertainty repair | done | Preserve `ba73a23` and `804a348` plus the retained post-fix artifacts. | None | review round `1/2` |
+| 6 | Review round 2 | in progress | Run the final bounded adversarial pass and record WRONG before SMELL. | None | review cap `2` |
+| 7 | Publication and Slice 3 continuation | pending | Merge prerequisite, rebase Slice 3, rerun its gates. | Review approval | Slice 3 `a9ff284` |
 
 ## 5. Invariants and traps — do not do these
 
@@ -101,6 +103,8 @@
 | Routing authorization checkpoint | `0afc2a7` |
 | Two-sided collision-test checkpoint | `c07030a` |
 | Owner-partition production checkpoint | `8e8bda1` |
+| Round-1 uncertainty RED checkpoint | `ba73a23` |
+| Round-1 uncertainty production checkpoint | `804a348` |
 | Exact-base sibling RED worktree | `/private/tmp/slicing-scope-prereq-base-7fc719ae` |
 | Candidate Clippy log | `/private/tmp/slicing-scope-prereq-clippy-candidate.log` |
 | Exact-base Clippy log | `/private/tmp/slicing-scope-prereq-clippy-base.log` |
@@ -116,10 +120,15 @@
 | Fixed full-suite log | `/private/tmp/slicing-scope-prereq-full-8e8bda1.log` · 28 summaries · `3,491/0/1` |
 | Fixed Clippy log | `/private/tmp/slicing-scope-prereq-clippy-fixed-8e8bda1.log` · exit `0` · 243 warning headers |
 | Fixed Tier-A artifacts | `/private/tmp/slicing-scope-prereq-tier-a-fixed-8e8bda1` · report JSON SHA-256 `003707d3...` · Markdown `136b2f33...` · snapshot `ef65a555...` |
+| Post-review full-suite log | `/private/tmp/slicing-scope-prereq-full-804a348.log` · 28 summaries · `3,493/0/1` |
+| Post-review Clippy log | `/private/tmp/slicing-scope-prereq-clippy-804a348.log` · exit `0` · 243 warning headers |
+| Post-review release binary | `target/release/prism` · SHA-256 `18c969aa31a501ee6b85c8c07a07aef5c633803d6f65dace1392f20aa04bb149` |
+| Post-review Prometheus manifest | `/private/tmp/slicing-scope-prereq-prometheus-804a348.json` · SHA-256 `6d420dc76412683201f1071f88c09bf9523ed6f1aa4f5a23d23ae7f201649dd8` |
+| Post-review Tier-A artifacts | `/private/tmp/slicing-scope-prereq-tier-a-804a348` · report JSON SHA-256 `2460d21d...` · Markdown `2ec13234...` · snapshot `51b83b80...` |
 | Review cap | `2` |
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** NOT RUN — initial planning checkpoint precedes the compiled RED and independent review · claim: "Filtering Go declarations to scopes that contain the call restores supported typed-parameter owners without changing active shadows or parked producer forms" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: STATIC-ONLY · record: this handoff's hypothesis log
+**§2c verdict:** REJECTED IN ROUND 1, TARGETED FIX GREEN, ROUND 2 PENDING — one WRONG was the per-owner uncertainty analogue of the fixed conflict abort; `ba73a23` proves it and `804a348` repairs it. No SMELL has been promoted to a blocker. · evidence tier: compiled two-sided RED/GREEN plus full repository, corpus, and Tier-A gates · record: this handoff's H11/H12 log
 
 **Questions the owner owes an answer to:** None.
