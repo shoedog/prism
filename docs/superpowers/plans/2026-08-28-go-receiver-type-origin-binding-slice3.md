@@ -1,6 +1,6 @@
 # Go receiver type-origin binding — Slice 3 terminal owner predicate
 
-**Base:** `7fc719ae21ba130c554c318c3f8306093a804c92` (`origin/main`, after Slice 2 implementation/custody/closeout PRs #209–#211)
+**Base:** `0139d7fab18d71cfa33f9de609bf280674df85e8` (`origin/main`, after scope-aware owner prerequisite PR #212)
 **Design authority:** `docs/superpowers/specs/2026-08-24-go-receiver-type-origin-binding-design.md`, Slice 3 and §§5–7
 **Predecessor handoff:** `docs/superpowers/handoffs/2026-08-27-go-receiver-type-origin-binding-slice2-handoff.md`
 
@@ -64,7 +64,7 @@ The predicate is true exactly when:
 3. `site.receiver_recovery.is_some()`; and
 4. `site.receiver_owner_identity.is_none()`.
 
-The type/recovery pair distinguishes a recovered receiver from direct/unqualified calls. The Go gate prevents a repository-wide semantic change. The missing owner is terminal because Slices 0–2 made every admissible local and cross-file producer declaration-backed; remaining absence is genuinely unproven.
+The type/recovery pair distinguishes a recovered receiver from direct/unqualified calls. The Go gate prevents a repository-wide semantic change. The missing owner is terminal because Slices 0–2 plus the scope-aware owner prerequisite merged in PR #212 make every admissible local and cross-file producer declaration-backed; remaining absence is genuinely unproven.
 
 Resolution checks the predicate before computing `receiver_resolution_kind` or invoking `go_concrete_receiver_route`. Manifest generation checks it after its existing Go/recovery/known-interface denominator and before `go_concrete_receiver_route` or any legacy bare-name lookup. Both produce the existing external/unproven drop vocabulary; no new telemetry bucket is required.
 

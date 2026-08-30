@@ -1,7 +1,7 @@
 # Handoff — Go receiver ended-scope shadow prerequisite
 
-**Written:** 2026-08-30T23:16:29Z · **By:** Codex `/root` · **Provider:** codex
-**Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq` · `a-receiver-provenance-scope-aware-shadow-prereq` · **Measured state:** `[MEASURED]` HEAD `5c3427017581ba74274d44b64723f3a3c3b344e9` · Tree CLEAN before this review reconciliation · Probe `git status --short --branch; git rev-parse HEAD` · Output captured in the review turn
+**Written:** 2026-08-30T23:27:01Z · **By:** Codex `/root` · **Provider:** codex
+**Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq` · `a-receiver-provenance-scope-aware-shadow-prereq` · **Measured state:** `[MEASURED]` branch HEAD `95b81f5e5b99a49930869f83ab06974606768f62`; PR #212 merged as `0139d7fab18d71cfa33f9de609bf280674df85e8`
 **Predecessor:** Codex `/root` continuation of the Slice 3 review STOP at `a9ff284ab7fbb67516324841c5da3a156c2c8d0b`
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,7 +9,7 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` `git worktree list --porcelain` showed this newly created dedicated branch/worktree and no prior owner; no subagent was dispatched — **RESOLVED 2026-08-29 by owner-authorized lane creation**
-**(b) Custody exposure** — `[MEASURED]` earlier checkpoints remain committed; round-1 uncertainty RED is `ba73a23`, bounded production repair is `804a348`, and retained post-fix verification artifacts are hashed below; Slice 3 remains clean at `a9ff284` — **RESOLVED 2026-08-30 by production and retained-evidence custody**
+**(b) Custody exposure** — `[MEASURED]` earlier checkpoints remain committed; round-1 uncertainty RED is `ba73a23`, bounded production repair is `804a348`, retained post-fix verification artifacts are hashed below, and Slice 3 is preserved after rebase at `e5596ba4` — **RESOLVED 2026-08-30 by production, merge, and successor custody**
 **(c) In flight / irreversible** — `[MEASURED]` no build, test, editor, or remote mutation is in flight — **RESOLVED 2026-08-29**
 **(d) Authorization exercised** — owner verbatim: `authorized`, first for the scope-aware receiver prerequisite and again for the bounded `src/resolution.rs` owner-aware partition follow-on. Earlier standing authorization also permits push/merge after gates are green.
 **(e) Production authority boundary** — `[MEASURED]` fresh exact base retains the Prometheus line-302 `schema` edge while the AST candidate loses it after owner recovery; the minimized candidate RED reproduces the owner-aware routing defect. Production scope now permits `src/ast.rs` plus the bounded `src/resolution.rs` follow-on and no other semantic surface — **RESOLVED 2026-08-30 by owner authorization**
@@ -20,7 +20,7 @@
 2. Preserve RED checkpoint `f379e50` and implementation checkpoint `bcd8a0b`; do not fold the parked assignment/reuse/field-alias gaps into this lane.
 3. Preserve post-fix full-suite `3,493/0/1`, same-environment Clippy results, release/Tier-A artifacts, and byte-exact Prometheus parity.
 4. Preserve the round-2 approval: zero `WRONG`, zero in-scope `SMELL`; exact final controls are `4/4 + 1/1 + 1/1 + 1/1`.
-5. Rebind the remote base, publish/merge, rebase Slice 3, and reverify it.
+5. Preserve PR #212 and merge `0139d7fa`; continue post-rebase Slice 3 verification from `e5596ba4`.
 
 **STOP conditions:** production scope expands beyond `src/ast.rs` and the authorized `src/resolution.rs` follow-on; assignment/reuse/field-alias routing changes; an in-scope declaration becomes invisible; the Prometheus line-302 sound edge is not restored; a probe fails for its own reason; or candidate attribution lacks a same-environment exact-base control.
 
@@ -35,7 +35,7 @@
 | RED | done | `[MEASURED]` registered names enumerated after discarding a zero-selection probe. Exact-base positive run selected three and failed `0/3`, each with recovered `I`, owner `None`, and false shadow; exact active-shadow control passed `1/1`. Checkpoint `f379e50`. |
 | Production | done | `[MEASURED]` checkpoint `bcd8a0b` repairs AST declaration visibility; `8e8bda1` quarantines conflicting structural method sets; review fix `804a348` quarantines uncertain structural method sets per concrete owner. Independent exact satisfiers survive and conflict-only/uncertainty-only populations still drop. No other production surface changed. |
 | Verification/review | done | `[MEASURED]` review round 1 found one bounded WRONG and its two-sided RED/fix are `ba73a23`/`804a348`; all gates were rerun. Round 2 found zero WRONG and zero in-scope SMELL after a complete `18 added / 0 removed / 220 changed` corpus census, source-scope inspection, decision-table audit, and exact partition/order/namespace controls `4/4 + 1/1 + 1/1 + 1/1`. |
-| Publication | pending | Push/PR/merge after green gates; then Slice 3 rebase/reverification. |
+| Publication | done | `[MEASURED]` PR #212 merged as `0139d7fa` after all relevant non-coverage checks passed; owner waived waiting for coverage. Slice 3 rebased successfully and is in current reverification. |
 
 ### Hypothesis-probe-result log
 
@@ -72,7 +72,7 @@
 | 4 | Owner-aware dispatch collision repair | done | Preserve checkpoints `c07030a` and `8e8bda1`. | None | Prometheus `decoder.go:302` |
 | 5 | Review-round uncertainty repair | done | Preserve `ba73a23` and `804a348` plus the retained post-fix artifacts. | None | review round `1/2` |
 | 6 | Review round 2 | done | Preserve APPROVE verdict: zero WRONG, zero in-scope SMELL. | None | review cap `2` |
-| 7 | Publication and Slice 3 continuation | in progress | Rebind remote base, merge prerequisite, rebase Slice 3, and rerun its gates. | None | Slice 3 `a9ff284` |
+| 7 | Publication and Slice 3 continuation | in progress | Preserve merged PR #212; rerun Slice 3 gates from rebased `e5596ba4`, then publish under standing authority. | None | base `0139d7fa`; Slice 3 `e5596ba4` |
 
 ## 5. Invariants and traps — do not do these
 
@@ -111,7 +111,9 @@
 | Exact-base Clippy log | `/private/tmp/slicing-scope-prereq-clippy-base.log` |
 | Slice 3 branch | `a-receiver-provenance-slice3-terminal-owner-predicate` |
 | Slice 3 worktree | `/Users/wesleyjinks/code/slicing-a-receiver-provenance-s3` |
-| Slice 3 preserved HEAD | `a9ff284ab7fbb67516324841c5da3a156c2c8d0b` |
+| Slice 3 pre-rebase HEAD | `a9ff284ab7fbb67516324841c5da3a156c2c8d0b` |
+| Slice 3 rebased HEAD before custody refresh | `e5596ba4e91a39fbf1b4bf0affc5b7013365c835` |
+| Publication | PR #212 · merge `0139d7fab18d71cfa33f9de609bf280674df85e8` |
 | Corpus evidence | `/private/tmp/slicing-s3-receiver-oracle.UU5Ufy` |
 | Prometheus pin | `505095b64b43dd76baf08839e1800a8d473c97e0` |
 | Fresh exact-base Prometheus manifest | `/private/tmp/slicing-scope-prereq-prometheus-base-fresh.json` · SHA-256 `24374a126c1abe5c390ad7a8be8e06b29c26654906db372afb55d2274f5270ce` |
