@@ -1454,6 +1454,7 @@ impl CallGraph {
             .any(|name| !name.chars().next().is_some_and(char::is_uppercase));
         let mut all_satisfiers: Vec<(String, &'a FunctionId)> = Vec::new();
         let mut conflicting_owners = 0usize;
+        let mut uncertain_owners = 0usize;
         for (concrete_owner, declarations) in &self.go_method_declarations {
             if requires_interface_namespace
                 && (concrete_owner.package_dir != interface_owner.package_dir
@@ -1465,6 +1466,7 @@ impl CallGraph {
                 &str,
                 Vec<&crate::go_owner_partition::GoMethodDeclaration>,
             > = BTreeMap::new();
+            let mut owner_uncertain = false;
             for declaration in declarations {
                 let (visible, exact) = crate::go_owner_partition::exact_cross_package_visibility(
                     caller_file,
@@ -1475,16 +1477,20 @@ impl CallGraph {
                     continue;
                 }
                 if !exact {
-                    evidence.uncertain = true;
-                    return crate::go_owner_partition::GoPartitionSelection {
-                        value: None,
-                        evidence,
-                    };
+                    owner_uncertain = true;
+                    break;
                 }
                 visible_methods
                     .entry(&declaration.method_name)
                     .or_default()
                     .push(declaration);
+            }
+            if owner_uncertain {
+                // Exactness belongs to this concrete owner's method set. An
+                // uncertain owner cannot be admitted, but it also cannot
+                // invalidate a separately proven structural satisfier.
+                uncertain_owners += 1;
+                continue;
             }
             if required.keys().any(|name| {
                 visible_methods
@@ -1554,14 +1560,15 @@ impl CallGraph {
             all_ids
         };
         evidence.distinct_visible_values = chosen.len();
-        if chosen.is_empty() && conflicting_owners > 0 {
-            evidence.conflict = true;
+        if chosen.is_empty() && (conflicting_owners > 0 || uncertain_owners > 0) {
+            evidence.conflict |= conflicting_owners > 0;
+            evidence.uncertain |= uncertain_owners > 0;
             return crate::go_owner_partition::GoPartitionSelection {
                 value: None,
                 evidence,
             };
         }
-        evidence.recovered |= conflicting_owners > 0;
+        evidence.recovered |= conflicting_owners > 0 || uncertain_owners > 0;
         crate::go_owner_partition::GoPartitionSelection {
             value: Some(chosen.into_iter().collect()),
             evidence,
