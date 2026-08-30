@@ -1,7 +1,7 @@
 # Handoff — Go receiver ended-scope shadow prerequisite
 
-**Written:** 2026-08-30T23:12:48Z · **By:** Codex `/root` · **Provider:** codex
-**Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq` · `a-receiver-provenance-scope-aware-shadow-prereq` · **Measured state:** `[MEASURED]` HEAD `804a348ca9215740aca5c6104d0736dd106cbf3b` · Tree CLEAN before this verification refresh · Probe `git status --short --branch; git rev-parse HEAD` · Output captured in the verification turn
+**Written:** 2026-08-30T23:16:29Z · **By:** Codex `/root` · **Provider:** codex
+**Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq` · `a-receiver-provenance-scope-aware-shadow-prereq` · **Measured state:** `[MEASURED]` HEAD `5c3427017581ba74274d44b64723f3a3c3b344e9` · Tree CLEAN before this review reconciliation · Probe `git status --short --branch; git rev-parse HEAD` · Output captured in the review turn
 **Predecessor:** Codex `/root` continuation of the Slice 3 review STOP at `a9ff284ab7fbb67516324841c5da3a156c2c8d0b`
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -19,8 +19,8 @@
 1. From `/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq`, require base ancestor `7fc719ae21ba130c554c318c3f8306093a804c92`, HEAD at or after `804a348`, and read `docs/superpowers/plans/2026-08-29-go-receiver-ended-scope-shadow-prereq.md`.
 2. Preserve RED checkpoint `f379e50` and implementation checkpoint `bcd8a0b`; do not fold the parked assignment/reuse/field-alias gaps into this lane.
 3. Preserve post-fix full-suite `3,493/0/1`, same-environment Clippy results, release/Tier-A artifacts, and byte-exact Prometheus parity.
-4. Perform review round 2 with `WRONG` before `SMELL`; attack order dependence, mixed conflict plus uncertainty, pointer/value method sets, and resolver/manifest parity.
-5. Only after round-2 approval publish/merge, rebase Slice 3, and reverify it.
+4. Preserve the round-2 approval: zero `WRONG`, zero in-scope `SMELL`; exact final controls are `4/4 + 1/1 + 1/1 + 1/1`.
+5. Rebind the remote base, publish/merge, rebase Slice 3, and reverify it.
 
 **STOP conditions:** production scope expands beyond `src/ast.rs` and the authorized `src/resolution.rs` follow-on; assignment/reuse/field-alias routing changes; an in-scope declaration becomes invisible; the Prometheus line-302 sound edge is not restored; a probe fails for its own reason; or candidate attribution lacks a same-environment exact-base control.
 
@@ -34,7 +34,7 @@
 | Plan/handoff | done | `[MEASURED]` plan and initial handoff committed at `85099b1`; this refresh reconciles that checkpoint. |
 | RED | done | `[MEASURED]` registered names enumerated after discarding a zero-selection probe. Exact-base positive run selected three and failed `0/3`, each with recovered `I`, owner `None`, and false shadow; exact active-shadow control passed `1/1`. Checkpoint `f379e50`. |
 | Production | done | `[MEASURED]` checkpoint `bcd8a0b` repairs AST declaration visibility; `8e8bda1` quarantines conflicting structural method sets; review fix `804a348` quarantines uncertain structural method sets per concrete owner. Independent exact satisfiers survive and conflict-only/uncertainty-only populations still drop. No other production surface changed. |
-| Verification/review | in progress | `[MEASURED]` review round 1 found one bounded WRONG and its two-sided RED is `ba73a23`; production fix is `804a348`. Focused modules are `13/13`, `30/30`, `16/16`; full suite is `3,493/0/1`; Clippy and release are green; Prometheus manifest is byte-identical to the prior conflict-fixed artifact; Tier-A matrix is `104/104` and quick has only corpus-SHA invalidity. Round 2 remains. |
+| Verification/review | done | `[MEASURED]` review round 1 found one bounded WRONG and its two-sided RED/fix are `ba73a23`/`804a348`; all gates were rerun. Round 2 found zero WRONG and zero in-scope SMELL after a complete `18 added / 0 removed / 220 changed` corpus census, source-scope inspection, decision-table audit, and exact partition/order/namespace controls `4/4 + 1/1 + 1/1 + 1/1`. |
 | Publication | pending | Push/PR/merge after green gates; then Slice 3 rebase/reverification. |
 
 ### Hypothesis-probe-result log
@@ -53,6 +53,7 @@
 | H10: the combined prerequisite clears repository and accuracy gates. | Full suite/Clippy/release/Tier-A matrix are green; Tier-A quick has no behavioral invalid reason. | Any test failure, changed-region Clippy diagnostic, matrix miss, or non-provenance quick invalid reason. | `[MEASURED]` supported: full suite `3,491/0/1`; Clippy exit `0`; release SHA `aca356c9...`; matrix `104/104`; quick oracle/SUT rates `0`, sole invalid reason `corpus_sha_drift: 8e8bda1aa22a != pinned 20c8490591a3`. |
 | H11: an unrelated uncertain structural owner globally aborts an independent exact satisfier. | A valid greater-than-eight-custom-tag declaration yields an uncertainty-only drop, but also erases exact `schema.Good` when both are present. | The positive retains `schema.Good`, the negative mints an edge, or the build header is malformed. | `[MEASURED]` supported: repository parser/SAT tests establish the valid uncertain profile; corrected `lang_go` selector ran exactly two, negative passed and positive failed with `{}` versus `{schema/good.go}`. The prior nonexistent-target command is discarded as inadmissible. |
 | H12: quarantining uncertainty per owner fixes the closed WRONG without broader drift. | Two-sided GREEN, complete suite/Clippy/release gates, byte-identical Prometheus manifest, and behaviorally clean Tier-A. | Uncertain owner admission, negative hit, any suite/static failure, corpus delta, or non-provenance Tier-A invalid reason. | `[MEASURED]` supported: focused `13/13`, `30/30`, `16/16`; full suite 28 summaries at `3,493/0/1`; Clippy exit `0` with 243 headers and no changed-region warning; release SHA `18c969aa...`; Prometheus SHA remains `6d420dc7...`; matrix `104/104`; quick errors `0/0`, sole invalid reason `corpus_sha_drift: 804a348ca921 != pinned 20c8490591a3`. |
+| H13: the final diff is order-independent and introduces no unsound corpus transition. | No owner-loop early return; mixed exclusions produce only a recovered exact set or a reasoned empty drop; corpus has no removal, positive target mutation, or ownerless/legacy addition; exact parity controls pass. | Any iteration-dependent return, admitted quarantined owner, resolver/manifest mismatch, positive target replacement, or call inside the supposedly ended scope. | `[MEASURED]` supported: static decision table is closed; source inspection confirms later sibling scopes/function-literal parameters; final-vs-base is `18 added / 0 removed / 220 changed`, with zero positive target mutations and zero legacy/unproven additions; exact controls pass `4/4 + 1/1 + 1/1 + 1/1`. |
 
 ## 3. Corrections to standing documents and memory
 
@@ -70,8 +71,8 @@
 | 3 | Bounded repair | done | Preserve checkpoint `bcd8a0b`. | None | `src/ast.rs` |
 | 4 | Owner-aware dispatch collision repair | done | Preserve checkpoints `c07030a` and `8e8bda1`. | None | Prometheus `decoder.go:302` |
 | 5 | Review-round uncertainty repair | done | Preserve `ba73a23` and `804a348` plus the retained post-fix artifacts. | None | review round `1/2` |
-| 6 | Review round 2 | in progress | Run the final bounded adversarial pass and record WRONG before SMELL. | None | review cap `2` |
-| 7 | Publication and Slice 3 continuation | pending | Merge prerequisite, rebase Slice 3, rerun its gates. | Review approval | Slice 3 `a9ff284` |
+| 6 | Review round 2 | done | Preserve APPROVE verdict: zero WRONG, zero in-scope SMELL. | None | review cap `2` |
+| 7 | Publication and Slice 3 continuation | in progress | Rebind remote base, merge prerequisite, rebase Slice 3, and rerun its gates. | None | Slice 3 `a9ff284` |
 
 ## 5. Invariants and traps — do not do these
 
@@ -129,6 +130,6 @@
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** REJECTED IN ROUND 1, TARGETED FIX GREEN, ROUND 2 PENDING — one WRONG was the per-owner uncertainty analogue of the fixed conflict abort; `ba73a23` proves it and `804a348` repairs it. No SMELL has been promoted to a blocker. · evidence tier: compiled two-sided RED/GREEN plus full repository, corpus, and Tier-A gates · record: this handoff's H11/H12 log
+**§2c verdict:** APPROVE AFTER ROUND 2 — round 1 found one bounded WRONG, proved at `ba73a23` and fixed at `804a348`; round 2 found zero WRONG and zero in-scope SMELL. Confidence decreases on any admitted quarantined owner or positive target mutation and collapses on resolver/manifest divergence; none was observed. · evidence tier: compiled two-sided RED/GREEN, full repository gates, complete corpus transition census, and Tier-A · record: this handoff's H11-H13 log
 
 **Questions the owner owes an answer to:** None.
