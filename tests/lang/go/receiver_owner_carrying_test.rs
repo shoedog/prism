@@ -302,3 +302,72 @@ fn receiver_owner_carrying_incremental_owner_change_replaces_old_owner() {
         "owner replacement must not duplicate the occurrence"
     );
 }
+
+fn ended_scope_shadow_fixture() -> CallGraph {
+    build_go(&[(
+        "app/types.go",
+        "package app\n\
+         type I interface{ M(); IOnly() }\n\
+         type Real struct{}\n\
+         func (Real) M() {}\n\
+         func (Real) IOnly() {}\n\
+         type Inner struct{}\n\
+         func (Inner) M() {}\n\
+         func retain() { var _ I = Real{} }\n\
+         func afterBlock(x I) {\n\
+           { x := byte(1); _ = x }\n\
+           x.M()\n\
+         }\n\
+         func afterIf(x I) {\n\
+           if x := byte(1); x > 0 { _ = x }\n\
+           x.M()\n\
+         }\n\
+         func afterVar(x I) {\n\
+           { var x byte; _ = x }\n\
+           x.M()\n\
+         }\n\
+         func activeShadow(x I) {\n\
+           { x := Inner{}; x.M() }\n\
+         }\n",
+    )])
+}
+
+fn assert_ended_scope_owner(caller: &str) {
+    let cg = ended_scope_shadow_fixture();
+    let call = site(&cg, "app/types.go", caller, "M");
+    assert!(!call.receiver_local_type_shadowed, "{caller}: {call:?}");
+    assert_eq!(
+        call.receiver_owner_identity.as_ref(),
+        Some(&owner("app", "app", "I")),
+        "{caller}: {call:?}"
+    );
+    assert_eq!(
+        resolved_files(&cg, call),
+        BTreeSet::from(["app/types.go".to_string()]),
+        "{caller}: {call:?}"
+    );
+    assert!(manifest_has_site(&cg, call), "{caller}: {call:?}");
+}
+
+#[test]
+fn receiver_owner_carrying_ignores_ended_block_short_declaration() {
+    assert_ended_scope_owner("afterBlock");
+}
+
+#[test]
+fn receiver_owner_carrying_ignores_ended_if_initializer_declaration() {
+    assert_ended_scope_owner("afterIf");
+}
+
+#[test]
+fn receiver_owner_carrying_ignores_ended_block_var_declaration() {
+    assert_ended_scope_owner("afterVar");
+}
+
+#[test]
+fn receiver_owner_carrying_keeps_an_active_inner_shadow_unproven() {
+    let cg = ended_scope_shadow_fixture();
+    let call = site(&cg, "app/types.go", "activeShadow", "M");
+    assert!(call.receiver_local_type_shadowed, "{call:?}");
+    assert_eq!(call.receiver_owner_identity, None, "{call:?}");
+}
