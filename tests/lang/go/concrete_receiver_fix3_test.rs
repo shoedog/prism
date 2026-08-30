@@ -147,21 +147,37 @@ fn changed_static_type_and_nested_shadow_still_fail_closed_to_r3() {
 }
 
 #[test]
-fn unrelated_sibling_scope_does_not_enable_a_new_receiver_proof() {
+fn unrelated_sibling_scope_does_not_poison_a_function_literal_parameter() {
     let cg = fixture();
     let call = site(&cg, "unrelatedSiblingScope");
     let outcome = cg.resolve_call_site_full(call);
-    assert_eq!(call.receiver_type, None, "{call:?}");
-    assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 0);
-    assert!(outcome.resolved.is_empty(), "{outcome:?}");
-    assert!(
-        prism::navigation::queries::interface_dispatch_manifest(&cg)["sites"]
-            .as_array()
-            .expect("manifest sites")
-            .iter()
-            .all(|entry| entry["file"] != call.caller.file || entry["line"] != call.line),
-        "unrelated-scope legacy suppression must remain outside the manifest"
+    assert_eq!(call.receiver_type.as_deref(), Some("p.C"), "{call:?}");
+    let owner = call
+        .receiver_owner_identity
+        .as_ref()
+        .unwrap_or_else(|| panic!("missing owner: {call:?}"));
+    assert_eq!(
+        (
+            owner.package_dir.as_str(),
+            owner.package_clause.as_str(),
+            owner.name.as_str()
+        ),
+        ("p", "p", "C")
     );
+    assert!(!call.receiver_local_type_shadowed, "{call:?}");
+    assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 0);
+    assert!(
+        outcome
+            .resolved
+            .iter()
+            .all(|resolved| resolved.kind == ResolutionKind::InterfaceDispatch),
+        "{outcome:?}"
+    );
+    assert_eq!(
+        resolved_files(&cg, call),
+        BTreeSet::from(["p/types.go".into(), "q/types.go".into()])
+    );
+    assert_eq!(manifest_route(&cg, call), "interface_dispatch");
 }
 
 #[test]

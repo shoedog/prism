@@ -841,18 +841,19 @@ impl ParsedFile {
             }
         }
 
-        let go_filter_bindings_to_call_scope = enable_go_same_scope_reuse
-            && matches!(self.language, Language::Go)
-            && self
-                .go_same_scope_short_var_reuse_calls(func_node, receiver, call_start_byte)
-                .map_or(true, |calls| !calls.is_empty());
+        // Go declarations shadow only within their lexical binding scope. Keep
+        // this visibility rule independent of the narrow same-scope `:=` reuse
+        // exception: ordinary classification needs scope filtering too, but
+        // must not silently enable reuse recovery.
+        let go_filter_declarations_to_call_scope = matches!(self.language, Language::Go);
         self.walk_receiver_bindings(
             *func_node,
             true,
             receiver,
             call_line,
             call_start_byte,
-            go_filter_bindings_to_call_scope,
+            go_filter_declarations_to_call_scope,
+            enable_go_same_scope_reuse,
             &mut found,
             &mut first_found,
             &mut bindings,
@@ -6867,7 +6868,8 @@ impl ParsedFile {
         receiver: &str,
         call_line: usize,
         call_start_byte: usize,
-        go_filter_bindings_to_call_scope: bool,
+        go_filter_declarations_to_call_scope: bool,
+        enable_go_same_scope_reuse: bool,
         found: &mut Option<(String, crate::resolution::ReceiverRecovery)>,
         first_found: &mut Option<(String, crate::resolution::ReceiverRecovery)>,
         bindings: &mut usize,
@@ -6956,12 +6958,12 @@ impl ParsedFile {
                 let right = node
                     .child_by_field_name("right")
                     .or_else(|| node.child_by_field_name("value"));
-                let visible_scope = !go_filter_bindings_to_call_scope
+                let visible_scope = !go_filter_declarations_to_call_scope
                     || self.go_enclosing_binding_scope(node).is_some_and(|scope| {
                         scope.start_byte() <= call_start_byte && call_start_byte < scope.end_byte()
                     });
                 if let Some(left) = left.filter(|_| visible_scope) {
-                    if go_filter_bindings_to_call_scope
+                    if enable_go_same_scope_reuse
                         && self.go_short_decl_reuses_in_scope(
                             node,
                             &node
@@ -7042,11 +7044,16 @@ impl ParsedFile {
             (Language::Go, "var_spec") if recover_var => {
                 // var_spec.name is multiple:true; match only the bound name(s), never names in
                 // the declared type or initializer (that would be a false recovery).
+                let visible_scope = !go_filter_declarations_to_call_scope
+                    || self.go_enclosing_binding_scope(node).is_some_and(|scope| {
+                        scope.start_byte() <= call_start_byte && call_start_byte < scope.end_byte()
+                    });
                 let mut cur = node.walk();
                 let names: Vec<_> = node.children_by_field_name("name", &mut cur).collect();
-                let matched = names
-                    .iter()
-                    .any(|n| self.simple_binding_text(n).as_deref() == Some(receiver));
+                let matched = visible_scope
+                    && names
+                        .iter()
+                        .any(|n| self.simple_binding_text(n).as_deref() == Some(receiver));
                 if matched {
                     *go_lexical_rebinding |= *bindings > 0;
                     *bindings += 1;
@@ -7235,7 +7242,8 @@ impl ParsedFile {
                 receiver,
                 call_line,
                 call_start_byte,
-                go_filter_bindings_to_call_scope,
+                go_filter_declarations_to_call_scope,
+                enable_go_same_scope_reuse,
                 found,
                 first_found,
                 bindings,
