@@ -1453,6 +1453,7 @@ impl CallGraph {
             .keys()
             .any(|name| !name.chars().next().is_some_and(char::is_uppercase));
         let mut all_satisfiers: Vec<(String, &'a FunctionId)> = Vec::new();
+        let mut conflicting_owners = 0usize;
         for (concrete_owner, declarations) in &self.go_method_declarations {
             if requires_interface_namespace
                 && (concrete_owner.package_dir != interface_owner.package_dir
@@ -1490,11 +1491,12 @@ impl CallGraph {
                     .get(name.as_str())
                     .is_some_and(|methods| methods.len() > 1)
             }) {
-                evidence.conflict = true;
-                return crate::go_owner_partition::GoPartitionSelection {
-                    value: None,
-                    evidence,
-                };
+                // Conflict belongs to this concrete owner's method set, not
+                // to every independently-proven structural satisfier. Keep
+                // this owner excluded; if no exact owner survives, preserve
+                // the existing site-level conflict drop below.
+                conflicting_owners += 1;
+                continue;
             }
             let value_matches = required.iter().all(|(name, signature)| {
                 visible_methods
@@ -1552,6 +1554,14 @@ impl CallGraph {
             all_ids
         };
         evidence.distinct_visible_values = chosen.len();
+        if chosen.is_empty() && conflicting_owners > 0 {
+            evidence.conflict = true;
+            return crate::go_owner_partition::GoPartitionSelection {
+                value: None,
+                evidence,
+            };
+        }
+        evidence.recovered |= conflicting_owners > 0;
         crate::go_owner_partition::GoPartitionSelection {
             value: Some(chosen.into_iter().collect()),
             evidence,

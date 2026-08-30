@@ -446,10 +446,21 @@ fn ended_scope_owner_keeps_independent_implementer_with_tagged_name_collision() 
         Some(&owner("api", "api", "Adder")),
         "{call:?}"
     );
+    let outcome = cg.resolve_call_site_full(call);
     assert_eq!(
-        resolved_files(&cg, call),
+        outcome
+            .resolved
+            .iter()
+            .map(|resolved| resolved.target.file.clone())
+            .collect::<BTreeSet<_>>(),
         BTreeSet::from(["schema/good.go".to_string()]),
         "an unrelated build-tag collision must not erase the exact implementer: {call:?}"
+    );
+    assert_eq!(outcome.telemetry.go_owner_identity_partition.drops, 0);
+    assert_eq!(outcome.telemetry.go_owner_identity_partition.recovered, 1);
+    assert_eq!(
+        outcome.telemetry.go_owner_identity_partition.affected_edges,
+        1
     );
     assert_eq!(manifest_fanout(&cg, call), 1, "{call:?}");
 }
@@ -465,6 +476,14 @@ fn ended_scope_owner_drops_a_conflict_only_implementer_population() {
         Some(&owner("api", "api", "Adder")),
         "{call:?}"
     );
-    assert!(resolved_files(&cg, call).is_empty(), "{call:?}");
+    let outcome = cg.resolve_call_site_full(call);
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
+    assert_eq!(outcome.telemetry.go_owner_identity_partition.drops, 1);
+    assert_eq!(outcome.telemetry.go_owner_identity_partition.recovered, 0);
+    assert_eq!(
+        outcome.telemetry.go_owner_identity_partition.affected_edges,
+        1
+    );
     assert_eq!(manifest_fanout(&cg, call), 0, "{call:?}");
 }
