@@ -1,7 +1,7 @@
 # Handoff — Go receiver ended-scope shadow prerequisite
 
 **Written:** 2026-08-30T22:43:12Z · **By:** Codex `/root` · **Provider:** codex
-**Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq` · `a-receiver-provenance-scope-aware-shadow-prereq` · **Measured state:** `[MEASURED]` HEAD `ed8841e` · Tree DIRTY only for the minimized corpus RED and this handoff refresh · Probe `git status --short --branch; git log -3 --oneline` · Output captured in the authoring turn
+**Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq` · `a-receiver-provenance-scope-aware-shadow-prereq` · **Measured state:** `[MEASURED]` HEAD `c52c233` · Tree CLEAN · Probe `git status --short --branch; git log -2 --oneline` · Output captured in the reconciliation turn
 **Predecessor:** Codex `/root` continuation of the Slice 3 review STOP at `a9ff284ab7fbb67516324841c5da3a156c2c8d0b`
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,7 +9,7 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` `git worktree list --porcelain` showed this newly created dedicated branch/worktree and no prior owner; no subagent was dispatched — **RESOLVED 2026-08-29 by owner-authorized lane creation**
-**(b) Custody exposure** — `[MEASURED]` plan/initial handoff are committed at `85099b1`, planning reconciliation at `5c57fa0`, compiled REDs at `f379e50`, RED reconciliation at `e992c4c`, bounded implementation at `bcd8a0b`, implementation reconciliation at `dda67af`, and full-suite/Clippy reconciliation at `ed8841e`; Slice 3 remains clean at `a9ff284`; the minimized corpus RED and this refresh must be committed together next — **OPEN pending corpus-RED checkpoint**
+**(b) Custody exposure** — `[MEASURED]` plan/initial handoff are committed at `85099b1`, planning reconciliation at `5c57fa0`, compiled REDs at `f379e50`, RED reconciliation at `e992c4c`, bounded implementation at `bcd8a0b`, implementation reconciliation at `dda67af`, full-suite/Clippy reconciliation at `ed8841e`, and minimized corpus RED/handoff at `c52c233`; Slice 3 remains clean at `a9ff284` — **RESOLVED 2026-08-30 by corpus-RED checkpoint**
 **(c) In flight / irreversible** — `[MEASURED]` no build, test, editor, or remote mutation is in flight — **RESOLVED 2026-08-29**
 **(d) Authorization granted but not exercised** — owner verbatim: `authorized`, answering the request to authorize a prerequisite slice repairing scope-aware Go receiver owner/shadow production. Earlier standing authorization also permits push/merge after gates are green.
 **(e) Production authority boundary** — `[MEASURED]` fresh exact base retains the Prometheus line-302 `schema` edge while the AST candidate loses it after owner recovery; the minimized candidate RED reproduces the owner-aware routing defect. The plan forbids owner-resolution/call-routing changes — **OPEN pending owner authorization for a bounded `src/resolution.rs` follow-on**
@@ -93,6 +93,7 @@
 | Implementation checkpoint | `bcd8a0b` |
 | Implementation reconciliation | `dda67af` |
 | Full-suite/Clippy reconciliation | `ed8841e` |
+| Corpus-RED checkpoint | `c52c233` |
 | Exact-base sibling RED worktree | `/private/tmp/slicing-scope-prereq-base-7fc719ae` |
 | Candidate Clippy log | `/private/tmp/slicing-scope-prereq-clippy-candidate.log` |
 | Exact-base Clippy log | `/private/tmp/slicing-scope-prereq-clippy-base.log` |
