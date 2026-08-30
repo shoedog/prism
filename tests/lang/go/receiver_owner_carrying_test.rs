@@ -371,3 +371,63 @@ fn receiver_owner_carrying_keeps_an_active_inner_shadow_unproven() {
     assert!(call.receiver_local_type_shadowed, "{call:?}");
     assert_eq!(call.receiver_owner_identity, None, "{call:?}");
 }
+
+#[test]
+fn ended_scope_owner_keeps_independent_implementer_with_tagged_name_collision() {
+    let cg = build_go(&[
+        (
+            "api/decoder.go",
+            "package api\n\
+             type Adder interface{ Add(name, value string) }\n\
+             func parse(b Adder) {\n\
+               { b := byte(1); _ = b }\n\
+               b.Add(\"name\", \"value\")\n\
+             }\n",
+        ),
+        (
+            "schema/good.go",
+            "package schema\n\
+             type Good struct{}\n\
+             func (Good) Add(name, value string) {}\n\
+             func retainGood() { _ = Good{} }\n",
+        ),
+        (
+            "labels/labels_slice.go",
+            "//go:build slicelabels\n\
+             package labels\n\
+             type ScratchBuilder struct{}\n\
+             func (*ScratchBuilder) Add(name, value string) {}\n\
+             func retainSlice() { _ = &ScratchBuilder{} }\n",
+        ),
+        (
+            "labels/labels_dedupe.go",
+            "//go:build dedupelabels\n\
+             package labels\n\
+             type ScratchBuilder struct{}\n\
+             func (*ScratchBuilder) Add(name, value string) {}\n\
+             func retainDedupe() { _ = &ScratchBuilder{} }\n",
+        ),
+        (
+            "labels/labels_default.go",
+            "//go:build !slicelabels && !dedupelabels\n\
+             package labels\n\
+             type ScratchBuilder struct{}\n\
+             func (*ScratchBuilder) Add(name, value string) {}\n\
+             func retainDefault() { _ = &ScratchBuilder{} }\n",
+        ),
+    ]);
+    let call = site(&cg, "api/decoder.go", "parse", "Add");
+
+    assert!(!call.receiver_local_type_shadowed, "{call:?}");
+    assert_eq!(
+        call.receiver_owner_identity.as_ref(),
+        Some(&owner("api", "api", "Adder")),
+        "{call:?}"
+    );
+    assert_eq!(
+        resolved_files(&cg, call),
+        BTreeSet::from(["schema/good.go".to_string()]),
+        "an unrelated build-tag collision must not erase the exact implementer: {call:?}"
+    );
+    assert!(manifest_has_site(&cg, call), "{call:?}");
+}
