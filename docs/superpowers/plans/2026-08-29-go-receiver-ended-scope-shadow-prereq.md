@@ -36,6 +36,19 @@ Split two currently conflated controls in `walk_receiver_bindings`:
 
 Thread both booleans through recursive calls. Do not change assignment handling, return-type proof, owner resolution, call-graph routing, the Slice 3 predicate, `CallSite::cmp_key`, cache keys, or non-Go behavior.
 
+## Authorized corpus follow-on
+
+Owner authorization `authorized` on 2026-08-30 expands production scope only to `src/resolution.rs` after the bounded AST repair exposed a pre-existing owner-aware routing defect at the same Prometheus line 302.
+
+The follow-on must partition structural satisfaction per concrete owner:
+
+- a concrete owner with conflicting visible declarations for a required method remains excluded;
+- an unrelated conflicting owner must not erase another independently exact satisfier;
+- if no independently exact satisfier remains, preserve the existing conflict drop;
+- do not use the lossy bare-name `interface_impls` candidates as identity authority, suppress the recovered owner, or fall back to ownerless routing.
+
+Add a focused negative control proving the conflicting owner stays excluded, alongside the compiled RED that requires the independent `schema` satisfier in both resolver and manifest output. No other production file is authorized.
+
 ## Verification
 
 1. Prove compiled RED on exact base with the new selectors and retain the failure output.
@@ -45,7 +58,8 @@ Thread both booleans through recursive calls. Do not change assignment handling,
    - `cd eval && uv run tier-a --matrix-only --allow-stale-sut`
    - `cd eval && uv run tier-a --quick --allow-stale-sut`
 5. Re-run the pinned Prometheus manifest/oracle comparison. Line 302 must retain its sound edge; the explicitly parked ownerless rows must remain unchanged.
-6. Run the declared two-round `WRONG`-before-`SMELL` review. Stop on any valid recovered Go positive still made ownerless by this bounded mechanism.
+6. Require the tagged-collision positive and conflict-only negative in both resolver and manifest surfaces.
+7. Run the declared two-round `WRONG`-before-`SMELL` review. Stop on any valid recovered Go positive still made ownerless by this bounded mechanism.
 
 ## Publication and successor
 
@@ -53,7 +67,7 @@ After clean verification and review, push/open/merge this prerequisite under the
 
 ## STOP conditions
 
-- The fix requires changing assignment semantics, non-direct reuse routing, field-alias recovery, owner resolution, or the Slice 3 predicate.
+- The fix requires changing assignment semantics, non-direct reuse routing, field-alias recovery, owner identity population, the Slice 3 predicate, or production outside `src/ast.rs` and the authorized `src/resolution.rs` follow-on.
 - A declaration whose scope contains the call becomes invisible, or a sibling/ended declaration still poisons the owner.
 - Exact-base RED does not compile/select the intended tests, or candidate GREEN relies on a malformed Go fixture.
 - Any full-suite/Tier-A/corpus regression lacks a same-environment exact-base control.
