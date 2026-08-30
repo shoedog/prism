@@ -63,6 +63,21 @@ fn manifest_has_site(cg: &CallGraph, call: &CallSite) -> bool {
         })
 }
 
+fn manifest_fanout(cg: &CallGraph, call: &CallSite) -> u64 {
+    queries::interface_dispatch_manifest(cg)["sites"]
+        .as_array()
+        .expect("manifest sites")
+        .iter()
+        .find(|entry| {
+            entry["file"] == call.caller.file
+                && entry["line"] == call.line
+                && entry["method"] == call.callee_name
+        })
+        .unwrap_or_else(|| panic!("missing manifest site: {call:?}"))["fanout"]
+        .as_u64()
+        .expect("manifest fanout")
+}
+
 #[test]
 fn receiver_owner_carrying_uses_package_var_defining_file_alias() {
     let cg = build_go(&[
@@ -301,4 +316,259 @@ fn receiver_owner_carrying_incremental_owner_change_replaces_old_owner() {
         1,
         "owner replacement must not duplicate the occurrence"
     );
+}
+
+fn ended_scope_shadow_fixture() -> CallGraph {
+    build_go(&[(
+        "app/types.go",
+        "package app\n\
+         type I interface{ M(); IOnly() }\n\
+         type Real struct{}\n\
+         func (Real) M() {}\n\
+         func (Real) IOnly() {}\n\
+         type Inner struct{}\n\
+         func (Inner) M() {}\n\
+         func retain() { var _ I = Real{} }\n\
+         func afterBlock(x I) {\n\
+           { x := byte(1); _ = x }\n\
+           x.M()\n\
+         }\n\
+         func afterIf(x I) {\n\
+           if x := byte(1); x > 0 { _ = x }\n\
+           x.M()\n\
+         }\n\
+         func afterVar(x I) {\n\
+           { var x byte; _ = x }\n\
+           x.M()\n\
+         }\n\
+         func activeShadow(x I) {\n\
+           { x := Inner{}; x.M() }\n\
+         }\n",
+    )])
+}
+
+fn assert_ended_scope_owner(caller: &str) {
+    let cg = ended_scope_shadow_fixture();
+    let call = site(&cg, "app/types.go", caller, "M");
+    assert!(!call.receiver_local_type_shadowed, "{caller}: {call:?}");
+    assert_eq!(
+        call.receiver_owner_identity.as_ref(),
+        Some(&owner("app", "app", "I")),
+        "{caller}: {call:?}"
+    );
+    assert_eq!(
+        resolved_files(&cg, call),
+        BTreeSet::from(["app/types.go".to_string()]),
+        "{caller}: {call:?}"
+    );
+    assert!(manifest_has_site(&cg, call), "{caller}: {call:?}");
+}
+
+#[test]
+fn receiver_owner_carrying_ignores_ended_block_short_declaration() {
+    assert_ended_scope_owner("afterBlock");
+}
+
+#[test]
+fn receiver_owner_carrying_ignores_ended_if_initializer_declaration() {
+    assert_ended_scope_owner("afterIf");
+}
+
+#[test]
+fn receiver_owner_carrying_ignores_ended_block_var_declaration() {
+    assert_ended_scope_owner("afterVar");
+}
+
+#[test]
+fn receiver_owner_carrying_keeps_an_active_inner_shadow_unproven() {
+    let cg = ended_scope_shadow_fixture();
+    let call = site(&cg, "app/types.go", "activeShadow", "M");
+    assert!(call.receiver_local_type_shadowed, "{call:?}");
+    assert_eq!(call.receiver_owner_identity, None, "{call:?}");
+}
+
+fn tagged_name_collision_fixture(include_independent: bool) -> CallGraph {
+    let mut sources = vec![
+        (
+            "api/decoder.go",
+            "package api\n\
+             type Adder interface{ Add(name, value string) }\n\
+             func parse(b Adder) {\n\
+               { b := byte(1); _ = b }\n\
+               b.Add(\"name\", \"value\")\n\
+             }\n",
+        ),
+        (
+            "labels/labels_slice.go",
+            "//go:build slicelabels\n\
+             package labels\n\
+             type ScratchBuilder struct{}\n\
+             func (*ScratchBuilder) Add(name, value string) {}\n\
+             func retainSlice() { _ = &ScratchBuilder{} }\n",
+        ),
+        (
+            "labels/labels_dedupe.go",
+            "//go:build dedupelabels\n\
+             package labels\n\
+             type ScratchBuilder struct{}\n\
+             func (*ScratchBuilder) Add(name, value string) {}\n\
+             func retainDedupe() { _ = &ScratchBuilder{} }\n",
+        ),
+        (
+            "labels/labels_default.go",
+            "//go:build !slicelabels && !dedupelabels\n\
+             package labels\n\
+             type ScratchBuilder struct{}\n\
+             func (*ScratchBuilder) Add(name, value string) {}\n\
+             func retainDefault() { _ = &ScratchBuilder{} }\n",
+        ),
+    ];
+    if include_independent {
+        sources.push((
+            "schema/good.go",
+            "package schema\n\
+             type Good struct{}\n\
+             func (Good) Add(name, value string) {}\n\
+             func retainGood() { _ = Good{} }\n",
+        ));
+    }
+    build_go(&sources)
+}
+
+#[test]
+fn ended_scope_owner_keeps_independent_implementer_with_tagged_name_collision() {
+    let cg = tagged_name_collision_fixture(true);
+    let call = site(&cg, "api/decoder.go", "parse", "Add");
+
+    assert!(!call.receiver_local_type_shadowed, "{call:?}");
+    assert_eq!(
+        call.receiver_owner_identity.as_ref(),
+        Some(&owner("api", "api", "Adder")),
+        "{call:?}"
+    );
+    let outcome = cg.resolve_call_site_full(call);
+    assert_eq!(
+        outcome
+            .resolved
+            .iter()
+            .map(|resolved| resolved.target.file.clone())
+            .collect::<BTreeSet<_>>(),
+        BTreeSet::from(["schema/good.go".to_string()]),
+        "an unrelated build-tag collision must not erase the exact implementer: {call:?}"
+    );
+    assert_eq!(outcome.telemetry.go_owner_identity_partition.drops, 0);
+    assert_eq!(outcome.telemetry.go_owner_identity_partition.recovered, 1);
+    assert_eq!(
+        outcome.telemetry.go_owner_identity_partition.affected_edges,
+        1
+    );
+    assert_eq!(manifest_fanout(&cg, call), 1, "{call:?}");
+}
+
+#[test]
+fn ended_scope_owner_drops_a_conflict_only_implementer_population() {
+    let cg = tagged_name_collision_fixture(false);
+    let call = site(&cg, "api/decoder.go", "parse", "Add");
+
+    assert!(!call.receiver_local_type_shadowed, "{call:?}");
+    assert_eq!(
+        call.receiver_owner_identity.as_ref(),
+        Some(&owner("api", "api", "Adder")),
+        "{call:?}"
+    );
+    let outcome = cg.resolve_call_site_full(call);
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
+    assert_eq!(outcome.telemetry.go_owner_identity_partition.drops, 1);
+    assert_eq!(outcome.telemetry.go_owner_identity_partition.recovered, 0);
+    assert_eq!(
+        outcome.telemetry.go_owner_identity_partition.affected_edges,
+        1
+    );
+    assert_eq!(manifest_fanout(&cg, call), 0, "{call:?}");
+}
+
+fn uncertain_profile_fixture(include_independent: bool) -> CallGraph {
+    let mut sources = vec![
+        (
+            "api/decoder.go",
+            "package api\n\
+             type Adder interface{ Add(name, value string) }\n\
+             func parse(b Adder) {\n\
+               { b := byte(1); _ = b }\n\
+               b.Add(\"name\", \"value\")\n\
+             }\n",
+        ),
+        (
+            "noisy/maybe.go",
+            "//go:build !t0 && t1 && t2 && t3 && t4 && t5 && t6 && t7 && t8\n\
+             package noisy\n\
+             type Maybe struct{}\n\
+             func (Maybe) Add(name, value string) {}\n\
+             func retainMaybe() { _ = Maybe{} }\n",
+        ),
+    ];
+    if include_independent {
+        sources.push((
+            "schema/good.go",
+            "package schema\n\
+             type Good struct{}\n\
+             func (Good) Add(name, value string) {}\n\
+             func retainGood() { _ = Good{} }\n",
+        ));
+    }
+    build_go(&sources)
+}
+
+#[test]
+fn ended_scope_owner_uncertain_profile_keeps_independent_implementer() {
+    let cg = uncertain_profile_fixture(true);
+    let call = site(&cg, "api/decoder.go", "parse", "Add");
+
+    assert!(!call.receiver_local_type_shadowed, "{call:?}");
+    assert_eq!(
+        call.receiver_owner_identity.as_ref(),
+        Some(&owner("api", "api", "Adder")),
+        "{call:?}"
+    );
+    let outcome = cg.resolve_call_site_full(call);
+    assert_eq!(
+        outcome
+            .resolved
+            .iter()
+            .map(|resolved| resolved.target.file.clone())
+            .collect::<BTreeSet<_>>(),
+        BTreeSet::from(["schema/good.go".to_string()]),
+        "an unrelated uncertain owner must not erase the exact implementer: {call:?}"
+    );
+    assert_eq!(outcome.telemetry.go_owner_identity_partition.drops, 0);
+    assert_eq!(outcome.telemetry.go_owner_identity_partition.recovered, 1);
+    assert_eq!(
+        outcome.telemetry.go_owner_identity_partition.affected_edges,
+        1
+    );
+    assert_eq!(manifest_fanout(&cg, call), 1, "{call:?}");
+}
+
+#[test]
+fn ended_scope_owner_uncertain_profile_only_population_still_drops() {
+    let cg = uncertain_profile_fixture(false);
+    let call = site(&cg, "api/decoder.go", "parse", "Add");
+
+    assert!(!call.receiver_local_type_shadowed, "{call:?}");
+    assert_eq!(
+        call.receiver_owner_identity.as_ref(),
+        Some(&owner("api", "api", "Adder")),
+        "{call:?}"
+    );
+    let outcome = cg.resolve_call_site_full(call);
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
+    assert_eq!(outcome.telemetry.go_owner_identity_partition.drops, 0);
+    assert_eq!(outcome.telemetry.go_owner_identity_partition.recovered, 0);
+    assert_eq!(
+        outcome.telemetry.go_owner_identity_partition.affected_edges,
+        0
+    );
+    assert_eq!(manifest_fanout(&cg, call), 0, "{call:?}");
 }
