@@ -6,7 +6,7 @@
 
 ## 0. Verdict and authority
 
-Roadmap #13a's bounded Go B1 implementation is **COMPLETE and locally verified**. The authority remains `docs/superpowers/specs/2026-08-31-go-level3-bare-function-callback-design.md`: only a bare identifier proven to name one in-repo non-test free function, passed to a proven in-repo free-function HOF at a strict callable parameter slot, may mint an edge. Publication state is deliberately not asserted in this snapshot; query the branch or linked PR rather than inferring it from prose.
+Roadmap #13a's bounded Go B1 implementation is **COMPLETE and locally verified** in PR #221. The authority remains `docs/superpowers/specs/2026-08-31-go-level3-bare-function-callback-design.md`: only a bare identifier proven to name one in-repo non-test free function, passed to a proven in-repo free-function HOF at a strict callable parameter slot, may mint an edge. The PR's live server state remains authoritative for merge status.
 
 The steering carrier names an installed `handoff-template.md`, but a filesystem search found no such file on this machine. This handoff follows the established adjacent lane shape. The absence of the template is not evidence about the design.
 
@@ -93,6 +93,7 @@ All `67` retained floor rows were adjudicated. The stable production dump direct
 | Item | Value |
 |---|---|
 | Design publication | PR #220 · merge `8c40bfc344b263e06fd21419dc133a4aed92ae98` |
+| Implementation publication | PR #221 |
 | Implementation worktree | `/private/tmp/slicing-p13a-impl-8c40bfc` |
 | Implementation branch | `p13a-go-level3-impl` |
 | Detached base control | `/private/tmp/slicing-p13a-base-8c40bfc` |
