@@ -8,7 +8,7 @@
 ## 0. Gating facts
 
 **Lane ownership:** `[MEASURED]` fresh dedicated branch/worktree created from PR #214 merge; no subagent dispatched. The primary `slicing` worktree and every receiver-provenance worktree remain untouched.
-**Custody exposure:** `[MEASURED]` v12, v13, and PARK were replayed as separate commits `e87f9e7`, `0a1c474`, and `ab4e5da`; reviewed v14, its plan, and this handoff are committed at `c64ccd42cde9074e5903cb451d4059423d71e0fa`. The historical `/Users/wesleyjinks/code/slicing-16c1-sol` clone remains dirty and untouched on `c1-bare-walk-consult` at `1900682c`, base `0ca571c5`, with three modified source files (`627 insertions / 130 deletions`) plus one untracked spec whose SHA-256 is `e45a41e3edbdc00f2d48700601dacfabb8027870275222ac681d65be73a86c3c`.
+**Custody exposure:** `[MEASURED]` v12, v13, and PARK were replayed as separate commits `e87f9e7`, `0a1c474`, and `ab4e5da`; reviewed v14 is `c64ccd42cde9074e5903cb451d4059423d71e0fa`; the parked Task 1 consult, corrected harness, and evidence are committed at `b529d29595bac1c7040be94992bf01bcd320eb97`. The historical `/Users/wesleyjinks/code/slicing-16c1-sol` clone remains dirty and untouched on `c1-bare-walk-consult` at `1900682c`, base `0ca571c5`, with three modified source files (`627 insertions / 130 deletions`) plus one untracked spec whose SHA-256 is `e45a41e3edbdc00f2d48700601dacfabb8027870275222ac681d65be73a86c3c`.
 **In flight / irreversible:** none.
 **Authority:** owner repeatedly said `authorized`, explicitly authorized push/merge, and directed successor continuation. Production switching remains gated by v14 census, REDs, verification, and two-round review.
 **Template limitation:** the referenced `bootstrap/handoff-template.md` was not found under readable steering, Codex, Claude, or code roots. This handoff uses the repository's established eight-section shape instead.
@@ -18,7 +18,7 @@
 1. Require base ancestor `b7a5cf934a44060de98588837b3c8c75ddffdc37` and read v14 plus `docs/superpowers/plans/2026-08-31-go-interface-identity-post-provenance.md`.
 2. Preserve replayed commits `e87f9e7`/`0a1c474`/`ab4e5da`; do not restart or flatten the reviewed artifact.
 3. Preserve the dirty old clone without writes; it is historical census custody, not an implementation base.
-4. Preserve v14/plan/handoff checkpoint `c64ccd42` and the Task 1 parked checkpoint that follows it.
+4. Preserve v14/plan/handoff checkpoint `c64ccd42` and Task 1 parked checkpoint `b529d29595bac1c7040be94992bf01bcd320eb97`.
 5. Read `docs/superpowers/handoffs/2026-08-31-go-interface-identity-task1-census-evidence.md` before acting. Do not add public REDs or switch production: the corrected census selected zero candidates and v14 §4 rejects zero-selection evidence.
 6. Resume only after the owner either supplies a pinned corpus with a real candidate or explicitly amends the coverage rule to admit constructible fixture proof and a replacement coverage floor.
 
@@ -34,7 +34,7 @@
 | Current consumer census | done for structure | `[MEASURED]` shared terminal predicate precedes resolver/manifest; exactly two independent consumers; sidecar reuses resolver. Owner-bearing `Unproven` routes still retain a bare table lookup. |
 | v14 design | reviewed at cap with bounded preflight correction | Round 1: one `WRONG`, zero `SMELL` (ownerless census tautology), fixed. Round 2: one `WRONG`, zero `SMELL` (`arg_count` type), fixed. Disclosed scoped confirmation found no further item. Source-reality preflight then found one closed artifact `WRONG`: the combined census partition omitted owner-bearing routes that exit before the legacy arm. The complete route tree was enumerated and the contract now uses two exhaustive ledgers; no code had started. |
 | Executable plan | committed | `[MEASURED]` v14, plan, and initial handoff checkpoint is `c64ccd42`; start Task 1. |
-| Shared consult and dormant census | implemented, not production-routed | `[MEASURED]` focused census tests `5/5`; existing promoted/S4 compatibility `49/49`; all-target compile passed. Normal ripgrep manifest is byte-identical to exact base. |
+| Shared consult and dormant census | implemented, not production-routed | `[MEASURED]` checkpoint `b529d295`; focused census tests `5/5`; existing promoted/S4 compatibility `49/49`; all-target compile passed. Normal ripgrep manifest is byte-identical to exact base. |
 | First census attempt | inadmissible, retained | Manifest-local `legacy_bare` was a wrong proxy for the resolver attempt set. A constructible test proved the resolver can hit legacy while the manifest says `unproven_drop`. Artifacts remain at `/private/tmp/p16-census-task1-20260831`. |
 | Corrected current-base census | complete attempt set, zero-selection STOP | `[MEASURED]` resolver telemetry admitted candidates. Five corpora: `8,871` prerequisite (`46` ownerless, `8,825` owner-bearing), `0` candidates. Independent whole-graph call-stats also reported `0/0/0` legacy sites/hits/edges on all four Go corpora. |
 | Public RED matrix | blocked | v14 §4 says zero-selection is inadmissible. Requires owner coverage amendment or a pinned corpus with an actual candidate. |
@@ -91,6 +91,7 @@
 | Replayed v13 | `0a1c474` |
 | Replayed PARK | `ab4e5da` |
 | v14 design/plan/handoff checkpoint | `c64ccd42cde9074e5903cb451d4059423d71e0fa` |
+| Task 1 parked checkpoint | `b529d29595bac1c7040be94992bf01bcd320eb97` |
 | Slice 3 publication | PR #213 · `31250f7eec33391ebda9065ca5222eceffdf3cc4` |
 | Slice 3 closeout | PR #214 · `b7a5cf934a44060de98588837b3c8c75ddffdc37` |
 | Historical dirty clone | `/Users/wesleyjinks/code/slicing-16c1-sol` · `c1-bare-walk-consult` · `1900682c` · base `0ca571c5` |

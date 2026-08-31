@@ -3,7 +3,7 @@
 **Captured:** 2026-08-31T00:59:49Z  
 **Lane:** `/Users/wesleyjinks/code/slicing-16-post-provenance` · `a-go-interface-identity-post-provenance`  
 **Exact base:** `b7a5cf934a44060de98588837b3c8c75ddffdc37`  
-**Candidate source parent:** `4a0ee08fe37a51b133337393c417282444fe851b` plus the uncommitted Task 1 harness described here
+**Task 1 checkpoint:** `b529d29595bac1c7040be94992bf01bcd320eb97`
 
 ## Verdict
 
