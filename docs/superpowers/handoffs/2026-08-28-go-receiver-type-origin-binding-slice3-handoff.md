@@ -1,24 +1,24 @@
 # Handoff — Go receiver type-origin binding Slice 3 terminal owner predicate
 
-**Written:** 2026-08-31T00:04:03Z · **By:** Codex `/root` · **Provider:** codex
-**Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-s3` · `a-receiver-provenance-slice3-terminal-owner-predicate` · **Base:** `[MEASURED]` `0139d7fab18d71cfa33f9de609bf280674df85e8` (`origin/main`, scope-aware owner prerequisite PR #212 merge)
+**Written:** 2026-08-31T00:14:12Z · **By:** Codex `/root` · **Provider:** codex
+**Workspace:** `/Users/wesleyjinks/code/slicing-a-receiver-provenance-s3` · `a-receiver-provenance-slice3-closeout` · **Base:** `[MEASURED]` `31250f7eec33391ebda9065ca5222eceffdf3cc4` (`origin/main`, Slice 3 PR #213 merge)
 **Predecessor:** scope-aware owner prerequisite PR #212, merged at `0139d7fab18d71cfa33f9de609bf280674df85e8`; the original Slice 3 lane followed Slice 2 PR #211 and continues Claude session `a3bf14f1-6b47-464b-ba09-fc62e2ad7efb`
 **Truth ordering:** measured live state > explicit owner/design authority within scope > this handoff > earlier handoffs and summaries. Conflicts stay open until remeasured.
 
 ## 0. Gating facts
 
-**Lane ownership:** `[MEASURED]` dedicated worktree/branch; no subagent dispatched. Rebase onto PR #212 completed at `e5596ba4e91a39fbf1b4bf0affc5b7013365c835` after one additive test-fixture conflict; current pre-reconciliation HEAD is `59754aec0bcdd3f8e04f79199fe6c94c0e23c182`; primary `slicing` worktree remains untouched.
-**Custody exposure:** `[MEASURED]` the 15-commit Slice 3 chain was preserved and rebased: planning `cd727884`, RED `d723287b`, implementation `9bf38001`, expectation repairs `00d91c9f` and `4a0facb6`, historical full/Tier-A/corpus checkpoints `4af62039`/`4dc60e29`/`f60ce6f3`, and historical review STOP `c9bbb136`; rebase custody is `59754ae`. Current post-rebase verification artifacts are hashed below and this refresh records final review round 2.
+**Lane ownership:** `[MEASURED]` the dedicated implementation branch published final HEAD `559cf02c5e810185b7b7979bac72df66350c633a`; PR #213 merged it as `31250f7eec33391ebda9065ca5222eceffdf3cc4`. This worktree now carries only the docs closeout branch based on that merge; the primary `slicing` worktree remains untouched.
+**Custody exposure:** `[MEASURED]` the 15-commit Slice 3 chain was preserved and rebased: planning `cd727884`, RED `d723287b`, implementation `9bf38001`, expectation repairs `00d91c9f` and `4a0facb6`, historical full/Tier-A/corpus checkpoints `4af62039`/`4dc60e29`/`f60ce6f3`, and historical review STOP `c9bbb136`; rebase custody is `59754ae`, final handoff reconciliation is `559cf02`, and merge custody is PR #213 / `31250f7e`. Current post-rebase verification artifacts are hashed below.
 **In flight / irreversible:** none.
-**Authority:** owner repeatedly said `authorized` and explicitly authorized push/merge; publish and merge remain authorized once non-coverage gates and the bounded review are green.
+**Authority:** owner repeatedly said `authorized` and explicitly authorized push/merge; that authority was exercised only after the bounded review and every relevant non-coverage check were green.
 
 ## 1. Resume order
 
-1. Require base `0139d7fab18d71cfa33f9de609bf280674df85e8` and Slice 3 HEAD at or after `e5596ba4`.
-2. Preserve the rebased 15-commit implementation chain; do not fold production code or discard the reviewed artifact.
-3. Preserve the current focused/full/Clippy/release/Tier-A/corpus evidence and round-2 approval.
-4. Push the branch, open the PR, and require all relevant non-coverage checks green; coverage is not a wait condition by owner direction.
-5. Merge using the repository's merge-commit convention, then reconcile this handoff's publication state.
+1. Require `origin/main` to contain PR #213 merge `31250f7eec33391ebda9065ca5222eceffdf3cc4`.
+2. Preserve the rebased implementation chain and the focused/full/Clippy/release/Tier-A/corpus evidence below; do not discard the reviewed artifact.
+3. Treat the owner-provenance sequence as closed: Slices 0→1→2→3 plus prerequisite PR #212 are merged.
+4. The next bounded program item is the design's parked #16 package-qualified interface-identity follow-on, now constrained to consume proven identities with no text proxy or fallback.
+5. Before implementing #16, rebind its v8 design and old census to current main, explicitly reconcile the old identity-invalid fallback with Slice 3's terminal owner membrane, and cut fresh same-base controls in a new plan/worktree.
 
 **STOP conditions:** a valid Go recovered positive remains ownerless; a third independent receiver-edge consumer appears; the predicate changes non-Go/direct behavior; an edit populates owners or changes `CallSite::cmp_key`; a failing probe selects zero tests or fails for its own reason; generated eval output would be committed; or a same-environment exact-base control disproves attribution.
 
@@ -34,7 +34,7 @@
 | Implementation | done | `[MEASURED]` rebased checkpoint `9bf38001`: one shared predicate has exactly two consumers; resolver/manifest terminalize before routing; CPG `54`/sidecar `22`; shadowed negative pins the earlier terminal boundary. |
 | Verification | done with one base-proven exclusion | `[MEASURED]` focused `54/54`; full suite 28 summaries `3,496/0/1`; fmt/check and ordinary all-target Clippy compile pass; exact `-D warnings` fails on candidate/base with `165/165` normalized diagnostics and zero differences; release, Tier-A, five-corpus, Prometheus sentinel, and four oracle gates are recorded below. |
 | Review | done after round 2 | Declared cap `2`. Round 1 found one `WRONG`; PR #212 repaired it. Round 2 found zero `WRONG` and zero in-scope `SMELL` after the complete `0/30/0/16` removed-row census, source-mechanism inspection, consumer/order audit, and exact corpus controls. |
-| Publication | authorized and pending | Push/open/merge after relevant non-coverage CI checks; coverage need not be awaited per owner direction. |
+| Publication | done | `[MEASURED]` PR #213 merged as `31250f7e` after Format Check, Clippy Lint, Test Suite, and Language Coverage Matrix passed. Coverage remained in progress and was not awaited per owner direction. |
 
 ## 3. Hypothesis/probe log
 
@@ -73,6 +73,8 @@
 | Base | `0139d7fab18d71cfa33f9de609bf280674df85e8` |
 | Rebased HEAD before custody refresh | `e5596ba4e91a39fbf1b4bf0affc5b7013365c835` |
 | Verified HEAD before final reconciliation | `59754aec0bcdd3f8e04f79199fe6c94c0e23c182` |
+| Published branch HEAD | `559cf02c5e810185b7b7979bac72df66350c633a` |
+| Publication | PR #213 · merge `31250f7eec33391ebda9065ca5222eceffdf3cc4` · merged `2026-08-31T00:13:30Z` |
 | Planning commit | `cd727884` |
 | RED checkpoint | `d723287b` |
 | Implementation checkpoint | `9bf38001` |
@@ -124,7 +126,7 @@ The removed sound subset was inspected completely. Prometheus's four sites are a
 
 ## 7. Owner direction
 
-Resolved: the owner authorized the prerequisite, then authorized push/merge and successor continuation. PR #212 merged, Slice 3 is rebased and approved after review round 2, and publication is now gated only by relevant non-coverage CI checks; coverage is explicitly waived as a wait condition.
+Resolved: the owner authorized the prerequisite, Slice 3 push/merge, and successor continuation. PR #212 merged the prerequisite and PR #213 merged Slice 3 after all relevant non-coverage checks passed; Coverage remained in progress and was explicitly not a wait condition. The four-slice provenance sequence is closed. The successor is #16, but its historical v8 contract/census must be rebound to the new proven-owner and terminal-drop semantics before implementation.
 
 ## 8. Review verdict
 
