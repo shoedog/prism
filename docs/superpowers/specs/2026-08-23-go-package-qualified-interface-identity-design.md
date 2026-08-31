@@ -1,102 +1,97 @@
-# #16 — Go package-qualified interface identity (design **v13 — B1-strict**)
+# #16 — Go package-qualified interface identity (design **v14 — post-provenance owner consult**)
 
-**Status:** design-of-record. Clean rewrite, owner-approved 2026-08-24 (the v1→v11 document accumulated eleven layered amendment records whose gates contradicted across five sections and whose line citations had drifted wholesale; it was parked twice — see §8). **Base:** current `main` (post-R1(b) #190, post-#193; CPG 50, nav sidecar 18). **Roadmap:** row 16.
+**Status:** active post-A amendment under the owner's authorized successor continuation. The preserved v12→v13→PARK chain is replayed immediately before this amendment; v14 resumes only because receiver-provenance Slices 0→3 and the ended-scope prerequisite are merged through PR #213. **Base:** `b7a5cf934a44060de98588837b3c8c75ddffdc37` (PR #214 closeout; CPG 54, nav sidecar 22). **Roadmap:** row 16. **Review cap:** 2 rounds.
 
 **Citation policy (the failure mode this rewrite fixes):** cite **symbols**, not line numbers. Line numbers below are advisory as of this writing and MUST be re-verified before use.
 
-## 1. Problem
+## 1. Problem and now-satisfied prerequisite
 
-The Go bare-interface consult (the `iface_key(recv_ty)` arm in `resolution.rs`, ~2800; mirrored in `navigation/queries.rs`, ~869) resolves through `CallGraph::interface_impls`, a table keyed by **bare interface name** whose satisfaction is computed over bare-collapsed last-writer maps. Same-named interfaces in different packages collapse together, so the consult can mint implementers of an unrelated package's interface.
+The surviving Go R3 interface consult (the `iface_key(recv_ty)` arm in `resolve_call_site_full`, mirrored by the `Unproven` arm of `interface_dispatch_manifest`) still reads `CallGraph::interface_impls`, a table keyed by bare interface name. Same-named interfaces in different packages collapse together, so an owner-bearing site can still mint implementers of an unrelated package's interface.
 
-## 2. Rule (B1) — normative
+v13 correctly parked because receiver text was not provenance: package-variable text could be recovered in one file and reinterpreted in another file's namespace. That prerequisite is now closed. `CallSite::receiver_owner_identity` is declaration-backed and origin-correct for the admitted producers, and `go_receiver_owner_is_terminally_unproven` drops every recovered Go site lacking that owner before the resolver or manifest reaches this consult. The old identity-establishment and global-index fallback problem is therefore removed from #16's input domain rather than approximated inside #16.
 
-Owner decision 2026-08-24: **"ship B, then A"**, adopting **B1**. At the bare consult, in order:
+The current route is still reachable: an owner-bearing site classified `GoConcreteReceiverRoute::Unproven` can miss own-method, embedded-interface, and visible-interface fast paths, then reach the bare `interface_impls` lookup. v14 replaces only that surviving table consult.
 
-1. **Establish identity — POSITIVE EVIDENCE REQUIRED (v13; the v12 rule was unsound).** An identity is *established* only when the receiver text is **qualified** and its qualifier binds through the file's import map to an **exact effective import-path directory key**. Everything else ⇒ **DROP**, counted `go_bare_identity_unresolved_drop`:
-   - **Bare receiver text ⇒ DROP, always.** `resolve_go_owner_identity` returns `Some(caller_package.T)` for *any* bare token, constructing that identity with **no declaration and no lexical lookup** (`resolution.rs` ~333-336). A `Some` from that branch is therefore not a binding proof, and v12's claim of totality-by-construction was false: a generic type parameter (`func f[T interface{ M(); N() }](x T)`) shadowing a package-level `a.T` resolves to `Some(a.T)`, **validates**, and mints implementers of the wrong interface. The same holds for local type declarations, aliases, dot-imported names, and predeclared identifiers — all arrive as bare tokens. Dropping bare is what makes this design's central claim true rather than aspirational.
-   - **Qualified without exact import-path evidence ⇒ DROP.** The shared resolver falls back from the exact key to the import path's **last segment** (`resolution.rs` ~349), so `import "external.example/foo"` plus an unrelated in-repo directory `foo` can yield in-repo `foo.I`, which then validates and mints. B1-strict consults through a **strict mode that accepts exact import-path evidence only** and never the basename fallback. Do **not** change the shared resolver globally — add the strict path for this consult; a global change needs its own blast-radius review.
-   - `None` from any resolver path (generic instantiation `T[X]`, unbindable or ambiguous import, missing package clause, empty/malformed text) ⇒ DROP.
+## 2. Rule — one owner-proven consult
 
-   **Measured cost of requiring positive evidence** (from the v8 census, provisional): bare receivers are **496 of 7,601** consult attempts, and **26 of 113** minting sites — so dropping all bare forfeits ~23% of mints to close the class, while 77% of the mint population is qualified and unaffected.
-2. **Validate.** The identity must be a key of `go_interface_declarations` — **all recorded identities, regardless of `dispatchable`/`generic`** (the extractor marks real interfaces non-dispatchable when generic or when a method signature is unsupported; see `record_interface_type` in `type_providers/go.rs`). **Absent ⇒ DROP**, counted `go_bare_identity_invalid_drop`.
-3. **Walk** (unchanged from the settled C1 design): caller-scoped satisfaction walk over a shared fn extracted from the proven lane (`go_visible_s4_implementers` in `resolution.rs`, `select_interface_signatures_with_mode` in `go_owner_partition_s4.rs`). Satisfier method sets come from two caller-profile-safe sources — **direct** `go_method_declarations`, and **promoted** entries from the R1(b) selector snapshot consulted under exactly its rules (ProfileUnique, single declaration, exact variant coherence, not field-shadowed, plus the `FunctionId` join requiring `!generic && signature.is_some()` and, here additionally, a canonical signature match against the interface method). Ambiguity / `uncertain` / `conflict` is evaluated **per owner, not per site**: a promoted owner that fails its guards contributes nothing while every independently-satisfying owner still mints. Only a walk that is ambiguous *as a whole* drops the site.
-4. **Live selection.** Intersect satisfier admission keys with `CallGraph::go_interface_live_types` (`call_graph.rs`, ~681; already serialized). Non-empty ⇒ that subset; empty ⇒ the full step-3 satisfier set (receiver-kind-aware fallback, semantics unchanged).
-5. **Arity filter** — the existing shared helper in its existing position; an arity-emptied set routes through `func_value_field_or_external_drop` exactly as today.
-6. **Mint** Exact `InterfaceDispatch` from the survivors.
+Both production consumers call one shared consult with the exact carried owner:
 
-**There is no global-index consult anywhere in this design.** The `bare_name → BTreeSet<GoOwnerIdentity>` index survives **only** as the step-2 membership oracle; it never selects an identity. This is the point of B1: every earlier revision (v7 `dispatchable` filter → v8 universe membership → v9 receiver-text qualifier → v10 absence-of-hazards) tried to make an identity *fallback* safe and was refuted, because each substituted a cheap proxy for what the receiver actually **binds** to, and membership proves a declaration exists, not that the receiver binds to it. B1-strict removes the fallback *and* requires positive evidence for what remains. The v12 formulation removed only the fallback and was refuted: establishment itself was still a proxy, because the resolver *constructs* a caller-package identity for bare text instead of proving a binding. Requiring exact import-path evidence is the smallest rule that makes the claim true.
+```rust
+fn go_proven_interface_consult<'a>(
+    &'a self,
+    owner: &GoOwnerIdentity,
+    method_name: &str,
+    caller_file: &str,
+    arg_count: Option<usize>,
+    arg_spread: bool,
+) -> GoProvenInterfaceConsult<'a>;
+```
 
-**Validation is diagnostic, not load-bearing** (reviewer-confirmed): an identity absent from `go_interface_declarations` makes the signature walk return `Uncertain` before implementers are consulted, and step 3 drops on uncertainty — so validate-then-drop and walk-then-drop mint identically. Step 2 buys a clean counter and a census key. It must never be described as a correctness mechanism.
+The consult executes these steps in order:
+
+1. **Require the carried owner.** Callers may invoke the consult only after the shared terminal predicate. There is no `recv_ty` parameter, no caller-namespace re-resolution, no `iface_key`, and no global name index. An ownerless call is a caller-contract defect and must remain a terminal drop, never a fallback.
+2. **Select the exact interface declaration.** Use the carried `GoOwnerIdentity` with `go_owner_reference_mode` and `select_interface_signatures_with_mode`. Missing, non-dispatchable, profile-uncertain, or conflicting declarations fail closed for this interface subconsult. Validation is load-bearing here because it selects the declaration whose signatures govern the walk; raw universe membership is not sufficient.
+3. **Walk caller-scoped satisfiers.** Extract the existing `go_visible_s4_implementers` walk without changing its current per-owner conflict/uncertainty semantics. Direct method sets come from `go_method_declarations`. Promoted method sets come from the R1(b) selector snapshot under exactly its existing guards: `ProfileUnique`, one declaration, exact variant coherence, no field shadow, unique `FunctionId` join, non-generic method, present canonical signature, and a signature match to the interface requirement. A rejected promoted owner contributes nothing; it does not suppress an independently proven direct owner.
+4. **Apply live selection.** Intersect satisfier admission keys with `go_interface_live_types`. A non-empty intersection wins; an empty intersection falls back to the complete exact satisfier set, preserving the existing receiver-kind-aware-empty behavior.
+5. **Apply arity.** Use the shared `arity_admits`/`arity_filter` rule inside the consult so resolver and manifest receive the same final target set.
+6. **Route the result.** A non-empty selection mints Exact `InterfaceDispatch`. Resolver-only empty or arity-empty results continue to `func_value_field_or_external_drop`; the interface manifest records the interface-subconsult disposition and zero interface fanout. No empty result re-enters `interface_impls`.
+
+`GoProvenInterfaceConsult` carries the final selection, route (`live_hit`, `fallback_hit`, `invalid_drop`, `walk_drop`, or `arity_drop`), all/live/final cardinalities, the partition evidence, and promoted-supply rejection counts. Those fields are the shared source for resolver telemetry, manifest diagnostics, and the census.
 
 ## 3. What does not change
 
-The static table build (`compute_interface_dispatch`) still runs untouched: stats/gaps/fanout/`fallback_fired` telemetry views stay byte-stable. Proven (non-bare) resolution arms are untouched and gated by per-site byte comparison. Table retirement is a follow-up once its telemetry views derive elsewhere. The nav manifest arm mirrors §2 via the same shared consult fn so oracle rows mirror resolver mints.
+- The static `compute_interface_dispatch` table remains built and serialized for existing statistics and the other explicitly proven routes. This slice replaces only the owner-bearing R3 bare-name consult.
+- `go_receiver_owner_is_terminally_unproven`, owner production, `CallSite`, `CallSite::cmp_key`, declaration-kind routing, embedded-interface routing, func-value-field routing, and the global owner resolver do not change.
+- Existing S4 consumers retain their direct-only behavior. The extracted walk must byte-preserve their outputs; promoted supply is enabled only for the new #16 consult.
+- The navigation sidecar continues to derive edges through the resolver. The manifest is the second and only other production consumer.
+- CPG stays at version `54`; the nav sidecar advances `22 → 23` because resolved edge outcomes change.
 
-## 4. Slice-0 census (pre-implementation gate; TEMP probe, worktree-only)
+## 4. Census gate before production routing
 
-Over **every** R3-eligible bare consult attempt, compute today's minted set vs the B1 set, and oracle-join every newly minted set. The probe must share the extracted consult code path (or be byte-diffed against its output on the full attempt set) — a diverging simulation invalidates the gate.
+The first implementation phase is a removable census harness, not the route switch. Enumerate every recovered Go site in the interface-manifest denominator before the shared terminal predicate, then partition terminal ownerless sites from owner-bearing R3 attempts. For every owner-bearing R3 attempt on the five pinned corpora, compare the existing table result with `go_proven_interface_consult` using identical site keys and final arity filtering.
 
-- **Route partition — scoped to the INTERFACE SUBCONSULT, exhaustive and mutually exclusive:** `mint` | `unresolved_drop` | `invalid_drop` | `walk_drop` | `arity_drop` | `missing`. (No collision route: B1-strict has no index consult.) Precedence is stated explicitly: an empty walk is `walk_drop`; a non-empty walk emptied by the arity filter is `arity_drop`. **Each site additionally carries a TERMINAL outcome column**, because an `arity_drop` at this stage routes into `func_value_field_or_external_drop`, which can itself mint 1–3 `FuncValueField` targets (`resolution.rs` ~1728) — so subconsult-route and terminal-outcome are different axes and a site may be `arity_drop` here and a mint terminally. Gates that speak about mints must name which axis they mean.
-- **Telemetry-label check:** `navigation/queries.rs` (~869, the legacy `iface_key` bare arm) already sets a route string `unproven_drop` on current main. New counters must not collide with or silently redefine existing route labels.
-- **Expected-route oracle.** Expected routes are produced by a **reference classifier that cannot import or call production routing code**, run over the committed v8 keyed census artifact bound **by path and SHA-256** in the census report. **Separation must be gated, not asserted:** the report carries a dependency/call audit showing the classifier's transitive imports exclude production routing modules, and the classifier source **and** the expected-route artifact are each frozen and hashed **before** the actual producer runs. A copied-and-drifted classifier reproducing the same systematic bug would otherwise satisfy `actual == expected`; the route-mutation red proves comparator sensitivity, not independence. The gate asserts exact key-set equality with that artifact plus `actual == expected` per key, and includes a **route-mutation red**: deliberately mislabel one site and the gate must fail. Reported dispositions plus counts are not an oracle.
-- **All-site implementer-level preservation (restored — v12 lost this in the rewrite).** For **every** currently-sound bare hit, compare the minted set **per implementer, per site**. A non-empty strict subset still scores `sound` in the oracle (`classify`, `eval/tools/dispatch_oracle.py` ~159), so a site going `{A,B}` → `{A}` would otherwise pass every gate while silently losing correct implementer `B`. Every subset loss is a named census finding requiring explicit owner disposition; sites newly killed outright are named in the same list. This is separate from, and broader than, the hard floor below.
-- **Preservation floor** (the subset that STOPs the gate; implementer-level, per site): caddy `CaddyModule` and `CertMagicStorage` non-test implementer sets must survive implementer-for-implementer — else STOP and escalate. An implementer is excluded from the floor only if **every** file defining part of its method set matches `*_test.go` (Go's intrinsic rule only; build tags never exclude). Exclusions are reported, never silently dropped.
-- **Named forfeits, not failures.** B1 drops the etcd-24 `AuthBackend` recovery and the former `unique_index` population. Both are expected; the census records the exact site count and the resulting `sound`/`recall_gap` decrement (see `classify` in `eval/tools/dispatch_oracle.py`, ~159). **All population counts in this document are provisional until the census re-derives them.**
-- **Recall-debt inventory.** Inventory every non-minting route whose *correct* binding would have minted (etcd-24 is the known seed). This does not gate B1 — B1 forfeits recall by design — and becomes A's acceptance backlog.
-- **Precision residual audit.** Enumerate every mint-bearing site and disposition it `binding-provable` | `binding-unprovable, mint preserved` | `binding-unprovable, mint suspect`. **`binding-provable` requires source-level type-origin evidence — the declaration the receiver actually binds to, cited by file:line. Universe membership is expressly inadmissible: it is the rejected proxy.** Any `mint suspect` is an explicit owner disposition before merge.
+- The full census partition is exhaustive: `ownerless_terminal` | `live_hit` | `fallback_hit` | `invalid_drop` | `walk_drop` | `arity_drop`. `ownerless_terminal` rows are expected negative evidence but must never invoke `go_proven_interface_consult`; any ownerless actual-consult row falsifies the prerequisite and stops this lane.
+- Each row carries a separate terminal outcome because `arity_drop`/empty interface results can still mint through `func_value_field_or_external_drop` in the resolver.
+- Compare target identities per implementer and per site. A strict subset is a finding even if an aggregate oracle still labels the site `sound`.
+- Rebind, do not inherit, the old floors and kill list. Caddy `CaddyModule`/`CertMagicStorage`, the etcd `AuthBackend` population, the eight historical over-approx sites, caddy `metrics.go:56`, and the six historical qualified additions are named sentinels, but their current counts and dispositions must be remeasured on base `b7a5cf93`.
+- Every added, removed, or changed target set receives an oracle disposition. Any newly Exact over-approximation, target mismatch, unresolved oracle row, incomplete coverage, or unowned recall loss stops production work.
+- The harness must execute the same consult as production or be byte-compared against it on the complete attempt set. A zero-selection or self-failing probe is inadmissible.
+- Preserve the old dirty census clone `/Users/wesleyjinks/code/slicing-16c1-sol` as historical evidence only. Do not build from or overwrite its stale base.
 
-## 5. Acceptance gates
+## 5. Red-first fixture matrix
 
-1. Census (§4) passed and attached to the PR.
-2. Red-first fixtures (§6) all failing before the change.
-3. **Same-base 5-corpus control**: cut fresh `mainF` call-stats at the implementation branch's **actual base** (`mainD`/`mainE` are stale — a control must match the branch's base). Deltas confined to bare-arm counters/kinds plus census-predicted site changes; ripgrep byte-identical; static-table telemetry views byte-stable; proven-route manifest rows byte-identical per site.
-4. **Oracle delta** vs baselines **recut at the same base**: gate_ok TRUE; census kill-list realized; no transitions outside the census's predicted set.
-5. `#17b` audit re-run: `over_approx` census 8 → (8 − killed); the `sound` tally moves by exactly the §4-predicted decrement (it does **not** stay unchanged — B1 forfeits mints by design).
-6. **Cache: CPG stays 50** (`CACHE_VERSION`, `cpg_cache.rs` ~153 — this design adds no new serialized state); **nav sidecar 18 → 19** (`NAV_CALL_EDGE_CACHE_VERSION`, `navigation/call_edge_cache.rs` ~55 — resolved outcomes change). Four-path cache-parity battery plus a cache-hit assertion that the deserialized live set is non-empty on Go corpora.
-7. Full suite green; `cargo fmt` clean; tier-a `--matrix-only` at every wave.
-8. **Controller-owed and previously environment-blocked:** Tier-A and the gopls oracle join, including adjudication of any newly-added qualified identities.
+- **Owner identity beats bare collision:** proven `p.I` plus unrelated `q.I` with the same method name mints only `p.I` satisfiers across resolver, manifest, and sidecar; the current table path is the RED.
+- **Origin namespace survives cross-file transport:** the v13 `ext.I` decoy counterexample retains the true owner and never mints the caller-file decoy.
+- **Recovered positives:** package-variable, typed-parameter, constructor-local, field, and return receivers with proven interface owners retain exact targets; the etcd constructor-return shape is pinned explicitly.
+- **Terminal negatives:** predeclared, type-parameter, local-shadow, dot-import, external-qualified, missing-profile, and active-shadow cases remain ownerless and absent from resolver/manifest/sidecar. #16 never attempts to recover them.
+- **Promoted supply:** a live promoted `T.Base.M` plus direct `U.M` both mint; profile-conflicting, variant-conflicting, invariant-failing, generic, missing-signature, and signature-mismatched promoted owners contribute nothing while independent exact owners survive.
+- **Per-owner direct uncertainty:** an uncertain/conflicting concrete owner is excluded without suppressing an independent exact satisfier; if no exact satisfier survives, the site drops with the corresponding evidence.
+- **Live/profile order:** profile filtering precedes live selection, and an empty live intersection falls back only to the exact caller-visible satisfier set.
+- **Arity and terminal routing:** arity survivors mint; arity-empty and walk-empty interface results take the existing func-value-field path before terminal drop. No bare-table retry occurs.
+- **Cache parity:** cold/hit/refresh/no-cache paths agree, the deserialized live set is non-empty in a Go positive, and sidecar pin `23` is asserted while CPG remains `54`.
 
-## 6. Red-first fixtures
+Every behavior added or changed needs a test that fails on exact base, plus a negative or edge case for its new path. Exact selector names and pre-change failures are recorded before production edits.
 
-- **Identity establishment:** generic instantiation `T[X]` ⇒ `unresolved_drop`; qualified receiver whose import cannot be bound ⇒ `unresolved_drop`; bare receiver in a file with no package clause ⇒ `unresolved_drop`. **No global-index consult in any of these** — a mint here means the removed fallback has reappeared under another label.
-- **Validation:** phantom identity (constructor in `p` returns qualified `q.I`; caller in `p` dispatches through the constructor-local receiver; `p` declares no `I`) ⇒ `invalid_drop` **and no `q.I` edge even though `q.I` is globally unique** — this pins the forfeited etcd-24 shape so A flips it deliberately; declared-but-non-dispatchable `p.I` alongside an unrelated unique `q.I` ⇒ identity validates, walk fails closed, no `q.I` edge; external receiver (`import "time"`, `t.Stop()` on `*time.Timer`) with an unrelated unique in-repo `debug.Timer` ⇒ drop, no edge (the hugo `warpc.go` regression).
-- **Walk:** promoted-satisfier preservation (live `T struct{ Base }` + `Base.M` + live direct `U.M` on `I{M()}` ⇒ both mint); promoted supply fail-closed **per owner** — same shape with a ProfileConflict `T` ⇒ **only `U.M` mints** (a whole-site drop must fail this test); single-identity two-profile declarations (identical ⇒ recall survives; differing ⇒ per-declaration walk behaviour pinned); promoted signature mismatch (`Base.M(int)` vs `I{M(string)}` ⇒ `T` contributes nothing); walk `uncertain`/`conflict` ⇒ drop; unexported-method namespace restriction; embedded-flattened requirements.
-- **Live/profile ordering:** Windows-only `W.M` live, Linux-only `L.M` not, Linux caller on `I.M` ⇒ profile filter first, live selection second, fallback to `L`, never `W`.
-- **Bare-drop negatives (v13 — these are now hard assertions, not characterizations, because bare always drops):** generic type-parameter receiver `func f[T interface{ M(); N() }](x T) { x.M() }` with an unrelated recorded `a.T` ⇒ `unresolved_drop`, **no edge** (under v12 this minted `a.T`'s implementers — the open-class defect); a local type declaration shadowing a package-level interface name ⇒ `unresolved_drop`; a dot-imported bare name ⇒ `unresolved_drop`; a predeclared identifier (`error`) ⇒ `unresolved_drop`. Each carries a comment naming A as the work that will legitimately flip it, so A's change to these tests is visible in review.
-- **Qualified-evidence negatives:** `import "external.example/foo"` with an unrelated unique in-repo directory `foo` declaring `I` ⇒ `unresolved_drop` and **no mint** (the basename-fallback hole); qualified receiver whose import is absent from the file's import map ⇒ `unresolved_drop`.
+## 6. Acceptance gates
 
-## 7. Delivery
+1. v14 review converges within the declared cap of 2 rounds. `WRONG` findings precede `SMELL`; any open-class recurrence parks the lane.
+2. The complete census in §4 passes and is attached to the implementation PR.
+3. The compiled RED matrix in §5 fails for the intended behavioral reasons on exact base and turns green without weakening expectations.
+4. Focused resolver/manifest/sidecar/cache tests pass with exact selected totals.
+5. `cargo fmt --check`, `cargo check`, ordinary all-target/all-feature Clippy, and exact `-D warnings` run. Any candidate failure requires an exact-base control in the same environment.
+6. `cargo test --no-fail-fast` completes with captured exit status and aggregate totals.
+7. Immediately rebuild release, then run Tier-A `--matrix-only --allow-stale-sut` and `--quick --allow-stale-sut`. A nonzero quick exit is read and controlled on exact base; generated eval artifacts are not committed.
+8. Five-corpus call-stats/manifests use the actual implementation base and pinned corpus SHAs. Total call-site counts are conserved, ripgrep is byte-identical, static-table telemetry is byte-stable, and every route/target delta matches the census.
+9. Four Go oracle deltas have full coverage and zero newly Exact over-approximation, timeout, unresolved, or target mismatch. Re-run the #17b population and gopls/source oracle for every changed sound site.
+10. Cache versions are CPG `54`, sidecar `23`; no other serialized schema changes.
+11. Round-2 code review reports zero `WRONG` and zero in-scope `SMELL` before publication. Relevant non-coverage CI checks must pass; Coverage is not a wait condition by owner direction.
 
-Implementation proceeds directly on current main (R1(b) landed; no serialization needed). Implementer via bridge clone; code review terra ∥ parallel seat; controller runs corpus/oracle batteries and pushes. **Follow-on A** — positive, scope-aware receiver type-origin binding (predeclared identifiers, type parameters, local declarations and shadowing, aliases, carried cross-file identities), resolved *before* validation — is its own design and plan. B1 is shaped so A is additive: A replaces only identity establishment, while the walk, live selection, arity filter, and telemetry here are downstream and unchanged. **A's acceptance target:** recover the sites B1 forfeits (etcd-24 plus the former `unique_index` population), with zero false edges, and clear both §4 inventories.
+## 7. Delivery and stop conditions
 
-## 7-PARK. ⛔ PARKED (third time, 2026-08-24) — **class still open; recommend reversing the sequence to "A first".**
+Work proceeds on `/Users/wesleyjinks/code/slicing-16-post-provenance`, branch `a-go-interface-identity-post-provenance`, from exact base `b7a5cf93`. Preserve the replayed v12/v13/PARK commits; the amendment, census harness, REDs, production switch, verification, and review each receive durable checkpoints.
 
-sol r2 (final round of the cap) returned FIX with the lead finding again **OPEN-CLASS**, and stated explicitly: *"The open class is not closed. This lane should park and return to the owner as A first."* The controller concurs and verified the mechanism in source.
-
-**Why B1-strict still does not close it.** Requiring exact import-path qualification proves that *an alias maps to one directory*. It does **not** prove that the receiver's type text originated in that alias's file scope. Package-variable recovery transports raw type text across files and discards its origin namespace: `GoTypedFact` retains `defining_file`, but `unique_visible_type` returns only `Option<String>` (`go_receiver_index_visibility.rs` ~200 — verified), and recovery then re-interprets that string in the **caller's** import namespace with `owner_identity: None` (`go_receiver_index.rs` ~481 — verified). Constructible in valid Go, with no stale table and no duplicate key:
-
-```go
-// p/a.go
-import ext "external.example/api"
-var V ext.I
-// p/b.go
-import ext "example.com/app/decoy"
-func F() { V.M() }        // V is external.example/api.I …
-// decoy: type I interface{ M() }; type D struct{}; func (D) M() {}
-```
-
-`ext.I` is transported into `b.go`, where the exact lookup yields `example.com/app/decoy.I`, which **validates** and can mint `D.M`. Reachability was checked, not assumed: with identical mutually-exclusive decoy declarations the declaration-kind index becomes `Unproven` (`go_concrete_receiver.rs` ~62) so the site reaches this subconsult, and the required identical-two-profile behaviour lets the wrong identity's walk mint.
-
-**Sequence of refuted premises, for the record.** v7 `dispatchable` filter → v8 universe membership → v9 receiver-text qualifier → v10 absence-of-hazards → v12 "identity establishment" → v13 exact-import-path evidence. Each was a cheaper stand-in for *what the receiver binds to*; each was refuted by a constructible case. The owner approved "B then A" on the controller's recommendation that B was safe and cheap. **That premise is now refuted twice with concrete mechanisms, so the recommendation is withdrawn.**
-
-**Two findings that make A cheaper than it looked** — worth carrying into its design:
-1. **The provenance already exists and is thrown away at two named seams.** `defining_file` is retained on `GoTypedFact` and discarded by `unique_visible_type`; `owner_identity` is carried for some origins and stored as `None` by package-variable recovery. A is substantially *plumb what we already have through two seams*, not build type inference from scratch.
-2. **v13's bare-drop would have forfeited sites that already carry owners** — upstream deliberately converts qualified `ReturnTyped`/`FieldTyped` origins to bare names *with carried owners*, and B1-strict drops them for recall. Using carried provenance is both more correct and higher-recall than any text rule.
-
-**Also true regardless of #16:** with a single decoy declaration this class can already mint through the existing concrete-receiver route on `main`, before any C1 change. **The defect is not introduced by C1** — C1 simply cannot close it either.
-
-**Recommendation: do A first**, as its own design (scope-aware receiver type-origin binding: carry `defining_file`/`owner_identity` through recovery, resolve qualified text in its origin namespace, and handle predeclared identifiers, type parameters, local declarations and shadowing, aliases, dot-imports). #16's bare consult then becomes a small follow-on that consumes proven identities, and the measured wins it was chasing (the 8 over-approx kills, etcd-24, caddy's +6) come back into reach without a proxy. **Do not merge or implement this branch.**
+Stop if the consult needs receiver-text inference, a global-index fallback, owner population, changes to `CallSite` identity, a third independent consumer, static-table retirement, CPG version movement, or a corpus delta outside the enumerated census. Stop and park if review again exposes an open proxy-for-provenance class; A's merged owner is the only identity authority in this design.
 
 ## 8. History
 
-v1–v3 (static-table shapes) parked at cap for an open profile-witness class. C1 chosen by the owner 2026-08-23; v4–v8 folded successive review rounds and **v8 merged as the then design-of-record (#195)**. Its re-census passed the amended floor on all four corpora but surfaced a stdlib-receiver false edge; v9/v10 tried to make the identity-invalid fallback safe and were **parked as open-class** (#201). v11 removed the fallback but retained contradictory gates and stale citations and was **parked as an artifact defect** (#202), with the review finding one real hole — an unresolvable-identity path that re-entered the global index and could resurrect the very false edge. This v12 adopts B1 and is a clean rewrite; full history is in git and in PRs #195, #201, #202.
+v1–v3 (static-table shapes) parked at cap for an open profile-witness class. C1 chosen by the owner 2026-08-23; v4–v8 folded successive review rounds and **v8 merged as the then design-of-record (#195)**. Its re-census passed the amended floor on all four corpora but surfaced a stdlib-receiver false edge; v9/v10 tried to make the identity-invalid fallback safe and were **parked as open-class** (#201). v11 removed the fallback but retained contradictory gates and stale citations and was **parked as an artifact defect** (#202). v12/v13 removed the fallback and demanded positive text evidence, but the cross-file alias counterexample proved text still was not provenance; `ea74558f` parked the artifact and required A first. Receiver-provenance Slices 0→3 plus prerequisite PR #212 then made `receiver_owner_identity` declaration-backed and terminalized every absent owner; PR #213 completed A. v14 resumes the preserved artifact by deleting the refuted identity-establishment layer and consuming only that proven owner.
