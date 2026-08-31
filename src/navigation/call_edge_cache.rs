@@ -385,7 +385,7 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_pinned_for_go_receiver_terminal_owner_predicate() {
+    fn sidecar_version_is_pinned_for_go_proven_interface_consult() {
         assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 23);
     }
 

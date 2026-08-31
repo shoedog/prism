@@ -926,6 +926,65 @@ mod tests {
         )));
     }
 
+    #[test]
+    fn p16_incremental_refresh_preserves_proven_interface_guard() {
+        let dir = tempfile::tempdir().unwrap();
+        write_files(
+            dir.path(),
+            &[
+                ("go.mod", "module example.com/root\n\ngo 1.22\n"),
+                (
+                    "app/types.go",
+                    "package app\ntype S struct{ Run func() }\nfunc workerA() {}\nfunc workerB() {}\nfunc retainA() { _ = S{Run: workerA} }\nfunc retainB() { _ = S{Run: workerB} }\nfunc New() S { return S{} }\n",
+                ),
+                (
+                    "app/use.go",
+                    "package app\nfunc invoke() {\n  type S struct{}\n  c := New()\n  c.Run()\n}\n",
+                ),
+                ("app/other.go", "package app\nfunc unrelated() {}\n"),
+                (
+                    "decoy/types.go",
+                    "package decoy\ntype S interface{ Run() }\ntype Wrong struct{}\nfunc (Wrong) Run() {}\nfunc retain() { var _ S = Wrong{} }\n",
+                ),
+            ],
+        );
+        let v1 = full_session(dir.path());
+
+        write_files(
+            dir.path(),
+            &[("app/other.go", "package app\nfunc unrelated() { _ = 1 }\n")],
+        );
+        let refreshed = incremental_session(&v1, dir.path(), &["app/other.go"]);
+        let full = full_session(dir.path());
+
+        assert!(refreshed
+            .index
+            .call_graph()
+            .go_interface_live_types
+            .contains("S"));
+        let refreshed_edges =
+            queries::callees(&refreshed, Some("invoke"), Some("app/use.go"), None, 1).unwrap();
+        let full_edges =
+            queries::callees(&full, Some("invoke"), Some("app/use.go"), None, 1).unwrap();
+        assert_eq!(full_edges, refreshed_edges);
+
+        let has_target = |file: &str, name: &str| {
+            refreshed_edges.items.iter().any(|item| {
+                matches!(
+                    &item.symbol,
+                    Some(SymbolRef::Function {
+                        file: target_file,
+                        name: target_name,
+                        ..
+                    }) if target_file == file && target_name == name
+                )
+            })
+        };
+        assert!(has_target("app/types.go", "workerA"));
+        assert!(has_target("app/types.go", "workerB"));
+        assert!(!has_target("decoy/types.go", "Run"));
+    }
+
     /// P7 plumbing: the S1 property-getter index + S2 access-site table are
     /// whole-program derived (mirroring the P5 Go func-value state above), so
     /// `build_incremental_with_scope_graph_inputs` must explicitly clear +

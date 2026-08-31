@@ -761,6 +761,7 @@ fn p16_terminal_outcome(outcome: &crate::resolution::ResolutionOutcome<'_>) -> s
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod p16_census_tests {
     use super::{
         interface_dispatch_manifest_inner, interface_manifest_target_identities,
@@ -1253,8 +1254,8 @@ fn interface_dispatch_manifest_inner(
                     impls = &[];
                 }
                 crate::go_concrete_receiver::GoConcreteReceiverRoute::Unproven => {
-                    // R3 is deliberately unchanged. Retain the old S4/carried-
-                    // interface/bare-name ladder and add only a route diagnostic.
+                    // Retain the S4 and carried-interface screens, then route the
+                    // surviving owner-bearing R3 seam through the #16 exact-owner consult.
                     let s4_route = cg.go_embedded_interface_route(
                         recv_ty,
                         site.receiver_owner_identity.as_ref(),
@@ -1465,7 +1466,7 @@ fn interface_dispatch_manifest_inner(
                     "current_table_targets": p16_target_identity_values(
                         &current_table_identities,
                     ),
-                    "current_terminal_outcome": p16_terminal_outcome(&current_outcome),
+                    "current_terminal_outcome": p16_terminal_outcome(current_outcome),
                     "current_terminal_targets": p16_target_identity_values(
                         &current_terminal_identities,
                     ),

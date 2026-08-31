@@ -394,10 +394,25 @@ fn navigation_sidecar_go_proven_interface_parity() {
         repo: repo.clone(),
         index: Arc::new(NavigationIndex::build_cached_under(&repo, cache_dir.path())),
     };
+    let exact_cpg = NavigationSession {
+        repo: repo.clone(),
+        index: Arc::new(NavigationIndex::build_cached_under(&repo, cache_dir.path())),
+    };
+    assert!(
+        exact_cpg
+            .index
+            .call_graph()
+            .go_interface_live_types
+            .contains("S"),
+        "exact-CPG hit must retain the deserialized Go live set"
+    );
     let no_cache_edges =
         queries::callees(&no_cache, Some("invoke"), Some("app/use.go"), None, 1).unwrap();
     let cold_edges = queries::callees(&cold, Some("invoke"), Some("app/use.go"), None, 1).unwrap();
+    let exact_cpg_edges =
+        queries::callees(&exact_cpg, Some("invoke"), Some("app/use.go"), None, 1).unwrap();
     assert_eq!(no_cache_edges, cold_edges);
+    assert_eq!(no_cache_edges, exact_cpg_edges);
     assert!(
         evidence_has_function(&no_cache_edges, "app/types.go", "workerA"),
         "first registered func-field target absent: {no_cache_edges:#?}"
@@ -419,4 +434,5 @@ fn navigation_sidecar_go_proven_interface_parity() {
     };
     let hit_edges = queries::callees(&hit, Some("invoke"), Some("app/use.go"), None, 1).unwrap();
     assert_eq!(no_cache_edges, hit_edges);
+    assert!(hit.index.call_graph().go_interface_live_types.contains("S"));
 }
