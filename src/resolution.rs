@@ -1160,6 +1160,52 @@ fn is_simple_ident(s: &str) -> bool {
     !s.is_empty() && s.chars().all(|c| c.is_alphanumeric() || c == '_')
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GoProvenInterfaceRoute {
+    LiveHit,
+    FallbackHit,
+    InvalidDrop,
+    WalkDrop,
+    ArityDrop,
+}
+
+impl GoProvenInterfaceRoute {
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::LiveHit => "live_hit",
+            Self::FallbackHit => "fallback_hit",
+            Self::InvalidDrop => "invalid_drop",
+            Self::WalkDrop => "walk_drop",
+            Self::ArityDrop => "arity_drop",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct GoProvenPromotedSupplyTelemetry {
+    pub conflict_drop: usize,
+    pub variant_drop: usize,
+    pub invariant_drop: usize,
+    pub signature_drop: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GoCallerScopedSatisfiers<'a> {
+    interface_selected: bool,
+    selection: crate::go_owner_partition::GoPartitionSelection<Vec<(String, &'a FunctionId)>>,
+    promoted: GoProvenPromotedSupplyTelemetry,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct GoProvenInterfaceConsult<'a> {
+    pub route: GoProvenInterfaceRoute,
+    pub selection: crate::go_owner_partition::GoPartitionSelection<Vec<&'a FunctionId>>,
+    pub all_satisfiers: usize,
+    pub live_satisfiers: usize,
+    pub final_satisfiers: usize,
+    pub promoted: GoProvenPromotedSupplyTelemetry,
+}
+
 impl CallGraph {
     fn rust_scope_graph_resolution(
         &self,
@@ -1422,32 +1468,18 @@ impl CallGraph {
         )
     }
 
-    pub(crate) fn go_visible_s4_implementers<'a>(
+    fn go_caller_scoped_satisfiers<'a>(
         &'a self,
-        recv_ty: &str,
-        proven_owner: Option<&GoOwnerIdentity>,
-        interface_name: &str,
+        interface_owner: &GoOwnerIdentity,
         method_name: &str,
         caller_file: &str,
-        _candidates: Vec<&'a FunctionId>,
-    ) -> crate::go_owner_partition::GoPartitionSelection<Vec<&'a FunctionId>> {
+        include_promoted: bool,
+    ) -> GoCallerScopedSatisfiers<'a> {
         let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
-
-        let Some(receiver_owner) = self.go_receiver_owner(recv_ty, caller_file, proven_owner)
-        else {
-            return crate::go_owner_partition::GoPartitionSelection {
-                value: None,
-                evidence,
-            };
-        };
-        let interface_owner = GoOwnerIdentity {
-            package_dir: receiver_owner.package_dir,
-            package_clause: receiver_owner.package_clause,
-            name: interface_name.to_string(),
-        };
-        let mode = self.go_owner_reference_mode(&interface_owner, caller_file);
+        let mut promoted_telemetry = GoProvenPromotedSupplyTelemetry::default();
+        let mode = self.go_owner_reference_mode(interface_owner, caller_file);
         let interface = crate::go_owner_partition::select_interface_signatures_with_mode(
-            &interface_owner,
+            interface_owner,
             caller_file,
             mode,
             &self.go_interface_declarations,
@@ -1455,9 +1487,13 @@ impl CallGraph {
         );
         evidence.merge(interface.evidence);
         let Some(required) = interface.value else {
-            return crate::go_owner_partition::GoPartitionSelection {
-                value: None,
-                evidence,
+            return GoCallerScopedSatisfiers {
+                interface_selected: false,
+                selection: crate::go_owner_partition::GoPartitionSelection {
+                    value: None,
+                    evidence,
+                },
+                promoted: promoted_telemetry,
             };
         };
         let requires_interface_namespace = required
@@ -1466,7 +1502,12 @@ impl CallGraph {
         let mut all_satisfiers: Vec<(String, &'a FunctionId)> = Vec::new();
         let mut conflicting_owners = 0usize;
         let mut uncertain_owners = 0usize;
-        for (concrete_owner, declarations) in &self.go_method_declarations {
+        let mut concrete_owners: BTreeSet<&GoOwnerIdentity> =
+            self.go_method_declarations.keys().collect();
+        if include_promoted {
+            concrete_owners.extend(self.go_promoted_selector_snapshot().owners.keys());
+        }
+        for concrete_owner in concrete_owners {
             if requires_interface_namespace
                 && (concrete_owner.package_dir != interface_owner.package_dir
                     || concrete_owner.package_clause != interface_owner.package_clause)
@@ -1478,7 +1519,12 @@ impl CallGraph {
                 Vec<&crate::go_owner_partition::GoMethodDeclaration>,
             > = BTreeMap::new();
             let mut owner_uncertain = false;
-            for declaration in declarations {
+            for declaration in self
+                .go_method_declarations
+                .get(concrete_owner)
+                .into_iter()
+                .flatten()
+            {
                 let (visible, exact) = crate::go_owner_partition::exact_cross_package_visibility(
                     caller_file,
                     &declaration.defining_file,
@@ -1515,49 +1561,121 @@ impl CallGraph {
                 conflicting_owners += 1;
                 continue;
             }
-            let value_matches = required.iter().all(|(name, signature)| {
-                visible_methods
+            let mut supplied: BTreeMap<&str, (bool, &'a FunctionId)> = BTreeMap::new();
+            for (name, signature) in &required {
+                if let Some(method) = visible_methods
                     .get(name.as_str())
                     .and_then(|methods| methods.first())
-                    .is_some_and(|method| {
-                        !method.generic
-                            && !method.is_pointer_receiver
-                            && method.signature.as_ref().is_some_and(|candidate| {
-                                crate::type_providers::go::GoTypeProvider::canon_signatures_match(
-                                    candidate, signature,
-                                )
-                            })
-                    })
-            });
-            let pointer_matches = required.iter().all(|(name, signature)| {
-                visible_methods
-                    .get(name.as_str())
-                    .and_then(|methods| methods.first())
-                    .is_some_and(|method| {
-                        !method.generic
-                            && method.signature.as_ref().is_some_and(|candidate| {
-                                crate::type_providers::go::GoTypeProvider::canon_signatures_match(
-                                    candidate, signature,
-                                )
-                            })
-                    })
-            });
-            let Some(target) = visible_methods
-                .get(method_name)
-                .and_then(|methods| methods.first())
-            else {
+                {
+                    if !method.generic
+                        && method.signature.as_ref().is_some_and(|candidate| {
+                            crate::type_providers::go::GoTypeProvider::canon_signatures_match(
+                                candidate, signature,
+                            )
+                        })
+                    {
+                        supplied.insert(name, (!method.is_pointer_receiver, &method.function_id));
+                    }
+                    // An own method shadows a promoted method even when its
+                    // signature does not satisfy this interface.
+                    continue;
+                }
+                if !include_promoted {
+                    continue;
+                }
+                match crate::go_promoted_snapshot::consult_promoted_snapshot_method(
+                    self.go_promoted_selector_snapshot(),
+                    &self.go_method_declarations,
+                    concrete_owner,
+                    name,
+                ) {
+                    crate::go_promoted_snapshot::GoPromotedSnapshotMethodConsult::Hit(hit) => {
+                        if hit.declaration.signature.as_ref().is_some_and(|candidate| {
+                            crate::type_providers::go::GoTypeProvider::canon_signatures_match(
+                                candidate, signature,
+                            )
+                        }) {
+                            supplied.insert(
+                                name,
+                                (hit.promoted.value_method_set, &hit.promoted.target),
+                            );
+                        } else {
+                            promoted_telemetry.signature_drop += 1;
+                        }
+                    }
+                    crate::go_promoted_snapshot::GoPromotedSnapshotMethodConsult::ConflictDrop => {
+                        promoted_telemetry.conflict_drop += 1;
+                    }
+                    crate::go_promoted_snapshot::GoPromotedSnapshotMethodConsult::VariantDrop => {
+                        promoted_telemetry.variant_drop += 1;
+                    }
+                    crate::go_promoted_snapshot::GoPromotedSnapshotMethodConsult::InvariantDrop => {
+                        promoted_telemetry.invariant_drop += 1;
+                    }
+                    crate::go_promoted_snapshot::GoPromotedSnapshotMethodConsult::Miss => {}
+                }
+            }
+            let value_matches = required
+                .keys()
+                .all(|name| supplied.get(name.as_str()).is_some_and(|(value, _)| *value));
+            let pointer_matches = required
+                .keys()
+                .all(|name| supplied.contains_key(name.as_str()));
+            let Some((_, target)) = supplied.get(method_name) else {
                 continue;
             };
             if value_matches {
-                all_satisfiers.push((concrete_owner.name.clone(), &target.function_id));
+                all_satisfiers.push((concrete_owner.name.clone(), *target));
             } else if pointer_matches {
-                all_satisfiers.push((
-                    admission_key(&concrete_owner.name, true),
-                    &target.function_id,
-                ));
+                all_satisfiers.push((admission_key(&concrete_owner.name, true), *target));
             }
         }
+        if all_satisfiers.is_empty() && (conflicting_owners > 0 || uncertain_owners > 0) {
+            evidence.conflict |= conflicting_owners > 0;
+            evidence.uncertain |= uncertain_owners > 0;
+            return GoCallerScopedSatisfiers {
+                interface_selected: true,
+                selection: crate::go_owner_partition::GoPartitionSelection {
+                    value: None,
+                    evidence,
+                },
+                promoted: promoted_telemetry,
+            };
+        }
+        evidence.recovered |= conflicting_owners > 0 || uncertain_owners > 0;
+        GoCallerScopedSatisfiers {
+            interface_selected: true,
+            selection: crate::go_owner_partition::GoPartitionSelection {
+                value: Some(all_satisfiers),
+                evidence,
+            },
+            promoted: promoted_telemetry,
+        }
+    }
 
+    fn go_choose_live_satisfiers<'a>(
+        &'a self,
+        satisfiers: GoCallerScopedSatisfiers<'a>,
+    ) -> (
+        crate::go_owner_partition::GoPartitionSelection<Vec<&'a FunctionId>>,
+        usize,
+        usize,
+        bool,
+        GoProvenPromotedSupplyTelemetry,
+    ) {
+        let mut evidence = satisfiers.selection.evidence;
+        let Some(all_satisfiers) = satisfiers.selection.value else {
+            return (
+                crate::go_owner_partition::GoPartitionSelection {
+                    value: None,
+                    evidence,
+                },
+                0,
+                0,
+                false,
+                satisfiers.promoted,
+            );
+        };
         let all_ids: BTreeSet<&FunctionId> =
             all_satisfiers.iter().map(|(_, target)| *target).collect();
         let live_ids: BTreeSet<&FunctionId> = all_satisfiers
@@ -1565,25 +1683,118 @@ impl CallGraph {
             .filter(|(key, _)| self.go_interface_live_types.contains(key))
             .map(|(_, target)| *target)
             .collect();
+        let all_count = all_ids.len();
+        let live_count = live_ids.len();
+        let fallback_fired = all_count > 0 && live_count == 0;
         let chosen = if !live_ids.is_empty() {
             live_ids
         } else {
             all_ids
         };
         evidence.distinct_visible_values = chosen.len();
-        if chosen.is_empty() && (conflicting_owners > 0 || uncertain_owners > 0) {
-            evidence.conflict |= conflicting_owners > 0;
-            evidence.uncertain |= uncertain_owners > 0;
-            return crate::go_owner_partition::GoPartitionSelection {
-                value: None,
+        (
+            crate::go_owner_partition::GoPartitionSelection {
+                value: Some(chosen.into_iter().collect()),
                 evidence,
-            };
+            },
+            all_count,
+            live_count,
+            fallback_fired,
+            satisfiers.promoted,
+        )
+    }
+
+    pub(crate) fn go_visible_s4_implementers<'a>(
+        &'a self,
+        recv_ty: &str,
+        proven_owner: Option<&GoOwnerIdentity>,
+        interface_name: &str,
+        method_name: &str,
+        caller_file: &str,
+        _candidates: Vec<&'a FunctionId>,
+    ) -> crate::go_owner_partition::GoPartitionSelection<Vec<&'a FunctionId>> {
+        let Some(receiver_owner) = self.go_receiver_owner(recv_ty, caller_file, proven_owner)
+        else {
+            return crate::go_owner_partition::GoPartitionSelection::default();
+        };
+        let interface_owner = GoOwnerIdentity {
+            package_dir: receiver_owner.package_dir,
+            package_clause: receiver_owner.package_clause,
+            name: interface_name.to_string(),
+        };
+        self.go_choose_live_satisfiers(self.go_caller_scoped_satisfiers(
+            &interface_owner,
+            method_name,
+            caller_file,
+            false,
+        ))
+        .0
+    }
+
+    pub(crate) fn go_proven_interface_consult<'a>(
+        &'a self,
+        owner: &GoOwnerIdentity,
+        method_name: &str,
+        caller_file: &str,
+        arg_count: Option<usize>,
+        arg_spread: bool,
+    ) -> GoProvenInterfaceConsult<'a> {
+        let satisfiers = self.go_caller_scoped_satisfiers(owner, method_name, caller_file, true);
+        let interface_selected = satisfiers.interface_selected;
+        let (mut selection, all_satisfiers, live_satisfiers, fallback_fired, promoted) =
+            self.go_choose_live_satisfiers(satisfiers);
+        let before_arity = selection.value.as_ref().map_or(0, Vec::len);
+        if let Some(targets) = selection.value.as_mut() {
+            targets.retain(|target| {
+                arity_admits(arg_count, arg_spread, self.method_arity.get(*target))
+            });
         }
-        evidence.recovered |= conflicting_owners > 0 || uncertain_owners > 0;
-        crate::go_owner_partition::GoPartitionSelection {
-            value: Some(chosen.into_iter().collect()),
-            evidence,
+        let final_satisfiers = selection.value.as_ref().map_or(0, Vec::len);
+        let route = if !interface_selected {
+            GoProvenInterfaceRoute::InvalidDrop
+        } else if selection.value.is_none() || before_arity == 0 {
+            GoProvenInterfaceRoute::WalkDrop
+        } else if final_satisfiers == 0 {
+            GoProvenInterfaceRoute::ArityDrop
+        } else if fallback_fired {
+            GoProvenInterfaceRoute::FallbackHit
+        } else {
+            GoProvenInterfaceRoute::LiveHit
+        };
+        GoProvenInterfaceConsult {
+            route,
+            selection,
+            all_satisfiers,
+            live_satisfiers,
+            final_satisfiers,
+            promoted,
         }
+    }
+
+    pub(crate) fn go_proven_interface_census_outcome<'a>(
+        &'a self,
+        site: &CallSite,
+        owner: &GoOwnerIdentity,
+    ) -> (GoProvenInterfaceConsult<'a>, ResolutionOutcome<'a>) {
+        let consult = self.go_proven_interface_consult(
+            owner,
+            &site.callee_name,
+            &site.caller.file,
+            site.arg_count,
+            site.arg_spread,
+        );
+        let targets = consult.selection.value.clone().unwrap_or_default();
+        let outcome = if targets.is_empty() {
+            self.func_value_field_or_external_drop(
+                site.receiver_type.as_deref().unwrap_or_default(),
+                Some(owner),
+                &site.callee_name,
+                &site.caller.file,
+            )
+        } else {
+            ResolutionOutcome::hit(exact(targets, ResolutionKind::InterfaceDispatch))
+        };
+        (consult, outcome)
     }
 
     fn go_interface_dispatch_outcome(

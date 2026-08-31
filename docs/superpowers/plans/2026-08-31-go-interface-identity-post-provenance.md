@@ -6,6 +6,8 @@
 **Owner authority:** successor continuation, push, and merge are authorized after gates; relevant non-coverage CI is mandatory and Coverage is not a wait condition.
 **Review caps:** design `2` rounds (complete, plus one disclosed scoped confirmation and one bounded preflight artifact correction); implementation `2` rounds.
 
+**Execution status (2026-08-31): PARKED before Task 2.** The corrected Task 1 census selected zero candidate sites across all five pinned corpora, and v14 §4 rejects zero-selection evidence. See `docs/superpowers/handoffs/2026-08-31-go-interface-identity-task1-census-evidence.md`. Do not start Task 2 without an explicit owner amendment to the coverage rule or a pinned corpus with a real candidate.
+
 ## Goal and boundary
 
 Replace only the surviving owner-bearing Go R3 `iface_key(recv_ty) → interface_impls` consult with one caller-scoped consult keyed by the already-proven `receiver_owner_identity`. Resolver and interface manifest must share the final owner/walk/live/arity decision; the navigation sidecar continues to reuse resolver output.

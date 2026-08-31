@@ -1,6 +1,6 @@
 # Handoff — #16 Go interface identity after receiver provenance
 
-**Written:** 2026-08-31T00:34:20Z · **By:** Codex `/root` · **Provider:** codex
+**Refreshed:** 2026-08-31T00:59:49Z · **By:** Codex `/root` · **Provider:** codex
 **Workspace:** `/Users/wesleyjinks/code/slicing-16-post-provenance` · `a-go-interface-identity-post-provenance` · **Base:** `[MEASURED]` `b7a5cf934a44060de98588837b3c8c75ddffdc37` (`origin/main`, PR #214 merge)
 **Predecessor:** receiver-provenance Slice 3 PR #213 / `31250f7e`, closeout PR #214 / `b7a5cf93`, and preserved #16 PARK commit `ea74558f`
 **Truth ordering:** current measured state > explicit owner/design authority within scope > v14 design > this handoff > earlier handoffs and summaries. Conflicts remain open until remeasured.
@@ -18,8 +18,9 @@
 1. Require base ancestor `b7a5cf934a44060de98588837b3c8c75ddffdc37` and read v14 plus `docs/superpowers/plans/2026-08-31-go-interface-identity-post-provenance.md`.
 2. Preserve replayed commits `e87f9e7`/`0a1c474`/`ab4e5da`; do not restart or flatten the reviewed artifact.
 3. Preserve the dirty old clone without writes; it is historical census custody, not an implementation base.
-4. Preserve v14/plan/handoff checkpoint `c64ccd42`; implement only Task 1's removable census harness next.
-5. Do not add public-behavior REDs or switch production consumers until the complete current-base census passes.
+4. Preserve v14/plan/handoff checkpoint `c64ccd42` and the Task 1 parked checkpoint that follows it.
+5. Read `docs/superpowers/handoffs/2026-08-31-go-interface-identity-task1-census-evidence.md` before acting. Do not add public REDs or switch production: the corrected census selected zero candidates and v14 §4 rejects zero-selection evidence.
+6. Resume only after the owner either supplies a pinned corpus with a real candidate or explicitly amends the coverage rule to admit constructible fixture proof and a replacement coverage floor.
 
 **STOP conditions:** ownerless rows invoke the candidate consult; receiver text or a global index selects identity; a third consumer appears; production scope exceeds the plan; static table retirement or CPG movement becomes necessary; corpus coverage is incomplete; a probe selects zero tests or fails for its own reason; or review reopens the proxy-for-provenance class.
 
@@ -33,20 +34,22 @@
 | Current consumer census | done for structure | `[MEASURED]` shared terminal predicate precedes resolver/manifest; exactly two independent consumers; sidecar reuses resolver. Owner-bearing `Unproven` routes still retain a bare table lookup. |
 | v14 design | reviewed at cap with bounded preflight correction | Round 1: one `WRONG`, zero `SMELL` (ownerless census tautology), fixed. Round 2: one `WRONG`, zero `SMELL` (`arg_count` type), fixed. Disclosed scoped confirmation found no further item. Source-reality preflight then found one closed artifact `WRONG`: the combined census partition omitted owner-bearing routes that exit before the legacy arm. The complete route tree was enumerated and the contract now uses two exhaustive ledgers; no code had started. |
 | Executable plan | committed | `[MEASURED]` v14, plan, and initial handoff checkpoint is `c64ccd42`; start Task 1. |
-| Current-base corpus census | pending | Build the dormant shared consult and `PRISM_P16_CENSUS`; do not switch production. |
-| Public RED matrix | pending | Starts only after census acceptance. |
-| Production / verification / review | pending | No production code changed in this lane yet. |
+| Shared consult and dormant census | implemented, not production-routed | `[MEASURED]` focused census tests `5/5`; existing promoted/S4 compatibility `49/49`; all-target compile passed. Normal ripgrep manifest is byte-identical to exact base. |
+| First census attempt | inadmissible, retained | Manifest-local `legacy_bare` was a wrong proxy for the resolver attempt set. A constructible test proved the resolver can hit legacy while the manifest says `unproven_drop`. Artifacts remain at `/private/tmp/p16-census-task1-20260831`. |
+| Corrected current-base census | complete attempt set, zero-selection STOP | `[MEASURED]` resolver telemetry admitted candidates. Five corpora: `8,871` prerequisite (`46` ownerless, `8,825` owner-bearing), `0` candidates. Independent whole-graph call-stats also reported `0/0/0` legacy sites/hits/edges on all four Go corpora. |
+| Public RED matrix | blocked | v14 §4 says zero-selection is inadmissible. Requires owner coverage amendment or a pinned corpus with an actual candidate. |
+| Production / verification / review | not started | No production consumer was switched; cache pins remain CPG `54`, sidecar `22`. |
 | Publication | authorized but gated | Push/merge only after all plan gates and relevant non-coverage CI are green. |
 
 ## 3. Hypothesis-probe-result log
 
 | Hypothesis | Expected if true | Falsifier / alternative | Result |
 |---|---|---|---|
-| H1: A removed the old identity-establishment open class from #16's input. | Every recovered Go site without `receiver_owner_identity` drops before either consumer. | Any ownerless recovered Go site reaches `iface_key`/`interface_impls`. | `[MEASURED]` supported structurally by `go_receiver_owner_is_terminally_unproven` placement in resolver and manifest; Task 1 census must re-prove dynamically. |
-| H2: a #16 defect remains reachable after A. | An owner-bearing `Unproven` route can still reach the bare table after earlier direct/interface screens miss. | All owner-bearing sites route through an exact-owner interface path before the bare arm. | `[MEASURED]` supported by current resolver and manifest control flow; population size remains pending census. |
+| H1: A removed the old identity-establishment open class from #16's input. | Every recovered Go site without `receiver_owner_identity` drops before either consumer. | Any ownerless recovered Go site reaches `iface_key`/`interface_impls`. | `[MEASURED]` supported: the prerequisite ledger found 46 ownerless terminal rows and zero candidate rows; the ownerless no-invocation unit test passed. |
+| H2: a #16 defect remains reachable after A. | An owner-bearing `Unproven` route can still reach the bare table after earlier screens miss. | Every present production state exits before legacy, or the declared corpus population is zero. | `[MIXED]` a constructible missing declaration-kind witness reaches legacy and mints an unrelated same-bare target, proving structural reachability. All five pinned corpora and independent call-stats selected zero actual sites, so current corpus reachability is unproven and the acceptance probe is inadmissible. |
 | H3: resolver and manifest are the only independent consumers. | Resolver owns edge selection; manifest independently mirrors it; sidecar calls resolver. | A third path independently mints receiver-interface edges. | `[MEASURED]` supported by bounded reference census; LSP MCP was unavailable, so exhaustive symbol references plus compiled tests remain required. |
 | H4: v13 can resume without another provenance proxy. | New consult accepts only `&GoOwnerIdentity` and has no receiver text or global fallback. | Any valid target requires re-resolving `recv_ty` or selecting an identity by name. | `[MEASURED]` supported by A's contract and v14 signature; corpus census is the behavioral discriminator. |
-| H5: the existing walk is reusable but incomplete for #16. | Direct satisfiers already follow caller profiles/live selection; promoted satisfiers require the R1(b) snapshot. | Existing walk already includes promoted supply, or adding it changes existing S4 outputs. | `[MEASURED]` current `go_visible_s4_implementers` is direct-only; old WIP demonstrates a bounded extraction shape, but must be reimplemented against current per-owner semantics. |
+| H5: the existing walk is reusable but incomplete for #16. | Direct satisfiers already follow caller profiles/live selection; promoted satisfiers require the R1(b) snapshot. | Existing walk already includes promoted supply, or extraction changes existing S4 outputs. | `[MEASURED]` shared extraction and guarded promoted supply compile; existing promoted/S4 compatibility passed `49/49`. Production remains unswitched. |
 | H6: the old clone cannot be the active lane. | It is stale and dirty with large uncommitted code against pre-A base. | It is clean, current-base, and contains the merged A contract. | `[MEASURED]` falsifier observed; fresh lane created instead. |
 | H7: v14's identity rule is closed at the declared cap. | Findings are bounded and no proxy-for-provenance class remains. | A new identity proxy or fallback is required. | `[MEASURED]` supported: the two capped findings and the post-cap preflight artifact correction are closed; the latter repaired census population accounting, not identity authority. Zero `SMELL` remains. |
 
@@ -55,8 +58,8 @@
 | # | Task | State | Next action | STOP owner |
 |---:|---|---|---|---|
 | 0 | Durable design/lane custody | done | Preserve checkpoint `c64ccd42`. | None |
-| 1 | Candidate consult + census harness | in progress | Compile signature, extract walk, add guarded promoted supply and pre-terminal census. | Open/invalid corpus transition |
-| 2 | Public RED matrix | pending | Enumerate selectors and capture intended exact-base failures. | Compile discrepancy or zero selection |
+| 1 | Candidate consult + census harness | parked checkpoint | Preserve corrected resolver-witness harness and evidence report. | Zero-selection census observed |
+| 2 | Public RED matrix | blocked | Requires explicit owner coverage amendment or a pinned corpus with an actual candidate. | Current v14 §4 gate |
 | 3 | Production switch/cache | pending | Switch two consumers, retain sidecar derivation, bump only `22→23`. | Scope expansion |
 | 4 | Full verification/corpora/oracles | pending | Run complete plan sequence with same-environment controls. | Unattributed failure |
 | 5 | Review rounds 1–2 | pending | WRONG before SMELL; park on open class at cap. | Open-class finding |
@@ -93,6 +96,10 @@
 | Historical dirty clone | `/Users/wesleyjinks/code/slicing-16c1-sol` · `c1-bare-walk-consult` · `1900682c` · base `0ca571c5` |
 | Historical WIP diff | `src/go_promoted_snapshot.rs`, `src/navigation/queries.rs`, `src/resolution.rs` · `627 insertions / 130 deletions` |
 | Historical untracked spec SHA-256 | `e45a41e3edbdc00f2d48700601dacfabb8027870275222ac681d65be73a86c3c` |
+| Task 1 evidence | `docs/superpowers/handoffs/2026-08-31-go-interface-identity-task1-census-evidence.md` |
+| Corrected candidate binary | `7164d872d8e49585fc892887146c85a4ae3a24c42c5a9bba55df14aa0cc8ee79` |
+| Exact-base control binary | `631bedb9a3ac8904574e552b886318fffe802e1df8a3489d82cb027c3c6a48a1` |
+| Corrected census artifacts | `/private/tmp/p16-census-task1-v2-20260831` |
 | Current cache pins | CPG `54`; sidecar `22` |
 | Candidate cache pins | CPG `54`; sidecar `23` |
 | Corpus pins | ripgrep `82313cf9`; Caddy `77e9ce74`; Prometheus `505095b6`; etcd `61d518f5`; Hugo `a00b5c72` |
@@ -100,8 +107,8 @@
 
 ## 7. Current evidence and exclusions
 
-Current evidence is structural and historical only. No v14 production behavior, RED, candidate corpus, full-suite, Tier-A, or oracle claim exists yet. Slice 3's `54/54`, `3,496/0/1`, Tier-A, and five-corpus evidence proves the prerequisite composition, not #16 acceptance. The failed v13 lookup in the stale clone and the earlier wrong-path cache probe were self-failing and discarded; their corrected current-repository probes are the only observations used here.
+Current evidence proves the dormant Task 1 consult/harness compiles, its five route partitions and custody invariants pass `5/5`, existing promoted/S4 compatibility passes `49/49`, and default ripgrep output is byte-identical to exact base. The corrected five-corpus attempt set has `8,871` prerequisite rows but zero candidates; this is a measured STOP, not acceptance. No public RED, production switch, cache bump, Clippy, full suite, Tier-A, oracle, CI, push, or merge claim exists. The first manifest-proxy census, the bad help command, and the zsh reserved-variable custody probe were self-invalidating and are excluded.
 
 ## 8. Owner direction and review verdict
 
-Owner direction is to proceed through the successor and includes push/merge authority after gates. v14 identity-rule verdict: **APPROVE AFTER ROUND 2, one disclosed scoped confirmation, and one bounded preflight artifact correction** — `WRONG`: zero remaining; `SMELL`: zero. The post-cap correction split a non-exhaustive combined census into two exhaustive ledgers before code began; it did not extend the identity rule. Confidence decreases if the current-base candidate ledger is empty or loses an admitted sound implementer; it collapses if any ownerless site invokes the consult or any correct result requires a text/index identity proxy.
+Owner direction includes push/merge authority only after gates. The current verdict is **PARK BEFORE TASK 2**: the corrected candidate ledger is empty, which the prior handoff explicitly named as confidence-collapsing and v14 §4 classifies as inadmissible. `WRONG`: the initial manifest-proxy census omitted constructible resolver attempts; fixed with the resolver's existing telemetry witness and pinned by a passing regression. `SMELL`: zero additional in-scope items. Resume requires an explicit owner coverage decision; general publication authority does not relax this gate.

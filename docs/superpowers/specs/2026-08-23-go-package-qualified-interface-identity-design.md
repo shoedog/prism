@@ -1,6 +1,6 @@
-# #16 — Go package-qualified interface identity (design **v14 — post-provenance owner consult**)
+# #16 — Go package-qualified interface identity (design **v14 — post-provenance owner consult; PARKED at Task 1**)
 
-**Status:** active post-A amendment under the owner's authorized successor continuation. The preserved v12→v13→PARK chain is replayed immediately before this amendment; v14 resumes only because receiver-provenance Slices 0→3 and the ended-scope prerequisite are merged through PR #213. **Base:** `b7a5cf934a44060de98588837b3c8c75ddffdc37` (PR #214 closeout; CPG 54, nav sidecar 22). **Roadmap:** row 16. **Review cap:** 2 rounds.
+**Status:** **PARKED before Task 2.** The preserved v12→v13→PARK chain was replayed and v14 resumed after receiver-provenance Slices 0→3, but the corrected Task 1 census selected zero candidate sites across all five pinned corpora. Section 4 explicitly makes a zero-selection probe inadmissible, so production authorization stops pending an owner decision on the coverage rule. Evidence: `docs/superpowers/handoffs/2026-08-31-go-interface-identity-task1-census-evidence.md`. **Base:** `b7a5cf934a44060de98588837b3c8c75ddffdc37` (PR #214 closeout; CPG 54, nav sidecar 22). **Roadmap:** row 16. **Review cap:** 2 rounds.
 
 **Citation policy (the failure mode this rewrite fixes):** cite **symbols**, not line numbers. Line numbers below are advisory as of this writing and MUST be re-verified before use.
 
