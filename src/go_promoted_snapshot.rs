@@ -103,55 +103,90 @@ pub(crate) enum GoPromotedSnapshotConsult<'a> {
     InvariantDrop,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct GoPromotedSnapshotMethod<'a> {
+    pub promoted: &'a GoPromotedMethodSnapshot,
+    pub declaration: &'a GoMethodDeclaration,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GoPromotedSnapshotMethodConsult<'a> {
+    Hit(GoPromotedSnapshotMethod<'a>),
+    Miss,
+    ConflictDrop,
+    VariantDrop,
+    InvariantDrop,
+}
+
 pub(crate) fn consult_promoted_snapshot<'a>(
     snapshot: &'a GoPromotedSelectorSnapshot,
-    methods: &GoMethodDeclarations,
+    methods: &'a GoMethodDeclarations,
     owner: &GoOwnerIdentity,
     method: &str,
 ) -> GoPromotedSnapshotConsult<'a> {
+    match consult_promoted_snapshot_method(snapshot, methods, owner, method) {
+        GoPromotedSnapshotMethodConsult::Hit(hit) => {
+            GoPromotedSnapshotConsult::Hit(&hit.promoted.target)
+        }
+        GoPromotedSnapshotMethodConsult::Miss => GoPromotedSnapshotConsult::Miss,
+        GoPromotedSnapshotMethodConsult::ConflictDrop => GoPromotedSnapshotConsult::ConflictDrop,
+        GoPromotedSnapshotMethodConsult::VariantDrop => GoPromotedSnapshotConsult::VariantDrop,
+        GoPromotedSnapshotMethodConsult::InvariantDrop => GoPromotedSnapshotConsult::InvariantDrop,
+    }
+}
+
+pub(crate) fn consult_promoted_snapshot_method<'a>(
+    snapshot: &'a GoPromotedSelectorSnapshot,
+    methods: &'a GoMethodDeclarations,
+    owner: &GoOwnerIdentity,
+    method: &str,
+) -> GoPromotedSnapshotMethodConsult<'a> {
     let Some(owner_snapshot) = snapshot.owners.get(owner) else {
-        return GoPromotedSnapshotConsult::Miss;
+        return GoPromotedSnapshotMethodConsult::Miss;
     };
     if owner_snapshot.verdict == GoPromotedSnapshotVerdict::ProfileConflict {
-        return GoPromotedSnapshotConsult::ConflictDrop;
+        return GoPromotedSnapshotMethodConsult::ConflictDrop;
     }
     if owner_snapshot.declarations.len() != 1 {
-        return GoPromotedSnapshotConsult::InvariantDrop;
+        return GoPromotedSnapshotMethodConsult::InvariantDrop;
     }
 
     let declaration = &owner_snapshot.declarations[0];
     if declaration.ambiguous_promoted_methods.contains(method) {
-        return GoPromotedSnapshotConsult::Miss;
+        return GoPromotedSnapshotMethodConsult::Miss;
     }
     let Some(promoted) = declaration
         .promoted_methods
         .iter()
         .find(|promoted| promoted.method == method)
     else {
-        return GoPromotedSnapshotConsult::Miss;
+        return GoPromotedSnapshotMethodConsult::Miss;
     };
     if promoted.field_shadowed {
-        return GoPromotedSnapshotConsult::Miss;
+        return GoPromotedSnapshotMethodConsult::Miss;
     }
     if promoted.profile_variants.len() != 1 || !promoted.profile_variants.contains(&promoted.target)
     {
-        return GoPromotedSnapshotConsult::VariantDrop;
+        return GoPromotedSnapshotMethodConsult::VariantDrop;
     }
     let mut matching_declarations = methods
         .values()
         .flat_map(|declarations| declarations.iter())
         .filter(|declaration| declaration.function_id == promoted.target);
     let Some(method_declaration) = matching_declarations.next() else {
-        return GoPromotedSnapshotConsult::VariantDrop;
+        return GoPromotedSnapshotMethodConsult::VariantDrop;
     };
     if matching_declarations.next().is_some()
         || method_declaration.generic
         || method_declaration.signature.is_none()
     {
-        return GoPromotedSnapshotConsult::VariantDrop;
+        return GoPromotedSnapshotMethodConsult::VariantDrop;
     }
 
-    GoPromotedSnapshotConsult::Hit(&promoted.target)
+    GoPromotedSnapshotMethodConsult::Hit(GoPromotedSnapshotMethod {
+        promoted,
+        declaration: method_declaration,
+    })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

@@ -661,6 +661,420 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     stats
 }
 
+type InterfaceManifestTargetIdentity =
+    (String, Option<String>, String, String, usize, usize, String);
+
+fn interface_manifest_target_identities<'a>(
+    cg: &CallGraph,
+    targets: impl IntoIterator<Item = &'a FunctionId>,
+) -> BTreeSet<InterfaceManifestTargetIdentity> {
+    targets
+        .into_iter()
+        .map(|fid| {
+            let name = cg
+                .method_owners
+                .get(fid)
+                .cloned()
+                .unwrap_or_else(|| crate::resolution::file_stem(&fid.file).to_string());
+            let package_dir = crate::resolution::dir_of(&fid.file).to_string();
+            let package_clause = cg
+                .go_file_profiles
+                .get(&fid.file)
+                .map(|profile| profile.package_clause.clone());
+            (
+                package_dir,
+                package_clause,
+                name,
+                fid.file.clone(),
+                fid.start_line,
+                fid.end_line,
+                fid.name.clone(),
+            )
+        })
+        .collect()
+}
+
+fn interface_manifest_target_identity_values(
+    identities: &BTreeSet<InterfaceManifestTargetIdentity>,
+) -> Vec<serde_json::Value> {
+    identities
+        .iter()
+        .map(
+            |(package_dir, package_clause, name, file, start_line, end_line, _)| {
+                serde_json::json!({
+                    "name": name,
+                    "file": file,
+                    "span": [start_line, end_line],
+                    "package_dir": package_dir,
+                    "package_clause": package_clause,
+                })
+            },
+        )
+        .collect()
+}
+
+fn p16_target_identity_values(
+    identities: &BTreeSet<InterfaceManifestTargetIdentity>,
+) -> Vec<serde_json::Value> {
+    identities
+        .iter()
+        .map(
+            |(
+                package_dir,
+                package_clause,
+                owner_name,
+                file,
+                start_line,
+                end_line,
+                function_name,
+            )| {
+                serde_json::json!({
+                    "owner_name": owner_name,
+                    "function_name": function_name,
+                    "file": file,
+                    "span": [start_line, end_line],
+                    "package_dir": package_dir,
+                    "package_clause": package_clause,
+                })
+            },
+        )
+        .collect()
+}
+
+fn p16_terminal_outcome(outcome: &crate::resolution::ResolutionOutcome<'_>) -> serde_json::Value {
+    if outcome.resolved.is_empty() {
+        serde_json::json!({
+            "kind": "drop",
+            "drop_reason": outcome.drop.map(|reason| format!("{reason:?}")),
+        })
+    } else {
+        let resolution_kinds: BTreeSet<_> = outcome
+            .resolved
+            .iter()
+            .map(|resolved| resolved.kind.as_str())
+            .collect();
+        serde_json::json!({
+            "kind": "hit",
+            "resolution_kinds": resolution_kinds,
+        })
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::items_after_test_module)]
+mod p16_census_tests {
+    use super::{
+        interface_dispatch_manifest_inner, interface_manifest_target_identities,
+        interface_manifest_target_identity_values, p16_target_identity_values,
+    };
+    use crate::ast::ParsedFile;
+    use crate::call_graph::CallGraph;
+    use crate::languages::Language;
+    use crate::resolution::{DropReason, GoOwnerIdentity, GoProvenInterfaceRoute};
+    use std::collections::{BTreeMap, BTreeSet};
+
+    fn build_go(sources: &[(&str, &str)]) -> CallGraph {
+        let files: BTreeMap<String, ParsedFile> = sources
+            .iter()
+            .map(|(path, source)| {
+                (
+                    (*path).to_string(),
+                    ParsedFile::parse(path, source, Language::Go).expect("parse Go fixture"),
+                )
+            })
+            .collect();
+        CallGraph::build(&files)
+    }
+
+    #[test]
+    fn p16_census_route_partition_wire_strings_are_exhaustive() {
+        let routes = [
+            GoProvenInterfaceRoute::LiveHit,
+            GoProvenInterfaceRoute::FallbackHit,
+            GoProvenInterfaceRoute::InvalidDrop,
+            GoProvenInterfaceRoute::WalkDrop,
+            GoProvenInterfaceRoute::ArityDrop,
+        ];
+        assert_eq!(
+            routes.map(GoProvenInterfaceRoute::as_str),
+            [
+                "live_hit",
+                "fallback_hit",
+                "invalid_drop",
+                "walk_drop",
+                "arity_drop",
+            ]
+        );
+    }
+
+    #[test]
+    fn p16_census_consult_reaches_each_route_partition() {
+        let mut cg = build_go(&[(
+            "pkg/types.go",
+            "package p\ntype I interface{ M(int) }\ntype T struct{}\nfunc (T) M(int) {}\n",
+        )]);
+        let interface_owner = cg
+            .go_interface_declarations
+            .keys()
+            .find(|owner| owner.name == "I")
+            .expect("I owner")
+            .clone();
+
+        cg.go_interface_live_types.insert("T".to_string());
+        assert_eq!(
+            cg.go_proven_interface_consult(&interface_owner, "M", "pkg/types.go", Some(1), false,)
+                .route,
+            GoProvenInterfaceRoute::LiveHit
+        );
+
+        let mut fallback = cg.clone();
+        fallback.go_interface_live_types.clear();
+        assert_eq!(
+            fallback
+                .go_proven_interface_consult(&interface_owner, "M", "pkg/types.go", Some(1), false,)
+                .route,
+            GoProvenInterfaceRoute::FallbackHit
+        );
+
+        let invalid_owner = GoOwnerIdentity {
+            package_dir: "pkg".to_string(),
+            package_clause: "p".to_string(),
+            name: "Missing".to_string(),
+        };
+        assert_eq!(
+            cg.go_proven_interface_consult(&invalid_owner, "M", "pkg/types.go", Some(1), false,)
+                .route,
+            GoProvenInterfaceRoute::InvalidDrop
+        );
+
+        let mut no_methods = cg.clone();
+        no_methods.go_method_declarations.clear();
+        assert_eq!(
+            no_methods
+                .go_proven_interface_consult(&interface_owner, "M", "pkg/types.go", Some(1), false,)
+                .route,
+            GoProvenInterfaceRoute::WalkDrop
+        );
+
+        assert_eq!(
+            cg.go_proven_interface_consult(&interface_owner, "M", "pkg/types.go", Some(0), false,)
+                .route,
+            GoProvenInterfaceRoute::ArityDrop
+        );
+    }
+
+    #[test]
+    fn p16_consult_admits_guarded_promoted_supply_and_rejects_signature_mismatch() {
+        let mut cg = build_go(&[(
+            "pkg/types.go",
+            "package p\ntype I interface{ M(int) }\ntype Base struct{}\nfunc (Base) M(int) {}\ntype T struct{ Base }\n",
+        )]);
+        let interface_owner = cg
+            .go_interface_declarations
+            .keys()
+            .find(|owner| owner.name == "I")
+            .expect("I owner")
+            .clone();
+        cg.go_interface_live_types.insert("T".to_string());
+
+        let promoted =
+            cg.go_proven_interface_consult(&interface_owner, "M", "pkg/types.go", Some(1), false);
+        assert_eq!(promoted.route, GoProvenInterfaceRoute::LiveHit);
+        assert_eq!(promoted.all_satisfiers, 1);
+        assert_eq!(promoted.live_satisfiers, 1);
+        assert_eq!(promoted.final_satisfiers, 1);
+        assert_eq!(promoted.promoted, Default::default());
+        let target = promoted.selection.value.expect("promoted target")[0];
+        assert_eq!(target.name, "M");
+        assert_eq!(target.file, "pkg/types.go");
+
+        let mismatch = build_go(&[(
+            "pkg/types.go",
+            "package p\ntype I interface{ M(int) }\ntype Base struct{}\nfunc (Base) M(string) {}\ntype T struct{ Base }\n",
+        )]);
+        let mismatch_owner = mismatch
+            .go_interface_declarations
+            .keys()
+            .find(|owner| owner.name == "I")
+            .expect("mismatch I owner");
+        let rejected = mismatch.go_proven_interface_consult(
+            mismatch_owner,
+            "M",
+            "pkg/types.go",
+            Some(1),
+            false,
+        );
+        assert_eq!(rejected.route, GoProvenInterfaceRoute::WalkDrop);
+        assert_eq!(rejected.final_satisfiers, 0);
+        assert_eq!(rejected.promoted.signature_drop, 1);
+    }
+
+    #[test]
+    fn p16_consult_filters_uncertain_owner_before_live_selection() {
+        let mut cg = build_go(&[
+            ("pkg/interface.go", "package p\ntype I interface{ M() }\n"),
+            (
+                "pkg/good.go",
+                "package p\ntype Good struct{}\nfunc (Good) M() {}\n",
+            ),
+            (
+                "pkg/bad.go",
+                "package p\ntype Bad struct{}\nfunc (Bad) M() {}\n",
+            ),
+        ]);
+        let interface_owner = cg
+            .go_interface_declarations
+            .keys()
+            .find(|owner| owner.name == "I")
+            .expect("I owner")
+            .clone();
+        cg.go_file_profiles.remove("pkg/bad.go");
+        cg.go_interface_live_types.insert("Bad".to_string());
+
+        let consult = cg.go_proven_interface_consult(
+            &interface_owner,
+            "M",
+            "pkg/interface.go",
+            Some(0),
+            false,
+        );
+        assert_eq!(consult.route, GoProvenInterfaceRoute::FallbackHit);
+        assert_eq!(consult.all_satisfiers, 1);
+        assert_eq!(consult.live_satisfiers, 0);
+        assert_eq!(consult.final_satisfiers, 1);
+        assert!(consult.selection.evidence.recovered);
+        assert!(!consult.selection.evidence.conflict);
+        assert!(!consult.selection.evidence.uncertain);
+        let target = consult.selection.value.expect("fallback target")[0];
+        assert_eq!(target.file, "pkg/good.go");
+    }
+
+    #[test]
+    fn p16_census_target_identity_is_package_qualified() {
+        let cg = build_go(&[(
+            "pkg/types.go",
+            "package p\ntype T struct{}\nfunc (T) M() {}\n",
+        )]);
+        let target = cg
+            .method_owners
+            .iter()
+            .find_map(|(target, owner)| (owner == "T").then_some(target))
+            .expect("T.M target");
+        let identities = interface_manifest_target_identities(&cg, [target]);
+        let values = interface_manifest_target_identity_values(&identities);
+        assert_eq!(values.len(), 1);
+        assert_eq!(values[0]["name"], "T");
+        assert_eq!(values[0]["file"], "pkg/types.go");
+        assert_eq!(values[0]["package_dir"], "pkg");
+        assert_eq!(values[0]["package_clause"], "p");
+        assert_eq!(
+            values[0]["span"],
+            serde_json::json!([target.start_line, target.end_line])
+        );
+        let census_values = p16_target_identity_values(&identities);
+        assert_eq!(census_values[0]["owner_name"], "T");
+        assert_eq!(census_values[0]["function_name"], "M");
+    }
+
+    #[test]
+    fn p16_production_retires_actual_resolver_legacy_arm() {
+        let mut cg = build_go(&[
+            (
+                "p/main.go",
+                "package p\ntype I struct{}\nfunc run(v I) { v.M() }\n",
+            ),
+            (
+                "q/types.go",
+                "package q\ntype I interface{ M() }\ntype Impl struct{}\nfunc (Impl) M() {}\nvar _ I = Impl{}\n",
+            ),
+        ]);
+        let call = cg
+            .calls
+            .values()
+            .flatten()
+            .find(|site| site.caller.name == "run" && site.callee_name == "M")
+            .expect("run->M site")
+            .clone();
+        let owner = call
+            .receiver_owner_identity
+            .as_ref()
+            .expect("proven p.I owner")
+            .clone();
+        assert_eq!(owner.package_dir, "p");
+        cg.go_declaration_kind_index.remove(&owner);
+
+        let current = cg.resolve_call_site_full(&call);
+        assert_eq!(
+            current.telemetry.go_unproven_receiver_bare_fallback_sites,
+            0
+        );
+        assert_eq!(current.telemetry.go_unproven_receiver_bare_fallback_hits, 0);
+        assert_eq!(
+            current.telemetry.go_unproven_receiver_bare_fallback_edges,
+            0
+        );
+        assert!(current.resolved.is_empty(), "{current:?}");
+        assert_eq!(current.drop, Some(DropReason::ExternalReceiver));
+
+        let manifest = interface_dispatch_manifest_inner(&cg, true);
+        let candidates = manifest["p16_candidates"]
+            .as_array()
+            .expect("candidate ledger");
+        assert!(candidates.is_empty(), "{manifest:#}");
+        let rows = manifest["sites"].as_array().expect("ordinary sites");
+        let row = rows
+            .iter()
+            .find(|row| row["file"] == "p/main.go" && row["method"] == "M")
+            .expect("run M row");
+        assert_eq!(row["dispatch_route"], "unproven_drop", "{manifest:#}");
+        assert_eq!(row["fanout"], 0, "{manifest:#}");
+    }
+
+    #[test]
+    fn p16_census_ownerless_site_never_enters_candidate_ledger() {
+        let mut cg = build_go(&[(
+            "pkg/main.go",
+            "package p\ntype I interface{ M() }\nfunc run(v I) { v.M() }\n",
+        )]);
+        for site_set in cg.calls.values_mut() {
+            *site_set = site_set
+                .iter()
+                .cloned()
+                .map(|mut site| {
+                    if site.caller.name == "run" && site.callee_name == "M" {
+                        site.receiver_owner_identity = None;
+                    }
+                    site
+                })
+                .collect::<BTreeSet<_>>();
+        }
+
+        let manifest = interface_dispatch_manifest_inner(&cg, true);
+        let rows = manifest["p16_prerequisite"]
+            .as_array()
+            .expect("prerequisite ledger");
+        let row = rows
+            .iter()
+            .find(|row| row["method"] == "M")
+            .expect("ownerless prerequisite row");
+        assert_eq!(row["partition"], "ownerless_terminal");
+        assert!(row["owner"].is_null());
+        assert!(manifest["p16_candidates"]
+            .as_array()
+            .expect("candidate ledger")
+            .is_empty());
+        assert!(manifest["sites"]
+            .as_array()
+            .expect("ordinary sites")
+            .iter()
+            .all(|site| site["method"] != "M"));
+
+        let disabled = interface_dispatch_manifest_inner(&cg, false);
+        assert!(disabled.get("p16_prerequisite").is_none());
+        assert!(disabled.get("p16_candidates").is_none());
+    }
+}
+
 /// Phase-IP PR-2 in-scope interface-dispatch manifest (spec §8a, structural — no oracle).
 ///
 /// A call-site is *in-scope* iff its receiver was syntactically recovered
@@ -678,7 +1092,16 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
 /// on it. The `corrected_fp` line of the gate report (the Python harness consumes this
 /// JSON) is provisional until the Slice-E re-adjudication.
 pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
+    interface_dispatch_manifest_inner(cg, std::env::var_os("PRISM_P16_CENSUS").is_some())
+}
+
+fn interface_dispatch_manifest_inner(
+    cg: &CallGraph,
+    p16_census_enabled: bool,
+) -> serde_json::Value {
     use crate::resolution::ReceiverRecovery;
+    let mut p16_prerequisite = Vec::new();
+    let mut p16_candidates = Vec::new();
     // receiver_class wire strings (the Rust→JSON→Python contract; pinned by the
     // `interface_manifest_receiver_class_strings` test). NOTE (review MAJOR 5):
     // `SliceElem`/"slice_elem" is the RESERVED variant (Slice F) — the classifier returns
@@ -721,9 +1144,29 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             if !cg.interface_method_names.contains(&site.callee_name) {
                 continue;
             }
-            if crate::resolution::go_receiver_owner_is_terminally_unproven(site) {
+            let terminally_unproven =
+                crate::resolution::go_receiver_owner_is_terminally_unproven(site);
+            if p16_census_enabled {
+                p16_prerequisite.push(serde_json::json!({
+                    "key": format!("{}:{}:{}", site.caller.file, site.start_byte, site.end_byte),
+                    "file": site.caller.file,
+                    "start_byte": site.start_byte,
+                    "end_byte": site.end_byte,
+                    "line": site.line,
+                    "receiver_type": recv_ty,
+                    "method": site.callee_name,
+                    "partition": if terminally_unproven {
+                        "ownerless_terminal"
+                    } else {
+                        "owner_bearing"
+                    },
+                    "owner": site.receiver_owner_identity,
+                }));
+            }
+            if terminally_unproven {
                 continue;
             }
+            let p16_current_outcome = p16_census_enabled.then(|| cg.resolve_call_site_full(site));
             // P17: this is the same full R1/R2/R3 verdict the resolver consumes.
             // It must be consulted immediately after the denominator predicate,
             // before the manifest's legacy R3 interface ladder.
@@ -736,8 +1179,9 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                 &site.caller.file,
             );
             let mut visibility_interface = None;
-            let mut legacy_bare = false;
-            let mut dispatch_route;
+            let legacy_bare = false;
+            let mut terminal_targets: Option<Vec<&FunctionId>> = None;
+            let dispatch_route;
             let impls: &[FunctionId];
             match &go_route {
                 crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. } => {
@@ -810,8 +1254,8 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                     impls = &[];
                 }
                 crate::go_concrete_receiver::GoConcreteReceiverRoute::Unproven => {
-                    // R3 is deliberately unchanged. Retain the old S4/carried-
-                    // interface/bare-name ladder and add only a route diagnostic.
+                    // Retain the S4 and carried-interface screens, then route the
+                    // surviving owner-bearing R3 seam through the #16 exact-owner consult.
                     let s4_route = cg.go_embedded_interface_route(
                         recv_ty,
                         site.receiver_owner_identity.as_ref(),
@@ -837,10 +1281,6 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                                 .is_some_and(|selection| selection.value == Some(true))
                         })
                         .cloned();
-                    let proven_concrete_owner = site.receiver_owner_identity.is_some()
-                        && interface_presence
-                            .as_ref()
-                            .is_some_and(|selection| selection.value == Some(false));
                     if let Some(interface_name) = s4_route.value {
                         dispatch_route = "embedded_interface_dispatch";
                         visibility_interface = Some((
@@ -852,7 +1292,7 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                             .get(&(interface_name, site.callee_name.clone()))
                             .map(Vec::as_slice)
                             .unwrap_or(&[]);
-                    } else if s4_blocked || direct_interface_blocked || proven_concrete_owner {
+                    } else if s4_blocked || direct_interface_blocked {
                         dispatch_route = "unproven_drop";
                         impls = &[];
                     } else if let Some(owner) = proven_interface_owner {
@@ -868,14 +1308,32 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                             interface_name,
                         ));
                     } else {
-                        dispatch_route = "unproven_drop";
-                        legacy_bare = true;
-                        impls = crate::resolution::iface_key(recv_ty)
-                            .and_then(|key| {
-                                cg.interface_impls.get(&(key, site.callee_name.clone()))
+                        let owner = site.receiver_owner_identity.as_ref().expect(
+                            "terminal Go receiver predicate admitted an owner-bearing site",
+                        );
+                        let (consult, outcome) = cg.go_proven_interface_outcome(site, owner);
+                        dispatch_route = if consult.final_satisfiers > 0 {
+                            "interface_dispatch"
+                        } else if outcome
+                            .resolved
+                            .iter()
+                            .any(|resolved| {
+                                resolved.kind
+                                    == crate::resolution::ResolutionKind::FuncValueField
                             })
-                            .map(Vec::as_slice)
-                            .unwrap_or(&[]);
+                        {
+                            "func_value_field"
+                        } else {
+                            "unproven_drop"
+                        };
+                        terminal_targets = Some(
+                            outcome
+                                .resolved
+                                .iter()
+                                .map(|resolved| resolved.target)
+                                .collect(),
+                        );
+                        impls = &[];
                     }
                 }
             }
@@ -884,38 +1342,144 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             // set the resolver would mint. Same shared helper as the resolution mint;
             // an emptied set yields implementers: [] / fanout: 0. The oracle reads this
             // manifest, so the filter MUST run here too, not just in resolution.rs.
-            let kept = crate::resolution::arity_filter(
-                impls,
-                site.arg_count,
-                site.arg_spread,
-                &cg.method_arity,
-            );
-            let kept = if let Some((owner, interface_name)) = visibility_interface.as_ref() {
-                cg.go_visible_s4_implementers(
-                    recv_ty,
-                    owner.as_ref(),
-                    interface_name,
-                    &site.callee_name,
-                    &site.caller.file,
-                    kept,
-                )
-                .value
-                .unwrap_or_default()
+            let terminal_targets_authoritative = terminal_targets.is_some();
+            let kept = if let Some(targets) = terminal_targets {
+                targets
             } else {
-                kept
-            };
-            let kept: Vec<&FunctionId> = kept
-                .into_iter()
-                .filter(|target| {
-                    crate::resolution::arity_admits(
-                        site.arg_count,
-                        site.arg_spread,
-                        cg.method_arity.get(*target),
+                let kept = crate::resolution::arity_filter(
+                    impls,
+                    site.arg_count,
+                    site.arg_spread,
+                    &cg.method_arity,
+                );
+                let kept = if let Some((owner, interface_name)) = visibility_interface.as_ref() {
+                    cg.go_visible_s4_implementers(
+                        recv_ty,
+                        owner.as_ref(),
+                        interface_name,
+                        &site.callee_name,
+                        &site.caller.file,
+                        kept,
                     )
-                })
-                .collect();
-            if legacy_bare && !kept.is_empty() {
-                dispatch_route = "interface_dispatch";
+                    .value
+                    .unwrap_or_default()
+                } else {
+                    kept
+                };
+                kept.into_iter()
+                    .filter(|target| {
+                        crate::resolution::arity_admits(
+                            site.arg_count,
+                            site.arg_spread,
+                            cg.method_arity.get(*target),
+                        )
+                    })
+                    .collect()
+            };
+            if let Some(current_outcome) = p16_current_outcome
+                .as_ref()
+                .filter(|outcome| outcome.telemetry.go_unproven_receiver_bare_fallback_sites > 0)
+            {
+                let owner = site
+                    .receiver_owner_identity
+                    .as_ref()
+                    .expect("terminal provenance predicate admitted owner-bearing site");
+                let (consult, candidate_outcome) = cg.go_proven_interface_outcome(site, owner);
+                let current_table_identities = if current_outcome
+                    .telemetry
+                    .go_unproven_receiver_bare_fallback_hits
+                    > 0
+                {
+                    interface_manifest_target_identities(
+                        cg,
+                        current_outcome
+                            .resolved
+                            .iter()
+                            .map(|resolved| resolved.target),
+                    )
+                } else {
+                    BTreeSet::new()
+                };
+                let current_terminal_identities = interface_manifest_target_identities(
+                    cg,
+                    current_outcome
+                        .resolved
+                        .iter()
+                        .map(|resolved| resolved.target),
+                );
+                let candidate_interface_identities = interface_manifest_target_identities(
+                    cg,
+                    consult
+                        .selection
+                        .value
+                        .as_ref()
+                        .into_iter()
+                        .flatten()
+                        .copied(),
+                );
+                let candidate_terminal_identities = interface_manifest_target_identities(
+                    cg,
+                    candidate_outcome
+                        .resolved
+                        .iter()
+                        .map(|resolved| resolved.target),
+                );
+                let lost: BTreeSet<_> = current_terminal_identities
+                    .difference(&candidate_terminal_identities)
+                    .cloned()
+                    .collect();
+                let added: BTreeSet<_> = candidate_terminal_identities
+                    .difference(&current_terminal_identities)
+                    .cloned()
+                    .collect();
+                let route = consult.route.as_str();
+                let evidence = consult.selection.evidence;
+                p16_candidates.push(serde_json::json!({
+                    "key": format!("{}:{}:{}", site.caller.file, site.start_byte, site.end_byte),
+                    "file": site.caller.file,
+                    "start_byte": site.start_byte,
+                    "end_byte": site.end_byte,
+                    "line": site.line,
+                    "receiver_type": recv_ty,
+                    "method": site.callee_name,
+                    "owner": owner,
+                    "manifest_dispatch_route": dispatch_route,
+                    "manifest_legacy_bare": legacy_bare,
+                    "route": route,
+                    "all_satisfiers": consult.all_satisfiers,
+                    "live_satisfiers": consult.live_satisfiers,
+                    "final_satisfiers": consult.final_satisfiers,
+                    "partition_evidence": {
+                        "visible_declarations": evidence.visible_declarations,
+                        "filtered_declarations": evidence.filtered_declarations,
+                        "distinct_visible_values": evidence.distinct_visible_values,
+                        "recovered": evidence.recovered,
+                        "conflict": evidence.conflict,
+                        "uncertain": evidence.uncertain,
+                    },
+                    "promoted_supply": {
+                        "conflict_drop": consult.promoted.conflict_drop,
+                        "variant_drop": consult.promoted.variant_drop,
+                        "invariant_drop": consult.promoted.invariant_drop,
+                        "signature_drop": consult.promoted.signature_drop,
+                    },
+                    "current_table_targets": p16_target_identity_values(
+                        &current_table_identities,
+                    ),
+                    "current_terminal_outcome": p16_terminal_outcome(current_outcome),
+                    "current_terminal_targets": p16_target_identity_values(
+                        &current_terminal_identities,
+                    ),
+                    "candidate_interface_targets": p16_target_identity_values(
+                        &candidate_interface_identities,
+                    ),
+                    "candidate_terminal_outcome": p16_terminal_outcome(&candidate_outcome),
+                    "candidate_terminal_targets": p16_target_identity_values(
+                        &candidate_terminal_identities,
+                    ),
+                    "lost_targets": p16_target_identity_values(&lost),
+                    "added_targets": p16_target_identity_values(&added),
+                }));
             }
             let implementers: BTreeSet<String> = kept
                 .iter()
@@ -932,42 +1496,17 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             // implementers across packages, clauses, and build-tagged files. This
             // intentionally dedupes only identical full target tuples: two methods
             // named Impl in different build-tag files are distinct Exact-edge targets.
-            let implementer_identities: BTreeSet<_> =
-                kept.iter()
-                    .map(|fid| {
-                        let name =
-                            cg.method_owners.get(*fid).cloned().unwrap_or_else(|| {
-                                crate::resolution::file_stem(&fid.file).to_string()
-                            });
-                        let package_dir = crate::resolution::dir_of(&fid.file).to_string();
-                        let package_clause = cg
-                            .go_file_profiles
-                            .get(&fid.file)
-                            .map(|profile| profile.package_clause.clone());
-                        (
-                            package_dir,
-                            package_clause,
-                            name,
-                            fid.file.clone(),
-                            fid.start_line,
-                            fid.end_line,
-                        )
-                    })
-                    .collect();
-            let implementer_identities: Vec<_> = implementer_identities
-                .into_iter()
-                .map(
-                    |(package_dir, package_clause, name, file, start_line, end_line)| {
-                        serde_json::json!({
-                            "name": name,
-                            "file": file,
-                            "span": [start_line, end_line],
-                            "package_dir": package_dir,
-                            "package_clause": package_clause,
-                        })
-                    },
-                )
-                .collect();
+            let implementer_identities = interface_manifest_target_identity_values(
+                &interface_manifest_target_identities(cg, kept.iter().copied()),
+            );
+            // Consult-terminal rows carry the resolver's exact targets. Their legacy
+            // owner labels may collapse multiple callbacks from the same file, so
+            // report exact target cardinality without changing interface-route fanout.
+            let fanout = if terminal_targets_authoritative {
+                implementer_identities.len()
+            } else {
+                implementers.len()
+            };
             sites.push(serde_json::json!({
                 "file": site.caller.file,
                 "start_byte": site.start_byte,
@@ -976,7 +1515,7 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                 "receiver_class": class(recovery),
                 "method": site.callee_name,
                 "dispatch_route": dispatch_route,
-                "fanout": implementers.len(),
+                "fanout": fanout,
                 "implementers": implementers,
                 "implementer_identities": implementer_identities,
             }));
@@ -985,7 +1524,7 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
     // `interface_dispatch_computed` (review MINOR 6): false on a raw build_direct_subset
     // graph (apply_go_interface_dispatch never ran) → an empty `sites` means "not computed",
     // not "no dispatch found". The CLI feeds a full-build graph, so this is true in practice.
-    serde_json::json!({
+    let mut manifest = serde_json::json!({
         "sites": sites,
         "interface_dispatch_computed": cg.interface_dispatch_computed,
         "go_promoted_snapshot": {
@@ -993,7 +1532,15 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             "profile_conflicts": cg.go_promoted_selector_snapshot().profile_conflicts(),
             "promoted_methods": cg.go_promoted_selector_snapshot().promoted_methods(),
         },
-    })
+    });
+    if p16_census_enabled {
+        let object = manifest
+            .as_object_mut()
+            .expect("interface dispatch manifest is an object");
+        object.insert("p16_prerequisite".to_string(), p16_prerequisite.into());
+        object.insert("p16_candidates".to_string(), p16_candidates.into());
+    }
+    manifest
 }
 
 fn confidence_score(c: crate::resolution::ResolutionConfidence) -> f32 {

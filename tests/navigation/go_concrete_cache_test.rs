@@ -42,6 +42,23 @@ fn evidence_has_file(evidence: &prism::navigation::types::Evidence, file: &str) 
     })
 }
 
+fn evidence_has_function(
+    evidence: &prism::navigation::types::Evidence,
+    file: &str,
+    name: &str,
+) -> bool {
+    evidence.items.iter().any(|item| {
+        matches!(
+            item.symbol.as_ref(),
+            Some(SymbolRef::Function {
+                file: target_file,
+                name: target_name,
+                ..
+            }) if target_file == file && target_name == name
+        )
+    })
+}
+
 #[test]
 fn receiver_owner_missing_is_terminal_for_navigation_sidecar() {
     let repo_dir = tempfile::tempdir().unwrap();
@@ -337,4 +354,85 @@ fn concrete_receiver_outputs_match_no_cache_cold_create_exact_cpg_and_sidecar_hi
         no_cache_external,
         queries::callees(&sidecar_hit, Some("external"), Some("app/use.go"), None, 1,).unwrap()
     );
+}
+
+#[test]
+fn navigation_sidecar_go_proven_interface_parity() {
+    let _guard = ENV_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap();
+    let _restore = EnvRestore(std::env::var_os(DIRTY_LOAD_OVERRIDE));
+    std::env::set_var(DIRTY_LOAD_OVERRIDE, "1");
+
+    let repo_dir = tempfile::tempdir().unwrap();
+    let cache_dir = tempfile::tempdir().unwrap();
+    write(
+        repo_dir.path(),
+        "go.mod",
+        "module example.com/root\n\ngo 1.22\n",
+    );
+    write(
+        repo_dir.path(),
+        "app/types.go",
+        "package app\ntype S struct{ Run func() }\nfunc workerA() {}\nfunc workerB() {}\nfunc retainA() { _ = S{Run: workerA} }\nfunc retainB() { _ = S{Run: workerB} }\nfunc New() S { return S{} }\n",
+    );
+    write(
+        repo_dir.path(),
+        "app/use.go",
+        "package app\nfunc invoke() {\n  type S struct{}\n  c := New()\n  c.Run()\n}\n",
+    );
+    write(
+        repo_dir.path(),
+        "decoy/types.go",
+        "package decoy\ntype S interface{ Run() }\ntype Wrong struct{}\nfunc (Wrong) Run() {}\nfunc retain() { var _ S = Wrong{} }\n",
+    );
+    let repo = Arc::new(load_repo(repo_dir.path()).unwrap());
+
+    let no_cache = NavigationSession {
+        repo: repo.clone(),
+        index: Arc::new(NavigationIndex::build(&repo)),
+    };
+    let cold = NavigationSession {
+        repo: repo.clone(),
+        index: Arc::new(NavigationIndex::build_cached_under(&repo, cache_dir.path())),
+    };
+    let exact_cpg = NavigationSession {
+        repo: repo.clone(),
+        index: Arc::new(NavigationIndex::build_cached_under(&repo, cache_dir.path())),
+    };
+    assert!(
+        exact_cpg
+            .index
+            .call_graph()
+            .go_interface_live_types
+            .contains("S"),
+        "exact-CPG hit must retain the deserialized Go live set"
+    );
+    let no_cache_edges =
+        queries::callees(&no_cache, Some("invoke"), Some("app/use.go"), None, 1).unwrap();
+    let cold_edges = queries::callees(&cold, Some("invoke"), Some("app/use.go"), None, 1).unwrap();
+    let exact_cpg_edges =
+        queries::callees(&exact_cpg, Some("invoke"), Some("app/use.go"), None, 1).unwrap();
+    assert_eq!(no_cache_edges, cold_edges);
+    assert_eq!(no_cache_edges, exact_cpg_edges);
+    assert!(
+        evidence_has_function(&no_cache_edges, "app/types.go", "workerA"),
+        "first registered func-field target absent: {no_cache_edges:#?}"
+    );
+    assert!(
+        evidence_has_function(&no_cache_edges, "app/types.go", "workerB"),
+        "second registered func-field target absent: {no_cache_edges:#?}"
+    );
+    assert!(
+        !evidence_has_function(&no_cache_edges, "decoy/types.go", "Run"),
+        "bare-name interface decoy survived: {no_cache_edges:#?}"
+    );
+
+    let sidecar = nav_cache_subdir(cache_dir.path(), &repo).join("resolved-call-edge-index.bin");
+    assert!(sidecar.exists(), "cold query must create the sidecar");
+    let hit = NavigationSession {
+        repo: repo.clone(),
+        index: Arc::new(NavigationIndex::build_cached_under(&repo, cache_dir.path())),
+    };
+    let hit_edges = queries::callees(&hit, Some("invoke"), Some("app/use.go"), None, 1).unwrap();
+    assert_eq!(no_cache_edges, hit_edges);
+    assert!(hit.index.call_graph().go_interface_live_types.contains("S"));
 }
