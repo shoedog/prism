@@ -71,3 +71,35 @@ The kimi-k3 parallel retro (post-settlement) verified all six rejection disposit
 **kimi-S5:** gate 4 (oracle) is an empty-delta tripwire ONLY (dot-import edges sit outside the manifest denominator); gate 2 is the regression guard.
 **kimi-S6:** step 0's "exports the called name" check applies step 3's build-constraint-certain, visibility-qualified enumeration (a tag-excluded export neither poisons nor counts).
 **New fixtures:** poisoned file + repo-wide unique namesake ⇒ NO R5 Exact (the W2 shape); clean dot-file with name absent ⇒ R5 today-identical; loss-accounting fixture (a designed LocalDef drop with its matching counter).
+
+## 7. FINAL ROUND 2 OUTCOME (2026-08-31): PARKED — do not implement v6
+
+**Rebound checkout:** `p4b-go-dot-import-v7` at exact `origin/main` `e96d9c5011e2f979dbb1d4c6eeaa5c29629c5c5e` (after #16 and #18 closeout). Current compiled surfaces are `resolution.rs:3276-3389`, CPG cache `54`, navigation sidecar `23`, and the already-serialized `CallGraph::go_dot_import_files` marker. The historical base, line numbers, and proposed cache assignments above are not implementation authority.
+
+Round 2 found two new constructible `WRONG`s in the same proof-completeness class that caused the earlier park. Round 1 also had two `WRONG`s, so the fresh two-round loop is not converging (findings are not fewer and the class repeats). The declared cap is exhausted. Per the convergence rule, this design is **PARKED** rather than silently extended or folded into a v7.
+
+### WRONG 1 — the proven namespace is incomplete
+
+The design enumerates exported free functions, then treats “no function candidate” as “name absent” and permits the legacy ladder, but a dot import declares **every exported package-block identifier** in the importing file's file block. Concrete wrong result: package `q` exports `type New int`; a caller dot-imports `q` and calls `New(x)` as a conversion; another repository package contains the sole free function `New`. v6 sees no dot-import function candidate and lets R5 mint an Exact edge to the unrelated function. The same proof must reject a non-function export or collision from any dot-imported package before deciding that a name is absent.
+
+The per-occurrence shadow mechanism is also not bounded by the cited `receiver_type_in_fn` pattern. That walker covers input parameters plus selected local forms, but not named result parameters or `select` receive declarations. For `func f() (New func()) { New() }` in a file that dot-imports a package exporting `func New`, the named result variable is the callee; a literal reuse of the cited pattern can record “unshadowed” and mint the imported function Exact. Method receiver names, local `const`/`type` declarations, ordinary import names, function-literal results, and communication-clause scopes belong to the same namespace obligation. Parse recovery must be an explicit terminal-unknown state, not the boolean default for “no shadow found.”
+
+Bounded prerequisite for a future redesign: define one Go-spec-derived name-occupancy proof with (a) a package-directory index of all exported package-block declarations and their kinds, (b) file/package-block collision evidence, and (c) an occurrence-aware local-scope classifier covering method receivers, input and result parameters, `var`/`const`/`type`, `:=`, range, type-switch, select receive, and nested function-literal boundaries. Only a unique exported **function** with no competing declaration of any kind may mint `GoDotImport`; an exported non-function or unproven binding state is a terminal drop. The acceptance matrix must contain one red fixture per enumerated form plus before/after and sibling-scope controls.
+
+Confidence increases with the Go specification's single-namespace/file-block rules, the current R5 implementation, and source confirmation that the cited walker omits named results and communication clauses. It would decrease if an earlier type-resolved consumer terminally filtered conversions and func-value calls before `resolve_call_site_full`; no such gate appears in the rebound source. It collapses if an end-to-end pre-rung proof already makes every non-function or shadowed shape unreachable in production.
+
+### WRONG 2 — an empty package clause is silently ignored
+
+`GoBuildProfile::extract_go_file_profile` maps a missing or unrecovered package clause to `""`. The module graph proves import paths from manifest topology and directory location without consulting that clause. V6 nevertheless says to collect only **nonempty** clauses and qualify the directory when exactly one remains. Concrete wrong result: an imported directory contains one ordinary `package q` file exporting `New` plus one parsed ordinary Go file whose package clause is missing/recovered as empty. Both files are module-path-proven; the empty profile is discarded; `{q}` remains; v6 can mint `q.New` Exact even though the directory namespace was not fully proven.
+
+Bounded prerequisite for a future redesign: every non-test Go file in a candidate directory must have a nonempty package clause and a parse/build profile admissible for exact proof. Any empty clause, relevant parse recovery, or unparsed build expression poisons the directory. Add a red fixture containing one valid ordinary file and one ordinary empty-clause/recovery file, plus a clean exact-base control.
+
+Confidence increases with `go_build_profile.rs:64-76` and `go_module_graph/identity.rs:23-53`, which directly establish the empty string and path-only proof mechanisms. It would decrease if candidate enumeration independently rejected every empty-profile file before clause-set qualification. It collapses if the imported directory is made path-unproven upstream whenever any ordinary file lacks a package clause.
+
+### SMELLs carried into any future redesign
+
+- **Purpose, not scope:** current `prism review` normally builds a full CPG, and `build_scoped` itself falls back to full above its scope threshold. “Disabled in review” therefore needs an explicit consumer-purpose mode threaded through full, scoped, scoped-to-full, incremental, cache-load/save, navigation, and MCP construction. Inferring the mode from `CpgContext::scope` is insufficient. Cache tests must pin both directions on ordinary full review as well as the scoped fallback.
+- **One dot-import truth store:** current main already serializes `go_dot_import_files`. A future per-file path map should replace or canonically extend that marker, with marker membership derived from map keys, rather than maintain two independently mutable whole-program fields.
+- **Re-cut authority:** use exact current base/cache versions and fresh corpus/oracle controls at implementation time; the historical `15cb62c`, line references, and proposed `49/18` transition are stale.
+
+No implementation, cache transition, corpus rerun, or Tier-A run is authorized from v6. A future owner decision may commission a fresh design cap from the bounded prerequisites above; it must not resume as “fold v7” inside this exhausted loop.
