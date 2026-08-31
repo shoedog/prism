@@ -90,7 +90,7 @@ Review round 2 found zero `WRONG` and one bounded `SMELL`: two metadata lines re
 
 ## 7. Publication and next queue
 
-Publication is pending a docs-only commit, PR, required non-coverage CI, and merge. The branch is based exactly on `fe506487e4629757a8f9d7afeaa8fa033c193489`; the primary `/Users/wesleyjinks/code/slicing` worktree remains untouched and dirty only with its pre-existing untracked entries.
+Publication is complete. PR #217 squash-merged at 2026-08-31T03:02:35Z as `d293f7119a070424bee1669a369c30c8da46bed5`. Format Check, Clippy Lint, Test Suite (including MCP tests), and Language Coverage Matrix passed. Coverage was pending and intentionally not awaited. The first `gh pr merge --delete-branch` process returned a local error because `main` is already checked out in `/Users/wesleyjinks/code/slicing`; a direct PR-state query confirmed that the server-side merge had completed, so the error is local cleanup only. The primary worktree remains untouched and dirty only with its pre-existing untracked entries.
 
 After publication, rebind the next open implementation rather than trusting the stale August 23 ordering. Already merged: oracle tag-set coverage (#189), R1(b) promoted routing (#190), docs/hygiene (#188/#194), return-flow taint (#193), receiver provenance (#209–#214), and #16 (#215/#216). The latest durable queue still names #13 Go-first sound Level-3 callbacks (measurement gate met) and #4b dot-import implementation (settled design, intended after #16); choose only after rebinding current branches, artifacts, and exact main.
 
@@ -99,12 +99,14 @@ After publication, rebind the next open implementation rather than trusting the 
 | Item | Value |
 |---|---|
 | Branch | `p18-rta-empty-live-fallback` |
+| Closeout branch | `p18-rta-empty-live-fallback-closeout` |
 | Worktree | `/Users/wesleyjinks/code/slicing-18-rta-fallback` |
 | Exact base | `fe506487e4629757a8f9d7afeaa8fa033c193489` |
 | Historical row commit | `18b585a50` |
 | Owner-qualified helper commit | `b529d295` |
 | #16 implementation merge | PR #215 · `d21c8cb4ae4f4a2a6b43ce66ea4ed5a76f8a15a9` |
 | #16 docs closeout / current base | PR #216 · `fe506487e4629757a8f9d7afeaa8fa033c193489` |
+| #18 publication | PR #217 · `d293f7119a070424bee1669a369c30c8da46bed5` |
 | Review cap | `2` |
 
 Not verified here: a fresh full suite, Tier-A, new corpus builds, or new oracle execution. Those checks exercised the same executable main during #16 and are unnecessary for this docs-only no-behavior diff. Focused guards, format, check, ordinary Clippy, and diff validation passed locally. Coverage is intentionally not awaited under owner direction.
