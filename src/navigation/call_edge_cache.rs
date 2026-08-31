@@ -57,7 +57,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v20: package-variable receivers carry defining-file owners (paired with CPG v52).
 // v21: admissible unshadowed caller-local receivers carry owners (paired with CPG v53).
 // v22: recovered Go receivers without a proven owner drop terminally (paired with CPG v54).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 22;
+// v23: #16 owner-proven R3 consult removes bare-interface fallback edges while
+// preserving the existing func-value-field continuation (CPG remains v54).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 23;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";

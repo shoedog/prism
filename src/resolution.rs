@@ -1058,15 +1058,6 @@ impl<'a> ResolutionOutcome<'a> {
             telemetry,
         }
     }
-
-    fn with_go_unproven_bare_fallback(mut self, attempted: bool, edges: usize) -> Self {
-        if attempted {
-            self.telemetry.go_unproven_receiver_bare_fallback_sites += 1;
-            self.telemetry.go_unproven_receiver_bare_fallback_hits += usize::from(edges > 0);
-            self.telemetry.go_unproven_receiver_bare_fallback_edges += edges;
-        }
-        self
-    }
 }
 
 fn exact<'a>(
@@ -1771,7 +1762,7 @@ impl CallGraph {
         }
     }
 
-    pub(crate) fn go_proven_interface_census_outcome<'a>(
+    pub(crate) fn go_proven_interface_outcome<'a>(
         &'a self,
         site: &CallSite,
         owner: &GoOwnerIdentity,
@@ -1944,8 +1935,9 @@ impl CallGraph {
     }
 
     /// P5 S3 (Go func-value callbacks): consulted from the Go interface-consult
-    /// miss path (resolve_call_site_full), ONLY after concrete `owner_lookup`
-    /// AND `interface_impls` have both missed or arity-filtered to empty.
+    /// empty path (resolve_call_site_full and the interface manifest), ONLY
+    /// after concrete `owner_lookup` and the owner-proven interface subconsult
+    /// have both produced no target.
     /// `(recv_ty, proven_owner, name)` carries the receiver's recovered static
     /// type, any package identity already proven by S1/S2, and the called
     /// method/field name — e.g. `cmd.Run()` with `recv_ty = "Command"`,
@@ -1959,7 +1951,7 @@ impl CallGraph {
     /// unresolvable/ambiguous owner identity, or a field that isn't
     /// func-typed all fall through to the existing `ExternalReceiver` drop —
     /// unchanged behavior for every case S1/S2 can't confirm.
-    fn func_value_field_or_external_drop(
+    pub(crate) fn func_value_field_or_external_drop(
         &self,
         recv_ty: &str,
         proven_owner: Option<&GoOwnerIdentity>,
@@ -3079,82 +3071,16 @@ impl CallGraph {
                                         )
                                     };
                                 }
-                                match crate::resolution::iface_key(recv_ty) {
-                                    Some(k) => {
-                                        let unproven_bare_fallback = matches!(
-                                            go_route.as_ref(),
-                                            Some(crate::go_concrete_receiver::GoConcreteReceiverRoute::Unproven)
-                                        );
-                                        match self.interface_impls.get(&(k, name.to_string())) {
-                                            Some(ids) if !ids.is_empty() => {
-                                                // Arity-disambiguate the name-keyed candidate set
-                                                // (shared helper; same filter runs in
-                                                // interface_dispatch_manifest). An emptied set takes
-                                                // the existing no-impl drop path — do NOT fall through.
-                                                let kept = crate::resolution::arity_filter(
-                                                    ids,
-                                                    site.arg_count,
-                                                    site.arg_spread,
-                                                    &self.method_arity,
-                                                );
-                                                if kept.is_empty() {
-                                                    // P5 S3: interface dispatch arity-filtered to
-                                                    // empty — try the func-typed-field registration
-                                                    // index before the ExternalReceiver drop.
-                                                    return self
-                                                        .func_value_field_or_external_drop(
-                                                            recv_ty,
-                                                            site.receiver_owner_identity.as_ref(),
-                                                            name,
-                                                            &site.caller.file,
-                                                        )
-                                                        .with_go_unproven_bare_fallback(
-                                                            unproven_bare_fallback,
-                                                            0,
-                                                        );
-                                                } else {
-                                                    let edges = kept.len();
-                                                    return ResolutionOutcome::hit(exact(
-                                                        kept,
-                                                        ResolutionKind::InterfaceDispatch,
-                                                    ))
-                                                    .with_go_unproven_bare_fallback(
-                                                        unproven_bare_fallback,
-                                                        edges,
-                                                    );
-                                                }
-                                            }
-                                            _ => {
-                                                // P5 S3: no interface impls at all for this
-                                                // (interface, method) — try the func-typed-field
-                                                // registration index before the drop.
-                                                return self
-                                                    .func_value_field_or_external_drop(
-                                                        recv_ty,
-                                                        site.receiver_owner_identity.as_ref(),
-                                                        name,
-                                                        &site.caller.file,
-                                                    )
-                                                    .with_go_unproven_bare_fallback(
-                                                        unproven_bare_fallback,
-                                                        0,
-                                                    );
-                                            }
-                                        }
-                                    }
-                                    None => {
-                                        // `recv_ty` had no bare name at all (`iface_key` returns
-                                        // `None` only for a generic instantiation, e.g. `Foo[T]`) —
-                                        // still worth an S3 attempt since func-value-field owner
-                                        // resolution works directly off `recv_ty`, not `iface_key`.
-                                        return self.func_value_field_or_external_drop(
-                                            recv_ty,
-                                            site.receiver_owner_identity.as_ref(),
-                                            name,
-                                            &site.caller.file,
-                                        );
-                                    }
-                                }
+                                // #16: this is the surviving owner-bearing R3 seam. The
+                                // carried declaration identity is the only interface authority;
+                                // never re-enter the bare `interface_impls` table. Empty or
+                                // invalid interface results continue once through the existing
+                                // func-value-field terminal helper.
+                                let owner = site.receiver_owner_identity.as_ref().expect(
+                                    "terminal Go receiver predicate admitted an owner-bearing site",
+                                );
+                                let (_, outcome) = self.go_proven_interface_outcome(site, owner);
+                                return outcome;
                             }
                             None => {
                                 return ResolutionOutcome::dropped(DropReason::ExternalReceiver);

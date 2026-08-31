@@ -769,7 +769,7 @@ mod p16_census_tests {
     use crate::ast::ParsedFile;
     use crate::call_graph::CallGraph;
     use crate::languages::Language;
-    use crate::resolution::{GoOwnerIdentity, GoProvenInterfaceRoute};
+    use crate::resolution::{DropReason, GoOwnerIdentity, GoProvenInterfaceRoute};
     use std::collections::{BTreeMap, BTreeSet};
 
     fn build_go(sources: &[(&str, &str)]) -> CallGraph {
@@ -863,6 +863,92 @@ mod p16_census_tests {
     }
 
     #[test]
+    fn p16_consult_admits_guarded_promoted_supply_and_rejects_signature_mismatch() {
+        let mut cg = build_go(&[(
+            "pkg/types.go",
+            "package p\ntype I interface{ M(int) }\ntype Base struct{}\nfunc (Base) M(int) {}\ntype T struct{ Base }\n",
+        )]);
+        let interface_owner = cg
+            .go_interface_declarations
+            .keys()
+            .find(|owner| owner.name == "I")
+            .expect("I owner")
+            .clone();
+        cg.go_interface_live_types.insert("T".to_string());
+
+        let promoted =
+            cg.go_proven_interface_consult(&interface_owner, "M", "pkg/types.go", Some(1), false);
+        assert_eq!(promoted.route, GoProvenInterfaceRoute::LiveHit);
+        assert_eq!(promoted.all_satisfiers, 1);
+        assert_eq!(promoted.live_satisfiers, 1);
+        assert_eq!(promoted.final_satisfiers, 1);
+        assert_eq!(promoted.promoted, Default::default());
+        let target = promoted.selection.value.expect("promoted target")[0];
+        assert_eq!(target.name, "M");
+        assert_eq!(target.file, "pkg/types.go");
+
+        let mismatch = build_go(&[(
+            "pkg/types.go",
+            "package p\ntype I interface{ M(int) }\ntype Base struct{}\nfunc (Base) M(string) {}\ntype T struct{ Base }\n",
+        )]);
+        let mismatch_owner = mismatch
+            .go_interface_declarations
+            .keys()
+            .find(|owner| owner.name == "I")
+            .expect("mismatch I owner");
+        let rejected = mismatch.go_proven_interface_consult(
+            mismatch_owner,
+            "M",
+            "pkg/types.go",
+            Some(1),
+            false,
+        );
+        assert_eq!(rejected.route, GoProvenInterfaceRoute::WalkDrop);
+        assert_eq!(rejected.final_satisfiers, 0);
+        assert_eq!(rejected.promoted.signature_drop, 1);
+    }
+
+    #[test]
+    fn p16_consult_filters_uncertain_owner_before_live_selection() {
+        let mut cg = build_go(&[
+            ("pkg/interface.go", "package p\ntype I interface{ M() }\n"),
+            (
+                "pkg/good.go",
+                "package p\ntype Good struct{}\nfunc (Good) M() {}\n",
+            ),
+            (
+                "pkg/bad.go",
+                "package p\ntype Bad struct{}\nfunc (Bad) M() {}\n",
+            ),
+        ]);
+        let interface_owner = cg
+            .go_interface_declarations
+            .keys()
+            .find(|owner| owner.name == "I")
+            .expect("I owner")
+            .clone();
+        cg.go_file_profiles.remove("pkg/bad.go");
+        cg.go_interface_live_types.insert("Bad".to_string());
+
+        let consult = cg.go_proven_interface_consult(
+            &interface_owner,
+            "M",
+            "pkg/interface.go",
+            Some(0),
+            false,
+        );
+        assert_eq!(consult.route, GoProvenInterfaceRoute::FallbackHit);
+        assert_eq!(consult.all_satisfiers, 1);
+        assert_eq!(consult.live_satisfiers, 0);
+        assert_eq!(consult.final_satisfiers, 1);
+        assert!(consult.selection.evidence.recovered);
+        assert!(!consult.selection.evidence.conflict);
+        assert!(!consult.selection.evidence.uncertain);
+        let target = consult.selection.value.expect("fallback target")[0];
+        assert_eq!(target.file, "pkg/good.go");
+    }
+
+    #[test]
     fn p16_census_target_identity_is_package_qualified() {
         let cg = build_go(&[(
             "pkg/types.go",
@@ -890,7 +976,7 @@ mod p16_census_tests {
     }
 
     #[test]
-    fn p16_census_uses_actual_resolver_legacy_arm_not_manifest_proxy() {
+    fn p16_production_retires_actual_resolver_legacy_arm() {
         let mut cg = build_go(&[
             (
                 "p/main.go",
@@ -919,36 +1005,28 @@ mod p16_census_tests {
         let current = cg.resolve_call_site_full(&call);
         assert_eq!(
             current.telemetry.go_unproven_receiver_bare_fallback_sites,
-            1
+            0
         );
-        assert_eq!(current.telemetry.go_unproven_receiver_bare_fallback_hits, 1);
-        assert_eq!(current.resolved.len(), 1);
-        assert_eq!(current.resolved[0].target.file, "q/types.go");
+        assert_eq!(current.telemetry.go_unproven_receiver_bare_fallback_hits, 0);
+        assert_eq!(
+            current.telemetry.go_unproven_receiver_bare_fallback_edges,
+            0
+        );
+        assert!(current.resolved.is_empty(), "{current:?}");
+        assert_eq!(current.drop, Some(DropReason::ExternalReceiver));
 
         let manifest = interface_dispatch_manifest_inner(&cg, true);
         let candidates = manifest["p16_candidates"]
             .as_array()
             .expect("candidate ledger");
-        assert_eq!(candidates.len(), 1, "{manifest:#}");
-        let row = &candidates[0];
-        assert_eq!(row["owner"]["package_dir"], "p");
-        assert_eq!(row["manifest_dispatch_route"], "unproven_drop");
-        assert_eq!(row["manifest_legacy_bare"], false);
-        assert_eq!(row["route"], "invalid_drop");
-        assert_eq!(row["current_table_targets"][0]["file"], "q/types.go");
-        assert_eq!(row["current_table_targets"][0]["function_name"], "M");
-        assert!(row["candidate_terminal_targets"]
-            .as_array()
-            .expect("candidate targets")
-            .is_empty());
-        assert_eq!(
-            row["lost_targets"].as_array().expect("lost targets").len(),
-            1
-        );
-        assert!(row["added_targets"]
-            .as_array()
-            .expect("added targets")
-            .is_empty());
+        assert!(candidates.is_empty(), "{manifest:#}");
+        let rows = manifest["sites"].as_array().expect("ordinary sites");
+        let row = rows
+            .iter()
+            .find(|row| row["file"] == "p/main.go" && row["method"] == "M")
+            .expect("run M row");
+        assert_eq!(row["dispatch_route"], "unproven_drop", "{manifest:#}");
+        assert_eq!(row["fanout"], 0, "{manifest:#}");
     }
 
     #[test]
@@ -1100,8 +1178,9 @@ fn interface_dispatch_manifest_inner(
                 &site.caller.file,
             );
             let mut visibility_interface = None;
-            let mut legacy_bare = false;
-            let mut dispatch_route;
+            let legacy_bare = false;
+            let mut terminal_targets: Option<Vec<&FunctionId>> = None;
+            let dispatch_route;
             let impls: &[FunctionId];
             match &go_route {
                 crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. } => {
@@ -1201,10 +1280,6 @@ fn interface_dispatch_manifest_inner(
                                 .is_some_and(|selection| selection.value == Some(true))
                         })
                         .cloned();
-                    let proven_concrete_owner = site.receiver_owner_identity.is_some()
-                        && interface_presence
-                            .as_ref()
-                            .is_some_and(|selection| selection.value == Some(false));
                     if let Some(interface_name) = s4_route.value {
                         dispatch_route = "embedded_interface_dispatch";
                         visibility_interface = Some((
@@ -1216,7 +1291,7 @@ fn interface_dispatch_manifest_inner(
                             .get(&(interface_name, site.callee_name.clone()))
                             .map(Vec::as_slice)
                             .unwrap_or(&[]);
-                    } else if s4_blocked || direct_interface_blocked || proven_concrete_owner {
+                    } else if s4_blocked || direct_interface_blocked {
                         dispatch_route = "unproven_drop";
                         impls = &[];
                     } else if let Some(owner) = proven_interface_owner {
@@ -1232,14 +1307,32 @@ fn interface_dispatch_manifest_inner(
                             interface_name,
                         ));
                     } else {
-                        dispatch_route = "unproven_drop";
-                        legacy_bare = true;
-                        impls = crate::resolution::iface_key(recv_ty)
-                            .and_then(|key| {
-                                cg.interface_impls.get(&(key, site.callee_name.clone()))
+                        let owner = site.receiver_owner_identity.as_ref().expect(
+                            "terminal Go receiver predicate admitted an owner-bearing site",
+                        );
+                        let (consult, outcome) = cg.go_proven_interface_outcome(site, owner);
+                        dispatch_route = if consult.final_satisfiers > 0 {
+                            "interface_dispatch"
+                        } else if outcome
+                            .resolved
+                            .iter()
+                            .any(|resolved| {
+                                resolved.kind
+                                    == crate::resolution::ResolutionKind::FuncValueField
                             })
-                            .map(Vec::as_slice)
-                            .unwrap_or(&[]);
+                        {
+                            "func_value_field"
+                        } else {
+                            "unproven_drop"
+                        };
+                        terminal_targets = Some(
+                            outcome
+                                .resolved
+                                .iter()
+                                .map(|resolved| resolved.target)
+                                .collect(),
+                        );
+                        impls = &[];
                     }
                 }
             }
@@ -1248,39 +1341,40 @@ fn interface_dispatch_manifest_inner(
             // set the resolver would mint. Same shared helper as the resolution mint;
             // an emptied set yields implementers: [] / fanout: 0. The oracle reads this
             // manifest, so the filter MUST run here too, not just in resolution.rs.
-            let kept = crate::resolution::arity_filter(
-                impls,
-                site.arg_count,
-                site.arg_spread,
-                &cg.method_arity,
-            );
-            let kept = if let Some((owner, interface_name)) = visibility_interface.as_ref() {
-                cg.go_visible_s4_implementers(
-                    recv_ty,
-                    owner.as_ref(),
-                    interface_name,
-                    &site.callee_name,
-                    &site.caller.file,
-                    kept,
-                )
-                .value
-                .unwrap_or_default()
+            let terminal_targets_authoritative = terminal_targets.is_some();
+            let kept = if let Some(targets) = terminal_targets {
+                targets
             } else {
-                kept
-            };
-            let kept: Vec<&FunctionId> = kept
-                .into_iter()
-                .filter(|target| {
-                    crate::resolution::arity_admits(
-                        site.arg_count,
-                        site.arg_spread,
-                        cg.method_arity.get(*target),
+                let kept = crate::resolution::arity_filter(
+                    impls,
+                    site.arg_count,
+                    site.arg_spread,
+                    &cg.method_arity,
+                );
+                let kept = if let Some((owner, interface_name)) = visibility_interface.as_ref() {
+                    cg.go_visible_s4_implementers(
+                        recv_ty,
+                        owner.as_ref(),
+                        interface_name,
+                        &site.callee_name,
+                        &site.caller.file,
+                        kept,
                     )
-                })
-                .collect();
-            if legacy_bare && !kept.is_empty() {
-                dispatch_route = "interface_dispatch";
-            }
+                    .value
+                    .unwrap_or_default()
+                } else {
+                    kept
+                };
+                kept.into_iter()
+                    .filter(|target| {
+                        crate::resolution::arity_admits(
+                            site.arg_count,
+                            site.arg_spread,
+                            cg.method_arity.get(*target),
+                        )
+                    })
+                    .collect()
+            };
             if let Some(current_outcome) = p16_current_outcome
                 .as_ref()
                 .filter(|outcome| outcome.telemetry.go_unproven_receiver_bare_fallback_sites > 0)
@@ -1289,8 +1383,7 @@ fn interface_dispatch_manifest_inner(
                     .receiver_owner_identity
                     .as_ref()
                     .expect("terminal provenance predicate admitted owner-bearing site");
-                let (consult, candidate_outcome) =
-                    cg.go_proven_interface_census_outcome(site, owner);
+                let (consult, candidate_outcome) = cg.go_proven_interface_outcome(site, owner);
                 let current_table_identities = if current_outcome
                     .telemetry
                     .go_unproven_receiver_bare_fallback_hits
@@ -1405,6 +1498,14 @@ fn interface_dispatch_manifest_inner(
             let implementer_identities = interface_manifest_target_identity_values(
                 &interface_manifest_target_identities(cg, kept.iter().copied()),
             );
+            // Consult-terminal rows carry the resolver's exact targets. Their legacy
+            // owner labels may collapse multiple callbacks from the same file, so
+            // report exact target cardinality without changing interface-route fanout.
+            let fanout = if terminal_targets_authoritative {
+                implementer_identities.len()
+            } else {
+                implementers.len()
+            };
             sites.push(serde_json::json!({
                 "file": site.caller.file,
                 "start_byte": site.start_byte,
@@ -1413,7 +1514,7 @@ fn interface_dispatch_manifest_inner(
                 "receiver_class": class(recovery),
                 "method": site.callee_name,
                 "dispatch_route": dispatch_route,
-                "fanout": implementers.len(),
+                "fanout": fanout,
                 "implementers": implementers,
                 "implementer_identities": implementer_identities,
             }));

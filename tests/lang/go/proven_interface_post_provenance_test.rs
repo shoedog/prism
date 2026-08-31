@@ -40,6 +40,38 @@ fn func_field_collision_fixture(registered: bool) -> CallGraph {
     ])
 }
 
+fn multi_func_field_collision_fixture() -> CallGraph {
+    build_go(&[
+        (
+            "app/types.go",
+            "package app\n\
+             type S struct{ Run func() }\n\
+             func workerA() {}\n\
+             func workerB() {}\n\
+             func retainA() { _ = S{Run: workerA} }\n\
+             func retainB() { _ = S{Run: workerB} }\n\
+             func New() S { return S{} }\n",
+        ),
+        (
+            "app/use.go",
+            "package app\n\
+             func invoke() {\n\
+               type S struct{}\n\
+               c := New()\n\
+               c.Run()\n\
+             }\n",
+        ),
+        (
+            "decoy/types.go",
+            "package decoy\n\
+             type S interface{ Run() }\n\
+             type Wrong struct{}\n\
+             func (Wrong) Run() {}\n\
+             func retain() { var _ S = Wrong{} }\n",
+        ),
+    ])
+}
+
 fn site(cg: &CallGraph) -> &CallSite {
     cg.calls
         .values()
@@ -124,6 +156,62 @@ fn interface_manifest_go_proven_interface_parity() {
         serde_json::json!([target.start_line, target.end_line]),
         "{manifest:#}"
     );
+}
+
+#[test]
+fn interface_manifest_go_proven_interface_multi_target_parity() {
+    let cg = multi_func_field_collision_fixture();
+    let call = site(&cg);
+    assert_source_reachable_legacy_seam(call);
+
+    let outcome = cg.resolve_call_site_full(call);
+    assert_eq!(outcome.resolved.len(), 2, "{outcome:?}");
+    let expected: std::collections::BTreeSet<_> = outcome
+        .resolved
+        .iter()
+        .map(|resolved| {
+            (
+                resolved.target.file.clone(),
+                resolved.target.start_line,
+                resolved.target.end_line,
+            )
+        })
+        .collect();
+    assert_eq!(
+        outcome
+            .resolved
+            .iter()
+            .map(|resolved| resolved.target.name.as_str())
+            .collect::<std::collections::BTreeSet<_>>(),
+        std::collections::BTreeSet::from(["workerA", "workerB"]),
+        "{outcome:?}"
+    );
+
+    let manifest = prism::navigation::queries::interface_dispatch_manifest(&cg);
+    let row = manifest["sites"]
+        .as_array()
+        .expect("manifest sites")
+        .iter()
+        .find(|row| row["file"] == "app/use.go" && row["method"] == "Run")
+        .unwrap_or_else(|| panic!("missing invoke Run row: {manifest:#}"));
+    assert_eq!(row["dispatch_route"], "func_value_field", "{manifest:#}");
+    assert_eq!(row["fanout"], 2, "{manifest:#}");
+    let actual: std::collections::BTreeSet<_> = row["implementer_identities"]
+        .as_array()
+        .expect("implementer identities")
+        .iter()
+        .map(|identity| {
+            (
+                identity["file"]
+                    .as_str()
+                    .expect("identity file")
+                    .to_string(),
+                identity["span"][0].as_u64().expect("start line") as usize,
+                identity["span"][1].as_u64().expect("end line") as usize,
+            )
+        })
+        .collect();
+    assert_eq!(actual, expected, "{manifest:#}");
 }
 
 #[test]

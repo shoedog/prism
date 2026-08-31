@@ -6,7 +6,7 @@
 **Owner authority:** successor continuation, push, and merge are authorized after gates; relevant non-coverage CI is mandatory and Coverage is not a wait condition.
 **Review caps:** design `2` rounds (complete, plus one disclosed scoped confirmation and one bounded preflight artifact correction); implementation `2` rounds.
 
-**Execution status (2026-08-31): ACTIVE at Task 2.** The corrected Task 1 census selected zero candidate sites across all five pinned corpora. The owner authorized a source-fixture and exact-base RED substitute; v16 binds it to every source-reachable legacy outcome after review round 1 proved four consult outcomes exit earlier in production. See `docs/superpowers/handoffs/2026-08-31-go-interface-identity-task1-census-evidence.md`.
+**Execution status (2026-08-31): ACTIVE at Task 4.** Task 2's public source fixtures and exact-base RED controls pass v16's replacement floor, and Task 3 switches both consumers plus sidecar version `23`. Implementation review round 1 closed with zero open `WRONG` and zero open in-scope `SMELL`. See `docs/superpowers/handoffs/2026-08-31-go-interface-identity-task2-red-evidence.md`.
 
 ## Goal and boundary
 

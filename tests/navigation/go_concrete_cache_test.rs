@@ -372,7 +372,7 @@ fn navigation_sidecar_go_proven_interface_parity() {
     write(
         repo_dir.path(),
         "app/types.go",
-        "package app\ntype S struct{ Run func() }\nfunc worker() {}\nfunc New() S { return S{Run: worker} }\n",
+        "package app\ntype S struct{ Run func() }\nfunc workerA() {}\nfunc workerB() {}\nfunc retainA() { _ = S{Run: workerA} }\nfunc retainB() { _ = S{Run: workerB} }\nfunc New() S { return S{} }\n",
     );
     write(
         repo_dir.path(),
@@ -399,8 +399,12 @@ fn navigation_sidecar_go_proven_interface_parity() {
     let cold_edges = queries::callees(&cold, Some("invoke"), Some("app/use.go"), None, 1).unwrap();
     assert_eq!(no_cache_edges, cold_edges);
     assert!(
-        evidence_has_function(&no_cache_edges, "app/types.go", "worker"),
-        "registered func-field target absent: {no_cache_edges:#?}"
+        evidence_has_function(&no_cache_edges, "app/types.go", "workerA"),
+        "first registered func-field target absent: {no_cache_edges:#?}"
+    );
+    assert!(
+        evidence_has_function(&no_cache_edges, "app/types.go", "workerB"),
+        "second registered func-field target absent: {no_cache_edges:#?}"
     );
     assert!(
         !evidence_has_function(&no_cache_edges, "decoy/types.go", "Run"),
