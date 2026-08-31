@@ -25,6 +25,353 @@ pub struct FunctionId {
 }
 
 #[cfg(test)]
+mod go_level3_callback_tests {
+    use super::*;
+    use crate::languages::Language;
+
+    fn build_go(source: &str) -> CallGraph {
+        let files = BTreeMap::from([(
+            "callback.go".to_string(),
+            ParsedFile::parse("callback.go", source, Language::Go).expect("parse Go fixture"),
+        )]);
+        CallGraph::build(&files)
+    }
+
+    fn build_go_module(files: &[(&str, &str)], module: &str) -> CallGraph {
+        let files = files
+            .iter()
+            .map(|(path, source)| {
+                (
+                    (*path).to_string(),
+                    ParsedFile::parse(path, source, Language::Go).expect("parse Go fixture"),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+        let root = tempfile::tempdir().expect("temporary Go module");
+        std::fs::write(
+            root.path().join("go.mod"),
+            format!("module {module}\n\ngo 1.24\n"),
+        )
+        .expect("write go.mod fixture");
+        let inputs = crate::repo_loader::scope_graph_build_inputs(root.path(), &files);
+        CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs))
+    }
+
+    fn function<'a>(graph: &'a CallGraph, name: &str) -> &'a FunctionId {
+        graph.functions[name].first().expect("function")
+    }
+
+    #[test]
+    fn level3_literal_callback_mints_exact_target_at_hof_invocation() {
+        let graph = build_go(
+            "package p\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\nfunc caller() { invoke(safe) }\n",
+        );
+        let invoke = function(&graph, "invoke");
+        let safe = function(&graph, "safe");
+        let sites = graph
+            .calls
+            .get(invoke)
+            .into_iter()
+            .flatten()
+            .filter(|site| site.origin == CallSiteOrigin::IndirectResolution)
+            .collect::<Vec<_>>();
+
+        assert_eq!(graph.level3_indirect_resolved, 1);
+        assert_eq!(sites.len(), 1);
+        assert_eq!(sites[0].callee_name, "safe");
+        assert_eq!(sites[0].source_callee_name.as_deref(), Some("cb"));
+        assert_eq!(sites[0].pre_resolved_target.as_ref(), Some(safe));
+        assert_eq!(graph.go_level3_b1_telemetry.candidates, 1);
+        assert_eq!(graph.go_level3_b1_telemetry.exact_inbound_sites, 1);
+        assert_eq!(graph.go_level3_b1_telemetry.accepted_inbound_sites, 1);
+        assert_eq!(graph.go_level3_b1_telemetry.unique_targets, 1);
+        assert_eq!(graph.go_level3_b1_telemetry.edges, 1);
+        assert!(graph.go_level3_b1_telemetry.drops.is_empty());
+        let resolved = graph.resolve_call_site_full(sites[0]);
+        assert_eq!(resolved.resolved.len(), 1);
+        assert_eq!(resolved.resolved[0].target, safe);
+        assert_eq!(
+            resolved.resolved[0].confidence,
+            crate::resolution::ResolutionConfidence::Exact
+        );
+        assert_eq!(
+            resolved.resolved[0].kind,
+            crate::resolution::ResolutionKind::ParameterCallback
+        );
+    }
+
+    #[test]
+    fn level3_named_grouped_callback_uses_nonzero_slot() {
+        let graph = build_go(
+            "package p\ntype Handler func(int)\nfunc invoke(prefix string, cb Handler) { cb(1) }\nfunc safe(value int) {}\nfunc caller() { invoke(\"x\", safe) }\n",
+        );
+        let invoke = function(&graph, "invoke");
+        let safe = function(&graph, "safe");
+
+        assert!(graph.calls[invoke].iter().any(|site| {
+            site.origin == CallSiteOrigin::IndirectResolution
+                && site.pre_resolved_target.as_ref() == Some(safe)
+        }));
+    }
+
+    #[test]
+    fn level3_qualified_hof_requires_exact_import_identity() {
+        let graph = build_go_module(
+            &[
+                (
+                    "lib/hof.go",
+                    "package lib\nfunc Invoke(cb func()) { cb() }\n",
+                ),
+                (
+                    "app/main.go",
+                    "package app\nimport callback \"example.com/project/lib\"\nfunc safe() {}\nfunc caller() { callback.Invoke(safe) }\n",
+                ),
+            ],
+            "example.com/project",
+        );
+        let invoke = graph.functions["Invoke"]
+            .iter()
+            .find(|function| function.file == "lib/hof.go")
+            .expect("Invoke");
+        let safe = graph.functions["safe"]
+            .iter()
+            .find(|function| function.file == "app/main.go")
+            .expect("safe");
+
+        assert!(graph.calls[invoke].iter().any(|site| {
+            site.origin == CallSiteOrigin::IndirectResolution
+                && site.source_callee_name.as_deref() == Some("cb")
+                && site.pre_resolved_target.as_ref() == Some(safe)
+        }));
+    }
+
+    #[test]
+    fn level3_negative_cases_conserve_one_stable_drop() {
+        for (label, source, expected_drop) in [
+            (
+                "target shadow",
+                "package p\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\nfunc caller() { safe := func() {}; invoke(safe) }\n",
+                "local_binding_or_mutation",
+            ),
+            (
+                "hof shadow",
+                "package p\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\nfunc caller() { invoke := func(func()) {}; invoke(safe) }\n",
+                "local_binding_or_mutation",
+            ),
+            (
+                "signature mismatch",
+                "package p\nfunc invoke(cb func(int)) { cb(1) }\nfunc safe(string) {}\nfunc caller() { invoke(safe) }\n",
+                "signature_unproven_or_mismatch",
+            ),
+            (
+                "parameter mutation",
+                "package p\nfunc safe() {}\nfunc other() {}\nfunc invoke(cb func()) { cb = other; cb() }\nfunc caller() { invoke(safe) }\n",
+                "callback_parameter_shadow_or_mutation",
+            ),
+            (
+                "address escape",
+                "package p\nfunc mutate(*func()) {}\nfunc safe() {}\nfunc invoke(cb func()) { mutate(&cb); cb() }\nfunc caller() { invoke(safe) }\n",
+                "callback_parameter_address_escape",
+            ),
+            (
+                "nested invocation",
+                "package p\nfunc safe() {}\nfunc invoke(cb func()) { func() { cb() }() }\nfunc caller() { invoke(safe) }\n",
+                "nested_callable_invocation",
+            ),
+            (
+                "non-bare argument",
+                "package p\nfunc invoke(cb func()) { cb() }\nfunc caller() { invoke(func() {}) }\n",
+                "non_bare_argument",
+            ),
+            (
+                "unknown default import",
+                "package p\nimport \"example.com/external\"\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\nfunc caller() { invoke(safe) }\n",
+                "strict_import_name_unavailable",
+            ),
+            (
+                "dot import",
+                "package p\nimport . \"example.com/external\"\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\nfunc caller() { invoke(safe) }\n",
+                "dot_import",
+            ),
+            (
+                "no direct invocation",
+                "package p\nfunc invoke(cb func()) {}\nfunc safe() {}\nfunc caller() { invoke(safe) }\n",
+                "no_direct_parameter_invocation",
+            ),
+            (
+                "spread argument",
+                "package p\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\nfunc caller() { callbacks := []func(){safe}; invoke(callbacks...) }\n",
+                "missing_slot_or_argument_identity",
+            ),
+        ] {
+            let graph = build_go(source);
+            assert_eq!(graph.level3_indirect_resolved, 0, "{label}");
+            assert_eq!(graph.go_level3_b1_telemetry.candidates, 1, "{label}");
+            assert_eq!(
+                graph.go_level3_b1_telemetry.accepted_inbound_sites,
+                0,
+                "{label}"
+            );
+            assert_eq!(
+                graph
+                    .go_level3_b1_telemetry
+                    .drops
+                    .values()
+                    .sum::<usize>(),
+                1,
+                "{label}"
+            );
+            assert_eq!(
+                graph.go_level3_b1_telemetry.drops.get(expected_drop),
+                Some(&1),
+                "{label}: {:?}",
+                graph.go_level3_b1_telemetry.drops
+            );
+        }
+    }
+
+    #[test]
+    fn level3_variadic_callback_slot_is_not_a_candidate() {
+        let graph = build_go(
+            "package p\nfunc invoke(callbacks ...func()) { callbacks[0]() }\nfunc safe() {}\nfunc caller() { invoke(safe) }\n",
+        );
+
+        assert_eq!(graph.level3_indirect_resolved, 0);
+        assert_eq!(graph.go_level3_b1_telemetry.candidates, 0);
+    }
+
+    #[test]
+    fn level3_preserves_multiple_slots_targets_and_invocation_spans() {
+        let graph = build_go(
+            "package p\nfunc invoke(left, right func()) { left(); right(); left() }\nfunc first() {}\nfunc second() {}\nfunc caller() { invoke(first, second) }\n",
+        );
+        let invoke = function(&graph, "invoke");
+        let indirect = graph.calls[invoke]
+            .iter()
+            .filter(|site| site.origin == CallSiteOrigin::IndirectResolution)
+            .collect::<Vec<_>>();
+
+        assert_eq!(graph.go_level3_b1_telemetry.candidates, 2);
+        assert_eq!(graph.go_level3_b1_telemetry.accepted_inbound_sites, 2);
+        assert_eq!(graph.go_level3_b1_telemetry.unique_targets, 2);
+        assert_eq!(graph.go_level3_b1_telemetry.edges, 3);
+        assert_eq!(indirect.len(), 3);
+        assert_eq!(
+            indirect
+                .iter()
+                .filter(|site| site.callee_name == "first")
+                .map(|site| site.start_byte)
+                .collect::<BTreeSet<_>>()
+                .len(),
+            2
+        );
+        assert_eq!(
+            indirect
+                .iter()
+                .filter(|site| site.callee_name == "second")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn level3_multiple_inbound_targets_share_one_hof_invocation_without_collapsing_identity() {
+        let graph = build_go(
+            "package p\nfunc invoke(cb func()) { cb() }\nfunc first() {}\nfunc second() {}\nfunc caller1() { invoke(first) }\nfunc caller2() { invoke(second) }\n",
+        );
+        let invoke = function(&graph, "invoke");
+        let targets = graph.calls[invoke]
+            .iter()
+            .filter(|site| site.origin == CallSiteOrigin::IndirectResolution)
+            .filter_map(|site| site.pre_resolved_target.as_ref())
+            .map(|target| target.name.as_str())
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(targets, BTreeSet::from(["first", "second"]));
+        assert_eq!(graph.go_level3_b1_telemetry.candidates, 2);
+        assert_eq!(graph.go_level3_b1_telemetry.accepted_inbound_sites, 2);
+        assert_eq!(graph.go_level3_b1_telemetry.edges, 2);
+    }
+
+    #[test]
+    fn level3_same_line_inbound_calls_preserve_distinct_candidate_spans() {
+        let graph = build_go(
+            "package p\nfunc invoke(cb func()) { cb() }\nfunc first() {}\nfunc second() {}\nfunc caller() { invoke(first); invoke(second) }\n",
+        );
+        let starts = graph
+            .go_level3_b1_telemetry
+            .sites
+            .iter()
+            .map(|site| site.inbound_start_byte)
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(graph.go_level3_b1_telemetry.candidates, 2);
+        assert_eq!(graph.go_level3_b1_telemetry.accepted_inbound_sites, 2);
+        assert_eq!(starts.len(), 2);
+    }
+
+    #[test]
+    fn level3_same_named_targets_in_two_packages_keep_exact_file_identity() {
+        let graph = build_go_module(
+            &[
+                ("hof/hof.go", "package hof\nfunc Invoke(cb func()) { cb() }\n"),
+                (
+                    "left/caller.go",
+                    "package left\nimport h \"example.com/project/hof\"\nfunc safe() {}\nfunc caller() { h.Invoke(safe) }\n",
+                ),
+                (
+                    "right/caller.go",
+                    "package right\nimport h \"example.com/project/hof\"\nfunc safe() {}\nfunc caller() { h.Invoke(safe) }\n",
+                ),
+            ],
+            "example.com/project",
+        );
+        let invoke = graph.functions["Invoke"]
+            .iter()
+            .find(|function| function.file == "hof/hof.go")
+            .expect("Invoke");
+        let target_files = graph.calls[invoke]
+            .iter()
+            .filter(|site| site.origin == CallSiteOrigin::IndirectResolution)
+            .filter_map(|site| site.pre_resolved_target.as_ref())
+            .map(|target| target.file.as_str())
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(
+            target_files,
+            BTreeSet::from(["left/caller.go", "right/caller.go"])
+        );
+        assert_eq!(graph.go_level3_b1_telemetry.unique_targets, 2);
+        assert_eq!(graph.go_level3_b1_telemetry.edges, 2);
+    }
+
+    #[test]
+    fn level3_test_file_inbound_site_drops_without_an_edge() {
+        let graph = build_go_module(
+            &[
+                (
+                    "p/callback.go",
+                    "package p\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\n",
+                ),
+                (
+                    "p/callback_test.go",
+                    "package p\nfunc testCaller() { invoke(safe) }\n",
+                ),
+            ],
+            "example.com/project",
+        );
+
+        assert_eq!(graph.go_level3_b1_telemetry.candidates, 1);
+        assert_eq!(graph.go_level3_b1_telemetry.accepted_inbound_sites, 0);
+        assert_eq!(
+            graph.go_level3_b1_telemetry.drops.get("non_go_or_test"),
+            Some(&1)
+        );
+        assert_eq!(graph.go_level3_b1_telemetry.edges, 0);
+    }
+}
+
+#[cfg(test)]
 #[path = "call_graph/promoted_snapshot_consult_test.rs"]
 mod promoted_snapshot_consult_test;
 
@@ -73,6 +420,10 @@ pub enum CallSiteOrigin {
 pub struct CallSite {
     pub caller: FunctionId,
     pub callee_name: String,
+    /// Source expression name used to recover arguments for a synthetic call.
+    /// Ordinary source sites keep `None` and use `callee_name` directly.
+    #[serde(default)]
+    pub source_callee_name: Option<String>,
     pub line: usize,
     // Populated in PR-3 (macro-invocation routing); always Call in PR-2 (macro
     // invocations are not yet call sites).
@@ -133,8 +484,8 @@ pub struct CallSite {
     /// edge cannot coexist with an identical source call-site identity.
     #[serde(default)]
     pub origin: CallSiteOrigin,
-    /// Exact target field retained for serialized-call-site compatibility.
-    /// Level-3 minting is disabled, so new construction leaves this empty.
+    /// Exact target for a proven derived call site. Go B1 Level-3 callback
+    /// construction sets this while ordinary source sites leave it empty.
     #[serde(default)]
     pub pre_resolved_target: Option<FunctionId>,
 }
@@ -344,10 +695,23 @@ pub struct CallGraph {
     /// by source language. Positional consumers fail closed for these functions.
     #[serde(default)]
     pub param_slots_unknown: BTreeMap<crate::languages::Language, usize>,
-    /// Reserved Level-3 telemetry. This remains zero while callback minting is
-    /// disabled fail-closed.
+    /// Number of unique synthetic Go B1 Level-3 callback sites installed.
+    /// Unsupported languages and callback shapes remain fail-closed at zero.
     #[serde(default)]
     pub level3_indirect_resolved: usize,
+    #[serde(default)]
+    pub(crate) go_level3_b1_telemetry: crate::go_callback::GoLevel3Telemetry,
+    /// Strict callable parameter signatures for non-test Go free functions.
+    /// Whole-program derived with interface dispatch; direct subsets leave it empty.
+    #[serde(default)]
+    pub(crate) go_callback_parameters: crate::go_callback::GoCallbackParameterIndex,
+    /// Strict canonical signatures for non-test Go free-function declarations.
+    /// Whole-program derived with interface dispatch; direct subsets leave it empty.
+    #[serde(default)]
+    pub(crate) go_free_function_signatures: crate::go_callback::GoFreeFunctionSignatureIndex,
+    /// Exact per-file effective Go import paths retained for Level-3 occurrence proof.
+    #[serde(default)]
+    pub(crate) go_file_import_paths: BTreeMap<String, String>,
     /// Functions with file-local (static) linkage: `(file, name)` pairs.
     /// Used to disambiguate same-named functions across files.
     pub static_functions: BTreeSet<(String, String)>,
@@ -720,6 +1084,10 @@ impl CallGraph {
             callers: BTreeMap::new(),
             param_slots_unknown: BTreeMap::new(),
             level3_indirect_resolved: 0,
+            go_level3_b1_telemetry: Default::default(),
+            go_callback_parameters: BTreeMap::new(),
+            go_free_function_signatures: BTreeMap::new(),
+            go_file_import_paths: BTreeMap::new(),
             static_functions: BTreeSet::new(),
             imports: BTreeMap::new(),
             methods: BTreeMap::new(),
@@ -916,6 +1284,7 @@ impl CallGraph {
                     let site = CallSite {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
+                        source_callee_name: None,
                         line,
                         kind: meta
                             .kind_override
@@ -961,6 +1330,10 @@ impl CallGraph {
             callers,
             param_slots_unknown: Self::parameter_slots_unknown(files),
             level3_indirect_resolved: 0,
+            go_level3_b1_telemetry: Default::default(),
+            go_callback_parameters: BTreeMap::new(),
+            go_free_function_signatures: BTreeMap::new(),
+            go_file_import_paths: BTreeMap::new(),
             static_functions,
             imports: BTreeMap::new(),
             methods,
@@ -1295,6 +1668,7 @@ impl CallGraph {
                         let site = CallSite {
                             caller: caller_id.clone(),
                             callee_name,
+                            source_callee_name: None,
                             line,
                             kind: meta.kind_override.unwrap_or_else(|| {
                                 Self::call_kind_at(parsed, start_byte, end_byte)
@@ -1370,6 +1744,10 @@ impl CallGraph {
             callers,
             param_slots_unknown: Self::parameter_slots_unknown(files),
             level3_indirect_resolved: 0,
+            go_level3_b1_telemetry: Default::default(),
+            go_callback_parameters: BTreeMap::new(),
+            go_free_function_signatures: BTreeMap::new(),
+            go_file_import_paths: BTreeMap::new(),
             static_functions,
             imports,
             methods,
@@ -1504,7 +1882,7 @@ impl CallGraph {
         // whole-program derived, same rationale as the Go passes above.
         cg.apply_js_export_resolution();
         // Recompute the remaining whole-program indirect passes after all
-        // resolution facts are installed. Level-3 callback minting is disabled.
+        // resolution facts are installed, including Go B1 Level-3 callbacks.
         cg.recompute_indirect_calls(files);
         cg
     }
@@ -1657,6 +2035,7 @@ impl CallGraph {
         // complete files map by `build_direct_subset` / `recompute_indirect_calls`.
         self.param_slots_unknown.clear();
         self.level3_indirect_resolved = 0;
+        self.go_level3_b1_telemetry = Default::default();
         // functions: remove FunctionId entries from excluded files.
         for func_ids in self.functions.values_mut() {
             func_ids.retain(|fid| !exclude.contains(&fid.file));
@@ -1800,6 +2179,7 @@ impl CallGraph {
     pub fn merge(&mut self, other: CallGraph) {
         self.param_slots_unknown = other.param_slots_unknown;
         self.level3_indirect_resolved = other.level3_indirect_resolved;
+        self.go_level3_b1_telemetry = other.go_level3_b1_telemetry;
         for (name, fids) in other.functions {
             self.functions.entry(name).or_default().extend(fids);
         }
@@ -1911,13 +2291,15 @@ impl CallGraph {
 
     pub(crate) fn recompute_indirect_calls(&mut self, files: &BTreeMap<String, ParsedFile>) {
         self.clear_indirect_calls();
-        let (sites, level3_resolved) = self.compute_indirect_call_sites(files);
+        let (sites, level3_telemetry) = self.compute_indirect_call_sites(files);
         self.apply_indirect_call_sites(sites);
-        self.level3_indirect_resolved = level3_resolved;
+        self.level3_indirect_resolved = level3_telemetry.edges;
+        self.go_level3_b1_telemetry = level3_telemetry;
     }
 
     fn clear_indirect_calls(&mut self) {
         self.level3_indirect_resolved = 0;
+        self.go_level3_b1_telemetry = Default::default();
         for sites in self.calls.values_mut() {
             sites.retain(|site| site.origin != CallSiteOrigin::IndirectResolution);
         }
@@ -1932,7 +2314,10 @@ impl CallGraph {
     fn compute_indirect_call_sites(
         &self,
         files: &BTreeMap<String, ParsedFile>,
-    ) -> (Vec<(FunctionId, CallSite)>, usize) {
+    ) -> (
+        Vec<(FunctionId, CallSite)>,
+        crate::go_callback::GoLevel3Telemetry,
+    ) {
         // Resolve indirect call sites (function pointer variables and dispatch
         // tables). Preserve the historical level ordering:
         // 1/2 local function pointer and array dispatch, 4 struct callbacks,
@@ -2069,8 +2454,157 @@ impl CallGraph {
         }
         extra_sites.extend(level4_sites);
 
-        // Level-3 parameter callback minting is disabled fail-closed.
-        (extra_sites, 0)
+        // Level 3: Go bare free-function values passed to proven free-function HOFs.
+        // Enumerate only original source sites; synthetic sites never donate evidence.
+        let proof = crate::go_callback::GoCallbackProofContext::new(
+            files,
+            &self.functions,
+            &self.method_owners,
+            &self.go_file_profiles,
+            &self.go_dot_import_files,
+            &self.go_file_import_paths,
+        );
+        let mut callback_slots_by_name: BTreeMap<String, BTreeSet<usize>> = BTreeMap::new();
+        for (hof, parameters) in &self.go_callback_parameters {
+            callback_slots_by_name
+                .entry(hof.name.clone())
+                .or_default()
+                .extend(parameters.iter().map(|parameter| parameter.slot));
+        }
+        let mut telemetry = crate::go_callback::GoLevel3Telemetry::default();
+        let mut accepted_targets = BTreeSet::new();
+        let mut level3_sites = BTreeSet::new();
+        for (caller, sites) in &self.calls {
+            let Some(parsed) = files.get(&caller.file) else {
+                continue;
+            };
+            for site in sites {
+                if site.origin != CallSiteOrigin::Source || site.kind != CallKind::Call {
+                    continue;
+                }
+                let Some(candidate_slots) = callback_slots_by_name.get(&site.callee_name) else {
+                    continue;
+                };
+                let arguments =
+                    parsed.call_argument_texts_and_spans_at(site.start_byte, &site.callee_name);
+                for slot in candidate_slots {
+                    telemetry.candidates += 1;
+                    let mut record = crate::go_callback::GoLevel3SiteRecord {
+                        inbound_caller: caller.clone(),
+                        inbound_line: site.line,
+                        inbound_start_byte: site.start_byte,
+                        inbound_end_byte: site.end_byte,
+                        hof_name: site.callee_name.clone(),
+                        slot: *slot,
+                        argument: arguments
+                            .get(*slot)
+                            .map(|(argument, _)| argument.trim().to_string()),
+                        hof: None,
+                        target: None,
+                        callback_parameter: None,
+                        invocation_spans: Vec::new(),
+                        accepted: false,
+                        drop_reason: None,
+                    };
+                    let result: Result<_, crate::go_callback::GoLevel3DropReason> = (|| {
+                        if parsed.language != crate::languages::Language::Go {
+                            return Err(crate::go_callback::GoLevel3DropReason::NonGoOrTest);
+                        }
+                        if site.arg_spread {
+                            return Err(
+                                crate::go_callback::GoLevel3DropReason::MissingSlotOrArgumentIdentity,
+                            );
+                        }
+                        let hof = proof.hof_at(caller, site)?;
+                        record.hof = Some(hof.clone());
+                        let resolved = self.resolve_call_site_full(site);
+                        if resolved.resolved.len() != 1
+                            || resolved.resolved[0].confidence
+                                != crate::resolution::ResolutionConfidence::Exact
+                            || resolved.resolved[0].target != &hof
+                        {
+                            return Err(
+                                crate::go_callback::GoLevel3DropReason::HofNotSingletonExact,
+                            );
+                        }
+                        telemetry.exact_inbound_sites += 1;
+                        let parameter = self
+                            .go_callback_parameters
+                            .get(&hof)
+                            .and_then(|parameters| {
+                                parameters.iter().find(|parameter| parameter.slot == *slot)
+                            })
+                            .ok_or(
+                                crate::go_callback::GoLevel3DropReason::MissingCallbackParameter,
+                            )?;
+                        record.callback_parameter = Some(parameter.name.clone());
+                        let (argument, span) = arguments.get(*slot).ok_or(
+                            crate::go_callback::GoLevel3DropReason::MissingSlotOrArgumentIdentity,
+                        )?;
+                        let target =
+                            proof.bare_free_function_at(caller, span.clone(), argument.trim())?;
+                        record.target = Some(target.clone());
+                        let target_signature =
+                            self.go_free_function_signatures.get(&target).ok_or(
+                                crate::go_callback::GoLevel3DropReason::SignatureUnprovenOrMismatch,
+                            )?;
+                        if !crate::go_callback::signatures_match_strict(
+                            &parameter.signature,
+                            target_signature,
+                        ) {
+                            return Err(
+                                crate::go_callback::GoLevel3DropReason::SignatureUnprovenOrMismatch,
+                            );
+                        }
+                        let invocations =
+                            proof.direct_parameter_invocations(&self.calls, &hof, parameter)?;
+                        record.invocation_spans = invocations
+                            .iter()
+                            .map(|invocation| crate::go_callback::GoLevel3InvocationSpan {
+                                line: invocation.line,
+                                start_byte: invocation.start_byte,
+                                end_byte: invocation.end_byte,
+                            })
+                            .collect();
+                        Ok((hof, target, parameter.clone(), invocations))
+                    })(
+                    );
+                    match result {
+                        Ok((hof, target, parameter, invocations)) => {
+                            telemetry.accepted_inbound_sites += 1;
+                            record.accepted = true;
+                            accepted_targets.insert(target.clone());
+                            for invocation in invocations {
+                                let mut synthetic = Self::indirect_call_site(
+                                    &hof,
+                                    target.name.clone(),
+                                    &invocation,
+                                );
+                                synthetic.source_callee_name = Some(parameter.name.clone());
+                                synthetic.pre_resolved_target = Some(target.clone());
+                                level3_sites.insert((hof.clone(), synthetic));
+                            }
+                        }
+                        Err(reason) => {
+                            record.drop_reason = Some(reason.as_str().to_string());
+                            *telemetry
+                                .drops
+                                .entry(reason.as_str().to_string())
+                                .or_default() += 1;
+                        }
+                    }
+                    telemetry.sites.push(record);
+                }
+            }
+        }
+        telemetry.unique_targets = accepted_targets.len();
+        telemetry.edges = level3_sites.len();
+        extra_sites.extend(level3_sites);
+        debug_assert_eq!(
+            telemetry.candidates,
+            telemetry.accepted_inbound_sites + telemetry.drops.values().sum::<usize>()
+        );
+        (extra_sites, telemetry)
     }
 
     fn apply_indirect_call_sites(&mut self, sites: Vec<(FunctionId, CallSite)>) {
@@ -2092,6 +2626,7 @@ impl CallGraph {
         CallSite {
             caller: caller_id.clone(),
             callee_name: target,
+            source_callee_name: None,
             line: source_site.line,
             kind: CallKind::Call,
             // Carry the source call site span so same-line indirect dups do not collapse.
@@ -2879,6 +3414,9 @@ impl CallGraph {
         self.go_import_path_unproven_reasons.clear();
         self.go_alias_expanded = 0;
         self.go_alias_unresolved.clear();
+        self.go_callback_parameters.clear();
+        self.go_free_function_signatures.clear();
+        self.go_file_import_paths.clear();
         self.go_promoted_selector_snapshot = Default::default();
         debug_assert!(
             self.go_package_basenames.is_empty(),
@@ -3064,6 +3602,11 @@ impl CallGraph {
         self.go_import_path_proven_files = package_import_paths.proven_files;
         self.go_import_path_unproven_files = package_import_paths.unproven_files;
         self.go_import_path_unproven_reasons = package_import_paths.reasons.clone();
+        self.go_file_import_paths = package_import_paths.paths.clone();
+        let callback_indices =
+            crate::go_callback::extract_go_callback_indices(files, &package_import_paths.paths);
+        self.go_callback_parameters = callback_indices.parameters;
+        self.go_free_function_signatures = callback_indices.free_functions;
         let provider =
             crate::type_providers::go::GoTypeProvider::from_parsed_files_with_package_import_paths(
                 files,
@@ -4261,6 +4804,7 @@ impl CallGraph {
                     let site = CallSite {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
+                        source_callee_name: None,
                         line,
                         kind: meta
                             .kind_override
@@ -4340,6 +4884,10 @@ impl CallGraph {
             callers,
             param_slots_unknown: Self::parameter_slots_unknown(files),
             level3_indirect_resolved: 0,
+            go_level3_b1_telemetry: Default::default(),
+            go_callback_parameters: BTreeMap::new(),
+            go_free_function_signatures: BTreeMap::new(),
+            go_file_import_paths: BTreeMap::new(),
             static_functions,
             imports,
             methods,
@@ -4930,11 +5478,18 @@ impl CallGraph {
 }
 
 impl CallSite {
+    pub fn effective_source_callee_name(&self) -> &str {
+        self.source_callee_name
+            .as_deref()
+            .unwrap_or(&self.callee_name)
+    }
+
     fn cmp_key(
         &self,
     ) -> (
         &str,
         &str,
+        Option<&str>,
         usize,
         CallKind,
         usize,
@@ -4946,6 +5501,7 @@ impl CallSite {
         (
             &self.caller.name,
             &self.callee_name,
+            self.source_callee_name.as_deref(),
             self.line,
             self.kind,
             self.start_byte,
@@ -6084,7 +6640,7 @@ mod tests {
     }
 
     #[test]
-    fn recompute_indirect_calls_is_idempotent_with_level3_disabled() {
+    fn recompute_indirect_calls_is_idempotent_for_unsupported_c_callbacks() {
         let files_v1 = c_files(&[(
             "callbacks.c",
             "void old_handler() {}\nvoid execute(void (*cb)()) { cb(); }\nvoid outer() { execute(old_handler); }\n",

@@ -287,6 +287,82 @@ fn same_name_callee_argument_is_kept_as_sink_argument() {
 }
 
 #[test]
+fn go_level3_source_callee_is_suppressed_from_line_seed() {
+    let fixture = fixture(&[(
+        "app.go",
+        "package p\nfunc invoke(cb func(int), x int) { cb(x) }\nfunc safe(value int) {}\nfunc caller() { invoke(safe, 1) }\n",
+    )]);
+    let resolved = resolve(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.go".into(),
+            line: 2,
+        }],
+        SeedRole::Sink,
+    )
+    .expect("Go callback line seed");
+
+    assert!(resolved.seeds[0]
+        .locations
+        .iter()
+        .any(|location| location.path.base == "x"));
+    assert!(resolved.seeds[0]
+        .locations
+        .iter()
+        .all(|location| location.path.base != "cb"));
+}
+
+#[test]
+fn go_level3_resolved_target_name_does_not_suppress_unrelated_argument() {
+    let fixture = fixture(&[(
+        "app.go",
+        "package p\nfunc invoke(cb func(int), safe int) { cb(safe) }\nfunc safe(value int) {}\nfunc caller() { invoke(safe, 1) }\n",
+    )]);
+    let resolved = resolve(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.go".into(),
+            line: 2,
+        }],
+        SeedRole::Sink,
+    )
+    .expect("Go callback line seed");
+
+    assert!(resolved.seeds[0]
+        .locations
+        .iter()
+        .any(|location| location.path.base == "safe"));
+    assert!(resolved.seeds[0]
+        .locations
+        .iter()
+        .all(|location| location.path.base != "cb"));
+}
+
+#[test]
+fn go_level3_same_name_callback_argument_retains_argument_occurrence() {
+    let source = "package p\nfunc invoke(cb func(any)) { cb(cb) }\nfunc safe(value any) {}\nfunc caller() { invoke(safe) }\n";
+    let fixture = fixture(&[("app.go", source)]);
+    let resolved = resolve(
+        &fixture.session,
+        &[SeedSpec::Loc {
+            file: "app.go".into(),
+            line: 2,
+        }],
+        SeedRole::Sink,
+    )
+    .expect("Go callback line seed");
+
+    assert!(
+        resolved.seeds[0]
+            .locations
+            .iter()
+            .any(|location| location.path.base == "cb"),
+        "the same-name callback argument must retain the cb access path: {:?}",
+        resolved.seeds[0].locations
+    );
+}
+
+#[test]
 fn same_line_multi_function_body_local_reaches_instead_of_boundary() {
     let fixture = fixture(&[(
         "app.js",

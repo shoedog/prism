@@ -239,3 +239,43 @@ fn disabled_level3_emits_no_callback_edges_in_either_direction() {
         );
     }
 }
+
+#[test]
+fn go_level3_callback_surfaces_exactly_in_both_navigation_directions() {
+    let s = session(&[(
+        "callbacks.go",
+        "package p\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\nfunc caller() { invoke(safe) }\n",
+    )]);
+
+    let callees = queries::callees(&s, Some("invoke"), Some("callbacks.go"), None, 1).unwrap();
+    let callback_callee = callees
+        .items
+        .iter()
+        .find(|item| {
+            matches!(
+                &item.symbol,
+                Some(SymbolRef::Function { file, name, .. })
+                    if file == "callbacks.go" && name == "safe"
+            )
+        })
+        .expect("invoke must navigate to the proven callback target");
+    assert!(callback_callee.why.iter().any(
+        |reason| matches!(reason, Reason::Resolution { kind } if kind == "parameter_callback")
+    ));
+
+    let callers = queries::callers(&s, Some("safe"), Some("callbacks.go"), None, 1).unwrap();
+    let callback_caller = callers
+        .items
+        .iter()
+        .find(|item| {
+            matches!(
+                &item.symbol,
+                Some(SymbolRef::Function { file, name, .. })
+                    if file == "callbacks.go" && name == "invoke"
+            )
+        })
+        .expect("safe must navigate back to its callback invocation");
+    assert!(callback_caller.why.iter().any(
+        |reason| matches!(reason, Reason::Resolution { kind } if kind == "parameter_callback")
+    ));
+}

@@ -726,6 +726,21 @@ fn cpg_go_grouped_parameters_bind_every_argument_to_its_matching_definition() {
 }
 
 #[test]
+fn cpg_go_level3_callback_uses_source_callee_for_arg_to_target_param_flow() {
+    let cpg = build_cpg_files(&[(
+        "callback.go",
+        "package p\nfunc target(value int) { use(value) }\nfunc invoke(cb func(int), source int) { cb(source) }\nfunc caller(input int) { invoke(target, input) }\n",
+        Language::Go,
+    )]);
+
+    assert!(has_dataflow_edge(
+        &cpg,
+        ("callback.go", "invoke", 3, "source"),
+        ("callback.go", "target", 2, "value")
+    ));
+}
+
+#[test]
 fn cpg_python_free_function_with_self_param_keeps_all_args() {
     // Review fix (MAJOR 3): the self/cls receiver skip must be gated on actual
     // method ownership. A FREE function whose first param happens to be named

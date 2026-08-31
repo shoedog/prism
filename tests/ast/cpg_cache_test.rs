@@ -44,9 +44,10 @@ fn fid_dump(fid: &prism::call_graph::FunctionId) -> String {
 
 fn callsite_dump(site: &prism::call_graph::CallSite) -> String {
     format!(
-        "{} -> {} line={} kind={:?} span={}-{} qual={:?} recv={:?} recovery={:?} materialized={} newly_recovered={} argc={:?} spread={} outcome={:?} origin={:?}",
+        "{} -> {} source={:?} line={} kind={:?} span={}-{} qual={:?} recv={:?} recovery={:?} materialized={} newly_recovered={} argc={:?} spread={} outcome={:?} origin={:?} exact_target={:?}",
         fid_dump(&site.caller),
         site.callee_name,
+        site.source_callee_name,
         site.line,
         site.kind,
         site.start_byte,
@@ -59,7 +60,8 @@ fn callsite_dump(site: &prism::call_graph::CallSite) -> String {
         site.arg_count,
         site.arg_spread,
         site.receiver_outcome,
-        site.origin
+        site.origin,
+        site.pre_resolved_target.as_ref().map(fid_dump)
     )
 }
 
@@ -741,6 +743,105 @@ fn cache_round_trips_parameter_slot_telemetry() {
         loaded.call_graph.level3_indirect_resolved,
         ctx.cpg.call_graph.level3_indirect_resolved
     );
+}
+
+#[test]
+fn cache_v55_round_trips_go_level3_callback_identity_and_edge() {
+    let source = "package p\nfunc invoke(cb func(int)) { cb(1) }\nfunc safe(value int) {}\nfunc caller() { invoke(safe) }\n";
+    let sources = BTreeMap::from([("callbacks.go".to_string(), source.to_string())]);
+    let files = parsed_files(&[("callbacks.go", source, Language::Go)]);
+    let before = CodePropertyGraph::build(&files);
+    let indirect_before = before
+        .call_graph
+        .calls
+        .values()
+        .flatten()
+        .find(|site| {
+            site.origin == prism::call_graph::CallSiteOrigin::IndirectResolution
+                && site.caller.name == "invoke"
+        })
+        .expect("Go Level-3 callback site before cache save");
+    assert_eq!(indirect_before.callee_name, "safe");
+    assert_eq!(indirect_before.source_callee_name.as_deref(), Some("cb"));
+    assert_eq!(
+        indirect_before
+            .pre_resolved_target
+            .as_ref()
+            .map(|target| target.name.as_str()),
+        Some("safe")
+    );
+
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&before, &hashes, false, cache_dir.path()).unwrap();
+    let loaded = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
+
+    assert_eq!(
+        normalized_cpg_behavior(&before),
+        normalized_cpg_behavior(&loaded)
+    );
+    assert_eq!(
+        prism::navigation::queries::call_site_dump(&before.call_graph),
+        prism::navigation::queries::call_site_dump(&loaded.call_graph),
+        "v55 must round-trip per-candidate Level-3 custody records"
+    );
+    let indirect_loaded = loaded
+        .call_graph
+        .calls
+        .values()
+        .flatten()
+        .find(|site| {
+            site.origin == prism::call_graph::CallSiteOrigin::IndirectResolution
+                && site.caller.name == "invoke"
+        })
+        .expect("Go Level-3 callback site after cache load");
+    let resolved = loaded.call_graph.resolve_call_site_full(indirect_loaded);
+    assert_eq!(resolved.resolved.len(), 1);
+    assert_eq!(resolved.resolved[0].target.name, "safe");
+    assert_eq!(
+        resolved.resolved[0].kind,
+        prism::resolution::ResolutionKind::ParameterCallback
+    );
+}
+
+#[test]
+fn incremental_go_level3_callbacks_match_full_across_add_change_remove() {
+    let hof = (
+        "hof.go",
+        "package p\nfunc invoke(cb func()) { cb() }\nfunc first() {}\nfunc second() {}\n",
+        Language::Go,
+    );
+    let v1 = parsed_files(&[hof]);
+    let v2 = parsed_files(&[
+        hof,
+        (
+            "caller.go",
+            "package p\nfunc caller() { invoke(first) }\n",
+            Language::Go,
+        ),
+    ]);
+    let added =
+        assert_incremental_matches_full(v1, v2.clone(), BTreeSet::from(["caller.go".to_string()]));
+    assert!(has_indirect_call(&added, "invoke", "first"));
+
+    let v3 = parsed_files(&[
+        hof,
+        (
+            "caller.go",
+            "package p\nfunc caller() { invoke(second) }\n",
+            Language::Go,
+        ),
+    ]);
+    let changed =
+        assert_incremental_matches_full(v2, v3.clone(), BTreeSet::from(["caller.go".to_string()]));
+    assert!(!has_indirect_call(&changed, "invoke", "first"));
+    assert!(has_indirect_call(&changed, "invoke", "second"));
+
+    let v4 = parsed_files(&[hof]);
+    let removed =
+        assert_incremental_matches_full(v3, v4, BTreeSet::from(["caller.go".to_string()]));
+    assert!(!has_indirect_call(&removed, "invoke", "first"));
+    assert!(!has_indirect_call(&removed, "invoke", "second"));
 }
 
 #[test]

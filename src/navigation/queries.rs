@@ -176,6 +176,7 @@ pub fn call_site_dump(cg: &CallGraph) -> Vec<serde_json::Value> {
                 })
                 .collect();
             records.push(serde_json::json!({
+                "record_kind": "call_site",
                 "caller": site.caller,
                 "source_span": {
                     "file": site.caller.file,
@@ -184,13 +185,36 @@ pub fn call_site_dump(cg: &CallGraph) -> Vec<serde_json::Value> {
                     "end_byte": site.end_byte,
                 },
                 "callee_text": site.callee_name,
+                "source_callee_text": site.effective_source_callee_name(),
                 "call_kind": site.kind,
                 "origin": site.origin,
+                "exact_target": site.pre_resolved_target,
                 "resolved_targets": resolved_targets,
                 "drop": outcome.drop.map(|drop| format!("{drop:?}")),
             }));
         }
     }
+    records.extend(cg.go_level3_b1_telemetry.sites.iter().map(|site| {
+        serde_json::json!({
+            "record_kind": "go_level3_b1_candidate",
+            "inbound_caller": site.inbound_caller,
+            "inbound_span": {
+                "file": site.inbound_caller.file,
+                "line": site.inbound_line,
+                "start_byte": site.inbound_start_byte,
+                "end_byte": site.inbound_end_byte,
+            },
+            "hof_name": site.hof_name,
+            "slot": site.slot,
+            "argument": site.argument,
+            "hof": site.hof,
+            "exact_target": site.target,
+            "callback_parameter": site.callback_parameter,
+            "invocation_spans": site.invocation_spans,
+            "decision": if site.accepted { "accepted" } else { "dropped" },
+            "drop_reason": site.drop_reason,
+        })
+    }));
     records
 }
 
@@ -550,6 +574,12 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "glob_expand": glob_expand,
         "param_slots_unknown": cg.param_slots_unknown,
         "level3_indirect_resolved": cg.level3_indirect_resolved,
+        "go_level3_b1_candidates": cg.go_level3_b1_telemetry.candidates,
+        "go_level3_b1_exact_inbound_sites": cg.go_level3_b1_telemetry.exact_inbound_sites,
+        "go_level3_b1_accepted_inbound_sites": cg.go_level3_b1_telemetry.accepted_inbound_sites,
+        "go_level3_b1_unique_targets": cg.go_level3_b1_telemetry.unique_targets,
+        "go_level3_b1_edges": cg.go_level3_b1_telemetry.edges,
+        "go_level3_b1_drops": cg.go_level3_b1_telemetry.drops,
     });
     if cg.skipped_go_testdata_files > 0 {
         stats.as_object_mut().expect("call-stats object").insert(
