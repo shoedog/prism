@@ -70,28 +70,33 @@ Confidence increases if the red-first fixtures prove every enumerated namespace 
 
 ## 5. Verification and exclusions
 
-This branch is documentation-only: design, roadmap, and handoff. No runtime behavior, cache schema, CLI grammar, or test fixture changed. Source consumers, cache constants, branch/base, and retained packet hashes were rebound. `cargo fmt --all -- --check`, `cargo check`, staged `git diff --check`, and the explicit trailing-whitespace scan passed. The four retained packet files were rehashed and matched §1. Publication state is recorded after the remote gate runs.
+The design PR was documentation-only: design, roadmap, and handoff. No runtime behavior, cache schema, CLI grammar, or test fixture changed. Source consumers, cache constants, branch/base, and retained packet hashes were rebound. `cargo fmt --all -- --check`, `cargo check`, staged `git diff --check`, and the explicit trailing-whitespace scan passed. The four retained packet files were rehashed and matched §1. PR #220 passed Format Check, Clippy Lint, Test Suite including MCP tests, and Language Coverage Matrix, then squash-merged at `8c40bfc344b263e06fd21419dc133a4aed92ae98`. Coverage was pending and intentionally not awaited by owner direction. The merge command's nonzero exit was local cleanup only: a direct server query proved `state=MERGED` and returned that exact merge SHA.
 
 Not run for this design artifact: full tests, Tier-A, corpora, oracle, cache battery, or release build. Those are implementation acceptance gates and no executable change is claimed. A local Go compiler probe for the default-import collision needed an explicit writable `GOCACHE`; the initial cache-refused probe was inadmissible, while the corrected probe confirmed the same-file collision is invalid Go. Prism's parse-clean edit-state operating model still requires fail-closed static import proof.
 
 ## 6. Next exact steps
 
-1. Merge this docs-only design gate after required CI checks; coverage is not a wait condition by owner direction.
-2. Cut an implementation worktree and a detached exact-base control from the design merge SHA.
-3. Add callable signature/index tests with production minting disabled.
-4. Add exhaustive occurrence, namespace, profile, mutation, and address-escape proof tests.
-5. Add watched positive Level-3 tests; compile them and retain RED on exact base before enabling production minting.
-6. Implement B1 minting, source-callee consumption, telemetry/dump, cache bumps, and lifecycle parity in the spec's sequence.
-7. Run focused checks, full suite with totals, immediate release build plus Tier-A matrix/quick, and five-corpus same-base reconciliation of all 67 rows.
-8. Run a bounded independent implementation review before publication; classify every finding `WRONG` or `SMELL` and use same-environment controls before attribution.
+Completed: the docs-only gate merged as PR #220, and implementation plus detached control worktrees were cut at its exact merge SHA.
+
+1. Add callable signature/index tests with production minting disabled.
+2. Add exhaustive occurrence, namespace, profile, mutation, and address-escape proof tests.
+3. Add watched positive Level-3 tests; compile them and retain RED on exact base before enabling production minting.
+4. Implement B1 minting, source-callee consumption, telemetry/dump, cache bumps, and lifecycle parity in the spec's sequence.
+5. Run focused checks, full suite with totals, immediate release build plus Tier-A matrix/quick, and five-corpus same-base reconciliation of all 67 rows.
+6. Run a bounded independent implementation review before publication; classify every finding `WRONG` or `SMELL` and use same-environment controls before attribution.
 
 ## 7. Identifiers
 
 | Item | Value |
 |---|---|
-| Worktree | `/Users/wesleyjinks/code/slicing-13a-go-level3-design` |
-| Branch | `p13a-go-level3-design` |
-| Exact base | `a3768a9d40903c32251346d196107d48af25eb47` |
+| Design worktree | `/Users/wesleyjinks/code/slicing-13a-go-level3-design` |
+| Design branch | `p13a-go-level3-design` |
+| Design base | `a3768a9d40903c32251346d196107d48af25eb47` |
+| Design publication | PR #220 · merge `8c40bfc344b263e06fd21419dc133a4aed92ae98` |
+| Implementation worktree | `/Users/wesleyjinks/code/slicing-13a-go-level3-impl` |
+| Implementation branch | `p13a-go-level3-impl` |
+| Detached base control | `/private/tmp/slicing-p13a-base-8c40bfc` |
+| Implementation exact base | `8c40bfc344b263e06fd21419dc133a4aed92ae98` |
 | Design | `docs/superpowers/specs/2026-08-31-go-level3-bare-function-callback-design.md` |
 | Roadmap | `docs/analysis/prism-post-plan-roadmap.md` row `13` |
 | Review cap | `2 + 1 disclosed convergence extension`; settled |
