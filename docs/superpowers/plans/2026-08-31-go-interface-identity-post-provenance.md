@@ -4,7 +4,7 @@
 **Exact base:** `b7a5cf934a44060de98588837b3c8c75ddffdc37`
 **Lane:** `/Users/wesleyjinks/code/slicing-16-post-provenance` · `a-go-interface-identity-post-provenance`
 **Owner authority:** successor continuation, push, and merge are authorized after gates; relevant non-coverage CI is mandatory and Coverage is not a wait condition.
-**Review caps:** design `2` rounds (complete, plus one disclosed scoped confirmation); implementation `2` rounds.
+**Review caps:** design `2` rounds (complete, plus one disclosed scoped confirmation and one bounded preflight artifact correction); implementation `2` rounds.
 
 ## Goal and boundary
 
@@ -46,7 +46,7 @@ Tests and this lane's docs may be added or updated. Any other production file re
 2. Extract the current caller-scoped satisfier walk from `go_visible_s4_implementers`. Preserve its per-owner conflict/uncertainty behavior exactly for existing callers.
 3. Add a promoted-snapshot consult that returns both the selected snapshot entry and its unique canonical method declaration. Enforce profile, variant, field-shadow, join, generic, signature-presence, and signature-match guards.
 4. Enable promoted supply only for `go_proven_interface_consult`; existing S4 callers remain direct-only.
-5. Put the temporary full-population census behind `PRISM_P16_CENSUS`. It enumerates pre-terminal ownerless rows and owner-bearing R3 rows, but invokes the candidate consult only for the latter. Normal manifest output must remain byte-stable when the variable is absent.
+5. Put the temporary census behind `PRISM_P16_CENSUS`. Emit an exhaustive pre-terminal prerequisite ledger (`ownerless_terminal` | `owner_bearing`) and a separate candidate ledger only for owner-bearing sites that actually reach the legacy bare-table arm. Invoke the consult only for candidate-ledger rows. Normal manifest output must remain byte-stable when the variable is absent.
 6. Unit-test route partition, target identity encoding, and the ownerless no-invocation invariant. Compile before running any corpus probe.
 7. Build release immediately before the five pinned corpus runs. Preserve keyed current/candidate rows, terminal outcomes, complete target-set diffs, binary SHA, corpus SHAs, commands, exits, and artifact hashes outside the worktree.
 8. Oracle-join every changed target set and disposition every historical sentinel named by v14. Stop before Task 2 on incomplete coverage, a new over-approximation, an unexplained recall loss, an ownerless consult invocation, or a delta outside the complete census.

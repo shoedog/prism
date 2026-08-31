@@ -1,6 +1,6 @@
 # Handoff — #16 Go interface identity after receiver provenance
 
-**Written:** 2026-08-31T00:32:19Z · **By:** Codex `/root` · **Provider:** codex
+**Written:** 2026-08-31T00:34:20Z · **By:** Codex `/root` · **Provider:** codex
 **Workspace:** `/Users/wesleyjinks/code/slicing-16-post-provenance` · `a-go-interface-identity-post-provenance` · **Base:** `[MEASURED]` `b7a5cf934a44060de98588837b3c8c75ddffdc37` (`origin/main`, PR #214 merge)
 **Predecessor:** receiver-provenance Slice 3 PR #213 / `31250f7e`, closeout PR #214 / `b7a5cf93`, and preserved #16 PARK commit `ea74558f`
 **Truth ordering:** current measured state > explicit owner/design authority within scope > v14 design > this handoff > earlier handoffs and summaries. Conflicts remain open until remeasured.
@@ -31,7 +31,7 @@
 | Old #16 artifact | preserved, not reusable as-is | `[MEASURED]` v13 PARK required A first; dirty old clone is eight days and multiple cache/schema waves behind current main. |
 | v13 replay | done | `[MEASURED]` spec-only commits replayed cleanly at `e87f9e7`, `0a1c474`, `ab4e5da`. |
 | Current consumer census | done for structure | `[MEASURED]` shared terminal predicate precedes resolver/manifest; exactly two independent consumers; sidecar reuses resolver. Owner-bearing `Unproven` routes still retain a bare table lookup. |
-| v14 design | reviewed at cap | Round 1: one `WRONG`, zero `SMELL` (ownerless census tautology), fixed. Round 2: one `WRONG`, zero `SMELL` (`arg_count` type), fixed. Disclosed scoped confirmation: zero further findings. |
+| v14 design | reviewed at cap with bounded preflight correction | Round 1: one `WRONG`, zero `SMELL` (ownerless census tautology), fixed. Round 2: one `WRONG`, zero `SMELL` (`arg_count` type), fixed. Disclosed scoped confirmation found no further item. Source-reality preflight then found one closed artifact `WRONG`: the combined census partition omitted owner-bearing routes that exit before the legacy arm. The complete route tree was enumerated and the contract now uses two exhaustive ledgers; no code had started. |
 | Executable plan | committed | `[MEASURED]` v14, plan, and initial handoff checkpoint is `c64ccd42`; start Task 1. |
 | Current-base corpus census | pending | Build the dormant shared consult and `PRISM_P16_CENSUS`; do not switch production. |
 | Public RED matrix | pending | Starts only after census acceptance. |
@@ -48,7 +48,7 @@
 | H4: v13 can resume without another provenance proxy. | New consult accepts only `&GoOwnerIdentity` and has no receiver text or global fallback. | Any valid target requires re-resolving `recv_ty` or selecting an identity by name. | `[MEASURED]` supported by A's contract and v14 signature; corpus census is the behavioral discriminator. |
 | H5: the existing walk is reusable but incomplete for #16. | Direct satisfiers already follow caller profiles/live selection; promoted satisfiers require the R1(b) snapshot. | Existing walk already includes promoted supply, or adding it changes existing S4 outputs. | `[MEASURED]` current `go_visible_s4_implementers` is direct-only; old WIP demonstrates a bounded extraction shape, but must be reimplemented against current per-owner semantics. |
 | H6: the old clone cannot be the active lane. | It is stale and dirty with large uncommitted code against pre-A base. | It is clean, current-base, and contains the merged A contract. | `[MEASURED]` falsifier observed; fresh lane created instead. |
-| H7: v14 review is closed at the declared cap. | Findings are bounded, non-repeating, and fixed; scoped confirmation finds no further issue. | A new open-class provenance proxy or contradictory gate appears. | `[MEASURED]` supported: two closed `WRONG` fixes, zero `SMELL`, scoped confirmation clean. |
+| H7: v14's identity rule is closed at the declared cap. | Findings are bounded and no proxy-for-provenance class remains. | A new identity proxy or fallback is required. | `[MEASURED]` supported: the two capped findings and the post-cap preflight artifact correction are closed; the latter repaired census population accounting, not identity authority. Zero `SMELL` remains. |
 
 ## 4. Task table
 
@@ -96,7 +96,7 @@
 | Current cache pins | CPG `54`; sidecar `22` |
 | Candidate cache pins | CPG `54`; sidecar `23` |
 | Corpus pins | ripgrep `82313cf9`; Caddy `77e9ce74`; Prometheus `505095b6`; etcd `61d518f5`; Hugo `a00b5c72` |
-| Review cap | design `2`; implementation `2` |
+| Review cap | design `2` plus disclosed scoped confirmation and bounded preflight artifact correction; implementation `2` |
 
 ## 7. Current evidence and exclusions
 
@@ -104,4 +104,4 @@ Current evidence is structural and historical only. No v14 production behavior, 
 
 ## 8. Owner direction and review verdict
 
-Owner direction is to proceed through the successor and includes push/merge authority after gates. v14 design verdict: **APPROVE AFTER ROUND 2 plus one disclosed scoped confirmation** — `WRONG`: zero remaining; `SMELL`: zero. Confidence decreases if the current-base census shows owner-bearing R3 is empty or loses an admitted sound implementer; it collapses if any ownerless site invokes the consult or any correct result requires a text/index identity proxy.
+Owner direction is to proceed through the successor and includes push/merge authority after gates. v14 identity-rule verdict: **APPROVE AFTER ROUND 2, one disclosed scoped confirmation, and one bounded preflight artifact correction** — `WRONG`: zero remaining; `SMELL`: zero. The post-cap correction split a non-exhaustive combined census into two exhaustive ledgers before code began; it did not extend the identity rule. Confidence decreases if the current-base candidate ledger is empty or loses an admitted sound implementer; it collapses if any ownerless site invokes the consult or any correct result requires a text/index identity proxy.
