@@ -1,12 +1,12 @@
 # #16 Go interface identity — post-provenance implementation plan
 
-**Design authority:** `docs/superpowers/specs/2026-08-23-go-package-qualified-interface-identity-design.md` v14
+**Design authority:** `docs/superpowers/specs/2026-08-23-go-package-qualified-interface-identity-design.md` v15
 **Exact base:** `b7a5cf934a44060de98588837b3c8c75ddffdc37`
 **Lane:** `/Users/wesleyjinks/code/slicing-16-post-provenance` · `a-go-interface-identity-post-provenance`
 **Owner authority:** successor continuation, push, and merge are authorized after gates; relevant non-coverage CI is mandatory and Coverage is not a wait condition.
 **Review caps:** design `2` rounds (complete, plus one disclosed scoped confirmation and one bounded preflight artifact correction); implementation `2` rounds.
 
-**Execution status (2026-08-31): PARKED before Task 2.** The corrected Task 1 census selected zero candidate sites across all five pinned corpora, and v14 §4 rejects zero-selection evidence. See `docs/superpowers/handoffs/2026-08-31-go-interface-identity-task1-census-evidence.md`. Do not start Task 2 without an explicit owner amendment to the coverage rule or a pinned corpus with a real candidate.
+**Execution status (2026-08-31): ACTIVE at Task 2.** The corrected Task 1 census selected zero candidate sites across all five pinned corpora. The owner explicitly authorized v15's source-fixture and exact-base RED replacement floor while retaining the five-corpus zero population as mandatory control evidence. See `docs/superpowers/handoffs/2026-08-31-go-interface-identity-task1-census-evidence.md`.
 
 ## Goal and boundary
 
@@ -51,13 +51,13 @@ Tests and this lane's docs may be added or updated. Any other production file re
 5. Put the temporary census behind `PRISM_P16_CENSUS`. Emit an exhaustive pre-terminal prerequisite ledger (`ownerless_terminal` | `owner_bearing`) and a separate candidate ledger only for owner-bearing sites that actually reach the legacy bare-table arm. Invoke the consult only for candidate-ledger rows. Normal manifest output must remain byte-stable when the variable is absent.
 6. Unit-test route partition, target identity encoding, and the ownerless no-invocation invariant. Compile before running any corpus probe.
 7. Build release immediately before the five pinned corpus runs. Preserve keyed current/candidate rows, terminal outcomes, complete target-set diffs, binary SHA, corpus SHAs, commands, exits, and artifact hashes outside the worktree.
-8. Oracle-join every changed target set and disposition every historical sentinel named by v14. Stop before Task 2 on incomplete coverage, a new over-approximation, an unexplained recall loss, an ownerless consult invocation, or a delta outside the complete census.
+8. Oracle-join every changed target set and disposition every historical sentinel named by v15. Stop before Task 2 on incomplete coverage, a new over-approximation, an unexplained recall loss, an ownerless consult invocation, or a delta outside the complete census. A zero natural-corpus candidate population proceeds only through v15's owner-authorized source-fixture replacement floor.
 
 The census harness is a durable checkpoint, then removed or reduced to tests before production publication. Its code is not production authorization.
 
 ## Task 2 — Compile and prove the public RED matrix
 
-Add public-behavior tests before switching either consumer. Enumerate registered selectors with `cargo test -- --list`; a zero-selected command is inadmissible. Required behaviors include these exact selector stems:
+Add public-behavior tests before switching either consumer. Enumerate registered selectors with `cargo test -- --list`; a zero-selected command is inadmissible. Fixtures must be source-built without post-build graph or resolver-state mutation, and exact base must report a nonzero legacy-arm attempt for the collision RED. Required behaviors include these exact selector stems:
 
 - `go_proven_interface_owner_beats_bare_collision`
 - `go_proven_interface_origin_namespace_decoy_stays_absent`

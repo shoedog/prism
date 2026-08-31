@@ -1,4 +1,4 @@
-# #16 Task 1 census evidence — zero-selection park
+# #16 Task 1 census evidence — zero-selection population and v15 fixture amendment
 
 **Captured:** 2026-08-31T00:59:49Z  
 **Lane:** `/Users/wesleyjinks/code/slicing-16-post-provenance` · `a-go-interface-identity-post-provenance`  
@@ -7,7 +7,7 @@
 
 ## Verdict
 
-**PARK before Task 2.** The corrected five-corpus census is exhaustive for the declared denominator but selected zero sites for the candidate consult. Design v14 §4 says a zero-selection probe is inadmissible, so it cannot authorize public REDs or the production switch. No oracle join exists because there are no changed corpus target sets.
+**Five-corpus population is zero; Task 2 is authorized under v15's replacement floor.** The corrected census is exhaustive for the declared denominator and selected zero sites for the candidate consult. It remains mandatory population and no-delta control evidence, but it does not claim positive production coverage. On 2026-08-31 the owner explicitly authorized constructible public source fixtures plus exact-base RED evidence as the replacement coverage floor recorded in design v15 §4. No corpus oracle join exists because there are no changed corpus target sets.
 
 The first census implementation admitted candidates from the manifest's local `legacy_bare` flag. That was a harness `WRONG`: a constructible owner-bearing site can reach the resolver's legacy `iface_key` arm while the manifest independently labels the same site `unproven_drop`. Those first artifacts are retained at `/private/tmp/p16-census-task1-20260831` but are inadmissible. The corrected v2 harness admits candidates only when `resolve_call_site_full` reports `go_unproven_receiver_bare_fallback_sites > 0`; that telemetry is set only at the actual resolver arm.
 
@@ -61,13 +61,8 @@ All commands exited `0` unless explicitly described as inadmissible.
 - `cargo check --all-targets --all-features`: exit `0`; only pre-existing test warnings were emitted.
 - Default ripgrep manifest is byte-identical to exact base.
 
-Not run because the Task 1 STOP gate fired: public RED matrix, production switch, cache bump, Clippy, full `cargo test --no-fail-fast`, Tier-A, Go oracle joins, implementation review rounds, CI, push, or merge. Their absence is carried into the park verdict.
+Not run at this checkpoint because the former Task 1 STOP gate fired: public RED matrix, production switch, cache bump, Clippy, full `cargo test --no-fail-fast`, Tier-A, Go oracle joins, implementation review rounds, CI, push, or merge. The v15 amendment authorizes continuing those steps; this historical absence is not rewritten as completed evidence.
 
-## Required owner decision
+## Owner decision received
 
-One of these is required before further state-changing work:
-
-1. Keep v14's zero-selection rule and park #16 until a pinned corpus contains an actual owner-bearing legacy-arm site; or
-2. Explicitly amend the acceptance rule to permit constructible source fixtures (plus exact-base RED proof) to authorize a route absent from all pinned corpora, and specify any replacement oracle/corpus coverage floor.
-
-The current general push/merge authority does not itself relax the design's zero-selection STOP condition.
+On 2026-08-31 the owner selected the fixture amendment: constructible public source fixtures plus exact-base RED proof may authorize this route despite zero pinned-corpus candidates. Design v15 §4 supplies the replacement floor: an actual exact-base legacy-arm attempt and incorrect target set, all five consult routes exercised through public selectors, resolver/manifest/sidecar parity, source or gopls disposition for every fixture delta, negative or edge coverage for every changed path, and rechecked five-corpus conservation/parity controls. The prior general push/merge authority remains gated on those checks.
