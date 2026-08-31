@@ -34,6 +34,14 @@ fn manifest_route(cg: &CallGraph, caller_file: &str, line: usize) -> String {
         .to_string()
 }
 
+fn manifest_has_site(cg: &CallGraph, caller_file: &str, line: usize) -> bool {
+    prism::navigation::queries::interface_dispatch_manifest(cg)["sites"]
+        .as_array()
+        .expect("manifest sites")
+        .iter()
+        .any(|entry| entry["file"] == caller_file && entry["line"] == line)
+}
+
 fn rebinding_fixture() -> CallGraph {
     build_go(&[
         (
@@ -86,7 +94,7 @@ fn rebinding_fixture() -> CallGraph {
 }
 
 #[test]
-fn value_rebindings_fail_closed_to_r3_without_outer_concrete_direct_edges() {
+fn ownerless_value_rebindings_drop_at_terminal_owner_predicate() {
     let cg = rebinding_fixture();
     for (caller, line) in [
         ("typeSwitchConcrete", 6),
@@ -95,35 +103,35 @@ fn value_rebindings_fail_closed_to_r3_without_outer_concrete_direct_edges() {
     ] {
         let call = site(&cg, caller, "M");
         assert!(call.receiver_local_type_shadowed, "{caller}: {call:?}");
+        assert!(call.receiver_owner_identity.is_none(), "{caller}: {call:?}");
         let outcome = cg.resolve_call_site_full(call);
         assert!(outcome.resolved.is_empty(), "{caller}: {outcome:?}");
         assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
         assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 0);
-        assert_eq!(manifest_route(&cg, "app/use.go", line), "unproven_drop");
+        assert!(!manifest_has_site(&cg, "app/use.go", line));
     }
 }
 
 #[test]
-fn type_switch_interface_rebinding_uses_the_legacy_r3_fallback() {
+fn ownerless_type_switch_interface_rebinding_does_not_use_legacy_r3() {
     let cg = rebinding_fixture();
     let call = site(&cg, "typeSwitchInterface", "M");
     assert!(call.receiver_local_type_shadowed, "{call:?}");
+    assert!(call.receiver_owner_identity.is_none(), "{call:?}");
     let outcome = cg.resolve_call_site_full(call);
 
     assert_eq!(
         outcome.telemetry.go_unproven_receiver_bare_fallback_sites,
-        1
+        0
     );
-    assert_eq!(outcome.telemetry.go_unproven_receiver_bare_fallback_hits, 1);
+    assert_eq!(outcome.telemetry.go_unproven_receiver_bare_fallback_hits, 0);
     assert_eq!(
         outcome.telemetry.go_unproven_receiver_bare_fallback_edges,
-        2
+        0
     );
-    assert_eq!(
-        resolved_files(&cg, call),
-        BTreeSet::from(["p/types.go".into(), "q/types.go".into()])
-    );
-    assert_eq!(manifest_route(&cg, "app/use.go", 12), "interface_dispatch");
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(outcome.drop, Some(DropReason::ExternalReceiver));
+    assert!(!manifest_has_site(&cg, "app/use.go", 12));
 }
 
 #[test]

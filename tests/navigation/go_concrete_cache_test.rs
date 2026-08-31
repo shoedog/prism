@@ -43,6 +43,88 @@ fn evidence_has_file(evidence: &prism::navigation::types::Evidence, file: &str) 
 }
 
 #[test]
+fn receiver_owner_missing_is_terminal_for_navigation_sidecar() {
+    let repo_dir = tempfile::tempdir().unwrap();
+    write(
+        repo_dir.path(),
+        "go.mod",
+        "module example.com/root\n\ngo 1.22\n",
+    );
+    write(
+        repo_dir.path(),
+        "api/types.go",
+        "package api\ntype I interface{ M(); ApiOnly() }\ntype Real struct{}\nfunc (Real) M() {}\nfunc (Real) ApiOnly() {}\nfunc retain() { var _ I = Real{} }\n",
+    );
+    write(
+        repo_dir.path(),
+        "decoy/types.go",
+        "package decoy\ntype I interface{ M(); DecoyOnly() }\ntype Wrong struct{}\nfunc (Wrong) M() {}\nfunc (Wrong) DecoyOnly() {}\nfunc retain() { var _ I = Wrong{} }\n",
+    );
+    write(
+        repo_dir.path(),
+        "app/vars.go",
+        "package app\nimport ext \"example.com/root/api\"\nvar Shared ext.I\n",
+    );
+    write(
+        repo_dir.path(),
+        "app/use.go",
+        "package app\nimport ext \"example.com/root/decoy\"\nfunc run() { Shared.M() }\n",
+    );
+    let repo = Arc::new(load_repo(repo_dir.path()).unwrap());
+
+    let proven = NavigationSession {
+        repo: repo.clone(),
+        index: Arc::new(NavigationIndex::build(&repo)),
+    };
+    let proven_edges = queries::callees(&proven, Some("run"), Some("app/use.go"), None, 1).unwrap();
+    assert!(evidence_has_file(&proven_edges, "api/types.go"));
+    assert!(!evidence_has_file(&proven_edges, "decoy/types.go"));
+
+    let ownerless_index = NavigationIndex::build(&repo).with_modified_cpg_for_testing(|cpg| {
+        let cg = &mut cpg.call_graph;
+        let original = cg
+            .calls
+            .values()
+            .flatten()
+            .find(|site| {
+                site.caller.file == "app/use.go"
+                    && site.caller.name == "run"
+                    && site.callee_name == "M"
+            })
+            .expect("run M site")
+            .clone();
+        assert!(original.receiver_type.is_some(), "{original:?}");
+        assert!(original.receiver_recovery.is_some(), "{original:?}");
+        assert!(original.receiver_owner_identity.is_some(), "{original:?}");
+
+        let mut ownerless = original.clone();
+        ownerless.receiver_owner_identity = None;
+        let calls = cg
+            .calls
+            .get_mut(&original.caller)
+            .expect("run caller bucket");
+        assert!(calls.remove(&original));
+        assert!(calls.insert(ownerless));
+        let reverse = cg
+            .callers
+            .get_mut(&original.callee_name)
+            .expect("M reverse bucket")
+            .iter_mut()
+            .find(|candidate| **candidate == original)
+            .expect("mirrored run M site");
+        reverse.receiver_owner_identity = None;
+    });
+    let ownerless = NavigationSession {
+        repo,
+        index: Arc::new(ownerless_index),
+    };
+    let ownerless_edges =
+        queries::callees(&ownerless, Some("run"), Some("app/use.go"), None, 1).unwrap();
+    assert!(!evidence_has_file(&ownerless_edges, "api/types.go"));
+    assert!(!evidence_has_file(&ownerless_edges, "decoy/types.go"));
+}
+
+#[test]
 fn concrete_receiver_outputs_match_no_cache_cold_create_exact_cpg_and_sidecar_hits() {
     let _guard = ENV_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap();
     let _restore = EnvRestore(std::env::var_os(DIRTY_LOAD_OVERRIDE));

@@ -446,10 +446,10 @@ fn interface_manifest_existing_fields_match_origin_main_fixture() {
     );
 }
 
-// The legacy name set dedupes build-tag twins, but the new identity array must
-// retain both full targets so the oracle can distinguish their method spans/files.
+// Even a populated legacy bare bucket cannot make an ownerless recovered site
+// manifest-reachable after the shared terminal provenance boundary.
 #[test]
-fn interface_manifest_identity_dedup_keeps_build_tag_twins() {
+fn interface_manifest_ownerless_legacy_twin_bucket_is_terminal() {
     use prism::languages::Language::Go;
     use prism::resolution::ReceiverRecovery;
     let (mut cg, _) = build(&[
@@ -475,19 +475,17 @@ fn interface_manifest_identity_dedup_keeps_build_tag_twins() {
         ),
     ]);
     // The provider's bare-name satisfaction map intentionally collapses these
-    // build partitions upstream (resolution work, out of this oracle slice).
-    // Seed the emitter with the two exact FunctionIds it is contracted to retain.
+    // build partitions upstream. Seed both exact FunctionIds so the terminal
+    // predicate is discriminating against a populated legacy bucket.
     let twins = cg
         .methods
         .get(&("Impl".to_string(), "Go".to_string()))
         .expect("both parsed build-tag method targets")
         .clone();
     assert_eq!(twins.len(), 2, "CallGraph keeps both file-distinct targets");
-    // The post-merge prerequisite screen clears this deliberately undeclared
-    // receiver. Reconstruct the pre-Slice-0 legacy site in this serializer-only
-    // graph mutation so the emitter exercises the unchanged R3 bare lane; a
-    // production proven owner correctly applies profile visibility and rejects
-    // these conflicting twins.
+    // The prerequisite screen clears this deliberately undeclared receiver.
+    // Reconstruct the old serializer-only ownerless site; Slice 3 must stop it
+    // before the R3 bare lane regardless of the seeded implementers.
     let mut dispatch_site = site_in(&cg, "dispatch", "Go").clone();
     assert_eq!(dispatch_site.receiver_type, None);
     let dispatch_calls = cg
@@ -502,28 +500,13 @@ fn interface_manifest_identity_dedup_keeps_build_tag_twins() {
     cg.interface_impls
         .insert(("ExternalRunner".to_string(), "Go".to_string()), twins);
     let manifest = prism::navigation::queries::interface_dispatch_manifest(&cg);
-    let site = manifest["sites"]
-        .as_array()
-        .expect("sites array")
-        .iter()
-        .find(|site| site["method"] == "Go" && site["fanout"].as_u64() == Some(1))
-        .expect("dispatch with legacy-name dedup");
-    assert_eq!(site["implementers"], serde_json::json!(["Impl"]));
-    assert_eq!(site["fanout"], serde_json::json!(1));
-    let identities = site["implementer_identities"]
-        .as_array()
-        .expect("identity array");
-    assert_eq!(
-        identities.len(),
-        2,
-        "full tuples must not dedup build-tag twins"
-    );
-    assert_eq!(
-        identities
+    assert!(
+        manifest["sites"]
+            .as_array()
+            .expect("sites array")
             .iter()
-            .map(|identity| identity["file"].as_str())
-            .collect::<Vec<_>>(),
-        vec![Some("impl_darwin.go"), Some("impl_linux.go")]
+            .all(|site| site["file"] != "main.go" || site["method"] != "Go"),
+        "{manifest}"
     );
 }
 

@@ -154,7 +154,9 @@ use std::path::{Path, PathBuf};
 ///   and drop counters and change receiver materialization/resolved topology.
 /// - v52: Go package-variable receiver facts carry their defining-file owner.
 /// - v53: admissible unshadowed caller-local Go receivers carry exact owners.
-const CACHE_VERSION: u32 = 53;
+/// - v54: recovered Go receivers without a proven owner drop at the shared
+///   resolver/manifest terminal predicate.
+const CACHE_VERSION: u32 = 54;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -683,8 +685,8 @@ mod tests {
     }
 
     #[test]
-    fn cache_versions_are_pinned_for_go_receiver_local_owner_carrying() {
-        assert_eq!(super::CACHE_VERSION, 53);
+    fn cache_versions_are_pinned_for_go_receiver_terminal_owner_predicate() {
+        assert_eq!(super::CACHE_VERSION, 54);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

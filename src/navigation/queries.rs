@@ -721,6 +721,9 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             if !cg.interface_method_names.contains(&site.callee_name) {
                 continue;
             }
+            if crate::resolution::go_receiver_owner_is_terminally_unproven(site) {
+                continue;
+            }
             // P17: this is the same full R1/R2/R3 verdict the resolver consumes.
             // It must be consulted immediately after the denominator predicate,
             // before the manifest's legacy R3 interface ladder.

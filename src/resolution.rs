@@ -532,6 +532,17 @@ pub fn admission_key(bare_type: &str, is_pointer: bool) -> String {
     }
 }
 
+/// Slice 3 terminal provenance boundary, shared by the resolver and interface
+/// dispatch manifest. Slices 0–2 make every admissible recovered Go receiver
+/// declaration-backed, so a recovered type without its owner is unproven and
+/// must not be rebound in the caller's namespace.
+pub(crate) fn go_receiver_owner_is_terminally_unproven(site: &CallSite) -> bool {
+    crate::languages::Language::from_path(&site.caller.file) == Some(crate::languages::Language::Go)
+        && site.receiver_type.is_some()
+        && site.receiver_recovery.is_some()
+        && site.receiver_owner_identity.is_none()
+}
+
 /// Arity admission for interface-dispatch candidates (language-neutral; shared by
 /// the resolution mint and the `interface_dispatch_manifest`). CONSERVATIVE on
 /// purpose — the headline risk is recall loss (dropping a valid dispatch edge), so
@@ -2355,10 +2366,7 @@ impl CallGraph {
 
                 // R6 step 1: P6-lite recovered receiver.
                 if let Some(recv_ty) = site.receiver_type.as_deref() {
-                    if caller_lang == Some(crate::languages::Language::Go)
-                        && site.receiver_recovery == Some(ReceiverRecovery::ReturnTyped)
-                        && site.receiver_owner_identity.is_none()
-                    {
+                    if go_receiver_owner_is_terminally_unproven(site) {
                         return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
                     }
                     // Single source of truth for the recovery->kind mapping

@@ -56,7 +56,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // edges from the resolved navigation topology (paired with CPG v51).
 // v20: package-variable receivers carry defining-file owners (paired with CPG v52).
 // v21: admissible unshadowed caller-local receivers carry owners (paired with CPG v53).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 21;
+// v22: recovered Go receivers without a proven owner drop terminally (paired with CPG v54).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 22;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -382,8 +383,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_pinned_for_go_receiver_local_owner_carrying() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 21);
+    fn sidecar_version_is_pinned_for_go_receiver_terminal_owner_predicate() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 22);
     }
 
     #[test]
