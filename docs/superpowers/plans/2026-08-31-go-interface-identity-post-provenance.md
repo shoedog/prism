@@ -1,12 +1,12 @@
 # #16 Go interface identity — post-provenance implementation plan
 
-**Design authority:** `docs/superpowers/specs/2026-08-23-go-package-qualified-interface-identity-design.md` v15
+**Design authority:** `docs/superpowers/specs/2026-08-23-go-package-qualified-interface-identity-design.md` v16
 **Exact base:** `b7a5cf934a44060de98588837b3c8c75ddffdc37`
 **Lane:** `/Users/wesleyjinks/code/slicing-16-post-provenance` · `a-go-interface-identity-post-provenance`
 **Owner authority:** successor continuation, push, and merge are authorized after gates; relevant non-coverage CI is mandatory and Coverage is not a wait condition.
 **Review caps:** design `2` rounds (complete, plus one disclosed scoped confirmation and one bounded preflight artifact correction); implementation `2` rounds.
 
-**Execution status (2026-08-31): ACTIVE at Task 2.** The corrected Task 1 census selected zero candidate sites across all five pinned corpora. The owner explicitly authorized v15's source-fixture and exact-base RED replacement floor while retaining the five-corpus zero population as mandatory control evidence. See `docs/superpowers/handoffs/2026-08-31-go-interface-identity-task1-census-evidence.md`.
+**Execution status (2026-08-31): ACTIVE at Task 2.** The corrected Task 1 census selected zero candidate sites across all five pinned corpora. The owner authorized a source-fixture and exact-base RED substitute; v16 binds it to every source-reachable legacy outcome after review round 1 proved four consult outcomes exit earlier in production. See `docs/superpowers/handoffs/2026-08-31-go-interface-identity-task1-census-evidence.md`.
 
 ## Goal and boundary
 
@@ -51,7 +51,7 @@ Tests and this lane's docs may be added or updated. Any other production file re
 5. Put the temporary census behind `PRISM_P16_CENSUS`. Emit an exhaustive pre-terminal prerequisite ledger (`ownerless_terminal` | `owner_bearing`) and a separate candidate ledger only for owner-bearing sites that actually reach the legacy bare-table arm. Invoke the consult only for candidate-ledger rows. Normal manifest output must remain byte-stable when the variable is absent.
 6. Unit-test route partition, target identity encoding, and the ownerless no-invocation invariant. Compile before running any corpus probe.
 7. Build release immediately before the five pinned corpus runs. Preserve keyed current/candidate rows, terminal outcomes, complete target-set diffs, binary SHA, corpus SHAs, commands, exits, and artifact hashes outside the worktree.
-8. Oracle-join every changed target set and disposition every historical sentinel named by v15. Stop before Task 2 on incomplete coverage, a new over-approximation, an unexplained recall loss, an ownerless consult invocation, or a delta outside the complete census. A zero natural-corpus candidate population proceeds only through v15's owner-authorized source-fixture replacement floor.
+8. Oracle-join every changed target set and disposition every historical sentinel named by v16. Stop before Task 2 on incomplete coverage, a new over-approximation, an unexplained recall loss, an ownerless consult invocation, or a delta outside the complete census. A zero natural-corpus candidate population proceeds only through v16's owner-authorized source-fixture replacement floor.
 
 The census harness is a durable checkpoint, then removed or reduced to tests before production publication. Its code is not production authorization.
 
@@ -59,17 +59,13 @@ The census harness is a durable checkpoint, then removed or reduced to tests bef
 
 Add public-behavior tests before switching either consumer. Enumerate registered selectors with `cargo test -- --list`; a zero-selected command is inadmissible. Fixtures must be source-built without post-build graph or resolver-state mutation, and exact base must report a nonzero legacy-arm attempt for the collision RED. Required behaviors include these exact selector stems:
 
-- `go_proven_interface_owner_beats_bare_collision`
-- `go_proven_interface_origin_namespace_decoy_stays_absent`
-- `go_proven_interface_recovered_positive_matrix`
-- `go_proven_interface_promoted_and_direct_satisfiers_survive`
-- `go_proven_interface_promoted_signature_mismatch_drops_only_promoted_owner`
-- `go_proven_interface_per_owner_conflict_preserves_exact_satisfier`
-- `go_proven_interface_live_profile_order`
-- `go_proven_interface_arity_empty_uses_func_value_field_without_bare_retry`
+- `go_proven_interface_owner_beats_bare_collision_with_func_field`
+- `go_proven_interface_invalid_owner_terminal_drop_without_bare_retry`
 - `interface_manifest_go_proven_interface_parity`
 - `navigation_sidecar_go_proven_interface_parity`
 - `go_proven_interface_terminal_negative_matrix`
+
+Retain direct unit selectors for all five consult routes and the promoted/direct/profile/arity partitions, but do not represent those direct-seam tests as source-reachable production REDs. Declaration-proven interface owners exit through the earlier carried-interface path; the public RED population at this seam is declaration-proven concrete owners that must reject the bare interface table.
 
 Add the sidecar `22 → 23` pin RED and retain the CPG `54` assertion. Capture each watched failure's selected count, assertion, exit, and exact-base result. A compile failure caused by an undeclared signature is fixed before behavioral RED evidence is accepted.
 
@@ -81,7 +77,7 @@ Add the sidecar `22 → 23` pin RED and retain the CPG `54` assertion. Capture e
 4. Route the manifest's matching R3 arm through the same consult and derive `dispatch_route`, fanout, and implementer identities from its result.
 5. Keep `go_receiver_owner_is_terminally_unproven` before both consumers. Sidecar parity remains resolver-derived; do not add a third predicate or consult.
 6. Advance only `NAV_CALL_EDGE_CACHE_VERSION` and its pin to `23`; keep CPG at `54`.
-7. Remove the temporary census surface from normal output. Retain only production telemetry explicitly admitted by v14 and tests needed to prevent route drift.
+7. Remove the temporary census surface from normal output. Retain only production telemetry explicitly admitted by v16 and tests needed to prevent route drift.
 8. Run the exact RED selectors to GREEN and record totals. Any expectation change requires a two-sided exact-base control showing the old assertion is obsolete.
 
 ## Task 4 — Full verification and current-base evidence

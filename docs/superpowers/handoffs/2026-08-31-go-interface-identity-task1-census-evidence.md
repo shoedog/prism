@@ -1,4 +1,4 @@
-# #16 Task 1 census evidence — zero-selection population and v15 fixture amendment
+# #16 Task 1 census evidence — zero-selection population and v16 fixture amendment
 
 **Captured:** 2026-08-31T00:59:49Z  
 **Lane:** `/Users/wesleyjinks/code/slicing-16-post-provenance` · `a-go-interface-identity-post-provenance`  
@@ -7,7 +7,7 @@
 
 ## Verdict
 
-**Five-corpus population is zero; Task 2 is authorized under v15's replacement floor.** The corrected census is exhaustive for the declared denominator and selected zero sites for the candidate consult. It remains mandatory population and no-delta control evidence, but it does not claim positive production coverage. On 2026-08-31 the owner explicitly authorized constructible public source fixtures plus exact-base RED evidence as the replacement coverage floor recorded in design v15 §4. No corpus oracle join exists because there are no changed corpus target sets.
+**Five-corpus population is zero; Task 2 is authorized under v16's replacement floor.** The corrected census is exhaustive for the declared denominator and selected zero sites for the candidate consult. It remains mandatory population and no-delta control evidence, but it does not claim positive production coverage. On 2026-08-31 the owner explicitly authorized constructible public source fixtures plus exact-base RED evidence; design v16 §4 records the corrected source-reachable replacement floor. No corpus oracle join exists because there are no changed corpus target sets.
 
 The first census implementation admitted candidates from the manifest's local `legacy_bare` flag. That was a harness `WRONG`: a constructible owner-bearing site can reach the resolver's legacy `iface_key` arm while the manifest independently labels the same site `unproven_drop`. Those first artifacts are retained at `/private/tmp/p16-census-task1-20260831` but are inadmissible. The corrected v2 harness admits candidates only when `resolve_call_site_full` reports `go_unproven_receiver_bare_fallback_sites > 0`; that telemetry is set only at the actual resolver arm.
 
@@ -65,4 +65,4 @@ Not run at this checkpoint because the former Task 1 STOP gate fired: public RED
 
 ## Owner decision received
 
-On 2026-08-31 the owner selected the fixture amendment: constructible public source fixtures plus exact-base RED proof may authorize this route despite zero pinned-corpus candidates. Design v15 §4 supplies the replacement floor: an actual exact-base legacy-arm attempt and incorrect target set, all five consult routes exercised through public selectors, resolver/manifest/sidecar parity, source or gopls disposition for every fixture delta, negative or edge coverage for every changed path, and rechecked five-corpus conservation/parity controls. The prior general push/merge authority remains gated on those checks.
+On 2026-08-31 the owner selected the fixture amendment: constructible public source fixtures plus exact-base RED proof may authorize this route despite zero pinned-corpus candidates. A valid return-typed concrete-owner fixture at `/private/tmp/p16-source-fixture-v1` then made exact base report legacy `sites/hits/edges = 1/1/1` and mint `decoy.Wrong.Run`; the candidate census classified `invalid_drop` and continued to the registered `app.worker` target. Review round 1 found one artifact `WRONG`: v15 required all five consult outcomes through public selectors even though declaration-proven interface owners exit through the earlier carried-interface path. Design v16 §4 corrects the floor to every source-reachable legacy outcome, keeps all five routes at the direct unit seam, requires resolver/manifest/sidecar parity and source or gopls disposition for every fixture delta, and retains the five-corpus conservation/parity controls. The prior general push/merge authority remains gated on those checks.
