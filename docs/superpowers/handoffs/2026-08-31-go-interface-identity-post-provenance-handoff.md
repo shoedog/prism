@@ -1,6 +1,6 @@
 # Handoff — #16 Go interface identity after receiver provenance
 
-**Refreshed:** 2026-08-31T02:28:14Z · **By:** Codex `/root` · **Provider:** codex
+**Refreshed:** 2026-08-31T02:36:21Z · **By:** Codex `/root` · **Provider:** codex
 **Workspace:** `/Users/wesleyjinks/code/slicing-16-post-provenance` · `a-go-interface-identity-post-provenance` · **Base:** `[MEASURED]` `b7a5cf934a44060de98588837b3c8c75ddffdc37` (`origin/main`, PR #214 merge)
 **Predecessor:** receiver-provenance Slice 3 PR #213 / `31250f7e`, closeout PR #214 / `b7a5cf93`, and preserved #16 PARK commit `ea74558f`
 **Truth ordering:** current measured state > explicit owner/design authority within scope > v16 design > this handoff > earlier handoffs and summaries. Conflicts remain open until remeasured.
@@ -8,9 +8,9 @@
 ## 0. Gating facts
 
 **Lane ownership:** `[MEASURED]` fresh dedicated branch/worktree created from PR #214 merge; no subagent dispatched. The primary `slicing` worktree and every receiver-provenance worktree remain untouched.
-**Custody exposure:** `[MEASURED]` v12, v13, and PARK were replayed as separate commits `e87f9e7`, `0a1c474`, and `ab4e5da`; reviewed v14 is `c64ccd42cde9074e5903cb451d4059423d71e0fa`; the parked Task 1 consult/census is `b529d295`; the owner-authorized v15 and corrected v16 designs are `e13cfaf` and `ca44422`; the public RED checkpoint is `c017395`; the production switch is `4f74ace`; and the fully verified cache/review checkpoint is `cf5def8`. The exact-base worktree `/private/tmp/slicing-p16-base-b7a5cf93` is intentionally dirty only with replayable test/pin overlays. The historical `/Users/wesleyjinks/code/slicing-16c1-sol` clone remains dirty and untouched on `c1-bare-walk-consult` at `1900682c`, base `0ca571c5`, with three modified source files (`627 insertions / 130 deletions`) plus one untracked spec whose SHA-256 is `e45a41e3edbdc00f2d48700601dacfabb8027870275222ac681d65be73a86c3c`.
+**Custody exposure:** `[MEASURED]` v12, v13, and PARK were replayed as separate commits `e87f9e7`, `0a1c474`, and `ab4e5da`; reviewed v14 is `c64ccd42cde9074e5903cb451d4059423d71e0fa`; the parked Task 1 consult/census is `b529d295`; the owner-authorized v15 and corrected v16 designs are `e13cfaf` and `ca44422`; the public RED checkpoint is `c017395`; the production switch is `4f74ace`; the fully verified cache/review checkpoint is `cf5def8`; and PR #215 merged as `d21c8cb4ae4f4a2a6b43ce66ea4ed5a76f8a15a9`. The exact-base worktree `/private/tmp/slicing-p16-base-b7a5cf93` is intentionally dirty only with replayable test/pin overlays. The historical `/Users/wesleyjinks/code/slicing-16c1-sol` clone remains dirty and untouched on `c1-bare-walk-consult` at `1900682c`, base `0ca571c5`, with three modified source files (`627 insertions / 130 deletions`) plus one untracked spec whose SHA-256 is `e45a41e3edbdc00f2d48700601dacfabb8027870275222ac681d65be73a86c3c`.
 **In flight / irreversible:** none.
-**Authority:** owner repeatedly said `authorized`, explicitly authorized push/merge, directed successor continuation, and on 2026-08-31 explicitly authorized the constructible-source-fixture plus exact-base RED substitute for the zero natural-corpus population. Task 4 and both implementation review rounds pass. Publication is ready; relevant non-coverage CI remains required, while Coverage is not a wait condition.
+**Authority:** owner repeatedly said `authorized`, explicitly authorized push/merge, directed successor continuation, and on 2026-08-31 explicitly authorized the constructible-source-fixture plus exact-base RED substitute for the zero natural-corpus population. Task 4 and both implementation review rounds passed; all relevant non-coverage CI passed; PR #215 is merged. Coverage was not awaited by owner direction.
 **Template limitation:** the referenced `bootstrap/handoff-template.md` was not found under readable steering, Codex, Claude, or code roots. This handoff uses the repository's established eight-section shape instead.
 
 ## 1. Resume order
@@ -20,7 +20,7 @@
 3. Preserve the dirty old clone without writes; it is historical census custody, not an implementation base.
 4. Preserve v14/plan/handoff checkpoint `c64ccd42` and Task 1 parked checkpoint `b529d29595bac1c7040be94992bf01bcd320eb97`.
 5. Read `docs/superpowers/handoffs/2026-08-31-go-interface-identity-task1-census-evidence.md` before acting. Preserve its measured zero population; do not present it as positive behavior coverage.
-6. Read `docs/superpowers/handoffs/2026-08-31-go-interface-identity-task2-red-evidence.md` and `docs/superpowers/handoffs/2026-08-31-go-interface-identity-task4-evidence.md`, then publish: push, open the PR, require relevant non-coverage CI, merge, and reconcile this handoff if it still says publication is pending.
+6. Read `docs/superpowers/handoffs/2026-08-31-go-interface-identity-task2-red-evidence.md` and `docs/superpowers/handoffs/2026-08-31-go-interface-identity-task4-evidence.md`. This lane is closed at PR #215 / `d21c8cb4`; resume from the successor roadmap, not this implementation branch.
 
 **STOP conditions:** ownerless rows invoke the candidate consult; receiver text or a global index selects identity; a third consumer appears; production scope exceeds the plan; static table retirement or CPG movement becomes necessary; corpus coverage is incomplete; a probe selects zero tests or fails for its own reason; or review reopens the proxy-for-provenance class.
 
@@ -31,7 +31,7 @@
 | Slice 3 prerequisite | done | `[MEASURED]` PR #213 merged as `31250f7e`; PR #214 reconciled custody as `b7a5cf93`. |
 | Old #16 artifact | preserved, not reusable as-is | `[MEASURED]` v13 PARK required A first; dirty old clone is eight days and multiple cache/schema waves behind current main. |
 | v13 replay | done | `[MEASURED]` spec-only commits replayed cleanly at `e87f9e7`, `0a1c474`, `ab4e5da`. |
-| Current consumer census | done for structure | `[MEASURED]` shared terminal predicate precedes resolver/manifest; exactly two independent consumers; sidecar reuses resolver. Owner-bearing `Unproven` routes still retain a bare table lookup. |
+| Current consumer census | done for structure | `[MEASURED]` shared terminal predicate precedes resolver/manifest; exactly two independent consumers; sidecar reuses resolver. The surviving owner-bearing `Unproven` seam now uses the exact-owner consult and cannot retry the bare table. |
 | v14 design | reviewed at cap with bounded preflight correction | Round 1: one `WRONG`, zero `SMELL` (ownerless census tautology), fixed. Round 2: one `WRONG`, zero `SMELL` (`arg_count` type), fixed. Disclosed scoped confirmation found no further item. Source-reality preflight then found one closed artifact `WRONG`: the combined census partition omitted owner-bearing routes that exit before the legacy arm. The complete route tree was enumerated and the contract now uses two exhaustive ledgers; no code had started. |
 | Executable plan | committed | `[MEASURED]` v14, plan, and initial handoff checkpoint is `c64ccd42`; start Task 1. |
 | Shared consult and dormant census | implemented, not production-routed | `[MEASURED]` checkpoint `b529d295`; focused census tests `5/5`; existing promoted/S4 compatibility `49/49`; all-target compile passed. Normal ripgrep manifest is byte-identical to exact base. |
@@ -41,7 +41,7 @@
 | Public RED matrix | complete | `[MEASURED]` Go public fixtures candidate `5/5`; exact base `1/5`, with all four expected behavior selectors failing on `decoy.Wrong.Run`. Sidecar candidate `1/1`, base `0/1`; pin candidate `1/1`, base `0/1`. Both one- and two-callback fixtures compile as Go. |
 | Production switch | complete | `[MEASURED]` resolver and manifest share `go_proven_interface_outcome`; sidecar remains resolver-derived; CPG stays `54`, sidecar is `23`. Production checkpoint `4f74ace`; verified cache/review checkpoint `cf5def8`. |
 | Verification / review | complete | `[MEASURED]` focused `15/15`; full suite `3,510/0/1`, exit `0`; ordinary Clippy passes and strict debt exactly matches base; matrix `104`, controlled quick invalid; ten corpus pairs byte-identical; four oracle deltas pass at `1.0/1.0`; #17b `0/0/0`; round 2 closed at zero open findings. |
-| Publication | ready under standing authority | Push/open PR, require relevant non-coverage CI, merge without waiting for Coverage, then reconcile durable state. |
+| Publication | merged | `[MEASURED]` PR #215 merged at `d21c8cb4`; Format, Clippy, Test Suite, and Language Coverage Matrix passed. Coverage was in progress and intentionally not awaited. |
 
 ## 3. Hypothesis-probe-result log
 
@@ -70,7 +70,7 @@
 | 3 | Production switch/cache | done | Preserve `4f74ace` and verified cache checkpoint `cf5def8`. | Scope expansion |
 | 4 | Full verification/corpora/oracles | done | Preserve Task 4 evidence and retained `/private/tmp` artifacts. | Evidence drift |
 | 5 | Review rounds 1–2 | done at cap | Zero open `WRONG`; zero open in-scope `SMELL`. | Open-class finding |
-| 6 | Publication/closeout | ready | Push/open/CI/merge, then reconcile durable state. | Relevant CI failure |
+| 6 | Publication/closeout | done | PR #215 merged as `d21c8cb4`; preserve this docs-only reconciliation. | None |
 
 ## 5. Invariants and traps
 
@@ -110,6 +110,7 @@
 | Public RED checkpoint | `c017395860964df02577fd021f8f18c84aade99b` |
 | Production switch checkpoint | `4f74ace724ae766a285480de7211b6c4159ef425` |
 | Verified implementation checkpoint | `cf5def8c840b54e151f507732f737d6bc6355f2f` |
+| #16 publication | PR #215 · `d21c8cb4ae4f4a2a6b43ce66ea4ed5a76f8a15a9` |
 | Exact-base RED worktree | `/private/tmp/slicing-p16-base-b7a5cf93` · detached `b7a5cf93` · intentional test overlays |
 | Corrected candidate binary | `7164d872d8e49585fc892887146c85a4ae3a24c42c5a9bba55df14aa0cc8ee79` |
 | Exact-base control binary | `631bedb9a3ac8904574e552b886318fffe802e1df8a3489d82cb027c3c6a48a1` |
@@ -121,8 +122,8 @@
 
 ## 7. Current evidence and exclusions
 
-Current evidence closes Tasks 2–5: source fixtures compile as Go; exact base reports legacy `1/1/1` and wrong `decoy.Wrong.Run`; focused candidate selectors pass `15/15`; full suite passes `3,510/0/1` across `28` summaries; formatting/check/ordinary Clippy pass; strict Clippy exactly matches same-environment baseline debt; Tier-A matrix lists `104` cases and quick's sole invalid reason is controlled on exact base; all ten corpus artifact pairs are byte-identical; four oracle deltas pass with `1.0/1.0` coverage and no blockers/new Exact sites; #17b remains `0/0/0`; cache parity covers no-cache/cold/exact-CPG/sidecar-hit plus incremental refresh and a nonempty deserialized live set; round 2 closes at zero open findings. CI, push, and merge remain unclaimed. The zero-selected probes, malformed jq projection, guessed filenames, pipeline failure, and truncated first full-suite aggregate remain excluded.
+Current evidence closes Tasks 2–6: source fixtures compile as Go; exact base reports legacy `1/1/1` and wrong `decoy.Wrong.Run`; focused candidate selectors pass `15/15`; full suite passes `3,510/0/1` across `28` summaries; formatting/check/ordinary Clippy pass; strict Clippy exactly matches same-environment baseline debt; Tier-A matrix lists `104` cases and quick's sole invalid reason is controlled on exact base; all ten corpus artifact pairs are byte-identical; four oracle deltas pass with `1.0/1.0` coverage and no blockers/new Exact sites; #17b remains `0/0/0`; cache parity covers no-cache/cold/exact-CPG/sidecar-hit plus incremental refresh and a nonempty deserialized live set; round 2 closes at zero open findings. PR #215 relevant CI passed and merge commit `d21c8cb4` is confirmed. Coverage was still in progress at merge and is not claimed or required. The zero-selected probes, malformed jq projection, guessed filenames, pipeline failure, and truncated first full-suite aggregate remain excluded.
 
 ## 8. Owner direction and review verdict
 
-Owner direction includes push/merge authority after gates and explicit authorization of the fixture substitute. The current verdict is **READY TO PUBLISH**. Both implementation review rounds converged within cap with zero open `WRONG` and zero open in-scope `SMELL`; the admitted production route needs no new identity proxy or global fallback. Push, open the PR, require relevant non-coverage CI, merge without waiting for Coverage, then reconcile durable merge state.
+Owner direction included push/merge authority after gates and explicit authorization of the fixture substitute. The current verdict is **CLOSED AND MERGED** at PR #215 / `d21c8cb4`. Both implementation review rounds converged within cap with zero open `WRONG` and zero open in-scope `SMELL`; all relevant non-coverage CI passed. Proceed from the successor roadmap.

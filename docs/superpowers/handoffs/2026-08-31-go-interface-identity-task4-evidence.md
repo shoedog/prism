@@ -68,9 +68,13 @@ Review cap: `2`; this was the final declared round.
 
 The review converged within the cap: zero open `WRONG`, zero open in-scope `SMELL`, and no recurrence of the proxy-for-provenance class.
 
+## Publication
+
+PR #215 merged at `2026-08-31T02:35:52Z` as `d21c8cb4ae4f4a2a6b43ce66ea4ed5a76f8a15a9`. Format Check, Clippy Lint, Test Suite (including MCP tests), and Language Coverage Matrix passed. Coverage was still in progress and was intentionally not awaited under owner direction.
+
 ## Exclusions
 
 - Strict Clippy is not green repository-wide; its candidate failure is exactly same-environment baseline debt as quantified above.
 - Tier-A quick is not a valid pass because the committed baseline pin rejects both candidate and exact base. It is retained as a controlled invalid result, not rebaselined.
 - The initial zero-selected focused command, a malformed jq projection, guessed artifact filenames, and the truncated first full-suite aggregate are inadmissible and excluded. The corrected selectors and non-truncated `28`-summary aggregate supersede them.
-- Coverage is not a publication wait condition by explicit owner direction. Relevant non-coverage CI remains required.
+- Coverage was not a publication wait condition by explicit owner direction. All relevant non-coverage CI passed before merge.
