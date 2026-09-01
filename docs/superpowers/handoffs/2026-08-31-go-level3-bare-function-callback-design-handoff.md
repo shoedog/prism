@@ -25,6 +25,8 @@ Retained packet: `/Users/wesleyjinks/code/prism-lane-artifacts/2026-08-23-next10
 
 The five corpora reported zero parse errors and zero files skipped for size. The strict unambiguous non-test B1 floor is Caddy `49`, Prometheus `6`, etcd `3`, Hugo `9`, zap `0`: total `67`. This is a syntactic census, not a type-checking/build-tag/shadow oracle. Acceptance is a 67-row site-level classification, not a requirement to emit 67 edges. Caddy's two primary positive controls use named function types, so literal-`func`-only extraction is insufficient.
 
+The successor real-corpus screen is now **CLOSED**. Thirteen no-cache production-path runs conserved `981 = 3 accepted + 978 drops`. Two accepted Delve rows were debugger fixtures and were not used to close the real-source signal. Kubernetes module `k8s.io/pod-security-admission` supplied one non-fixture accepted edge from `addCheck(CheckProcMountRestricted)` to the direct `f()` invocation and exact target; `go test ./policy` passed. See `2026-08-31-go-level3-b1-real-corpus-measurement.md`.
+
 ## 2. Implemented compiled substrate
 
 | Item | Current implementation fact |
@@ -69,7 +71,7 @@ Declared design-review cap: `2`. One Round-3 extension was disclosed under the c
 
 Confidence increases if the red-first fixtures prove every enumerated namespace and source-identity case and the 67-row join conserves exactly. It decreases if compiled reality requires an unenumerated Go binding form or a second signature authority. It collapses if any accepted synthetic site lacks a uniquely proven target/signature/occurrence or any cache path retains a stale edge.
 
-Declared implementation self-review cap: `3`. Rounds 1–2 found no `WRONG`; Round 2 rechecked whole-program lifecycle placement and confirmed that the complete branch Clippy log contains no diagnostic for the new callback module or minting block, while the expanded `CallSite::cmp_key` complexity lint is already present on exact base. One `SMELL` remains: the five retained corpora contain no row accepted by the full authority, and 10 syntactic floor rows fall outside the production candidate definition. Confidence would increase with a real corpus positive that survives every proof; it would decrease if a candidate could not be joined by exact span/slot; it would collapse on any constructible false edge or stale lifecycle edge. The implementation did not weaken authority to manufacture a positive. No independent implementation review has occurred.
+Declared implementation self-review cap: `3`. Rounds 1–2 found no `WRONG`; Round 2 rechecked whole-program lifecycle placement and confirmed that the complete branch Clippy log contains no diagnostic for the new callback module or minting block, while the expanded `CallSite::cmp_key` complexity lint is already present on exact base. At implementation close, one `SMELL` remained: the five retained corpora contained no row accepted by the full authority. The successor Kubernetes measurement resolved that evidence gap with one non-fixture row that survived every proof and compiled under the module's own package test. This does not authorize B2–B5 or weaken any B1 authority. No independent implementation review has occurred.
 
 ## 5. Verification and exclusions
 
@@ -85,10 +87,10 @@ All `67` retained floor rows were adjudicated. The stable production dump direct
 
 ## 6. Next exact steps
 
-1. Preserve PR #221 / `492160590ca76388d4385e2bc2099fb84294f791` and the retained implementation/base evidence; do not restart this closed lane.
-2. Run the owner-authorized full-corpus Tier-A refresh from a worktree bound to current server `main`, and adjudicate the produced report before changing the committed baseline.
-3. Measure additional real Go corpora for at least one accepted B1 row before considering any expansion to B2–B5.
-4. If no real positive is found, retain the current fail-closed boundary and report the measured population rather than weakening authority.
+1. Preserve PR #221 / `492160590ca76388d4385e2bc2099fb84294f791`, the retained implementation/base evidence, and the successor measurement packet; do not restart this closed lane.
+2. Preserve the owner-authorized full-corpus Tier-A adjudication and PR #223 repair; do not rebaseline the invalid Prism anchor.
+3. Keep B2–B5 outside the shipped authority. A future expansion requires its own measured population, RED, design, and review cap.
+4. Return-flow taint is already merged as PR #193. Advance to the strategic-fork decision brief; do not restart #2.
 
 ## 7. Identifiers
 
@@ -103,6 +105,7 @@ All `67` retained floor rows were adjudicated. The stable production dump direct
 | Implementation exact base | `8c40bfc344b263e06fd21419dc133a4aed92ae98` |
 | Design | `docs/superpowers/specs/2026-08-31-go-level3-bare-function-callback-design.md` |
 | Roadmap | `docs/analysis/prism-post-plan-roadmap.md` row `13` |
+| Successor measurement | `docs/superpowers/handoffs/2026-08-31-go-level3-b1-real-corpus-measurement.md` |
 | Design review cap | `2 + 1 disclosed convergence extension`; settled |
-| Implementation self-review cap | `3`; Rounds 1–2 complete, no `WRONG`, one disclosed corpus-positive `SMELL` |
+| Implementation self-review cap | `3`; Rounds 1–2 complete, no `WRONG`; corpus-positive `SMELL` resolved by successor measurement |
 | Runtime changes | bounded Go B1 Level-3 minting plus telemetry/source identity/cache lifecycle |

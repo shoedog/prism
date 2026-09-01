@@ -3,8 +3,9 @@
 **Refreshed:** 2026-08-31 · **By:** Codex `/root` · **Provider:** codex  
 **Workspace:** `/private/tmp/slicing-fix-go-root-return-typed` · `fix-go-root-return-typed`  
 **Exact local base:** `[MEASURED]` `c0de1d66be4beffa9270c995f224dd450a3162bd`; its tree is byte-identical to post-closeout server main `d4fd1da1e5e2ebe1052190b0e647ed6c0570e89d`.
-**Verified implementation checkpoint:** `[MEASURED]` `f00a6a92fb1a2cb25b78f331c153f380b316540d`.
+**Verified implementation checkpoint:** `[MEASURED]` `f00a6a92fb1a78d3b2fc9ff6d680fb75f9f2646b`.
 **Publication:** `[MEASURED]` PR `#223` merged as `f8f3d02eccbc643337fbae03cf2ef7c1ef6f0dbf`; server-main tree `c029018c90b1f44f6f2ff8c4da30cc1862aa5da4` exactly matches the verified PR tree.
+**Closeout publication:** `[MEASURED]` PR `#224` merged as `1bed1ab4d1df5b9fa1e0fbda8d87e04f8af30f5f`; its immutable tree is `8730298c900efad28eba7a4ff0d3c6321e310b69`.
 
 ## 0. Verdict and authority
 
@@ -77,14 +78,14 @@ Declared implementation/review cap: `2` rounds.
 
 ## 6. Next actions
 
-1. Publish this closeout reconciliation from the live post-merge `main` tree.
+1. Preserve PR #223 and closeout PR #224; do not restart this closed lane.
 2. Preserve the full-refresh evidence in `/private/tmp/slicing-post221-closeout`; do not rebaseline the invalid 2026-08-31 Prism anchor.
-3. Advance to the next roadmap item: measure additional Go corpora for a real accepted Level-3 B1 case before expanding implementation scope.
+3. Follow the successor Level-3 measurement handoff, then advance to the strategic-fork decision brief; return-flow taint is already merged as PR #193.
 
 ## 7. Custody and exclusions
 
 - Active implementation branch/worktree: `fix-go-root-return-typed` at `/private/tmp/slicing-fix-go-root-return-typed`.
-- Verified implementation checkpoint: `f00a6a92fb1a2cb25b78f331c153f380b316540d`.
+- Verified implementation checkpoint: `f00a6a92fb1a78d3b2fc9ff6d680fb75f9f2646b`.
 - Published PR/head: `#223` / `b42c47c83b3609403a34d8806e4d71315b0118ba`; remote head tree `c029018c90b1f44f6f2ff8c4da30cc1862aa5da4`.
 - Squash merge/server `main`: `f8f3d02eccbc643337fbae03cf2ef7c1ef6f0dbf`; tree `c029018c90b1f44f6f2ff8c4da30cc1862aa5da4`.
 - Test-only RED control: detached `c0de1d6` at `/private/tmp/slicing-red-go-qualified-return`.
