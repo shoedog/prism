@@ -484,8 +484,9 @@ pub struct GoReceiverCtx<'a> {
 /// - the qualifier is a dotted 1-2 hop field-selector chain (S2), or
 /// - the qualifier has zero function-local bindings (S3 package var), or
 /// - the qualifier has exactly one local binding whose RHS is a single
-///   first-position call the extraction-time constructor/`New`-prefix
-///   heuristics couldn't type (S1 call-RHS).
+///   first-position call whose declared result supplies a type the extraction-
+///   time heuristic could not recover, or corrects a name-derived `NewX` owner
+///   that disagrees with the declaration (S1 call-RHS).
 ///
 /// Run fresh for EVERY Go call site on every full/incremental build (not
 /// conditionally skipped when already `Some`) so a type-defining file edited
@@ -537,6 +538,75 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
         baseline.clone()
     };
     if candidate.recovered.is_some() {
+        // A same-package `NewX()` call is provisionally classified as
+        // `ConstructorLocal(X)` from its spelling alone. When S1 has the
+        // function's declared return owner, that declaration is authoritative:
+        // `func NewLogger() *zap.Logger` must not be rebound to a local
+        // `zaptest.Logger` (or dropped merely because that decoy is absent).
+        // Preserve the legacy label when both proofs name the same owner.
+        if !candidate.proof_shadowed
+            && !same_scope_reuse
+            && candidate
+                .recovered
+                .as_ref()
+                .is_some_and(|recovered| recovered.recovery == ReceiverRecovery::ConstructorLocal)
+        {
+            if let Some(callee_text) = ctx.parsed.go_short_var_call_rhs(
+                &ctx.fn_node,
+                ctx.qualifier,
+                ctx.call_line,
+                ctx.call_start_byte,
+            ) {
+                let selection = resolve_go_return_type_call(
+                    &callee_text,
+                    ctx.caller_file,
+                    facts.imports,
+                    facts.package_basenames,
+                    facts.return_types,
+                    facts.go_file_profiles,
+                );
+                let evidence = selection.evidence;
+                if let Some(owner_identity) = selection.value {
+                    let heuristic_owner = candidate.recovered.as_ref().and_then(|recovered| {
+                        resolve_go_receiver_owner_identity(
+                            &recovered.static_type,
+                            ctx.caller_file,
+                            facts.imports,
+                            facts.package_basenames,
+                            facts.go_file_profiles,
+                        )
+                    });
+                    if heuristic_owner.as_ref() != Some(&owner_identity) {
+                        return (
+                            ReceiverClassification {
+                                recovered: Some(RecoveredReceiver {
+                                    static_type: owner_identity.name.clone(),
+                                    owner_identity: Some(owner_identity),
+                                    recovery: ReceiverRecovery::ReturnTyped,
+                                    go_field_target: None,
+                                }),
+                                materialized: true,
+                                proof_shadowed: false,
+                            },
+                            evidence,
+                            GoReceiverPrereqOrigin::CarriedOwner,
+                        );
+                    }
+                    return (candidate, evidence, GoReceiverPrereqOrigin::CallerFile);
+                }
+                if evidence.conflict || evidence.uncertain {
+                    return (
+                        ReceiverClassification {
+                            recovered: None,
+                            materialized: true,
+                            proof_shadowed: false,
+                        },
+                        evidence,
+                        GoReceiverPrereqOrigin::CallerFile,
+                    );
+                }
+            }
+        }
         if candidate.proof_shadowed || !same_scope_reuse {
             return (
                 candidate,

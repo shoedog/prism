@@ -128,6 +128,99 @@ fn concrete_typed_param_and_s1_return_typed_receivers_are_direct() {
 }
 
 #[test]
+fn return_typed_receiver_resolves_type_declared_at_module_root() {
+    let cg = build_go(&[
+        (
+            "logger.go",
+            "package zap\n\
+             type Logger struct{}\n\
+             func (*Logger) Debug() {}\n",
+        ),
+        (
+            "q/client.go",
+            "package q\n\
+             type Client struct{}\n\
+             func (*Client) Ping() {}\n",
+        ),
+        (
+            "zaptest/logger.go",
+            "package zaptest\n\
+             import (\n\
+                 missing \"example/missing\"\n\
+                 zap \"example\"\n\
+                 q \"example/q\"\n\
+             )\n\
+             type Logger struct{}\n\
+             func (*Logger) Debug() {}\n\
+             type Missing struct{}\n\
+             func (*Missing) Ping() {}\n\
+             func NewLogger() *zap.Logger { return nil }\n\
+             func typedLogger(log *zap.Logger) { log.Debug() }\n\
+             func NewClient() *q.Client { return nil }\n\
+             func NewMissing() *missing.Client { return nil }\n",
+        ),
+        (
+            "zaptest/logger_test.go",
+            "package zaptest\n\
+             func testLogger() { log := NewLogger(); log.Debug() }\n\
+             func testClient() { client := NewClient(); client.Ping() }\n\
+             func testMissing() { missing := NewMissing(); missing.Ping() }\n",
+        ),
+    ]);
+
+    let typed = site(&cg, "typedLogger", "Debug");
+    assert_eq!(typed.receiver_recovery, Some(ReceiverRecovery::TypedParam));
+    assert_eq!(
+        typed.receiver_owner_identity.as_ref(),
+        Some(&GoOwnerIdentity {
+            package_dir: "".to_string(),
+            package_clause: "zap".to_string(),
+            name: "Logger".to_string(),
+        }),
+        "root typed control: {typed:?}"
+    );
+
+    let subpackage = site(&cg, "testClient", "Ping");
+    assert_eq!(
+        subpackage.receiver_recovery,
+        Some(ReceiverRecovery::ReturnTyped),
+        "subpackage return control: {subpackage:?}"
+    );
+
+    let logger_site = site(&cg, "testLogger", "Debug");
+    assert_eq!(
+        logger_site.receiver_recovery,
+        Some(ReceiverRecovery::ReturnTyped)
+    );
+    assert_eq!(
+        logger_site.receiver_owner_identity.as_ref(),
+        Some(&GoOwnerIdentity {
+            package_dir: "".to_string(),
+            package_clause: "zap".to_string(),
+            name: "Logger".to_string(),
+        }),
+        "{logger_site:?}"
+    );
+    let outcome = cg.resolve_call_site_full(logger_site);
+    assert_eq!(outcome.drop, None, "{outcome:?}");
+    assert_eq!(outcome.telemetry.go_concrete_receiver_direct, 1);
+    assert_eq!(outcome.resolved.len(), 1, "{outcome:?}");
+    assert_eq!(outcome.resolved[0].target.file, "logger.go");
+    assert_eq!(outcome.resolved[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(outcome.resolved[0].kind, ResolutionKind::ReturnTyped);
+
+    let missing = site(&cg, "testMissing", "Ping");
+    assert_eq!(missing.receiver_recovery, None, "{missing:?}");
+    assert!(missing.receiver_materialized, "{missing:?}");
+    let missing_outcome = cg.resolve_call_site_full(missing);
+    assert!(missing_outcome.resolved.is_empty(), "{missing_outcome:?}");
+    assert_eq!(
+        missing_outcome.drop,
+        Some(prism::resolution::DropReason::ExternalReceiver)
+    );
+}
+
+#[test]
 fn concrete_var_and_type_assertion_receivers_are_direct() {
     let cg = collision_fixture();
 
