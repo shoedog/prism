@@ -1043,11 +1043,11 @@ impl ParsedFile {
     /// f()` when probing `err`), a multi-expression RHS (`a, b := f(), g()`),
     /// or a non-call RHS.
     ///
-    /// Callers MUST already have confirmed
-    /// `receiver_type_in_fn(..., recover_var: true)` returned `(None, 1)` for
-    /// this exact `(receiver, call_line, call_start_byte)` — this function
-    /// does not itself re-derive the shadow/ambiguity count, only relocates
-    /// the single qualifying statement's RHS shape.
+    /// Callers MUST already have confirmed there is exactly one unshadowed
+    /// receiver binding for this `(receiver, call_line, call_start_byte)`.
+    /// This helper does not itself re-derive that count; it only relocates the
+    /// single qualifying statement's RHS shape. The binding may be untyped or
+    /// provisionally typed by Go's name-based `NewX` constructor heuristic.
     pub(crate) fn go_short_var_call_rhs(
         &self,
         func_node: &Node<'_>,
