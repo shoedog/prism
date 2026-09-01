@@ -4,10 +4,11 @@
 **Workspace:** `/private/tmp/slicing-fix-go-root-return-typed` · `fix-go-root-return-typed`  
 **Exact local base:** `[MEASURED]` `c0de1d66be4beffa9270c995f224dd450a3162bd`; its tree is byte-identical to post-closeout server main `d4fd1da1e5e2ebe1052190b0e647ed6c0570e89d`.
 **Verified implementation checkpoint:** `[MEASURED]` `f00a6a92fb1a2cb25b78f331c153f380b316540d`.
+**Publication:** `[MEASURED]` PR `#223` merged as `f8f3d02eccbc643337fbae03cf2ef7c1ef6f0dbf`; server-main tree `c029018c90b1f44f6f2ff8c4da30cc1862aa5da4` exactly matches the verified PR tree.
 
 ## 0. Verdict and authority
 
-**Implementation and accuracy gates are verified locally; publication remains pending.** The full Tier-A refresh found a constructible Zap recall regression: in `zaptest/logger_test.go`, `log := NewLogger(ts)` is declared to return `*zap.Logger`, but calls such as `log.Debug()` and `log.Warn()` were dropped as `ExternalReceiver` instead of resolving to root-package `Logger` methods.
+**CLOSED — implementation, accuracy gates, required CI, and publication are verified.** The full Tier-A refresh found a constructible Zap recall regression: in `zaptest/logger_test.go`, `log := NewLogger(ts)` is declared to return `*zap.Logger`, but calls such as `log.Debug()` and `log.Warn()` were dropped as `ExternalReceiver` instead of resolving to root-package `Logger` methods. PR `#223` repaired that regression and was squash-merged to server `main` at the exact verified tree.
 
 The bounded authority is declaration ownership: when an unshadowed same-package `NewX()` name heuristic and the function's exact declared return owner disagree, the declaration wins. Agreeing owners preserve the existing `ConstructorLocal` label. Unproven, conflicting, or externally unresolved declared owners fail closed. No other receiver-recovery form or same-scope-reuse behavior changes.
 
@@ -49,6 +50,7 @@ An earlier simpler RED on this branch before the production edit also failed wit
 | Tier-A quick | oracle/SUT errors `0.000/0.000`; matrix `104/104`; exit `2` only for `f00a6a9 != pinned 20c8490` |
 | Zap no-cache production control | five root `logger.go` targets exact at score `1.0`, all `return_typed` |
 | Targeted Zap Tier-A | valid; SUT errors `0.000`; exact Q-scoped callees `41/0/14`; zero exact FP |
+| PR `#223` required CI | Format, Clippy, Test Suite, and Language Coverage Matrix pass |
 
 The full-suite warnings are pre-existing unused/dead-code warnings in tests. Clippy's configured `-W` gate emitted the repository's existing warning population but exited successfully; no unrelated warning was edited or attributed to this change.
 
@@ -75,18 +77,19 @@ Declared implementation/review cap: `2` rounds.
 
 ## 6. Next actions
 
-1. Commit this verified handoff refresh.
-2. Publish a PR from the exact verified tree and merge after required non-coverage checks are green under the owner's standing authorization.
-3. Reconcile this handoff with the live PR and merge SHA/tree in the publication commit.
-4. Preserve the full-refresh evidence in `/private/tmp/slicing-post221-closeout`; do not rebaseline the invalid 2026-08-31 Prism anchor.
+1. Publish this closeout reconciliation from the live post-merge `main` tree.
+2. Preserve the full-refresh evidence in `/private/tmp/slicing-post221-closeout`; do not rebaseline the invalid 2026-08-31 Prism anchor.
+3. Advance to the next roadmap item: measure additional Go corpora for a real accepted Level-3 B1 case before expanding implementation scope.
 
 ## 7. Custody and exclusions
 
 - Active implementation branch/worktree: `fix-go-root-return-typed` at `/private/tmp/slicing-fix-go-root-return-typed`.
 - Verified implementation checkpoint: `f00a6a92fb1a2cb25b78f331c153f380b316540d`.
+- Published PR/head: `#223` / `b42c47c83b3609403a34d8806e4d71315b0118ba`; remote head tree `c029018c90b1f44f6f2ff8c4da30cc1862aa5da4`.
+- Squash merge/server `main`: `f8f3d02eccbc643337fbae03cf2ef7c1ef6f0dbf`; tree `c029018c90b1f44f6f2ff8c4da30cc1862aa5da4`.
 - Test-only RED control: detached `c0de1d6` at `/private/tmp/slicing-red-go-qualified-return`.
 - Tier-A base control: detached `fb81481dafa7398dd8b539b99e137269567f2bb3` at `/private/tmp/slicing-tiera-base-fb81481d`.
 - Full-refresh evidence worktree: `/private/tmp/slicing-post221-closeout`, local `c0de1d6`, with generated reports/snapshot untracked and preserved.
 - Primary `/Users/wesleyjinks/code/slicing` remains untouched, including user-owned `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json`.
-- Full multi-corpus Tier-A was already run and adjudicated before this fix; it is not repeated automatically. Coverage is not awaited by owner direction.
+- Full multi-corpus Tier-A was already run and adjudicated before this fix; it is not repeated automatically. PR Coverage remained pending and was not awaited by owner direction; every established non-coverage check was green before merge.
 - Generated Prism quick and targeted Zap report/snapshot files are reproducible and intentionally untracked; the adjudicated results above are the durable custody record, not a baseline update.
