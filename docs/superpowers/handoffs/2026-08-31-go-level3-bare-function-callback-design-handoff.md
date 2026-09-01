@@ -1,12 +1,12 @@
-# Handoff — #13a Go Level-3 bare-function callback design
+# Handoff — #13a Go Level-3 bare-function callback implementation
 
 **Recorded:** 2026-08-31 · **By:** Codex `/root` · **Provider:** codex
-**Workspace:** `/Users/wesleyjinks/code/slicing-13a-go-level3-design` · `p13a-go-level3-design`
-**Exact base:** `[MEASURED]` `a3768a9d40903c32251346d196107d48af25eb47` (`origin/main`, PR #219 merge)
+**Workspace:** `/private/tmp/slicing-p13a-impl-8c40bfc` · `p13a-go-level3-impl`
+**Exact base:** `[MEASURED]` `8c40bfc344b263e06fd21419dc133a4aed92ae98` (PR #220 merge)
 
 ## 0. Verdict and authority
 
-Roadmap #13a's design is **SETTLED for a bounded implementation**. The authority is `docs/superpowers/specs/2026-08-31-go-level3-bare-function-callback-design.md`. It authorizes only Go B1 callback values: a bare identifier proven to name one in-repo non-test free function, passed to a proven in-repo free-function HOF at a callable parameter slot. Implementation remains gated on watched REDs, same-environment base controls, the full suite, Tier-A, five-corpus reconciliation, and all cache/navigation lifecycle paths.
+Roadmap #13a's bounded Go B1 implementation is **COMPLETE and locally verified** in PR #221. The authority remains `docs/superpowers/specs/2026-08-31-go-level3-bare-function-callback-design.md`: only a bare identifier proven to name one in-repo non-test free function, passed to a proven in-repo free-function HOF at a strict callable parameter slot, may mint an edge. The PR's live server state remains authoritative for merge status.
 
 The steering carrier names an installed `handoff-template.md`, but a filesystem search found no such file on this machine. This handoff follows the established adjacent lane shape. The absence of the template is not evidence about the design.
 
@@ -23,25 +23,24 @@ Retained packet: `/Users/wesleyjinks/code/prism-lane-artifacts/2026-08-23-next10
 
 The five corpora reported zero parse errors and zero files skipped for size. The strict unambiguous non-test B1 floor is Caddy `49`, Prometheus `6`, etcd `3`, Hugo `9`, zap `0`: total `67`. This is a syntactic census, not a type-checking/build-tag/shadow oracle. Acceptance is a 67-row site-level classification, not a requirement to emit 67 edges. Caddy's two primary positive controls use named function types, so literal-`func`-only extraction is insufficient.
 
-## 2. Rebound compiled substrate
+## 2. Implemented compiled substrate
 
-| Item | Current fact at exact base |
+| Item | Current implementation fact |
 |---|---|
-| Level 3 producer | disabled; returns zero sites and zero count in `compute_indirect_call_sites` |
-| Exact target carrier | serde-defaulted `CallSite::pre_resolved_target`; included in ordering and navigation key |
-| Exact callback resolution | a live pre-resolved target yields one `Exact` `ParameterCallback` outcome |
-| Argument identity | indexed by exact `(start_byte, source callee text)` with positional spans |
-| Parameter slots | prefix-preserving Go grouped-name semantics; variadic/unrepresentable tails stop |
-| Callable substrate | import-aware `GoTypeProvider`; boolean named-function-type proof exists but no retained canonical callable signature |
-| Bare value substrate | same-package free-function resolver exists, but does not prove the identifier occurrence against every Go namespace binding |
-| Package poison | canonical `go_dot_import_files` exists; clean-package/empty-clause/parse/profile proof must be added |
-| Cache versions | CPG `54`; navigation resolved-edge sidecar `23` |
+| Level 3 producer | `compute_indirect_call_sites` performs a telemetry-only name join, proves each occurrence, and mints only accepted Go B1 sites |
+| Exact target carrier | serde-defaulted `CallSite::pre_resolved_target`; included in ordering, navigation key, cache, and resolution |
+| Source identity | serde-defaulted `source_callee_name`; one helper feeds both Step-5b lookups and reasoning's three source-expression roles |
+| Callable signatures | strict import-path-aware free-function and callback-parameter indices; in-repo named types/aliases are unique and cycle-safe |
+| Occurrence proof | exact AST identifier span plus whole-function binding/mutation census and package/file collision proof |
+| HOF proof | free-function-only, exact import identity, singleton `Exact` inbound resolution, direct non-nested parameter invocation, no shadow/mutation/address escape |
+| Telemetry | aggregate conservation plus stable per-candidate accepted/drop records with inbound, HOF, target, slot, parameter, and invocation spans |
+| Cache versions | CPG `55`; navigation resolved-edge sidecar `24` |
 
 Prism structural navigation was not used as authority because its available repository snapshot was stale. The LSP navigation capability was unavailable. Current source, exact checkout state, retained artifacts, and compiled data structures were read directly.
 
-## 3. Settled implementation boundary
+## 3. Preserved implementation boundary
 
-The design requires:
+The implementation provides:
 
 - two-phase import-aware callable-signature extraction for free functions and literal/in-repo named function types;
 - callback-strict signature identity, never the existing permissive bare-name equality;
@@ -51,7 +50,7 @@ The design requires:
 - HOF-local direct callback invocation with no nested callable, rebinding, shadow, or address escape;
 - synthetic sites carrying exact target identity plus a separate source-callee name;
 - one effective-source-name helper used by both Step-5b lookups and all three reasoning source-expression roles;
-- stable conservation telemetry and a site dump joinable to all 67 measured rows; and
+- stable conservation telemetry and a site dump joinable to every production candidate, with named manual reconciliation for pre-candidate exclusions; and
 - CPG `54 -> 55` plus navigation sidecar `23 -> 24`, with full, round-trip, incremental, and sidecar parity.
 
 Excluded: B2 qualified/method values; method or interface HOFs; B3 locals/package vars; B4 literals; B5 returns/fields/composites; assignments; variadic or generic callback slots; external named types; tests; nested-literal callback invocations; JS/TS and every other language.
@@ -68,31 +67,39 @@ Declared design-review cap: `2`. One Round-3 extension was disclosed under the c
 
 Confidence increases if the red-first fixtures prove every enumerated namespace and source-identity case and the 67-row join conserves exactly. It decreases if compiled reality requires an unenumerated Go binding form or a second signature authority. It collapses if any accepted synthetic site lacks a uniquely proven target/signature/occurrence or any cache path retains a stale edge.
 
+Declared implementation self-review cap: `3`. Rounds 1–2 found no `WRONG`; Round 2 rechecked whole-program lifecycle placement and confirmed that the complete branch Clippy log contains no diagnostic for the new callback module or minting block, while the expanded `CallSite::cmp_key` complexity lint is already present on exact base. One `SMELL` remains: the five retained corpora contain no row accepted by the full authority, and 10 syntactic floor rows fall outside the production candidate definition. Confidence would increase with a real corpus positive that survives every proof; it would decrease if a candidate could not be joined by exact span/slot; it would collapse on any constructible false edge or stale lifecycle edge. The implementation did not weaken authority to manufacture a positive. No independent implementation review has occurred.
+
 ## 5. Verification and exclusions
 
-This branch is documentation-only: design, roadmap, and handoff. No runtime behavior, cache schema, CLI grammar, or test fixture changed. Source consumers, cache constants, branch/base, and retained packet hashes were rebound. `cargo fmt --all -- --check`, `cargo check`, staged `git diff --check`, and the explicit trailing-whitespace scan passed. The four retained packet files were rehashed and matched §1. Publication state is recorded after the remote gate runs.
+Watched positives compiled and failed on the implementation branch before minting (`0/2`, exit `101`) because the exact edges were absent. The same self-contained tests failed for the same reason in `/private/tmp/slicing-p13a-base-8c40bfc`; negative fixtures remained fail-closed. After implementation, signature/proof units passed `12/12`, consolidated Level-3 graph/lifecycle/consumer tests passed `22/22`, `cargo check --all-targets --all-features` passed, `cargo fmt --all -- --check` passed, and `git diff --check` passed.
 
-Not run for this design artifact: full tests, Tier-A, corpora, oracle, cache battery, or release build. Those are implementation acceptance gates and no executable change is claimed. A local Go compiler probe for the default-import collision needed an explicit writable `GOCACHE`; the initial cache-refused probe was inadmissible, while the corrected probe confirmed the same-file collision is invalid Go. Prism's parse-clean edit-state operating model still requires fail-closed static import proof.
+The full required suite completed with captured exit `0`: `3728` passed, `0` failed, `1` ignored across `29` test binaries. `cargo clippy --all-targets --all-features -- -D warnings` remains red with `129` library and `168` test errors; the exact base fails with the same counts and leading diagnostics under the same Rust `1.94.0` toolchain, so this is baseline debt rather than a branch regression.
+
+An immediate branch `cargo build --release` passed. Tier-A matrix passed every fixture. Tier-A quick produced oracle/SUT error rates `0.000`, no matrix failure, and exit `2` solely because `16dd35b974fd != pinned 20c8490591a3`; the exact-base quick control likewise produced `0.000`/`0.000`, no matrix failure, and exit `2` solely because `8c40bfc344b2 != pinned 20c8490591a3`. Generated baseline documents and snapshots were removed without rebaselining; the branch run JSON remains under ignored `eval/runs/` custody.
+
+Five-corpus branch/base `call-stats` runs all exited `0`. Caddy/Prometheus/etcd/Hugo/zap produced `2226` production candidates, `11` exact inbound sites, `0` accepted sites, and `0` Level-3 edges; every aggregate conserved. Removing only the six new telemetry keys leaves branch and exact-base stats byte-identical for all five corpora, proving no unrelated resolution-kind drift.
+
+All `67` retained floor rows were adjudicated. The stable production dump directly classifies `57`: Caddy `45` strict-import-name unavailable plus `4` nested-only invocations; Prometheus `2` strict-import-name unavailable; Hugo `6` missing slot/argument identity. The remaining `10` are named pre-candidate exclusions: Prometheus `4` qualified/method HOF rows; etcd `1` method HOF row plus `2` callbacks with external named types; Hugo `1` method-HOF/local-alias row plus `2` qualified function arguments. These exclusions are outside the authority-defined prospective `(source span, known free-HOF callback slot)` key and therefore are not falsely counted as conserved production candidates.
 
 ## 6. Next exact steps
 
-1. Merge this docs-only design gate after required CI checks; coverage is not a wait condition by owner direction.
-2. Cut an implementation worktree and a detached exact-base control from the design merge SHA.
-3. Add callable signature/index tests with production minting disabled.
-4. Add exhaustive occurrence, namespace, profile, mutation, and address-escape proof tests.
-5. Add watched positive Level-3 tests; compile them and retain RED on exact base before enabling production minting.
-6. Implement B1 minting, source-callee consumption, telemetry/dump, cache bumps, and lifecycle parity in the spec's sequence.
-7. Run focused checks, full suite with totals, immediate release build plus Tier-A matrix/quick, and five-corpus same-base reconciliation of all 67 rows.
-8. Run a bounded independent implementation review before publication; classify every finding `WRONG` or `SMELL` and use same-environment controls before attribution.
+1. Commit and push `p13a-go-level3-impl` from `/private/tmp/slicing-p13a-impl-8c40bfc`.
+2. Open the implementation PR with RED/GREEN, exact-base controls, clippy attribution, Tier-A invalid reason, all corpus deltas, and the 10 named exclusions in the body.
+3. Merge when required checks other than owner-waived coverage are green. Do not rebaseline Tier-A.
+4. Follow-up measurement should seek at least one real accepted B1 corpus row before considering any expansion to B2–B5.
 
 ## 7. Identifiers
 
 | Item | Value |
 |---|---|
-| Worktree | `/Users/wesleyjinks/code/slicing-13a-go-level3-design` |
-| Branch | `p13a-go-level3-design` |
-| Exact base | `a3768a9d40903c32251346d196107d48af25eb47` |
+| Design publication | PR #220 · merge `8c40bfc344b263e06fd21419dc133a4aed92ae98` |
+| Implementation publication | PR #221 |
+| Implementation worktree | `/private/tmp/slicing-p13a-impl-8c40bfc` |
+| Implementation branch | `p13a-go-level3-impl` |
+| Detached base control | `/private/tmp/slicing-p13a-base-8c40bfc` |
+| Implementation exact base | `8c40bfc344b263e06fd21419dc133a4aed92ae98` |
 | Design | `docs/superpowers/specs/2026-08-31-go-level3-bare-function-callback-design.md` |
 | Roadmap | `docs/analysis/prism-post-plan-roadmap.md` row `13` |
-| Review cap | `2 + 1 disclosed convergence extension`; settled |
-| Runtime changes | none |
+| Design review cap | `2 + 1 disclosed convergence extension`; settled |
+| Implementation self-review cap | `3`; Rounds 1–2 complete, no `WRONG`, one disclosed corpus-positive `SMELL` |
+| Runtime changes | bounded Go B1 Level-3 minting plus telemetry/source identity/cache lifecycle |

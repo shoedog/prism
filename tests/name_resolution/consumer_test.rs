@@ -96,6 +96,7 @@ fn call_site(file: &str, name: &str, byte: usize) -> CallSite {
             end_line: 1,
         },
         callee_name: name.to_string(),
+        source_callee_name: None,
         line: 1,
         kind: CallKind::Call,
         start_byte: byte,

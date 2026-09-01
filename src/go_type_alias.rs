@@ -77,6 +77,38 @@ impl GoAliasResolver {
         local_import_paths: &BTreeMap<String, String>,
         profiles: &BTreeMap<String, GoBuildProfile>,
     ) -> Self {
+        Self::build_inner(
+            files,
+            package_import_paths,
+            local_import_paths,
+            profiles,
+            None,
+        )
+    }
+
+    pub(crate) fn build_callback_strict(
+        files: &BTreeMap<String, ParsedFile>,
+        package_import_paths: &BTreeMap<String, String>,
+        local_import_paths: &BTreeMap<String, String>,
+        profiles: &BTreeMap<String, GoBuildProfile>,
+        signature_imports: &BTreeMap<String, BTreeMap<String, String>>,
+    ) -> Self {
+        Self::build_inner(
+            files,
+            package_import_paths,
+            local_import_paths,
+            profiles,
+            Some(signature_imports),
+        )
+    }
+
+    fn build_inner(
+        files: &BTreeMap<String, ParsedFile>,
+        package_import_paths: &BTreeMap<String, String>,
+        local_import_paths: &BTreeMap<String, String>,
+        profiles: &BTreeMap<String, GoBuildProfile>,
+        signature_imports: Option<&BTreeMap<String, BTreeMap<String, String>>>,
+    ) -> Self {
         let mut resolver = Self {
             declarations: BTreeMap::new(),
             profiles: profiles.clone(),
@@ -106,6 +138,7 @@ impl GoAliasResolver {
                 path,
                 parsed,
                 local_import_paths.get(path).map(String::as_str),
+                signature_imports.and_then(|imports| imports.get(path)),
             );
         }
         resolver
@@ -242,14 +275,22 @@ impl GoAliasResolver {
         }
     }
 
-    fn extract_file(&mut self, path: &str, parsed: &ParsedFile, local_path: Option<&str>) {
+    fn extract_file(
+        &mut self,
+        path: &str,
+        parsed: &ParsedFile,
+        local_path: Option<&str>,
+        signature_imports_override: Option<&BTreeMap<String, String>>,
+    ) {
         let Some(profile) = self.profiles.get(path).cloned() else {
             return;
         };
         if profile.package_clause.is_empty() {
             return;
         }
-        let imports = signature_imports(parsed, local_path);
+        let imports = signature_imports_override
+            .cloned()
+            .unwrap_or_else(|| signature_imports(parsed, local_path));
         let root = parsed.tree.root_node();
         let mut root_cursor = root.walk();
         for declaration in root.children(&mut root_cursor) {

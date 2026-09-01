@@ -59,7 +59,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v22: recovered Go receivers without a proven owner drop terminally (paired with CPG v54).
 // v23: #16 owner-proven R3 consult removes bare-interface fallback edges while
 // preserving the existing func-value-field continuation (CPG remains v54).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 23;
+// v24: Go B1 Level-3 callback edges and their source-callee identity enter the
+// resolved navigation topology (paired with CPG v55).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 24;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -337,6 +339,7 @@ mod tests {
         index.multi_owner_collision_sites.insert(CallSiteKey {
             caller: collision_caller,
             callee_name: "target".into(),
+            source_callee_name: Some("cb".into()),
             line: 4,
             kind: CallKind::Call,
             start_byte: 10,
@@ -351,7 +354,7 @@ mod tests {
             arg_spread: false,
             receiver_outcome: None,
             origin: CallSiteOrigin::Source,
-            pre_resolved_target: None,
+            pre_resolved_target: Some(target.clone()),
         });
         (index, target)
     }
@@ -382,11 +385,17 @@ mod tests {
         assert_eq!(loaded.incoming_by_target[&target].len(), 2);
         assert_eq!(loaded.outgoing_by_caller.len(), 1);
         assert_eq!(loaded.multi_owner_collision_sites.len(), 1);
+        let key = loaded
+            .multi_owner_collision_sites
+            .first()
+            .expect("round-tripped collision key");
+        assert_eq!(key.source_callee_name.as_deref(), Some("cb"));
+        assert_eq!(key.pre_resolved_target.as_ref(), Some(&target));
     }
 
     #[test]
-    fn sidecar_version_is_pinned_for_go_proven_interface_consult() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 23);
+    fn sidecar_version_is_pinned_for_go_level3_callbacks() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 24);
     }
 
     #[test]

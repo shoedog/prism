@@ -1653,7 +1653,7 @@ impl GoTypeProvider {
         crate::go_type_alias::signature_imports(parsed, local_import_path)
     }
 
-    fn canon_sig_with_imports(
+    pub(crate) fn canon_sig_with_imports(
         params: Option<&tree_sitter::Node>,
         result: Option<&tree_sitter::Node>,
         parsed: &ParsedFile,

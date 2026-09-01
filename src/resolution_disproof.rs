@@ -88,6 +88,7 @@ mod tests {
         CallSite {
             caller: fid("caller"),
             callee_name: "Foo::m".to_string(),
+            source_callee_name: None,
             line: 1,
             kind: Default::default(),
             start_byte: 0,

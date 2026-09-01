@@ -127,6 +127,61 @@ fn build_cached_writes_then_hits_with_equal_query_output() {
 }
 
 #[test]
+fn go_level3_navigation_sidecar_matches_fresh_and_cpg_hit_indexes() {
+    with_dirty_sidecar_load_override(|| {
+        let repo_dir = tempfile::tempdir().unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        write(
+            repo_dir.path(),
+            "callbacks.go",
+            "package p\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\nfunc caller() { invoke(safe) }\n",
+        );
+        let repo = Arc::new(load_repo(repo_dir.path()).unwrap());
+        let sidecar = nav_cache_subdir(cache.path(), &repo).join("resolved-call-edge-index.bin");
+
+        let fresh = NavigationSession {
+            repo: repo.clone(),
+            index: Arc::new(NavigationIndex::build(&repo)),
+        };
+        let cold = NavigationSession {
+            repo: repo.clone(),
+            index: Arc::new(NavigationIndex::build_cached_under(&repo, cache.path())),
+        };
+        let fresh_callees =
+            queries::callees(&fresh, Some("invoke"), Some("callbacks.go"), None, 1).unwrap();
+        let fresh_callers =
+            queries::callers(&fresh, Some("safe"), Some("callbacks.go"), None, 1).unwrap();
+        let cold_callees =
+            queries::callees(&cold, Some("invoke"), Some("callbacks.go"), None, 1).unwrap();
+        let cold_callers =
+            queries::callers(&cold, Some("safe"), Some("callbacks.go"), None, 1).unwrap();
+        assert_eq!(fresh_callees, cold_callees);
+        assert_eq!(fresh_callers, cold_callers);
+        assert!(sidecar.exists(), "cold queries must create the v24 sidecar");
+
+        let warm = NavigationSession {
+            repo: repo.clone(),
+            index: Arc::new(NavigationIndex::build_cached_under(&repo, cache.path())),
+        };
+        assert_eq!(
+            fresh_callees,
+            queries::callees(&warm, Some("invoke"), Some("callbacks.go"), None, 1).unwrap()
+        );
+        assert_eq!(
+            fresh_callers,
+            queries::callers(&warm, Some("safe"), Some("callbacks.go"), None, 1).unwrap()
+        );
+        assert!(fresh_callees.items.iter().any(|item| {
+            matches!(
+                item.symbol.as_ref(),
+                Some(SymbolRef::Function { file, name, .. })
+                    if file == "callbacks.go" && name == "safe"
+            )
+        }));
+    });
+}
+
+#[test]
 fn go_promoted_snapshot_is_byte_equal_without_cache_on_exact_hit_and_sidecar_hit() {
     with_dirty_sidecar_load_override(|| {
         let repo_d = tempfile::tempdir().unwrap();

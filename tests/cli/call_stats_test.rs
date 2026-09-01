@@ -56,6 +56,49 @@ fn call_stats_reports_parameter_slots_and_disabled_level3() {
 }
 
 #[test]
+fn call_stats_reports_go_level3_b1_conservation() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("callbacks.go"),
+        "package p\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\nfunc accepted() { invoke(safe) }\nfunc dropped() { safe := func() {}; invoke(safe) }\n",
+    )
+    .unwrap();
+
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--repo"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let value: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(value["go_level3_b1_candidates"], 2);
+    assert_eq!(value["go_level3_b1_exact_inbound_sites"], 2);
+    assert_eq!(value["go_level3_b1_accepted_inbound_sites"], 1);
+    assert_eq!(value["go_level3_b1_unique_targets"], 1);
+    assert_eq!(value["go_level3_b1_edges"], 1);
+    assert_eq!(value["level3_indirect_resolved"], 1);
+    assert_eq!(value["go_level3_b1_drops"]["local_binding_or_mutation"], 1);
+    let drop_total: u64 = value["go_level3_b1_drops"]
+        .as_object()
+        .unwrap()
+        .values()
+        .map(|count| count.as_u64().unwrap())
+        .sum();
+    assert_eq!(
+        value["go_level3_b1_candidates"].as_u64().unwrap(),
+        value["go_level3_b1_accepted_inbound_sites"]
+            .as_u64()
+            .unwrap()
+            + drop_total
+    );
+}
+
+#[test]
 fn call_stats_same_name_owner_collision_demotes_out_of_multi_target_exact() {
     // Two distinct structs both literally named `Foo`, each with an associated
     // `make`, in separate files. A qualified `Foo::make()` call keys the bare
@@ -607,6 +650,67 @@ fn call_stats_dump_sites_emits_no_synthetic_callback_custody() {
                 .all(|target| target["kind"] != "parameter_callback")
         })
     }));
+}
+
+#[test]
+fn call_stats_dump_sites_classifies_accepted_and_dropped_go_level3_candidates() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("callbacks.go"),
+        "package p\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\nfunc accepted() { invoke(safe) }\nfunc dropped() { safe := func() {}; invoke(safe) }\n",
+    )
+    .unwrap();
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--dump-sites", "--repo"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let records: Vec<serde_json::Value> = String::from_utf8(out.stdout)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .filter(|record: &serde_json::Value| record["record_kind"] == "go_level3_b1_candidate")
+        .collect();
+    assert_eq!(records.len(), 2);
+    let accepted = records
+        .iter()
+        .find(|record| record["decision"] == "accepted")
+        .expect("accepted candidate record");
+    assert_eq!(accepted["hof_name"], "invoke");
+    assert_eq!(accepted["slot"], 0);
+    assert_eq!(accepted["argument"], "safe");
+    assert_eq!(accepted["hof"]["name"], "invoke");
+    assert_eq!(accepted["exact_target"]["name"], "safe");
+    assert_eq!(accepted["callback_parameter"], "cb");
+    assert_eq!(accepted["invocation_spans"].as_array().unwrap().len(), 1);
+    assert!(accepted["drop_reason"].is_null());
+
+    let dropped = records
+        .iter()
+        .find(|record| record["decision"] == "dropped")
+        .expect("dropped candidate record");
+    assert_eq!(dropped["hof_name"], "invoke");
+    assert_eq!(dropped["slot"], 0);
+    assert_eq!(dropped["argument"], "safe");
+    assert_eq!(dropped["hof"]["name"], "invoke");
+    assert!(dropped["exact_target"].is_null());
+    assert_eq!(dropped["callback_parameter"], "cb");
+    assert_eq!(dropped["drop_reason"], "local_binding_or_mutation");
+    for record in &records {
+        assert_eq!(record["inbound_span"]["file"], "callbacks.go");
+        assert!(record["inbound_span"]["start_byte"].as_u64().unwrap() > 0);
+        assert!(
+            record["inbound_span"]["end_byte"].as_u64().unwrap()
+                > record["inbound_span"]["start_byte"].as_u64().unwrap()
+        );
+    }
 }
 
 #[test]

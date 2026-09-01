@@ -85,6 +85,7 @@ mod tests {
         let site = CallSite {
             caller: caller.clone(),
             callee_name: "h.Act".to_string(),
+            source_callee_name: None,
             line: 11,
             kind: CallKind::Call,
             start_byte: 101,

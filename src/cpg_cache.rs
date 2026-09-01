@@ -156,7 +156,9 @@ use std::path::{Path, PathBuf};
 /// - v53: admissible unshadowed caller-local Go receivers carry exact owners.
 /// - v54: recovered Go receivers without a proven owner drop at the shared
 ///   resolver/manifest terminal predicate.
-const CACHE_VERSION: u32 = 54;
+/// - v55: Go B1 Level-3 callback facts, exact synthetic targets, source-callee
+///   identity, and derived CPG edges enter the serialized graph.
+const CACHE_VERSION: u32 = 55;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -685,8 +687,8 @@ mod tests {
     }
 
     #[test]
-    fn cache_versions_are_pinned_for_go_receiver_terminal_owner_predicate() {
-        assert_eq!(super::CACHE_VERSION, 54);
+    fn cache_versions_are_pinned_for_go_level3_callbacks() {
+        assert_eq!(super::CACHE_VERSION, 55);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

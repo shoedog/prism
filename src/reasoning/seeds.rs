@@ -360,13 +360,12 @@ fn loc_seed_nodes(
     for sites in cpg.call_graph.calls.values() {
         for site in sites {
             if site.caller.file == file && site.line == line {
-                callees.push(site.callee_name.clone());
+                let source_callee = site.effective_source_callee_name();
+                callees.push(source_callee.to_string());
                 if let Some(parsed) = parsed {
-                    for arg_text in
-                        parsed.call_argument_texts_at(site.start_byte, &site.callee_name)
-                    {
+                    for arg_text in parsed.call_argument_texts_at(site.start_byte, source_callee) {
                         let path = AccessPath::from_expr(&arg_text);
-                        if path.base == site.callee_name {
+                        if path.base == source_callee {
                             same_name_argument_bases.insert(path.base);
                         }
                     }

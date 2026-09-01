@@ -415,8 +415,9 @@ impl CodePropertyGraph {
             // ALSO whole-program derived — recompute after merge, same
             // rationale as the Go passes above.
             cached_cg.apply_js_export_resolution();
-            // Match full construction: recompute the remaining indirect passes
-            // after every whole-program resolution fact is restored. Level-3 is disabled.
+            // Match full construction: recompute the remaining indirect passes,
+            // including Go B1 Level-3 callbacks, after every whole-program
+            // resolution fact is restored.
             cached_cg.recompute_indirect_calls(files);
 
             Self::assemble_graph(cached_cg, cached_dfg, files, type_db)
@@ -927,8 +928,10 @@ impl CodePropertyGraph {
                     Some(p) => p,
                     None => continue,
                 };
-                let args = caller_parsed
-                    .call_argument_texts_and_spans_at(site.start_byte, &site.callee_name);
+                let args = caller_parsed.call_argument_texts_and_spans_at(
+                    site.start_byte,
+                    site.effective_source_callee_name(),
+                );
                 if args.is_empty() {
                     continue;
                 }
@@ -1388,8 +1391,10 @@ impl CodePropertyGraph {
                         Some(p) => p,
                         None => continue,
                     };
-                    let args = caller_parsed
-                        .call_argument_texts_and_spans_at(site.start_byte, &site.callee_name);
+                    let args = caller_parsed.call_argument_texts_and_spans_at(
+                        site.start_byte,
+                        site.effective_source_callee_name(),
+                    );
                     if args.is_empty() {
                         continue;
                     }

@@ -50,6 +50,7 @@ fn resolved_targets(
             CallSite {
                 caller,
                 callee_name: callee_name.to_string(),
+                source_callee_name: None,
                 line: 1,
                 kind: CallKind::Call,
                 start_byte: 0,

@@ -22,6 +22,7 @@ use std::sync::{Arc, OnceLock};
 struct CallSiteKey {
     caller: FunctionId,
     callee_name: String,
+    source_callee_name: Option<String>,
     line: usize,
     kind: CallKind,
     start_byte: usize,
@@ -44,6 +45,7 @@ impl From<&CallSite> for CallSiteKey {
         Self {
             caller: site.caller.clone(),
             callee_name: site.callee_name.clone(),
+            source_callee_name: site.source_callee_name.clone(),
             line: site.line,
             kind: site.kind,
             start_byte: site.start_byte,
