@@ -90,7 +90,7 @@ All `67` retained floor rows were adjudicated. The stable production dump direct
 1. Preserve PR #221 / `492160590ca76388d4385e2bc2099fb84294f791`, the retained implementation/base evidence, and the successor measurement packet; do not restart this closed lane.
 2. Preserve the owner-authorized full-corpus Tier-A adjudication and PR #223 repair; do not rebaseline the invalid Prism anchor.
 3. Keep B2–B5 outside the shipped authority. A future expansion requires its own measured population, RED, design, and review cap.
-4. Advance the ranked roadmap to return-flow taint.
+4. Return-flow taint is already merged as PR #193. Advance to the strategic-fork decision brief; do not restart #2.
 
 ## 7. Identifiers
 

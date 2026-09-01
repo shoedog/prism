@@ -64,7 +64,7 @@ The census script is the retained `hof-sweep.go` from the original packet, SHA-2
 
 ## 4. Evidence limits and review
 
-Declared measurement/documentation review cap: `2` rounds. Round 1 found one `WRONG` in adjacent custody: the qualified-return handoff expanded the verified `f00a6a92` prefix to a non-existent full commit, yielding an unusable checkpoint identity. Live Git supplied the bounded correction to `f00a6a92fb1a78d3b2fc9ff6d680fb75f9f2646b`. Round 2 found one `SMELL`: baseline wording blurred the pre-fix full refresh with the post-fix quick Prism run; the scopes are now explicit. The review settled with no open finding at the cap.
+Declared measurement/documentation review cap: `2` rounds, plus one disclosed targeted custody extension. Round 1 found one `WRONG` in adjacent custody: the qualified-return handoff expanded the verified `f00a6a92` prefix to a non-existent full commit, yielding an unusable checkpoint identity. Live Git supplied the bounded correction to `f00a6a92fb1a78d3b2fc9ff6d680fb75f9f2646b`. Round 2 found one `SMELL`: baseline wording blurred the pre-fix full refresh with the post-fix quick Prism run; the scopes are now explicit. After the cap, rebinding the instructed next task exposed one closed, non-repeating `WRONG`: three handoffs and the roadmap directed a new return-flow implementation even though PR #193 had already shipped Step 5c. The same artifact was preserved and targeted in place: row #2 now records live merge `f4234013e00db266f76bb422fcb0850e23e42cb2`, and the next action is the strategic-fork decision brief. No finding remains open.
 
 - The full Kubernetes monorepo was not cold-built. The accepted row was measured at its canonical generated `go.mod` module root, with the exact source checkout and module identity intact.
 - `code-generator` and `client-go` were not run after the non-fixture positive closed the declared gate; no claim is made about their accepted populations.
@@ -76,7 +76,7 @@ Declared measurement/documentation review cap: `2` rounds. Round 1 found one `WR
 
 1. Preserve this measurement packet and exact starting-tree binding; publish only the four named documentation files.
 2. Preserve the B1 boundary; do not infer permission for B2–B5 expansion from one positive.
-3. Advance the ranked roadmap to return-flow taint with an executable RED before production edits.
+3. Advance to the strategic-fork decision brief. The latest fork-B evidence is confounded across time windows, so do not start a Python/JS or Java implementation lane until that decision is explicitly rebound.
 
 ## 6. Custody
 

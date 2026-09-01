@@ -80,7 +80,7 @@ Declared implementation/review cap: `2` rounds.
 
 1. Preserve PR #223 and closeout PR #224; do not restart this closed lane.
 2. Preserve the full-refresh evidence in `/private/tmp/slicing-post221-closeout`; do not rebaseline the invalid 2026-08-31 Prism anchor.
-3. Follow the successor Level-3 measurement handoff, then advance to return-flow taint.
+3. Follow the successor Level-3 measurement handoff, then advance to the strategic-fork decision brief; return-flow taint is already merged as PR #193.
 
 ## 7. Custody and exclusions
 
