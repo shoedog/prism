@@ -1,12 +1,14 @@
 # Handoff — #13a Go Level-3 bare-function callback implementation
 
-**Recorded:** 2026-08-31 · **By:** Codex `/root` · **Provider:** codex
+**Refreshed:** 2026-08-31 · **By:** Codex `/root` · **Provider:** codex
 **Workspace:** `/private/tmp/slicing-p13a-impl-8c40bfc` · `p13a-go-level3-impl`
 **Exact base:** `[MEASURED]` `8c40bfc344b263e06fd21419dc133a4aed92ae98` (PR #220 merge)
 
 ## 0. Verdict and authority
 
-Roadmap #13a's bounded Go B1 implementation is **COMPLETE and locally verified** in PR #221. The authority remains `docs/superpowers/specs/2026-08-31-go-level3-bare-function-callback-design.md`: only a bare identifier proven to name one in-repo non-test free function, passed to a proven in-repo free-function HOF at a strict callable parameter slot, may mint an edge. The PR's live server state remains authoritative for merge status.
+Roadmap #13a's bounded Go B1 implementation is **CLOSED AND MERGED** in PR #221 at `492160590ca76388d4385e2bc2099fb84294f791`. The authority remains `docs/superpowers/specs/2026-08-31-go-level3-bare-function-callback-design.md`: only a bare identifier proven to name one in-repo non-test free function, passed to a proven in-repo free-function HOF at a strict callable parameter slot, may mint an edge.
+
+Post-merge custody was rebound against GitHub's live PR and commit state. PR #221 is merged; its squash commit has exact base `8c40bfc344b263e06fd21419dc133a4aed92ae98` as parent, and its tree `e45e6f73cd07f663d39993adf5bfe63fb1a6f19a` is byte-identical to local implementation head `e0ebca86b0606f2e1f63c474d6c20d0f1be49162`. The managed executor refused `git fetch` before execution, so no local branch is claimed to contain the squash commit. Format, Clippy, Test Suite, and Language Coverage Matrix were green before merge; coverage was not awaited by owner direction.
 
 The steering carrier names an installed `handoff-template.md`, but a filesystem search found no such file on this machine. This handoff follows the established adjacent lane shape. The absence of the template is not evidence about the design.
 
@@ -83,17 +85,18 @@ All `67` retained floor rows were adjudicated. The stable production dump direct
 
 ## 6. Next exact steps
 
-1. Commit and push `p13a-go-level3-impl` from `/private/tmp/slicing-p13a-impl-8c40bfc`.
-2. Open the implementation PR with RED/GREEN, exact-base controls, clippy attribution, Tier-A invalid reason, all corpus deltas, and the 10 named exclusions in the body.
-3. Merge when required checks other than owner-waived coverage are green. Do not rebaseline Tier-A.
-4. Follow-up measurement should seek at least one real accepted B1 corpus row before considering any expansion to B2–B5.
+1. Preserve PR #221 / `492160590ca76388d4385e2bc2099fb84294f791` and the retained implementation/base evidence; do not restart this closed lane.
+2. Run the owner-authorized full-corpus Tier-A refresh from a worktree bound to current server `main`, and adjudicate the produced report before changing the committed baseline.
+3. Measure additional real Go corpora for at least one accepted B1 row before considering any expansion to B2–B5.
+4. If no real positive is found, retain the current fail-closed boundary and report the measured population rather than weakening authority.
 
 ## 7. Identifiers
 
 | Item | Value |
 |---|---|
 | Design publication | PR #220 · merge `8c40bfc344b263e06fd21419dc133a4aed92ae98` |
-| Implementation publication | PR #221 |
+| Implementation publication | PR #221 · merge `492160590ca76388d4385e2bc2099fb84294f791` |
+| Implementation branch head | `e0ebca86b0606f2e1f63c474d6c20d0f1be49162` · tree `e45e6f73cd07f663d39993adf5bfe63fb1a6f19a` |
 | Implementation worktree | `/private/tmp/slicing-p13a-impl-8c40bfc` |
 | Implementation branch | `p13a-go-level3-impl` |
 | Detached base control | `/private/tmp/slicing-p13a-base-8c40bfc` |
