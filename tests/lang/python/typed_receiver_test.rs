@@ -53,6 +53,123 @@ fn test_python_typed_param_constructor_and_annotation_hit() {
 }
 
 #[test]
+fn test_python_imported_typed_receiver_resolves_exact_direct_method() {
+    let cg = graph(&[
+        (
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        pass\n",
+        ),
+        (
+            "app.py",
+            "from pkg.models import Client as ImportedClient\ndef typed(client: ImportedClient):\n    client.send()\ndef made():\n    client = ImportedClient()\n    client.send()\n",
+        ),
+    ]);
+
+    for (caller, recovery) in [
+        ("typed", ReceiverRecovery::TypedParam),
+        ("made", ReceiverRecovery::ConstructorLocal),
+    ] {
+        let s = site(&cg, caller, "send");
+        assert_eq!(
+            s.receiver_type.as_deref(),
+            Some("ImportedClient"),
+            "{caller}"
+        );
+        assert_eq!(s.receiver_recovery, Some(recovery), "{caller}");
+        let resolved = cg.resolve_call_site(&s);
+        assert_eq!(resolved.len(), 1, "{caller}: {resolved:?}");
+        assert_eq!(resolved[0].target.file, "pkg/models.py", "{caller}");
+        assert_eq!(resolved[0].target.start_line, 2, "{caller}");
+        assert_eq!(
+            resolved[0].confidence,
+            ResolutionConfidence::Exact,
+            "{caller}"
+        );
+        assert_eq!(
+            resolved[0].kind,
+            if caller == "typed" {
+                ResolutionKind::TypedParam
+            } else {
+                ResolutionKind::ConstructorLocal
+            },
+            "{caller}"
+        );
+    }
+}
+
+#[test]
+fn test_python_imported_typed_receiver_requires_unique_module_and_clean_class() {
+    let ambiguous_module = graph(&[
+        (
+            "a/models.py",
+            "class Client:\n    def send(self):\n        pass\n",
+        ),
+        ("b/models.py", "class Other:\n    pass\n"),
+        (
+            "app.py",
+            "from models import Client\ndef run(client: Client):\n    client.send()\n",
+        ),
+    ]);
+    let s = site(&ambiguous_module, "run", "send");
+    assert!(ambiguous_module.resolve_call_site(&s).iter().all(|callee| {
+        callee.confidence != ResolutionConfidence::Exact
+            || callee.kind != ResolutionKind::TypedParam
+    }));
+
+    let external_collision = graph(&[
+        (
+            "decoy.py",
+            "class Client:\n    def send(self):\n        pass\n",
+        ),
+        (
+            "app.py",
+            "from external import Client\ndef run(client: Client):\n    client.send()\n",
+        ),
+    ]);
+    let s = site(&external_collision, "run", "send");
+    assert!(external_collision
+        .resolve_call_site(&s)
+        .iter()
+        .all(|callee| {
+            callee.confidence != ResolutionConfidence::Exact
+                || callee.kind != ResolutionKind::TypedParam
+        }));
+}
+
+#[test]
+fn test_python_imported_typed_receiver_excludes_local_import_and_inherited_method() {
+    let local_import = graph(&[
+        (
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        pass\n",
+        ),
+        (
+            "app.py",
+            "def run():\n    from pkg.models import Client\n    client: Client\n    client.send()\n",
+        ),
+    ]);
+    let s = site(&local_import, "run", "send");
+    assert_eq!(s.receiver_type, None);
+    assert!(s.receiver_materialized);
+
+    let inherited_only = graph(&[
+        (
+            "pkg/models.py",
+            "class Base:\n    def send(self):\n        pass\nclass Client(Base):\n    pass\n",
+        ),
+        (
+            "app.py",
+            "from pkg.models import Client\ndef run(client: Client):\n    client.send()\n",
+        ),
+    ]);
+    let s = site(&inherited_only, "run", "send");
+    assert!(inherited_only.resolve_call_site(&s).iter().all(|callee| {
+        callee.confidence != ResolutionConfidence::Exact
+            || callee.kind != ResolutionKind::TypedParam
+    }));
+}
+
+#[test]
 fn test_python_shadow_import_wildcard_and_singleton_external_skip() {
     let shadow = graph(&[(
         "svc.py",
