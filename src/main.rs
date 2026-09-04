@@ -232,10 +232,71 @@ struct ReviewArgs {
     rust_version: Option<String>,
 }
 
+#[derive(clap::Args, Debug)]
+struct TargetsArgs {
+    /// Path to the repository root.
+    #[arg(long)]
+    repo: PathBuf,
+
+    /// Diff input: path to a unified diff file, or a JSON diff spec.
+    #[arg(long)]
+    diff: PathBuf,
+
+    /// Finding-producing algorithms to project.
+    #[arg(long, default_value = "echo,absence,contract,provenance,membrane")]
+    algorithm: String,
+
+    /// Only process these files from the diff (comma-separated paths).
+    #[arg(long)]
+    files: Option<String>,
+
+    /// Path to compile_commands.json for C/C++ type enrichment.
+    #[arg(long)]
+    compile_commands: Option<PathBuf>,
+
+    /// Build CPG from only diff-changed files + direct callers/callees.
+    #[arg(long)]
+    scoped_cpg: bool,
+
+    /// Directory to cache the CPG.
+    #[arg(long, conflicts_with = "no_cache")]
+    cache_dir: Option<PathBuf>,
+
+    /// Ignore any existing cache and force a full CPG rebuild.
+    #[arg(long)]
+    no_cache: bool,
+
+    /// Old repository tree used by contract/delta analysis.
+    #[arg(long)]
+    old_repo: Option<PathBuf>,
+
+    /// Minimum finding severity to retain.
+    #[arg(long, default_value = "info", value_parser = ["info", "suggestion", "warning", "concern"])]
+    min_severity: String,
+
+    /// Minimum evidence tier to retain.
+    #[arg(long, default_value = "candidate", value_parser = ["asserted", "candidate"])]
+    min_tier: String,
+
+    /// Exit 3 when one or more requested algorithms fail.
+    #[arg(long)]
+    strict: bool,
+
+    /// Write the JSON document to a file instead of stdout.
+    #[arg(long)]
+    out: Option<PathBuf>,
+
+    /// Targets contract output format.
+    #[arg(long, default_value = "json", value_parser = ["json"])]
+    format: String,
+}
+
 #[derive(clap::Subcommand, Debug)]
 enum Command {
     /// Whole-repo navigation/architecture queries.
     Nav(NavArgs),
+    /// Project findings into the targets contract v1.0.
+    Targets(TargetsArgs),
 }
 
 #[derive(clap::Args, Debug)]
@@ -397,6 +458,7 @@ fn main() -> Result<()> {
     // parses) in one place. See prism::build_pool.
     prism::build_pool::install(|| match &cli.command {
         Some(Command::Nav(nav)) => run_nav(nav),
+        Some(Command::Targets(targets)) => run_targets(targets),
         None => run_review(&cli.review),
     })
 }
@@ -604,6 +666,146 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                 }
             }
         }
+    }
+}
+
+fn run_targets(args: &TargetsArgs) -> Result<()> {
+    const FINDING_ALGORITHMS: &[&str] = &[
+        "echo",
+        "absence",
+        "contract",
+        "provenance",
+        "membrane",
+        "taint",
+        "symmetry",
+        "peer_consistency",
+        "callback_dispatcher",
+        "primitive",
+    ];
+    const EMPTY_ALGORITHMS: &[&str] = &["angle", "delta"];
+    const ACCEPTED: &str = "echo, absence, contract, provenance, membrane, taint, symmetry, peer_consistency, callback_dispatcher, primitive, angle, delta";
+
+    // The acceptance table is deliberately evaluated before canonicalizing the
+    // repo, reading the diff, or building a CPG.
+    let requested: Vec<String> = args
+        .algorithm
+        .split(',')
+        .map(|name| name.trim().to_lowercase())
+        .collect();
+    for name in &requested {
+        if name == "chop" || name == "conditioned" {
+            anyhow::bail!(
+                "targets: algorithm {name} requires --chop-source/--chop-sink (or --condition); use the top-level command"
+            );
+        }
+        if !FINDING_ALGORITHMS.contains(&name.as_str())
+            && !EMPTY_ALGORITHMS.contains(&name.as_str())
+        {
+            anyhow::bail!(
+                "targets: algorithm {name} produces slice blocks, not findings; accepted: {ACCEPTED}"
+            );
+        }
+        if name == "delta" && args.old_repo.is_none() {
+            anyhow::bail!("targets: delta requires --old-repo");
+        }
+    }
+    for name in &requested {
+        if EMPTY_ALGORITHMS.contains(&name.as_str()) {
+            eprintln!("targets: {name} produces no findings at this version");
+        }
+    }
+
+    let algorithms = prism::api::parse_algorithms(&requested.join(","))?;
+    let repo = fs::canonicalize(&args.repo)
+        .with_context(|| format!("Failed to canonicalize repo: {:?}", args.repo))?;
+    let diff_text = fs::read_to_string(&args.diff)
+        .with_context(|| format!("Failed to read diff: {:?}", args.diff))?;
+
+    let mut review_options = prism::api::ReviewOptions::new(&repo);
+    review_options.files_filter = args.files.as_ref().map(|files| {
+        files
+            .split(',')
+            .map(|file| file.trim().to_string())
+            .collect()
+    });
+    review_options.compile_commands = args.compile_commands.clone();
+    review_options.scoped_cpg = args.scoped_cpg;
+    review_options.cache_dir = args.cache_dir.clone();
+    review_options.no_cache = args.no_cache;
+
+    let mut algorithm_params = prism::api::AlgorithmParams::default();
+    algorithm_params.old_repo = args.old_repo.clone();
+    let config = SliceConfig {
+        algorithm: algorithms[0],
+        scoped_cpg: args.scoped_cpg,
+        ..SliceConfig::default()
+    };
+    let outcome = prism::api::review(
+        &review_options,
+        &diff_text,
+        &algorithms,
+        &config,
+        &algorithm_params,
+    )?;
+
+    let mut run_warnings = outcome.inputs.parse_warnings.clone();
+    run_warnings.extend(outcome.inputs.load_warnings.clone());
+    run_warnings.extend(outcome.build_warnings.clone());
+    let min_tier = if args.min_tier == "asserted" {
+        prism::api::FindingTier::Asserted
+    } else {
+        prism::api::FindingTier::Candidate
+    };
+    let document = prism::targets::project(
+        &outcome.run.findings,
+        &outcome.inputs,
+        &prism::targets::TargetsMeta {
+            algorithms_run: outcome.run.algorithms_run.clone(),
+            repo_root: repo.clone(),
+            repo_sha: repo_sha(&repo),
+            errors: outcome.run.errors.clone(),
+            run_warnings,
+            min_severity_rank: output::severity_rank(&args.min_severity),
+            min_tier,
+        },
+    );
+
+    let mut bytes = serde_json::to_vec_pretty(&document)?;
+    bytes.push(b'\n');
+    if let Some(path) = &args.out {
+        fs::write(path, &bytes).with_context(|| format!("Failed to write targets: {path:?}"))?;
+    } else {
+        use std::io::Write;
+        std::io::stdout().lock().write_all(&bytes)?;
+    }
+
+    debug_assert_eq!(args.format, "json");
+    let exit_code = targets_exit_code(args.strict, &document.errors);
+    if exit_code != 0 {
+        std::process::exit(exit_code);
+    }
+    Ok(())
+}
+
+fn repo_sha(repo: &std::path::Path) -> Option<String> {
+    let output = std::process::Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(repo)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let sha = String::from_utf8(output.stdout).ok()?;
+    let sha = sha.trim();
+    (!sha.is_empty()).then(|| sha.to_string())
+}
+
+fn targets_exit_code(strict: bool, errors: &[prism::slice::AlgorithmError]) -> i32 {
+    if strict && !errors.is_empty() {
+        3
+    } else {
+        0
     }
 }
 
@@ -1143,5 +1345,16 @@ mod exit_tests {
     fn determine_exit_code_strict_no_warnings() {
         let warns: Vec<DiagramWarning> = vec![];
         assert_eq!(determine_exit_code(true, &warns), 0);
+    }
+
+    #[test]
+    fn targets_strict_exit_code_tracks_algorithm_errors() {
+        let errors = vec![prism::slice::AlgorithmError {
+            algorithm: "DeltaSlice".to_string(),
+            error: "fixture error".to_string(),
+        }];
+        assert_eq!(targets_exit_code(true, &errors), 3);
+        assert_eq!(targets_exit_code(false, &errors), 0);
+        assert_eq!(targets_exit_code(true, &[]), 0);
     }
 }

@@ -85,6 +85,7 @@ pub mod resolution_receiver;
 pub mod rust_macro_args;
 pub mod sanitizers;
 pub mod slice;
+pub mod targets;
 pub mod terraform;
 pub mod type_db;
 pub mod type_provider;

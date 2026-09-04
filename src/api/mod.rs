@@ -19,4 +19,4 @@ pub use crate::finding_confidence::{
     classify, evidence_files, FindingConfidence, FindingTier, ParseQuality, RESOLUTION_MODE,
 };
 pub use crate::output::sarif::{to_sarif, SarifInputs};
-// Task 4 adds the deferred `targets::{project, TargetsDocument, TargetsMeta}` re-export.
+pub use crate::targets::{project, TargetsDocument, TargetsMeta};
