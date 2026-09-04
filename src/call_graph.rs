@@ -6513,6 +6513,52 @@ mod tests {
         assert_eq!(proof_keys(&after), expected);
     }
 
+    #[test]
+    fn python_dotted_class_proof_key_ignores_direct_method_body_changes() {
+        use crate::languages::Language::Python;
+
+        let build = |method_body: &str| {
+            let mut files = BTreeMap::new();
+            files.insert(
+                "app.py".to_string(),
+                ParsedFile::parse(
+                    "app.py",
+                    "import pkg.models\ndef run(client: pkg.models.Client):\n    client.send()\n",
+                    Python,
+                )
+                .unwrap(),
+            );
+            files.insert(
+                "pkg/models.py".to_string(),
+                ParsedFile::parse(
+                    "pkg/models.py",
+                    &format!("class Client:\n    def send(self):\n        {method_body}\n"),
+                    Python,
+                )
+                .unwrap(),
+            );
+            CallGraph::build(&files)
+        };
+        let before = build("pass");
+        let after = build("return 1");
+        let proof_keys = |cg: &CallGraph| {
+            python_imported_class_proof_keys(
+                &cg.import_bindings,
+                &cg.indexed_files,
+                &cg.clean_class_spans,
+            )
+        };
+
+        let expected = BTreeSet::from([(
+            "app.py".to_string(),
+            "pkg.models.Client".to_string(),
+            "pkg/models.py".to_string(),
+            "Client".to_string(),
+        )]);
+        assert_eq!(proof_keys(&before), expected);
+        assert_eq!(proof_keys(&after), expected);
+    }
+
     fn build_rust_call_graph(source: &str) -> CallGraph {
         use crate::ast::ParsedFile;
         use crate::languages::Language::Rust;

@@ -6,7 +6,7 @@
 
 ## 0. Current verdict
 
-**DESIGN LOCKED; RED PENDING.** This is item 2a of the owner-selected Fork-A queue: the smallest authoritative Python module/scope increment after PRs #226 and #227.
+**INTENTIONAL RED; IMPLEMENTATION PENDING.** This is item 2a of the owner-selected Fork-A queue: the smallest authoritative Python module/scope increment after PRs #226 and #227.
 
 ## 1. Authority boundary
 
@@ -22,13 +22,19 @@ Exact is limited to `import pkg.models` plus `pkg.models.Class`, with exact qual
 ## 3. Verification state
 
 - Root and `origin/main` were rebound to PR #227 merge `4298e548` before branch creation.
-- No source or test behavior has changed; RED and implementation are pending.
+- Exact-base behavior target: 1 proof-barrier control passed; the full and subset positives failed because `receiver_type` remained `None` instead of `Some("pkg.models.Client")`.
+- Exact-base extraction target: 0/1; explicit `import pkg.models as pkg` reported `ModuleImport` instead of the required `AliasedModuleImport` distinction.
+- Exact-base incremental target: 0/3; both authority transitions and the stable-proof case failed at the missing dotted receiver proof.
+- Exact-base direct proof-key unit: 0/1; observed `("app.py", "pkg.Client", "pkg/models.py", "Client")`, expected the full `pkg.models.Client` spelling.
+- Exact-base cache pins: 0/2; observed CPG/navigation versions 55/24, expected 56/25.
+- Production source is unchanged; the failures above are the committed pre-change controls.
 - Declared implementation-review cap: two rounds.
 
 ## 4. Custody
 
 - Branch/worktree: `py-dotted-module-receiver-owner` at `/private/tmp/slicing-py-dotted-module-receiver`.
 - Exact base: `4298e548003cbb59cf506531142d177169a7a28e`.
-- The prior lane is merged as PR #227; its handoff and the living roadmap are reconciled in this design checkpoint.
+- Design/roadmap checkpoint: `6756914`; intentional RED checkpoint is pending this commit.
+- The prior lane is merged as PR #227; its handoff and the living roadmap are reconciled in the design checkpoint.
 - Root checkout's pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
 - Publication and merge of this successor increment are not authorized by the prior PR #227 publication instruction.

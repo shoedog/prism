@@ -394,8 +394,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_pinned_for_go_level3_callbacks() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 24);
+    fn sidecar_version_is_pinned_for_python_dotted_module_receivers() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 25);
     }
 
     #[test]
