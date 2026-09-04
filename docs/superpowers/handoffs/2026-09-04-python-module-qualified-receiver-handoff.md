@@ -6,7 +6,7 @@
 
 ## 0. Current verdict
 
-**DESIGNED; RED and implementation pending.** This is the next adjacent Fork-A production increment after PR #226: prove Python receiver ownership for exactly `import module [as alias]` plus `alias.Class`, while retaining direct-method and fail-closed boundaries.
+**RED CONFIRMED; implementation pending.** This is the next adjacent Fork-A production increment after PR #226: prove Python receiver ownership for exactly `import module [as alias]` plus `alias.Class`, while retaining direct-method and fail-closed boundaries.
 
 ## 1. Authority boundary
 
@@ -16,7 +16,11 @@ Exact requires one clean module-scope `ModuleImport` alias, one indexed module f
 
 - Source feasibility probe: qualified annotation text survives as `models.Client`; the missing mechanism is import-owner proof/routing, not AST retention.
 - Alternative ruled out: no AST grammar extension is required.
-- RED/GREEN, review, full-suite, and Tier-A evidence are pending.
+- Exact-base qualified Python target: 4 selected, 1 passed and 3 failed. Failures were the expected missing Exact edge, missing subset Exact edge, and retained unproven local qualified type; the proof-barrier control passed.
+- Exact-base structured-import REDs: 0/1 for unaliased dotted root binding (`models` observed, `pkg` expected) and 0/1 for clean module eligibility (`false` observed, `true` expected).
+- Exact-base incremental target: 1 stable-authority control passed; 2 transition tests failed because qualified receiver state remained `Some("models.Client")` without class proof.
+- Invalid probes discarded: the first Cargo commands named source files as test targets instead of the live aggregate targets.
+- GREEN, review, full-suite, and Tier-A evidence are pending.
 
 ## 3. Convergence
 
@@ -26,5 +30,5 @@ Declared review cap: two rounds. No rounds have run.
 
 - Branch/worktree: `py-qualified-receiver-owner` at `/private/tmp/slicing-py-qualified-receiver`.
 - Base/main at branch creation: `5e54d48381f329cae370557eeac35bc00ff7b801`.
-- No production source or tests changed yet; publication is not authorized for this successor increment.
+- Intentional RED tests are ready for a durable checkpoint; production source is unchanged and publication is not authorized for this successor increment.
 - Root checkout's pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
