@@ -1,7 +1,7 @@
 # Handoff — prism Phase 0 branch (`phase0-sarif-targets-api`): SARIF · `prism targets` · `prism::api` · README truth pass
 
 **Written:** 2026-09-04T11:40 local · **By:** session_015U8HwBTAFzFzqJbbq82JBT (Claude Fable 5.1 controller; implementers Sonnet 5 / Opus 5 / codex gpt-5.6-sol; reviewers Opus 5 / Sonnet 5 / codex gpt-5.6-terra) · **Provider:** claude (+ codex via the a2a-bridge)
-**Workspace:** `shoedog/prism` worktree `~/code/slicing-phase0` · branch `phase0-sarif-targets-api` · **Measured state:** `[MEASURED]` HEAD `602a6ed` + this docs commit · Tree CLEAN · Probe `git status --short` · Output empty
+**Workspace:** `shoedog/prism` worktree `~/code/slicing-phase0` · branch `phase0-sarif-targets-api` · **Measured state:** `[MEASURED]` HEAD `9040fc2` + this docs commit (push/PR state) · Tree CLEAN · Probe `git status --short` · Output empty
 **Predecessor:** none — first in lane (the roadmap docs and the controller ledger live in `~/code/tools`)
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the controller. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,9 +9,9 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — another agent works in the main checkout `~/code/slicing` on `main`; this branch was built entirely in the worktree `~/code/slicing-phase0` (plus a codex implementer clone `~/code/slicing-phase0-sol` and a detached review copy `~/code/slicing-phase0-review`). `[MEASURED]` `git worktree list` — **RESOLVED** (worktree isolation; never write to `~/code/slicing`)
-**(b) Custody exposure** — `[MEASURED]` 35 unpushed commits on the branch (measured after the final docs commits) (`git log --oneline c220525c..HEAD`); nothing pushed; no PR opened. The clone and the review copy are disposable duplicates of the same commits. — **OPEN** (owner: push + PR are yours to authorise)
+**(b) Custody exposure** — `[MEASURED]` branch pushed to `origin` (`git@github.com:shoedog/prism.git`) and PR #229 opened (https://github.com/shoedog/prism/pull/229) on 2026-09-04 after the owner authorised push + PR ("1 - authorized"). The clone and the review copy are disposable duplicates. Not merged. — **RESOLVED** (merge remains the owner's call)
 **(c) In flight / irreversible** — `[MEASURED]` nothing in flight; the final review, its fix wave and the scoped re-review are complete. — **RESOLVED**
-**(d) Authorization granted but not exercised** — owner (2026-09-04): "proceed autonomously delegating to subagents"; "authorized to go over review cap as needed"; disputed sol findings may be adjudicated by a separate sol judge seat. No push/merge authorisation was given.
+**(d) Authorization granted but not exercised** — owner (2026-09-04): "proceed autonomously delegating to subagents"; "authorized to go over review cap as needed"; disputed sol findings may be adjudicated by a separate sol judge seat. Push + PR were authorised by the owner on 2026-09-04 and exercised (PR #229); merge is not authorised.
 
 ## 1. Resume order
 1. Read `~/code/tools/LEDGER.md` (dispatch log + every ruling) and the archived SDD ledger `~/code/tools/reviews/prism-phase0-sdd/progress.md` (tasks 1–5 carry `complete` lines; the git-ignored `.superpowers/sdd/` workspace was deleted after archiving, per the SDD skill).
@@ -36,7 +36,7 @@
 | Full suite | measured | base `c220525c`: 3543/0/1; final head `602a6ed`: **3810/0/1 across 29 binaries + 2 doc-tests** (controller, `~/code/tools/logs/closeout/full-suite-final.log`, `doctests-final.log`) |
 | Tier-A `--matrix-only` | measured | 104/104 on both the branch and base binaries (`~/code/tools/logs/closeout/tier-a-matrix-{branch,base}.log`) |
 | Final whole-branch review | complete | terra + Opus (`With fixes`) → fix wave `374b888`/`07f001e` → Sonnet scoped re-review: all addressed, no new breakage (`~/code/tools/reviews/phase0-final-review-terra.md`, ledger) |
-| PR | not opened | body at `~/code/tools/reviews/phase0-pr-body.md`; awaiting owner authorisation to push |
+| PR | **opened, not merged** | https://github.com/shoedog/prism/pull/229 (body from `~/code/tools/reviews/phase0-pr-body.md`); branch pushed to `origin` |
 
 ## 3. Corrections to standing documents and memory
 
