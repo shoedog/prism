@@ -47,4 +47,5 @@ For simple JS/TS identifier receivers, persist whether a parameter, function-sco
 - Exact base: `551adc463e2e164637378757f2ba1ba872a43946`.
 - Rewritten checkpoints: design `191850d`; intentional RED `e5194e4`; implementation/review 1 `4920dbf`; review 2 and verified implementation `59dbf23`.
 - Root checkout's pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
-- Implementation and publication were explicitly authorized on 2026-09-04. Merge remains conditional on required checks being green.
+- Implementation and publication were explicitly authorized on 2026-09-04; PR #231 merged at `6771d530` after all five required checks passed.
+- The distinct item-4 successor is rebased onto that merge in `/private/tmp/slicing-js-ts-typed-new-receiver-recovery`; no item-4 code was folded into the prerequisite PR.

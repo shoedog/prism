@@ -1,6 +1,6 @@
 # JS/TS lexical-scope-aware receiver binding
 
-**Status:** implemented; focused gates and review round 1 green
+**Status:** implemented; two-round review and all runnable gates complete at `deca166`
 **Recorded:** 2026-09-04
 **Exact base:** `5051918f61c99fda83eb18936992fb62025b7669` (PR #230 merge)
 **Scope:** prerequisite fact and fail-closed import-qualifier guard for simple identifier receivers in JavaScript, TypeScript, and TSX
@@ -9,7 +9,7 @@
 
 Implement item 3 of the owner-selected receiver queue as a prerequisite only. For a qualified call such as `api.m()`, record whether the simple identifier receiver `api` is lexically bound at that call. An exact imported-module edge is forbidden when the receiver is locally bound.
 
-This slice does not recover a receiver type and does not emit `TypedParam` or `ConstructorLocal`. TypeScript typed-parameter/annotated-local recovery and JavaScript/TypeScript `new`-constructor recovery remain item 4. Bare factory calls, imported type ownership, general assignment flow, bare imported-member calls, and a general-purpose JS/TS scope graph remain excluded.
+This slice does not recover a receiver type and does not emit `TypedParam` or `ConstructorLocal`. TypeScript typed-parameter and JavaScript/TypeScript `new`-constructor recovery remain item 4; annotated-local recovery remains deferred. Bare factory calls, imported type ownership, general assignment flow, bare imported-member calls, and a general-purpose JS/TS scope graph remain excluded.
 
 ## 2. Demonstrated wrong behavior
 
