@@ -147,7 +147,13 @@ fn maps_all_four_absence_categories_and_closed_pair_rows() {
             assert_eq!(hint.counterpart.as_deref(), Some("close"));
             assert_eq!(hint.kind.as_deref(), Some("filesystem"));
         } else if category == "missing_close_on_error_path" {
-            assert_eq!(mapped.hint.unwrap().counterpart.as_deref(), Some("unlock"));
+            // spec §2.4.2: "lock without unlock"'s close_patterns include
+            // "release(", which does not contain "unlock", so no counterpart
+            // (or kind) is minted and the hint is entirely absent.
+            assert!(
+                mapped.hint.is_none(),
+                "lock without unlock must not invent a counterpart that fails the every-close-pattern rule"
+            );
         } else {
             assert!(
                 mapped.hint.is_none(),
@@ -169,6 +175,56 @@ fn maps_all_four_absence_categories_and_closed_pair_rows() {
         double_close.hint.unwrap().counterpart.as_deref(),
         Some("close")
     );
+}
+
+#[test]
+fn counterpart_is_a_substring_of_every_close_pattern_or_none() {
+    // spec §2.4.2: a counterpart may be emitted only when the candidate name
+    // is a case-insensitive substring of EVERY close_patterns entry of that
+    // PairedPattern. Otherwise it must be None.
+    let pairs = default_pairs();
+    let mut violations = Vec::new();
+    for (description, counterpart, _kind) in ABSENCE_PAIRS {
+        let Some(counterpart) = counterpart else {
+            continue;
+        };
+        let pair = pairs
+            .iter()
+            .find(|pair| pair.description == *description)
+            .unwrap_or_else(|| panic!("no PairedPattern for description {description:?}"));
+        let needle = counterpart.to_lowercase();
+        for close_pattern in &pair.close_patterns {
+            if !close_pattern.to_lowercase().contains(&needle) {
+                violations.push(format!(
+                    "{description:?}: counterpart {counterpart:?} is not a substring of close pattern {close_pattern:?}"
+                ));
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "ABSENCE_PAIRS rows violate spec §2.4.2 (counterpart must be a case-insensitive \
+         substring of every close pattern): {violations:#?}"
+    );
+}
+
+#[test]
+fn counterpart_omission_matches_the_spec_2_4_2_examples() {
+    let row = |description: &str| {
+        ABSENCE_PAIRS
+            .iter()
+            .find(|row| row.0 == description)
+            .unwrap_or_else(|| panic!("no ABSENCE_PAIRS row for {description:?}"))
+    };
+    // close_patterns are [".status()", ".output()", ".spawn("] — "spawn" is
+    // not a substring of ".status()" or ".output()", so no counterpart.
+    assert_eq!(row("Rust Command created but never executed").1, None);
+    // close_patterns include "release(" — "unlock" is not a substring of it,
+    // so no counterpart.
+    assert_eq!(row("lock without unlock").1, None);
+    // close_patterns are ["close(", "fclose(", "Close(", ".close()"] — every
+    // one contains "close", so the counterpart survives.
+    assert_eq!(row("file open without close").1, Some("close"));
 }
 
 #[test]

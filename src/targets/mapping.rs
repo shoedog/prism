@@ -17,7 +17,7 @@ pub struct Mapped {
 /// `absence_slice::default_pairs()`.
 pub const ABSENCE_PAIRS: &[(&str, Option<&str>, Option<&str>)] = &[
     ("file open without close", Some("close"), Some("filesystem")),
-    ("lock without unlock", Some("unlock"), None),
+    ("lock without unlock", None, None),
     ("connection opened without close", None, None),
     ("event subscription without unsubscribe", None, None),
     ("transaction begin without commit/rollback", None, None),
@@ -134,11 +134,7 @@ pub const ABSENCE_PAIRS: &[(&str, Option<&str>, Option<&str>)] = &[
         None,
     ),
     ("Rust TCP connection without shutdown/drop", None, None),
-    (
-        "Rust Command created but never executed",
-        Some("spawn"),
-        None,
-    ),
+    ("Rust Command created but never executed", None, None),
     ("Lua file opened without close", None, Some("filesystem")),
     ("Lua socket opened without close", None, None),
     (
