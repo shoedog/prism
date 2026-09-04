@@ -1,7 +1,7 @@
 # Handoff — prism Phase 0 branch (`phase0-sarif-targets-api`): SARIF · `prism targets` · `prism::api` · README truth pass
 
-**Written:** 2026-09-04T10:45 local · **By:** session_015U8HwBTAFzFzqJbbq82JBT (Claude Fable 5.1 controller; implementers Sonnet 5 / Opus 5 / codex gpt-5.6-sol; reviewers Opus 5 / Sonnet 5 / codex gpt-5.6-terra) · **Provider:** claude (+ codex via the a2a-bridge)
-**Workspace:** `shoedog/prism` worktree `~/code/slicing-phase0` · branch `phase0-sarif-targets-api` · **Measured state:** `[MEASURED]` HEAD `cd16609` · Tree CLEAN · Probe `git status --short` · Output empty
+**Written:** 2026-09-04T11:40 local · **By:** session_015U8HwBTAFzFzqJbbq82JBT (Claude Fable 5.1 controller; implementers Sonnet 5 / Opus 5 / codex gpt-5.6-sol; reviewers Opus 5 / Sonnet 5 / codex gpt-5.6-terra) · **Provider:** claude (+ codex via the a2a-bridge)
+**Workspace:** `shoedog/prism` worktree `~/code/slicing-phase0` · branch `phase0-sarif-targets-api` · **Measured state:** `[MEASURED]` HEAD `602a6ed` + this docs commit · Tree CLEAN · Probe `git status --short` · Output empty
 **Predecessor:** none — first in lane (the roadmap docs and the controller ledger live in `~/code/tools`)
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the controller. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,13 +9,13 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — another agent works in the main checkout `~/code/slicing` on `main`; this branch was built entirely in the worktree `~/code/slicing-phase0` (plus a codex implementer clone `~/code/slicing-phase0-sol` and a detached review copy `~/code/slicing-phase0-review`). `[MEASURED]` `git worktree list` — **RESOLVED** (worktree isolation; never write to `~/code/slicing`)
-**(b) Custody exposure** — `[MEASURED]` 16 unpushed commits on the branch (`git log --oneline c220525c..HEAD`); nothing pushed; no PR opened. The clone and the review copy are disposable duplicates of the same commits. — **OPEN** (owner: push + PR are yours to authorise)
-**(c) In flight / irreversible** — `[MEASURED]` at writing: final whole-branch review in flight on two seats (codex terra, read-only, review copy @ `cd16609`; Opus in-session on the same package). Nothing irreversible. — **OPEN until both report**
+**(b) Custody exposure** — `[MEASURED]` 24 unpushed commits on the branch (`git log --oneline c220525c..HEAD`); nothing pushed; no PR opened. The clone and the review copy are disposable duplicates of the same commits. — **OPEN** (owner: push + PR are yours to authorise)
+**(c) In flight / irreversible** — `[MEASURED]` nothing in flight; the final review, its fix wave and the scoped re-review are complete. — **RESOLVED**
 **(d) Authorization granted but not exercised** — owner (2026-09-04): "proceed autonomously delegating to subagents"; "authorized to go over review cap as needed"; disputed sol findings may be adjudicated by a separate sol judge seat. No push/merge authorisation was given.
 
 ## 1. Resume order
 1. Read `~/code/tools/LEDGER.md` (dispatch log + every ruling) and the SDD ledger `.superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/progress.md` (git-ignored; tasks 1–5 carry `complete` lines).
-2. Read the two final-review outputs when present: `$SP/terra-final-review.out` (`$SP` = `/private/tmp/claude-501/-Users-wesleyjinks-code-tools/0f56e21e-b985-4555-b441-29ac0ef25f9c/scratchpad`) and the Opus seat's reply (ledger row). Critical/Important findings → ONE fix wave (Sonnet in this worktree or codex sol in the clone after `git reset --hard` to HEAD), then one scoped re-review; residuals → ruled and recorded in spec §11.
+2. The final review is folded (spec §11, last entry). The SDD workspace evidence (task briefs/reports, the fix-wave report, the progress ledger) is archived durably at `~/code/tools/reviews/prism-phase0-sdd/` and the review texts at `~/code/tools/reviews/phase0-*.md`.
 3. With the owner's authorisation only: `git push -u origin phase0-sarif-targets-api` and open the PR with the body drafted at `$SP/phase0-pr-body.md` (also mirrored in `~/code/tools/reviews/` after closeout).
 4. Next roadmap work is item 2 (DataFlow confidence via reaching definitions): spec v3 + plan v1 in `~/code/tools/specs/2026-09-04-prism-item2-dataflow-confidence-{spec,plan}.md`; the plan owes seven controller rulings and a re-alignment to spec v3 before its Task 1.
 
@@ -33,9 +33,9 @@
 | Task 4 `prism targets` | complete | `[MEASURED]` `ab4d656`, `fdb432c`, `08dc291`; 7 CLI + 13 mapping tests; targets validate against `docs/contracts/targets.schema.json` (0 errors); 65-row `ABSENCE_PAIRS` with the mechanical counterpart rule |
 | Task 5 README truth pass + `src/cli.rs` + gate | complete | `[MEASURED]` `c8a7dba`, `cd16609`; `readme_test` 3/3; doc-test 2/2; `--help` diff vs base = only the new subcommand/format lines |
 | Roadmap row | done | `docs/analysis/prism-post-plan-roadmap.md` item 19 (`afaf3eb`) |
-| Full suite | measured | base `c220525c`: 3543/0/1; `08dc291`: 3802/0/1 (controller, `~/code/tools/logs/closeout/full-suite-08dc291.log`); `cd16609`: 3805/0/1 `[INHERITED — Task 5 implementer]`, controller re-run in progress (`full-suite-cd16609.log`) |
+| Full suite | measured | base `c220525c`: 3543/0/1; final head `602a6ed`: **3810/0/1 across 29 binaries + 2 doc-tests** (controller, `~/code/tools/logs/closeout/full-suite-final.log`, `doctests-final.log`) |
 | Tier-A `--matrix-only` | measured | 104/104 on both the branch and base binaries (`~/code/tools/logs/closeout/tier-a-matrix-{branch,base}.log`) |
-| Final whole-branch review | in flight | terra + Opus seats; package `.superpowers/sdd/.../review-final.diff` |
+| Final whole-branch review | complete | terra + Opus (`With fixes`) → fix wave `374b888`/`07f001e` → Sonnet scoped re-review: all addressed, no new breakage (`~/code/tools/reviews/phase0-final-review-terra.md`, ledger) |
 | PR | not opened | body drafted (`$SP/phase0-pr-body.md`); awaiting owner authorisation to push |
 
 ## 3. Corrections to standing documents and memory
@@ -52,9 +52,9 @@
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Final review fold | pending | read both seats; one fix wave; scoped re-review; spec §11 final entry | seats | `review-final.diff` |
+| 1 | Final review fold | done | — | — | spec §11 |
 | 2 | Push + PR | blocked | owner authorisation, then `git push -u origin phase0-sarif-targets-api`, `gh pr create --title "Phase 0 interfaces: --format sarif, prism targets, prism::api, README truth pass" --body-file $SP/phase0-pr-body.md` | owner | — |
-| 3 | Spec §2.3.3 sentence about `parse_diagram_cap` | small | amend to "lives in `src/cli.rs`" | — | — |
+| 3 | Spec §2.3.3 sentence about `parse_diagram_cap` | done | — | — | `ffcf6bd` |
 | 4 | Follow-ups (spec §9) | filed | multi-run `paper` gap; clap `name` rename with `tests/cli/version_test.rs:15` + `eval/tier_a/sut.py::parse_version`; `angle`/`delta` findings; lossy anchors; structured `FindingHint`; typed call edges via `api`; `--strict` live exit-3 case once a fallible producer exists | — | — |
 | 5 | Roadmap item 2 | drafted | rule on the plan's seven items; re-align plan to spec v3; open a new branch/worktree | owner scheduling | `~/code/tools/specs/2026-09-04-prism-item2-*` |
 
@@ -83,7 +83,7 @@
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED · claim: "the branch adds SARIF, targets, and the api facade without changing any existing output byte, cache decision, or resolution result" · pass: INDEPENDENT (per-task adversarial seats + controller-run byte control at every head + Tier-A matrix on both binaries) · evidence tier: TEST-BACKED · record: `~/code/tools/VERIFICATION.md`, `~/code/tools/logs/`
+**§2c verdict:** SURVIVED · claim: "the branch adds SARIF, targets, and the api facade without changing any existing output byte, cache decision, or resolution result" · pass: INDEPENDENT (per-task adversarial seats, two final whole-branch seats, controller-run byte control at every head incl. the final one, Tier-A matrix on both binaries) · evidence tier: TEST-BACKED · record: `~/code/tools/VERIFICATION.md`, `~/code/tools/logs/closeout/`
 
 **Questions the owner owes an answer to:**
 1. Authorise `git push` of `phase0-sarif-targets-api` and opening the PR (body drafted)?
