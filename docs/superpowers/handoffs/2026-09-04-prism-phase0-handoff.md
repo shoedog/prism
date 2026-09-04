@@ -14,9 +14,9 @@
 **(d) Authorization granted but not exercised** — owner (2026-09-04): "proceed autonomously delegating to subagents"; "authorized to go over review cap as needed"; disputed sol findings may be adjudicated by a separate sol judge seat. No push/merge authorisation was given.
 
 ## 1. Resume order
-1. Read `~/code/tools/LEDGER.md` (dispatch log + every ruling) and the SDD ledger `.superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/progress.md` (git-ignored; tasks 1–5 carry `complete` lines).
+1. Read `~/code/tools/LEDGER.md` (dispatch log + every ruling) and the archived SDD ledger `~/code/tools/reviews/prism-phase0-sdd/progress.md` (tasks 1–5 carry `complete` lines; the git-ignored `.superpowers/sdd/` workspace was deleted after archiving, per the SDD skill).
 2. The final review is folded (spec §11, last entry). The SDD workspace evidence (task briefs/reports, the fix-wave report, the progress ledger) is archived durably at `~/code/tools/reviews/prism-phase0-sdd/` and the review texts at `~/code/tools/reviews/phase0-*.md`.
-3. With the owner's authorisation only: `git push -u origin phase0-sarif-targets-api` and open the PR with the body drafted at `$SP/phase0-pr-body.md` (also mirrored in `~/code/tools/reviews/` after closeout).
+3. With the owner's authorisation only: `git push -u origin phase0-sarif-targets-api` and open the PR with the body at `~/code/tools/reviews/phase0-pr-body.md`.
 4. Next roadmap work is item 2 (DataFlow confidence via reaching definitions): spec v3 + plan v1 in `~/code/tools/specs/2026-09-04-prism-item2-dataflow-confidence-{spec,plan}.md`; the plan owes seven controller rulings and a re-alignment to spec v3 before its Task 1.
 
 **STOP conditions:** any write to `~/code/slicing`; any push/merge without owner authorisation; touching a spec §6-forbidden file (`src/algorithms/**`, `src/cpg/**`, `src/cpg_cache.rs`, `src/navigation/**`, `src/resolution*.rs`, `src/call_graph.rs`, `src/ast.rs`, `src/languages/**`), a cache constant, or `Cargo.toml` dependencies; a byte-control diff (`scripts/phase0-byte-control.sh` must report 1598/1598 identical against `~/code/tools/bin/prism-base-c220525`).
@@ -36,7 +36,7 @@
 | Full suite | measured | base `c220525c`: 3543/0/1; final head `602a6ed`: **3810/0/1 across 29 binaries + 2 doc-tests** (controller, `~/code/tools/logs/closeout/full-suite-final.log`, `doctests-final.log`) |
 | Tier-A `--matrix-only` | measured | 104/104 on both the branch and base binaries (`~/code/tools/logs/closeout/tier-a-matrix-{branch,base}.log`) |
 | Final whole-branch review | complete | terra + Opus (`With fixes`) → fix wave `374b888`/`07f001e` → Sonnet scoped re-review: all addressed, no new breakage (`~/code/tools/reviews/phase0-final-review-terra.md`, ledger) |
-| PR | not opened | body drafted (`$SP/phase0-pr-body.md`); awaiting owner authorisation to push |
+| PR | not opened | body at `~/code/tools/reviews/phase0-pr-body.md`; awaiting owner authorisation to push |
 
 ## 3. Corrections to standing documents and memory
 
@@ -53,7 +53,7 @@
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
 | 1 | Final review fold | done | — | — | spec §11 |
-| 2 | Push + PR | blocked | owner authorisation, then `git push -u origin phase0-sarif-targets-api`, `gh pr create --title "Phase 0 interfaces: --format sarif, prism targets, prism::api, README truth pass" --body-file $SP/phase0-pr-body.md` | owner | — |
+| 2 | Push + PR | blocked | owner authorisation, then `git push -u origin phase0-sarif-targets-api`, `gh pr create --title "Phase 0 interfaces: --format sarif, prism targets, prism::api, README truth pass" --body-file ~/code/tools/reviews/phase0-pr-body.md` | owner | — |
 | 3 | Spec §2.3.3 sentence about `parse_diagram_cap` | done | — | — | `ffcf6bd` |
 | 4 | Follow-ups (spec §9) | filed | multi-run `paper` gap; clap `name` rename with `tests/cli/version_test.rs:15` + `eval/tier_a/sut.py::parse_version`; `angle`/`delta` findings; lossy anchors; structured `FindingHint`; typed call edges via `api`; `--strict` live exit-3 case once a fallible producer exists | — | — |
 | 5 | Roadmap item 2 | drafted | rule on the plan's seven items; re-align plan to spec v3; open a new branch/worktree | owner scheduling | `~/code/tools/specs/2026-09-04-prism-item2-*` |
@@ -78,7 +78,7 @@
 | base binary | `/Users/wesleyjinks/code/tools/bin/prism-base-c220525` (sha256 `299f02c4f15c4e7d…`) |
 | controller ledger / handoff / verification | `/Users/wesleyjinks/code/tools/{LEDGER.md,HANDOFF.md,VERIFICATION.md}` |
 | targets contract | `docs/contracts/targets.schema.json` (authoritative; mirror `~/code/tools/contracts/targets.schema.json`) |
-| SDD workspace | `.superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/` (git-ignored) |
+| SDD evidence archive | `~/code/tools/reviews/prism-phase0-sdd/` (briefs, reports, fix-wave report, progress ledger) |
 | bridge | `http://127.0.0.1:18080`, release `07aee33e487fdce6`; codex contexts `tools-phase0-*-20260904` |
 
 ## 7. Refutation verdict and owner questions
