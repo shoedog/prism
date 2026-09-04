@@ -524,6 +524,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
         parsed: ctx.parsed,
         recv_var: ctx.recv_var,
         file_imports: ctx.file_imports,
+        proven_imported_receiver_types: None,
     };
     let baseline = base_classifier.classify(rctx);
     let reuse_calls = ctx.parsed.go_same_scope_short_var_reuse_calls(
