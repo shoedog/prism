@@ -2985,16 +2985,18 @@ impl ParsedFile {
                 .child_by_field_name("left")
                 .or_else(|| node.child_by_field_name("argument"))
                 .or_else(|| node.named_child(0));
-            if target.is_some_and(|target| {
-                target.kind() == "identifier"
-                    && self.node_text(&target) == receiver_name
+            if let Some(target) = target {
+                let mut written_names = BTreeSet::new();
+                self.collect_js_ts_binding_pattern_names(target, &mut written_names);
+                if written_names.contains(receiver_name)
                     && !self.js_ts_receiver_has_closer_binding(
                         &target,
                         receiver_name,
                         binding_scope_id,
                     )
-            }) {
-                return true;
+                {
+                    return true;
+                }
             }
         }
         let mut cursor = node.walk();

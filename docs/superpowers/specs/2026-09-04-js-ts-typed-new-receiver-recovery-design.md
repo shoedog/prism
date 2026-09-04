@@ -45,7 +45,7 @@ This same-file proof prevents imported/external `Foo` annotations and constructo
 - TypeScript and TSX required/optional/default bare typed parameters recover the caller-file class and resolve its direct method as Exact `TypedParam`; JavaScript stays untyped.
 - JavaScript, TypeScript, and TSX `const`/`let`/`var x = new Foo()` recover as Exact `ConstructorLocal` when the declaration reaches the call.
 - Bare factory calls, annotated locals, qualified or locally shadowed constructors, interface/union/generic/imported types, cross-file same-name classes, missing direct methods, and static-only methods do not mint Exact recovered edges.
-- Reassignment, a competing same-scope binding, constructor capture, declaration-after-call, and parse uncertainty fail closed. Ended/sibling-block shadows do not suppress a valid outer origin; an active inner binding does.
+- Identifier or destructuring reassignment, a competing same-scope binding, constructor capture, declaration-after-call, and parse uncertainty fail closed. Ended/sibling-block shadows do not suppress a valid outer origin; an active inner binding does.
 - A receiver variable whose name collides with another class owner proves recovered materialization pre-empts R3b.
 - Full and direct-subset builds, both incremental transitions, CPG/navigation round trips, and JS/TS/TSX language targets agree. Python/Rust/Go behavior remains unchanged.
 

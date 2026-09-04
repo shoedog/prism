@@ -489,6 +489,7 @@ fn test_typescript_recovery_rejects_unsupported_type_and_owner_shapes() {
              function imported(x: External) { x.m(); }\n\
              function inherited(x: Child) { x.m(); }\n\
              function reassignedTyped(x: Foo) { x = new Other(); x.m(); }\n\
+             function destructuredWrite(x: Foo) { [x] = values; x.m(); }\n\
              function capturedCtor() { const x = new Foo(); function innerCtor() { x.m(); } }\n\
              function outerTyped(x: Foo) { function innerTyped() { x.m(); } }\n",
         ),
@@ -500,6 +501,7 @@ fn test_typescript_recovery_rejects_unsupported_type_and_owner_shapes() {
         "rest",
         "qualifiedType",
         "reassignedTyped",
+        "destructuredWrite",
         "innerCtor",
     ] {
         let call = site(&cg, caller, "m");

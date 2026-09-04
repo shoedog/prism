@@ -6,7 +6,7 @@
 
 ## 0. Current verdict
 
-**REVIEW ROUND 1 GREEN; ROUND 2 AND FULL VERIFICATION NEXT.** This is roadmap item 4 and depends on, but remains distinct from, the verified lexical-binding prerequisite.
+**TWO-ROUND REVIEW CONVERGED; FULL VERIFICATION NEXT.** This is roadmap item 4 and depends on, but remains distinct from, the verified lexical-binding prerequisite.
 
 ## 1. Authority boundary
 
@@ -17,13 +17,14 @@ Recover only bare TS/TSX typed parameters and direct bare JS/TS/TSX `new Foo()` 
 - The classifier and AST evidence gates exclude JavaScript, TypeScript, and TSX; `constructor_type` has no `new_expression` arm. Call-site construction stores the classifier output directly, ruling out later discard as the cause.
 - Generic bare-owner lookup cannot prove imported/external/interface `Foo` identity. Caller-file `clean_class_spans` plus direct-method lookup is the required safety membrane.
 - Review round 1 fixed three WRONG mechanisms: typed-parameter reassignment retained stale types; locally shadowed constructor identifiers could bind to the module class; recovered instance receivers could target static-only methods. It also fixed the closer-block-shadow mutation SMELL by carrying binding-scope identity.
+- Review round 2 reached the declared cap with one closed WRONG: array/object-pattern reassignment escaped the identifier-only mutation detector. The bounded fix reuses binding-pattern name extraction; no recurring or open-class finding remained.
 - LSP semantic navigation is unavailable in this environment; targeted references, AST grammar schemas, compiler checks, and non-vacuous tests are the fallback. This remains a verification exclusion.
 
 ## 3. Verification state
 
 - Committed RED evidence remains at `3b8cbb1`: JavaScript `new`, TypeScript typed-parameter, R3b-collision, TSX typed-parameter, CPG behavior, navigation behavior, and the 59/28 version pins failed before production edits.
 - Focused GREEN: JS receiver module 7/7, TS receiver module 15/15, expanded TSX recovery 1/1, CPG v59 behavior 1/1, nav behavior/pin 2/2. Complete pre-review language targets were JS 66/66, TS 47/47, TSX 49/49; they must be rerun after review fixes.
-- Round 2, configured Clippy, full suites, release/Tier-A, final handoff, and publication are pending.
+- Review-1 implementation is committed at `7101ed3`; the round-2 targeted fix is green in focused tests and is the next stable commit. Configured Clippy, full suites, release/Tier-A, final handoff, and publication are pending.
 
 ## 4. Custody
 
