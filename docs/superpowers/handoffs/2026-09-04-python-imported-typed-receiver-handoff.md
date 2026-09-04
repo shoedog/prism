@@ -11,7 +11,7 @@
 
 ## 0. Current verdict
 
-**ACCEPTED LOCALLY; publication remains open.** The owner-authorized successor fixes the round-2 incremental-parity WRONG by comparing old/new four-field imported-class proof sets and falling back to full construction only when the authority changes. Current source, focused regressions, full suites, static checks, release builds, and Tier-A behavior are green. No remote branch or MR has been created.
+**MERGED.** PR #226 merged to `main` as `5e54d48381f329cae370557eeac35bc00ff7b801` at 2026-09-04T10:13:39Z. The owner-authorized successor fixes the round-2 incremental-parity WRONG by comparing old/new four-field imported-class proof sets and falling back to full construction only when the authority changes. Its focused regressions, full suites, static checks, release builds, Tier-A behavior, and hosted CI were green.
 
 The steering carrier names an adjacent installed `handoff-template.md`, but no template is present in this checkout. This handoff follows the established lane shape.
 
@@ -65,9 +65,7 @@ Declared cap: two rounds.
 
 ## 4. Remaining work
 
-1. Commit this acceptance/handoff refresh and rebind the branch/worktree/HEAD tuple.
-2. Obtain explicit publication authorization before pushing the branch or opening an MR.
-3. If authorized, push this exact branch head and open the MR with the RED/GREEN, review, full-suite, and Tier-A baseline-validity evidence. Do not rebaseline the corpus SHA drift.
+No work remains in this lane. The next adjacent Fork-A increment is the separately designed Python module-qualified receiver slice.
 
 ## 5. Hypothesis-probe-result log
 
@@ -84,6 +82,7 @@ Declared cap: two rounds.
 
 - Branch/worktree: `py-imported-receiver-owner` at `/private/tmp/slicing-py-imported-receiver`.
 - Durable commits: `0fe4e46` (design + intentional RED), `d896430` (focused-green implementation), `476631d` (full-gate handoff checkpoint), `5d233e8` (parked incremental RED + bounded successor design), and `a48c3db` (authorized successor implementation + tests).
-- Root checkout remains `/Users/wesleyjinks/code/slicing` on `main` at `c220525c`; its pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` were not touched.
+- Published branch head: `280cc45cb036ad8fdc228e0f68c2c1bbbbe64186`; PR #226 merged as `5e54d48381f329cae370557eeac35bc00ff7b801`.
+- Root checkout `/Users/wesleyjinks/code/slicing` and `origin/main` were rebound to the merge commit. The root's pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` were not touched.
 - Generated Tier-A reports/run/snapshots from baseline-invalid quick runs were removed after their verdicts were recorded; they were not committed or used to rebaseline.
-- No baseline, remote branch, MR, or external system has been changed.
+- No baseline was changed.
