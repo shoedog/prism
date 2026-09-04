@@ -628,3 +628,111 @@ fn callees_resolves_scoped_dispatch_dogfood() {
         "dispatch should resolve scoped algorithm callees cross-file; got {resolved_cross_file}"
     );
 }
+
+#[test]
+fn onboard_emits_markdown_by_default_and_typed_json_on_request() {
+    let markdown = bin()
+        .args(["nav", "--no-cache", "onboard", "--repo", CG])
+        .output()
+        .unwrap();
+    assert!(
+        markdown.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&markdown.stderr)
+    );
+    let text = String::from_utf8(markdown.stdout).unwrap();
+    assert!(text.starts_with("# Prism project overview\n"));
+    assert!(text.contains("## Inventory\n"));
+    assert!(text.contains("## Module architecture\n"));
+    assert!(text.contains("## Call resolution\n"));
+    assert!(text.ends_with('\n'));
+
+    let json = bin()
+        .args([
+            "nav",
+            "--no-cache",
+            "onboard",
+            "--repo",
+            CG,
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        json.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&json.stderr)
+    );
+    assert!(json.stdout.ends_with(b"\n"));
+    let value: serde_json::Value = serde_json::from_slice(&json.stdout).unwrap();
+    assert_eq!(value["schema_version"], "1.0");
+    assert_eq!(value["inventory"]["indexed_files"], 2);
+    assert_eq!(value["modules"]["edges"], 1);
+    assert!(value["modules"]["connected"].as_array().unwrap().len() <= 12);
+}
+
+#[test]
+fn onboard_out_is_create_new_and_preserves_existing_bytes() {
+    let dir = tempfile::tempdir().unwrap();
+    let out_path = dir.path().join("overview.json");
+    let out_arg = out_path.to_str().unwrap();
+    let first = bin()
+        .args([
+            "nav",
+            "--no-cache",
+            "onboard",
+            "--repo",
+            CG,
+            "--format",
+            "json",
+            "--out",
+            out_arg,
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        first.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    assert!(first.stdout.is_empty());
+    let original = std::fs::read(&out_path).unwrap();
+    let _: serde_json::Value = serde_json::from_slice(&original).unwrap();
+
+    let second = bin()
+        .args([
+            "nav",
+            "--no-cache",
+            "onboard",
+            "--repo",
+            CG,
+            "--format",
+            "json",
+            "--out",
+            out_arg,
+        ])
+        .output()
+        .unwrap();
+    assert!(!second.status.success());
+    assert!(second.stdout.is_empty());
+    assert_eq!(std::fs::read(&out_path).unwrap(), original);
+    assert!(String::from_utf8_lossy(&second.stderr).contains("already exists"));
+}
+
+#[test]
+fn onboard_rejects_unknown_format_before_loading_repo() {
+    let out = bin()
+        .args([
+            "nav",
+            "onboard",
+            "--repo",
+            "/path/that/does/not/exist",
+            "--format",
+            "text",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("invalid value"));
+}

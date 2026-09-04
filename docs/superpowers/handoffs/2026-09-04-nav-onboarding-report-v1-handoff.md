@@ -6,8 +6,8 @@
 
 ## 0. Current verdict
 
-**DESIGNED; RED CONTRACT NEXT.** The successor product increment is a CLI-only,
-bounded onboarding report. No implementation or behavioral verification exists yet.
+**RED CONTRACT ESTABLISHED; IMPLEMENTATION NEXT.** The successor product increment is
+a CLI-only, bounded onboarding report. Production behavior does not exist yet.
 
 ## 1. Authority boundary
 
@@ -28,7 +28,11 @@ scope.
 
 ## 3. Verification state
 
-- No RED or GREEN tests yet.
+- RED navigation target: one compile error, the missing
+  `prism::navigation::onboarding` module.
+- RED CLI target: 3/3 selected tests failed at Clap's unknown `onboard` subcommand;
+  repository loading and output-file creation were not reached.
+- No GREEN tests yet.
 - Full-suite and Tier-A gates remain pending.
 - LSP semantic navigation is unavailable; structural Prism navigation plus direct
   source reads supplies blast-radius evidence.
@@ -36,6 +40,7 @@ scope.
 ## 4. Custody
 
 - Root `main` was rebound to exact PR #234 merge `90c522b` before this branch.
-- This design/roadmap/handoff checkpoint is the current commit candidate.
+- Design/roadmap/handoff checkpoint is `393e0cf`; the RED tests plus this refresh are
+  the current commit candidate.
 - Root's pre-existing untracked `.superpowers/` and
   `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
