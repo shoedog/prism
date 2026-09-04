@@ -45,7 +45,11 @@ scope.
   the repository basename. A cwd-relative regression failed RED and passes after
   canonical-root naming. Findings converged 2 to 1, so the declared cap received a
   disclosed final confirmation pass; it found 0 WRONG and 0 SMELL.
-- Full-suite and Tier-A gates remain pending.
+- Format, base-to-candidate diff check, all-target MCP check, and configured all-target
+  MCP Clippy are green. Clippy retains the repository's existing non-fatal warnings.
+- Full default suite is green: 3,706 total = 3,705 passed + 1 ignored, 0 failed.
+- Full MCP suite is green: 3,896 total = 3,895 passed + 1 ignored, 0 failed.
+- Release/Tier-A gates remain pending.
 - LSP semantic navigation is unavailable; structural Prism navigation plus direct
   source reads supplies blast-radius evidence.
 
@@ -53,7 +57,8 @@ scope.
 
 - Root `main` was rebound to exact PR #234 merge `90c522b` before this branch.
 - Design/roadmap/handoff checkpoint is `393e0cf`; primary RED is `dbfb890`; cache RED
-  extension is `1c8e558`; focused-GREEN implementation is `cd8c1fc`; documentation,
-  review fixes, and this review closure are the current commit candidate.
+  extension is `1c8e558`; focused-GREEN implementation is `cd8c1fc`; review hardening
+  is `baae280`; diff-gate cleanup is `bcbc118`; this full-suite custody refresh is the
+  current commit candidate.
 - Root's pre-existing untracked `.superpowers/` and
   `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
