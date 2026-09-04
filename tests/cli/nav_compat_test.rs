@@ -188,6 +188,61 @@ fn nav_nodes_at_rejects_unknown_format() {
 }
 
 #[test]
+fn nav_symbol_spans_json_and_text_on_fixture_without_source_echo() {
+    let json_out = bin()
+        .args([
+            "nav",
+            "symbol-spans",
+            "--repo",
+            REPO,
+            "--symbol",
+            "f",
+            "--file",
+            "a.py",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        json_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&json_out.stderr)
+    );
+    let value: serde_json::Value = serde_json::from_slice(&json_out.stdout).unwrap();
+    assert_eq!(value["schema_version"], "1.0");
+    assert_eq!(value["query"], "symbol-spans:f@a.py");
+    assert_eq!(value["symbol_span"]["file"], "a.py");
+    assert!(value["name_span"]["start_byte"].is_number());
+    assert!(value["body_span"]["end_byte"].is_number());
+    assert!(!String::from_utf8_lossy(&json_out.stdout).contains("y = x + 1"));
+
+    let text_out = bin()
+        .args([
+            "nav",
+            "symbol-spans",
+            "--repo",
+            REPO,
+            "--location",
+            "a.py:2",
+            "--format",
+            "text",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        text_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&text_out.stderr)
+    );
+    let text = String::from_utf8_lossy(&text_out.stdout);
+    assert!(text.contains("symbol_span"));
+    assert!(text.contains("name_span"));
+    assert!(text.contains("body_span"));
+    assert!(!text.contains("y = x + 1"));
+}
+
+#[test]
 fn nav_callers_json_on_fixture() {
     let out = bin()
         .args([

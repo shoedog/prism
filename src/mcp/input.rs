@@ -690,6 +690,35 @@ mod tests {
     }
 
     #[test]
+    fn symbol_spans_input_is_strict_and_normalizes_seed() {
+        let parsed = parse_symbol_spans(&json!({
+            "seed":{"kind":"symbol","name":"f","file":"./src//lib.rs"}
+        }))
+        .unwrap();
+        assert_eq!(
+            parsed.seed,
+            SeedInput::Symbol {
+                name: "f".into(),
+                file: Some("src/lib.rs".into())
+            }
+        );
+        assert!(parse_symbol_spans(&json!({})).is_err());
+        assert!(parse_symbol_spans(&json!({
+            "seed":{"kind":"symbol","name":"f"},
+            "extra":true
+        }))
+        .is_err());
+        assert!(parse_symbol_spans(&json!({
+            "seed":{"kind":"loc","file":"/etc/passwd","line":1}
+        }))
+        .is_err());
+        assert!(parse_symbol_spans(&json!({
+            "seed":{"kind":"loc","file":"a.py","line":0}
+        }))
+        .is_err());
+    }
+
+    #[test]
     fn view_options_require_agent_format_and_allowed_profile() {
         assert!(parse_callers(&json!({
             "seed":{"kind":"symbol","name":"f"},

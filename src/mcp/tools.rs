@@ -519,6 +519,76 @@ mod tests {
     }
 
     #[test]
+    fn symbol_spans_returns_dedicated_coordinates_and_strict_errors() {
+        let s = test_support::session(&[("a.py", "def f():\n    return 1\n")]);
+        let registry = ToolRegistry::nav_v1();
+        let tool = registry.get("nav_symbol_spans").unwrap();
+        let out = (tool.handler)(
+            &ToolContext::for_test(&s),
+            &json!({"seed":{"kind":"symbol","name":"f","file":"a.py"}}),
+        );
+        assert!(!out.is_error);
+        let value: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
+        assert_eq!(value["schema_version"], "1.0");
+        assert_eq!(value["symbol_span"]["file"], "a.py");
+        assert!(value["name_span"]["start_byte"].is_number());
+        assert!(value["body_span"]["end_byte"].is_number());
+        assert!(!out.content_text.contains("return 1"));
+        assert_eq!(out.structured.as_ref().unwrap(), &value);
+
+        let missing = (tool.handler)(&ToolContext::for_test(&s), &json!({}));
+        assert!(missing.is_error);
+        let unknown = (tool.handler)(
+            &ToolContext::for_test(&s),
+            &json!({"seed":{"kind":"symbol","name":"f"},"extra":true}),
+        );
+        assert!(unknown.is_error);
+    }
+
+    #[test]
+    fn symbol_spans_respects_wire_cap_and_structured_content_mode() {
+        let name = "f".repeat(15_000);
+        let source = format!("def {name}():\n    return 1\n");
+        let s = test_support::session(&[("a.py", source.as_str())]);
+        let registry = ToolRegistry::nav_v1();
+        let tool = registry.get("nav_symbol_spans").unwrap();
+        let mode = crate::mcp::output::StructuredContentMode::OmitDefaultPath;
+        let cap = crate::mcp::output::MAX_RESULT_CHARS_FLOOR;
+        let ctx = ToolContext::new(
+            &s,
+            cap,
+            crate::mcp::concise_shape::ConciseShapeMode::default(),
+            mode,
+        );
+        let out = (tool.handler)(
+            &ctx,
+            &json!({"seed":{"kind":"symbol","name":name,"file":"a.py"}}),
+        );
+        assert!(
+            out.wire_len(mode) <= crate::mcp::transport::payload_budget(cap),
+            "custom result must fit the transport payload budget"
+        );
+        assert!(
+            out.is_error,
+            "an indivisible oversized coordinate result must fail closed"
+        );
+
+        let normal = test_support::session(&[("a.py", "def f():\n    return 1\n")]);
+        let normal_out = (tool.handler)(
+            &ToolContext::for_test(&normal),
+            &json!({"seed":{"kind":"symbol","name":"f","file":"a.py"}}),
+        );
+        assert!(normal_out
+            .to_call_tool_result_value(crate::mcp::output::StructuredContentMode::Always)
+            .get("structuredContent")
+            .is_some());
+        assert!(normal_out
+            .to_call_tool_result_value(mode)
+            .get("structuredContent")
+            .is_none());
+    }
+
+    #[test]
     fn nodes_at_escaping_file_is_empty_skippedpath() {
         let s = test_support::session(&[("a.py", "def f():\n    return 1\n")]);
         let out = (ToolRegistry::nav_v1().get("nav_nodes_at").unwrap().handler)(
