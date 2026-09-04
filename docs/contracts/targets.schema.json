@@ -1,0 +1,329 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/shoedog/prism/contracts/targets.schema.json",
+  "title": "Prism instrumentation targets (v1)",
+  "description": "Projection of prism findings into sites a runtime harness should instrument. Produced by `prism targets`. Stable across prism internals; bump schema_version on any breaking change.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "producer",
+    "targets"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "producer": {
+      "type": "object",
+      "required": [
+        "tool",
+        "version",
+        "resolution_mode"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "tool": {
+          "const": "prism"
+        },
+        "version": {
+          "type": "string",
+          "description": "Cargo package version, e.g. 3.1.2"
+        },
+        "resolution_mode": {
+          "type": "string",
+          "enum": [
+            "nominal",
+            "scoped",
+            "precise"
+          ],
+          "description": "Highest resolution tier available at build time. Phase 0 emits nominal."
+        },
+        "cache_build_identity": {
+          "type": "string",
+          "description": "Opaque identity of the CPG build (grammar fingerprint + cache version + inputs hash) when available."
+        },
+        "algorithms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Algorithm names that were run to produce these targets, in run order."
+        }
+      }
+    },
+    "repo": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "description": "Absolute repo root as seen by prism (informational; consumers must not rely on it)."
+        },
+        "sha": {
+          "type": "string",
+          "description": "HEAD commit if the repo is a git checkout."
+        }
+      }
+    },
+    "diff": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/target"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "description": "Algorithms that were requested but failed; their findings are absent. Consumers must treat a non-empty list as partial coverage.",
+      "items": {
+        "type": "object",
+        "required": [
+          "algorithm",
+          "error"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "algorithm": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Parse-quality and other non-fatal warnings emitted by prism during the run."
+    }
+  },
+  "$defs": {
+    "site": {
+      "type": "object",
+      "required": [
+        "file",
+        "line"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "Repo-relative path, forward slashes."
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-indexed line of the finding anchor (the call / acquire / guard site)."
+        },
+        "symbol": {
+          "type": "string",
+          "description": "Enclosing function name when known."
+        },
+        "function_start_line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "function_end_line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "language": {
+          "type": "string",
+          "enum": [
+            "python",
+            "javascript",
+            "typescript",
+            "tsx",
+            "go",
+            "java",
+            "c",
+            "cpp",
+            "rust",
+            "lua",
+            "hcl",
+            "bash"
+          ]
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "required": [
+        "id",
+        "site",
+        "kind",
+        "category",
+        "expected",
+        "source_algorithm",
+        "confidence",
+        "tier",
+        "severity"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "sha256 over the UTF-8 string `file|line|symbol|source_algorithm|category|description` (symbol may be empty; `|` is the literal separator; no trailing newline). Distinct findings at one site get distinct ids; the same source and diff yield the same id across runs."
+        },
+        "site": {
+          "$ref": "#/$defs/site"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "external_call",
+            "resource_acquire",
+            "resource_release",
+            "boundary",
+            "contract",
+            "error_handler",
+            "data_origin",
+            "other"
+          ],
+          "description": "What the harness should do at the site. external_call \u2192 inject faults on the callee; resource_* \u2192 watch acquire/release pairing; boundary \u2192 cross-module/service edge; contract \u2192 guard/postcondition to check; error_handler \u2192 handler that should be exercised; data_origin \u2192 provenance seed; other \u2192 informational."
+        },
+        "category": {
+          "type": "string",
+          "description": "Prism finding category string, verbatim (e.g. missing_error_handling, missing_counterpart)."
+        },
+        "expected": {
+          "type": "object",
+          "required": [
+            "property"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "property": {
+              "type": "string",
+              "enum": [
+                "error_handled",
+                "resource_released",
+                "resource_not_double_released",
+                "counterpart_present",
+                "precondition_holds",
+                "postcondition_holds",
+                "peer_consistent",
+                "not_reached_by_taint",
+                "origin_trusted",
+                "unknown"
+              ],
+              "description": "The property the finding claims may be violated; the harness reports whether runtime evidence confirms or refutes it."
+            },
+            "detail": {
+              "type": "string"
+            }
+          }
+        },
+        "dependency_hint": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "http",
+                "db",
+                "queue",
+                "filesystem",
+                "clock",
+                "process",
+                "network",
+                "cache",
+                "unknown"
+              ]
+            },
+            "callee": {
+              "type": "string",
+              "description": "Callee text as written at the site (e.g. requests.post, os.open, db.Query)."
+            },
+            "counterpart": {
+              "type": "string",
+              "description": "For resource kinds: the expected release/counterpart name (e.g. close, unlock)."
+            }
+          }
+        },
+        "source_algorithm": {
+          "type": "string",
+          "description": "Prism algorithm name (echo, absence, contract, angle, provenance, membrane, delta, taint, ...)."
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "exact",
+            "scoped",
+            "nominal"
+          ],
+          "description": "min over the evidence path. Phase 0: exact for AST-only algorithms with clean parse; nominal for any CPG-derived finding (DataFlow edges are unlabeled until reaching-definitions labeling lands)."
+        },
+        "tier": {
+          "type": "string",
+          "enum": [
+            "asserted",
+            "candidate"
+          ],
+          "description": "asserted iff confidence == exact AND parse_quality is clean/absent; otherwise candidate. Candidates are still worth instrumenting \u2014 runtime confirmation is how a candidate becomes evidence."
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "info",
+            "suggestion",
+            "warning",
+            "concern"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "related": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "lines": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "parse_quality": {
+          "type": "string",
+          "enum": [
+            "clean",
+            "degraded",
+            "poor",
+            "unparseable"
+          ]
+        }
+      }
+    }
+  }
+}
