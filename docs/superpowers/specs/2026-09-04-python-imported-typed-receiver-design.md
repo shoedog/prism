@@ -1,6 +1,6 @@
 # Python imported typed-receiver ownership
 
-**Status:** bounded design for implementation
+**Status:** implemented at `d896430`; PARKED at the two-round review cap pending incremental-parity successor
 **Recorded:** 2026-09-04
 **Exact base:** `c220525c6746d635d99a7a084791cfad4f0276d9` (`origin/main`, PR #225 merge)
 **Scope:** Python `from module import Class [as Alias]` receiver annotations and constructor locals, direct methods only
@@ -89,3 +89,11 @@ The positive test must fail on the exact base for the expected missing edge. Neg
 - `src/cpg_cache.rs`: unchanged unless implementation introduces serialized state (not planned).
 
 Required gates: focused Python typed-receiver tests, `cargo fmt --check`, `cargo test` with totals, `cargo build --release`, Tier-A matrix-only, and Tier-A quick. The Tier-A commands may use `--allow-stale-sut` only immediately after the release rebuild in this worktree.
+
+## 7. Parked incremental boundary
+
+Review round 2 demonstrated one remaining WRONG outside the focused full-build path: when an unchanged caller imports `Client`, and only the defining module changes from no clean `Client` declaration to a clean `Client.send`, a fresh build recovers `receiver_type = Some("Client")` and one Exact `TypedParam` edge while incremental construction retains `receiver_type = None` on the unchanged call site.
+
+The inverse proof transition can retain stale recovered receiver state for the same reason. The existing incremental path reparses changed files and rebuilds several whole-program indexes, but does not reclassify unchanged Python call sites when imported-class proof changes.
+
+At the declared two-round cap, this slice is parked rather than silently extended. The bounded successor is specified in `2026-09-04-python-imported-receiver-incremental-parity-PARKED.md`. No MR should be opened from this state.
