@@ -45,7 +45,7 @@ Exact is limited to `import pkg.models` plus `pkg.models.Class`, with exact qual
 
 - Branch/worktree: `py-dotted-module-receiver-owner` at `/private/tmp/slicing-py-dotted-module-receiver`.
 - Exact base: `4298e548003cbb59cf506531142d177169a7a28e`.
-- Design/roadmap checkpoint: `6756914`; intentional RED checkpoint: `a3371bf`; focused-green implementation checkpoint: `00e0ff6`; review-fix checkpoint: `4aeb321`; final verification/handoff checkpoint is pending this commit.
+- Design/roadmap checkpoint: `6756914`; intentional RED checkpoint: `a3371bf`; focused-green implementation checkpoint: `00e0ff6`; review-fix checkpoint: `4aeb321`; final verification/handoff checkpoint: this document's containing commit.
 - The prior lane is merged as PR #227; its handoff and the living roadmap are reconciled in the design checkpoint.
 - Root checkout's pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
 - Publication and merge of this successor increment are not authorized by the prior PR #227 publication instruction.
