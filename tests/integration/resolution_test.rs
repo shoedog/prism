@@ -1635,6 +1635,22 @@ fn r3_import_qualified_absent_name_is_unknown_name() {
 }
 
 #[test]
+fn r3_non_js_import_qualified_ignores_js_ts_lexical_receiver_fact() {
+    use prism::languages::Language::Python;
+    let (cg, _) = build(&[
+        ("api.py", "def m():\n    pass\n", Python),
+        ("main.py", "import api\ndef run():\n    api.m()\n", Python),
+    ]);
+    let mut site = site_in(&cg, "run", "m");
+    site.receiver_lexically_bound = true;
+    let resolved = cg.resolve_call_site(&site);
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0].target.file, "api.py");
+    assert_eq!(resolved[0].kind, ResolutionKind::ImportQualified);
+    assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
+}
+
+#[test]
 fn r3_go_import_matches_package_directory_not_file_stem() {
     use prism::languages::Language::Go;
     let (cg, _) = build(&[

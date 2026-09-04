@@ -44,7 +44,7 @@ fn fid_dump(fid: &prism::call_graph::FunctionId) -> String {
 
 fn callsite_dump(site: &prism::call_graph::CallSite) -> String {
     format!(
-        "{} -> {} source={:?} line={} kind={:?} span={}-{} qual={:?} recv={:?} recovery={:?} materialized={} newly_recovered={} argc={:?} spread={} outcome={:?} origin={:?} exact_target={:?}",
+        "{} -> {} source={:?} line={} kind={:?} span={}-{} qual={:?} lexically_bound={} recv={:?} recovery={:?} materialized={} newly_recovered={} argc={:?} spread={} outcome={:?} origin={:?} exact_target={:?}",
         fid_dump(&site.caller),
         site.callee_name,
         site.source_callee_name,
@@ -53,6 +53,7 @@ fn callsite_dump(site: &prism::call_graph::CallSite) -> String {
         site.start_byte,
         site.end_byte,
         site.qualifier,
+        site.receiver_lexically_bound,
         site.receiver_type,
         site.receiver_recovery,
         site.receiver_materialized,
@@ -788,6 +789,51 @@ fn test_cache_round_trip_javascript() {
         ctx_original.cpg.graph.edge_count(),
         loaded_cpg.graph.edge_count()
     );
+}
+
+#[test]
+fn cache_v58_round_trips_js_ts_lexical_receiver_binding() {
+    let fixtures = [
+        ("api.ts", "export function m() {}\n", Language::TypeScript),
+        (
+            "svc.ts",
+            "import api from './api';\nfunction run(api: object) { api.m(); }\n",
+            Language::TypeScript,
+        ),
+    ];
+    let files = parsed_files(&fixtures);
+    let sources: BTreeMap<_, _> = fixtures
+        .iter()
+        .map(|(path, source, _)| ((*path).to_string(), (*source).to_string()))
+        .collect();
+    let cold = CpgContext::build(&files, None).cpg;
+    let cold_site = call_site_in_file(&cold, "svc.ts", "run", "m");
+    assert!(cold_site.receiver_lexically_bound);
+    assert!(cold
+        .call_graph
+        .resolve_call_site(&cold_site)
+        .iter()
+        .all(
+            |candidate| candidate.kind != prism::resolution::ResolutionKind::ImportQualified
+                || candidate.confidence != prism::resolution::ResolutionConfidence::Exact
+                || candidate.target.file != "api.ts"
+        ));
+
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&cold, &hashes, false, cache_dir.path()).unwrap();
+    let loaded = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
+    let loaded_site = call_site_in_file(&loaded, "svc.ts", "run", "m");
+    assert!(loaded_site.receiver_lexically_bound);
+    assert!(loaded
+        .call_graph
+        .resolve_call_site(&loaded_site)
+        .iter()
+        .all(
+            |candidate| candidate.kind != prism::resolution::ResolutionKind::ImportQualified
+                || candidate.confidence != prism::resolution::ResolutionConfidence::Exact
+                || candidate.target.file != "api.ts"
+        ));
 }
 
 #[test]

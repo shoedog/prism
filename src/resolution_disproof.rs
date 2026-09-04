@@ -94,6 +94,7 @@ mod tests {
             start_byte: 0,
             end_byte: 0,
             qualifier: None,
+            receiver_lexically_bound: false,
             receiver_type: None,
             receiver_owner_identity: None,
             receiver_local_type_shadowed: false,

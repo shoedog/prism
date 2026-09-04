@@ -65,7 +65,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // (paired with CPG v56).
 // v26: Python namespace-package submodule receiver ownership adds Exact edges
 // (paired with CPG v57).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 26;
+// v27: JS/TS lexical receiver bindings remove shadowed imported-module Exact
+// edges (paired with CPG v58).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 27;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -508,8 +510,53 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_pinned_for_python_namespace_submodule_receivers() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 26);
+    fn sidecar_round_trip_preserves_js_ts_shadowed_receiver_edge_absence() {
+        use crate::ast::ParsedFile;
+        use crate::cpg::CpgContext;
+        use crate::languages::Language::TypeScript;
+
+        let files = BTreeMap::from([
+            (
+                "api.ts".to_string(),
+                ParsedFile::parse("api.ts", "export function m() {}\n", TypeScript).unwrap(),
+            ),
+            (
+                "svc.ts".to_string(),
+                ParsedFile::parse(
+                    "svc.ts",
+                    "import api from './api';\nfunction shadow(api: object) { api.m(); }\nfunction visible(other: object) { api.m(); }\n",
+                    TypeScript,
+                )
+                .unwrap(),
+            ),
+        ]);
+        let navigation =
+            crate::navigation::NavigationIndex::from_ctx(CpgContext::build(&files, None));
+        let index = navigation.build_resolved_call_edges();
+        let target = index
+            .incoming_by_target
+            .keys()
+            .find(|target| target.file == "api.ts" && target.name == "m")
+            .cloned()
+            .expect("visible imported-module target");
+        let incoming = &index.incoming_by_target[&target];
+        assert_eq!(incoming.len(), 1);
+        assert_eq!(incoming[0].caller.name, "visible");
+        assert_eq!(incoming[0].kind, ResolutionKind::ImportQualified);
+
+        let dir = tempfile::tempdir().unwrap();
+        let fingerprint = fixture_fingerprint();
+        save(dir.path(), &fingerprint, &index).unwrap();
+        let loaded = load(dir.path(), &fingerprint).unwrap().unwrap();
+        let loaded_incoming = &loaded.incoming_by_target[&target];
+        assert_eq!(loaded_incoming.len(), 1);
+        assert_eq!(loaded_incoming[0].caller.name, "visible");
+        assert_eq!(loaded_incoming[0].kind, ResolutionKind::ImportQualified);
+    }
+
+    #[test]
+    fn sidecar_version_is_pinned_for_js_ts_lexical_receiver_binding() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 27);
     }
 
     #[test]

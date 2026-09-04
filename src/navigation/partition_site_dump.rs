@@ -91,6 +91,7 @@ mod tests {
             start_byte: 101,
             end_byte: 108,
             qualifier: Some("h".to_string()),
+            receiver_lexically_bound: false,
             receiver_type: None,
             receiver_owner_identity: None,
             receiver_local_type_shadowed: false,

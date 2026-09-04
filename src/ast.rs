@@ -2438,6 +2438,53 @@ impl ParsedFile {
         out
     }
 
+    /// Whether a simple JS/TS receiver identifier is bound in the lexical scope
+    /// that contains this call. This is deliberately a binding fact, not type
+    /// recovery: later receiver classification may consume it, while import-
+    /// qualified resolution uses it only as a fail-closed shadow guard.
+    pub fn js_ts_receiver_lexically_bound_at_call(
+        &self,
+        func_node: &Node<'_>,
+        receiver_node: Option<Node<'_>>,
+    ) -> bool {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return false;
+        }
+        let Some(receiver) = receiver_node else {
+            return false;
+        };
+        if receiver.kind() != "identifier" {
+            return false;
+        }
+        let receiver_name = self.node_text(&receiver);
+        if !is_plain_ident(receiver_name) {
+            return false;
+        }
+
+        let mut seen_functions = BTreeSet::new();
+        let mut current = Some(receiver);
+        while let Some(node) = current {
+            if is_js_ts_function_like(node.kind()) && seen_functions.insert(node.id()) {
+                if self.js_ts_function_scope_binds_receiver(&node, &receiver, receiver_name) {
+                    return true;
+                }
+            }
+            current = node.parent();
+        }
+
+        if seen_functions.insert(func_node.id())
+            && self.js_ts_function_scope_binds_receiver(func_node, &receiver, receiver_name)
+        {
+            return true;
+        }
+
+        let root = self.tree.root_node();
+        self.js_ts_receiver_binding_reaches_call(root, root.id(), &receiver, receiver_name)
+    }
+
     /// Conservative function-local value bindings for callback value-reference
     /// resolution. `None` means this language or syntax is not modeled strongly
     /// enough to prove that a plain identifier is free.
@@ -2759,6 +2806,253 @@ impl ParsedFile {
         for child in node.children(&mut cursor) {
             self.collect_js_ts_local_bindings(child, root_key, out);
         }
+    }
+
+    fn js_ts_receiver_binding_reaches_call(
+        &self,
+        node: Node<'_>,
+        root_scope_id: usize,
+        receiver: &Node<'_>,
+        receiver_name: &str,
+    ) -> bool {
+        let is_root = node.id() == root_scope_id;
+
+        if !is_root && is_js_ts_function_like(node.kind()) {
+            return matches!(
+                node.kind(),
+                "function_declaration" | "generator_function_declaration"
+            ) && self
+                .language
+                .function_name(&node)
+                .is_some_and(|name| self.node_text(&name) == receiver_name)
+                && self.js_ts_lexical_scope_reaches_receiver(&node, receiver, root_scope_id);
+        }
+
+        if !is_root && node.kind() == "class_declaration" {
+            return node
+                .child_by_field_name("name")
+                .is_some_and(|name| self.node_text(&name) == receiver_name)
+                && self.js_ts_lexical_scope_reaches_receiver(&node, receiver, root_scope_id);
+        }
+
+        if !is_root && node.kind() == "class" {
+            let self_name_matches = node
+                .child_by_field_name("name")
+                .is_some_and(|name| self.node_text(&name) == receiver_name);
+            let mut current = Some(*receiver);
+            let mut receiver_is_inside = false;
+            while let Some(ancestor) = current {
+                if ancestor.id() == node.id() {
+                    receiver_is_inside = true;
+                    break;
+                }
+                current = ancestor.parent();
+            }
+            return self_name_matches && receiver_is_inside;
+        }
+
+        if !is_root
+            && matches!(
+                node.kind(),
+                "interface_declaration" | "type_alias_declaration"
+            )
+        {
+            return false;
+        }
+
+        if !is_root
+            && matches!(
+                node.kind(),
+                "abstract_class_declaration" | "enum_declaration" | "function_signature"
+            )
+        {
+            return node
+                .child_by_field_name("name")
+                .is_some_and(|name| self.node_text(&name) == receiver_name)
+                && self.js_ts_lexical_scope_reaches_receiver(&node, receiver, root_scope_id);
+        }
+
+        if !is_root && node.kind() == "import_alias" {
+            return node
+                .named_child(0)
+                .is_some_and(|name| self.node_text(&name) == receiver_name)
+                && self.js_ts_lexical_scope_reaches_receiver(&node, receiver, root_scope_id);
+        }
+
+        if !is_root && matches!(node.kind(), "internal_module" | "module") {
+            let name_binds =
+                node.child_by_field_name("name").is_some_and(|name| {
+                    name.kind() == "identifier" && self.node_text(&name) == receiver_name
+                }) && self.js_ts_lexical_scope_reaches_receiver(&node, receiver, root_scope_id);
+            if name_binds {
+                return true;
+            }
+
+            let mut current = Some(*receiver);
+            let mut receiver_is_inside = false;
+            while let Some(ancestor) = current {
+                if ancestor.id() == node.id() {
+                    receiver_is_inside = true;
+                    break;
+                }
+                current = ancestor.parent();
+            }
+            if !receiver_is_inside {
+                return false;
+            }
+        }
+
+        if node.is_error() || node.is_missing() {
+            return true;
+        }
+
+        match node.kind() {
+            "for_in_statement" | "for_of_statement" | "for_await_statement" => {
+                let mut is_var = false;
+                let mut is_lexical = false;
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    match child.kind() {
+                        "var" => is_var = true,
+                        "let" | "const" => is_lexical = true,
+                        _ => {}
+                    }
+                }
+                if is_var || is_lexical {
+                    let mut names = BTreeSet::new();
+                    if let Some(left) = node.child_by_field_name("left") {
+                        self.collect_js_ts_binding_pattern_names(left, &mut names);
+                    }
+                    if names.contains(receiver_name)
+                        && (is_var
+                            || self.js_ts_lexical_scope_reaches_receiver(
+                                &node,
+                                receiver,
+                                root_scope_id,
+                            ))
+                    {
+                        return true;
+                    }
+                }
+            }
+            "variable_declarator" => {
+                let mut names = BTreeSet::new();
+                if let Some(name) = node.child_by_field_name("name") {
+                    self.collect_js_ts_binding_pattern_names(name, &mut names);
+                }
+                if names.contains(receiver_name) {
+                    let is_function_scoped_var = node
+                        .parent()
+                        .is_some_and(|parent| parent.kind() == "variable_declaration");
+                    if is_function_scoped_var
+                        || self.js_ts_lexical_scope_reaches_receiver(&node, receiver, root_scope_id)
+                    {
+                        return true;
+                    }
+                }
+            }
+            "catch_clause" => {
+                let mut names = BTreeSet::new();
+                self.collect_js_ts_catch_binding_names(node, &mut names);
+                if names.contains(receiver_name)
+                    && self.js_ts_lexical_scope_reaches_receiver(&node, receiver, root_scope_id)
+                {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+
+        let mut cursor = node.walk();
+        let found = node.named_children(&mut cursor).any(|child| {
+            self.js_ts_receiver_binding_reaches_call(child, root_scope_id, receiver, receiver_name)
+        });
+        found
+    }
+
+    fn js_ts_function_scope_binds_receiver(
+        &self,
+        func_node: &Node<'_>,
+        receiver: &Node<'_>,
+        receiver_name: &str,
+    ) -> bool {
+        let mut parameters = BTreeSet::new();
+        self.collect_js_ts_parameter_bindings(*func_node, &mut parameters);
+        if parameters.contains(receiver_name) {
+            return true;
+        }
+
+        if matches!(
+            func_node.kind(),
+            "function_declaration"
+                | "function_expression"
+                | "generator_function_declaration"
+                | "generator_function"
+        ) && self
+            .language
+            .function_name(func_node)
+            .is_some_and(|name| self.node_text(&name) == receiver_name)
+        {
+            return true;
+        }
+
+        self.js_ts_receiver_binding_reaches_call(
+            *func_node,
+            func_node.id(),
+            receiver,
+            receiver_name,
+        )
+    }
+
+    fn js_ts_lexical_scope_reaches_receiver(
+        &self,
+        binding: &Node<'_>,
+        receiver: &Node<'_>,
+        root_scope_id: usize,
+    ) -> bool {
+        let Some(scope_id) = self.js_ts_nearest_lexical_scope_id(binding, root_scope_id) else {
+            return false;
+        };
+        let mut current = Some(*receiver);
+        while let Some(node) = current {
+            if node.id() == scope_id {
+                return true;
+            }
+            if node.id() == root_scope_id {
+                return false;
+            }
+            current = node.parent();
+        }
+        false
+    }
+
+    fn js_ts_nearest_lexical_scope_id(
+        &self,
+        binding: &Node<'_>,
+        root_scope_id: usize,
+    ) -> Option<usize> {
+        let mut current = Some(*binding);
+        while let Some(node) = current {
+            if node.id() == root_scope_id {
+                return Some(node.id());
+            }
+            if self.language.is_scope_block(node.kind())
+                || matches!(
+                    node.kind(),
+                    "for_statement"
+                        | "for_in_statement"
+                        | "for_of_statement"
+                        | "for_await_statement"
+                        | "switch_statement"
+                        | "switch_body"
+                        | "catch_clause"
+                )
+            {
+                return Some(node.id());
+            }
+            current = node.parent();
+        }
+        None
     }
 
     fn collect_js_ts_catch_binding_names(&self, node: Node<'_>, out: &mut BTreeSet<String>) {
