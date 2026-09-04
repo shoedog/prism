@@ -736,3 +736,39 @@ fn onboard_rejects_unknown_format_before_loading_repo() {
     assert_eq!(out.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&out.stderr).contains("invalid value"));
 }
+
+#[test]
+fn onboard_warms_cpg_and_resolved_call_edge_caches() {
+    let repo = tempfile::tempdir().unwrap();
+    std::fs::write(
+        repo.path().join("main.py"),
+        "import util\n\ndef run():\n    return util.helper()\n",
+    )
+    .unwrap();
+    std::fs::write(repo.path().join("util.py"), "def helper():\n    return 1\n").unwrap();
+    let cache = tempfile::tempdir().unwrap();
+
+    let out = bin()
+        .args([
+            "nav",
+            "--cache-dir",
+            cache.path().to_str().unwrap(),
+            "onboard",
+            "--repo",
+            repo.path().to_str().unwrap(),
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let loaded = load_repo(repo.path()).unwrap();
+    let cache_dir = nav_cache_subdir(cache.path(), &loaded);
+    assert!(cache_dir.join("cpg-cache.bin").exists());
+    assert!(cache_dir.join("resolved-call-edge-index.bin").exists());
+}
