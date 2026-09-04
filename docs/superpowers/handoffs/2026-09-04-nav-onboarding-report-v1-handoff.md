@@ -6,7 +6,7 @@
 
 ## 0. Current verdict
 
-**IMPLEMENTED, DOCUMENTED, AND REVIEWED; FULL GATES NEXT.** The successor product
+**IMPLEMENTED, DOCUMENTED, REVIEWED, AND VERIFIED; PR NEXT.** The successor product
 increment is a CLI-only, bounded onboarding report.
 
 ## 1. Authority boundary
@@ -49,7 +49,12 @@ scope.
   MCP Clippy are green. Clippy retains the repository's existing non-fatal warnings.
 - Full default suite is green: 3,706 total = 3,705 passed + 1 ignored, 0 failed.
 - Full MCP suite is green: 3,896 total = 3,895 passed + 1 ignored, 0 failed.
-- Release/Tier-A gates remain pending.
+- Each Tier-A invocation had an immediately preceding release build. Matrix-only is
+  green: 104/104 cases `ok`. Quick completed with 0.000 oracle/SUT error rates, a
+  quiescent oracle, and clean corpus/SUT, but exited 2 solely because current corpus
+  `bff9765139e4` differs from pinned `20c8490591a3`; no baseline was changed. The
+  inherited `target-c-method` flip candidate and two expected pinned missing outcomes
+  remain; there are no matrix regressions.
 - LSP semantic navigation is unavailable; structural Prism navigation plus direct
   source reads supplies blast-radius evidence.
 
@@ -58,7 +63,7 @@ scope.
 - Root `main` was rebound to exact PR #234 merge `90c522b` before this branch.
 - Design/roadmap/handoff checkpoint is `393e0cf`; primary RED is `dbfb890`; cache RED
   extension is `1c8e558`; focused-GREEN implementation is `cd8c1fc`; review hardening
-  is `baae280`; diff-gate cleanup is `bcbc118`; this full-suite custody refresh is the
-  current commit candidate.
+  is `baae280`; diff-gate cleanup is `bcbc118`; full-suite custody is `bff9765`; this
+  Tier-A verification refresh is the current commit candidate.
 - Root's pre-existing untracked `.superpowers/` and
   `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
