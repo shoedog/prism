@@ -14,9 +14,8 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "type": "string",
-      "pattern": "^1\\.\\d+$",
-      "description": "Targets contract version, currently 1.0. Every object is additionalProperties:false (closed world), so a document with schema_version 1.k validates ONLY against schema 1.k: consumers must validate with the schema matching the document's minor version. Minor bumps are backward-compatible in MEANING (existing fields keep their semantics; fields are only added) but not in closed-world validation. Breaking changes bump the major."
+      "const": "1.0",
+      "description": "Targets contract version \u2014 an exact minor discriminator (const). Each minor ships as its own schema file; a document with schema_version 1.k validates only against schema 1.k. Every object is additionalProperties:false (closed world): any newly emitted property is a minor bump; breaking changes bump the major. Minor bumps are backward-compatible in MEANING (existing fields keep their semantics; fields are only added), not in closed-world validation."
     },
     "producer": {
       "type": "object",
@@ -154,7 +153,7 @@
         "function_start_line": {
           "type": "integer",
           "minimum": 1,
-          "description": "1-indexed first line of the enclosing function. Producers that parsed the file MUST fill this and function_end_line whenever the enclosing function is found; the Python harness relies on the range to scope injection to this site (CR-1) and fails safe (no injection) when it is absent."
+          "description": "1-indexed first line of the innermost function enclosing `line`. Producers that parsed the file MUST fill this and function_end_line whenever such a function exists (bounds and `symbol` describe the same function); the Python harness relies on the range to scope injection and fails safe (no injection) when it is absent."
         },
         "function_end_line": {
           "type": "integer",
@@ -200,7 +199,7 @@
         "id": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$",
-          "description": "Lowercase hex sha256 of the compact canonical JSON array [file, line, symbol_or_empty_string, source_algorithm, category, description, severity] (serde_json compact serialization of a 7-element array; no delimiter ambiguity). Distinct findings at one site get distinct ids; the same source and diff yield the same id across runs."
+          "description": "Lowercase hex sha256 of the compact canonical JSON array [file, line, symbol_or_empty_string, source_algorithm, category, description, severity, related_lines_sorted_dedup, related_files_sorted_dedup] (serde_json compact serialization of a 9-element array; the last two are JSON arrays). Findings that differ in any field this contract carries get distinct ids; the same source and diff yield the same id across runs."
         },
         "site": {
           "$ref": "#/$defs/site"
