@@ -63,7 +63,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   is DONE in #230 (merge `5051918f`);
   (3) JS/TS lexical-scope-aware receiver binding prerequisite — DONE in #231
   (merge `6771d530`); (4) JS/TS typed-parameter and `new`-constructor receiver
-  recovery — DONE at rewritten verified checkpoint `843cfe5`; (5) then
+  recovery — DONE at rewritten verified code checkpoint `843cfe5`, PR #232 open; (5) then
   reconsider Java native resolution versus LSP delegation or product-oriented
   navigation/onboarding work. Do not collapse steps 2–4 into the old combined design.
 

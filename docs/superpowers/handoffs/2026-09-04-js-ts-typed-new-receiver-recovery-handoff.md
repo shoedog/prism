@@ -6,7 +6,7 @@
 
 ## 0. Current verdict
 
-**IMPLEMENTED; TWO-ROUND REVIEW CLOSED; ALL CLAIMABLE GATES GREEN.** This is roadmap item 4 and depends on, but remains distinct from, the merged lexical-binding prerequisite. Publication is owner-authorized; PR creation and green-check merge are next.
+**IMPLEMENTED; TWO-ROUND REVIEW CLOSED; ALL CLAIMABLE LOCAL GATES GREEN; PR #232 OPEN.** This is roadmap item 4 and depends on, but remains distinct from, the merged lexical-binding prerequisite. Merge remains conditional on every hosted check passing.
 
 ## 1. Authority boundary
 
@@ -37,4 +37,4 @@ Recover only bare TS/TSX typed parameters and direct bare JS/TS/TSX `new Foo()` 
 - Branch/worktree: `js-ts-typed-new-receiver-recovery-owner` at `/private/tmp/slicing-js-ts-typed-new-receiver-recovery`.
 - Exact base is merged lexical-binding prerequisite PR #231 at merge commit `6771d530`; its reviewed head was `6125e223`.
 - Root checkout's pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
-- Implementation and publication were explicitly authorized on 2026-09-04. The prerequisite is merged; this successor is authorized for PR creation and merge only after its hosted checks are green.
+- Implementation and publication were explicitly authorized on 2026-09-04. The prerequisite is merged; successor PR #232 is open and authorized to merge only after its hosted checks are green.
