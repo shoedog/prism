@@ -160,7 +160,9 @@ use std::path::{Path, PathBuf};
 ///   identity, and derived CPG edges enter the serialized graph.
 /// - v56: Python explicit module aliases gain a distinct serialized import kind;
 ///   unaliased dotted module paths can authorize qualified receiver edges.
-const CACHE_VERSION: u32 = 56;
+/// - v57: Python namespace-package submodule imports can authorize qualified
+///   receiver classification and Exact edges.
+const CACHE_VERSION: u32 = 57;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 

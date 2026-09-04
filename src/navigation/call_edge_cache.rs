@@ -63,7 +63,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // resolved navigation topology (paired with CPG v55).
 // v25: Python unaliased dotted-module receiver ownership adds Exact edges
 // (paired with CPG v56).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 25;
+// v26: Python namespace-package submodule receiver ownership adds Exact edges
+// (paired with CPG v57).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 26;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";

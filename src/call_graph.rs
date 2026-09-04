@@ -5684,29 +5684,53 @@ fn mark_import_binding_eligibility(
                     }
                 }
             }
-            // Eligibility records only occurrence-clean binding authority. R4c
-            // and navigation independently require `MemberImport`, while Python
-            // qualified receiver proof below requires one of the module kinds.
+            // Eligibility records only occurrence-clean binding authority. R4c,
+            // navigation, and Python imported receiver proof apply their own
+            // import-kind and path-shape requirements below.
             binding.eligible = !matches!(binding.kind, ImportBindingKind::WildcardImport);
         }
     }
 }
 
 pub(crate) fn python_qualified_receiver_parts(receiver_type: &str) -> Option<(&str, &str)> {
-    fn is_identifier(part: &str) -> bool {
-        let mut chars = part.chars();
-        chars
-            .next()
-            .is_some_and(|ch| ch == '_' || ch.is_alphabetic())
-            && chars.all(|ch| ch == '_' || ch.is_alphanumeric())
-    }
-
     let (qualifier, owner) = receiver_type.rsplit_once('.')?;
-    (qualifier.split('.').all(is_identifier) && is_identifier(owner)).then_some((qualifier, owner))
+    (qualifier.split('.').all(python_identifier) && python_identifier(owner))
+        .then_some((qualifier, owner))
+}
+
+fn python_identifier(part: &str) -> bool {
+    let mut chars = part.chars();
+    chars
+        .next()
+        .is_some_and(|ch| ch == '_' || ch.is_alphabetic())
+        && chars.all(|ch| ch == '_' || ch.is_alphanumeric())
+}
+
+fn python_namespace_submodule_path(
+    binding: &ImportBinding,
+    indexed_files: &BTreeSet<String>,
+) -> Option<String> {
+    if !matches!(binding.kind, ImportBindingKind::MemberImport)
+        || binding.module_path.starts_with('.')
+        || !binding.module_path.split('.').all(python_identifier)
+    {
+        return None;
+    }
+    let member = binding
+        .member
+        .as_deref()
+        .filter(|part| python_identifier(part))?;
+    let parent = binding.module_path.replace('.', "/");
+    if indexed_files.contains(&format!("{parent}.py"))
+        || indexed_files.contains(&format!("{parent}/__init__.py"))
+    {
+        return None;
+    }
+    Some(format!("{}.{}", binding.module_path, member))
 }
 
 fn unique_python_module_file<'a>(
-    binding: &ImportBinding,
+    module_path: &str,
     caller_file: &str,
     indexed_files: &'a BTreeSet<String>,
 ) -> Option<&'a String> {
@@ -5715,7 +5739,7 @@ fn unique_python_module_file<'a>(
         .filter(|file| {
             crate::languages::Language::from_path(file) == Some(crate::languages::Language::Python)
         })
-        .filter(|file| file_matches_module(file, &binding.module_path, caller_file, indexed_files));
+        .filter(|file| file_matches_module(file, module_path, caller_file, indexed_files));
     let defining_file = module_files.next()?;
     module_files.next().is_none().then_some(defining_file)
 }
@@ -5748,24 +5772,33 @@ pub(crate) fn python_imported_class_route(
     if !binding.eligible {
         return PythonImportedClassRoute::Blocked;
     }
-    let owner = match qualified {
+    let (owner, module_path) = match qualified {
         Some((qualifier, owner))
             if matches!(binding.kind, ImportBindingKind::ModuleImport)
                 && qualifier == binding.module_path =>
         {
-            owner
+            (owner, binding.module_path.clone())
         }
         Some((qualifier, owner))
             if matches!(binding.kind, ImportBindingKind::AliasedModuleImport)
                 && qualifier == binding.local =>
         {
-            owner
+            (owner, binding.module_path.clone())
+        }
+        Some((qualifier, owner))
+            if matches!(binding.kind, ImportBindingKind::MemberImport)
+                && qualifier == binding.local =>
+        {
+            let Some(module_path) = python_namespace_submodule_path(binding, indexed_files) else {
+                return PythonImportedClassRoute::Blocked;
+            };
+            (owner, module_path)
         }
         None if matches!(binding.kind, ImportBindingKind::MemberImport) => {
             let Some(owner) = binding.member.as_deref() else {
                 return PythonImportedClassRoute::Blocked;
             };
-            owner
+            (owner, binding.module_path.clone())
         }
         _ => return PythonImportedClassRoute::Blocked,
     };
@@ -5773,7 +5806,8 @@ pub(crate) fn python_imported_class_route(
     // Count module candidates before consulting the requested class. This
     // prevents a single-component import from becoming Exact merely because
     // only one of several same-stem modules happens to declare `owner`.
-    let Some(defining_file) = unique_python_module_file(binding, caller_file, indexed_files) else {
+    let Some(defining_file) = unique_python_module_file(&module_path, caller_file, indexed_files)
+    else {
         return PythonImportedClassRoute::Blocked;
     };
     if !clean_class_spans.contains_key(&(defining_file.to_string(), owner.to_string())) {
@@ -5813,12 +5847,35 @@ pub(crate) fn python_imported_class_proof_keys(
                             owner,
                         ));
                     }
+
+                    if !binding.eligible {
+                        continue;
+                    }
+                    let Some(module_path) = python_namespace_submodule_path(binding, indexed_files)
+                    else {
+                        continue;
+                    };
+                    let Some(defining_file) =
+                        unique_python_module_file(&module_path, caller_file, indexed_files)
+                    else {
+                        continue;
+                    };
+                    for (file, owner) in clean_class_spans.keys() {
+                        if file == defining_file {
+                            proven.insert((
+                                caller_file.clone(),
+                                format!("{}.{}", binding.local, owner),
+                                defining_file.clone(),
+                                owner.clone(),
+                            ));
+                        }
+                    }
                 }
                 ImportBindingKind::ModuleImport | ImportBindingKind::AliasedModuleImport
                     if binding.eligible =>
                 {
                     let Some(defining_file) =
-                        unique_python_module_file(binding, caller_file, indexed_files)
+                        unique_python_module_file(&binding.module_path, caller_file, indexed_files)
                     else {
                         continue;
                     };

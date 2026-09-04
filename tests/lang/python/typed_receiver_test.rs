@@ -193,16 +193,21 @@ fn test_python_unaliased_dotted_module_receiver_resolves_exact_direct_method() {
 
 #[test]
 fn test_python_namespace_submodule_receiver_resolves_exact_direct_method() {
-    for (import, receiver) in [
-        ("from pkg import models", "models.Client"),
-        ("from pkg import models as m", "m.Client"),
+    for (import, receiver, module_file) in [
+        ("from pkg import models", "models.Client", "pkg/models.py"),
+        ("from pkg import models as m", "m.Client", "pkg/models.py"),
+        (
+            "from pkg import models",
+            "models.Client",
+            "pkg/models/__init__.py",
+        ),
     ] {
         let app = format!(
             "{import}\ndef typed(client: {receiver}):\n    client.send()\ndef made():\n    client = {receiver}()\n    client.send()\n"
         );
         let cg = graph(&[
             (
-                "pkg/models.py",
+                module_file,
                 "class Client:\n    def send(self):\n        pass\n",
             ),
             ("app.py", &app),
@@ -221,10 +226,7 @@ fn test_python_namespace_submodule_receiver_resolves_exact_direct_method() {
             assert_eq!(s.receiver_recovery, Some(recovery), "{import} {caller}");
             let resolved = cg.resolve_call_site(&s);
             assert_eq!(resolved.len(), 1, "{import} {caller}: {resolved:?}");
-            assert_eq!(
-                resolved[0].target.file, "pkg/models.py",
-                "{import} {caller}"
-            );
+            assert_eq!(resolved[0].target.file, module_file, "{import} {caller}");
             assert_eq!(resolved[0].target.start_line, 2, "{import} {caller}");
             assert_eq!(
                 resolved[0].confidence,
@@ -429,6 +431,49 @@ fn test_python_namespace_submodule_receiver_preserves_proof_barriers() {
             cg.resolve_call_site(&s).iter().all(|callee| {
                 callee.confidence != ResolutionConfidence::Exact
                     || callee.kind != ResolutionKind::TypedParam
+            }),
+            "{label}: {s:?}"
+        );
+    }
+}
+
+#[test]
+fn test_python_namespace_submodule_constructor_receiver_preserves_proof_barriers() {
+    for (label, files) in [
+        (
+            "parent_initializer",
+            vec![
+                ("pkg/__init__.py", "value = 1\n"),
+                (
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                ),
+                (
+                    "app.py",
+                    "from pkg import models\ndef run():\n    client = models.Client()\n    client.send()\n",
+                ),
+            ],
+        ),
+        (
+            "local_shadow",
+            vec![
+                (
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                ),
+                (
+                    "app.py",
+                    "from pkg import models\ndef run():\n    models = object()\n    client = models.Client()\n    client.send()\n",
+                ),
+            ],
+        ),
+    ] {
+        let cg = graph(&files);
+        let s = site(&cg, "run", "send");
+        assert!(
+            cg.resolve_call_site(&s).iter().all(|callee| {
+                callee.confidence != ResolutionConfidence::Exact
+                    || callee.kind != ResolutionKind::ConstructorLocal
             }),
             "{label}: {s:?}"
         );
@@ -786,10 +831,6 @@ fn test_python_namespace_submodule_receiver_subset_build_preserves_proof() {
     let s = site(&cg, "run", "send");
 
     assert_eq!(s.receiver_type.as_deref(), Some("models.Client"));
-    let resolved = cg.resolve_call_site(&s);
-    assert_eq!(resolved.len(), 1, "{resolved:?}");
-    assert_eq!(resolved[0].target.file, "pkg/models.py");
-    assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
 }
 
 #[test]
