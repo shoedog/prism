@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/shoedog/prism/contracts/targets.schema.json",
   "title": "Prism instrumentation targets (v1)",
-  "description": "Projection of prism findings into sites a runtime harness should instrument. Produced by `prism targets`. Stable keys a consumer may diff on across runs and machines: targets[].id, site.{file,line,symbol}, kind, category, expected, source_algorithm, severity. Envelope fields a consumer must ignore when comparing documents: producer.{version,cache_build_identity}, repo.root, repo.sha, diff.sha256. confidence/tier are stable for a given prism version and may change across versions as labeling improves. Bump schema_version on any breaking change.",
+  "description": "Projection of prism findings into sites a runtime harness should instrument. Produced by `prism targets`. Stable keys a consumer may diff on across runs and machines: targets[].id, site.{file,line,symbol}, kind, category, expected, source_algorithm, severity. Envelope fields a consumer must ignore when comparing documents: producer.{version,build_identity}, repo.root, repo.sha, diff.sha256. confidence/tier are stable for a given prism version and may change across versions as labeling improves. Bump schema_version on any breaking change.",
   "type": "object",
   "required": [
     "schema_version",
@@ -12,7 +12,9 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": "1"
+      "type": "string",
+      "pattern": "^1\\.\\d+$",
+      "description": "Targets contract version. Every object is additionalProperties:false, so ANY newly emitted property is a minor bump (1.1, 1.2, \u2026); consumers accept any 1.x at or above the version they were written for. Breaking changes bump the major. Current: 1.0."
     },
     "producer": {
       "type": "object",
@@ -39,16 +41,16 @@
           ],
           "description": "The BUILD's dataflow-labeling capability (roadmap `--resolution`): nominal = DataFlow edges unlabeled (Phase 0); scoped = reaching-definitions labels; precise = external-index overlay. A different axis from targets[].confidence; no ordering relation between the two is defined."
         },
-        "cache_build_identity": {
-          "type": "string",
-          "description": "Opaque identity of the CPG build (grammar fingerprint + cache version + inputs hash) when available."
-        },
         "algorithms": {
           "type": "array",
           "items": {
             "type": "string"
           },
           "description": "Algorithm names that were run to produce these targets, in run order."
+        },
+        "build_identity": {
+          "type": "string",
+          "description": "sha256 over the producing BINARY's own source inputs (prism's build.rs identity). Identical across repos and diffs; changes with every prism source change. Not a CPG/input identity."
         }
       }
     },
@@ -206,7 +208,7 @@
         },
         "category": {
           "type": "string",
-          "description": "Prism finding category string, verbatim (e.g. missing_error_handling, missing_counterpart)."
+          "description": "Prism finding category string, verbatim (e.g. missing_error_handling, missing_counterpart); `uncategorized` when the finding carried none."
         },
         "expected": {
           "type": "object",
@@ -292,7 +294,8 @@
             "suggestion",
             "warning",
             "concern"
-          ]
+          ],
+          "description": "Prism severity, one of the four known values; a producer maps any unknown severity to `concern` and records a warning."
         },
         "description": {
           "type": "string"
