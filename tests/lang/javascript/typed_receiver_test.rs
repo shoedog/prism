@@ -69,3 +69,46 @@ fn test_javascript_nested_block_binding_does_not_suppress_import_qualified() {
     assert_eq!(out[0].confidence, ResolutionConfidence::Exact);
     assert_eq!(out[0].target.file, "api.js");
 }
+
+#[test]
+fn test_javascript_lexical_receiver_bindings_suppress_import_qualified() {
+    let cg = graph_files(&[
+        ("api.js", "export function m() {}\n"),
+        (
+            "svc.js",
+            "import api from './api';\n\
+             class Foo { m() {} }\n\
+             function param(api) { api.m(); }\n\
+             function destructured({ api }) { api.m(); }\n\
+             function lexical() { const api = new Foo(); api.m(); }\n\
+             function varNested() { { var api; } api.m(); }\n\
+             function sibling() { { const api = new Foo(); } { api.m(); } }\n\
+             function nestedCallable() { function inner(api) { return api; } api.m(); }\n\
+             function unrelated(other) { api.m(); }\n",
+        ),
+    ]);
+
+    for caller in ["param", "destructured", "lexical", "varNested"] {
+        let call = site(&cg, caller, "m");
+        assert!(
+            cg.resolve_call_site(&call).iter().all(|candidate| {
+                candidate.kind != ResolutionKind::ImportQualified
+                    || candidate.confidence != ResolutionConfidence::Exact
+                    || candidate.target.file != "api.js"
+            }),
+            "{caller} resolved through the shadowed module import"
+        );
+    }
+
+    for caller in ["sibling", "nestedCallable", "unrelated"] {
+        let call = site(&cg, caller, "m");
+        assert!(
+            cg.resolve_call_site(&call).iter().any(|candidate| {
+                candidate.kind == ResolutionKind::ImportQualified
+                    && candidate.confidence == ResolutionConfidence::Exact
+                    && candidate.target.file == "api.js"
+            }),
+            "{caller} lost the visible module import"
+        );
+    }
+}

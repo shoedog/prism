@@ -508,8 +508,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_pinned_for_python_namespace_submodule_receivers() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 26);
+    fn sidecar_version_is_pinned_for_js_ts_lexical_receiver_binding() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 27);
     }
 
     #[test]

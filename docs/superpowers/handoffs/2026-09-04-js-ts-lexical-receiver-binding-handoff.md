@@ -23,7 +23,9 @@ For simple JS/TS identifier receivers, persist whether a parameter, function-sco
 
 ## 3. Verification state
 
-- No behavioral test has been changed yet; RED is next.
+- Exact-base JavaScript RED selected 3 tests: 2 controls passed and the new parameter-shadow test failed because `param` retained the imported-module Exact edge.
+- Exact-base TypeScript RED selected 6 tests: 3 controls passed and 3 shadow tests failed on the imported-module Exact edge (both typed parameter variants and the lexical-scope matrix).
+- Cache pins intentionally expect CPG 58/navigation 27 while production constants remain 57/26 at the RED checkpoint.
 - Review cap declared at two rounds.
 - Full suite and Tier-A remain pending.
 
