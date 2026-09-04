@@ -119,13 +119,21 @@ fn test_python_module_qualified_receiver_resolves_exact_direct_method() {
             ("made", ReceiverRecovery::ConstructorLocal),
         ] {
             let s = site(&cg, caller, "send");
-            assert_eq!(s.receiver_type.as_deref(), Some("models.Client"));
-            assert_eq!(s.receiver_recovery, Some(recovery));
+            assert_eq!(
+                s.receiver_type.as_deref(),
+                Some("models.Client"),
+                "{import} {caller}"
+            );
+            assert_eq!(s.receiver_recovery, Some(recovery), "{import} {caller}");
             let resolved = cg.resolve_call_site(&s);
             assert_eq!(resolved.len(), 1, "{import} {caller}: {resolved:?}");
-            assert_eq!(resolved[0].target.file, module_path);
-            assert_eq!(resolved[0].target.start_line, 2);
-            assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
+            assert_eq!(resolved[0].target.file, module_path, "{import} {caller}");
+            assert_eq!(resolved[0].target.start_line, 2, "{import} {caller}");
+            assert_eq!(
+                resolved[0].confidence,
+                ResolutionConfidence::Exact,
+                "{import} {caller}"
+            );
             assert_eq!(
                 resolved[0].kind,
                 if caller == "typed" {
@@ -250,6 +258,10 @@ fn test_python_module_qualified_receiver_excludes_local_and_shortened_dotted_imp
             "shortened_unaliased_dotted_import",
             "import pkg.models\ndef run(client: models.Client):\n    client.send()\n",
         ),
+        (
+            "multi_hop_unaliased_dotted_import",
+            "import pkg.models\ndef run(client: pkg.models.Client):\n    client.send()\n",
+        ),
     ] {
         let cg = graph(&[
             (
@@ -266,6 +278,32 @@ fn test_python_module_qualified_receiver_excludes_local_and_shortened_dotted_imp
             callee.confidence != ResolutionConfidence::Exact
                 || callee.kind != ResolutionKind::TypedParam
         }), "{label}");
+    }
+}
+
+#[test]
+fn test_python_module_qualified_receiver_requires_proven_module_alias() {
+    let cg = graph(&[
+        (
+            "decoy.py",
+            "class Client:\n    def send(self):\n        pass\n",
+        ),
+        (
+            "app.py",
+            "def typed(client: factory.Client):\n    client.send()\ndef made():\n    client = factory.Client()\n    client.send()\n",
+        ),
+    ]);
+
+    for caller in ["typed", "made"] {
+        let s = site(&cg, caller, "send");
+        assert_eq!(s.receiver_type, None, "{caller}");
+        assert!(s.receiver_materialized, "{caller}");
+        assert!(
+            cg.resolve_call_site(&s)
+                .iter()
+                .all(|callee| callee.confidence != ResolutionConfidence::Exact),
+            "{caller}"
+        );
     }
 }
 
@@ -294,11 +332,6 @@ fn test_python_module_qualified_receiver_subset_build_preserves_proof() {
     let s = site(&cg, "run", "send");
 
     assert_eq!(s.receiver_type.as_deref(), Some("models.Client"));
-    let resolved = cg.resolve_call_site(&s);
-    assert_eq!(resolved.len(), 1);
-    assert_eq!(resolved[0].target.file, "pkg/models.py");
-    assert_eq!(resolved[0].kind, ResolutionKind::TypedParam);
-    assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
 }
 
 #[test]

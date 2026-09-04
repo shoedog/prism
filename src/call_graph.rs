@@ -5681,11 +5681,41 @@ fn mark_import_binding_eligibility(
                     }
                 }
             }
-            // Member imports start eligible; module/wildcard do not (R4c
-            // only handles unqualified calls, which come from member imports).
-            binding.eligible = matches!(binding.kind, ImportBindingKind::MemberImport);
+            // Eligibility records only occurrence-clean binding authority. R4c
+            // and navigation independently require `MemberImport`, while Python
+            // qualified receiver proof below requires `ModuleImport`.
+            binding.eligible = !matches!(binding.kind, ImportBindingKind::WildcardImport);
         }
     }
+}
+
+pub(crate) fn python_qualified_receiver_parts(receiver_type: &str) -> Option<(&str, &str)> {
+    fn is_identifier(part: &str) -> bool {
+        let mut chars = part.chars();
+        chars
+            .next()
+            .is_some_and(|ch| ch == '_' || ch.is_alphabetic())
+            && chars.all(|ch| ch == '_' || ch.is_alphanumeric())
+    }
+
+    let (qualifier, owner) = receiver_type.split_once('.')?;
+    (!owner.contains('.') && is_identifier(qualifier) && is_identifier(owner))
+        .then_some((qualifier, owner))
+}
+
+fn unique_python_module_file<'a>(
+    binding: &ImportBinding,
+    caller_file: &str,
+    indexed_files: &'a BTreeSet<String>,
+) -> Option<&'a String> {
+    let mut module_files = indexed_files
+        .iter()
+        .filter(|file| {
+            crate::languages::Language::from_path(file) == Some(crate::languages::Language::Python)
+        })
+        .filter(|file| file_matches_module(file, &binding.module_path, caller_file, indexed_files));
+    let defining_file = module_files.next()?;
+    module_files.next().is_none().then_some(defining_file)
 }
 
 pub(crate) fn python_imported_class_route(
@@ -5698,9 +5728,13 @@ pub(crate) fn python_imported_class_route(
     let Some(bindings) = bindings else {
         return PythonImportedClassRoute::NotImported;
     };
+    let qualified = python_qualified_receiver_parts(receiver_type);
+    let local = qualified
+        .map(|(qualifier, _)| qualifier)
+        .unwrap_or(receiver_type);
     let matching: Vec<_> = bindings
         .iter()
-        .filter(|binding| binding.local == receiver_type)
+        .filter(|binding| binding.local == local)
         .collect();
     if matching.is_empty() {
         return PythonImportedClassRoute::NotImported;
@@ -5709,27 +5743,26 @@ pub(crate) fn python_imported_class_route(
         return PythonImportedClassRoute::Blocked;
     }
     let binding = matching[0];
-    if !binding.eligible || !matches!(binding.kind, ImportBindingKind::MemberImport) {
+    if !binding.eligible {
         return PythonImportedClassRoute::Blocked;
     }
-    let Some(owner) = binding.member.as_deref() else {
-        return PythonImportedClassRoute::Blocked;
+    let owner = match qualified {
+        Some((_, owner)) if matches!(binding.kind, ImportBindingKind::ModuleImport) => owner,
+        None if matches!(binding.kind, ImportBindingKind::MemberImport) => {
+            let Some(owner) = binding.member.as_deref() else {
+                return PythonImportedClassRoute::Blocked;
+            };
+            owner
+        }
+        _ => return PythonImportedClassRoute::Blocked,
     };
 
     // Count module candidates before consulting the requested class. This
     // prevents a single-component import from becoming Exact merely because
     // only one of several same-stem modules happens to declare `owner`.
-    let module_files: Vec<&String> = indexed_files
-        .iter()
-        .filter(|file| {
-            crate::languages::Language::from_path(file) == Some(crate::languages::Language::Python)
-        })
-        .filter(|file| file_matches_module(file, &binding.module_path, caller_file, indexed_files))
-        .collect();
-    if module_files.len() != 1 {
+    let Some(defining_file) = unique_python_module_file(binding, caller_file, indexed_files) else {
         return PythonImportedClassRoute::Blocked;
-    }
-    let defining_file = module_files[0];
+    };
     if !clean_class_spans.contains_key(&(defining_file.to_string(), owner.to_string())) {
         return PythonImportedClassRoute::Blocked;
     }
@@ -5746,23 +5779,46 @@ pub(crate) fn python_imported_class_proof_keys(
 ) -> BTreeSet<(String, String, String, String)> {
     let mut proven = BTreeSet::new();
     for (caller_file, bindings) in import_bindings {
-        for receiver_type in bindings.iter().map(|binding| binding.local.as_str()) {
-            if let PythonImportedClassRoute::Proven {
-                defining_file,
-                owner,
-            } = python_imported_class_route(
-                caller_file,
-                receiver_type,
-                Some(bindings),
-                indexed_files,
-                clean_class_spans,
-            ) {
-                proven.insert((
-                    caller_file.clone(),
-                    receiver_type.to_string(),
-                    defining_file,
-                    owner,
-                ));
+        for binding in bindings {
+            match binding.kind {
+                ImportBindingKind::MemberImport => {
+                    let receiver_type = binding.local.as_str();
+                    if let PythonImportedClassRoute::Proven {
+                        defining_file,
+                        owner,
+                    } = python_imported_class_route(
+                        caller_file,
+                        receiver_type,
+                        Some(bindings),
+                        indexed_files,
+                        clean_class_spans,
+                    ) {
+                        proven.insert((
+                            caller_file.clone(),
+                            receiver_type.to_string(),
+                            defining_file,
+                            owner,
+                        ));
+                    }
+                }
+                ImportBindingKind::ModuleImport if binding.eligible => {
+                    let Some(defining_file) =
+                        unique_python_module_file(binding, caller_file, indexed_files)
+                    else {
+                        continue;
+                    };
+                    for ((file, owner), _) in clean_class_spans {
+                        if file == defining_file {
+                            proven.insert((
+                                caller_file.clone(),
+                                format!("{}.{}", binding.local, owner),
+                                defining_file.clone(),
+                                owner.clone(),
+                            ));
+                        }
+                    }
+                }
+                _ => {}
             }
         }
     }
@@ -6404,6 +6460,52 @@ mod tests {
         let expected = BTreeSet::from([(
             "app.py".to_string(),
             "ImportedClient".to_string(),
+            "pkg/models.py".to_string(),
+            "Client".to_string(),
+        )]);
+        assert_eq!(proof_keys(&before), expected);
+        assert_eq!(proof_keys(&after), expected);
+    }
+
+    #[test]
+    fn python_qualified_class_proof_key_ignores_direct_method_body_changes() {
+        use crate::languages::Language::Python;
+
+        let build = |method_body: &str| {
+            let mut files = BTreeMap::new();
+            files.insert(
+                "app.py".to_string(),
+                ParsedFile::parse(
+                    "app.py",
+                    "import pkg.models as models\ndef run(client: models.Client):\n    client.send()\n",
+                    Python,
+                )
+                .unwrap(),
+            );
+            files.insert(
+                "pkg/models.py".to_string(),
+                ParsedFile::parse(
+                    "pkg/models.py",
+                    &format!("class Client:\n    def send(self):\n        {method_body}\n"),
+                    Python,
+                )
+                .unwrap(),
+            );
+            CallGraph::build(&files)
+        };
+        let before = build("pass");
+        let after = build("return 1");
+        let proof_keys = |cg: &CallGraph| {
+            python_imported_class_proof_keys(
+                &cg.import_bindings,
+                &cg.indexed_files,
+                &cg.clean_class_spans,
+            )
+        };
+
+        let expected = BTreeSet::from([(
+            "app.py".to_string(),
+            "models.Client".to_string(),
             "pkg/models.py".to_string(),
             "Client".to_string(),
         )]);
