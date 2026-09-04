@@ -243,6 +243,35 @@ fn nav_symbol_spans_json_and_text_on_fixture_without_source_echo() {
 }
 
 #[test]
+fn nav_symbol_spans_requires_one_valid_seed_shape() {
+    let cases = [
+        vec!["nav", "symbol-spans", "--repo", REPO],
+        vec![
+            "nav",
+            "symbol-spans",
+            "--repo",
+            REPO,
+            "--symbol",
+            "f",
+            "--location",
+            "a.py:1",
+        ],
+        vec!["nav", "symbol-spans", "--repo", REPO, "--file", "a.py"],
+    ];
+
+    for args in cases {
+        let out = bin().args(args).output().unwrap();
+        assert_eq!(
+            out.status.code(),
+            Some(2),
+            "invalid seed shape must fail in clap; stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert!(out.stdout.is_empty());
+    }
+}
+
+#[test]
 fn nav_callers_json_on_fixture() {
     let out = bin()
         .args([

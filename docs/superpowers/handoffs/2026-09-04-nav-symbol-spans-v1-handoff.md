@@ -6,7 +6,7 @@
 
 ## 0. Current verdict
 
-**IMPLEMENTED AND DOCUMENTED; TARGETED GREEN; FULL GATES PENDING.** The owner directed work past eval-only increments. Read-only callable edit coordinates now work through the navigation query, CLI, and MCP. Two-round self-review, full suites, release/Tier-A gates, PR, and merge remain.
+**IMPLEMENTED AND DOCUMENTED; REVIEW ROUND 1 GREEN; FULL GATES PENDING.** The owner directed work past eval-only increments. Read-only callable edit coordinates now work through the navigation query, CLI, and MCP. Self-review round 2, full suites, release/Tier-A gates, PR, and merge remain.
 
 ## 1. Authority boundary
 
@@ -24,15 +24,16 @@ Implement callable-only coordinate discovery through CLI and MCP. Prism returns 
 ## 3. Verification state
 
 - RED contract commit: `a3bd9ae` (`test(nav): define symbol spans v1 contract`). Navigation failed at five missing `queries::symbol_spans` calls; CLI ran one test and rejected unknown `symbol-spans`; MCP failed at the missing parser; process smoke observed 8 tools versus the required 9.
-- GREEN: navigation span tests 5/5; focused MCP/input/tool/freshness plus CLI/navigation filter 10/10; registry tests 2/2; MCP lifecycle 1/1; MCP process smoke 1/1.
-- The tests cover Python decorators, Unicode byte offsets, CRLF, tabs, nested Rust, same-line body indentation refusal, body-less Java, ambiguity, source non-echo, strict MCP arguments, escaping-location fail-closed resolution, cap failure, structured-content modes, freshness, CLI JSON/text, and additive tool counts.
+- GREEN: navigation span tests 7/7; CLI span tests 2/2; focused MCP input/tool/freshness tests 4/4; registry tests 2/2; MCP lifecycle 1/1; MCP process smoke 1/1.
+- The tests cover Python decorators, Unicode byte offsets, CRLF, tabs, nested Rust, same-line and empty bodies, 256-byte indentation refusal, bound-function name recovery, non-whitespace prefix refusal, body-less Java, ambiguity, source non-echo, strict MCP arguments, escaping-location fail-closed resolution, cap failure, structured-content modes, freshness, CLI JSON/text/seed validation, and additive tool counts.
 - README, MCP reference, and bundled navigation skill now document the seventh nav tool, its dedicated result, coordinate semantics, and callable-only/read-only boundary; stale count-language search is clean. No project link-check script exists in this checkout.
-- Full default and `mcp` suites, static gates, release builds, Tier-A matrix/quick, and two self-review rounds are not yet run.
+- Review round 1 fixed one WRONG (active `CLAUDE.md` still claimed 8/6 tools) and one coverage SMELL (reachable empty/oversized/bound-function/CLI edges lacked direct assertions). An inline anonymous function proved not CPG-addressable, so no synthetic public null-name claim was added.
+- Full default and `mcp` suites, static gates, release builds, Tier-A matrix/quick, and self-review round 2 are not yet run.
 - LSP semantic navigation remains unavailable; the repository's structural Prism navigation plus direct source reads supplied the blast-radius evidence.
 
 ## 4. Custody
 
 - Root `main` was rebound to PR #233 merge `c7cc2d9` before this branch was created.
-- Design checkpoint is `00b5866`; RED tests are `a3bd9ae`; GREEN implementation is `bea4c76`; documentation plus this custody refresh are the current commit candidate.
+- Design checkpoint is `00b5866`; RED tests are `a3bd9ae`; GREEN implementation is `bea4c76`; documentation is `832655e`; review-round-1 fixes plus this custody refresh are the current commit candidate.
 - Root's pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
 - PR #232 merged the JS/TS typed/new receiver recovery as `434764a6`; PR #233 reconciled its durable custody as `c7cc2d9`.

@@ -122,6 +122,59 @@ fn same_line_body_does_not_invent_body_indentation() {
 }
 
 #[test]
+fn empty_body_and_oversized_symbol_indentation_are_explicitly_unavailable() {
+    let indentation = " ".repeat(257);
+    let source = format!("mod m {{\n{indentation}fn target() {{}}\n}}\n");
+    let f = fixture(&[("src/lib.rs", source.as_str())]);
+
+    let result =
+        queries::symbol_spans(&f.session, Some("target"), Some("src/lib.rs"), None).unwrap();
+
+    assert_eq!(
+        source_slice(&source, result.body_span.as_ref().unwrap()),
+        "{}"
+    );
+    assert_eq!(result.indentation.symbol, None);
+    assert_eq!(
+        result
+            .unavailable
+            .get("indentation.symbol")
+            .map(String::as_str),
+        Some("line indentation exceeds 256-byte limit")
+    );
+    assert_eq!(result.indentation.body, None);
+    assert_eq!(
+        result
+            .unavailable
+            .get("indentation.body")
+            .map(String::as_str),
+        Some("body has no named child")
+    );
+}
+
+#[test]
+fn bound_function_reports_recovered_name_and_non_whitespace_outer_prefix() {
+    let source = "const holder = function() {\n  return 1;\n};\n";
+    let f = fixture(&[("anon.js", source)]);
+
+    let result = queries::symbol_spans(&f.session, None, None, Some("anon.js:1")).unwrap();
+
+    assert_eq!(
+        source_slice(source, result.name_span.as_ref().unwrap()),
+        "holder"
+    );
+    assert_eq!(result.indentation.symbol, None);
+    assert_eq!(
+        result
+            .unavailable
+            .get("indentation.symbol")
+            .map(String::as_str),
+        Some("outer callable is not preceded only by line indentation")
+    );
+    assert_eq!(result.indentation.body.as_deref(), Some("  "));
+}
+
+#[test]
 fn bodyless_java_method_reports_null_body_with_reasons() {
     let source = "abstract class A {\n    abstract void target();\n}\n";
     let f = fixture(&[("A.java", source)]);

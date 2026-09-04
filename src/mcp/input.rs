@@ -720,6 +720,10 @@ mod tests {
             "extra":true
         }))
         .is_err());
+        assert!(parse_symbol_spans(&json!({
+            "seed":{"kind":"symbol","name":"f","extra":true}
+        }))
+        .is_err());
         let escaping = parse_symbol_spans(&json!({
             "seed":{"kind":"loc","file":"/etc/passwd","line":1}
         }))
