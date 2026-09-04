@@ -37,14 +37,17 @@
 
 pub mod access_path;
 pub mod algorithms;
+pub mod api;
 pub mod ast;
 pub mod build_pool;
 pub mod call_graph;
 pub mod cfg;
+pub mod cli;
 pub mod cpg;
 pub mod cpg_cache;
 pub mod data_flow;
 pub mod diff;
+pub mod finding_confidence;
 pub mod framework_entries;
 pub mod frameworks;
 pub mod go_build_profile;
@@ -83,6 +86,7 @@ pub mod resolution_receiver;
 pub mod rust_macro_args;
 pub mod sanitizers;
 pub mod slice;
+pub mod targets;
 pub mod terraform;
 pub mod type_db;
 pub mod type_provider;

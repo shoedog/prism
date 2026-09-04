@@ -1,0 +1,19 @@
+{
+  "files": [
+    {
+      "file_path": "client.py",
+      "modify_type": "Modified",
+      "diff_lines": [14, 15, 16, 17, 20]
+    },
+    {
+      "file_path": "svc.py",
+      "modify_type": "Modified",
+      "diff_lines": []
+    },
+    {
+      "file_path": "notes.txt",
+      "modify_type": "Modified",
+      "diff_lines": [1]
+    }
+  ]
+}

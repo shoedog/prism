@@ -1,3 +1,4 @@
+mod api_test;
 mod call_graph_test;
 #[allow(dead_code)]
 #[path = "../common/mod.rs"]
@@ -14,4 +15,5 @@ mod js_export_test;
 mod r6_candidate_test;
 mod resolution_test;
 mod scoped_cpg_test;
+mod targets_mapping_test;
 mod umbrella_completeness_test;

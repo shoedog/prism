@@ -1,6 +1,6 @@
 ---
 name: prism-code-slicing
-description: Extract the code relevant to a diff/change with the prism `slicing` CLI for defect-focused review. Use when reviewing a diff or PR and asking "what does this change affect / what's the blast radius", "is there a taint path from user input to a dangerous sink", "what's missing (unclosed resource, broken symmetry)", "which peers should match this changed function", or "what data-flow changed vs the previous version". Diff-driven: it slices relative to changed lines, not a whole repo (for whole-repo navigation use the prism-code-navigation skill / MCP server instead). The binary is named `slicing`.
+description: Extract the code relevant to a diff/change with the `prism` CLI for defect-focused review. Use when reviewing a diff or PR and asking "what does this change affect / what's the blast radius", "is there a taint path from user input to a dangerous sink", "what's missing (unclosed resource, broken symmetry)", "which peers should match this changed function", or "what data-flow changed vs the previous version". Diff-driven: it slices relative to changed lines, not a whole repo (for whole-repo navigation use the prism-code-navigation skill / MCP server instead).
 metadata:
   project: prism
   surface: cli
@@ -8,26 +8,26 @@ metadata:
 
 # Slicing diffs with prism
 
-The `slicing` CLI takes a **repo + a diff** and prints the code *relevant to the changed lines* under one
+The `prism` CLI takes a **repo + a diff** and prints the code *relevant to the changed lines* under one
 of ~30 slicing algorithms. It's for **reviewing a change** — "given this patch, what should I actually
 look at?" The hard part isn't running it; it's **picking the algorithm that answers the reviewer's
 question**. This skill is that map.
 
-> The binary is `slicing` (historical name; the project is Prism). It is **diff-driven** — if you want
-> to navigate a whole repo with no diff, use the MCP server / `prism-code-navigation` skill instead.
+> It is **diff-driven** — if you want to navigate a whole repo with no diff, use the MCP server /
+> `prism-code-navigation` skill instead.
 
 ## Workflow
 
 ```bash
 cd /path/to/the/repo
 git diff HEAD~1 > /tmp/change.patch          # or any unified diff / PR patch
-slicing --repo . --diff /tmp/change.patch --algorithm <algo>
-slicing --repo . --diff /tmp/change.patch --algorithm <algo> --format review   # for code-review output
+prism --repo . --diff /tmp/change.patch --algorithm <algo>
+prism --repo . --diff /tmp/change.patch --algorithm <algo> --format review   # for code-review output
 ```
 
 - Default algorithm is `leftflow`. Run multiple at once: `--algorithm "leftflow,fullflow,taint"`.
 - Presets: `--algorithm review` (a curated review suite) · `--algorithm all` (everything).
-- `slicing --list-algorithms` prints them all; see `ALGORITHMS.md` for the per-algorithm operator's guide.
+- `prism --list-algorithms` prints them all; see `ALGORITHMS.md` for the per-algorithm operator's guide.
 
 ## Pick the algorithm by the reviewer's question (defaults first)
 
@@ -61,10 +61,11 @@ When unsure, run a small set (`leftflow,fullflow,absence`) and read the union �
 
 `--format text` (default, human) · `json` (machine — pipe to `jq` or an LLM, full uncompacted shape)
 · `paper` (arXiv-comparable) · `review` (grouped findings with severities — use this when producing a
-code review; compact by default, see below).
+code review; compact by default, see below) · `sarif` (SARIF 2.1 — upload findings as GitHub
+code-scanning annotations; one rule per algorithm/category pair).
 
 ```bash
-slicing --repo . --diff /tmp/change.patch --algorithm review --format json | jq '.findings[]'
+prism --repo . --diff /tmp/change.patch --algorithm review --format json | jq '.findings[]'
 ```
 
 `--format review` is compact by default: findings below `warning` severity (`info`, `suggestion`) are
@@ -73,8 +74,8 @@ whose lines don't intersect a retained finding is dropped too. Each restore flag
 — neither restores the full pre-compaction shape by itself:
 
 ```bash
-slicing --repo . --diff /tmp/change.patch --algorithm review --format review --review-min-severity info
-slicing --repo . --diff /tmp/change.patch --algorithm review --format review --review-full-slices
+prism --repo . --diff /tmp/change.patch --algorithm review --format review --review-min-severity info
+prism --repo . --diff /tmp/change.patch --algorithm review --format review --review-full-slices
 ```
 
 `--review-min-severity <info|suggestion|warning|concern>` (default `warning`) lowers/raises the severity
@@ -83,6 +84,16 @@ has a retained finding) — it does not lower the severity floor, and neither fl
 `diff_lines` in review output. Both flags only affect `--format review` — `--format json`/`text`/`paper`
 are unaffected. For the full old (uncompacted) shape — every block plus `slice_lines`/`diff_lines` plus
 every severity — use `--format json`.
+
+**`prism targets`** is a separate subcommand, not a `--format` value: it projects findings from
+five algorithms (`echo`, `absence`, `contract`, `provenance`, `membrane` by default) into a
+stable, closed-schema JSON document of instrumentation sites (`docs/contracts/targets.schema.json`)
+for a runtime harness — reach for it when the consumer wants "where should I fault-inject / watch /
+verify," not a human-readable review:
+
+```bash
+prism targets --repo . --diff /tmp/change.patch --strict
+```
 
 ## Gotchas
 
