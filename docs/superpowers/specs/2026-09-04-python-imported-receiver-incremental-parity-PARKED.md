@@ -1,6 +1,6 @@
-# Python imported receiver incremental parity — PARKED successor
+# Python imported receiver incremental parity — authorized successor
 
-**Status:** PARKED; requires explicit owner authorization
+**Status:** implemented and locally accepted at `a48c3db`; publication not yet authorized
 **Recorded:** 2026-09-04
 **Parent slice:** `py-imported-receiver-owner`, focused-green implementation `d896430`
 **Scope:** reclassify unchanged Python call sites only when imported-class proof changes across an incremental rebuild
@@ -50,4 +50,16 @@ The first two tests must fail on `d896430`. Production changes require the norma
 
 ## 4. Convergence boundary
 
-The parent slice reached its declared two-round cap with a second proof-lifecycle defect. This successor is therefore parked for owner authorization. If authorized, make the bounded guard on the existing branch/artifact, run one explicitly declared review round, and do not broaden into general Python incremental invalidation.
+The parent slice reached its declared two-round cap with a second proof-lifecycle defect. The owner authorized this bounded successor on 2026-09-04. It was implemented on the existing artifact without broadening into general Python incremental invalidation.
+
+The successor's single declared review round found no WRONG. One test-fixture SMELL was corrected: Rust string-continuation escapes had stripped indentation from the stable-key Python fixture. Focused verification after correction passed all three incremental parity cases and the stable-key unit control.
+
+## 5. Acceptance evidence
+
+- Absent-to-present and present-to-absent parity tests both failed on the pre-fix code with the predicted stale receiver states, then passed with the mismatch guard.
+- Stable proof-key unit control and stable-proof full/incremental integration control passed.
+- Full default suite: `3,551 passed, 0 failed, 1 ignored` across 28 summaries.
+- Full `mcp` suite: `3,737 passed, 0 failed, 1 ignored` across 30 summaries.
+- Formatting, `git diff --check`, `cargo check --all-targets`, and configured Clippy passed; Clippy reported only the existing repository warning population and no warning at the successor changes.
+- Two immediate release rebuilds passed. Tier-A matrix-only reported 104/104 `ok`.
+- Tier-A quick reported 104/104 `ok`, oracle error `0.0`, SUT error `0.0`, and `oracle_not_quiescent = false`. Its exit 2 was solely `corpus_sha_drift: a48c3db2dc78 != pinned 20c8490591a3`; no baseline was updated.

@@ -1,6 +1,6 @@
 # Python imported typed-receiver ownership
 
-**Status:** implemented at `d896430`; PARKED at the two-round review cap pending incremental-parity successor
+**Status:** implemented at `d896430`; incremental-parity successor accepted locally at `a48c3db`
 **Recorded:** 2026-09-04
 **Exact base:** `c220525c6746d635d99a7a084791cfad4f0276d9` (`origin/main`, PR #225 merge)
 **Scope:** Python `from module import Class [as Alias]` receiver annotations and constructor locals, direct methods only
@@ -96,4 +96,4 @@ Review round 2 demonstrated one remaining WRONG outside the focused full-build p
 
 The inverse proof transition can retain stale recovered receiver state for the same reason. The existing incremental path reparses changed files and rebuilds several whole-program indexes, but does not reclassify unchanged Python call sites when imported-class proof changes.
 
-At the declared two-round cap, this slice is parked rather than silently extended. The bounded successor is specified in `2026-09-04-python-imported-receiver-incremental-parity-PARKED.md`. No MR should be opened from this state.
+At the declared two-round cap, this slice was parked rather than silently extended. The owner subsequently authorized the bounded successor specified in `2026-09-04-python-imported-receiver-incremental-parity-PARKED.md`. It now compares the four-field imported-class proof set around incremental changed-file merge and falls back to full construction only when that authority changes. Both directional parity REDs and the stable-proof control are green; publication remains a separate custody step.

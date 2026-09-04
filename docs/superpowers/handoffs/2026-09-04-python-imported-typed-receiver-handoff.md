@@ -7,10 +7,11 @@
 **Focused-green implementation checkpoint:** `d896430`
 **Full-gate handoff checkpoint:** `476631d`
 **Parked incremental RED checkpoint:** `5d233e8`
+**Authorized successor implementation:** `a48c3db`
 
 ## 0. Current verdict
 
-**PARKED at the declared two-round review cap; do not open an MR.** The full-build implementation is focused-green, but review round 2 proved an incremental-parity WRONG for an unchanged caller when the imported class proof changes. Current HEAD intentionally contains one failing regression. A bounded proof-set mismatch successor is designed but requires explicit owner authorization.
+**ACCEPTED LOCALLY; publication remains open.** The owner-authorized successor fixes the round-2 incremental-parity WRONG by comparing old/new four-field imported-class proof sets and falling back to full construction only when the authority changes. Current source, focused regressions, full suites, static checks, release builds, and Tier-A behavior are green. No remote branch or MR has been created.
 
 The steering carrier names an adjacent installed `handoff-template.md`, but no template is present in this checkout. This handoff follows the established lane shape.
 
@@ -42,6 +43,13 @@ Out of scope: `module.Class`, function/class-local imports as authority, wildcar
 - Tier-A matrix-only after an immediate release rebuild: all 104 rows `ok`.
 - Tier-A quick after an immediate release rebuild: oracle error `0.0`, SUT error `0.0`, all 104 matrix rows `ok`; command exit 2 solely because the generated corpus/SUT SHA `476631d3d78b` differed from pinned `20c8490591a3`. This is a baseline-validity refusal, not a behavioral regression, and no baseline was updated.
 - Parked round-2 RED at `5d233e8`: `0 passed, 1 failed`; incremental `receiver_type` was `None` while a fresh build returned `Some("Client")` and one Exact `TypedParam` target.
+- Authorized inverse RED before production edit: proof-present-to-absent retained incremental `Some("Client")` while fresh returned `None`; together the directional target was `0 passed, 2 failed` on the pre-fix code.
+- Focused successor GREEN at `a48c3db`: three incremental parity cases plus the stable proof-key unit control passed.
+- Full default suite at `a48c3db`: `3,551 passed, 0 failed, 1 ignored` across 28 result summaries.
+- Full `mcp` suite at `a48c3db`: `3,737 passed, 0 failed, 1 ignored` across 30 result summaries.
+- `cargo fmt --all -- --check`, `git diff --check`, `cargo check --all-targets`, and configured Clippy passed. Short-form Clippy output identified no warning at the new helper, guard, or tests.
+- Tier-A matrix-only after an immediate release rebuild: all 104 rows `ok`.
+- Tier-A quick after a second immediate release rebuild: all 104 rows `ok`, oracle error `0.0`, SUT error `0.0`, and `oracle_not_quiescent = false`. Exit 2 was solely `corpus_sha_drift: a48c3db2dc78 != pinned 20c8490591a3`; no baseline was updated.
 
 Invalid probes discarded without belief updates: one orchestration quoting failure, one Cargo command using nonexistent target `python`, and the first sandboxed Tier-A invocation that could not access the `uv` cache.
 
@@ -52,13 +60,14 @@ Declared cap: two rounds.
 - Round 1: one confirmed WRONG (function-local constructor import could be rebound to the module-level imported class); bounded RED added and fixed. One provisional cache WRONG was refuted and withdrawn: CPG and navigation caches include the source-content `cache_build_identity`, so changed `src` bytes force invalidation without a format-version bump.
 - Round 2: one confirmed WRONG. With unchanged `app.py`, changing only `pkg/models.py` from no clean `Client` to clean `Client.send` makes a fresh build recover `Some("Client")` and Exact resolution, while incremental construction retains `None`. The existing path rebuilds changed-file facts and selected whole-program indexes but does not reclassify unchanged Python call sites after imported-class proof changes.
 - Cap classification: two rounds produced two new proof-lifecycle defects rather than a declining closed list. The review loop is not converged, so the slice is parked. The successor design is `docs/superpowers/specs/2026-09-04-python-imported-receiver-incremental-parity-PARKED.md`.
+- Authorized successor: retained the existing artifact, added the inverse RED, and implemented the designed proof-set mismatch guard at `a48c3db`.
+- Successor review cap: one round. Result: no WRONG; one malformed-test-fixture SMELL corrected within the round, then focused controls rerun green. No remaining findings and no cap extension.
 
 ## 4. Remaining work
 
-1. Obtain explicit owner authorization for one bounded successor round; do not push or open an MR from the parked state.
-2. On this existing branch/artifact, add the inverse proof-present-to-absent RED and implement the specified old/new imported-proof-set mismatch guard with full-build fallback.
-3. Rerun focused parity tests, the full default and `mcp` suites, formatting, Clippy, release build, Tier-A matrix-only, and Tier-A quick. Do not rebaseline corpus drift.
-4. Run one explicitly declared review round limited to incremental proof-set parity. If it is clean and gates are acceptable, refresh custody before seeking publication authorization.
+1. Commit this acceptance/handoff refresh and rebind the branch/worktree/HEAD tuple.
+2. Obtain explicit publication authorization before pushing the branch or opening an MR.
+3. If authorized, push this exact branch head and open the MR with the RED/GREEN, review, full-suite, and Tier-A baseline-validity evidence. Do not rebaseline the corpus SHA drift.
 
 ## 5. Hypothesis-probe-result log
 
@@ -69,11 +78,12 @@ Declared cap: two rounds.
 | Function-local imports cannot perturb a proven module import. | Constructor/local annotation still names the module-level class. | A local import binding of the same type name changes constructor ownership. | Falsified by RED; whole-function local binding census now blocks that constructor/local-annotation recovery. |
 | Cache versions must bump for the semantic change. | Unchanged version can serve stale call sites/edges after binary upgrade. | Cache fingerprint includes changed binary-input contents. | Falsified; both caches compare `cache_build_identity`, which hashes `src` inputs. |
 | Incremental construction reclassifies unchanged Python callers after imported-class proof changes. | Fresh and incremental builds agree after only the defining module gains a clean imported class. | A whole-program rematerialization or rebuild guard restores parity. | Falsified by admissible RED: fresh returned `Some("Client")`, incremental retained `None`; source inspection confirmed no Python rematerialization or proof-set mismatch guard. |
+| A four-field proof-set mismatch guard restores parity without treating method-body edits as authority changes. | Both proof directions match fresh builds; a stable class/method-body edit keeps the same key and remains behaviorally identical. | Either directional mismatch persists, or the stable key changes when only the method body changes. | Supported: both directional GREENs, stable-key equality, and stable-proof full/incremental parity passed. |
 
 ## 6. Custody
 
 - Branch/worktree: `py-imported-receiver-owner` at `/private/tmp/slicing-py-imported-receiver`.
-- Durable commits: `0fe4e46` (design + intentional RED), `d896430` (focused-green implementation), `476631d` (full-gate handoff checkpoint), and `5d233e8` (parked incremental RED + bounded successor design).
+- Durable commits: `0fe4e46` (design + intentional RED), `d896430` (focused-green implementation), `476631d` (full-gate handoff checkpoint), `5d233e8` (parked incremental RED + bounded successor design), and `a48c3db` (authorized successor implementation + tests).
 - Root checkout remains `/Users/wesleyjinks/code/slicing` on `main` at `c220525c`; its pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` were not touched.
-- Generated Tier-A reports/run/snapshot from the baseline-invalid quick run were removed after their verdict was recorded; they were not committed or used to rebaseline.
+- Generated Tier-A reports/run/snapshots from baseline-invalid quick runs were removed after their verdicts were recorded; they were not committed or used to rebaseline.
 - No baseline, remote branch, MR, or external system has been changed.
