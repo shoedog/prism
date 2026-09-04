@@ -1731,7 +1731,9 @@ impl ParsedFile {
                     match child.kind() {
                         "dotted_name" => {
                             let name = self.node_text(&child).to_string();
-                            let alias = name.rsplit('.').next().unwrap_or(&name).to_string();
+                            // Python binds the root for an unaliased dotted import:
+                            // `import pkg.models` creates local `pkg`, not `models`.
+                            let alias = name.split('.').next().unwrap_or(&name).to_string();
                             out.push(ImportBinding {
                                 local: alias,
                                 module_path: name,
@@ -2773,7 +2775,9 @@ impl ParsedFile {
                     match c.kind() {
                         "dotted_name" => {
                             let name = text(&c);
-                            let alias = name.rsplit('.').next().unwrap_or(&name).to_string();
+                            // Keep occurrence-clean eligibility keyed by the name
+                            // Python actually binds for `import pkg.models`.
+                            let alias = name.split('.').next().unwrap_or(&name).to_string();
                             out.entry(alias).or_insert(ModuleBindingKind::Import);
                         }
                         "aliased_import" => {
@@ -7256,6 +7260,14 @@ impl ParsedFile {
     fn constructor_type(&self, node: &Node<'_>) -> Option<String> {
         use crate::languages::Language;
 
+        fn python_constructor_name(text: &str) -> bool {
+            let owner = crate::call_graph::python_qualified_receiver_parts(text)
+                .map(|(_, owner)| owner)
+                .unwrap_or(text);
+            owner.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+                && (owner != text || text.chars().all(|c| c.is_alphanumeric() || c == '_'))
+        }
+
         match node.kind() {
             "call_expression" => {
                 let function = node
@@ -7276,10 +7288,7 @@ impl ParsedFile {
                         .filter(|s| !s.is_empty())
                         .map(str::to_string);
                 }
-                if self.language == Language::Python
-                    && text.chars().next().is_some_and(|c| c.is_ascii_uppercase())
-                    && text.chars().all(|c| c.is_alphanumeric() || c == '_')
-                {
+                if self.language == Language::Python && python_constructor_name(text) {
                     return Some(text.to_string());
                 }
                 None
@@ -7289,9 +7298,7 @@ impl ParsedFile {
                     .child_by_field_name("function")
                     .or_else(|| node.child_by_field_name("name"))?;
                 let text = self.node_text(&function).trim();
-                if text.chars().next().is_some_and(|c| c.is_ascii_uppercase())
-                    && text.chars().all(|c| c.is_alphanumeric() || c == '_')
-                {
+                if python_constructor_name(text) {
                     return Some(text.to_string());
                 }
                 None

@@ -853,20 +853,27 @@ fn classify_simple_ident_mode(
     };
     let static_type = owner_key(&peel_type(&ty));
     if matches!(ctx.parsed.language, Language::Python) {
+        let qualified_parts = crate::call_graph::python_qualified_receiver_parts(&static_type);
+        let imported_local = qualified_parts
+            .map(|(qualifier, _)| qualifier)
+            .unwrap_or(&static_type);
         let imports_static_type = ctx
             .file_imports
-            .is_some_and(|m| m.contains_key(&static_type));
+            .is_some_and(|m| m.contains_key(imported_local));
+        let needs_import_proof = imports_static_type || static_type.contains('.');
         let has_wildcard = ctx.file_imports.is_some_and(|m| m.contains_key("*"));
         let imported_type_proven = ctx
             .proven_imported_receiver_types
             .is_some_and(|types| types.contains(&static_type));
-        let constructor_owner_unshadowed = how != ReceiverRecovery::ConstructorLocal
-            || ctx
-                .parsed
-                .function_local_value_bindings(&ctx.fn_node)
-                .is_some_and(|bindings| !bindings.contains(&static_type));
+        let function_locals = ctx.parsed.function_local_value_bindings(&ctx.fn_node);
+        let imported_owner_unshadowed = if qualified_parts.is_some() {
+            function_locals.is_some_and(|bindings| !bindings.contains(imported_local))
+        } else {
+            how != ReceiverRecovery::ConstructorLocal
+                || function_locals.is_some_and(|bindings| !bindings.contains(&static_type))
+        };
         if has_wildcard
-            || (imports_static_type && (!imported_type_proven || !constructor_owner_unshadowed))
+            || (needs_import_proof && (!imported_type_proven || !imported_owner_unshadowed))
         {
             return ReceiverClassification::materialized_only();
         }
