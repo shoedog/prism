@@ -9,7 +9,7 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — another agent works in the main checkout `~/code/slicing` on `main`; this branch was built entirely in the worktree `~/code/slicing-phase0` (plus a codex implementer clone `~/code/slicing-phase0-sol` and a detached review copy `~/code/slicing-phase0-review`). `[MEASURED]` `git worktree list` — **RESOLVED** (worktree isolation; never write to `~/code/slicing`)
-**(b) Custody exposure** — `[MEASURED]` 24 unpushed commits on the branch (`git log --oneline c220525c..HEAD`); nothing pushed; no PR opened. The clone and the review copy are disposable duplicates of the same commits. — **OPEN** (owner: push + PR are yours to authorise)
+**(b) Custody exposure** — `[MEASURED]` 35 unpushed commits on the branch (measured after the final docs commits) (`git log --oneline c220525c..HEAD`); nothing pushed; no PR opened. The clone and the review copy are disposable duplicates of the same commits. — **OPEN** (owner: push + PR are yours to authorise)
 **(c) In flight / irreversible** — `[MEASURED]` nothing in flight; the final review, its fix wave and the scoped re-review are complete. — **RESOLVED**
 **(d) Authorization granted but not exercised** — owner (2026-09-04): "proceed autonomously delegating to subagents"; "authorized to go over review cap as needed"; disputed sol findings may be adjudicated by a separate sol judge seat. No push/merge authorisation was given.
 
