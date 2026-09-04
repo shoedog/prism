@@ -5,8 +5,8 @@
 //! represent as a location (related lines whose owning file is ambiguous) is
 //! preserved under `properties`, and everything the run could not do (a failed
 //! algorithm, a parse warning, a file skipped at load, a path escaping the repo
-//! root) becomes a `toolExecutionNotifications` entry. `to_sarif` is total: it
-//! has no failure mode.
+//! root) becomes a `toolExecutionNotifications` entry. `to_sarif` is total over
+//! its inputs: no finding, error or path shape can make it fail.
 //!
 //! Determinism is by construction (§2.2.4): `results` sorted by
 //! `(uri, startLine, ruleId, message.text)`, `rules` by `id`, `ruleIndex`
@@ -25,13 +25,15 @@
 
 pub use super::sarif_rules::{fingerprint, level_for_severity, sarif_uri};
 
+use super::sarif_model::{
+    ArtifactLocation, Driver, Invocation, Location, LogicalLocation, Notification,
+    PhysicalLocation, Region, RelatedLocation, ResultProperties, Rule, RuleProperties, Run,
+    RunProperties, SarifLog, SarifResult, Text, Tool,
+};
 use super::sarif_rules::{attribution, line_text_of, rule_description, Attribution, UNCATEGORIZED};
 use crate::ast::ParsedFile;
-use crate::finding_confidence::{
-    classify, parse_quality_for, FindingConfidence, FindingTier, RESOLUTION_MODE,
-};
+use crate::finding_confidence::{classify, parse_quality_for, RESOLUTION_MODE};
 use crate::slice::{AlgorithmError, FileParseQuality, SliceFinding};
-use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
 const SRCROOT: &str = "%SRCROOT%";
@@ -58,167 +60,10 @@ pub struct SarifInputs<'a> {
     pub sources: &'a BTreeMap<String, String>,
 }
 
-// --- Serialized document (field order == key order) -----------------------
-
-#[derive(Serialize)]
-struct Text {
-    text: String,
-}
-
-#[derive(Serialize)]
-struct SarifLog {
-    #[serde(rename = "$schema")]
-    schema: &'static str,
-    version: &'static str,
-    runs: Vec<Run>,
-}
-
-#[derive(Serialize)]
-struct Run {
-    tool: Tool,
-    invocations: Vec<Invocation>,
-    results: Vec<SarifResult>,
-    properties: RunProperties,
-}
-
-#[derive(Serialize)]
-struct Tool {
-    driver: Driver,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct Driver {
-    name: &'static str,
-    version: &'static str,
-    semantic_version: &'static str,
-    information_uri: &'static str,
-    rules: Vec<Rule>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct Rule {
-    id: String,
-    name: String,
-    short_description: Text,
-    full_description: Text,
-    properties: RuleProperties,
-}
-
-#[derive(Serialize)]
-struct RuleProperties {
-    algorithm: String,
-    category: String,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct Invocation {
-    execution_successful: bool,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    tool_execution_notifications: Vec<Notification>,
-}
-
-#[derive(Serialize)]
-struct Notification {
-    level: &'static str,
-    message: Text,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct SarifResult {
-    rule_id: String,
-    rule_index: usize,
-    level: &'static str,
-    message: Text,
-    locations: Vec<Location>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    related_locations: Vec<RelatedLocation>,
-    partial_fingerprints: BTreeMap<&'static str, String>,
-    properties: ResultProperties,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct Location {
-    physical_location: PhysicalLocation,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    logical_locations: Vec<LogicalLocation>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct PhysicalLocation {
-    artifact_location: ArtifactLocation,
-    /// Omitted when the finding's line is 0: SARIF requires `startLine >= 1`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    region: Option<Region>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ArtifactLocation {
-    uri: String,
-    uri_base_id: &'static str,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct Region {
-    start_line: usize,
-}
-
-#[derive(Serialize)]
-struct LogicalLocation {
-    name: String,
-    kind: &'static str,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct RelatedLocation {
-    id: usize,
-    physical_location: PhysicalLocation,
-}
-
-#[derive(Serialize)]
-struct ResultProperties {
-    algorithm: String,
-    category: String,
-    /// The ORIGINAL severity string, including values outside the four-value
-    /// vocabulary that `level` conservatively maps to `error`.
-    severity: String,
-    confidence: FindingConfidence,
-    tier: FindingTier,
-    resolution_mode: &'static str,
-    parse_quality: &'static str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    function_name: Option<String>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    related_files: Vec<String>,
-    /// Related lines that could not be attributed to a file (§2.2.2). Data
-    /// preserved rather than pinned to a location that may be wrong.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    related_lines: Vec<usize>,
-}
-
-#[derive(Serialize)]
-struct RunProperties {
-    mapping_version: &'static str,
-    algorithms_run: Vec<String>,
-    resolution_mode: &'static str,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    errors: Vec<AlgorithmError>,
-    prism_build_identity: &'static str,
-    prism_git_sha: &'static str,
-    binary_input_dirty: bool,
-}
-
 // --- Document construction ------------------------------------------------
 
-/// Build the deterministic SARIF 2.1 document. Never fails.
+/// Build the deterministic SARIF 2.1 document. Total over its inputs: no
+/// finding, error or path shape makes it fail.
 pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
     // Paths that escape the repo root, collected while building locations so
     // related files are covered too. Sorted + deduplicated by BTreeSet.
@@ -247,10 +92,12 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
         .map(|(i, id)| (id.as_str(), i))
         .collect();
     for result in results.iter_mut() {
-        result.rule_index = rule_index
+        // Every result registered its own rule id in `rule_meta` above, so the
+        // lookup cannot miss; a silent `unwrap_or(0)` would mislabel a result
+        // with another rule's index instead of failing.
+        result.rule_index = *rule_index
             .get(result.rule_id.as_str())
-            .copied()
-            .unwrap_or(0);
+            .expect("every result's rule id was registered");
     }
     let rules: Vec<Rule> = rule_meta
         .iter()
@@ -316,7 +163,10 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
             },
         }],
     };
-    serde_json::to_value(&log).unwrap_or(serde_json::Value::Null)
+    // The model holds only strings, numbers, bools and Vecs of the same — it
+    // has no failing `Serialize` path. Returning `Value::Null` on an
+    // "impossible" error would print `null` and exit 0: a silent failure.
+    serde_json::to_value(&log).expect("SARIF model is always serializable")
 }
 
 fn notification(level: &'static str, text: String) -> Notification {
@@ -493,18 +343,22 @@ mod tests {
         })
     }
 
-    /// `(uri, startLine, id)` of a `location` / `relatedLocation` object.
-    fn at(location: &Value, id: u64) -> (String, Option<u64>, u64) {
+    /// `"<uri>:<startLine> id=<n>"` of a `location` / `relatedLocation`.
+    /// A `-` line means the `region` KEY is absent, not a null `startLine`.
+    fn at(location: &Value, id: u64) -> String {
         let physical = &location["physicalLocation"];
-        (
-            physical["artifactLocation"]["uri"].as_str().unwrap().into(),
-            physical["region"]["startLine"].as_u64(),
-            id,
-        )
+        let line = physical.get("region").map_or("-".to_string(), |r| {
+            r["startLine"]
+                .as_u64()
+                .expect("region without a startLine")
+                .to_string()
+        });
+        let uri = physical["artifactLocation"]["uri"].as_str().unwrap();
+        format!("{uri}:{line} id={id}")
     }
 
-    /// `(relatedLocations as tuples, properties)` of the one result for `f`.
-    fn related_and_properties(f: SliceFinding) -> (Vec<(String, Option<u64>, u64)>, Value) {
+    /// `(relatedLocations rendered by `at`, properties)` of the one result.
+    fn related_and_properties(f: SliceFinding) -> (Vec<String>, Value) {
         let doc = doc_of(f);
         let result = &doc["runs"][0]["results"][0];
         let related = result["relatedLocations"]
@@ -518,14 +372,22 @@ mod tests {
         (related, result["properties"].clone())
     }
 
-    /// §7.2.6 (a): SARIF requires `startLine >= 1`, so line 0 omits `region`.
+    /// §7.2.6 (a): SARIF requires `startLine >= 1`, so line 0 omits the whole
+    /// `region` KEY — not `"region": {"startLine": null}`, which would fail
+    /// schema validation while looking the same to a `.as_u64()` probe.
     #[test]
     fn line_zero_omits_the_region() {
-        for (line, expected) in [(0, None), (1, Some(1))] {
-            let doc = doc_of(finding("symmetry", "a.py", line));
-            let location = &doc["runs"][0]["results"][0]["locations"][0];
-            assert_eq!(at(location, 0), ("a.py".to_string(), expected, 0));
-        }
+        let zero = doc_of(finding("symmetry", "a.py", 0));
+        let physical = &zero["runs"][0]["results"][0]["locations"][0]["physicalLocation"];
+        assert_eq!(physical["artifactLocation"]["uri"], "a.py");
+        assert!(
+            physical.get("region").is_none(),
+            "the region key itself must be absent: {physical:#?}"
+        );
+
+        let one = doc_of(finding("symmetry", "a.py", 1));
+        let location = &one["runs"][0]["results"][0]["locations"][0];
+        assert_eq!(at(location, 0), "a.py:1 id=0");
     }
 
     /// §7.2.6 (b): SameFile attribution — lines land in `finding.file`,
@@ -537,14 +399,7 @@ mod tests {
         f.related_lines = vec![5, 0, 3, 5];
         f.related_files = vec!["b.py".to_string()];
         let (related, properties) = related_and_properties(f);
-        assert_eq!(
-            related,
-            [
-                ("a.py".to_string(), Some(3), 0),
-                ("a.py".to_string(), Some(5), 1),
-                ("b.py".to_string(), None, 2),
-            ]
-        );
+        assert_eq!(related, ["a.py:3 id=0", "a.py:5 id=1", "b.py:- id=2"]);
         assert!(
             properties.get("related_lines").is_none(),
             "every line was attributed, so nothing spills into properties"
@@ -560,13 +415,7 @@ mod tests {
         f.related_lines = vec![10, 20];
         f.related_files = vec!["b.py".to_string()];
         let (related, properties) = related_and_properties(f);
-        assert_eq!(
-            related,
-            [
-                ("b.py".to_string(), Some(10), 0),
-                ("b.py".to_string(), Some(20), 1),
-            ]
-        );
+        assert_eq!(related, ["b.py:10 id=0", "b.py:20 id=1"]);
         assert!(properties.get("related_lines").is_none());
     }
 
@@ -581,7 +430,7 @@ mod tests {
         let (related, properties) = related_and_properties(f);
         assert_eq!(
             related,
-            [("b.py".to_string(), None, 0), ("c.py".to_string(), None, 1),],
+            ["b.py:- id=0", "c.py:- id=1"],
             "files only, sorted"
         );
         assert_eq!(
@@ -593,7 +442,7 @@ mod tests {
         let mut unknown = finding("brand_new_algo", "a.py", 1);
         unknown.related_lines = vec![9];
         let (related, properties) = related_and_properties(unknown);
-        assert_eq!(related, [("a.py".to_string(), Some(9), 0)]);
+        assert_eq!(related, ["a.py:9 id=0"]);
         assert!(properties.get("related_lines").is_none());
     }
 }

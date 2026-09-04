@@ -8,6 +8,7 @@ pub mod navigation;
 pub mod review;
 pub mod review_compact;
 pub mod sarif;
+mod sarif_model;
 mod sarif_rules;
 
 pub use mermaid::{format_mermaid_report, render};
