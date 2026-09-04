@@ -8027,6 +8027,119 @@ impl ParsedFile {
         stmts
     }
 
+    /// Lexical branch-arm id for every line `statements_in_function` reports.
+    ///
+    /// Returns `line -> arm_id`, where `arm_id` names the innermost *lexical
+    /// branch arm* containing that statement and `0` is the function body
+    /// itself. Ids are only comparable within one function: the counter restarts
+    /// at every call, and `build_function_cfg` never emits an edge that leaves
+    /// its function.
+    ///
+    /// **Why this exists.** `statements_in_function` (`:5778`) sorts and
+    /// line-deduplicates its result, so `cfg::build_function_cfg`'s sequential
+    /// fall-through loop walks one globally ordered line list and can join two
+    /// statements that live in *different* lexical arms of the same branch —
+    /// e.g. the last statement of a `then` block to the first statement of the
+    /// `else` block. Such an edge is not a control-flow fact. This map is the
+    /// evidence `cfg::build_cfg_edges_with_arms` pairs with each edge so the
+    /// reaching-definitions pass (item 2 Task 3, `src/cpg/reaching.rs`) can
+    /// refuse to call such an edge a proof.
+    ///
+    /// **This is metadata only.** It does not change which lines
+    /// `statements_in_function` returns; it walks the same tree with the same
+    /// recursion and the same node-kind predicates, and records the first
+    /// traversal occurrence of each line — matching the stable
+    /// `sort_by_key` + `dedup_by_key` pair that decides which duplicate line
+    /// `statements_in_function` keeps.
+    pub(crate) fn statement_arms_in_function(&self, func_node: &Node<'_>) -> BTreeMap<usize, u32> {
+        let func_node = self.unwrap_decorated(*func_node);
+        let mut arms = BTreeMap::new();
+        let mut next_arm: u32 = 1;
+        let body = func_node
+            .child_by_field_name("body")
+            .or_else(|| func_node.child_by_field_name("consequence"));
+        if let Some(body_node) = body {
+            self.collect_statement_arms(body_node, 0, &mut next_arm, &mut arms);
+        }
+        arms
+    }
+
+    /// Arm-tagging twin of `collect_statements` (`:5805`). Same children, same
+    /// predicates, same recursion — only the payload differs.
+    fn collect_statement_arms(
+        &self,
+        node: Node<'_>,
+        arm: u32,
+        next_arm: &mut u32,
+        out: &mut BTreeMap<usize, u32>,
+    ) {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            let kind = child.kind();
+            let line = child.start_position().row + 1;
+
+            if self.language.is_statement_node(kind) {
+                out.entry(line).or_insert(arm);
+
+                if self.language.is_control_flow_node(kind) {
+                    self.collect_nested_statement_arms(child, arm, next_arm, out);
+                }
+            } else if kind == "compound_statement" || kind == "block" || kind == "statement_block" {
+                // A bare nested block is not a branch arm — it inherits the
+                // current arm. Arms are allocated in
+                // `collect_nested_statement_arms`, which is the only place a
+                // block is reached *through* a control-flow node.
+                self.collect_statement_arms(child, arm, next_arm, out);
+            }
+        }
+    }
+
+    /// Arm-tagging twin of `collect_nested_statements` (`:5849`). Each block-ish
+    /// child of a control-flow node is one lexical arm and gets a fresh id;
+    /// `switch_body` / `match_block` are containers of arms, not arms, so they
+    /// pass the current id through and their `case_statement` / `match_arm`
+    /// children each get their own.
+    fn collect_nested_statement_arms(
+        &self,
+        node: Node<'_>,
+        arm: u32,
+        next_arm: &mut u32,
+        out: &mut BTreeMap<usize, u32>,
+    ) {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            let kind = child.kind();
+            if kind == "compound_statement"
+                || kind == "block"
+                || kind == "statement_block"
+                || kind == "else_clause"
+                || kind == "elif_clause"
+                || kind == "else_if_clause"
+                || kind == "switch_body"
+                || kind == "case_statement"
+                || kind == "default_statement"
+                || kind == "match_block"
+                || kind == "match_arm"
+            {
+                let child_arm = if kind == "switch_body" || kind == "match_block" {
+                    arm
+                } else {
+                    let allocated = *next_arm;
+                    *next_arm += 1;
+                    allocated
+                };
+                self.collect_statement_arms(child, child_arm, next_arm, out);
+                self.collect_nested_statement_arms(child, child_arm, next_arm, out);
+            } else if self.language.is_control_flow_node(kind) {
+                // Nested control flow (if inside if, etc.) — the header itself
+                // belongs to the enclosing arm.
+                let line = child.start_position().row + 1;
+                out.entry(line).or_insert(arm);
+                self.collect_nested_statement_arms(child, arm, next_arm, out);
+            }
+        }
+    }
+
     /// Byte-bearing sibling of `statements_in_function`.
     pub fn statement_spans_in_function(&self, func_node: &Node<'_>) -> Vec<StatementSpan> {
         let func_node = self.unwrap_decorated(*func_node);
