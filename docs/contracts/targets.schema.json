@@ -140,11 +140,13 @@
         },
         "function_start_line": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "1-indexed first line of the enclosing function. Producers that parsed the file MUST fill this and function_end_line whenever the enclosing function is found; the Python harness relies on the range to scope injection to this site (CR-1) and fails safe (no injection) when it is absent."
         },
         "function_end_line": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "1-indexed last line of the enclosing function (inclusive). See function_start_line."
         },
         "language": {
           "type": "string",
