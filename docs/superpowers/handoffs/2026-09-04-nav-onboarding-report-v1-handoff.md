@@ -1,7 +1,7 @@
 # Handoff — navigation onboarding report v1
 
-**Refreshed:** 2026-09-04 · **By:** Codex `/root` · **Provider:** codex  
-**Workspace:** `/Users/wesleyjinks/code/slicing` · `nav-onboarding-report-v1`  
+**Refreshed:** 2026-09-04 · **By:** Codex `/root` · **Provider:** codex
+**Workspace:** `/Users/wesleyjinks/code/slicing` · `nav-onboarding-report-v1`
 **Exact base:** PR #234 merge `90c522b04ff16ebc076ce85a4f8df5f7f2da4f1f`
 
 ## 0. Current verdict

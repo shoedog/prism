@@ -1,7 +1,7 @@
 # Navigation onboarding report v1 design
 
-Date: 2026-09-04  
-Status: accepted for implementation  
+Date: 2026-09-04
+Status: accepted for implementation
 Exact base: PR #234 merge `90c522b04ff16ebc076ce85a4f8df5f7f2da4f1f`
 
 ## 1. Goal
