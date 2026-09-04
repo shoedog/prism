@@ -164,7 +164,9 @@ use std::path::{Path, PathBuf};
 ///   receiver classification and Exact edges.
 /// - v58: JS/TS call sites persist lexical receiver-binding authority used to
 ///   suppress shadowed imported-module Exact edges.
-const CACHE_VERSION: u32 = 58;
+/// - v59: JS/TS typed-parameter and direct-new receiver metadata changes
+///   recovered receiver resolution and serialized CPG topology.
+const CACHE_VERSION: u32 = 59;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 

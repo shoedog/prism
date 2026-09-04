@@ -82,7 +82,7 @@ fn test_tsx_typed_parameter_and_new_constructor_recover() {
         "view.tsx".to_string(),
         ParsedFile::parse(
             "view.tsx",
-            "class Foo { m() {} }\nfunction typed(x: Foo) { x.m(); return <div />; }\nfunction made() { const x = new Foo(); x.m(); return <div />; }\n",
+            "class Foo { m() {} }\nfunction typed(x: Foo) { x.m(); return <div />; }\nfunction optional(x?: Foo) { x.m(); return <div />; }\nfunction defaulted(x: Foo = new Foo()) { x.m(); return <div />; }\nfunction made() { const x = new Foo(); x.m(); return <div />; }\nfunction letMade() { let x = new Foo(); x.m(); return <div />; }\nfunction varMade() { var x = new Foo(); x.m(); return <div />; }\n",
             Language::Tsx,
         )
         .unwrap(),
@@ -96,7 +96,27 @@ fn test_tsx_typed_parameter_and_new_constructor_recover() {
             ResolutionKind::TypedParam,
         ),
         (
+            "optional",
+            ReceiverRecovery::TypedParam,
+            ResolutionKind::TypedParam,
+        ),
+        (
+            "defaulted",
+            ReceiverRecovery::TypedParam,
+            ResolutionKind::TypedParam,
+        ),
+        (
             "made",
+            ReceiverRecovery::ConstructorLocal,
+            ResolutionKind::ConstructorLocal,
+        ),
+        (
+            "letMade",
+            ReceiverRecovery::ConstructorLocal,
+            ResolutionKind::ConstructorLocal,
+        ),
+        (
+            "varMade",
             ReceiverRecovery::ConstructorLocal,
             ResolutionKind::ConstructorLocal,
         ),

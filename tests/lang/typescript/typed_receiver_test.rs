@@ -54,25 +54,26 @@ fn test_typescript_parameters_and_new_constructor_recover_but_annotation_does_no
         assert_eq!(out.len(), 1, "{caller}: {out:?}");
         assert_eq!(out[0].target.file, "svc.ts", "{caller}");
         assert_eq!(out[0].target.name, "m", "{caller}");
-        assert_eq!(out[0].kind, match recovery {
-            ReceiverRecovery::ConstructorLocal => ResolutionKind::ConstructorLocal,
-            _ => ResolutionKind::TypedParam,
-        });
+        assert_eq!(
+            out[0].kind,
+            match recovery {
+                ReceiverRecovery::ConstructorLocal => ResolutionKind::ConstructorLocal,
+                _ => ResolutionKind::TypedParam,
+            }
+        );
         assert_eq!(out[0].confidence, ResolutionConfidence::Exact, "{caller}");
     }
 
     let annotated = site(&cg, "annotated", "m");
     assert!(annotated.receiver_lexically_bound);
     assert_eq!(annotated.receiver_type, None);
-    assert!(!annotated.receiver_materialized);
+    assert!(annotated.receiver_materialized);
     assert!(cg.resolve_call_site(&annotated).is_empty());
 }
 
 #[test]
 fn test_typescript_recovered_receiver_preempts_qualifier_owner_collision() {
-    let cg = graph(
-        "class Foo { m() {} }\nclass x { m() {} }\nfunction run(x: Foo) { x.m(); }\n",
-    );
+    let cg = graph("class Foo { m() {} }\nclass x { m() {} }\nfunction run(x: Foo) { x.m(); }\n");
     let call = site(&cg, "run", "m");
     assert_eq!(call.receiver_type.as_deref(), Some("Foo"));
     assert!(call.receiver_materialized);
@@ -93,7 +94,7 @@ fn test_typescript_bare_factory_call_does_not_recover() {
     let s = site(&cg, "factory", "m");
     assert!(s.receiver_lexically_bound);
     assert_eq!(s.receiver_type, None);
-    assert!(!s.receiver_materialized);
+    assert!(s.receiver_materialized);
     assert!(cg.resolve_call_site(&s).is_empty());
 }
 
@@ -110,22 +111,20 @@ fn test_typescript_import_shadowing_param_suppresses_import_qualified() {
     let shadow = site(&cg, "run", "m");
     let shadow_out = cg.resolve_call_site(&shadow);
     assert!(shadow.receiver_lexically_bound);
-    assert_eq!(shadow.receiver_type, None);
-    assert!(!shadow.receiver_materialized);
-    assert!(shadow_out.iter().all(|candidate| {
-        candidate.kind != ResolutionKind::ImportQualified
-            || candidate.confidence != ResolutionConfidence::Exact
-            || candidate.target.file != "api.ts"
-    }));
+    assert_eq!(shadow.receiver_type.as_deref(), Some("Foo"));
+    assert!(shadow.receiver_materialized);
+    assert_eq!(shadow_out.len(), 1, "{shadow_out:?}");
+    assert_eq!(shadow_out[0].kind, ResolutionKind::TypedParam);
+    assert_eq!(shadow_out[0].target.file, "svc.ts");
 
     let ok = site(&cg, "ok", "m");
     let ok_out = cg.resolve_call_site(&ok);
     assert!(ok.receiver_lexically_bound);
-    assert_eq!(ok.receiver_type, None);
-    assert!(!ok.receiver_materialized);
-    assert!(ok_out.iter().all(|c| {
-        c.kind != ResolutionKind::TypedParam && c.kind != ResolutionKind::ConstructorLocal
-    }));
+    assert_eq!(ok.receiver_type.as_deref(), Some("Foo"));
+    assert!(ok.receiver_materialized);
+    assert_eq!(ok_out.len(), 1, "{ok_out:?}");
+    assert_eq!(ok_out[0].kind, ResolutionKind::TypedParam);
+    assert_eq!(ok_out[0].target.file, "svc.ts");
 }
 
 #[test]
@@ -142,12 +141,16 @@ fn test_typescript_imported_type_param_suppresses_import_qualified() {
     let s = site(&cg, "run", "m");
     let out = cg.resolve_call_site(&s);
     assert!(s.receiver_lexically_bound);
-    assert_eq!(s.receiver_type, None);
-    assert!(!s.receiver_materialized);
+    assert_eq!(s.receiver_type.as_deref(), Some("Foo"));
+    assert!(s.receiver_materialized);
     assert!(out.iter().all(|candidate| {
         candidate.kind != ResolutionKind::ImportQualified
             || candidate.confidence != ResolutionConfidence::Exact
             || candidate.target.file != "api.ts"
+    }));
+    assert!(out.iter().all(|candidate| {
+        candidate.kind != ResolutionKind::TypedParam
+            && candidate.kind != ResolutionKind::ConstructorLocal
     }));
 }
 
@@ -462,4 +465,206 @@ fn test_typescript_receiver_binding_parse_recovery_is_scope_bounded() {
             && candidate.confidence == ResolutionConfidence::Exact
             && candidate.target.file == "api.ts"
     }));
+}
+
+#[test]
+fn test_typescript_recovery_rejects_unsupported_type_and_owner_shapes() {
+    let cg = graph_files(&[
+        ("external.ts", "export class External { m() {} }\n"),
+        (
+            "svc.ts",
+            "import { External } from './external';\n\
+             class Foo { m() {} }\n\
+             class Other { m() {} }\n\
+             class Other2 { m() {} }\n\
+             class Base { m() {} }\n\
+             class Child extends Base {}\n\
+             interface Shape { m(): void; }\n\
+             declare namespace ns { class Foo { m(): void; } }\n\
+             function union(x: Foo | Other) { x.m(); }\n\
+             function generic(x: Box<Foo>) { x.m(); }\n\
+             function rest(...x: Foo) { x.m(); }\n\
+             function qualifiedType(x: ns.Foo) { x.m(); }\n\
+             function structural(x: Shape) { x.m(); }\n\
+             function imported(x: External) { x.m(); }\n\
+             function inherited(x: Child) { x.m(); }\n\
+             function reassignedTyped(x: Foo) { x = new Other(); x.m(); }\n\
+             function capturedCtor() { const x = new Foo(); function innerCtor() { x.m(); } }\n\
+             function outerTyped(x: Foo) { function innerTyped() { x.m(); } }\n",
+        ),
+    ]);
+
+    for caller in [
+        "union",
+        "generic",
+        "rest",
+        "qualifiedType",
+        "reassignedTyped",
+        "innerCtor",
+    ] {
+        let call = site(&cg, caller, "m");
+        assert_eq!(call.receiver_type, None, "{caller}");
+        assert!(call.receiver_materialized, "{caller}");
+        assert!(
+            cg.resolve_call_site(&call).iter().all(|candidate| {
+                candidate.kind != ResolutionKind::TypedParam
+                    && candidate.kind != ResolutionKind::ConstructorLocal
+            }),
+            "{caller} minted an unsupported recovered edge"
+        );
+    }
+
+    for (caller, recovered_type) in [
+        ("structural", "Shape"),
+        ("imported", "External"),
+        ("inherited", "Child"),
+    ] {
+        let call = site(&cg, caller, "m");
+        assert_eq!(
+            call.receiver_type.as_deref(),
+            Some(recovered_type),
+            "{caller}"
+        );
+        assert!(call.receiver_materialized, "{caller}");
+        assert!(
+            cg.resolve_call_site(&call).iter().all(|candidate| {
+                candidate.kind != ResolutionKind::TypedParam
+                    && candidate.kind != ResolutionKind::ConstructorLocal
+            }),
+            "{caller} bypassed same-file direct-class proof"
+        );
+    }
+
+    let captured = site(&cg, "innerTyped", "m");
+    assert_eq!(captured.receiver_type.as_deref(), Some("Foo"));
+    assert_eq!(
+        captured.receiver_recovery,
+        Some(ReceiverRecovery::TypedParam)
+    );
+    let out = cg.resolve_call_site(&captured);
+    assert_eq!(out.len(), 1, "{out:?}");
+    assert_eq!(out[0].kind, ResolutionKind::TypedParam);
+    assert_eq!(out[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(out[0].target.file, "svc.ts");
+}
+
+#[test]
+fn test_typescript_instance_receiver_rejects_static_only_method() {
+    let files = BTreeMap::from([(
+        "svc.ts".to_string(),
+        ParsedFile::parse(
+            "svc.ts",
+            "class Foo { static only() {} }\nfunction run(x: Foo) { x.only(); }\n",
+            Language::TypeScript,
+        )
+        .unwrap(),
+    )]);
+    let only = BTreeSet::from(["svc.ts".to_string()]);
+    for cg in [
+        CallGraph::build(&files),
+        CallGraph::build_direct_subset(&files, &only),
+    ] {
+        let call = site(&cg, "run", "only");
+        assert_eq!(call.receiver_type.as_deref(), Some("Foo"));
+        assert!(call.receiver_materialized);
+        assert!(cg.resolve_call_site(&call).iter().all(|candidate| {
+            candidate.kind != ResolutionKind::TypedParam
+                && candidate.kind != ResolutionKind::ConstructorLocal
+        }));
+    }
+}
+
+#[test]
+fn test_typescript_recovery_parse_uncertainty_fails_closed() {
+    let parsed = ParsedFile::parse(
+        "svc.ts",
+        "class Foo { m() {} }\nfunction run(x: Foo) { let = ; x.m(); }\n",
+        Language::TypeScript,
+    )
+    .unwrap();
+    assert!(parsed.parse_error_count > 0);
+    let cg = CallGraph::build(&BTreeMap::from([("svc.ts".to_string(), parsed)]));
+    let call = site(&cg, "run", "m");
+    assert_eq!(call.receiver_type, None);
+    assert!(call.receiver_materialized);
+    assert!(cg.resolve_call_site(&call).iter().all(|candidate| {
+        candidate.kind != ResolutionKind::TypedParam
+            && candidate.kind != ResolutionKind::ConstructorLocal
+    }));
+}
+
+#[test]
+fn test_typescript_recovery_full_subset_and_incremental_transitions_agree() {
+    fn files(caller: &str) -> BTreeMap<String, ParsedFile> {
+        let source = format!(
+            "class Foo {{ m() {{}} }}\n\
+             class Other {{ m() {{}} }}\n\
+             class Other2 {{ m() {{}} }}\n\
+             class Other3 {{ m() {{}} }}\n{caller}"
+        );
+        BTreeMap::from([(
+            "svc.ts".to_string(),
+            ParsedFile::parse("svc.ts", &source, Language::TypeScript).unwrap(),
+        )])
+    }
+
+    let recovered = "function run() { const x = new Foo(); x.m(); }\n";
+    let unsupported = "function run() { const x = makeFoo(); x.m(); }\n";
+    let only = BTreeSet::from(["svc.ts".to_string()]);
+
+    let full_files = files(recovered);
+    let full = CallGraph::build(&full_files);
+    let subset = CallGraph::build_direct_subset(&full_files, &only);
+    let full_site = site(&full, "run", "m");
+    let subset_site = site(&subset, "run", "m");
+    assert_eq!(full_site.receiver_type, subset_site.receiver_type);
+    assert_eq!(full_site.receiver_recovery, subset_site.receiver_recovery);
+    assert_eq!(
+        full_site.receiver_materialized,
+        subset_site.receiver_materialized
+    );
+
+    let signature = |graph: &CallGraph, call: &CallSite| {
+        graph
+            .resolve_call_site(call)
+            .into_iter()
+            .map(|candidate| {
+                (
+                    candidate.target.file.clone(),
+                    candidate.target.name.clone(),
+                    candidate.confidence,
+                    candidate.kind,
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        signature(&full, &full_site),
+        signature(&subset, &subset_site)
+    );
+
+    for (before, after) in [(unsupported, recovered), (recovered, unsupported)] {
+        let before_files = files(before);
+        let after_files = files(after);
+        let fresh = CallGraph::build(&after_files);
+        let mut incremental = CallGraph::build(&before_files);
+        incremental.remove_files(&only);
+        incremental.merge(CallGraph::build_direct_subset(&after_files, &only));
+
+        let fresh_site = site(&fresh, "run", "m");
+        let incremental_site = site(&incremental, "run", "m");
+        assert_eq!(fresh_site.receiver_type, incremental_site.receiver_type);
+        assert_eq!(
+            fresh_site.receiver_recovery,
+            incremental_site.receiver_recovery
+        );
+        assert_eq!(
+            fresh_site.receiver_materialized,
+            incremental_site.receiver_materialized
+        );
+        assert_eq!(
+            signature(&fresh, &fresh_site),
+            signature(&incremental, &incremental_site)
+        );
+    }
 }

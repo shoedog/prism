@@ -44,6 +44,17 @@ fn is_js_ts_function_like(kind: &str) -> bool {
     )
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum JsTsReceiverBindingEvidence {
+    ClassOwner,
+    Materialized,
+    Recovered {
+        static_type: String,
+        recovery: crate::resolution::ReceiverRecovery,
+        declaration_end_byte: Option<usize>,
+    },
+}
+
 /// Metadata for one extracted call site.
 ///
 /// Threading this struct through the extraction paths that feed
@@ -2483,6 +2494,561 @@ impl ParsedFile {
 
         let root = self.tree.root_node();
         self.js_ts_receiver_binding_reaches_call(root, root.id(), &receiver, receiver_name)
+    }
+
+    /// Call-position-aware JS/TS value-binding evidence for receiver recovery.
+    /// The nearest reaching lexical scope wins. Constructor origins are limited
+    /// to the call's innermost function; typed parameters may be captured by a
+    /// nested callable because their static type remains declared by the outer
+    /// signature.
+    pub(crate) fn js_ts_receiver_binding_evidence_at_call(
+        &self,
+        func_node: &Node<'_>,
+        receiver_node: Option<Node<'_>>,
+    ) -> Option<JsTsReceiverBindingEvidence> {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return None;
+        }
+        let receiver = receiver_node?;
+        if receiver.kind() != "identifier" {
+            return None;
+        }
+        let receiver_name = self.node_text(&receiver);
+        if !is_plain_ident(receiver_name) {
+            return None;
+        }
+
+        let mut seen_functions = BTreeSet::new();
+        let mut current = Some(receiver);
+        let mut function_rank = 0usize;
+        while let Some(node) = current {
+            if is_js_ts_function_like(node.kind()) && seen_functions.insert(node.id()) {
+                if let Some(evidence) = self.js_ts_scope_receiver_binding_evidence(
+                    node,
+                    &receiver,
+                    receiver_name,
+                    function_rank == 0,
+                    true,
+                ) {
+                    return Some(evidence);
+                }
+                function_rank += 1;
+            }
+            current = node.parent();
+        }
+
+        if seen_functions.insert(func_node.id()) {
+            if let Some(evidence) = self.js_ts_scope_receiver_binding_evidence(
+                *func_node,
+                &receiver,
+                receiver_name,
+                false,
+                true,
+            ) {
+                return Some(evidence);
+            }
+        }
+
+        let root = self.tree.root_node();
+        self.js_ts_scope_receiver_binding_evidence(root, &receiver, receiver_name, false, false)
+            .or_else(|| {
+                self.js_ts_receiver_lexically_bound_at_call(func_node, Some(receiver))
+                    .then_some(JsTsReceiverBindingEvidence::Materialized)
+            })
+    }
+
+    fn js_ts_scope_receiver_binding_evidence(
+        &self,
+        root_scope: Node<'_>,
+        receiver: &Node<'_>,
+        receiver_name: &str,
+        allow_constructor: bool,
+        include_parameters: bool,
+    ) -> Option<JsTsReceiverBindingEvidence> {
+        let mut candidates = Vec::new();
+        let mut parse_recovery = false;
+        self.collect_js_ts_receiver_binding_candidates(
+            root_scope,
+            true,
+            root_scope,
+            receiver,
+            receiver_name,
+            allow_constructor,
+            &mut candidates,
+            &mut parse_recovery,
+        );
+
+        if include_parameters {
+            if matches!(
+                root_scope.kind(),
+                "function_declaration"
+                    | "function_expression"
+                    | "generator_function_declaration"
+                    | "generator_function"
+            ) && self
+                .language
+                .function_name(&root_scope)
+                .is_some_and(|name| self.node_text(&name) == receiver_name)
+            {
+                if let Some(distance) = self.js_ts_scope_distance(receiver, root_scope.id()) {
+                    candidates.push((
+                        distance,
+                        root_scope.id(),
+                        JsTsReceiverBindingEvidence::Materialized,
+                    ));
+                }
+            }
+            if let Some(evidence) = self.js_ts_parameter_receiver_binding(root_scope, receiver_name)
+            {
+                if let Some(distance) = self.js_ts_scope_distance(receiver, root_scope.id()) {
+                    candidates.push((distance, root_scope.id(), evidence));
+                }
+            }
+        }
+
+        let nearest = candidates.iter().map(|(distance, _, _)| *distance).min()?;
+        let nearest_candidates: Vec<_> = candidates
+            .into_iter()
+            .filter(|(distance, _, _)| *distance == nearest)
+            .map(|(_, scope_id, evidence)| (scope_id, evidence))
+            .collect();
+        if parse_recovery {
+            return Some(JsTsReceiverBindingEvidence::Materialized);
+        }
+        if nearest_candidates.len() != 1 {
+            return Some(
+                if nearest_candidates.iter().all(|(_, evidence)| {
+                    matches!(evidence, JsTsReceiverBindingEvidence::ClassOwner)
+                }) {
+                    JsTsReceiverBindingEvidence::ClassOwner
+                } else {
+                    JsTsReceiverBindingEvidence::Materialized
+                },
+            );
+        }
+        let (binding_scope_id, evidence) = nearest_candidates.into_iter().next()?;
+        if let JsTsReceiverBindingEvidence::Recovered {
+            declaration_end_byte: Some(declaration_end_byte),
+            ..
+        } = &evidence
+        {
+            if self.js_ts_receiver_written_between(
+                root_scope,
+                binding_scope_id,
+                receiver,
+                receiver_name,
+                *declaration_end_byte,
+            ) {
+                return Some(JsTsReceiverBindingEvidence::Materialized);
+            }
+        }
+        Some(evidence)
+    }
+
+    fn js_ts_parameter_receiver_binding(
+        &self,
+        func_node: Node<'_>,
+        receiver_name: &str,
+    ) -> Option<JsTsReceiverBindingEvidence> {
+        let params = self.find_parameters_node(&func_node)?;
+        let mut matches = Vec::new();
+        let mut cursor = params.walk();
+        for parameter in params.named_children(&mut cursor) {
+            let mut names = BTreeSet::new();
+            self.collect_js_ts_parameter_binding_names(parameter, &mut names);
+            if !names.contains(receiver_name) {
+                continue;
+            }
+            let binding = parameter
+                .child_by_field_name("pattern")
+                .or_else(|| parameter.child_by_field_name("name"))
+                .or_else(|| parameter.child_by_field_name("left"))
+                .or_else(|| (parameter.kind() == "identifier").then_some(parameter));
+            let simple_binding = binding.is_some_and(|binding| {
+                binding.kind() == "identifier" && self.node_text(&binding) == receiver_name
+            });
+            let recovered_type = matches!(self.language, Language::TypeScript | Language::Tsx)
+                .then(|| parameter.child_by_field_name("type"))
+                .flatten()
+                .and_then(|annotation| self.js_ts_simple_type_annotation(annotation));
+            matches.push(if simple_binding {
+                recovered_type.map_or(JsTsReceiverBindingEvidence::Materialized, |static_type| {
+                    JsTsReceiverBindingEvidence::Recovered {
+                        static_type,
+                        recovery: crate::resolution::ReceiverRecovery::TypedParam,
+                        declaration_end_byte: Some(parameter.end_byte()),
+                    }
+                })
+            } else {
+                JsTsReceiverBindingEvidence::Materialized
+            });
+        }
+        match matches.len() {
+            0 => None,
+            1 => matches.pop(),
+            _ => Some(JsTsReceiverBindingEvidence::Materialized),
+        }
+    }
+
+    fn js_ts_simple_type_annotation(&self, annotation: Node<'_>) -> Option<String> {
+        let ty = annotation.named_child(0)?;
+        if ty.kind() != "type_identifier" {
+            return None;
+        }
+        let text = self.node_text(&ty);
+        is_plain_ident(text).then(|| text.to_string())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn collect_js_ts_receiver_binding_candidates(
+        &self,
+        node: Node<'_>,
+        is_root: bool,
+        root_scope: Node<'_>,
+        receiver: &Node<'_>,
+        receiver_name: &str,
+        allow_constructor: bool,
+        out: &mut Vec<(usize, usize, JsTsReceiverBindingEvidence)>,
+        parse_recovery: &mut bool,
+    ) {
+        if node.is_error() || node.is_missing() {
+            *parse_recovery = true;
+            return;
+        }
+
+        let mut push = |scope_id: usize, evidence: JsTsReceiverBindingEvidence| {
+            if let Some(distance) = self.js_ts_scope_distance(receiver, scope_id) {
+                out.push((distance, scope_id, evidence));
+            }
+        };
+
+        if !is_root && is_js_ts_function_like(node.kind()) {
+            if matches!(
+                node.kind(),
+                "function_declaration" | "generator_function_declaration"
+            ) && self
+                .language
+                .function_name(&node)
+                .is_some_and(|name| self.node_text(&name) == receiver_name)
+            {
+                if let Some(scope_id) = self.js_ts_nearest_lexical_scope_id(&node, root_scope.id())
+                {
+                    push(scope_id, JsTsReceiverBindingEvidence::Materialized);
+                }
+            }
+            return;
+        }
+
+        if !is_root
+            && matches!(
+                node.kind(),
+                "interface_declaration" | "type_alias_declaration"
+            )
+        {
+            return;
+        }
+
+        if !is_root
+            && matches!(
+                node.kind(),
+                "class_declaration" | "abstract_class_declaration"
+            )
+        {
+            if node
+                .child_by_field_name("name")
+                .is_some_and(|name| self.node_text(&name) == receiver_name)
+            {
+                if let Some(scope_id) = self.js_ts_nearest_lexical_scope_id(&node, root_scope.id())
+                {
+                    push(scope_id, JsTsReceiverBindingEvidence::ClassOwner);
+                }
+            }
+            return;
+        }
+
+        if !is_root
+            && matches!(
+                node.kind(),
+                "enum_declaration" | "function_signature" | "import_alias"
+            )
+        {
+            let name = node.child_by_field_name("name").or_else(|| {
+                (node.kind() == "import_alias")
+                    .then(|| node.named_child(0))
+                    .flatten()
+            });
+            if name.is_some_and(|name| self.node_text(&name) == receiver_name) {
+                if let Some(scope_id) = self.js_ts_nearest_lexical_scope_id(&node, root_scope.id())
+                {
+                    push(scope_id, JsTsReceiverBindingEvidence::Materialized);
+                }
+            }
+            return;
+        }
+
+        if !is_root && matches!(node.kind(), "internal_module" | "module") {
+            if node.child_by_field_name("name").is_some_and(|name| {
+                name.kind() == "identifier" && self.node_text(&name) == receiver_name
+            }) {
+                if let Some(scope_id) = self.js_ts_nearest_lexical_scope_id(&node, root_scope.id())
+                {
+                    push(scope_id, JsTsReceiverBindingEvidence::Materialized);
+                }
+            }
+            return;
+        }
+
+        match node.kind() {
+            "variable_declarator" => {
+                let mut names = BTreeSet::new();
+                if let Some(name) = node.child_by_field_name("name") {
+                    self.collect_js_ts_binding_pattern_names(name, &mut names);
+                }
+                if names.contains(receiver_name) {
+                    let parent_is_var = node
+                        .parent()
+                        .is_some_and(|parent| parent.kind() == "variable_declaration");
+                    let scope_id = if parent_is_var {
+                        Some(root_scope.id())
+                    } else {
+                        self.js_ts_nearest_lexical_scope_id(&node, root_scope.id())
+                    };
+                    if let Some(scope_id) = scope_id {
+                        let simple_name = node.child_by_field_name("name").is_some_and(|name| {
+                            name.kind() == "identifier" && self.node_text(&name) == receiver_name
+                        });
+                        let evidence = if allow_constructor
+                            && simple_name
+                            && node.start_byte() < receiver.start_byte()
+                        {
+                            node.child_by_field_name("value")
+                                .and_then(|value| {
+                                    self.js_ts_direct_new_constructor(value, root_scope)
+                                })
+                                .map_or(JsTsReceiverBindingEvidence::Materialized, |static_type| {
+                                    JsTsReceiverBindingEvidence::Recovered {
+                                        static_type,
+                                        recovery:
+                                            crate::resolution::ReceiverRecovery::ConstructorLocal,
+                                        declaration_end_byte: Some(node.end_byte()),
+                                    }
+                                })
+                        } else {
+                            JsTsReceiverBindingEvidence::Materialized
+                        };
+                        push(scope_id, evidence);
+                    }
+                }
+            }
+            "for_in_statement" | "for_of_statement" | "for_await_statement" => {
+                let mut declared = false;
+                let mut is_var = false;
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    match child.kind() {
+                        "var" => {
+                            declared = true;
+                            is_var = true;
+                        }
+                        "let" | "const" => declared = true,
+                        _ => {}
+                    }
+                }
+                if declared {
+                    let mut names = BTreeSet::new();
+                    if let Some(left) = node.child_by_field_name("left") {
+                        self.collect_js_ts_binding_pattern_names(left, &mut names);
+                    }
+                    if names.contains(receiver_name) {
+                        let scope_id = if is_var {
+                            Some(root_scope.id())
+                        } else {
+                            self.js_ts_nearest_lexical_scope_id(&node, root_scope.id())
+                        };
+                        if let Some(scope_id) = scope_id {
+                            push(scope_id, JsTsReceiverBindingEvidence::Materialized);
+                        }
+                    }
+                }
+            }
+            "catch_clause" => {
+                let mut names = BTreeSet::new();
+                self.collect_js_ts_catch_binding_names(node, &mut names);
+                if names.contains(receiver_name) {
+                    if let Some(scope_id) =
+                        self.js_ts_nearest_lexical_scope_id(&node, root_scope.id())
+                    {
+                        push(scope_id, JsTsReceiverBindingEvidence::Materialized);
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        let mut cursor = node.walk();
+        for child in node.named_children(&mut cursor) {
+            self.collect_js_ts_receiver_binding_candidates(
+                child,
+                false,
+                root_scope,
+                receiver,
+                receiver_name,
+                allow_constructor,
+                out,
+                parse_recovery,
+            );
+        }
+    }
+
+    fn js_ts_scope_distance(&self, receiver: &Node<'_>, scope_id: usize) -> Option<usize> {
+        let mut current = Some(*receiver);
+        let mut distance = 0usize;
+        while let Some(node) = current {
+            if node.id() == scope_id {
+                return Some(distance);
+            }
+            current = node.parent();
+            distance += 1;
+        }
+        None
+    }
+
+    pub(crate) fn js_ts_method_is_static(&self, method: &Node<'_>) -> bool {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return false;
+        }
+        let mut cursor = method.walk();
+        let found = method
+            .children(&mut cursor)
+            .any(|child| child.kind() == "static");
+        found
+    }
+
+    fn js_ts_direct_new_constructor(
+        &self,
+        value: Node<'_>,
+        function_scope: Node<'_>,
+    ) -> Option<String> {
+        if value.kind() != "new_expression" {
+            return None;
+        }
+        let constructor = value.child_by_field_name("constructor")?;
+        if constructor.kind() != "identifier" {
+            return None;
+        }
+        let text = self.node_text(&constructor);
+        if !is_plain_ident(text) {
+            return None;
+        }
+        if self
+            .js_ts_scope_receiver_binding_evidence(function_scope, &constructor, text, false, true)
+            .is_some()
+        {
+            return None;
+        }
+        matches!(
+            self.js_ts_scope_receiver_binding_evidence(
+                self.tree.root_node(),
+                &constructor,
+                text,
+                false,
+                false,
+            ),
+            Some(JsTsReceiverBindingEvidence::ClassOwner)
+        )
+        .then(|| text.to_string())
+    }
+
+    fn js_ts_receiver_written_between(
+        &self,
+        node: Node<'_>,
+        binding_scope_id: usize,
+        receiver: &Node<'_>,
+        receiver_name: &str,
+        after_byte: usize,
+    ) -> bool {
+        let before_byte = receiver.start_byte();
+        if node.start_byte() >= before_byte || node.end_byte() <= after_byte {
+            return false;
+        }
+        if matches!(
+            node.kind(),
+            "assignment_expression" | "augmented_assignment_expression" | "update_expression"
+        ) {
+            let target = node
+                .child_by_field_name("left")
+                .or_else(|| node.child_by_field_name("argument"))
+                .or_else(|| node.named_child(0));
+            if target.is_some_and(|target| {
+                target.kind() == "identifier"
+                    && self.node_text(&target) == receiver_name
+                    && !self.js_ts_receiver_has_closer_binding(
+                        &target,
+                        receiver_name,
+                        binding_scope_id,
+                    )
+            }) {
+                return true;
+            }
+        }
+        let mut cursor = node.walk();
+        let found = node.named_children(&mut cursor).any(|child| {
+            self.js_ts_receiver_written_between(
+                child,
+                binding_scope_id,
+                receiver,
+                receiver_name,
+                after_byte,
+            )
+        });
+        found
+    }
+
+    fn js_ts_receiver_has_closer_binding(
+        &self,
+        target: &Node<'_>,
+        receiver_name: &str,
+        binding_scope_id: usize,
+    ) -> bool {
+        let mut current = target.parent();
+        while let Some(scope) = current {
+            if scope.id() == binding_scope_id {
+                return false;
+            }
+            if is_js_ts_function_like(scope.kind()) {
+                if self.js_ts_function_scope_binds_receiver(&scope, target, receiver_name) {
+                    return true;
+                }
+            } else if self.language.is_scope_block(scope.kind())
+                || matches!(
+                    scope.kind(),
+                    "for_statement"
+                        | "for_in_statement"
+                        | "for_of_statement"
+                        | "for_await_statement"
+                        | "switch_statement"
+                        | "switch_body"
+                        | "catch_clause"
+                )
+            {
+                if self.js_ts_receiver_binding_reaches_call(
+                    scope,
+                    scope.id(),
+                    target,
+                    receiver_name,
+                ) {
+                    return true;
+                }
+            }
+            current = scope.parent();
+        }
+        true
     }
 
     /// Conservative function-local value bindings for callback value-reference

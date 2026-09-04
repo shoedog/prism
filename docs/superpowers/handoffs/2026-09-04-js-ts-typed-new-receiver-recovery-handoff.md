@@ -6,23 +6,24 @@
 
 ## 0. Current verdict
 
-**INTENTIONAL RED ESTABLISHED; IMPLEMENTATION NEXT.** This is roadmap item 4 and depends on, but remains distinct from, the verified lexical-binding prerequisite.
+**REVIEW ROUND 1 GREEN; ROUND 2 AND FULL VERIFICATION NEXT.** This is roadmap item 4 and depends on, but remains distinct from, the verified lexical-binding prerequisite.
 
 ## 1. Authority boundary
 
-Recover only bare TS/TSX typed parameters and direct bare JS/TS/TSX `new Foo()` locals. Exact resolution requires one occurrence-clean module-scope class in the caller's file and a direct method on that class. Unsupported/ambiguous evidence is materialized residue.
+Recover only bare TS/TSX typed parameters and direct bare JS/TS/TSX `new Foo()` locals. Exact resolution requires one occurrence-clean module-scope class in the caller's file and a direct non-static method on that class. Unsupported/ambiguous evidence is materialized residue. Constructor owners must themselves resolve unshadowed to that module class.
 
 ## 2. Hypothesis-probe-result log
 
 - The classifier and AST evidence gates exclude JavaScript, TypeScript, and TSX; `constructor_type` has no `new_expression` arm. Call-site construction stores the classifier output directly, ruling out later discard as the cause.
 - Generic bare-owner lookup cannot prove imported/external/interface `Foo` identity. Caller-file `clean_class_spans` plus direct-method lookup is the required safety membrane.
+- Review round 1 fixed three WRONG mechanisms: typed-parameter reassignment retained stale types; locally shadowed constructor identifiers could bind to the module class; recovered instance receivers could target static-only methods. It also fixed the closer-block-shadow mutation SMELL by carrying binding-scope identity.
 - LSP semantic navigation is unavailable in this environment; targeted references, AST grammar schemas, compiler checks, and non-vacuous tests are the fallback. This remains a verification exclusion.
 
 ## 3. Verification state
 
-- No production code changed yet. The exact-base JavaScript `new`, TypeScript typed-parameter, R3b-collision, TSX typed-parameter, CPG behavior, and navigation behavior positives all fail at missing receiver recovery (`receiver_type=None` or no recovered edge).
-- CPG/navigation version pins fail exactly at production 58/27 versus required 59/28.
-- Implementation, GREEN, two review rounds, full suites, and Tier-A are pending.
+- Committed RED evidence remains at `3b8cbb1`: JavaScript `new`, TypeScript typed-parameter, R3b-collision, TSX typed-parameter, CPG behavior, navigation behavior, and the 59/28 version pins failed before production edits.
+- Focused GREEN: JS receiver module 7/7, TS receiver module 15/15, expanded TSX recovery 1/1, CPG v59 behavior 1/1, nav behavior/pin 2/2. Complete pre-review language targets were JS 66/66, TS 47/47, TSX 49/49; they must be rerun after review fixes.
+- Round 2, configured Clippy, full suites, release/Tier-A, final handoff, and publication are pending.
 
 ## 4. Custody
 

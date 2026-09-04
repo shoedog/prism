@@ -840,14 +840,11 @@ fn cache_v58_round_trips_js_ts_lexical_receiver_binding() {
 fn cache_v59_round_trips_js_ts_recovered_receiver() {
     let fixtures = [(
         "svc.ts",
-        "class Foo { m() {} }\nfunction run(x: Foo) { x.m(); }\n",
+        "class Foo { m() {} static only() {} }\nfunction run(x: Foo) { x.m(); }\nfunction staticOnly(x: Foo) { x.only(); }\n",
         Language::TypeScript,
     )];
     let files = parsed_files(&fixtures);
-    let sources = BTreeMap::from([(
-        "svc.ts".to_string(),
-        fixtures[0].1.to_string(),
-    )]);
+    let sources = BTreeMap::from([("svc.ts".to_string(), fixtures[0].1.to_string())]);
     let cold = CpgContext::build(&files, None).cpg;
     let cold_site = call_site_in_file(&cold, "svc.ts", "run", "m");
     assert_eq!(cold_site.receiver_type.as_deref(), Some("Foo"));
@@ -861,6 +858,17 @@ fn cache_v59_round_trips_js_ts_recovered_receiver() {
         cold_out[0].kind,
         prism::resolution::ResolutionKind::TypedParam
     );
+    let cold_static_site = call_site_in_file(&cold, "svc.ts", "staticOnly", "only");
+    assert!(cold
+        .call_graph
+        .resolve_call_site(&cold_static_site)
+        .iter()
+        .all(|candidate| candidate.kind != prism::resolution::ResolutionKind::TypedParam));
+    assert!(cold
+        .call_graph
+        .js_ts_static_methods
+        .iter()
+        .any(|method| method.file == "svc.ts" && method.name == "only"));
 
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
@@ -873,6 +881,16 @@ fn cache_v59_round_trips_js_ts_recovered_receiver() {
         loaded.call_graph.resolve_call_site(&loaded_site)[0].kind,
         prism::resolution::ResolutionKind::TypedParam
     );
+    assert_eq!(
+        loaded.call_graph.js_ts_static_methods,
+        cold.call_graph.js_ts_static_methods
+    );
+    let loaded_static_site = call_site_in_file(&loaded, "svc.ts", "staticOnly", "only");
+    assert!(loaded
+        .call_graph
+        .resolve_call_site(&loaded_static_site)
+        .iter()
+        .all(|candidate| candidate.kind != prism::resolution::ResolutionKind::TypedParam));
 }
 
 #[test]

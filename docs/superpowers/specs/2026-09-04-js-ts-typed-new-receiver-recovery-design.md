@@ -26,25 +26,25 @@ Add a JS/TS-specific call-position evidence query; do not reuse the legacy recur
 - A simple variable declarator in the call's innermost function yields `ConstructorLocal` only when its direct initializer is `new Foo(...)`, `Foo` is a bare identifier, the initializer precedes the call, and no competing reaching declaration or same-name write makes the origin ambiguous.
 - `let`/`const` scope follows the prerequisite's block/loop/switch/catch containment; `var` is function-scoped. Ended/sibling lexical declarations do not poison a call. A declaration after the call binds (TDZ/hoisting) but cannot donate its initializer.
 - Constructor locals captured by nested callables are materialized-only in this increment. A typed outer parameter may donate its static type to a nested callable.
-- Parse-recovery uncertainty in the relevant callable is materialized-only. Class/function/enum/namespace names remain owner-like values and do not become materialized receiver variables.
+- Parse-recovery uncertainty in the relevant callable is materialized-only. A class name remains an owner-like value; function/enum/namespace names and named-function self bindings materialize so R3b cannot reinterpret them as an unrelated class owner.
 
 The classifier opens JS/TS/TSX only through this evidence query. A recovered or unsupported value binding is materialized so R3/R3b cannot reinterpret the receiver variable as a module or class name. Imported receiver qualifiers retain the prerequisite behavior.
 
 ## 4. Resolution authority
 
-For a JS/TS/TSX recovered type, require `clean_class_spans[(caller.file, type)]`. Then use the existing `recovered_receiver_direct_method` lookup, which requires the method to belong directly and unambiguously to that exact class span. `Hit` preserves `TypedParam`/`ConstructorLocal` and Exact confidence. `Miss`, `Blocked`, missing class proof, or unsupported type falls through to the existing R6 residue; it never enters generic `owner_lookup(type, method)` and never becomes `ExternalReceiver` solely because this syntax was observed.
+For a JS/TS/TSX recovered type, require `clean_class_spans[(caller.file, type)]`. Then use the existing `recovered_receiver_direct_method` lookup, which requires the method to be a non-static method belonging directly and unambiguously to that exact class span. `Hit` preserves `TypedParam`/`ConstructorLocal` and Exact confidence. `Miss`, `Blocked`, missing class proof, static-only method, or unsupported type falls through to the existing R6 residue; it never enters generic `owner_lookup(type, method)` and never becomes `ExternalReceiver` solely because this syntax was observed.
 
 This same-file proof prevents imported/external `Foo` annotations and constructors from binding to an unrelated in-repo `Foo`. Module-level occurrence ambiguity (duplicate/rebound/import-colliding class names) already removes the clean-class fact.
 
 ## 5. Persistence and caches
 
-No new serialized field is required: `receiver_type`, `receiver_recovery`, and `receiver_materialized` already persist the authority. Because their JS/TS population and resolved topology change, advance CPG cache 58 to 59 and navigation call-edge sidecar 27 to 28. Full, direct-subset, incremental, CPG, and sidecar paths must agree.
+`receiver_type`, `receiver_recovery`, and `receiver_materialized` persist receiver evidence. Add a serialized `js_ts_static_methods` `FunctionId` set so cache-loaded resolution preserves the instance/static boundary. Because JS/TS receiver population and resolved topology change, advance CPG cache 58 to 59 and navigation call-edge sidecar 27 to 28. Full, direct-subset, incremental, CPG, and sidecar paths must agree.
 
 ## 6. RED/GREEN acceptance
 
 - TypeScript and TSX required/optional/default bare typed parameters recover the caller-file class and resolve its direct method as Exact `TypedParam`; JavaScript stays untyped.
 - JavaScript, TypeScript, and TSX `const`/`let`/`var x = new Foo()` recover as Exact `ConstructorLocal` when the declaration reaches the call.
-- Bare factory calls, annotated locals, qualified constructors, interface/union/generic/imported types, cross-file same-name classes, and missing direct methods do not mint Exact recovered edges.
+- Bare factory calls, annotated locals, qualified or locally shadowed constructors, interface/union/generic/imported types, cross-file same-name classes, missing direct methods, and static-only methods do not mint Exact recovered edges.
 - Reassignment, a competing same-scope binding, constructor capture, declaration-after-call, and parse uncertainty fail closed. Ended/sibling-block shadows do not suppress a valid outer origin; an active inner binding does.
 - A receiver variable whose name collides with another class owner proves recovered materialization pre-empts R3b.
 - Full and direct-subset builds, both incremental transitions, CPG/navigation round trips, and JS/TS/TSX language targets agree. Python/Rust/Go behavior remains unchanged.
