@@ -65,7 +65,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   (merge `6771d530`); (4) JS/TS typed-parameter and `new`-constructor receiver
   recovery — DONE in #232 (merge `434764a6`); (5) product-oriented read-only
   `nav_symbol_spans` v1 — DONE in #234 (merge `90c522b`); (6) CLI-only onboarding
-  report v1 selected on branch `nav-onboarding-report-v1`: one cached build, compact
+  report v1 — DONE in #235 (merge `a531355`): one cached build, compact
   repo-map/call-stats orientation, stdout by default, explicit create-new-only file
   output. Java native resolution versus LSP delegation remains an owner decision after
   a future J1/J2 evidence bootstrap. Do not collapse steps 2–4 into the old combined design.
