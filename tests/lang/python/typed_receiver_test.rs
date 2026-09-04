@@ -192,6 +192,295 @@ fn test_python_unaliased_dotted_module_receiver_resolves_exact_direct_method() {
 }
 
 #[test]
+fn test_python_namespace_submodule_receiver_resolves_exact_direct_method() {
+    for (import, receiver, module_file) in [
+        ("from pkg import models", "models.Client", "pkg/models.py"),
+        ("from pkg import models as m", "m.Client", "pkg/models.py"),
+        (
+            "from pkg import models",
+            "models.Client",
+            "pkg/models/__init__.py",
+        ),
+    ] {
+        let app = format!(
+            "{import}\ndef typed(client: {receiver}):\n    client.send()\ndef made():\n    client = {receiver}()\n    client.send()\n"
+        );
+        let cg = graph(&[
+            (
+                module_file,
+                "class Client:\n    def send(self):\n        pass\n",
+            ),
+            ("app.py", &app),
+        ]);
+
+        for (caller, recovery) in [
+            ("typed", ReceiverRecovery::TypedParam),
+            ("made", ReceiverRecovery::ConstructorLocal),
+        ] {
+            let s = site(&cg, caller, "send");
+            assert_eq!(
+                s.receiver_type.as_deref(),
+                Some(receiver),
+                "{import} {caller}"
+            );
+            assert_eq!(s.receiver_recovery, Some(recovery), "{import} {caller}");
+            let resolved = cg.resolve_call_site(&s);
+            assert_eq!(resolved.len(), 1, "{import} {caller}: {resolved:?}");
+            assert_eq!(resolved[0].target.file, module_file, "{import} {caller}");
+            assert_eq!(resolved[0].target.start_line, 2, "{import} {caller}");
+            assert_eq!(
+                resolved[0].confidence,
+                ResolutionConfidence::Exact,
+                "{import} {caller}"
+            );
+            assert_eq!(
+                resolved[0].kind,
+                if caller == "typed" {
+                    ResolutionKind::TypedParam
+                } else {
+                    ResolutionKind::ConstructorLocal
+                },
+                "{import} {caller}"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_python_namespace_submodule_receiver_preserves_proof_barriers() {
+    let cases = [
+        (
+            "parent_module",
+            vec![
+                ("pkg.py", "value = 1\n"),
+                (
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                ),
+                (
+                    "app.py",
+                    "from pkg import models\ndef run(client: models.Client):\n    client.send()\n",
+                ),
+            ],
+        ),
+        (
+            "parent_initializer",
+            vec![
+                ("pkg/__init__.py", "value = 1\n"),
+                (
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                ),
+                (
+                    "app.py",
+                    "from pkg import models\ndef run(client: models.Client):\n    client.send()\n",
+                ),
+            ],
+        ),
+        (
+            "relative_import",
+            vec![
+                (
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                ),
+                (
+                    "pkg/app.py",
+                    "from . import models\ndef run(client: models.Client):\n    client.send()\n",
+                ),
+            ],
+        ),
+        (
+            "mismatched_qualifier",
+            vec![
+                (
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                ),
+                (
+                    "app.py",
+                    "from pkg import models\ndef run(client: pkg.models.Client):\n    client.send()\n",
+                ),
+            ],
+        ),
+        (
+            "deeper_qualifier",
+            vec![
+                (
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                ),
+                (
+                    "app.py",
+                    "from pkg import models\ndef run(client: models.deep.Client):\n    client.send()\n",
+                ),
+            ],
+        ),
+        (
+            "duplicate_local",
+            vec![
+                (
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                ),
+                ("other/models.py", "class Other:\n    pass\n"),
+                (
+                    "app.py",
+                    "from pkg import models\nfrom other import models\ndef run(client: models.Client):\n    client.send()\n",
+                ),
+            ],
+        ),
+        (
+            "module_rebound",
+            vec![
+                (
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                ),
+                (
+                    "app.py",
+                    "from pkg import models\nmodels = object()\ndef run(client: models.Client):\n    client.send()\n",
+                ),
+            ],
+        ),
+        (
+            "wildcard",
+            vec![
+                (
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                ),
+                (
+                    "app.py",
+                    "from pkg import models\nfrom other import *\ndef run(client: models.Client):\n    client.send()\n",
+                ),
+            ],
+        ),
+        (
+            "local_import",
+            vec![
+                (
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                ),
+                (
+                    "app.py",
+                    "def run():\n    from pkg import models\n    client: models.Client\n    client.send()\n",
+                ),
+            ],
+        ),
+        (
+            "local_shadow",
+            vec![
+                (
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                ),
+                (
+                    "app.py",
+                    "from pkg import models\ndef run(client: models.Client):\n    models = object()\n    client.send()\n",
+                ),
+            ],
+        ),
+        (
+            "ambiguous_submodule",
+            vec![
+                (
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                ),
+                ("pkg/models/__init__.py", "class Other:\n    pass\n"),
+                (
+                    "app.py",
+                    "from pkg import models\ndef run(client: models.Client):\n    client.send()\n",
+                ),
+            ],
+        ),
+        (
+            "ambiguous_class",
+            vec![
+                (
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\nclass Client:\n    def send(self):\n        pass\n",
+                ),
+                (
+                    "app.py",
+                    "from pkg import models\ndef run(client: models.Client):\n    client.send()\n",
+                ),
+            ],
+        ),
+        (
+            "inherited_only",
+            vec![
+                (
+                    "pkg/models.py",
+                    "class Base:\n    def send(self):\n        pass\nclass Client(Base):\n    pass\n",
+                ),
+                (
+                    "app.py",
+                    "from pkg import models\ndef run(client: models.Client):\n    client.send()\n",
+                ),
+            ],
+        ),
+    ];
+
+    for (label, files) in cases {
+        let cg = graph(&files);
+        let s = site(&cg, "run", "send");
+        assert!(
+            cg.resolve_call_site(&s).iter().all(|callee| {
+                callee.confidence != ResolutionConfidence::Exact
+                    || callee.kind != ResolutionKind::TypedParam
+            }),
+            "{label}: {s:?}"
+        );
+    }
+}
+
+#[test]
+fn test_python_namespace_submodule_constructor_receiver_preserves_proof_barriers() {
+    for (label, files) in [
+        (
+            "parent_initializer",
+            vec![
+                ("pkg/__init__.py", "value = 1\n"),
+                (
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                ),
+                (
+                    "app.py",
+                    "from pkg import models\ndef run():\n    client = models.Client()\n    client.send()\n",
+                ),
+            ],
+        ),
+        (
+            "local_shadow",
+            vec![
+                (
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                ),
+                (
+                    "app.py",
+                    "from pkg import models\ndef run():\n    models = object()\n    client = models.Client()\n    client.send()\n",
+                ),
+            ],
+        ),
+    ] {
+        let cg = graph(&files);
+        let s = site(&cg, "run", "send");
+        assert!(
+            cg.resolve_call_site(&s).iter().all(|callee| {
+                callee.confidence != ResolutionConfidence::Exact
+                    || callee.kind != ResolutionKind::ConstructorLocal
+            }),
+            "{label}: {s:?}"
+        );
+    }
+}
+
+#[test]
 fn test_python_unaliased_dotted_module_receiver_preserves_proof_barriers() {
     for (label, app) in [
         (
@@ -515,6 +804,33 @@ fn test_python_unaliased_dotted_module_receiver_subset_build_preserves_proof() {
     let s = site(&cg, "run", "send");
 
     assert_eq!(s.receiver_type.as_deref(), Some("pkg.models.Client"));
+}
+
+#[test]
+fn test_python_namespace_submodule_receiver_subset_build_preserves_proof() {
+    let files: BTreeMap<_, _> = [
+        (
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        pass\n",
+        ),
+        (
+            "app.py",
+            "from pkg import models\ndef run(client: models.Client):\n    client.send()\n",
+        ),
+    ]
+    .into_iter()
+    .map(|(path, src)| {
+        (
+            path.to_string(),
+            ParsedFile::parse(path, src, Language::Python).expect("parse python"),
+        )
+    })
+    .collect();
+    let only_files = ["app.py".to_string()].into_iter().collect();
+    let cg = CallGraph::build_direct_subset(&files, &only_files);
+    let s = site(&cg, "run", "send");
+
+    assert_eq!(s.receiver_type.as_deref(), Some("models.Client"));
 }
 
 #[test]

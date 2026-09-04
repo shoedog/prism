@@ -3878,6 +3878,155 @@ fn python_dotted_receiver_incremental_stable_proof_matches_full_build() {
 }
 
 #[test]
+fn python_namespace_submodule_receiver_incremental_authority_matches_full_build() {
+    use prism::cpg::CodePropertyGraph;
+    use prism::data_flow::DataFlowGraph;
+    use prism::languages::Language::Python;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    fn parsed(sources: &[(&str, &str)]) -> BTreeMap<String, prism::ast::ParsedFile> {
+        sources
+            .iter()
+            .map(|(path, source)| {
+                (
+                    (*path).to_string(),
+                    prism::ast::ParsedFile::parse(path, source, Python).unwrap(),
+                )
+            })
+            .collect()
+    }
+
+    fn assert_transition(
+        label: &str,
+        before_sources: &[(&str, &str)],
+        after_sources: &[(&str, &str)],
+        changed_paths: &[&str],
+        expected_receiver: Option<&str>,
+    ) {
+        let before = parsed(before_sources);
+        let cached_cg = CallGraph::build(&before);
+        let cached_dfg = DataFlowGraph::build(&before);
+        let after = parsed(after_sources);
+        let changed: BTreeSet<_> = changed_paths
+            .iter()
+            .map(|path| (*path).to_string())
+            .collect();
+        let incremental =
+            CodePropertyGraph::build_incremental(cached_cg, cached_dfg, &changed, &after, None);
+        let full = CallGraph::build(&after);
+        let incremental_site = site_in(&incremental.call_graph, "run", "send");
+        let full_site = site_in(&full, "run", "send");
+
+        assert_eq!(
+            full_site.receiver_type.as_deref(),
+            expected_receiver,
+            "{label}: fresh receiver"
+        );
+        assert_eq!(
+            incremental_site.receiver_type, full_site.receiver_type,
+            "{label}: incremental receiver"
+        );
+
+        let full_exact: Vec<_> = full
+            .resolve_call_site(&full_site)
+            .into_iter()
+            .filter(|resolved| resolved.confidence == ResolutionConfidence::Exact)
+            .map(|resolved| (resolved.target, resolved.kind))
+            .collect();
+        let incremental_exact: Vec<_> = incremental
+            .call_graph
+            .resolve_call_site(&incremental_site)
+            .into_iter()
+            .filter(|resolved| resolved.confidence == ResolutionConfidence::Exact)
+            .map(|resolved| (resolved.target, resolved.kind))
+            .collect();
+        assert_eq!(incremental_exact, full_exact, "{label}: exact targets");
+
+        if expected_receiver.is_some() {
+            assert_eq!(full_exact.len(), 1, "{label}: {full_exact:?}");
+            assert_eq!(full_exact[0].0.file, "pkg/models.py", "{label}");
+            assert_eq!(full_exact[0].1, ResolutionKind::TypedParam, "{label}");
+        } else {
+            assert!(full_exact.is_empty(), "{label}: {full_exact:?}");
+        }
+    }
+
+    const APP: &str =
+        "from pkg import models\ndef run(client: models.Client):\n    client.send()\n";
+    const CLIENT: &str = "class Client:\n    def send(self):\n        pass\n";
+    const CLIENT_CHANGED: &str = "class Client:\n    def send(self):\n        return 1\n";
+
+    assert_transition(
+        "class appears",
+        &[
+            ("app.py", APP),
+            ("pkg/models.py", "class Placeholder:\n    pass\n"),
+        ],
+        &[("app.py", APP), ("pkg/models.py", CLIENT)],
+        &["pkg/models.py"],
+        Some("models.Client"),
+    );
+    assert_transition(
+        "submodule appears",
+        &[("app.py", APP)],
+        &[("app.py", APP), ("pkg/models.py", CLIENT)],
+        &["pkg/models.py"],
+        Some("models.Client"),
+    );
+    assert_transition(
+        "parent module appears",
+        &[("app.py", APP), ("pkg/models.py", CLIENT)],
+        &[
+            ("app.py", APP),
+            ("pkg/models.py", CLIENT),
+            ("pkg.py", "value = 1\n"),
+        ],
+        &["pkg.py"],
+        None,
+    );
+    assert_transition(
+        "parent module disappears",
+        &[
+            ("app.py", APP),
+            ("pkg/models.py", CLIENT),
+            ("pkg.py", "value = 1\n"),
+        ],
+        &[("app.py", APP), ("pkg/models.py", CLIENT)],
+        &["pkg.py"],
+        Some("models.Client"),
+    );
+    assert_transition(
+        "parent initializer appears",
+        &[("app.py", APP), ("pkg/models.py", CLIENT)],
+        &[
+            ("app.py", APP),
+            ("pkg/models.py", CLIENT),
+            ("pkg/__init__.py", "value = 1\n"),
+        ],
+        &["pkg/__init__.py"],
+        None,
+    );
+    assert_transition(
+        "parent initializer disappears",
+        &[
+            ("app.py", APP),
+            ("pkg/models.py", CLIENT),
+            ("pkg/__init__.py", "value = 1\n"),
+        ],
+        &[("app.py", APP), ("pkg/models.py", CLIENT)],
+        &["pkg/__init__.py"],
+        Some("models.Client"),
+    );
+    assert_transition(
+        "method body changes",
+        &[("app.py", APP), ("pkg/models.py", CLIENT)],
+        &[("app.py", APP), ("pkg/models.py", CLIENT_CHANGED)],
+        &["pkg/models.py"],
+        Some("models.Client"),
+    );
+}
+
+#[test]
 fn go_remove_files_clears_promoted_aliases_cross_file() {
     // Hardening: remove_files alone (no re-apply) must not leave a stale promoted alias
     // whose target fid lives in an UNCHANGED file (by-fid.file pruning can't catch it).
