@@ -953,7 +953,7 @@ fn lifecycle_list_and_call() {
         r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
     ]);
     assert_eq!(o[0]["result"]["protocolVersion"], "2025-11-25");
-    assert_eq!(o[1]["result"]["tools"].as_array().unwrap().len(), 6);
+    assert_eq!(o[1]["result"]["tools"].as_array().unwrap().len(), 7);
     assert!(o[2]["result"]["content"][0]["text"]
         .as_str()
         .unwrap()
@@ -1064,6 +1064,31 @@ fn omit_default_path_still_emits_freshness_warnings_and_metadata() {
         .as_str()
         .unwrap()
         .contains("StaleIndex"));
+}
+
+#[test]
+fn symbol_spans_receives_freshness_warning_and_metadata() {
+    let (dir, mut provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
+    std::fs::write(dir.path().join("a.py"), "def f():\n    return 12345\n").unwrap();
+    let response = call_tool_at_cap_with_mode(
+        &mut provider,
+        &ToolRegistry::nav_v1(),
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nav_symbol_spans","arguments":{"seed":{"kind":"symbol","name":"f","file":"a.py"}}}}"#,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::OmitDefaultPath,
+    );
+    let result = &response["result"];
+    assert_eq!(result["isError"], false);
+    assert_eq!(result["_meta"]["prism/index_freshness"], "stale");
+    assert_eq!(result["_meta"]["prism/stale_index_total"], 1);
+    assert!(result.get("structuredContent").is_none());
+    let value: serde_json::Value =
+        serde_json::from_str(result["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert!(value["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|warning| warning["kind"] == "StaleIndex"));
 }
 
 #[test]
@@ -2086,7 +2111,7 @@ fn id_bearing_initialized_notification_transitions_not_deadlocks() {
         "tools/list after an id-bearing initialized notification must succeed (no deadlock): {}",
         o[1]
     );
-    assert_eq!(o[1]["result"]["tools"].as_array().unwrap().len(), 6);
+    assert_eq!(o[1]["result"]["tools"].as_array().unwrap().len(), 7);
 }
 
 #[test]
@@ -2248,7 +2273,7 @@ fn oversized_frame_is_recoverable_parse_error() {
     let o = run_bytes(input.into_bytes());
     assert_eq!(o[0]["error"]["code"], -32700);
     assert_eq!(o[1]["result"]["protocolVersion"], "2025-11-25");
-    assert_eq!(o[2]["result"]["tools"].as_array().unwrap().len(), 6);
+    assert_eq!(o[2]["result"]["tools"].as_array().unwrap().len(), 7);
 }
 
 #[test]
@@ -2267,7 +2292,7 @@ fn bad_utf8_frame_is_recoverable_parse_error() {
     let o = run_bytes(input);
     assert_eq!(o[0]["error"]["code"], -32700);
     assert_eq!(o[1]["result"]["protocolVersion"], "2025-11-25");
-    assert_eq!(o[2]["result"]["tools"].as_array().unwrap().len(), 6);
+    assert_eq!(o[2]["result"]["tools"].as_array().unwrap().len(), 7);
 }
 
 #[test]

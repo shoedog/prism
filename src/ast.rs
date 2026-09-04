@@ -149,6 +149,22 @@ pub struct FunctionInfo {
     pub receiver_var: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AstNodeSpan {
+    pub start_byte: usize,
+    pub end_byte: usize,
+    pub start_line: usize,
+    pub end_line: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FunctionAstSpans {
+    pub name: Option<AstNodeSpan>,
+    pub body: Option<AstNodeSpan>,
+    pub symbol_indentation: Result<String, &'static str>,
+    pub body_indentation: Result<String, &'static str>,
+}
+
 /// One argument of a call, as a source byte-span (the S2 byte-identity anchor).
 /// Text is derived on demand (§3.4) so the index can later carry typed-arg info /
 /// re-descend to the node without a rewrite.
@@ -521,6 +537,78 @@ impl ParsedFile {
                 _ => return None,
             }
         }
+    }
+
+    /// Reconstruct one callable by its exact eager-table byte identity and project
+    /// edit coordinates without returning or copying source text.
+    pub(crate) fn function_ast_spans(
+        &self,
+        start_byte: usize,
+        end_byte: usize,
+    ) -> Option<FunctionAstSpans> {
+        const MAX_INDENTATION_BYTES: usize = 256;
+
+        fn span(node: Node<'_>) -> AstNodeSpan {
+            AstNodeSpan {
+                start_byte: node.start_byte(),
+                end_byte: node.end_byte(),
+                start_line: node.start_position().row + 1,
+                end_line: node.end_position().row + 1,
+            }
+        }
+
+        fn indentation_before(
+            source: &str,
+            byte: usize,
+            non_whitespace_reason: &'static str,
+        ) -> Result<String, &'static str> {
+            let line_start = source.as_bytes()[..byte]
+                .iter()
+                .rposition(|b| *b == b'\n')
+                .map_or(0, |newline| newline + 1);
+            let prefix = &source[line_start..byte];
+            if prefix.len() > MAX_INDENTATION_BYTES {
+                return Err("line indentation exceeds 256-byte limit");
+            }
+            if prefix.bytes().all(|b| matches!(b, b' ' | b'\t')) {
+                Ok(prefix.to_string())
+            } else {
+                Err(non_whitespace_reason)
+            }
+        }
+
+        let info = self
+            .functions
+            .iter()
+            .find(|info| info.start_byte == start_byte && info.end_byte == end_byte)?;
+        let outer = self.reconstruct_function_node(info)?;
+        let inner = self.unwrap_decorated(outer);
+        let name = self.language.function_name(&inner).map(span);
+        let body_node = inner.child_by_field_name("body");
+        let body = body_node.map(span);
+        let symbol_indentation = indentation_before(
+            &self.source,
+            outer.start_byte(),
+            "outer callable is not preceded only by line indentation",
+        );
+        let body_indentation = match body_node {
+            None => Err("body span unavailable"),
+            Some(body) => match body.named_child(0) {
+                None => Err("body has no named child"),
+                Some(child) => indentation_before(
+                    &self.source,
+                    child.start_byte(),
+                    "first named body child is not preceded only by line indentation",
+                ),
+            },
+        };
+
+        Some(FunctionAstSpans {
+            name,
+            body,
+            symbol_indentation,
+            body_indentation,
+        })
     }
 
     fn all_functions_via_tree(&self) -> Vec<Node<'_>> {

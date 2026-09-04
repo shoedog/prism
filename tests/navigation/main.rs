@@ -14,4 +14,5 @@ mod nodes_at_test;
 mod property_access_test;
 mod scoped_calls_test;
 mod seed_test;
+mod symbol_spans_test;
 mod types_test;

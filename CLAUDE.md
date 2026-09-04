@@ -213,12 +213,13 @@ interface-dispatch manifest (the §8a denominator for the precision gate report)
 cargo run --bin prism-mcp --features mcp -- --repo /path/to/repo
 ```
 
-The server exposes eight tools: six read-only navigation tools returning Prism
-`Evidence` JSON, one read-only reasoning tool `taint_reaches` (also Evidence),
-and one non-destructive local-state-changing tool `refresh_index` (returns a
-refresh summary).
+The server exposes nine tools: seven read-only navigation tools (the six graph/evidence
+queries return Prism `Evidence` JSON; `nav_symbol_spans` returns a dedicated coordinate
+result), one read-only reasoning tool `taint_reaches` (also Evidence), and one
+non-destructive local-state-changing tool `refresh_index` (returns a refresh summary).
 
 - `nav_nodes_at` — evidence for a repository file and 1-indexed line.
+- `nav_symbol_spans` — exact read-only callable coordinates without source text.
 - `nav_callers` — incoming callers for a symbol or location seed.
 - `nav_callees` — outgoing callees for a symbol or location seed.
 - `nav_ego_graph` — local graph around a symbol or location seed.

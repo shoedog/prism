@@ -42,8 +42,8 @@ fn prism_mcp_protocol_smoke() {
         .expect("tools/list result tools array");
     assert_eq!(
         tools.len(),
-        8,
-        "tools/list should return the six nav tools plus taint_reaches and refresh_index"
+        9,
+        "tools/list should return the seven nav tools plus taint_reaches and refresh_index"
     );
     assert!(
         tools.iter().any(|tool| tool["name"] == "taint_reaches"),
