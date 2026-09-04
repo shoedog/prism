@@ -2,7 +2,7 @@
 
 **Refreshed:** 2026-09-04 · **By:** Codex `/root` · **Provider:** codex
 **Workspace:** `/private/tmp/slicing-js-ts-lexical-receiver-binding` · `js-ts-lexical-receiver-binding-owner`
-**Exact base:** `5051918f61c99fda83eb18936992fb62025b7669`
+**Exact base:** `551adc463e2e164637378757f2ba1ba872a43946`
 
 ## 0. Current verdict
 
@@ -35,16 +35,16 @@ For simple JS/TS identifier receivers, persist whether a parameter, function-sco
 - CPG v58 behavior round trip, navigation v27 non-vacuous shadow-absence round trip, serde-default/comparison exclusion, and both version pins are green.
 - Incremental visible-to-shadowed and shadowed-to-visible transitions match fresh builds. Same-function parse recovery fails closed while recovery inside a nested callable does not leak. A Python control proves the JS/TS-only flag cannot suppress non-JS import qualification.
 - Complete language targets after review round 2: JavaScript 65/65, TSX 48/48, TypeScript 43/43. `cargo fmt --all -- --check` and `git diff --check` pass.
-- `cargo check --all-targets` passed after review round 2. The repository suites pass: default 3,590 passed / 0 failed / 1 ignored across 28 test binaries; `mcp` 3,776 passed / 0 failed / 1 ignored across 30 test binaries.
+- After rebasing onto current `origin/main` (`551adc4`), `cargo fmt --all -- --check`, `git diff --check`, `cargo check --all-targets --features mcp`, and configured Clippy all pass; Clippy retains only the repository's existing warning inventory. The complete default suite is 3,671 passed / 0 failed / 1 ignored across 28 test binaries; the complete `mcp` suite is 3,857 passed / 0 failed / 1 ignored across 30 test binaries.
 - Review cap declared at two rounds.
-- Release Tier-A matrix passes 104/104. Tier-A quick completed with `oracle_error_rate=0.000` and `sut_error_rate=0.000`, but exits 2 because the candidate corpus SHA `8b18eab82222` differs from pinned `20c8490591a3`. The exact-base `5051918f61c9` control in the same environment has the identical sole invalid reason and exit 2, ruling out this change as the cause. Generated reports/snapshots were not committed.
+- Post-rebase release Tier-A matrix passes 104/104. The first candidate quick run had one oracle failure; the clean exact-base `551adc4` control then produced thirteen oracle failures, including explicit rust-analyzer `-32801: content modified` errors, while both runs had zero SUT errors. At the declared one-retry diagnostic cap, an immediate-rebuild candidate retry completed with `oracle_error_rate=0.000`, `sut_error_rate=0.000`, and the sole invalid reason `corpus_sha_drift: 59dbf23cbf53 != pinned 20c8490591a3`, proving the earlier oracle failures transient. Generated reports/snapshots and the disposable control worktree were removed.
 - Verification exclusion: LSP semantic navigation tools were unavailable. All compiler, full-suite, cache-roundtrip, incremental, and Tier-A checks otherwise ran.
 
 ## 4. Custody
 
-- Root `main` and `origin/main` were rebound to PR #230 merge `5051918f` before branch creation.
+- Root `main`, `origin/main`, and this branch were rebound to PR #229 merge `551adc4` before publication; the rebase was conflict-free.
 - Branch/worktree: `js-ts-lexical-receiver-binding-owner` at `/private/tmp/slicing-js-ts-lexical-receiver-binding`.
-- Exact base: `5051918f61c99fda83eb18936992fb62025b7669`.
-- Design/custody checkpoint: `81ad576`; intentional RED checkpoint: `0c1c296`; implementation/review-1 checkpoint: `c568c76`; review-2 checkpoint: this document's containing commit.
+- Exact base: `551adc463e2e164637378757f2ba1ba872a43946`.
+- Rewritten checkpoints: design `191850d`; intentional RED `e5194e4`; implementation/review 1 `4920dbf`; review 2 and verified implementation `59dbf23`.
 - Root checkout's pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
-- Implementation was explicitly authorized on 2026-09-04. Publication of this successor PR is not yet assumed by this handoff.
+- Implementation and publication were explicitly authorized on 2026-09-04. Merge remains conditional on required checks being green.

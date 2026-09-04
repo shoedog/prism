@@ -61,8 +61,10 @@ Three candidate directions once the queue's top items are drained (or interleave
   `pkg.models.Class`) is DONE in #228 (merge `7488bb64`), and its second increment,
   namespace-package submodule imports (`from pkg import models` plus `models.Class`),
   is DONE in #230 (merge `5051918f`);
-  (3) JS/TS lexical-scope-aware receiver binding prerequisite — IN FLIGHT;
-  (4) JS/TS typed-parameter and `new`-constructor receiver recovery; (5) then
+  (3) JS/TS lexical-scope-aware receiver binding prerequisite — DONE at verified
+  checkpoint `59dbf23`; (4) JS/TS typed-parameter and `new`-constructor receiver
+  recovery — implemented on the dependent local lane and awaiting item 3 merge;
+  (5) then
   reconsider Java native resolution versus LSP delegation or product-oriented
   navigation/onboarding work. Do not collapse steps 2–4 into the old combined design.
 
