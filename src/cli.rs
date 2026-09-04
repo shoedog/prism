@@ -330,6 +330,21 @@ pub enum NavQuery {
         #[arg(long, default_value = "text", value_parser = ["text", "json"])]
         format: String,
     },
+    /// Exact read-only coordinates for a uniquely resolved callable.
+    #[command(group(clap::ArgGroup::new("symbol_spans_seed").required(true).args(["symbol", "location"])))]
+    SymbolSpans {
+        #[arg(long)]
+        repo: std::path::PathBuf,
+        #[arg(long, conflicts_with = "location")]
+        symbol: Option<String>,
+        #[arg(long, requires = "symbol", conflicts_with = "location")]
+        file: Option<String>,
+        /// `file:line`
+        #[arg(long, conflicts_with_all = ["symbol", "file"])]
+        location: Option<String>,
+        #[arg(long, default_value = "text", value_parser = ["text", "json"])]
+        format: String,
+    },
     Callers {
         #[arg(long)]
         repo: std::path::PathBuf,

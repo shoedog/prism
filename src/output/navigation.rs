@@ -1,4 +1,4 @@
-use crate::navigation::types::{Evidence, QueryError};
+use crate::navigation::types::{Evidence, Location, QueryError, SymbolSpans};
 
 pub fn render_err(e: &QueryError, format: &str) -> (String, i32) {
     let rendered = match format {
@@ -21,6 +21,54 @@ fn error_text(e: &QueryError) -> String {
         QueryError::UnsupportedFile { file } => format!("unsupported file: {file}"),
         QueryError::UnknownEdge { edge } => format!("unknown edge: {edge}"),
     }
+}
+
+pub fn render_symbol_spans(result: &SymbolSpans, format: &str) -> String {
+    fn push_location(output: &mut String, label: &str, location: Option<&Location>) {
+        match location {
+            Some(location) => output.push_str(&format!(
+                "  {label}: {}:{}-{} bytes {}..{}\n",
+                location.file,
+                location.start_line,
+                location.end_line,
+                location.start_byte,
+                location.end_byte
+            )),
+            None => output.push_str(&format!("  {label}: unavailable\n")),
+        }
+    }
+
+    if format == "json" {
+        return serde_json::to_string_pretty(result).unwrap_or_else(|_| "{}".into());
+    }
+
+    let mut output = format!("{}\n", result.query);
+    push_location(&mut output, "symbol_span", Some(&result.symbol_span));
+    push_location(&mut output, "name_span", result.name_span.as_ref());
+    push_location(&mut output, "body_span", result.body_span.as_ref());
+    output.push_str(&format!(
+        "  insert_before: {}:{} byte {}\n",
+        result.insert_before.file, result.insert_before.line, result.insert_before.byte
+    ));
+    output.push_str(&format!(
+        "  insert_after: {}:{} byte {}\n",
+        result.insert_after.file, result.insert_after.line, result.insert_after.byte
+    ));
+    match &result.indentation.symbol {
+        Some(value) => output.push_str(&format!("  indentation.symbol: {value:?}\n")),
+        None => output.push_str("  indentation.symbol: unavailable\n"),
+    }
+    match &result.indentation.body {
+        Some(value) => output.push_str(&format!("  indentation.body: {value:?}\n")),
+        None => output.push_str("  indentation.body: unavailable\n"),
+    }
+    for (field, reason) in &result.unavailable {
+        output.push_str(&format!("  unavailable {field}: {reason}\n"));
+    }
+    for warning in &result.warnings {
+        output.push_str(&format!("  ! {:?}: {}\n", warning.kind, warning.message));
+    }
+    output
 }
 
 pub fn render(ev: &Evidence, format: &str) -> String {

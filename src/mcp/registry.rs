@@ -224,6 +224,6 @@ mod tests {
         assert_eq!(refresh["annotations"]["destructiveHint"], false);
         assert_eq!(refresh["annotations"]["idempotentHint"], false);
         assert_eq!(refresh["annotations"]["openWorldHint"], false);
-        assert_eq!(nav.list().len(), 6);
+        assert_eq!(nav.list().len(), 7);
     }
 }

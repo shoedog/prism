@@ -120,6 +120,11 @@ pub struct NodesAtInput {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SymbolSpansInput {
+    pub seed: SeedInput,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CallersInput {
     pub seed: SeedInput,
     pub depth: usize,
@@ -201,6 +206,13 @@ pub fn parse_nodes_at(args: &Value) -> Result<NodesAtInput, ToolError> {
         line,
         verbosity,
         view,
+    })
+}
+
+pub fn parse_symbol_spans(args: &Value) -> Result<SymbolSpansInput, ToolError> {
+    let obj = object(args, "nav_symbol_spans", &["seed"])?;
+    Ok(SymbolSpansInput {
+        seed: parse_seed(required_value(obj, "seed")?)?,
     })
 }
 
@@ -708,10 +720,17 @@ mod tests {
             "extra":true
         }))
         .is_err());
-        assert!(parse_symbol_spans(&json!({
+        let escaping = parse_symbol_spans(&json!({
             "seed":{"kind":"loc","file":"/etc/passwd","line":1}
         }))
-        .is_err());
+        .unwrap();
+        assert_eq!(
+            escaping.seed,
+            SeedInput::Loc {
+                file: "/etc/passwd".into(),
+                line: 1
+            }
+        );
         assert!(parse_symbol_spans(&json!({
             "seed":{"kind":"loc","file":"a.py","line":0}
         }))

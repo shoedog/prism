@@ -59,6 +59,34 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
             println!("{}", prism::output::navigation::render(&ev, format));
             Ok(())
         }
+        NavQuery::SymbolSpans {
+            repo,
+            symbol,
+            file,
+            location,
+            format,
+        } => {
+            let session = prism::api::nav_session(repo, &nav_options)?;
+            match prism::navigation::queries::symbol_spans(
+                &session,
+                symbol.as_deref(),
+                file.as_deref(),
+                location.as_deref(),
+            ) {
+                Ok(result) => {
+                    println!(
+                        "{}",
+                        prism::output::navigation::render_symbol_spans(&result, format)
+                    );
+                    Ok(())
+                }
+                Err(error) => {
+                    let (rendered, code) = prism::output::navigation::render_err(&error, format);
+                    println!("{rendered}");
+                    std::process::exit(code);
+                }
+            }
+        }
         NavQuery::Callers {
             repo,
             symbol,

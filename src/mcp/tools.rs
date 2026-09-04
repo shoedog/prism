@@ -2,9 +2,9 @@ use super::error::query_error_result;
 use super::evidence_view::{shape_navigation_result, NavigationViewKind};
 use super::input::{
     parse_callees, parse_callers, parse_ego, parse_module_deps, parse_nodes_at, parse_repo_map,
-    SeedInput, Verbosity as InputVerbosity,
+    parse_symbol_spans, SeedInput, Verbosity as InputVerbosity,
 };
-use super::output::{McpToolResult, Verbosity};
+use super::output::{shape_structured_value, McpToolResult, Verbosity};
 use super::registry::{ToolAnnotations, ToolContext, ToolDescriptor, ToolRegistry};
 use crate::navigation::types::Evidence;
 use crate::navigation::{module_graph, queries};
@@ -29,6 +29,13 @@ pub fn register_all(r: &mut ToolRegistry) {
         "Finds first-class CPG evidence at one repository file and 1-indexed line. Use when you need the symbol or enclosing function for a precise source location; do NOT use for name-based caller/callee expansion. Inputs are file string, line integer >= 1, and optional verbosity concise or detailed. Returns Evidence items with warnings for skipped or unknown files. Example: {\"file\":\"src/main.rs\",\"line\":42,\"verbosity\":\"detailed\"}.",
         nodes_at_schema(),
         Box::new(nav_nodes_at),
+    ));
+    r.register(tool_with_handler(
+        "nav_symbol_spans",
+        "Symbol Spans",
+        "Returns exact read-only source coordinates for one uniquely resolved callable. Use when an editor needs outer, name, body, insertion-anchor, or indentation coordinates; do NOT use to mutate source or locate classes, fields, variables, or arbitrary statements. Seed grammar is {\"kind\":\"symbol\",\"name\":\"run\",\"file\":\"src/main.rs\"} or {\"kind\":\"loc\",\"file\":\"src/main.rs\",\"line\":42}. Returns a coordinate-only SymbolSpans result and never echoes the callable body. Example: {\"seed\":{\"kind\":\"symbol\",\"name\":\"run\",\"file\":\"src/main.rs\"}}.",
+        symbol_spans_schema(),
+        Box::new(nav_symbol_spans),
     ));
     r.register(tool_with_handler(
         "nav_callers",
@@ -102,6 +109,23 @@ fn nav_nodes_at(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResul
         input.view,
         NavigationViewKind::NodesAt,
         ctx.concise_shape_mode,
+        ctx.structured_content_mode,
+    )
+}
+
+fn nav_symbol_spans(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResult {
+    let input = match parse_symbol_spans(args) {
+        Ok(input) => input,
+        Err(error) => return error.into_result(),
+    };
+    let (symbol, file, location) = input.seed.to_triple();
+    let result = match queries::symbol_spans(ctx.session, symbol, file, location.as_deref()) {
+        Ok(result) => result,
+        Err(error) => return query_error_result(error),
+    };
+    shape_structured_value(
+        serde_json::to_value(result).expect("SymbolSpans serializes"),
+        ctx.cap,
         ctx.structured_content_mode,
     )
 }
@@ -372,6 +396,17 @@ fn nodes_at_schema() -> serde_json::Value {
     })
 }
 
+fn symbol_spans_schema() -> serde_json::Value {
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "seed": seed_schema()
+        },
+        "required": ["seed"]
+    })
+}
+
 fn callers_schema() -> serde_json::Value {
     json!({
         "type": "object",
@@ -543,6 +578,11 @@ mod tests {
             &json!({"seed":{"kind":"symbol","name":"f"},"extra":true}),
         );
         assert!(unknown.is_error);
+        let escaping = (tool.handler)(
+            &ToolContext::for_test(&s),
+            &json!({"seed":{"kind":"loc","file":"/etc/passwd","line":1}}),
+        );
+        assert!(escaping.is_error);
     }
 
     #[test]
