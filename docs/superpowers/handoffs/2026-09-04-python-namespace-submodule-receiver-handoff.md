@@ -42,4 +42,4 @@ Exact is limited to `from pkg import models [as m]` plus `models.Class`/`m.Class
 - Design/roadmap checkpoint: `1950cb3e`; intentional RED checkpoint: `5dae8d8a`; implementation/review checkpoint: `9ca42ae3`; final verification/handoff checkpoint: this document's containing commit.
 - PR #228 and its prior handoff are reconciled as merged in this checkpoint.
 - Root checkout's pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
-- Publication/merge of this successor increment is not authorized by the PR #228 publication instruction.
+- Publication and merge of this successor increment were explicitly authorized by the owner on 2026-09-04; remote PR identity is pending publication.
