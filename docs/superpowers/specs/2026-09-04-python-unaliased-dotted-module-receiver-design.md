@@ -1,6 +1,6 @@
 # Python unaliased dotted-module receiver ownership
 
-**Status:** implemented and locally verified; publication pending
+**Status:** implemented and merged as PR #228 (`7488bb64`)
 **Recorded:** 2026-09-04
 **Exact base:** `4298e548003cbb59cf506531142d177169a7a28e` (PR #227 merge)
 **Scope:** Python `import pkg.models` plus `pkg.models.Class` annotations and constructor locals, direct methods only

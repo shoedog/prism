@@ -6,7 +6,7 @@
 
 ## 0. Current verdict
 
-**LOCALLY GREEN; TIER-A QUICK UNSCORED ON PIN DRIFT; PUBLICATION PENDING.** This is item 2a of the owner-selected Fork-A queue: the smallest authoritative Python module/scope increment after PRs #226 and #227.
+**CLOSED AND MERGED.** Item 2a of the owner-selected Fork-A queue merged as PR #228 at `7488bb64f333bbc93f21c31c1104a551649467f4` on 2026-09-04.
 
 ## 1. Authority boundary
 
@@ -48,4 +48,6 @@ Exact is limited to `import pkg.models` plus `pkg.models.Class`, with exact qual
 - Design/roadmap checkpoint: `6756914`; intentional RED checkpoint: `a3371bf`; focused-green implementation checkpoint: `00e0ff6`; review-fix checkpoint: `4aeb321`; final verification/handoff checkpoint: this document's containing commit.
 - The prior lane is merged as PR #227; its handoff and the living roadmap are reconciled in the design checkpoint.
 - Root checkout's pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
-- Publication and merge of this successor increment are not authorized by the prior PR #227 publication instruction.
+- Published head: `8f456b632f503983a91bd09e40af0856680afba2`; PR #228; merge: `7488bb64f333bbc93f21c31c1104a551649467f4`. All five GitHub checks passed: Test Suite, Clippy Lint, Format Check, Coverage, and Language Coverage Matrix.
+- Root `main` and `origin/main` were rebound to the merge before the next lane was created.
+- No work remains in this lane. The successor is the separately designed namespace-package submodule receiver increment.
