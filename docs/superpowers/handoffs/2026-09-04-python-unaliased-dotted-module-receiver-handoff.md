@@ -6,7 +6,7 @@
 
 ## 0. Current verdict
 
-**REVIEW COMPLETE; BROAD GATES PENDING.** This is item 2a of the owner-selected Fork-A queue: the smallest authoritative Python module/scope increment after PRs #226 and #227.
+**LOCALLY GREEN; TIER-A QUICK UNSCORED ON PIN DRIFT; PUBLICATION PENDING.** This is item 2a of the owner-selected Fork-A queue: the smallest authoritative Python module/scope increment after PRs #226 and #227.
 
 ## 1. Authority boundary
 
@@ -35,13 +35,17 @@ Exact is limited to `import pkg.models` plus `pkg.models.Class`, with exact qual
 - Round 2 — WRONG: the root-shadow proof omitted constructible Python local binders (`with`/`except` aliases, `del`, starred targets, and local type aliases), allowing an Exact edge after authority should have failed closed. Fixed as one finite grammar-census population with focused RED then GREEN. SMELL: conservative `global`/`nonlocal`, generic-type-parameter, and Unicode-identifier handling may reduce recall; none can mint a wrong Exact edge in this slice.
 - The declared two-round review cap is exhausted and closed. The findings were bounded and non-repeating; no third review round was dispatched.
 - Production changes add a distinct Python explicit-alias import kind, exact full-qualifier/module-path proof, root-based shadow screening, qualified-chain constructor recovery, and paired CPG/navigation cache bumps.
-- Broad static/full-suite/Accuracy Harness gates have not yet run on the final source.
+- Complete related targets: Python 79/79, import binding 59/59, and dotted incremental 3/3.
+- Static gates: `cargo fmt --all -- --check`, `git diff --check`, `cargo check --all-targets`, and configured `cargo clippy --all-targets --features mcp -- -W clippy::all` all passed. Clippy emitted only the repository's existing warning backlog.
+- Full default suite: 3,572 passed, 0 failed, 1 ignored. Full `mcp` suite: 3,758 passed, 0 failed, 1 ignored.
+- Accuracy Harness custody: release build passed immediately before matrix-only; matrix-only passed 104/104. A second release build passed immediately before quick.
+- Tier-A quick ran to completion but exited 2 because the structured report marked the baseline invalid solely for `corpus_sha_drift: 4aeb3214707f != pinned 20c8490591a3`. The report recorded oracle error rate 0.000, SUT error rate 0.000, a quiescent oracle, and matrix 104/104; scoring is excluded and no baseline was rewritten. The reproducible untracked report/snapshot copies were removed after evidence extraction; the ignored run artifact remains at `eval/runs/2026-09-04-prism.json` in this worktree.
 
 ## 4. Custody
 
 - Branch/worktree: `py-dotted-module-receiver-owner` at `/private/tmp/slicing-py-dotted-module-receiver`.
 - Exact base: `4298e548003cbb59cf506531142d177169a7a28e`.
-- Design/roadmap checkpoint: `6756914`; intentional RED checkpoint: `a3371bf`; focused-green implementation checkpoint: `00e0ff6`; review-fix checkpoint is pending this commit.
+- Design/roadmap checkpoint: `6756914`; intentional RED checkpoint: `a3371bf`; focused-green implementation checkpoint: `00e0ff6`; review-fix checkpoint: `4aeb321`; final verification/handoff checkpoint is pending this commit.
 - The prior lane is merged as PR #227; its handoff and the living roadmap are reconciled in the design checkpoint.
 - Root checkout's pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
 - Publication and merge of this successor increment are not authorized by the prior PR #227 publication instruction.

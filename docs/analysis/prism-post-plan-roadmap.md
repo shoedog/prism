@@ -57,7 +57,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   module-alias-qualified slice (#227, merge `4298e548`); (2) Python authoritative
   module/scope resolution — IN FLIGHT as a sequence of bounded proof increments;
   its first unaliased dotted-module increment (`import pkg.models` plus
-  `pkg.models.Class`) is implemented and review-complete locally, with broad gates and
+  `pkg.models.Class`) is implemented, review-complete, and locally verified, with
   publication pending; (3) JS/TS lexical-scope-aware receiver binding prerequisite;
   (4) JS/TS typed-parameter and `new`-constructor receiver recovery; (5) then
   reconsider Java native resolution versus LSP delegation or product-oriented
