@@ -5807,7 +5807,7 @@ pub(crate) fn python_imported_class_proof_keys(
                     else {
                         continue;
                     };
-                    for ((file, owner), _) in clean_class_spans {
+                    for (file, owner) in clean_class_spans.keys() {
                         if file == defining_file {
                             proven.insert((
                                 caller_file.clone(),
