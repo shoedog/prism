@@ -61,7 +61,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // preserving the existing func-value-field continuation (CPG remains v54).
 // v24: Go B1 Level-3 callback edges and their source-callee identity enter the
 // resolved navigation topology (paired with CPG v55).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 24;
+// v25: Python unaliased dotted-module receiver ownership adds Exact edges
+// (paired with CPG v56).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 25;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";

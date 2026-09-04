@@ -1754,7 +1754,7 @@ impl ParsedFile {
                                     local: alias,
                                     module_path: module,
                                     member: None,
-                                    kind: ImportBindingKind::ModuleImport,
+                                    kind: ImportBindingKind::AliasedModuleImport,
                                     eligible: false,
                                 });
                             }

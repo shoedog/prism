@@ -855,7 +855,7 @@ fn classify_simple_ident_mode(
     if matches!(ctx.parsed.language, Language::Python) {
         let qualified_parts = crate::call_graph::python_qualified_receiver_parts(&static_type);
         let imported_local = qualified_parts
-            .map(|(qualifier, _)| qualifier)
+            .and_then(|(qualifier, _)| qualifier.split('.').next())
             .unwrap_or(&static_type);
         let imports_static_type = ctx
             .file_imports

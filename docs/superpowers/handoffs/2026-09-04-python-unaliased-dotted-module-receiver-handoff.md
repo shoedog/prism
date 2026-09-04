@@ -6,7 +6,7 @@
 
 ## 0. Current verdict
 
-**INTENTIONAL RED; IMPLEMENTATION PENDING.** This is item 2a of the owner-selected Fork-A queue: the smallest authoritative Python module/scope increment after PRs #226 and #227.
+**FOCUSED GREEN; REVIEW PENDING.** This is item 2a of the owner-selected Fork-A queue: the smallest authoritative Python module/scope increment after PRs #226 and #227.
 
 ## 1. Authority boundary
 
@@ -27,14 +27,15 @@ Exact is limited to `import pkg.models` plus `pkg.models.Class`, with exact qual
 - Exact-base incremental target: 0/3; both authority transitions and the stable-proof case failed at the missing dotted receiver proof.
 - Exact-base direct proof-key unit: 0/1; observed `("app.py", "pkg.Client", "pkg/models.py", "Client")`, expected the full `pkg.models.Client` spelling.
 - Exact-base cache pins: 0/2; observed CPG/navigation versions 55/24, expected 56/25.
-- Production source is unchanged; the failures above are the committed pre-change controls.
+- Focused GREEN: dotted full/subset/proof barriers 3/3, explicit-alias extraction 1/1, incremental lifecycle 3/3, stable proof-key unit 1/1, and cache pins 2/2.
+- Production changes add a distinct Python explicit-alias import kind, exact full-qualifier/module-path proof, root-based shadow screening, qualified-chain constructor recovery, and paired CPG/navigation cache bumps.
 - Declared implementation-review cap: two rounds.
 
 ## 4. Custody
 
 - Branch/worktree: `py-dotted-module-receiver-owner` at `/private/tmp/slicing-py-dotted-module-receiver`.
 - Exact base: `4298e548003cbb59cf506531142d177169a7a28e`.
-- Design/roadmap checkpoint: `6756914`; intentional RED checkpoint is pending this commit.
+- Design/roadmap checkpoint: `6756914`; intentional RED checkpoint: `a3371bf`; focused-green implementation checkpoint is pending this commit.
 - The prior lane is merged as PR #227; its handoff and the living roadmap are reconciled in the design checkpoint.
 - Root checkout's pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
 - Publication and merge of this successor increment are not authorized by the prior PR #227 publication instruction.
