@@ -37,6 +37,7 @@
 
 pub mod access_path;
 pub mod algorithms;
+pub mod api;
 pub mod ast;
 pub mod build_pool;
 pub mod call_graph;
