@@ -200,6 +200,66 @@ pub struct StatementSpan {
     pub end_byte: usize,
 }
 
+/// The lexical branch-arm tree of one function's CFG statement universe.
+///
+/// Arm `0` is the function body; every other arm is one *mutually exclusive*
+/// lexical alternative (an `if` consequence, an `else` clause, a loop body, a
+/// `match` arm, …). Ids are allocated in depth-first **preorder**, so an arm's
+/// descendants occupy the contiguous id range `(id ..= subtree_last)` — which is
+/// what makes containment an integer comparison rather than a tree walk. Ids are
+/// only comparable within one function: the counter restarts at every
+/// `ParsedFile::statement_arms_in_function` call, and `cfg::build_function_cfg`
+/// never emits an edge that leaves its function.
+///
+/// Built by `ParsedFile::statement_arms_in_function`; consumed by
+/// `cfg::build_cfg_edges_with_arms`.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct LexicalArms {
+    /// Innermost arm containing each statement line.
+    of_line: BTreeMap<usize, u32>,
+    /// `subtree_last[a]` is the largest arm id allocated inside arm `a`.
+    subtree_last: Vec<u32>,
+}
+
+/// Preorder arm-id allocator for one function.
+///
+/// `collect_nested_statements` — which the arm walk mirrors exactly — descends
+/// into a block-ish child **twice** (once via `collect_statements`, once via
+/// itself), so a block is visited a number of times exponential in its nesting
+/// depth. `seen` gives each block node ONE arm however often it is reached:
+/// without it a 154-line C fixture allocated 55,356 arms for the 70 that hold a
+/// statement line, which is unbounded memory per function, not just waste.
+struct ArmAllocator {
+    next: u32,
+    /// tree-sitter node id -> the arm allocated for that node.
+    seen: BTreeMap<usize, u32>,
+}
+
+impl LexicalArms {
+    /// Innermost arm holding `line`, paired with the last id in that arm's
+    /// subtree. `None` when the line is not one of the function's
+    /// `statements_in_function` lines.
+    pub(crate) fn interval_of_line(&self, line: usize) -> Option<(u32, u32)> {
+        let arm = *self.of_line.get(&line)?;
+        Some((arm, self.subtree_last[arm as usize]))
+    }
+
+    /// Innermost arm holding `line`, if any. Production code wants the interval,
+    /// not the bare id; this is the arm-tree assertion helper for `cfg`'s tests.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn arm_of_line(&self, line: usize) -> Option<u32> {
+        self.of_line.get(&line).copied()
+    }
+
+    /// How many distinct arms actually hold a statement line. Test-only: it is
+    /// how `cfg`'s tests prove the channel discriminates rather than tagging
+    /// everything arm 0.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn distinct_arms(&self) -> usize {
+        self.of_line.values().collect::<BTreeSet<_>>().len()
+    }
+}
+
 /// P5 S2 (Go func-value callbacks): which syntactic form a raw registration
 /// candidate matched. Raw/unresolved — `call_graph.rs` applies target
 /// resolution, the shadow gate, and per-form owner-identity/field-typing
@@ -8027,23 +8087,21 @@ impl ParsedFile {
         stmts
     }
 
-    /// Lexical branch-arm id for every line `statements_in_function` reports.
-    ///
-    /// Returns `line -> arm_id`, where `arm_id` names the innermost *lexical
-    /// branch arm* containing that statement and `0` is the function body
-    /// itself. Ids are only comparable within one function: the counter restarts
-    /// at every call, and `build_function_cfg` never emits an edge that leaves
-    /// its function.
+    /// Build the lexical branch-arm tree for `func_node`.
     ///
     /// **Why this exists.** `statements_in_function` (`:5778`) sorts and
     /// line-deduplicates its result, so `cfg::build_function_cfg`'s sequential
     /// fall-through loop walks one globally ordered line list and can join two
-    /// statements that live in *different* lexical arms of the same branch —
+    /// statements that live in *different, mutually exclusive* lexical arms —
     /// e.g. the last statement of a `then` block to the first statement of the
-    /// `else` block. Such an edge is not a control-flow fact. This map is the
+    /// `else` block. Such an edge is not a control-flow fact. This tree is the
     /// evidence `cfg::build_cfg_edges_with_arms` pairs with each edge so the
     /// reaching-definitions pass (item 2 Task 3, `src/cpg/reaching.rs`) can
     /// refuse to call such an edge a proof.
+    ///
+    /// Entering or leaving a *nested* arm is genuine control flow, so the
+    /// consumer asks whether the two arms are **incomparable** (neither contains
+    /// the other), not merely whether they differ — hence the preorder interval.
     ///
     /// **This is metadata only.** It does not change which lines
     /// `statements_in_function` returns; it walks the same tree with the same
@@ -8051,17 +8109,41 @@ impl ParsedFile {
     /// traversal occurrence of each line — matching the stable
     /// `sort_by_key` + `dedup_by_key` pair that decides which duplicate line
     /// `statements_in_function` keeps.
-    pub(crate) fn statement_arms_in_function(&self, func_node: &Node<'_>) -> BTreeMap<usize, u32> {
+    pub(crate) fn statement_arms_in_function(&self, func_node: &Node<'_>) -> LexicalArms {
         let func_node = self.unwrap_decorated(*func_node);
-        let mut arms = BTreeMap::new();
-        let mut next_arm: u32 = 1;
+        let mut arms = LexicalArms {
+            of_line: BTreeMap::new(),
+            // Arm 0 (the body) is allocated up front; its subtree bound is
+            // patched below once every nested arm has been allocated.
+            subtree_last: vec![0],
+        };
+        let mut alloc = ArmAllocator {
+            next: 1,
+            seen: BTreeMap::new(),
+        };
         let body = func_node
             .child_by_field_name("body")
             .or_else(|| func_node.child_by_field_name("consequence"));
         if let Some(body_node) = body {
-            self.collect_statement_arms(body_node, 0, &mut next_arm, &mut arms);
+            self.collect_statement_arms(body_node, 0, &mut alloc, &mut arms);
         }
+        arms.subtree_last[0] = alloc.next - 1;
         arms
+    }
+
+    /// The arm for `node`, allocating one in preorder on first sight. Returns
+    /// `(arm, newly_opened)`; only a newly opened arm may have its
+    /// `subtree_last` written, because on a repeat visit the ids allocated since
+    /// belong to siblings, not to this arm's subtree.
+    fn open_arm(node: &Node<'_>, alloc: &mut ArmAllocator, arms: &mut LexicalArms) -> (u32, bool) {
+        if let Some(&existing) = alloc.seen.get(&node.id()) {
+            return (existing, false);
+        }
+        let id = alloc.next;
+        alloc.next += 1;
+        alloc.seen.insert(node.id(), id);
+        arms.subtree_last.push(id);
+        (id, true)
     }
 
     /// Arm-tagging twin of `collect_statements` (`:5805`). Same children, same
@@ -8070,8 +8152,8 @@ impl ParsedFile {
         &self,
         node: Node<'_>,
         arm: u32,
-        next_arm: &mut u32,
-        out: &mut BTreeMap<usize, u32>,
+        alloc: &mut ArmAllocator,
+        arms: &mut LexicalArms,
     ) {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
@@ -8079,32 +8161,38 @@ impl ParsedFile {
             let line = child.start_position().row + 1;
 
             if self.language.is_statement_node(kind) {
-                out.entry(line).or_insert(arm);
+                arms.of_line.entry(line).or_insert(arm);
 
                 if self.language.is_control_flow_node(kind) {
-                    self.collect_nested_statement_arms(child, arm, next_arm, out);
+                    self.collect_nested_statement_arms(child, arm, alloc, arms);
                 }
             } else if kind == "compound_statement" || kind == "block" || kind == "statement_block" {
                 // A bare nested block is not a branch arm — it inherits the
                 // current arm. Arms are allocated in
                 // `collect_nested_statement_arms`, which is the only place a
                 // block is reached *through* a control-flow node.
-                self.collect_statement_arms(child, arm, next_arm, out);
+                self.collect_statement_arms(child, arm, alloc, arms);
             }
         }
     }
 
-    /// Arm-tagging twin of `collect_nested_statements` (`:5849`). Each block-ish
-    /// child of a control-flow node is one lexical arm and gets a fresh id;
-    /// `switch_body` / `match_block` are containers of arms, not arms, so they
-    /// pass the current id through and their `case_statement` / `match_arm`
-    /// children each get their own.
+    /// Arm-tagging twin of `collect_nested_statements` (`:5849`). A block-ish
+    /// child of a control-flow node is a new arm only when it is a *mutually
+    /// exclusive* alternative:
+    ///
+    /// - `switch_body` / `match_block` are containers of arms, not arms.
+    /// - `case_statement` / `default_statement` in a language whose `switch`
+    ///   falls through (`Language::switch_has_fallthrough`: C, C++, JS, TS, TSX,
+    ///   Java) are **not** mutually exclusive — control runs from one case into
+    ///   the next, which `cfg::tests::test_c_switch_fallthrough` pins as genuine
+    ///   — so they share the enclosing arm. In a language without fall-through
+    ///   each case is a real alternative and gets its own arm.
     fn collect_nested_statement_arms(
         &self,
         node: Node<'_>,
         arm: u32,
-        next_arm: &mut u32,
-        out: &mut BTreeMap<usize, u32>,
+        alloc: &mut ArmAllocator,
+        arms: &mut LexicalArms,
     ) {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
@@ -8121,21 +8209,27 @@ impl ParsedFile {
                 || kind == "match_block"
                 || kind == "match_arm"
             {
-                let child_arm = if kind == "switch_body" || kind == "match_block" {
-                    arm
+                let container = kind == "switch_body" || kind == "match_block";
+                let fallthrough_case = (kind == "case_statement" || kind == "default_statement")
+                    && self.language.switch_has_fallthrough();
+                let (child_arm, newly_opened) = if container || fallthrough_case {
+                    (arm, false)
                 } else {
-                    let allocated = *next_arm;
-                    *next_arm += 1;
-                    allocated
+                    Self::open_arm(&child, alloc, arms)
                 };
-                self.collect_statement_arms(child, child_arm, next_arm, out);
-                self.collect_nested_statement_arms(child, child_arm, next_arm, out);
+                self.collect_statement_arms(child, child_arm, alloc, arms);
+                self.collect_nested_statement_arms(child, child_arm, alloc, arms);
+                if newly_opened {
+                    // Preorder: everything allocated since `child_arm` opened is
+                    // lexically inside `child`, so the ids are contiguous.
+                    arms.subtree_last[child_arm as usize] = alloc.next - 1;
+                }
             } else if self.language.is_control_flow_node(kind) {
                 // Nested control flow (if inside if, etc.) — the header itself
                 // belongs to the enclosing arm.
                 let line = child.start_position().row + 1;
-                out.entry(line).or_insert(arm);
-                self.collect_nested_statement_arms(child, arm, next_arm, out);
+                arms.of_line.entry(line).or_insert(arm);
+                self.collect_nested_statement_arms(child, arm, alloc, arms);
             }
         }
     }

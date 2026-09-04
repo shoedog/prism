@@ -22,64 +22,163 @@ pub struct CfgEdge {
     pub to_line: usize,
 }
 
-/// Arm id used for an endpoint whose line is absent from the function's
-/// lexical-arm map. The two sentinels differ from each other and from every
-/// allocated arm id, so an edge with an unknown endpoint always reports
-/// `crosses_lexical_arm() == true` — the conservative direction (design §6:
-/// every ambiguity resolves toward `NameOnly`, never toward a proof).
+/// Sentinel arm ids for an endpoint whose line is absent from the function's
+/// lexical-arm tree — an endpoint the language-specific builders emitted at a
+/// line `statements_in_function` never reported. The two sentinels differ from
+/// each other and from every allocated arm id, and each is its own degenerate
+/// subtree, so they are incomparable with everything: a *sequential* edge with
+/// an unknown endpoint always reports `crosses_lexical_arm() == true`, the
+/// conservative direction (design §6: every ambiguity resolves toward
+/// `NameOnly`, never toward a proof).
 const UNKNOWN_FROM_ARM: u32 = u32::MAX;
 const UNKNOWN_TO_ARM: u32 = u32::MAX - 1;
+
+/// Which builder emitted a CFG edge. Recorded by `EdgeSink` at the push site,
+/// never inferred from position afterwards.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EdgeOrigin {
+    /// The fall-through loop in `build_function_cfg`, which walks the globally
+    /// sorted, line-deduplicated statement universe. This is the only builder
+    /// that can invent a join between two lexical arms.
+    Sequential,
+    /// Any structural builder — branch edges, loop back-edges, `goto`, C/C++
+    /// switch fall-through, and the per-language arms. These edges are derived
+    /// from the construct itself, so they are real control flow whatever arms
+    /// their endpoints are in.
+    Structured,
+}
+
+/// One lexical arm, as a preorder interval: `id` is the arm and `subtree_last`
+/// is the largest arm id inside it. Arm `a` contains arm `b` iff
+/// `a.id <= b.id && b.id <= a.subtree_last` (`LexicalArms` allocates ids in
+/// depth-first preorder, so an arm's descendants are contiguous).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ArmSpan {
+    pub(crate) id: u32,
+    pub(crate) subtree_last: u32,
+}
+
+impl ArmSpan {
+    fn contains(self, other: Self) -> bool {
+        self.id <= other.id && other.id <= self.subtree_last
+    }
+}
 
 /// Lexical provenance for one CFG edge. Internal to the RD pass (item 2 Task 3):
 /// `src/cfg.rs`'s sequential loop consumes the globally sorted, line-deduplicated
 /// `statements_in_function` universe (`src/ast.rs:5778-5791`), so it can join two
-/// statements that are in different lexical branch arms. RD must never call such
-/// an edge a proof.
+/// statements that are in different, mutually exclusive lexical branch arms. RD
+/// must never call such an edge a proof.
 ///
-/// `from_arm` / `to_arm` are `ParsedFile::statement_arms_in_function` ids for the
-/// edge's two endpoint lines, and are only comparable within one function —
-/// which is all that is needed, because `build_function_cfg` never emits an edge
-/// that leaves its function.
+/// `from_arm` / `to_arm` are the endpoints' innermost arms, and are only
+/// comparable within one function — which is all that is needed, because
+/// `build_function_cfg` never emits an edge that leaves its function.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ArmProvenance {
-    pub(crate) from_arm: u32,
-    pub(crate) to_arm: u32,
+    pub(crate) origin: EdgeOrigin,
+    pub(crate) from_arm: ArmSpan,
+    pub(crate) to_arm: ArmSpan,
 }
 
 #[cfg_attr(not(test), allow(dead_code))] // consumed by src/cpg/reaching.rs in item 2 Task 3
 impl ArmProvenance {
+    /// True only for a join the *sequential* loop invented between two
+    /// **incomparable** arms — neither arm contains the other, so the two
+    /// statements are mutually exclusive alternatives and control never runs
+    /// from one into the other.
+    ///
+    /// Deliberately false for:
+    /// - every `Structured` edge (branch, loop back-edge, `goto`, C/C++ switch
+    ///   fall-through, per-language arms) — those come from the construct;
+    /// - a sequential edge that merely *enters* a nested arm (`if` header ->
+    ///   first statement of the then-block) or *leaves* one (last statement of
+    ///   an arm -> the statement after the construct), because one arm contains
+    ///   the other.
+    ///
+    /// True when a sequential edge has an endpoint with no arm at all: the
+    /// sentinels are incomparable with everything.
     pub(crate) fn crosses_lexical_arm(self) -> bool {
-        self.from_arm != self.to_arm
+        matches!(self.origin, EdgeOrigin::Sequential)
+            && !self.from_arm.contains(self.to_arm)
+            && !self.to_arm.contains(self.from_arm)
     }
 }
 
-/// Build intraprocedural CFG edges paired with the lexical arm of each endpoint.
+/// Edge accumulator that records each edge's origin **where it is emitted**.
+///
+/// `push` is the structural default, so a builder added later cannot be
+/// mislabelled `Sequential` by omission; only `build_function_cfg`'s
+/// fall-through loop calls `push_sequential`.
+struct EdgeSink {
+    edges: Vec<CfgEdge>,
+    origins: Vec<EdgeOrigin>,
+}
+
+impl EdgeSink {
+    fn new() -> Self {
+        Self {
+            edges: Vec::new(),
+            origins: Vec::new(),
+        }
+    }
+
+    fn push(&mut self, edge: CfgEdge) {
+        self.edges.push(edge);
+        self.origins.push(EdgeOrigin::Structured);
+    }
+
+    fn push_sequential(&mut self, edge: CfgEdge) {
+        self.edges.push(edge);
+        self.origins.push(EdgeOrigin::Sequential);
+    }
+
+    fn is_empty(&self) -> bool {
+        self.edges.is_empty()
+    }
+
+    fn drain(&mut self) -> impl Iterator<Item = (CfgEdge, EdgeOrigin)> + '_ {
+        self.edges.drain(..).zip(self.origins.drain(..))
+    }
+}
+
+/// Build intraprocedural CFG edges paired with the lexical provenance of each
+/// endpoint.
 ///
 /// This is the single CFG walk; `build_cfg_edges` is its first component. The
 /// edge list — contents *and* order — is exactly what `build_cfg_edges` produced
-/// before this channel existed: `build_function_cfg` is unchanged and is still
-/// called once per `parsed.all_functions()` entry, in the same order.
+/// before this channel existed: `build_function_cfg` emits the same edges in the
+/// same order and is still called once per `parsed.all_functions()` entry.
 pub(crate) fn build_cfg_edges_with_arms(parsed: &ParsedFile) -> Vec<(CfgEdge, ArmProvenance)> {
     let mut out = Vec::new();
-    let mut edges = Vec::new();
+    let mut sink = EdgeSink::new();
     for func_node in parsed.all_functions() {
-        build_function_cfg(func_node, parsed, &mut edges);
-        if edges.is_empty() {
+        build_function_cfg(func_node, parsed, &mut sink);
+        if sink.is_empty() {
             continue;
         }
         let arms = parsed.statement_arms_in_function(&func_node);
-        out.extend(edges.drain(..).map(|edge| {
+        out.extend(sink.drain().map(|(edge, origin)| {
             let provenance = ArmProvenance {
-                from_arm: arms
-                    .get(&edge.from_line)
-                    .copied()
-                    .unwrap_or(UNKNOWN_FROM_ARM),
-                to_arm: arms.get(&edge.to_line).copied().unwrap_or(UNKNOWN_TO_ARM),
+                origin,
+                from_arm: span_of(&arms, edge.from_line, UNKNOWN_FROM_ARM),
+                to_arm: span_of(&arms, edge.to_line, UNKNOWN_TO_ARM),
             };
             (edge, provenance)
         }));
     }
     out
+}
+
+/// The arm interval holding `line`, or a degenerate sentinel span when the line
+/// is not in this function's statement universe.
+fn span_of(arms: &crate::ast::LexicalArms, line: usize, sentinel: u32) -> ArmSpan {
+    match arms.interval_of_line(line) {
+        Some((id, subtree_last)) => ArmSpan { id, subtree_last },
+        None => ArmSpan {
+            id: sentinel,
+            subtree_last: sentinel,
+        },
+    }
 }
 
 /// Build intraprocedural CFG edges for all functions in a parsed file.
@@ -94,7 +193,7 @@ pub fn build_cfg_edges(parsed: &ParsedFile) -> Vec<CfgEdge> {
 }
 
 /// Build CFG edges for a single function.
-fn build_function_cfg(func_node: Node<'_>, parsed: &ParsedFile, edges: &mut Vec<CfgEdge>) {
+fn build_function_cfg(func_node: Node<'_>, parsed: &ParsedFile, edges: &mut EdgeSink) {
     let stmts = parsed.statements_in_function(&func_node);
     if stmts.is_empty() {
         return;
@@ -117,7 +216,10 @@ fn build_function_cfg(func_node: Node<'_>, parsed: &ParsedFile, edges: &mut Vec<
             continue; // No fall-through after return/break/continue/goto
         }
 
-        edges.push(CfgEdge {
+        // The ONLY `Sequential` emit site: this loop walks the globally sorted,
+        // line-deduplicated statement universe, so it is the only builder that
+        // can invent a join between two mutually exclusive lexical arms.
+        edges.push_sequential(CfgEdge {
             file: file.clone(),
             from_line: from,
             to_line: to,
@@ -180,7 +282,7 @@ fn build_branch_edges(
     parsed: &ParsedFile,
     _stmt_map: &BTreeMap<usize, &str>,
     stmt_lines: &[usize],
-    edges: &mut Vec<CfgEdge>,
+    edges: &mut EdgeSink,
 ) {
     let file = &parsed.path;
     collect_branch_edges(func_node, parsed, stmt_lines, file, edges);
@@ -191,7 +293,7 @@ fn collect_branch_edges(
     parsed: &ParsedFile,
     stmt_lines: &[usize],
     file: &str,
-    edges: &mut Vec<CfgEdge>,
+    edges: &mut EdgeSink,
 ) {
     let kind = node.kind();
     let line = node.start_position().row + 1;
@@ -273,7 +375,7 @@ fn collect_branch_edges(
 }
 
 /// Add edges for goto → label targets (C/C++ only).
-fn build_goto_edges(func_node: Node<'_>, parsed: &ParsedFile, edges: &mut Vec<CfgEdge>) {
+fn build_goto_edges(func_node: Node<'_>, parsed: &ParsedFile, edges: &mut EdgeSink) {
     let gotos = parsed.goto_statements(&func_node);
     let labels = parsed.label_sections(&func_node);
 
@@ -298,7 +400,7 @@ fn build_loop_back_edges(
     func_node: Node<'_>,
     parsed: &ParsedFile,
     stmt_lines: &[usize],
-    edges: &mut Vec<CfgEdge>,
+    edges: &mut EdgeSink,
 ) {
     collect_loop_back_edges(func_node, parsed, stmt_lines, edges);
 }
@@ -307,7 +409,7 @@ fn collect_loop_back_edges(
     node: Node<'_>,
     parsed: &ParsedFile,
     stmt_lines: &[usize],
-    edges: &mut Vec<CfgEdge>,
+    edges: &mut EdgeSink,
 ) {
     if parsed.language.is_loop_node(node.kind()) {
         let loop_line = node.start_position().row + 1;
@@ -355,7 +457,7 @@ fn build_python_edges(
     node: Node<'_>,
     parsed: &ParsedFile,
     stmt_lines: &[usize],
-    edges: &mut Vec<CfgEdge>,
+    edges: &mut EdgeSink,
 ) {
     let kind = node.kind();
 
@@ -435,12 +537,7 @@ fn build_python_edges(
 /// `defer` statements execute at function exit. We add edges from each
 /// return point to each defer statement in the function.
 /// `select` is similar to switch — each case is a branch target.
-fn build_go_edges(
-    node: Node<'_>,
-    parsed: &ParsedFile,
-    stmt_lines: &[usize],
-    edges: &mut Vec<CfgEdge>,
-) {
+fn build_go_edges(node: Node<'_>, parsed: &ParsedFile, stmt_lines: &[usize], edges: &mut EdgeSink) {
     // Only process at function level — collect all defers and returns
     let func_types = parsed.language.function_node_types();
     if !func_types.contains(&node.kind()) {
@@ -488,7 +585,7 @@ fn collect_go_select_edges(
     node: Node<'_>,
     parsed: &ParsedFile,
     stmt_lines: &[usize],
-    edges: &mut Vec<CfgEdge>,
+    edges: &mut EdgeSink,
 ) {
     if node.kind() == "select_statement" {
         let select_line = node.start_position().row + 1;
@@ -528,7 +625,7 @@ fn build_rust_edges(
     node: Node<'_>,
     parsed: &ParsedFile,
     stmt_lines: &[usize],
-    edges: &mut Vec<CfgEdge>,
+    edges: &mut EdgeSink,
 ) {
     let kind = node.kind();
 
@@ -590,7 +687,7 @@ fn build_try_catch_edges(
     node: Node<'_>,
     parsed: &ParsedFile,
     stmt_lines: &[usize],
-    edges: &mut Vec<CfgEdge>,
+    edges: &mut EdgeSink,
 ) {
     if node.kind() == "try_statement" {
         let try_line = node.start_position().row + 1;
@@ -651,7 +748,7 @@ fn build_try_catch_edges(
 ///
 /// In languages with fall-through (C, C++, JS, Java), execution falls from
 /// one case body into the next unless a `break` terminates it.
-fn build_switch_fallthrough_edges(node: Node<'_>, parsed: &ParsedFile, edges: &mut Vec<CfgEdge>) {
+fn build_switch_fallthrough_edges(node: Node<'_>, parsed: &ParsedFile, edges: &mut EdgeSink) {
     if node.kind() == "switch_statement" {
         let mut cursor = node.walk();
         let mut case_bodies: Vec<Node<'_>> = Vec::new();
@@ -1189,10 +1286,11 @@ int f(int c) {
         );
 
         // `x = 2` (line 5) and `x = 3` (line 7) are in DIFFERENT lexical arms.
+        // Compare the FROM-arm identity specifically, not the whole provenance.
         let arm_of = |line: usize| {
             arms.iter()
                 .find(|(e, _)| e.from_line == line)
-                .map(|(_, a)| *a)
+                .map(|(_, a)| a.from_arm.id)
                 .unwrap_or_else(|| panic!("no CFG edge out of line {line}"))
         };
         assert_ne!(
@@ -1201,17 +1299,154 @@ int f(int c) {
             "then-arm and else-arm statements must not share an arm id"
         );
 
-        // The globally-sorted sequential loop can emit `x = 2` -> `x = 3`, which
-        // crosses arms. That edge must be *flagged*, not deleted.
-        let cross = arms
+        // The globally-sorted sequential loop emits `x = 2` -> `x = 3`, which
+        // crosses arms. That edge must exist and be *flagged*, not deleted.
+        let (_, cross) = arms
             .iter()
-            .find(|(e, _)| e.from_line == 5 && e.to_line == 7);
-        if let Some((_, arm)) = cross {
+            .find(|(e, _)| e.from_line == 5 && e.to_line == 7)
+            .expect("the sequential loop must emit the 5->7 then->else join");
+        assert!(
+            cross.crosses_lexical_arm(),
+            "a 5->7 sequential edge crosses arms and must say so, got {cross:?}"
+        );
+    }
+
+    /// Helper: `(from, to)` of every edge whose provenance says it crosses arms.
+    fn flagged_pairs(parsed: &ParsedFile) -> Vec<(usize, usize)> {
+        crate::cfg::build_cfg_edges_with_arms(parsed)
+            .iter()
+            .filter(|(_, a)| a.crosses_lexical_arm())
+            .map(|(e, _)| (e.from_line, e.to_line))
+            .collect()
+    }
+
+    /// Only the join the sequential fall-through loop INVENTED between two
+    /// lexical arms may be flagged. Structured edges (the branch edges the `if`
+    /// itself emits) and sequential edges that merely enter or leave a nested
+    /// arm are real control flow and must not be.
+    #[test]
+    fn only_spurious_sequential_arm_crossings_are_flagged() {
+        let source = r#"
+int f(int c) {
+    int x = 1;
+    if (c) {
+        x = 2;
+    } else {
+        x = 3;
+    }
+    return x;
+}
+"#;
+        let parsed = ParsedFile::parse("d.c", source, Language::C).unwrap();
+        let flagged = flagged_pairs(&parsed);
+        let all: Vec<(usize, usize)> = crate::cfg::build_cfg_edges(&parsed)
+            .iter()
+            .map(|e| (e.from_line, e.to_line))
+            .collect();
+
+        // 5->7 is the invented then-arm -> else-arm join. It must exist and be flagged.
+        assert!(
+            all.contains(&(5, 7)),
+            "the sequential loop must still emit the 5->7 join, got {all:?}"
+        );
+        assert!(
+            flagged.contains(&(5, 7)),
+            "the invented then->else join 5->7 must be flagged, flagged={flagged:?}"
+        );
+
+        // Everything else is genuine control flow and must NOT be flagged:
+        //   4->5 header -> then-arm (sequential AND structured branch edge)
+        //   4->7 header -> else-arm (structured branch edge)
+        //   7->9 else-arm -> after the if (sequential arm exit)
+        for pair in [(4usize, 5usize), (4, 7), (5, 9), (7, 9)] {
             assert!(
-                arm.crosses_lexical_arm(),
-                "a 5->7 sequential edge crosses arms and must say so"
+                !flagged.contains(&pair),
+                "{pair:?} is genuine control flow and must not be flagged, flagged={flagged:?}"
             );
         }
+        assert_eq!(
+            flagged,
+            vec![(5, 7)],
+            "exactly one edge in this diamond crosses arms"
+        );
+    }
+
+    /// A loop back-edge is emitted by `build_loop_back_edges`, not by the
+    /// sequential loop. It is real control flow and must never be flagged.
+    #[test]
+    fn loop_back_edge_is_not_an_arm_crossing() {
+        let source = r#"
+void f() {
+    int i = 0;
+    while (i < 10) {
+        i = i + 1;
+    }
+    int done = 1;
+}
+"#;
+        let parsed = ParsedFile::parse("d.c", source, Language::C).unwrap();
+        let all: Vec<(usize, usize)> = crate::cfg::build_cfg_edges(&parsed)
+            .iter()
+            .map(|e| (e.from_line, e.to_line))
+            .collect();
+        assert!(
+            all.contains(&(5, 4)),
+            "the loop back-edge 5->4 must exist, got {all:?}"
+        );
+        let flagged = flagged_pairs(&parsed);
+        assert!(
+            !flagged.contains(&(5, 4)),
+            "a loop back-edge is real control flow and must not be flagged, flagged={flagged:?}"
+        );
+        // Entering and leaving the loop body are genuine too.
+        for pair in [(4usize, 5usize), (5, 7)] {
+            assert!(
+                !flagged.contains(&pair),
+                "{pair:?} enters/leaves the loop body and must not be flagged, flagged={flagged:?}"
+            );
+        }
+        assert!(
+            flagged.is_empty(),
+            "no edge in this loop crosses arms, flagged={flagged:?}"
+        );
+    }
+
+    /// C `switch` cases are NOT mutually exclusive lexical arms — control falls
+    /// from one case into the next, which `test_c_switch_fallthrough` pins as
+    /// genuine. A case->case edge must therefore never be flagged.
+    #[test]
+    fn c_switch_case_fallthrough_is_not_an_arm_crossing() {
+        let source = r#"
+void f(int x) {
+    switch (x) {
+        case 1:
+            a = 1;
+        case 2:
+            b = 2;
+            break;
+        case 3:
+            c = 3;
+    }
+}
+"#;
+        let parsed = ParsedFile::parse("d.c", source, Language::C).unwrap();
+        let all: Vec<(usize, usize)> = crate::cfg::build_cfg_edges(&parsed)
+            .iter()
+            .map(|e| (e.from_line, e.to_line))
+            .collect();
+        assert!(
+            all.contains(&(5, 7)),
+            "case 1 -> case 2 fall-through must exist, got {all:?}"
+        );
+        let flagged = flagged_pairs(&parsed);
+        assert!(
+            !flagged.contains(&(5, 7)),
+            "C switch case->case fall-through is genuine and must not be flagged, flagged={flagged:?}"
+        );
+        assert!(
+            flagged.is_empty(),
+            "no edge in a C switch crosses arms, flagged={flagged:?}"
+        );
     }
 
     /// The arm map must be TOTAL over `statements_in_function`'s line universe:
@@ -1262,25 +1497,81 @@ int f(int c) {
                 let missing: Vec<usize> = stmt_lines
                     .iter()
                     .copied()
-                    .filter(|l| !arms.contains_key(l))
+                    .filter(|l| arms.arm_of_line(*l).is_none())
                     .collect();
                 assert!(
                     missing.is_empty(),
-                    "{path}: statement lines with no lexical arm: {missing:?} (universe {stmt_lines:?}, arms {arms:?})"
+                    "{path}: statement lines with no lexical arm: {missing:?} (universe {stmt_lines:?})"
                 );
             }
         }
 
-        // ...and the map must actually discriminate: a diamond has at least two
-        // distinct arms, so the channel is not uniformly zero (the Step-5b stub).
+        // Multi-arm tagging is asserted only where the statement universe
+        // actually CONTAINS the arms. Today that is C: `collect_statements`
+        // recurses through `compound_statement`, so both halves of the diamond
+        // and the loop body are in the universe.
         let parsed = ParsedFile::parse(cases[0].0, cases[0].2, cases[0].1).unwrap();
         let func = parsed.all_functions()[0];
         let arms = parsed.statement_arms_in_function(&func);
-        let distinct: std::collections::BTreeSet<u32> = arms.values().copied().collect();
         assert!(
-            distinct.len() >= 3,
-            "a diamond + loop + switch must produce several arms, got {distinct:?}"
+            arms.distinct_arms() >= 3,
+            "C: a diamond + loop must tag at least 3 distinct arms, got {}",
+            arms.distinct_arms()
         );
+
+        // The Python and TypeScript cases above CANNOT assert that, and saying so
+        // out loud is the point: `except_clause` / `catch_clause` /
+        // `finally_clause` are neither block-ish kinds nor control-flow kinds, so
+        // `collect_nested_statements` skips them entirely and the handler bodies
+        // never enter `statements_in_function`. The totality assertion above is
+        // therefore vacuous for those arms. Task 0b closes this gap; when it
+        // lands these two assertions FLIP and this test must be updated to assert
+        // multi-arm tagging for Python and TypeScript too.
+        let py = ParsedFile::parse(cases[1].0, cases[1].2, cases[1].1).unwrap();
+        let py_lines: Vec<usize> = py
+            .statements_in_function(&py.all_functions()[0])
+            .into_iter()
+            .map(|(l, _)| l)
+            .collect();
+        // Positive first, so the negatives below cannot pass by mis-numbering:
+        // the `if`/`else` arms and the `try` BODY are in the universe.
+        assert!(
+            py_lines.contains(&4) && py_lines.contains(&6) && py_lines.contains(&8),
+            "python universe must hold the if-arm (4), else-arm (6) and try body (8): {py_lines:?}"
+        );
+        for (line, what) in [
+            (10usize, "`except` handler body `x = 5`"),
+            (12, "`finally` body `x = 6`"),
+        ] {
+            assert!(
+                !py_lines.contains(&line),
+                "TASK 0b TRIPWIRE: python {what} (line {line}) is now in the CFG universe \
+                 {py_lines:?} — the gap this test documents is closed; assert multi-arm \
+                 tagging for Python here instead of this negative"
+            );
+        }
+
+        let ts = ParsedFile::parse(cases[4].0, cases[4].2, cases[4].1).unwrap();
+        let ts_lines: Vec<usize> = ts
+            .statements_in_function(&ts.all_functions()[0])
+            .into_iter()
+            .map(|(l, _)| l)
+            .collect();
+        assert!(
+            ts_lines.contains(&4),
+            "typescript universe must hold the try body (4): {ts_lines:?}"
+        );
+        for (line, what) in [
+            (6usize, "`catch` handler body `x = 3`"),
+            (8, "`finally` body `x = 4`"),
+        ] {
+            assert!(
+                !ts_lines.contains(&line),
+                "TASK 0b TRIPWIRE: typescript {what} (line {line}) is now in the CFG universe \
+                 {ts_lines:?} — the gap this test documents is closed; assert multi-arm \
+                 tagging for TypeScript here instead of this negative"
+            );
+        }
     }
 
     /// Edge case for the fallback path: an endpoint line that is absent from the
@@ -1289,27 +1580,47 @@ int f(int c) {
     /// fabricated proof (design §6).
     #[test]
     fn unknown_endpoint_arms_report_crossing() {
+        let span = |id: u32, subtree_last: u32| ArmSpan { id, subtree_last };
+        let sentinel_from = span(UNKNOWN_FROM_ARM, UNKNOWN_FROM_ARM);
+        let sentinel_to = span(UNKNOWN_TO_ARM, UNKNOWN_TO_ARM);
+        let seq = |from_arm, to_arm| ArmProvenance {
+            origin: EdgeOrigin::Sequential,
+            from_arm,
+            to_arm,
+        };
+
         assert_ne!(UNKNOWN_FROM_ARM, UNKNOWN_TO_ARM);
-        assert!(ArmProvenance {
-            from_arm: UNKNOWN_FROM_ARM,
-            to_arm: UNKNOWN_TO_ARM,
+        // Root arm 0 of a function with 3 nested arms.
+        let root = span(0, 3);
+
+        // A sequential edge with an unknown endpoint always crosses.
+        assert!(seq(sentinel_from, sentinel_to).crosses_lexical_arm());
+        assert!(seq(root, sentinel_to).crosses_lexical_arm());
+        assert!(seq(sentinel_from, root).crosses_lexical_arm());
+
+        // Same arm, or one arm containing the other, never crosses.
+        assert!(!seq(span(2, 2), span(2, 2)).crosses_lexical_arm());
+        assert!(!seq(root, span(2, 2)).crosses_lexical_arm(), "descent");
+        assert!(!seq(span(2, 2), root).crosses_lexical_arm(), "ascent");
+        // Two incomparable (sibling) arms do.
+        assert!(seq(span(1, 1), span(2, 3)).crosses_lexical_arm());
+
+        // A STRUCTURED edge never crosses, whatever its arms — including the
+        // sentinel case, because origin gates the whole predicate.
+        for (from_arm, to_arm) in [
+            (span(1, 1), span(2, 3)),
+            (sentinel_from, sentinel_to),
+            (root, sentinel_to),
+        ] {
+            assert!(
+                !ArmProvenance {
+                    origin: EdgeOrigin::Structured,
+                    from_arm,
+                    to_arm,
+                }
+                .crosses_lexical_arm(),
+                "structured edges come from the construct and never cross"
+            );
         }
-        .crosses_lexical_arm());
-        assert!(ArmProvenance {
-            from_arm: 0,
-            to_arm: UNKNOWN_TO_ARM,
-        }
-        .crosses_lexical_arm());
-        assert!(ArmProvenance {
-            from_arm: UNKNOWN_FROM_ARM,
-            to_arm: 0,
-        }
-        .crosses_lexical_arm());
-        // Two statements in the SAME arm are the only non-crossing shape.
-        assert!(!ArmProvenance {
-            from_arm: 7,
-            to_arm: 7,
-        }
-        .crosses_lexical_arm());
     }
 }
