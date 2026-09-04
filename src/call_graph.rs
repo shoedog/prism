@@ -5739,30 +5739,49 @@ pub(crate) fn python_imported_class_route(
     }
 }
 
+pub(crate) fn python_imported_class_proof_keys(
+    import_bindings: &BTreeMap<String, Vec<ImportBinding>>,
+    indexed_files: &BTreeSet<String>,
+    clean_class_spans: &BTreeMap<(String, String), (usize, usize)>,
+) -> BTreeSet<(String, String, String, String)> {
+    let mut proven = BTreeSet::new();
+    for (caller_file, bindings) in import_bindings {
+        for receiver_type in bindings.iter().map(|binding| binding.local.as_str()) {
+            if let PythonImportedClassRoute::Proven {
+                defining_file,
+                owner,
+            } = python_imported_class_route(
+                caller_file,
+                receiver_type,
+                Some(bindings),
+                indexed_files,
+                clean_class_spans,
+            ) {
+                proven.insert((
+                    caller_file.clone(),
+                    receiver_type.to_string(),
+                    defining_file,
+                    owner,
+                ));
+            }
+        }
+    }
+    proven
+}
+
 fn python_imported_receiver_types(
     import_bindings: &BTreeMap<String, Vec<ImportBinding>>,
     indexed_files: &BTreeSet<String>,
     clean_class_spans: &BTreeMap<(String, String), (usize, usize)>,
 ) -> BTreeMap<String, BTreeSet<String>> {
     let mut proven = BTreeMap::new();
-    for (caller_file, bindings) in import_bindings {
-        for receiver_type in bindings.iter().map(|binding| binding.local.as_str()) {
-            if matches!(
-                python_imported_class_route(
-                    caller_file,
-                    receiver_type,
-                    Some(bindings),
-                    indexed_files,
-                    clean_class_spans,
-                ),
-                PythonImportedClassRoute::Proven { .. }
-            ) {
-                proven
-                    .entry(caller_file.clone())
-                    .or_insert_with(BTreeSet::new)
-                    .insert(receiver_type.to_string());
-            }
-        }
+    for (caller_file, receiver_type, _, _) in
+        python_imported_class_proof_keys(import_bindings, indexed_files, clean_class_spans)
+    {
+        proven
+            .entry(caller_file)
+            .or_insert_with(BTreeSet::new)
+            .insert(receiver_type);
     }
     proven
 }
@@ -6344,6 +6363,52 @@ mod tests {
         let span = cg.method_class_span.get(fid).expect("span recorded");
         assert_eq!(span.0, 0);
         assert!(span.1 > span.0);
+    }
+
+    #[test]
+    fn python_imported_class_proof_key_ignores_direct_method_body_changes() {
+        use crate::languages::Language::Python;
+
+        let build = |method_body: &str| {
+            let mut files = BTreeMap::new();
+            files.insert(
+                "app.py".to_string(),
+                ParsedFile::parse(
+                    "app.py",
+                    "from pkg.models import Client as ImportedClient\ndef run(client: ImportedClient):\n    client.send()\n",
+                    Python,
+                )
+                .unwrap(),
+            );
+            files.insert(
+                "pkg/models.py".to_string(),
+                ParsedFile::parse(
+                    "pkg/models.py",
+                    &format!("class Client:\n    def send(self):\n        {method_body}\n"),
+                    Python,
+                )
+                .unwrap(),
+            );
+            CallGraph::build(&files)
+        };
+        let before = build("pass");
+        let after = build("return 1");
+        let proof_keys = |cg: &CallGraph| {
+            python_imported_class_proof_keys(
+                &cg.import_bindings,
+                &cg.indexed_files,
+                &cg.clean_class_spans,
+            )
+        };
+
+        let expected = BTreeSet::from([(
+            "app.py".to_string(),
+            "ImportedClient".to_string(),
+            "pkg/models.py".to_string(),
+            "Client".to_string(),
+        )]);
+        assert_eq!(proof_keys(&before), expected);
+        assert_eq!(proof_keys(&after), expected);
     }
 
     fn build_rust_call_graph(source: &str) -> CallGraph {
