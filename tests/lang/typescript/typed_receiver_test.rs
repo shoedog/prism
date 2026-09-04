@@ -238,6 +238,8 @@ fn test_typescript_receiver_bindings_include_enclosing_scopes_and_self_names() {
              function loop(items: Foo[]) { for (const api of items) { api.m(); } }\n\
              function loopEnded(items: Foo[]) { for (const api of items) {} api.m(); }\n\
              function switched() { switch (1) { case 1: const api: Foo = make(); api.m(); } }\n\
+             function enumBinding() { enum api { value } api.m(); }\n\
+             function abstractClassBinding() { abstract class api {} api.m(); }\n\
              function switchEnded() { switch (1) { case 1: { const api: Foo = make(); } } api.m(); }\n",
         ),
     ]);
@@ -249,6 +251,8 @@ fn test_typescript_receiver_bindings_include_enclosing_scopes_and_self_names() {
         "run",
         "loop",
         "switched",
+        "enumBinding",
+        "abstractClassBinding",
     ] {
         let call = site(&cg, caller, "m");
         assert!(call.receiver_lexically_bound, "{caller}");
@@ -271,6 +275,74 @@ fn test_typescript_receiver_bindings_include_enclosing_scopes_and_self_names() {
                 && candidate.target.file == "api.ts"
         }));
     }
+}
+
+#[test]
+fn test_typescript_value_declarations_bind_but_type_only_and_nested_names_do_not_leak() {
+    for (label, declaration) in [
+        ("ambient function", "declare function api(): void;"),
+        ("namespace", "namespace api {}"),
+        ("module", "module api {}"),
+        (
+            "import alias",
+            "declare namespace source { const value: object; } import api = source.value;",
+        ),
+    ] {
+        let source =
+            format!("import api from './api';\n{declaration}\nfunction run() {{ api.m(); }}\n");
+        let cg = graph_files(&[
+            ("api.ts", "export function m() {}\n"),
+            ("svc.ts", source.as_str()),
+        ]);
+        let call = site(&cg, "run", "m");
+        assert!(call.receiver_lexically_bound, "{label}");
+        assert!(
+            cg.resolve_call_site(&call).iter().all(|candidate| {
+                candidate.kind != ResolutionKind::ImportQualified
+                    || candidate.confidence != ResolutionConfidence::Exact
+                    || candidate.target.file != "api.ts"
+            }),
+            "{label} resolved through the shadowed module import"
+        );
+    }
+
+    for (label, declaration) in [
+        ("interface", "interface api {}"),
+        ("type alias", "type api = object;"),
+        ("nested namespace", "namespace other { const api = {}; }"),
+    ] {
+        let source =
+            format!("import api from './api';\n{declaration}\nfunction run() {{ api.m(); }}\n");
+        let cg = graph_files(&[
+            ("api.ts", "export function m() {}\n"),
+            ("svc.ts", source.as_str()),
+        ]);
+        let call = site(&cg, "run", "m");
+        assert!(!call.receiver_lexically_bound, "{label}");
+        assert!(
+            cg.resolve_call_site(&call).iter().any(|candidate| {
+                candidate.kind == ResolutionKind::ImportQualified
+                    && candidate.confidence == ResolutionConfidence::Exact
+                    && candidate.target.file == "api.ts"
+            }),
+            "{label} hid the visible module import"
+        );
+    }
+
+    let cg = graph_files(&[
+        ("api.ts", "export function m() {}\n"),
+        (
+            "svc.ts",
+            "import api from './api';\nnamespace other { const api = {}; export function run() { api.m(); } }\n",
+        ),
+    ]);
+    let call = site(&cg, "run", "m");
+    assert!(call.receiver_lexically_bound, "namespace-contained capture");
+    assert!(cg.resolve_call_site(&call).iter().all(|candidate| {
+        candidate.kind != ResolutionKind::ImportQualified
+            || candidate.confidence != ResolutionConfidence::Exact
+            || candidate.target.file != "api.ts"
+    }));
 }
 
 #[test]

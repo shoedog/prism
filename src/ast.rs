@@ -2851,6 +2851,57 @@ impl ParsedFile {
             return self_name_matches && receiver_is_inside;
         }
 
+        if !is_root
+            && matches!(
+                node.kind(),
+                "interface_declaration" | "type_alias_declaration"
+            )
+        {
+            return false;
+        }
+
+        if !is_root
+            && matches!(
+                node.kind(),
+                "abstract_class_declaration" | "enum_declaration" | "function_signature"
+            )
+        {
+            return node
+                .child_by_field_name("name")
+                .is_some_and(|name| self.node_text(&name) == receiver_name)
+                && self.js_ts_lexical_scope_reaches_receiver(&node, receiver, root_scope_id);
+        }
+
+        if !is_root && node.kind() == "import_alias" {
+            return node
+                .named_child(0)
+                .is_some_and(|name| self.node_text(&name) == receiver_name)
+                && self.js_ts_lexical_scope_reaches_receiver(&node, receiver, root_scope_id);
+        }
+
+        if !is_root && matches!(node.kind(), "internal_module" | "module") {
+            let name_binds =
+                node.child_by_field_name("name").is_some_and(|name| {
+                    name.kind() == "identifier" && self.node_text(&name) == receiver_name
+                }) && self.js_ts_lexical_scope_reaches_receiver(&node, receiver, root_scope_id);
+            if name_binds {
+                return true;
+            }
+
+            let mut current = Some(*receiver);
+            let mut receiver_is_inside = false;
+            while let Some(ancestor) = current {
+                if ancestor.id() == node.id() {
+                    receiver_is_inside = true;
+                    break;
+                }
+                current = ancestor.parent();
+            }
+            if !receiver_is_inside {
+                return false;
+            }
+        }
+
         if node.is_error() || node.is_missing() {
             return true;
         }
