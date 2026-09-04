@@ -307,7 +307,7 @@ git commit -m "feat(phase0): prism::api facade; main.rs consumes it; same-base b
 
 **Files:**
 - Create: `src/targets/mod.rs`, `src/targets/model.rs`, `src/targets/mapping.rs`
-- Modify: `src/lib.rs` (`pub mod targets;`), `src/main.rs` (`Command::Targets(TargetsArgs)` + `run_targets`)
+- Modify: `src/lib.rs` (`pub mod targets;`), `src/main.rs` (`Command::Targets(TargetsArgs)` + `run_targets`), `src/api/mod.rs` (add the spec §2.3.2 re-export `pub use crate::targets::{project, TargetsDocument, TargetsMeta};` — deferred from Task 3 by controller ruling because the module did not exist yet)
 - Create: `tests/fixtures/targets/` (repo: `client.py`, `svc.py`, `diff.json`, and `old/` copy for `--old-repo` if used), `tests/cli/targets_test.rs`, `tests/integration/targets_mapping_test.rs`; Modify: `tests/cli/main.rs`, `tests/integration/main.rs`
 - Read-only reference: `docs/contracts/targets.schema.json` (authoritative; do not edit)
 
