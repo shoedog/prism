@@ -1,6 +1,6 @@
 # Python module-qualified typed-receiver ownership
 
-**Status:** implemented and accepted locally; publication pending owner
+**Status:** implemented and accepted locally; publication authorized
 **Recorded:** 2026-09-04
 **Exact base:** `5e54d48381f329cae370557eeac35bc00ff7b801` (PR #226 merge)
 **Scope:** Python `import module [as alias]` plus `alias.Class` annotations and constructor locals, direct methods only

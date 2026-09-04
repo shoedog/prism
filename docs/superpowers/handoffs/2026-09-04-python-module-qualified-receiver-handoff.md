@@ -6,7 +6,7 @@
 
 ## 0. Current verdict
 
-**ACCEPTED LOCALLY; PUBLICATION PENDING OWNER.** This next adjacent Fork-A production increment after PR #226 proves Python receiver ownership for exactly `import module [as alias]` plus `alias.Class`, while retaining direct-method and fail-closed boundaries.
+**ACCEPTED LOCALLY; PUBLICATION AUTHORIZED.** This next adjacent Fork-A production increment after PR #226 proves Python receiver ownership for exactly `import module [as alias]` plus `alias.Class`, while retaining direct-method and fail-closed boundaries.
 
 ## 1. Authority boundary
 
@@ -46,5 +46,5 @@ Declared review cap: two rounds.
 
 - Branch/worktree: `py-qualified-receiver-owner` at `/private/tmp/slicing-py-qualified-receiver`.
 - Base/main at branch creation: `5e54d48381f329cae370557eeac35bc00ff7b801`.
-- Design checkpoint: `4096cb6`; intentional RED checkpoint: `1df642a`; focused-green implementation checkpoint: `411b9b9`; gate-fix/Tier-A checkpoint: `3de1edb`; acceptance handoff: the final documentation checkpoint atop that sequence. Publication is not authorized for this successor increment.
+- Design checkpoint: `4096cb6`; intentional RED checkpoint: `1df642a`; focused-green implementation checkpoint: `411b9b9`; gate-fix/Tier-A checkpoint: `3de1edb`; acceptance handoff: the final documentation checkpoint atop that sequence. The owner authorized publication and merge on 2026-09-04; live PR state remains GitHub-owned evidence.
 - Root checkout's pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
