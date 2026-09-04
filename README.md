@@ -132,28 +132,30 @@ claude mcp add --transport stdio prism \
   -- /abs/path/to/prism/target/release/prism-mcp --repo /abs/path/to/your/repo
 ```
 
-**See [`docs/MCP.md`](docs/MCP.md)** for the full guide: the plugin, Codex/Kiro config, all eight
+**See [`docs/MCP.md`](docs/MCP.md)** for the full guide: the plugin, Codex/Kiro config, all nine
 tools, cache warming, the gotchas, and the bundled **skills** ([`skills/`](skills/)) that teach an agent
 *how* to use the connection. One server instance navigates one repo.
 
-`prism-mcp` registers **eight tools**: six read-only navigation tools (`nav_nodes_at`, `nav_callers`,
-`nav_callees`, `nav_ego_graph`, `nav_module_deps`, `nav_repo_map`), one read-only reasoning tool
-(`taint_reaches`), and one non-destructive local-state tool (`refresh_index`).
+`prism-mcp` registers **nine tools**: seven read-only navigation tools (`nav_nodes_at`,
+`nav_symbol_spans`, `nav_callers`, `nav_callees`, `nav_ego_graph`, `nav_module_deps`,
+`nav_repo_map`), one read-only reasoning tool (`taint_reaches`), and one non-destructive local-state
+tool (`refresh_index`).
 
 ### `prism nav` — the same navigation, no MCP client needed
 
-The six `nav_*` queries are also a direct, first-class CLI subcommand — useful for scripting or when
+The seven `nav_*` queries are also a direct, first-class CLI subcommand — useful for scripting or when
 there's no MCP client in the loop:
 
 ```bash
 prism nav callers --repo . --symbol handle_request
+prism nav symbol-spans --repo . --symbol handle_request --file src/server.rs --format json
 prism nav repo-map --repo . --format json
 ```
 
-Ten subcommands in total: `nodes-at`, `callers`, `callees`, `ego`, `module-deps`, `repo-map`,
-`call-stats`, `interface-manifest`, `functions`, `taint-reaches`. `--no-cache`/`--cache-dir` on `nav`
-gate the whole-repo navigation cache — a separate cache from the diff-review CPG cache (see
-[CPG Caching](#cpg-caching)).
+Eleven subcommands in total: `nodes-at`, `symbol-spans`, `callers`, `callees`, `ego`, `module-deps`,
+`repo-map`, `call-stats`, `interface-manifest`, `functions`, `taint-reaches`.
+`--no-cache`/`--cache-dir` on `nav` gate the whole-repo navigation cache — a separate cache from the
+diff-review CPG cache (see [CPG Caching](#cpg-caching)).
 
 ---
 

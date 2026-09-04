@@ -125,14 +125,16 @@ Kiro names the tools **bare** (`nav_repo_map`), not `mcp__prism__*`.
 
 ## Tools
 
-The six navigation tools plus `taint_reaches` are read-only and return a Prism `Evidence` JSON
-envelope. `refresh_index` is the exception — it changes local server state (not the repo) and
-returns a refresh summary instead of `Evidence`.
+The seven navigation tools plus `taint_reaches` are read-only. Six graph/evidence queries and
+`taint_reaches` return a Prism `Evidence` JSON envelope; `nav_symbol_spans` returns its dedicated
+coordinate-only `SymbolSpans` v1 result. `refresh_index` is the exception — it changes local server
+state (not the repo) and returns a refresh summary.
 
 | Tool | Answers | Seed |
 |---|---|---|
 | `nav_repo_map` | The whole-repo module dependency graph. | *(none — call first to orient)* |
 | `nav_nodes_at` | What symbols/nodes are at `{file, line}`? | `{file, line}` (**1-indexed; exact line**) |
+| `nav_symbol_spans` | What are this callable's exact outer/name/body spans, insertion anchors, and indentation? | symbol or location |
 | `nav_callers` | Who calls this symbol / location? (*what breaks if I change X*) | symbol or location |
 | `nav_callees` | What does this symbol / location call? (*what X depends on*) | symbol or location |
 | `nav_ego_graph` | The local call/dependency graph around a seed. | symbol or location |
@@ -143,6 +145,12 @@ returns a refresh summary instead of `Evidence`.
 **Seeding.** Most tools accept either `{kind: "symbol", name: "X"}` (optionally `{file}` to disambiguate)
 or a node returned by `nav_nodes_at`. `nav_nodes_at` is **exact-line** — if it returns empty, aim at the
 symbol's *definition* or *call* line, not a blank/comment line.
+
+**Symbol coordinates.** `nav_symbol_spans` is callable-only and read-only. Its UTF-8 byte offsets are
+end-exclusive; lines are 1-indexed and inclusive. `symbol_span` includes a Python decorator wrapper,
+while `name_span` and `body_span` point to the inner grammar nodes. `body_span` is the raw grammar body
+(including braces/delimiters when that grammar does); null fields have deterministic entries in
+`unavailable`. The result contains no source/body text and does not apply edits.
 
 ---
 
@@ -162,6 +170,8 @@ symbol's *definition* or *call* line, not a blank/comment line.
   type across multiple owner types; not attributed as callers` means real callers may be missing:
   treat "no callers" plus that warning as *unknown*, not *none*.
 - **Read-only.** The server never modifies the repo. It also never executes code.
+- **Coordinates are snapshot-relative.** Apply `nav_symbol_spans` offsets only to the indexed snapshot;
+  stale-session responses carry the same `StaleIndex` warning and metadata as other navigation tools.
 - **Cold first call.** `initialize`, `ping`, and `tools/list` answer immediately while the repository index
   builds in the background. A valid `tools/call` waits up to `--first-call-wait` (20 seconds by default),
   then returns an error-marked `index warming` JSON result if the build is still running. Retry that same
