@@ -560,7 +560,8 @@ of stdout.
 
 The document is validated against
 [`docs/contracts/targets.schema.json`](docs/contracts/targets.schema.json) (JSON Schema Draft
-2020-12; `schema_version` is the const `"1.0"`):
+2020-12; `schema_version` is the const `"1.0"`). Excerpt (fields elided — see the schema for the
+full required-field list per object):
 
 ```json
 {
@@ -586,16 +587,16 @@ sample below is verified on every test run, not just written prose:
 use prism::api::{review, AlgorithmParams, ReviewOptions};
 use prism::slice::{SliceConfig, SlicingAlgorithm};
 use std::fs;
+use tempfile::TempDir;
 
-// A unique temp repo so parallel doc-test processes never collide.
-let repo = std::env::temp_dir().join(format!("prism-api-doctest-{}", std::process::id()));
-let _ = fs::remove_dir_all(&repo);
-fs::create_dir_all(&repo)?;
-fs::write(repo.join("a.py"), "def read():\n    f = open(\"x\")\n    return f\n")?;
+// `TempDir` removes its directory on drop — including on an assertion panic below — so
+// nothing leaks even if this doc-test fails.
+let repo = TempDir::new()?;
+fs::write(repo.path().join("a.py"), "def read():\n    f = open(\"x\")\n    return f\n")?;
 
 let diff_json = r#"{"files":[{"file_path":"a.py","modify_type":"Modified","diff_lines":[2]}]}"#;
 let outcome = review(
-    &ReviewOptions::new(&repo),
+    &ReviewOptions::new(repo.path()),
     diff_json,
     &[SlicingAlgorithm::AbsenceSlice],
     &SliceConfig::default(),
@@ -610,8 +611,6 @@ assert_eq!(
     outcome.run.findings[0].category.as_deref(),
     Some("missing_counterpart")
 );
-
-fs::remove_dir_all(&repo)?;
 ```
 
 `review()` is the one-shot entry point; `load_review_inputs`/`build_context`/`run_review`/

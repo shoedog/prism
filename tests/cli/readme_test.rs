@@ -6,10 +6,20 @@
 //!     `src/main.rs` into `src/cli.rs` (a pure move; `scripts/phase0-byte-control.sh` plus a
 //!     direct `--help`/`--version` `cmp` prove no behaviour changed). This means every README
 //!     example must use flags that actually exist on the real CLI.
-//! (b) The README's documented `--format` value list (the Options-reference table row) equals
-//!     the CLI's `value_parser` allow-list, read programmatically from `Cli::command()` rather
-//!     than duplicated by hand — so the two can never silently drift again.
-//! (c) `prism --help` mentions every format value.
+//! (a2) Neither README.md nor the `prism-code-slicing` skill's SKILL.md may regain a `slicing
+//!     ...` example line — the installed binary is `prism` (Task 5 review, Important 2). This
+//!     is the negative counterpart of (a): (a) proves every *kept* example parses; this proves
+//!     the stale-binary-name examples this task fixed don't quietly come back (a plain parse
+//!     check can't catch that on its own, since `slicing` simply wouldn't match the `prism `
+//!     prefix filter and would be silently skipped rather than flagged).
+//! (b) The README's documented `--format` value list — BOTH the Options-reference table row
+//!     and the "## Output formats" table's `Flag value` column — equals the CLI's
+//!     `value_parser` allow-list, read programmatically from `Cli::command()` rather than
+//!     duplicated by hand, so none of the three can silently drift from each other.
+//! (c) `prism --help`'s `--format` entry's own `[possible values: ...]` line mentions every
+//!     format value (matched against that specific line, not the whole help text — several
+//!     other flags' doc comments also contain the words "review"/"json"/etc., so a bare
+//!     `help.contains(value)` would pass even if `--format` itself listed the wrong values).
 
 use clap::{CommandFactory, Parser};
 use prism::cli::Cli;
@@ -19,6 +29,13 @@ use std::path::Path;
 fn readme_text() -> String {
     fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("README.md"))
         .expect("README.md must be readable")
+}
+
+fn skill_text() -> String {
+    fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("skills/prism-code-slicing/SKILL.md"),
+    )
+    .expect("skills/prism-code-slicing/SKILL.md must be readable")
 }
 
 /// Lines found inside ``` fences (fence markers themselves excluded).
@@ -80,9 +97,28 @@ fn prism_invocation_lines(readme: &str) -> (Vec<String>, usize) {
     (kept, skipped_quoted)
 }
 
+/// Fail if any fenced line in `text` starts with the stale `slicing ` binary invocation — the
+/// installed executable is `prism` (`Cargo.toml`'s `[[bin]] name = "prism"`; no `slicing`
+/// binary exists). This is deliberately independent of `prism_invocation_lines`'s `prism `
+/// prefix filter: a regressed `slicing ...` line would simply fail to match that filter and be
+/// silently skipped, so the positive parse check alone can never catch this regression class.
+fn assert_no_stale_slicing_invocations(source_label: &str, text: &str) {
+    for line in fenced_lines(text) {
+        let trimmed = line.trim();
+        assert!(
+            !trimmed.starts_with("slicing "),
+            "{source_label} regained a `slicing …` example; the binary is `prism` (line: {trimmed:?})"
+        );
+    }
+}
+
 #[test]
 fn every_readme_prism_invocation_parses() {
     let readme = readme_text();
+
+    assert_no_stale_slicing_invocations("README.md", &readme);
+    assert_no_stale_slicing_invocations("skills/prism-code-slicing/SKILL.md", &skill_text());
+
     let (lines, skipped_quoted) = prism_invocation_lines(&readme);
     assert!(
         lines.len() >= 10,
@@ -111,7 +147,7 @@ fn every_readme_prism_invocation_parses() {
 
 /// Extract the `--format` row's value list from the "### Universal flags" options-reference
 /// table: `| \`--format\`, \`-f\` | \`text\` | \`text\`, \`json\`, ... |`.
-fn readme_format_values(readme: &str) -> std::collections::BTreeSet<String> {
+fn readme_options_table_format_values(readme: &str) -> std::collections::BTreeSet<String> {
     let row = readme
         .lines()
         .find(|l| l.trim_start().starts_with("| `--format`"))
@@ -131,6 +167,40 @@ fn readme_format_values(readme: &str) -> std::collections::BTreeSet<String> {
         .collect()
 }
 
+/// Extract the "## Output formats" section's table `Flag value` column (2nd cell of each data
+/// row: `| Text (default) | \`text\` | ... |`). Scoped to that section only — stops at the next
+/// heading of any level (including the "### SARIF ..." subheading) — so it can't accidentally
+/// pick up an unrelated table elsewhere in the file.
+fn readme_output_formats_table_values(readme: &str) -> std::collections::BTreeSet<String> {
+    let mut values = std::collections::BTreeSet::new();
+    let mut in_section = false;
+    for line in readme.lines() {
+        if line.trim() == "## Output formats" {
+            in_section = true;
+            continue;
+        }
+        if !in_section {
+            continue;
+        }
+        if line.trim_start().starts_with('#') {
+            break;
+        }
+        let cells: Vec<&str> = line.split('|').map(|c| c.trim()).collect();
+        if cells.len() < 4 {
+            continue;
+        }
+        let value_cell = cells[2];
+        if value_cell.len() > 2 && value_cell.starts_with('`') && value_cell.ends_with('`') {
+            values.insert(value_cell.trim_matches('`').to_string());
+        }
+    }
+    assert!(
+        !values.is_empty(),
+        "found no `Flag value` entries under the \"## Output formats\" table — has its shape changed?"
+    );
+    values
+}
+
 fn cli_format_values() -> std::collections::BTreeSet<String> {
     let command = Cli::command();
     let format_arg = command
@@ -147,12 +217,40 @@ fn cli_format_values() -> std::collections::BTreeSet<String> {
 #[test]
 fn readme_format_list_matches_cli() {
     let readme = readme_text();
-    let readme_values = readme_format_values(&readme);
     let cli_values = cli_format_values();
+
+    let options_table_values = readme_options_table_format_values(&readme);
     assert_eq!(
-        readme_values, cli_values,
-        "README's --format options-table row must equal the CLI's value_parser allow-list (set comparison)"
+        options_table_values, cli_values,
+        "README's Options-reference --format row must equal the CLI's value_parser allow-list (set comparison)"
     );
+
+    let output_formats_table_values = readme_output_formats_table_values(&readme);
+    assert_eq!(
+        output_formats_table_values, cli_values,
+        "README's \"## Output formats\" table (`Flag value` column) must equal the CLI's value_parser allow-list (set comparison)"
+    );
+}
+
+/// Find the `[possible values: ...]` line belonging specifically to the `--format` entry in
+/// `prism --help` (the first such line after the `-f, --format` entry header) — NOT a bare
+/// substring search over the whole help text. Several other flags (`--review-min-severity`,
+/// `--caller-depth`'s doc comment, etc.) also contain words like "review"/"json" in their own
+/// descriptions, so `help.contains(value)` alone could pass even if `--format` itself listed
+/// the wrong allow-list.
+fn help_format_possible_values_line(help: &str) -> String {
+    let lines: Vec<&str> = help.lines().collect();
+    let start = lines
+        .iter()
+        .position(|l| l.trim_start().starts_with("-f, --format"))
+        .expect("`prism --help` must show the `-f, --format` entry");
+    lines[start..]
+        .iter()
+        .find(|l| l.trim_start().starts_with("[possible values:"))
+        .map(|l| l.trim().to_string())
+        .unwrap_or_else(|| {
+            panic!("`prism --help`'s --format entry must have its own [possible values: ...] line")
+        })
 }
 
 #[test]
@@ -165,10 +263,11 @@ fn help_output_contains_every_format_value() {
         .output()
         .expect("prism --help must run");
     let help = String::from_utf8_lossy(&output.stdout);
+    let possible_values_line = help_format_possible_values_line(&help);
     for value in cli_format_values() {
         assert!(
-            help.contains(&value),
-            "`prism --help` must mention format value {value:?}; help was:\n{help}"
+            possible_values_line.contains(&value),
+            "`prism --help`'s --format [possible values: ...] line must mention {value:?}; line was {possible_values_line:?}"
         );
     }
 }
