@@ -63,8 +63,13 @@ struct ReviewArgs {
     #[arg(short, long, required_unless_present = "list_algorithms")]
     diff: Option<PathBuf>,
 
-    /// Output format: text, json, paper, review, callers, mermaid
-    #[arg(short, long, default_value = "text")]
+    /// Output format: text, json, paper, review, callers, mermaid, sarif
+    #[arg(
+        short,
+        long,
+        default_value = "text",
+        value_parser = ["text", "json", "paper", "review", "callers", "mermaid", "sarif"]
+    )]
     format: String,
 
     /// Maximum number of nodes a single Mermaid diagram may render before truncation.
@@ -740,6 +745,11 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
     // Parse all referenced source files
     let mut files: BTreeMap<String, ParsedFile> = BTreeMap::new();
     let mut sources: BTreeMap<String, String> = BTreeMap::new();
+    // Files the loader skipped (design §2.3.2). Distinct from `parse_warnings`,
+    // which grade files prism DID parse. Only `--format sarif` reads this
+    // today; the stderr text above is unchanged. An unreadable file stays
+    // fatal (the `?` on `fs::read_to_string` below).
+    let mut load_warnings: Vec<String> = Vec::new();
 
     for diff_info in &diff_input.files {
         let file_path = repo.join(&diff_info.file_path);
@@ -750,6 +760,10 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     "Warning: unsupported language for {}, skipping",
                     diff_info.file_path
                 );
+                load_warnings.push(format!(
+                    "skipped unsupported file: {} (unsupported language)",
+                    diff_info.file_path
+                ));
                 continue;
             }
         };
@@ -1075,6 +1089,31 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     std::process::exit(exit_code);
                 }
             }
+            "sarif" => {
+                // SARIF 2.1 (design §2.2). Same trailer as "json"; the
+                // serializer is total, so nothing here can fail but the
+                // pretty-printer.
+                let all_diagram_warnings: Vec<_> = results
+                    .iter()
+                    .flat_map(|r| r.diagram_warnings.iter().cloned())
+                    .collect();
+                let document = output::to_sarif(&output::SarifInputs {
+                    findings: &all_findings,
+                    errors: &all_errors,
+                    parse_warnings: &parse_warnings,
+                    load_warnings: &load_warnings,
+                    algorithms_run: &algorithms_run,
+                    parse_quality: &parse_quality,
+                    files: &files,
+                    sources: &sources,
+                });
+                println!("{}", serde_json::to_string_pretty(&document)?);
+                emit_warnings_to_stderr(&all_diagram_warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &all_diagram_warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
+                }
+            }
             "mermaid" => {
                 let multi_result = MultiSliceResult {
                     version: "1.0".to_string(),
@@ -1154,6 +1193,28 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
             "paper" => {
                 let paper_output = output::to_paper_format(&result.blocks);
                 println!("{}", serde_json::to_string_pretty(&paper_output)?);
+                emit_warnings_to_stderr(&result.diagram_warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
+                }
+            }
+            "sarif" => {
+                // Single-run: no AlgorithmError can exist (a failing algorithm
+                // is a hard `?` above), and `result.warnings` already carries
+                // the parse warnings assigned at the top of this branch.
+                let algorithms_run = vec![algorithm.name().to_string()];
+                let document = output::to_sarif(&output::SarifInputs {
+                    findings: &result.findings,
+                    errors: &[],
+                    parse_warnings: &result.warnings,
+                    load_warnings: &load_warnings,
+                    algorithms_run: &algorithms_run,
+                    parse_quality: &parse_quality,
+                    files: &files,
+                    sources: &sources,
+                });
+                println!("{}", serde_json::to_string_pretty(&document)?);
                 emit_warnings_to_stderr(&result.diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
                 if exit_code != 0 {
