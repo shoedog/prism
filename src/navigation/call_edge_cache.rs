@@ -61,7 +61,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // preserving the existing func-value-field continuation (CPG remains v54).
 // v24: Go B1 Level-3 callback edges and their source-callee identity enter the
 // resolved navigation topology (paired with CPG v55).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 24;
+// v25: Python unaliased dotted-module receiver ownership adds Exact edges
+// (paired with CPG v56).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 25;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -394,8 +396,63 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_pinned_for_go_level3_callbacks() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 24);
+    fn sidecar_round_trip_preserves_python_dotted_receiver_edge() {
+        use crate::ast::ParsedFile;
+        use crate::cpg::CpgContext;
+        use crate::languages::Language::Python;
+
+        let files = BTreeMap::from([
+            (
+                "app.py".to_string(),
+                ParsedFile::parse(
+                    "app.py",
+                    "import pkg.models\ndef run(client: pkg.models.Client):\n    client.send()\n",
+                    Python,
+                )
+                .unwrap(),
+            ),
+            (
+                "pkg/models.py".to_string(),
+                ParsedFile::parse(
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                    Python,
+                )
+                .unwrap(),
+            ),
+        ]);
+        let navigation =
+            crate::navigation::NavigationIndex::from_ctx(CpgContext::build(&files, None));
+        let index = navigation.build_resolved_call_edges();
+        let target = index
+            .incoming_by_target
+            .keys()
+            .find(|target| target.file == "pkg/models.py" && target.name == "send")
+            .cloned()
+            .expect("dotted receiver target");
+        let incoming = &index.incoming_by_target[&target];
+        assert_eq!(incoming.len(), 1);
+        assert_eq!(incoming[0].confidence, ResolutionConfidence::Exact);
+        assert_eq!(incoming[0].kind, ResolutionKind::TypedParam);
+
+        let dir = tempfile::tempdir().unwrap();
+        let fingerprint = fixture_fingerprint();
+        save(dir.path(), &fingerprint, &index).unwrap();
+        let loaded = load(dir.path(), &fingerprint).unwrap().unwrap();
+        assert_eq!(loaded.incoming_by_target[&target].len(), 1);
+        assert_eq!(
+            loaded.incoming_by_target[&target][0].kind,
+            ResolutionKind::TypedParam
+        );
+        assert_eq!(
+            loaded.incoming_by_target[&target][0].confidence,
+            ResolutionConfidence::Exact
+        );
+    }
+
+    #[test]
+    fn sidecar_version_is_pinned_for_python_dotted_module_receivers() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 25);
     }
 
     #[test]

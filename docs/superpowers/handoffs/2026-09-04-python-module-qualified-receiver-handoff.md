@@ -6,7 +6,7 @@
 
 ## 0. Current verdict
 
-**ACCEPTED LOCALLY; PUBLICATION AUTHORIZED.** This next adjacent Fork-A production increment after PR #226 proves Python receiver ownership for exactly `import module [as alias]` plus `alias.Class`, while retaining direct-method and fail-closed boundaries.
+**CLOSED AND MERGED.** PR #227 merged reviewed head `43ee127b803d895a269e238e080c7e3bc4813d45` as `4298e548003cbb59cf506531142d177169a7a28e` on 2026-09-04. This adjacent Fork-A production increment after PR #226 proves Python receiver ownership for exactly `import module [as alias]` plus `alias.Class`, while retaining direct-method and fail-closed boundaries.
 
 ## 1. Authority boundary
 
@@ -30,6 +30,7 @@ Exact requires one clean module-scope `ModuleImport` alias, one indexed module f
 - Tier-A matrix-only passed all 104 rows immediately after a release rebuild.
 - Tier-A quick executed immediately after a second release rebuild and rejected the run solely because the corpus SHA drifted (`3de1edb91c8f != pinned 20c8490591a3`). Its artifact reported 104/104 matrix rows `ok`, zero oracle/SUT error rate, a clean corpus and Prism tree, and no oracle-quiescence failure. This is baseline-validity evidence, not an accepted quick result; no baseline was changed.
 - Removed the four generated Tier-A run/report/snapshot artifacts after inspection; they are reproducible output rather than custody inputs.
+- GitHub CI passed Format Check, Clippy Lint, Test Suite, Language Coverage Matrix, and Coverage before the head-pinned merge.
 
 ## 3. Convergence
 
@@ -46,5 +47,7 @@ Declared review cap: two rounds.
 
 - Branch/worktree: `py-qualified-receiver-owner` at `/private/tmp/slicing-py-qualified-receiver`.
 - Base/main at branch creation: `5e54d48381f329cae370557eeac35bc00ff7b801`.
-- Design checkpoint: `4096cb6`; intentional RED checkpoint: `1df642a`; focused-green implementation checkpoint: `411b9b9`; gate-fix/Tier-A checkpoint: `3de1edb`; acceptance handoff: the final documentation checkpoint atop that sequence. The owner authorized publication and merge on 2026-09-04; live PR state remains GitHub-owned evidence.
+- Design checkpoint: `4096cb6`; intentional RED checkpoint: `1df642a`; focused-green implementation checkpoint: `411b9b9`; gate-fix/Tier-A checkpoint: `3de1edb`; published head: `43ee127`; merge: PR #227 / `4298e548`.
 - Root checkout's pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
+
+No work remains in this lane. The next owner-selected queue item is Python authoritative module/scope resolution, beginning with the separately designed unaliased dotted-module proof increment.

@@ -122,6 +122,19 @@ fn python_extract_unaliased_dotted_module_import_binds_root() {
 }
 
 #[test]
+fn python_extract_module_import_distinguishes_explicit_alias() {
+    let unaliased = ParsedFile::parse("unaliased.py", "import pkg.models\n", Language::Python)
+        .unwrap()
+        .extract_import_bindings();
+    let aliased = ParsedFile::parse("aliased.py", "import pkg.models as pkg\n", Language::Python)
+        .unwrap()
+        .extract_import_bindings();
+
+    assert_eq!(format!("{:?}", unaliased[0].kind), "ModuleImport");
+    assert_eq!(format!("{:?}", aliased[0].kind), "AliasedModuleImport");
+}
+
+#[test]
 fn clean_module_import_is_eligible_without_triggering_r4c() {
     let fs = files(&[
         (

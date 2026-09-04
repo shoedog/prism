@@ -697,6 +697,69 @@ fn test_cache_round_trip_python() {
 }
 
 #[test]
+fn cache_v56_round_trips_python_module_import_shape_and_dotted_authority() {
+    use prism::call_graph::ImportBindingKind;
+
+    let fixtures = [
+        (
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        pass\n",
+            Language::Python,
+        ),
+        (
+            "alias_app.py",
+            "import pkg.models as models\ndef alias_run(client: models.Client):\n    client.send()\n",
+            Language::Python,
+        ),
+        (
+            "dotted_app.py",
+            "import pkg.models\ndef dotted_run(client: pkg.models.Client):\n    client.send()\n",
+            Language::Python,
+        ),
+    ];
+    let files = parsed_files(&fixtures);
+    let sources: BTreeMap<_, _> = fixtures
+        .iter()
+        .map(|(path, source, _)| ((*path).to_string(), (*source).to_string()))
+        .collect();
+    let cold = CpgContext::build(&files, None);
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&cold.cpg, &hashes, false, cache_dir.path()).unwrap();
+    let loaded = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
+
+    assert!(matches!(
+        loaded.call_graph.import_bindings["alias_app.py"][0].kind,
+        ImportBindingKind::AliasedModuleImport
+    ));
+    assert!(matches!(
+        loaded.call_graph.import_bindings["dotted_app.py"][0].kind,
+        ImportBindingKind::ModuleImport
+    ));
+
+    for (caller_file, caller_name, receiver_type) in [
+        ("alias_app.py", "alias_run", "models.Client"),
+        ("dotted_app.py", "dotted_run", "pkg.models.Client"),
+    ] {
+        let site = loaded
+            .call_graph
+            .calls
+            .iter()
+            .find(|(fid, _)| fid.file == caller_file && fid.name == caller_name)
+            .and_then(|(_, sites)| sites.iter().find(|site| site.callee_name == "send"))
+            .expect("cached receiver call");
+        assert_eq!(site.receiver_type.as_deref(), Some(receiver_type));
+        let resolved = loaded.call_graph.resolve_call_site(site);
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].target.file, "pkg/models.py");
+        assert_eq!(
+            resolved[0].confidence,
+            prism::resolution::ResolutionConfidence::Exact
+        );
+    }
+}
+
+#[test]
 fn test_cache_round_trip_javascript() {
     let (files, sources, _diff) = make_javascript_test();
 

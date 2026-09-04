@@ -52,6 +52,16 @@ Three candidate directions once the queue's top items are drained (or interleave
   recovery, the Python analogue of P11's Go lanes).
 - Cost model well understood after P11/P13 (typed-fact lanes, consult-time filtering,
   rematerialization pattern all reusable).
+- **Owner-selected execution queue (2026-09-04):** (1) Python imported/cross-module
+  typed receivers — DONE in the bare member-import slice (#226, merge `5e54d483`) and
+  module-alias-qualified slice (#227, merge `4298e548`); (2) Python authoritative
+  module/scope resolution — IN FLIGHT as a sequence of bounded proof increments;
+  its first unaliased dotted-module increment (`import pkg.models` plus
+  `pkg.models.Class`) is implemented, review-complete, and locally verified, with
+  publication pending; (3) JS/TS lexical-scope-aware receiver binding prerequisite;
+  (4) JS/TS typed-parameter and `new`-constructor receiver recovery; (5) then
+  reconsider Java native resolution versus LSP delegation or product-oriented
+  navigation/onboarding work. Do not collapse steps 2–4 into the old combined design.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:

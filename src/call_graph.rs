@@ -550,8 +550,11 @@ pub struct ImportBinding {
 pub enum ImportBindingKind {
     /// `from mod import func` / `from mod import func as f`
     MemberImport,
-    /// `import mod` / `import mod as m`
+    /// `import mod`
     ModuleImport,
+    /// Python `import mod as m`; distinct from an unaliased dotted import
+    /// because the alias binds directly to the complete module path.
+    AliasedModuleImport,
     /// `from mod import *`
     WildcardImport,
 }
@@ -5683,7 +5686,7 @@ fn mark_import_binding_eligibility(
             }
             // Eligibility records only occurrence-clean binding authority. R4c
             // and navigation independently require `MemberImport`, while Python
-            // qualified receiver proof below requires `ModuleImport`.
+            // qualified receiver proof below requires one of the module kinds.
             binding.eligible = !matches!(binding.kind, ImportBindingKind::WildcardImport);
         }
     }
@@ -5698,9 +5701,8 @@ pub(crate) fn python_qualified_receiver_parts(receiver_type: &str) -> Option<(&s
             && chars.all(|ch| ch == '_' || ch.is_alphanumeric())
     }
 
-    let (qualifier, owner) = receiver_type.split_once('.')?;
-    (!owner.contains('.') && is_identifier(qualifier) && is_identifier(owner))
-        .then_some((qualifier, owner))
+    let (qualifier, owner) = receiver_type.rsplit_once('.')?;
+    (qualifier.split('.').all(is_identifier) && is_identifier(owner)).then_some((qualifier, owner))
 }
 
 fn unique_python_module_file<'a>(
@@ -5730,7 +5732,7 @@ pub(crate) fn python_imported_class_route(
     };
     let qualified = python_qualified_receiver_parts(receiver_type);
     let local = qualified
-        .map(|(qualifier, _)| qualifier)
+        .and_then(|(qualifier, _)| qualifier.split('.').next())
         .unwrap_or(receiver_type);
     let matching: Vec<_> = bindings
         .iter()
@@ -5747,7 +5749,18 @@ pub(crate) fn python_imported_class_route(
         return PythonImportedClassRoute::Blocked;
     }
     let owner = match qualified {
-        Some((_, owner)) if matches!(binding.kind, ImportBindingKind::ModuleImport) => owner,
+        Some((qualifier, owner))
+            if matches!(binding.kind, ImportBindingKind::ModuleImport)
+                && qualifier == binding.module_path =>
+        {
+            owner
+        }
+        Some((qualifier, owner))
+            if matches!(binding.kind, ImportBindingKind::AliasedModuleImport)
+                && qualifier == binding.local =>
+        {
+            owner
+        }
         None if matches!(binding.kind, ImportBindingKind::MemberImport) => {
             let Some(owner) = binding.member.as_deref() else {
                 return PythonImportedClassRoute::Blocked;
@@ -5801,17 +5814,25 @@ pub(crate) fn python_imported_class_proof_keys(
                         ));
                     }
                 }
-                ImportBindingKind::ModuleImport if binding.eligible => {
+                ImportBindingKind::ModuleImport | ImportBindingKind::AliasedModuleImport
+                    if binding.eligible =>
+                {
                     let Some(defining_file) =
                         unique_python_module_file(binding, caller_file, indexed_files)
                     else {
                         continue;
                     };
+                    let receiver_prefix =
+                        if matches!(binding.kind, ImportBindingKind::AliasedModuleImport) {
+                            &binding.local
+                        } else {
+                            &binding.module_path
+                        };
                     for (file, owner) in clean_class_spans.keys() {
                         if file == defining_file {
                             proven.insert((
                                 caller_file.clone(),
-                                format!("{}.{}", binding.local, owner),
+                                format!("{receiver_prefix}.{owner}"),
                                 defining_file.clone(),
                                 owner.clone(),
                             ));
@@ -6506,6 +6527,52 @@ mod tests {
         let expected = BTreeSet::from([(
             "app.py".to_string(),
             "models.Client".to_string(),
+            "pkg/models.py".to_string(),
+            "Client".to_string(),
+        )]);
+        assert_eq!(proof_keys(&before), expected);
+        assert_eq!(proof_keys(&after), expected);
+    }
+
+    #[test]
+    fn python_dotted_class_proof_key_ignores_direct_method_body_changes() {
+        use crate::languages::Language::Python;
+
+        let build = |method_body: &str| {
+            let mut files = BTreeMap::new();
+            files.insert(
+                "app.py".to_string(),
+                ParsedFile::parse(
+                    "app.py",
+                    "import pkg.models\ndef run(client: pkg.models.Client):\n    client.send()\n",
+                    Python,
+                )
+                .unwrap(),
+            );
+            files.insert(
+                "pkg/models.py".to_string(),
+                ParsedFile::parse(
+                    "pkg/models.py",
+                    &format!("class Client:\n    def send(self):\n        {method_body}\n"),
+                    Python,
+                )
+                .unwrap(),
+            );
+            CallGraph::build(&files)
+        };
+        let before = build("pass");
+        let after = build("return 1");
+        let proof_keys = |cg: &CallGraph| {
+            python_imported_class_proof_keys(
+                &cg.import_bindings,
+                &cg.indexed_files,
+                &cg.clean_class_spans,
+            )
+        };
+
+        let expected = BTreeSet::from([(
+            "app.py".to_string(),
+            "pkg.models.Client".to_string(),
             "pkg/models.py".to_string(),
             "Client".to_string(),
         )]);
