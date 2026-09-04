@@ -7,6 +7,8 @@
   "required": [
     "schema_version",
     "producer",
+    "repo",
+    "diff",
     "targets"
   ],
   "additionalProperties": false,
@@ -14,14 +16,16 @@
     "schema_version": {
       "type": "string",
       "pattern": "^1\\.\\d+$",
-      "description": "Targets contract version. Every object is additionalProperties:false, so ANY newly emitted property is a minor bump (1.1, 1.2, \u2026); consumers accept any 1.x at or above the version they were written for. Breaking changes bump the major. Current: 1.0."
+      "description": "Targets contract version, currently 1.0. Every object is additionalProperties:false (closed world), so a document with schema_version 1.k validates ONLY against schema 1.k: consumers must validate with the schema matching the document's minor version. Minor bumps are backward-compatible in MEANING (existing fields keep their semantics; fields are only added) but not in closed-world validation. Breaking changes bump the major."
     },
     "producer": {
       "type": "object",
       "required": [
         "tool",
         "version",
-        "resolution_mode"
+        "resolution_mode",
+        "build_identity",
+        "algorithms"
       ],
       "additionalProperties": false,
       "properties": {
@@ -66,7 +70,10 @@
           "type": "string",
           "description": "HEAD commit if the repo is a git checkout."
         }
-      }
+      },
+      "required": [
+        "root"
+      ]
     },
     "diff": {
       "type": "object",
@@ -82,7 +89,11 @@
             "type": "string"
           }
         }
-      }
+      },
+      "required": [
+        "sha256",
+        "files"
+      ]
     },
     "targets": {
       "type": "array",
@@ -115,7 +126,7 @@
       "items": {
         "type": "string"
       },
-      "description": "Parse-quality and other non-fatal warnings emitted by prism during the run."
+      "description": "Non-fatal conditions the consumer must see: parse-quality warnings, files skipped at load time (unsupported language, unreadable), and projection warnings (dropped line-0 findings, dropped escaping paths, duplicate ids, unknown severities, omitted function bounds). A non-empty list means coverage is partial in the named way."
     }
   },
   "$defs": {
@@ -129,7 +140,7 @@
       "properties": {
         "file": {
           "type": "string",
-          "description": "Repo-relative path, forward slashes."
+          "description": "Repo-relative path, forward slashes. A producer drops (and records a warning for) any finding whose path is absolute or escapes the repo root, so consumers may rely on containment."
         },
         "line": {
           "type": "integer",
@@ -138,7 +149,7 @@
         },
         "symbol": {
           "type": "string",
-          "description": "Enclosing function name when known."
+          "description": "Name of the innermost function enclosing `line` when the producer could determine it from the parsed file; otherwise the finding's own function name. When the two disagree the producer prefers the enclosing function and records a warning."
         },
         "function_start_line": {
           "type": "integer",
@@ -180,14 +191,16 @@
         "source_algorithm",
         "confidence",
         "tier",
-        "severity"
+        "severity",
+        "description",
+        "parse_quality"
       ],
       "additionalProperties": false,
       "properties": {
         "id": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$",
-          "description": "sha256 over the UTF-8 string `file|line|symbol|source_algorithm|category|description` (symbol may be empty; `|` is the literal separator; no trailing newline). Distinct findings at one site get distinct ids; the same source and diff yield the same id across runs."
+          "description": "Lowercase hex sha256 of the compact canonical JSON array [file, line, symbol_or_empty_string, source_algorithm, category, description, severity] (serde_json compact serialization of a 7-element array; no delimiter ambiguity). Distinct findings at one site get distinct ids; the same source and diff yield the same id across runs."
         },
         "site": {
           "$ref": "#/$defs/site"
@@ -325,8 +338,10 @@
             "clean",
             "degraded",
             "poor",
-            "unparseable"
-          ]
+            "unparseable",
+            "unknown"
+          ],
+          "description": "Worst parse quality over the finding's evidence-bearing files (anchor + related files) from prism's authoritative per-file map; `unknown` when a file's quality is not knowable (e.g. contract findings computed against an --old-repo tree) \u2014 unknown always yields tier candidate."
         }
       }
     }

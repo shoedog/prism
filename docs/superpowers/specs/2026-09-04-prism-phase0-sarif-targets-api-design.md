@@ -1,6 +1,6 @@
 # Prism Phase 0 — SARIF output, `prism targets`, `prism::api` facade, README truth pass — design
 
-**Status:** v3 (2026-09-04) — round-1 findings from both seats folded (Opus 9W/15S; sol 22W/9S, ~half overlapping); for sol round 2. Declared review cap **2 rounds**; owner authorised extension and a separate sol judge seat for disputed findings (§11).
+**Status:** v4 (2026-09-04) — sol round 2 (4W/1S/1I + 10 PARTIAL) folded; for sol round 3 (disclosed one-round extension: findings are converging — 31 → 6 new, none repeating). Owner authorised the extension and a separate sol judge seat for disputed findings (§11).
 **Recorded:** 2026-09-04 · **Exact base:** `c220525c6746d635d99a7a084791cfad4f0276d9` (`origin/main`, PR #225 merge).
 **Scope:** the four "Phase 0" items of the tooling roadmap (`~/code/tools/04-prism-plan-roadmap.md` §2, `03-tooling-plan-roadmap.md` §3 Phase 0): the interfaces the analyzer roadmap needs from prism before any analyzer is written. All four are additive serializers and a facade; **no CPG/cache/resolution change and no cache version bump**.
 **Grounding:** `~/code/tools/grounding/finding-inventory.md` (every `SliceFinding` construction site), `grounding/cli-output-api.md` (CLI branches, private main.rs helpers, build identity, nav API, test conventions), `grounding/readme-truth.md` (README claims vs code). Line anchors below are hints against the exact base; symbols are the authority (pipeline-lessons #6).
@@ -56,16 +56,29 @@ pub enum ParseQuality { Clean, Degraded, Poor, Unparseable, Unknown }
 
 impl ParseQuality {
     /// From the AUTHORITATIVE per-file map produced by `algorithms::check_parse_quality`
-    /// (`ReviewInputs.parse_quality`): the worst quality over `files`; `Unknown` if any file
-    /// is absent from the map. Never derived from `SliceFinding.parse_quality`, which is
-    /// `None` both before annotation and for clean files (sol #1).
-    pub fn min_over(files: &[&str], map: &BTreeMap<String, FileParseQuality>) -> Self;
+    /// (`ReviewInputs.parse_quality`). That map is SPARSE: `check_parse_quality` inserts a file
+    /// only when its error rate exceeds 1% (`src/algorithms/mod.rs:75-84`), so absence means
+    /// "clean" for a file prism parsed and "unknown" for a file it did not (sol r2 W1). Hence:
+    /// for each file — in `map` → its grade; else in `parsed` → Clean; else Unknown. Result =
+    /// the worst over `files`; Unknown when `files` is empty. The sparse map itself is never
+    /// modified (legacy `json`/`review` output serialises it byte-for-byte).
+    pub fn min_over(files: &[&str], map: &BTreeMap<String, FileParseQuality>,
+                    parsed: &BTreeMap<String, ParsedFile>) -> Self;
 }
 
 /// Files whose parse quality bears on a finding's evidence: the anchor file plus every
 /// `related_files` entry (symmetry's counterpart, callback registrations, primitive's
 /// callee file, provenance's origin file — sol #2).
 pub fn evidence_files(finding: &SliceFinding) -> Vec<&str>;
+
+/// The one entry point both serializers use. Encodes the evidence rules: contract findings
+/// computed against an `--old-repo` tree (categories `contract_precondition_weakened`,
+/// `contract_precondition_strengthened`, `contract_postcondition_weakened`,
+/// `contract_postcondition_strengthened` — the only categories `slice_delta` emits) depend on
+/// old-tree files prism parsed separately and never graded → `Unknown` (sol r2 #2); everything
+/// else → `min_over(&evidence_files(f), map, parsed)`.
+pub fn parse_quality_for(finding: &SliceFinding, map: &BTreeMap<String, FileParseQuality>,
+                         parsed: &BTreeMap<String, ParsedFile>) -> ParseQuality;
 
 /// The BUILD's dataflow-labeling capability (roadmap 04 §3.6 `--resolution`): a DIFFERENT AXIS
 /// from a finding's confidence. Phase 0: "nominal" = DataFlow edges unlabeled.
@@ -78,7 +91,7 @@ Rules (binding; each has a test in §7.1):
 - `SlicingAlgorithm::from_str(algorithm)` is `None` → `(Unlabeled, Candidate)` (fail-safe for unknown producers; every production algorithm string — `absence`, `callback_dispatcher`, `contract`, `echo`, `membrane`, `peer_consistency`, `primitive`, `provenance`, `symmetry`, `taint` — round-trips through `from_str`, pinned by §7.1.4).
 - `needs_cpg()` → `Unlabeled`; else `Exact`. `NameOnly` is reserved for item 2 and is never produced in Phase 0.
 - Tier is `Asserted` iff confidence is `Exact` **and** `parse_quality == Clean`. `Unknown` is `Candidate` (the safe direction for absent information is under-assertion).
-- Both serializers compute `parse_quality` as `ParseQuality::min_over(&evidence_files(f), &inputs.parse_quality)`. The review path parses exactly the diff files, and every evidence file an algorithm cites is one it parsed, so a file absent from the map is a genuine unknown.
+- Both serializers compute `parse_quality` as `parse_quality_for(f, &inputs.parse_quality, &inputs.files)`. The review path parses exactly the diff files; an evidence file absent from both the map and `files` is a genuine unknown.
 - `classify` is pure and total; it never reads the CPG.
 
 ### 2.2 SARIF 2.1 output — `src/output/sarif.rs` (new) + `--format sarif`
@@ -102,7 +115,8 @@ Hand-rolled typed structs (no new dependency; the SARIF subset is ~12 structs). 
     } },
     "invocations": [{ "executionSuccessful": true,
                       "toolExecutionNotifications": [ { "level": "error", "message": { "text": "Chop: --chop-source required for chop algorithm" } },
-                                                      { "level": "warning", "message": { "text": "<parse warning verbatim>" } } ] }],
+                                                      { "level": "warning", "message": { "text": "<parse warning verbatim>" } },
+                                                      { "level": "warning", "message": { "text": "skipped unsupported file: <path> (<reason>)" } } ] }],
     "results": [ { ...see 2.2.2... } ],
     "properties": { "mapping_version": "1", "algorithms_run": ["EchoSlice", "AbsenceSlice"], "resolution_mode": "nominal",
                     "errors": [ { "algorithm": "Chop", "error": "--chop-source required for chop algorithm" } ],
@@ -129,13 +143,13 @@ Hand-rolled typed structs (no new dependency; the SARIF subset is ~12 structs). 
 | `locations[0].logicalLocations` | `[ { "name": function_name, "kind": "function" } ]` when `function_name` is `Some`; omitted otherwise. |
 | `relatedLocations` | `related_lines` are attributed to a file by the **per-algorithm attribution table** in `sarif.rs` (sol #8): `SameFile` — `echo`, `membrane`, `absence`, `contract`, `provenance`, `taint`, `peer_consistency` (lines are in `finding.file`; `related_files` are separate artifacts); `CounterpartFile` — `symmetry`, `primitive` (lines are in `related_files[0]`; grounding: `symmetry_slice.rs:246-247`, `primitive_slice.rs:434-441`); `Ambiguous` — `callback_dispatcher` and any unknown algorithm (lines are emitted as locations **only** when `related_files` is empty). Lines that cannot be attributed go to `properties.related_lines` (data preserved, no wrong location). Lines equal to `0` are skipped. Within the emitted set: lines sorted+deduplicated first (ids `0..`), then files sorted+deduplicated without region. Omitted when nothing remains. |
 | `partialFingerprints` | `{ "prism/finding/v1": sha256(algorithm ‖ category ‖ file ‖ function_name ‖ masked_description ‖ line_text) }` computed over a canonical JSON array of the six strings (no delimiter ambiguity — sol #14), where `masked_description` replaces every maximal run of ASCII digits with `#` and `line_text` is the whitespace-trimmed source text of `finding.line` (empty when unavailable) — a stable occurrence discriminator under line shifts (sol #29). `line` itself is excluded. Two findings whose masked descriptions and line text coincide share a fingerprint; GitHub keys alerts on fingerprint **plus** location, so they stay distinct alerts. |
-| `properties` | `{ "algorithm", "category", "severity", "confidence", "tier", "resolution_mode", "parse_quality", "function_name"?, "related_files"?, "related_lines"? }` — `confidence`/`tier` from §2.1 with the authoritative map; `parse_quality` = the `ParseQuality` used (lowercase). |
+| `properties` | `{ "algorithm", "category", "severity", "confidence", "tier", "resolution_mode", "parse_quality", "function_name"?, "related_files"?, "related_lines"? }` — `confidence`/`tier` from `classify(&f.algorithm, parse_quality_for(f, map, files))`; `parse_quality` = that value (lowercase, may be `unknown`). |
 
 Diagrams (`finding.diagrams`) are not serialized into SARIF (they are prism-specific; the `json` format keeps them).
 
 **2.2.3 CLI wiring** (`src/main.rs`):
 - `--format` gains `value_parser = ["text", "json", "paper", "review", "callers", "mermaid", "sarif"]`. An unknown format is now a clap error (exit 2) instead of silently rendering text. **Compatibility note:** values that previously "worked" by falling through to text — e.g. `-f Json`, `-f ""`, `-f txt` — now fail; §7.2.5 enumerates them. This is a deliberate fix of problem §1.4 and is disclosed in the PR; the multi-run `paper` gap is **not** fixed here (follow-up, §9).
-- A `"sarif"` arm is added to **both** `match cli.format.as_str()` sites (multi at `:999`, single at `:1124`). Both call one helper `emit_sarif(&SarifInputs { findings, errors, parse_warnings, algorithms_run, parse_quality_map, sources })`. Multi-run passes `run.findings`, `run.errors`, `run.warnings`, `run.algorithms_run`, `inputs.parse_quality`, `inputs.sources`. Single-run passes `result.findings`, `errors: &[]`, `result.warnings`, `&[algorithm.name()]`, the same map and sources — **not** the `mermaid` arm's wrapper, which discards findings/warnings.
+- A `"sarif"` arm is added to **both** `match cli.format.as_str()` sites (multi at `:999`, single at `:1124`). Both call one helper `emit_sarif(&SarifInputs { findings, errors, parse_warnings, load_warnings, algorithms_run, parse_quality, files, sources })`. Multi-run passes `run.findings`, `run.errors`, `run.warnings`, `inputs.load_warnings`, `run.algorithms_run`, `inputs.parse_quality`, `inputs.files`, `inputs.sources`. Single-run passes `result.findings`, `errors: &[]`, `result.warnings`, `inputs.load_warnings`, `&[algorithm.name()]`, the same map, files and sources — **not** the `mermaid` arm's wrapper, which discards findings/warnings.
 - Trailer identical to the `json` arm: `emit_warnings_to_stderr` + `determine_exit_code`.
 - Output: `serde_json::to_string_pretty` + `\n` to stdout, same as `json`.
 
@@ -185,8 +199,10 @@ pub struct ReviewInputs {
     pub type_db: Option<TypeDatabase>,
     pub diff: DiffInput,
     pub diff_text_sha256: String,                // hex sha256 of the diff text as read
-    pub parse_warnings: Vec<String>,
-    pub parse_quality: BTreeMap<String, FileParseQuality>,   // AUTHORITATIVE per-file map (§2.1)
+    pub parse_warnings: Vec<String>,                         // exactly what main.rs puts in legacy `warnings` today
+    pub load_warnings: Vec<String>,                          // NEW (sol r2 W4): files skipped at load — `skipped unsupported file: <path> (<reason>)`,
+                                                             // `unreadable file: <path> (<io error>)` — today stderr-only; stderr text is unchanged
+    pub parse_quality: BTreeMap<String, FileParseQuality>,   // AUTHORITATIVE (sparse) per-file map (§2.1)
     pub scope_graph_inputs: ScopeGraphBuildInputs,
 }
 /// = main.rs :724-816 verbatim behaviour (JSON-or-unified diff detection, --files filter,
@@ -216,11 +232,12 @@ pub fn run_algorithm(algorithm: SlicingAlgorithm, ctx: &CpgContext, inputs: &Rev
                      config: &SliceConfig, params: &AlgorithmParams, repo: &Path) -> Result<SliceResult>;
 
 pub struct ReviewRun {
-    pub results: Vec<SliceResult>,          // in algorithm order; results[i] came from algorithms_run[i]
+    pub results: Vec<SliceResult>,          // the SUCCESSFUL subsequence in request order (an erroring algorithm has no entry —
+                                            // exactly today's multi-run behaviour); identify each by `results[i].algorithm` (sol r2 W2)
     pub findings: Vec<SliceFinding>,        // flattened, annotated
     pub errors: Vec<AlgorithmError>,
-    pub warnings: Vec<String>,              // = inputs.parse_warnings
-    pub algorithms_run: Vec<String>,        // SlicingAlgorithm::name(), every requested algorithm
+    pub warnings: Vec<String>,              // = inputs.parse_warnings (legacy `warnings` field; NOT load_warnings — byte-pinned)
+    pub algorithms_run: Vec<String>,        // SlicingAlgorithm::name(), every REQUESTED algorithm, in request order
 }
 pub fn run_review(ctx: &CpgContext, inputs: &ReviewInputs, algorithms: &[SlicingAlgorithm],
                   config: &SliceConfig, params: &AlgorithmParams, repo: &Path) -> ReviewRun;
@@ -234,7 +251,7 @@ pub fn parse_algorithms(spec: &str) -> Result<Vec<SlicingAlgorithm>>;   // "revi
 pub fn annotate_finding_parse_quality(findings: &mut [SliceFinding], files: &BTreeMap<String, ParsedFile>);
 
 // src/api/nav.rs
-pub struct NavOptions { pub no_cache: bool, pub cache_dir: Option<PathBuf> }
+#[derive(Default)] pub struct NavOptions { pub no_cache: bool, pub cache_dir: Option<PathBuf> }   // non_exhaustive ⇒ construct via Default (sol r2 #16)
 /// main.rs::build_session, moved; installs the build pool internally (whole-repo parse is the
 /// deepest-stack path in the crate).
 pub fn nav_session(repo: &Path, opts: &NavOptions) -> Result<NavigationSession>;
@@ -310,24 +327,24 @@ pub struct TargetsMeta {
 | callback_dispatcher / any; primitive / any; anything unmatched | `other` | `unknown` | none |
 
 Other fields (totality rules — sol #11):
-- `site.file` = `finding.file` with `\` normalised to `/`; an absolute or `..`-containing path is emitted as given and recorded in `warnings` as `targets: path escapes repo root: <path>`.
+- `site.file` = `finding.file` with `\` normalised to `/`. An absolute or `..`-containing path cannot satisfy the contract (repo-relative): the finding is **dropped** and `warnings` += `targets: dropped finding with path escaping repo root: <path>` (sol r2 #10).
 - `site.line` = `finding.line`; a finding with `line == 0` cannot be represented (schema `≥ 1`): dropped, `warnings` += `targets: dropped finding with line 0: <algorithm>/<category> in <file>`.
-- `site.symbol` = `function_name`.
+- `site.symbol` = the name of the innermost function enclosing `line` when `inputs.files` has the file and that node is named; otherwise `finding.function_name`. When both exist and disagree (symmetry anchors on the file's first diff line), the enclosing name wins — the contract defines `symbol` as the enclosing function — and `warnings` += `targets: symbol <enclosing> differs from finding's function <named> at <file>:<line>` (sol r2 #9).
 - `site.function_start_line/end_line` = the **innermost** function node spanning `line` via `ParsedFile::function_node_spanning(line)` + `node_line_range` (`src/ast.rs:584`) when `inputs.files` contains the file **and** (`function_name` is `None` or equals that node's name, or the node is anonymous). If the containing function's name disagrees with `function_name` (symmetry anchors on the file's first diff line — sol #9), bounds are **omitted** and `warnings` += `targets: function bounds omitted for <file>:<line>: anchor is in <found> but finding names <symbol>`.
 - `site.language`: explicit lowering table `Language → &'static str` in `mapping.rs` (`Python→python, JavaScript→javascript, TypeScript→typescript, Tsx→tsx, Go→go, Java→java, C→c, Cpp→cpp, Rust→rust, Lua→lua, Terraform→hcl, Bash→bash`), pinned by a test over `Language::all()` against the schema enum. Omitted when `Language::from_path` is `None`.
 - `category` = `finding.category` or `"uncategorized"` (same fallback as SARIF); `source_algorithm` = `finding.algorithm`.
 - `severity`: one of the four known values verbatim; any other → `"concern"` (conservative) plus `warnings` += `targets: unknown severity '<s>' mapped to concern for <file>:<line>`.
-- `confidence`/`tier` = `classify(&finding.algorithm, ParseQuality::min_over(&evidence_files(f), &inputs.parse_quality))`; `parse_quality` = that value, lowercase.
+- `confidence`/`tier` = `classify(&finding.algorithm, parse_quality_for(f, &inputs.parse_quality, &inputs.files))`; `parse_quality` = that value, lowercase (`unknown` is a legal schema value).
 - `description` verbatim; `related.lines` = `related_lines` with zeros removed, sorted, deduplicated; `related.files` sorted, deduplicated (key omitted when both empty). Attribution of lines to files is not encoded in v1 (see §2.2.2's table; a structured `related` v2 is a follow-up).
 - `id` = hex sha256 of the compact canonical JSON array `[file, line, symbol_or_"", algorithm, category, description, severity]` (`serde_json::to_vec` of a `Vec<Value>` — no delimiter ambiguity; severity included so `info`/`concern` variants stay distinct — sol #14).
 - Dedupe by `id`, first wins; every dropped duplicate → `warnings` += `targets: duplicate id <id> dropped (<algorithm>/<category> <file>:<line>)`.
 - Filter by `--min-severity` (`output::severity_rank`) and `--min-tier`; sort by `(site.file, site.line, source_algorithm, category, id)`.
 
-Document-level: `schema_version "1.0"`; `producer { tool: "prism", version, resolution_mode: RESOLUTION_MODE, build_identity: build_info().build_identity, algorithms: meta.algorithms_run }`; `repo { root, sha? }`; `diff { sha256: inputs.diff_text_sha256, files: inputs.diff.files[].file_path }`; `errors`/`warnings` (omitted when empty).
+Document-level: `schema_version "1.0"`; `producer { tool: "prism", version, resolution_mode: RESOLUTION_MODE, build_identity: build_info().build_identity, algorithms: meta.algorithms_run }` (all required); `repo { root, sha? }` (required, `root` required); `diff { sha256: inputs.diff_text_sha256, files: inputs.diff.files[].file_path }` (required); `errors` (omitted when empty); `warnings` = `inputs.parse_warnings` ++ `inputs.load_warnings` ++ projection warnings, in that order (omitted when empty) — the machine-readable partial-coverage signal (sol r2 W3/W4). Every target carries `description` and `parse_quality` (required in the schema).
 
 **Comparability (Opus Q1):** the schema's top-level description names the stable keys a consumer may diff on across runs and machines — `targets[].id`, `site.{file,line,symbol}`, `kind`, `category`, `expected`, `source_algorithm`, `severity` — and the envelope fields it must ignore — `producer.{version,build_identity}`, `repo.root`, `repo.sha`, `diff.sha256`.
 
-**2.4.3 Schema custody and versioning.** `docs/contracts/targets.schema.json` in this repo is authoritative. `schema_version` is `"1.0"` matching `^1\.\d+$`; because every object is `additionalProperties: false`, **any newly emitted property is a minor bump** (`1.1`, …) and consumers accept any `1.x` they were written for or later; breaking changes bump the major (sol #21). The in-repo projection test (§7.4.5) is a hand-written structural checker; the controller gate §8.8 validates one real document with a full Draft 2020-12 validator (Python `jsonschema`) because no Rust dependency may be added.
+**2.4.3 Schema custody and versioning.** `docs/contracts/targets.schema.json` in this repo is authoritative. `schema_version` is `"1.0"` matching `^1\.\d+$`. Every object is `additionalProperties: false` (closed world), so **any newly emitted property is a minor bump** and a document with `schema_version` `1.k` validates **only** against schema `1.k` — consumers fetch the schema matching the document's minor. Minor bumps are backward-compatible in *meaning* (fields are only added, existing semantics kept), not in closed-world validation; breaking changes bump the major (sol r1 #21, r2 #21 — closed world is deliberate: a harness must not silently ignore a field it does not understand). The in-repo projection test (§7.4.5) is a hand-written structural checker; the controller gate §8.8 validates one real document with a full Draft 2020-12 validator (Python `jsonschema`) because no Rust dependency may be added.
 
 ### 2.5 README truth pass (docs only; no code) — with a gate
 
@@ -380,7 +397,8 @@ Run with `cargo test --test cli sarif_test::`, `cargo test --test cli targets_te
 4. Every string in `["absence","callback_dispatcher","contract","echo","membrane","peer_consistency","primitive","provenance","symmetry","taint"]` round-trips through `SlicingAlgorithm::from_str`.
 5. `("not_an_algorithm", Clean)` → `(Unlabeled, Candidate)`.
 6. Serde: `Exact` → `"exact"`, `Unlabeled` → `"unlabeled"`, `Candidate` → `"candidate"`.
-7. `ParseQuality::min_over`: `["a.py"]` with `a.py: clean` → `Clean`; `["a.py","b.py"]` with `b.py: degraded` → `Degraded`; `["a.py","missing.py"]` → `Unknown`; empty map → `Unknown`; quality strings outside the four → `Unknown`.
+7. `ParseQuality::min_over(files, map, parsed)`: `a.py` parsed and absent from the sparse map → `Clean`; `["a.py","b.py"]` with `b.py: degraded` in the map → `Degraded`; `["a.py","missing.py"]` where `missing.py` is in neither → `Unknown`; empty `files` → `Unknown`; a map quality string outside the four → `Unknown`.
+9. `parse_quality_for`: a `contract_precondition_weakened` finding on a clean parsed file → `Unknown`; a `contract_violation` finding on the same file → `Clean`; a symmetry finding whose `related_files[0]` is degraded → `Degraded`.
 8. `evidence_files`: a symmetry finding (`file: a.py`, `related_files: [b.py]`) → `["a.py","b.py"]`; no related files → `["a.py"]`.
 
 ### 7.2 SARIF (`tests/cli/sarif_test.rs`, structural, via `Command::cargo_bin("prism")`)
@@ -396,23 +414,24 @@ Run with `cargo test --test cli sarif_test::`, `cargo test --test cli targets_te
 10. A degraded-parse fixture (a Python file with a syntax error above the finding): the absence result has `tier == "candidate"`, `parse_quality == "degraded"`.
 
 ### 7.3 `prism::api` (`tests/integration/api_test.rs`, in-process)
-1. `api::review(&ReviewOptions::new(repo), diff_text, &[AbsenceSlice], &SliceConfig::default(), &AlgorithmParams::default())` on the §7.2.1 fixture: `outcome.run.findings` has one `category == Some("missing_counterpart")`; `outcome.inputs.diff.files.len() == 1`; `outcome.inputs.parse_quality["a.py"].quality == "clean"`.
-2. Two-phase API without an outer `with_build_pool`: `run_review(&[EchoSlice, AbsenceSlice], ..)` returns `algorithms_run == ["EchoSlice","AbsenceSlice"]`, `results.len() == 2`, `results[0].algorithm == EchoSlice`, `results[1].algorithm == AbsenceSlice` (sol #20), `errors.is_empty()`, `warnings == inputs.parse_warnings`.
+1. `api::review(&ReviewOptions::new(repo), diff_text, &[AbsenceSlice], &SliceConfig::default(), &AlgorithmParams::default())` on the §7.2.1 fixture: `outcome.run.findings` has one `category == Some("missing_counterpart")`; `outcome.inputs.diff.files.len() == 1`; `outcome.inputs.parse_quality` does **not** contain `a.py` (sparse map; clean) while `outcome.inputs.files` does. A diff that also names `notes.txt` (unsupported language) → `outcome.inputs.load_warnings == ["skipped unsupported file: notes.txt (unsupported language)"]` and `run.warnings` is unchanged (sol r2 W4).
+2. Two-phase API without an outer `with_build_pool`: `run_review(&[EchoSlice, AbsenceSlice], ..)` returns `algorithms_run == ["EchoSlice","AbsenceSlice"]`, `results.len() == 2`, `results[0].algorithm == EchoSlice`, `results[1].algorithm == AbsenceSlice`, `errors.is_empty()`, `warnings == inputs.parse_warnings`. And `run_review(&[Chop, AbsenceSlice], ..)` with default params → `algorithms_run == ["Chop","AbsenceSlice"]`, `results.len() == 1`, `results[0].algorithm == AbsenceSlice`, `errors[0].algorithm == "Chop"` (sol r2 W2: results are the successful subsequence).
 3. `AlgorithmParams::default().barrier_depth == api::DEFAULT_BARRIER_DEPTH` (and spiral/temporal), and `prism --help` shows `[default: <DEFAULT_BARRIER_DEPTH>]` for `--barrier-depth` (parsed from the help text) — one source, two consumers checked.
 4. `run_algorithm(Chop, …, &AlgorithmParams::default())` → `Err` containing `--chop-source required`.
 5. `build_info()`: `package_version == env!("CARGO_PKG_VERSION")`, `build_identity.len() == 64`.
-6. `nav_session(repo, &NavOptions{no_cache:true, cache_dir:None})` with no outer install, then `callers(&s, Seed::Symbol("helper"), 1, false)` on a two-file Python fixture returns evidence whose JSON contains the caller function name.
+6. `nav_session(repo, &{ let mut o = NavOptions::default(); o.no_cache = true; o })` with no outer install, then `callers(&s, Seed::Symbol("helper"), 1, false)` on a two-file Python fixture returns evidence whose JSON contains the caller function name.
 7. Doc-test on `api::review` (the README snippet) compiles and runs.
 8. `readme_test.rs` greps `src/api/*.rs`: every `pub struct`/`pub enum` is preceded by `#[non_exhaustive]`.
 
 ### 7.4 `prism targets` (`tests/cli/targets_test.rs` live; `tests/integration/targets_mapping_test.rs` unit)
 1. Default run on `tests/fixtures/targets/` — the fixture is built so that **all five default producers emit at least one finding** (sol #20): `svc.py` calls `fetch()` from `client.py` without handling (echo, and a cross-file unprotected caller for membrane), `open()` without `close()` (absence), a guard-clause change with `--old-repo` pointing at a copy of the pre-change tree or a same-tree guard modification on a diff line (contract — implementer picks whichever the algorithm reliably triggers and says which in a comment), a `request.args` read flowing to a diff line (provenance). Asserts: parses; `schema_version == "1.0"`; `producer.tool == "prism"`; `producer.resolution_mode == "nominal"`; `producer.algorithms` equals the five names; `diff.files` non-empty; at least one target per `source_algorithm ∈ {echo, absence, contract, provenance, membrane}`.
 2. Echo target: `kind == "external_call"`, `expected.property == "error_handled"`, `dependency_hint.callee == "fetch"`, `confidence == "unlabeled"`, `tier == "candidate"`, `site.symbol` is the caller, `function_start_line <= line <= function_end_line`, `site.language == "python"`. Membrane target: `kind == "boundary"`, `dependency_hint.callee` names the changed function (live hint assertion — sol #25).
-3. Absence target: `kind == "resource_acquire"`, `expected.property == "resource_released"`, `dependency_hint.counterpart == "close"`, `dependency_hint.kind == "filesystem"`, `confidence == "exact"`, `tier == "asserted"`. Provenance target: `kind == "other"`, `expected.property == "origin_trusted"`, `expected.detail` contains `origin at use site`.
+3. Absence target: `kind == "resource_acquire"`, `expected.property == "resource_released"`, `dependency_hint.counterpart == "close"`, `dependency_hint.kind == "filesystem"`, `confidence == "exact"`, `tier == "asserted"`, `parse_quality == "clean"`. Provenance target: `kind == "other"`, `expected.property == "origin_trusted"`, `expected.detail` contains `origin at use site`. Symmetry (add `serialize_x`/`deserialize_x` to the fixture with only one changed; run `--algorithm symmetry`): `kind == "contract"`, `dependency_hint.counterpart` names the unchanged counterpart, `site.symbol` is the function enclosing `site.line`, and if that differs from the finding's named function a `warnings` entry says so (sol r2 #9/#25).
 4. `id` is 64 hex chars; running twice gives byte-identical stdout; `--min-tier asserted` keeps the absence target and removes every `candidate`; `--min-severity concern` removes the absence target.
 5. Every emitted document passes the in-repo structural checker over `docs/contracts/targets.schema.json` (required keys per object, enum membership, id regex, `additionalProperties` sets, integer minima).
 6. Acceptance table: `--algorithm chop` → exit 1 + `requires --chop-source`; `--algorithm delta` without `--old-repo` → exit 1 + `requires --old-repo`; `--algorithm leftflow` → exit 1 + `produces slice blocks, not findings`; `--algorithm angle` → exit 0, `targets == []`, stderr `produces no findings`; a run with a recorded algorithm error and `--strict` → exit 3 and `errors` non-empty (implementer constructs the case and documents it).
 7. `--out <file>` writes the same bytes as stdout would; stdout empty.
+7b. A diff naming an unsupported-language file (`notes.txt`) → `warnings` contains `skipped unsupported file: notes.txt (unsupported language)`; a JSON diff naming `/abs/elsewhere.py` → no target for it and `warnings` contains `dropped finding with path escaping repo root` only if a finding was produced for it (else the load warning alone) — implementer records which.
 8. Unit (mapping): one case per table row with the verbatim description formats (echo, membrane, four absence categories incl. a table row with no counterpart, both `contract_violation` shapes → `precondition_holds`/`postcondition_holds`, an unrecognised `contract_violation` text → `unknown`, provenance `database`/`user_input`, symmetry, unknown category, `category: None` → `"uncategorized"`, severity `"critical"` → `"concern"` + warning); `line: 0` → dropped + warning; two identical ids → one target + duplicate warning; symmetry finding whose containing function ≠ `function_name` → bounds omitted + warning; `Language::all()` lowering ⊆ schema enum; path `a\\b.py` → `a/b.py`; `../x.py` → warning.
 
 ### 7.5 README gate (`tests/cli/readme_test.rs`) — §2.5.8.
@@ -430,7 +449,7 @@ Run with `cargo test --test cli sarif_test::`, `cargo test --test cli targets_te
 2. `cargo clippy --all-targets --all-features -- -D warnings` → exit 0 (or the pre-existing warning set, diffed against the exact base built in the same worktree — new warnings only are blockers).
 3. Focused tests (§7) GREEN. RED is observed on the exact base for the CLI-level tests by running the base binary (`~/code/tools/bin/prism-base-c220525`, sha256 `299f02c4f15c4e7d…`) with the same invocations (`--format sarif` renders text on base; `targets` is an unknown subcommand). Unit tests that cannot compile on base are recorded as "feature absent".
 4. Full suite: `cargo test --all-targets --all-features --no-fail-fast 2>&1 | tee <log>`; totals by `awk` over every `test result:` line of the complete log (never `tail`); base was `3543 passed / 0 failed / 1 ignored` (`~/code/tools/logs/baseline-c220525.log`). Expected: base totals + new tests, 0 failed.
-5. **Same-base control (facade proof):** `scripts/phase0-byte-control.sh <base-bin> <branch-bin>` runs both binaries over every checked-in fixture diff (`tests/fixtures/python/calc.diff`, `tests/fixtures/hapi-4552.diff`, `tests/fixtures/nav_compat/*`, `tests/fixtures/review_no_diagrams/*`, `tests/fixtures/c/*.diff` if present) plus a generated **poor-parse fixture** (a file with >10% error nodes) with: (a) single algorithms `leftflow`, `absence`, `contract`, `echo`, `membrane`, `provenance`, `primitive` × formats `text`, `json`, `paper`, `review`, `mermaid`; (b) multi sets `echo,absence,contract` and `absence,contract,primitive` × `text`, `json`, `paper` (today's text fallback), `review`, `mermaid`; (c) `chop,absence --format json` (an `errors[]` entry); (d) `--format callers`; (e) one `--strict-diagrams` invocation on a diagram-warning fixture — capturing **stdout, stderr and exit status** for each and diffing all three (sol #19). Taint is excluded (documented non-byte-stability). Expected: zero differing invocations. Any difference is a STOP.
+5. **Same-base control (facade proof):** `scripts/phase0-byte-control.sh <base-bin> <branch-bin>` runs both binaries over **every** checked-in fixture diff, enumerated by the script itself (`find tests/fixtures -name '*.diff' -o -name '*.patch' -o -name 'diff.json'`, each paired with its repo directory by the layout convention the existing tests use; the script prints the list it found and fails if it is empty; at this base the population includes at least `python/calc.diff`, `hapi-4552.diff`, `bash/firmware_update.diff`, `terraform/main.diff`, `nav_compat/*`, `review_no_diagrams/*` — sol r2 S1) plus a generated **poor-parse fixture** (a file with >10% error nodes) with: (a) single algorithms `leftflow`, `absence`, `contract`, `echo`, `membrane`, `provenance`, `primitive` × formats `text`, `json`, `paper`, `review`, `mermaid`; (b) multi sets `echo,absence,contract` and `absence,contract,primitive` × `text`, `json`, `paper` (today's text fallback), `review`, `mermaid`; (c) `chop,absence --format json` (an `errors[]` entry); (d) `--format callers`; (e) one `--strict-diagrams` invocation on a diagram-warning fixture — capturing **stdout, stderr and exit status** for each and diffing all three (sol #19). Taint is excluded (documented non-byte-stability). Expected: zero differing invocations. Any difference is a STOP.
 6. **Per-binary cache-decision control:** for each binary with its **own** empty `--cache-dir`: run 1, run 2, edit one fixture file, run 3; the observable per run is `(cpg-cache.bin exists?, mtime changed vs previous run?)` → expected `(created), (unchanged), (changed)` for both binaries. Compare the two sequences, not the artifacts.
 7. Tier-A: `cargo build --release && cd eval && uv run tier-a --matrix-only --allow-stale-sut` → same pass count as base (tripwire only).
 8. One real SARIF document validated against the official SARIF 2.1 JSON schema, and one real targets document validated against `docs/contracts/targets.schema.json`, both with Python `jsonschema` (Draft 2020-12), controller-side, commands and output recorded in the handoff.
@@ -461,4 +480,5 @@ Design review cap: **2 rounds** (sol gate via bridge, read-only; Opus parallel s
 
 - **Round 1 — Opus seat** (`~/code/tools/reviews/phase0-spec-r1-opus.md`): FIX, W=9 S=15. All folded in v2 (W1 pipeline/`ReviewOutcome`/`TargetsMeta`; W2 Language lowering; W3 parse-quality fail-safe; W4 cache identity; W5 wider byte control; W6 digit-masked fingerprint; W7 closed absence table; W8 build-specific fields; W9 confidence enum `exact|nameonly|unlabeled`; S10–S24 as listed in v2). Q1 comparability keys → schema; Q2 `asserted` = evidence-path claim; Q3 hints only from verbatim/closed sources.
 - **Round 1 — sol seat** (`~/code/tools/reviews/phase0-spec-r1-sol.md`, reviewed v1): FIX, W=22 S=9. Folded in v3 — #1/#2/#3 authoritative parse-quality map, `evidence_files`, `min_over`, `classify_with_evidence` deferred (§2.1); #4 = Opus W1; #5 `contract_violation` discrimination; #6 `close_only_on_error_path` → `resource_acquire`; #7 provenance → `other` + Q2 ruling; #8 related-line attribution table; #9 bounds must agree with `function_name`; #10 URI encoding / path normalisation; #11 totality rules; #12 unknown severity → louder; #13 no `regex`; #14 canonical-JSON id incl. severity; #15 `build_identity` naming + §3; #16/#17 compatibility boundary and version wording; #18 `result.warnings` kept explicitly; #19 control compares stdout+stderr+exit incl. multi-paper, poor-parse, error, strict-diagram; #20 ruleIndex per result, shared `DEFAULT_*` consts, per-result algorithm check, all five producers live, full validator in gate §8.8; #21 minor-bump policy; #22 = Opus S19; #23 no `originalUriBaseIds`; #24 ownership wording; #25 live hint assertions; #26 = S10 + name agreement; #27 = W2; #28 = S16/S17; #29 line-text discriminator; #30 script in §6; #31 module/test split. sol Q1 → the `ReviewInputs.parse_quality` map; Q2 → lossy anchors allowed, `kind` tells the truth; Q3 → handles-stable boundary (§2.3.1).
-- **Round 2 — sol seat (v3):** pending.
+- **Round 2 — sol seat (v3)** (`~/code/tools/reviews/phase0-spec-r2-sol.md`): FIX, W=4 S=1 I=1, 21 FOLDED / 10 PARTIAL of the round-1 items. Folded in v4: W1 sparse parse-quality map → `min_over(files, map, parsed)` + `parse_quality_for` (§2.1); W2 `ReviewRun.results` = successful subsequence + error-before-success test (§2.3.2, §7.3.2); W3 schema `required` sets now cover every always-emitted field (schema, §2.4.2); W4 `ReviewInputs.load_warnings` surfaced in targets `warnings` and SARIF notifications, legacy `warnings`/stderr unchanged (§2.3.2, §2.2, §2.4.2); S1 byte control enumerates fixtures programmatically (§8.5); I1 → plan Task 2 (fullDescription table). PARTIALs: #2 delta-contract categories → Unknown (`parse_quality_for`); #9 `site.symbol` = enclosing function, warning on disagreement; #10 escaping paths dropped with warning; #11 `unknown` added to the schema enum; #14 schema id formula updated to the canonical-JSON array, first-wins dedupe with warning kept (documented); #16 `NavOptions: Default`; #21 closed-world validation stated (a 1.k document validates only against schema 1.k); #25 symmetry added to the live fixture, `double_close` stays unit-only (C goto fixture cost; disclosed); #29 identical call-site lines share a fingerprint — accepted and documented (location disambiguates in GitHub); #1 = W1. sol Q1 → sparse map retained for legacy, total classification via `parsed`; Q2 → closed world is deliberate; Q3 → success-only sequence, documented.
+- **Round 3 — sol seat (v4), disclosed extension:** pending. Trigger for stopping: no new WRONG.
