@@ -27,6 +27,8 @@ pub struct TargetsMeta {
     pub min_tier: FindingTier,
 }
 
+/// Projects findings and records per-finding warnings against the complete
+/// input population before applying severity or tier filters.
 pub fn project(
     findings: &[SliceFinding],
     inputs: &ReviewInputs,
@@ -74,13 +76,6 @@ pub fn project(
         let parse_quality =
             parse_quality_for(&normalized_finding, &inputs.parse_quality, &inputs.files);
         let (confidence, tier) = classify(&finding.algorithm, parse_quality);
-        if severity_rank(&severity) < meta.min_severity_rank
-            || (matches!(meta.min_tier, FindingTier::Asserted)
-                && !matches!(tier, FindingTier::Asserted))
-        {
-            continue;
-        }
-
         let mapped = map_finding(finding);
         let (symbol, function_start_line, function_end_line) =
             enclosing_site(&file, finding, inputs, &mut warnings);
@@ -116,6 +111,13 @@ pub fn project(
                 "targets: duplicate id {id} dropped ({}/{} {}:{})",
                 finding.algorithm, category, file, finding.line
             ));
+            continue;
+        }
+
+        if severity_rank(&severity) < meta.min_severity_rank
+            || (matches!(meta.min_tier, FindingTier::Asserted)
+                && !matches!(tier, FindingTier::Asserted))
+        {
             continue;
         }
 
@@ -194,9 +196,9 @@ pub fn project(
                 .map(|file| file.file_path.clone())
                 .collect(),
         }),
+        targets,
         errors: meta.errors.clone(),
         warnings,
-        targets,
     }
 }
 
@@ -266,6 +268,10 @@ fn enclosing_site(
     warnings: &mut Vec<String>,
 ) -> (Option<String>, Option<usize>, Option<usize>) {
     let Some(parsed) = inputs.files.get(file) else {
+        warnings.push(format!(
+            "targets: function bounds omitted for {file}:{}: file not parsed",
+            finding.line
+        ));
         return (finding.function_name.clone(), None, None);
     };
     let Some(node) = parsed.function_node_spanning(finding.line) else {

@@ -12,11 +12,11 @@ pub struct TargetsDocument {
     pub repo: Option<Repo>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub diff: Option<Diff>,
+    pub targets: Vec<Target>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub errors: Vec<AlgorithmError>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
-    pub targets: Vec<Target>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

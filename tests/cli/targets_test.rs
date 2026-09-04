@@ -44,6 +44,16 @@ fn fixture_run(algorithm: &str, extra: &[&str]) -> std::process::Output {
     run(Path::new(REPO), Path::new(DIFF), algorithm, extra)
 }
 
+fn fixture_default_run(extra: &[&str]) -> std::process::Output {
+    let mut cmd = prism_cmd();
+    cmd.arg("targets")
+        .arg("--repo")
+        .arg(REPO)
+        .arg("--diff")
+        .arg(DIFF);
+    cmd.args(extra).output().unwrap()
+}
+
 fn json(output: &std::process::Output) -> Value {
     serde_json::from_slice(&output.stdout).unwrap_or_else(|error| {
         panic!(
@@ -151,6 +161,26 @@ fn check_against_schema(doc: &Value, schema: &Value) {
 fn contract_schema() -> Value {
     serde_json::from_str(&fs::read_to_string("docs/contracts/targets.schema.json").unwrap())
         .unwrap()
+}
+
+#[test]
+fn omitted_algorithm_uses_all_five_defaults_in_order() {
+    let output = fixture_default_run(&[]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        json(&output)["producer"]["algorithms"],
+        serde_json::json!([
+            "EchoSlice",
+            "AbsenceSlice",
+            "ContractSlice",
+            "ProvenanceSlice",
+            "MembraneSlice"
+        ])
+    );
 }
 
 #[test]
@@ -314,6 +344,8 @@ fn acceptance_table_and_strict_without_errors_exit_codes() {
         ("chop", "requires --chop-source"),
         ("delta", "requires --old-repo"),
         ("leftflow", "produces slice blocks, not findings"),
+        ("review", "produces slice blocks, not findings"),
+        ("all", "produces slice blocks, not findings"),
     ];
     for (algorithm, message) in cases {
         let output = fixture_run(algorithm, &[]);
@@ -336,6 +368,7 @@ fn acceptance_table_and_strict_without_errors_exit_codes() {
     // No accepted targets producer at this base has a controllable runtime Err
     // path. The binary-unit test pins the non-empty-errors -> 3 decision; this
     // live case pins that strict does not fail a complete run.
+    // The live recorded-error -> exit 3 observable remains a known coverage gap.
     let strict = fixture_run("absence", &["--strict"]);
     assert_eq!(strict.status.code(), Some(0));
     let strict_doc = json(&strict);

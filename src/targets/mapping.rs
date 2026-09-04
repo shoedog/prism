@@ -13,21 +13,18 @@ pub struct Mapped {
 }
 
 /// `(PairedPattern.description, unambiguous counterpart base, dependency kind)`.
-/// The descriptions are copied verbatim from `absence_slice.rs:29-160`.
+/// The descriptions are copied verbatim from every row returned by
+/// `absence_slice::default_pairs()`.
 pub const ABSENCE_PAIRS: &[(&str, Option<&str>, Option<&str>)] = &[
     ("file open without close", Some("close"), Some("filesystem")),
     ("lock without unlock", Some("unlock"), None),
-    ("connection opened without close", None, Some("network")),
+    ("connection opened without close", None, None),
     ("event subscription without unsubscribe", None, None),
-    (
-        "transaction begin without commit/rollback",
-        None,
-        Some("db"),
-    ),
+    ("transaction begin without commit/rollback", None, None),
     ("allocation without free", None, None),
-    ("timer set without clear", None, Some("clock")),
+    ("timer set without clear", None, None),
     ("item added without removal path", None, None),
-    ("span/timer started without end", None, Some("clock")),
+    ("span/timer started without end", None, None),
     (
         "resource acquisition without defer cleanup (Go)",
         None,
@@ -44,7 +41,7 @@ pub const ABSENCE_PAIRS: &[(&str, Option<&str>, Option<&str>)] = &[
     (
         "clock enabled without disable",
         Some("clk_disable_unprepare"),
-        Some("clock"),
+        None,
     ),
     (
         "platform driver registered without unregister",
@@ -62,6 +59,136 @@ pub const ABSENCE_PAIRS: &[(&str, Option<&str>, Option<&str>)] = &[
         None,
     ),
     ("rtnl lock without unlock", Some("rtnl_unlock"), None),
+    ("kstrdup allocation without kfree", Some("kfree"), None),
+    (
+        "slab cache allocation without free",
+        Some("kmem_cache_free"),
+        None,
+    ),
+    (
+        "RCU read lock without unlock",
+        Some("rcu_read_unlock"),
+        None,
+    ),
+    (
+        "pthread mutex lock without unlock",
+        Some("pthread_mutex_unlock"),
+        None,
+    ),
+    ("semaphore wait without post", Some("sem_post"), None),
+    ("mmap without munmap", Some("munmap"), Some("filesystem")),
+    (
+        "POSIX file descriptor opened without close",
+        Some("close"),
+        Some("filesystem"),
+    ),
+    (
+        "directory opened without closedir",
+        Some("closedir"),
+        Some("filesystem"),
+    ),
+    (
+        "pthread rwlock without unlock",
+        Some("pthread_rwlock_unlock"),
+        None,
+    ),
+    (
+        "Python threading lock without release",
+        Some("release"),
+        None,
+    ),
+    ("Python multiprocessing pool without close/join", None, None),
+    ("socket created without close", Some("close"), None),
+    ("temporary file without cleanup", None, Some("filesystem")),
+    ("Node.js stream without destroy/close/end", None, None),
+    ("server created without close", None, None),
+    ("database pool connection without release", None, None),
+    ("fs.open without fs.close", None, Some("filesystem")),
+    ("lock/acquire without release/unlock", None, None),
+    ("Go sql.Open without db.Close", None, None),
+    (
+        "Go file created without Close",
+        Some("Close"),
+        Some("filesystem"),
+    ),
+    (
+        "Go context without cancel (may leak goroutine)",
+        Some("cancel"),
+        None,
+    ),
+    ("WaitGroup Add without Wait", Some("Wait"), None),
+    ("Go HTTP response body not closed", Some("Body.Close"), None),
+    (
+        "Rust file opened without explicit flush/drop",
+        None,
+        Some("filesystem"),
+    ),
+    (
+        "advisory: Rust mutex lock held to end of scope (explicit drop() releases sooner)",
+        Some("drop"),
+        None,
+    ),
+    (
+        "unsafe block without safety assertion or comment",
+        None,
+        None,
+    ),
+    ("Rust TCP connection without shutdown/drop", None, None),
+    (
+        "Rust Command created but never executed",
+        Some("spawn"),
+        None,
+    ),
+    ("Lua file opened without close", None, Some("filesystem")),
+    ("Lua socket opened without close", None, None),
+    (
+        "Lua coroutine created but never resumed",
+        Some("coroutine.resume"),
+        None,
+    ),
+    ("S3 bucket missing encryption configuration", None, None),
+    ("S3 bucket missing public access block", None, None),
+    ("S3 bucket missing versioning configuration", None, None),
+    ("Lambda function missing CloudWatch log group", None, None),
+    ("Security group missing explicit rule resource", None, None),
+    (
+        "RDS instance missing storage_encrypted configuration",
+        None,
+        None,
+    ),
+    (
+        "Temp file created with mktemp but never cleaned up",
+        None,
+        Some("filesystem"),
+    ),
+    (
+        "Filesystem mounted but never unmounted",
+        None,
+        Some("filesystem"),
+    ),
+    ("pushd without matching popd", None, None),
+    ("Signal trap set but never restored/cleared", None, None),
+    (
+        "File descriptor opened but never closed",
+        None,
+        Some("filesystem"),
+    ),
+    (
+        "Lock file acquired but never released",
+        None,
+        Some("filesystem"),
+    ),
+    (
+        "Firmware flash write (mtd) without hash verification",
+        None,
+        None,
+    ),
+    ("UCI config set without commit", None, None),
+    (
+        "Kernel module loaded without unload in cleanup path",
+        None,
+        None,
+    ),
 ];
 
 pub fn map_finding(finding: &SliceFinding) -> Mapped {

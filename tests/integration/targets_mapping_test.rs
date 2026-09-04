@@ -1,5 +1,6 @@
 //! Pure projection/mapping acceptance tests for design §7.4.8.
 
+use prism::algorithms::absence_slice::default_pairs;
 use prism::api::{load_review_inputs, FindingTier, ReviewInputs, ReviewOptions};
 use prism::languages::Language;
 use prism::slice::{AlgorithmError, SliceFinding};
@@ -107,30 +108,18 @@ fn maps_echo_membrane_and_symmetry_verbatim_formats() {
 #[test]
 fn maps_all_four_absence_categories_and_closed_pair_rows() {
     let descriptions: Vec<_> = ABSENCE_PAIRS.iter().map(|row| row.0).collect();
+    let expected: Vec<_> = default_pairs()
+        .into_iter()
+        .map(|pair| pair.description)
+        .collect();
     assert_eq!(
-        descriptions,
-        vec![
-            "file open without close",
-            "lock without unlock",
-            "connection opened without close",
-            "event subscription without unsubscribe",
-            "transaction begin without commit/rollback",
-            "allocation without free",
-            "timer set without clear",
-            "item added without removal path",
-            "span/timer started without end",
-            "resource acquisition without defer cleanup (Go)",
-            "kernel allocation without free",
-            "DMA allocation without free",
-            "IRQ registered without free",
-            "spinlock without unlock",
-            "clock enabled without disable",
-            "platform driver registered without unregister",
-            "device tree node get without put",
-            "kernel mutex lock without unlock",
-            "rtnl lock without unlock",
-        ],
-        "one row per PairedPattern literal in absence_slice.rs:29-160"
+        ABSENCE_PAIRS.len(),
+        65,
+        "ABSENCE_PAIRS must cover all production PairedPattern descriptions"
+    );
+    assert_eq!(
+        descriptions, expected,
+        "ABSENCE_PAIRS must preserve every production PairedPattern description in order"
     );
 
     for category in [
@@ -160,12 +149,10 @@ fn maps_all_four_absence_categories_and_closed_pair_rows() {
         } else if category == "missing_close_on_error_path" {
             assert_eq!(mapped.hint.unwrap().counterpart.as_deref(), Some("unlock"));
         } else {
-            let hint = mapped.hint.unwrap();
-            assert_eq!(
-                hint.counterpart, None,
-                "ambiguous commit/rollback must not be invented"
+            assert!(
+                mapped.hint.is_none(),
+                "ambiguous commit/rollback must not invent a counterpart or kind"
             );
-            assert_eq!(hint.kind.as_deref(), Some("db"));
         }
     }
 
@@ -387,6 +374,51 @@ fn projection_emits_bounds_and_prefers_enclosing_symbol_on_disagreement() {
 }
 
 #[test]
+fn projection_warns_when_bounds_are_omitted_for_an_unparsed_file() {
+    let (temp, inputs) = inputs("a.py");
+    let mut missing = finding("absence", Some("missing_counterpart"), "future pair");
+    missing.file = "missing.py".to_string();
+    let doc = project(&[missing], &inputs, &meta(temp.path().to_path_buf()));
+    let target = &doc.targets[0];
+    assert_eq!(target.site.function_start_line, None);
+    assert_eq!(target.site.function_end_line, None);
+    assert!(doc.warnings.iter().any(|warning| {
+        warning == "targets: function bounds omitted for missing.py:2: file not parsed"
+    }));
+}
+
+#[test]
+fn projection_warnings_describe_the_unfiltered_finding_population() {
+    let (temp, inputs) = inputs("a/b.py");
+    let mut noisy = finding("future", None, "future finding");
+    noisy.file = "a\\b.py".to_string();
+    noisy.severity = "critical".to_string();
+    noisy.function_name = Some("named_elsewhere".to_string());
+    let mut metadata = meta(temp.path().to_path_buf());
+    metadata.min_tier = FindingTier::Asserted;
+
+    let doc = project(&[noisy.clone(), noisy], &inputs, &metadata);
+    assert!(
+        doc.targets.is_empty(),
+        "candidate findings must be filtered"
+    );
+    for expected in [
+        "normalised path separators",
+        "unknown severity 'critical' mapped to concern",
+        "symbol read differs from finding's function named_elsewhere",
+        "duplicate id",
+    ] {
+        assert!(
+            doc.warnings
+                .iter()
+                .any(|warning| warning.contains(expected)),
+            "filtered finding warning missing: {expected}; warnings={:?}",
+            doc.warnings
+        );
+    }
+}
+
+#[test]
 fn language_lowering_is_a_subset_of_the_schema_enum() {
     let schema: Value =
         serde_json::from_str(&fs::read_to_string("docs/contracts/targets.schema.json").unwrap())
@@ -450,8 +482,27 @@ fn projection_preserves_algorithm_errors_as_partial_coverage() {
         algorithm: "DeltaSlice".to_string(),
         error: "fixture error".to_string(),
     });
+    metadata.run_warnings.push("fixture warning".to_string());
     let doc = project(&[], &inputs, &metadata);
     assert_eq!(doc.errors.len(), 1);
     assert_eq!(doc.errors[0].algorithm, "DeltaSlice");
     assert_eq!(doc.errors[0].error, "fixture error");
+    let serialized = serde_json::to_string(&doc).unwrap();
+    let keys = [
+        "schema_version",
+        "producer",
+        "repo",
+        "diff",
+        "targets",
+        "errors",
+        "warnings",
+    ];
+    let positions: Vec<_> = keys
+        .iter()
+        .map(|key| serialized.find(&format!("\"{key}\"")).unwrap())
+        .collect();
+    assert!(
+        positions.windows(2).all(|pair| pair[0] < pair[1]),
+        "top-level keys must follow schema property order: {serialized}"
+    );
 }
