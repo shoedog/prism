@@ -2111,7 +2111,7 @@ fn id_bearing_initialized_notification_transitions_not_deadlocks() {
         "tools/list after an id-bearing initialized notification must succeed (no deadlock): {}",
         o[1]
     );
-    assert_eq!(o[1]["result"]["tools"].as_array().unwrap().len(), 6);
+    assert_eq!(o[1]["result"]["tools"].as_array().unwrap().len(), 7);
 }
 
 #[test]
@@ -2273,7 +2273,7 @@ fn oversized_frame_is_recoverable_parse_error() {
     let o = run_bytes(input.into_bytes());
     assert_eq!(o[0]["error"]["code"], -32700);
     assert_eq!(o[1]["result"]["protocolVersion"], "2025-11-25");
-    assert_eq!(o[2]["result"]["tools"].as_array().unwrap().len(), 6);
+    assert_eq!(o[2]["result"]["tools"].as_array().unwrap().len(), 7);
 }
 
 #[test]
@@ -2292,7 +2292,7 @@ fn bad_utf8_frame_is_recoverable_parse_error() {
     let o = run_bytes(input);
     assert_eq!(o[0]["error"]["code"], -32700);
     assert_eq!(o[1]["result"]["protocolVersion"], "2025-11-25");
-    assert_eq!(o[2]["result"]["tools"].as_array().unwrap().len(), 6);
+    assert_eq!(o[2]["result"]["tools"].as_array().unwrap().len(), 7);
 }
 
 #[test]

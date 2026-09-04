@@ -6,7 +6,7 @@
 
 ## 0. Current verdict
 
-**IMPLEMENTED, DOCUMENTED, AND REVIEWED; FULL GATES PENDING.** The owner directed work past eval-only increments. Read-only callable edit coordinates now work through the navigation query, CLI, and MCP. Full suites, release/Tier-A gates, PR, and merge remain.
+**IMPLEMENTED, DOCUMENTED, AND REVIEWED; MCP/RUN-TIME GATES PENDING.** The owner directed work past eval-only increments. Read-only callable edit coordinates now work through the navigation query, CLI, and MCP. The full MCP rerun, release/Tier-A gates, PR, and merge remain.
 
 ## 1. Authority boundary
 
@@ -29,12 +29,15 @@ Implement callable-only coordinate discovery through CLI and MCP. Prism returns 
 - README, MCP reference, and bundled navigation skill now document the seventh nav tool, its dedicated result, coordinate semantics, and callable-only/read-only boundary; stale count-language search is clean. No project link-check script exists in this checkout.
 - Review round 1 fixed one WRONG (active `CLAUDE.md` still claimed 8/6 tools) and one coverage SMELL (reachable empty/oversized/bound-function/CLI edges lacked direct assertions). An inline anonymous function proved not CPG-addressable, so no synthetic public null-name claim was added.
 - Review round 2 found 0 WRONG and 0 SMELL. The folded `symbol_spans` filter passed 13/13 behavior tests across MCP, CLI, and navigation.
-- Full default and `mcp` suites, static gates, release builds, and Tier-A matrix/quick are not yet run.
+- Format, base-to-HEAD diff check, all-target MCP check, and configured all-target MCP Clippy are green. Clippy retains the repository's existing non-fatal warning population.
+- Full default suite is green: 3,694 total = 3,693 passed + 1 ignored, 0 failed, including 2 doctests.
+- Full MCP attempt 1 found exactly three stale six-tool assertions in transport recovery tests. The exact-base same-environment control passed those 3/3; enumeration found no fourth count; the branch's targeted 6-to-7 fix passes 3/3. Full MCP rerun is pending.
+- Release builds and Tier-A matrix/quick are not yet run.
 - LSP semantic navigation remains unavailable; the repository's structural Prism navigation plus direct source reads supplied the blast-radius evidence.
 
 ## 4. Custody
 
 - Root `main` was rebound to PR #233 merge `c7cc2d9` before this branch was created.
-- Design checkpoint is `00b5866`; RED tests are `a3bd9ae`; GREEN implementation is `bea4c76`; documentation is `832655e`; review-round-1 fixes are `5c7590a`; review-completion custody is the current commit candidate.
+- Design checkpoint is `00b5866`; RED tests are `a3bd9ae`; GREEN implementation is `bea4c76`; documentation is `832655e`; review-round-1 fixes are `5c7590a`; review completion is `e613846`; the full-suite count fix plus this custody refresh are the current commit candidate.
 - Root's pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
 - PR #232 merged the JS/TS typed/new receiver recovery as `434764a6`; PR #233 reconciled its durable custody as `c7cc2d9`.
