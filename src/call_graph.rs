@@ -556,6 +556,15 @@ pub enum ImportBindingKind {
     WildcardImport,
 }
 
+pub(crate) enum PythonImportedClassRoute {
+    NotImported,
+    Proven {
+        defining_file: String,
+        owner: String,
+    },
+    Blocked,
+}
+
 /// The kind of a module-scope binding (for occurrence-clean eligibility checking).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ModuleBindingKind {
@@ -1485,6 +1494,13 @@ impl CallGraph {
                 imports.insert(file_path.clone(), file_imports);
             }
         }
+        // Build structured imports before call-site classification so Python can
+        // retain only eligible module-scope member-import receiver types.
+        let (import_bindings, module_bindings) = Self::extract_all_import_bindings(files);
+        let indexed_files: BTreeSet<String> = files.keys().cloned().collect();
+        let (class_bases, clean_class_spans) = Self::build_class_facts(files);
+        let proven_python_imported_receiver_types =
+            python_imported_receiver_types(&import_bindings, &indexed_files, &clean_class_spans);
 
         let ordered_files: Vec<(&String, &ParsedFile)> = files.iter().collect();
 
@@ -1608,6 +1624,8 @@ impl CallGraph {
                 let mut file_call_sites = Vec::new();
                 let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
                 let file_imports_ref = imports.get(file_path);
+                let proven_imported_receiver_types =
+                    proven_python_imported_receiver_types.get(file_path);
 
                 for func_node in parsed.all_functions() {
                     let func_name = match parsed.language.function_name(&func_node) {
@@ -1657,6 +1675,7 @@ impl CallGraph {
                             parsed,
                             recv_var: recv_var.as_deref(),
                             file_imports: file_imports_ref,
+                            proven_imported_receiver_types,
                         });
                         let recovered = classification.recovered.as_ref();
                         let receiver_newly_recovered = recovered.is_some()
@@ -1730,13 +1749,7 @@ impl CallGraph {
             }
         }
 
-        // Phase 5: Build class facts for inherited-self and recovered receivers.
-        let (class_bases, clean_class_spans) = Self::build_class_facts(files);
-
-        // R4c: populate import bindings for Python/JS/TS import-member resolution.
-        let (import_bindings, module_bindings) = Self::extract_all_import_bindings(files);
         let (js_ts_exports, js_ts_function_locals) = Self::extract_js_ts_resolution_facts(files);
-        let indexed_files: BTreeSet<String> = files.keys().cloned().collect();
 
         let mut cg = CallGraph {
             functions,
@@ -4677,6 +4690,45 @@ impl CallGraph {
             }
         }
 
+        // Build the subset's structured imports before call-site classification,
+        // mirroring the full constructor.
+        let subset_files: BTreeMap<String, &ParsedFile> = files
+            .iter()
+            .filter(|(k, _)| only_files.contains(*k))
+            .map(|(k, v)| (k.clone(), v))
+            .collect();
+        let mut import_bindings_map: BTreeMap<String, Vec<ImportBinding>> = BTreeMap::new();
+        let mut module_bindings_map: BTreeMap<String, BTreeMap<String, ModuleBindingKind>> =
+            BTreeMap::new();
+        for (fp, parsed) in &subset_files {
+            if matches!(
+                parsed.language,
+                crate::languages::Language::Python
+                    | crate::languages::Language::JavaScript
+                    | crate::languages::Language::TypeScript
+                    | crate::languages::Language::Tsx
+            ) {
+                let bindings = parsed.extract_import_bindings();
+                if !bindings.is_empty() {
+                    import_bindings_map.insert(fp.clone(), bindings);
+                }
+                let mbindings = parsed.extract_module_bindings();
+                if !mbindings.is_empty() {
+                    module_bindings_map.insert(fp.clone(), mbindings);
+                }
+            }
+        }
+        mark_import_binding_eligibility(&mut import_bindings_map, &module_bindings_map);
+        let indexed_files: BTreeSet<String> = files.keys().cloned().collect();
+        // Build class facts from the complete files map so unchanged class owners
+        // remain available after incremental merges.
+        let (class_bases, clean_class_spans) = Self::build_class_facts(files);
+        let proven_python_imported_receiver_types = python_imported_receiver_types(
+            &import_bindings_map,
+            &indexed_files,
+            &clean_class_spans,
+        );
+
         // Phase 1: Collect function definitions from subset.
         for (file_path, parsed) in files {
             if !only_files.contains(file_path) {
@@ -4772,6 +4824,8 @@ impl CallGraph {
                     .go_receiver_var(&func_node)
                     .map(|n| parsed.node_text(&n).to_string());
                 let file_imports_ref = imports.get(file_path);
+                let proven_imported_receiver_types =
+                    proven_python_imported_receiver_types.get(file_path);
 
                 for meta in call_sites {
                     let callee_name = meta.callee_name;
@@ -4793,6 +4847,7 @@ impl CallGraph {
                         parsed,
                         recv_var: recv_var.as_deref(),
                         file_imports: file_imports_ref,
+                        proven_imported_receiver_types,
                     });
                     let recovered = classification.recovered.as_ref();
                     let receiver_newly_recovered = recovered.is_some()
@@ -4841,42 +4896,9 @@ impl CallGraph {
             }
         }
 
-        // Phase 5 (direct-subset): build class facts from the complete files map
-        // so unchanged class owners remain available after incremental merges.
-        let (class_bases, clean_class_spans) = Self::build_class_facts(files);
-
-        // R4c: populate import bindings for subset.
-        let subset_files: BTreeMap<String, &ParsedFile> = files
-            .iter()
-            .filter(|(k, _)| only_files.contains(*k))
-            .map(|(k, v)| (k.clone(), v))
-            .collect();
-        let mut import_bindings_map: BTreeMap<String, Vec<ImportBinding>> = BTreeMap::new();
-        let mut module_bindings_map: BTreeMap<String, BTreeMap<String, ModuleBindingKind>> =
-            BTreeMap::new();
-        for (fp, parsed) in &subset_files {
-            if matches!(
-                parsed.language,
-                crate::languages::Language::Python
-                    | crate::languages::Language::JavaScript
-                    | crate::languages::Language::TypeScript
-                    | crate::languages::Language::Tsx
-            ) {
-                let bindings = parsed.extract_import_bindings();
-                if !bindings.is_empty() {
-                    import_bindings_map.insert(fp.clone(), bindings);
-                }
-                let mbindings = parsed.extract_module_bindings();
-                if !mbindings.is_empty() {
-                    module_bindings_map.insert(fp.clone(), mbindings);
-                }
-            }
-        }
-        mark_import_binding_eligibility(&mut import_bindings_map, &module_bindings_map);
         let (js_ts_exports, js_ts_function_locals) = Self::extract_js_ts_resolution_facts_from_iter(
             subset_files.iter().map(|(fp, parsed)| (fp, *parsed)),
         );
-        let indexed_files: BTreeSet<String> = files.keys().cloned().collect();
 
         CallGraph {
             functions,
@@ -5664,6 +5686,85 @@ fn mark_import_binding_eligibility(
             binding.eligible = matches!(binding.kind, ImportBindingKind::MemberImport);
         }
     }
+}
+
+pub(crate) fn python_imported_class_route(
+    caller_file: &str,
+    receiver_type: &str,
+    bindings: Option<&[ImportBinding]>,
+    indexed_files: &BTreeSet<String>,
+    clean_class_spans: &BTreeMap<(String, String), (usize, usize)>,
+) -> PythonImportedClassRoute {
+    let Some(bindings) = bindings else {
+        return PythonImportedClassRoute::NotImported;
+    };
+    let matching: Vec<_> = bindings
+        .iter()
+        .filter(|binding| binding.local == receiver_type)
+        .collect();
+    if matching.is_empty() {
+        return PythonImportedClassRoute::NotImported;
+    }
+    if matching.len() != 1 {
+        return PythonImportedClassRoute::Blocked;
+    }
+    let binding = matching[0];
+    if !binding.eligible || !matches!(binding.kind, ImportBindingKind::MemberImport) {
+        return PythonImportedClassRoute::Blocked;
+    }
+    let Some(owner) = binding.member.as_deref() else {
+        return PythonImportedClassRoute::Blocked;
+    };
+
+    // Count module candidates before consulting the requested class. This
+    // prevents a single-component import from becoming Exact merely because
+    // only one of several same-stem modules happens to declare `owner`.
+    let module_files: Vec<&String> = indexed_files
+        .iter()
+        .filter(|file| {
+            crate::languages::Language::from_path(file) == Some(crate::languages::Language::Python)
+        })
+        .filter(|file| file_matches_module(file, &binding.module_path, caller_file, indexed_files))
+        .collect();
+    if module_files.len() != 1 {
+        return PythonImportedClassRoute::Blocked;
+    }
+    let defining_file = module_files[0];
+    if !clean_class_spans.contains_key(&(defining_file.to_string(), owner.to_string())) {
+        return PythonImportedClassRoute::Blocked;
+    }
+    PythonImportedClassRoute::Proven {
+        defining_file: defining_file.to_string(),
+        owner: owner.to_string(),
+    }
+}
+
+fn python_imported_receiver_types(
+    import_bindings: &BTreeMap<String, Vec<ImportBinding>>,
+    indexed_files: &BTreeSet<String>,
+    clean_class_spans: &BTreeMap<(String, String), (usize, usize)>,
+) -> BTreeMap<String, BTreeSet<String>> {
+    let mut proven = BTreeMap::new();
+    for (caller_file, bindings) in import_bindings {
+        for receiver_type in bindings.iter().map(|binding| binding.local.as_str()) {
+            if matches!(
+                python_imported_class_route(
+                    caller_file,
+                    receiver_type,
+                    Some(bindings),
+                    indexed_files,
+                    clean_class_spans,
+                ),
+                PythonImportedClassRoute::Proven { .. }
+            ) {
+                proven
+                    .entry(caller_file.clone())
+                    .or_insert_with(BTreeSet::new)
+                    .insert(receiver_type.to_string());
+            }
+        }
+    }
+    proven
 }
 
 /// Check if a file path matches a module path for R4c resolution.

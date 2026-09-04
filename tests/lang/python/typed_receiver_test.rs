@@ -2,7 +2,7 @@ use prism::ast::ParsedFile;
 use prism::call_graph::{CallGraph, CallSite};
 use prism::languages::Language;
 use prism::resolution::{DropReason, ReceiverRecovery, ResolutionConfidence, ResolutionKind};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 fn graph(srcs: &[(&str, &str)]) -> CallGraph {
     let files: BTreeMap<_, _> = srcs
@@ -134,6 +134,23 @@ fn test_python_imported_typed_receiver_requires_unique_module_and_clean_class() 
             callee.confidence != ResolutionConfidence::Exact
                 || callee.kind != ResolutionKind::TypedParam
         }));
+
+    let rebound_class = graph(&[
+        (
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        pass\nClient = object()\n",
+        ),
+        (
+            "app.py",
+            "from pkg.models import Client\ndef run(client: Client):\n    client.send()\n",
+        ),
+    ]);
+    let s = site(&rebound_class, "run", "send");
+    assert_eq!(s.receiver_type, None);
+    assert!(rebound_class.resolve_call_site(&s).iter().all(|callee| {
+        callee.confidence != ResolutionConfidence::Exact
+            || callee.kind != ResolutionKind::TypedParam
+    }));
 }
 
 #[test]
@@ -152,6 +169,24 @@ fn test_python_imported_typed_receiver_excludes_local_import_and_inherited_metho
     assert_eq!(s.receiver_type, None);
     assert!(s.receiver_materialized);
 
+    let local_import_shadows_module_import = graph(&[
+        (
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        pass\n",
+        ),
+        (
+            "other.py",
+            "class Client:\n    def send(self):\n        pass\n",
+        ),
+        (
+            "app.py",
+            "from pkg.models import Client\ndef run():\n    from other import Client\n    client = Client()\n    client.send()\n",
+        ),
+    ]);
+    let s = site(&local_import_shadows_module_import, "run", "send");
+    assert_eq!(s.receiver_type, None);
+    assert!(s.receiver_materialized);
+
     let inherited_only = graph(&[
         (
             "pkg/models.py",
@@ -167,6 +202,44 @@ fn test_python_imported_typed_receiver_excludes_local_import_and_inherited_metho
         callee.confidence != ResolutionConfidence::Exact
             || callee.kind != ResolutionKind::TypedParam
     }));
+}
+
+#[test]
+fn test_python_imported_typed_receiver_subset_build_preserves_proof_barriers() {
+    let files: BTreeMap<_, _> = [
+        (
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        pass\n",
+        ),
+        (
+            "app.py",
+            "from pkg.models import Client as ImportedClient\ndef typed(client: ImportedClient):\n    client.send()\n",
+        ),
+        (
+            "local.py",
+            "def local():\n    from pkg.models import Client\n    client: Client\n    client.send()\n",
+        ),
+    ]
+    .into_iter()
+    .map(|(path, src)| {
+        (
+            path.to_string(),
+            ParsedFile::parse(path, src, Language::Python).expect("parse python"),
+        )
+    })
+    .collect();
+    let only_files: BTreeSet<_> = ["app.py".to_string(), "local.py".to_string()]
+        .into_iter()
+        .collect();
+    let cg = CallGraph::build_direct_subset(&files, &only_files);
+
+    assert_eq!(
+        site(&cg, "typed", "send").receiver_type.as_deref(),
+        Some("ImportedClient")
+    );
+    let local = site(&cg, "local", "send");
+    assert_eq!(local.receiver_type, None);
+    assert!(local.receiver_materialized);
 }
 
 #[test]

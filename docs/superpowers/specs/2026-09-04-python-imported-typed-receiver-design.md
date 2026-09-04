@@ -48,11 +48,12 @@ The resolution kind remains the recovery evidence (`TypedParam` or `ConstructorL
 The legacy flat import map recursively sees function-local imports, while structured `ImportBinding`s intentionally include only module-scope imports. Receiver classification therefore distinguishes:
 
 - wildcard file: materialized only;
-- bare type present in the flat map and in the structured module-scope member-import set: retain the recovered type for query-time proof;
+- bare type present in the flat map and in the derived set of uniquely proven imported clean classes: retain the recovered type for query-time proof;
+- constructor/local-annotation evidence whose imported type name is bound anywhere in the enclosing function: materialized only;
 - bare type present only in the flat map: materialized only; and
 - non-imported bare type: unchanged existing behavior.
 
-Structured import bindings and their eligibility must be built before call-site classification in both full and subset builds. The same computed maps are then stored on `CallGraph`; do not maintain two independent eligibility calculations.
+Structured import bindings, indexed-file identity, and clean class facts must be built before call-site classification in both full and subset builds. A non-serialized per-file set projects the imports whose module and class proof succeeds. The shared three-way proof helper derives that set and is consulted again at resolution; the structured maps themselves are stored on `CallGraph`.
 
 ## 4. Resolver behavior
 
@@ -72,14 +73,17 @@ RED first:
 - second positive path: constructor local using the imported alias resolves with `ConstructorLocal`;
 - negative: two indexed files matching a single-component module name block Exact even if one has the requested class;
 - negative: an eligible external/missing module plus an unrelated same-named in-repo class does not produce `TypedParam`/`ConstructorLocal` Exact;
+- negative: a rebound class declaration in the matched module is not clean and remains unrecovered;
 - edge: a function-local member import remains unrecovered/materialized-only;
+- edge: a function-local member import shadows a same-named proven module import for constructor/local-annotation recovery;
 - edge: an imported class whose method exists only on a base class does not gain an inherited Exact edge in this slice.
+- parity: direct-subset construction recovers the proven module-scope import and preserves the function-local barrier.
 
 The positive test must fail on the exact base for the expected missing edge. Negative/edge controls must pass before and after the implementation.
 
 ## 6. Files and verification
 
-- `src/call_graph.rs`: build structured imports before classification in full/subset builds; pass them into receiver context.
+- `src/call_graph.rs`: build structured imports/class facts before classification in full/subset builds; pass the derived proven-name set into receiver context.
 - `src/resolution.rs`: classification gate, imported-owner proof, exact-file direct-method lookup, and three-way routing.
 - `tests/lang/python/typed_receiver_test.rs`: RED regression plus negative/edge cases.
 - `src/cpg_cache.rs`: unchanged unless implementation introduces serialized state (not planned).
