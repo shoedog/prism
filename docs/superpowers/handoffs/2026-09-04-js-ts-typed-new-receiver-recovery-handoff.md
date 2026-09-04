@@ -6,7 +6,7 @@
 
 ## 0. Current verdict
 
-**DESIGN AND PLAN RECORDED; RED NEXT.** This is roadmap item 4 and depends on, but remains distinct from, the verified lexical-binding prerequisite.
+**INTENTIONAL RED ESTABLISHED; IMPLEMENTATION NEXT.** This is roadmap item 4 and depends on, but remains distinct from, the verified lexical-binding prerequisite.
 
 ## 1. Authority boundary
 
@@ -20,8 +20,9 @@ Recover only bare TS/TSX typed parameters and direct bare JS/TS/TSX `new Foo()` 
 
 ## 3. Verification state
 
-- No production code changed yet.
-- RED, implementation, two review rounds, full suites, and Tier-A are pending.
+- No production code changed yet. The exact-base JavaScript `new`, TypeScript typed-parameter, R3b-collision, TSX typed-parameter, CPG behavior, and navigation behavior positives all fail at missing receiver recovery (`receiver_type=None` or no recovered edge).
+- CPG/navigation version pins fail exactly at production 58/27 versus required 59/28.
+- Implementation, GREEN, two review rounds, full suites, and Tier-A are pending.
 
 ## 4. Custody
 

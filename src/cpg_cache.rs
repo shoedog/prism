@@ -694,7 +694,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_js_ts_lexical_receiver_binding() {
-        assert_eq!(super::CACHE_VERSION, 58);
+        assert_eq!(super::CACHE_VERSION, 59);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

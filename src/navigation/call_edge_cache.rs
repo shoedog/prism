@@ -555,8 +555,48 @@ mod tests {
     }
 
     #[test]
+    fn sidecar_round_trip_preserves_js_ts_recovered_receiver_edge() {
+        use crate::ast::ParsedFile;
+        use crate::cpg::CpgContext;
+        use crate::languages::Language::TypeScript;
+
+        let files = BTreeMap::from([(
+            "svc.ts".to_string(),
+            ParsedFile::parse(
+                "svc.ts",
+                "class Foo { m() {} }\nfunction run(x: Foo) { x.m(); }\n",
+                TypeScript,
+            )
+            .unwrap(),
+        )]);
+        let navigation =
+            crate::navigation::NavigationIndex::from_ctx(CpgContext::build(&files, None));
+        let index = navigation.build_resolved_call_edges();
+        let target = index
+            .incoming_by_target
+            .keys()
+            .find(|target| target.file == "svc.ts" && target.name == "m")
+            .cloned()
+            .expect("typed receiver target");
+        let incoming = &index.incoming_by_target[&target];
+        assert_eq!(incoming.len(), 1);
+        assert_eq!(incoming[0].kind, ResolutionKind::TypedParam);
+        assert_eq!(incoming[0].confidence, ResolutionConfidence::Exact);
+
+        let dir = tempfile::tempdir().unwrap();
+        let fingerprint = fixture_fingerprint();
+        save(dir.path(), &fingerprint, &index).unwrap();
+        let loaded = load(dir.path(), &fingerprint).unwrap().unwrap();
+        assert_eq!(loaded.incoming_by_target[&target][0].kind, ResolutionKind::TypedParam);
+        assert_eq!(
+            loaded.incoming_by_target[&target][0].confidence,
+            ResolutionConfidence::Exact
+        );
+    }
+
+    #[test]
     fn sidecar_version_is_pinned_for_js_ts_lexical_receiver_binding() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 27);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 28);
     }
 
     #[test]

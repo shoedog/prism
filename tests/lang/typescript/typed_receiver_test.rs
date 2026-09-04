@@ -1,7 +1,7 @@
 use prism::ast::ParsedFile;
 use prism::call_graph::{CallGraph, CallSite};
 use prism::languages::Language;
-use prism::resolution::{ResolutionConfidence, ResolutionKind};
+use prism::resolution::{ReceiverRecovery, ResolutionConfidence, ResolutionKind};
 use std::collections::{BTreeMap, BTreeSet};
 
 fn graph(src: &str) -> CallGraph {
@@ -31,21 +31,55 @@ fn site(cg: &CallGraph, caller: &str, callee: &str) -> CallSite {
 }
 
 #[test]
-fn test_typescript_parameter_annotation_and_new_constructor_do_not_recover() {
+fn test_typescript_parameters_and_new_constructor_recover_but_annotation_does_not() {
     // P3: `m` must stay OVER the R6 fanout cap (4 owners: Foo/Other/Other2/
     // Other3) so this residue keeps testing what its name says — these
     // receiver shapes do not recover — rather than the P3 candidate path a
     // 2-owner pool would now hit instead.
     let cg = graph(
-        "class Foo { m() {} }\nclass Other { m() {} }\nclass Other2 { m() {} }\nclass Other3 { m() {} }\nfunction req(x: Foo) { x.m(); }\nfunction opt(x?: Foo) { x.m(); }\nfunction annotated() { const x: Foo = other(); x.m(); }\nfunction made() { const x = new Foo(); x.m(); }\n",
+        "class Foo { m() {} }\nclass Other { m() {} }\nclass Other2 { m() {} }\nclass Other3 { m() {} }\nfunction req(x: Foo) { x.m(); }\nfunction opt(x?: Foo) { x.m(); }\nfunction defaulted(x: Foo = new Foo()) { x.m(); }\nfunction annotated() { const x: Foo = other(); x.m(); }\nfunction made() { const x = new Foo(); x.m(); }\n",
     );
-    for caller in ["req", "opt", "annotated", "made"] {
+    for (caller, recovery) in [
+        ("req", ReceiverRecovery::TypedParam),
+        ("opt", ReceiverRecovery::TypedParam),
+        ("defaulted", ReceiverRecovery::TypedParam),
+        ("made", ReceiverRecovery::ConstructorLocal),
+    ] {
         let s = site(&cg, caller, "m");
         assert!(s.receiver_lexically_bound, "{caller}");
-        assert_eq!(s.receiver_type, None, "{caller}");
-        assert!(!s.receiver_materialized, "{caller}");
-        assert!(cg.resolve_call_site(&s).is_empty(), "{caller}");
+        assert_eq!(s.receiver_type.as_deref(), Some("Foo"), "{caller}");
+        assert_eq!(s.receiver_recovery, Some(recovery), "{caller}");
+        assert!(s.receiver_materialized, "{caller}");
+        let out = cg.resolve_call_site(&s);
+        assert_eq!(out.len(), 1, "{caller}: {out:?}");
+        assert_eq!(out[0].target.file, "svc.ts", "{caller}");
+        assert_eq!(out[0].target.name, "m", "{caller}");
+        assert_eq!(out[0].kind, match recovery {
+            ReceiverRecovery::ConstructorLocal => ResolutionKind::ConstructorLocal,
+            _ => ResolutionKind::TypedParam,
+        });
+        assert_eq!(out[0].confidence, ResolutionConfidence::Exact, "{caller}");
     }
+
+    let annotated = site(&cg, "annotated", "m");
+    assert!(annotated.receiver_lexically_bound);
+    assert_eq!(annotated.receiver_type, None);
+    assert!(!annotated.receiver_materialized);
+    assert!(cg.resolve_call_site(&annotated).is_empty());
+}
+
+#[test]
+fn test_typescript_recovered_receiver_preempts_qualifier_owner_collision() {
+    let cg = graph(
+        "class Foo { m() {} }\nclass x { m() {} }\nfunction run(x: Foo) { x.m(); }\n",
+    );
+    let call = site(&cg, "run", "m");
+    assert_eq!(call.receiver_type.as_deref(), Some("Foo"));
+    assert!(call.receiver_materialized);
+    let out = cg.resolve_call_site(&call);
+    assert_eq!(out.len(), 1, "{out:?}");
+    assert_eq!(out[0].kind, ResolutionKind::TypedParam);
+    assert_eq!(out[0].target.start_line, 1, "Foo.m must beat x.m");
 }
 
 #[test]

@@ -1,7 +1,7 @@
 use prism::ast::ParsedFile;
 use prism::call_graph::{CallGraph, CallSite};
 use prism::languages::Language;
-use prism::resolution::{ResolutionConfidence, ResolutionKind};
+use prism::resolution::{ReceiverRecovery, ResolutionConfidence, ResolutionKind};
 use std::collections::BTreeMap;
 
 fn graph(src: &str) -> CallGraph {
@@ -31,7 +31,7 @@ fn site(cg: &CallGraph, caller: &str, callee: &str) -> CallSite {
 }
 
 #[test]
-fn test_javascript_new_constructor_and_bare_call_do_not_recover() {
+fn test_javascript_new_constructor_recovers_but_bare_call_does_not() {
     // P3: `m` must stay OVER the R6 fanout cap (4 owners: Foo/Other/Other2/
     // Other3) so this residue keeps testing what its name says —
     // constructor-local recovery does not engage for JS `new`/bare calls —
@@ -41,9 +41,18 @@ fn test_javascript_new_constructor_and_bare_call_do_not_recover() {
     );
     let made = site(&cg, "made", "m");
     assert!(made.receiver_lexically_bound);
-    assert_eq!(made.receiver_type, None);
-    assert!(!made.receiver_materialized);
-    assert!(cg.resolve_call_site(&made).is_empty());
+    assert_eq!(made.receiver_type.as_deref(), Some("Foo"));
+    assert_eq!(
+        made.receiver_recovery,
+        Some(ReceiverRecovery::ConstructorLocal)
+    );
+    assert!(made.receiver_materialized);
+    let made_out = cg.resolve_call_site(&made);
+    assert_eq!(made_out.len(), 1);
+    assert_eq!(made_out[0].target.file, "svc.js");
+    assert_eq!(made_out[0].target.name, "m");
+    assert_eq!(made_out[0].kind, ResolutionKind::ConstructorLocal);
+    assert_eq!(made_out[0].confidence, ResolutionConfidence::Exact);
 
     let factory = site(&cg, "factory", "m");
     assert!(factory.receiver_lexically_bound);
