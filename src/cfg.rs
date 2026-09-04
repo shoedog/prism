@@ -22,16 +22,75 @@ pub struct CfgEdge {
     pub to_line: usize,
 }
 
+/// Arm id used for an endpoint whose line is absent from the function's
+/// lexical-arm map. The two sentinels differ from each other and from every
+/// allocated arm id, so an edge with an unknown endpoint always reports
+/// `crosses_lexical_arm() == true` — the conservative direction (design §6:
+/// every ambiguity resolves toward `NameOnly`, never toward a proof).
+const UNKNOWN_FROM_ARM: u32 = u32::MAX;
+const UNKNOWN_TO_ARM: u32 = u32::MAX - 1;
+
+/// Lexical provenance for one CFG edge. Internal to the RD pass (item 2 Task 3):
+/// `src/cfg.rs`'s sequential loop consumes the globally sorted, line-deduplicated
+/// `statements_in_function` universe (`src/ast.rs:5778-5791`), so it can join two
+/// statements that are in different lexical branch arms. RD must never call such
+/// an edge a proof.
+///
+/// `from_arm` / `to_arm` are `ParsedFile::statement_arms_in_function` ids for the
+/// edge's two endpoint lines, and are only comparable within one function —
+/// which is all that is needed, because `build_function_cfg` never emits an edge
+/// that leaves its function.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ArmProvenance {
+    pub(crate) from_arm: u32,
+    pub(crate) to_arm: u32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))] // consumed by src/cpg/reaching.rs in item 2 Task 3
+impl ArmProvenance {
+    pub(crate) fn crosses_lexical_arm(self) -> bool {
+        self.from_arm != self.to_arm
+    }
+}
+
+/// Build intraprocedural CFG edges paired with the lexical arm of each endpoint.
+///
+/// This is the single CFG walk; `build_cfg_edges` is its first component. The
+/// edge list — contents *and* order — is exactly what `build_cfg_edges` produced
+/// before this channel existed: `build_function_cfg` is unchanged and is still
+/// called once per `parsed.all_functions()` entry, in the same order.
+pub(crate) fn build_cfg_edges_with_arms(parsed: &ParsedFile) -> Vec<(CfgEdge, ArmProvenance)> {
+    let mut out = Vec::new();
+    let mut edges = Vec::new();
+    for func_node in parsed.all_functions() {
+        build_function_cfg(func_node, parsed, &mut edges);
+        if edges.is_empty() {
+            continue;
+        }
+        let arms = parsed.statement_arms_in_function(&func_node);
+        out.extend(edges.drain(..).map(|edge| {
+            let provenance = ArmProvenance {
+                from_arm: arms
+                    .get(&edge.from_line)
+                    .copied()
+                    .unwrap_or(UNKNOWN_FROM_ARM),
+                to_arm: arms.get(&edge.to_line).copied().unwrap_or(UNKNOWN_TO_ARM),
+            };
+            (edge, provenance)
+        }));
+    }
+    out
+}
+
 /// Build intraprocedural CFG edges for all functions in a parsed file.
 ///
 /// Returns a list of `CfgEdge` representing control flow between statement lines.
 /// Each function is processed independently — no interprocedural edges.
 pub fn build_cfg_edges(parsed: &ParsedFile) -> Vec<CfgEdge> {
-    let mut edges = Vec::new();
-    for func_node in parsed.all_functions() {
-        build_function_cfg(func_node, parsed, &mut edges);
-    }
-    edges
+    build_cfg_edges_with_arms(parsed)
+        .into_iter()
+        .map(|(edge, _)| edge)
+        .collect()
 }
 
 /// Build CFG edges for a single function.
@@ -1099,5 +1158,158 @@ void f(int x) {
             "C switch: case 2 (with break) should not fall through, got {:?}",
             edge_pairs
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // Item 2 Task 0: lexical branch-arm provenance on CFG edges
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn sequential_edges_carry_lexical_arm_provenance() {
+        let source = r#"
+int f(int c) {
+    int x = 1;
+    if (c) {
+        x = 2;
+    } else {
+        x = 3;
+    }
+    return x;
+}
+"#;
+        let parsed = ParsedFile::parse("d.c", source, Language::C).unwrap();
+        let arms = crate::cfg::build_cfg_edges_with_arms(&parsed);
+
+        // The edge set is unchanged: same count, same endpoints, same order.
+        let plain = crate::cfg::build_cfg_edges(&parsed);
+        assert_eq!(
+            arms.iter().map(|(e, _)| e.clone()).collect::<Vec<_>>(),
+            plain,
+            "arm provenance must not change the edge set or its order"
+        );
+
+        // `x = 2` (line 5) and `x = 3` (line 7) are in DIFFERENT lexical arms.
+        let arm_of = |line: usize| {
+            arms.iter()
+                .find(|(e, _)| e.from_line == line)
+                .map(|(_, a)| *a)
+                .unwrap_or_else(|| panic!("no CFG edge out of line {line}"))
+        };
+        assert_ne!(
+            arm_of(5),
+            arm_of(7),
+            "then-arm and else-arm statements must not share an arm id"
+        );
+
+        // The globally-sorted sequential loop can emit `x = 2` -> `x = 3`, which
+        // crosses arms. That edge must be *flagged*, not deleted.
+        let cross = arms
+            .iter()
+            .find(|(e, _)| e.from_line == 5 && e.to_line == 7);
+        if let Some((_, arm)) = cross {
+            assert!(
+                arm.crosses_lexical_arm(),
+                "a 5->7 sequential edge crosses arms and must say so"
+            );
+        }
+    }
+
+    /// The arm map must be TOTAL over `statements_in_function`'s line universe:
+    /// `collect_statement_arms` mirrors `collect_statements` child-for-child, so
+    /// every CFG statement line has a real arm id and the `UNKNOWN_*_ARM`
+    /// sentinels never reach a `CfgEdge` built from well-formed source. If this
+    /// fails, the two walks have drifted and arm provenance is silently
+    /// degrading real edges to "crossing".
+    #[test]
+    fn arm_map_covers_every_cfg_statement_line() {
+        let cases: &[(&str, Language, &str)] = &[
+            (
+                "d.c",
+                Language::C,
+                "int f(int c) {\n    int x = 1;\n    if (c) {\n        x = 2;\n    } else {\n        x = 3;\n    }\n    while (x < 9) {\n        x = x + 1;\n    }\n    switch (x) {\n    case 1:\n        x = 4;\n        break;\n    default:\n        x = 5;\n    }\n    return x;\n}\n",
+            ),
+            (
+                "d.py",
+                Language::Python,
+                "def f(c):\n    x = 1\n    if c:\n        x = 2\n    else:\n        x = 3\n    try:\n        x = 4\n    except ValueError:\n        x = 5\n    finally:\n        x = 6\n    for i in range(3):\n        x = x + i\n    return x\n",
+            ),
+            (
+                "d.rs",
+                Language::Rust,
+                "fn f(c: i32) -> i32 {\n    let mut x = 1;\n    if c > 0 {\n        x = 2;\n    } else {\n        x = 3;\n    }\n    match c {\n        0 => x = 4,\n        _ => x = 5,\n    }\n    x\n}\n",
+            ),
+            (
+                "d.go",
+                Language::Go,
+                "func f(c int) int {\n\tx := 1\n\tif c > 0 {\n\t\tx = 2\n\t} else {\n\t\tx = 3\n\t}\n\tfor i := 0; i < 3; i++ {\n\t\tx = x + i\n\t}\n\treturn x\n}\n",
+            ),
+            (
+                "d.ts",
+                Language::TypeScript,
+                "function f(c: number): number {\n  let x = 1;\n  try {\n    x = 2;\n  } catch (e) {\n    x = 3;\n  } finally {\n    x = 4;\n  }\n  return x;\n}\n",
+            ),
+        ];
+
+        for (path, lang, source) in cases {
+            let parsed = ParsedFile::parse(path, source, *lang).unwrap();
+            for func in parsed.all_functions() {
+                let stmt_lines: Vec<usize> = parsed
+                    .statements_in_function(&func)
+                    .into_iter()
+                    .map(|(l, _)| l)
+                    .collect();
+                let arms = parsed.statement_arms_in_function(&func);
+                let missing: Vec<usize> = stmt_lines
+                    .iter()
+                    .copied()
+                    .filter(|l| !arms.contains_key(l))
+                    .collect();
+                assert!(
+                    missing.is_empty(),
+                    "{path}: statement lines with no lexical arm: {missing:?} (universe {stmt_lines:?}, arms {arms:?})"
+                );
+            }
+        }
+
+        // ...and the map must actually discriminate: a diamond has at least two
+        // distinct arms, so the channel is not uniformly zero (the Step-5b stub).
+        let parsed = ParsedFile::parse(cases[0].0, cases[0].2, cases[0].1).unwrap();
+        let func = parsed.all_functions()[0];
+        let arms = parsed.statement_arms_in_function(&func);
+        let distinct: std::collections::BTreeSet<u32> = arms.values().copied().collect();
+        assert!(
+            distinct.len() >= 3,
+            "a diamond + loop + switch must produce several arms, got {distinct:?}"
+        );
+    }
+
+    /// Edge case for the fallback path: an endpoint line that is absent from the
+    /// arm map gets a sentinel, and the two sentinels differ from each other so
+    /// an unknown endpoint always reads as "crosses" — under-assertion, never a
+    /// fabricated proof (design §6).
+    #[test]
+    fn unknown_endpoint_arms_report_crossing() {
+        assert_ne!(UNKNOWN_FROM_ARM, UNKNOWN_TO_ARM);
+        assert!(ArmProvenance {
+            from_arm: UNKNOWN_FROM_ARM,
+            to_arm: UNKNOWN_TO_ARM,
+        }
+        .crosses_lexical_arm());
+        assert!(ArmProvenance {
+            from_arm: 0,
+            to_arm: UNKNOWN_TO_ARM,
+        }
+        .crosses_lexical_arm());
+        assert!(ArmProvenance {
+            from_arm: UNKNOWN_FROM_ARM,
+            to_arm: 0,
+        }
+        .crosses_lexical_arm());
+        // Two statements in the SAME arm are the only non-crossing shape.
+        assert!(!ArmProvenance {
+            from_arm: 7,
+            to_arm: 7,
+        }
+        .crosses_lexical_arm());
     }
 }
