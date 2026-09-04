@@ -170,9 +170,12 @@ The modern architecture centers on `CpgContext`, which bundles:
 Whole-repo `prism nav` indexes use a prism-owned per-repo cache at
 `dirs::cache_dir()/prism/nav/<hash(canonical repo root)>/`, with `--no-cache`
 and `--cache-dir` gating that navigation store specifically.
-Navigation queries include `nodes-at`, `callers`, `callees`, `ego`,
-`module-deps`, and `repo-map`; `module-deps`/`repo-map` live in
-`src/navigation/module_graph.rs`.
+Navigation queries include `nodes-at`, `symbol-spans`, `callers`, `callees`, `ego`,
+`module-deps`, `repo-map`, and the CLI-only `onboard` report. `module-deps`/`repo-map`
+live in `src/navigation/module_graph.rs`; onboarding report construction lives in
+`src/navigation/onboarding.rs` and deterministic Markdown/JSON rendering in
+`src/output/onboarding.rs`. `onboard --out` is explicit create-new-only output and
+must never overwrite an existing file.
 Navigation and CPG call resolution share one ordered ladder (S3),
 `CallGraph::resolve_call_site` in `src/resolution.rs`, which returns each callee
 with a `ResolutionConfidence` (`Exact` | `NameOnly`) and a `ResolutionKind`. The

@@ -11,6 +11,7 @@ mod inventory_test;
 mod loader_test;
 mod module_graph_test;
 mod nodes_at_test;
+mod onboarding_test;
 mod property_access_test;
 mod scoped_calls_test;
 mod seed_test;

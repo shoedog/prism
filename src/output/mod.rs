@@ -5,6 +5,7 @@
 
 pub mod mermaid;
 pub mod navigation;
+pub mod onboarding;
 pub mod review;
 pub mod review_compact;
 pub mod sarif;
