@@ -77,15 +77,12 @@ Supports **Python**, **JavaScript**, **TypeScript**, **Go**, **Java**, **C**, **
 Requires Rust 1.70+.
 
 ```bash
-git clone <repo-url> && cd slicing
+git clone <repo-url> && cd prism
 cargo build --release
 ```
 
-The binary lands at `target/release/slicing`. Copy it somewhere on your `$PATH`
+The binary lands at `target/release/prism`. Copy it somewhere on your `$PATH`
 or run it directly.
-
-> **Note:** The binary is named `slicing` for historical reasons. The project
-> is called Prism. A rename is planned for a future release.
 
 ---
 
@@ -97,7 +94,7 @@ cd /path/to/your/project
 git diff HEAD~1 > /tmp/changes.patch
 
 # Slice it
-slicing --repo . --diff /tmp/changes.patch
+prism --repo . --diff /tmp/changes.patch
 ```
 
 That's it. The default algorithm (`leftflow`) traces data flow backward from
@@ -106,7 +103,7 @@ each changed line and prints the relevant slice to stdout.
 List all 30 algorithms:
 
 ```bash
-slicing --list-algorithms
+prism --list-algorithms
 ```
 
 ---
@@ -135,9 +132,28 @@ claude mcp add --transport stdio prism \
   -- /abs/path/to/prism/target/release/prism-mcp --repo /abs/path/to/your/repo
 ```
 
-**See [`docs/MCP.md`](docs/MCP.md)** for the full guide: the plugin, Codex/Kiro config, the six `nav_*`
+**See [`docs/MCP.md`](docs/MCP.md)** for the full guide: the plugin, Codex/Kiro config, all eight
 tools, cache warming, the gotchas, and the bundled **skills** ([`skills/`](skills/)) that teach an agent
 *how* to use the connection. One server instance navigates one repo.
+
+`prism-mcp` registers **eight tools**: six read-only navigation tools (`nav_nodes_at`, `nav_callers`,
+`nav_callees`, `nav_ego_graph`, `nav_module_deps`, `nav_repo_map`), one read-only reasoning tool
+(`taint_reaches`), and one non-destructive local-state tool (`refresh_index`).
+
+### `prism nav` — the same navigation, no MCP client needed
+
+The six `nav_*` queries are also a direct, first-class CLI subcommand — useful for scripting or when
+there's no MCP client in the loop:
+
+```bash
+prism nav callers --repo . --symbol handle_request
+prism nav repo-map --repo . --format json
+```
+
+Ten subcommands in total: `nodes-at`, `callers`, `callees`, `ego`, `module-deps`, `repo-map`,
+`call-stats`, `interface-manifest`, `functions`, `taint-reaches`. `--no-cache`/`--cache-dir` on `nav`
+gate the whole-repo navigation cache — a separate cache from the diff-review CPG cache (see
+[CPG Caching](#cpg-caching)).
 
 ---
 
@@ -205,7 +221,7 @@ For a per-algorithm operator's guide — what each one answers, when its output 
 cd ~/projects/my-python-app
 git diff main > /tmp/diff.patch
 
-slicing --repo . --diff /tmp/diff.patch --algorithm leftflow
+prism --repo . --diff /tmp/diff.patch --algorithm leftflow
 ```
 
 Recognized extensions: `.py`
@@ -231,16 +247,16 @@ The slicer traced `total` into the `if` condition and `result`.
 
 ```bash
 # Thin slice: just the data chain, no control flow noise
-slicing --repo . --diff /tmp/diff.patch -a thin
+prism --repo . --diff /tmp/diff.patch -a thin
 
 # Taint: where do diff-line values end up?
-slicing --repo . --diff /tmp/diff.patch -a taint
+prism --repo . --diff /tmp/diff.patch -a taint
 
 # Horizontal: find all handler functions that should match the changed one
-slicing --repo . --diff /tmp/diff.patch -a horizontal
+prism --repo . --diff /tmp/diff.patch -a horizontal
 
 # Angle: trace error handling across the codebase
-slicing --repo . --diff /tmp/diff.patch -a angle --concern error_handling
+prism --repo . --diff /tmp/diff.patch -a angle --concern error_handling
 ```
 
 ---
@@ -251,7 +267,7 @@ slicing --repo . --diff /tmp/diff.patch -a angle --concern error_handling
 cd ~/projects/my-js-app
 git diff HEAD~3 > /tmp/diff.patch
 
-slicing --repo . --diff /tmp/diff.patch
+prism --repo . --diff /tmp/diff.patch
 ```
 
 Recognized extensions: `.js`, `.mjs`, `.cjs`, `.jsx`
@@ -264,13 +280,13 @@ flow.
 
 ```bash
 # Quantum: find async state races around await boundaries
-slicing --repo . --diff /tmp/diff.patch -a quantum --quantum-var response
+prism --repo . --diff /tmp/diff.patch -a quantum --quantum-var response
 
 # Circular: detect event handler or state management cycles
-slicing --repo . --diff /tmp/diff.patch -a circular
+prism --repo . --diff /tmp/diff.patch -a circular
 
 # Relevant: see alternate branches ("what if this condition was false?")
-slicing --repo . --diff /tmp/diff.patch -a relevant
+prism --repo . --diff /tmp/diff.patch -a relevant
 ```
 
 ---
@@ -281,7 +297,7 @@ slicing --repo . --diff /tmp/diff.patch -a relevant
 cd ~/projects/my-ts-app
 git diff feature-branch > /tmp/diff.patch
 
-slicing --repo . --diff /tmp/diff.patch -a fullflow
+prism --repo . --diff /tmp/diff.patch -a fullflow
 ```
 
 Recognized extensions: `.ts`, `.tsx`
@@ -293,10 +309,10 @@ value-level data flow.
 
 ```bash
 # Barrier: trace callers/callees up to 3 levels, stop at framework internals
-slicing --repo . --diff /tmp/diff.patch -a barrier --barrier-depth 3 --barrier-symbols "React.createElement,useEffect"
+prism --repo . --diff /tmp/diff.patch -a barrier --barrier-depth 3 --barrier-symbols "React.createElement,useEffect"
 
 # Vertical: see the full request path from handler to database
-slicing --repo . --diff /tmp/diff.patch -a vertical --layers "routes,services,models,db"
+prism --repo . --diff /tmp/diff.patch -a vertical --layers "routes,services,models,db"
 ```
 
 ---
@@ -307,7 +323,7 @@ slicing --repo . --diff /tmp/diff.patch -a vertical --layers "routes,services,mo
 cd ~/projects/my-go-service
 git diff HEAD~1 > /tmp/diff.patch
 
-slicing --repo . --diff /tmp/diff.patch
+prism --repo . --diff /tmp/diff.patch
 ```
 
 Recognized extensions: `.go`
@@ -320,13 +336,13 @@ statements, and `return` statements.
 
 ```bash
 # Quantum: detect goroutine races
-slicing --repo . --diff /tmp/diff.patch -a quantum
+prism --repo . --diff /tmp/diff.patch -a quantum
 
 # Chop: is there a data path from user input to this SQL query?
-slicing --repo . --diff /tmp/diff.patch -a chop --chop-source "handlers/api.go:42" --chop-sink "db/query.go:88"
+prism --repo . --diff /tmp/diff.patch -a chop --chop-source "handlers/api.go:42" --chop-sink "db/query.go:88"
 
 # 3D: which functions have the most risk (high coupling + high churn)?
-slicing --repo . --diff /tmp/diff.patch -a 3d --temporal-days 30
+prism --repo . --diff /tmp/diff.patch -a 3d --temporal-days 30
 ```
 
 ---
@@ -337,7 +353,7 @@ slicing --repo . --diff /tmp/diff.patch -a 3d --temporal-days 30
 cd ~/projects/my-java-project
 git diff develop > /tmp/diff.patch
 
-slicing --repo . --diff /tmp/diff.patch -a parentfunction
+prism --repo . --diff /tmp/diff.patch -a parentfunction
 ```
 
 Recognized extensions: `.java`
@@ -350,46 +366,60 @@ statements, and standard control flow.
 
 ```bash
 # Spiral: start narrow and widen progressively
-slicing --repo . --diff /tmp/diff.patch -a spiral --spiral-max-ring 5
+prism --repo . --diff /tmp/diff.patch -a spiral --spiral-max-ring 5
 
 # Conditioned: "what does the code do when this value is null?"
-slicing --repo . --diff /tmp/diff.patch -a conditioned --condition "user!=null"
+prism --repo . --diff /tmp/diff.patch -a conditioned --condition "user!=null"
 
 # Angle: trace authentication handling across layers
-slicing --repo . --diff /tmp/diff.patch -a angle --concern auth
+prism --repo . --diff /tmp/diff.patch -a angle --concern auth
 
 # Delta: what data-flow paths changed vs the previous version?
-slicing --repo . --diff /tmp/diff.patch -a delta --old-repo /path/to/old/version
+prism --repo . --diff /tmp/diff.patch -a delta --old-repo /path/to/old/version
 ```
 
 ---
 
 ## Output formats
 
-### Text (default)
+`--format`/`-f` selects the output shape. Seven values:
 
-Human-readable, line-numbered output with `+` marking changed lines and `...`
-for gaps:
+| Format | Flag value | Description |
+|---|---|---|
+| Text (default) | `text` | Human-readable, line-numbered output with `+` marking changed lines and `...` for gaps |
+| JSON | `json` | Full `SliceResult`/`MultiReviewOutput` — algorithm name, blocks, line maps, diff metadata |
+| Paper | `paper` | Matches the `diff_outputs.json` format from the original paper |
+| Review | `review` | Compact, findings-first JSON for code-review agents (severity floor + block retention; see `--review-*` flags) |
+| Callers | `callers` | Raw call graph for the diff's changed functions — no algorithm runs |
+| Mermaid | `mermaid` | Mermaid flowchart diagrams of the slice graph |
+| SARIF | `sarif` | [SARIF](https://sarifweb.azurewebsites.net/) 2.1 — upload as GitHub code-scanning annotations |
 
 ```bash
-slicing --repo . --diff changes.patch --format text
+prism --repo . --diff changes.patch --format text
+prism --repo . --diff changes.patch --format json
+prism --repo . --diff changes.patch --format paper
+prism --repo . --diff changes.patch --algorithm review --format review
+prism --repo . --diff changes.patch --format callers
+prism --repo . --diff changes.patch --format mermaid
 ```
 
-### JSON
+### SARIF and GitHub code scanning
 
-Machine-readable. Contains the full `SliceResult` with algorithm name, blocks,
-line maps, and diff metadata:
+`--format sarif` maps findings to [SARIF 2.1](https://sarifweb.azurewebsites.net/) results —
+one rule per `<algorithm>/<category>` pair, severity/confidence/tier/parse-quality carried as
+result `properties`. Byte-identical for the same input; safe to diff across runs.
 
 ```bash
-slicing --repo . --diff changes.patch --format json
+prism --repo . --diff change.patch --algorithm review --format sarif > prism.sarif
 ```
 
-### Paper
+Upload it as a GitHub code-scanning annotation from a workflow:
 
-Matches the `diff_outputs.json` format from the original paper:
-
-```bash
-slicing --repo . --diff changes.patch --format paper
+```yaml
+- name: Upload SARIF
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: prism.sarif
 ```
 
 ---
@@ -429,11 +459,23 @@ git show abc123 --format="" > changes.patch
 | `--repo`, `-r` | (required) | Path to the repository root |
 | `--diff`, `-d` | (required) | Path to unified diff or JSON diff file |
 | `--algorithm`, `-a` | `leftflow` | Algorithm name (see `--list-algorithms`) |
-| `--format`, `-f` | `text` | `text`, `json`, `paper` |
+| `--format`, `-f` | `text` | `text`, `json`, `paper`, `review`, `callers`, `mermaid`, `sarif` |
 | `--list-algorithms` | | Print all algorithms and exit |
 | `--max-branch-lines` | `5` | Max lines in a branch before summarizing |
 | `--no-returns` | | Skip return statements in leftflow/fullflow |
 | `--no-trace-callees` | | Skip callee bodies in fullflow |
+| `--files a,b` | (all diff files) | Only process these files from the diff |
+| `--scoped-cpg` | off | Build the CPG from only diff-changed files + direct callers/callees |
+| `--compile-commands path` | | `compile_commands.json` for C/C++ type enrichment |
+| `--cache-dir path` | | Cache the CPG to this directory (see [CPG Caching](#cpg-caching)) |
+| `--no-cache` | off | Ignore any existing CPG cache and force a full rebuild |
+| `--caller-depth N` | `5` | Max traversal depth for `--format callers` |
+| `--diagram-node-cap N` | `40` | Max nodes per Mermaid diagram before truncation (must be >= 4) |
+| `--strict-diagrams` | off | Exit non-zero if any bug-class diagram warning is produced |
+| `--review-min-severity` | `warning` | `--format review` only: severity floor (`info`, `suggestion`, `warning`, `concern`) |
+| `--review-full-slices` | off | `--format review` only: keep every block, not just ones with a retained finding |
+| `--review-no-diagrams` | off | `--format review` only: omit diagram payloads |
+| `--python-version`, `--go-version`, `--node-version`, `--typescript-version`, `--java-version`, `--rust-version` | | Target language version (stored, informational) |
 
 ### Algorithm-specific flags
 
@@ -444,6 +486,7 @@ git show abc123 --format="" > changes.patch
 | `--chop-source file:line` | chop | Source location |
 | `--chop-sink file:line` | chop | Sink location |
 | `--taint-source file:line` | taint | Explicit taint source (repeatable) |
+| `--taint-return-flow` | taint | Follow singleton-Exact callee return values to caller LHSs |
 | `--condition "var==val"` | conditioned | Value assumption predicate |
 | `--old-repo path` | delta | Path to old version of repo |
 | `--spiral-max-ring N` | spiral | Maximum ring level 1-6 (default: 4) |
@@ -467,22 +510,114 @@ git show abc123 --format="" > changes.patch
 
 ```bash
 # Feed into an LLM for review
-slicing --repo . --diff changes.patch | pbcopy
-slicing --repo . --diff changes.patch | llm review
+prism --repo . --diff changes.patch | pbcopy
+prism --repo . --diff changes.patch | llm review
 
 # Save JSON for processing
-slicing --repo . --diff changes.patch -f json > slice.json
+prism --repo . --diff changes.patch -f json > slice.json
 
 # Filter by language
 git diff main -- '*.py' > /tmp/py-only.patch
-slicing --repo . --diff /tmp/py-only.patch
+prism --repo . --diff /tmp/py-only.patch
 
 # Compare algorithms
 for algo in thin leftflow fullflow relevant; do
   echo "=== $algo ==="
-  slicing --repo . --diff changes.patch -a $algo | wc -l
+  prism --repo . --diff changes.patch -a $algo | wc -l
 done
 ```
+
+---
+
+## `prism targets`
+
+`prism targets` projects prism's findings into a stable, closed-schema JSON document of
+**instrumentation sites** — for a runtime harness that wants to fault-inject, watch, or verify
+specific call/resource/contract sites a diff touched, rather than parse prism's native finding
+shape itself.
+
+```bash
+# Default five finding-producing algorithms (echo, absence, contract, provenance, membrane)
+prism targets --repo . --diff change.patch
+
+# Explicit algorithm subset, filtered, strict, written to a file
+prism targets --repo . --diff change.patch --algorithm echo,absence --min-severity info --min-tier candidate --strict --out targets.json
+```
+
+**Acceptance table** (evaluated before the repo is even read):
+
+| `--algorithm` | Result |
+|---|---|
+| `echo`, `absence`, `contract`, `provenance`, `membrane`, `taint`, `symmetry`, `peer_consistency`, `callback_dispatcher`, `primitive` | Accepted — projected into targets |
+| `angle`, `delta` | Accepted, but produce no findings at this version (`delta` also requires `--old-repo`, else exit 1) |
+| `chop`, `conditioned` | Rejected (exit 1) — these need `--chop-source`/`--chop-sink`/`--condition`; use the top-level `prism` command instead |
+| anything else (`review`, `all`, other slice-only algorithms) | Rejected (exit 1) — "produces slice blocks, not findings" |
+
+`--strict` exits **3** when one or more requested algorithms failed (non-empty `errors[]`);
+without it, failures are still recorded in `errors[]` but the exit code stays 0. `--min-severity`
+and `--min-tier` filter the emitted targets; `--out <file>` writes the document to a file instead
+of stdout.
+
+The document is validated against
+[`docs/contracts/targets.schema.json`](docs/contracts/targets.schema.json) (JSON Schema Draft
+2020-12; `schema_version` is the const `"1.0"`):
+
+```json
+{
+  "schema_version": "1.0",
+  "producer": { "tool": "prism", "algorithms": ["echo", "absence", "contract", "provenance", "membrane"] },
+  "targets": [{ "kind": "resource_acquire", "source_algorithm": "absence", "severity": "warning" }]
+}
+```
+
+---
+
+## Library use (`prism::api`)
+
+Beyond the CLI, `prism::api` is a stable Rust facade for embedding prism in another tool (an
+analyzer, a CI check, a runtime harness) without depending on prism's internal module graph.
+
+> Within a major version, every item of `prism::api` keeps its name and signature; a removal or signature change is preceded by a `#[deprecated]` release. Every struct and enum defined in `prism::api` is `#[non_exhaustive]`: construct with `new`/`Default` and assign public fields, never with a struct literal or exhaustive `match`. Types from other modules that appear in `prism::api` signatures (`ParsedFile`, `TypeDatabase`, `CpgContext`, `SliceConfig`, `SlicingAlgorithm`, `SliceResult`, `SliceFinding`, `NavigationSession`, `Evidence`, `QueryError`, `DiffInput`, `Language`, `LanguageVersion`) are **stable as handles**: you may obtain them from `prism::api`, pass them back into `prism::api`, and read the fields the `prism::api` docs name; their other fields and methods are internal and may change. Everything else in the crate is internal. Output formats are versioned by their own fields: multi-run `json`/`review` carry `version: "1.0"`; single-run `json`/`review` shapes are unversioned and pinned by tests; SARIF carries `properties.mapping_version`; targets carries `schema_version`.
+
+This example is also a running doc-test on `prism::api::review` (`cargo test --doc api`) — the
+sample below is verified on every test run, not just written prose:
+
+```rust
+use prism::api::{review, AlgorithmParams, ReviewOptions};
+use prism::slice::{SliceConfig, SlicingAlgorithm};
+use std::fs;
+
+// A unique temp repo so parallel doc-test processes never collide.
+let repo = std::env::temp_dir().join(format!("prism-api-doctest-{}", std::process::id()));
+let _ = fs::remove_dir_all(&repo);
+fs::create_dir_all(&repo)?;
+fs::write(repo.join("a.py"), "def read():\n    f = open(\"x\")\n    return f\n")?;
+
+let diff_json = r#"{"files":[{"file_path":"a.py","modify_type":"Modified","diff_lines":[2]}]}"#;
+let outcome = review(
+    &ReviewOptions::new(&repo),
+    diff_json,
+    &[SlicingAlgorithm::AbsenceSlice],
+    &SliceConfig::default(),
+    &AlgorithmParams::default(),
+)?;
+
+for f in &outcome.run.findings {
+    println!("{}:{} {} {}", f.file, f.line, f.algorithm, f.description);
+}
+assert!(!outcome.run.findings.is_empty());
+assert_eq!(
+    outcome.run.findings[0].category.as_deref(),
+    Some("missing_counterpart")
+);
+
+fs::remove_dir_all(&repo)?;
+```
+
+`review()` is the one-shot entry point; `load_review_inputs`/`build_context`/`run_review`/
+`run_algorithm` expose the same pipeline in two phases for callers that want to build once and
+run many algorithms. `nav_session`/`callers`/`callees` expose whole-repo navigation the same way
+`prism nav` does. See the [`prism::api` module docs](src/api/mod.rs) for the full surface.
 
 ---
 
@@ -534,6 +669,11 @@ Source files ──→ tree-sitter ──→ AST per file
   analysis on changed code. Unchanged code is included only when it's
   reachable from a change (caller, data flow source, control flow predecessor).
 
+- **Framework-aware route detection** — `src/frameworks/` recognizes 11 web/API
+  frameworks (Go: gin, net/http, gorilla/mux; JS/TS: Express, Fastify, NestJS,
+  Koa; Python: Flask, FastAPI, Django, DRF) to find route-entry points, feeding
+  algorithms like `membrane`/`echo` that reason about cross-boundary callers.
+
 ---
 
 ## Type System
@@ -548,7 +688,7 @@ Rapid Type Analysis (RTA).
 |------------|-------------------|----------------------------------------|
 | C++        | CppTypeProvider   | vtable, templates, qualified names     |
 | Go         | GoTypeProvider    | Interface satisfaction, embedded types  |
-| TypeScript | TSTypeProvider    | Class hierarchy, interface implements   |
+| TypeScript | TypeScriptTypeProvider | Class hierarchy, interface implements |
 | Java       | JavaTypeProvider  | Class hierarchy, interface implements   |
 | Rust       | RustTypeProvider  | Trait impls, inherent methods           |
 | Python     | PythonTypeProvider| Type annotations, class hierarchy       |
@@ -566,10 +706,10 @@ PRs), Prism caches the serialized CPG to disk:
 
 ```bash
 # First run: builds CPG, writes cache
-slicing --repo . --diff changes.patch --cache-dir ~/.cache/prism
+prism --repo . --diff changes.patch --cache-dir ~/.cache/prism
 
 # Second run: loads from cache, rebuilds only changed files
-slicing --repo . --diff new-changes.patch --cache-dir ~/.cache/prism
+prism --repo . --diff new-changes.patch --cache-dir ~/.cache/prism
 ```
 
 Cache behavior:
@@ -582,6 +722,16 @@ Cache behavior:
 The type registry is rebuilt from source files on every run (not cached),
 so adding a new language provider never invalidates the cache.
 
+**Scope — this is one of two, separate caches.** `--cache-dir` above is the
+diff-review CPG cache: it's opt-in and covers only the files referenced in
+the *current diff*, so it's effectively per-diff/per-MR — a different diff
+touching different files misses and triggers a full rebuild. `prism nav`
+(whole-repo navigation) uses a second, separate cache: a prism-owned,
+per-repo store under `dirs::cache_dir()/prism/nav/<hash(canonical repo
+root)>/`, gated by `nav`'s own `--cache-dir`/`--no-cache` (see [`prism
+nav`](#prism-nav--the-same-navigation-no-mcp-client-needed)). The two never
+share state.
+
 ---
 
 ## Security Analysis
@@ -591,19 +741,21 @@ vulnerabilities in C/firmware code:
 
 ```bash
 # Trace taint from network input to dangerous sinks
-slicing --repo . --diff vuln.patch --algorithm taint
+prism --repo . --diff vuln.patch --algorithm taint
 
 # Check for missing resource cleanup (malloc/free, lock/unlock)
-slicing --repo . --diff vuln.patch --algorithm absence
+prism --repo . --diff vuln.patch --algorithm absence
 
 # Detect weakened preconditions (removed NULL checks, guard clauses)
-slicing --repo . --diff vuln.patch --algorithm contract
+prism --repo . --diff vuln.patch --algorithm contract
 ```
 
 Prism has been validated against real CVE patterns including buffer overflows,
-integer underflows, use-after-free, NULL dereferences, command injection, and
-missing authentication checks. See `tests/fixtures/cve/` for test cases mapped
-to CVE identifiers.
+use-after-free/double-free, NULL dereferences, and command injection. See the
+`cve_*.c` fixtures under `tests/fixtures/c/` (exercised by
+`tests/lang/c/cve_test.rs` and `tests/lang/c/cve_fixture_test.rs`), plus the
+sanitizer suites under `tests/fixtures/sanitizer-suite-{go,js-ts,python}/` and
+the accuracy harness in `eval/fixtures/`.
 
 ---
 

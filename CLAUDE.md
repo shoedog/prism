@@ -69,10 +69,14 @@ cargo test --test integration coverage_test::      # Coverage matrix
 - `languages/mod.rs` — Language-specific node type mappings. Add new languages here.
 - `diff.rs` — Diff parsing and `DiffInput`/`DiffInfo` types.
 - `slice.rs` — `SlicingAlgorithm` enum (30 variants), `SliceConfig`, and `SliceResult`.
-- `output/` — Output formatters (`mod.rs`, `navigation.rs`, `review.rs`, `mermaid.rs`).
-- `main.rs` — CLI entry point using clap with 22+ algorithm-specific flags.
+- `output/` — Output formatters: `mod.rs`, `navigation.rs`, `review.rs`, `review_compact.rs`, `mermaid.rs`, `sarif.rs` (SARIF 2.1 serializer), `sarif_rules.rs` (rule descriptions + pure mapping helpers), `sarif_model.rs` (serde model structs).
+- `cli.rs` — The clap `Cli` derive tree (`Cli`, `ReviewArgs`, `Command`, `NavArgs`, `NavQuery`, `TargetsArgs`); `pub mod cli` in `lib.rs` so `tests/cli/readme_test.rs` can parse-only via `Cli::try_parse_from` without executing the binary.
+- `main.rs` — CLI entry point: `main()`, `run_review`/`run_nav`/`run_targets`, and the format-arm dispatch; the clap grammar itself lives in `cli.rs`.
 - `algorithms/` — All 30 slicing algorithms. Each is self-contained.
 - `reasoning/` — Tier-2 reasoning layer: `taint_trace` consumer, `SeedSet`, output shaper.
+- `api/` — `prism::api`: the stable, `#[non_exhaustive]` facade for embedding prism as a library (`build_info`, `review`, `run`, `nav`). See its module doc for the compatibility promise; `main.rs` is its first consumer.
+- `targets/` — `prism targets`: projects findings into the instrumentation-targets contract (`mod.rs`: `project`/`TargetsMeta`/id/dedupe/warnings; `model.rs`: schema DTOs; `mapping.rs`: category table, hint parsers, language lowering). Schema at `docs/contracts/targets.schema.json`.
+- `finding_confidence.rs` — Single source for per-finding confidence/tier/parse-quality classification (`classify`, `evidence_files`, `ParseQuality::min_over`), consumed by both `output/sarif.rs` and `targets/`.
 
 ### Test Structure (`tests/`)
 
@@ -285,7 +289,7 @@ cargo run -- --repo /path/to/repo --diff diff.patch --algorithm "leftflow,fullfl
 cargo run -- --repo /path/to/repo --diff diff.patch --algorithm review  # review suite
 cargo run -- --repo /path/to/repo --diff diff.patch --algorithm all     # all 30
 
-# Output formats: text (default), json, paper, review
+# Output formats: text (default), json, paper, review, callers, mermaid, sarif
 cargo run -- --repo /path/to/repo --diff diff.patch --format json
 
 # Navigation cache controls: these gate the nav store, not review CPG caching
@@ -343,6 +347,11 @@ Key algorithm-specific flags:
   These appear as additional entries in `file_line_map`.
 - **Algorithms that need call graph or data flow** receive them via `CpgContext`.
   The graph is built once and shared across algorithm invocations.
+- **Finding severity has four values**: `info`, `suggestion`, `warning`, `concern`
+  (`SliceFinding.severity`, `src/slice.rs`; ranked in that order by
+  `output::severity_rank`). `--format review`'s default floor is `warning`;
+  SARIF maps unknown severities to `error` (louder, never quieter); targets
+  maps unknown severities to `concern` and records a warning.
 
 ## Dependencies
 

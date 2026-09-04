@@ -4,6 +4,7 @@ mod confidence_test;
 mod diagram_e2e_test;
 mod nav_compat_test;
 mod output_test;
+mod readme_test;
 mod review_compact_test;
 mod review_no_diagrams_test;
 mod sarif_shape_test;

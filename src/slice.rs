@@ -24,7 +24,7 @@ pub struct SliceFinding {
     pub algorithm: String,
     pub file: String,
     pub line: usize,
-    pub severity: String, // "info", "warning", or "concern"
+    pub severity: String, // "info", "suggestion", "warning", or "concern"
     pub description: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub function_name: Option<String>,

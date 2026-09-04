@@ -61,7 +61,8 @@ When unsure, run a small set (`leftflow,fullflow,absence`) and read the union �
 
 `--format text` (default, human) · `json` (machine — pipe to `jq` or an LLM, full uncompacted shape)
 · `paper` (arXiv-comparable) · `review` (grouped findings with severities — use this when producing a
-code review; compact by default, see below).
+code review; compact by default, see below) · `sarif` (SARIF 2.1 — upload findings as GitHub
+code-scanning annotations; one rule per algorithm/category pair).
 
 ```bash
 slicing --repo . --diff /tmp/change.patch --algorithm review --format json | jq '.findings[]'
@@ -83,6 +84,16 @@ has a retained finding) — it does not lower the severity floor, and neither fl
 `diff_lines` in review output. Both flags only affect `--format review` — `--format json`/`text`/`paper`
 are unaffected. For the full old (uncompacted) shape — every block plus `slice_lines`/`diff_lines` plus
 every severity — use `--format json`.
+
+**`prism targets`** is a separate subcommand, not a `--format` value: it projects findings from
+five algorithms (`echo`, `absence`, `contract`, `provenance`, `membrane` by default) into a
+stable, closed-schema JSON document of instrumentation sites (`docs/contracts/targets.schema.json`)
+for a runtime harness — reach for it when the consumer wants "where should I fault-inject / watch /
+verify," not a human-readable review:
+
+```bash
+slicing targets --repo . --diff /tmp/change.patch --strict
+```
 
 ## Gotchas
 

@@ -42,6 +42,7 @@ pub mod ast;
 pub mod build_pool;
 pub mod call_graph;
 pub mod cfg;
+pub mod cli;
 pub mod cpg;
 pub mod cpg_cache;
 pub mod data_flow;
