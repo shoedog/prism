@@ -31,6 +31,48 @@ fn test_tsx_from_path() {
 }
 
 #[test]
+fn test_tsx_parameter_receiver_binding_suppresses_import_qualified() {
+    use prism::call_graph::CallGraph;
+    use prism::resolution::{ResolutionConfidence, ResolutionKind};
+    use std::collections::BTreeMap;
+
+    let files = BTreeMap::from([
+        (
+            "api.ts".to_string(),
+            ParsedFile::parse(
+                "api.ts",
+                "export function m() {}\n",
+                Language::TypeScript,
+            )
+            .unwrap(),
+        ),
+        (
+            "view.tsx".to_string(),
+            ParsedFile::parse(
+                "view.tsx",
+                "import api from './api';\ninterface Foo {}\nfunction run(api: Foo) { api.m(); return <div />; }\n",
+                Language::Tsx,
+            )
+            .unwrap(),
+        ),
+    ]);
+    let graph = CallGraph::build(&files);
+    let call = graph
+        .calls
+        .iter()
+        .find(|(caller, _)| caller.file == "view.tsx" && caller.name == "run")
+        .and_then(|(_, calls)| calls.iter().find(|call| call.callee_name == "m"))
+        .expect("run -> m");
+
+    assert!(call.receiver_lexically_bound);
+    assert!(graph.resolve_call_site(call).iter().all(|candidate| {
+        candidate.kind != ResolutionKind::ImportQualified
+            || candidate.confidence != ResolutionConfidence::Exact
+            || candidate.target.file != "api.ts"
+    }));
+}
+
+#[test]
 fn test_original_diff_tsx() {
     let (files, _, diff) = make_tsx_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff);

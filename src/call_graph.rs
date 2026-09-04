@@ -436,6 +436,11 @@ pub struct CallSite {
     /// Module/object qualifier for the call (e.g., `utils` in `utils.process()`).
     /// `None` for unqualified calls like `process()`.
     pub qualifier: Option<String>,
+    /// True when a simple JS/TS receiver identifier is bound by a parameter,
+    /// function-scoped `var`, or reaching lexical declaration at this call.
+    /// Derived at extraction time and excluded from `cmp_key`.
+    #[serde(default)]
+    pub receiver_lexically_bound: bool,
     /// S3 P6-lite: receiver type recovered syntactically at extraction time
     /// (typed param / constructor local, peeled). None = unrecovered.
     #[serde(default)]
@@ -1313,6 +1318,7 @@ impl CallGraph {
                             line,
                             None,
                         ),
+                        receiver_lexically_bound: false,
                         receiver_type: None,
                         receiver_owner_identity: None,
                         receiver_local_type_shadowed: false,
@@ -1687,6 +1693,8 @@ impl CallGraph {
                                     &func_node, receiver, start_byte,
                                 )
                             });
+                        let receiver_lexically_bound = parsed
+                            .js_ts_receiver_lexically_bound_at_call(&func_node, meta.receiver_node);
                         let site = CallSite {
                             caller: caller_id.clone(),
                             callee_name,
@@ -1698,6 +1706,7 @@ impl CallGraph {
                             start_byte,
                             end_byte,
                             qualifier,
+                            receiver_lexically_bound,
                             receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
                             receiver_owner_identity: recovered
                                 .as_ref()
@@ -2649,6 +2658,7 @@ impl CallGraph {
             start_byte: source_site.start_byte,
             end_byte: source_site.end_byte,
             qualifier: None,
+            receiver_lexically_bound: false,
             receiver_type: None,
             receiver_owner_identity: None,
             receiver_local_type_shadowed: false,
@@ -4859,6 +4869,8 @@ impl CallGraph {
                                 &func_node, receiver, start_byte,
                             )
                         });
+                    let receiver_lexically_bound = parsed
+                        .js_ts_receiver_lexically_bound_at_call(&func_node, meta.receiver_node);
                     let site = CallSite {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
@@ -4870,6 +4882,7 @@ impl CallGraph {
                         start_byte,
                         end_byte,
                         qualifier,
+                        receiver_lexically_bound,
                         receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
                         receiver_owner_identity: recovered
                             .as_ref()
@@ -6876,7 +6889,7 @@ mod tests {
     }
 
     #[test]
-    fn callsite_origin_receiver_materialized_and_outcome_serde_default_and_excluded_from_cmp_key() {
+    fn callsite_derived_receiver_fields_serde_default_and_excluded_from_cmp_key() {
         let cg = build_rust_call_graph(
             "struct Engine;\nimpl Engine { fn go(&self) {} }\nfn run(e: Engine) { e.go(); }\n",
         );
@@ -6895,6 +6908,7 @@ mod tests {
         });
         a.receiver_materialized = true;
         a.receiver_newly_recovered = true;
+        a.receiver_lexically_bound = true;
         a.origin = CallSiteOrigin::IndirectResolution;
 
         assert_eq!(a.cmp_key(), b.cmp_key());
@@ -6911,11 +6925,16 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("receiver_newly_recovered");
+        legacy_json
+            .as_object_mut()
+            .unwrap()
+            .remove("receiver_lexically_bound");
         legacy_json.as_object_mut().unwrap().remove("origin");
         let defaulted: CallSite = serde_json::from_value(legacy_json).unwrap();
         assert_eq!(defaulted.receiver_outcome, None);
         assert!(!defaulted.receiver_materialized);
         assert!(!defaulted.receiver_newly_recovered);
+        assert!(!defaulted.receiver_lexically_bound);
         assert_eq!(defaulted.origin, CallSiteOrigin::Source);
 
         let back: CallSite = bincode::deserialize(&bincode::serialize(&a).unwrap()).unwrap();

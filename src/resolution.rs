@@ -2474,10 +2474,18 @@ impl CallGraph {
                     Some(crate::languages::Language::Python | crate::languages::Language::Go)
                 ) && site.receiver_materialized;
                 let recv_materialized = rust_recv_materialized || recovered_recv_materialized;
+                let js_ts_receiver_lexically_bound = matches!(
+                    caller_lang,
+                    Some(
+                        crate::languages::Language::JavaScript
+                            | crate::languages::Language::TypeScript
+                            | crate::languages::Language::Tsx
+                    )
+                ) && site.receiver_lexically_bound;
 
                 // R3: imported-module qualifier. If an import matches, the
                 // narrowed set is final; empty means the call is external.
-                if !recv_materialized {
+                if !recv_materialized && !js_ts_receiver_lexically_bound {
                     if let Some(file_imports) = self.imports.get(&caller.file) {
                         if let Some(module_path) = file_imports.get(q) {
                             let ids = match self.functions.get(name) {
@@ -4343,6 +4351,7 @@ mod scope_resolution_predicate_tests {
             start_byte: 0,
             end_byte: 0,
             qualifier: None,
+            receiver_lexically_bound: false,
             receiver_type: None,
             receiver_owner_identity: None,
             receiver_local_type_shadowed: false,

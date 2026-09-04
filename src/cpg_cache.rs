@@ -162,7 +162,9 @@ use std::path::{Path, PathBuf};
 ///   unaliased dotted module paths can authorize qualified receiver edges.
 /// - v57: Python namespace-package submodule imports can authorize qualified
 ///   receiver classification and Exact edges.
-const CACHE_VERSION: u32 = 57;
+/// - v58: JS/TS call sites persist lexical receiver-binding authority used to
+///   suppress shadowed imported-module Exact edges.
+const CACHE_VERSION: u32 = 58;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
