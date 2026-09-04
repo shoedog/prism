@@ -1,6 +1,6 @@
 # Python namespace-package submodule receiver ownership
 
-**Status:** implemented, review-complete, and locally verified; publication pending
+**Status:** implemented, review-complete, and locally verified; PR #230 open
 **Recorded:** 2026-09-04
 **Exact base:** `7488bb64f333bbc93f21c31c1104a551649467f4` (PR #228 merge)
 **Scope:** Python `from pkg import models [as m]` plus `models.Class`/`m.Class`, where `pkg` is proven to be an indexed namespace package and `pkg.models` is one exact indexed submodule

@@ -6,7 +6,7 @@
 
 ## 0. Current verdict
 
-**LOCALLY GREEN; TWO-ROUND REVIEW COMPLETE; TIER-A QUICK UNSCORED ON PIN DRIFT; PUBLICATION PENDING.** This is item 2b of the owner-selected Python authoritative module/scope queue.
+**PR #230 OPEN; LOCAL GATES GREEN; GITHUB CHECKS PENDING.** This is item 2b of the owner-selected Python authoritative module/scope queue.
 
 ## 1. Authority boundary
 
@@ -32,14 +32,14 @@ Exact is limited to `from pkg import models [as m]` plus `models.Class`/`m.Class
 - Full default suite: 3,579 passed, 0 failed, 1 ignored across 28 binaries. Full `mcp` suite: 3,765 passed, 0 failed, 1 ignored across 30 binaries.
 - Two immediate-predecessor `cargo build --release` runs passed. Tier-A matrix-only reported 104/104 `ok`.
 - Tier-A quick completed but exited 2 solely because `corpus_sha_drift: 9ca42ae3ee6d != pinned 20c8490591a3`; its artifact reported 104/104 matrix entries and 30/30 real probes `ok`, zero oracle/SUT error rates, a quiescent oracle, and a clean corpus. No baseline was rewritten; all generated untracked reports/snapshots were removed.
-- LSP semantic navigation could not be run because its tools were unavailable in this session. GitHub/independent PR checks and publication remain unverified because this successor has not been pushed.
+- LSP semantic navigation could not be run because its tools were unavailable in this session. GitHub checks on the final handoff-bearing head are pending.
 - Declared implementation-review cap: two rounds; completed and converged.
 
 ## 4. Custody
 
 - Branch/worktree: `py-from-package-submodule-receiver-owner` at `/private/tmp/slicing-py-from-package-submodule-receiver`.
 - Exact base: `7488bb64f333bbc93f21c31c1104a551649467f4`.
-- Design/roadmap checkpoint: `1950cb3e`; intentional RED checkpoint: `5dae8d8a`; implementation/review checkpoint: `9ca42ae3`; final verification/handoff checkpoint: this document's containing commit.
+- Design/roadmap checkpoint: `1950cb3e`; intentional RED checkpoint: `5dae8d8a`; implementation/review checkpoint: `9ca42ae3`; local verification checkpoint: `5e758a0e`; publication-authorization checkpoint: `86637c4`; PR-identity handoff checkpoint: this document's containing commit.
 - PR #228 and its prior handoff are reconciled as merged in this checkpoint.
 - Root checkout's pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
-- Publication and merge of this successor increment were explicitly authorized by the owner on 2026-09-04; remote PR identity is pending publication.
+- Publication and merge were explicitly authorized by the owner on 2026-09-04. PR #230: https://github.com/shoedog/prism/pull/230

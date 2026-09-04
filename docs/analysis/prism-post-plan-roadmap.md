@@ -59,7 +59,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   its first unaliased dotted-module increment (`import pkg.models` plus
   `pkg.models.Class`) is DONE in #228 (merge `7488bb64`), and its second increment,
   namespace-package submodule imports (`from pkg import models` plus `models.Class`),
-  is implemented, review-complete, and locally verified with publication pending;
+  is implemented, review-complete, and locally verified in open PR #230;
   (3) JS/TS lexical-scope-aware receiver binding prerequisite;
   (4) JS/TS typed-parameter and `new`-constructor receiver recovery; (5) then
   reconsider Java native resolution versus LSP delegation or product-oriented
