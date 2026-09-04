@@ -6,7 +6,7 @@
 
 ## 0. Current verdict
 
-**IMPLEMENTED, DOCUMENTED, REVIEWED, AND VERIFIED; PR PENDING.** The owner directed work past eval-only increments. Read-only callable edit coordinates now work through the navigation query, CLI, and MCP. PR and merge remain.
+**MERGED.** Read-only callable edit coordinates work through the navigation query, CLI, and MCP. PR #234 merged as `90c522b04ff16ebc076ce85a4f8df5f7f2da4f1f` after all five GitHub checks passed.
 
 ## 1. Authority boundary
 
@@ -37,7 +37,7 @@ Implement callable-only coordinate discovery through CLI and MCP. Prism returns 
 
 ## 4. Custody
 
-- Root `main` was rebound to PR #233 merge `c7cc2d9` before this branch was created.
-- Design checkpoint is `00b5866`; RED tests are `a3bd9ae`; GREEN implementation is `bea4c76`; documentation is `832655e`; review-round-1 fixes are `5c7590a`; review completion is `e613846`; the full-suite count fix is `c81a51d`; the MCP-green checkpoint is `ca23325`; this final verification refresh is the current commit candidate.
+- Root `main` was rebound to PR #233 merge `c7cc2d9` before this branch was created, then to PR #234 merge `90c522b` before the successor onboarding-report branch was created.
+- Design checkpoint is `00b5866`; RED tests are `a3bd9ae`; GREEN implementation is `bea4c76`; documentation is `832655e`; review-round-1 fixes are `5c7590a`; review completion is `e613846`; the full-suite count fix is `c81a51d`; the MCP-green checkpoint is `ca23325`; final verification is `cb595b8`; merged custody is `90c522b`.
 - Root's pre-existing untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
 - PR #232 merged the JS/TS typed/new receiver recovery as `434764a6`; PR #233 reconciled its durable custody as `c7cc2d9`.

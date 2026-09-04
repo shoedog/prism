@@ -64,9 +64,11 @@ Three candidate directions once the queue's top items are drained (or interleave
   (3) JS/TS lexical-scope-aware receiver binding prerequisite — DONE in #231
   (merge `6771d530`); (4) JS/TS typed-parameter and `new`-constructor receiver
   recovery — DONE in #232 (merge `434764a6`); (5) product-oriented read-only
-  `nav_symbol_spans` v1 selected and designed on branch `nav-symbol-spans-v1`, while
-  Java native resolution versus LSP delegation remains an owner decision after a
-  future J1/J2 evidence bootstrap. Do not collapse steps 2–4 into the old combined design.
+  `nav_symbol_spans` v1 — DONE in #234 (merge `90c522b`); (6) CLI-only onboarding
+  report v1 selected on branch `nav-onboarding-report-v1`: one cached build, compact
+  repo-map/call-stats orientation, stdout by default, explicit create-new-only file
+  output. Java native resolution versus LSP delegation remains an owner decision after
+  a future J1/J2 evidence bootstrap. Do not collapse steps 2–4 into the old combined design.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:
