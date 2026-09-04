@@ -673,6 +673,33 @@ fn onboard_emits_markdown_by_default_and_typed_json_on_request() {
 }
 
 #[test]
+fn onboard_repo_dot_reports_the_canonical_repository_basename() {
+    let repo = tempfile::tempdir().unwrap();
+    std::fs::write(repo.path().join("app.py"), "def run():\n    return 1\n").unwrap();
+    let expected = repo.path().file_name().unwrap().to_string_lossy();
+    let out = bin()
+        .current_dir(repo.path())
+        .args([
+            "nav",
+            "--no-cache",
+            "onboard",
+            "--repo",
+            ".",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let value: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(value["project"], expected.as_ref());
+}
+
+#[test]
 fn onboard_out_is_create_new_and_preserves_existing_bytes() {
     let dir = tempfile::tempdir().unwrap();
     let out_path = dir.path().join("overview.json");

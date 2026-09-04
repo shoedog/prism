@@ -150,12 +150,18 @@ there's no MCP client in the loop:
 prism nav callers --repo . --symbol handle_request
 prism nav symbol-spans --repo . --symbol handle_request --file src/server.rs --format json
 prism nav repo-map --repo . --format json
+prism nav onboard --repo . --out prism-project-overview.md
 ```
 
-Eleven subcommands in total: `nodes-at`, `symbol-spans`, `callers`, `callees`, `ego`, `module-deps`,
-`repo-map`, `call-stats`, `interface-manifest`, `functions`, `taint-reaches`.
+Twelve subcommands in total: `nodes-at`, `symbol-spans`, `callers`, `callees`, `ego`, `module-deps`,
+`repo-map`, `onboard`, `call-stats`, `interface-manifest`, `functions`, `taint-reaches`.
 `--no-cache`/`--cache-dir` on `nav` gate the whole-repo navigation cache — a separate cache from the
 diff-review CPG cache (see [CPG Caching](#cpg-caching)).
+
+`onboard` packages one cached navigation build into a bounded project-orientation report: inventory,
+language counts, module connectivity, call-resolution totals, warnings, and suggested follow-up queries.
+Markdown is the default and JSON is available with `--format json`. It writes to stdout unless `--out`
+names a new file; an existing output target is refused and never overwritten.
 
 ---
 

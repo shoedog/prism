@@ -122,12 +122,32 @@ fn render_markdown(report: &ProjectOverview) -> String {
 }
 
 fn inline_code(value: &str) -> String {
-    let escaped = value
+    let mut escaped = value
         .replace('\\', "\\\\")
-        .replace('`', "\\`")
         .replace('\r', "\\r")
         .replace('\n', "\\n");
-    format!("`{escaped}`")
+    if escaped.is_empty() {
+        return "`\"\"`".to_string();
+    }
+    if escaped.chars().all(|character| character == ' ') {
+        escaped = escaped.chars().map(|_| "\\x20").collect();
+    }
+    let mut current_run = 0usize;
+    let mut longest_run = 0usize;
+    for character in escaped.chars() {
+        if character == '`' {
+            current_run += 1;
+            longest_run = longest_run.max(current_run);
+        } else {
+            current_run = 0;
+        }
+    }
+    let fence = "`".repeat(longest_run + 1);
+    if escaped.starts_with(['`', ' ']) || escaped.ends_with(['`', ' ']) {
+        format!("{fence} {escaped} {fence}")
+    } else {
+        format!("{fence}{escaped}{fence}")
+    }
 }
 
 #[cfg(test)]
@@ -169,9 +189,16 @@ mod tests {
             next_commands: vec![],
         };
         let rendered = render(&report, "markdown").unwrap();
-        assert!(rendered.contains("`bad\\n\\`name\\``"));
+        assert!(
+            rendered.contains("`` bad\\n`name` ``"),
+            "embedded backticks require a longer CommonMark code-span fence: {rendered}"
+        );
         assert!(rendered.contains("`line\\nbreak`"));
         assert!(!rendered.contains("bad\n`name`"));
         assert!(render(&report, "text").is_err());
+        assert_eq!(inline_code(" edge "), "`  edge  `");
+        assert_eq!(inline_code("a``b"), "```a``b```");
+        assert_eq!(inline_code("  "), "`\\x20\\x20`");
+        assert_eq!(inline_code(""), "`\"\"`");
     }
 }

@@ -105,13 +105,17 @@ pub fn build_report(session: &NavigationSession) -> Result<ProjectOverview> {
     warnings.sort();
     warnings.dedup();
 
-    let project = session
-        .repo
-        .root
+    let canonical_root = session.repo.root.canonicalize().with_context(|| {
+        format!(
+            "failed to canonicalize repository root {}",
+            session.repo.root.display()
+        )
+    })?;
+    let project = canonical_root
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .filter(|name| !name.is_empty())
-        .unwrap_or_else(|| ".".to_string());
+        .unwrap_or_else(|| canonical_root.display().to_string());
 
     Ok(ProjectOverview {
         schema_version: "1.0".to_string(),

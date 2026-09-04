@@ -6,7 +6,7 @@
 
 ## 0. Current verdict
 
-**IMPLEMENTED AND FOCUSED GREEN; DOCUMENTATION/REVIEW NEXT.** The successor product
+**IMPLEMENTED, DOCUMENTED, AND REVIEWED; FULL GATES NEXT.** The successor product
 increment is a CLI-only, bounded onboarding report.
 
 ## 1. Authority boundary
@@ -33,10 +33,18 @@ scope.
 - RED CLI target: the initial 3/3 tests, then the added cache contract, all failed at
   Clap's unknown `onboard` subcommand;
   repository loading and output-file creation were not reached.
-- Focused GREEN is 11/11: 3 report integration tests, 5 CLI tests, and 3 internal
+- Focused GREEN is 12/12: 3 report integration tests, 6 CLI tests, and 3 internal
   telemetry/graph/rendering tests. The cached CLI path creates both the CPG cache and
   resolved-call-edge sidecar. Existing-output and missing-parent errors emit no report
   to stdout; existing bytes are preserved.
+- Review round 1 found one WRONG (backslash does not escape an embedded backtick inside
+  a CommonMark code span) and one SMELL (a failed write could leave a partial new
+  report). The stronger Markdown assertion failed RED, then dynamic fences passed;
+  write/sync failure now attempts cleanup and reports cleanup failure explicitly.
+- Review round 2 found one WRONG: documented `--repo .` emitted project `.` rather than
+  the repository basename. A cwd-relative regression failed RED and passes after
+  canonical-root naming. Findings converged 2 to 1, so the declared cap received a
+  disclosed final confirmation pass; it found 0 WRONG and 0 SMELL.
 - Full-suite and Tier-A gates remain pending.
 - LSP semantic navigation is unavailable; structural Prism navigation plus direct
   source reads supplies blast-radius evidence.
@@ -45,7 +53,7 @@ scope.
 
 - Root `main` was rebound to exact PR #234 merge `90c522b` before this branch.
 - Design/roadmap/handoff checkpoint is `393e0cf`; primary RED is `dbfb890`; cache RED
-  extension is `1c8e558`; implementation plus this GREEN refresh are the current commit
-  candidate.
+  extension is `1c8e558`; focused-GREEN implementation is `cd8c1fc`; documentation,
+  review fixes, and this review closure are the current commit candidate.
 - Root's pre-existing untracked `.superpowers/` and
   `eval/snapshots/prism-fb81481dafa7.json` remain untouched.

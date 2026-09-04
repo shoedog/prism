@@ -213,9 +213,21 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                         })
                     }
                 };
-                file.write_all(rendered.as_bytes()).with_context(|| {
-                    format!("failed to write onboarding report {}", path.display())
-                })?;
+                if let Err(error) = file
+                    .write_all(rendered.as_bytes())
+                    .and_then(|_| file.sync_all())
+                {
+                    drop(file);
+                    if let Err(cleanup_error) = std::fs::remove_file(path) {
+                        anyhow::bail!(
+                            "failed to write onboarding report {}: {error}; failed to remove partial report: {cleanup_error}",
+                            path.display()
+                        );
+                    }
+                    return Err(error).with_context(|| {
+                        format!("failed to write onboarding report {}", path.display())
+                    });
+                }
             } else {
                 print!("{rendered}");
             }
