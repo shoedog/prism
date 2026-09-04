@@ -73,6 +73,72 @@ fn test_tsx_parameter_receiver_binding_suppresses_import_qualified() {
 }
 
 #[test]
+fn test_tsx_typed_parameter_and_new_constructor_recover() {
+    use prism::call_graph::CallGraph;
+    use prism::resolution::{ReceiverRecovery, ResolutionConfidence, ResolutionKind};
+    use std::collections::BTreeMap;
+
+    let files = BTreeMap::from([(
+        "view.tsx".to_string(),
+        ParsedFile::parse(
+            "view.tsx",
+            "class Foo { m() {} }\nfunction typed(x: Foo) { x.m(); return <div />; }\nfunction optional(x?: Foo) { x.m(); return <div />; }\nfunction defaulted(x: Foo = new Foo()) { x.m(); return <div />; }\nfunction made() { const x = new Foo(); x.m(); return <div />; }\nfunction letMade() { let x = new Foo(); x.m(); return <div />; }\nfunction varMade() { var x = new Foo(); x.m(); return <div />; }\n",
+            Language::Tsx,
+        )
+        .unwrap(),
+    )]);
+    let graph = CallGraph::build(&files);
+
+    for (caller_name, recovery, kind) in [
+        (
+            "typed",
+            ReceiverRecovery::TypedParam,
+            ResolutionKind::TypedParam,
+        ),
+        (
+            "optional",
+            ReceiverRecovery::TypedParam,
+            ResolutionKind::TypedParam,
+        ),
+        (
+            "defaulted",
+            ReceiverRecovery::TypedParam,
+            ResolutionKind::TypedParam,
+        ),
+        (
+            "made",
+            ReceiverRecovery::ConstructorLocal,
+            ResolutionKind::ConstructorLocal,
+        ),
+        (
+            "letMade",
+            ReceiverRecovery::ConstructorLocal,
+            ResolutionKind::ConstructorLocal,
+        ),
+        (
+            "varMade",
+            ReceiverRecovery::ConstructorLocal,
+            ResolutionKind::ConstructorLocal,
+        ),
+    ] {
+        let call = graph
+            .calls
+            .iter()
+            .find(|(caller, _)| caller.file == "view.tsx" && caller.name == caller_name)
+            .and_then(|(_, calls)| calls.iter().find(|call| call.callee_name == "m"))
+            .expect("caller -> m");
+        assert_eq!(call.receiver_type.as_deref(), Some("Foo"), "{caller_name}");
+        assert_eq!(call.receiver_recovery, Some(recovery), "{caller_name}");
+        assert!(call.receiver_materialized, "{caller_name}");
+        let resolved = graph.resolve_call_site(call);
+        assert_eq!(resolved.len(), 1, "{caller_name}: {resolved:?}");
+        assert_eq!(resolved[0].kind, kind, "{caller_name}");
+        assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
+        assert_eq!(resolved[0].target.file, "view.tsx");
+    }
+}
+
+#[test]
 fn test_original_diff_tsx() {
     let (files, _, diff) = make_tsx_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff);

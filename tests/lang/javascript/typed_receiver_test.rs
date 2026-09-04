@@ -1,7 +1,7 @@
 use prism::ast::ParsedFile;
 use prism::call_graph::{CallGraph, CallSite};
 use prism::languages::Language;
-use prism::resolution::{ResolutionConfidence, ResolutionKind};
+use prism::resolution::{ReceiverRecovery, ResolutionConfidence, ResolutionKind};
 use std::collections::BTreeMap;
 
 fn graph(src: &str) -> CallGraph {
@@ -31,24 +31,32 @@ fn site(cg: &CallGraph, caller: &str, callee: &str) -> CallSite {
 }
 
 #[test]
-fn test_javascript_new_constructor_and_bare_call_do_not_recover() {
+fn test_javascript_new_constructor_recovers_but_bare_call_does_not() {
     // P3: `m` must stay OVER the R6 fanout cap (4 owners: Foo/Other/Other2/
-    // Other3) so this residue keeps testing what its name says —
-    // constructor-local recovery does not engage for JS `new`/bare calls —
-    // rather than the P3 candidate path a 2-owner pool would now hit instead.
+    // Other3) so the factory residue cannot resolve through the bounded
+    // multi-owner candidate path.
     let cg = graph(
         "class Foo { m() {} }\nclass Other { m() {} }\nclass Other2 { m() {} }\nclass Other3 { m() {} }\nfunction made() { const x = new Foo(); x.m(); }\nfunction factory() { const x = Foo(); x.m(); }\n",
     );
     let made = site(&cg, "made", "m");
     assert!(made.receiver_lexically_bound);
-    assert_eq!(made.receiver_type, None);
-    assert!(!made.receiver_materialized);
-    assert!(cg.resolve_call_site(&made).is_empty());
+    assert_eq!(made.receiver_type.as_deref(), Some("Foo"));
+    assert_eq!(
+        made.receiver_recovery,
+        Some(ReceiverRecovery::ConstructorLocal)
+    );
+    assert!(made.receiver_materialized);
+    let made_out = cg.resolve_call_site(&made);
+    assert_eq!(made_out.len(), 1);
+    assert_eq!(made_out[0].target.file, "svc.js");
+    assert_eq!(made_out[0].target.name, "m");
+    assert_eq!(made_out[0].kind, ResolutionKind::ConstructorLocal);
+    assert_eq!(made_out[0].confidence, ResolutionConfidence::Exact);
 
     let factory = site(&cg, "factory", "m");
     assert!(factory.receiver_lexically_bound);
     assert_eq!(factory.receiver_type, None);
-    assert!(!factory.receiver_materialized);
+    assert!(factory.receiver_materialized);
     assert!(cg.resolve_call_site(&factory).is_empty());
 }
 
@@ -134,4 +142,95 @@ fn test_javascript_receiver_binding_includes_enclosing_parameter() {
             || candidate.confidence != ResolutionConfidence::Exact
             || candidate.target.file != "api.js"
     }));
+}
+
+#[test]
+fn test_javascript_new_recovery_respects_scope_mutation_and_static_owner() {
+    let cg = graph(
+        "class Foo { m() {} static s() {} }\n\
+         class Other { m() {} }\n\
+         class Other2 { m() {} }\n\
+         class Other3 { m() {} }\n\
+         function letMade() { let x = new Foo(); x.m(); }\n\
+         function varMade() { var x = new Foo(); x.m(); }\n\
+         function prewrite() { x = other(); { const x = new Foo(); x.m(); } }\n\
+         function ended() { { const x = other(); } const x = new Foo(); x.m(); }\n\
+         function reassigned() { let x = new Foo(); x = other(); x.m(); }\n\
+         function after() { x.m(); const x = new Foo(); }\n\
+         function captured() { const x = new Foo(); function inner() { x.m(); } }\n\
+         function active() { const x = new Foo(); { const x = other(); x.m(); } }\n\
+         function qualified() { const x = new ns.Foo(); x.m(); }\n\
+         function shadowedCtor() { const Foo = Other; const x = new Foo(); x.m(); }\n\
+         function capturedWrite() { const x = new Foo(); function mutate() { x = other(); } x.m(); }\n\
+         function shadowWrite() { const x = new Foo(); { let x; x = other(); } x.m(); }\n\
+         function staticOwner() { Foo.s(); }\n",
+    );
+
+    for caller in ["shadowWrite", "letMade", "varMade", "prewrite", "ended"] {
+        let call = site(&cg, caller, "m");
+        assert_eq!(call.receiver_type.as_deref(), Some("Foo"), "{caller}");
+        assert_eq!(
+            call.receiver_recovery,
+            Some(ReceiverRecovery::ConstructorLocal),
+            "{caller}"
+        );
+        assert!(call.receiver_materialized, "{caller}");
+        let out = cg.resolve_call_site(&call);
+        assert_eq!(out.len(), 1, "{caller}: {out:?}");
+        assert_eq!(out[0].kind, ResolutionKind::ConstructorLocal, "{caller}");
+        assert_eq!(out[0].confidence, ResolutionConfidence::Exact, "{caller}");
+        assert_eq!(out[0].target.file, "svc.js", "{caller}");
+    }
+
+    for caller in [
+        "reassigned",
+        "after",
+        "inner",
+        "active",
+        "qualified",
+        "shadowedCtor",
+        "capturedWrite",
+    ] {
+        let call = site(&cg, caller, "m");
+        assert_eq!(call.receiver_type, None, "{caller}");
+        assert!(call.receiver_materialized, "{caller}");
+        assert!(
+            cg.resolve_call_site(&call).is_empty(),
+            "{caller} minted an unsupported recovered edge"
+        );
+    }
+
+    let static_owner = site(&cg, "staticOwner", "s");
+    assert_eq!(static_owner.receiver_type, None);
+    assert!(!static_owner.receiver_materialized);
+    let out = cg.resolve_call_site(&static_owner);
+    assert_eq!(out.len(), 1, "{out:?}");
+    assert_eq!(out[0].kind, ResolutionKind::QualifierOwner);
+    assert_eq!(out[0].confidence, ResolutionConfidence::Exact);
+}
+
+#[test]
+fn test_javascript_shadowed_constructor_owner_fails_closed() {
+    let cg = graph(
+        "class Foo { m() {} }\nclass Other { m() {} }\nfunction run() { const Foo = Other; const x = new Foo(); x.m(); }\n",
+    );
+    let call = site(&cg, "run", "m");
+    assert_eq!(call.receiver_type, None);
+    assert!(call.receiver_materialized);
+    assert!(cg
+        .resolve_call_site(&call)
+        .iter()
+        .all(|candidate| { candidate.kind != ResolutionKind::ConstructorLocal }));
+}
+
+#[test]
+fn test_javascript_named_function_self_does_not_resolve_same_named_class() {
+    let cg = graph("class Foo { static m() {} }\nconst holder = function Foo() { Foo.m(); };\n");
+    let call = site(&cg, "Foo", "m");
+    assert_eq!(call.receiver_type, None);
+    assert!(call.receiver_materialized);
+    assert!(cg
+        .resolve_call_site(&call)
+        .iter()
+        .all(|candidate| { candidate.kind != ResolutionKind::QualifierOwner }));
 }

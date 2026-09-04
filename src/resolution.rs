@@ -797,7 +797,12 @@ fn classify_simple_ident_mode(
     use crate::languages::Language;
     if !matches!(
         ctx.parsed.language,
-        Language::Rust | Language::Go | Language::Python
+        Language::Rust
+            | Language::Go
+            | Language::Python
+            | Language::JavaScript
+            | Language::TypeScript
+            | Language::Tsx
     ) {
         return ReceiverClassification::none();
     }
@@ -810,6 +815,32 @@ fn classify_simple_ident_mode(
     let is_import = ctx.file_imports.map(|m| m.contains_key(q)).unwrap_or(false);
     if !(simple && !is_kw && !is_recv) {
         return ReceiverClassification::none();
+    }
+    if matches!(
+        ctx.parsed.language,
+        Language::JavaScript | Language::TypeScript | Language::Tsx
+    ) {
+        return match ctx
+            .parsed
+            .js_ts_receiver_binding_evidence_at_call(&ctx.fn_node, ctx.receiver_expr)
+        {
+            Some(crate::ast::JsTsReceiverBindingEvidence::Recovered {
+                static_type,
+                recovery,
+                ..
+            }) => ReceiverClassification::recovered(RecoveredReceiver {
+                static_type,
+                owner_identity: None,
+                recovery,
+                go_field_target: None,
+            }),
+            Some(crate::ast::JsTsReceiverBindingEvidence::Materialized) => {
+                ReceiverClassification::materialized_only()
+            }
+            Some(crate::ast::JsTsReceiverBindingEvidence::ClassOwner) | None => {
+                ReceiverClassification::none()
+            }
+        };
     }
     if is_import && !matches!(ctx.parsed.language, Language::Python) {
         return ReceiverClassification::none();
@@ -2142,6 +2173,7 @@ impl CallGraph {
             .filter(|fid| {
                 fid.file == defining_file && self.method_class_span.get(*fid) == Some(receiver_span)
             })
+            .filter(|fid| !self.js_ts_static_methods.contains(*fid))
             .collect();
         if same_class.is_empty() {
             return RecoveredDirectMethod::Miss;
@@ -2471,7 +2503,13 @@ impl CallGraph {
                     && site.receiver_outcome.is_some();
                 let recovered_recv_materialized = matches!(
                     caller_lang,
-                    Some(crate::languages::Language::Python | crate::languages::Language::Go)
+                    Some(
+                        crate::languages::Language::Python
+                            | crate::languages::Language::Go
+                            | crate::languages::Language::JavaScript
+                            | crate::languages::Language::TypeScript
+                            | crate::languages::Language::Tsx
+                    )
                 ) && site.receiver_materialized;
                 let recv_materialized = rust_recv_materialized || recovered_recv_materialized;
                 let js_ts_receiver_lexically_bound = matches!(
@@ -2760,7 +2798,29 @@ impl CallGraph {
                             }
                         }
                     }
-                    if caller_lang == Some(crate::languages::Language::Python) {
+                    let is_js_ts = matches!(
+                        caller_lang,
+                        Some(
+                            crate::languages::Language::JavaScript
+                                | crate::languages::Language::TypeScript
+                                | crate::languages::Language::Tsx
+                        )
+                    );
+                    if is_js_ts {
+                        let clean_key = (caller.file.clone(), recv_ty.to_string());
+                        if self.clean_class_spans.contains_key(&clean_key) {
+                            if let RecoveredDirectMethod::Hit(resolved) = self
+                                .recovered_receiver_direct_method(
+                                    &caller.file,
+                                    recv_ty,
+                                    name,
+                                    recovered_kind,
+                                )
+                            {
+                                return ResolutionOutcome::hit(resolved);
+                            }
+                        }
+                    } else if caller_lang == Some(crate::languages::Language::Python) {
                         match crate::call_graph::python_imported_class_route(
                             &caller.file,
                             recv_ty,

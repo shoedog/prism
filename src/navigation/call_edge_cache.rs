@@ -67,7 +67,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // (paired with CPG v57).
 // v27: JS/TS lexical receiver bindings remove shadowed imported-module Exact
 // edges (paired with CPG v58).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 27;
+// v28: JS/TS typed-parameter and direct-new receiver recovery adds bounded
+// same-file Exact call edges (paired with CPG v59).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 28;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -555,8 +557,63 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_pinned_for_js_ts_lexical_receiver_binding() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 27);
+    fn sidecar_round_trip_preserves_js_ts_recovered_receiver_edge() {
+        use crate::ast::ParsedFile;
+        use crate::cpg::CpgContext;
+        use crate::languages::Language::TypeScript;
+
+        let files = BTreeMap::from([(
+            "svc.ts".to_string(),
+            ParsedFile::parse(
+                "svc.ts",
+                "class Foo { m() {} static only() {} }\nfunction run(x: Foo) { x.m(); }\nfunction staticOnly(x: Foo) { x.only(); }\n",
+                TypeScript,
+            )
+            .unwrap(),
+        )]);
+        let navigation =
+            crate::navigation::NavigationIndex::from_ctx(CpgContext::build(&files, None));
+        let index = navigation.build_resolved_call_edges();
+        let target = index
+            .incoming_by_target
+            .keys()
+            .find(|target| target.file == "svc.ts" && target.name == "m")
+            .cloned()
+            .expect("typed receiver target");
+        let incoming = &index.incoming_by_target[&target];
+        assert_eq!(incoming.len(), 1);
+        assert_eq!(incoming[0].kind, ResolutionKind::TypedParam);
+        assert_eq!(incoming[0].confidence, ResolutionConfidence::Exact);
+        assert!(index
+            .incoming_by_target
+            .iter()
+            .filter(|(target, _)| target.file == "svc.ts" && target.name == "only")
+            .flat_map(|(_, incoming)| incoming)
+            .all(|edge| edge.kind != ResolutionKind::TypedParam));
+
+        let dir = tempfile::tempdir().unwrap();
+        let fingerprint = fixture_fingerprint();
+        save(dir.path(), &fingerprint, &index).unwrap();
+        let loaded = load(dir.path(), &fingerprint).unwrap().unwrap();
+        assert_eq!(
+            loaded.incoming_by_target[&target][0].kind,
+            ResolutionKind::TypedParam
+        );
+        assert_eq!(
+            loaded.incoming_by_target[&target][0].confidence,
+            ResolutionConfidence::Exact
+        );
+        assert!(loaded
+            .incoming_by_target
+            .iter()
+            .filter(|(target, _)| target.file == "svc.ts" && target.name == "only")
+            .flat_map(|(_, incoming)| incoming)
+            .all(|edge| edge.kind != ResolutionKind::TypedParam));
+    }
+
+    #[test]
+    fn sidecar_version_is_pinned_for_js_ts_receiver_recovery() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 28);
     }
 
     #[test]

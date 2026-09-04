@@ -3112,26 +3112,33 @@ fn py_recovered_multi_owner_hit_preserves_nameonly_confidence() {
 }
 
 #[test]
-fn js_new_constructor_and_bare_call_do_not_recover() {
+fn js_new_constructor_recovers_but_bare_call_does_not() {
     // P3: `m` must stay OVER the R6 fanout cap (4 owners: Foo/Other/Other2/
-    // Other3) so this residue keeps testing what its name says — constructor-
-    // local recovery does not engage for JS `new`/bare calls — rather than
-    // the P3 candidate path a 2-owner pool would now hit instead. See
+    // Other3) so the bare-call residue cannot use the P3 candidate path. See
     // r6_candidate_test for the <=3-owner candidate case.
     use prism::languages::Language::JavaScript;
+    use prism::resolution::ReceiverRecovery;
     let (cg, _) = build(&[(
         "svc.js",
         "class Foo { m() {} }\nclass Other { m() {} }\nclass Other2 { m() {} }\nclass Other3 { m() {} }\nfunction made() { const x = new Foo(); x.m(); }\nfunction factory() { const x = Foo(); x.m(); }\n",
         JavaScript,
     )]);
     let made = site_in(&cg, "made", "m");
-    assert_eq!(made.receiver_type, None);
-    assert!(!made.receiver_materialized);
-    assert!(cg.resolve_call_site(&made).is_empty());
+    assert_eq!(made.receiver_type.as_deref(), Some("Foo"));
+    assert_eq!(
+        made.receiver_recovery,
+        Some(ReceiverRecovery::ConstructorLocal)
+    );
+    assert!(made.receiver_materialized);
+    let resolved = cg.resolve_call_site(&made);
+    assert_eq!(resolved.len(), 1, "{resolved:?}");
+    assert_eq!(resolved[0].kind, ResolutionKind::ConstructorLocal);
+    assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(resolved[0].target.file, "svc.js");
 
     let factory = site_in(&cg, "factory", "m");
     assert_eq!(factory.receiver_type, None);
-    assert!(!factory.receiver_materialized);
+    assert!(factory.receiver_materialized);
     assert!(cg.resolve_call_site(&factory).is_empty());
 }
 

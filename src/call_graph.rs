@@ -750,6 +750,10 @@ pub struct CallGraph {
     /// These fail open to owner lookup because the class span is not trustworthy.
     #[serde(default)]
     pub method_class_span_ambiguous: BTreeSet<FunctionId>,
+    /// JS/TS class methods declared with the `static` modifier. Recovered value
+    /// receivers may target only direct instance methods.
+    #[serde(default)]
+    pub js_ts_static_methods: BTreeSet<FunctionId>,
     /// Slice 1b: per-class base-slot links for inherited-self resolution.
     /// Keyed by `(file_path, class_byte_span)`, value is one `ClassBaseLink` per
     /// base slot (count preserved). Only populated for module-scope classes in
@@ -1111,6 +1115,7 @@ impl CallGraph {
             method_owners: BTreeMap::new(),
             method_class_span: BTreeMap::new(),
             method_class_span_ambiguous: BTreeSet::new(),
+            js_ts_static_methods: BTreeSet::new(),
             class_bases: BTreeMap::new(),
             clean_class_spans: BTreeMap::new(),
             methods_by_scope: BTreeMap::new(),
@@ -1204,6 +1209,7 @@ impl CallGraph {
         let mut method_owners: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_class_span: BTreeMap<FunctionId, (usize, usize)> = BTreeMap::new();
         let mut method_class_span_ambiguous: BTreeSet<FunctionId> = BTreeSet::new();
+        let mut js_ts_static_methods: BTreeSet<FunctionId> = BTreeSet::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
         // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once
@@ -1257,6 +1263,9 @@ impl CallGraph {
                     }
                     if let Some(facts) = Self::method_facts(parsed, &func_node) {
                         method_facts.insert(func_id.clone(), facts);
+                    }
+                    if parsed.js_ts_method_is_static(&func_node) {
+                        js_ts_static_methods.insert(func_id.clone());
                     }
 
                     if matches!(
@@ -1358,6 +1367,7 @@ impl CallGraph {
             method_owners,
             method_class_span,
             method_class_span_ambiguous,
+            js_ts_static_methods,
             class_bases: BTreeMap::new(),
             clean_class_spans: BTreeMap::new(),
             methods_by_scope: BTreeMap::new(),
@@ -1484,6 +1494,7 @@ impl CallGraph {
         let mut method_owners: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_class_span: BTreeMap<FunctionId, (usize, usize)> = BTreeMap::new();
         let mut method_class_span_ambiguous: BTreeSet<FunctionId> = BTreeSet::new();
+        let mut js_ts_static_methods: BTreeSet<FunctionId> = BTreeSet::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
         // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once
@@ -1524,6 +1535,7 @@ impl CallGraph {
                 Option<(usize, usize)>,
             )>,
             static_functions: Vec<(String, String)>,
+            js_ts_static_methods: Vec<FunctionId>,
         }
 
         // Phase 1: Collect all function definitions per file in parallel, then
@@ -1534,6 +1546,7 @@ impl CallGraph {
                 let (file_path, parsed) = *entry;
                 let mut file_functions = Vec::new();
                 let mut file_static_functions = Vec::new();
+                let mut file_js_ts_static_methods = Vec::new();
 
                 for func_node in parsed.all_functions() {
                     if let Some(name_node) = parsed.language.function_name(&func_node) {
@@ -1548,6 +1561,9 @@ impl CallGraph {
                         let (owner, trait_key, recv_var, class_span) =
                             Self::method_metadata(parsed, &func_node);
                         let facts = Self::method_facts(parsed, &func_node);
+                        if parsed.js_ts_method_is_static(&func_node) {
+                            file_js_ts_static_methods.push(func_id.clone());
+                        }
                         file_functions.push((
                             name.clone(),
                             func_id,
@@ -1573,6 +1589,7 @@ impl CallGraph {
                 FileFunctions {
                     functions: file_functions,
                     static_functions: file_static_functions,
+                    js_ts_static_methods: file_js_ts_static_methods,
                 }
             })
             .collect();
@@ -1616,6 +1633,7 @@ impl CallGraph {
             for static_function in file_functions.static_functions {
                 static_functions.insert(static_function);
             }
+            js_ts_static_methods.extend(file_functions.js_ts_static_methods);
         }
 
         struct FileCallSites {
@@ -1779,6 +1797,7 @@ impl CallGraph {
             method_owners,
             method_class_span,
             method_class_span_ambiguous,
+            js_ts_static_methods,
             class_bases,
             clean_class_spans,
             methods_by_scope: BTreeMap::new(),
@@ -2099,6 +2118,8 @@ impl CallGraph {
             .retain(|fid, _| !exclude.contains(&fid.file));
         self.method_class_span_ambiguous
             .retain(|fid| !exclude.contains(&fid.file));
+        self.js_ts_static_methods
+            .retain(|fid| !exclude.contains(&fid.file));
         self.class_bases.retain(|(f, _), _| !exclude.contains(f));
         self.clean_class_spans
             .retain(|(f, _), _| !exclude.contains(f));
@@ -2227,6 +2248,7 @@ impl CallGraph {
         self.method_owners.extend(other.method_owners);
         self.method_class_span_ambiguous
             .extend(other.method_class_span_ambiguous);
+        self.js_ts_static_methods.extend(other.js_ts_static_methods);
         for (fid, span) in other.method_class_span {
             record_method_class_span(
                 &mut self.method_class_span,
@@ -4680,6 +4702,7 @@ impl CallGraph {
         let mut method_owners: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_class_span: BTreeMap<FunctionId, (usize, usize)> = BTreeMap::new();
         let mut method_class_span_ambiguous: BTreeSet<FunctionId> = BTreeSet::new();
+        let mut js_ts_static_methods: BTreeSet<FunctionId> = BTreeSet::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
         // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — deliberately
@@ -4789,6 +4812,9 @@ impl CallGraph {
                     }
                     if let Some(facts) = Self::method_facts(parsed, &func_node) {
                         method_facts.insert(func_id.clone(), facts);
+                    }
+                    if parsed.js_ts_method_is_static(&func_node) {
+                        js_ts_static_methods.insert(func_id.clone());
                     }
 
                     if matches!(
@@ -4932,6 +4958,7 @@ impl CallGraph {
             method_owners,
             method_class_span,
             method_class_span_ambiguous,
+            js_ts_static_methods,
             class_bases,
             clean_class_spans,
             methods_by_scope: BTreeMap::new(),
