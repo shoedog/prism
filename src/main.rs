@@ -5,6 +5,7 @@ use prism::output;
 use prism::slice::{MultiSliceResult, SliceConfig};
 use std::collections::BTreeMap;
 use std::fs;
+use std::io::Write;
 
 /// Parse `file:line` CLI seed specs into `SeedSpec::Loc`, delegating to
 /// `reasoning::seeds::parse_file_line_spec` for the actual normalization and
@@ -187,6 +188,37 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
             let session = prism::api::nav_session(repo, &nav_options)?;
             let ev = prism::navigation::module_graph::repo_map(&session);
             println!("{}", prism::output::navigation::render(&ev, format));
+            Ok(())
+        }
+        NavQuery::Onboard { repo, format, out } => {
+            let session = prism::api::nav_session(repo, &nav_options)?;
+            let report = prism::navigation::onboarding::build_report(&session)?;
+            let rendered = prism::output::onboarding::render(&report, format)?;
+            if let Some(path) = out {
+                let mut file = match std::fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(path)
+                {
+                    Ok(file) => file,
+                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                        anyhow::bail!(
+                            "onboarding report target already exists: {}",
+                            path.display()
+                        )
+                    }
+                    Err(error) => {
+                        return Err(error).with_context(|| {
+                            format!("failed to create onboarding report {}", path.display())
+                        })
+                    }
+                };
+                file.write_all(rendered.as_bytes()).with_context(|| {
+                    format!("failed to write onboarding report {}", path.display())
+                })?;
+            } else {
+                print!("{rendered}");
+            }
             Ok(())
         }
         NavQuery::CallStats { repo, dump_sites } => {

@@ -19,6 +19,7 @@ fn overview_combines_inventory_module_and_call_facts_deterministically() {
     .unwrap();
     std::fs::write(dir.path().join("util.py"), "def helper():\n    return 1\n").unwrap();
     std::fs::write(dir.path().join("extra.rs"), "pub fn extra() {}\n").unwrap();
+    std::fs::write(dir.path().join("notes.txt"), "not indexed\n").unwrap();
 
     let session = session(dir.path());
     let first = build_report(&session).unwrap();
@@ -27,6 +28,7 @@ fn overview_combines_inventory_module_and_call_facts_deterministically() {
     assert_eq!(first, second);
     assert_eq!(first.schema_version, "1.0");
     assert_eq!(first.inventory.indexed_files, 3);
+    assert_eq!(first.inventory.skipped_files, 1);
     assert_eq!(first.inventory.functions, 3);
     assert_eq!(first.inventory.languages.get("python"), Some(&2));
     assert_eq!(first.inventory.languages.get("rust"), Some(&1));
@@ -38,6 +40,10 @@ fn overview_combines_inventory_module_and_call_facts_deterministically() {
     assert_eq!(first.calls.total_sites, 1);
     assert_eq!(first.calls.exact_edges, 1);
     assert_eq!(first.calls.name_only_edges, 0);
+    assert!(first
+        .warnings
+        .iter()
+        .any(|warning| warning.contains("1 source file(s) were skipped")));
 }
 
 #[test]

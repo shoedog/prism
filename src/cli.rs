@@ -409,6 +409,16 @@ pub enum NavQuery {
         #[arg(long, default_value = "text", value_parser = ["text", "json"])]
         format: String,
     },
+    /// Compact deterministic project orientation over one cached nav build.
+    Onboard {
+        #[arg(long)]
+        repo: std::path::PathBuf,
+        #[arg(long, default_value = "markdown", value_parser = ["markdown", "json"])]
+        format: String,
+        /// Create a new report file instead of writing to stdout; refuses overwrite.
+        #[arg(long)]
+        out: Option<std::path::PathBuf>,
+    },
     /// Whole-repo call-resolution telemetry.
     CallStats {
         #[arg(long)]

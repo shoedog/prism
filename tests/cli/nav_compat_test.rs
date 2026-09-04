@@ -721,6 +721,28 @@ fn onboard_out_is_create_new_and_preserves_existing_bytes() {
 }
 
 #[test]
+fn onboard_out_requires_an_existing_parent_directory() {
+    let dir = tempfile::tempdir().unwrap();
+    let out_path = dir.path().join("missing").join("overview.md");
+    let out = bin()
+        .args([
+            "nav",
+            "--no-cache",
+            "onboard",
+            "--repo",
+            CG,
+            "--out",
+            out_path.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    assert!(out.stdout.is_empty());
+    assert!(!out_path.exists());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("failed to create onboarding report"));
+}
+
+#[test]
 fn onboard_rejects_unknown_format_before_loading_repo() {
     let out = bin()
         .args([

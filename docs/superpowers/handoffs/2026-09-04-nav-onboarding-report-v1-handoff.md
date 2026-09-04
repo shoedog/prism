@@ -6,8 +6,8 @@
 
 ## 0. Current verdict
 
-**RED CONTRACT ESTABLISHED; IMPLEMENTATION NEXT.** The successor product increment is
-a CLI-only, bounded onboarding report. Production behavior does not exist yet.
+**IMPLEMENTED AND FOCUSED GREEN; DOCUMENTATION/REVIEW NEXT.** The successor product
+increment is a CLI-only, bounded onboarding report.
 
 ## 1. Authority boundary
 
@@ -30,9 +30,13 @@ scope.
 
 - RED navigation target: one compile error, the missing
   `prism::navigation::onboarding` module.
-- RED CLI target: 3/3 selected tests failed at Clap's unknown `onboard` subcommand;
+- RED CLI target: the initial 3/3 tests, then the added cache contract, all failed at
+  Clap's unknown `onboard` subcommand;
   repository loading and output-file creation were not reached.
-- No GREEN tests yet.
+- Focused GREEN is 11/11: 3 report integration tests, 5 CLI tests, and 3 internal
+  telemetry/graph/rendering tests. The cached CLI path creates both the CPG cache and
+  resolved-call-edge sidecar. Existing-output and missing-parent errors emit no report
+  to stdout; existing bytes are preserved.
 - Full-suite and Tier-A gates remain pending.
 - LSP semantic navigation is unavailable; structural Prism navigation plus direct
   source reads supplies blast-radius evidence.
@@ -40,7 +44,8 @@ scope.
 ## 4. Custody
 
 - Root `main` was rebound to exact PR #234 merge `90c522b` before this branch.
-- Design/roadmap/handoff checkpoint is `393e0cf`; the RED tests plus this refresh are
-  the current commit candidate.
+- Design/roadmap/handoff checkpoint is `393e0cf`; primary RED is `dbfb890`; cache RED
+  extension is `1c8e558`; implementation plus this GREEN refresh are the current commit
+  candidate.
 - Root's pre-existing untracked `.superpowers/` and
   `eval/snapshots/prism-fb81481dafa7.json` remain untouched.
