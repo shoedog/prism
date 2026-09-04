@@ -6,7 +6,7 @@
 
 ## 0. Current verdict
 
-**IMPLEMENTED; FOCUSED GATES GREEN; TWO-ROUND REVIEW CLOSED; FULL GATES NEXT.** This is item 3, the prerequisite for item 4's JS/TS typed-parameter and `new`-constructor receiver recovery. The slices remain separate.
+**IMPLEMENTED; TWO-ROUND REVIEW CLOSED; ALL RUNNABLE GATES GREEN.** This is item 3, the prerequisite for item 4's JS/TS typed-parameter and `new`-constructor receiver recovery. The slices remain separate.
 
 ## 1. Authority boundary
 
@@ -35,9 +35,10 @@ For simple JS/TS identifier receivers, persist whether a parameter, function-sco
 - CPG v58 behavior round trip, navigation v27 non-vacuous shadow-absence round trip, serde-default/comparison exclusion, and both version pins are green.
 - Incremental visible-to-shadowed and shadowed-to-visible transitions match fresh builds. Same-function parse recovery fails closed while recovery inside a nested callable does not leak. A Python control proves the JS/TS-only flag cannot suppress non-JS import qualification.
 - Complete language targets after review round 2: JavaScript 65/65, TSX 48/48, TypeScript 43/43. `cargo fmt --all -- --check` and `git diff --check` pass.
-- `cargo check --all-targets` passed before the round-1 expansion; it will be rerun with the full gates.
+- `cargo check --all-targets` passed after review round 2. The repository suites pass: default 3,590 passed / 0 failed / 1 ignored across 28 test binaries; `mcp` 3,776 passed / 0 failed / 1 ignored across 30 test binaries.
 - Review cap declared at two rounds.
-- Full suite and Tier-A remain pending.
+- Release Tier-A matrix passes 104/104. Tier-A quick completed with `oracle_error_rate=0.000` and `sut_error_rate=0.000`, but exits 2 because the candidate corpus SHA `8b18eab82222` differs from pinned `20c8490591a3`. The exact-base `5051918f61c9` control in the same environment has the identical sole invalid reason and exit 2, ruling out this change as the cause. Generated reports/snapshots were not committed.
+- Verification exclusion: LSP semantic navigation tools were unavailable. All compiler, full-suite, cache-roundtrip, incremental, and Tier-A checks otherwise ran.
 
 ## 4. Custody
 
