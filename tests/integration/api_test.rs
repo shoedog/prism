@@ -63,6 +63,16 @@ fn echo_fixture() -> (TempDir, PathBuf, String) {
     )
 }
 
+fn degraded_absence_fixture() -> (TempDir, PathBuf, String) {
+    write_repo(
+        &[(
+            "a.py",
+            "def read():\n    f = open(\"x\")\n    return f\n\nbroken =\n",
+        )],
+        &[("a.py", &[2])],
+    )
+}
+
 #[test]
 fn one_shot_review_returns_inputs_and_findings() {
     let (_tmp, repo, diff_text) = absence_fixture(false);
@@ -122,6 +132,34 @@ fn two_phase_api_installs_its_own_pool_and_reports_each_algorithm() {
     assert!(run.errors.is_empty());
     assert_eq!(run.warnings, inputs.parse_warnings);
     assert!(built.warnings.is_empty());
+}
+
+#[test]
+fn multi_run_keeps_raw_result_findings_and_annotates_flattened_findings() {
+    let (_tmp, repo, diff_text) = degraded_absence_fixture();
+    let opts = ReviewOptions::new(&repo);
+    let inputs = load_review_inputs(&opts, &diff_text).unwrap();
+    assert_eq!(inputs.parse_quality["a.py"].quality, "degraded");
+    let built = build_context(&inputs, &opts).unwrap();
+    let run = run_review(
+        &built.ctx,
+        &inputs,
+        &[SlicingAlgorithm::AbsenceSlice],
+        &SliceConfig::default(),
+        &AlgorithmParams::default(),
+        &repo,
+    );
+
+    assert!(!run.results[0].findings.is_empty());
+    assert!(run.results[0]
+        .findings
+        .iter()
+        .all(|finding| finding.parse_quality.is_none()));
+    assert!(!run.findings.is_empty());
+    assert!(run
+        .findings
+        .iter()
+        .all(|finding| finding.parse_quality.as_deref() == Some("degraded")));
 }
 
 #[test]

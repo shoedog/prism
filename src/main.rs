@@ -776,16 +776,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
             &algorithm_params,
             repo,
         );
-        let mut results = run.results;
-        // The facade annotates every result finding. Legacy multi-run CLI
-        // output historically annotated only the flattened `all_findings`
-        // projection, so clear the facade-owned copies before serializing the
-        // byte-pinned CLI shapes.
-        for result in &mut results {
-            for finding in &mut result.findings {
-                finding.parse_quality = None;
-            }
-        }
+        let results = run.results;
         let all_errors = run.errors;
         let algorithms_run = run.algorithms_run;
         let all_findings = run.findings;

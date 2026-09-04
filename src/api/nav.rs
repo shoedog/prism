@@ -40,10 +40,12 @@ pub fn callers(
     depth: usize,
     exact_only: bool,
 ) -> Result<Evidence, QueryError> {
-    let (symbol, file, location) = seed_parts(seed);
-    crate::navigation::queries::callers_with_confidence(
-        session, symbol, file, location, depth, exact_only,
-    )
+    crate::build_pool::install(|| {
+        let (symbol, file, location) = seed_parts(seed);
+        crate::navigation::queries::callers_with_confidence(
+            session, symbol, file, location, depth, exact_only,
+        )
+    })
 }
 
 pub fn callees(
@@ -52,10 +54,12 @@ pub fn callees(
     depth: usize,
     exact_only: bool,
 ) -> Result<Evidence, QueryError> {
-    let (symbol, file, location) = seed_parts(seed);
-    crate::navigation::queries::callees_with_confidence(
-        session, symbol, file, location, depth, exact_only,
-    )
+    crate::build_pool::install(|| {
+        let (symbol, file, location) = seed_parts(seed);
+        crate::navigation::queries::callees_with_confidence(
+            session, symbol, file, location, depth, exact_only,
+        )
+    })
 }
 
 fn seed_parts(seed: Seed<'_>) -> (Option<&str>, Option<&str>, Option<&str>) {
