@@ -697,7 +697,7 @@ fn test_cache_round_trip_python() {
 }
 
 #[test]
-fn cache_v56_round_trips_python_module_import_shape_and_dotted_authority() {
+fn cache_v57_round_trips_python_module_import_shape_and_qualified_authority() {
     use prism::call_graph::ImportBindingKind;
 
     let fixtures = [
@@ -714,6 +714,11 @@ fn cache_v56_round_trips_python_module_import_shape_and_dotted_authority() {
         (
             "dotted_app.py",
             "import pkg.models\ndef dotted_run(client: pkg.models.Client):\n    client.send()\n",
+            Language::Python,
+        ),
+        (
+            "namespace_app.py",
+            "from pkg import models\ndef namespace_run(client: models.Client):\n    client.send()\n",
             Language::Python,
         ),
     ];
@@ -736,10 +741,15 @@ fn cache_v56_round_trips_python_module_import_shape_and_dotted_authority() {
         loaded.call_graph.import_bindings["dotted_app.py"][0].kind,
         ImportBindingKind::ModuleImport
     ));
+    assert!(matches!(
+        loaded.call_graph.import_bindings["namespace_app.py"][0].kind,
+        ImportBindingKind::MemberImport
+    ));
 
     for (caller_file, caller_name, receiver_type) in [
         ("alias_app.py", "alias_run", "models.Client"),
         ("dotted_app.py", "dotted_run", "pkg.models.Client"),
+        ("namespace_app.py", "namespace_run", "models.Client"),
     ] {
         let site = loaded
             .call_graph

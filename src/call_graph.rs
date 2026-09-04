@@ -6580,6 +6580,58 @@ mod tests {
         assert_eq!(proof_keys(&after), expected);
     }
 
+    #[test]
+    fn python_namespace_submodule_class_proof_key_tracks_parent_absence() {
+        use crate::languages::Language::Python;
+
+        let build = |method_body: &str, parent: Option<(&str, &str)>| {
+            let mut files = BTreeMap::new();
+            files.insert(
+                "app.py".to_string(),
+                ParsedFile::parse(
+                    "app.py",
+                    "from pkg import models\ndef run(client: models.Client):\n    client.send()\n",
+                    Python,
+                )
+                .unwrap(),
+            );
+            files.insert(
+                "pkg/models.py".to_string(),
+                ParsedFile::parse(
+                    "pkg/models.py",
+                    &format!("class Client:\n    def send(self):\n        {method_body}\n"),
+                    Python,
+                )
+                .unwrap(),
+            );
+            if let Some((path, source)) = parent {
+                files.insert(
+                    path.to_string(),
+                    ParsedFile::parse(path, source, Python).unwrap(),
+                );
+            }
+            CallGraph::build(&files)
+        };
+        let proof_keys = |cg: &CallGraph| {
+            python_imported_class_proof_keys(
+                &cg.import_bindings,
+                &cg.indexed_files,
+                &cg.clean_class_spans,
+            )
+        };
+        let expected = BTreeSet::from([(
+            "app.py".to_string(),
+            "models.Client".to_string(),
+            "pkg/models.py".to_string(),
+            "Client".to_string(),
+        )]);
+
+        assert_eq!(proof_keys(&build("pass", None)), expected);
+        assert_eq!(proof_keys(&build("return 1", None)), expected);
+        assert!(proof_keys(&build("pass", Some(("pkg.py", "value = 1\n")))).is_empty());
+        assert!(proof_keys(&build("pass", Some(("pkg/__init__.py", "value = 1\n")))).is_empty());
+    }
+
     fn build_rust_call_graph(source: &str) -> CallGraph {
         use crate::ast::ParsedFile;
         use crate::languages::Language::Rust;

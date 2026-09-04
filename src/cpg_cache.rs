@@ -689,8 +689,8 @@ mod tests {
     }
 
     #[test]
-    fn cache_versions_are_pinned_for_python_dotted_module_receivers() {
-        assert_eq!(super::CACHE_VERSION, 56);
+    fn cache_versions_are_pinned_for_python_namespace_submodule_receivers() {
+        assert_eq!(super::CACHE_VERSION, 57);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

@@ -451,8 +451,63 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_pinned_for_python_dotted_module_receivers() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 25);
+    fn sidecar_round_trip_preserves_python_namespace_submodule_receiver_edge() {
+        use crate::ast::ParsedFile;
+        use crate::cpg::CpgContext;
+        use crate::languages::Language::Python;
+
+        let files = BTreeMap::from([
+            (
+                "app.py".to_string(),
+                ParsedFile::parse(
+                    "app.py",
+                    "from pkg import models\ndef run(client: models.Client):\n    client.send()\n",
+                    Python,
+                )
+                .unwrap(),
+            ),
+            (
+                "pkg/models.py".to_string(),
+                ParsedFile::parse(
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                    Python,
+                )
+                .unwrap(),
+            ),
+        ]);
+        let navigation =
+            crate::navigation::NavigationIndex::from_ctx(CpgContext::build(&files, None));
+        let index = navigation.build_resolved_call_edges();
+        let target = index
+            .incoming_by_target
+            .keys()
+            .find(|target| target.file == "pkg/models.py" && target.name == "send")
+            .cloned()
+            .expect("namespace submodule receiver target");
+        let incoming = &index.incoming_by_target[&target];
+        assert_eq!(incoming.len(), 1);
+        assert_eq!(incoming[0].confidence, ResolutionConfidence::Exact);
+        assert_eq!(incoming[0].kind, ResolutionKind::TypedParam);
+
+        let dir = tempfile::tempdir().unwrap();
+        let fingerprint = fixture_fingerprint();
+        save(dir.path(), &fingerprint, &index).unwrap();
+        let loaded = load(dir.path(), &fingerprint).unwrap().unwrap();
+        assert_eq!(loaded.incoming_by_target[&target].len(), 1);
+        assert_eq!(
+            loaded.incoming_by_target[&target][0].kind,
+            ResolutionKind::TypedParam
+        );
+        assert_eq!(
+            loaded.incoming_by_target[&target][0].confidence,
+            ResolutionConfidence::Exact
+        );
+    }
+
+    #[test]
+    fn sidecar_version_is_pinned_for_python_namespace_submodule_receivers() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 26);
     }
 
     #[test]
