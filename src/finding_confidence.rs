@@ -12,9 +12,19 @@
 //! gate on `asserted`; whether an asserted finding is a real defect is the
 //! reviewer's call.
 
+use crate::ast::ParsedFile;
 use crate::slice::{FileParseQuality, SliceFinding, SlicingAlgorithm};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+
+/// Categories `contract_slice::slice_delta` emits for findings computed against
+/// an `--old-repo` tree; the only categories that depend on old-tree files.
+const OLD_TREE_CONTRACT_CATEGORIES: [&str; 4] = [
+    "contract_precondition_weakened",
+    "contract_precondition_strengthened",
+    "contract_postcondition_weakened",
+    "contract_postcondition_strengthened",
+];
 
 /// How precisely a finding's evidence path is known. Mirrors
 /// `ResolutionConfidence` plus `Unlabeled` for evidence Phase 0 cannot yet grade.
@@ -38,7 +48,7 @@ pub enum FindingTier {
 }
 
 /// Per-file parse quality grade, ordered best → worst by declaration order.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
 pub enum ParseQuality {
@@ -68,20 +78,28 @@ impl ParseQuality {
     }
 
     /// From the AUTHORITATIVE per-file map produced by `algorithms::check_parse_quality`
-    /// (`ReviewInputs.parse_quality`): the worst quality over `files`; `Unknown` if
-    /// `files` is empty or any file is absent from the map. Never derived from
-    /// `SliceFinding.parse_quality`, which is `None` both before annotation and
-    /// for clean files.
-    pub fn min_over(files: &[&str], map: &BTreeMap<String, FileParseQuality>) -> Self {
+    /// (`ReviewInputs.parse_quality`). That map is SPARSE: `check_parse_quality` inserts a
+    /// file only when its error rate exceeds 1% (`src/algorithms/mod.rs:75-84`), so absence
+    /// means "clean" for a file prism parsed and "unknown" for a file it did not. Hence: for
+    /// each file — in `map` → its grade; else in `parsed` → Clean; else Unknown. Result = the
+    /// worst over `files`; Unknown when `files` is empty. The sparse map itself is never
+    /// modified (legacy `json`/`review` output serialises it byte-for-byte).
+    pub fn min_over(
+        files: &[&str],
+        map: &BTreeMap<String, FileParseQuality>,
+        parsed: &BTreeMap<String, ParsedFile>,
+    ) -> Self {
         if files.is_empty() {
             return Self::Unknown;
         }
         let mut worst = Self::Clean;
         for file in files {
-            match map.get(*file) {
-                Some(quality) => worst = worst.max(Self::from_quality_str(&quality.quality)),
-                None => return Self::Unknown,
-            }
+            let quality = match map.get(*file) {
+                Some(fpq) => Self::from_quality_str(&fpq.quality),
+                None if parsed.contains_key(*file) => Self::Clean,
+                None => Self::Unknown,
+            };
+            worst = worst.max(quality);
         }
         worst
     }
@@ -111,6 +129,23 @@ pub fn evidence_files(finding: &SliceFinding) -> Vec<&str> {
         }
     }
     files
+}
+
+/// The one entry point both serializers use. Encodes the evidence rules: contract findings
+/// computed against an `--old-repo` tree (categories `contract_precondition_weakened`,
+/// `contract_precondition_strengthened`, `contract_postcondition_weakened`,
+/// `contract_postcondition_strengthened` — the only categories `slice_delta` emits) depend on
+/// old-tree files prism parsed separately and never graded → `Unknown`; everything else →
+/// `min_over(&evidence_files(f), map, parsed)`.
+pub fn parse_quality_for(
+    finding: &SliceFinding,
+    map: &BTreeMap<String, FileParseQuality>,
+    parsed: &BTreeMap<String, ParsedFile>,
+) -> ParseQuality {
+    match finding.category.as_deref() {
+        Some(category) if OLD_TREE_CONTRACT_CATEGORIES.contains(&category) => ParseQuality::Unknown,
+        _ => ParseQuality::min_over(&evidence_files(finding), map, parsed),
+    }
 }
 
 /// Classifies a finding's confidence and tier from its producing algorithm and
@@ -193,23 +228,45 @@ mod tests {
         );
     }
     #[test]
-    fn every_production_algorithm_string_parses() {
-        for s in [
-            "absence",
-            "callback_dispatcher",
-            "contract",
-            "echo",
-            "membrane",
-            "peer_consistency",
-            "primitive",
-            "provenance",
-            "symmetry",
-            "taint",
+    fn every_production_algorithm_string_maps_to_its_variant() {
+        use crate::slice::SlicingAlgorithm;
+        for (s, expected) in [
+            ("absence", SlicingAlgorithm::AbsenceSlice),
+            (
+                "callback_dispatcher",
+                SlicingAlgorithm::CallbackDispatcherSlice,
+            ),
+            ("contract", SlicingAlgorithm::ContractSlice),
+            ("echo", SlicingAlgorithm::EchoSlice),
+            ("membrane", SlicingAlgorithm::MembraneSlice),
+            ("peer_consistency", SlicingAlgorithm::PeerConsistencySlice),
+            ("primitive", SlicingAlgorithm::PrimitiveSlice),
+            ("provenance", SlicingAlgorithm::ProvenanceSlice),
+            ("symmetry", SlicingAlgorithm::SymmetrySlice),
+            ("taint", SlicingAlgorithm::Taint),
         ] {
-            assert!(
-                crate::slice::SlicingAlgorithm::from_str(s).is_some(),
-                "{s} must round-trip through from_str"
+            assert_eq!(
+                SlicingAlgorithm::from_str(s),
+                Some(expected),
+                "{s} must round-trip to {expected:?}"
             );
+        }
+    }
+    #[test]
+    fn confidence_table_for_production_algorithms() {
+        for (s, expected) in [
+            ("absence", FindingConfidence::Exact),
+            ("contract", FindingConfidence::Exact),
+            ("symmetry", FindingConfidence::Exact),
+            ("primitive", FindingConfidence::Exact),
+            ("peer_consistency", FindingConfidence::Exact),
+            ("callback_dispatcher", FindingConfidence::Exact),
+            ("echo", FindingConfidence::Unlabeled),
+            ("membrane", FindingConfidence::Unlabeled),
+            ("provenance", FindingConfidence::Unlabeled),
+            ("taint", FindingConfidence::Unlabeled),
+        ] {
+            assert_eq!(classify(s, ParseQuality::Clean).0, expected, "{s}");
         }
     }
     #[test]
@@ -236,25 +293,115 @@ mod tests {
         assert_eq!(ParseQuality::Poor.as_str(), "poor");
     }
     #[test]
-    fn min_over_takes_the_worst_and_fails_unknown() {
-        let mut map = BTreeMap::new();
-        map.insert("a.py".to_string(), fpq("clean"));
-        map.insert("b.py".to_string(), fpq("degraded"));
-        assert_eq!(ParseQuality::min_over(&["a.py"], &map), ParseQuality::Clean);
+    fn parse_quality_serde_matches_as_str() {
+        for q in [
+            ParseQuality::Clean,
+            ParseQuality::Degraded,
+            ParseQuality::Poor,
+            ParseQuality::Unparseable,
+            ParseQuality::Unknown,
+        ] {
+            assert_eq!(
+                serde_json::to_string(&q).unwrap().trim_matches('"'),
+                q.as_str()
+            );
+        }
+    }
+    #[test]
+    fn parse_quality_ordering_is_best_to_worst() {
+        assert!(
+            ParseQuality::Clean < ParseQuality::Degraded
+                && ParseQuality::Degraded < ParseQuality::Poor
+                && ParseQuality::Poor < ParseQuality::Unparseable
+                && ParseQuality::Unparseable < ParseQuality::Unknown
+        );
+    }
+    fn parsed_with(path: &str) -> BTreeMap<String, crate::ast::ParsedFile> {
+        let mut parsed = BTreeMap::new();
+        parsed.insert(
+            path.to_string(),
+            crate::ast::ParsedFile::parse(path, "x = 1\n", crate::languages::Language::Python)
+                .unwrap(),
+        );
+        parsed
+    }
+    #[test]
+    fn min_over_treats_sparse_map_absence_as_clean_when_parsed() {
+        let parsed = parsed_with("a.py");
+        let map: BTreeMap<String, FileParseQuality> = BTreeMap::new();
+        // a.py is absent from the sparse map but was parsed -> Clean, not Unknown.
         assert_eq!(
-            ParseQuality::min_over(&["a.py", "b.py"], &map),
+            ParseQuality::min_over(&["a.py"], &map, &parsed),
+            ParseQuality::Clean
+        );
+    }
+    #[test]
+    fn min_over_takes_the_worst_over_files() {
+        let parsed = parsed_with("a.py");
+        let mut map = BTreeMap::new();
+        map.insert("b.py".to_string(), fpq("degraded"));
+        assert_eq!(
+            ParseQuality::min_over(&["a.py", "b.py"], &map, &parsed),
             ParseQuality::Degraded
         );
+    }
+    #[test]
+    fn min_over_is_unknown_for_files_in_neither_map_nor_parsed() {
+        let parsed = parsed_with("a.py");
+        let map: BTreeMap<String, FileParseQuality> = BTreeMap::new();
         assert_eq!(
-            ParseQuality::min_over(&["a.py", "missing.py"], &map),
+            ParseQuality::min_over(&["a.py", "missing.py"], &map, &parsed),
             ParseQuality::Unknown
         );
-        assert_eq!(ParseQuality::min_over(&[], &map), ParseQuality::Unknown);
+    }
+    #[test]
+    fn min_over_empty_files_is_unknown() {
+        let parsed = parsed_with("a.py");
+        let map: BTreeMap<String, FileParseQuality> = BTreeMap::new();
+        assert_eq!(
+            ParseQuality::min_over(&[], &map, &parsed),
+            ParseQuality::Unknown
+        );
+    }
+    #[test]
+    fn min_over_unrecognized_map_quality_string_is_unknown() {
+        let parsed: BTreeMap<String, crate::ast::ParsedFile> = BTreeMap::new();
+        let mut map = BTreeMap::new();
         map.insert("c.py".to_string(), fpq("weird"));
         assert_eq!(
-            ParseQuality::min_over(&["c.py"], &map),
+            ParseQuality::min_over(&["c.py"], &map, &parsed),
             ParseQuality::Unknown
         );
+    }
+    #[test]
+    fn parse_quality_for_treats_contract_delta_categories_as_unknown() {
+        let parsed = parsed_with("a.py");
+        let map: BTreeMap<String, FileParseQuality> = BTreeMap::new();
+        let mut weakened = finding("contract", "a.py", &[]);
+        weakened.category = Some("contract_precondition_weakened".to_string());
+        assert_eq!(
+            parse_quality_for(&weakened, &map, &parsed),
+            ParseQuality::Unknown
+        );
+    }
+    #[test]
+    fn parse_quality_for_non_delta_contract_category_uses_min_over() {
+        let parsed = parsed_with("a.py");
+        let map: BTreeMap<String, FileParseQuality> = BTreeMap::new();
+        let mut violation = finding("contract", "a.py", &[]);
+        violation.category = Some("contract_violation".to_string());
+        assert_eq!(
+            parse_quality_for(&violation, &map, &parsed),
+            ParseQuality::Clean
+        );
+    }
+    #[test]
+    fn parse_quality_for_symmetry_related_file_dominates() {
+        let parsed = parsed_with("a.py");
+        let mut map = BTreeMap::new();
+        map.insert("b.py".to_string(), fpq("degraded"));
+        let f = finding("symmetry", "a.py", &["b.py"]);
+        assert_eq!(parse_quality_for(&f, &map, &parsed), ParseQuality::Degraded);
     }
     #[test]
     fn evidence_files_is_anchor_then_related() {
