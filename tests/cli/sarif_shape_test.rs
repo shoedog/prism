@@ -1,7 +1,8 @@
 //! CLI end-to-end tests for the parts of `--format sarif` that are about the
 //! RUN rather than the finding mapping: the `--format` allow-list (§2.2.3 /
-//! §7.2.5), algorithm-error notifications (§7.2.3), byte determinism (§7.2.4)
-//! and the degraded-parse demotion (§7.2.10).
+//! §7.2.5), algorithm-error notifications (§7.2.3), byte determinism (§7.2.4),
+//! the degraded-parse demotion (§7.2.10) and the build-warning notifications
+//! (§2.2.1, final review).
 //!
 //! Split from `sarif_test.rs` (which owns §7.2.1/§7.2.2 and the in-process
 //! document tests) to keep both files well under the repo's 600-line limit.
@@ -165,6 +166,61 @@ fn sarif_is_byte_deterministic() {
         "two runs over identical input must be byte-identical"
     );
     assert!(first.ends_with(b"\n"), "document ends with a newline");
+}
+
+/// A non-fatal BUILD condition (`api::build_context`'s `BuiltContext.warnings`
+/// — here the type-database load failure `--compile-commands` at a missing file
+/// produces) must reach the document as a `warning` notification, not stderr
+/// only. Both SARIF arms are checked: the single-algorithm run and the
+/// multi-algorithm run, which assemble their `SarifInputs` independently.
+///
+/// The expected text is READ OFF this run's stderr rather than hard-coded, so
+/// the assertion is "the same warning the run printed", not "some warning".
+#[test]
+fn build_warnings_become_notifications_in_both_arms() {
+    let (_tmp, repo, diff) = fixture_absence();
+    let missing_cc = repo.join("no-such-compile-commands.json");
+
+    for algorithm in ["absence", "chop,absence"] {
+        let out = prism_cmd()
+            .args([
+                "--repo",
+                repo.to_str().unwrap(),
+                "--diff",
+                diff.to_str().unwrap(),
+                "--algorithm",
+                algorithm,
+                "--compile-commands",
+                missing_cc.to_str().unwrap(),
+                "--format",
+                "sarif",
+            ])
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+        let printed = stderr
+            .lines()
+            .find(|line| line.starts_with("Warning: failed to load type database:"))
+            .unwrap_or_else(|| {
+                panic!("--algorithm {algorithm}: expected the type-database warning on stderr; stderr was {stderr:?}")
+            })
+            .to_string();
+
+        let doc: Value = serde_json::from_slice(&out.stdout).unwrap_or_else(|e| {
+            panic!("--algorithm {algorithm}: stdout is not JSON ({e}); stderr={stderr:?}")
+        });
+        let notes = run(&doc)["invocations"][0]["toolExecutionNotifications"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        assert!(
+            notes
+                .iter()
+                .any(|n| n["level"] == "warning" && n["message"]["text"] == printed.as_str()),
+            "--algorithm {algorithm}: build warning {printed:?} must appear verbatim as a \
+             warning notification; notifications were {notes:#?}"
+        );
+    }
 }
 
 /// §7.2.5 — the `--format` allow-list (§2.2.3). Values that previously fell

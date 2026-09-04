@@ -349,27 +349,11 @@ pub struct ReviewOutcome {
 
 /// Run a complete review through the stable facade.
 ///
-/// ```
-/// use prism::api::{review, AlgorithmParams, ReviewOptions};
-/// use prism::slice::{SliceConfig, SlicingAlgorithm};
-/// use std::fs;
-///
-/// let root = std::env::temp_dir().join(format!("prism-api-doc-{}", std::process::id()));
-/// let _ = fs::remove_dir_all(&root);
-/// fs::create_dir_all(&root)?;
-/// fs::write(root.join("a.py"), "def f():\n    return 1\n")?;
-/// let diff = r#"{"files":[{"file_path":"a.py","modify_type":"Modified","diff_lines":[2]}]}"#;
-/// let outcome = review(
-///     &ReviewOptions::new(&root),
-///     diff,
-///     &[SlicingAlgorithm::AbsenceSlice],
-///     &SliceConfig::default(),
-///     &AlgorithmParams::default(),
-/// )?;
-/// assert_eq!(outcome.inputs.diff.files.len(), 1);
-/// fs::remove_dir_all(root)?;
-/// # Ok::<(), anyhow::Error>(())
-/// ```
+/// The worked example lives on the `prism::api::review` re-export in
+/// `api/mod.rs` — one canonical, `TempDir`-based doc-test, which is also the
+/// README's "Library use" snippet. A second example here (the one this comment
+/// replaced) only gave rustdoc two to render and `std::env::temp_dir` a
+/// directory to leak on a failed assertion.
 pub fn review(
     opts: &ReviewOptions,
     diff_text: &str,

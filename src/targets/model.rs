@@ -1,10 +1,17 @@
 //! Serializable DTOs for `docs/contracts/targets.schema.json` v1.0.
+//!
+//! Every type here is `#[non_exhaustive]` (§2.3.1): they are re-exported from
+//! `prism::api`, they are produced only by `targets::project`, and consumers
+//! read or deserialize them — so a v1.1 field must not break an embedder that
+//! compiled against v1.0. `#[non_exhaustive]` constrains only OTHER crates;
+//! `project` still builds them with struct literals inside this one.
 
 use crate::finding_confidence::{FindingConfidence, FindingTier};
 use crate::slice::AlgorithmError;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct TargetsDocument {
     pub schema_version: String,
     pub producer: Producer,
@@ -20,6 +27,7 @@ pub struct TargetsDocument {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Producer {
     pub tool: String,
     pub version: String,
@@ -30,6 +38,7 @@ pub struct Producer {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Repo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub root: Option<String>,
@@ -38,6 +47,7 @@ pub struct Repo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Diff {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sha256: Option<String>,
@@ -45,6 +55,7 @@ pub struct Diff {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Target {
     pub id: String,
     pub site: Site,
@@ -66,6 +77,7 @@ pub struct Target {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Site {
     pub file: String,
     pub line: usize,
@@ -80,6 +92,7 @@ pub struct Site {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Expected {
     pub property: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -87,6 +100,7 @@ pub struct Expected {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct DependencyHint {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
@@ -97,6 +111,7 @@ pub struct DependencyHint {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Related {
     pub lines: Vec<usize>,
     pub files: Vec<String>,

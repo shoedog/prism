@@ -10,13 +10,18 @@ pub use model::{
 use crate::api::{build_info, ReviewInputs};
 use crate::finding_confidence::{classify, parse_quality_for, FindingTier, RESOLUTION_MODE};
 use crate::languages::Language;
-use crate::output::{sarif::sarif_uri, severity_rank};
+use crate::output::{sarif::path_escapes_repo, severity_rank};
 use crate::slice::{AlgorithmError, SliceFinding};
 use mapping::{language_tag, map_finding};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
+/// Run-level facts `project` cannot derive from the findings. `#[non_exhaustive]`
+/// (§2.3.1): re-exported from `prism::api`, so build one with `Default` plus
+/// field assignment rather than a struct literal.
+#[derive(Default)]
+#[non_exhaustive]
 pub struct TargetsMeta {
     pub algorithms_run: Vec<String>,
     pub repo_root: PathBuf,
@@ -49,9 +54,9 @@ pub fn project(
             continue;
         }
 
+        // `file` already has `/` separators, which `path_escapes_repo` expects.
         let file = normalise_path(&finding.file, &mut warnings);
-        let (_, escapes) = sarif_uri(&file);
-        if escapes || is_windows_absolute(&file) {
+        if path_escapes_repo(&file) {
             warnings.push(format!(
                 "targets: dropped finding with path escaping repo root: {}",
                 finding.file
@@ -237,15 +242,6 @@ fn normalise_path(path: &str, warnings: &mut Vec<String>) -> String {
         ));
     }
     normalized
-}
-
-fn is_windows_absolute(path: &str) -> bool {
-    let bytes = path.as_bytes();
-    path.starts_with("//")
-        || (bytes.len() >= 3
-            && bytes[0].is_ascii_alphabetic()
-            && bytes[1] == b':'
-            && bytes[2] == b'/')
 }
 
 fn normalize_severity(finding: &SliceFinding, warnings: &mut Vec<String>) -> String {

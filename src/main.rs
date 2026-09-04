@@ -333,19 +333,17 @@ fn run_targets(args: &TargetsArgs) -> Result<()> {
     } else {
         prism::api::FindingTier::Candidate
     };
-    let document = prism::targets::project(
-        &outcome.run.findings,
-        &outcome.inputs,
-        &prism::targets::TargetsMeta {
-            algorithms_run: outcome.run.algorithms_run.clone(),
-            repo_root: repo.clone(),
-            repo_sha: repo_sha(&repo),
-            errors: outcome.run.errors.clone(),
-            run_warnings,
-            min_severity_rank: output::severity_rank(&args.min_severity),
-            min_tier,
-        },
-    );
+    // `TargetsMeta` is `#[non_exhaustive]` (§2.3.1): Default + field assignment,
+    // the same shape an embedder must use.
+    let mut meta = prism::targets::TargetsMeta::default();
+    meta.algorithms_run = outcome.run.algorithms_run.clone();
+    meta.repo_root = repo.clone();
+    meta.repo_sha = repo_sha(&repo);
+    meta.errors = outcome.run.errors.clone();
+    meta.run_warnings = run_warnings;
+    meta.min_severity_rank = output::severity_rank(&args.min_severity);
+    meta.min_tier = min_tier;
+    let document = prism::targets::project(&outcome.run.findings, &outcome.inputs, &meta);
 
     let mut bytes = serde_json::to_vec_pretty(&document)?;
     bytes.push(b'\n');
@@ -356,7 +354,6 @@ fn run_targets(args: &TargetsArgs) -> Result<()> {
         std::io::stdout().lock().write_all(&bytes)?;
     }
 
-    debug_assert_eq!(args.format, "json");
     let exit_code = targets_exit_code(args.strict, &document.errors);
     if exit_code != 0 {
         std::process::exit(exit_code);
@@ -647,16 +644,17 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     .iter()
                     .flat_map(|r| r.diagram_warnings.iter().cloned())
                     .collect();
-                let document = output::to_sarif(&output::SarifInputs {
-                    findings: &all_findings,
-                    errors: &all_errors,
-                    parse_warnings: &inputs.parse_warnings,
-                    load_warnings: &inputs.load_warnings,
-                    algorithms_run: &algorithms_run,
-                    parse_quality: &inputs.parse_quality,
-                    files: &inputs.files,
-                    sources: &inputs.sources,
-                });
+                let document = output::to_sarif(
+                    &output::SarifInputs::new(&all_findings)
+                        .errors(&all_errors)
+                        .parse_warnings(&inputs.parse_warnings)
+                        .load_warnings(&inputs.load_warnings)
+                        .build_warnings(&built.warnings)
+                        .algorithms_run(&algorithms_run)
+                        .parse_quality(&inputs.parse_quality)
+                        .files(&inputs.files)
+                        .sources(&inputs.sources),
+                );
                 println!("{}", serde_json::to_string_pretty(&document)?);
                 emit_warnings_to_stderr(&all_diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &all_diagram_warnings);
@@ -760,19 +758,20 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
             }
             "sarif" => {
                 // Single-run: no AlgorithmError can exist (a failing algorithm
-                // is a hard `?` above), and `result.warnings` already carries
-                // the parse warnings assigned at the top of this branch.
+                // is a hard `?` above), so `errors` keeps the builder's empty
+                // default; `result.warnings` already carries the parse warnings
+                // assigned at the top of this branch.
                 let algorithms_run = vec![algorithm.name().to_string()];
-                let document = output::to_sarif(&output::SarifInputs {
-                    findings: &result.findings,
-                    errors: &[],
-                    parse_warnings: &result.warnings,
-                    load_warnings: &inputs.load_warnings,
-                    algorithms_run: &algorithms_run,
-                    parse_quality: &inputs.parse_quality,
-                    files: &inputs.files,
-                    sources: &inputs.sources,
-                });
+                let document = output::to_sarif(
+                    &output::SarifInputs::new(&result.findings)
+                        .parse_warnings(&result.warnings)
+                        .load_warnings(&inputs.load_warnings)
+                        .build_warnings(&built.warnings)
+                        .algorithms_run(&algorithms_run)
+                        .parse_quality(&inputs.parse_quality)
+                        .files(&inputs.files)
+                        .sources(&inputs.sources),
+                );
                 println!("{}", serde_json::to_string_pretty(&document)?);
                 emit_warnings_to_stderr(&result.diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);

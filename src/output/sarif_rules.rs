@@ -18,7 +18,6 @@
 use crate::slice::SliceFinding;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
-use std::path::Path;
 
 /// Rule id / `properties.category` used when a finding carries no category.
 /// No production construction site does today; this exists so a future one
@@ -193,15 +192,38 @@ pub fn level_for_severity(severity: &str) -> &'static str {
     }
 }
 
+/// Whether a path with `/` separators leaves the repo root. The ONE predicate
+/// behind both `sarif_uri` (§2.2.2) and `targets::project` (§2.4.2), so the two
+/// serializers cannot disagree about which paths are safe to emit
+/// repo-relative.
+///
+/// Host-INDEPENDENT by construction: it never consults `Path::is_absolute`,
+/// which answers for the host prism runs on, not for the host the path came
+/// from (`C:/x.py` and `//srv/x.py` are absolute everywhere, yet
+/// `Path::is_absolute` is `false` for both on Unix — the escaping path would
+/// then be emitted under `%SRCROOT%` with no warning).
+///
+/// The four escaping shapes: POSIX-absolute (`/x`), a `..` SEGMENT (`a/../b`,
+/// never `a..b`), Windows drive-rooted (`C:/x`), and UNC (`//srv/x`, already
+/// covered by the leading `/`).
+///
+/// `normalised` is expected to have had `\` replaced by `/` already (that is
+/// what both callers pass); a drive-rooted path is otherwise unrecognisable
+/// from `C:\x`.
+pub fn path_escapes_repo(normalised: &str) -> bool {
+    let bytes = normalised.as_bytes();
+    let drive_rooted =
+        bytes.len() >= 3 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' && bytes[2] == b'/';
+    normalised.starts_with('/') || drive_rooted || normalised.split('/').any(|s| s == "..")
+}
+
 /// `(encoded uri, escapes_repo_root)`. Backslashes normalise to `/` and each
 /// segment is percent-encoded per RFC 3986 (unreserved `A-Za-z0-9-._~` kept).
 /// An absolute or `..`-containing path is emitted as given after encoding and
 /// flagged so the caller can raise a notification.
 pub fn sarif_uri(path: &str) -> (String, bool) {
     let normalized = path.replace('\\', "/");
-    let escapes = path.starts_with('/')
-        || Path::new(path).is_absolute()
-        || normalized.split('/').any(|s| s == "..");
+    let escapes = path_escapes_repo(&normalized);
     let encoded = normalized
         .split('/')
         .map(encode_segment)

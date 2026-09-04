@@ -44,16 +44,30 @@ fn inputs(path: &str) -> (TempDir, ReviewInputs) {
     (temp, loaded)
 }
 
+/// `TargetsMeta` is `#[non_exhaustive]` (§2.3.1), so this builds it the way an
+/// embedder must: `Default` + field assignment, never a struct literal.
 fn meta(root: PathBuf) -> TargetsMeta {
-    TargetsMeta {
-        algorithms_run: vec!["Test".to_string()],
-        repo_root: root,
-        repo_sha: None,
-        errors: Vec::new(),
-        run_warnings: Vec::new(),
-        min_severity_rank: prism::output::severity_rank("info"),
-        min_tier: FindingTier::Candidate,
-    }
+    let mut meta = TargetsMeta::default();
+    meta.algorithms_run = vec!["Test".to_string()];
+    meta.repo_root = root;
+    meta.min_severity_rank = prism::output::severity_rank("info");
+    meta
+}
+
+/// The defaults an embedder inherits by NOT setting a field: no algorithms, no
+/// severity floor, and the permissive tier — a `Default` that silently dropped
+/// candidate findings would be a trap.
+#[test]
+fn targets_meta_default_filters_nothing() {
+    let meta = TargetsMeta::default();
+    assert_eq!(meta.min_severity_rank, 0);
+    assert_eq!(meta.min_tier, FindingTier::Candidate);
+    assert_eq!(meta.min_severity_rank, prism::output::severity_rank("info"));
+    assert!(meta.algorithms_run.is_empty());
+    assert!(meta.errors.is_empty());
+    assert!(meta.run_warnings.is_empty());
+    assert_eq!(meta.repo_root, PathBuf::new());
+    assert_eq!(meta.repo_sha, None);
 }
 
 #[test]

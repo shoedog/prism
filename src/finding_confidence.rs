@@ -39,11 +39,16 @@ pub enum FindingConfidence {
 
 /// Whether a finding is safe to gate CI on (`Asserted`) or needs a reviewer's
 /// judgment call (`Candidate`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
 pub enum FindingTier {
     Asserted,
+    /// The `Default`, so a `TargetsMeta::default()` filter admits both tiers —
+    /// the same floor as the CLI's `--min-tier candidate`. Defaulting to
+    /// `Asserted` would silently DROP candidate findings from a document built
+    /// by an embedder that never set the field.
+    #[default]
     Candidate,
 }
 

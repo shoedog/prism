@@ -4,9 +4,10 @@
 //! One `result` per `SliceFinding` — nothing is dropped. Data SARIF cannot
 //! represent as a location (related lines whose owning file is ambiguous) is
 //! preserved under `properties`, and everything the run could not do (a failed
-//! algorithm, a parse warning, a file skipped at load, a path escaping the repo
-//! root) becomes a `toolExecutionNotifications` entry. `to_sarif` is total over
-//! its inputs: no finding, error or path shape can make it fail.
+//! algorithm, a parse warning, a file skipped at load, a non-fatal build
+//! condition, a path escaping the repo root) becomes a
+//! `toolExecutionNotifications` entry. `to_sarif` is total over its inputs: no
+//! finding, error or path shape can make it fail.
 //!
 //! Determinism is by construction (§2.2.4): `results` sorted by
 //! `(uri, startLine, ruleId, message.text)`, `rules` by `id`, `ruleIndex`
@@ -23,7 +24,7 @@
 //! scanning ignores it and matches on its own `primaryLocationLineHash`; any
 //! other consumer keying on it MUST combine it with the primary location.
 
-pub use super::sarif_rules::{fingerprint, level_for_severity, sarif_uri};
+pub use super::sarif_rules::{fingerprint, level_for_severity, path_escapes_repo, sarif_uri};
 
 use super::sarif_model::{
     ArtifactLocation, Driver, Invocation, Location, LogicalLocation, Notification,
@@ -45,12 +46,31 @@ const FINGERPRINT_KEY: &str = "prism/finding/v1";
 
 /// Everything the serializer reads. Borrowed, so the CLI passes its own locals
 /// without cloning.
+///
+/// `#[non_exhaustive]` (§2.3.1): this type is re-exported from `prism::api`, so
+/// a new input field must not break an embedder. Build one with
+/// [`SarifInputs::new`] plus the chainable setters — every field a caller does
+/// not set defaults to empty, and `findings` alone is a valid (if empty)
+/// document's worth of input:
+///
+/// ```
+/// use prism::api::{to_sarif, SarifInputs};
+///
+/// let doc = to_sarif(&SarifInputs::new(&[]).algorithms_run(&["AbsenceSlice".to_string()]));
+/// assert_eq!(doc["runs"][0]["properties"]["algorithms_run"][0], "AbsenceSlice");
+/// ```
+#[non_exhaustive]
 pub struct SarifInputs<'a> {
     pub findings: &'a [SliceFinding],
     pub errors: &'a [AlgorithmError],
     pub parse_warnings: &'a [String],
     /// Files skipped at load (design §2.3.2); one `warning` notification each.
     pub load_warnings: &'a [String],
+    /// Non-fatal build conditions — `api::build_context`'s `BuiltContext
+    /// .warnings` (a cache-save failure, a type-database load failure and its
+    /// fallback). One `warning` notification each, text verbatim, so what the
+    /// run printed to stderr is also in the document a consumer reads.
+    pub build_warnings: &'a [String],
     pub algorithms_run: &'a [String],
     /// SPARSE authoritative per-file grade map (a file appears only when its
     /// error rate exceeds 1%). Absent from it + present in `files` = clean;
@@ -58,6 +78,72 @@ pub struct SarifInputs<'a> {
     pub parse_quality: &'a BTreeMap<String, FileParseQuality>,
     pub files: &'a BTreeMap<String, ParsedFile>,
     pub sources: &'a BTreeMap<String, String>,
+}
+
+/// Empty borrowed maps for the builder's defaults. `const` rather than
+/// `static`: the values are empty, so materialising one per use site costs
+/// nothing, and a `const` puts no `Sync` bound on the value types.
+const NO_PARSE_QUALITY: &BTreeMap<String, FileParseQuality> = &BTreeMap::new();
+const NO_FILES: &BTreeMap<String, ParsedFile> = &BTreeMap::new();
+const NO_SOURCES: &BTreeMap<String, String> = &BTreeMap::new();
+
+impl<'a> SarifInputs<'a> {
+    /// The findings to serialize; every other input defaults to empty.
+    pub fn new(findings: &'a [SliceFinding]) -> Self {
+        Self {
+            findings,
+            errors: &[],
+            parse_warnings: &[],
+            load_warnings: &[],
+            build_warnings: &[],
+            algorithms_run: &[],
+            parse_quality: NO_PARSE_QUALITY,
+            files: NO_FILES,
+            sources: NO_SOURCES,
+        }
+    }
+
+    /// Algorithms that failed; one `error` notification each, and
+    /// `executionSuccessful` is false when any is present.
+    pub fn errors(mut self, errors: &'a [AlgorithmError]) -> Self {
+        self.errors = errors;
+        self
+    }
+
+    pub fn parse_warnings(mut self, parse_warnings: &'a [String]) -> Self {
+        self.parse_warnings = parse_warnings;
+        self
+    }
+
+    pub fn load_warnings(mut self, load_warnings: &'a [String]) -> Self {
+        self.load_warnings = load_warnings;
+        self
+    }
+
+    pub fn build_warnings(mut self, build_warnings: &'a [String]) -> Self {
+        self.build_warnings = build_warnings;
+        self
+    }
+
+    pub fn algorithms_run(mut self, algorithms_run: &'a [String]) -> Self {
+        self.algorithms_run = algorithms_run;
+        self
+    }
+
+    pub fn parse_quality(mut self, parse_quality: &'a BTreeMap<String, FileParseQuality>) -> Self {
+        self.parse_quality = parse_quality;
+        self
+    }
+
+    pub fn files(mut self, files: &'a BTreeMap<String, ParsedFile>) -> Self {
+        self.files = files;
+        self
+    }
+
+    pub fn sources(mut self, sources: &'a BTreeMap<String, String>) -> Self {
+        self.sources = sources;
+        self
+    }
 }
 
 // --- Document construction ------------------------------------------------
@@ -124,7 +210,12 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
             format!("{}: {}", error.algorithm, error.error),
         ));
     }
-    for warning in inputs.parse_warnings.iter().chain(inputs.load_warnings) {
+    for warning in inputs
+        .parse_warnings
+        .iter()
+        .chain(inputs.load_warnings)
+        .chain(inputs.build_warnings)
+    {
         notifications.push(notification("warning", warning.clone()));
     }
     for path in &escaping {
@@ -330,17 +421,7 @@ mod tests {
     }
 
     fn doc_of(f: SliceFinding) -> Value {
-        let (quality, files, sources) = (BTreeMap::new(), BTreeMap::new(), BTreeMap::new());
-        to_sarif(&SarifInputs {
-            findings: &[f],
-            errors: &[],
-            parse_warnings: &[],
-            load_warnings: &[],
-            algorithms_run: &[],
-            parse_quality: &quality,
-            files: &files,
-            sources: &sources,
-        })
+        to_sarif(&SarifInputs::new(&[f]))
     }
 
     /// `"<uri>:<startLine> id=<n>"` of a `location` / `relatedLocation`.
@@ -444,5 +525,61 @@ mod tests {
         let (related, properties) = related_and_properties(unknown);
         assert_eq!(related, ["a.py:9 id=0"]);
         assert!(properties.get("related_lines").is_none());
+    }
+
+    /// Repo-root escape detection must be HOST-INDEPENDENT (final review,
+    /// terra #2). A Windows drive-rooted or UNC path is absolute everywhere,
+    /// but `Path::is_absolute()` answers `false` for both on a Unix host — so
+    /// the old predicate emitted `C:/outside/a.py` under `%SRCROOT%` as if it
+    /// were repo-relative, with no warning, whenever prism ran on Unix.
+    #[test]
+    fn escape_detection_is_host_independent() {
+        // The four escaping shapes, at the shared predicate `targets` uses too.
+        for escaping in [
+            "C:/outside/a.py",
+            "//srv/share/x.py",
+            "/abs/x.py",
+            "a/../b.py",
+        ] {
+            assert!(
+                path_escapes_repo(escaping),
+                "{escaping} escapes the repo root on every host"
+            );
+            assert!(
+                sarif_uri(escaping).1,
+                "{escaping} must be flagged by sarif_uri too"
+            );
+        }
+        assert!(
+            sarif_uri("C:\\outside\\a.py").1,
+            "…including after backslash normalisation"
+        );
+
+        for inside in ["a/b.py", "a..b/x.py", "c:x.py", "C:", "src/mod.rs", ""] {
+            assert!(
+                !path_escapes_repo(inside),
+                "{inside:?} stays inside the repo"
+            );
+        }
+    }
+
+    /// The build warnings `api::build_context` returns are notifications too
+    /// (final review, terra #1): a non-fatal cache or type-database condition
+    /// must be visible to a consumer reading only the document.
+    #[test]
+    fn build_warnings_become_warning_notifications() {
+        let build = ["Warning: failed to write CPG cache: read-only".to_string()];
+        let doc = to_sarif(&SarifInputs::new(&[]).build_warnings(&build));
+        let notes = doc["runs"][0]["invocations"][0]["toolExecutionNotifications"]
+            .as_array()
+            .expect("a build warning produces a notification")
+            .clone();
+        assert_eq!(notes.len(), 1, "one notification per warning: {notes:#?}");
+        assert_eq!(notes[0]["level"], "warning");
+        assert_eq!(notes[0]["message"]["text"], build[0].as_str());
+        assert_eq!(
+            doc["runs"][0]["invocations"][0]["executionSuccessful"], true,
+            "a non-fatal build condition is not an execution failure"
+        );
     }
 }

@@ -370,18 +370,64 @@ mod document {
         }
     }
 
+    /// `SarifInputs` is `#[non_exhaustive]` (§2.3.1), so this builds it the way
+    /// an embedder must: `new` + setters, never a struct literal. Everything
+    /// these cases do not set keeps the builder's empty default.
     fn doc(findings: &[SliceFinding]) -> Value {
-        let (quality, files, sources) = (BTreeMap::new(), BTreeMap::new(), BTreeMap::new());
-        to_sarif(&SarifInputs {
-            findings,
-            errors: &[],
-            parse_warnings: &[],
-            load_warnings: &[],
-            algorithms_run: &[],
-            parse_quality: &quality,
-            files: &files,
-            sources: &sources,
-        })
+        to_sarif(&SarifInputs::new(findings))
+    }
+
+    /// The builder's setters are what the CLI's two SARIF arms use to pass the
+    /// four warning channels; each must reach the document, and one unset
+    /// channel must not disturb the others.
+    #[test]
+    fn builder_defaults_are_empty_and_every_setter_reaches_the_document() {
+        let quality = BTreeMap::new();
+        let files = BTreeMap::new();
+        let mut sources = BTreeMap::new();
+        sources.insert("a.py".to_string(), "one\ntwo\nthree\n".to_string());
+        let algorithms = ["AbsenceSlice".to_string()];
+        let parse = ["parse warning".to_string()];
+        let load = ["load warning".to_string()];
+        let build = ["build warning".to_string()];
+
+        let findings = [finding("a.py", "warning", Some("c"))];
+        let doc = to_sarif(
+            &SarifInputs::new(&findings)
+                .parse_warnings(&parse)
+                .load_warnings(&load)
+                .build_warnings(&build)
+                .algorithms_run(&algorithms)
+                .parse_quality(&quality)
+                .files(&files)
+                .sources(&sources),
+        );
+
+        assert_eq!(
+            notification_texts(&doc),
+            ["parse warning", "load warning", "build warning"],
+            "all three warning channels are notified, in channel order"
+        );
+        assert_eq!(
+            doc["runs"][0]["properties"]["algorithms_run"][0],
+            "AbsenceSlice"
+        );
+        assert_eq!(
+            doc["runs"][0]["invocations"][0]["executionSuccessful"], true,
+            "`errors` kept its empty default"
+        );
+
+        // The sources map reached `fingerprint` via `line_text_of`: the same
+        // finding fingerprints differently once its line text is known.
+        let without_sources = to_sarif(&SarifInputs::new(&findings));
+        let fingerprint = |d: &Value| {
+            d["runs"][0]["results"][0]["partialFingerprints"]["prism/finding/v1"].clone()
+        };
+        assert_ne!(fingerprint(&doc), fingerprint(&without_sources));
+        assert!(
+            notification_texts(&without_sources).is_empty(),
+            "a default-built SarifInputs notifies nothing"
+        );
     }
 
     fn notification_texts(doc: &Value) -> Vec<String> {

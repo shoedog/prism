@@ -278,6 +278,17 @@ fn nav_session_and_callers_work_without_outer_pool() {
     assert!(json.contains("caller"), "callers evidence was: {json}");
 }
 
+/// §7.3.8: every struct and enum REACHABLE through `prism::api` must be
+/// `#[non_exhaustive]`, so adding a field or variant is never a breaking change
+/// for an embedder.
+///
+/// The scan covers all four locations the §2.3.1 promise names — `src/api/`,
+/// `finding_confidence.rs`, `targets` and `output::sarif` — not just `src/api/`
+/// (final review, Opus Important 2): `SarifInputs`, `TargetsMeta`,
+/// `TargetsDocument` and its nested DTOs are re-exported from `prism::api` and
+/// were drifting outside the gate. `src/output/sarif_model.rs` is deliberately
+/// NOT scanned: `mod sarif_model` is private, so none of its types is
+/// reachable through the facade.
 #[test]
 fn api_types_are_non_exhaustive() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -287,8 +298,18 @@ fn api_types_are_non_exhaustive() {
         .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("rs"))
         .collect();
     paths.push(root.join("src/finding_confidence.rs"));
+    paths.push(root.join("src/targets/model.rs"));
+    paths.push(root.join("src/targets/mod.rs"));
+    paths.push(root.join("src/output/sarif.rs"));
 
+    let mut checked = 0usize;
     for path in paths {
+        assert!(
+            path.exists(),
+            "{} is named by the §2.3.1 promise but does not exist — a moved file must be \
+             re-listed here, never silently dropped from the gate",
+            path.display()
+        );
         let text = fs::read_to_string(&path).unwrap();
         let lines: Vec<&str> = text.lines().collect();
         for (index, line) in lines.iter().enumerate() {
@@ -311,6 +332,15 @@ fn api_types_are_non_exhaustive() {
                 trimmed,
                 attributes
             );
+            checked += 1;
         }
     }
+
+    // A gate that matched nothing (a changed declaration style, a moved module)
+    // would pass silently; the scanned files hold ~23 public types today.
+    assert!(
+        checked >= 20,
+        "the promise scan found only {checked} public types — it is no longer reading the \
+         declarations it is meant to gate"
+    );
 }
