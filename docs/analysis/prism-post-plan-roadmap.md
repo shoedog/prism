@@ -55,9 +55,10 @@ Three candidate directions once the queue's top items are drained (or interleave
 - **Owner-selected execution queue (2026-09-04):** (1) Python imported/cross-module
   typed receivers — DONE in the bare member-import slice (#226, merge `5e54d483`) and
   module-alias-qualified slice (#227, merge `4298e548`); (2) Python authoritative
-  module/scope resolution — IN FLIGHT as a sequence of bounded proof increments,
-  beginning with unaliased dotted-module authority (`import pkg.models` plus
-  `pkg.models.Class`); (3) JS/TS lexical-scope-aware receiver binding prerequisite;
+  module/scope resolution — IN FLIGHT as a sequence of bounded proof increments;
+  its first unaliased dotted-module increment (`import pkg.models` plus
+  `pkg.models.Class`) is implemented and review-complete locally, with broad gates and
+  publication pending; (3) JS/TS lexical-scope-aware receiver binding prerequisite;
   (4) JS/TS typed-parameter and `new`-constructor receiver recovery; (5) then
   reconsider Java native resolution versus LSP delegation or product-oriented
   navigation/onboarding work. Do not collapse steps 2–4 into the old combined design.

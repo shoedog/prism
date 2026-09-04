@@ -230,6 +230,42 @@ fn test_python_unaliased_dotted_module_receiver_preserves_proof_barriers() {
             "local_root_shadow",
             "import pkg.models\ndef run():\n    pkg = object()\n    client: pkg.models.Client\n    client.send()\n",
         ),
+        (
+            "parameter_root_shadow",
+            "import pkg.models\ndef run(pkg, client: pkg.models.Client):\n    client.send()\n",
+        ),
+        (
+            "loop_root_shadow",
+            "import pkg.models\ndef run(items, client: pkg.models.Client):\n    for pkg in items:\n        pass\n    client.send()\n",
+        ),
+        (
+            "with_root_shadow",
+            "import pkg.models\ndef run(client: pkg.models.Client):\n    with resource() as pkg:\n        pass\n    client.send()\n",
+        ),
+        (
+            "except_root_shadow",
+            "import pkg.models\ndef run(client: pkg.models.Client):\n    try:\n        pass\n    except Exception as pkg:\n        pass\n    client.send()\n",
+        ),
+        (
+            "except_group_root_shadow",
+            "import pkg.models\ndef run(client: pkg.models.Client):\n    try:\n        pass\n    except* Exception as pkg:\n        pass\n    client.send()\n",
+        ),
+        (
+            "local_root_delete",
+            "import pkg.models\ndef run(client: pkg.models.Client):\n    del pkg\n    client.send()\n",
+        ),
+        (
+            "starred_root_shadow",
+            "import pkg.models\ndef run(items, client: pkg.models.Client):\n    *pkg, rest = items\n    client.send()\n",
+        ),
+        (
+            "type_alias_root_shadow",
+            "import pkg.models\ndef run(client: pkg.models.Client):\n    type pkg = object\n    client.send()\n",
+        ),
+        (
+            "generic_type_alias_root_shadow",
+            "import pkg.models\ndef run(client: pkg.models.Client):\n    type pkg[T] = list[T]\n    client.send()\n",
+        ),
     ] {
         let cg = graph(&[
             (

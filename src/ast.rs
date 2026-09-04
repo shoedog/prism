@@ -2524,6 +2524,34 @@ impl ParsedFile {
                     self.collect_local_binding_pattern(alias, out);
                 }
             }
+            (Language::Python, "except_clause" | "except_group_clause") => {
+                if let Some(alias) = node.child_by_field_name("alias") {
+                    self.collect_local_binding_pattern(alias, out);
+                } else {
+                    // tree-sitter-python exposes the regular `except` alias as
+                    // a field, but the `except*` shape has no named fields.
+                    let mut cursor = node.walk();
+                    for child in node.named_children(&mut cursor) {
+                        if child.prev_sibling().is_some_and(|prev| prev.kind() == "as") {
+                            self.collect_local_binding_pattern(child, out);
+                        }
+                    }
+                }
+            }
+            (Language::Python, "delete_statement") => {
+                let mut cursor = node.walk();
+                for target in node.named_children(&mut cursor) {
+                    self.collect_local_binding_pattern(target, out);
+                }
+            }
+            (Language::Python, "type_alias_statement") => {
+                if let Some(left) = node.child_by_field_name("left") {
+                    // A generic alias may wrap the bound name with its type
+                    // parameters. Over-collecting those identifiers is the
+                    // fail-closed choice for imported-root authority.
+                    self.collect_identifier_names(left, out);
+                }
+            }
             (Language::Python, "import_statement" | "import_from_statement") => {
                 // Python imports inside a function bind names in that function's
                 // local namespace. Collecting every identifier is deliberately
@@ -2603,6 +2631,8 @@ impl ParsedFile {
             "pattern_list"
             | "tuple_pattern"
             | "list_pattern"
+            | "list_splat_pattern"
+            | "as_pattern_target"
             | "expression_list"
             | "parenthesized_expression" => {
                 let mut cursor = node.walk();

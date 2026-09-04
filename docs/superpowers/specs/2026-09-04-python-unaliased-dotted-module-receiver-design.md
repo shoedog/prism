@@ -1,6 +1,6 @@
 # Python unaliased dotted-module receiver ownership
 
-**Status:** accepted for implementation
+**Status:** implemented locally; broad verification and publication pending
 **Recorded:** 2026-09-04
 **Exact base:** `4298e548003cbb59cf506531142d177169a7a28e` (PR #227 merge)
 **Scope:** Python `import pkg.models` plus `pkg.models.Class` annotations and constructor locals, direct methods only
@@ -55,9 +55,9 @@ RED first on exact base:
 - parity: direct-subset construction matches full construction;
 - extraction: unaliased and explicitly aliased dotted imports have distinct kinds;
 - negative: `import pkg.models as pkg` cannot authorize `pkg.models.Client`;
-- negative: shortened, mismatched/deeper, unimported, duplicate-root, module-rebound, local-import, local-root-shadow, and inherited-only forms never produce recovered-owner Exact;
+- negative: shortened, mismatched/deeper, unimported, duplicate-root, module-rebound, local-import, inherited-only, and function-local root binders (parameter, loop, `with`, `except`/`except*`, assignment/starred assignment, `del`, and local type alias) never produce recovered-owner Exact;
 - incremental: absent-to-present and present-to-absent class authority match fresh builds; a method-body-only edit preserves proof keys and behavior;
-- cache: CPG and navigation cache versions are pinned to 56 and 25, with existing round-trip suites covering the new enum/topology.
+- cache: CPG and navigation cache versions are pinned to 56 and 25, with targeted round trips covering the new enum and Exact topology.
 
 The positive, extraction distinction, subset, and two authority transitions must fail on the exact base. Negative controls must pass before and after implementation.
 
