@@ -44,7 +44,7 @@ fn fid_dump(fid: &prism::call_graph::FunctionId) -> String {
 
 fn callsite_dump(site: &prism::call_graph::CallSite) -> String {
     format!(
-        "{} -> {} source={:?} line={} kind={:?} span={}-{} qual={:?} recv={:?} recovery={:?} materialized={} newly_recovered={} argc={:?} spread={} outcome={:?} origin={:?} exact_target={:?}",
+        "{} -> {} source={:?} line={} kind={:?} span={}-{} qual={:?} lexically_bound={} recv={:?} recovery={:?} materialized={} newly_recovered={} argc={:?} spread={} outcome={:?} origin={:?} exact_target={:?}",
         fid_dump(&site.caller),
         site.callee_name,
         site.source_callee_name,
@@ -53,6 +53,7 @@ fn callsite_dump(site: &prism::call_graph::CallSite) -> String {
         site.start_byte,
         site.end_byte,
         site.qualifier,
+        site.receiver_lexically_bound,
         site.receiver_type,
         site.receiver_recovery,
         site.receiver_materialized,
@@ -697,6 +698,79 @@ fn test_cache_round_trip_python() {
 }
 
 #[test]
+fn cache_v57_round_trips_python_module_import_shape_and_qualified_authority() {
+    use prism::call_graph::ImportBindingKind;
+
+    let fixtures = [
+        (
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        pass\n",
+            Language::Python,
+        ),
+        (
+            "alias_app.py",
+            "import pkg.models as models\ndef alias_run(client: models.Client):\n    client.send()\n",
+            Language::Python,
+        ),
+        (
+            "dotted_app.py",
+            "import pkg.models\ndef dotted_run(client: pkg.models.Client):\n    client.send()\n",
+            Language::Python,
+        ),
+        (
+            "namespace_app.py",
+            "from pkg import models\ndef namespace_run(client: models.Client):\n    client.send()\n",
+            Language::Python,
+        ),
+    ];
+    let files = parsed_files(&fixtures);
+    let sources: BTreeMap<_, _> = fixtures
+        .iter()
+        .map(|(path, source, _)| ((*path).to_string(), (*source).to_string()))
+        .collect();
+    let cold = CpgContext::build(&files, None);
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&cold.cpg, &hashes, false, cache_dir.path()).unwrap();
+    let loaded = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
+
+    assert!(matches!(
+        loaded.call_graph.import_bindings["alias_app.py"][0].kind,
+        ImportBindingKind::AliasedModuleImport
+    ));
+    assert!(matches!(
+        loaded.call_graph.import_bindings["dotted_app.py"][0].kind,
+        ImportBindingKind::ModuleImport
+    ));
+    assert!(matches!(
+        loaded.call_graph.import_bindings["namespace_app.py"][0].kind,
+        ImportBindingKind::MemberImport
+    ));
+
+    for (caller_file, caller_name, receiver_type) in [
+        ("alias_app.py", "alias_run", "models.Client"),
+        ("dotted_app.py", "dotted_run", "pkg.models.Client"),
+        ("namespace_app.py", "namespace_run", "models.Client"),
+    ] {
+        let site = loaded
+            .call_graph
+            .calls
+            .iter()
+            .find(|(fid, _)| fid.file == caller_file && fid.name == caller_name)
+            .and_then(|(_, sites)| sites.iter().find(|site| site.callee_name == "send"))
+            .expect("cached receiver call");
+        assert_eq!(site.receiver_type.as_deref(), Some(receiver_type));
+        let resolved = loaded.call_graph.resolve_call_site(site);
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].target.file, "pkg/models.py");
+        assert_eq!(
+            resolved[0].confidence,
+            prism::resolution::ResolutionConfidence::Exact
+        );
+    }
+}
+
+#[test]
 fn test_cache_round_trip_javascript() {
     let (files, sources, _diff) = make_javascript_test();
 
@@ -715,6 +789,108 @@ fn test_cache_round_trip_javascript() {
         ctx_original.cpg.graph.edge_count(),
         loaded_cpg.graph.edge_count()
     );
+}
+
+#[test]
+fn cache_v58_round_trips_js_ts_lexical_receiver_binding() {
+    let fixtures = [
+        ("api.ts", "export function m() {}\n", Language::TypeScript),
+        (
+            "svc.ts",
+            "import api from './api';\nfunction run(api: object) { api.m(); }\n",
+            Language::TypeScript,
+        ),
+    ];
+    let files = parsed_files(&fixtures);
+    let sources: BTreeMap<_, _> = fixtures
+        .iter()
+        .map(|(path, source, _)| ((*path).to_string(), (*source).to_string()))
+        .collect();
+    let cold = CpgContext::build(&files, None).cpg;
+    let cold_site = call_site_in_file(&cold, "svc.ts", "run", "m");
+    assert!(cold_site.receiver_lexically_bound);
+    assert!(cold
+        .call_graph
+        .resolve_call_site(&cold_site)
+        .iter()
+        .all(
+            |candidate| candidate.kind != prism::resolution::ResolutionKind::ImportQualified
+                || candidate.confidence != prism::resolution::ResolutionConfidence::Exact
+                || candidate.target.file != "api.ts"
+        ));
+
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&cold, &hashes, false, cache_dir.path()).unwrap();
+    let loaded = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
+    let loaded_site = call_site_in_file(&loaded, "svc.ts", "run", "m");
+    assert!(loaded_site.receiver_lexically_bound);
+    assert!(loaded
+        .call_graph
+        .resolve_call_site(&loaded_site)
+        .iter()
+        .all(
+            |candidate| candidate.kind != prism::resolution::ResolutionKind::ImportQualified
+                || candidate.confidence != prism::resolution::ResolutionConfidence::Exact
+                || candidate.target.file != "api.ts"
+        ));
+}
+
+#[test]
+fn cache_v59_round_trips_js_ts_recovered_receiver() {
+    let fixtures = [(
+        "svc.ts",
+        "class Foo { m() {} static only() {} }\nfunction run(x: Foo) { x.m(); }\nfunction staticOnly(x: Foo) { x.only(); }\n",
+        Language::TypeScript,
+    )];
+    let files = parsed_files(&fixtures);
+    let sources = BTreeMap::from([("svc.ts".to_string(), fixtures[0].1.to_string())]);
+    let cold = CpgContext::build(&files, None).cpg;
+    let cold_site = call_site_in_file(&cold, "svc.ts", "run", "m");
+    assert_eq!(cold_site.receiver_type.as_deref(), Some("Foo"));
+    assert_eq!(
+        cold_site.receiver_recovery,
+        Some(prism::resolution::ReceiverRecovery::TypedParam)
+    );
+    let cold_out = cold.call_graph.resolve_call_site(&cold_site);
+    assert_eq!(cold_out.len(), 1);
+    assert_eq!(
+        cold_out[0].kind,
+        prism::resolution::ResolutionKind::TypedParam
+    );
+    let cold_static_site = call_site_in_file(&cold, "svc.ts", "staticOnly", "only");
+    assert!(cold
+        .call_graph
+        .resolve_call_site(&cold_static_site)
+        .iter()
+        .all(|candidate| candidate.kind != prism::resolution::ResolutionKind::TypedParam));
+    assert!(cold
+        .call_graph
+        .js_ts_static_methods
+        .iter()
+        .any(|method| method.file == "svc.ts" && method.name == "only"));
+
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&cold, &hashes, false, cache_dir.path()).unwrap();
+    let loaded = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
+    let loaded_site = call_site_in_file(&loaded, "svc.ts", "run", "m");
+    assert_eq!(loaded_site.receiver_type, cold_site.receiver_type);
+    assert_eq!(loaded_site.receiver_recovery, cold_site.receiver_recovery);
+    assert_eq!(
+        loaded.call_graph.resolve_call_site(&loaded_site)[0].kind,
+        prism::resolution::ResolutionKind::TypedParam
+    );
+    assert_eq!(
+        loaded.call_graph.js_ts_static_methods,
+        cold.call_graph.js_ts_static_methods
+    );
+    let loaded_static_site = call_site_in_file(&loaded, "svc.ts", "staticOnly", "only");
+    assert!(loaded
+        .call_graph
+        .resolve_call_site(&loaded_static_site)
+        .iter()
+        .all(|candidate| candidate.kind != prism::resolution::ResolutionKind::TypedParam));
 }
 
 #[test]

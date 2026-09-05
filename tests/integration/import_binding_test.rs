@@ -106,6 +106,57 @@ fn python_extract_module_import() {
 }
 
 #[test]
+fn python_extract_unaliased_dotted_module_import_binds_root() {
+    let parsed = ParsedFile::parse(
+        "app.py",
+        "import pkg.models\npkg.models.Client()\n",
+        Language::Python,
+    )
+    .unwrap();
+    let bindings = parsed.extract_import_bindings();
+
+    assert_eq!(bindings.len(), 1);
+    assert_eq!(bindings[0].local, "pkg");
+    assert_eq!(bindings[0].module_path, "pkg.models");
+    assert!(matches!(bindings[0].kind, ImportBindingKind::ModuleImport));
+}
+
+#[test]
+fn python_extract_module_import_distinguishes_explicit_alias() {
+    let unaliased = ParsedFile::parse("unaliased.py", "import pkg.models\n", Language::Python)
+        .unwrap()
+        .extract_import_bindings();
+    let aliased = ParsedFile::parse("aliased.py", "import pkg.models as pkg\n", Language::Python)
+        .unwrap()
+        .extract_import_bindings();
+
+    assert_eq!(format!("{:?}", unaliased[0].kind), "ModuleImport");
+    assert_eq!(format!("{:?}", aliased[0].kind), "AliasedModuleImport");
+}
+
+#[test]
+fn clean_module_import_is_eligible_without_triggering_r4c() {
+    let fs = files(&[
+        (
+            "models.py",
+            "class Client:\n    pass\ndef process():\n    pass\n",
+            Language::Python,
+        ),
+        (
+            "app.py",
+            "import models\ndef run():\n    process()\n",
+            Language::Python,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    let binding = &cg.import_bindings["app.py"][0];
+
+    assert!(binding.eligible);
+    let (_, kind) = resolve_kind(&cg, "app.py", "run", "process");
+    assert_ne!(kind, ResolutionKind::ImportMember);
+}
+
+#[test]
 fn python_extract_wildcard_import() {
     let src = "from utils import *\n";
     let parsed = ParsedFile::parse("app.py", src, Language::Python).unwrap();

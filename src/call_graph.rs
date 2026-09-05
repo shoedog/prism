@@ -436,6 +436,11 @@ pub struct CallSite {
     /// Module/object qualifier for the call (e.g., `utils` in `utils.process()`).
     /// `None` for unqualified calls like `process()`.
     pub qualifier: Option<String>,
+    /// True when a simple JS/TS receiver identifier is bound by a parameter,
+    /// function-scoped `var`, or reaching lexical declaration at this call.
+    /// Derived at extraction time and excluded from `cmp_key`.
+    #[serde(default)]
+    pub receiver_lexically_bound: bool,
     /// S3 P6-lite: receiver type recovered syntactically at extraction time
     /// (typed param / constructor local, peeled). None = unrecovered.
     #[serde(default)]
@@ -550,10 +555,22 @@ pub struct ImportBinding {
 pub enum ImportBindingKind {
     /// `from mod import func` / `from mod import func as f`
     MemberImport,
-    /// `import mod` / `import mod as m`
+    /// `import mod`
     ModuleImport,
+    /// Python `import mod as m`; distinct from an unaliased dotted import
+    /// because the alias binds directly to the complete module path.
+    AliasedModuleImport,
     /// `from mod import *`
     WildcardImport,
+}
+
+pub(crate) enum PythonImportedClassRoute {
+    NotImported,
+    Proven {
+        defining_file: String,
+        owner: String,
+    },
+    Blocked,
 }
 
 /// The kind of a module-scope binding (for occurrence-clean eligibility checking).
@@ -733,6 +750,13 @@ pub struct CallGraph {
     /// These fail open to owner lookup because the class span is not trustworthy.
     #[serde(default)]
     pub method_class_span_ambiguous: BTreeSet<FunctionId>,
+    /// JS/TS class methods declared with the `static` modifier. Recovered value
+    /// receivers may target only direct instance methods.
+    #[serde(default)]
+    pub js_ts_static_methods: BTreeSet<FunctionId>,
+    /// Methods whose instance slot has a visible override or accessor shape.
+    #[serde(default)]
+    pub js_ts_unproven_instance_methods: BTreeSet<FunctionId>,
     /// Slice 1b: per-class base-slot links for inherited-self resolution.
     /// Keyed by `(file_path, class_byte_span)`, value is one `ClassBaseLink` per
     /// base slot (count preserved). Only populated for module-scope classes in
@@ -743,6 +767,9 @@ pub struct CallGraph {
     /// module-scope class byte span, only when the owner is occurrence-clean.
     #[serde(default)]
     pub clean_class_spans: BTreeMap<(String, String), (usize, usize)>,
+    /// Complete indexed Python initializer files proven syntactically inert.
+    #[serde(default)]
+    pub python_inert_initializers: BTreeSet<String>,
     /// Phase-2a PR-1: (defining-type scope, method_name) -> definitions.
     /// Inert until the receiver-typed read path lands.
     #[serde(default)]
@@ -1094,8 +1121,11 @@ impl CallGraph {
             method_owners: BTreeMap::new(),
             method_class_span: BTreeMap::new(),
             method_class_span_ambiguous: BTreeSet::new(),
+            js_ts_static_methods: BTreeSet::new(),
+            js_ts_unproven_instance_methods: BTreeSet::new(),
             class_bases: BTreeMap::new(),
             clean_class_spans: BTreeMap::new(),
+            python_inert_initializers: BTreeSet::new(),
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -1187,6 +1217,8 @@ impl CallGraph {
         let mut method_owners: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_class_span: BTreeMap<FunctionId, (usize, usize)> = BTreeMap::new();
         let mut method_class_span_ambiguous: BTreeSet<FunctionId> = BTreeSet::new();
+        let mut js_ts_static_methods: BTreeSet<FunctionId> = BTreeSet::new();
+        let mut js_ts_unproven_instance_methods = BTreeSet::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
         // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once
@@ -1240,6 +1272,12 @@ impl CallGraph {
                     }
                     if let Some(facts) = Self::method_facts(parsed, &func_node) {
                         method_facts.insert(func_id.clone(), facts);
+                    }
+                    if parsed.js_ts_method_is_static(&func_node) {
+                        js_ts_static_methods.insert(func_id.clone());
+                    }
+                    if parsed.js_ts_method_slot_unproven(&func_node) {
+                        js_ts_unproven_instance_methods.insert(func_id.clone());
                     }
 
                     if matches!(
@@ -1301,6 +1339,7 @@ impl CallGraph {
                             line,
                             None,
                         ),
+                        receiver_lexically_bound: false,
                         receiver_type: None,
                         receiver_owner_identity: None,
                         receiver_local_type_shadowed: false,
@@ -1340,8 +1379,11 @@ impl CallGraph {
             method_owners,
             method_class_span,
             method_class_span_ambiguous,
+            js_ts_static_methods,
+            js_ts_unproven_instance_methods,
             class_bases: BTreeMap::new(),
             clean_class_spans: BTreeMap::new(),
+            python_inert_initializers: BTreeSet::new(),
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -1466,6 +1508,8 @@ impl CallGraph {
         let mut method_owners: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_class_span: BTreeMap<FunctionId, (usize, usize)> = BTreeMap::new();
         let mut method_class_span_ambiguous: BTreeSet<FunctionId> = BTreeSet::new();
+        let mut js_ts_static_methods: BTreeSet<FunctionId> = BTreeSet::new();
+        let mut js_ts_unproven_instance_methods = BTreeSet::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
         // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once
@@ -1485,6 +1529,18 @@ impl CallGraph {
                 imports.insert(file_path.clone(), file_imports);
             }
         }
+        // Build structured imports before call-site classification so Python can
+        // retain only eligible module-scope member-import receiver types.
+        let (import_bindings, module_bindings) = Self::extract_all_import_bindings(files);
+        let indexed_files: BTreeSet<String> = files.keys().cloned().collect();
+        let (class_bases, clean_class_spans) = Self::build_class_facts(files);
+        let python_inert_initializers = python_inert_initializers(files);
+        let proven_python_imported_receiver_types = python_imported_receiver_types(
+            &import_bindings,
+            &indexed_files,
+            &clean_class_spans,
+            &python_inert_initializers,
+        );
 
         let ordered_files: Vec<(&String, &ParsedFile)> = files.iter().collect();
 
@@ -1499,6 +1555,8 @@ impl CallGraph {
                 Option<(usize, usize)>,
             )>,
             static_functions: Vec<(String, String)>,
+            js_ts_static_methods: Vec<FunctionId>,
+            js_ts_unproven_instance_methods: Vec<FunctionId>,
         }
 
         // Phase 1: Collect all function definitions per file in parallel, then
@@ -1509,6 +1567,8 @@ impl CallGraph {
                 let (file_path, parsed) = *entry;
                 let mut file_functions = Vec::new();
                 let mut file_static_functions = Vec::new();
+                let mut file_js_ts_static_methods = Vec::new();
+                let mut file_js_ts_unproven_instance_methods = Vec::new();
 
                 for func_node in parsed.all_functions() {
                     if let Some(name_node) = parsed.language.function_name(&func_node) {
@@ -1523,6 +1583,12 @@ impl CallGraph {
                         let (owner, trait_key, recv_var, class_span) =
                             Self::method_metadata(parsed, &func_node);
                         let facts = Self::method_facts(parsed, &func_node);
+                        if parsed.js_ts_method_is_static(&func_node) {
+                            file_js_ts_static_methods.push(func_id.clone());
+                        }
+                        if parsed.js_ts_method_slot_unproven(&func_node) {
+                            file_js_ts_unproven_instance_methods.push(func_id.clone());
+                        }
                         file_functions.push((
                             name.clone(),
                             func_id,
@@ -1548,6 +1614,8 @@ impl CallGraph {
                 FileFunctions {
                     functions: file_functions,
                     static_functions: file_static_functions,
+                    js_ts_static_methods: file_js_ts_static_methods,
+                    js_ts_unproven_instance_methods: file_js_ts_unproven_instance_methods,
                 }
             })
             .collect();
@@ -1591,6 +1659,8 @@ impl CallGraph {
             for static_function in file_functions.static_functions {
                 static_functions.insert(static_function);
             }
+            js_ts_static_methods.extend(file_functions.js_ts_static_methods);
+            js_ts_unproven_instance_methods.extend(file_functions.js_ts_unproven_instance_methods);
         }
 
         struct FileCallSites {
@@ -1608,6 +1678,8 @@ impl CallGraph {
                 let mut file_call_sites = Vec::new();
                 let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
                 let file_imports_ref = imports.get(file_path);
+                let proven_imported_receiver_types =
+                    proven_python_imported_receiver_types.get(file_path);
 
                 for func_node in parsed.all_functions() {
                     let func_name = match parsed.language.function_name(&func_node) {
@@ -1657,6 +1729,7 @@ impl CallGraph {
                             parsed,
                             recv_var: recv_var.as_deref(),
                             file_imports: file_imports_ref,
+                            proven_imported_receiver_types,
                         });
                         let recovered = classification.recovered.as_ref();
                         let receiver_newly_recovered = recovered.is_some()
@@ -1665,6 +1738,8 @@ impl CallGraph {
                                     &func_node, receiver, start_byte,
                                 )
                             });
+                        let receiver_lexically_bound = parsed
+                            .js_ts_receiver_lexically_bound_at_call(&func_node, meta.receiver_node);
                         let site = CallSite {
                             caller: caller_id.clone(),
                             callee_name,
@@ -1676,6 +1751,7 @@ impl CallGraph {
                             start_byte,
                             end_byte,
                             qualifier,
+                            receiver_lexically_bound,
                             receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
                             receiver_owner_identity: recovered
                                 .as_ref()
@@ -1730,13 +1806,7 @@ impl CallGraph {
             }
         }
 
-        // Phase 5: Build class facts for inherited-self and recovered receivers.
-        let (class_bases, clean_class_spans) = Self::build_class_facts(files);
-
-        // R4c: populate import bindings for Python/JS/TS import-member resolution.
-        let (import_bindings, module_bindings) = Self::extract_all_import_bindings(files);
         let (js_ts_exports, js_ts_function_locals) = Self::extract_js_ts_resolution_facts(files);
-        let indexed_files: BTreeSet<String> = files.keys().cloned().collect();
 
         let mut cg = CallGraph {
             functions,
@@ -1754,8 +1824,11 @@ impl CallGraph {
             method_owners,
             method_class_span,
             method_class_span_ambiguous,
+            js_ts_static_methods,
+            js_ts_unproven_instance_methods,
             class_bases,
             clean_class_spans,
+            python_inert_initializers,
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -2022,6 +2095,78 @@ impl CallGraph {
         self.js_export_barrel_conflicts = 0;
     }
 
+    /// Terminal owner proof for the bounded recovered-instance lane. Classes
+    /// are consulted from raw direct exports, never the function/barrel table.
+    pub(crate) fn js_ts_recovered_class_owner(
+        &self,
+        caller: &str,
+        spelling: &str,
+        typed_parameter: bool,
+    ) -> Option<(String, String)> {
+        let imports: Vec<_> = self
+            .import_bindings
+            .get(caller)
+            .into_iter()
+            .flatten()
+            .filter(|b| b.local == spelling)
+            .collect();
+        if let Some(type_import) = self
+            .js_ts_exports
+            .get(caller)
+            .and_then(|facts| facts.type_only_imports.get(spelling))
+        {
+            if !typed_parameter || !imports.is_empty() {
+                return None;
+            }
+            let (module, member) = type_import.as_ref()?;
+            return self.js_ts_direct_exported_class_owner(caller, module, member);
+        }
+        if imports.is_empty() {
+            let key = (caller.to_string(), spelling.to_string());
+            return self.clean_class_spans.contains_key(&key).then_some(key);
+        }
+        if imports.len() != 1 {
+            return None;
+        }
+        let binding = imports[0];
+        if !binding.eligible
+            || !self
+                .js_ts_exports
+                .get(caller)?
+                .esm_named_imports
+                .contains(spelling)
+        {
+            return None;
+        }
+        self.js_ts_direct_exported_class_owner(
+            caller,
+            &binding.module_path,
+            binding.member.as_deref()?,
+        )
+    }
+
+    fn js_ts_direct_exported_class_owner(
+        &self,
+        caller: &str,
+        module: &str,
+        member: &str,
+    ) -> Option<(String, String)> {
+        let candidates = js_ts_relative_module_candidates(module, caller, &self.indexed_files)?;
+        if candidates.len() != 1 {
+            return None;
+        }
+        let defining_file = &candidates[0];
+        let facts = self.js_ts_exports.get(defining_file)?;
+        if facts.conflicted.contains(member) {
+            return None;
+        }
+        let crate::js_exports::JsExportTarget::Class(owner) = facts.named.get(member)? else {
+            return None;
+        };
+        let key = (defining_file.clone(), owner.clone());
+        self.clean_class_spans.contains_key(&key).then_some(key)
+    }
+
     // -----------------------------------------------------------------------
     // Incremental cache support (Phase 2)
     // -----------------------------------------------------------------------
@@ -2074,9 +2219,15 @@ impl CallGraph {
             .retain(|fid, _| !exclude.contains(&fid.file));
         self.method_class_span_ambiguous
             .retain(|fid| !exclude.contains(&fid.file));
+        self.js_ts_static_methods
+            .retain(|fid| !exclude.contains(&fid.file));
+        self.js_ts_unproven_instance_methods
+            .retain(|fid| !exclude.contains(&fid.file));
         self.class_bases.retain(|(f, _), _| !exclude.contains(f));
         self.clean_class_spans
             .retain(|(f, _), _| !exclude.contains(f));
+        self.python_inert_initializers
+            .retain(|f| !exclude.contains(f));
         self.methods_by_scope.clear();
         self.extension_methods.clear();
         self.identity_complete.clear();
@@ -2202,6 +2353,9 @@ impl CallGraph {
         self.method_owners.extend(other.method_owners);
         self.method_class_span_ambiguous
             .extend(other.method_class_span_ambiguous);
+        self.js_ts_static_methods.extend(other.js_ts_static_methods);
+        self.js_ts_unproven_instance_methods
+            .extend(other.js_ts_unproven_instance_methods);
         for (fid, span) in other.method_class_span {
             record_method_class_span(
                 &mut self.method_class_span,
@@ -2212,6 +2366,7 @@ impl CallGraph {
         }
         self.class_bases.extend(other.class_bases);
         self.clean_class_spans.extend(other.clean_class_spans);
+        self.python_inert_initializers = other.python_inert_initializers;
         for (key, fids) in other.methods_by_scope {
             self.methods_by_scope.entry(key).or_default().extend(fids);
         }
@@ -2633,6 +2788,7 @@ impl CallGraph {
             start_byte: source_site.start_byte,
             end_byte: source_site.end_byte,
             qualifier: None,
+            receiver_lexically_bound: false,
             receiver_type: None,
             receiver_owner_identity: None,
             receiver_local_type_shadowed: false,
@@ -2681,7 +2837,10 @@ impl CallGraph {
             let mut top_level_classes = Vec::new();
             let mut cursor = root.walk();
             for child in root.children(&mut cursor) {
-                let class_node = if child.kind() == "decorated_definition" {
+                let class_node = if let Some(declaration) = parsed.js_ts_named_exported_class(child)
+                {
+                    declaration
+                } else if child.kind() == "decorated_definition" {
                     // Python: decorated class — unwrap
                     let mut inner_cursor = child.walk();
                     let mut found = None;
@@ -2722,7 +2881,10 @@ impl CallGraph {
                         .filter(|(name, _, _)| name == class_name)
                         .count();
                     let binding_count = top_level_bindings.get(class_name).copied().unwrap_or(0);
-                    if class_matches == 1 && binding_count == 1 {
+                    if class_matches == 1
+                        && binding_count == 1
+                        && !parsed.js_ts_module_value_written(class_name)
+                    {
                         clean_class_spans
                             .insert((file_path.clone(), class_name.clone()), *class_span);
                     }
@@ -2956,6 +3118,11 @@ impl CallGraph {
             counts: &mut BTreeMap<String, usize>,
         ) {
             match child.kind() {
+                "export_statement" => {
+                    if let Some(declaration) = child.child_by_field_name("declaration") {
+                        count_binding_stmt(declaration, source, lang, counts);
+                    }
+                }
                 "class_definition" | "class_declaration" | "class" => {
                     if let Some(name_node) = child.child_by_field_name("name") {
                         let name = source[name_node.start_byte()..name_node.end_byte()].to_string();
@@ -4654,6 +4821,8 @@ impl CallGraph {
         let mut method_owners: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_class_span: BTreeMap<FunctionId, (usize, usize)> = BTreeMap::new();
         let mut method_class_span_ambiguous: BTreeSet<FunctionId> = BTreeSet::new();
+        let mut js_ts_static_methods: BTreeSet<FunctionId> = BTreeSet::new();
+        let mut js_ts_unproven_instance_methods = BTreeSet::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
         // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — deliberately
@@ -4676,6 +4845,47 @@ impl CallGraph {
                 imports.insert(file_path.clone(), file_imports);
             }
         }
+
+        // Build the subset's structured imports before call-site classification,
+        // mirroring the full constructor.
+        let subset_files: BTreeMap<String, &ParsedFile> = files
+            .iter()
+            .filter(|(k, _)| only_files.contains(*k))
+            .map(|(k, v)| (k.clone(), v))
+            .collect();
+        let mut import_bindings_map: BTreeMap<String, Vec<ImportBinding>> = BTreeMap::new();
+        let mut module_bindings_map: BTreeMap<String, BTreeMap<String, ModuleBindingKind>> =
+            BTreeMap::new();
+        for (fp, parsed) in &subset_files {
+            if matches!(
+                parsed.language,
+                crate::languages::Language::Python
+                    | crate::languages::Language::JavaScript
+                    | crate::languages::Language::TypeScript
+                    | crate::languages::Language::Tsx
+            ) {
+                let bindings = parsed.extract_import_bindings();
+                if !bindings.is_empty() {
+                    import_bindings_map.insert(fp.clone(), bindings);
+                }
+                let mbindings = parsed.extract_module_bindings();
+                if !mbindings.is_empty() {
+                    module_bindings_map.insert(fp.clone(), mbindings);
+                }
+            }
+        }
+        mark_import_binding_eligibility(&mut import_bindings_map, &module_bindings_map);
+        let indexed_files: BTreeSet<String> = files.keys().cloned().collect();
+        // Build class facts from the complete files map so unchanged class owners
+        // remain available after incremental merges.
+        let (class_bases, clean_class_spans) = Self::build_class_facts(files);
+        let python_inert_initializers = python_inert_initializers(files);
+        let proven_python_imported_receiver_types = python_imported_receiver_types(
+            &import_bindings_map,
+            &indexed_files,
+            &clean_class_spans,
+            &python_inert_initializers,
+        );
 
         // Phase 1: Collect function definitions from subset.
         for (file_path, parsed) in files {
@@ -4725,6 +4935,12 @@ impl CallGraph {
                     if let Some(facts) = Self::method_facts(parsed, &func_node) {
                         method_facts.insert(func_id.clone(), facts);
                     }
+                    if parsed.js_ts_method_is_static(&func_node) {
+                        js_ts_static_methods.insert(func_id.clone());
+                    }
+                    if parsed.js_ts_method_slot_unproven(&func_node) {
+                        js_ts_unproven_instance_methods.insert(func_id.clone());
+                    }
 
                     if matches!(
                         parsed.language,
@@ -4772,6 +4988,8 @@ impl CallGraph {
                     .go_receiver_var(&func_node)
                     .map(|n| parsed.node_text(&n).to_string());
                 let file_imports_ref = imports.get(file_path);
+                let proven_imported_receiver_types =
+                    proven_python_imported_receiver_types.get(file_path);
 
                 for meta in call_sites {
                     let callee_name = meta.callee_name;
@@ -4793,6 +5011,7 @@ impl CallGraph {
                         parsed,
                         recv_var: recv_var.as_deref(),
                         file_imports: file_imports_ref,
+                        proven_imported_receiver_types,
                     });
                     let recovered = classification.recovered.as_ref();
                     let receiver_newly_recovered = recovered.is_some()
@@ -4801,6 +5020,8 @@ impl CallGraph {
                                 &func_node, receiver, start_byte,
                             )
                         });
+                    let receiver_lexically_bound = parsed
+                        .js_ts_receiver_lexically_bound_at_call(&func_node, meta.receiver_node);
                     let site = CallSite {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
@@ -4812,6 +5033,7 @@ impl CallGraph {
                         start_byte,
                         end_byte,
                         qualifier,
+                        receiver_lexically_bound,
                         receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
                         receiver_owner_identity: recovered
                             .as_ref()
@@ -4841,42 +5063,9 @@ impl CallGraph {
             }
         }
 
-        // Phase 5 (direct-subset): build class facts from the complete files map
-        // so unchanged class owners remain available after incremental merges.
-        let (class_bases, clean_class_spans) = Self::build_class_facts(files);
-
-        // R4c: populate import bindings for subset.
-        let subset_files: BTreeMap<String, &ParsedFile> = files
-            .iter()
-            .filter(|(k, _)| only_files.contains(*k))
-            .map(|(k, v)| (k.clone(), v))
-            .collect();
-        let mut import_bindings_map: BTreeMap<String, Vec<ImportBinding>> = BTreeMap::new();
-        let mut module_bindings_map: BTreeMap<String, BTreeMap<String, ModuleBindingKind>> =
-            BTreeMap::new();
-        for (fp, parsed) in &subset_files {
-            if matches!(
-                parsed.language,
-                crate::languages::Language::Python
-                    | crate::languages::Language::JavaScript
-                    | crate::languages::Language::TypeScript
-                    | crate::languages::Language::Tsx
-            ) {
-                let bindings = parsed.extract_import_bindings();
-                if !bindings.is_empty() {
-                    import_bindings_map.insert(fp.clone(), bindings);
-                }
-                let mbindings = parsed.extract_module_bindings();
-                if !mbindings.is_empty() {
-                    module_bindings_map.insert(fp.clone(), mbindings);
-                }
-            }
-        }
-        mark_import_binding_eligibility(&mut import_bindings_map, &module_bindings_map);
         let (js_ts_exports, js_ts_function_locals) = Self::extract_js_ts_resolution_facts_from_iter(
             subset_files.iter().map(|(fp, parsed)| (fp, *parsed)),
         );
-        let indexed_files: BTreeSet<String> = files.keys().cloned().collect();
 
         CallGraph {
             functions,
@@ -4894,8 +5083,11 @@ impl CallGraph {
             method_owners,
             method_class_span,
             method_class_span_ambiguous,
+            js_ts_static_methods,
+            js_ts_unproven_instance_methods,
             class_bases,
             clean_class_spans,
+            python_inert_initializers,
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -5659,11 +5851,305 @@ fn mark_import_binding_eligibility(
                     }
                 }
             }
-            // Member imports start eligible; module/wildcard do not (R4c
-            // only handles unqualified calls, which come from member imports).
-            binding.eligible = matches!(binding.kind, ImportBindingKind::MemberImport);
+            // Eligibility records only occurrence-clean binding authority. R4c,
+            // navigation, and Python imported receiver proof apply their own
+            // import-kind and path-shape requirements below.
+            binding.eligible = !matches!(binding.kind, ImportBindingKind::WildcardImport);
         }
     }
+}
+
+pub(crate) fn python_qualified_receiver_parts(receiver_type: &str) -> Option<(&str, &str)> {
+    let (qualifier, owner) = receiver_type.rsplit_once('.')?;
+    (qualifier.split('.').all(python_identifier) && python_identifier(owner))
+        .then_some((qualifier, owner))
+}
+
+fn python_identifier(part: &str) -> bool {
+    let mut chars = part.chars();
+    chars
+        .next()
+        .is_some_and(|ch| ch == '_' || ch.is_alphabetic())
+        && chars.all(|ch| ch == '_' || ch.is_alphanumeric())
+}
+
+fn python_inert_initializers(files: &BTreeMap<String, ParsedFile>) -> BTreeSet<String> {
+    files
+        .iter()
+        .filter(|(path, parsed)| {
+            (path.as_str() == "__init__.py" || path.ends_with("/__init__.py"))
+                && parsed.python_inert_initializer()
+        })
+        .map(|(path, _)| path.clone())
+        .collect()
+}
+
+fn python_namespace_submodule_path(
+    binding: &ImportBinding,
+    caller_file: &str,
+    indexed_files: &BTreeSet<String>,
+    inert_initializers: &BTreeSet<String>,
+) -> Option<String> {
+    if !matches!(binding.kind, ImportBindingKind::MemberImport) {
+        return None;
+    }
+    let module_path = if binding.module_path.starts_with('.') {
+        let suffix = binding.module_path.trim_start_matches('.');
+        let dots = binding.module_path.len() - suffix.len();
+        if !suffix.is_empty() && !suffix.split('.').all(python_identifier) {
+            return None;
+        }
+        let (directory, _) = caller_file.rsplit_once('/')?;
+        let mut parts: Vec<_> = directory.split('/').collect();
+        if !parts.iter().all(|part| python_identifier(part)) {
+            return None;
+        }
+        // Filename proximity alone cannot prove a relative import's package.
+        for level in 0..dots {
+            if level > 0 {
+                parts.pop()?;
+            }
+            if parts.is_empty()
+                || !inert_initializers.contains(&format!("{}/__init__.py", parts.join("/")))
+            {
+                return None;
+            }
+        }
+        if !suffix.is_empty() {
+            parts.extend(suffix.split('.'));
+        }
+        parts.join(".")
+    } else {
+        binding.module_path.clone()
+    };
+    if !module_path.split('.').all(python_identifier) {
+        return None;
+    }
+    let member = binding
+        .member
+        .as_deref()
+        .filter(|part| python_identifier(part))?;
+    let mut parent = String::new();
+    for part in module_path.split('.') {
+        if !parent.is_empty() {
+            parent.push('/');
+        }
+        parent.push_str(part);
+        let initializer = format!("{parent}/__init__.py");
+        if indexed_files.contains(&format!("{parent}.py"))
+            || (indexed_files.contains(&initializer) && !inert_initializers.contains(&initializer))
+        {
+            return None;
+        }
+    }
+    Some(format!("{module_path}.{member}"))
+}
+
+fn unique_python_module_file<'a>(
+    module_path: &str,
+    caller_file: &str,
+    indexed_files: &'a BTreeSet<String>,
+) -> Option<&'a String> {
+    let mut module_files = indexed_files
+        .iter()
+        .filter(|file| {
+            crate::languages::Language::from_path(file) == Some(crate::languages::Language::Python)
+        })
+        .filter(|file| file_matches_module(file, module_path, caller_file, indexed_files));
+    let defining_file = module_files.next()?;
+    module_files.next().is_none().then_some(defining_file)
+}
+
+pub(crate) fn python_imported_class_route(
+    caller_file: &str,
+    receiver_type: &str,
+    bindings: Option<&[ImportBinding]>,
+    indexed_files: &BTreeSet<String>,
+    clean_class_spans: &BTreeMap<(String, String), (usize, usize)>,
+    inert_initializers: &BTreeSet<String>,
+) -> PythonImportedClassRoute {
+    let Some(bindings) = bindings else {
+        return PythonImportedClassRoute::NotImported;
+    };
+    let qualified = python_qualified_receiver_parts(receiver_type);
+    let local = qualified
+        .and_then(|(qualifier, _)| qualifier.split('.').next())
+        .unwrap_or(receiver_type);
+    let matching: Vec<_> = bindings
+        .iter()
+        .filter(|binding| binding.local == local)
+        .collect();
+    if matching.is_empty() {
+        return PythonImportedClassRoute::NotImported;
+    }
+    if matching.len() != 1 {
+        return PythonImportedClassRoute::Blocked;
+    }
+    let binding = matching[0];
+    if !binding.eligible {
+        return PythonImportedClassRoute::Blocked;
+    }
+    let (owner, module_path) = match qualified {
+        Some((qualifier, owner))
+            if matches!(binding.kind, ImportBindingKind::ModuleImport)
+                && qualifier == binding.module_path =>
+        {
+            (owner, binding.module_path.clone())
+        }
+        Some((qualifier, owner))
+            if matches!(binding.kind, ImportBindingKind::AliasedModuleImport)
+                && qualifier == binding.local =>
+        {
+            (owner, binding.module_path.clone())
+        }
+        Some((qualifier, owner))
+            if matches!(binding.kind, ImportBindingKind::MemberImport)
+                && qualifier == binding.local =>
+        {
+            let Some(module_path) = python_namespace_submodule_path(
+                binding,
+                caller_file,
+                indexed_files,
+                inert_initializers,
+            ) else {
+                return PythonImportedClassRoute::Blocked;
+            };
+            (owner, module_path)
+        }
+        None if matches!(binding.kind, ImportBindingKind::MemberImport) => {
+            let Some(owner) = binding.member.as_deref() else {
+                return PythonImportedClassRoute::Blocked;
+            };
+            (owner, binding.module_path.clone())
+        }
+        _ => return PythonImportedClassRoute::Blocked,
+    };
+
+    // Count module candidates before consulting the requested class. This
+    // prevents a single-component import from becoming Exact merely because
+    // only one of several same-stem modules happens to declare `owner`.
+    let Some(defining_file) = unique_python_module_file(&module_path, caller_file, indexed_files)
+    else {
+        return PythonImportedClassRoute::Blocked;
+    };
+    if !clean_class_spans.contains_key(&(defining_file.to_string(), owner.to_string())) {
+        return PythonImportedClassRoute::Blocked;
+    }
+    PythonImportedClassRoute::Proven {
+        defining_file: defining_file.to_string(),
+        owner: owner.to_string(),
+    }
+}
+
+pub(crate) fn python_imported_class_proof_keys(
+    import_bindings: &BTreeMap<String, Vec<ImportBinding>>,
+    indexed_files: &BTreeSet<String>,
+    clean_class_spans: &BTreeMap<(String, String), (usize, usize)>,
+    inert_initializers: &BTreeSet<String>,
+) -> BTreeSet<(String, String, String, String)> {
+    let mut proven = BTreeSet::new();
+    for (caller_file, bindings) in import_bindings {
+        for binding in bindings {
+            match binding.kind {
+                ImportBindingKind::MemberImport => {
+                    let receiver_type = binding.local.as_str();
+                    if let PythonImportedClassRoute::Proven {
+                        defining_file,
+                        owner,
+                    } = python_imported_class_route(
+                        caller_file,
+                        receiver_type,
+                        Some(bindings),
+                        indexed_files,
+                        clean_class_spans,
+                        inert_initializers,
+                    ) {
+                        proven.insert((
+                            caller_file.clone(),
+                            receiver_type.to_string(),
+                            defining_file,
+                            owner,
+                        ));
+                    }
+
+                    if !binding.eligible {
+                        continue;
+                    }
+                    let Some(module_path) = python_namespace_submodule_path(
+                        binding,
+                        caller_file,
+                        indexed_files,
+                        inert_initializers,
+                    ) else {
+                        continue;
+                    };
+                    let Some(defining_file) =
+                        unique_python_module_file(&module_path, caller_file, indexed_files)
+                    else {
+                        continue;
+                    };
+                    for (file, owner) in clean_class_spans.keys() {
+                        if file == defining_file {
+                            proven.insert((
+                                caller_file.clone(),
+                                format!("{}.{}", binding.local, owner),
+                                defining_file.clone(),
+                                owner.clone(),
+                            ));
+                        }
+                    }
+                }
+                ImportBindingKind::ModuleImport | ImportBindingKind::AliasedModuleImport
+                    if binding.eligible =>
+                {
+                    let Some(defining_file) =
+                        unique_python_module_file(&binding.module_path, caller_file, indexed_files)
+                    else {
+                        continue;
+                    };
+                    let receiver_prefix =
+                        if matches!(binding.kind, ImportBindingKind::AliasedModuleImport) {
+                            &binding.local
+                        } else {
+                            &binding.module_path
+                        };
+                    for (file, owner) in clean_class_spans.keys() {
+                        if file == defining_file {
+                            proven.insert((
+                                caller_file.clone(),
+                                format!("{receiver_prefix}.{owner}"),
+                                defining_file.clone(),
+                                owner.clone(),
+                            ));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    proven
+}
+
+fn python_imported_receiver_types(
+    import_bindings: &BTreeMap<String, Vec<ImportBinding>>,
+    indexed_files: &BTreeSet<String>,
+    clean_class_spans: &BTreeMap<(String, String), (usize, usize)>,
+    inert_initializers: &BTreeSet<String>,
+) -> BTreeMap<String, BTreeSet<String>> {
+    let mut proven = BTreeMap::new();
+    for (caller_file, receiver_type, _, _) in python_imported_class_proof_keys(
+        import_bindings,
+        indexed_files,
+        clean_class_spans,
+        inert_initializers,
+    ) {
+        proven
+            .entry(caller_file)
+            .or_insert_with(BTreeSet::new)
+            .insert(receiver_type);
+    }
+    proven
 }
 
 /// Check if a file path matches a module path for R4c resolution.
@@ -5863,6 +6349,18 @@ pub fn resolve_js_ts_relative_module(
     caller_file: &str,
     indexed_files: &BTreeSet<String>,
 ) -> Option<String> {
+    js_ts_relative_module_candidates(module_path, caller_file, indexed_files)?
+        .into_iter()
+        .next()
+}
+
+/// Preserve the existing function-import precedence; class identity callers
+/// additionally require candidate cardinality one before consulting a class.
+fn js_ts_relative_module_candidates(
+    module_path: &str,
+    caller_file: &str,
+    indexed_files: &BTreeSet<String>,
+) -> Option<Vec<String>> {
     let module_path = module_path.trim();
     if !(module_path.starts_with("./") || module_path.starts_with("../")) {
         return None;
@@ -5884,6 +6382,7 @@ pub fn resolve_js_ts_relative_module(
         return None;
     }
     let base = base_parts.join("/");
+    let mut candidates = Vec::new();
 
     for ext in &[".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ""] {
         let candidate = if base.is_empty() {
@@ -5892,7 +6391,7 @@ pub fn resolve_js_ts_relative_module(
             format!("{base}/{rel}{ext}")
         };
         if indexed_files.contains(&candidate) {
-            return Some(candidate);
+            candidates.push(candidate);
         }
     }
 
@@ -5910,11 +6409,11 @@ pub fn resolve_js_ts_relative_module(
             format!("{base}/{rel}/{index}")
         };
         if indexed_files.contains(&candidate) {
-            return Some(candidate);
+            candidates.push(candidate);
         }
     }
 
-    None
+    Some(candidates)
 }
 
 /// Exact relative JS/TS module match for R4c `ImportMember` resolution.
@@ -6245,6 +6744,200 @@ mod tests {
         assert!(span.1 > span.0);
     }
 
+    #[test]
+    fn python_imported_class_proof_key_ignores_direct_method_body_changes() {
+        use crate::languages::Language::Python;
+
+        let build = |method_body: &str| {
+            let mut files = BTreeMap::new();
+            files.insert(
+                "app.py".to_string(),
+                ParsedFile::parse(
+                    "app.py",
+                    "from pkg.models import Client as ImportedClient\ndef run(client: ImportedClient):\n    client.send()\n",
+                    Python,
+                )
+                .unwrap(),
+            );
+            files.insert(
+                "pkg/models.py".to_string(),
+                ParsedFile::parse(
+                    "pkg/models.py",
+                    &format!("class Client:\n    def send(self):\n        {method_body}\n"),
+                    Python,
+                )
+                .unwrap(),
+            );
+            CallGraph::build(&files)
+        };
+        let before = build("pass");
+        let after = build("return 1");
+        let proof_keys = |cg: &CallGraph| {
+            python_imported_class_proof_keys(
+                &cg.import_bindings,
+                &cg.indexed_files,
+                &cg.clean_class_spans,
+                &cg.python_inert_initializers,
+            )
+        };
+
+        let expected = BTreeSet::from([(
+            "app.py".to_string(),
+            "ImportedClient".to_string(),
+            "pkg/models.py".to_string(),
+            "Client".to_string(),
+        )]);
+        assert_eq!(proof_keys(&before), expected);
+        assert_eq!(proof_keys(&after), expected);
+    }
+
+    #[test]
+    fn python_qualified_class_proof_key_ignores_direct_method_body_changes() {
+        use crate::languages::Language::Python;
+
+        let build = |method_body: &str| {
+            let mut files = BTreeMap::new();
+            files.insert(
+                "app.py".to_string(),
+                ParsedFile::parse(
+                    "app.py",
+                    "import pkg.models as models\ndef run(client: models.Client):\n    client.send()\n",
+                    Python,
+                )
+                .unwrap(),
+            );
+            files.insert(
+                "pkg/models.py".to_string(),
+                ParsedFile::parse(
+                    "pkg/models.py",
+                    &format!("class Client:\n    def send(self):\n        {method_body}\n"),
+                    Python,
+                )
+                .unwrap(),
+            );
+            CallGraph::build(&files)
+        };
+        let before = build("pass");
+        let after = build("return 1");
+        let proof_keys = |cg: &CallGraph| {
+            python_imported_class_proof_keys(
+                &cg.import_bindings,
+                &cg.indexed_files,
+                &cg.clean_class_spans,
+                &cg.python_inert_initializers,
+            )
+        };
+
+        let expected = BTreeSet::from([(
+            "app.py".to_string(),
+            "models.Client".to_string(),
+            "pkg/models.py".to_string(),
+            "Client".to_string(),
+        )]);
+        assert_eq!(proof_keys(&before), expected);
+        assert_eq!(proof_keys(&after), expected);
+    }
+
+    #[test]
+    fn python_dotted_class_proof_key_ignores_direct_method_body_changes() {
+        use crate::languages::Language::Python;
+
+        let build = |method_body: &str| {
+            let mut files = BTreeMap::new();
+            files.insert(
+                "app.py".to_string(),
+                ParsedFile::parse(
+                    "app.py",
+                    "import pkg.models\ndef run(client: pkg.models.Client):\n    client.send()\n",
+                    Python,
+                )
+                .unwrap(),
+            );
+            files.insert(
+                "pkg/models.py".to_string(),
+                ParsedFile::parse(
+                    "pkg/models.py",
+                    &format!("class Client:\n    def send(self):\n        {method_body}\n"),
+                    Python,
+                )
+                .unwrap(),
+            );
+            CallGraph::build(&files)
+        };
+        let before = build("pass");
+        let after = build("return 1");
+        let proof_keys = |cg: &CallGraph| {
+            python_imported_class_proof_keys(
+                &cg.import_bindings,
+                &cg.indexed_files,
+                &cg.clean_class_spans,
+                &cg.python_inert_initializers,
+            )
+        };
+
+        let expected = BTreeSet::from([(
+            "app.py".to_string(),
+            "pkg.models.Client".to_string(),
+            "pkg/models.py".to_string(),
+            "Client".to_string(),
+        )]);
+        assert_eq!(proof_keys(&before), expected);
+        assert_eq!(proof_keys(&after), expected);
+    }
+
+    #[test]
+    fn python_namespace_submodule_class_proof_key_tracks_parent_absence() {
+        use crate::languages::Language::Python;
+
+        let build = |method_body: &str, parent: Option<(&str, &str)>| {
+            let mut files = BTreeMap::new();
+            files.insert(
+                "app.py".to_string(),
+                ParsedFile::parse(
+                    "app.py",
+                    "from pkg import models\ndef run(client: models.Client):\n    client.send()\n",
+                    Python,
+                )
+                .unwrap(),
+            );
+            files.insert(
+                "pkg/models.py".to_string(),
+                ParsedFile::parse(
+                    "pkg/models.py",
+                    &format!("class Client:\n    def send(self):\n        {method_body}\n"),
+                    Python,
+                )
+                .unwrap(),
+            );
+            if let Some((path, source)) = parent {
+                files.insert(
+                    path.to_string(),
+                    ParsedFile::parse(path, source, Python).unwrap(),
+                );
+            }
+            CallGraph::build(&files)
+        };
+        let proof_keys = |cg: &CallGraph| {
+            python_imported_class_proof_keys(
+                &cg.import_bindings,
+                &cg.indexed_files,
+                &cg.clean_class_spans,
+                &cg.python_inert_initializers,
+            )
+        };
+        let expected = BTreeSet::from([(
+            "app.py".to_string(),
+            "models.Client".to_string(),
+            "pkg/models.py".to_string(),
+            "Client".to_string(),
+        )]);
+
+        assert_eq!(proof_keys(&build("pass", None)), expected);
+        assert_eq!(proof_keys(&build("return 1", None)), expected);
+        assert!(proof_keys(&build("pass", Some(("pkg.py", "value = 1\n")))).is_empty());
+        assert!(proof_keys(&build("pass", Some(("pkg/__init__.py", "value = 1\n")))).is_empty());
+    }
+
     fn build_rust_call_graph(source: &str) -> CallGraph {
         use crate::ast::ParsedFile;
         use crate::languages::Language::Rust;
@@ -6432,7 +7125,7 @@ mod tests {
     }
 
     #[test]
-    fn callsite_origin_receiver_materialized_and_outcome_serde_default_and_excluded_from_cmp_key() {
+    fn callsite_derived_receiver_fields_serde_default_and_excluded_from_cmp_key() {
         let cg = build_rust_call_graph(
             "struct Engine;\nimpl Engine { fn go(&self) {} }\nfn run(e: Engine) { e.go(); }\n",
         );
@@ -6451,6 +7144,7 @@ mod tests {
         });
         a.receiver_materialized = true;
         a.receiver_newly_recovered = true;
+        a.receiver_lexically_bound = true;
         a.origin = CallSiteOrigin::IndirectResolution;
 
         assert_eq!(a.cmp_key(), b.cmp_key());
@@ -6467,11 +7161,16 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("receiver_newly_recovered");
+        legacy_json
+            .as_object_mut()
+            .unwrap()
+            .remove("receiver_lexically_bound");
         legacy_json.as_object_mut().unwrap().remove("origin");
         let defaulted: CallSite = serde_json::from_value(legacy_json).unwrap();
         assert_eq!(defaulted.receiver_outcome, None);
         assert!(!defaulted.receiver_materialized);
         assert!(!defaulted.receiver_newly_recovered);
+        assert!(!defaulted.receiver_lexically_bound);
         assert_eq!(defaulted.origin, CallSiteOrigin::Source);
 
         let back: CallSite = bincode::deserialize(&bincode::serialize(&a).unwrap()).unwrap();

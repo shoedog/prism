@@ -315,6 +315,14 @@ impl CodePropertyGraph {
         // wrapper so test counter generations are inherited by the worker
         // (P15a-fix2).
         crate::build_pool::install(move || {
+            let old_python_imported_class_proofs =
+                crate::call_graph::python_imported_class_proof_keys(
+                    &cached_cg.import_bindings,
+                    &cached_cg.indexed_files,
+                    &cached_cg.clean_class_spans,
+                    &cached_cg.python_inert_initializers,
+                );
+
             // P8 F1 fix (codex re-review BLOCKER): Rust macro-arg call
             // extraction (`rust_macro_args::is_transparent_arg_macro`)
             // depends on the repo-wide macro shadow set, but this
@@ -358,6 +366,22 @@ impl CodePropertyGraph {
             // Step 3: Merge fresh into retained.
             cached_cg.merge(fresh_cg);
             cached_dfg.merge(fresh_dfg);
+
+            // Python imported receiver classification depends on whole-program
+            // import-module cardinality and clean class identity. If either proof
+            // changes, call sites retained from unchanged files carry stale
+            // receiver state. Re-extract the complete graph rather than maintaining
+            // a reverse dependency index solely for this rare transition.
+            let fresh_python_imported_class_proofs =
+                crate::call_graph::python_imported_class_proof_keys(
+                    &cached_cg.import_bindings,
+                    &cached_cg.indexed_files,
+                    &cached_cg.clean_class_spans,
+                    &cached_cg.python_inert_initializers,
+                );
+            if fresh_python_imported_class_proofs != old_python_imported_class_proofs {
+                return Self::build_impl_inner(files, type_db, scope_inputs);
+            }
 
             // Rebuild-together: this also refreshes Phase-2a Rust receiver indices
             // and re-materializes CallSite.receiver_outcome before assemble reads it.

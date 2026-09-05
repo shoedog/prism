@@ -158,7 +158,23 @@ use std::path::{Path, PathBuf};
 ///   resolver/manifest terminal predicate.
 /// - v55: Go B1 Level-3 callback facts, exact synthetic targets, source-callee
 ///   identity, and derived CPG edges enter the serialized graph.
-const CACHE_VERSION: u32 = 55;
+/// - v56: Python explicit module aliases gain a distinct serialized import kind;
+///   unaliased dotted module paths can authorize qualified receiver edges.
+/// - v57: Python namespace-package submodule imports can authorize qualified
+///   receiver classification and Exact edges.
+/// - v58: JS/TS call sites persist lexical receiver-binding authority used to
+///   suppress shadowed imported-module Exact edges.
+/// - v59: JS/TS typed-parameter and direct-new receiver metadata changes
+///   recovered receiver resolution and serialized CPG topology.
+/// - v60: Python/JS receiver owner visibility, initialization, and mutation
+///   proof remove unsupported recovered metadata and Exact edges.
+/// - v61: typed JS class export/import facts and Python inert initializer proof
+///   authorize cross-file receivers; live JS class writes revoke owner proof.
+/// - v62: separate TS type-only import facts and anchored Python relative
+///   submodule proof change recovered receiver authority and CPG topology.
+/// - v63: Cargo binary own-library bindings and direct default class receiver
+///   authority change serialized config and resolved topology.
+const CACHE_VERSION: u32 = 63;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -687,9 +703,218 @@ mod tests {
     }
 
     #[test]
-    fn cache_versions_are_pinned_for_go_level3_callbacks() {
-        assert_eq!(super::CACHE_VERSION, 55);
+    fn cache_versions_are_pinned_for_receiver_authority() {
+        assert_eq!(super::CACHE_VERSION, 63);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
+    }
+
+    #[test]
+    fn binary_library_cache_tracks_manifest_replacement() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        fs::create_dir_all(dir.path().join("src")).unwrap();
+        fs::write(dir.path().join("src/lib.rs"), "pub fn target(){}").unwrap();
+        fs::write(dir.path().join("src/main.rs"), "fn main(){demo::target();}").unwrap();
+        let mut previous_hashes = None;
+        for name in ["demo", "other", "demo"] {
+            fs::write(dir.path().join("Cargo.toml"), format!("[package]\nname='package'\nversion='0.1.0'\nedition='2021'\n[lib]\nname='{name}'")).unwrap();
+            let repo = crate::repo_loader::load_repo(dir.path()).unwrap();
+            let topology = compute_topology_key(&repo.file_hashes, &repo.manifest_hashes);
+            if let Some(ref hashes) = previous_hashes {
+                assert_eq!(hashes, &repo.file_hashes, "only manifest changed");
+                assert!(matches!(
+                    load_cache_with_topology(&repo.file_hashes, &topology, false, cache.path()),
+                    CacheResult::Miss
+                ));
+            }
+            let ctx = crate::cpg::CpgContext::build_with_scope_graph_inputs(
+                &repo.files,
+                None,
+                repo.scope_graph_inputs.as_ref(),
+            );
+            save_cache_with_topology(&ctx.cpg, &repo.file_hashes, &topology, false, cache.path())
+                .unwrap();
+            let CacheResult::Hit(loaded) =
+                load_cache_with_topology(&repo.file_hashes, &topology, false, cache.path())
+            else {
+                panic!("cache miss");
+            };
+            for cg in [&ctx.cpg.call_graph, &loaded.call_graph] {
+                let site = cg.calls[&cg.functions["main"][0]].iter().next().unwrap();
+                let edges = cg.resolve_call_site(site);
+                assert_eq!(
+                    edges.len(),
+                    usize::from(name == "demo"),
+                    "{name}: {edges:?}"
+                );
+                if name == "demo" {
+                    assert_eq!(edges[0].target.file, "src/lib.rs");
+                }
+            }
+            previous_hashes = Some(repo.file_hashes);
+        }
+        force_cache_version(cache.path(), 62);
+        assert!(matches!(
+            load_cache(&previous_hashes.unwrap(), false, cache.path()),
+            CacheResult::Miss
+        ));
+    }
+
+    #[test]
+    fn imported_receiver_cache_incremental_authority_transitions() {
+        use crate::{
+            ast::ParsedFile, cpg::CodePropertyGraph, languages::Language,
+            resolution::ResolutionConfidence,
+        };
+        for (language, caller, owner, importer, good, bad, auxiliary) in [
+            (Language::JavaScript, "app.js", "client.js", "import Alias from './client'; function run() { const x = new Alias(); x.m(); }", "export default class Client { m() {} }", "class Client { m() {} } export default Client;", None),
+            (Language::TypeScript, "app.ts", "client.ts", "import type Alias from './client'; function run(x: Alias) { x.m(); }", "export default class Client { m() {} }", "export default class Client { static m() {} }", None),
+            (Language::Tsx, "app.tsx", "app.tsx", "", "import type Alias from './client'; function run(x: Alias) { x.m(); }", "import type Alias from './client'; import type Alias from './client'; function run(x: Alias) { x.m(); }", Some(("client.tsx", "export default class Client { m() {} }"))),
+            (Language::TypeScript, "app.ts", "app.ts", "", "import type {Client as Alias} from './client'; function run(x: Alias) { x.m(); }", "import type {Client as Alias} from './client'; import type {Client as Alias} from './client'; function run(x: Alias) { x.m(); }", Some(("client.ts", "export class Client { m() {} }"))),
+            (Language::TypeScript, "app.ts", "client.ts", "import type { Client as Alias } from './client';\nfunction run(x: Alias) { x.m(); }", "export class Client { m() {} }", "class Client { m() {} }", None),
+            (Language::Tsx, "app.tsx", "client.tsx", "import { type Client as Alias } from './client';\nfunction run(x: Alias) { x.m(); }", "export class Client { m() {} }", "export class Client { static m() {} }", None),
+            (Language::Python, "pkg/app.py", "pkg/__init__.py", "from . import models as m\ndef run(x: m.Client):\n    x.m()\n", "\"package\"\n", "models = other\n", Some(("pkg/models.py", "class Client:\n    def m(self): pass\n"))),
+            (Language::JavaScript, "app.js", "client.js", "import { Client as Alias } from './client';\nfunction run() { const x = new Alias(); x.m(); }", "export class Client { m() {} }", "class Client { m() {} }", None),
+            (Language::TypeScript, "app.ts", "client.ts", "import { Client as Alias } from './client';\nfunction run(x: Alias) { x.m(); }", "export class Client { m() {} }", "export class Client { static m() {} }", None),
+            (Language::TypeScript, "app.ts", "client.ts", "import { Client as Alias } from './client';\nfunction run(x: Alias) { x.m(); }", "export class Client { m() {} }", "export class Client { m() {}\n constructor() { this.m = other; } }", None),
+            (Language::Tsx, "app.tsx", "client.tsx", "import { Client as Alias } from './client';\nfunction run(x: Alias) { x.m(); }", "export class Client { m() {} }", "export class Client { m() {} }\nClient = Other;", None),
+            (Language::Python, "app.py", "pkg/__init__.py", "from pkg import models as m\ndef run(x: m.Client):\n    x.m()\n", "\"package\"\n", "models = other\n", Some(("pkg/models.py", "class Client:\n    def m(self): pass\n"))),
+        ] {
+            for (before, after, expected) in [(bad, good, true), (good, bad, false)] {
+                let sources = |body: &str| {
+                    let mut sources = BTreeMap::from([(caller.to_string(), importer.to_string()), (owner.to_string(), body.to_string())]);
+                    if let Some((path, src)) = auxiliary { sources.insert(path.to_string(), src.to_string()); }
+                    sources
+                };
+                let parse = |sources: &BTreeMap<String, String>| sources.iter().map(|(p,s)| (p.clone(), ParsedFile::parse(p,s,language).unwrap())).collect();
+                let before_sources = sources(before);
+                let after_sources = sources(after);
+                let before_files = parse(&before_sources);
+                let after_files = parse(&after_sources);
+                let previous = CodePropertyGraph::build(&before_files);
+                let hashes = compute_file_hashes(&before_sources);
+                let dir = tempfile::tempdir().unwrap();
+                save_cache(&previous, &hashes, false, dir.path()).unwrap();
+                let CacheResult::Hit(loaded) = load_cache(&hashes, false, dir.path()) else { panic!("cache miss"); };
+                let changed = BTreeSet::from([owner.to_string()]);
+                let incremental = CodePropertyGraph::build_incremental(loaded.call_graph, loaded.dfg, &changed, &after_files, None);
+                let full = CodePropertyGraph::build(&after_files);
+                let target = auxiliary.map(|(path,_)| path).unwrap_or(owner);
+                for cg in [&full.call_graph, &incremental.call_graph] {
+                    let site = cg.calls.iter().filter(|(id,_)| id.file == caller && id.name == "run").flat_map(|(_,s)| s).find(|s| s.callee_name == "m").unwrap();
+                    let edges = cg.resolve_call_site(site);
+                    let exact: Vec<_> = edges.iter().filter(|e| e.confidence == ResolutionConfidence::Exact).collect();
+                    assert_eq!(exact.len(), usize::from(expected), "{language:?}: {site:?} {edges:?}");
+                    if expected { assert_eq!(exact[0].target.file, target); }
+                }
+                assert_eq!(full.call_graph.calls, incremental.call_graph.calls, "{language:?}");
+                force_cache_version(dir.path(), 61);
+                assert!(matches!(load_cache(&hashes, false, dir.path()), CacheResult::Miss));
+            }
+        }
+    }
+
+    #[test]
+    fn receiver_authority_cache_subset_and_incremental_parity() {
+        use crate::ast::ParsedFile;
+        use crate::call_graph::CallGraph;
+        use crate::cpg::CodePropertyGraph;
+        use crate::languages::Language;
+        use crate::resolution::ResolutionConfidence;
+
+        for (language, path, class, visible, shadowed) in [
+            (
+                Language::Python,
+                "svc.py",
+                "class Foo:\n    def m(self): pass\n",
+                "def outer():\n    def run():\n        x = Foo()\n        x.m()\n",
+                "def outer(Foo):\n    def run():\n        x = Foo()\n        x.m()\n",
+            ),
+            (
+                Language::JavaScript,
+                "svc.js",
+                "class Foo { m() {} }\n",
+                "function outer() { function run() { const x = new Foo(); x.m(); } }",
+                "function outer(Foo) { function run() { const x = new Foo(); x.m(); } }",
+            ),
+            (
+                Language::TypeScript,
+                "svc.ts",
+                "class Foo { m() {} }\n",
+                "function run(x: Foo) { x.m(); }",
+                "function run<Foo>(x: Foo) { x.m(); }",
+            ),
+            (
+                Language::Tsx,
+                "svc.tsx",
+                "class Foo { m() {} }\n",
+                "function run(x: Foo) { x.m(); }",
+                "function run<Foo>(x: Foo) { x.m(); }",
+            ),
+        ] {
+            let files = |body: &str| {
+                BTreeMap::from([(
+                    path.to_string(),
+                    ParsedFile::parse(path, &format!("{class}{body}"), language).unwrap(),
+                )])
+            };
+            let check = |cg: &CallGraph, expected: bool| {
+                let call = cg
+                    .calls
+                    .iter()
+                    .filter(|(id, _)| id.name == "run")
+                    .flat_map(|(_, calls)| calls)
+                    .find(|s| s.callee_name == "m")
+                    .unwrap();
+                assert_eq!(
+                    call.receiver_type.is_some(),
+                    expected,
+                    "{language:?}: {call:?}"
+                );
+                assert!(call.receiver_materialized);
+                assert_eq!(
+                    cg.resolve_call_site(call)
+                        .iter()
+                        .any(|r| r.confidence == ResolutionConfidence::Exact),
+                    expected,
+                    "{language:?}"
+                );
+            };
+            let only = BTreeSet::from([path.to_string()]);
+            for (before, after, expected) in [(visible, shadowed, false), (shadowed, visible, true)]
+            {
+                let before_files = files(before);
+                let after_files = files(after);
+                let sources = BTreeMap::from([(path.to_string(), format!("{class}{after}"))]);
+                let hashes = compute_file_hashes(&sources);
+                let fresh = CodePropertyGraph::build(&after_files);
+                check(&fresh.call_graph, expected);
+                check(
+                    &CallGraph::build_direct_subset(&after_files, &only),
+                    expected,
+                );
+                let cached = CodePropertyGraph::build(&before_files);
+                let incremental = CodePropertyGraph::build_incremental(
+                    cached.call_graph,
+                    cached.dfg,
+                    &only,
+                    &after_files,
+                    None,
+                );
+                check(&incremental.call_graph, expected);
+                let dir = tempfile::tempdir().unwrap();
+                save_cache(&fresh, &hashes, false, dir.path()).unwrap();
+                let CacheResult::Hit(loaded) = load_cache(&hashes, false, dir.path()) else {
+                    panic!("expected cache hit")
+                };
+                check(&loaded.call_graph, expected);
+                force_cache_version(dir.path(), 59);
+                assert!(matches!(
+                    load_cache(&hashes, false, dir.path()),
+                    CacheResult::Miss
+                ));
+            }
+        }
     }
 
     #[test]

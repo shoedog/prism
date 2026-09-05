@@ -120,6 +120,11 @@ pub struct NodesAtInput {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SymbolSpansInput {
+    pub seed: SeedInput,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CallersInput {
     pub seed: SeedInput,
     pub depth: usize,
@@ -201,6 +206,13 @@ pub fn parse_nodes_at(args: &Value) -> Result<NodesAtInput, ToolError> {
         line,
         verbosity,
         view,
+    })
+}
+
+pub fn parse_symbol_spans(args: &Value) -> Result<SymbolSpansInput, ToolError> {
+    let obj = object(args, "nav_symbol_spans", &["seed"])?;
+    Ok(SymbolSpansInput {
+        seed: parse_seed(required_value(obj, "seed")?)?,
     })
 }
 
@@ -687,6 +699,46 @@ mod tests {
         assert!(parse_nodes_at(&json!({"file":"a.rs","line":1})).is_ok());
         assert!(parse_taint_reaches(&json!({"sources":[]})).is_err());
         assert!(parse_taint_reaches(&json!({"sources":[{"kind":"symbol","name":"f"}]})).is_ok());
+    }
+
+    #[test]
+    fn symbol_spans_input_is_strict_and_normalizes_seed() {
+        let parsed = parse_symbol_spans(&json!({
+            "seed":{"kind":"symbol","name":"f","file":"./src//lib.rs"}
+        }))
+        .unwrap();
+        assert_eq!(
+            parsed.seed,
+            SeedInput::Symbol {
+                name: "f".into(),
+                file: Some("src/lib.rs".into())
+            }
+        );
+        assert!(parse_symbol_spans(&json!({})).is_err());
+        assert!(parse_symbol_spans(&json!({
+            "seed":{"kind":"symbol","name":"f"},
+            "extra":true
+        }))
+        .is_err());
+        assert!(parse_symbol_spans(&json!({
+            "seed":{"kind":"symbol","name":"f","extra":true}
+        }))
+        .is_err());
+        let escaping = parse_symbol_spans(&json!({
+            "seed":{"kind":"loc","file":"/etc/passwd","line":1}
+        }))
+        .unwrap();
+        assert_eq!(
+            escaping.seed,
+            SeedInput::Loc {
+                file: "/etc/passwd".into(),
+                line: 1
+            }
+        );
+        assert!(parse_symbol_spans(&json!({
+            "seed":{"kind":"loc","file":"a.py","line":0}
+        }))
+        .is_err());
     }
 
     #[test]

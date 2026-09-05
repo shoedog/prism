@@ -497,6 +497,7 @@ fn parse_rust_crate_config(
         if !member_deps.is_empty() {
             member_in_repo_deps.insert(manifest_dir.to_string(), member_deps);
         }
+        collect_binary_library_deps(value, manifest_dir, files, &mut cfg.binary_library_deps);
     }
 
     if !parsed_any {
@@ -504,12 +505,117 @@ fn parse_rust_crate_config(
     }
     cfg.edition_uniform =
         anchoring_class_uniform(&editions_seen) && anchoring_class_uniform(&workspace_editions);
+    if !cfg.edition_uniform || cfg.edition < 2018 {
+        cfg.binary_library_deps.clear();
+    }
     crate_roots.extend(cfg.crate_roots);
     cfg.crate_roots = crate_roots.into_iter().collect();
     cfg.workspace_members = workspace_members.into_iter().collect();
     cfg.bin_paths = bin_paths.into_iter().collect();
     cfg.member_in_repo_deps = member_in_repo_deps;
     Some(cfg)
+}
+
+/// Cargo binaries can reference their own package library, without a dependency
+/// table entry. Keep that authority path-addressed and separate from directory-
+/// guessed crate names and the legacy single `lib_path` field.
+fn collect_binary_library_deps(
+    manifest: &toml::Value,
+    dir: &str,
+    files: &BTreeMap<String, ParsedFile>,
+    out: &mut BTreeMap<String, (String, String)>,
+) {
+    let Some(package) = manifest.get("package") else {
+        return;
+    };
+    let lib = manifest.get("lib");
+    if lib.is_some_and(|l| l.get("edition").is_some()) {
+        return;
+    }
+    if (lib.is_none() && package.get("autolib").and_then(|v| v.as_bool()) == Some(false))
+        || lib
+            .and_then(|l| l.get("proc-macro"))
+            .and_then(|v| v.as_bool())
+            == Some(true)
+        || lib
+            .and_then(|l| l.get("crate-type"))
+            .and_then(|v| v.as_array())
+            .is_some_and(|types| {
+                !types
+                    .iter()
+                    .any(|t| matches!(t.as_str(), Some("lib" | "rlib" | "dylib")))
+            })
+    {
+        return;
+    }
+    let Some(name) = lib
+        .and_then(|l| l.get("name"))
+        .or_else(|| package.get("name"))
+        .and_then(|v| v.as_str())
+    else {
+        return;
+    };
+    let name = name.replace('-', "_");
+    if manifest
+        .get("dependencies")
+        .and_then(|v| v.as_table())
+        .is_some_and(|deps| deps.keys().any(|k| k.replace('-', "_") == name))
+    {
+        return; // Do not choose a winner for conflicting extern names.
+    }
+    let lib_rel = lib
+        .and_then(|l| l.get("path"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("src/lib.rs");
+    let Some(library) = normalize_repo_rel(&join_manifest_rel(dir, lib_rel)) else {
+        return;
+    };
+    if !files.contains_key(&library) {
+        return;
+    }
+
+    let mut binaries = BTreeSet::new();
+    let explicit_bins = manifest.get("bin").and_then(|v| v.as_array());
+    // With explicit targets, retain only explicit paths. Inferring Cargo's
+    // name-based auto-target overrides belongs to a broader target model.
+    if explicit_bins.is_none() && package.get("autobins").and_then(|v| v.as_bool()) != Some(false) {
+        let main = join_manifest_rel(dir, "src/main.rs");
+        if files.contains_key(&main) {
+            binaries.insert(main);
+        }
+        let prefix = join_manifest_rel(dir, "src/bin/");
+        for file in files.keys() {
+            if let Some(rest) = file.strip_prefix(&prefix) {
+                if (!rest.contains('/') && rest.ends_with(".rs"))
+                    || rest
+                        .strip_suffix("/main.rs")
+                        .is_some_and(|name| !name.is_empty() && !name.contains('/'))
+                {
+                    binaries.insert(file.clone());
+                }
+            }
+        }
+    }
+    if let Some(bins) = explicit_bins {
+        for bin in bins {
+            // Target-specific edition is outside the uniform-edition graph model.
+            if bin.get("edition").is_some() {
+                continue;
+            }
+            if let Some(path) = bin.get("path").and_then(|v| v.as_str()) {
+                if let Some(path) = normalize_repo_rel(&join_manifest_rel(dir, path)) {
+                    if files.contains_key(&path) {
+                        binaries.insert(path);
+                    }
+                }
+            }
+        }
+    }
+    for binary in binaries {
+        if binary != library {
+            out.insert(binary, (name.clone(), library.clone()));
+        }
+    }
 }
 
 fn parse_edition(raw: &str) -> Option<u16> {

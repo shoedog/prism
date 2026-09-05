@@ -689,9 +689,9 @@ impl ReceiverClassification {
 }
 
 /// Inputs a `ReceiverClassifier` needs to recover a receiver's static type. Borrows
-/// from the ParsedFile/tree of the call's enclosing function. Carries `recv_var` +
-/// `file_imports` because the legacy gate tests `is_recv`/`is_import`
-/// (call_graph.rs). Recover-and-route needs NO GoTypeProvider here.
+/// from the ParsedFile/tree of the call's enclosing function. Carries `recv_var`,
+/// the legacy recursive import map, and structured module-scope import bindings.
+/// Recover-and-route needs NO GoTypeProvider here.
 #[derive(Clone, Copy)]
 pub struct ReceiverCtx<'a> {
     /// Receiver/selector-operand node (e.g. the `type_assertion_expression` in
@@ -712,6 +712,9 @@ pub struct ReceiverCtx<'a> {
     pub recv_var: Option<&'a str>,
     /// Per-file import map (legacy gate: `is_import`).
     pub file_imports: Option<&'a std::collections::BTreeMap<String, String>>,
+    /// Bare imported type names whose module and clean class declaration were
+    /// uniquely proven from the complete build's structured import/class facts.
+    pub proven_imported_receiver_types: Option<&'a BTreeSet<String>>,
 }
 
 /// Swappable receiver-recovery strategy (strangler seam, spec §2). `Sync` because
@@ -794,7 +797,12 @@ fn classify_simple_ident_mode(
     use crate::languages::Language;
     if !matches!(
         ctx.parsed.language,
-        Language::Rust | Language::Go | Language::Python
+        Language::Rust
+            | Language::Go
+            | Language::Python
+            | Language::JavaScript
+            | Language::TypeScript
+            | Language::Tsx
     ) {
         return ReceiverClassification::none();
     }
@@ -807,6 +815,32 @@ fn classify_simple_ident_mode(
     let is_import = ctx.file_imports.map(|m| m.contains_key(q)).unwrap_or(false);
     if !(simple && !is_kw && !is_recv) {
         return ReceiverClassification::none();
+    }
+    if matches!(
+        ctx.parsed.language,
+        Language::JavaScript | Language::TypeScript | Language::Tsx
+    ) {
+        return match ctx
+            .parsed
+            .js_ts_receiver_binding_evidence_at_call(&ctx.fn_node, ctx.receiver_expr)
+        {
+            Some(crate::ast::JsTsReceiverBindingEvidence::Recovered {
+                static_type,
+                recovery,
+                ..
+            }) => ReceiverClassification::recovered(RecoveredReceiver {
+                static_type,
+                owner_identity: None,
+                recovery,
+                go_field_target: None,
+            }),
+            Some(crate::ast::JsTsReceiverBindingEvidence::Materialized) => {
+                ReceiverClassification::materialized_only()
+            }
+            Some(crate::ast::JsTsReceiverBindingEvidence::ClassOwner) | None => {
+                ReceiverClassification::none()
+            }
+        };
     }
     if is_import && !matches!(ctx.parsed.language, Language::Python) {
         return ReceiverClassification::none();
@@ -849,12 +883,27 @@ fn classify_simple_ident_mode(
         return ReceiverClassification::none();
     };
     let static_type = owner_key(&peel_type(&ty));
-    if matches!(ctx.parsed.language, Language::Python)
-        && ctx
+    if matches!(ctx.parsed.language, Language::Python) {
+        let qualified_parts = crate::call_graph::python_qualified_receiver_parts(&static_type);
+        let imported_local = qualified_parts
+            .and_then(|(qualifier, _)| qualifier.split('.').next())
+            .unwrap_or(&static_type);
+        let imports_static_type = ctx
             .file_imports
-            .is_some_and(|m| m.contains_key(&static_type) || m.contains_key("*"))
-    {
-        return ReceiverClassification::materialized_only();
+            .is_some_and(|m| m.contains_key(imported_local));
+        let needs_import_proof = imports_static_type || static_type.contains('.');
+        let has_wildcard = ctx.file_imports.is_some_and(|m| m.contains_key("*"));
+        let imported_type_proven = ctx
+            .proven_imported_receiver_types
+            .is_some_and(|types| types.contains(&static_type));
+        let owner_shadowed = ctx.parsed.python_receiver_owner_shadowed(
+            ctx.fn_node,
+            imported_local,
+            how == ReceiverRecovery::ConstructorLocal || qualified_parts.is_some(),
+        );
+        if has_wildcard || owner_shadowed || (needs_import_proof && !imported_type_proven) {
+            return ReceiverClassification::materialized_only();
+        }
     }
     ReceiverClassification::recovered(RecoveredReceiver {
         static_type,
@@ -2098,14 +2147,14 @@ impl CallGraph {
 
     fn recovered_receiver_direct_method<'a>(
         &'a self,
-        caller_file: &str,
+        defining_file: &str,
         receiver_owner: &str,
         method_name: &str,
         recovered_kind: ResolutionKind,
     ) -> RecoveredDirectMethod<'a> {
         let Some(receiver_span) = self
             .clean_class_spans
-            .get(&(caller_file.to_string(), receiver_owner.to_string()))
+            .get(&(defining_file.to_string(), receiver_owner.to_string()))
         else {
             return RecoveredDirectMethod::Miss;
         };
@@ -2118,16 +2167,17 @@ impl CallGraph {
         let same_class: Vec<&FunctionId> = ids
             .iter()
             .filter(|fid| {
-                fid.file == caller_file && self.method_class_span.get(*fid) == Some(receiver_span)
+                fid.file == defining_file && self.method_class_span.get(*fid) == Some(receiver_span)
             })
+            .filter(|fid| !self.js_ts_static_methods.contains(*fid))
             .collect();
         if same_class.is_empty() {
             return RecoveredDirectMethod::Miss;
         }
-        if same_class
-            .iter()
-            .any(|fid| self.method_class_span_ambiguous.contains(*fid))
-            || same_class.len() != 1
+        if same_class.iter().any(|fid| {
+            self.method_class_span_ambiguous.contains(*fid)
+                || self.js_ts_unproven_instance_methods.contains(*fid)
+        }) || same_class.len() != 1
         {
             return RecoveredDirectMethod::Blocked;
         }
@@ -2449,13 +2499,27 @@ impl CallGraph {
                     && site.receiver_outcome.is_some();
                 let recovered_recv_materialized = matches!(
                     caller_lang,
-                    Some(crate::languages::Language::Python | crate::languages::Language::Go)
+                    Some(
+                        crate::languages::Language::Python
+                            | crate::languages::Language::Go
+                            | crate::languages::Language::JavaScript
+                            | crate::languages::Language::TypeScript
+                            | crate::languages::Language::Tsx
+                    )
                 ) && site.receiver_materialized;
                 let recv_materialized = rust_recv_materialized || recovered_recv_materialized;
+                let js_ts_receiver_lexically_bound = matches!(
+                    caller_lang,
+                    Some(
+                        crate::languages::Language::JavaScript
+                            | crate::languages::Language::TypeScript
+                            | crate::languages::Language::Tsx
+                    )
+                ) && site.receiver_lexically_bound;
 
                 // R3: imported-module qualifier. If an import matches, the
                 // narrowed set is final; empty means the call is external.
-                if !recv_materialized {
+                if !recv_materialized && !js_ts_receiver_lexically_bound {
                     if let Some(file_imports) = self.imports.get(&caller.file) {
                         if let Some(module_path) = file_imports.get(q) {
                             let ids = match self.functions.get(name) {
@@ -2730,40 +2794,93 @@ impl CallGraph {
                             }
                         }
                     }
-                    if caller_lang == Some(crate::languages::Language::Python) {
-                        let clean_key = (caller.file.clone(), recv_ty.to_string());
-                        if self.clean_class_spans.contains_key(&clean_key) {
-                            match self.recovered_receiver_direct_method(
-                                &caller.file,
-                                recv_ty,
-                                name,
-                                recovered_kind,
-                            ) {
-                                RecoveredDirectMethod::Hit(resolved) => {
-                                    return ResolutionOutcome::hit(resolved)
+                    let is_js_ts = matches!(
+                        caller_lang,
+                        Some(
+                            crate::languages::Language::JavaScript
+                                | crate::languages::Language::TypeScript
+                                | crate::languages::Language::Tsx
+                        )
+                    );
+                    if is_js_ts {
+                        if let Some((defining_file, owner)) = self.js_ts_recovered_class_owner(
+                            &caller.file,
+                            recv_ty,
+                            site.receiver_recovery == Some(ReceiverRecovery::TypedParam),
+                        ) {
+                            if let RecoveredDirectMethod::Hit(resolved) = self
+                                .recovered_receiver_direct_method(
+                                    &defining_file,
+                                    &owner,
+                                    name,
+                                    recovered_kind,
+                                )
+                            {
+                                return ResolutionOutcome::hit(resolved);
+                            }
+                        }
+                    } else if caller_lang == Some(crate::languages::Language::Python) {
+                        match crate::call_graph::python_imported_class_route(
+                            &caller.file,
+                            recv_ty,
+                            self.import_bindings.get(&caller.file).map(Vec::as_slice),
+                            &self.indexed_files,
+                            &self.clean_class_spans,
+                            &self.python_inert_initializers,
+                        ) {
+                            crate::call_graph::PythonImportedClassRoute::Proven {
+                                defining_file,
+                                owner,
+                            } => {
+                                if let RecoveredDirectMethod::Hit(resolved) = self
+                                    .recovered_receiver_direct_method(
+                                        &defining_file,
+                                        &owner,
+                                        name,
+                                        recovered_kind,
+                                    )
+                                {
+                                    return ResolutionOutcome::hit(resolved);
                                 }
-                                RecoveredDirectMethod::Blocked => {}
-                                RecoveredDirectMethod::Miss => {
-                                    if let Some(resolved) = self
-                                        .inherited_recovered_receiver_direct_base(
-                                            &caller.file,
-                                            recv_ty,
-                                            name,
-                                            recovered_kind,
-                                        )
-                                    {
-                                        return ResolutionOutcome::hit(resolved);
+                            }
+                            crate::call_graph::PythonImportedClassRoute::Blocked => {}
+                            crate::call_graph::PythonImportedClassRoute::NotImported => {
+                                let clean_key = (caller.file.clone(), recv_ty.to_string());
+                                if self.clean_class_spans.contains_key(&clean_key) {
+                                    match self.recovered_receiver_direct_method(
+                                        &caller.file,
+                                        recv_ty,
+                                        name,
+                                        recovered_kind,
+                                    ) {
+                                        RecoveredDirectMethod::Hit(resolved) => {
+                                            return ResolutionOutcome::hit(resolved)
+                                        }
+                                        RecoveredDirectMethod::Blocked => {}
+                                        RecoveredDirectMethod::Miss => {
+                                            if let Some(resolved) = self
+                                                .inherited_recovered_receiver_direct_base(
+                                                    &caller.file,
+                                                    recv_ty,
+                                                    name,
+                                                    recovered_kind,
+                                                )
+                                            {
+                                                return ResolutionOutcome::hit(resolved);
+                                            }
+                                        }
                                     }
+                                } else if let Some(mut resolved) = self.owner_lookup(recv_ty, name)
+                                {
+                                    for callee in &mut resolved {
+                                        if callee.kind == ResolutionKind::QualifiedOwner {
+                                            callee.kind = recovered_kind;
+                                        }
+                                        // Trait-CHA hits keep TraitCha (dyn Trait receivers).
+                                    }
+                                    return ResolutionOutcome::hit(resolved);
                                 }
                             }
-                        } else if let Some(mut resolved) = self.owner_lookup(recv_ty, name) {
-                            for callee in &mut resolved {
-                                if callee.kind == ResolutionKind::QualifiedOwner {
-                                    callee.kind = recovered_kind;
-                                }
-                                // Trait-CHA hits keep TraitCha (dyn Trait receivers).
-                            }
-                            return ResolutionOutcome::hit(resolved);
                         }
                     } else {
                         if caller_lang == Some(crate::languages::Language::Go) {
@@ -3266,7 +3383,12 @@ impl CallGraph {
                                             ResolutionKind::ImportMember,
                                         ))
                                     }
-                                    _ => {} // fall through to R5
+                                    // An unshadowed JS import names this module's
+                                    // export, not a same-named global function.
+                                    _ if is_js_ts => {
+                                        return ResolutionOutcome::dropped(DropReason::UnknownName)
+                                    }
+                                    _ => {} // Python retains its existing R5 route.
                                 }
                             }
                         }
@@ -4294,6 +4416,7 @@ mod scope_resolution_predicate_tests {
             start_byte: 0,
             end_byte: 0,
             qualifier: None,
+            receiver_lexically_bound: false,
             receiver_type: None,
             receiver_owner_identity: None,
             receiver_local_type_shadowed: false,

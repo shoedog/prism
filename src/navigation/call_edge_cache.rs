@@ -61,7 +61,19 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // preserving the existing func-value-field continuation (CPG remains v54).
 // v24: Go B1 Level-3 callback edges and their source-callee identity enter the
 // resolved navigation topology (paired with CPG v55).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 24;
+// v25: Python unaliased dotted-module receiver ownership adds Exact edges
+// (paired with CPG v56).
+// v26: Python namespace-package submodule receiver ownership adds Exact edges
+// (paired with CPG v57).
+// v27: JS/TS lexical receiver bindings remove shadowed imported-module Exact
+// edges (paired with CPG v58).
+// v28: JS/TS typed-parameter and direct-new receiver recovery adds bounded
+// same-file Exact call edges (paired with CPG v59).
+// v29: receiver authority repair removes unsupported Exact edges (CPG v60).
+// v30: imported JS classes and inert Python packages change Exact edges (CPG v61).
+// v31: type-only TS and explicit-relative Python receiver edges (CPG v62).
+// v32: Rust binary own-library and direct default class receiver edges (CPG v63).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 32;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -394,8 +406,312 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_pinned_for_go_level3_callbacks() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 24);
+    fn sidecar_round_trip_preserves_python_dotted_receiver_edge() {
+        use crate::ast::ParsedFile;
+        use crate::cpg::CpgContext;
+        use crate::languages::Language::Python;
+
+        let files = BTreeMap::from([
+            (
+                "app.py".to_string(),
+                ParsedFile::parse(
+                    "app.py",
+                    "import pkg.models\ndef run(client: pkg.models.Client):\n    client.send()\n",
+                    Python,
+                )
+                .unwrap(),
+            ),
+            (
+                "pkg/models.py".to_string(),
+                ParsedFile::parse(
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                    Python,
+                )
+                .unwrap(),
+            ),
+        ]);
+        let navigation =
+            crate::navigation::NavigationIndex::from_ctx(CpgContext::build(&files, None));
+        let index = navigation.build_resolved_call_edges();
+        let target = index
+            .incoming_by_target
+            .keys()
+            .find(|target| target.file == "pkg/models.py" && target.name == "send")
+            .cloned()
+            .expect("dotted receiver target");
+        let incoming = &index.incoming_by_target[&target];
+        assert_eq!(incoming.len(), 1);
+        assert_eq!(incoming[0].confidence, ResolutionConfidence::Exact);
+        assert_eq!(incoming[0].kind, ResolutionKind::TypedParam);
+
+        let dir = tempfile::tempdir().unwrap();
+        let fingerprint = fixture_fingerprint();
+        save(dir.path(), &fingerprint, &index).unwrap();
+        let loaded = load(dir.path(), &fingerprint).unwrap().unwrap();
+        assert_eq!(loaded.incoming_by_target[&target].len(), 1);
+        assert_eq!(
+            loaded.incoming_by_target[&target][0].kind,
+            ResolutionKind::TypedParam
+        );
+        assert_eq!(
+            loaded.incoming_by_target[&target][0].confidence,
+            ResolutionConfidence::Exact
+        );
+    }
+
+    #[test]
+    fn sidecar_round_trip_preserves_python_namespace_submodule_receiver_edge() {
+        use crate::ast::ParsedFile;
+        use crate::cpg::CpgContext;
+        use crate::languages::Language::Python;
+
+        let files = BTreeMap::from([
+            (
+                "app.py".to_string(),
+                ParsedFile::parse(
+                    "app.py",
+                    "from pkg import models\ndef run(client: models.Client):\n    client.send()\n",
+                    Python,
+                )
+                .unwrap(),
+            ),
+            (
+                "pkg/models.py".to_string(),
+                ParsedFile::parse(
+                    "pkg/models.py",
+                    "class Client:\n    def send(self):\n        pass\n",
+                    Python,
+                )
+                .unwrap(),
+            ),
+        ]);
+        let navigation =
+            crate::navigation::NavigationIndex::from_ctx(CpgContext::build(&files, None));
+        let index = navigation.build_resolved_call_edges();
+        let target = index
+            .incoming_by_target
+            .keys()
+            .find(|target| target.file == "pkg/models.py" && target.name == "send")
+            .cloned()
+            .expect("namespace submodule receiver target");
+        let incoming = &index.incoming_by_target[&target];
+        assert_eq!(incoming.len(), 1);
+        assert_eq!(incoming[0].confidence, ResolutionConfidence::Exact);
+        assert_eq!(incoming[0].kind, ResolutionKind::TypedParam);
+
+        let dir = tempfile::tempdir().unwrap();
+        let fingerprint = fixture_fingerprint();
+        save(dir.path(), &fingerprint, &index).unwrap();
+        let loaded = load(dir.path(), &fingerprint).unwrap().unwrap();
+        assert_eq!(loaded.incoming_by_target[&target].len(), 1);
+        assert_eq!(
+            loaded.incoming_by_target[&target][0].kind,
+            ResolutionKind::TypedParam
+        );
+        assert_eq!(
+            loaded.incoming_by_target[&target][0].confidence,
+            ResolutionConfidence::Exact
+        );
+    }
+
+    #[test]
+    fn sidecar_round_trip_preserves_js_ts_shadowed_receiver_edge_absence() {
+        use crate::ast::ParsedFile;
+        use crate::cpg::CpgContext;
+        use crate::languages::Language::TypeScript;
+
+        let files = BTreeMap::from([
+            (
+                "api.ts".to_string(),
+                ParsedFile::parse("api.ts", "export function m() {}\n", TypeScript).unwrap(),
+            ),
+            (
+                "svc.ts".to_string(),
+                ParsedFile::parse(
+                    "svc.ts",
+                    "import api from './api';\nfunction shadow(api: object) { api.m(); }\nfunction visible(other: object) { api.m(); }\n",
+                    TypeScript,
+                )
+                .unwrap(),
+            ),
+        ]);
+        let navigation =
+            crate::navigation::NavigationIndex::from_ctx(CpgContext::build(&files, None));
+        let index = navigation.build_resolved_call_edges();
+        let target = index
+            .incoming_by_target
+            .keys()
+            .find(|target| target.file == "api.ts" && target.name == "m")
+            .cloned()
+            .expect("visible imported-module target");
+        let incoming = &index.incoming_by_target[&target];
+        assert_eq!(incoming.len(), 1);
+        assert_eq!(incoming[0].caller.name, "visible");
+        assert_eq!(incoming[0].kind, ResolutionKind::ImportQualified);
+
+        let dir = tempfile::tempdir().unwrap();
+        let fingerprint = fixture_fingerprint();
+        save(dir.path(), &fingerprint, &index).unwrap();
+        let loaded = load(dir.path(), &fingerprint).unwrap().unwrap();
+        let loaded_incoming = &loaded.incoming_by_target[&target];
+        assert_eq!(loaded_incoming.len(), 1);
+        assert_eq!(loaded_incoming[0].caller.name, "visible");
+        assert_eq!(loaded_incoming[0].kind, ResolutionKind::ImportQualified);
+    }
+
+    #[test]
+    fn sidecar_round_trip_preserves_js_ts_recovered_receiver_edge() {
+        use crate::ast::ParsedFile;
+        use crate::cpg::CpgContext;
+        use crate::languages::Language::TypeScript;
+
+        let files = BTreeMap::from([(
+            "svc.ts".to_string(),
+            ParsedFile::parse(
+                "svc.ts",
+                "class Foo { m() {} static only() {} }\nfunction run(x: Foo) { x.m(); }\nfunction staticOnly(x: Foo) { x.only(); }\n",
+                TypeScript,
+            )
+            .unwrap(),
+        )]);
+        let navigation =
+            crate::navigation::NavigationIndex::from_ctx(CpgContext::build(&files, None));
+        let index = navigation.build_resolved_call_edges();
+        let target = index
+            .incoming_by_target
+            .keys()
+            .find(|target| target.file == "svc.ts" && target.name == "m")
+            .cloned()
+            .expect("typed receiver target");
+        let incoming = &index.incoming_by_target[&target];
+        assert_eq!(incoming.len(), 1);
+        assert_eq!(incoming[0].kind, ResolutionKind::TypedParam);
+        assert_eq!(incoming[0].confidence, ResolutionConfidence::Exact);
+        assert!(index
+            .incoming_by_target
+            .iter()
+            .filter(|(target, _)| target.file == "svc.ts" && target.name == "only")
+            .flat_map(|(_, incoming)| incoming)
+            .all(|edge| edge.kind != ResolutionKind::TypedParam));
+
+        let dir = tempfile::tempdir().unwrap();
+        let fingerprint = fixture_fingerprint();
+        save(dir.path(), &fingerprint, &index).unwrap();
+        let loaded = load(dir.path(), &fingerprint).unwrap().unwrap();
+        assert_eq!(
+            loaded.incoming_by_target[&target][0].kind,
+            ResolutionKind::TypedParam
+        );
+        assert_eq!(
+            loaded.incoming_by_target[&target][0].confidence,
+            ResolutionConfidence::Exact
+        );
+        assert!(loaded
+            .incoming_by_target
+            .iter()
+            .filter(|(target, _)| target.file == "svc.ts" && target.name == "only")
+            .flat_map(|(_, incoming)| incoming)
+            .all(|edge| edge.kind != ResolutionKind::TypedParam));
+    }
+
+    #[test]
+    fn sidecar_version_is_pinned_for_receiver_authority() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 32);
+    }
+
+    #[test]
+    fn binary_library_sidecar_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("src")).unwrap();
+        for (path, source) in [
+            (
+                "Cargo.toml",
+                "[package]\nname='demo'\nversion='0.1.0'\nedition='2021'",
+            ),
+            ("src/lib.rs", "pub fn target(){}"),
+            (
+                "src/main.rs",
+                "fn visible(){demo::target();} fn shadow(){mod demo {} demo::target();}",
+            ),
+        ] {
+            std::fs::write(dir.path().join(path), source).unwrap();
+        }
+        let repo = crate::repo_loader::load_repo(dir.path()).unwrap();
+        let nav = crate::navigation::NavigationIndex::build(&repo);
+        let index = nav.build_resolved_call_edges();
+        let fingerprint = fixture_fingerprint();
+        save(dir.path(), &fingerprint, &index).unwrap();
+        let loaded = load(dir.path(), &fingerprint).unwrap().unwrap();
+        for index in [&index, &loaded] {
+            let edges: Vec<_> = index
+                .incoming_by_target
+                .iter()
+                .filter(|(target, _)| target.file == "src/lib.rs" && target.name == "target")
+                .flat_map(|(_, edges)| edges)
+                .filter(|edge| edge.confidence == ResolutionConfidence::Exact)
+                .collect();
+            assert_eq!(edges.len(), 1);
+            assert_eq!(edges[0].caller.name, "visible");
+        }
+    }
+
+    #[test]
+    fn imported_receiver_sidecar_round_trip() {
+        use crate::{ast::ParsedFile, cpg::CpgContext, languages::Language};
+        for (lang, caller, owner, source, declaration, init) in [
+            (Language::JavaScript, "app.js", "client.js", "import Alias from './client'; function visible() { const x = new Alias(); x.m(); } function shadow(Alias) { const x = new Alias(); x.m(); }", "export default class Client { m() {} }", None),
+            (Language::TypeScript, "app.ts", "client.ts", "import type Alias from './client'; function visible(x: Alias) { x.m(); } function shadow<Alias>(x: Alias) { x.m(); }", "export default class Client { m() {} }", None),
+            (Language::Tsx, "app.tsx", "client.tsx", "import {type default as Alias} from './client'; function visible(x: Alias) { x.m(); } function shadow<Alias>(x: Alias) { x.m(); }", "export default class Client { m() {} }", None),
+            (Language::TypeScript, "app.ts", "client.ts", "import type {Client as Alias} from './client';\nfunction visible(x: Alias) { x.m(); }\nfunction shadow<Alias>(x: Alias) { x.m(); }", "export class Client { m() {} }", None),
+            (Language::Tsx, "app.tsx", "client.tsx", "import {type Client as Alias} from './client';\nfunction visible(x: Alias) { x.m(); }\nfunction shadow<Alias>(x: Alias) { x.m(); }", "export class Client { m() {} }", None),
+            (Language::Python, "pkg/app.py", "pkg/models.py", "from . import models\ndef visible(x: models.Client):\n    x.m()\ndef shadow(models):\n    x = models.Client()\n    x.m()\n", "class Client:\n    def m(self): pass\n", Some("pkg/__init__.py")),
+            (Language::JavaScript, "app.js", "client.js", "import {Client as Alias} from './client';\nfunction visible() { const x = new Alias(); x.m(); }\nfunction shadow(Alias) { const x = new Alias(); x.m(); }", "export class Client { m() {} }", None),
+            (Language::TypeScript, "app.ts", "client.ts", "import {Client as Alias} from './client';\nfunction visible(x: Alias) { x.m(); }\nfunction shadow<Alias>(x: Alias) { x.m(); }", "export class Client { m() {} }", None),
+            (Language::Tsx, "app.tsx", "client.tsx", "import {Client as Alias} from './client';\nfunction visible(x: Alias) { x.m(); }\nfunction shadow<Alias>(x: Alias) { x.m(); }", "export class Client { m() {} }", None),
+            (Language::Python, "app.py", "pkg/models.py", "from pkg import models\ndef visible(x: models.Client):\n    x.m()\ndef shadow(models):\n    x = models.Client()\n    x.m()\n", "class Client:\n    def m(self): pass\n", Some("pkg/__init__.py")),
+        ] {
+            let mut files = BTreeMap::from([(caller.to_string(), ParsedFile::parse(caller,source,lang).unwrap()), (owner.to_string(), ParsedFile::parse(owner,declaration,lang).unwrap())]);
+            if let Some(init) = init { files.insert(init.to_string(), ParsedFile::parse(init,"",lang).unwrap()); }
+            let nav = crate::navigation::NavigationIndex::from_ctx(CpgContext::build(&files, None));
+            let index = nav.build_resolved_call_edges();
+            let dir = tempfile::tempdir().unwrap();
+            let fingerprint = fixture_fingerprint();
+            save(dir.path(), &fingerprint, &index).unwrap();
+            let loaded = load(dir.path(), &fingerprint).unwrap().unwrap();
+            for index in [&index, &loaded] {
+                let edges: Vec<_> = index.incoming_by_target.iter().filter(|(target,_)| target.name == "m" && target.file == owner).flat_map(|(_,edges)| edges).filter(|e| e.confidence == ResolutionConfidence::Exact).collect();
+                assert_eq!(edges.len(), 1, "{lang:?}");
+                assert_eq!(edges[0].caller.name, "visible");
+            }
+        }
+    }
+
+    #[test]
+    fn receiver_authority_sidecar_round_trip() {
+        use crate::ast::ParsedFile;
+        use crate::cpg::CpgContext;
+        use crate::languages::Language;
+        for (language, file, src) in [
+            (Language::Python, "svc.py", "class Foo:\n    def m(self): pass\ndef visible():\n    x = Foo()\n    x.m()\ndef outer(Foo):\n    def shadow():\n        x = Foo()\n        x.m()\n"),
+            (Language::JavaScript, "svc.js", "class Foo { m() {} }\nfunction visible() { const x = new Foo(); x.m(); }\nfunction outer(Foo) { function shadow() { const x = new Foo(); x.m(); } }"),
+            (Language::TypeScript, "svc.ts", "class Foo { m() {} }\nfunction visible(x: Foo) { x.m(); }\nfunction shadow<Foo>(x: Foo) { x.m(); }"),
+            (Language::Tsx, "svc.tsx", "class Foo { m() {} }\nfunction visible(x: Foo) { x.m(); }\nfunction shadow<Foo>(x: Foo) { x.m(); }"),
+        ] {
+            let files = BTreeMap::from([(file.to_string(), ParsedFile::parse(file, src, language).unwrap())]);
+            let nav = crate::navigation::NavigationIndex::from_ctx(CpgContext::build(&files, None));
+            let index = nav.build_resolved_call_edges();
+            let dir = tempfile::tempdir().unwrap();
+            let fingerprint = fixture_fingerprint();
+            save(dir.path(), &fingerprint, &index).unwrap();
+            let loaded = load(dir.path(), &fingerprint).unwrap().unwrap();
+            for index in [&index, &loaded] {
+                let exact: Vec<_> = index.incoming_by_target.iter().filter(|(target, _)| target.name == "m")
+                    .flat_map(|(_, edges)| edges).filter(|edge| edge.confidence == ResolutionConfidence::Exact).collect();
+                assert_eq!(exact.len(), 1, "{language:?}");
+                assert_eq!(exact[0].caller.name, "visible", "{language:?}");
+            }
+        }
     }
 
     #[test]

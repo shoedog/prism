@@ -152,12 +152,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn registry_lists_six_tools_with_annotations() {
+    fn registry_lists_seven_tools_with_annotations() {
         let r = ToolRegistry::nav_v1();
         assert_eq!(
             r.list().iter().map(|d| d.name).collect::<Vec<_>>(),
             [
                 "nav_nodes_at",
+                "nav_symbol_spans",
                 "nav_callers",
                 "nav_callees",
                 "nav_ego_graph",
@@ -207,12 +208,12 @@ mod tests {
         let reason = ToolRegistry::reason_v1();
         let all = ToolRegistry::all_v1();
 
-        assert_eq!(nav.list().len(), 6);
+        assert_eq!(nav.list().len(), 7);
         assert_eq!(
             reason.list().iter().map(|d| d.name).collect::<Vec<_>>(),
             ["taint_reaches"]
         );
-        assert_eq!(all.list().len(), 8);
+        assert_eq!(all.list().len(), 9);
         assert!(all.get("taint_reaches").is_some());
         assert_eq!(
             all.get("refresh_index").unwrap().runtime_behavior,
@@ -223,6 +224,6 @@ mod tests {
         assert_eq!(refresh["annotations"]["destructiveHint"], false);
         assert_eq!(refresh["annotations"]["idempotentHint"], false);
         assert_eq!(refresh["annotations"]["openWorldHint"], false);
-        assert_eq!(nav.list().len(), 6);
+        assert_eq!(nav.list().len(), 7);
     }
 }

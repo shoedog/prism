@@ -1,4 +1,5 @@
 use serde::Serialize;
+use std::collections::BTreeMap;
 
 pub use crate::cpg::OrderingUnavailableReason;
 pub use crate::reasoning::types::{
@@ -112,6 +113,34 @@ pub struct Warning {
     pub kind: WarningKind,
     pub message: String,
     pub location: Option<Location>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct InsertionAnchor {
+    pub file: String,
+    pub line: usize,
+    pub byte: usize,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct IndentationContext {
+    pub symbol: Option<String>,
+    pub body: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct SymbolSpans {
+    pub schema_version: &'static str,
+    pub query: String,
+    pub symbol: SymbolRef,
+    pub symbol_span: Location,
+    pub name_span: Option<Location>,
+    pub body_span: Option<Location>,
+    pub insert_before: InsertionAnchor,
+    pub insert_after: InsertionAnchor,
+    pub indentation: IndentationContext,
+    pub unavailable: BTreeMap<String, String>,
+    pub warnings: Vec<Warning>,
 }
 
 /// A node in a graph-shaped result (`ego`, `repo-map`).

@@ -1625,6 +1625,118 @@ fn collision_warning(count: usize, sites: &[(String, usize)]) -> Warning {
     }
 }
 
+/// Exact, read-only callable edit coordinates for a uniquely resolved seed.
+pub fn symbol_spans(
+    s: &NavigationSession,
+    symbol: Option<&str>,
+    file: Option<&str>,
+    location: Option<&str>,
+) -> Result<SymbolSpans, QueryError> {
+    fn ast_location(file: &str, span: &crate::ast::AstNodeSpan) -> Location {
+        Location {
+            file: file.to_string(),
+            start_line: span.start_line,
+            end_line: span.end_line,
+            start_byte: span.start_byte,
+            end_byte: span.end_byte,
+        }
+    }
+
+    let resolved = seed::resolve_fn(s, symbol, file, location)?;
+    let SymbolRef::Function {
+        file,
+        name,
+        start_line,
+        end_line,
+        start_byte,
+        end_byte,
+        ..
+    } = &resolved.symbol
+    else {
+        unreachable!("resolve_fn returns only function symbols")
+    };
+    let symbol_span = Location {
+        file: file.clone(),
+        start_line: *start_line,
+        end_line: *end_line,
+        start_byte: *start_byte,
+        end_byte: *end_byte,
+    };
+    let mut unavailable = BTreeMap::new();
+    let structure = s
+        .repo
+        .files
+        .get(file)
+        .and_then(|parsed| parsed.function_ast_spans(*start_byte, *end_byte));
+
+    let (name_span, body_span, symbol_indentation, body_indentation) = match structure {
+        Some(structure) => {
+            let name_span = structure.name.as_ref().map(|span| ast_location(file, span));
+            if name_span.is_none() {
+                unavailable.insert(
+                    "name_span".into(),
+                    "callable grammar node has no name".into(),
+                );
+            }
+            let body_span = structure.body.as_ref().map(|span| ast_location(file, span));
+            if body_span.is_none() {
+                unavailable.insert(
+                    "body_span".into(),
+                    "callable grammar node has no body field".into(),
+                );
+            }
+            let symbol_indentation = match structure.symbol_indentation {
+                Ok(value) => Some(value),
+                Err(reason) => {
+                    unavailable.insert("indentation.symbol".into(), reason.into());
+                    None
+                }
+            };
+            let body_indentation = match structure.body_indentation {
+                Ok(value) => Some(value),
+                Err(reason) => {
+                    unavailable.insert("indentation.body".into(), reason.into());
+                    None
+                }
+            };
+            (name_span, body_span, symbol_indentation, body_indentation)
+        }
+        None => {
+            let reason = "current parsed file has no exact callable byte identity";
+            unavailable.insert("name_span".into(), reason.into());
+            unavailable.insert("body_span".into(), reason.into());
+            unavailable.insert("indentation.symbol".into(), reason.into());
+            unavailable.insert("indentation.body".into(), "body span unavailable".into());
+            (None, None, None, None)
+        }
+    };
+
+    Ok(SymbolSpans {
+        schema_version: "1.0",
+        query: format!("symbol-spans:{name}@{file}"),
+        symbol: resolved.symbol.clone(),
+        symbol_span: symbol_span.clone(),
+        name_span,
+        body_span,
+        insert_before: InsertionAnchor {
+            file: file.clone(),
+            line: symbol_span.start_line,
+            byte: symbol_span.start_byte,
+        },
+        insert_after: InsertionAnchor {
+            file: file.clone(),
+            line: symbol_span.end_line,
+            byte: symbol_span.end_byte,
+        },
+        indentation: IndentationContext {
+            symbol: symbol_indentation,
+            body: body_indentation,
+        },
+        unavailable,
+        warnings: vec![],
+    })
+}
+
 /// Exact CPG nodes at `file:line` (Function/Variable only, spec §8 R3-M3) plus the
 /// innermost enclosing function as `EnclosingFunction` evidence.
 pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {

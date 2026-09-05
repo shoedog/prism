@@ -31,6 +31,8 @@ pub const MAX_REEXPORT_DEPTH: usize = 2;
 pub enum JsExportTarget {
     /// A function / const-arrow / function-expression declared in this same file.
     Local(String),
+    /// Direct named class declaration. Never a callable-function export.
+    Class(String),
     /// `export { imported as exported_name } from './y'` (also used for the
     /// re-export half of barrel resolution). `imported` is the name as
     /// declared/exported in the target module (`"default"` for a default
@@ -46,6 +48,12 @@ pub enum JsExportTarget {
 /// (`import_bindings`, `module_bindings`): removed/merged wholesale per file.
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct JsExportFacts {
+    /// Local names introduced by top-level ESM named or default value imports.
+    /// Syntax provenance only; eligible binding and class proof are separate.
+    pub esm_named_imports: BTreeSet<String>,
+    /// Type namespace only: local -> (module, exported class name). None is a
+    /// duplicate/conflicting or unsupported import, and must remain terminal.
+    pub type_only_imports: BTreeMap<String, Option<(String, String)>>,
     /// Exported name (what an importer writes: `"default"`, `"process"`,
     /// `"c"`, ...) -> target.
     pub named: BTreeMap<String, JsExportTarget>,
@@ -67,6 +75,8 @@ pub struct JsExportFacts {
 impl JsExportFacts {
     pub fn is_empty(&self) -> bool {
         self.named.is_empty()
+            && self.esm_named_imports.is_empty()
+            && self.type_only_imports.is_empty()
             && self.star_reexports.is_empty()
             && self.skipped_expr_count == 0
             && self.conflicted.is_empty()
@@ -132,7 +142,7 @@ pub fn resolve_js_exports(
         let mut per_file = BTreeMap::new();
         for name in names {
             let mut visited = BTreeSet::new();
-            if let Some(hit) =
+            if let Some((hit, false)) =
                 resolve_one(raw, resolve_module, file, &name, 0, &mut visited, &mut out)
             {
                 per_file.insert(name, hit);
@@ -210,7 +220,7 @@ fn resolve_one(
     hops: usize,
     visited: &mut BTreeSet<(String, String)>,
     telemetry: &mut JsExportResolution,
-) -> Option<ResolvedJsExport> {
+) -> Option<(ResolvedJsExport, bool)> {
     let key = (file.to_string(), name.to_string());
     if !visited.insert(key.clone()) {
         telemetry.chain_unresolved += 1;
@@ -229,7 +239,7 @@ fn resolve_one_inner(
     hops: usize,
     visited: &mut BTreeSet<(String, String)>,
     telemetry: &mut JsExportResolution,
-) -> Option<ResolvedJsExport> {
+) -> Option<(ResolvedJsExport, bool)> {
     let facts = raw.get(file)?;
 
     // F3 (review-fix wave, codex MAJOR 1): a name with 2+ raw fact
@@ -242,10 +252,14 @@ fn resolve_one_inner(
 
     if let Some(target) = facts.named.get(name) {
         return match target {
-            JsExportTarget::Local(local) => Some(ResolvedJsExport {
-                file: file.to_string(),
-                local_name: local.clone(),
-            }),
+            // Class identity participates in conflicts, never callable projection.
+            JsExportTarget::Class(local) | JsExportTarget::Local(local) => Some((
+                ResolvedJsExport {
+                    file: file.to_string(),
+                    local_name: local.clone(),
+                },
+                matches!(target, JsExportTarget::Class(_)),
+            )),
             JsExportTarget::ReExport {
                 module_path,
                 imported,
@@ -277,7 +291,7 @@ fn resolve_one_inner(
         telemetry.chain_unresolved += 1;
         return None;
     }
-    let mut candidates: BTreeSet<(String, String)> = BTreeSet::new();
+    let mut candidates: BTreeSet<(String, String, bool)> = BTreeSet::new();
     for module_path in &facts.star_reexports {
         let Some(target_file) = resolve_module(file, module_path) else {
             continue;
@@ -286,7 +300,7 @@ fn resolve_one_inner(
         // spuriously "cycle" each other out, only a genuine repeated
         // (file, name) on ONE path should.
         let mut branch_visited = visited.clone();
-        if let Some(hit) = resolve_one(
+        if let Some((hit, is_class)) = resolve_one(
             raw,
             resolve_module,
             &target_file,
@@ -295,14 +309,14 @@ fn resolve_one_inner(
             &mut branch_visited,
             telemetry,
         ) {
-            candidates.insert((hit.file, hit.local_name));
+            candidates.insert((hit.file, hit.local_name, is_class));
         }
     }
     match candidates.len() {
         0 => None,
         1 => {
-            let (file, local_name) = candidates.into_iter().next().unwrap();
-            Some(ResolvedJsExport { file, local_name })
+            let (file, local_name, is_class) = candidates.into_iter().next().unwrap();
+            Some((ResolvedJsExport { file, local_name }, is_class))
         }
         _ => {
             telemetry.barrel_conflicts += 1;
@@ -317,6 +331,8 @@ mod tests {
 
     fn facts(named: &[(&str, JsExportTarget)], star: &[&str]) -> JsExportFacts {
         JsExportFacts {
+            esm_named_imports: BTreeSet::new(),
+            type_only_imports: BTreeMap::new(),
             named: named
                 .iter()
                 .map(|(k, v)| (k.to_string(), v.clone()))

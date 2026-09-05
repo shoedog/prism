@@ -188,6 +188,90 @@ fn nav_nodes_at_rejects_unknown_format() {
 }
 
 #[test]
+fn nav_symbol_spans_json_and_text_on_fixture_without_source_echo() {
+    let json_out = bin()
+        .args([
+            "nav",
+            "symbol-spans",
+            "--repo",
+            REPO,
+            "--symbol",
+            "f",
+            "--file",
+            "a.py",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        json_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&json_out.stderr)
+    );
+    let value: serde_json::Value = serde_json::from_slice(&json_out.stdout).unwrap();
+    assert_eq!(value["schema_version"], "1.0");
+    assert_eq!(value["query"], "symbol-spans:f@a.py");
+    assert_eq!(value["symbol_span"]["file"], "a.py");
+    assert!(value["name_span"]["start_byte"].is_number());
+    assert!(value["body_span"]["end_byte"].is_number());
+    assert!(!String::from_utf8_lossy(&json_out.stdout).contains("y = x + 1"));
+
+    let text_out = bin()
+        .args([
+            "nav",
+            "symbol-spans",
+            "--repo",
+            REPO,
+            "--location",
+            "a.py:2",
+            "--format",
+            "text",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        text_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&text_out.stderr)
+    );
+    let text = String::from_utf8_lossy(&text_out.stdout);
+    assert!(text.contains("symbol_span"));
+    assert!(text.contains("name_span"));
+    assert!(text.contains("body_span"));
+    assert!(!text.contains("y = x + 1"));
+}
+
+#[test]
+fn nav_symbol_spans_requires_one_valid_seed_shape() {
+    let cases = [
+        vec!["nav", "symbol-spans", "--repo", REPO],
+        vec![
+            "nav",
+            "symbol-spans",
+            "--repo",
+            REPO,
+            "--symbol",
+            "f",
+            "--location",
+            "a.py:1",
+        ],
+        vec!["nav", "symbol-spans", "--repo", REPO, "--file", "a.py"],
+    ];
+
+    for args in cases {
+        let out = bin().args(args).output().unwrap();
+        assert_eq!(
+            out.status.code(),
+            Some(2),
+            "invalid seed shape must fail in clap; stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert!(out.stdout.is_empty());
+    }
+}
+
+#[test]
 fn nav_callers_json_on_fixture() {
     let out = bin()
         .args([
@@ -543,4 +627,197 @@ fn callees_resolves_scoped_dispatch_dogfood() {
         resolved_cross_file > 0,
         "dispatch should resolve scoped algorithm callees cross-file; got {resolved_cross_file}"
     );
+}
+
+#[test]
+fn onboard_emits_markdown_by_default_and_typed_json_on_request() {
+    let markdown = bin()
+        .args(["nav", "--no-cache", "onboard", "--repo", CG])
+        .output()
+        .unwrap();
+    assert!(
+        markdown.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&markdown.stderr)
+    );
+    let text = String::from_utf8(markdown.stdout).unwrap();
+    assert!(text.starts_with("# Prism project overview\n"));
+    assert!(text.contains("## Inventory\n"));
+    assert!(text.contains("## Module architecture\n"));
+    assert!(text.contains("## Call resolution\n"));
+    assert!(text.ends_with('\n'));
+
+    let json = bin()
+        .args([
+            "nav",
+            "--no-cache",
+            "onboard",
+            "--repo",
+            CG,
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        json.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&json.stderr)
+    );
+    assert!(json.stdout.ends_with(b"\n"));
+    let value: serde_json::Value = serde_json::from_slice(&json.stdout).unwrap();
+    assert_eq!(value["schema_version"], "1.0");
+    assert_eq!(value["inventory"]["indexed_files"], 2);
+    assert_eq!(value["modules"]["edges"], 1);
+    assert!(value["modules"]["connected"].as_array().unwrap().len() <= 12);
+}
+
+#[test]
+fn onboard_repo_dot_reports_the_canonical_repository_basename() {
+    let repo = tempfile::tempdir().unwrap();
+    std::fs::write(repo.path().join("app.py"), "def run():\n    return 1\n").unwrap();
+    let expected = repo.path().file_name().unwrap().to_string_lossy();
+    let out = bin()
+        .current_dir(repo.path())
+        .args([
+            "nav",
+            "--no-cache",
+            "onboard",
+            "--repo",
+            ".",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let value: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(value["project"], expected.as_ref());
+}
+
+#[test]
+fn onboard_out_is_create_new_and_preserves_existing_bytes() {
+    let dir = tempfile::tempdir().unwrap();
+    let out_path = dir.path().join("overview.json");
+    let out_arg = out_path.to_str().unwrap();
+    let first = bin()
+        .args([
+            "nav",
+            "--no-cache",
+            "onboard",
+            "--repo",
+            CG,
+            "--format",
+            "json",
+            "--out",
+            out_arg,
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        first.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    assert!(first.stdout.is_empty());
+    let original = std::fs::read(&out_path).unwrap();
+    let _: serde_json::Value = serde_json::from_slice(&original).unwrap();
+
+    let second = bin()
+        .args([
+            "nav",
+            "--no-cache",
+            "onboard",
+            "--repo",
+            CG,
+            "--format",
+            "json",
+            "--out",
+            out_arg,
+        ])
+        .output()
+        .unwrap();
+    assert!(!second.status.success());
+    assert!(second.stdout.is_empty());
+    assert_eq!(std::fs::read(&out_path).unwrap(), original);
+    assert!(String::from_utf8_lossy(&second.stderr).contains("already exists"));
+}
+
+#[test]
+fn onboard_out_requires_an_existing_parent_directory() {
+    let dir = tempfile::tempdir().unwrap();
+    let out_path = dir.path().join("missing").join("overview.md");
+    let out = bin()
+        .args([
+            "nav",
+            "--no-cache",
+            "onboard",
+            "--repo",
+            CG,
+            "--out",
+            out_path.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    assert!(out.stdout.is_empty());
+    assert!(!out_path.exists());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("failed to create onboarding report"));
+}
+
+#[test]
+fn onboard_rejects_unknown_format_before_loading_repo() {
+    let out = bin()
+        .args([
+            "nav",
+            "onboard",
+            "--repo",
+            "/path/that/does/not/exist",
+            "--format",
+            "text",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("invalid value"));
+}
+
+#[test]
+fn onboard_warms_cpg_and_resolved_call_edge_caches() {
+    let repo = tempfile::tempdir().unwrap();
+    std::fs::write(
+        repo.path().join("main.py"),
+        "import util\n\ndef run():\n    return util.helper()\n",
+    )
+    .unwrap();
+    std::fs::write(repo.path().join("util.py"), "def helper():\n    return 1\n").unwrap();
+    let cache = tempfile::tempdir().unwrap();
+
+    let out = bin()
+        .args([
+            "nav",
+            "--cache-dir",
+            cache.path().to_str().unwrap(),
+            "onboard",
+            "--repo",
+            repo.path().to_str().unwrap(),
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let loaded = load_repo(repo.path()).unwrap();
+    let cache_dir = nav_cache_subdir(cache.path(), &loaded);
+    assert!(cache_dir.join("cpg-cache.bin").exists());
+    assert!(cache_dir.join("resolved-call-edge-index.bin").exists());
 }

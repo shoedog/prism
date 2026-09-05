@@ -2,7 +2,7 @@
 name: prism-code-navigation
 description: >-
   Navigate a codebase STRUCTURALLY with the prism MCP nav tools (nav_repo_map, nav_nodes_at,
-  nav_callers, nav_callees, nav_ego_graph, nav_module_deps) instead of grepping or reading files
+  nav_symbol_spans, nav_callers, nav_callees, nav_ego_graph, nav_module_deps) instead of grepping or reading files
   blindly. Use when reviewing a change, writing a spec, planning an edit or refactor, or analyzing
   impact and you need to know who calls a symbol, what it calls, what breaks if you change it, the
   call/dependency graph around it, or the repo's module layout — "find callers/callees", "impact /
@@ -43,6 +43,7 @@ it points at. Reading first and grepping for callers gives a slower, incomplete 
 |---|---|
 | Where am I? what's the module structure? | `nav_repo_map` (no args) |
 | What's defined/called at this exact line? | `nav_nodes_at({file, line})` |
+| What exact callable coordinates should my editor use? | `nav_symbol_spans({seed})` |
 | Who calls `X`? what breaks if I change it? what would a change touch? | `nav_callers` |
 | What does `X` call / depend on? | `nav_callees` |
 | The local graph around `X`? | `nav_ego_graph` |
@@ -59,7 +60,9 @@ prism **`slicing` CLI**. You want *literal* text, comments, strings, or config �
    or by location `nav_nodes_at({file, line})` → take a node from the result.
 3. **Expand** with the *one* tool that answers the question — `nav_callers` for impact-of-change,
    `nav_callees` for dependencies, `nav_ego_graph` for the neighborhood. One hop usually suffices.
-4. **Stop.** The graph is the evidence. Summarize callers/callees as `file:line`, then read the specific
+4. **Locate an edit only when needed** with `nav_symbol_spans` on the resolved callable. Use its
+   snapshot-relative byte offsets in your normal editor; Prism does not apply the edit.
+5. **Stop.** The graph is the evidence. Summarize callers/callees as `file:line`, then read the specific
    sites and act. Don't re-query in a loop — this is a *sharpening* step, not the goal.
 
 ## Gotchas (don't skip)
@@ -83,6 +86,9 @@ prism **`slicing` CLI**. You want *literal* text, comments, strings, or config �
   synthetic `<module>` symbol (not independently navigable); it never appears in `nav_callees`.
 - **Lines are 1-indexed; `nav_nodes_at` matches the exact line.** Empty result ⇒ aim at the definition
   or a call line, not a blank/comment/brace line.
+- **`nav_symbol_spans` is callable-only and coordinate-only.** Offsets are end-exclusive UTF-8 bytes;
+  its raw `body_span` may include braces/delimiters, and null fields explain themselves in
+  `unavailable`. It never returns body text or edits source.
 - **Graphs truncate (50 items by default, raise with `max_results` up to 1000; 80 KB byte cap)** and the
   **first call can take ~30 s** (building the CPG); instant after.
 - **Read-only.** These tools never edit or run code. Make changes with your normal file tools.

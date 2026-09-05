@@ -44,6 +44,17 @@ fn is_js_ts_function_like(kind: &str) -> bool {
     )
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum JsTsReceiverBindingEvidence {
+    ClassOwner,
+    Materialized,
+    Recovered {
+        static_type: String,
+        recovery: crate::resolution::ReceiverRecovery,
+        declaration_end_byte: Option<usize>,
+    },
+}
+
 /// Metadata for one extracted call site.
 ///
 /// Threading this struct through the extraction paths that feed
@@ -136,6 +147,22 @@ pub struct FunctionInfo {
     pub owner: Option<String>,
     /// S3 (Go only): receiver variable name (`t` in `func (t *T) m()`).
     pub receiver_var: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AstNodeSpan {
+    pub start_byte: usize,
+    pub end_byte: usize,
+    pub start_line: usize,
+    pub end_line: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FunctionAstSpans {
+    pub name: Option<AstNodeSpan>,
+    pub body: Option<AstNodeSpan>,
+    pub symbol_indentation: Result<String, &'static str>,
+    pub body_indentation: Result<String, &'static str>,
 }
 
 /// One argument of a call, as a source byte-span (the S2 byte-identity anchor).
@@ -512,6 +539,78 @@ impl ParsedFile {
         }
     }
 
+    /// Reconstruct one callable by its exact eager-table byte identity and project
+    /// edit coordinates without returning or copying source text.
+    pub(crate) fn function_ast_spans(
+        &self,
+        start_byte: usize,
+        end_byte: usize,
+    ) -> Option<FunctionAstSpans> {
+        const MAX_INDENTATION_BYTES: usize = 256;
+
+        fn span(node: Node<'_>) -> AstNodeSpan {
+            AstNodeSpan {
+                start_byte: node.start_byte(),
+                end_byte: node.end_byte(),
+                start_line: node.start_position().row + 1,
+                end_line: node.end_position().row + 1,
+            }
+        }
+
+        fn indentation_before(
+            source: &str,
+            byte: usize,
+            non_whitespace_reason: &'static str,
+        ) -> Result<String, &'static str> {
+            let line_start = source.as_bytes()[..byte]
+                .iter()
+                .rposition(|b| *b == b'\n')
+                .map_or(0, |newline| newline + 1);
+            let prefix = &source[line_start..byte];
+            if prefix.len() > MAX_INDENTATION_BYTES {
+                return Err("line indentation exceeds 256-byte limit");
+            }
+            if prefix.bytes().all(|b| matches!(b, b' ' | b'\t')) {
+                Ok(prefix.to_string())
+            } else {
+                Err(non_whitespace_reason)
+            }
+        }
+
+        let info = self
+            .functions
+            .iter()
+            .find(|info| info.start_byte == start_byte && info.end_byte == end_byte)?;
+        let outer = self.reconstruct_function_node(info)?;
+        let inner = self.unwrap_decorated(outer);
+        let name = self.language.function_name(&inner).map(span);
+        let body_node = inner.child_by_field_name("body");
+        let body = body_node.map(span);
+        let symbol_indentation = indentation_before(
+            &self.source,
+            outer.start_byte(),
+            "outer callable is not preceded only by line indentation",
+        );
+        let body_indentation = match body_node {
+            None => Err("body span unavailable"),
+            Some(body) => match body.named_child(0) {
+                None => Err("body has no named child"),
+                Some(child) => indentation_before(
+                    &self.source,
+                    child.start_byte(),
+                    "first named body child is not preceded only by line indentation",
+                ),
+            },
+        };
+
+        Some(FunctionAstSpans {
+            name,
+            body,
+            symbol_indentation,
+            body_indentation,
+        })
+    }
+
     fn all_functions_via_tree(&self) -> Vec<Node<'_>> {
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
@@ -860,6 +959,45 @@ impl ParsedFile {
             &mut go_lexical_rebinding,
             recover_var,
         );
+        if self.language == Language::Python && found.is_some() && bindings == 1 {
+            let mut ancestor =
+                func_node.descendant_for_byte_range(call_start_byte, call_start_byte);
+            while let Some(scope) = ancestor {
+                if scope.id() == func_node.id() {
+                    break;
+                }
+                if matches!(scope.kind(), "for_statement" | "while_statement") {
+                    let mut prefix_bindings = 0;
+                    self.walk_receiver_bindings(
+                        scope,
+                        true,
+                        receiver,
+                        call_line,
+                        call_start_byte,
+                        false,
+                        false,
+                        &mut None,
+                        &mut None,
+                        &mut prefix_bindings,
+                        &mut false,
+                        recover_var,
+                    );
+                    // With one proven binding overall, a binding in this loop's
+                    // prefix is the origin and resets it before each call. An
+                    // origin outside the loop must also survive its back edge.
+                    if prefix_bindings == 0
+                        && self
+                            .function_local_value_bindings(&scope)
+                            .is_none_or(|names| names.contains(receiver))
+                    {
+                        found = None;
+                        bindings += 1;
+                        break;
+                    }
+                }
+                ancestor = scope.parent();
+            }
+        }
         if bindings > 1 {
             return (
                 None,
@@ -1731,7 +1869,9 @@ impl ParsedFile {
                     match child.kind() {
                         "dotted_name" => {
                             let name = self.node_text(&child).to_string();
-                            let alias = name.rsplit('.').next().unwrap_or(&name).to_string();
+                            // Python binds the root for an unaliased dotted import:
+                            // `import pkg.models` creates local `pkg`, not `models`.
+                            let alias = name.split('.').next().unwrap_or(&name).to_string();
                             out.push(ImportBinding {
                                 local: alias,
                                 module_path: name,
@@ -1752,7 +1892,7 @@ impl ParsedFile {
                                     local: alias,
                                     module_path: module,
                                     member: None,
-                                    kind: ImportBindingKind::ModuleImport,
+                                    kind: ImportBindingKind::AliasedModuleImport,
                                     eligible: false,
                                 });
                             }
@@ -2095,6 +2235,48 @@ impl ParsedFile {
         out
     }
 
+    /// An inert initializer cannot install a competing package attribute or
+    /// execute an import hook. Deliberately narrower than a binding-name scan.
+    pub(crate) fn python_inert_initializer(&self) -> bool {
+        if self.language != Language::Python {
+            return false;
+        }
+        let root = self.tree.root_node();
+        if root.has_error() {
+            return false;
+        }
+        let mut cursor = root.walk();
+        let inert = root.named_children(&mut cursor).all(|node| {
+            if matches!(node.kind(), "comment" | "pass_statement") {
+                return true;
+            }
+            if node.kind() != "expression_statement" || node.named_child_count() != 1 {
+                return false;
+            }
+            let Some(value) = node.named_child(0) else {
+                return false;
+            };
+            if value.kind() != "string" {
+                return false;
+            }
+            let text = self.node_text(&value);
+            let prefix = text
+                .split(['\'', '"'])
+                .next()
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            if !matches!(prefix.as_str(), "" | "r" | "u") {
+                return false;
+            }
+            let mut cursor = value.walk();
+            let plain = value
+                .named_children(&mut cursor)
+                .all(|n| n.kind() != "interpolation");
+            plain
+        });
+        inert
+    }
+
     /// Extract JS/TS module-level export facts: exported name (what an
     /// importer writes — `"default"`, `"process"`, a rename target, ...) ->
     /// either a local declaration in this file or a re-export target in
@@ -2113,7 +2295,7 @@ impl ParsedFile {
     /// Out of scope (skipped, counted in `skipped_expr_count` where the
     /// syntax is otherwise a recognized export/CJS-assignment shape but the
     /// value isn't a plain identifier): dynamic `require(expr)`/`import(expr)`,
-    /// TS `export =` CJS interop, class exports, anonymous default
+    /// TS `export =` CJS interop, anonymous/indirect class exports, anonymous default
     /// function/arrow exports, spread in `module.exports = { ...x }`.
     pub fn extract_js_ts_export_facts(&self) -> crate::js_exports::JsExportFacts {
         let mut facts = crate::js_exports::JsExportFacts::default();
@@ -2135,7 +2317,154 @@ impl ParsedFile {
                 _ => {}
             }
         }
+        facts.esm_named_imports = self.js_ts_esm_named_imports(None);
+        facts.type_only_imports = self.js_ts_type_only_imports();
         facts
+    }
+
+    fn js_ts_type_only_imports(&self) -> BTreeMap<String, Option<(String, String)>> {
+        let mut imports = BTreeMap::new();
+        if !matches!(self.language, Language::TypeScript | Language::Tsx)
+            || self.tree.root_node().has_error()
+        {
+            return imports;
+        }
+        fn insert(
+            out: &mut BTreeMap<String, Option<(String, String)>>,
+            local: String,
+            target: Option<(String, String)>,
+        ) {
+            use std::collections::btree_map::Entry;
+            match out.entry(local) {
+                Entry::Vacant(e) => {
+                    e.insert(target);
+                }
+                Entry::Occupied(mut e) => {
+                    e.insert(None);
+                }
+            }
+        }
+        fn walk(
+            parsed: &ParsedFile,
+            node: Node<'_>,
+            module: &str,
+            statement_type_only: bool,
+            out: &mut BTreeMap<String, Option<(String, String)>>,
+        ) {
+            if node.kind() == "import_specifier" {
+                if statement_type_only || parsed.js_ts_import_specifier_is_type_only(node) {
+                    if let Some(name) = node.child_by_field_name("name") {
+                        let imported = parsed.node_text(&name);
+                        let local = node.child_by_field_name("alias").unwrap_or(name);
+                        let target = is_plain_ident(imported)
+                            .then(|| (module.to_string(), imported.to_string()));
+                        insert(out, parsed.node_text(&local).to_string(), target);
+                    }
+                }
+                return;
+            }
+            if statement_type_only
+                && node.kind() == "identifier"
+                && node
+                    .parent()
+                    .is_some_and(|p| matches!(p.kind(), "import_clause" | "namespace_import"))
+            {
+                let target = node
+                    .parent()
+                    .filter(|p| p.kind() == "import_clause")
+                    .map(|_| (module.to_string(), "default".to_string()));
+                insert(out, parsed.node_text(&node).to_string(), target);
+                return;
+            }
+            let mut cursor = node.walk();
+            for child in node.named_children(&mut cursor) {
+                walk(parsed, child, module, statement_type_only, out);
+            }
+        }
+        let root = self.tree.root_node();
+        let mut cursor = root.walk();
+        for statement in root
+            .named_children(&mut cursor)
+            .filter(|n| n.kind() == "import_statement")
+        {
+            if let Some(source) = statement.child_by_field_name("source") {
+                let module = self.node_text(&source).trim_matches(['\'', '"']);
+                walk(
+                    self,
+                    statement,
+                    module,
+                    self.js_ts_import_statement_is_type_only(statement),
+                    &mut imports,
+                );
+            }
+        }
+        fn poison_module_types(
+            parsed: &ParsedFile,
+            node: Node<'_>,
+            imports: &mut BTreeMap<String, Option<(String, String)>>,
+        ) {
+            if matches!(
+                node.kind(),
+                "class_declaration"
+                    | "abstract_class_declaration"
+                    | "interface_declaration"
+                    | "type_alias_declaration"
+                    | "enum_declaration"
+                    | "internal_module"
+                    | "module"
+                    | "import_alias"
+            ) {
+                if let Some(name) = node.child_by_field_name("name") {
+                    // A dotted namespace introduces its first component in the
+                    // enclosing type namespace, not the entire dotted spelling.
+                    let local = parsed
+                        .node_text(&name)
+                        .split('.')
+                        .next()
+                        .unwrap_or_default();
+                    if let Some(target) = imports.get_mut(local) {
+                        *target = None;
+                    }
+                }
+            } else if matches!(
+                node.kind(),
+                "program" | "export_statement" | "ambient_declaration" | "expression_statement"
+            ) {
+                let mut cursor = node.walk();
+                for child in node.named_children(&mut cursor) {
+                    poison_module_types(parsed, child, imports);
+                }
+            }
+        }
+        poison_module_types(self, root, &mut imports);
+        imports
+    }
+
+    fn js_ts_esm_named_imports(&self, only: Option<&str>) -> BTreeSet<String> {
+        let mut names = BTreeSet::new();
+        let root = self.tree.root_node();
+        if root.has_error() {
+            return names;
+        }
+        let mut cursor = root.walk();
+        for node in root.named_children(&mut cursor) {
+            if node.kind() != "import_statement" || self.js_ts_import_statement_is_type_only(node) {
+                continue;
+            }
+            let mut imports = Vec::new();
+            self.collect_js_import_statement_bindings(node, &mut imports);
+            names.extend(
+                imports
+                    .into_iter()
+                    .filter(|b| {
+                        b.kind == crate::call_graph::ImportBindingKind::MemberImport
+                            && only.is_none_or(|name| b.local == name)
+                    })
+                    .map(|b| b.local),
+            );
+        }
+        names.retain(|name| !self.js_ts_module_value_written(name));
+        names
     }
 
     fn js_ts_export_statement_is_default(&self, node: Node<'_>) -> bool {
@@ -2144,6 +2473,24 @@ impl ParsedFile {
             .children(&mut cursor)
             .any(|child| child.kind() == "default");
         found
+    }
+
+    /// The bounded class-export lane accepts only an undecorated named declaration.
+    pub(crate) fn js_ts_named_exported_class<'a>(&self, node: Node<'a>) -> Option<Node<'a>> {
+        if node.kind() != "export_statement" || node.has_error() {
+            return None;
+        }
+        let declaration = node.child_by_field_name("declaration")?;
+        let mut cursor = node.walk();
+        let decorated = node
+            .named_children(&mut cursor)
+            .any(|n| n.kind() == "decorator");
+        let mut cursor = declaration.walk();
+        let decorated = decorated
+            || declaration
+                .named_children(&mut cursor)
+                .any(|n| n.kind() == "decorator");
+        (declaration.kind() == "class_declaration" && !decorated).then_some(declaration)
     }
 
     /// Handle a single top-level `export_statement` node: default exports,
@@ -2226,10 +2573,21 @@ impl ParsedFile {
         }
 
         // `export function name() {}` / `export default function name() {}` /
-        // `export const f = () => {};` / `export class Foo {}` (skipped).
+        // `export const f = () => {};` / directly named `export class Foo {}`.
         if let Some(decl) = node.child_by_field_name("declaration") {
             let is_default = self.js_ts_export_statement_is_default(node);
             match decl.kind() {
+                "class_declaration" if self.js_ts_named_exported_class(node).is_some() => {
+                    if let Some(name) = decl.child_by_field_name("name") {
+                        let name = self.node_text(&name).to_string();
+                        let exported = if is_default {
+                            "default".to_string()
+                        } else {
+                            name.clone()
+                        };
+                        facts.insert_named(exported, JsExportTarget::Class(name));
+                    }
+                }
                 "function_declaration" | "generator_function_declaration" => {
                     if let Some(name) = self.language.function_name(&decl) {
                         let name_text = self.node_text(&name).to_string();
@@ -2436,6 +2794,873 @@ impl ParsedFile {
         out
     }
 
+    /// Whether a simple JS/TS receiver identifier is bound in the lexical scope
+    /// that contains this call. This is deliberately a binding fact, not type
+    /// recovery: later receiver classification may consume it, while import-
+    /// qualified resolution uses it only as a fail-closed shadow guard.
+    pub fn js_ts_receiver_lexically_bound_at_call(
+        &self,
+        func_node: &Node<'_>,
+        receiver_node: Option<Node<'_>>,
+    ) -> bool {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return false;
+        }
+        let Some(receiver) = receiver_node else {
+            return false;
+        };
+        if receiver.kind() != "identifier" {
+            return false;
+        }
+        let receiver_name = self.node_text(&receiver);
+        if !is_plain_ident(receiver_name) {
+            return false;
+        }
+
+        let mut seen_functions = BTreeSet::new();
+        let mut current = Some(receiver);
+        while let Some(node) = current {
+            if is_js_ts_function_like(node.kind()) && seen_functions.insert(node.id()) {
+                if self.js_ts_function_scope_binds_receiver(&node, &receiver, receiver_name) {
+                    return true;
+                }
+            }
+            current = node.parent();
+        }
+
+        if seen_functions.insert(func_node.id())
+            && self.js_ts_function_scope_binds_receiver(func_node, &receiver, receiver_name)
+        {
+            return true;
+        }
+
+        let root = self.tree.root_node();
+        self.js_ts_receiver_binding_reaches_call(root, root.id(), &receiver, receiver_name)
+    }
+
+    /// Call-position-aware JS/TS value-binding evidence for receiver recovery.
+    /// The nearest reaching lexical scope wins. Constructor origins are limited
+    /// to the call's innermost function; typed parameters may be captured by a
+    /// nested callable because their static type remains declared by the outer
+    /// signature.
+    pub(crate) fn js_ts_receiver_binding_evidence_at_call(
+        &self,
+        func_node: &Node<'_>,
+        receiver_node: Option<Node<'_>>,
+    ) -> Option<JsTsReceiverBindingEvidence> {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return None;
+        }
+        let receiver = receiver_node?;
+        if receiver.kind() != "identifier" {
+            return None;
+        }
+        let receiver_name = self.node_text(&receiver);
+        if !is_plain_ident(receiver_name) {
+            return None;
+        }
+
+        let mut seen_functions = BTreeSet::new();
+        let mut current = Some(receiver);
+        let mut function_rank = 0usize;
+        while let Some(node) = current {
+            if is_js_ts_function_like(node.kind()) && seen_functions.insert(node.id()) {
+                if let Some(evidence) = self.js_ts_scope_receiver_binding_evidence(
+                    node,
+                    &receiver,
+                    receiver_name,
+                    function_rank == 0,
+                    true,
+                ) {
+                    return Some(evidence);
+                }
+                function_rank += 1;
+            }
+            current = node.parent();
+        }
+
+        if seen_functions.insert(func_node.id()) {
+            if let Some(evidence) = self.js_ts_scope_receiver_binding_evidence(
+                *func_node,
+                &receiver,
+                receiver_name,
+                false,
+                true,
+            ) {
+                return Some(evidence);
+            }
+        }
+
+        let root = self.tree.root_node();
+        self.js_ts_scope_receiver_binding_evidence(root, &receiver, receiver_name, false, false)
+            .or_else(|| {
+                self.js_ts_receiver_lexically_bound_at_call(func_node, Some(receiver))
+                    .then_some(JsTsReceiverBindingEvidence::Materialized)
+            })
+    }
+
+    fn js_ts_scope_receiver_binding_evidence(
+        &self,
+        root_scope: Node<'_>,
+        receiver: &Node<'_>,
+        receiver_name: &str,
+        allow_constructor: bool,
+        include_parameters: bool,
+    ) -> Option<JsTsReceiverBindingEvidence> {
+        let mut candidates = Vec::new();
+        let mut parse_recovery = false;
+        self.collect_js_ts_receiver_binding_candidates(
+            root_scope,
+            true,
+            root_scope,
+            receiver,
+            receiver_name,
+            allow_constructor,
+            &mut candidates,
+            &mut parse_recovery,
+        );
+
+        if include_parameters {
+            if matches!(
+                root_scope.kind(),
+                "function_declaration"
+                    | "function_expression"
+                    | "generator_function_declaration"
+                    | "generator_function"
+            ) && self
+                .language
+                .function_name(&root_scope)
+                .is_some_and(|name| self.node_text(&name) == receiver_name)
+            {
+                if let Some(distance) = self.js_ts_scope_distance(receiver, root_scope.id()) {
+                    candidates.push((
+                        distance,
+                        root_scope.id(),
+                        JsTsReceiverBindingEvidence::Materialized,
+                    ));
+                }
+            }
+            if let Some(evidence) = self.js_ts_parameter_receiver_binding(root_scope, receiver_name)
+            {
+                if let Some(distance) = self.js_ts_scope_distance(receiver, root_scope.id()) {
+                    candidates.push((distance, root_scope.id(), evidence));
+                }
+            }
+        }
+
+        let nearest = candidates.iter().map(|(distance, _, _)| *distance).min()?;
+        let nearest_candidates: Vec<_> = candidates
+            .into_iter()
+            .filter(|(distance, _, _)| *distance == nearest)
+            .map(|(_, scope_id, evidence)| (scope_id, evidence))
+            .collect();
+        if parse_recovery {
+            return Some(JsTsReceiverBindingEvidence::Materialized);
+        }
+        if nearest_candidates.len() != 1 {
+            return Some(
+                if nearest_candidates.iter().all(|(_, evidence)| {
+                    matches!(evidence, JsTsReceiverBindingEvidence::ClassOwner)
+                }) {
+                    JsTsReceiverBindingEvidence::ClassOwner
+                } else {
+                    JsTsReceiverBindingEvidence::Materialized
+                },
+            );
+        }
+        let (binding_scope_id, evidence) = nearest_candidates.into_iter().next()?;
+        if let JsTsReceiverBindingEvidence::Recovered {
+            declaration_end_byte: Some(declaration_end_byte),
+            ..
+        } = &evidence
+        {
+            if self.js_ts_receiver_written_between(
+                root_scope,
+                binding_scope_id,
+                receiver,
+                receiver_name,
+                *declaration_end_byte,
+            ) {
+                return Some(JsTsReceiverBindingEvidence::Materialized);
+            }
+        }
+        Some(evidence)
+    }
+
+    fn js_ts_parameter_receiver_binding(
+        &self,
+        func_node: Node<'_>,
+        receiver_name: &str,
+    ) -> Option<JsTsReceiverBindingEvidence> {
+        let params = self.find_parameters_node(&func_node)?;
+        let mut matches = Vec::new();
+        let mut cursor = params.walk();
+        for parameter in params.named_children(&mut cursor) {
+            let mut names = BTreeSet::new();
+            self.collect_js_ts_parameter_binding_names(parameter, &mut names);
+            if !names.contains(receiver_name) {
+                continue;
+            }
+            let binding = parameter
+                .child_by_field_name("pattern")
+                .or_else(|| parameter.child_by_field_name("name"))
+                .or_else(|| parameter.child_by_field_name("left"))
+                .or_else(|| (parameter.kind() == "identifier").then_some(parameter));
+            let simple_binding = binding.is_some_and(|binding| {
+                binding.kind() == "identifier" && self.node_text(&binding) == receiver_name
+            });
+            let recovered_type = matches!(self.language, Language::TypeScript | Language::Tsx)
+                .then(|| parameter.child_by_field_name("type"))
+                .flatten()
+                .and_then(|annotation| self.js_ts_simple_type_annotation(annotation));
+            matches.push(if simple_binding {
+                recovered_type.map_or(JsTsReceiverBindingEvidence::Materialized, |static_type| {
+                    JsTsReceiverBindingEvidence::Recovered {
+                        static_type,
+                        recovery: crate::resolution::ReceiverRecovery::TypedParam,
+                        declaration_end_byte: Some(parameter.end_byte()),
+                    }
+                })
+            } else {
+                JsTsReceiverBindingEvidence::Materialized
+            });
+        }
+        match matches.len() {
+            0 => None,
+            1 => matches.pop(),
+            _ => Some(JsTsReceiverBindingEvidence::Materialized),
+        }
+    }
+
+    fn js_ts_simple_type_annotation(&self, annotation: Node<'_>) -> Option<String> {
+        let ty = annotation.named_child(0)?;
+        if ty.kind() != "type_identifier" {
+            return None;
+        }
+        let text = self.node_text(&ty);
+        (is_plain_ident(text) && !self.js_ts_type_name_shadowed(self.tree.root_node(), &ty, text))
+            .then(|| text.to_string())
+    }
+
+    /// Value-binding absence does not prove a TypeScript type name. Only the
+    /// module class is supported; nearer type declarations and generics fence it.
+    fn js_ts_type_name_shadowed(&self, node: Node<'_>, at: &Node<'_>, name: &str) -> bool {
+        if node.kind() == "class"
+            && node
+                .child_by_field_name("name")
+                .is_some_and(|n| self.node_text(&n) == name)
+            && node.start_byte() <= at.start_byte()
+            && at.end_byte() <= node.end_byte()
+        {
+            return true;
+        }
+        if matches!(node.kind(), "type_parameter")
+            && node
+                .child_by_field_name("name")
+                .is_some_and(|n| self.node_text(&n) == name)
+            && node.parent().and_then(|n| n.parent()).is_some_and(|scope| {
+                scope.start_byte() <= at.start_byte() && at.end_byte() <= scope.end_byte()
+            })
+        {
+            return true;
+        }
+        if matches!(
+            node.kind(),
+            "class_declaration"
+                | "abstract_class_declaration"
+                | "interface_declaration"
+                | "type_alias_declaration"
+                | "enum_declaration"
+                | "internal_module"
+                | "module"
+                | "import_alias"
+        ) && node
+            .child_by_field_name("name")
+            .is_some_and(|n| self.node_text(&n) == name)
+        {
+            if let Some(scope) =
+                self.js_ts_nearest_lexical_scope_id(&node, self.tree.root_node().id())
+            {
+                // Module declarations are checked by clean_class_spans at
+                // resolution; retain their existing unsupported-type metadata.
+                if scope != self.tree.root_node().id()
+                    && self.js_ts_scope_distance(at, scope).is_some()
+                {
+                    return true;
+                }
+            }
+        }
+        let mut cursor = node.walk();
+        let found = node
+            .named_children(&mut cursor)
+            .any(|child| self.js_ts_type_name_shadowed(child, at, name));
+        found
+    }
+
+    /// A declaration must finish in a statement list that reaches the call.
+    /// Crossing a conditional, loop, exception handler, or callable is not proof
+    /// of execution. Ordinary nested blocks are transparent.
+    fn receiver_declaration_reaches_call(&self, declaration: Node<'_>, call_byte: usize) -> bool {
+        if declaration.end_byte() > call_byte {
+            return false;
+        }
+        let mut current = declaration.parent();
+        while let Some(node) = current {
+            let statement_list = matches!(
+                node.kind(),
+                "block" | "statement_block" | "module" | "program"
+            );
+            if node.start_byte() <= call_byte && call_byte < node.end_byte() {
+                return statement_list;
+            }
+            if !statement_list
+                && !matches!(
+                    node.kind(),
+                    "expression_statement" | "lexical_declaration" | "variable_declaration"
+                )
+            {
+                return false;
+            }
+            current = node.parent();
+        }
+        false
+    }
+
+    /// Python constructor/local-annotation lookup uses enclosing function scopes.
+    /// A signature annotation is evaluated outside its own function body.
+    pub(crate) fn python_receiver_owner_shadowed(
+        &self,
+        function: Node<'_>,
+        name: &str,
+        include_current: bool,
+    ) -> bool {
+        let mut current = if include_current {
+            Some(function)
+        } else {
+            function.parent()
+        };
+        while let Some(node) = current {
+            if matches!(node.kind(), "function_definition" | "lambda")
+                && self
+                    .function_local_value_bindings(&node)
+                    .is_none_or(|names| names.contains(name))
+            {
+                return true;
+            }
+            current = node.parent();
+        }
+        false
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn collect_js_ts_receiver_binding_candidates(
+        &self,
+        node: Node<'_>,
+        is_root: bool,
+        root_scope: Node<'_>,
+        receiver: &Node<'_>,
+        receiver_name: &str,
+        allow_constructor: bool,
+        out: &mut Vec<(usize, usize, JsTsReceiverBindingEvidence)>,
+        parse_recovery: &mut bool,
+    ) {
+        if node.is_error() || node.is_missing() {
+            *parse_recovery = true;
+            return;
+        }
+
+        let mut push = |scope_id: usize, evidence: JsTsReceiverBindingEvidence| {
+            if let Some(distance) = self.js_ts_scope_distance(receiver, scope_id) {
+                out.push((distance, scope_id, evidence));
+            }
+        };
+
+        if !is_root && is_js_ts_function_like(node.kind()) {
+            if matches!(
+                node.kind(),
+                "function_declaration" | "generator_function_declaration"
+            ) && self
+                .language
+                .function_name(&node)
+                .is_some_and(|name| self.node_text(&name) == receiver_name)
+            {
+                if let Some(scope_id) = self.js_ts_nearest_lexical_scope_id(&node, root_scope.id())
+                {
+                    push(scope_id, JsTsReceiverBindingEvidence::Materialized);
+                }
+            }
+            return;
+        }
+
+        if !is_root
+            && matches!(
+                node.kind(),
+                "interface_declaration" | "type_alias_declaration"
+            )
+        {
+            return;
+        }
+
+        if !is_root
+            && matches!(
+                node.kind(),
+                "class_declaration" | "abstract_class_declaration"
+            )
+        {
+            if node
+                .child_by_field_name("name")
+                .is_some_and(|name| self.node_text(&name) == receiver_name)
+            {
+                if let Some(scope_id) = self.js_ts_nearest_lexical_scope_id(&node, root_scope.id())
+                {
+                    push(scope_id, JsTsReceiverBindingEvidence::ClassOwner);
+                }
+            }
+            return;
+        }
+
+        if !is_root
+            && matches!(
+                node.kind(),
+                "enum_declaration" | "function_signature" | "import_alias"
+            )
+        {
+            let name = node.child_by_field_name("name").or_else(|| {
+                (node.kind() == "import_alias")
+                    .then(|| node.named_child(0))
+                    .flatten()
+            });
+            if name.is_some_and(|name| self.node_text(&name) == receiver_name) {
+                if let Some(scope_id) = self.js_ts_nearest_lexical_scope_id(&node, root_scope.id())
+                {
+                    push(scope_id, JsTsReceiverBindingEvidence::Materialized);
+                }
+            }
+            return;
+        }
+
+        if !is_root && matches!(node.kind(), "internal_module" | "module") {
+            if node.child_by_field_name("name").is_some_and(|name| {
+                name.kind() == "identifier" && self.node_text(&name) == receiver_name
+            }) {
+                if let Some(scope_id) = self.js_ts_nearest_lexical_scope_id(&node, root_scope.id())
+                {
+                    push(scope_id, JsTsReceiverBindingEvidence::Materialized);
+                }
+            }
+            return;
+        }
+
+        match node.kind() {
+            "variable_declarator" => {
+                let mut names = BTreeSet::new();
+                if let Some(name) = node.child_by_field_name("name") {
+                    self.collect_js_ts_binding_pattern_names(name, &mut names);
+                }
+                if names.contains(receiver_name) {
+                    let parent_is_var = node
+                        .parent()
+                        .is_some_and(|parent| parent.kind() == "variable_declaration");
+                    let scope_id = if parent_is_var {
+                        Some(root_scope.id())
+                    } else {
+                        self.js_ts_nearest_lexical_scope_id(&node, root_scope.id())
+                    };
+                    if let Some(scope_id) = scope_id {
+                        let simple_name = node.child_by_field_name("name").is_some_and(|name| {
+                            name.kind() == "identifier" && self.node_text(&name) == receiver_name
+                        });
+                        let evidence = if allow_constructor
+                            && simple_name
+                            && self.receiver_declaration_reaches_call(node, receiver.start_byte())
+                        {
+                            node.child_by_field_name("value")
+                                .and_then(|value| {
+                                    self.js_ts_direct_new_constructor(value, root_scope)
+                                })
+                                .map_or(JsTsReceiverBindingEvidence::Materialized, |static_type| {
+                                    JsTsReceiverBindingEvidence::Recovered {
+                                        static_type,
+                                        recovery:
+                                            crate::resolution::ReceiverRecovery::ConstructorLocal,
+                                        declaration_end_byte: Some(node.end_byte()),
+                                    }
+                                })
+                        } else {
+                            JsTsReceiverBindingEvidence::Materialized
+                        };
+                        push(scope_id, evidence);
+                    }
+                }
+            }
+            "for_in_statement" | "for_of_statement" | "for_await_statement" => {
+                let mut declared = false;
+                let mut is_var = false;
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    match child.kind() {
+                        "var" => {
+                            declared = true;
+                            is_var = true;
+                        }
+                        "let" | "const" => declared = true,
+                        _ => {}
+                    }
+                }
+                if declared {
+                    let mut names = BTreeSet::new();
+                    if let Some(left) = node.child_by_field_name("left") {
+                        self.collect_js_ts_binding_pattern_names(left, &mut names);
+                    }
+                    if names.contains(receiver_name) {
+                        let scope_id = if is_var {
+                            Some(root_scope.id())
+                        } else {
+                            self.js_ts_nearest_lexical_scope_id(&node, root_scope.id())
+                        };
+                        if let Some(scope_id) = scope_id {
+                            push(scope_id, JsTsReceiverBindingEvidence::Materialized);
+                        }
+                    }
+                }
+            }
+            "catch_clause" => {
+                let mut names = BTreeSet::new();
+                self.collect_js_ts_catch_binding_names(node, &mut names);
+                if names.contains(receiver_name) {
+                    if let Some(scope_id) =
+                        self.js_ts_nearest_lexical_scope_id(&node, root_scope.id())
+                    {
+                        push(scope_id, JsTsReceiverBindingEvidence::Materialized);
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        let mut cursor = node.walk();
+        for child in node.named_children(&mut cursor) {
+            self.collect_js_ts_receiver_binding_candidates(
+                child,
+                false,
+                root_scope,
+                receiver,
+                receiver_name,
+                allow_constructor,
+                out,
+                parse_recovery,
+            );
+        }
+    }
+
+    fn js_ts_scope_distance(&self, receiver: &Node<'_>, scope_id: usize) -> Option<usize> {
+        let mut current = Some(*receiver);
+        let mut distance = 0usize;
+        while let Some(node) = current {
+            if node.id() == scope_id {
+                return Some(distance);
+            }
+            current = node.parent();
+            distance += 1;
+        }
+        None
+    }
+
+    /// Fields, accessor results and explicit instance writes are not direct methods.
+    pub(crate) fn js_ts_method_slot_unproven(&self, method: &Node<'_>) -> bool {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return false;
+        }
+        let Some(body) = method.parent().filter(|n| n.kind() == "class_body") else {
+            return false;
+        };
+        let Some(name) = method.child_by_field_name("name") else {
+            return true;
+        };
+        let name = self.node_text(&name);
+        let mut cursor = body.walk();
+        for member in body.named_children(&mut cursor) {
+            if self.js_ts_method_is_static(&member) {
+                continue;
+            }
+            let key = member
+                .child_by_field_name("name")
+                .or_else(|| member.child_by_field_name("property"));
+            if let Some(key) = key {
+                if key.kind() == "computed_property_name" {
+                    return true;
+                }
+                if self.node_text(&key).trim_matches(['\'', '"']) == name {
+                    let mut cursor = member.walk();
+                    let accessor = member
+                        .children(&mut cursor)
+                        .any(|n| matches!(n.kind(), "get" | "set"));
+                    if member.kind() != "method_definition" || accessor {
+                        return true;
+                    }
+                }
+            }
+        }
+        fn writes_this(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
+            if matches!(
+                node.kind(),
+                "assignment_expression" | "augmented_assignment_expression" | "update_expression"
+            ) {
+                let target = node
+                    .child_by_field_name("left")
+                    .or_else(|| node.child_by_field_name("argument"));
+                if let Some(target) = target {
+                    if target
+                        .child_by_field_name("object")
+                        .is_some_and(|n| n.kind() == "this")
+                    {
+                        if target.kind() == "subscript_expression"
+                            || target
+                                .child_by_field_name("property")
+                                .is_some_and(|n| parsed.node_text(&n) == name)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            let mut cursor = node.walk();
+            let written = node
+                .named_children(&mut cursor)
+                .any(|n| writes_this(parsed, n, name));
+            written
+        }
+        writes_this(self, body, name)
+    }
+
+    pub(crate) fn js_ts_method_is_static(&self, method: &Node<'_>) -> bool {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return false;
+        }
+        let mut cursor = method.walk();
+        let found = method
+            .children(&mut cursor)
+            .any(|child| child.kind() == "static");
+        found
+    }
+
+    fn js_ts_direct_new_constructor(
+        &self,
+        value: Node<'_>,
+        function_scope: Node<'_>,
+    ) -> Option<String> {
+        if value.kind() != "new_expression" {
+            return None;
+        }
+        let constructor = value.child_by_field_name("constructor")?;
+        if constructor.kind() != "identifier" {
+            return None;
+        }
+        let text = self.node_text(&constructor);
+        if !is_plain_ident(text) {
+            return None;
+        }
+        let mut scope = Some(function_scope);
+        while let Some(node) = scope {
+            if node.kind() == "class"
+                && node
+                    .child_by_field_name("name")
+                    .is_some_and(|name| self.node_text(&name) == text)
+            {
+                return None;
+            }
+            if is_js_ts_function_like(node.kind())
+                && self
+                    .js_ts_scope_receiver_binding_evidence(node, &constructor, text, false, true)
+                    .is_some()
+            {
+                return None;
+            }
+            scope = node.parent();
+        }
+        let module_evidence = self.js_ts_scope_receiver_binding_evidence(
+            self.tree.root_node(),
+            &constructor,
+            text,
+            false,
+            false,
+        );
+        (matches!(
+            module_evidence,
+            Some(JsTsReceiverBindingEvidence::ClassOwner)
+        ) || (module_evidence.is_none()
+            && self.js_ts_esm_named_imports(Some(text)).contains(text)))
+        .then(|| text.to_string())
+    }
+
+    fn js_ts_receiver_written_between(
+        &self,
+        node: Node<'_>,
+        binding_scope_id: usize,
+        receiver: &Node<'_>,
+        receiver_name: &str,
+        after_byte: usize,
+    ) -> bool {
+        let mut before_byte = receiver.start_byte();
+        let mut ancestor = receiver.parent();
+        while let Some(scope) = ancestor {
+            if is_js_ts_function_like(scope.kind()) {
+                break;
+            }
+            if matches!(
+                scope.kind(),
+                "for_statement"
+                    | "for_in_statement"
+                    | "for_of_statement"
+                    | "for_await_statement"
+                    | "while_statement"
+                    | "do_statement"
+            ) && after_byte <= scope.start_byte()
+            {
+                before_byte = before_byte.max(scope.end_byte());
+            }
+            ancestor = scope.parent();
+        }
+        if node.start_byte() >= before_byte || node.end_byte() <= after_byte {
+            return false;
+        }
+        if matches!(
+            node.kind(),
+            "assignment_expression"
+                | "augmented_assignment_expression"
+                | "update_expression"
+                | "for_in_statement"
+                | "for_of_statement"
+                | "for_await_statement"
+        ) {
+            let target = node
+                .child_by_field_name("left")
+                .or_else(|| node.child_by_field_name("argument"))
+                .or_else(|| node.named_child(0));
+            if let Some(target) = target {
+                let mut written_names = BTreeSet::new();
+                self.collect_js_ts_binding_pattern_names(target, &mut written_names);
+                if written_names.contains(receiver_name)
+                    && !self.js_ts_receiver_has_closer_binding(
+                        &target,
+                        receiver_name,
+                        binding_scope_id,
+                    )
+                {
+                    return true;
+                }
+            }
+        }
+        let mut cursor = node.walk();
+        let found = node.named_children(&mut cursor).any(|child| {
+            self.js_ts_receiver_written_between(
+                child,
+                binding_scope_id,
+                receiver,
+                receiver_name,
+                after_byte,
+            )
+        });
+        found
+    }
+
+    /// A module class/import is a live binding. Any visible write, including in
+    /// an escaping callable, revokes the whole-file owner proof. Shadow writes
+    /// are separated by the same lexical predicate used for receiver mutations.
+    pub(crate) fn js_ts_module_value_written(&self, name: &str) -> bool {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return false;
+        }
+        fn walk(parsed: &ParsedFile, node: Node<'_>, root_id: usize, name: &str) -> bool {
+            if matches!(
+                node.kind(),
+                "assignment_expression"
+                    | "augmented_assignment_expression"
+                    | "update_expression"
+                    | "for_in_statement"
+                    | "for_of_statement"
+                    | "for_await_statement"
+            ) {
+                if let Some(target) = node
+                    .child_by_field_name("left")
+                    .or_else(|| node.child_by_field_name("argument"))
+                    .or_else(|| node.named_child(0))
+                {
+                    let mut names = BTreeSet::new();
+                    parsed.collect_js_ts_binding_pattern_names(target, &mut names);
+                    if names.contains(name)
+                        && !parsed.js_ts_receiver_has_closer_binding(&target, name, root_id)
+                    {
+                        return true;
+                    }
+                }
+            }
+            let mut cursor = node.walk();
+            let written = node
+                .named_children(&mut cursor)
+                .any(|child| walk(parsed, child, root_id, name));
+            written
+        }
+        let root = self.tree.root_node();
+        walk(self, root, root.id(), name)
+    }
+
+    fn js_ts_receiver_has_closer_binding(
+        &self,
+        target: &Node<'_>,
+        receiver_name: &str,
+        binding_scope_id: usize,
+    ) -> bool {
+        let mut current = target.parent();
+        while let Some(scope) = current {
+            if scope.id() == binding_scope_id {
+                return false;
+            }
+            if is_js_ts_function_like(scope.kind()) {
+                if self.js_ts_function_scope_binds_receiver(&scope, target, receiver_name) {
+                    return true;
+                }
+            } else if self.language.is_scope_block(scope.kind())
+                || matches!(
+                    scope.kind(),
+                    "for_statement"
+                        | "for_in_statement"
+                        | "for_of_statement"
+                        | "for_await_statement"
+                        | "switch_statement"
+                        | "switch_body"
+                        | "catch_clause"
+                )
+            {
+                if self.js_ts_receiver_binding_reaches_call(
+                    scope,
+                    scope.id(),
+                    target,
+                    receiver_name,
+                ) {
+                    return true;
+                }
+            }
+            current = scope.parent();
+        }
+        true
+    }
+
     /// Conservative function-local value bindings for callback value-reference
     /// resolution. `None` means this language or syntax is not modeled strongly
     /// enough to prove that a plain identifier is free.
@@ -2522,6 +3747,34 @@ impl ParsedFile {
                     self.collect_local_binding_pattern(alias, out);
                 }
             }
+            (Language::Python, "except_clause" | "except_group_clause") => {
+                if let Some(alias) = node.child_by_field_name("alias") {
+                    self.collect_local_binding_pattern(alias, out);
+                } else {
+                    // tree-sitter-python exposes the regular `except` alias as
+                    // a field, but the `except*` shape has no named fields.
+                    let mut cursor = node.walk();
+                    for child in node.named_children(&mut cursor) {
+                        if child.prev_sibling().is_some_and(|prev| prev.kind() == "as") {
+                            self.collect_local_binding_pattern(child, out);
+                        }
+                    }
+                }
+            }
+            (Language::Python, "delete_statement") => {
+                let mut cursor = node.walk();
+                for target in node.named_children(&mut cursor) {
+                    self.collect_local_binding_pattern(target, out);
+                }
+            }
+            (Language::Python, "type_alias_statement") => {
+                if let Some(left) = node.child_by_field_name("left") {
+                    // A generic alias may wrap the bound name with its type
+                    // parameters. Over-collecting those identifiers is the
+                    // fail-closed choice for imported-root authority.
+                    self.collect_identifier_names(left, out);
+                }
+            }
             (Language::Python, "import_statement" | "import_from_statement") => {
                 // Python imports inside a function bind names in that function's
                 // local namespace. Collecting every identifier is deliberately
@@ -2601,6 +3854,8 @@ impl ParsedFile {
             "pattern_list"
             | "tuple_pattern"
             | "list_pattern"
+            | "list_splat_pattern"
+            | "as_pattern_target"
             | "expression_list"
             | "parenthesized_expression" => {
                 let mut cursor = node.walk();
@@ -2729,6 +3984,253 @@ impl ParsedFile {
         }
     }
 
+    fn js_ts_receiver_binding_reaches_call(
+        &self,
+        node: Node<'_>,
+        root_scope_id: usize,
+        receiver: &Node<'_>,
+        receiver_name: &str,
+    ) -> bool {
+        let is_root = node.id() == root_scope_id;
+
+        if !is_root && is_js_ts_function_like(node.kind()) {
+            return matches!(
+                node.kind(),
+                "function_declaration" | "generator_function_declaration"
+            ) && self
+                .language
+                .function_name(&node)
+                .is_some_and(|name| self.node_text(&name) == receiver_name)
+                && self.js_ts_lexical_scope_reaches_receiver(&node, receiver, root_scope_id);
+        }
+
+        if !is_root && node.kind() == "class_declaration" {
+            return node
+                .child_by_field_name("name")
+                .is_some_and(|name| self.node_text(&name) == receiver_name)
+                && self.js_ts_lexical_scope_reaches_receiver(&node, receiver, root_scope_id);
+        }
+
+        if !is_root && node.kind() == "class" {
+            let self_name_matches = node
+                .child_by_field_name("name")
+                .is_some_and(|name| self.node_text(&name) == receiver_name);
+            let mut current = Some(*receiver);
+            let mut receiver_is_inside = false;
+            while let Some(ancestor) = current {
+                if ancestor.id() == node.id() {
+                    receiver_is_inside = true;
+                    break;
+                }
+                current = ancestor.parent();
+            }
+            return self_name_matches && receiver_is_inside;
+        }
+
+        if !is_root
+            && matches!(
+                node.kind(),
+                "interface_declaration" | "type_alias_declaration"
+            )
+        {
+            return false;
+        }
+
+        if !is_root
+            && matches!(
+                node.kind(),
+                "abstract_class_declaration" | "enum_declaration" | "function_signature"
+            )
+        {
+            return node
+                .child_by_field_name("name")
+                .is_some_and(|name| self.node_text(&name) == receiver_name)
+                && self.js_ts_lexical_scope_reaches_receiver(&node, receiver, root_scope_id);
+        }
+
+        if !is_root && node.kind() == "import_alias" {
+            return node
+                .named_child(0)
+                .is_some_and(|name| self.node_text(&name) == receiver_name)
+                && self.js_ts_lexical_scope_reaches_receiver(&node, receiver, root_scope_id);
+        }
+
+        if !is_root && matches!(node.kind(), "internal_module" | "module") {
+            let name_binds =
+                node.child_by_field_name("name").is_some_and(|name| {
+                    name.kind() == "identifier" && self.node_text(&name) == receiver_name
+                }) && self.js_ts_lexical_scope_reaches_receiver(&node, receiver, root_scope_id);
+            if name_binds {
+                return true;
+            }
+
+            let mut current = Some(*receiver);
+            let mut receiver_is_inside = false;
+            while let Some(ancestor) = current {
+                if ancestor.id() == node.id() {
+                    receiver_is_inside = true;
+                    break;
+                }
+                current = ancestor.parent();
+            }
+            if !receiver_is_inside {
+                return false;
+            }
+        }
+
+        if node.is_error() || node.is_missing() {
+            return true;
+        }
+
+        match node.kind() {
+            "for_in_statement" | "for_of_statement" | "for_await_statement" => {
+                let mut is_var = false;
+                let mut is_lexical = false;
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    match child.kind() {
+                        "var" => is_var = true,
+                        "let" | "const" => is_lexical = true,
+                        _ => {}
+                    }
+                }
+                if is_var || is_lexical {
+                    let mut names = BTreeSet::new();
+                    if let Some(left) = node.child_by_field_name("left") {
+                        self.collect_js_ts_binding_pattern_names(left, &mut names);
+                    }
+                    if names.contains(receiver_name)
+                        && (is_var
+                            || self.js_ts_lexical_scope_reaches_receiver(
+                                &node,
+                                receiver,
+                                root_scope_id,
+                            ))
+                    {
+                        return true;
+                    }
+                }
+            }
+            "variable_declarator" => {
+                let mut names = BTreeSet::new();
+                if let Some(name) = node.child_by_field_name("name") {
+                    self.collect_js_ts_binding_pattern_names(name, &mut names);
+                }
+                if names.contains(receiver_name) {
+                    let is_function_scoped_var = node
+                        .parent()
+                        .is_some_and(|parent| parent.kind() == "variable_declaration");
+                    if is_function_scoped_var
+                        || self.js_ts_lexical_scope_reaches_receiver(&node, receiver, root_scope_id)
+                    {
+                        return true;
+                    }
+                }
+            }
+            "catch_clause" => {
+                let mut names = BTreeSet::new();
+                self.collect_js_ts_catch_binding_names(node, &mut names);
+                if names.contains(receiver_name)
+                    && self.js_ts_lexical_scope_reaches_receiver(&node, receiver, root_scope_id)
+                {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+
+        let mut cursor = node.walk();
+        let found = node.named_children(&mut cursor).any(|child| {
+            self.js_ts_receiver_binding_reaches_call(child, root_scope_id, receiver, receiver_name)
+        });
+        found
+    }
+
+    fn js_ts_function_scope_binds_receiver(
+        &self,
+        func_node: &Node<'_>,
+        receiver: &Node<'_>,
+        receiver_name: &str,
+    ) -> bool {
+        let mut parameters = BTreeSet::new();
+        self.collect_js_ts_parameter_bindings(*func_node, &mut parameters);
+        if parameters.contains(receiver_name) {
+            return true;
+        }
+
+        if matches!(
+            func_node.kind(),
+            "function_declaration"
+                | "function_expression"
+                | "generator_function_declaration"
+                | "generator_function"
+        ) && self
+            .language
+            .function_name(func_node)
+            .is_some_and(|name| self.node_text(&name) == receiver_name)
+        {
+            return true;
+        }
+
+        self.js_ts_receiver_binding_reaches_call(
+            *func_node,
+            func_node.id(),
+            receiver,
+            receiver_name,
+        )
+    }
+
+    fn js_ts_lexical_scope_reaches_receiver(
+        &self,
+        binding: &Node<'_>,
+        receiver: &Node<'_>,
+        root_scope_id: usize,
+    ) -> bool {
+        let Some(scope_id) = self.js_ts_nearest_lexical_scope_id(binding, root_scope_id) else {
+            return false;
+        };
+        let mut current = Some(*receiver);
+        while let Some(node) = current {
+            if node.id() == scope_id {
+                return true;
+            }
+            if node.id() == root_scope_id {
+                return false;
+            }
+            current = node.parent();
+        }
+        false
+    }
+
+    fn js_ts_nearest_lexical_scope_id(
+        &self,
+        binding: &Node<'_>,
+        root_scope_id: usize,
+    ) -> Option<usize> {
+        let mut current = Some(*binding);
+        while let Some(node) = current {
+            if node.id() == root_scope_id {
+                return Some(node.id());
+            }
+            if self.language.is_scope_block(node.kind())
+                || matches!(
+                    node.kind(),
+                    "for_statement"
+                        | "for_in_statement"
+                        | "for_of_statement"
+                        | "for_await_statement"
+                        | "switch_statement"
+                        | "switch_body"
+                        | "catch_clause"
+                )
+            {
+                return Some(node.id());
+            }
+            current = node.parent();
+        }
+        None
+    }
+
     fn collect_js_ts_catch_binding_names(&self, node: Node<'_>, out: &mut BTreeSet<String>) {
         if let Some(param) = node.child_by_field_name("parameter") {
             self.collect_js_ts_binding_pattern_names(param, out);
@@ -2773,7 +4275,9 @@ impl ParsedFile {
                     match c.kind() {
                         "dotted_name" => {
                             let name = text(&c);
-                            let alias = name.rsplit('.').next().unwrap_or(&name).to_string();
+                            // Keep occurrence-clean eligibility keyed by the name
+                            // Python actually binds for `import pkg.models`.
+                            let alias = name.split('.').next().unwrap_or(&name).to_string();
                             out.entry(alias).or_insert(ModuleBindingKind::Import);
                         }
                         "aliased_import" => {
@@ -7081,7 +8585,9 @@ impl ParsedFile {
                 if let Some(left) = left {
                     if self.simple_binding_text(&left).as_deref() == Some(receiver) {
                         *bindings += 1;
-                        if let Some(ty) = node.child_by_field_name("type") {
+                        if !self.receiver_declaration_reaches_call(node, call_start_byte) {
+                            *found = None;
+                        } else if let Some(ty) = node.child_by_field_name("type") {
                             *found = Some((
                                 self.node_text(&ty).to_string(),
                                 ReceiverRecovery::ConstructorLocal,
@@ -7256,6 +8762,14 @@ impl ParsedFile {
     fn constructor_type(&self, node: &Node<'_>) -> Option<String> {
         use crate::languages::Language;
 
+        fn python_constructor_name(text: &str) -> bool {
+            let owner = crate::call_graph::python_qualified_receiver_parts(text)
+                .map(|(_, owner)| owner)
+                .unwrap_or(text);
+            owner.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+                && (owner != text || text.chars().all(|c| c.is_alphanumeric() || c == '_'))
+        }
+
         match node.kind() {
             "call_expression" => {
                 let function = node
@@ -7276,10 +8790,7 @@ impl ParsedFile {
                         .filter(|s| !s.is_empty())
                         .map(str::to_string);
                 }
-                if self.language == Language::Python
-                    && text.chars().next().is_some_and(|c| c.is_ascii_uppercase())
-                    && text.chars().all(|c| c.is_alphanumeric() || c == '_')
-                {
+                if self.language == Language::Python && python_constructor_name(text) {
                     return Some(text.to_string());
                 }
                 None
@@ -7289,9 +8800,7 @@ impl ParsedFile {
                     .child_by_field_name("function")
                     .or_else(|| node.child_by_field_name("name"))?;
                 let text = self.node_text(&function).trim();
-                if text.chars().next().is_some_and(|c| c.is_ascii_uppercase())
-                    && text.chars().all(|c| c.is_alphanumeric() || c == '_')
-                {
+                if python_constructor_name(text) {
                     return Some(text.to_string());
                 }
                 None

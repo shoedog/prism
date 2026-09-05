@@ -250,6 +250,27 @@ pub fn shape_result(
     terminal_over_cap_result()
 }
 
+/// Shape one indivisible tool-specific JSON value under the same transport cap
+/// and structured-content mode as canonical navigation Evidence.
+pub(crate) fn shape_structured_value(
+    structured: Value,
+    cap: usize,
+    mode: StructuredContentMode,
+) -> McpToolResult {
+    let content_text = serde_json::to_string_pretty(&structured).unwrap_or_else(|_| "{}".into());
+    let result = McpToolResult {
+        content_text,
+        structured: Some(structured),
+        is_error: false,
+        meta: result_meta(cap),
+    };
+    if result.wire_len(mode) <= super::transport::payload_budget(cap) {
+        result
+    } else {
+        terminal_over_cap_result()
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn fit_reasoning_source_cap(
     ev: &Evidence,

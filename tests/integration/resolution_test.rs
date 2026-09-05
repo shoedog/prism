@@ -1635,6 +1635,22 @@ fn r3_import_qualified_absent_name_is_unknown_name() {
 }
 
 #[test]
+fn r3_non_js_import_qualified_ignores_js_ts_lexical_receiver_fact() {
+    use prism::languages::Language::Python;
+    let (cg, _) = build(&[
+        ("api.py", "def m():\n    pass\n", Python),
+        ("main.py", "import api\ndef run():\n    api.m()\n", Python),
+    ]);
+    let mut site = site_in(&cg, "run", "m");
+    site.receiver_lexically_bound = true;
+    let resolved = cg.resolve_call_site(&site);
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0].target.file, "api.py");
+    assert_eq!(resolved[0].kind, ResolutionKind::ImportQualified);
+    assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
+}
+
+#[test]
 fn r3_go_import_matches_package_directory_not_file_stem() {
     use prism::languages::Language::Go;
     let (cg, _) = build(&[
@@ -3096,26 +3112,33 @@ fn py_recovered_multi_owner_hit_preserves_nameonly_confidence() {
 }
 
 #[test]
-fn js_new_constructor_and_bare_call_do_not_recover() {
+fn js_new_constructor_recovers_but_bare_call_does_not() {
     // P3: `m` must stay OVER the R6 fanout cap (4 owners: Foo/Other/Other2/
-    // Other3) so this residue keeps testing what its name says — constructor-
-    // local recovery does not engage for JS `new`/bare calls — rather than
-    // the P3 candidate path a 2-owner pool would now hit instead. See
+    // Other3) so the bare-call residue cannot use the P3 candidate path. See
     // r6_candidate_test for the <=3-owner candidate case.
     use prism::languages::Language::JavaScript;
+    use prism::resolution::ReceiverRecovery;
     let (cg, _) = build(&[(
         "svc.js",
         "class Foo { m() {} }\nclass Other { m() {} }\nclass Other2 { m() {} }\nclass Other3 { m() {} }\nfunction made() { const x = new Foo(); x.m(); }\nfunction factory() { const x = Foo(); x.m(); }\n",
         JavaScript,
     )]);
     let made = site_in(&cg, "made", "m");
-    assert_eq!(made.receiver_type, None);
-    assert!(!made.receiver_materialized);
-    assert!(cg.resolve_call_site(&made).is_empty());
+    assert_eq!(made.receiver_type.as_deref(), Some("Foo"));
+    assert_eq!(
+        made.receiver_recovery,
+        Some(ReceiverRecovery::ConstructorLocal)
+    );
+    assert!(made.receiver_materialized);
+    let resolved = cg.resolve_call_site(&made);
+    assert_eq!(resolved.len(), 1, "{resolved:?}");
+    assert_eq!(resolved[0].kind, ResolutionKind::ConstructorLocal);
+    assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(resolved[0].target.file, "svc.js");
 
     let factory = site_in(&cg, "factory", "m");
     assert_eq!(factory.receiver_type, None);
-    assert!(!factory.receiver_materialized);
+    assert!(factory.receiver_materialized);
     assert!(cg.resolve_call_site(&factory).is_empty());
 }
 
@@ -3415,6 +3438,614 @@ fn go_embedding_dropped_on_incremental_when_embedding_file_changes() {
             .promoted_aliases
             .contains_key(&("Wrap".to_string(), "Ping".to_string())),
         "stale promoted alias must be cleared even though Base.Ping's file is unchanged"
+    );
+}
+
+#[test]
+fn python_imported_receiver_incremental_class_change_matches_full_build() {
+    use prism::cpg::CodePropertyGraph;
+    use prism::data_flow::DataFlowGraph;
+    use prism::languages::Language::Python;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let parse = |path: &str, source: &str| {
+        (
+            path.to_string(),
+            prism::ast::ParsedFile::parse(path, source, Python).unwrap(),
+        )
+    };
+    let app = "from pkg.models import Client\ndef run(client: Client):\n    client.send()\n";
+    let mut v1 = BTreeMap::new();
+    v1.extend([
+        parse("app.py", app),
+        parse("pkg/models.py", "class Placeholder:\n    pass\n"),
+    ]);
+    let cg_v1 = CallGraph::build(&v1);
+    assert_eq!(site_in(&cg_v1, "run", "send").receiver_type, None);
+    let dfg_v1 = DataFlowGraph::build(&v1);
+
+    let mut v2 = BTreeMap::new();
+    v2.extend([
+        parse("app.py", app),
+        parse(
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        pass\n",
+        ),
+    ]);
+    let changed: BTreeSet<_> = ["pkg/models.py".to_string()].into_iter().collect();
+    let incremental = CodePropertyGraph::build_incremental(cg_v1, dfg_v1, &changed, &v2, None);
+    let full = CallGraph::build(&v2);
+    let full_site = site_in(&full, "run", "send");
+    let incremental_site = site_in(&incremental.call_graph, "run", "send");
+
+    assert_eq!(full_site.receiver_type.as_deref(), Some("Client"));
+    let full_targets = full.resolve_call_site(&full_site);
+    assert_eq!(full_targets.len(), 1);
+    assert_eq!(full_targets[0].target.file, "pkg/models.py");
+    assert_eq!(full_targets[0].kind, ResolutionKind::TypedParam);
+    assert_eq!(full_targets[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(
+        incremental_site.receiver_type, full_site.receiver_type,
+        "incremental rebuild must reclassify an unchanged caller when imported class proof changes"
+    );
+}
+
+#[test]
+fn python_imported_receiver_incremental_class_removal_matches_full_build() {
+    use prism::cpg::CodePropertyGraph;
+    use prism::data_flow::DataFlowGraph;
+    use prism::languages::Language::Python;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let parse = |path: &str, source: &str| {
+        (
+            path.to_string(),
+            prism::ast::ParsedFile::parse(path, source, Python).unwrap(),
+        )
+    };
+    let app = "from pkg.models import Client\ndef run(client: Client):\n    client.send()\n";
+    let mut v1 = BTreeMap::new();
+    v1.extend([
+        parse("app.py", app),
+        parse(
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        pass\n",
+        ),
+    ]);
+    let cg_v1 = CallGraph::build(&v1);
+    assert_eq!(
+        site_in(&cg_v1, "run", "send").receiver_type.as_deref(),
+        Some("Client")
+    );
+    let dfg_v1 = DataFlowGraph::build(&v1);
+
+    let mut v2 = BTreeMap::new();
+    v2.extend([
+        parse("app.py", app),
+        parse("pkg/models.py", "class Placeholder:\n    pass\n"),
+    ]);
+    let changed: BTreeSet<_> = ["pkg/models.py".to_string()].into_iter().collect();
+    let incremental = CodePropertyGraph::build_incremental(cg_v1, dfg_v1, &changed, &v2, None);
+    let full = CallGraph::build(&v2);
+    let full_site = site_in(&full, "run", "send");
+    let incremental_site = site_in(&incremental.call_graph, "run", "send");
+
+    assert_eq!(full_site.receiver_type, None);
+    assert!(full.resolve_call_site(&full_site).is_empty());
+    assert!(
+        incremental
+            .call_graph
+            .resolve_call_site(&incremental_site)
+            .is_empty(),
+        "lost imported-class proof must not retain Exact authority"
+    );
+    assert_eq!(
+        incremental_site.receiver_type, full_site.receiver_type,
+        "incremental rebuild must clear an unchanged caller when imported class proof disappears"
+    );
+}
+
+#[test]
+fn python_imported_receiver_incremental_stable_proof_matches_full_build() {
+    use prism::cpg::CodePropertyGraph;
+    use prism::data_flow::DataFlowGraph;
+    use prism::languages::Language::Python;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let parse = |path: &str, source: &str| {
+        (
+            path.to_string(),
+            prism::ast::ParsedFile::parse(path, source, Python).unwrap(),
+        )
+    };
+    let app = "from pkg.models import Client\ndef run(client: Client):\n    client.send()\n";
+    let mut v1 = BTreeMap::new();
+    v1.extend([
+        parse("app.py", app),
+        parse(
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        pass\n",
+        ),
+    ]);
+    let cg_v1 = CallGraph::build(&v1);
+    let dfg_v1 = DataFlowGraph::build(&v1);
+
+    let mut v2 = BTreeMap::new();
+    v2.extend([
+        parse("app.py", app),
+        parse(
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        return 1\n",
+        ),
+    ]);
+    let changed: BTreeSet<_> = ["pkg/models.py".to_string()].into_iter().collect();
+    let incremental = CodePropertyGraph::build_incremental(cg_v1, dfg_v1, &changed, &v2, None);
+    let full = CallGraph::build(&v2);
+    let full_site = site_in(&full, "run", "send");
+    let incremental_site = site_in(&incremental.call_graph, "run", "send");
+
+    assert_eq!(incremental_site.receiver_type, full_site.receiver_type);
+    assert_eq!(full_site.receiver_type.as_deref(), Some("Client"));
+    let full_targets = full.resolve_call_site(&full_site);
+    let incremental_targets = incremental.call_graph.resolve_call_site(&incremental_site);
+    assert_eq!(incremental_targets.len(), 1);
+    assert_eq!(full_targets.len(), 1);
+    assert_eq!(incremental_targets[0].target, full_targets[0].target);
+    assert_eq!(incremental_targets[0].kind, full_targets[0].kind);
+    assert_eq!(
+        incremental_targets[0].confidence,
+        full_targets[0].confidence
+    );
+}
+
+#[test]
+fn python_qualified_receiver_incremental_class_change_matches_full_build() {
+    use prism::cpg::CodePropertyGraph;
+    use prism::data_flow::DataFlowGraph;
+    use prism::languages::Language::Python;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let parse = |path: &str, source: &str| {
+        (
+            path.to_string(),
+            prism::ast::ParsedFile::parse(path, source, Python).unwrap(),
+        )
+    };
+    let app = "import pkg.models as models\ndef run(client: models.Client):\n    client.send()\n";
+    let mut v1 = BTreeMap::new();
+    v1.extend([
+        parse("app.py", app),
+        parse("pkg/models.py", "class Placeholder:\n    pass\n"),
+    ]);
+    let cg_v1 = CallGraph::build(&v1);
+    assert_eq!(site_in(&cg_v1, "run", "send").receiver_type, None);
+    let dfg_v1 = DataFlowGraph::build(&v1);
+
+    let mut v2 = BTreeMap::new();
+    v2.extend([
+        parse("app.py", app),
+        parse(
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        pass\n",
+        ),
+    ]);
+    let changed: BTreeSet<_> = ["pkg/models.py".to_string()].into_iter().collect();
+    let incremental = CodePropertyGraph::build_incremental(cg_v1, dfg_v1, &changed, &v2, None);
+    let full = CallGraph::build(&v2);
+    let full_site = site_in(&full, "run", "send");
+    let incremental_site = site_in(&incremental.call_graph, "run", "send");
+
+    assert_eq!(full_site.receiver_type.as_deref(), Some("models.Client"));
+    let full_targets = full.resolve_call_site(&full_site);
+    assert_eq!(full_targets.len(), 1);
+    assert_eq!(full_targets[0].target.file, "pkg/models.py");
+    assert_eq!(full_targets[0].kind, ResolutionKind::TypedParam);
+    assert_eq!(full_targets[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(incremental_site.receiver_type, full_site.receiver_type);
+}
+
+#[test]
+fn python_qualified_receiver_incremental_class_removal_matches_full_build() {
+    use prism::cpg::CodePropertyGraph;
+    use prism::data_flow::DataFlowGraph;
+    use prism::languages::Language::Python;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let parse = |path: &str, source: &str| {
+        (
+            path.to_string(),
+            prism::ast::ParsedFile::parse(path, source, Python).unwrap(),
+        )
+    };
+    let app = "import pkg.models as models\ndef run(client: models.Client):\n    client.send()\n";
+    let mut v1 = BTreeMap::new();
+    v1.extend([
+        parse("app.py", app),
+        parse(
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        pass\n",
+        ),
+    ]);
+    let cg_v1 = CallGraph::build(&v1);
+    assert_eq!(
+        site_in(&cg_v1, "run", "send").receiver_type.as_deref(),
+        Some("models.Client")
+    );
+    let dfg_v1 = DataFlowGraph::build(&v1);
+
+    let mut v2 = BTreeMap::new();
+    v2.extend([
+        parse("app.py", app),
+        parse("pkg/models.py", "class Placeholder:\n    pass\n"),
+    ]);
+    let changed: BTreeSet<_> = ["pkg/models.py".to_string()].into_iter().collect();
+    let incremental = CodePropertyGraph::build_incremental(cg_v1, dfg_v1, &changed, &v2, None);
+    let full = CallGraph::build(&v2);
+    let full_site = site_in(&full, "run", "send");
+    let incremental_site = site_in(&incremental.call_graph, "run", "send");
+
+    assert_eq!(full_site.receiver_type, None);
+    assert!(full.resolve_call_site(&full_site).is_empty());
+    assert!(incremental
+        .call_graph
+        .resolve_call_site(&incremental_site)
+        .is_empty());
+    assert_eq!(incremental_site.receiver_type, full_site.receiver_type);
+}
+
+#[test]
+fn python_qualified_receiver_incremental_stable_proof_matches_full_build() {
+    use prism::cpg::CodePropertyGraph;
+    use prism::data_flow::DataFlowGraph;
+    use prism::languages::Language::Python;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let parse = |path: &str, source: &str| {
+        (
+            path.to_string(),
+            prism::ast::ParsedFile::parse(path, source, Python).unwrap(),
+        )
+    };
+    let app = "import pkg.models as models\ndef run(client: models.Client):\n    client.send()\n";
+    let mut v1 = BTreeMap::new();
+    v1.extend([
+        parse("app.py", app),
+        parse(
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        pass\n",
+        ),
+    ]);
+    let cg_v1 = CallGraph::build(&v1);
+    let dfg_v1 = DataFlowGraph::build(&v1);
+
+    let mut v2 = BTreeMap::new();
+    v2.extend([
+        parse("app.py", app),
+        parse(
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        return 1\n",
+        ),
+    ]);
+    let changed: BTreeSet<_> = ["pkg/models.py".to_string()].into_iter().collect();
+    let incremental = CodePropertyGraph::build_incremental(cg_v1, dfg_v1, &changed, &v2, None);
+    let full = CallGraph::build(&v2);
+    let full_site = site_in(&full, "run", "send");
+    let incremental_site = site_in(&incremental.call_graph, "run", "send");
+
+    assert_eq!(incremental_site.receiver_type, full_site.receiver_type);
+    assert_eq!(full_site.receiver_type.as_deref(), Some("models.Client"));
+    let full_targets = full.resolve_call_site(&full_site);
+    let incremental_targets = incremental.call_graph.resolve_call_site(&incremental_site);
+    assert_eq!(incremental_targets.len(), 1);
+    assert_eq!(full_targets.len(), 1);
+    assert_eq!(incremental_targets[0].target, full_targets[0].target);
+    assert_eq!(incremental_targets[0].kind, full_targets[0].kind);
+    assert_eq!(
+        incremental_targets[0].confidence,
+        full_targets[0].confidence
+    );
+}
+
+#[test]
+fn python_dotted_receiver_incremental_class_change_matches_full_build() {
+    use prism::cpg::CodePropertyGraph;
+    use prism::data_flow::DataFlowGraph;
+    use prism::languages::Language::Python;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let parse = |path: &str, source: &str| {
+        (
+            path.to_string(),
+            prism::ast::ParsedFile::parse(path, source, Python).unwrap(),
+        )
+    };
+    let app = "import pkg.models\ndef run(client: pkg.models.Client):\n    client.send()\n";
+    let mut v1 = BTreeMap::new();
+    v1.extend([
+        parse("app.py", app),
+        parse("pkg/models.py", "class Placeholder:\n    pass\n"),
+    ]);
+    let cg_v1 = CallGraph::build(&v1);
+    assert_eq!(site_in(&cg_v1, "run", "send").receiver_type, None);
+    let dfg_v1 = DataFlowGraph::build(&v1);
+
+    let mut v2 = BTreeMap::new();
+    v2.extend([
+        parse("app.py", app),
+        parse(
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        pass\n",
+        ),
+    ]);
+    let changed: BTreeSet<_> = ["pkg/models.py".to_string()].into_iter().collect();
+    let incremental = CodePropertyGraph::build_incremental(cg_v1, dfg_v1, &changed, &v2, None);
+    let full = CallGraph::build(&v2);
+    let full_site = site_in(&full, "run", "send");
+    let incremental_site = site_in(&incremental.call_graph, "run", "send");
+
+    assert_eq!(
+        full_site.receiver_type.as_deref(),
+        Some("pkg.models.Client")
+    );
+    let full_targets = full.resolve_call_site(&full_site);
+    assert_eq!(full_targets.len(), 1);
+    assert_eq!(full_targets[0].target.file, "pkg/models.py");
+    assert_eq!(full_targets[0].kind, ResolutionKind::TypedParam);
+    assert_eq!(full_targets[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(incremental_site.receiver_type, full_site.receiver_type);
+}
+
+#[test]
+fn python_dotted_receiver_incremental_class_removal_matches_full_build() {
+    use prism::cpg::CodePropertyGraph;
+    use prism::data_flow::DataFlowGraph;
+    use prism::languages::Language::Python;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let parse = |path: &str, source: &str| {
+        (
+            path.to_string(),
+            prism::ast::ParsedFile::parse(path, source, Python).unwrap(),
+        )
+    };
+    let app = "import pkg.models\ndef run(client: pkg.models.Client):\n    client.send()\n";
+    let mut v1 = BTreeMap::new();
+    v1.extend([
+        parse("app.py", app),
+        parse(
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        pass\n",
+        ),
+    ]);
+    let cg_v1 = CallGraph::build(&v1);
+    assert_eq!(
+        site_in(&cg_v1, "run", "send").receiver_type.as_deref(),
+        Some("pkg.models.Client")
+    );
+    let dfg_v1 = DataFlowGraph::build(&v1);
+
+    let mut v2 = BTreeMap::new();
+    v2.extend([
+        parse("app.py", app),
+        parse("pkg/models.py", "class Placeholder:\n    pass\n"),
+    ]);
+    let changed: BTreeSet<_> = ["pkg/models.py".to_string()].into_iter().collect();
+    let incremental = CodePropertyGraph::build_incremental(cg_v1, dfg_v1, &changed, &v2, None);
+    let full = CallGraph::build(&v2);
+    let full_site = site_in(&full, "run", "send");
+    let incremental_site = site_in(&incremental.call_graph, "run", "send");
+
+    assert_eq!(full_site.receiver_type, None);
+    assert!(full.resolve_call_site(&full_site).is_empty());
+    assert!(incremental
+        .call_graph
+        .resolve_call_site(&incremental_site)
+        .is_empty());
+    assert_eq!(incremental_site.receiver_type, full_site.receiver_type);
+}
+
+#[test]
+fn python_dotted_receiver_incremental_stable_proof_matches_full_build() {
+    use prism::cpg::CodePropertyGraph;
+    use prism::data_flow::DataFlowGraph;
+    use prism::languages::Language::Python;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let parse = |path: &str, source: &str| {
+        (
+            path.to_string(),
+            prism::ast::ParsedFile::parse(path, source, Python).unwrap(),
+        )
+    };
+    let app = "import pkg.models\ndef run(client: pkg.models.Client):\n    client.send()\n";
+    let mut v1 = BTreeMap::new();
+    v1.extend([
+        parse("app.py", app),
+        parse(
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        pass\n",
+        ),
+    ]);
+    let cg_v1 = CallGraph::build(&v1);
+    let dfg_v1 = DataFlowGraph::build(&v1);
+
+    let mut v2 = BTreeMap::new();
+    v2.extend([
+        parse("app.py", app),
+        parse(
+            "pkg/models.py",
+            "class Client:\n    def send(self):\n        return 1\n",
+        ),
+    ]);
+    let changed: BTreeSet<_> = ["pkg/models.py".to_string()].into_iter().collect();
+    let incremental = CodePropertyGraph::build_incremental(cg_v1, dfg_v1, &changed, &v2, None);
+    let full = CallGraph::build(&v2);
+    let full_site = site_in(&full, "run", "send");
+    let incremental_site = site_in(&incremental.call_graph, "run", "send");
+
+    assert_eq!(incremental_site.receiver_type, full_site.receiver_type);
+    assert_eq!(
+        full_site.receiver_type.as_deref(),
+        Some("pkg.models.Client")
+    );
+    let full_targets = full.resolve_call_site(&full_site);
+    let incremental_targets = incremental.call_graph.resolve_call_site(&incremental_site);
+    assert_eq!(incremental_targets.len(), 1);
+    assert_eq!(full_targets.len(), 1);
+    assert_eq!(incremental_targets[0].target, full_targets[0].target);
+    assert_eq!(incremental_targets[0].kind, full_targets[0].kind);
+    assert_eq!(
+        incremental_targets[0].confidence,
+        full_targets[0].confidence
+    );
+}
+
+#[test]
+fn python_namespace_submodule_receiver_incremental_authority_matches_full_build() {
+    use prism::cpg::CodePropertyGraph;
+    use prism::data_flow::DataFlowGraph;
+    use prism::languages::Language::Python;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    fn parsed(sources: &[(&str, &str)]) -> BTreeMap<String, prism::ast::ParsedFile> {
+        sources
+            .iter()
+            .map(|(path, source)| {
+                (
+                    (*path).to_string(),
+                    prism::ast::ParsedFile::parse(path, source, Python).unwrap(),
+                )
+            })
+            .collect()
+    }
+
+    fn assert_transition(
+        label: &str,
+        before_sources: &[(&str, &str)],
+        after_sources: &[(&str, &str)],
+        changed_paths: &[&str],
+        expected_receiver: Option<&str>,
+    ) {
+        let before = parsed(before_sources);
+        let cached_cg = CallGraph::build(&before);
+        let cached_dfg = DataFlowGraph::build(&before);
+        let after = parsed(after_sources);
+        let changed: BTreeSet<_> = changed_paths
+            .iter()
+            .map(|path| (*path).to_string())
+            .collect();
+        let incremental =
+            CodePropertyGraph::build_incremental(cached_cg, cached_dfg, &changed, &after, None);
+        let full = CallGraph::build(&after);
+        let incremental_site = site_in(&incremental.call_graph, "run", "send");
+        let full_site = site_in(&full, "run", "send");
+
+        assert_eq!(
+            full_site.receiver_type.as_deref(),
+            expected_receiver,
+            "{label}: fresh receiver"
+        );
+        assert_eq!(
+            incremental_site.receiver_type, full_site.receiver_type,
+            "{label}: incremental receiver"
+        );
+
+        let full_exact: Vec<_> = full
+            .resolve_call_site(&full_site)
+            .into_iter()
+            .filter(|resolved| resolved.confidence == ResolutionConfidence::Exact)
+            .map(|resolved| (resolved.target, resolved.kind))
+            .collect();
+        let incremental_exact: Vec<_> = incremental
+            .call_graph
+            .resolve_call_site(&incremental_site)
+            .into_iter()
+            .filter(|resolved| resolved.confidence == ResolutionConfidence::Exact)
+            .map(|resolved| (resolved.target, resolved.kind))
+            .collect();
+        assert_eq!(incremental_exact, full_exact, "{label}: exact targets");
+
+        if expected_receiver.is_some() {
+            assert_eq!(full_exact.len(), 1, "{label}: {full_exact:?}");
+            assert_eq!(full_exact[0].0.file, "pkg/models.py", "{label}");
+            assert_eq!(full_exact[0].1, ResolutionKind::TypedParam, "{label}");
+        } else {
+            assert!(full_exact.is_empty(), "{label}: {full_exact:?}");
+        }
+    }
+
+    const APP: &str =
+        "from pkg import models\ndef run(client: models.Client):\n    client.send()\n";
+    const CLIENT: &str = "class Client:\n    def send(self):\n        pass\n";
+    const CLIENT_CHANGED: &str = "class Client:\n    def send(self):\n        return 1\n";
+
+    assert_transition(
+        "class appears",
+        &[
+            ("app.py", APP),
+            ("pkg/models.py", "class Placeholder:\n    pass\n"),
+        ],
+        &[("app.py", APP), ("pkg/models.py", CLIENT)],
+        &["pkg/models.py"],
+        Some("models.Client"),
+    );
+    assert_transition(
+        "submodule appears",
+        &[("app.py", APP)],
+        &[("app.py", APP), ("pkg/models.py", CLIENT)],
+        &["pkg/models.py"],
+        Some("models.Client"),
+    );
+    assert_transition(
+        "parent module appears",
+        &[("app.py", APP), ("pkg/models.py", CLIENT)],
+        &[
+            ("app.py", APP),
+            ("pkg/models.py", CLIENT),
+            ("pkg.py", "value = 1\n"),
+        ],
+        &["pkg.py"],
+        None,
+    );
+    assert_transition(
+        "parent module disappears",
+        &[
+            ("app.py", APP),
+            ("pkg/models.py", CLIENT),
+            ("pkg.py", "value = 1\n"),
+        ],
+        &[("app.py", APP), ("pkg/models.py", CLIENT)],
+        &["pkg.py"],
+        Some("models.Client"),
+    );
+    assert_transition(
+        "parent initializer appears",
+        &[("app.py", APP), ("pkg/models.py", CLIENT)],
+        &[
+            ("app.py", APP),
+            ("pkg/models.py", CLIENT),
+            ("pkg/__init__.py", "value = 1\n"),
+        ],
+        &["pkg/__init__.py"],
+        None,
+    );
+    assert_transition(
+        "parent initializer disappears",
+        &[
+            ("app.py", APP),
+            ("pkg/models.py", CLIENT),
+            ("pkg/__init__.py", "value = 1\n"),
+        ],
+        &[("app.py", APP), ("pkg/models.py", CLIENT)],
+        &["pkg/__init__.py"],
+        Some("models.Client"),
+    );
+    assert_transition(
+        "method body changes",
+        &[("app.py", APP), ("pkg/models.py", CLIENT)],
+        &[("app.py", APP), ("pkg/models.py", CLIENT_CHANGED)],
+        &["pkg/models.py"],
+        Some("models.Client"),
     );
 }
 

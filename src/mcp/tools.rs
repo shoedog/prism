@@ -2,9 +2,9 @@ use super::error::query_error_result;
 use super::evidence_view::{shape_navigation_result, NavigationViewKind};
 use super::input::{
     parse_callees, parse_callers, parse_ego, parse_module_deps, parse_nodes_at, parse_repo_map,
-    SeedInput, Verbosity as InputVerbosity,
+    parse_symbol_spans, SeedInput, Verbosity as InputVerbosity,
 };
-use super::output::{McpToolResult, Verbosity};
+use super::output::{shape_structured_value, McpToolResult, Verbosity};
 use super::registry::{ToolAnnotations, ToolContext, ToolDescriptor, ToolRegistry};
 use crate::navigation::types::Evidence;
 use crate::navigation::{module_graph, queries};
@@ -29,6 +29,13 @@ pub fn register_all(r: &mut ToolRegistry) {
         "Finds first-class CPG evidence at one repository file and 1-indexed line. Use when you need the symbol or enclosing function for a precise source location; do NOT use for name-based caller/callee expansion. Inputs are file string, line integer >= 1, and optional verbosity concise or detailed. Returns Evidence items with warnings for skipped or unknown files. Example: {\"file\":\"src/main.rs\",\"line\":42,\"verbosity\":\"detailed\"}.",
         nodes_at_schema(),
         Box::new(nav_nodes_at),
+    ));
+    r.register(tool_with_handler(
+        "nav_symbol_spans",
+        "Symbol Spans",
+        "Returns exact read-only source coordinates for one uniquely resolved callable. Use when an editor needs outer, name, body, insertion-anchor, or indentation coordinates; do NOT use to mutate source or locate classes, fields, variables, or arbitrary statements. Seed grammar is {\"kind\":\"symbol\",\"name\":\"run\",\"file\":\"src/main.rs\"} or {\"kind\":\"loc\",\"file\":\"src/main.rs\",\"line\":42}. Returns a coordinate-only SymbolSpans result and never echoes the callable body. Example: {\"seed\":{\"kind\":\"symbol\",\"name\":\"run\",\"file\":\"src/main.rs\"}}.",
+        symbol_spans_schema(),
+        Box::new(nav_symbol_spans),
     ));
     r.register(tool_with_handler(
         "nav_callers",
@@ -102,6 +109,23 @@ fn nav_nodes_at(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResul
         input.view,
         NavigationViewKind::NodesAt,
         ctx.concise_shape_mode,
+        ctx.structured_content_mode,
+    )
+}
+
+fn nav_symbol_spans(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResult {
+    let input = match parse_symbol_spans(args) {
+        Ok(input) => input,
+        Err(error) => return error.into_result(),
+    };
+    let (symbol, file, location) = input.seed.to_triple();
+    let result = match queries::symbol_spans(ctx.session, symbol, file, location.as_deref()) {
+        Ok(result) => result,
+        Err(error) => return query_error_result(error),
+    };
+    shape_structured_value(
+        serde_json::to_value(result).expect("SymbolSpans serializes"),
+        ctx.cap,
         ctx.structured_content_mode,
     )
 }
@@ -372,6 +396,17 @@ fn nodes_at_schema() -> serde_json::Value {
     })
 }
 
+fn symbol_spans_schema() -> serde_json::Value {
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "seed": seed_schema()
+        },
+        "required": ["seed"]
+    })
+}
+
 fn callers_schema() -> serde_json::Value {
     json!({
         "type": "object",
@@ -516,6 +551,81 @@ mod tests {
             &json!({"file":"a.py","line":0}),
         );
         assert!(out.is_error);
+    }
+
+    #[test]
+    fn symbol_spans_returns_dedicated_coordinates_and_strict_errors() {
+        let s = test_support::session(&[("a.py", "def f():\n    return 1\n")]);
+        let registry = ToolRegistry::nav_v1();
+        let tool = registry.get("nav_symbol_spans").unwrap();
+        let out = (tool.handler)(
+            &ToolContext::for_test(&s),
+            &json!({"seed":{"kind":"symbol","name":"f","file":"a.py"}}),
+        );
+        assert!(!out.is_error);
+        let value: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
+        assert_eq!(value["schema_version"], "1.0");
+        assert_eq!(value["symbol_span"]["file"], "a.py");
+        assert!(value["name_span"]["start_byte"].is_number());
+        assert!(value["body_span"]["end_byte"].is_number());
+        assert!(!out.content_text.contains("return 1"));
+        assert_eq!(out.structured.as_ref().unwrap(), &value);
+
+        let missing = (tool.handler)(&ToolContext::for_test(&s), &json!({}));
+        assert!(missing.is_error);
+        let unknown = (tool.handler)(
+            &ToolContext::for_test(&s),
+            &json!({"seed":{"kind":"symbol","name":"f"},"extra":true}),
+        );
+        assert!(unknown.is_error);
+        let escaping = (tool.handler)(
+            &ToolContext::for_test(&s),
+            &json!({"seed":{"kind":"loc","file":"/etc/passwd","line":1}}),
+        );
+        assert!(escaping.is_error);
+    }
+
+    #[test]
+    fn symbol_spans_respects_wire_cap_and_structured_content_mode() {
+        let name = "f".repeat(15_000);
+        let source = format!("def {name}():\n    return 1\n");
+        let s = test_support::session(&[("a.py", source.as_str())]);
+        let registry = ToolRegistry::nav_v1();
+        let tool = registry.get("nav_symbol_spans").unwrap();
+        let mode = crate::mcp::output::StructuredContentMode::OmitDefaultPath;
+        let cap = crate::mcp::output::MAX_RESULT_CHARS_FLOOR;
+        let ctx = ToolContext::new(
+            &s,
+            cap,
+            crate::mcp::concise_shape::ConciseShapeMode::default(),
+            mode,
+        );
+        let out = (tool.handler)(
+            &ctx,
+            &json!({"seed":{"kind":"symbol","name":name,"file":"a.py"}}),
+        );
+        assert!(
+            out.wire_len(mode) <= crate::mcp::transport::payload_budget(cap),
+            "custom result must fit the transport payload budget"
+        );
+        assert!(
+            out.is_error,
+            "an indivisible oversized coordinate result must fail closed"
+        );
+
+        let normal = test_support::session(&[("a.py", "def f():\n    return 1\n")]);
+        let normal_out = (tool.handler)(
+            &ToolContext::for_test(&normal),
+            &json!({"seed":{"kind":"symbol","name":"f","file":"a.py"}}),
+        );
+        assert!(normal_out
+            .to_call_tool_result_value(crate::mcp::output::StructuredContentMode::Always)
+            .get("structuredContent")
+            .is_some());
+        assert!(normal_out
+            .to_call_tool_result_value(mode)
+            .get("structuredContent")
+            .is_none());
     }
 
     #[test]
