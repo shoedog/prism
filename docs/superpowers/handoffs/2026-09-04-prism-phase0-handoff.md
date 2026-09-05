@@ -6,6 +6,12 @@
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the controller. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
 
+**Current-state override (2026-09-04T18:23:01-0600):** `[MEASURED]` PR #229 is merged
+as `551adc463e2e164637378757f2ba1ba872a43946`. All pre-merge resume steps, blocked
+publication rows, and owner questions below are historical. Current custody and the
+separate local-only Item 2 lane are recorded in
+`2026-09-04-python-js-nav-sequence-handoff.md`.
+
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — another agent works in the main checkout `~/code/slicing` on `main`; this branch was built entirely in the worktree `~/code/slicing-phase0` (plus a codex implementer clone `~/code/slicing-phase0-sol` and a detached review copy `~/code/slicing-phase0-review`). `[MEASURED]` `git worktree list` — **RESOLVED** (worktree isolation; never write to `~/code/slicing`)
