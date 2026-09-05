@@ -3422,15 +3422,23 @@ impl ParsedFile {
             }
             let argument = single_child(reference.child_by_field_name("type_arguments")?)?;
             (alias.child_by_field_name("value")?, Some((name, argument)))
+        } else if reference.kind() == "function_type" {
+            (reference, None)
         } else {
-            (
-                self.js_ts_local_type_shape(reference, "function_type")?,
-                None,
-            )
+            let alias = self.js_ts_local_type_alias(reference)?;
+            if alias.child_by_field_name("type_parameters").is_some() {
+                return None;
+            }
+            (alias.child_by_field_name("value")?, None)
         };
-        if signature.kind() != "function_type"
-            || signature.child_by_field_name("type_parameters").is_some()
-        {
+        // Object signatures are reached only through a proven local alias.
+        // Exactly one callable member: overloads and extra slots are not proof.
+        let signature = match signature.kind() {
+            "function_type" => signature,
+            "object_type" => single_child(signature).filter(|n| n.kind() == "call_signature")?,
+            _ => return None,
+        };
+        if signature.child_by_field_name("type_parameters").is_some() {
             return None;
         }
         let contextual = single_parameter(signature.child_by_field_name("parameters")?)?;
