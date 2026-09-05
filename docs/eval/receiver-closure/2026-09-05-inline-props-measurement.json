@@ -1,0 +1,29 @@
+{
+  "sites": 2780,
+  "exact_before": 369,
+  "exact_after": 372,
+  "gained_unique_source_spans": 1,
+  "gained_caller_records": 3,
+  "relevant_unique_source_spans": 11,
+  "still_unproven_unique_source_spans": 10,
+  "served_callers_added": [
+    "LibraryMenuContent",
+    "_onAddToLibrary",
+    "addToLibrary"
+  ],
+  "served_callee": {
+    "file": "packages/excalidraw/data/library.ts",
+    "name": "setLibrary",
+    "start_line": 351,
+    "end_line": 400,
+    "start_byte": 10324,
+    "end_byte": 11885,
+    "ordinal": 0
+  },
+  "source_sha256": {
+    "packages/excalidraw/components/App.tsx": "474ccd0778686bf0fff7d3b6eba41590aa552410d61ab95511c078db67572d5c",
+    "packages/excalidraw/components/LibraryMenu.tsx": "42b6ccfd00ba3f15575114bcf50180e4682dfc001f1cc694529643036be0210a",
+    "packages/excalidraw/components/LibraryMenuHeaderContent.tsx": "c02b2e4d82f6e1916f18a07d5c8abb0666a10bb7b50f559a3fe973379f3bb711",
+    "packages/excalidraw/data/library.ts": "b242773104cb14645820e5b7f1d43d2a56f86d95206f7b9571360fbddfbc8b61"
+  }
+}

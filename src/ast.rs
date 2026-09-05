@@ -3078,24 +3078,113 @@ impl ParsedFile {
             let recovered_type = matches!(self.language, Language::TypeScript | Language::Tsx)
                 .then(|| parameter.child_by_field_name("type"))
                 .flatten()
-                .and_then(|annotation| self.js_ts_simple_type_annotation(annotation));
-            matches.push(if simple_binding {
-                recovered_type.map_or(JsTsReceiverBindingEvidence::Materialized, |static_type| {
-                    JsTsReceiverBindingEvidence::Recovered {
-                        static_type,
-                        recovery: crate::resolution::ReceiverRecovery::TypedParam,
-                        declaration_end_byte: Some(parameter.end_byte()),
+                .and_then(|annotation| {
+                    if simple_binding {
+                        self.js_ts_simple_type_annotation(annotation)
+                    } else {
+                        self.js_ts_inline_prop_receiver_type(
+                            parameter,
+                            binding?,
+                            annotation,
+                            receiver_name,
+                        )
                     }
-                })
-            } else {
-                JsTsReceiverBindingEvidence::Materialized
-            });
+                });
+            matches.push(recovered_type.map_or(
+                JsTsReceiverBindingEvidence::Materialized,
+                |static_type| JsTsReceiverBindingEvidence::Recovered {
+                    static_type,
+                    recovery: crate::resolution::ReceiverRecovery::TypedParam,
+                    declaration_end_byte: Some(parameter.end_byte()),
+                },
+            ));
         }
         match matches.len() {
             0 => None,
             1 => matches.pop(),
             _ => Some(JsTsReceiverBindingEvidence::Materialized),
         }
+    }
+
+    /// Required inline object properties only; no contextual types or defaults.
+    fn js_ts_inline_prop_receiver_type(
+        &self,
+        parameter: Node<'_>,
+        pattern: Node<'_>,
+        annotation: Node<'_>,
+        receiver: &str,
+    ) -> Option<String> {
+        if pattern.kind() != "object_pattern" || parameter.has_error() {
+            return None;
+        }
+        let mut cursor = parameter.walk();
+        if parameter
+            .children(&mut cursor)
+            .any(|n| matches!(n.kind(), "=" | "?"))
+        {
+            return None;
+        }
+        let ty = annotation.named_child(0)?;
+        if ty.kind() != "object_type" {
+            return None;
+        }
+        let mut properties = BTreeSet::new();
+        let mut locals = BTreeSet::new();
+        let mut selected = None;
+        let mut cursor = pattern.walk();
+        for child in pattern.named_children(&mut cursor) {
+            if child.kind() == "comment" {
+                continue;
+            }
+            let (property, local) = match child.kind() {
+                "shorthand_property_identifier_pattern" => (child, child),
+                "pair_pattern" => {
+                    let property = child.child_by_field_name("key")?;
+                    let local = child.child_by_field_name("value")?;
+                    if property.kind() != "property_identifier" || local.kind() != "identifier" {
+                        return None;
+                    }
+                    (property, local)
+                }
+                _ => return None,
+            };
+            let property = self.node_text(&property);
+            let local = self.node_text(&local);
+            if !properties.insert(property) || !locals.insert(local) {
+                return None;
+            }
+            if local == receiver {
+                selected = Some(property);
+            }
+        }
+        let selected = selected?;
+        let mut names = BTreeSet::new();
+        let mut result = None;
+        let mut cursor = ty.walk();
+        for property in ty.named_children(&mut cursor) {
+            if property.kind() == "comment" {
+                continue;
+            }
+            if property.kind() != "property_signature" {
+                return None;
+            }
+            let name = property.child_by_field_name("name")?;
+            if name.kind() != "property_identifier" {
+                return None;
+            }
+            let name = self.node_text(&name);
+            if !names.insert(name) {
+                return None;
+            }
+            if name == selected {
+                let mut cursor = property.walk();
+                if property.children(&mut cursor).any(|n| n.kind() == "?") {
+                    return None;
+                }
+                result = self.js_ts_simple_type_annotation(property.child_by_field_name("type")?);
+            }
+        }
+        result
     }
 
     fn js_ts_simple_type_annotation(&self, annotation: Node<'_>) -> Option<String> {
