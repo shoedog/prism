@@ -6,6 +6,7 @@ mod common;
 mod cpg_cache_test;
 mod cpg_test;
 mod cpp_type_provider_test;
+mod dfg_label_test;
 mod dfg_test;
 mod field_test;
 mod go_package_basename_lifecycle_test;

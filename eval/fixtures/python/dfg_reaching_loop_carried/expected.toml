@@ -8,3 +8,6 @@ probe = "dfg"
 from = "a.py:5:x"
 to = "a.py:4:x"
 confidence = "exact"
+
+[expect.stats]
+dfg_label_loop_carried_min = 1
