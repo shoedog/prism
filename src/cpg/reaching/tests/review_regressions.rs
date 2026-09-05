@@ -263,3 +263,71 @@ fn unresolved_pair_uses_every_same_path_definition_as_a_kill() {
         FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }),
     );
 }
+
+#[test]
+fn javascript_and_typescript_lexical_loop_headers_end_at_loop_exit() {
+    let loops = [
+        "for (let x = 0; flag; tick())",
+        "for (let x in values)",
+        "for (let x of values)",
+    ];
+    for language in [Language::JavaScript, Language::TypeScript] {
+        for loop_header in loops {
+            let source = format!(
+                "function f(flag, values) {{\n  let x = source();\n  {loop_header} {{\n    sink(x);\n  }}\n  sink(x);\n}}\n"
+            );
+            let parsed = parsed(&source, language);
+            let func = function(&parsed);
+            let defs = collect_defs(&parsed);
+            let outer = definition_on_line(&defs, 2);
+            let outer_use = edge(&parsed, &func, &outer, 6);
+            let outcome = run(&parsed, &defs, std::slice::from_ref(&outer_use)).0;
+            let RdOutcome::Available(result) = outcome else {
+                panic!("{language:?} {loop_header}: reaching definitions unavailable");
+            };
+            assert_eq!(
+                result
+                    .labels
+                    .get(&(outer_use.from.clone(), outer_use.to.clone())),
+                Some(&FlowConfidence::Exact),
+                "{language:?} {loop_header}"
+            );
+        }
+    }
+}
+
+#[test]
+fn python_comprehension_target_masks_outer_binding() {
+    let parsed = parsed(
+        "def f(values):\n    x = source()\n    ys = [x for x in values]\n",
+        Language::Python,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = definition_on_line(&defs, 2);
+    let comprehension_use = edge(&parsed, &func, &outer, 3);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&comprehension_use)).0;
+    assert_label(
+        &outcome,
+        &comprehension_use,
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+    );
+}
+
+#[test]
+fn unclassified_language_binding_construct_uses_flat_path_fallback() {
+    let parsed = parsed(
+        "class C {\n  void f() {\n    int x = source();\n    {\n      int x = clean();\n    }\n    sink(x);\n  }\n}\n",
+        Language::Java,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = definition_on_line(&defs, 3);
+    let outer_use = edge(&parsed, &func, &outer, 7);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&outer_use)).0;
+    assert_label(
+        &outcome,
+        &outer_use,
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 5 }),
+    );
+}

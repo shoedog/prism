@@ -42,7 +42,7 @@
             "scoped",
             "precise"
           ],
-          "description": "Runtime `--resolution` emitter projection: nominal forces every CPG-derived finding to unlabeled/candidate while AST-only algorithms retain their Phase 0 grade; scoped reports the retained reaching-definitions evidence labels. precise is reserved for the roadmap item 3 external-index overlay and is not accepted by this producer. A different axis from targets[].confidence; no ordering relation between the two is defined."
+          "description": "Runtime `--resolution` emitter projection: nominal forces every CPG-derived finding to unlabeled/candidate while AST-only algorithms retain their Phase 0 grade; scoped reports the retained reaching-definitions evidence labels. The producer accepts only nominal or scoped; precise is reserved in this contract for roadmap item 3 and is rejected by the current CLI. This is a different axis from targets[].confidence; no ordering relation between the two is defined."
         },
         "algorithms": {
           "type": "array",
@@ -297,7 +297,7 @@
             "asserted",
             "candidate"
           ],
-          "description": "asserted iff confidence == exact AND the file's parse quality is clean. A claim about the EVIDENCE PATH, never about the truth of the heuristic the algorithm encodes. Candidates are still worth instrumenting \u2014 runtime confirmation is how a candidate becomes evidence."
+          "description": "asserted iff confidence == exact AND every evidence-bearing file's parse quality is clean. This is a claim about the evidence path, never about the truth of the heuristic the algorithm encodes. Every other target is candidate."
         },
         "severity": {
           "type": "string",

@@ -92,6 +92,14 @@ impl BindingFacts {
             .collect();
 
         let mut declarations = Vec::<Declaration>::new();
+        if parsed.language == Language::Python {
+            collect_python_comprehension_declarations(
+                parsed,
+                *func_node,
+                func_node.id(),
+                &mut declarations,
+            );
+        }
         let mut declaration_for_def = vec![None; defs.len()];
         let mut order: Vec<usize> = (0..defs.len()).collect();
         order.sort_by_key(|index| defs[*index].start_byte);
@@ -247,6 +255,26 @@ fn declaration_seed(
         .root_node()
         .descendant_for_byte_range(def.start_byte, end_byte)?;
     loop {
+        if matches!(
+            parsed.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) && node.kind() == "for_in_statement"
+        {
+            let left = node.child_by_field_name("left");
+            let lexical_kind = node
+                .child_by_field_name("kind")
+                .map(|kind| parsed.node_text(&kind));
+            if left.is_some_and(|left| {
+                left.start_byte() <= def.start_byte && def.start_byte < left.end_byte()
+            }) && matches!(lexical_kind, Some("let" | "const"))
+            {
+                return Some((
+                    scope_span(node),
+                    DeclarationKind::Other,
+                    left.expect("checked above").end_byte(),
+                ));
+            }
+        }
         let rule = binding_scope_rule(parsed.language, node.kind());
         if let Some(kind) = rule.declaration {
             let value = if kind == DeclarationKind::PythonAssignment {
@@ -325,6 +353,8 @@ fn binding_scope_rule(language: Language, kind: &str) -> BindingScopeRule {
                     | "function_declaration"
                     | "function_expression"
                     | "arrow_function"
+                    | "for_statement"
+                    | "for_in_statement"
             ),
             match kind {
                 "variable_declaration" => Some(DeclarationKind::JavaScriptVar),
@@ -354,16 +384,82 @@ fn binding_scope_rule(language: Language, kind: &str) -> BindingScopeRule {
             matches!(kind, "let_declaration" | "const_item" | "static_item")
                 .then_some(DeclarationKind::Other),
         ),
-        _ => (
-            language.is_scope_block(kind),
-            language
-                .is_declaration_node(kind)
-                .then_some(DeclarationKind::Other),
-        ),
+        _ => (false, None),
     };
     BindingScopeRule {
         creates_scope,
         declaration,
+    }
+}
+
+fn collect_python_comprehension_declarations(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    root_function_id: usize,
+    declarations: &mut Vec<Declaration>,
+) {
+    if node.id() != root_function_id
+        && matches!(
+            node.kind(),
+            "function_definition" | "lambda" | "class_definition"
+        )
+    {
+        return;
+    }
+
+    if node.kind() == "for_in_clause" {
+        let mut parent = node.parent();
+        while let Some(candidate) = parent {
+            if matches!(
+                candidate.kind(),
+                "list_comprehension"
+                    | "set_comprehension"
+                    | "dictionary_comprehension"
+                    | "generator_expression"
+            ) {
+                if let Some(target) = node.child_by_field_name("left") {
+                    collect_python_target_identifiers(
+                        parsed,
+                        target,
+                        scope_span(candidate),
+                        declarations,
+                    );
+                }
+                break;
+            }
+            parent = candidate.parent();
+        }
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_python_comprehension_declarations(parsed, child, root_function_id, declarations);
+    }
+}
+
+fn collect_python_target_identifiers(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    scope: ScopeSpan,
+    declarations: &mut Vec<Declaration>,
+) {
+    if node.kind() == "identifier" {
+        let declaration_index = declarations.len();
+        declarations.push(Declaration {
+            binding: Binding {
+                id: BindingId::Declaration(declaration_index),
+                scope,
+                declaration_line: Some(node.start_position().row + 1),
+            },
+            name: parsed.node_text(&node).to_string(),
+            visible_from: scope.start_byte,
+        });
+        return;
+    }
+
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        collect_python_target_identifiers(parsed, child, scope, declarations);
     }
 }
 
