@@ -118,7 +118,10 @@ fn assert_label(outcome: &RdOutcome, edge: &FlowEdge, expected: FlowConfidence) 
     let RdOutcome::Available(result) = outcome else {
         panic!("expected Available with {expected:?}, got {outcome:?}");
     };
-    assert_eq!(result.labels.get(&(edge.from.clone(), edge.to.clone())), Some(&expected));
+    assert_eq!(
+        result.labels.get(&(edge.from.clone(), edge.to.clone())),
+        Some(&expected)
+    );
 }
 
 fn collect_defs(parsed: &ParsedFile) -> Vec<DefSite> {
@@ -169,7 +172,10 @@ fn assignments_source(count: usize) -> String {
 
 #[test]
 fn same_path_redefinition_kills_the_earlier_def() {
-    let parsed = parsed("def f():\n    x = source()\n    x = clean()\n    use(x)\n", Language::Python);
+    let parsed = parsed(
+        "def f():\n    x = source()\n    x = clean()\n    use(x)\n",
+        Language::Python,
+    );
     let func = function(&parsed);
     let a = def(&parsed, 0, "x", 2, 0, false);
     let b = def(&parsed, 1, "x", 3, 0, false);
@@ -250,7 +256,9 @@ fn loop_back_edge_makes_a_textually_earlier_use_reachable() {
     let loop_edge = edge(&parsed, &func, &later, 3);
     let outcome = run(&parsed, &[later], &[loop_edge.clone()]).0;
     assert_label(&outcome, &loop_edge, FlowConfidence::Exact);
-    let RdOutcome::Available(result) = outcome else { unreachable!() };
+    let RdOutcome::Available(result) = outcome else {
+        unreachable!()
+    };
     assert!(result
         .loop_carried_edges
         .contains(&(loop_edge.from, loop_edge.to)));
@@ -304,8 +312,15 @@ fn over_cap_statement_lines_returns_unavailable_for_the_lines_reason() {
     let defs = collect_defs(&parsed);
     let (outcome, stats) = run(&parsed, &defs, &[]);
     assert_eq!(defs.len(), 0, "fixture must generate zero Defs");
-    assert_eq!(function(&parsed).start_position().row + RD_MAX_LINES + 1, RD_MAX_LINES + 1);
-    assert!(matches!(outcome, RdOutcome::Unavailable(reason) if reason.is_line_cap()));
+    assert_eq!(
+        parsed.statements_in_function(&function(&parsed)).len(),
+        RD_MAX_LINES + 1
+    );
+    assert!(matches!(
+        outcome,
+        RdOutcome::Unavailable(RdUnavailable::StatementLinesCapExceeded { actual })
+            if actual == RD_MAX_LINES + 1
+    ));
     assert_eq!(stats.functions_over_cap, 1);
 }
 
@@ -317,7 +332,11 @@ fn over_cap_defs_returns_unavailable_for_the_defs_reason() {
     let (outcome, stats) = run(&parsed, &defs, &[]);
     assert!(defs.len() > RD_MAX_DEFS);
     assert!(stmt_count <= RD_MAX_LINES);
-    assert!(matches!(outcome, RdOutcome::Unavailable(reason) if reason.is_def_cap()));
+    assert!(matches!(
+        outcome,
+        RdOutcome::Unavailable(RdUnavailable::DefinitionsCapExceeded { actual })
+            if actual == RD_MAX_DEFS + 1
+    ));
     assert_eq!(stats.functions_over_cap, 1);
 }
 
@@ -335,7 +354,10 @@ fn a_long_span_with_few_statements_and_few_defs_is_not_unavailable() {
     assert!(parsed.node_line_range(&function(&parsed)).1 > RD_MAX_LINES);
     assert!(parsed.statements_in_function(&function(&parsed)).len() < 30);
     assert!(defs.len() < 20);
-    assert!(matches!(run(&parsed, &defs, &[]).0, RdOutcome::Available(_)));
+    assert!(matches!(
+        run(&parsed, &defs, &[]).0,
+        RdOutcome::Available(_)
+    ));
 }
 
 #[test]
@@ -343,7 +365,10 @@ fn cap_poles_remain_runnable() {
     let defs_parsed = parsed(&assignments_source(RD_MAX_DEFS), Language::Python);
     let defs = collect_defs(&defs_parsed);
     assert_eq!(defs.len(), RD_MAX_DEFS);
-    assert!(matches!(run(&defs_parsed, &defs, &[]).0, RdOutcome::Available(_)));
+    assert!(matches!(
+        run(&defs_parsed, &defs, &[]).0,
+        RdOutcome::Available(_)
+    ));
 
     let lines_parsed = parsed(&calls_source(RD_MAX_LINES), Language::Python);
     assert_eq!(collect_defs(&lines_parsed).len(), 0);
@@ -353,7 +378,10 @@ fn cap_poles_remain_runnable() {
             .len(),
         RD_MAX_LINES
     );
-    assert!(matches!(run(&lines_parsed, &[], &[]).0, RdOutcome::Available(_)));
+    assert!(matches!(
+        run(&lines_parsed, &[], &[]).0,
+        RdOutcome::Available(_)
+    ));
 }
 
 #[test]
@@ -363,6 +391,98 @@ fn zero_cfg_edge_function_returns_unavailable_for_the_no_cfg_reason() {
     assert_eq!(outcome, RdOutcome::Unavailable(RdUnavailable::NoCfgEdges));
     assert_eq!(stats.functions_without_cfg, 1);
     assert_eq!(stats.functions_over_cap, 0);
+}
+
+#[test]
+fn definitions_cap_has_precedence_when_both_caps_are_exceeded() {
+    let parsed = parsed(&calls_source(RD_MAX_LINES + 1), Language::Python);
+    let defs: Vec<DefSite> = (0..=RD_MAX_DEFS)
+        .map(|index| DefSite {
+            id: DefId(index as u32),
+            path: AccessPath::simple(format!("v{index}")),
+            line: 1,
+            start_byte: 0,
+            alias_derived: false,
+        })
+        .collect();
+    assert!(matches!(
+        run(&parsed, &defs, &[]).0,
+        RdOutcome::Unavailable(RdUnavailable::DefinitionsCapExceeded { actual })
+            if actual == RD_MAX_DEFS + 1
+    ));
+}
+
+#[test]
+fn continuation_line_maps_to_its_containing_statement() {
+    let parsed = parsed(
+        "def f():\n    x = source()\n    use(\n        x\n    )\n    done()\n",
+        Language::Python,
+    );
+    let func = function(&parsed);
+    let source = def(&parsed, 0, "x", 2, 0, false);
+    let continuation = edge(&parsed, &func, &source, 4);
+    let outcome = run(&parsed, &[source], &[continuation.clone()]).0;
+    assert_label(&outcome, &continuation, FlowConfidence::Exact);
+}
+
+#[test]
+fn endpoint_without_a_containing_statement_is_cfg_incomplete() {
+    let parsed = parsed(
+        "def f():\n    x = source()\n    # x is not an executable read\n    use(x)\n",
+        Language::Python,
+    );
+    let func = function(&parsed);
+    let source = def(&parsed, 0, "x", 2, 0, false);
+    let unmapped = edge(&parsed, &func, &source, 3);
+    let outcome = run(&parsed, &[source], &[unmapped.clone()]).0;
+    assert_label(
+        &outcome,
+        &unmapped,
+        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
+    );
+}
+
+#[test]
+fn rust_inner_statements_win_over_the_containing_if_span() {
+    let parsed = parsed(
+        "fn f(c: bool) {\n    if c {\n        let x = 1;\n        use_it(x);\n    }\n}\n",
+        Language::Rust,
+    );
+    let func = function(&parsed);
+    let source = def(&parsed, 0, "x", 3, 0, false);
+    let use_edge = edge(&parsed, &func, &source, 4);
+    let outcome = run(&parsed, &[source], &[use_edge.clone()]).0;
+    assert_label(&outcome, &use_edge, FlowConfidence::Exact);
+}
+
+#[test]
+fn labels_have_exactly_the_supplied_edge_keys() {
+    let parsed = parsed("def f():\n    x = source()\n    use(x)\n", Language::Python);
+    let func = function(&parsed);
+    let source = def(&parsed, 0, "x", 2, 0, false);
+    let supplied = edge(&parsed, &func, &source, 3);
+    let outcome = run(&parsed, &[source], &[supplied.clone()]).0;
+    let RdOutcome::Available(result) = outcome else {
+        panic!("expected Available, got {outcome:?}");
+    };
+    assert_eq!(result.labels.len(), 1);
+    assert_eq!(
+        result.labels.keys().next(),
+        Some(&(supplied.from, supplied.to))
+    );
+}
+
+#[test]
+fn rd_file_stats_round_trip_through_serde() {
+    let expected = RdFileStats {
+        functions_over_cap: 2,
+        functions_without_cfg: 3,
+    };
+    let bytes = bincode::serialize(&expected).unwrap();
+    assert_eq!(
+        bincode::deserialize::<RdFileStats>(&bytes).unwrap(),
+        expected
+    );
 }
 
 fn assert_capture(source: &str, language: Language, def_line: usize, use_line: usize) {
@@ -495,6 +615,24 @@ fn try_header_exception_join_is_cfg_incomplete() {
     assert_label(
         &outcome,
         &edge,
+        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
+    );
+}
+
+#[test]
+fn exception_bypass_cannot_supply_exact_when_the_safe_path_kills() {
+    let parsed = parsed(
+        "def f():\n    x = source()\n    try:\n        x = clean()\n    except ValueError:\n        recover()\n    use(x)\n",
+        Language::Python,
+    );
+    let func = function(&parsed);
+    let original = def(&parsed, 0, "x", 2, 0, false);
+    let safe_kill = def(&parsed, 1, "x", 4, 0, false);
+    let use_edge = edge(&parsed, &func, &original, 7);
+    let outcome = run(&parsed, &[original, safe_kill], &[use_edge.clone()]).0;
+    assert_label(
+        &outcome,
+        &use_edge,
         FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
     );
 }
