@@ -246,7 +246,7 @@ fn single_algorithm_sarif_shape_and_rule_index() {
 
 /// §7.2.2
 #[test]
-fn multi_algorithm_sarif_is_sorted_and_grades_cpg_evidence() {
+fn multi_algorithm_sarif_is_sorted_and_projects_cpg_nominally() {
     let (_tmp, repo, diff) = fixture_echo();
     let (_bytes, doc) = run_sarif(&repo, &diff, "echo,absence");
 
@@ -266,8 +266,8 @@ fn multi_algorithm_sarif_is_sorted_and_grades_cpg_evidence() {
         1,
         "echo must flag the unguarded caller: {results:#?}"
     );
-    assert_eq!(echo[0]["properties"]["confidence"], "exact");
-    assert_eq!(echo[0]["properties"]["tier"], "asserted");
+    assert_eq!(echo[0]["properties"]["confidence"], "unlabeled");
+    assert_eq!(echo[0]["properties"]["tier"], "candidate");
     assert_eq!(echo[0]["properties"]["algorithm"], "echo");
     assert_eq!(
         echo[0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"],

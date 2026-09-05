@@ -8,6 +8,7 @@
 //! byte-identical before and after this move (`scripts/phase0-byte-control.sh`
 //! plus a direct `--help`/`--version` `cmp`).
 
+use crate::finding_confidence::{MinConfidence, ResolutionMode};
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -46,6 +47,32 @@ pub struct Cli {
     pub review: ReviewArgs,
 }
 
+impl Cli {
+    /// Reject an explicitly requested confidence floor on traversal-only
+    /// formats before repository or diff loading begins.
+    pub fn validate_min_confidence(
+        &self,
+        min_confidence_explicit: bool,
+    ) -> Result<(), clap::Error> {
+        if self.command.is_none()
+            && min_confidence_explicit
+            && matches!(
+                self.review.format.as_str(),
+                "text" | "paper" | "mermaid" | "callers"
+            )
+        {
+            return Err(clap::Error::raw(
+                clap::error::ErrorKind::ArgumentConflict,
+                format!(
+                    "--min-confidence cannot be used with --format {}: that format has no stable finding projection",
+                    self.review.format
+                ),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(clap::Args, Debug)]
 pub struct ReviewArgs {
     /// Path to the repository root
@@ -68,6 +95,17 @@ pub struct ReviewArgs {
         value_parser = ["text", "json", "paper", "review", "callers", "mermaid", "sarif"]
     )]
     pub format: String,
+
+    /// Minimum confidence for finding-bearing output. `nameonly` retains Exact,
+    /// NameOnly, and ungraded Unlabeled findings to preserve legacy output.
+    #[arg(long, value_enum, default_value_t = MinConfidence::NameOnly)]
+    pub min_confidence: MinConfidence,
+
+    /// Confidence projection: `nominal` reports CPG findings as unlabeled;
+    /// `scoped` reports retained evidence labels. `precise` and `auto` are
+    /// deferred to roadmap item 3 because they require an external index.
+    #[arg(long, value_enum, default_value_t = ResolutionMode::Nominal)]
+    pub resolution: ResolutionMode,
 
     /// Maximum number of nodes a single Mermaid diagram may render before truncation.
     /// Must be >= 4 (the minimum that fits head + ghost + tail).
@@ -282,6 +320,16 @@ pub struct TargetsArgs {
     /// Minimum evidence tier to retain.
     #[arg(long, default_value = "candidate", value_parser = ["asserted", "candidate"])]
     pub min_tier: String,
+
+    /// Minimum confidence for emitted targets. `nameonly` also retains
+    /// ungraded Unlabeled findings so the default preserves legacy output.
+    #[arg(long, value_enum, default_value_t = MinConfidence::NameOnly)]
+    pub min_confidence: MinConfidence,
+
+    /// Confidence projection. `precise` and `auto` are deferred to roadmap
+    /// item 3 because they require an external index.
+    #[arg(long, value_enum, default_value_t = ResolutionMode::Nominal)]
+    pub resolution: ResolutionMode,
 
     /// Exit 3 when one or more requested algorithms fail.
     #[arg(long)]

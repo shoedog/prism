@@ -154,3 +154,24 @@ fn nav_confidence_absent_matches_all_byte_for_byte() {
     ]);
     assert_eq!(implicit_callees, explicit_callees);
 }
+
+#[test]
+fn finding_confidence_flags_do_not_extend_the_nav_wire_shape() {
+    for flag in ["--min-confidence", "--resolution"] {
+        let value = if flag == "--min-confidence" {
+            "exact"
+        } else {
+            "scoped"
+        };
+        let output = bin()
+            .args(["nav", "callers", flag, value])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(2), "{flag}: {output:?}");
+        assert!(
+            String::from_utf8_lossy(&output.stderr).contains("unexpected argument"),
+            "{flag}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}

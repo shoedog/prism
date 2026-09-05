@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/shoedog/prism/contracts/targets.schema.json",
   "title": "Prism instrumentation targets (v1)",
-  "description": "Projection of prism findings into sites a runtime harness should instrument. Produced by `prism targets`. Stable keys a consumer may diff on across runs and machines: targets[].id, site.{file,line,symbol}, kind, category, expected, source_algorithm, severity. Envelope fields a consumer must ignore when comparing documents: producer.{version,build_identity}, repo.root, repo.sha, diff.sha256. confidence/tier are stable for a given prism version and may change across versions as labeling improves. Bump schema_version on any breaking change.",
+  "description": "Projection of prism findings into sites a runtime harness should instrument. Produced by `prism targets`. Stable keys a consumer may diff on across runs and machines: targets[].id, site.{file,line,symbol}, kind, category, expected, source_algorithm, severity. Envelope fields a consumer must ignore when comparing documents: producer.{version,build_identity}, repo.root, repo.sha, diff.sha256. confidence/tier are stable for a given prism version and selected resolution mode, and may change across versions as labeling improves. Bump schema_version on any breaking change.",
   "type": "object",
   "required": [
     "schema_version",
@@ -42,7 +42,7 @@
             "scoped",
             "precise"
           ],
-          "description": "The BUILD's dataflow-labeling capability (roadmap `--resolution`): nominal = DataFlow edges unlabeled (Phase 0); scoped = reaching-definitions labels; precise = external-index overlay. A different axis from targets[].confidence; no ordering relation between the two is defined."
+          "description": "Runtime `--resolution` emitter projection: nominal forces every CPG-derived finding to unlabeled/candidate while AST-only algorithms retain their Phase 0 grade; scoped reports the retained reaching-definitions evidence labels. precise is reserved for the roadmap item 3 external-index overlay and is not accepted by this producer. A different axis from targets[].confidence; no ordering relation between the two is defined."
         },
         "algorithms": {
           "type": "array",
@@ -289,7 +289,7 @@
             "nameonly",
             "unlabeled"
           ],
-          "description": "Per-finding evidence-path label, mirroring prism's ResolutionConfidence plus `unlabeled`. exact: every edge on the evidence path is Exact and the algorithm is AST-only or fully labeled; nameonly: at least one name-only edge; unlabeled: the evidence path crosses edges prism cannot label yet (Phase 0: every CPG-derived finding, because DataFlow edges carry no confidence). This is a DIFFERENT AXIS from producer.resolution_mode."
+          "description": "Per-finding label after the producer.resolution_mode projection. In scoped mode, exact means every edge on the retained evidence path is Exact, nameonly means at least one retained edge is name-only, and unlabeled means the path crosses evidence prism cannot label. In nominal mode every CPG-derived finding is forced to unlabeled/candidate while AST-only findings keep their Phase 0 grade. The default --min-confidence nameonly retains exact, nameonly, and unlabeled; exact retains only exact."
         },
         "tier": {
           "type": "string",

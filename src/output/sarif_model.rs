@@ -146,6 +146,7 @@ pub struct ResultProperties {
     pub severity: String,
     pub confidence: FindingConfidence,
     pub tier: FindingTier,
+    /// Runtime emitter projection selected by `--resolution`.
     pub resolution_mode: &'static str,
     pub parse_quality: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -162,6 +163,7 @@ pub struct ResultProperties {
 pub struct RunProperties {
     pub mapping_version: &'static str,
     pub algorithms_run: Vec<String>,
+    /// Runtime emitter projection shared by every result in this run.
     pub resolution_mode: &'static str,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub errors: Vec<AlgorithmError>,

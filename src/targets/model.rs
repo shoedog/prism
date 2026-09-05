@@ -31,6 +31,7 @@ pub struct TargetsDocument {
 pub struct Producer {
     pub tool: String,
     pub version: String,
+    /// Runtime emitter projection selected for this document.
     pub resolution_mode: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub build_identity: Option<String>,

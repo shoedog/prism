@@ -2,7 +2,10 @@ use super::{build_context, load_review_inputs, ReviewInputs, ReviewOptions};
 use crate::algorithms;
 use crate::ast::ParsedFile;
 use crate::cpg::CpgContext;
-use crate::finding_confidence::EvidencePath;
+use crate::finding_confidence::{
+    classify_for_resolution, parse_quality_for_selected_evidence, EvidencePath, MinConfidence,
+    ResolutionMode,
+};
 use crate::slice::{AlgorithmError, SliceConfig, SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::{Context, Result};
 use std::collections::BTreeMap;
@@ -282,6 +285,45 @@ pub fn parse_algorithms(spec: &str) -> Result<Vec<SlicingAlgorithm>> {
     }
 }
 
+/// Retain the index-aligned finding/evidence pairs admitted by the selected
+/// emitter confidence floor. The default is an exact no-op, including for a
+/// malformed evidence vector, so legacy output and mismatch diagnostics keep
+/// their existing shape.
+pub fn filter_result_findings(
+    result: &mut SliceResult,
+    inputs: &ReviewInputs,
+    min_confidence: MinConfidence,
+    resolution: ResolutionMode,
+) {
+    if min_confidence == MinConfidence::NameOnly {
+        return;
+    }
+
+    let findings = std::mem::take(&mut result.findings);
+    let evidence = std::mem::take(&mut result.evidence);
+    for (index, finding) in findings.into_iter().enumerate() {
+        let selected_evidence = evidence.get(index).and_then(Option::as_ref);
+        let parse_quality = parse_quality_for_selected_evidence(
+            &finding,
+            selected_evidence,
+            &inputs.parse_quality,
+            &inputs.files,
+        );
+        let (confidence, _) = classify_for_resolution(
+            &finding.algorithm,
+            parse_quality,
+            selected_evidence,
+            resolution,
+        );
+        if min_confidence.admits(confidence) {
+            result.findings.push(finding);
+            result
+                .evidence
+                .push(evidence.get(index).cloned().unwrap_or(None));
+        }
+    }
+}
+
 /// Multi-algorithm output in the legacy-compatible facade shape.
 ///
 /// `findings` is the annotated set; `results[*].findings` are the algorithms' raw findings
@@ -295,6 +337,8 @@ pub struct ReviewRun {
     pub errors: Vec<AlgorithmError>,
     pub warnings: Vec<String>,
     pub algorithms_run: Vec<String>,
+    pub min_confidence: MinConfidence,
+    pub resolution: ResolutionMode,
 }
 
 pub fn run_review(
@@ -315,7 +359,15 @@ pub fn run_review(
                 ..config.clone()
             };
             match run_algorithm_raw(algorithm, ctx, inputs, &algorithm_config, params, repo) {
-                Ok(result) => results.push(result),
+                Ok(mut result) => {
+                    filter_result_findings(
+                        &mut result,
+                        inputs,
+                        inputs.min_confidence,
+                        inputs.resolution,
+                    );
+                    results.push(result);
+                }
                 Err(error) => errors.push(AlgorithmError {
                     algorithm: algorithm.name().to_string(),
                     error: error.to_string(),
@@ -344,6 +396,8 @@ pub fn run_review(
             errors,
             warnings: inputs.parse_warnings.clone(),
             algorithms_run,
+            min_confidence: inputs.min_confidence,
+            resolution: inputs.resolution,
         }
     })
 }
@@ -353,6 +407,8 @@ pub struct ReviewOutcome {
     pub inputs: ReviewInputs,
     pub run: ReviewRun,
     pub build_warnings: Vec<String>,
+    pub min_confidence: MinConfidence,
+    pub resolution: ResolutionMode,
 }
 
 /// Run a complete review through the stable facade.
@@ -376,10 +432,14 @@ pub fn review(
             let run = run_review(&built.ctx, &inputs, algorithms, config, params, &opts.repo);
             (run, built.warnings)
         };
+        let min_confidence = run.min_confidence;
+        let resolution = run.resolution;
         Ok(ReviewOutcome {
             inputs,
             run,
             build_warnings,
+            min_confidence,
+            resolution,
         })
     })
 }

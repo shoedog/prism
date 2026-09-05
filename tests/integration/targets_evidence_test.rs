@@ -1,7 +1,7 @@
 use prism::access_path::AccessPath;
 use prism::api::{
     load_review_inputs, to_sarif, EvidenceHop, EvidencePath, FindingConfidence, FindingTier,
-    ReviewInputs, ReviewOptions, SarifInputs,
+    ResolutionMode, ReviewInputs, ReviewOptions, SarifInputs,
 };
 use prism::cpg::FlowConfidence;
 use prism::data_flow::{VarAccessKind, VarLocation};
@@ -126,10 +126,12 @@ fn assert_selected_file_candidate(inputs: &ReviewInputs, expected_quality: &str)
             .evidence(&evidence)
             .parse_quality(&inputs.parse_quality)
             .files(&inputs.files)
-            .sources(&inputs.sources),
+            .sources(&inputs.sources)
+            .resolution(ResolutionMode::Scoped),
     );
     let mut metadata = TargetsMeta::default();
     metadata.repo_root = PathBuf::from(".");
+    metadata.resolution = ResolutionMode::Scoped;
     let targets = project(&findings, &evidence, inputs, &metadata);
     assert_eq!(targets.targets.len(), 1, "{targets:#?}");
     let properties = &sarif["runs"][0]["results"][0]["properties"];

@@ -57,6 +57,64 @@ pub enum FindingTier {
     Candidate,
 }
 
+/// Minimum confidence admitted by finding-bearing output formats.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, clap::ValueEnum)]
+#[non_exhaustive]
+pub enum MinConfidence {
+    /// Only findings whose evidence path is entirely Exact.
+    Exact,
+    /// Exact, NameOnly AND Unlabeled. An unlabeled finding is not below
+    /// nameonly; it is ungraded, and the default must retain legacy findings.
+    #[default]
+    #[value(name = "nameonly")]
+    NameOnly,
+}
+
+impl MinConfidence {
+    pub fn admits(self, confidence: FindingConfidence) -> bool {
+        match self {
+            Self::Exact => confidence == FindingConfidence::Exact,
+            Self::NameOnly => true,
+        }
+    }
+}
+
+impl std::fmt::Display for MinConfidence {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match self {
+            Self::Exact => "exact",
+            Self::NameOnly => "nameonly",
+        })
+    }
+}
+
+/// Finding-confidence projection selected at runtime by `--resolution`.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, clap::ValueEnum)]
+#[non_exhaustive]
+pub enum ResolutionMode {
+    /// Report every CPG-derived finding as unlabeled/candidate. The
+    /// conservative default and the byte-control mode.
+    #[default]
+    Nominal,
+    /// Report the retained evidence-path labels.
+    Scoped,
+}
+
+impl ResolutionMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Nominal => "nominal",
+            Self::Scoped => "scoped",
+        }
+    }
+}
+
+impl std::fmt::Display for ResolutionMode {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
 /// Per-file parse quality grade, ordered best → worst by declaration order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -68,11 +126,6 @@ pub enum ParseQuality {
     Unparseable,
     Unknown,
 }
-
-/// The BUILD's dataflow-labeling capability (roadmap 04 §3.6 `--resolution`): a
-/// DIFFERENT AXIS from a finding's confidence. Phase 0: "nominal" = DataFlow
-/// edges unlabeled.
-pub const RESOLUTION_MODE: &str = "nominal";
 
 impl ParseQuality {
     /// Maps a raw quality string (`"clean"|"degraded"|"poor"|"unparseable"`) to
@@ -296,6 +349,26 @@ pub fn classify_with_evidence(
         FindingTier::Candidate
     };
     (confidence, tier)
+}
+
+/// Apply the runtime emitter projection without changing the retained evidence.
+/// Nominal mode under-claims every CPG-derived finding; AST-only findings keep
+/// their evidence-derived Phase 0 grade in both modes.
+pub fn classify_for_resolution(
+    algorithm: &str,
+    parse_quality: ParseQuality,
+    evidence: Option<&EvidencePath>,
+    resolution: ResolutionMode,
+) -> (FindingConfidence, FindingTier) {
+    if resolution == ResolutionMode::Nominal
+        && SlicingAlgorithm::from_str(algorithm).is_some_and(|algorithm| algorithm.needs_cpg())
+    {
+        return (FindingConfidence::Unlabeled, FindingTier::Candidate);
+    }
+    evidence.map_or(
+        (FindingConfidence::Unlabeled, FindingTier::Candidate),
+        |evidence| classify_with_evidence(algorithm, parse_quality, evidence),
+    )
 }
 
 /// Classifies a finding's confidence and tier from its producing algorithm and

@@ -34,8 +34,8 @@ use super::sarif_model::{
 use super::sarif_rules::{attribution, line_text_of, rule_description, Attribution, UNCATEGORIZED};
 use crate::ast::ParsedFile;
 use crate::finding_confidence::{
-    classify_with_evidence, parse_quality_for_selected_evidence, EvidencePath, FindingConfidence,
-    FindingTier, RESOLUTION_MODE,
+    classify_for_resolution, parse_quality_for_selected_evidence, EvidencePath, FindingConfidence,
+    FindingTier, MinConfidence, ParseQuality, ResolutionMode,
 };
 use crate::slice::{AlgorithmError, FileParseQuality, SliceFinding};
 use std::collections::{BTreeMap, BTreeSet};
@@ -82,6 +82,8 @@ pub struct SarifInputs<'a> {
     pub parse_quality: &'a BTreeMap<String, FileParseQuality>,
     pub files: &'a BTreeMap<String, ParsedFile>,
     pub sources: &'a BTreeMap<String, String>,
+    pub min_confidence: MinConfidence,
+    pub resolution: ResolutionMode,
 }
 
 /// Empty borrowed maps for the builder's defaults. `const` rather than
@@ -105,6 +107,8 @@ impl<'a> SarifInputs<'a> {
             parse_quality: NO_PARSE_QUALITY,
             files: NO_FILES,
             sources: NO_SOURCES,
+            min_confidence: MinConfidence::NameOnly,
+            resolution: ResolutionMode::Nominal,
         }
     }
 
@@ -154,6 +158,16 @@ impl<'a> SarifInputs<'a> {
         self.sources = sources;
         self
     }
+
+    pub fn min_confidence(mut self, min_confidence: MinConfidence) -> Self {
+        self.min_confidence = min_confidence;
+        self
+    }
+
+    pub fn resolution(mut self, resolution: ResolutionMode) -> Self {
+        self.resolution = resolution;
+        self
+    }
 }
 
 // --- Document construction ------------------------------------------------
@@ -170,18 +184,25 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
         .findings
         .iter()
         .enumerate()
-        .map(|(index, finding)| {
-            let result = build_result(
+        .filter_map(|(index, finding)| {
+            let evidence = inputs.evidence.get(index).and_then(Option::as_ref);
+            let quality = parse_quality_for_selected_evidence(
                 finding,
-                inputs.evidence.get(index).and_then(Option::as_ref),
-                inputs,
-                &mut escaping,
+                evidence,
+                inputs.parse_quality,
+                inputs.files,
             );
+            let (confidence, tier) =
+                classify_for_resolution(&finding.algorithm, quality, evidence, inputs.resolution);
+            if !inputs.min_confidence.admits(confidence) {
+                return None;
+            }
+            let result = build_result(finding, quality, confidence, tier, inputs, &mut escaping);
             let category = finding.category.as_deref().unwrap_or(UNCATEGORIZED);
             rule_meta
                 .entry(result.rule_id.clone())
                 .or_insert_with(|| (finding.algorithm.clone(), category.to_string()));
-            result
+            Some(result)
         })
         .collect();
 
@@ -272,7 +293,7 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
             properties: RunProperties {
                 mapping_version: MAPPING_VERSION,
                 algorithms_run: inputs.algorithms_run.to_vec(),
-                resolution_mode: RESOLUTION_MODE,
+                resolution_mode: inputs.resolution.as_str(),
                 errors: inputs.errors.to_vec(),
                 prism_build_identity: crate::cpg_cache::current_cache_build_identity(),
                 prism_git_sha: env!("GIT_SHA"),
@@ -324,17 +345,13 @@ fn physical_location(
 
 fn build_result(
     finding: &SliceFinding,
-    evidence: Option<&EvidencePath>,
+    quality: ParseQuality,
+    confidence: FindingConfidence,
+    tier: FindingTier,
     inputs: &SarifInputs,
     escaping: &mut BTreeSet<String>,
 ) -> SarifResult {
     let category = finding.category.as_deref().unwrap_or(UNCATEGORIZED);
-    let quality =
-        parse_quality_for_selected_evidence(finding, evidence, inputs.parse_quality, inputs.files);
-    let (confidence, tier) = evidence.map_or(
-        (FindingConfidence::Unlabeled, FindingTier::Candidate),
-        |evidence| classify_with_evidence(&finding.algorithm, quality, evidence),
-    );
     let line_text = line_text_of(inputs.sources, &finding.file, finding.line);
 
     let region = (finding.line >= 1).then_some(finding.line);
@@ -373,7 +390,7 @@ fn build_result(
             severity: finding.severity.clone(),
             confidence,
             tier,
-            resolution_mode: RESOLUTION_MODE,
+            resolution_mode: inputs.resolution.as_str(),
             parse_quality: quality.as_str(),
             function_name: finding.function_name.clone(),
             related_files: finding.related_files.clone(),

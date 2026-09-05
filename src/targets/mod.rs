@@ -11,8 +11,8 @@ pub use model::{
 
 use crate::api::{build_info, ReviewInputs};
 use crate::finding_confidence::{
-    classify_with_evidence, parse_quality_for_selected_evidence, EvidencePath, FindingConfidence,
-    FindingTier, RESOLUTION_MODE,
+    classify_for_resolution, parse_quality_for_selected_evidence, EvidencePath, FindingTier,
+    MinConfidence, ResolutionMode,
 };
 use crate::languages::Language;
 use crate::output::{sarif::path_escapes_repo, severity_rank};
@@ -35,6 +35,8 @@ pub struct TargetsMeta {
     pub run_warnings: Vec<String>,
     pub min_severity_rank: u8,
     pub min_tier: FindingTier,
+    pub min_confidence: MinConfidence,
+    pub resolution: ResolutionMode,
 }
 
 /// Projects findings and records per-finding warnings against the complete
@@ -99,9 +101,11 @@ pub fn project(
             &inputs.parse_quality,
             &inputs.files,
         );
-        let (confidence, tier) = selected_evidence.map_or(
-            (FindingConfidence::Unlabeled, FindingTier::Candidate),
-            |evidence| classify_with_evidence(&finding.algorithm, parse_quality, evidence),
+        let (confidence, tier) = classify_for_resolution(
+            &finding.algorithm,
+            parse_quality,
+            selected_evidence,
+            meta.resolution,
         );
         let mut mapped = map_finding(finding);
         if mapped.kind == "external_call" {
@@ -141,6 +145,9 @@ pub fn project(
                 // whatever hint the mapping already produced, never lose one.
                 None => {}
             }
+        }
+        if !meta.min_confidence.admits(confidence) {
+            continue;
         }
         let (symbol, function_start_line, function_end_line) =
             enclosing_site(&file, finding, inputs, &mut warnings);
@@ -244,7 +251,7 @@ pub fn project(
         producer: Producer {
             tool: "prism".to_string(),
             version: build.package_version.to_string(),
-            resolution_mode: RESOLUTION_MODE.to_string(),
+            resolution_mode: meta.resolution.as_str().to_string(),
             build_identity: Some(build.build_identity.to_string()),
             algorithms: meta.algorithms_run.clone(),
         },

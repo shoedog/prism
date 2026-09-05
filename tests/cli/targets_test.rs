@@ -229,8 +229,8 @@ fn default_run_emits_all_five_producers_and_live_mappings() {
     assert_eq!(echo["kind"], "external_call");
     assert_eq!(echo["expected"]["property"], "error_handled");
     assert_eq!(echo["dependency_hint"]["callee"], "fetch");
-    assert_eq!(echo["confidence"], "exact");
-    assert_eq!(echo["tier"], "asserted");
+    assert_eq!(echo["confidence"], "unlabeled");
+    assert_eq!(echo["tier"], "candidate");
     assert_eq!(echo["site"]["symbol"], "serve");
     assert_eq!(echo["site"]["language"], "python");
     assert!(
