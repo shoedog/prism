@@ -110,9 +110,9 @@ Three candidate directions once the queue's top items are drained (or interleave
   bypassed static/slot/write checks; normalize member wrappers and repair explicit
   member-write barriers. CPG65/nav34; default3811/0/1, MCP4001/0/1, matrix104/104;
   quick baseline-invalid SHA drift. Real2780 records/369 Exact unchanged. The
-  separately approved inline-prop receiver proof follows on a stacked branch.
+  separately approved inline-prop proof is published in stacked PR246.
   See `docs/eval/receiver-closure/2026-09-04-arrow-members-readout.md`.
-- **Destructured inline-prop proof — implemented, publication pending:** separate
+- **Destructured inline-prop proof — PR246 OPEN, 4a982ed:** separate
   slice stacked on PR245, CPG66/nav35. Full default3815/0/1, MCP4005/0/1,
   matrix104/104. Same Excalidraw2780 records: Exact369→372 at one unique source
   span (LibraryMenu.tsx:114), verified in served callers and callees; other ten

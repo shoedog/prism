@@ -1,7 +1,7 @@
 # Handoff — bounded arrow fields, then separate inline props
 
 **Written:** 2026-09-05 · **By:** Codex /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/destructured-inline-prop-receivers · **Measured state:** `[MEASURED]` git status shows B source/tests dirty on d26ae0a. A implementation a03382a and docs d26ae0a pushed; PR245 OPEN against a70ea03, not merged. Original untracked .superpowers/ and eval/snapshots/prism-fb81481dafa7.json preserved.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/destructured-inline-prop-receivers · **Measured state:** `[MEASURED]` B implementation4a982ed pushed; PR246 OPEN stacked on PR245/d26ae0a. A implementation a03382a pushed; PR245 OPEN against a70ea03. Neither merged. git status before this docs-only follow-up shows only original untracked .superpowers/ and eval/snapshots/prism-fb81481dafa7.json.
 **Predecessor:** merged #244, with #243 also integrated.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,14 +9,14 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Ownership: `[MEASURED]` this session owns the branch; no subagents dispatched — RESOLVED.
-(b) Custody: `[MEASURED]` A pushed and archived; B checkpoint under /private/tmp/prism-inline-props-BC2ce0/checkpoint.tgz before full gates — RESOLVED by snapshot.
+(b) Custody: `[MEASURED]` both implementations pushed; B raw evidence archive /private/tmp/prism-inline-props-BC2ce0-evidence.tgz, checksum in readout — RESOLVED.
 (c) In flight: `[MEASURED]` B full suites/matrix/quick/served probes complete; no running gates — RESOLVED.
 (d) Authority: owner “proceed to bounded arrow-field member ownership, then a separate destructured inline-prop receiver proof.” Both slices authorized, separate PRs; second may stack on first. Standing commit/push/open-PR authority; no merge/rebaseline/full multicorpus.
 
 ## 1. Resume order
 
 1. Run git status --short; read /private/tmp/prism-inline-props-BC2ce0/round2.log (seconds).
-2. Publish B stacked on PR245; reconcile publication SHA/PR in this handoff/readout/roadmap.
+2. Review PR245 then PR246; after owner merges245, retarget246 to main and rebind the live base before any further work.
 
 **STOP conditions:** three review rounds per slice; new open-class defects require design escalation; preserve unrelated failures and controls, never rebaseline.
 
@@ -32,18 +32,20 @@
 | B inline props | done | `[MEASURED]` RED2pass/1fail on A base; round2 focused4pass; required inline property maps to TypedParam, CPG66/nav35; cache A↔B and edge controls |
 | B gates | done | `[MEASURED]` full-default.log3815/0/1, full-mcp.log4005/0/1, matrix.log104/104; quick exit2 solely SHA drift, oracle/SUT errors0, details in readout |
 | B measurement | done | `[MEASURED]` verified-measurement.json:2780 records, Exact369→372 at one unique span; control JSONL byte-identical; served callers/callees assertions pass |
+| B publication | done | `[MEASURED]` 4a982ed pushed; https://github.com/shoedog/prism/pull/246 OPEN against feat/bounded-arrow-field-members |
 
 ## 3. Corrections to standing documents and memory
 
 Prior assertion “arrow fields unsupported” is refuted by base positives: metadata
 already admitted them, but bypassed safeguards. Static arrow x.m and overwritten
-fields were WRONG Exact outputs. Caller shapes remain why Library sites were
-NameOnly. Predecessor OPEN states and that explanation reconciled. Memory not edited.
+fields were WRONG Exact outputs. B now proves one Library span; the other ten
+remain unproven. Predecessor and publication states reconciled. Memory not edited.
 
 ## 4. Open work
 
-Finish B verification/publication as specified in
-docs/superpowers/specs/2026-09-04-arrow-fields-inline-props.md. No additional user decision needed.
+Owner review/merge245, then retarget/review246. No further receiver expansion is
+authorized. Quick remains baseline-invalid; do not silently rebaseline or claim
+that its sampled FP/recall gaps were introduced here without a same-base control.
 
 ## 5. Invariants and traps — do not do these
 

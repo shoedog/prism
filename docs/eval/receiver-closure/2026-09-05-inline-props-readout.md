@@ -1,7 +1,9 @@
 # Destructured inline-prop receiver proof
 
 Separate authorized slice B, based on d26ae0a (PR245 arrow-field repair).
-Implementation and verification complete; publication pending.
+Implementation4a982ed pushed in [PR246](https://github.com/shoedog/prism/pull/246),
+OPEN against feat/bounded-arrow-field-members. Merge245 first, then retarget246
+to main; neither was merged by this worker.
 
 ## Bounded result
 
