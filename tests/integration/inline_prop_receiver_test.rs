@@ -110,7 +110,6 @@ fn contextual_prop_receiver_shape_barriers() {
         "const run: <Client>(p: {client: Client}) => void = ({client}) => { client.m(); };",
         "const run: (p: {client: Client}) => void = function <T>({client}) { client.m(); };",
         "function outer<Client>() { const run: (p: {client: Client}) => void = ({client}) => { client.m(); }; }",
-        "type Props = {client: Client}; const run: (p: Props) => void = ({client}) => { client.m(); };",
         "const run: ({client}: {client: Client}) => void = ({client}) => { client.m(); };",
         "const run: (p: {client: Client}) => void = client => { client.m(); };",
         "function outer() { const run: (p: {client: Client}) => void = function* ({client}) { client.m(); }; }",
@@ -231,6 +230,110 @@ fn inline_prop_receiver_positive() {
             "function run({client: x}: {client: Client}) { x.m(); x = other; }",
         ] { check(source, true, language); }
     }
+}
+
+#[test]
+fn local_props_alias_positive() {
+    let mut failures = Vec::new();
+    for language in [Language::TypeScript, Language::Tsx] {
+        for source in [
+            "type Props = {client: Client}; function run({client}: Props) { client.m(); }",
+            "type Props = {client: Client}; const run: (p: Props) => void = ({client}) => client.m();",
+            "type Props = {client: Client}; type F = (p: Props) => void; const run: F = ({client}) => client.m();",
+            "export type Props = {client: Client}; export const run = function named({client: x}: Props) { x.m(); };",
+            "function run({client}: Props) { client.m(); } type Props = {client: Client};",
+            "type F = (p: Props) => void; const run: F = ({client}) => client.m(); type Props = {client: Client};",
+            "type Props = {readonly client: Client; label?: string}; const run = async ({client, label}: Props) => client.m();",
+            "type Props = {client: Client}; function run<Client>({client}: Props) { client.m(); }",
+            "type Props = {client: Client}; type F = (p: Props) => void; function outer<Props, Client>() { const run: F = ({client}) => client.m(); }",
+            "type Props = {client: Client}; let Props = other; Props = value; function run({client}: Props) { client.m(); }",
+            "type Props = {client: Client}; function run({client}: Props) { function inner() { client.m(); } }",
+            "type Props = {client: Client}; function run({client: x}: Props) { x.m(); x = other; }",
+            "type Props = {client: Client}; const run = memo(({client}: Props) => client.m());",
+            "type Props = {client: Client}; function run({client}: Props) { type Client = Other; client.m(); }",
+            "type Props = {client: Client}; const run: (p: Props) => void = ({client}) => { function change(client) { delete client.m; } client.m(); };",
+        ] {
+            if std::panic::catch_unwind(|| check(source, true, language)).is_err() { failures.push((language, source)); }
+        }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+#[test]
+fn local_props_alias_declaration_barriers() {
+    let mut failures = Vec::new();
+    for declaration in [
+        "",
+        "type Props = {client: Client}; type Props = {client: Client};",
+        "type Props = {client: Client}; interface Props {}",
+        "type Props = {client: Client}; class Props {}",
+        "type Props = {client: Client}; enum Props { A }",
+        "type Props = {client: Client}; namespace Props.Inner {}",
+        "type Props = {client: Client}; import Props from './other';",
+        "type Props = {client: Client}; import type Props from './other';",
+        "type Props = {client: Client}; import * as Props from './other';",
+        "type Props = {client: Client}; import Props = NS.Other;",
+        "type Props = {client: Client}; declare class Props {}",
+        "declare type Props = {client: Client};",
+        "type Props<T = Client> = {client: T};",
+        "type Other = {client: Client}; type Props = Other;",
+        "type Props = Props;",
+        "type Props = Other; type Other = Props;",
+        "interface Props { client: Client }",
+        "type Props = {client: Client} | Other;",
+        "type Props = {client: Client} & Other;",
+        "type Props = ({client: Client});",
+        "type Props = { [K in Key]: Client };",
+        "type Props = T extends U ? {client: Client} : Other;",
+        "type Props = (p: {client: Client}) => void;",
+    ] {
+        for consumer in [
+            "function run({client}: Props) { client.m(); }",
+            "const run: (p: Props) => void = ({client}) => client.m();",
+            "type F = (p: Props) => void; const run: F = ({client}) => client.m();",
+        ] {
+            let source = format!("{declaration} {consumer}");
+            if std::panic::catch_unwind(|| check(&source, false, Language::Tsx)).is_err() {
+                failures.push(source);
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+#[test]
+fn local_props_alias_receiver_barriers() {
+    let mut failures = Vec::new();
+    for source in [
+        "type Props = {client?: Client}; function run({client}: Props) { client.m(); }",
+        "type Props = {client: Client; client: Other}; function run({client}: Props) { client.m(); }",
+        "type Props = {get client(): Client}; function run({client}: Props) { client.m(); }",
+        "type Props = {client: Client; [key: string]: Other}; function run({client}: Props) { client.m(); }",
+        "type Props = {client: Client | Other}; function run({client}: Props) { client.m(); }",
+        "type C = Client; type Props = {client: C}; function run({client}: Props) { client.m(); }",
+        "type Props = {client: Client}; function run<Props>({client}: Props) { client.m(); }",
+        "type Props = {client: Client}; function outer() { type Props = Other; const run: (p: Props) => void = ({client}) => client.m(); }",
+        "function outer() { type Props = {client: Client}; function run({client}: Props) { client.m(); } }",
+        "type Props = {client: Client}; function run({client = other}: Props) { client.m(); }",
+        "type Props = {client: Client}; function run({client, ...rest}: Props) { client.m(); }",
+        "type Props = {client: Client}; function run({client}: Props = other) { client.m(); }",
+        "type Props = {client: Client}; const run: (p: Props) => void = ({client}: Missing) => client.m();",
+        "type Props = {client: Other}; const run: (p: {client: Client}) => void = ({client}: Props) => client.m();",
+        "type Props = {client: Client}; function run({client}: Props) { client = other; client.m(); }",
+        "type Props = {client: Client}; function run({client}: Props) { delete client.m; client.m(); }",
+        "type Props = {client: Client}; function run({client}: Props) { while(ok) { client.m(); client = other; } }",
+        "type Props = {client: Client}; function run({client}: Props) { function inner(client) { client.m(); } }",
+        "type Props = {client: Client}; function run() { const {client}: Props = other; client.m(); }",
+        "type Props = {client: Client}; function run({client}: Props) { client.m(); const broken = ; }",
+        "type Props = {client: Client}; type F = (p: Props) => void; const run: F = ({client}) => { delete client.m; client.m(); };",
+        "type Props = {client: Client}; const run: (p: Props) => void = ({client}) => { ({m: client.m} = other); client.m(); };",
+        "type Props = {client: Client}; type F = (p: Props) => void; const run: F = ({client}: Missing) => client.m();",
+        "type Props = {client: Client}; function outer() { interface Props {} type F = (p: Props) => void; const run: F = ({client}) => client.m(); }",
+        "type Props = {client: Client}; function outer() { const run: (p: Props) => void = ({client}) => client.m(); interface Props {} }",
+    ] {
+        if std::panic::catch_unwind(|| check(source, false, Language::Tsx)).is_err() { failures.push(source); }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
 }
 
 #[test]

@@ -131,13 +131,20 @@ Three candidate directions once the queue's top items are drained (or interleave
   callers/callees gains asserted. Remaining six tracked unproven spans unchanged.
   Quick baseline-invalid SHA drift; lexical invariant, no general temporal/alias
   proof. See `docs/eval/receiver-closure/2026-09-05-constructor-fields-readout.md`.
-- **Module-local contextual aliases — PR249 OPEN, 166d2d8:**
+- **Module-local contextual aliases — PR249 merged 2aff090, 166d2d8:**
   One source-backed non-generic function-type alias; original declaration/type and
   implementation/write anchors retained. CPG69/nav38; default3824/0/1,
   MCP4014/0/1, matrix104/104. Real2780/Exact376 unchanged; separate served alias
   fixture gains Exact with optional/write/shadow exclusions. Quick baseline-invalid
   SHA drift. No ambient/imported/generic/recursive alias authority. See
   `docs/eval/receiver-closure/2026-09-05-local-aliases-readout.md`.
+- **Module-local props object aliases — PR250 open, 590f677:**
+  One local direct object shape through explicit, direct contextual and local
+  function-alias annotations. CPG70/nav39; default3827/0/1, MCP4017/0/1,
+  matrix104/104. Real2780/Exact376 unchanged; separate served fixture proves
+  three Exact callers with optional/write/shadow/explicit-failure exclusions.
+  Quick baseline-invalid SHA drift. No imported/generic/recursive/ambient alias authority. See
+  `docs/eval/receiver-closure/2026-09-05-props-aliases-readout.md`.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:
