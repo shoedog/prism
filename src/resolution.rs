@@ -2803,9 +2803,11 @@ impl CallGraph {
                         )
                     );
                     if is_js_ts {
-                        if let Some((defining_file, owner)) =
-                            self.js_ts_recovered_class_owner(&caller.file, recv_ty)
-                        {
+                        if let Some((defining_file, owner)) = self.js_ts_recovered_class_owner(
+                            &caller.file,
+                            recv_ty,
+                            site.receiver_recovery == Some(ReceiverRecovery::TypedParam),
+                        ) {
                             if let RecoveredDirectMethod::Hit(resolved) = self
                                 .recovered_receiver_direct_method(
                                     &defining_file,

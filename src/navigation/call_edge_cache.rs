@@ -71,7 +71,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // same-file Exact call edges (paired with CPG v59).
 // v29: receiver authority repair removes unsupported Exact edges (CPG v60).
 // v30: imported JS classes and inert Python packages change Exact edges (CPG v61).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 30;
+// v31: type-only TS and explicit-relative Python receiver edges (CPG v62).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 31;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -615,13 +616,16 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 30);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 31);
     }
 
     #[test]
     fn imported_receiver_sidecar_round_trip() {
         use crate::{ast::ParsedFile, cpg::CpgContext, languages::Language};
         for (lang, caller, owner, source, declaration, init) in [
+            (Language::TypeScript, "app.ts", "client.ts", "import type {Client as Alias} from './client';\nfunction visible(x: Alias) { x.m(); }\nfunction shadow<Alias>(x: Alias) { x.m(); }", "export class Client { m() {} }", None),
+            (Language::Tsx, "app.tsx", "client.tsx", "import {type Client as Alias} from './client';\nfunction visible(x: Alias) { x.m(); }\nfunction shadow<Alias>(x: Alias) { x.m(); }", "export class Client { m() {} }", None),
+            (Language::Python, "pkg/app.py", "pkg/models.py", "from . import models\ndef visible(x: models.Client):\n    x.m()\ndef shadow(models):\n    x = models.Client()\n    x.m()\n", "class Client:\n    def m(self): pass\n", Some("pkg/__init__.py")),
             (Language::JavaScript, "app.js", "client.js", "import {Client as Alias} from './client';\nfunction visible() { const x = new Alias(); x.m(); }\nfunction shadow(Alias) { const x = new Alias(); x.m(); }", "export class Client { m() {} }", None),
             (Language::TypeScript, "app.ts", "client.ts", "import {Client as Alias} from './client';\nfunction visible(x: Alias) { x.m(); }\nfunction shadow<Alias>(x: Alias) { x.m(); }", "export class Client { m() {} }", None),
             (Language::Tsx, "app.tsx", "client.tsx", "import {Client as Alias} from './client';\nfunction visible(x: Alias) { x.m(); }\nfunction shadow<Alias>(x: Alias) { x.m(); }", "export class Client { m() {} }", None),

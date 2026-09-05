@@ -1,7 +1,7 @@
 # Imported class receiver identity
 
 Base: merged PR #238, `350cc89f686705e28745c9abeb7b76e1c58ee8fc`.
-Status: implemented and published as `99d50f1` in [PR #239](https://github.com/shoedog/prism/pull/239), open and not merged. Full suites pass; Tier-A quick retains the corpus-pin exclusion recorded in the handoff.
+Status: implemented as `99d50f1` in [PR #239](https://github.com/shoedog/prism/pull/239), merged as `862166d`. Full suites pass; Tier-A quick retains the corpus-pin exclusion recorded in the handoff.
 Owner approved the recommended continuation. Three bounded slices, each with a
 three-round self-review cap; no independent review claim.
 

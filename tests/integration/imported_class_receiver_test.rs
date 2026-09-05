@@ -191,7 +191,7 @@ fn imported_named_class_negative_matrix() {
         ("module shadow", import, "const Alias = Other; function run() { const x = new Alias(); x.m(); }", exported, ""),
         ("duplicate import", "import { Client as Alias } from './client'; import { Client as Alias } from './other';", "function run(x: Alias) { x.m(); }", exported, ""),
         ("default", "import Alias from './client';", "function run(x: Alias) { x.m(); }", "export default class Client { m() {} }", ""),
-        ("type only", "import type { Client as Alias } from './client';", "function run(x: Alias) { x.m(); }", exported, ""),
+        ("type only constructor", "import type { Client as Alias } from './client';", "function run() { const x = new Alias(); x.m(); }", exported, ""),
         ("require", "const { Client: Alias } = require('./client');", "function run(x: Alias) { x.m(); }", exported, ""),
         ("not exported", import, "function run(x: Alias) { x.m(); }", "class Client { m() {} }", ""),
         ("reexport", import, "function run(x: Alias) { x.m(); }", "export { Client } from './other';", ""),

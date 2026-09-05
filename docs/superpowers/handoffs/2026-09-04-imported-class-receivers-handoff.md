@@ -1,7 +1,8 @@
 # Handoff — imported class receiver identity
 
 **Written:** 2026-09-04 · **By:** Codex `/root` · **Provider:** codex
-**Workspace:** `/Users/wesleyjinks/code/slicing` · `feat/imported-class-receivers` · **Measured state:** `[MEASURED]` implementation `99d50f1ffb1cc87dbf68f01c76688b94381e15a6` committed/pushed; [PR #239](https://github.com/shoedog/prism/pull/239) OPEN against main `350cc89`. Probe: git push and GitHub creation response with matching head. This documentation reconciliation follows the implementation commit; all ten source/test files match the verified snapshot byte-for-byte.
+**Workspace:** `/Users/wesleyjinks/code/slicing` · `feat/imported-class-receivers` · **Measured state:** `[MEASURED]` implementation `99d50f1ffb1cc87dbf68f01c76688b94381e15a6` committed/pushed; [PR #239](https://github.com/shoedog/prism/pull/239) merged as `862166d`. Publication verification compared all ten source/test files with the verified snapshot byte-for-byte; successor fetch/log verified the merge.
+**Current status (2026-09-04):** `[MEASURED]` PR #239 merged as `862166dba27b8e293ad5cce969a05e231c761845`, verified by fetch/log. Publication/open-PR entries below are historical, superseded by this merge. Continue with `2026-09-04-type-only-relative-receivers-handoff.md`; prior verification exclusions still apply.
 **Predecessor:** Python/JS receiver authority repair, PR #238.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,14 +10,14 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Ownership: `[INHERITED]` owner approved recommended Python/JS continuation; `/root` owns this lane — RESOLVED.
-(b) Custody: `[MEASURED]` implementation/tests/docs committed and pushed at `99d50f1`, PR #239 open — RESOLVED publication. Additional snapshot `final-source.tgz`, SHA256 `7bf60c5f76dc5b71d314d01e94265e218e647185ba7d53bd3814c50808997ec9`, in evidence directory.
+(b) Custody: `[MEASURED]` implementation/tests/docs committed and pushed at `99d50f1`, PR #239 merged as `862166d` — RESOLVED publication/integration. Additional snapshot `final-source.tgz`, SHA256 `7bf60c5f76dc5b71d314d01e94265e218e647185ba7d53bd3814c50808997ec9`, in evidence directory.
 (c) In flight: `[MEASURED]` all verification commands completed; quick exit 2 for corpus pin drift only. No source edits since verified build — RESOLVED execution; comparative corpus acceptance excluded.
 (d) Authorization: “approved to proceed as recommended” and “commit and oush and open pr” exercised through implementation and PR #239. No merge authority.
 
 ## 1. Resume order
 
 1. `git status --short --branch`; preserve `.superpowers/` and existing `eval/snapshots/prism-fb81481dafa7.json`.
-2. Review PR #239/checks with the recorded corpus-pin exclusion. Do not merge without owner direction or change source without repeating affected gates.
+2. PR #239 is merged. Resume the type-only/explicit-relative receiver continuation handoff; repeat affected gates for new source.
 
 **STOP conditions:** open-class review at three-round cap, unrelated lane writes, destructive cleanup or baseline changes.
 
@@ -36,7 +37,7 @@
 | Format/check/Clippy | done | `[MEASURED]` all-target MCP check and configured Clippy exit 0 with nonfatal warnings; check.log/clippy.log; fmt/diff check clean |
 | Tier-A matrix | done | `[MEASURED]` release-matrix.log then matrix.log: 104 ok; published `99d50f1` immediate rebuild/repeat also 104 ok (publication-release.log, publication-matrix.log) |
 | Tier-A quick | done | `[MEASURED]` immediate release build; exit 2 solely for `corpus_sha_drift: 350cc89f6867 != pinned 20c8490591a3`; OER/SUT 0/0; 104 matrix ok; four stale adjudications. Retained `tier-a/run.json`, report.json/md and snapshot.json in evidence directory |
-| Publication | done | `[MEASURED]` `99d50f1` pushed; PR #239 OPEN, not merged; ten source/test files match verified snapshot |
+| Publication | done | `[MEASURED]` `99d50f1` pushed; PR #239 merged as `862166d`; ten source/test files matched verified snapshot at publication |
 
 ## 3. Corrections to standing documents and memory
 
@@ -45,7 +46,7 @@ by this handoff. Roadmap and prior spec/handoff reconciled. Memory not edited.
 
 ## 4. Open work
 
-PR review/integration remains; hosted checks are not certified here. Existing ignored test is
+PR #239 integration is complete; hosted checks are not certified here. Existing ignored test is
 `resolution_test::slice_elem_variant_reserved`; full multicorpus runs are human-triggered
 and were not run. No corpus baseline rewrite is authorized.
 

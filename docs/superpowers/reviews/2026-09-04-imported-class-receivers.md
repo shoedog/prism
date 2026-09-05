@@ -74,3 +74,6 @@ against pinned `20c8490591a3`, with four stale adjudications. Reports preserved 
 Publication: implementation `99d50f1ffb1cc87dbf68f01c76688b94381e15a6` pushed and
 PR https://github.com/shoedog/prism/pull/239 opened. All ten committed source/test
 files compared equal to `final-source.tgz`; this follow-up changes documentation only.
+
+Merge reconciliation (2026-09-04): PR #239 merged as `862166d`; fetch/log verified
+the successor base. Earlier publication statements describe the pre-merge snapshot.

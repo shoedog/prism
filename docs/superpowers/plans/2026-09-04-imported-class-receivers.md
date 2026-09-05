@@ -16,6 +16,6 @@ Execution: steps 1–4 complete, including same-environment final RED control.
 Step 5 default 3,726/0/1, MCP 3,916/0/1, check/Clippy/format and matrix 104/104
 complete; quick completed with OER/SUT 0/0 and 104/104 matrix, but baseline-invalid
 solely for corpus SHA drift (four stale adjudications). Step 6 published implementation
-`99d50f1` in PR #239 (open, not merged). Living status and exclusions are in
+`99d50f1` in PR #239 (merged as `862166d`). Living status and exclusions are in
 the matching handoff; the review record distinguishes four defect mechanisms
 from the fourteen failing base test assertions.

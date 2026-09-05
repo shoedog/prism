@@ -170,7 +170,9 @@ use std::path::{Path, PathBuf};
 ///   proof remove unsupported recovered metadata and Exact edges.
 /// - v61: typed JS class export/import facts and Python inert initializer proof
 ///   authorize cross-file receivers; live JS class writes revoke owner proof.
-const CACHE_VERSION: u32 = 61;
+/// - v62: separate TS type-only import facts and anchored Python relative
+///   submodule proof change recovered receiver authority and CPG topology.
+const CACHE_VERSION: u32 = 62;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -700,7 +702,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_receiver_authority() {
-        assert_eq!(super::CACHE_VERSION, 61);
+        assert_eq!(super::CACHE_VERSION, 62);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -711,6 +713,10 @@ mod tests {
             resolution::ResolutionConfidence,
         };
         for (language, caller, owner, importer, good, bad, auxiliary) in [
+            (Language::TypeScript, "app.ts", "app.ts", "", "import type {Client as Alias} from './client'; function run(x: Alias) { x.m(); }", "import type {Client as Alias} from './client'; import type {Client as Alias} from './client'; function run(x: Alias) { x.m(); }", Some(("client.ts", "export class Client { m() {} }"))),
+            (Language::TypeScript, "app.ts", "client.ts", "import type { Client as Alias } from './client';\nfunction run(x: Alias) { x.m(); }", "export class Client { m() {} }", "class Client { m() {} }", None),
+            (Language::Tsx, "app.tsx", "client.tsx", "import { type Client as Alias } from './client';\nfunction run(x: Alias) { x.m(); }", "export class Client { m() {} }", "export class Client { static m() {} }", None),
+            (Language::Python, "pkg/app.py", "pkg/__init__.py", "from . import models as m\ndef run(x: m.Client):\n    x.m()\n", "\"package\"\n", "models = other\n", Some(("pkg/models.py", "class Client:\n    def m(self): pass\n"))),
             (Language::JavaScript, "app.js", "client.js", "import { Client as Alias } from './client';\nfunction run() { const x = new Alias(); x.m(); }", "export class Client { m() {} }", "class Client { m() {} }", None),
             (Language::TypeScript, "app.ts", "client.ts", "import { Client as Alias } from './client';\nfunction run(x: Alias) { x.m(); }", "export class Client { m() {} }", "export class Client { static m() {} }", None),
             (Language::TypeScript, "app.ts", "client.ts", "import { Client as Alias } from './client';\nfunction run(x: Alias) { x.m(); }", "export class Client { m() {} }", "export class Client { m() {}\n constructor() { this.m = other; } }", None),
@@ -745,7 +751,7 @@ mod tests {
                     if expected { assert_eq!(exact[0].target.file, target); }
                 }
                 assert_eq!(full.call_graph.calls, incremental.call_graph.calls, "{language:?}");
-                force_cache_version(dir.path(), 60);
+                force_cache_version(dir.path(), 61);
                 assert!(matches!(load_cache(&hashes, false, dir.path()), CacheResult::Miss));
             }
         }
