@@ -265,7 +265,7 @@ fn solve_reaching_sets(
 ) -> Vec<BitSet> {
     let mut in_sets = vec![BitSet::new(def_count); gen.len()];
     let mut out_sets = vec![BitSet::new(def_count); gen.len()];
-    let order = reverse_postorder(&successors, entry);
+    let order = reverse_postorder(successors, entry);
     let mut worklist: VecDeque<usize> = order.iter().copied().collect();
     let mut queued = vec![false; gen.len()];
     for node in &order {
