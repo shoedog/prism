@@ -2,6 +2,11 @@
 //! `--min-confidence` and `--resolution` flag cases.
 
 use assert_cmd::Command;
+use clap::Parser;
+use prism::api::{
+    ReviewOptions, SarifInputs, TargetsMeta, DEFAULT_MIN_CONFIDENCE, DEFAULT_RESOLUTION,
+};
+use prism::cli::{Cli, Command as CliCommand};
 use serde_json::{json, Value};
 use std::fs;
 use std::process::Output;
@@ -242,6 +247,33 @@ fn findings(doc: &Value) -> &[Value] {
     doc["findings"].as_array().unwrap()
 }
 
+#[test]
+fn cli_and_api_defaults_use_the_shared_confidence_constants() {
+    let cli = Cli::try_parse_from(["slicing", "--repo", "repo", "--diff", "diff"]).unwrap();
+    assert_eq!(cli.review.min_confidence, DEFAULT_MIN_CONFIDENCE);
+    assert_eq!(cli.review.resolution, DEFAULT_RESOLUTION);
+
+    let targets_cli =
+        Cli::try_parse_from(["slicing", "targets", "--repo", "repo", "--diff", "diff"]).unwrap();
+    let Some(CliCommand::Targets(targets)) = targets_cli.command else {
+        panic!("targets subcommand must parse as Targets");
+    };
+    assert_eq!(targets.min_confidence, DEFAULT_MIN_CONFIDENCE);
+    assert_eq!(targets.resolution, DEFAULT_RESOLUTION);
+
+    let options = ReviewOptions::new("repo");
+    assert_eq!(options.min_confidence, DEFAULT_MIN_CONFIDENCE);
+    assert_eq!(options.resolution, DEFAULT_RESOLUTION);
+
+    let sarif = SarifInputs::new(&[]);
+    assert_eq!(sarif.min_confidence, DEFAULT_MIN_CONFIDENCE);
+    assert_eq!(sarif.resolution, DEFAULT_RESOLUTION);
+
+    let targets = TargetsMeta::default();
+    assert_eq!(targets.min_confidence, DEFAULT_MIN_CONFIDENCE);
+    assert_eq!(targets.resolution, DEFAULT_RESOLUTION);
+}
+
 fn results(doc: &Value) -> &[Value] {
     doc["runs"][0]["results"].as_array().unwrap()
 }
@@ -303,6 +335,108 @@ fn min_confidence_exact_drops_the_nameonly_echo_finding() {
             "fixture must be finding-bearing for {format}"
         );
         assert!(findings(&exact).is_empty(), "{format}: {exact:#}");
+    }
+}
+
+#[test]
+fn confidence_floor_precedes_projection_for_every_finding_bearing_format() {
+    let exact_files = call_files(false);
+    for format in ["json", "review"] {
+        let output = command_output(
+            &exact_files,
+            "src/device.c",
+            4,
+            "echo",
+            Some(format),
+            false,
+            &["--resolution", "nominal", "--min-confidence", "exact"],
+        );
+        assert!(output.status.success(), "{format}: {output:?}");
+        let doc: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert!(
+            !findings(&doc).is_empty(),
+            "Exact evidence must survive nominal projection for {format}: {doc:#}"
+        );
+    }
+
+    let sarif = command_output(
+        &exact_files,
+        "src/device.c",
+        4,
+        "echo",
+        Some("sarif"),
+        false,
+        &["--resolution", "nominal", "--min-confidence", "exact"],
+    );
+    assert!(sarif.status.success(), "{sarif:?}");
+    let sarif: Value = serde_json::from_slice(&sarif.stdout).unwrap();
+    assert!(!results(&sarif).is_empty(), "{sarif:#}");
+    assert!(results(&sarif).iter().all(|result| {
+        result["properties"]["confidence"] == "unlabeled"
+            && result["properties"]["tier"] == "candidate"
+    }));
+
+    let targets = command_output(
+        &exact_files,
+        "src/device.c",
+        4,
+        "echo",
+        None,
+        true,
+        &["--resolution", "nominal", "--min-confidence", "exact"],
+    );
+    assert!(targets.status.success(), "{targets:?}");
+    let targets: Value = serde_json::from_slice(&targets.stdout).unwrap();
+    assert!(
+        !targets["targets"].as_array().unwrap().is_empty(),
+        "{targets:#}"
+    );
+    assert!(targets["targets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|target| { target["confidence"] == "unlabeled" && target["tier"] == "candidate" }));
+
+    let name_only_files = call_files(true);
+    for resolution in ["nominal", "scoped"] {
+        for format in ["json", "review", "sarif"] {
+            let output = command_output(
+                &name_only_files,
+                "src/api.c",
+                8,
+                "echo",
+                Some(format),
+                false,
+                &["--resolution", resolution, "--min-confidence", "exact"],
+            );
+            assert!(output.status.success(), "{resolution}/{format}: {output:?}");
+            let doc: Value = serde_json::from_slice(&output.stdout).unwrap();
+            let retained = if format == "sarif" {
+                results(&doc)
+            } else {
+                findings(&doc)
+            };
+            assert!(
+                retained.is_empty(),
+                "NameOnly evidence survived exact floor for {resolution}/{format}: {doc:#}"
+            );
+        }
+
+        let output = command_output(
+            &name_only_files,
+            "src/api.c",
+            8,
+            "echo",
+            None,
+            true,
+            &["--resolution", resolution, "--min-confidence", "exact"],
+        );
+        assert!(output.status.success(), "{resolution}/targets: {output:?}");
+        let doc: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert!(
+            doc["targets"].as_array().unwrap().is_empty(),
+            "NameOnly evidence survived exact floor for {resolution}/targets: {doc:#}"
+        );
     }
 }
 

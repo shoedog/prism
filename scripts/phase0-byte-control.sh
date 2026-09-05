@@ -24,6 +24,16 @@
 #   JOBS=<n>   parallel invocations (default: 8)
 set -uo pipefail
 
+compare_bytes() {
+    cmp -s "$1" "$2"
+    status=$?
+    if [[ $status -ge 2 ]]; then
+        cmp -s "$1" "$2"
+        status=$?
+    fi
+    return "$status"
+}
+
 # --- worker mode ----------------------------------------------------------
 # Re-entry from xargs: run ONE invocation against both binaries and compare.
 if [[ "${1:-}" == "--one" ]]; then
@@ -45,11 +55,21 @@ if [[ "${1:-}" == "--one" ]]; then
     n_code=$?
 
     ok=1
-    cmp -s "$b_out" "$n_out" || ok=0
-    cmp -s "$b_err" "$n_err" || ok=0
+    probe_error=0
+    compare_bytes "$b_out" "$n_out"
+    status=$?
+    [[ $status -eq 1 ]] && ok=0
+    [[ $status -ge 2 ]] && probe_error=1
+    compare_bytes "$b_err" "$n_err"
+    status=$?
+    [[ $status -eq 1 ]] && ok=0
+    [[ $status -ge 2 ]] && probe_error=1
     [[ "$b_code" == "$n_code" ]] || ok=0
 
-    if [[ $ok == 1 ]]; then
+    if [[ $probe_error == 1 ]]; then
+        printf 'ERROR %s [comparison probe failed after retry; artifacts %s/%s.*]\n' \
+            "$label" "$PBC_OUT" "$id" >>"$PBC_OUT/results.log"
+    elif [[ $ok == 1 ]]; then
         rm -f "$b_out" "$b_err" "$n_out" "$n_err"
         printf 'OK %s\n' "$label" >>"$PBC_OUT/results.log"
     else
@@ -197,15 +217,16 @@ xargs -P "$JOBS" -L 1 "$SELF" --one <"$LIST"
 # --- report ---------------------------------------------------------------
 ran=$(wc -l <"$PBC_OUT/results.log" | tr -d ' ')
 ndiff=$(grep -c '^DIFF ' "$PBC_OUT/results.log")
+nerror=$(grep -c '^ERROR ' "$PBC_OUT/results.log")
 echo
 if [[ "$ran" != "$i" ]]; then
     echo "FATAL: ran $ran invocations, expected $i" >&2
     exit 1
 fi
-if [[ "$ndiff" != "0" ]]; then
-    grep '^DIFF ' "$PBC_OUT/results.log"
+if [[ "$ndiff" != "0" || "$nerror" != "0" ]]; then
+    grep -E '^(DIFF|ERROR) ' "$PBC_OUT/results.log"
     echo
-    echo "byte control FAILED: $ndiff of $i invocations differ (artifacts in $PBC_OUT)" >&2
+    echo "byte control FAILED: $ndiff differ, $nerror errors out of $i invocations (artifacts in $PBC_OUT)" >&2
     exit 1
 fi
 rm -rf "$PBC_OUT"

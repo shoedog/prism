@@ -3,7 +3,7 @@ use crate::algorithms;
 use crate::ast::ParsedFile;
 use crate::cpg::CpgContext;
 use crate::finding_confidence::{
-    classify_for_resolution, parse_quality_for_selected_evidence, EvidencePath, MinConfidence,
+    admit_finding_for_resolution, parse_quality_for_selected_evidence, EvidencePath, MinConfidence,
     ResolutionMode,
 };
 use crate::slice::{AlgorithmError, SliceConfig, SliceFinding, SliceResult, SlicingAlgorithm};
@@ -309,13 +309,14 @@ pub fn filter_result_findings(
             &inputs.parse_quality,
             &inputs.files,
         );
-        let (confidence, _) = classify_for_resolution(
+        let admitted = admit_finding_for_resolution(
             &finding.algorithm,
             parse_quality,
             selected_evidence,
+            min_confidence,
             resolution,
         );
-        if min_confidence.admits(confidence) {
+        if admitted.is_some() {
             result.findings.push(finding);
             result
                 .evidence

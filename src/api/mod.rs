@@ -56,6 +56,7 @@ pub use crate::build_pool::install as with_build_pool;
 pub use crate::finding_confidence::{
     classify, classify_for_resolution, classify_with_evidence, evidence_files, EvidenceHop,
     EvidencePath, FindingConfidence, FindingTier, MinConfidence, ParseQuality, ResolutionMode,
+    DEFAULT_MIN_CONFIDENCE, DEFAULT_RESOLUTION,
 };
 pub use crate::output::sarif::{to_sarif, SarifInputs};
 pub use crate::targets::{project, TargetsDocument, TargetsMeta};

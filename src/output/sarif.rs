@@ -34,8 +34,9 @@ use super::sarif_model::{
 use super::sarif_rules::{attribution, line_text_of, rule_description, Attribution, UNCATEGORIZED};
 use crate::ast::ParsedFile;
 use crate::finding_confidence::{
-    classify_for_resolution, parse_quality_for_selected_evidence, EvidencePath, FindingConfidence,
-    FindingTier, MinConfidence, ParseQuality, ResolutionMode,
+    admit_finding_for_resolution, parse_quality_for_selected_evidence, EvidencePath,
+    FindingConfidence, FindingTier, MinConfidence, ParseQuality, ResolutionMode,
+    DEFAULT_MIN_CONFIDENCE, DEFAULT_RESOLUTION,
 };
 use crate::slice::{AlgorithmError, FileParseQuality, SliceFinding};
 use std::collections::{BTreeMap, BTreeSet};
@@ -107,8 +108,8 @@ impl<'a> SarifInputs<'a> {
             parse_quality: NO_PARSE_QUALITY,
             files: NO_FILES,
             sources: NO_SOURCES,
-            min_confidence: MinConfidence::NameOnly,
-            resolution: ResolutionMode::Nominal,
+            min_confidence: DEFAULT_MIN_CONFIDENCE,
+            resolution: DEFAULT_RESOLUTION,
         }
     }
 
@@ -192,11 +193,13 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
                 inputs.parse_quality,
                 inputs.files,
             );
-            let (confidence, tier) =
-                classify_for_resolution(&finding.algorithm, quality, evidence, inputs.resolution);
-            if !inputs.min_confidence.admits(confidence) {
-                return None;
-            }
+            let (confidence, tier) = admit_finding_for_resolution(
+                &finding.algorithm,
+                quality,
+                evidence,
+                inputs.min_confidence,
+                inputs.resolution,
+            )?;
             let result = build_result(finding, quality, confidence, tier, inputs, &mut escaping);
             let category = finding.category.as_deref().unwrap_or(UNCATEGORIZED);
             rule_meta

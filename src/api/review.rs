@@ -4,7 +4,9 @@ use crate::call_graph::ScopeGraphBuildInputs;
 use crate::cpg::{CodePropertyGraph, CpgContext};
 use crate::cpg_cache::{self, CacheResult};
 use crate::diff::DiffInput;
-use crate::finding_confidence::{MinConfidence, ResolutionMode};
+use crate::finding_confidence::{
+    MinConfidence, ResolutionMode, DEFAULT_MIN_CONFIDENCE, DEFAULT_RESOLUTION,
+};
 use crate::languages::Language;
 use crate::slice::FileParseQuality;
 use crate::type_db::TypeDatabase;
@@ -38,8 +40,8 @@ impl ReviewOptions {
             cache_dir: None,
             no_cache: false,
             language_versions: Vec::new(),
-            min_confidence: MinConfidence::NameOnly,
-            resolution: ResolutionMode::Nominal,
+            min_confidence: DEFAULT_MIN_CONFIDENCE,
+            resolution: DEFAULT_RESOLUTION,
         }
     }
 }

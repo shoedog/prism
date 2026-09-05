@@ -98,13 +98,21 @@ pub struct ReviewArgs {
 
     /// Minimum confidence for finding-bearing output. `nameonly` retains Exact,
     /// NameOnly, and ungraded Unlabeled findings to preserve legacy output.
-    #[arg(long, value_enum, default_value_t = MinConfidence::NameOnly)]
+    #[arg(
+        long,
+        value_enum,
+        default_value_t = crate::finding_confidence::DEFAULT_MIN_CONFIDENCE
+    )]
     pub min_confidence: MinConfidence,
 
     /// Confidence projection: `nominal` reports CPG findings as unlabeled;
     /// `scoped` reports retained evidence labels. `precise` and `auto` are
     /// deferred to roadmap item 3 because they require an external index.
-    #[arg(long, value_enum, default_value_t = ResolutionMode::Nominal)]
+    #[arg(
+        long,
+        value_enum,
+        default_value_t = crate::finding_confidence::DEFAULT_RESOLUTION
+    )]
     pub resolution: ResolutionMode,
 
     /// Maximum number of nodes a single Mermaid diagram may render before truncation.
@@ -323,12 +331,20 @@ pub struct TargetsArgs {
 
     /// Minimum confidence for emitted targets. `nameonly` also retains
     /// ungraded Unlabeled findings so the default preserves legacy output.
-    #[arg(long, value_enum, default_value_t = MinConfidence::NameOnly)]
+    #[arg(
+        long,
+        value_enum,
+        default_value_t = crate::finding_confidence::DEFAULT_MIN_CONFIDENCE
+    )]
     pub min_confidence: MinConfidence,
 
     /// Confidence projection. `precise` and `auto` are deferred to roadmap
     /// item 3 because they require an external index.
-    #[arg(long, value_enum, default_value_t = ResolutionMode::Nominal)]
+    #[arg(
+        long,
+        value_enum,
+        default_value_t = crate::finding_confidence::DEFAULT_RESOLUTION
+    )]
     pub resolution: ResolutionMode,
 
     /// Exit 3 when one or more requested algorithms fail.

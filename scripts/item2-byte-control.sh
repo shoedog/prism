@@ -54,6 +54,16 @@ normalize() {
         "$1"
 }
 
+compare_normalized() {
+    diff -q <(normalize "$1") <(normalize "$2") >/dev/null
+    status=$?
+    if [[ $status -ge 2 ]]; then
+        diff -q <(normalize "$1") <(normalize "$2") >/dev/null
+        status=$?
+    fi
+    return "$status"
+}
+
 if [[ "${1:-}" == "--one" ]]; then
     shift
     id="$1"
@@ -71,11 +81,21 @@ if [[ "${1:-}" == "--one" ]]; then
     n_code=$?
 
     ok=1
-    diff -q <(normalize "$b_out") <(normalize "$n_out") >/dev/null || ok=0
-    diff -q <(normalize "$b_err") <(normalize "$n_err") >/dev/null || ok=0
+    probe_error=0
+    compare_normalized "$b_out" "$n_out"
+    status=$?
+    [[ $status -eq 1 ]] && ok=0
+    [[ $status -ge 2 ]] && probe_error=1
+    compare_normalized "$b_err" "$n_err"
+    status=$?
+    [[ $status -eq 1 ]] && ok=0
+    [[ $status -ge 2 ]] && probe_error=1
     [[ "$b_code" == "$n_code" ]] || ok=0
 
-    if [[ $ok == 1 ]]; then
+    if [[ $probe_error == 1 ]]; then
+        printf 'ERROR %s [comparison probe failed after retry; artifacts %s/%s.*]\n' \
+            "$label" "$IBC_OUT" "$id" >>"$IBC_OUT/results.log"
+    elif [[ $ok == 1 ]]; then
         rm -f "$b_out" "$b_err" "$n_out" "$n_err"
         printf 'OK %s\n' "$label" >>"$IBC_OUT/results.log"
     else
@@ -229,15 +249,16 @@ xargs -P "$JOBS" -L 1 "$SELF" --one <"$LIST"
 # --- report -----------------------------------------------------------------
 ran=$(wc -l <"$IBC_OUT/results.log" | tr -d ' ')
 ndiff=$(grep -c '^DIFF ' "$IBC_OUT/results.log")
+nerror=$(grep -c '^ERROR ' "$IBC_OUT/results.log")
 echo
 if [[ "$ran" != "$i" ]]; then
     echo "FATAL: ran $ran invocations, expected $i" >&2
     exit 1
 fi
-if [[ "$ndiff" != "0" ]]; then
-    grep '^DIFF ' "$IBC_OUT/results.log"
+if [[ "$ndiff" != "0" || "$nerror" != "0" ]]; then
+    grep -E '^(DIFF|ERROR) ' "$IBC_OUT/results.log"
     echo
-    echo "item2 byte control FAILED: $ndiff of $i invocations differ (artifacts in $IBC_OUT)" >&2
+    echo "item2 byte control FAILED: $ndiff differ, $nerror errors out of $i invocations (artifacts in $IBC_OUT)" >&2
     exit 1
 fi
 rm -rf "$IBC_OUT"

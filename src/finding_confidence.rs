@@ -58,16 +58,23 @@ pub enum FindingTier {
 }
 
 /// Minimum confidence admitted by finding-bearing output formats.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, clap::ValueEnum)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, clap::ValueEnum)]
 #[non_exhaustive]
 pub enum MinConfidence {
     /// Only findings whose evidence path is entirely Exact.
     Exact,
     /// Exact, NameOnly AND Unlabeled. An unlabeled finding is not below
     /// nameonly; it is ungraded, and the default must retain legacy findings.
-    #[default]
     #[value(name = "nameonly")]
     NameOnly,
+}
+
+pub const DEFAULT_MIN_CONFIDENCE: MinConfidence = MinConfidence::NameOnly;
+
+impl Default for MinConfidence {
+    fn default() -> Self {
+        DEFAULT_MIN_CONFIDENCE
+    }
 }
 
 impl MinConfidence {
@@ -89,15 +96,22 @@ impl std::fmt::Display for MinConfidence {
 }
 
 /// Finding-confidence projection selected at runtime by `--resolution`.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, clap::ValueEnum)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, clap::ValueEnum)]
 #[non_exhaustive]
 pub enum ResolutionMode {
     /// Report every CPG-derived finding as unlabeled/candidate. The
     /// conservative default and the byte-control mode.
-    #[default]
     Nominal,
     /// Report the retained evidence-path labels.
     Scoped,
+}
+
+pub const DEFAULT_RESOLUTION: ResolutionMode = ResolutionMode::Nominal;
+
+impl Default for ResolutionMode {
+    fn default() -> Self {
+        DEFAULT_RESOLUTION
+    }
 }
 
 impl ResolutionMode {
@@ -369,6 +383,31 @@ pub fn classify_for_resolution(
         (FindingConfidence::Unlabeled, FindingTier::Candidate),
         |evidence| classify_with_evidence(algorithm, parse_quality, evidence),
     )
+}
+
+/// Admit a finding against its evidence grade, then apply the selected emitter
+/// projection to the retained finding. Keeping both operations here prevents a
+/// nominal projection from weakening an Exact finding before the floor runs.
+pub(crate) fn admit_finding_for_resolution(
+    algorithm: &str,
+    parse_quality: ParseQuality,
+    evidence: Option<&EvidencePath>,
+    min_confidence: MinConfidence,
+    resolution: ResolutionMode,
+) -> Option<(FindingConfidence, FindingTier)> {
+    let evidence_grade = evidence.map_or(
+        (FindingConfidence::Unlabeled, FindingTier::Candidate),
+        |evidence| classify_with_evidence(algorithm, parse_quality, evidence),
+    );
+    if !min_confidence.admits(evidence_grade.0) {
+        return None;
+    }
+    Some(classify_for_resolution(
+        algorithm,
+        parse_quality,
+        evidence,
+        resolution,
+    ))
 }
 
 /// Classifies a finding's confidence and tier from its producing algorithm and

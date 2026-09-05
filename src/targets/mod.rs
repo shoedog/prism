@@ -11,7 +11,7 @@ pub use model::{
 
 use crate::api::{build_info, ReviewInputs};
 use crate::finding_confidence::{
-    classify_for_resolution, parse_quality_for_selected_evidence, EvidencePath, FindingTier,
+    admit_finding_for_resolution, parse_quality_for_selected_evidence, EvidencePath, FindingTier,
     MinConfidence, ResolutionMode,
 };
 use crate::languages::Language;
@@ -101,10 +101,11 @@ pub fn project(
             &inputs.parse_quality,
             &inputs.files,
         );
-        let (confidence, tier) = classify_for_resolution(
+        let admission = admit_finding_for_resolution(
             &finding.algorithm,
             parse_quality,
             selected_evidence,
+            meta.min_confidence,
             meta.resolution,
         );
         let mut mapped = map_finding(finding);
@@ -146,9 +147,9 @@ pub fn project(
                 None => {}
             }
         }
-        if !meta.min_confidence.admits(confidence) {
+        let Some((confidence, tier)) = admission else {
             continue;
-        }
+        };
         let (symbol, function_start_line, function_end_line) =
             enclosing_site(&file, finding, inputs, &mut warnings);
         let language = Language::from_path(&file)
