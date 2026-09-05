@@ -1,0 +1,19 @@
+[case]
+language = "go"
+capability = "dfg_reaching_shadowed_inner_negative"
+status = "pass"
+probe = "dfg"
+
+# The absent edge is the shadow boundary; Task 4 owns its crossed_unlabeled
+# finding projection. The retained outer edge supplies a non-empty NameOnly pole.
+[[expect.edges]]
+from = "main.go:3:x"
+to = "main.go:6:x"
+present = false
+
+[[expect.edges]]
+from = "main.go:3:x"
+to = "main.go:9:x"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 8

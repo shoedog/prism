@@ -1,0 +1,11 @@
+[case]
+language = "javascript"
+capability = "dfg_reaching_same_line"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.js:2:a"
+to = "main.js:3:a"
+confidence = "nameonly"
+doubt = "sameline"

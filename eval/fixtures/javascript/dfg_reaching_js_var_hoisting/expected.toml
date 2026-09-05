@@ -1,0 +1,10 @@
+[case]
+language = "javascript"
+capability = "dfg_reaching_js_var_hoisting"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.js:3:v"
+to = "main.js:2:v"
+confidence = "nameonly"

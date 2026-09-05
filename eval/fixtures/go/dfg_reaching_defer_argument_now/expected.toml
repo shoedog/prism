@@ -1,0 +1,10 @@
+[case]
+language = "go"
+capability = "dfg_reaching_defer_argument_now"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.go:3:x"
+to = "main.go:4:x"
+confidence = "exact"

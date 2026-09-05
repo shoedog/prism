@@ -1,0 +1,11 @@
+[case]
+language = "java"
+capability = "dfg_reaching_cfg_try_header_negative"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "Main.java:5:x"
+to = "Main.java:8:x"
+confidence = "nameonly"
+doubt = "cfg_incomplete"
