@@ -1,7 +1,7 @@
 # Handoff — local contextual alias proof
 
 **Written:** 2026-09-05 · **By:** Codex /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/local-contextual-aliases · **Measured state:** `[MEASURED]` implementation166d2d8 committed/pushed; PR249 OPEN against main db34e80. Before this docs-only custody follow-up, status contained only the two original untracked artifacts. No merge performed.
+**Workspace:** /Users/wesleyjinks/code/slicing · completed feat/local-contextual-aliases · **Measured state:** `[MEASURED]` PR249 merged 2aff090; GitHub and fetched origin/main agree. Continuation: feat/local-props-object-aliases; historical verification below belongs to implementation166d2d8.
 **Predecessor:** PR248 merged db34e80, constructor-field handoff.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -16,8 +16,8 @@
 ## 1. Resume order
 
 1. Run `git status --short` and `tail -n 10 /private/tmp/prism-local-aliases-mu762H/base-build.log`; seconds.
-2. Review PR249; after owner merges, fetch/rebind main before proposing the next increment.
-3. Keep property aliases, imported/generic/ambient authority and hooks separate; no automatic widening.
+2. Continue via `2026-09-05-local-props-object-aliases.md`; owner instructed “merged proceed to mext”.
+3. Same-file module-local props object aliases are the next bounded slice; imported/generic/ambient authority and hooks stay separate.
 
 **STOP conditions:** three-round cap; open-class findings need design escalation; no ambient/imported/generic or recursive alias authority.
 
@@ -32,7 +32,7 @@
 | Full gates | done | `[MEASURED]` default3824/0/1, MCP4014/0/1, clippy/fmt, matrix104/104 |
 | Measurement | done | `[MEASURED]` verified-measurement.json:real2780/Exact376 unchanged; synthetic served gain with optional/write/shadow exclusions; earlier controls byte-identical |
 | Quick | done | `[MEASURED]` exit2 solely baseline SHA drift; oracle/SUT errors0; pin/sample caveats in readout, no green-gate claim |
-| Publication | done | `[MEASURED]` 166d2d8 pushed; https://github.com/shoedog/prism/pull/249 OPEN against main |
+| Publication | done | `[MEASURED]` https://github.com/shoedog/prism/pull/249 merged 2aff090 |
 
 ## 3. Corrections to standing documents and memory
 
@@ -42,8 +42,8 @@ is not supplied by local plain aliases.
 
 ## 4. Open work
 
-Owner review/merge PR249. Any later alias, ambient or hook expansion remains a
-separate owner decision. No real-site gain is promised for the remaining six spans.
+PR249 merged; module-local props object alias continuation is tracked in its
+successor handoff. No real-site gain is promised for the remaining six spans.
 
 ## 5. Invariants and traps — do not do these
 

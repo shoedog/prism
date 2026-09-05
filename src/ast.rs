@@ -3409,8 +3409,10 @@ impl ParsedFile {
         {
             return None;
         }
-        let signature = self
-            .js_ts_contextual_signature(declaration.child_by_field_name("type")?.named_child(0)?)?;
+        let signature = self.js_ts_local_type_shape(
+            declaration.child_by_field_name("type")?.named_child(0)?,
+            "function_type",
+        )?;
         if signature.kind() != "function_type"
             || signature.child_by_field_name("type_parameters").is_some()
         {
@@ -3430,11 +3432,15 @@ impl ParsedFile {
         contextual.child_by_field_name("type")
     }
 
-    /// Preserve the original signature node: its class names belong to the
+    /// Preserve the original shape node: its class names belong to the
     /// declaration scope, while receiver writes belong to the implementation.
     /// One module-local hop only; recursive/generic/ambient authority is excluded.
-    fn js_ts_contextual_signature<'a>(&'a self, reference: Node<'a>) -> Option<Node<'a>> {
-        if reference.kind() == "function_type" {
+    fn js_ts_local_type_shape<'a>(
+        &'a self,
+        reference: Node<'a>,
+        expected_kind: &str,
+    ) -> Option<Node<'a>> {
+        if reference.kind() == expected_kind {
             return Some(reference);
         }
         let root = self.tree.root_node();
@@ -3493,12 +3499,12 @@ impl ParsedFile {
                 return None;
             }
         }
-        let signature = alias?.child_by_field_name("value")?;
-        (signature.kind() == "function_type").then_some(signature)
+        let shape = alias?.child_by_field_name("value")?;
+        (shape.kind() == expected_kind).then_some(shape)
     }
 
-    /// Required inline object properties only; annotation and binding may be at
-    /// distinct source positions for a direct contextual function signature.
+    /// Required properties in a direct or local-alias object shape; declaration
+    /// type names and implementation bindings retain distinct source positions.
     fn js_ts_inline_prop_receiver_type(
         &self,
         parameter: Node<'_>,
@@ -3516,10 +3522,7 @@ impl ParsedFile {
         {
             return None;
         }
-        let ty = annotation.named_child(0)?;
-        if ty.kind() != "object_type" {
-            return None;
-        }
+        let ty = self.js_ts_local_type_shape(annotation.named_child(0)?, "object_type")?;
         let mut properties = BTreeSet::new();
         let mut locals = BTreeSet::new();
         let mut selected = None;
