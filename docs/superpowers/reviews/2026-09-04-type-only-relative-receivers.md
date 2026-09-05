@@ -80,3 +80,8 @@ verification exclusions. All nine source/test files match final-source.tgz.
 This reconciliation changes documentation only.
 Committed `0a2edf6` release rebuild and immediate publication matrix also pass
 104/104 (publication-release.log/publication-matrix.log).
+
+Successor reconciliation: PR #240 merged as `f3bf88e`; fetch/log verified.
+The successor closure readout now supplies same-source paired controls: all four
+pinned outcomes and complete result objects are identical pre/post-#240.
+Historical quick-run validity is not changed; see the receiver-closure readout.

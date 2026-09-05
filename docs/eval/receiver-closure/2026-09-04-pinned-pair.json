@@ -1,0 +1,145 @@
+{
+  "source_sha": "f3bf88e",
+  "builds": {
+    "control": "prism 862166dba27b",
+    "merged": "prism f3bf88e0b952"
+  },
+  "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+  "oracle_not_quiescent": false,
+  "raw_sha256": "90958385552200e725732702e6f3f151f02f3e05b42aa91cd30e38b39f0f4853",
+  "scope": "four live pins, one fixed source, one shared oracle observation per seed; not a baseline refresh",
+  "probes": [
+    {
+      "id": "target-c-method",
+      "complete_pair_equal": true,
+      "canonical_result_sha256": "566f36e1017c351ae0b571ab129d0375e73b8d5a140a62622c548a080901c1c2",
+      "outcome": "flip_candidate",
+      "raw": {
+        "precision": [
+          0.15151515151515152,
+          0.06650457239529714,
+          0.30919876025212834
+        ],
+        "recall": [
+          1.0,
+          0.5655175313406071,
+          1.0
+        ],
+        "tp": 5,
+        "fp": 28,
+        "fn": 0
+      },
+      "prism_site_count": 33,
+      "oracle_site_count": 5,
+      "exact_count": 5,
+      "prism_only": [
+        "src/algorithms/circular_slice.rs:119",
+        "src/algorithms/circular_slice.rs:162",
+        "src/algorithms/circular_slice.rs:164",
+        "src/algorithms/circular_slice.rs:240",
+        "src/algorithms/circular_slice.rs:242",
+        "src/algorithms/gradient_slice.rs:116",
+        "src/cpg/build.rs:686",
+        "src/cpg/build.rs:708",
+        "src/cpg/cfg_queries.rs:51",
+        "src/cpg/query.rs:75",
+        "src/cpg/query.rs:156",
+        "src/cpg/query.rs:157",
+        "src/cpg/query.rs:270",
+        "src/cpg/query.rs:480",
+        "src/cpg/query.rs:520",
+        "src/cpg/query.rs:565",
+        "src/cpg/query.rs:615",
+        "src/cpg/query.rs:679",
+        "src/cpg/query.rs:680",
+        "src/cpg/trace.rs:853",
+        "src/cpg/trace.rs:864",
+        "src/cpg/trace.rs:865",
+        "src/navigation/queries.rs:2408",
+        "tests/ast/cpg_cache_test.rs:268",
+        "tests/ast/cpg_test.rs:27",
+        "tests/ast/cpg_test.rs:40",
+        "tests/ast/cpg_test.rs:138",
+        "tests/lang/python/decorated_test.rs:46"
+      ],
+      "oracle_only": [],
+      "exact_sites_equal_oracle": true
+    },
+    {
+      "id": "module-deps-feature-gated",
+      "complete_pair_equal": true,
+      "canonical_result_sha256": "637899da75b26f9b4255ca5b72eee3adc43c98a26ffbbd24aa4bc1e6d2693264",
+      "outcome": "missing",
+      "raw": {
+        "precision": [
+          0.9411764705882353,
+          0.7301796914154303,
+          0.9895395991310502
+        ],
+        "recall": [
+          0.9411764705882353,
+          0.7301796914154303,
+          0.9895395991310502
+        ],
+        "tp": 16,
+        "fp": 1,
+        "fn": 1
+      },
+      "prism_site_count": 17,
+      "oracle_site_count": 17,
+      "exact_count": 17,
+      "prism_only": [
+        "src/mcp/tools.rs:230"
+      ],
+      "oracle_only": [
+        "src/main.rs:183"
+      ]
+    },
+    {
+      "id": "load-repo-feature-gated",
+      "complete_pair_equal": true,
+      "canonical_result_sha256": "4898bd4412d9c38bd567b0f8d035f4bcb8a95c83bcde4d932b9b91c0fd966acd",
+      "outcome": "missing",
+      "raw": {
+        "precision": [
+          0.963302752293578,
+          0.9094227987018519,
+          0.9856382985341146
+        ],
+        "recall": [
+          0.9813084112149533,
+          0.9343961463759638,
+          0.9948590352100735
+        ],
+        "tp": 105,
+        "fp": 4,
+        "fn": 2
+      },
+      "prism_site_count": 109,
+      "oracle_site_count": 107,
+      "exact_count": 109,
+      "prism_only": [
+        "src/mcp/freshness.rs:401",
+        "src/mcp/session.rs:359",
+        "src/mcp/session.rs:374",
+        "src/mcp/session.rs:400"
+      ],
+      "oracle_only": [
+        "tests/integration/resolution_test.rs:5299",
+        "tests/integration/resolution_test.rs:5368"
+      ]
+    },
+    {
+      "id": "ambiguous-symbol-contract",
+      "complete_pair_equal": true,
+      "canonical_result_sha256": "c25cfd4869cdc16e698388f061584c6b58a3d09cc8710b0f3e6a6cdc46e75f24",
+      "outcome": "ok",
+      "raw": null,
+      "prism_site_count": 0,
+      "oracle_site_count": 0,
+      "exact_count": 0,
+      "prism_only": [],
+      "oracle_only": []
+    }
+  ]
+}
