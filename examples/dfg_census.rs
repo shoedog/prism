@@ -9,7 +9,8 @@
 //!
 //! Columns (CSV): repo,lang,file,function,start_line,end_line,n_lines,n_defs,
 //! n_defs_raw,n_uses,n_uses_raw,n_cfg_nodes,n_cfg_edges,n_dfg_edges,n_dfg_edges_cfg_ok,
-//! n_dfg_edges_span_ok,n_dfg_edges_nested_callable
+//! n_dfg_edges_span_ok,n_dfg_edges_distinct_stmt,n_dfg_edges_nested_callable,
+//! n_dfg_edges_unmapped_use,n_dfg_edges_unmapped_def,n_dfg_edges_same_stmt
 //!
 //! Column definitions, matching spec §4.1–4.3.
 //!
@@ -38,6 +39,10 @@
 //! either endpoint byte-contained by a nested callable body are excluded from this
 //! numerator and its denominator; `n_dfg_edges_nested_callable` reports that population.
 //!
+//! `n_dfg_edges_distinct_stmt` is the v6.4 RD-relevant metric. It additionally requires
+//! the two endpoints to map to different innermost containing statement start lines, or
+//! permits the definition to be the function ENTRY.
+//!
 //! This binary reads only public API (`prism::ast`, `prism::cfg`, `prism::cpg`,
 //! `prism::data_flow`, `prism::repo_loader`) and changes nothing under `src/`.
 
@@ -47,6 +52,7 @@ use prism::cpg::CodePropertyGraph;
 use prism::data_flow::{DataFlowGraph, VarAccessKind};
 use prism::languages::Language;
 use prism::repo_loader;
+use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::io::Write as _;
@@ -100,13 +106,26 @@ struct EdgeEndpoints {
 struct EdgeAdmissibility {
     cfg_ok: usize,
     span_ok: usize,
+    distinct_stmt: usize,
     nested_callable: usize,
+    /// Mutually exclusive residual classes after nested-callable exclusion.
+    unmapped_use: usize,
+    unmapped_def: usize,
+    same_stmt: usize,
 }
 
 #[derive(Clone, Copy, Debug)]
 struct ByteRange {
     start: usize,
     end: usize,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct StatementLineSpan {
+    start_line: usize,
+    end_line: usize,
+    start_byte: usize,
+    end_byte: usize,
 }
 
 impl ByteRange {
@@ -123,12 +142,17 @@ fn edge_admissibility(
     source_line_starts: &[usize],
     edges: &[EdgeEndpoints],
 ) -> EdgeAdmissibility {
-    let statement_line_ranges: Vec<(usize, usize)> = parsed
+    let statement_spans: Vec<StatementLineSpan> = parsed
         .statement_spans_in_function(&func_node)
         .into_iter()
         .map(|span| {
             let last_byte = span.end_byte.saturating_sub(1).max(span.start_byte);
-            (span.line, line_at_byte(source_line_starts, last_byte))
+            StatementLineSpan {
+                start_line: span.line,
+                end_line: line_at_byte(source_line_starts, last_byte),
+                start_byte: span.start_byte,
+                end_byte: span.end_byte,
+            }
         })
         .collect();
     let nested_callable_bodies = nested_callable_body_ranges(parsed, func_node);
@@ -150,12 +174,38 @@ fn edge_admissibility(
             continue;
         }
 
-        let use_in_statement = line_is_in_any_range(edge.use_line, &statement_line_ranges);
-        let def_in_statement = line_is_in_any_range(edge.def_line, &statement_line_ranges);
-        if use_in_statement && (def_in_statement || edge.def_line == function_start) {
-            result.span_ok += 1;
+        let use_stmt = innermost_statement_start(edge.use_line, &statement_spans);
+        let def_is_entry = edge.def_line == function_start;
+        let def_stmt = (!def_is_entry)
+            .then(|| innermost_statement_start(edge.def_line, &statement_spans))
+            .flatten();
+
+        let Some(use_stmt) = use_stmt else {
+            result.unmapped_use += 1;
+            continue;
+        };
+        if !def_is_entry && def_stmt.is_none() {
+            result.unmapped_def += 1;
+            continue;
+        }
+
+        result.span_ok += 1;
+        if def_is_entry || def_stmt != Some(use_stmt) {
+            result.distinct_stmt += 1;
+        } else {
+            result.same_stmt += 1;
         }
     }
+
+    debug_assert_eq!(result.span_ok, result.distinct_stmt + result.same_stmt);
+    debug_assert_eq!(
+        edges.len(),
+        result.nested_callable
+            + result.unmapped_use
+            + result.unmapped_def
+            + result.same_stmt
+            + result.distinct_stmt
+    );
 
     result
 }
@@ -176,10 +226,18 @@ fn line_at_byte(line_starts: &[usize], byte: usize) -> usize {
     line_starts.partition_point(|start| *start <= byte).max(1)
 }
 
-fn line_is_in_any_range(line: usize, ranges: &[(usize, usize)]) -> bool {
-    ranges
+fn innermost_statement_start(line: usize, spans: &[StatementLineSpan]) -> Option<usize> {
+    spans
         .iter()
-        .any(|(start, end)| *start <= line && line <= *end)
+        .filter(|span| span.start_line <= line && line <= span.end_line)
+        .min_by_key(|span| {
+            (
+                span.end_byte.saturating_sub(span.start_byte),
+                Reverse(span.start_byte),
+                Reverse(span.start_line),
+            )
+        })
+        .map(|span| span.start_line)
 }
 
 fn nested_callable_body_ranges(parsed: &ParsedFile, func_node: Node<'_>) -> Vec<ByteRange> {
@@ -353,7 +411,7 @@ fn run(root: &Path, label: &str, out_dir: &Path) -> anyhow::Result<()> {
     //         has a row per function the DFG iterates, joined to CFG shape.
     let mut csv = String::new();
     csv.push_str(
-        "repo,lang,file,function,start_line,end_line,n_lines,n_defs,n_defs_raw,n_uses,n_uses_raw,n_cfg_nodes,n_cfg_edges,n_dfg_edges,n_dfg_edges_cfg_ok,n_dfg_edges_span_ok,n_dfg_edges_nested_callable\n",
+        "repo,lang,file,function,start_line,end_line,n_lines,n_defs,n_defs_raw,n_uses,n_uses_raw,n_cfg_nodes,n_cfg_edges,n_dfg_edges,n_dfg_edges_cfg_ok,n_dfg_edges_span_ok,n_dfg_edges_distinct_stmt,n_dfg_edges_nested_callable,n_dfg_edges_unmapped_use,n_dfg_edges_unmapped_def,n_dfg_edges_same_stmt\n",
     );
     let mut n_functions = 0usize;
     let mut n_functions_unnamed = 0usize;
@@ -416,7 +474,7 @@ fn run(root: &Path, label: &str, out_dir: &Path) -> anyhow::Result<()> {
             let n_lines = end.saturating_sub(start) + 1;
             let _ = writeln!(
                 csv,
-                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
                 csv_escape(label),
                 lang,
                 csv_escape(path),
@@ -433,7 +491,11 @@ fn run(root: &Path, label: &str, out_dir: &Path) -> anyhow::Result<()> {
                 c.dfg_edges,
                 admissibility.cfg_ok,
                 admissibility.span_ok,
+                admissibility.distinct_stmt,
                 admissibility.nested_callable,
+                admissibility.unmapped_use,
+                admissibility.unmapped_def,
+                admissibility.same_stmt,
             );
         }
     }
@@ -499,6 +561,7 @@ mod tests {
         source: &str,
         language: Language,
         function_name: &str,
+        edge_path_base: Option<&str>,
     ) -> (EdgeAdmissibility, usize) {
         let parsed = ParsedFile::parse(path, source, language).expect("fixture must parse");
         let func_node = parsed
@@ -522,6 +585,7 @@ mod tests {
                 edge.from.file == path
                     && edge.from.function == function_name
                     && edge.from.function_start_line == start
+                    && edge_path_base.is_none_or(|base| edge.from.path.base == base)
             })
             .map(|edge| EdgeEndpoints {
                 def_line: edge.from.line,
@@ -549,19 +613,79 @@ mod tests {
     fn continuation_line_edge_is_span_admissible_but_not_cfg_start_admissible() {
         let source = "def f(x):\n    consume(\n        x\n    )\n";
         let (admissibility, n_edges) =
-            fixture_admissibility("continuation.py", source, Language::Python, "f");
+            fixture_admissibility("continuation.py", source, Language::Python, "f", None);
 
         assert!(n_edges > 0, "fixture must build at least one DFG edge");
         assert_eq!(admissibility.cfg_ok, 0);
         assert_eq!(admissibility.span_ok, n_edges);
+        assert_eq!(admissibility.distinct_stmt, n_edges);
+        assert_eq!(admissibility.same_stmt, 0);
         assert_eq!(admissibility.nested_callable, 0);
+    }
+
+    #[test]
+    fn rust_if_body_edge_maps_to_distinct_inner_statements() {
+        let source =
+            "fn f(x: i32) {\n    if x > 0 {\n        let y = x;\n        sink(y);\n    }\n}\n";
+        let (admissibility, n_edges) =
+            fixture_admissibility("distinct.rs", source, Language::Rust, "f", Some("y"));
+
+        assert!(n_edges > 0, "fixture must build a y def-to-use edge");
+        assert_eq!(admissibility.span_ok, n_edges);
+        assert_eq!(admissibility.distinct_stmt, n_edges);
+        assert_eq!(admissibility.same_stmt, 0);
+        assert_eq!(admissibility.nested_callable, 0);
+    }
+
+    #[test]
+    fn same_statement_def_to_use_is_never_distinct() {
+        let source = "fn f() {\n    let y =\n        y;\n}\n";
+        let (admissibility, n_edges) =
+            fixture_admissibility("same-statement.rs", source, Language::Rust, "f", Some("y"));
+
+        assert!(n_edges > 0, "fixture must build a y def-to-use edge");
+        assert_eq!(admissibility.span_ok, n_edges);
+        assert_eq!(admissibility.distinct_stmt, 0);
+        assert_eq!(admissibility.same_stmt, n_edges);
+        assert_eq!(admissibility.nested_callable, 0);
+    }
+
+    #[test]
+    fn with_header_use_and_definition_are_unmapped_residuals() {
+        let source = "def f(y):\n    with (x := y):\n        consume(x)\n";
+        let (use_admissibility, n_y_edges) =
+            fixture_admissibility("with-header.py", source, Language::Python, "f", Some("y"));
+        let (def_admissibility, n_x_edges) =
+            fixture_admissibility("with-header.py", source, Language::Python, "f", Some("x"));
+
+        assert!(n_y_edges > 0, "fixture must use y on the with header");
+        assert_eq!(use_admissibility.unmapped_use, n_y_edges);
+        assert!(n_x_edges > 0, "fixture must define x on the with header");
+        assert_eq!(def_admissibility.unmapped_def, n_x_edges);
+    }
+
+    #[test]
+    fn multiline_parameter_definition_is_normalized_to_entry() {
+        let source = "fn f(\n    x: i32,\n) {\n    sink(x);\n}\n";
+        let (admissibility, n_edges) = fixture_admissibility(
+            "multiline-signature.rs",
+            source,
+            Language::Rust,
+            "f",
+            Some("x"),
+        );
+
+        assert!(n_edges > 0, "fixture must build an x def-to-use edge");
+        assert_eq!(admissibility.cfg_ok, n_edges);
+        assert_eq!(admissibility.distinct_stmt, n_edges);
+        assert_eq!(admissibility.unmapped_def, 0);
     }
 
     #[test]
     fn lambda_body_edge_is_counted_as_nested_callable() {
         let source = "def f(x):\n    apply = lambda y: y + x\n    return apply(x)\n";
         let (admissibility, n_edges) =
-            fixture_admissibility("lambda.py", source, Language::Python, "f");
+            fixture_admissibility("lambda.py", source, Language::Python, "f", None);
 
         assert!(n_edges > 0, "fixture must build at least one DFG edge");
         assert!(
@@ -575,7 +699,7 @@ mod tests {
     fn same_line_arrow_does_not_exclude_unrelated_outer_endpoint() {
         let source = "function f(x, z) {\n  invoke(y => y + x); use(z);\n}\n";
         let (admissibility, n_edges) =
-            fixture_admissibility("same-line.js", source, Language::JavaScript, "f");
+            fixture_admissibility("same-line.js", source, Language::JavaScript, "f", None);
 
         assert!(
             n_edges > 1,
