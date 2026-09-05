@@ -2,8 +2,9 @@
 
 Base: PR #241 merged at `18869079452d1ec7f92809875c5d35bc486bcbff`.
 Authority: owner approved the next increment and explicitly the Rust recall repair.
-Implementation and verification complete within the three-round cap; publication
-is tracked in the rust-binary-library handoff.
+Implementation and verification complete within the three-round cap. Published
+as `e9e153e` in [PR #242](https://github.com/shoedog/prism/pull/242), OPEN, not merged.
+The publication follow-up changes documentation only.
 
 ## Result
 
@@ -109,6 +110,11 @@ Raw JSONL, comparison script, complete gate logs, preserved sample dumps, and
 served responses are retained in the evidence directory. The committed JSON
 contains the bounded delta and key served artifacts so the result is not dependent
 on an untracked temporary file alone.
+
+Evidence archive: `/private/tmp/prism-path-default-4GrCld-evidence.tgz`, SHA256
+`8adeb05f0706d040216d7984b2c6fbaf0d8c2d05843aed51b381b58f04f90d04`.
+The new quick report and oracle snapshot were moved into this evidence directory;
+existing committed baselines and the pre-existing untracked snapshot were untouched.
 
 ## Next bounded item
 

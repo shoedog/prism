@@ -91,7 +91,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   obsolete literal-address outcomes; an inherited fully qualified call miss at
   `src/main.rs:183` was separated for the next Rust repair item. No new Python/JS feature
   or baseline change. See `docs/eval/receiver-closure/2026-09-04-readout.md`.
-- **Next increment implemented, publication in rust-binary-library handoff:** Cargo
+- **Next increment — PR #242 OPEN, `e9e153e`, not merged:** Cargo
   binary-to-own-library identity repairs main.rs:183; 72 Exact additions and no lost
   Exact targets on fixed current Rust source. Direct named default-class receivers
   support JS/TS/TSX value imports and erased TS type imports. Prior Python/JS samples
