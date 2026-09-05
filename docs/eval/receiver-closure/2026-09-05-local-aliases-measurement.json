@@ -1,0 +1,33 @@
+{
+  "real_sites": 2780,
+  "exact_before": 376,
+  "exact_after": 376,
+  "changed_records": 0,
+  "fixture_served_callers": [
+    "app.ts:3:visible"
+  ],
+  "fixture_served_callees": [
+    "client.ts:2:m"
+  ],
+  "fixture_excluded_callers": [
+    "optional",
+    "written",
+    "shadowed"
+  ],
+  "fixture_source_sha256": {
+    "app.ts": "48b189a915e2e2808df516b7943f38176e5437e4aea047b0374856ddef39400b",
+    "client.ts": "60c73588435c703c8dbd9060106cbbfbbb7d49c3feff6ced745a86bdb2702583",
+    "decoy.ts": "4d80a3039d024a01b491eefb66d40cd7fab90b95e35a1c3bd7c7ed61bc6a1491"
+  },
+  "source_sha256": {
+    "packages/excalidraw/components/App.tsx": "474ccd0778686bf0fff7d3b6eba41590aa552410d61ab95511c078db67572d5c",
+    "packages/excalidraw/components/LibraryMenu.tsx": "42b6ccfd00ba3f15575114bcf50180e4682dfc001f1cc694529643036be0210a",
+    "packages/excalidraw/components/LibraryMenuHeaderContent.tsx": "c02b2e4d82f6e1916f18a07d5c8abb0666a10bb7b50f559a3fe973379f3bb711",
+    "packages/excalidraw/data/library.ts": "b242773104cb14645820e5b7f1d43d2a56f86d95206f7b9571360fbddfbc8b61"
+  },
+  "control_jsonl_sha256": {
+    "black": "d0551c1d398ad21f31d30b06fd9057982fc3d649b7c421b5cedd6712154c5863",
+    "excalidraw": "a7d8a2cfba4d027861626df87285565359fbd357d41a88476b7b731b9aa90440",
+    "javascript": "0a226dd23b5c5605ce183ec943474f4aae13e5c7a1d1f362454c7d6874e76769"
+  }
+}

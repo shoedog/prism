@@ -89,7 +89,6 @@ fn contextual_prop_receiver_shape_barriers() {
     for source in [
         "const run: React.FC<{client: Client}> = ({client}) => { client.m(); };",
         "declare namespace React { type FC<P> = (p: {client: Other}) => void; } const run: React.FC<{client: Client}> = ({client}) => { client.m(); };",
-        "type F = (p: {client: Client}) => void; const run: F = ({client}) => { client.m(); };",
         "const run: { (p: {client: Client}): void } = ({client}) => { client.m(); };",
         "const run: ((p: {client: Client}) => void) | Other = ({client}) => { client.m(); };",
         "const run: (p: {client?: Client}) => void = ({client}) => { client.m(); };",
@@ -132,6 +131,89 @@ fn contextual_prop_receiver_write_barriers() {
         "const run: (p: {client: Client}) => void = ({client}) => { delete client.m; client.m(); };",
         "const run: (p: {client: Client}) => void = ({client}) => { while(ok) { client.m(); client = other; } };",
         "const run: (p: {client: Client}) => void = ({client}) => { function inner(client) { client.m(); } };",
+    ] { check(source, false, Language::Tsx); }
+}
+
+#[test]
+fn local_contextual_alias_positive() {
+    let mut failures = Vec::new();
+    for language in [Language::TypeScript, Language::Tsx] {
+        for source in [
+            "type F = (p: {client: Client}) => void; const run: F = ({client}) => client.m();",
+            "export type F = (p: {client: Client}) => void; export const run: F = function named({client: x}) { x.m(); };",
+            "const run: F = ({client}) => client.m(); type F = (p: {client: Client}) => void;",
+            "type F = (/* sig */ p: {readonly client: Client; label?: string}) => void; let run: F = async ({client, label}) => client.m();",
+            "type F = (p: {client: Client}) => void; function outer() { const run: F = ({client}) => { function inner() { client.m(); } }; }",
+            "type F = (p: {client: Client}) => void; function outer<Client>() { const run: F = ({client}) => client.m(); }",
+            "type F = (p: {client: Client}) => void; let F = other; F = value; const run: F = ({client}) => client.m();",
+            "type F = (p: {client: Client}) => void; function sibling() { type F = Other; } const run: F = ({client}) => { client.m(); client = other; };",
+            "type F = (p: {client: Client}) => void; function F() {} const run: F = ({client}) => client.m();",
+            "type F = (p: {client: Client}) => void; export { F }; const run: F = ({client}) => client.m();",
+        ] {
+            if std::panic::catch_unwind(|| check(source, true, language)).is_err() { failures.push((language, source)); }
+        }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+#[test]
+fn local_contextual_alias_declaration_barriers() {
+    let signature = "(p: {client: Client}) => void";
+    let mut failures = Vec::new();
+    for source in [
+        format!("type F = {signature}; type F = {signature}; const run: F = ({{client}}) => client.m();"),
+        format!("type F = {signature}; interface F {{}} const run: F = ({{client}}) => client.m();"),
+        format!("type F = {signature}; class F {{}} const run: F = ({{client}}) => client.m();"),
+        format!("type F = {signature}; enum F {{ A }} const run: F = ({{client}}) => client.m();"),
+        format!("type F = {signature}; namespace F {{}} const run: F = ({{client}}) => client.m();"),
+        format!("type F = {signature}; namespace F.Inner {{}} const run: F = ({{client}}) => client.m();"),
+        format!("type F = {signature}; export interface F {{}} const run: F = ({{client}}) => client.m();"),
+        format!("type F = {signature}; declare class F {{}} const run: F = ({{client}}) => client.m();"),
+        format!("type F = {signature}; import * as F from './other'; const run: F = ({{client}}) => client.m();"),
+        format!("type F = {signature}; import F = NS.Other; const run: F = ({{client}}) => client.m();"),
+        format!("type F = {signature}; import F from './other'; const run: F = ({{client}}) => client.m();"),
+        format!("type F = {signature}; import type F from './other'; const run: F = ({{client}}) => client.m();"),
+        format!("declare type F = {signature}; const run: F = ({{client}}) => client.m();"),
+        format!("function outer() {{ type F = {signature}; const run: F = ({{client}}) => client.m(); }}"),
+        format!("type F = {signature}; function outer<F>() {{ const run: F = ({{client}}) => client.m(); }}"),
+        format!("type F = {signature}; function outer() {{ type F = Other; const run: F = ({{client}}) => client.m(); }}"),
+        format!("type F = {signature}; function outer() {{ const run: F = ({{client}}) => client.m(); interface F {{}} }}"),
+        format!("type F = {signature}; class Outer<F> {{ run() {{ const inner: F = ({{client}}) => client.m(); }} }}"),
+        format!("type F = {signature}; function outer() {{ {{ class F {{}} const run: F = ({{client}}) => client.m(); }} }}"),
+        format!("type F<T> = {signature}; const run: F<Client> = ({{client}}) => client.m();"),
+        format!("type F<T = Client> = {signature}; const run: F = ({{client}}) => client.m();"),
+        format!("type F = <Client>{signature}; const run: F = ({{client}}) => client.m();"),
+        format!("type G = {signature}; type F = G; const run: F = ({{client}}) => client.m();"),
+        "type F = F; const run: F = ({client}) => client.m();".into(),
+        "import type F from './other'; const run: F = ({client}) => client.m();".into(),
+        "type F = { (p: {client: Client}): void }; const run: F = ({client}) => client.m();".into(),
+        format!("type F = ({signature}) | Other; const run: F = ({{client}}) => client.m();"),
+        format!("type F = ({signature}) & Other; const run: F = ({{client}}) => client.m();"),
+        format!("type F = ({signature}); const run: F = ({{client}}) => client.m();"),
+        format!("type F = {signature}; const run: F = ({{client}}) => {{ client.m(); const broken = ; }};"),
+    ] {
+        if std::panic::catch_unwind(|| check(&source, false, Language::Tsx)).is_err() { failures.push(source); }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+#[test]
+fn local_contextual_alias_receiver_barriers() {
+    for source in [
+        "type F = (p: {client?: Client}) => void; const run: F = ({client}) => client.m();",
+        "type F = (p: {client: Client; client: Other}) => void; const run: F = ({client}) => client.m();",
+        "type F = (p?: {client: Client}) => void; const run: F = ({client}) => client.m();",
+        "type F = (p: {client: Client}) => void; const run: F = ({client}: {client: Other}) => client.m();",
+        "type F = (p: {client: Client}) => void; const run: F = ({client}) => { client = other; client.m(); };",
+        "type F = (p: {client: Client}) => void; const run: F = ({client}) => { delete client.m; client.m(); };",
+        "type F = (p: {client: Client}) => void; const run: F = ({client}) => { while(ok) { client.m(); client = other; } };",
+        "type F = (p: {client: Client}) => void; const run: F = ({client}) => { function inner(client) { client.m(); } };",
+        "type Client = Other; type F = (p: {client: Client}) => void; const run: F = ({client}) => client.m();",
+        "type F = (p: {client: Client}, q: Other) => void; const run: F = ({client}) => client.m();",
+        "type F = (...p: {client: Client}[]) => void; const run: F = ({client}) => client.m();",
+        "type F = (p: {client: Client}) => void; const run: F = ({client} = other) => client.m();",
+        "type F = (p: {client: Client}) => void; const run: F = ({client, ...rest}) => client.m();",
+        "type F = (p: {client: Client}) => void; const run: F = ({client}) => { ({m: client.m} = other); client.m(); };",
     ] { check(source, false, Language::Tsx); }
 }
 
