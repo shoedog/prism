@@ -423,7 +423,7 @@ fn repeated_partial_hits_do_not_accumulate_retained_missing_label_stats() {
     ]);
     let files = parse_python_sources(&sources);
     let mut cached = CodePropertyGraph::build(&files);
-    let cold_stats = cached.dfg.rd_function_stats["a.py"];
+    let cold_stats = cached.dfg.rd_function_stats["a.py"].clone();
     assert_eq!(
         cold_stats.functions_without_cfg, 1,
         "the retained fixture must begin with exactly one unavailable function"
@@ -466,7 +466,7 @@ fn repeated_partial_hits_do_not_accumulate_retained_missing_label_stats() {
         CacheResult::Hit(_) => panic!("first edit unexpectedly produced a full hit"),
         CacheResult::Miss => panic!("first edit unexpectedly produced a miss"),
     };
-    let first_stats = first.dfg.rd_function_stats["a.py"];
+    let first_stats = first.dfg.rd_function_stats["a.py"].clone();
     assert!(!first.dfg.labels.contains_key(&retained_key));
     cpg_cache::save_cache(&first, &first_hashes, false, cache_dir.path()).unwrap();
 
@@ -495,7 +495,7 @@ fn repeated_partial_hits_do_not_accumulate_retained_missing_label_stats() {
         CacheResult::Hit(_) => panic!("second edit unexpectedly produced a full hit"),
         CacheResult::Miss => panic!("second edit unexpectedly produced a miss"),
     };
-    let second_stats = second.dfg.rd_function_stats["a.py"];
+    let second_stats = second.dfg.rd_function_stats["a.py"].clone();
     assert!(!second.dfg.labels.contains_key(&retained_key));
 
     assert_eq!(

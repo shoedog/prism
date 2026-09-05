@@ -155,7 +155,7 @@ fn rd_function_stats_are_file_partitioned() {
         ("b.py", "def b():\n    y = 1\n"),
     ]);
     let mut dfg = DataFlowGraph::build(&files);
-    let retained = dfg.rd_function_stats["a.py"];
+    let retained = dfg.rd_function_stats["a.py"].clone();
     assert!(retained.functions_without_cfg > 0);
     assert!(dfg.rd_function_stats["b.py"].functions_without_cfg > 0);
 
@@ -168,6 +168,22 @@ fn rd_function_stats_are_file_partitioned() {
     assert_eq!(dfg.rd_function_stats.len(), 2);
     assert_eq!(dfg.rd_function_stats["a.py"], retained);
     assert!(dfg.rd_function_stats["b.py"].functions_without_cfg > 0);
+}
+
+#[test]
+fn rd_function_stats_merge_unions_function_identities() {
+    let first = parsed_python_files(&[("a.py", "def u(value):\n    return value\n")]);
+    let second = parsed_python_files(&[("a.py", "def v(value):\n    return value\n")]);
+    let mut retained = DataFlowGraph::build(&first);
+    let fresh = DataFlowGraph::build(&second);
+    assert_eq!(retained.rd_function_stats["a.py"].functions_without_cfg, 1);
+    assert_eq!(fresh.rd_function_stats["a.py"].functions_without_cfg, 1);
+
+    retained.merge(fresh);
+    assert_eq!(
+        retained.rd_function_stats["a.py"].functions_without_cfg, 2,
+        "same-file merge must union distinct unavailable-function identities"
+    );
 }
 
 #[test]

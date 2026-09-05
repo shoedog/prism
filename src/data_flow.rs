@@ -180,7 +180,7 @@ impl DataFlowGraph {
             Self::insert_label(&mut self.labels, key, label);
         }
         for (file, stats) in other.rd_function_stats {
-            self.rd_function_stats.insert(file, stats);
+            self.rd_function_stats.entry(file).or_default().merge(stats);
         }
         self.rebuild_adjacency();
     }
@@ -596,9 +596,9 @@ impl DataFlowGraph {
                         }
                         RdOutcome::Unavailable(reason) => {
                             if reason.is_def_cap() || reason.is_line_cap() {
-                                rd_function_stats.functions_over_cap += 1;
+                                rd_function_stats.record_over_cap(func_name.clone(), start);
                             } else {
-                                rd_function_stats.functions_without_cfg += 1;
+                                rd_function_stats.record_without_cfg(func_name.clone(), start);
                             }
                             let fallback = FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
                             for edge in function_edges {

@@ -117,13 +117,21 @@ fn edge(parsed: &ParsedFile, func: &Node<'_>, def: &DefSite, use_line: usize) ->
 
 fn run(parsed: &ParsedFile, defs: &[DefSite], edges: &[FlowEdge]) -> (RdOutcome, RdFileStats) {
     let func = function(parsed);
+    let function_name = parsed
+        .language
+        .function_name(&func)
+        .map(|name| parsed.node_text(&name).to_string())
+        .unwrap_or_else(|| "<anonymous>".to_string());
+    let (function_start_line, _) = parsed.node_line_range(&func);
     let outcome = reaching_definitions(parsed, &func, defs, edges);
     let mut stats = RdFileStats::default();
     match outcome {
         RdOutcome::Unavailable(reason) if reason.is_def_cap() || reason.is_line_cap() => {
-            stats.functions_over_cap = 1;
+            stats.record_over_cap(function_name, function_start_line);
         }
-        RdOutcome::Unavailable(RdUnavailable::NoCfgEdges) => stats.functions_without_cfg = 1,
+        RdOutcome::Unavailable(RdUnavailable::NoCfgEdges) => {
+            stats.record_without_cfg(function_name, function_start_line);
+        }
         _ => {}
     }
     (outcome, stats)
@@ -489,15 +497,22 @@ fn labels_have_exactly_the_supplied_edge_keys() {
 
 #[test]
 fn rd_file_stats_round_trip_through_serde() {
-    let expected = RdFileStats {
-        functions_over_cap: 2,
-        functions_without_cfg: 3,
-    };
+    let mut expected = RdFileStats::default();
+    expected.record_over_cap("cap_a".into(), 1);
+    expected.record_over_cap("cap_b".into(), 4);
+    expected.record_without_cfg("cfg_a".into(), 8);
+    expected.record_without_cfg("cfg_b".into(), 11);
+    expected.record_without_cfg("cfg_c".into(), 14);
+    assert_eq!(expected.functions_over_cap, 2);
+    assert_eq!(expected.functions_without_cfg, 3);
     let bytes = bincode::serialize(&expected).unwrap();
-    assert_eq!(
-        bincode::deserialize::<RdFileStats>(&bytes).unwrap(),
-        expected
-    );
+    let mut restored = bincode::deserialize::<RdFileStats>(&bytes).unwrap();
+    assert_eq!(restored, expected);
+
+    restored.record_without_cfg("cfg_a".into(), 8);
+    assert_eq!(restored.functions_without_cfg, 3);
+    restored.record_without_cfg("cfg_d".into(), 17);
+    assert_eq!(restored.functions_without_cfg, 4);
 }
 
 mod captures;

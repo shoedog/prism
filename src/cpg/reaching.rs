@@ -65,10 +65,42 @@ pub(crate) struct RdResult {
     pub(crate) loop_carried_edges: BTreeSet<(VarLocation, VarLocation)>,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+type RdFunctionKey = (String, usize);
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RdFileStats {
     pub functions_over_cap: usize,
     pub functions_without_cfg: usize,
+    // These identity sets are the persisted source of truth. The public counts
+    // remain derived mirrors for the approved Task 2 interface.
+    over_cap_function_keys: BTreeSet<RdFunctionKey>,
+    without_cfg_function_keys: BTreeSet<RdFunctionKey>,
+}
+
+impl RdFileStats {
+    pub(crate) fn record_over_cap(&mut self, function: String, start_line: usize) {
+        self.over_cap_function_keys.insert((function, start_line));
+        self.refresh_counts();
+    }
+
+    pub(crate) fn record_without_cfg(&mut self, function: String, start_line: usize) {
+        self.without_cfg_function_keys
+            .insert((function, start_line));
+        self.refresh_counts();
+    }
+
+    pub(crate) fn merge(&mut self, other: Self) {
+        self.over_cap_function_keys
+            .extend(other.over_cap_function_keys);
+        self.without_cfg_function_keys
+            .extend(other.without_cfg_function_keys);
+        self.refresh_counts();
+    }
+
+    fn refresh_counts(&mut self) {
+        self.functions_over_cap = self.over_cap_function_keys.len();
+        self.functions_without_cfg = self.without_cfg_function_keys.len();
+    }
 }
 
 pub(crate) fn reaching_definitions(

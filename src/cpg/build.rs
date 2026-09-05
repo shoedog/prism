@@ -615,21 +615,14 @@ impl CodePropertyGraph {
                 graph.add_edge(from_idx, to_idx, CpgEdge::DataFlow(confidence));
             }
         }
-        let mut fallback_functions_by_file = BTreeMap::<String, usize>::new();
-        for (file, _, _) in dfg_rd_functions_without_cfg {
-            *fallback_functions_by_file.entry(file).or_default() += 1;
-        }
-        for (file, fallback_functions) in fallback_functions_by_file {
-            // `rd_function_stats` survives PartialHit for retained files, while
-            // assembly runs again. Treat both persisted RD unavailability and
-            // this assembly's distinct missing-label functions as floors;
-            // adding here would count the same retained function every rebuild.
-            let persisted = &mut dfg
-                .rd_function_stats
+        for (file, function, start_line) in dfg_rd_functions_without_cfg {
+            // The identity set persists through PartialHit. Inserting the same
+            // retained fallback again is idempotent, while a missing label in a
+            // newly affected function grows the exact per-file union.
+            dfg.rd_function_stats
                 .entry(file)
                 .or_default()
-                .functions_without_cfg;
-            *persisted = (*persisted).max(fallback_functions);
+                .record_without_cfg(function, start_line);
         }
 
         // --- Step 5: Call edges ---
