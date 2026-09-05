@@ -1,7 +1,7 @@
 # Handoff — constructor-field receiver ownership
 
 **Written:** 2026-09-05 · **By:** Codex /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/constructor-field-receivers · **Measured state:** `[MEASURED]` HEAD1e26301, dirty implementation/tests/docs; git status --short in this turn.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/constructor-field-receivers · **Measured state:** `[MEASURED]` implementation bd146c6 committed/pushed; PR248 OPEN against main1e26301. Before this docs-only custody follow-up, status contained only the two original untracked artifacts. No merge performed.
 **Predecessor:** contextual-prop provenance, PR247 merged1e26301.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,15 +9,15 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Ownership: `[MEASURED]` /root only; no subagents — RESOLVED.
-(b) Custody: `[MEASURED]` interim-source.tgz captured in evidence directory; final-source.tgz captures round3. Preserve original .superpowers/ and eval/snapshots/prism-fb81481dafa7.json — RESOLVED by snapshots; publication pending.
+(b) Custody: `[MEASURED]` implementation pushed, evidence archive checksum in readout; original .superpowers/ and eval/snapshots/prism-fb81481dafa7.json untouched — RESOLVED.
 (c) In flight: `[MEASURED]` all gates and measurements complete; no running gate. Quick exit2 baseline-invalid SHA drift, details in readout. Evidence archive checksum recorded there.
 (d) Authority: owner “approved - proceed”; standing “commit and oush and open pr”. No merge, rebaseline or full multicorpus.
 
 ## 1. Resume order
 
 1. Run `git status --short` and `tail -n 20 /private/tmp/prism-constructor-fields-NWyrfq/green-complete.log`; seconds.
-2. Check final diff/status and publish readout/handoff and implementation in a new PR against main.
-3. Record actual implementation SHA and PR URL in readout/handoff/roadmap; docs-only custody follow-up.
+2. Review PR248; after owner merges, fetch/rebind main before proposing the next bounded increment.
+3. Keep remaining React.FC/hook-return authority separate; no automatic widening.
 
 **STOP conditions:** three-round cap; open-class findings require design escalation; no ambient/type-spelling or whole-program temporal claims.
 
@@ -31,7 +31,7 @@
 | Adversarial/cache | done | `[MEASURED]` round2 reflective false edges and round3 inherited setter corrected; round3-green3/0, cached transitions/replacement pass; CPG68/nav37 |
 | Full gates | done | `[MEASURED]` default3821/0/1, MCP4011/0/1, clippy/fmt, matrix104/104; quick exit2 solely baseline SHA drift; oracle/SUT errors0, pin/sample caveats in readout |
 | Measurement | done | `[MEASURED]` verified-measurement.json:2780 records, Exact372→376 at four unique App spans; served gains and unchanged earlier controls asserted |
-| Publication | pending | all verification/readout/archive complete; commit/push/PR next |
+| Publication | done | `[MEASURED]` bd146c6 pushed; https://github.com/shoedog/prism/pull/248 OPEN against main |
 
 ## 3. Corrections to standing documents and memory
 
@@ -41,8 +41,8 @@ pre-initialization reentrancy safety; explicit limitation in spec.
 
 ## 4. Open work
 
-Commit/push/PR plus publication custody follow-up. Further receiver expansion
-requires a separate owner decision; remaining six tracked spans are unproven.
+Owner review/merge PR248. Further receiver expansion requires a separate owner
+decision; remaining six tracked spans are unproven.
 
 ## 5. Invariants and traps — do not do these
 

@@ -124,7 +124,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   records/Exact372 unchanged; synthetic served callers/callees positive with
   optional/write negatives. Quick baseline-invalid SHA drift. No claimed React.FC gain. See
   `docs/eval/receiver-closure/2026-09-05-contextual-props-readout.md`.
-- **Constructor-backed own-field receivers — verified, publication pending:**
+- **Constructor-backed own-field receivers — PR248 OPEN, bd146c6:**
   JS/TS/TSX direct own-constructor identity with duplicate/write/initialization
   barriers; CPG68/nav37. Default3821/0/1, MCP4011/0/1, matrix104/104. Same
   Excalidraw2780 records: Exact372→376 at four unique App spans, all served

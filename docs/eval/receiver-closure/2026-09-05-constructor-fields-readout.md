@@ -1,7 +1,8 @@
 # Constructor-backed own-field receiver ownership
 
 Base main1e26301, after PR247 merged. Owner approved the recommended bounded
-constructor-field continuation. Verification complete; publication pending.
+constructor-field continuation. Implementation bd146c6 pushed in
+[PR248](https://github.com/shoedog/prism/pull/248), OPEN against main. No merge performed.
 
 ## Result and boundary
 
