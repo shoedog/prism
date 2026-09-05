@@ -306,7 +306,6 @@ fn local_callable_alias_authority_and_receiver_barriers() {
     let mut failures = Vec::new();
     for source in [
         "const run: { (p: {client: Client}): void } = ({client}) => client.m();",
-        "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client}) => client.m();",
         "declare type F<P> = { (p: P): void }; const run: F<{client: Client}> = ({client}) => client.m();",
         "type F<P> = { (p: P): void }; interface F {} const run: F<{client: Client}> = ({client}) => client.m();",
         "type F = { (p: {client: Client}): void }; type F = Other; const run: F = ({client}) => client.m();",
@@ -345,6 +344,173 @@ fn local_callable_alias_authority_and_receiver_barriers() {
         "type F = { (p: Props): void }; type Props = {client: Client}; interface Props {} const run: F = ({client}) => client.m();",
         "type F<P> = { (p: P): void }; type Props = {client: Client}; function outer() { const run: F<Props> = ({client}) => client.m(); interface Props {} }",
         "type F = { (p: {client: Client}): void } | Other; const run: F = ({client}) => client.m();",
+    ] {
+        if std::panic::catch_unwind(|| check(source, false, Language::Tsx)).is_err() { failures.push(source); }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+#[test]
+fn local_callable_interface_module_boundary() {
+    let mut failures = Vec::new();
+    for language in [Language::TypeScript, Language::Tsx] {
+        for (marker, expected) in [("", false), ("export {};", true)] {
+            let files = BTreeMap::from([
+                ("app.ts".to_string(), ParsedFile::parse("app.ts", &format!("{marker} class Client {{ m() {{}} }} interface F {{ (p: {{client: Client}}): void }} const run: F = ({{client}}) => client.m();"), language).unwrap()),
+                ("global.ts".to_string(), ParsedFile::parse("global.ts", "interface F { (p: {client: Other}): void }", language).unwrap()),
+            ]);
+            for cg in [
+                CallGraph::build(&files),
+                CallGraph::build_direct_subset(&files, &files.keys().cloned().collect()),
+            ] {
+                let site = cg
+                    .calls
+                    .values()
+                    .flatten()
+                    .find(|s| s.callee_name == "m")
+                    .unwrap();
+                let edges = cg.resolve_call_site(site);
+                let exact: Vec<_> = edges
+                    .iter()
+                    .filter(|e| e.confidence == ResolutionConfidence::Exact)
+                    .collect();
+                if exact.len() != usize::from(expected)
+                    || (expected && exact[0].target.file != "app.ts")
+                {
+                    failures.push(format!("{language:?} {marker}: {site:?} {edges:?}"));
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+#[test]
+fn local_callable_interface_positive() {
+    let mut failures = Vec::new();
+    for language in [Language::TypeScript, Language::Tsx] {
+        for source in [
+            "interface F { (p: {client: Client}): void } const run: F = ({client}) => client.m();",
+            "type Props = {client: Client}; interface F { (p: Props): void } const run: F = ({client}) => client.m();",
+            "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client}) => client.m();",
+            "type Props = {client: Client}; interface F<P> { (p: P): void } const run: F<Props> = ({client}) => client.m();",
+            "interface F { (p: {client: Client}): void } export const run: F = function named({client: x}) { x.m(); };",
+            "interface F { (p: {client: Client}): void } export type {F} from './other'; const run: F = ({client}) => client.m();",
+            "interface F<P> { (p: P): void } const run: F<{readonly client: Client; label?: string}> = async ({client, label}) => client.m();",
+            "const run: F<Props> = ({client}) => client.m(); type Props = {client: Client}; interface F<P> { (p: P): void }",
+            "interface F</* binder */ P,> { /* member */ (/* param */ p: P): void; /* end */ } const run: F<{client: Client},> = ({client}) => client.m();",
+            "interface F { (p: {client: Client}): void } function outer<Client>() { const run: F = ({client}) => client.m(); }",
+            "interface F<Client> { (p: Client): void } const run: F<{client: Client}> = ({client}) => client.m();",
+            "type Props = {client: Client}; interface F<Props> { (p: Props): void } function outer<Client>() { const run: F<Props> = ({client}) => client.m(); }",
+            "interface F<P> { (p: P): void } let F = other; F = value; const run: F<{client: Client}> = ({client}) => { type Client = Other; client.m(); };",
+            "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client}) => { function inner() { client.m(); } };",
+            "interface F<P> { (p: P) } const run: F<{client: Client}> = ({client: x}) => { x.m(); x = other; };",
+            "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client}) => { function change(client) { delete client.m; } client.m(); };",
+            "interface F { (p: {client: Client}): void } const run: F = ({client}) => { interface Client {} client.m(); };",
+            "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client}: {client: Client}) => client.m();",
+        ] {
+            if std::panic::catch_unwind(|| check(source, true, language)).is_err() { failures.push((language, source)); }
+        }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+#[test]
+fn local_callable_interface_shape_barriers() {
+    let mut failures = Vec::new();
+    for (binder, parameter, reference) in [
+        ("", "{client: Client}", "F"),
+        ("<P>", "P", "F<{client: Client}>"),
+    ] {
+        for members in [
+            "",
+            "(p: $): void; (p: Other): void",
+            "(p: Other): void; (p: $): void",
+            "(p: $): void; (p: $): void",
+            "(p: $): void; label: string",
+            "label?: string; (p: $): void",
+            "(p: $): void; get label(): string",
+            "(p: $): void; run(): void",
+            "(p: $): void; [Symbol.iterator](): Other",
+            "(p: $): void; [key: string]: Other",
+            "(p: $): void; new(p: $): Other",
+            "new(p: $): Other",
+            "run(p: $): void",
+            "call: (p: $) => void",
+            "<Q>(p: $): void",
+            "<P>(p: $): void",
+            "(p?: $): void",
+            "(...p: $[]): void",
+            "({client}: $): void",
+            "(p: $, q: Other): void",
+        ] {
+            let source = format!(
+                "interface F{binder} {{{}}} const run: {reference} = ({{client}}) => client.m();",
+                members.replace('$', parameter)
+            );
+            if std::panic::catch_unwind(|| check(&source, false, Language::Tsx)).is_err() {
+                failures.push(source);
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+#[test]
+fn local_callable_interface_authority_and_receiver_barriers() {
+    let mut failures = Vec::new();
+    for source in [
+        "export interface F { (p: {client: Client}): void } const run: F = ({client}) => client.m();",
+        "interface F<P> { (p: P): void } export type {F}; const run: F<{client: Client}> = ({client}) => client.m();",
+        "interface F<P> { (p: P): void } export {type F as Other}; const run: F<{client: Client}> = ({client}) => client.m();",
+        "interface F<P> { (p: P): void } export {F as Other}; const run: F<{client: Client}> = ({client}) => client.m();",
+        "export default interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client}) => client.m();",
+        "interface F<P> { (p: P): void } export default F; const run: F<{client: Client}> = ({client}) => client.m();",
+        "interface Base {} interface F<P> extends Base { (p: P): void } const run: F<{client: Client}> = ({client}) => client.m();",
+        "interface F extends Other { (p: {client: Client}): void } const run: F = ({client}) => client.m();",
+        "interface F<P> { (p: P): void } interface F<P> {} const run: F<{client: Client}> = ({client}) => client.m();",
+        "interface F {} interface F { (p: {client: Client}): void } const run: F = ({client}) => client.m();",
+        "interface F<P> { (p: P): void } type F = Other; const run: F<{client: Client}> = ({client}) => client.m();",
+        "interface F<P> { (p: P): void } class F {} const run: F<{client: Client}> = ({client}) => client.m();",
+        "interface F<P> { (p: P): void } namespace F.Inner {} const run: F<{client: Client}> = ({client}) => client.m();",
+        "interface F<P> { (p: P): void } import type F from './other'; const run: F<{client: Client}> = ({client}) => client.m();",
+        "interface F<P> { (p: P): void } import * as F from './other'; const run: F<{client: Client}> = ({client}) => client.m();",
+        "interface F<P> { (p: P): void } import F = NS.Other; const run: F<{client: Client}> = ({client}) => client.m();",
+        "declare interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client}) => client.m();",
+        "export declare interface F { (p: {client: Client}): void } const run: F = ({client}) => client.m();",
+        "function outer() { interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client}) => client.m(); }",
+        "interface F<P> { (p: P): void } function outer<F>() { const run: F<{client: Client}> = ({client}) => client.m(); }",
+        "interface F<P> { (p: P): void } function outer<Client>() { const run: F<{client: Client}> = ({client}) => client.m(); }",
+        "type Props = {client: Client}; interface F<P> { (p: P): void } function outer<Props>() { const run: F<Props> = ({client}) => client.m(); }",
+        "interface F<P> { (p: P): void } function outer() { const run: F<{client: Client}> = ({client}) => client.m(); interface F {} }",
+        "interface F<P extends Other> { (p: P): void } const run: F<{client: Client}> = ({client}) => client.m();",
+        "interface F<P = Other> { (p: P): void } const run: F<{client: Client}> = ({client}) => client.m();",
+        "interface F<in P> { (p: P): void } const run: F<{client: Client}> = ({client}) => client.m();",
+        "interface F<P, Q> { (p: P): void } const run: F<{client: Client}> = ({client}) => client.m();",
+        "interface F<P> { (p: P): void } const run: F = ({client}) => client.m();",
+        "interface F<P> { (p: P): void } const run: F<{client: Client}, Other> = ({client}) => client.m();",
+        "interface F { (p: {client: Client}): void } const run: F<{client: Client}> = ({client}) => client.m();",
+        "interface F<P> { (p: {client: P}): void } const run: F<Client> = ({client}) => client.m();",
+        "interface F<P> { (p: Other): void } const run: F<{client: Client}> = ({client}) => client.m();",
+        "interface G<P> { (p: P): void } type F<P> = G<P>; const run: F<{client: Client}> = ({client}) => client.m();",
+        "interface Props {client: Client} interface F<P> { (p: P): void } const run: F<Props> = ({client}) => client.m();",
+        "interface Props {client: Client} interface F { (p: Props): void } const run: F = ({client}) => client.m();",
+        "interface F<P> { (p: P): void } const run: F<{client?: Client}> = ({client}) => client.m();",
+        "interface F<P> { (p: P): void } const run: F<{client: Client; client: Other}> = ({client}) => client.m();",
+        "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client}: Missing) => client.m();",
+        "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client}: {client: Other}) => client.m();",
+        "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client = other}) => client.m();",
+        "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client, ...rest}) => client.m();",
+        "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client}) => { client = other; client.m(); };",
+        "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client}) => { delete client.m; client.m(); };",
+        "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client}) => { while(ok) { client.m(); client = other; } };",
+        "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client}) => { function inner(client) { client.m(); } };",
+        "interface F<P> { (p: P): void } const run: F<{client: Client}> = memo(({client}) => client.m());",
+        "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client}) => { client.m(); const broken = ; };",
+        "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client}) => { ({m: client.m} = other); client.m(); };",
+        "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client} = other) => client.m();",
+        "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client, client: client}) => client.m();",
+        "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client}, other) => client.m();",
     ] {
         if std::panic::catch_unwind(|| check(source, false, Language::Tsx)).is_err() { failures.push(source); }
     }
