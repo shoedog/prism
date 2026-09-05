@@ -92,12 +92,20 @@ Three candidate directions once the queue's top items are drained (or interleave
   obsolete literal-address outcomes; an inherited fully qualified call miss at
   `src/main.rs:183` was separated for the next Rust repair item. No new Python/JS feature
   or baseline change. See `docs/eval/receiver-closure/2026-09-04-readout.md`.
-- **Next increment — PR #242 OPEN, `e9e153e`, not merged:** Cargo
+- **Rust/default increment — PR #242 merged `854d53f`, implementation `e9e153e`:** Cargo
   binary-to-own-library identity repairs main.rs:183; 72 Exact additions and no lost
   Exact targets on fixed current Rust source. Direct named default-class receivers
   support JS/TS/TSX value imports and erased TS type imports. Prior Python/JS samples
   remain byte-identical. Quick is baseline-invalid for SHA drift; pins unchanged.
   See `docs/eval/receiver-closure/2026-09-04-rust-default-readout.md`.
+- **Indirect local default-class identity — PR #244 OPEN, `257fb7f`, not merged:**
+  declaration identity with duplicate/import/write barriers, CPG64/nav33;
+  3744/0/1 default, 3934/0/1 MCP, matrix104/104. Real Excalidraw sample: 2780
+  records, 369 Exact unchanged; 11 unique Library receiver spans remain NameOnly
+  despite proven Class(Library). Next recommendation: bounded arrow-field member
+  ownership, then a separate destructured inline-prop receiver slice. Quick is
+  baseline-invalid for SHA drift, not a green accuracy claim. See
+  `docs/eval/receiver-closure/2026-09-04-indirect-default-readout.md`.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:

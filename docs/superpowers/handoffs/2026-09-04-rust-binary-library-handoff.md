@@ -1,7 +1,7 @@
 # Handoff — Rust recall and next receiver increment
 
 **Written:** 2026-09-04 · **By:** Codex /root · **Provider:** codex
-**Workspace:** `/Users/wesleyjinks/code/slicing` · `fix/rust-path-and-default-class-receivers` · **Measured state:** `[MEASURED]` implementation `e9e153edf9895df6c82af04f6d1f92cbb05b2c52` pushed; [PR #242](https://github.com/shoedog/prism/pull/242) OPEN against `1886907`, not merged. Git push and PR creation response confirm matching head. This publication follow-up is docs-only; pre-existing `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` preserved.
+**Workspace:** `/Users/wesleyjinks/code/slicing` · historical branch `fix/rust-path-and-default-class-receivers` · **Measured state:** `[MEASURED]` implementation `e9e153edf9895df6c82af04f6d1f92cbb05b2c52` pushed; [PR #242](https://github.com/shoedog/prism/pull/242) merged at `854d53f`, verified by fetch/log during the indirect-default continuation. Current custody: `docs/superpowers/handoffs/2026-09-04-indirect-default-handoff.md`.
 **Predecessor:** merged PR #241.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -21,7 +21,7 @@ commit/push/open-PR authority; no merge or rebaseline.
 ## 1. Resume order
 
 1. `git status --short --branch`; preserve unrelated untracked artifacts.
-2. Review PR #242 with recorded exclusions. No automatic merge or next feature.
+2. Follow the indirect-default handoff; the owner approved that increment after #242 merged.
 
 **STOP conditions:** open-class findings at three-round cap; new scope or baseline mutation.
 
@@ -35,7 +35,7 @@ commit/push/open-PR authority; no merge or rebaseline.
 | Full suites | done | `[MEASURED]` default 3740/0/1, MCP 3930/0/1; final two JS matrices also pass; fmt/diff and Clippy complete |
 | Tier-A | done | `[MEASURED]` rebuilt matrix 104/104; quick exit 2 solely corpus SHA drift, oracle quiescent, zero error rates; pins unchanged |
 | Live repair | done | `[MEASURED]` paired cold 88716-site delta: 72 Exact additions, zero lost targets; main.rs:183 served in both directions; prior Python/JS samples byte-identical |
-| Publication | done | `[MEASURED]` e9e153e pushed; PR #242 OPEN, not merged |
+| Publication | done | `[MEASURED]` e9e153e pushed; PR #242 merged at 854d53f |
 
 ## 3. Corrections to standing documents and memory
 
@@ -44,9 +44,9 @@ statements reconciled. Memory is not edited.
 
 ## 4. Open work
 
-PR review/integration. Final self-review round 3 survived after closed target-edition and
-lexical-binding fixes. Next after review/merge: indirect local default-class
-identity with mutation proof, then source-grounded measurement; no reexport expansion.
+Final self-review round 3 survived after closed target-edition and lexical-binding
+fixes. Review/integration complete. The owner approved indirect local default-class
+identity with mutation proof and source-grounded measurement; see current handoff.
 
 ## 5. Invariants and traps — do not do these
 

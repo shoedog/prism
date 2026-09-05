@@ -190,7 +190,7 @@ fn imported_named_class_negative_matrix() {
         ("backedge", import, "function run() { let x = new Alias(); while(ok) { x.m(); x = other(); } }", exported, ""),
         ("module shadow", import, "const Alias = Other; function run() { const x = new Alias(); x.m(); }", exported, ""),
         ("duplicate import", "import { Client as Alias } from './client'; import { Client as Alias } from './other';", "function run(x: Alias) { x.m(); }", exported, ""),
-        ("indirect default", "import Alias from './client';", "function run(x: Alias) { x.m(); }", "class Client { m() {} } export default Client;", ""),
+        ("local default list", "import Alias from './client';", "function run(x: Alias) { x.m(); }", "class Client { m() {} } export {Client as default};", ""),
         ("type only constructor", "import type { Client as Alias } from './client';", "function run() { const x = new Alias(); x.m(); }", exported, ""),
         ("require", "const { Client: Alias } = require('./client');", "function run(x: Alias) { x.m(); }", exported, ""),
         ("not exported", import, "function run(x: Alias) { x.m(); }", "class Client { m() {} }", ""),
