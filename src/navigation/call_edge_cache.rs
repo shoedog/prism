@@ -82,7 +82,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v39: module-local props object alias authority (CPG v70).
 // v40: bounded module-local generic contextual alias authority (CPG v71).
 // v41: module-local single-call-signature object alias authority (CPG v72).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 41;
+// v42: bounded module-local callable interface authority (CPG v73).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 42;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -626,7 +627,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 41);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 42);
     }
 
     #[test]
@@ -669,6 +670,10 @@ mod tests {
     fn imported_receiver_sidecar_round_trip() {
         use crate::{ast::ParsedFile, cpg::CpgContext, languages::Language};
         for (lang, caller, owner, source, declaration, init) in [
+            (Language::TypeScript, "app.ts", "client.ts", "import type Client from './client'; interface F { (p: {client: Client}): void } const visible: F = ({client}) => client.m(); interface G extends Other { (p: {client: Client}): void } const shadow: G = ({client}) => client.m();", "class Client { m = () => {}; } export default Client;", None),
+            (Language::Tsx, "app.tsx", "client.tsx", "import type Client from './client'; type Props = {client: Client}; interface F<P> { (p: P): void } const visible: F<Props> = ({client}) => client.m(); interface G<P> { (p: P): void } interface G<P> {} const shadow: G<Props> = ({client}) => client.m();", "class Client { m = () => {}; } export default Client;", None),
+            (Language::Tsx, "app.tsx", "client.tsx", "import type Client from './client'; interface F<Client> { (p: Client): void } const visible: F<{client: Client}> = ({client}) => client.m(); const shadow: F<{client: Client}> = ({client}) => { delete client.m; client.m(); };", "class Client { m = () => {}; } export default Client;", None),
+            (Language::TypeScript, "app.ts", "client.ts", "import type Client from './client'; type Props = {client: Client}; interface F { (p: Props): void } const visible: F = ({client}) => client.m(); interface G { (p: Props): void; label?: string } const shadow: G = ({client}) => client.m();", "class Client { m = () => {}; } export default Client;", None),
             (Language::TypeScript, "app.ts", "client.ts", "import type Client from './client'; type F = { (p: {client: Client}): void }; const visible: F = ({client}) => client.m(); type G = { (p: {client: Client}): void; (p: Other): void }; const shadow: G = ({client}) => client.m();", "class Client { m = () => {}; } export default Client;", None),
             (Language::Tsx, "app.tsx", "client.tsx", "import type Client from './client'; type Props = {client: Client}; type F<P> = { (p: P): void }; const visible: F<Props> = ({client}) => client.m(); type G<P> = { (p: P): void; label?: string }; const shadow: G<Props> = ({client}) => client.m();", "class Client { m = () => {}; } export default Client;", None),
             (Language::Tsx, "app.tsx", "client.tsx", "import type Client from './client'; type F<Client> = { (p: Client): void }; const visible: F<{client: Client}> = ({client}) => client.m(); const shadow: F<{client: Client}> = ({client}) => { delete client.m; client.m(); };", "class Client { m = () => {}; } export default Client;", None),
@@ -822,7 +827,7 @@ mod tests {
         let (index, _) = fixture_index();
         for mutate in [
             |cache: &mut NavigationCallEdgeCache| cache.nav_call_edge_cache_version += 1,
-            |cache: &mut NavigationCallEdgeCache| cache.nav_call_edge_cache_version = 40,
+            |cache: &mut NavigationCallEdgeCache| cache.nav_call_edge_cache_version = 41,
             |cache: &mut NavigationCallEdgeCache| cache.prism_version = "stale".into(),
             |cache: &mut NavigationCallEdgeCache| cache.grammar_fingerprint = "stale".into(),
             |cache: &mut NavigationCallEdgeCache| cache.skip_policy_version += 1,

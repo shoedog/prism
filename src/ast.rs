@@ -3407,8 +3407,9 @@ impl ParsedFile {
         }
         let reference = declaration.child_by_field_name("type")?.named_child(0)?;
         let (signature, substitution) = if reference.kind() == "generic_type" {
-            let alias = self.js_ts_local_type_alias(reference.child_by_field_name("name")?)?;
-            let binder = single_child(alias.child_by_field_name("type_parameters")?)?;
+            let (declaration, shape) =
+                self.js_ts_local_callable_type(reference.child_by_field_name("name")?)?;
+            let binder = single_child(declaration.child_by_field_name("type_parameters")?)?;
             let name = binder.child_by_field_name("name")?;
             let mut cursor = binder.walk();
             if binder.kind() != "type_parameter"
@@ -3421,21 +3422,23 @@ impl ParsedFile {
                 return None;
             }
             let argument = single_child(reference.child_by_field_name("type_arguments")?)?;
-            (alias.child_by_field_name("value")?, Some((name, argument)))
+            (shape, Some((name, argument)))
         } else if reference.kind() == "function_type" {
             (reference, None)
         } else {
-            let alias = self.js_ts_local_type_alias(reference)?;
-            if alias.child_by_field_name("type_parameters").is_some() {
+            let (declaration, shape) = self.js_ts_local_callable_type(reference)?;
+            if declaration.child_by_field_name("type_parameters").is_some() {
                 return None;
             }
-            (alias.child_by_field_name("value")?, None)
+            (shape, None)
         };
-        // Object signatures are reached only through a proven local alias.
+        // Object/interface bodies require a proven local declaration.
         // Exactly one callable member: overloads and extra slots are not proof.
         let signature = match signature.kind() {
             "function_type" => signature,
-            "object_type" => single_child(signature).filter(|n| n.kind() == "call_signature")?,
+            "object_type" | "interface_body" => {
+                single_child(signature).filter(|n| n.kind() == "call_signature")?
+            }
             _ => return None,
         };
         if signature.child_by_field_name("type_parameters").is_some() {
@@ -3482,9 +3485,79 @@ impl ParsedFile {
         (shape.kind() == expected_kind).then_some(shape)
     }
 
-    /// Declaration identity only. Each consumer separately proves its supported
-    /// binder count and RHS shape; this helper never follows another alias.
+    /// Callable declarations may be aliases or private, heritage-free interfaces. Keep
+    /// their original shape nodes; props consumers remain strictly alias-only.
+    fn js_ts_local_callable_type<'a>(
+        &'a self,
+        reference: Node<'a>,
+    ) -> Option<(Node<'a>, Node<'a>)> {
+        let declaration = self.js_ts_local_type_declaration(
+            reference,
+            &["type_alias_declaration", "interface_declaration"],
+        )?;
+        let shape = if declaration.kind() == "interface_declaration" {
+            // Scripts and exported interfaces can merge beyond this file. Until
+            // cross-module augmentation has source-backed proof, require private
+            // ownership in a syntactically explicit module (not config inference).
+            let root = self.tree.root_node();
+            let mut cursor = root.walk();
+            if declaration.parent()? != root
+                || !root
+                    .named_children(&mut cursor)
+                    .any(|n| matches!(n.kind(), "import_statement" | "export_statement"))
+            {
+                return None;
+            }
+            let name = self.node_text(&reference);
+            let mut cursor = root.walk();
+            for export in root.named_children(&mut cursor).filter(|n| {
+                n.kind() == "export_statement" && n.child_by_field_name("source").is_none()
+            }) {
+                if export
+                    .child_by_field_name("value")
+                    .is_some_and(|n| self.node_text(&n) == name)
+                {
+                    return None;
+                }
+                let mut cursor = export.walk();
+                for clause in export
+                    .named_children(&mut cursor)
+                    .filter(|n| n.kind() == "export_clause")
+                {
+                    let mut cursor = clause.walk();
+                    if clause.named_children(&mut cursor).any(|n| {
+                        n.child_by_field_name("name")
+                            .is_some_and(|n| self.node_text(&n) == name)
+                    }) {
+                        return None;
+                    }
+                }
+            }
+            let mut cursor = declaration.walk();
+            if declaration
+                .named_children(&mut cursor)
+                .any(|n| n.kind() == "extends_type_clause")
+            {
+                return None;
+            }
+            declaration.child_by_field_name("body")?
+        } else {
+            declaration.child_by_field_name("value")?
+        };
+        Some((declaration, shape))
+    }
+
     fn js_ts_local_type_alias<'a>(&'a self, reference: Node<'a>) -> Option<Node<'a>> {
+        self.js_ts_local_type_declaration(reference, &["type_alias_declaration"])
+    }
+
+    /// Declaration identity only. Each consumer separately proves its supported
+    /// binders and shape; no chains, merging, ambient or imported authority.
+    fn js_ts_local_type_declaration<'a>(
+        &'a self,
+        reference: Node<'a>,
+        allowed_kinds: &[&str],
+    ) -> Option<Node<'a>> {
         let root = self.tree.root_node();
         let name = self.node_text(&reference);
         if reference.kind() != "type_identifier"
@@ -3534,7 +3607,7 @@ impl ParsedFile {
                 continue;
             }
             if ambient
-                || declaration.kind() != "type_alias_declaration"
+                || !allowed_kinds.contains(&declaration.kind())
                 || alias.replace(declaration).is_some()
             {
                 return None;

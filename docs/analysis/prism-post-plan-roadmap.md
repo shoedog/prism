@@ -152,13 +152,20 @@ Three candidate directions once the queue's top items are drained (or interleave
   served direct/Props/same-spelled-binder fixture gains3 Exact callers with six
   exclusions. Quick baseline-invalid SHA drift. No inference/imported/ambient/recursive expansion.
   See `docs/eval/receiver-closure/2026-09-05-generic-aliases-readout.md`.
-- **Local callable-object aliases — PR252 open, 038b279d:**
+- **Local callable-object aliases — PR252 merged 04bb5583, 038b279d:**
   Exactly one call signature through a local non-generic or bounded generic alias;
   original declaration/argument/write anchors retained. CPG72/nav41;
   default3833/0/1, MCP4023/0/1, matrix104/104. Real2780/Exact376 unchanged;
   served4 Exact callers with eight exclusions. Quick baseline-invalid SHA drift. No overloads,
   extra members, interfaces or imported/ambient authority. See
   `docs/eval/receiver-closure/2026-09-05-callable-aliases-readout.md`.
+- **Module-private callable interfaces — implemented, publication pending:**
+  One own call signature, no heritage/merging/extra members; bounded generic binder
+  and original declaration/argument/write anchors. Round2 corrected top-level≠private:
+  script globals and exported interfaces remain deferred without cross-file merge
+  evidence. CPG73/nav42; default3837/0/1, MCP4027/0/1, matrix104/104. Real2780/Exact376
+  unchanged; served4 synthetic Exact callers and eight exclusions; quick baseline-invalid SHA drift.
+  See `docs/eval/receiver-closure/2026-09-05-callable-interfaces-readout.md`.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:

@@ -2,7 +2,8 @@
 
 Base89f6ebf7, PR251 merged and fetched. Owner approved this bounded continuation.
 Implementation038b279d pushed in
-[PR252](https://github.com/shoedog/prism/pull/252), open against main.
+[PR252](https://github.com/shoedog/prism/pull/252), merged into main at04bb5583.
+GitHub merge state and fetched origin/main verified on 2026-09-05.
 
 ## Result and boundary
 
