@@ -168,7 +168,9 @@ use std::path::{Path, PathBuf};
 ///   recovered receiver resolution and serialized CPG topology.
 /// - v60: Python/JS receiver owner visibility, initialization, and mutation
 ///   proof remove unsupported recovered metadata and Exact edges.
-const CACHE_VERSION: u32 = 60;
+/// - v61: typed JS class export/import facts and Python inert initializer proof
+///   authorize cross-file receivers; live JS class writes revoke owner proof.
+const CACHE_VERSION: u32 = 61;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -698,8 +700,55 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_receiver_authority() {
-        assert_eq!(super::CACHE_VERSION, 60);
+        assert_eq!(super::CACHE_VERSION, 61);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
+    }
+
+    #[test]
+    fn imported_receiver_cache_incremental_authority_transitions() {
+        use crate::{
+            ast::ParsedFile, cpg::CodePropertyGraph, languages::Language,
+            resolution::ResolutionConfidence,
+        };
+        for (language, caller, owner, importer, good, bad, auxiliary) in [
+            (Language::JavaScript, "app.js", "client.js", "import { Client as Alias } from './client';\nfunction run() { const x = new Alias(); x.m(); }", "export class Client { m() {} }", "class Client { m() {} }", None),
+            (Language::TypeScript, "app.ts", "client.ts", "import { Client as Alias } from './client';\nfunction run(x: Alias) { x.m(); }", "export class Client { m() {} }", "export class Client { static m() {} }", None),
+            (Language::TypeScript, "app.ts", "client.ts", "import { Client as Alias } from './client';\nfunction run(x: Alias) { x.m(); }", "export class Client { m() {} }", "export class Client { m() {}\n constructor() { this.m = other; } }", None),
+            (Language::Tsx, "app.tsx", "client.tsx", "import { Client as Alias } from './client';\nfunction run(x: Alias) { x.m(); }", "export class Client { m() {} }", "export class Client { m() {} }\nClient = Other;", None),
+            (Language::Python, "app.py", "pkg/__init__.py", "from pkg import models as m\ndef run(x: m.Client):\n    x.m()\n", "\"package\"\n", "models = other\n", Some(("pkg/models.py", "class Client:\n    def m(self): pass\n"))),
+        ] {
+            for (before, after, expected) in [(bad, good, true), (good, bad, false)] {
+                let sources = |body: &str| {
+                    let mut sources = BTreeMap::from([(caller.to_string(), importer.to_string()), (owner.to_string(), body.to_string())]);
+                    if let Some((path, src)) = auxiliary { sources.insert(path.to_string(), src.to_string()); }
+                    sources
+                };
+                let parse = |sources: &BTreeMap<String, String>| sources.iter().map(|(p,s)| (p.clone(), ParsedFile::parse(p,s,language).unwrap())).collect();
+                let before_sources = sources(before);
+                let after_sources = sources(after);
+                let before_files = parse(&before_sources);
+                let after_files = parse(&after_sources);
+                let previous = CodePropertyGraph::build(&before_files);
+                let hashes = compute_file_hashes(&before_sources);
+                let dir = tempfile::tempdir().unwrap();
+                save_cache(&previous, &hashes, false, dir.path()).unwrap();
+                let CacheResult::Hit(loaded) = load_cache(&hashes, false, dir.path()) else { panic!("cache miss"); };
+                let changed = BTreeSet::from([owner.to_string()]);
+                let incremental = CodePropertyGraph::build_incremental(loaded.call_graph, loaded.dfg, &changed, &after_files, None);
+                let full = CodePropertyGraph::build(&after_files);
+                let target = auxiliary.map(|(path,_)| path).unwrap_or(owner);
+                for cg in [&full.call_graph, &incremental.call_graph] {
+                    let site = cg.calls.iter().filter(|(id,_)| id.file == caller && id.name == "run").flat_map(|(_,s)| s).find(|s| s.callee_name == "m").unwrap();
+                    let edges = cg.resolve_call_site(site);
+                    let exact: Vec<_> = edges.iter().filter(|e| e.confidence == ResolutionConfidence::Exact).collect();
+                    assert_eq!(exact.len(), usize::from(expected), "{language:?}: {site:?} {edges:?}");
+                    if expected { assert_eq!(exact[0].target.file, target); }
+                }
+                assert_eq!(full.call_graph.calls, incremental.call_graph.calls, "{language:?}");
+                force_cache_version(dir.path(), 60);
+                assert!(matches!(load_cache(&hashes, false, dir.path()), CacheResult::Miss));
+            }
+        }
     }
 
     #[test]

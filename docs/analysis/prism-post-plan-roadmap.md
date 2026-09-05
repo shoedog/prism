@@ -74,9 +74,13 @@ Three candidate directions once the queue's top items are drained (or interleave
   and type-name shadows, conditional initialization, and loop-carried writes that
   incorrectly mint Exact edges. The two bounded owner-visibility and temporal-proof
   repair slices are published in [PR #238](https://github.com/shoedog/prism/pull/238)
-  at `9a790419` (open, not merged): default 3,713/0/1, MCP 3,903/0/1, matrix
+  at `9a790419` (merged as `350cc89`): default 3,713/0/1, MCP 3,903/0/1, matrix
   104/104; quick has zero oracle/SUT errors but remains invalid for corpus pin drift. See
   `docs/superpowers/handoffs/2026-09-04-python-js-receiver-authority-repair-handoff.md`.
+- **Implemented continuation — PR #239 (open, not merged), `99d50f1`:** directly exported JS/TS class identity,
+  imported constructor/parameter receivers, then Python inert regular-package
+  initializers. See `docs/superpowers/specs/2026-09-04-imported-class-receivers.md`.
+  The bounded syntactic census is not a measured corpus-recall gain.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:

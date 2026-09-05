@@ -1,7 +1,7 @@
 # Python and JS receiver authority repair
 
 Status: published at `9a790419` in [PR #238](https://github.com/shoedog/prism/pull/238)
-(open, not merged); full default/MCP suites and matrix pass. Tier-A quick
+(merged at `350cc89`); full default/MCP suites and matrix pass. Tier-A quick
 completed with zero oracle/SUT errors but remains baseline-invalid for corpus pin
 drift. Publication is explicitly authorized by the owner follow-up; see the handoff.
 Control: fetched main `10d82ca58387f030a863f75cb6f83ec2f1b9c662`; checkout

@@ -1,7 +1,7 @@
 # Handoff — Python/JS receiver authority repair
 
 **Written:** 2026-09-04 · **By:** Codex `/root` · **Provider:** codex
-**Workspace:** `/Users/wesleyjinks/code/slicing` · `fix/python-js-receiver-authority` · **Measured state:** `[MEASURED]` implementation commit `9a790419ae3e5d19683e6ac5e67ee770ccfb0832` pushed to origin; PR [#238](https://github.com/shoedog/prism/pull/238) OPEN against main `10d82ca58387f030a863f75cb6f83ec2f1b9c662`. This documentation reconciliation follows the implementation commit. Verification used checkout `ea2965e0237335a1c9c5c147e3aee9168e5bb84b`, whose base tracked tree was identical. Probe: successful `git push --set-upstream origin fix/python-js-receiver-authority` and GitHub PR creation response with matching head SHA.
+**Workspace:** `/Users/wesleyjinks/code/slicing` · historical branch `fix/python-js-receiver-authority` · **Measured state:** `[MEASURED]` PR [#238](https://github.com/shoedog/prism/pull/238) merged as `350cc89f686705e28745c9abeb7b76e1c58ee8fc` (`git fetch origin`, `git log origin/main`). Successor: `2026-09-04-imported-class-receivers-handoff.md`. Original implementation `9a790419` and its verification evidence below are historical.
 **Predecessor:** PR #237 consolidated Python/JS navigation handoff.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -17,7 +17,7 @@
 
 1. Run `git status --short --branch` in the named workspace; preserve pre-existing `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json`.
 2. Read the matching authority-repair spec and plan; implementation and three-round self-review are complete.
-3. Inspect PR #238 checks before any further integration work. The PR carries quick's corpus-pin exclusion. Do not merge without owner direction, rebaseline, or stage unrelated artifacts.
+3. PR #238 is merged. Resume approved continuation from the successor handoff; retain quick's corpus-pin exclusion. Do not rebaseline or stage unrelated artifacts.
 
 **STOP conditions:** open-class findings at review cap, destructive cleanup, or unrelated lane writes.
 
@@ -34,7 +34,7 @@
 | Format/check/Clippy | done | `[MEASURED]` format/diff clean; all-target MCP check and configured Clippy pass with warnings; `check.log`, `clippy.log` |
 | Tier-A matrix | done | `[MEASURED]` immediate release build followed by 104 ok/0 regression; `release-matrix.log`, `matrix.log` |
 | Tier-A quick execution | done | `[MEASURED]` exit 2; oracle/SUT error rates 0.000/0.000, matrix 104/104, sole invalid reason `corpus_sha_drift: ea2965e02373 != pinned 20c8490591a3`; retained in `tier-a/run.json` |
-| Publication | done | `[MEASURED]` `9a790419` pushed; PR #238 open, not merged; seven source/test files matched the full-suite snapshot byte-for-byte; publication release/matrix repeat passed 104/104 |
+| Publication | done | `[MEASURED]` PR #238 merged at `350cc89`. `[INHERITED]` previous publication verified seven source/test files against full-suite snapshot and repeated matrix 104/104 |
 
 ## 3. Corrections to standing documents and memory
 
@@ -47,7 +47,7 @@
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | PR checks / integration | pending | Inspect checks; await owner direction before merge | Merge not requested; hosted checks not yet certified | PR #238 |
+| 1 | PR integration | done | Merged as `350cc89`; use successor handoff | None | PR #238 |
 | 2 | Comparative corpus acceptance | parked | Use an owner-managed valid corpus anchor before claiming corpus deltas | Existing corpus pin drift; no rebaseline authorized | Quick run metadata |
 
 ## 5. Invariants and traps — do not do these

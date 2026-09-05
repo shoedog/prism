@@ -2235,6 +2235,48 @@ impl ParsedFile {
         out
     }
 
+    /// An inert initializer cannot install a competing package attribute or
+    /// execute an import hook. Deliberately narrower than a binding-name scan.
+    pub(crate) fn python_inert_initializer(&self) -> bool {
+        if self.language != Language::Python {
+            return false;
+        }
+        let root = self.tree.root_node();
+        if root.has_error() {
+            return false;
+        }
+        let mut cursor = root.walk();
+        let inert = root.named_children(&mut cursor).all(|node| {
+            if matches!(node.kind(), "comment" | "pass_statement") {
+                return true;
+            }
+            if node.kind() != "expression_statement" || node.named_child_count() != 1 {
+                return false;
+            }
+            let Some(value) = node.named_child(0) else {
+                return false;
+            };
+            if value.kind() != "string" {
+                return false;
+            }
+            let text = self.node_text(&value);
+            let prefix = text
+                .split(['\'', '"'])
+                .next()
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            if !matches!(prefix.as_str(), "" | "r" | "u") {
+                return false;
+            }
+            let mut cursor = value.walk();
+            let plain = value
+                .named_children(&mut cursor)
+                .all(|n| n.kind() != "interpolation");
+            plain
+        });
+        inert
+    }
+
     /// Extract JS/TS module-level export facts: exported name (what an
     /// importer writes — `"default"`, `"process"`, a rename target, ...) ->
     /// either a local declaration in this file or a re-export target in
@@ -2253,7 +2295,7 @@ impl ParsedFile {
     /// Out of scope (skipped, counted in `skipped_expr_count` where the
     /// syntax is otherwise a recognized export/CJS-assignment shape but the
     /// value isn't a plain identifier): dynamic `require(expr)`/`import(expr)`,
-    /// TS `export =` CJS interop, class exports, anonymous default
+    /// TS `export =` CJS interop, default/indirect class exports, anonymous default
     /// function/arrow exports, spread in `module.exports = { ...x }`.
     pub fn extract_js_ts_export_facts(&self) -> crate::js_exports::JsExportFacts {
         let mut facts = crate::js_exports::JsExportFacts::default();
@@ -2275,7 +2317,36 @@ impl ParsedFile {
                 _ => {}
             }
         }
+        facts.esm_named_imports = self.js_ts_esm_named_imports(None);
         facts
+    }
+
+    fn js_ts_esm_named_imports(&self, only: Option<&str>) -> BTreeSet<String> {
+        let mut names = BTreeSet::new();
+        let root = self.tree.root_node();
+        if root.has_error() {
+            return names;
+        }
+        let mut cursor = root.walk();
+        for node in root.named_children(&mut cursor) {
+            if node.kind() != "import_statement" || self.js_ts_import_statement_is_type_only(node) {
+                continue;
+            }
+            let mut imports = Vec::new();
+            self.collect_js_import_statement_bindings(node, &mut imports);
+            names.extend(
+                imports
+                    .into_iter()
+                    .filter(|b| {
+                        b.kind == crate::call_graph::ImportBindingKind::MemberImport
+                            && b.member.as_deref() != Some("default")
+                            && only.is_none_or(|name| b.local == name)
+                    })
+                    .map(|b| b.local),
+            );
+        }
+        names.retain(|name| !self.js_ts_module_value_written(name));
+        names
     }
 
     fn js_ts_export_statement_is_default(&self, node: Node<'_>) -> bool {
@@ -2284,6 +2355,27 @@ impl ParsedFile {
             .children(&mut cursor)
             .any(|child| child.kind() == "default");
         found
+    }
+
+    /// The bounded class-export lane accepts only an undecorated named declaration.
+    pub(crate) fn js_ts_named_exported_class<'a>(&self, node: Node<'a>) -> Option<Node<'a>> {
+        if node.kind() != "export_statement"
+            || node.has_error()
+            || self.js_ts_export_statement_is_default(node)
+        {
+            return None;
+        }
+        let declaration = node.child_by_field_name("declaration")?;
+        let mut cursor = node.walk();
+        let decorated = node
+            .named_children(&mut cursor)
+            .any(|n| n.kind() == "decorator");
+        let mut cursor = declaration.walk();
+        let decorated = decorated
+            || declaration
+                .named_children(&mut cursor)
+                .any(|n| n.kind() == "decorator");
+        (declaration.kind() == "class_declaration" && !decorated).then_some(declaration)
     }
 
     /// Handle a single top-level `export_statement` node: default exports,
@@ -2366,10 +2458,16 @@ impl ParsedFile {
         }
 
         // `export function name() {}` / `export default function name() {}` /
-        // `export const f = () => {};` / `export class Foo {}` (skipped).
+        // `export const f = () => {};` / directly named `export class Foo {}`.
         if let Some(decl) = node.child_by_field_name("declaration") {
             let is_default = self.js_ts_export_statement_is_default(node);
             match decl.kind() {
+                "class_declaration" if self.js_ts_named_exported_class(node).is_some() => {
+                    if let Some(name) = decl.child_by_field_name("name") {
+                        let name = self.node_text(&name).to_string();
+                        facts.insert_named(name.clone(), JsExportTarget::Class(name));
+                    }
+                }
                 "function_declaration" | "generator_function_declaration" => {
                     if let Some(name) = self.language.function_name(&decl) {
                         let name_text = self.node_text(&name).to_string();
@@ -3154,6 +3252,76 @@ impl ParsedFile {
         None
     }
 
+    /// Fields, accessor results and explicit instance writes are not direct methods.
+    pub(crate) fn js_ts_method_slot_unproven(&self, method: &Node<'_>) -> bool {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return false;
+        }
+        let Some(body) = method.parent().filter(|n| n.kind() == "class_body") else {
+            return false;
+        };
+        let Some(name) = method.child_by_field_name("name") else {
+            return true;
+        };
+        let name = self.node_text(&name);
+        let mut cursor = body.walk();
+        for member in body.named_children(&mut cursor) {
+            if self.js_ts_method_is_static(&member) {
+                continue;
+            }
+            let key = member
+                .child_by_field_name("name")
+                .or_else(|| member.child_by_field_name("property"));
+            if let Some(key) = key {
+                if key.kind() == "computed_property_name" {
+                    return true;
+                }
+                if self.node_text(&key).trim_matches(['\'', '"']) == name {
+                    let mut cursor = member.walk();
+                    let accessor = member
+                        .children(&mut cursor)
+                        .any(|n| matches!(n.kind(), "get" | "set"));
+                    if member.kind() != "method_definition" || accessor {
+                        return true;
+                    }
+                }
+            }
+        }
+        fn writes_this(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
+            if matches!(
+                node.kind(),
+                "assignment_expression" | "augmented_assignment_expression" | "update_expression"
+            ) {
+                let target = node
+                    .child_by_field_name("left")
+                    .or_else(|| node.child_by_field_name("argument"));
+                if let Some(target) = target {
+                    if target
+                        .child_by_field_name("object")
+                        .is_some_and(|n| n.kind() == "this")
+                    {
+                        if target.kind() == "subscript_expression"
+                            || target
+                                .child_by_field_name("property")
+                                .is_some_and(|n| parsed.node_text(&n) == name)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            let mut cursor = node.walk();
+            let written = node
+                .named_children(&mut cursor)
+                .any(|n| writes_this(parsed, n, name));
+            written
+        }
+        writes_this(self, body, name)
+    }
+
     pub(crate) fn js_ts_method_is_static(&self, method: &Node<'_>) -> bool {
         if !matches!(
             self.language,
@@ -3202,16 +3370,18 @@ impl ParsedFile {
             }
             scope = node.parent();
         }
-        matches!(
-            self.js_ts_scope_receiver_binding_evidence(
-                self.tree.root_node(),
-                &constructor,
-                text,
-                false,
-                false,
-            ),
+        let module_evidence = self.js_ts_scope_receiver_binding_evidence(
+            self.tree.root_node(),
+            &constructor,
+            text,
+            false,
+            false,
+        );
+        (matches!(
+            module_evidence,
             Some(JsTsReceiverBindingEvidence::ClassOwner)
-        )
+        ) || (module_evidence.is_none()
+            && self.js_ts_esm_named_imports(Some(text)).contains(text)))
         .then(|| text.to_string())
     }
 
@@ -3284,6 +3454,50 @@ impl ParsedFile {
             )
         });
         found
+    }
+
+    /// A module class/import is a live binding. Any visible write, including in
+    /// an escaping callable, revokes the whole-file owner proof. Shadow writes
+    /// are separated by the same lexical predicate used for receiver mutations.
+    pub(crate) fn js_ts_module_value_written(&self, name: &str) -> bool {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return false;
+        }
+        fn walk(parsed: &ParsedFile, node: Node<'_>, root_id: usize, name: &str) -> bool {
+            if matches!(
+                node.kind(),
+                "assignment_expression"
+                    | "augmented_assignment_expression"
+                    | "update_expression"
+                    | "for_in_statement"
+                    | "for_of_statement"
+                    | "for_await_statement"
+            ) {
+                if let Some(target) = node
+                    .child_by_field_name("left")
+                    .or_else(|| node.child_by_field_name("argument"))
+                    .or_else(|| node.named_child(0))
+                {
+                    let mut names = BTreeSet::new();
+                    parsed.collect_js_ts_binding_pattern_names(target, &mut names);
+                    if names.contains(name)
+                        && !parsed.js_ts_receiver_has_closer_binding(&target, name, root_id)
+                    {
+                        return true;
+                    }
+                }
+            }
+            let mut cursor = node.walk();
+            let written = node
+                .named_children(&mut cursor)
+                .any(|child| walk(parsed, child, root_id, name));
+            written
+        }
+        let root = self.tree.root_node();
+        walk(self, root, root.id(), name)
     }
 
     fn js_ts_receiver_has_closer_binding(

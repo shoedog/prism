@@ -320,6 +320,7 @@ impl CodePropertyGraph {
                     &cached_cg.import_bindings,
                     &cached_cg.indexed_files,
                     &cached_cg.clean_class_spans,
+                    &cached_cg.python_inert_initializers,
                 );
 
             // P8 F1 fix (codex re-review BLOCKER): Rust macro-arg call
@@ -376,6 +377,7 @@ impl CodePropertyGraph {
                     &cached_cg.import_bindings,
                     &cached_cg.indexed_files,
                     &cached_cg.clean_class_spans,
+                    &cached_cg.python_inert_initializers,
                 );
             if fresh_python_imported_class_proofs != old_python_imported_class_proofs {
                 return Self::build_impl_inner(files, type_db, scope_inputs);
