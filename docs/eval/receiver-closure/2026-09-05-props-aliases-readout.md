@@ -1,7 +1,8 @@
 # Module-local props object aliases
 
 Base2aff090, PR249 merged and fetched. Owner approved the next bounded slice.
-Implementation and publication are pending commit on feat/local-props-object-aliases.
+Implementation590f677 pushed on feat/local-props-object-aliases in
+[PR250](https://github.com/shoedog/prism/pull/250), open against main.
 
 ## Result and boundary
 

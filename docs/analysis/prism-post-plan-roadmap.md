@@ -138,7 +138,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   fixture gains Exact with optional/write/shadow exclusions. Quick baseline-invalid
   SHA drift. No ambient/imported/generic/recursive alias authority. See
   `docs/eval/receiver-closure/2026-09-05-local-aliases-readout.md`.
-- **Module-local props object aliases — implemented, publication pending:**
+- **Module-local props object aliases — PR250 open, 590f677:**
   One local direct object shape through explicit, direct contextual and local
   function-alias annotations. CPG70/nav39; default3827/0/1, MCP4017/0/1,
   matrix104/104. Real2780/Exact376 unchanged; separate served fixture proves
