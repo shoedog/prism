@@ -84,7 +84,7 @@ Three candidate directions once the queue's top items are drained (or interleave
 - **Implemented continuation — PR #240 (merged as `f3bf88e`), `0a2edf6`:** separate named TS type-only class
   authority and explicitly anchored Python relative submodule imports. See
   `docs/superpowers/specs/2026-09-04-type-only-relative-receivers.md` and matching handoff.
-- **Receiver measurement closure (2026-09-04):** fixed-source pre/post-#240 comparison
+- **Receiver measurement closure — PR #241 (open, not merged), `f5d766b`:** fixed-source pre/post-#240 comparison
   preserves all old Exact edges across 548 sites and adds 4 Black + 7 Excalidraw
   edges, all checked through served callers/callees. This is partial-source evidence,
   not whole-corpus recall. Paired Rust pins reproduce identical historical flip and

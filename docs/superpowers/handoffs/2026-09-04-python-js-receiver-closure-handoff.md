@@ -1,7 +1,7 @@
 # Handoff — Python/JS receiver measurement closure
 
 **Written:** 2026-09-04 · **By:** Codex /root · **Provider:** codex
-**Workspace:** `/Users/wesleyjinks/code/slicing` · `measure/python-js-receiver-closure` · **Measured state:** `[MEASURED]` HEAD `f3bf88e`, #240 merge verified by fetch/log; initially tracked-clean, pre-existing untracked artifacts preserved.
+**Workspace:** `/Users/wesleyjinks/code/slicing` · `measure/python-js-receiver-closure` · **Measured state:** `[MEASURED]` evidence commit `f5d766b5ad04305cc1be7626ca46328c13a66447` pushed; [PR #241](https://github.com/shoedog/prism/pull/241) OPEN against `f3bf88e`. Push and GitHub creation response confirm matching head. This follow-up reconciles publication documentation only; pre-existing untracked artifacts preserved.
 **Predecessor:** PR #240 type-only and relative receivers.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,14 +9,14 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Ownership: `[INHERITED]` owner "approved, merged, proceed"; /root owns item 1 — RESOLVED.
-(b) Custody: `[MEASURED]` evidence in `/private/tmp/prism-receiver-closure-HsaNcO`; detached control worktree 862166d, both binary identities and fixed source archives; final-evidence.tgz SHA256 `70f47b285040abee535714b8fce7bbb169e1d392dfbe05900b24b6d3d762e479`. Durable readout and sample/pinned JSON ready for commit.
+(b) Custody: `[MEASURED]` evidence in `/private/tmp/prism-receiver-closure-HsaNcO`; detached control worktree 862166d, both binary identities and fixed source archives; final-evidence.tgz SHA256 `70f47b285040abee535714b8fce7bbb169e1d392dfbe05900b24b6d3d762e479`. Readout and sample/pinned JSON committed/pushed at f5d766b; PR #241 open — RESOLVED publication.
 (c) In flight: `[MEASURED]` none; raw Rust control identical, paired pins, suites and matrix complete. No external deployment.
 (d) Authority: measurement/correctness first; commit/push/PR remains authorized. No merge, baseline rewrite or automatic feature expansion.
 
 ## 1. Resume order
 
 1. `git status --short --branch`; preserve `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json`.
-2. Follow matching spec/plan; compare paired sample dumps, then pinned observations.
+2. Review PR #241 with recorded exclusions. Measurement is complete; no merge or feature expansion without owner direction.
 
 **STOP conditions:** open-class findings at three-round cap; unknown custody; new scope or baseline mutation.
 
@@ -32,7 +32,7 @@
 | Pinned adjudication | done | `[MEASURED]` pinned-pair.json: complete results identical for all four; readout separates obsolete addresses, candidates and import-site oracle artifacts |
 | Full suites/matrix | done | `[MEASURED]` default 3732/0/1; MCP 3922/0/1; immediate rebuild/matrix 104/104; format/diff checks pass |
 | Defect disposition | done | Documentation runtime-binding error corrected; no sample-proven Python/JS repair; inherited Rust main.rs:183 UnknownName remains a separate follow-up |
-| Publication | pending | readout and machine-readable evidence ready |
+| Publication | done | `[MEASURED]` f5d766b pushed; PR #241 OPEN, not merged; evidence excludes baseline and production changes |
 
 ## 3. Corrections to standing documents and memory
 
@@ -45,7 +45,7 @@ historical quick validity or baselines. Memory not edited.
 
 ## 4. Open work
 
-Publication and review. Separate inherited Rust qualified-call recall repair needs
+PR review/integration. Separate inherited Rust qualified-call recall repair needs
 its own bounded lane; default-class/reexport feature expansion not started.
 
 ## 5. Invariants and traps — do not do these
