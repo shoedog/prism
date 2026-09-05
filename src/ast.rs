@@ -3346,25 +3346,18 @@ impl ParsedFile {
             });
             let recovered_type = matches!(self.language, Language::TypeScript | Language::Tsx)
                 .then(|| {
-                    parameter.child_by_field_name("type").or_else(|| {
-                        (!simple_binding)
-                            .then(|| self.js_ts_contextual_parameter_annotation(func_node))
-                            .flatten()
-                    })
-                })
-                .flatten()
-                .and_then(|annotation| {
                     if simple_binding {
-                        self.js_ts_simple_type_annotation(annotation)
+                        self.js_ts_simple_type_annotation(parameter.child_by_field_name("type")?)
                     } else {
-                        self.js_ts_inline_prop_receiver_type(
-                            parameter,
-                            binding?,
-                            annotation,
-                            receiver_name,
-                        )
+                        // An explicit annotation is terminal even when unsupported.
+                        let ty = match parameter.child_by_field_name("type") {
+                            Some(annotation) => annotation.named_child(0)?,
+                            None => self.js_ts_contextual_parameter_type(func_node)?,
+                        };
+                        self.js_ts_inline_prop_receiver_type(parameter, binding?, ty, receiver_name)
                     }
-                });
+                })
+                .flatten();
             matches.push(recovered_type.map_or(
                 JsTsReceiverBindingEvidence::Materialized,
                 |static_type| JsTsReceiverBindingEvidence::Recovered {
@@ -3381,16 +3374,19 @@ impl ParsedFile {
         }
     }
 
-    /// Direct signatures or one proven local alias, never generic library names.
-    fn js_ts_contextual_parameter_annotation<'a>(&'a self, func: Node<'a>) -> Option<Node<'a>> {
-        fn single_parameter(params: Node<'_>) -> Option<Node<'_>> {
+    /// Keep declaration nodes for ordinary signatures and use-site argument nodes
+    /// for bounded F<P> = (p: P) instantiation; never substitute name strings.
+    fn js_ts_contextual_parameter_type<'a>(&'a self, func: Node<'a>) -> Option<Node<'a>> {
+        fn single_child(params: Node<'_>) -> Option<Node<'_>> {
             let mut cursor = params.walk();
             let mut children = params
                 .named_children(&mut cursor)
                 .filter(|n| n.kind() != "comment");
-            let parameter = children.next()?;
-            (children.next().is_none() && parameter.kind() == "required_parameter")
-                .then_some(parameter)
+            let child = children.next()?;
+            children.next().is_none().then_some(child)
+        }
+        fn single_parameter(params: Node<'_>) -> Option<Node<'_>> {
+            single_child(params).filter(|n| n.kind() == "required_parameter")
         }
         if !matches!(func.kind(), "arrow_function" | "function_expression")
             || func.child_by_field_name("type_parameters").is_some()
@@ -3409,10 +3405,29 @@ impl ParsedFile {
         {
             return None;
         }
-        let signature = self.js_ts_local_type_shape(
-            declaration.child_by_field_name("type")?.named_child(0)?,
-            "function_type",
-        )?;
+        let reference = declaration.child_by_field_name("type")?.named_child(0)?;
+        let (signature, substitution) = if reference.kind() == "generic_type" {
+            let alias = self.js_ts_local_type_alias(reference.child_by_field_name("name")?)?;
+            let binder = single_child(alias.child_by_field_name("type_parameters")?)?;
+            let name = binder.child_by_field_name("name")?;
+            let mut cursor = binder.walk();
+            if binder.kind() != "type_parameter"
+                || name.kind() != "type_identifier"
+                || !is_plain_ident(self.node_text(&name))
+                || binder
+                    .children(&mut cursor)
+                    .any(|n| n != name && n.kind() != "comment")
+            {
+                return None;
+            }
+            let argument = single_child(reference.child_by_field_name("type_arguments")?)?;
+            (alias.child_by_field_name("value")?, Some((name, argument)))
+        } else {
+            (
+                self.js_ts_local_type_shape(reference, "function_type")?,
+                None,
+            )
+        };
         if signature.kind() != "function_type"
             || signature.child_by_field_name("type_parameters").is_some()
         {
@@ -3429,7 +3444,15 @@ impl ParsedFile {
         {
             return None;
         }
-        contextual.child_by_field_name("type")
+        let ty = contextual.child_by_field_name("type")?.named_child(0)?;
+        if let Some((binder, argument)) = substitution {
+            // Only the entire parameter type can be substituted, not a nested
+            // member/union/alias. The signature has no nearer generic binder.
+            (ty.kind() == "type_identifier" && self.node_text(&ty) == self.node_text(&binder))
+                .then_some(argument)
+        } else {
+            Some(ty)
+        }
     }
 
     /// Preserve the original shape node: its class names belong to the
@@ -3443,6 +3466,17 @@ impl ParsedFile {
         if reference.kind() == expected_kind {
             return Some(reference);
         }
+        let alias = self.js_ts_local_type_alias(reference)?;
+        if alias.child_by_field_name("type_parameters").is_some() {
+            return None;
+        }
+        let shape = alias.child_by_field_name("value")?;
+        (shape.kind() == expected_kind).then_some(shape)
+    }
+
+    /// Declaration identity only. Each consumer separately proves its supported
+    /// binder count and RHS shape; this helper never follows another alias.
+    fn js_ts_local_type_alias<'a>(&'a self, reference: Node<'a>) -> Option<Node<'a>> {
         let root = self.tree.root_node();
         let name = self.node_text(&reference);
         if reference.kind() != "type_identifier"
@@ -3493,14 +3527,12 @@ impl ParsedFile {
             }
             if ambient
                 || declaration.kind() != "type_alias_declaration"
-                || declaration.child_by_field_name("type_parameters").is_some()
                 || alias.replace(declaration).is_some()
             {
                 return None;
             }
         }
-        let shape = alias?.child_by_field_name("value")?;
-        (shape.kind() == expected_kind).then_some(shape)
+        alias
     }
 
     /// Required properties in a direct or local-alias object shape; declaration
@@ -3509,7 +3541,7 @@ impl ParsedFile {
         &self,
         parameter: Node<'_>,
         pattern: Node<'_>,
-        annotation: Node<'_>,
+        ty: Node<'_>,
         receiver: &str,
     ) -> Option<String> {
         if pattern.kind() != "object_pattern" || parameter.has_error() {
@@ -3522,7 +3554,7 @@ impl ParsedFile {
         {
             return None;
         }
-        let ty = self.js_ts_local_type_shape(annotation.named_child(0)?, "object_type")?;
+        let ty = self.js_ts_local_type_shape(ty, "object_type")?;
         let mut properties = BTreeSet::new();
         let mut locals = BTreeSet::new();
         let mut selected = None;

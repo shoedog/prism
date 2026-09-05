@@ -233,6 +233,134 @@ fn inline_prop_receiver_positive() {
 }
 
 #[test]
+fn local_generic_alias_positive() {
+    let mut failures = Vec::new();
+    for language in [Language::TypeScript, Language::Tsx] {
+        for source in [
+            "type F<P> = (p: P) => void; const run: F<{client: Client}> = ({client}) => client.m();",
+            "type Props = {client: Client}; type F<P> = (p: P) => void; const run: F<Props> = ({client}) => client.m();",
+            "export type F<P> = (p: P) => void; export const run: F<{client: Client}> = function named({client: x}) { x.m(); };",
+            "const run: F<Props> = ({client}) => client.m(); type F<P> = (p: P) => void; type Props = {client: Client};",
+            "type F<P> = (p: P) => P; const run: F<{client: Client}> = async ({client}) => client.m();",
+            "type F</* binder */ P> = (/* param */ p: P) => void; const run: F</* arg */ {readonly client: Client; label?: string}> = ({client, label}) => client.m();",
+            "type F<Client> = (p: Client) => void; const run: F<{client: Client}> = ({client}) => client.m();",
+            "type Props = {client: Client}; type F<Props> = (p: Props) => void; const run: F<Props> = ({client}) => client.m();",
+            "type Props = {client: Client}; type F<P> = (p: P) => void; function outer<Client>() { const run: F<Props> = ({client}) => client.m(); }",
+            "type F<P> = (p: P) => void; const run: F<{client: Client}> = ({client}) => { type Client = Other; client.m(); };",
+            "type F<P> = (p: P) => void; let F = other; F = value; const run: F<{client: Client}> = ({client}) => client.m();",
+            "type F<P> = (p: P) => void; const run: F<{client: Client}> = ({client}) => { function inner() { client.m(); } };",
+            "type F<P> = (p: P) => void; const run: F<{client: Client}> = ({client: x}) => { x.m(); x = other; };",
+            "type F<P> = (p: P) => void; const run: F<{client: Client}> = ({client}) => { function change(client) { delete client.m; } client.m(); };",
+            "type F<P,> = (p: P) => void; const run: F<{client: Client},> = ({client}) => client.m();",
+            "type Props = {client: Client}; type F<Props> = (p: Props) => void; function outer<Client>() { const run: F<Props> = ({client}) => client.m(); }",
+            "type F<P> = (p: P) => void; const run: F<{client: Client}> = ({client}: {client: Client}) => client.m();",
+        ] {
+            if std::panic::catch_unwind(|| check(source, true, language)).is_err() { failures.push((language, source)); }
+        }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+#[test]
+fn local_generic_alias_declaration_barriers() {
+    let mut failures = Vec::new();
+    for declaration in [
+        "",
+        "type F<P> = (p: P) => void; type F<P> = (p: P) => void;",
+        "type F<P> = (p: P) => void; interface F {}",
+        "type F<P> = (p: P) => void; class F {}",
+        "type F<P> = (p: P) => void; enum F { A }",
+        "type F<P> = (p: P) => void; namespace F.Inner {}",
+        "type F<P> = (p: P) => void; import type F from './other';",
+        "type F<P> = (p: P) => void; import F from './other';",
+        "type F<P> = (p: P) => void; import F = NS.Other;",
+        "type F<P> = (p: P) => void; import * as F from './other';",
+        "type F<P> = (p: P) => void; declare class F {}",
+        "declare type F<P> = (p: P) => void;",
+        "type F = (p: {client: Client}) => void;",
+        "type F<P, Q> = (p: P) => void;",
+        "type F<P, P> = (p: P) => void;",
+        "type F<P extends {client: Client}> = (p: P) => void;",
+        "type F<P = {client: Client}> = (p: P) => void;",
+        "type F<in P> = (p: P) => void;",
+        "type F<out P> = (p: P) => void;",
+        "type F<const P> = (p: P) => void;",
+        "type G<P> = (p: P) => void; type F<P> = G<P>;",
+        "type F<P> = F<P>;",
+        "type F<P> = ((p: P) => void);",
+        "type F<P> = ((p: P) => void) | Other;",
+        "type F<P> = { (p: P): void };",
+        "type F<P> = <P>(p: P) => void;",
+        "type F<P> = <Q>(p: P) => void;",
+        "type F<P> = (p: Other) => void;",
+        "type F<P> = (p: {client: P}) => void;",
+        "type F<P> = (p: P & {client: Client}) => void;",
+        "type F<P> = (p: P, other: Other) => void;",
+        "type F<P> = (p?: P) => void;",
+        "type F<P> = (...p: P[]) => void;",
+        "type F<P> = ({client}: P) => void;",
+    ] {
+        for argument in ["{client: Client}", "Props"] {
+            let source = format!("type Props = {{client: Client}}; {declaration} const run: F<{argument}> = ({{client}}) => client.m();");
+            if std::panic::catch_unwind(|| check(&source, false, Language::Tsx)).is_err() {
+                failures.push(source);
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+#[test]
+fn local_generic_alias_argument_and_receiver_barriers() {
+    let mut failures = Vec::new();
+    for consumer in [
+        "const run: F = ({client}) => client.m();",
+        "const run: F<> = ({client}) => client.m();",
+        "const run: F<{client: Client}, Other> = ({client}) => client.m();",
+        "const run: NS.F<{client: Client}> = ({client}) => client.m();",
+        "const run: F<Missing> = ({client}) => client.m();",
+        "type Props = {client: Client}; interface Props {} const run: F<Props> = ({client}) => client.m();",
+        "import type Props from './other'; const run: F<Props> = ({client}) => client.m();",
+        "type Props<P> = {client: P}; const run: F<Props<Client>> = ({client}) => client.m();",
+        "type Props = {client: Client}; type Alias = Props; const run: F<Alias> = ({client}) => client.m();",
+        "const run: F<({client: Client})> = ({client}) => client.m();",
+        "const run: F<{client: Client} | Other> = ({client}) => client.m();",
+        "const run: F<{client?: Client}> = ({client}) => client.m();",
+        "const run: F<{client: Client; client: Other}> = ({client}) => client.m();",
+        "const run: F<{get client(): Client}> = ({client}) => client.m();",
+        "const run: F<{client: Client; [key: string]: Other}> = ({client}) => client.m();",
+        "function outer<Client>() { const run: F<{client: Client}> = ({client}) => client.m(); }",
+        "type Props = {client: Client}; function outer<Props>() { const run: F<Props> = ({client}) => client.m(); }",
+        "function outer<F>() { const run: F<{client: Client}> = ({client}) => client.m(); }",
+        "function outer() { const run: F<{client: Client}> = ({client}) => client.m(); interface F {} }",
+        "function outer() { type Props = {client: Client}; const run: F<Props> = ({client}) => client.m(); }",
+        "const run: F<{client: Client}> = ({client}: Missing) => client.m();",
+        "const run: F<{client: Client}> = ({client}: {client: Other}) => client.m();",
+        "const run: F<{client: Client}> = <T>({client}) => client.m();",
+        "const run: F<{client: Client}> = ({client = other}) => client.m();",
+        "const run: F<{client: Client}> = ({client, ...rest}) => client.m();",
+        "const run: F<{client: Client}> = ({client} = other) => client.m();",
+        "const run: F<{client: Client}> = ({client}) => { client = other; client.m(); };",
+        "const run: F<{client: Client}> = ({client}) => { delete client.m; client.m(); };",
+        "const run: F<{client: Client}> = ({client}) => { while(ok) { client.m(); client = other; } };",
+        "const run: F<{client: Client}> = ({client}) => { function inner(client) { client.m(); } };",
+        "const run: F<{client: Client}> = memo(({client}) => client.m());",
+        "function outer() { type G<P> = (p: P) => void; const run: G<{client: Client}> = ({client}) => client.m(); }",
+        "const run: F<{client: Client}> = ({client}) => { client.m(); const broken = ; };",
+        "const run: F<{client: Client}> = ({client}) => { ({m: client.m} = other); client.m(); };",
+        "const run: F<{client: Client}> = ({client, client: client}) => client.m();",
+        "const run: F<{client: Client}> = ({client}, other) => client.m();",
+        "type C = Client; const run: F<{client: C}> = ({client}) => client.m();",
+        "function outer() { const run: F<{client: Client}> = ({client}) => client.m(); type Client = Other; }",
+        "type Props = {client: Client}; function outer() { const run: F<Props> = ({client}) => client.m(); interface Props {} }",
+    ] {
+        let source = format!("type F<P> = (p: P) => void; {consumer}");
+        if std::panic::catch_unwind(|| check(&source, false, Language::Tsx)).is_err() { failures.push(source); }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+#[test]
 fn local_props_alias_positive() {
     let mut failures = Vec::new();
     for language in [Language::TypeScript, Language::Tsx] {
