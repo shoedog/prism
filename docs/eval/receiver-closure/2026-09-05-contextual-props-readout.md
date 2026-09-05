@@ -3,7 +3,7 @@
 Base f348779, after PR245/246 merged. Owner explicitly chose "Source-backed
 foundation first" after inspecting the ambient React.FC provenance gap.
 Implementation678bf6b pushed in [PR247](https://github.com/shoedog/prism/pull/247),
-OPEN against main. No merge performed.
+merged into main at 1e26301 (reverified for the constructor-field continuation).
 
 ## Result and boundary
 

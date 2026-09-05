@@ -118,12 +118,19 @@ Three candidate directions once the queue's top items are drained (or interleave
   span (LibraryMenu.tsx:114), verified in served callers and callees; other ten
   tracked Library spans unchanged. Quick baseline-invalid SHA drift. No React.FC, hook-return or
   this.field expansion. See `docs/eval/receiver-closure/2026-09-05-inline-props-readout.md`.
-- **Source-backed contextual-prop foundation — PR247 OPEN, 678bf6b:**
+- **Source-backed contextual-prop foundation — PR247 merged1e26301, 678bf6b:**
   owner selected explicit direct function signatures before ambient React.FC
   authority. CPG67/nav36; default3818/0/1, MCP4008/0/1, matrix104/104. Real2780
   records/Exact372 unchanged; synthetic served callers/callees positive with
   optional/write negatives. Quick baseline-invalid SHA drift. No claimed React.FC gain. See
   `docs/eval/receiver-closure/2026-09-05-contextual-props-readout.md`.
+- **Constructor-backed own-field receivers — verified, publication pending:**
+  JS/TS/TSX direct own-constructor identity with duplicate/write/initialization
+  barriers; CPG68/nav37. Default3821/0/1, MCP4011/0/1, matrix104/104. Same
+  Excalidraw2780 records: Exact372→376 at four unique App spans, all served
+  callers/callees gains asserted. Remaining six tracked unproven spans unchanged.
+  Quick baseline-invalid SHA drift; lexical invariant, no general temporal/alias
+  proof. See `docs/eval/receiver-closure/2026-09-05-constructor-fields-readout.md`.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:
