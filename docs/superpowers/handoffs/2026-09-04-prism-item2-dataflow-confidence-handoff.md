@@ -10,7 +10,7 @@
 
 **(a) Lane ownership** — `[MEASURED]` No sub-agents were spawned; the controller owns push and PR creation after this closeout. — **RESOLVED 2026-09-05T15:41:39Z**
 
-**(b) Custody exposure** — `[MEASURED]` The behavior-neutral lint fix is committed at `357221b`; the roadmap and this handoff are the only tracked edits awaiting their containing closeout commit. The Task 7 report under `.superpowers/` is intentionally ignored. No Tier-A baseline or snapshot artifact remains in the tree. — **RESOLVED by committing the two named closeout docs; push remains OPEN**
+**(b) Custody exposure** — `[MEASURED]` The behavior-neutral lint fix is committed at `357221b`; the roadmap and this handoff are committed in the closeout-docs commit on top of 357221b (the tree is clean at that head). The Task 7 report under `.superpowers/` is intentionally ignored. No Tier-A baseline or snapshot artifact remains in the tree. — **RESOLVED by committing the two named closeout docs; push remains OPEN**
 
 **(c) In flight / irreversible** — `[MEASURED]` All test, corpus, and artifact probes completed; no Task 7 command remains in flight. — **RESOLVED 2026-09-05T15:41:39Z**
 
