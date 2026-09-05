@@ -1,8 +1,9 @@
 # Indirect local default-class identity and real receiver measurement
 
 Base: merged PR #242 at `854d53f49606`. Owner approved this bounded increment.
-Implementation and verification complete with the Tier-A exclusion below;
-publication pending.
+Implementation and verification complete with the Tier-A exclusion below.
+Published as `257fb7f` in [PR #244](https://github.com/shoedog/prism/pull/244),
+OPEN, not merged. The publication follow-up changes documentation only.
 
 ## Result
 

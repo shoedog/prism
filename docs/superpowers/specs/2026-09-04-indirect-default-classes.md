@@ -68,3 +68,7 @@ an admissible result, not permission to expand the implementation silently.
   Remaining arrow-field / this.field / destructured-prop barriers are outside
   the approved scope. All 2780 real sample records unchanged; prior Python/JS
   samples byte-identical. No further implementation fixes or round extensions.
+
+Published implementation: `257fb7f`, PR #244 OPEN, not merged. Current custody is
+`docs/superpowers/handoffs/2026-09-04-indirect-default-handoff.md`; the publication
+follow-up is documentation-only.

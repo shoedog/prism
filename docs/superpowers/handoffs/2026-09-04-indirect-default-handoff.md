@@ -1,7 +1,7 @@
 # Handoff — indirect local default-class identity
 
 **Written:** 2026-09-04 · **By:** Codex · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/indirect-local-default-classes · **Measured state:** `[MEASURED]` HEAD 854d53f · Tree DIRTY · Probe git status --short; git log -2 · Output: implementation and tests uncommitted; pre-existing .superpowers/ and eval/snapshots/prism-fb81481dafa7.json preserved.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/indirect-local-default-classes · **Measured state:** `[MEASURED]` implementation 257fb7fe7b1e54c25e5cedf8bb45e8e80b6884fb pushed; PR #244 OPEN against 854d53f, not merged. Probe: git push and PR creation response confirm matching head. This publication follow-up is docs-only; pre-existing .superpowers/ and eval/snapshots/prism-fb81481dafa7.json preserved.
 **Predecessor:** PR #242, merged at 854d53f.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,14 +9,14 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` this Codex session owns the lane; no subagents dispatched — RESOLVED.
-**(b) Custody exposure** — `[MEASURED]` uncommitted implementation; checkpoint snapshot in /private/tmp/prism-indirect-default-VUbv13 — OPEN until commit/push.
+**(b) Custody exposure** — `[MEASURED]` implementation/evidence committed and pushed at 257fb7f; raw evidence archive recorded below — RESOLVED. Publication follow-up is docs-only.
 **(c) In flight / irreversible** — `[MEASURED]` suites, release, matrix/quick and measurements complete; no process pending — RESOLVED.
-**(d) Authorization granted but not exercised** — “merged proceed to indirect local default-class export identity with duplicate/write barriers, then measure relevant real receiver sites.” Standing “commit and oush and open pr”; no merge or rebaseline.
+**(d) Authorization granted but not exercised** — None remaining: implementation/measurement and standing “commit and oush and open pr” exercised. No merge or rebaseline authorization.
 
 ## 1. Resume order
 
 1. Run `git status --short` and read docs/eval/receiver-closure/2026-09-04-indirect-default-readout.md.
-2. Commit explicit scoped paths, push, open PR and reconcile publication.
+2. Review https://github.com/shoedog/prism/pull/244 with the recorded Tier-A exclusion. No automatic merge or next feature.
 
 **STOP conditions:** out-of-scope suite failures are reported, not silently fixed; three-round review cap; no full multicorpus run or baseline changes.
 
@@ -44,7 +44,7 @@
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
 | 1 | Verify and measure | done | See readout and verification JSON | None | Evidence directory below |
-| 2 | Publish | next | Commit explicit paths, push, open PR, reconcile publication | None | Branch below |
+| 2 | Publish | done | 257fb7f pushed; PR #244 OPEN | None | https://github.com/shoedog/prism/pull/244 |
 
 ## 5. Invariants and traps — do not do these
 
