@@ -2,7 +2,8 @@
 
 Base main1e26301, after PR247 merged. Owner approved the recommended bounded
 constructor-field continuation. Implementation bd146c6 pushed in
-[PR248](https://github.com/shoedog/prism/pull/248), OPEN against main. No merge performed.
+[PR248](https://github.com/shoedog/prism/pull/248), merged into main at db34e80
+(GitHub merge state and fetched origin/main verified after owner notification).
 
 ## Result and boundary
 

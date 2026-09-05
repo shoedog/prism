@@ -78,7 +78,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v35: required destructured inline-prop receiver authority (CPG v66).
 // v36: direct contextual function-signature receiver authority (CPG v67).
 // v37: bounded own-constructor field receiver authority (CPG v68).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 37;
+// v38: module-local contextual function-type alias authority (CPG v69).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 38;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -622,7 +623,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 37);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 38);
     }
 
     #[test]
@@ -665,6 +666,8 @@ mod tests {
     fn imported_receiver_sidecar_round_trip() {
         use crate::{ast::ParsedFile, cpg::CpgContext, languages::Language};
         for (lang, caller, owner, source, declaration, init) in [
+            (Language::TypeScript, "app.ts", "client.ts", "import type Client from './client'; type F = (p: {client: Client}) => void; const visible: F = ({client}) => client.m(); function outer<F>() { const shadow: F = ({client}) => client.m(); }", "class Client { m = () => {}; } export default Client;", None),
+            (Language::Tsx, "app.tsx", "client.tsx", "import type Client from './client'; type F = (p: {client: Client}) => void; const visible: F = ({client}) => client.m(); const shadow: F = ({client}) => { delete client.m; client.m(); };", "class Client { m = () => {}; } export default Client;", None),
             (Language::JavaScript, "app.js", "client.js", "import Client from './client'; class App { constructor() { this.client = new Client(); } visible() { this.client.m(); } } class Other { constructor() { this.client = new Client(); } shadow() { delete this.client.m; this.client.m(); } }", "class Client { m = () => {}; } export default Client;", None),
             (Language::Tsx, "app.tsx", "client.tsx", "import Client from './client'; class App { client: Props['client']; constructor() { this.client = new Client(); } visible() { this.client.m(); } } class Other { constructor() { if(ok) this.client = new Client(); } shadow() { this.client.m(); } }", "class Client { m = () => {}; } export default Client;", None),
             (Language::TypeScript, "app.ts", "client.ts", "import type Client from './client'; const visible: (p: {client: Client}) => void = ({client}) => { client.m(); }; const shadow: (p: {client?: Client}) => void = ({client}) => { client.m(); };", "class Client { m = () => {}; } export default Client;", None),
@@ -807,6 +810,7 @@ mod tests {
         let (index, _) = fixture_index();
         for mutate in [
             |cache: &mut NavigationCallEdgeCache| cache.nav_call_edge_cache_version += 1,
+            |cache: &mut NavigationCallEdgeCache| cache.nav_call_edge_cache_version = 37,
             |cache: &mut NavigationCallEdgeCache| cache.prism_version = "stale".into(),
             |cache: &mut NavigationCallEdgeCache| cache.grammar_fingerprint = "stale".into(),
             |cache: &mut NavigationCallEdgeCache| cache.skip_policy_version += 1,

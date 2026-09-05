@@ -3381,8 +3381,8 @@ impl ParsedFile {
         }
     }
 
-    /// Direct source-backed function signatures only, never generic library names.
-    fn js_ts_contextual_parameter_annotation<'a>(&self, func: Node<'a>) -> Option<Node<'a>> {
+    /// Direct signatures or one proven local alias, never generic library names.
+    fn js_ts_contextual_parameter_annotation<'a>(&'a self, func: Node<'a>) -> Option<Node<'a>> {
         fn single_parameter(params: Node<'_>) -> Option<Node<'_>> {
             let mut cursor = params.walk();
             let mut children = params
@@ -3409,7 +3409,8 @@ impl ParsedFile {
         {
             return None;
         }
-        let signature = declaration.child_by_field_name("type")?.named_child(0)?;
+        let signature = self
+            .js_ts_contextual_signature(declaration.child_by_field_name("type")?.named_child(0)?)?;
         if signature.kind() != "function_type"
             || signature.child_by_field_name("type_parameters").is_some()
         {
@@ -3427,6 +3428,73 @@ impl ParsedFile {
             return None;
         }
         contextual.child_by_field_name("type")
+    }
+
+    /// Preserve the original signature node: its class names belong to the
+    /// declaration scope, while receiver writes belong to the implementation.
+    /// One module-local hop only; recursive/generic/ambient authority is excluded.
+    fn js_ts_contextual_signature<'a>(&'a self, reference: Node<'a>) -> Option<Node<'a>> {
+        if reference.kind() == "function_type" {
+            return Some(reference);
+        }
+        let root = self.tree.root_node();
+        let name = self.node_text(&reference);
+        if reference.kind() != "type_identifier"
+            || !is_plain_ident(name)
+            || root.has_error()
+            || self.js_ts_type_name_shadowed(root, &reference, name)
+            || self.js_ts_type_only_imports().contains_key(name)
+            || self
+                .extract_import_bindings()
+                .iter()
+                .any(|b| b.local == name)
+        {
+            return None;
+        }
+        let mut alias = None;
+        let mut cursor = root.walk();
+        for mut declaration in root.named_children(&mut cursor) {
+            let mut ambient = false;
+            while matches!(
+                declaration.kind(),
+                "export_statement" | "ambient_declaration"
+            ) {
+                ambient |= declaration.kind() == "ambient_declaration";
+                declaration = declaration
+                    .child_by_field_name("declaration")
+                    .or_else(|| declaration.named_child(0))?;
+            }
+            if !matches!(
+                declaration.kind(),
+                "type_alias_declaration"
+                    | "interface_declaration"
+                    | "class_declaration"
+                    | "abstract_class_declaration"
+                    | "enum_declaration"
+                    | "internal_module"
+                    | "module"
+                    | "import_alias"
+            ) {
+                continue;
+            }
+            let declared = declaration.child_by_field_name("name").or_else(|| {
+                (declaration.kind() == "import_alias")
+                    .then(|| declaration.named_child(0))
+                    .flatten()
+            });
+            if !declared.is_some_and(|n| self.node_text(&n).split('.').next() == Some(name)) {
+                continue;
+            }
+            if ambient
+                || declaration.kind() != "type_alias_declaration"
+                || declaration.child_by_field_name("type_parameters").is_some()
+                || alias.replace(declaration).is_some()
+            {
+                return None;
+            }
+        }
+        let signature = alias?.child_by_field_name("value")?;
+        (signature.kind() == "function_type").then_some(signature)
     }
 
     /// Required inline object properties only; annotation and binding may be at

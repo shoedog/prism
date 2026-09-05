@@ -179,7 +179,8 @@ use std::path::{Path, PathBuf};
 /// - v66: required destructured inline-prop receiver type evidence.
 /// - v67: direct contextual function-signature receiver type evidence.
 /// - v68: bounded own-constructor field receiver evidence.
-const CACHE_VERSION: u32 = 68;
+/// - v69: module-local contextual function-type alias authority.
+const CACHE_VERSION: u32 = 69;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -709,7 +710,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_receiver_authority() {
-        assert_eq!(super::CACHE_VERSION, 68);
+        assert_eq!(super::CACHE_VERSION, 69);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -772,6 +773,8 @@ mod tests {
             resolution::ResolutionConfidence,
         };
         for (language, caller, owner, importer, good, bad, auxiliary) in [
+            (Language::TypeScript, "app.ts", "app.ts", "", "import type Client from './client'; type F = (p: {client: Client}) => void; const run: F = ({client}) => client.m();", "import type Client from './client'; type F = (p: {client: Client}) => void; interface F {} const run: F = ({client}) => client.m();", Some(("client.ts", "class Client { m = () => {}; } export default Client;"))),
+            (Language::Tsx, "app.tsx", "app.tsx", "", "import type Client from './client'; type F = (p: {client: Client}) => void; const run: F = ({client}) => client.m();", "import type Client from './client'; type F = (p: {client?: Client}) => void; const run: F = ({client}) => client.m();", Some(("client.tsx", "class Client { m = () => {}; } export default Client;"))),
             (Language::JavaScript, "app.js", "app.js", "", "import Client from './client'; class App { constructor() { this.client = new Client(); } run() { this.client.m(); } }", "import Client from './client'; class App { constructor() { this.client = new Client(); } run() { delete this.client.m; this.client.m(); } }", Some(("client.js", "class Client { m = () => {}; } export default Client;"))),
             (Language::Tsx, "app.tsx", "app.tsx", "", "import Client from './client'; class App { client: Props['client']; constructor() { this.client = new Client(); } run() { this.client.m(); } }", "import Client from './client'; class App { client: Props['client']; constructor() { if(ok) this.client = new Client(); } run() { this.client.m(); } }", Some(("client.tsx", "class Client { m = () => {}; } export default Client;"))),
             (Language::TypeScript, "app.ts", "app.ts", "", "import type Client from './client'; const run: (p: {client: Client}) => void = ({client}) => { client.m(); };", "import type Client from './client'; const run: (p: {client?: Client}) => void = ({client}) => { client.m(); };", Some(("client.ts", "class Client { m = () => {}; } export default Client;"))),
@@ -824,7 +827,7 @@ mod tests {
                     if expected { assert_eq!(exact[0].target.file, target); }
                 }
                 assert_eq!(full.call_graph.calls, incremental.call_graph.calls, "{language:?}");
-                force_cache_version(dir.path(), 67);
+                force_cache_version(dir.path(), 68);
                 assert!(matches!(load_cache(&hashes, false, dir.path()), CacheResult::Miss));
             }
         }
@@ -907,6 +910,8 @@ mod tests {
             (Language::JavaScript, "js", 2),
             (Language::TypeScript, "ts", 2),
             (Language::Tsx, "tsx", 2),
+            (Language::TypeScript, "ts", 3),
+            (Language::Tsx, "tsx", 3),
         ] {
             let caller = format!("app.{ext}");
             let owner = format!("client.{ext}");
@@ -914,7 +919,9 @@ mod tests {
                 BTreeMap::from([
                     (
                         caller.clone(),
-                        if shape == 2 {
+                        if shape == 3 {
+                            format!("import type {{A, B}} from './client'; type F = (p: {{client: {name}}}) => void; const run: F = ({{client}}) => {{ client.m(); }};")
+                        } else if shape == 2 {
                             format!("import {{A, B}} from './client'; class App {{ constructor() {{ this.client = new {name}(); }} run() {{ this.client.m(); }} }}")
                         } else if shape == 1 {
                             format!("import type {{A, B}} from './client'; const run: (p: {{client: {name}}}) => void = ({{client}}) => {{ client.m(); }};")
