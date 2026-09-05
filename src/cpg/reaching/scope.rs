@@ -67,6 +67,17 @@ struct Declaration {
     binding: Binding,
     name: String,
     visible_from: usize,
+    additional_visibility: Vec<ScopeSpan>,
+}
+
+impl Declaration {
+    fn is_visible_at(&self, byte: usize) -> bool {
+        self.visible_from <= byte
+            || self
+                .additional_visibility
+                .iter()
+                .any(|span| span.contains(byte))
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -117,7 +128,7 @@ impl BindingFacts {
                         .filter(|(_, declaration)| {
                             declaration.name == name
                                 && declaration.binding.scope == scope
-                                && declaration.visible_from <= defs[index].start_byte
+                                && declaration.is_visible_at(defs[index].start_byte)
                         })
                         .max_by_key(|(_, declaration)| declaration.visible_from)
                         .map(|(declaration_index, _)| declaration_index)
@@ -135,6 +146,7 @@ impl BindingFacts {
                     },
                     name,
                     visible_from,
+                    additional_visibility: Vec::new(),
                 });
                 declaration_index
             };
@@ -205,7 +217,7 @@ impl BindingFacts {
             .filter(|declaration| {
                 declaration.name == name
                     && declaration.binding.scope.contains(byte)
-                    && declaration.visible_from <= byte
+                    && declaration.is_visible_at(byte)
             })
             .min_by_key(|declaration| {
                 (
@@ -418,10 +430,16 @@ fn collect_python_comprehension_declarations(
                     | "generator_expression"
             ) {
                 if let Some(target) = node.child_by_field_name("left") {
+                    let visible_from = node
+                        .child_by_field_name("right")
+                        .map(|iterable| iterable.end_byte())
+                        .unwrap_or_else(|| node.end_byte());
                     collect_python_target_identifiers(
                         parsed,
                         target,
                         scope_span(candidate),
+                        visible_from,
+                        candidate.child_by_field_name("body").map(scope_span),
                         declarations,
                     );
                 }
@@ -441,6 +459,8 @@ fn collect_python_target_identifiers(
     parsed: &ParsedFile,
     node: Node<'_>,
     scope: ScopeSpan,
+    visible_from: usize,
+    body: Option<ScopeSpan>,
     declarations: &mut Vec<Declaration>,
 ) {
     if node.kind() == "identifier" {
@@ -452,14 +472,15 @@ fn collect_python_target_identifiers(
                 declaration_line: Some(node.start_position().row + 1),
             },
             name: parsed.node_text(&node).to_string(),
-            visible_from: scope.start_byte,
+            visible_from,
+            additional_visibility: body.into_iter().chain([scope_span(node)]).collect(),
         });
         return;
     }
 
     let mut cursor = node.walk();
     for child in node.named_children(&mut cursor) {
-        collect_python_target_identifiers(parsed, child, scope, declarations);
+        collect_python_target_identifiers(parsed, child, scope, visible_from, body, declarations);
     }
 }
 

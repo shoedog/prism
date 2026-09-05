@@ -315,6 +315,56 @@ fn python_comprehension_target_masks_outer_binding() {
 }
 
 #[test]
+fn python_comprehension_first_iterable_uses_outer_binding() {
+    let parsed = parsed(
+        "def f():\n    x = source()\n\n\n    ys = [x for x in x]\n",
+        Language::Python,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = definition_on_line(&defs, 2);
+    let mut first_iterable_use = edge(&parsed, &func, &outer, 5);
+    first_iterable_use.to.start_byte = byte_on_line(&parsed, 5, "x", 2);
+    first_iterable_use.to.end_byte = first_iterable_use.to.start_byte + 1;
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&first_iterable_use)).0;
+    assert_label(&outcome, &first_iterable_use, FlowConfidence::Exact);
+}
+
+#[test]
+fn python_multiline_comprehension_first_iterable_uses_outer_binding() {
+    let parsed = parsed(
+        "def f():\n    x = source()\n    ys = [\n        x\n        for x in x\n    ]\n",
+        Language::Python,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = definition_on_line(&defs, 2);
+    let mut first_iterable_use = edge(&parsed, &func, &outer, 5);
+    first_iterable_use.to.start_byte = byte_on_line(&parsed, 5, "x", 1);
+    first_iterable_use.to.end_byte = first_iterable_use.to.start_byte + 1;
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&first_iterable_use)).0;
+    assert_label(&outcome, &first_iterable_use, FlowConfidence::Exact);
+}
+
+#[test]
+fn python_comprehension_later_iterable_uses_earlier_target_binding() {
+    let parsed = parsed(
+        "def f(xs):\n    x = source()\n    ys = [\n        y\n        for x in xs\n        for y in x\n    ]\n",
+        Language::Python,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = definition_on_line(&defs, 2);
+    let second_iterable_use = edge(&parsed, &func, &outer, 6);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&second_iterable_use)).0;
+    assert_label(
+        &outcome,
+        &second_iterable_use,
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 5 }),
+    );
+}
+
+#[test]
 fn unclassified_language_binding_construct_uses_flat_path_fallback() {
     let parsed = parsed(
         "class C {\n  void f() {\n    int x = source();\n    {\n      int x = clean();\n    }\n    sink(x);\n  }\n}\n",
