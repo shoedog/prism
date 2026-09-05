@@ -214,6 +214,108 @@ fn same_path_redefinition_kills_the_earlier_def() {
 }
 
 #[test]
+fn nested_scope_declaration_does_not_kill_outer_after_scope_exit() {
+    let cases = [
+        (
+            Language::Rust,
+            "fn f() {\n    let x = source();\n    {\n        let x = clean();\n        sink(x);\n    }\n    sink(x);\n}\n",
+            2,
+            4,
+            7,
+        ),
+        (
+            Language::Go,
+            "package main\nfunc f() {\n\tx := source()\n\t{\n\t\tx := clean()\n\t\tsink(x)\n\t}\n\tsink(x)\n}\n",
+            3,
+            5,
+            8,
+        ),
+        (
+            Language::JavaScript,
+            "function f() {\n  let x = source();\n  {\n    let x = clean();\n    sink(x);\n  }\n  sink(x);\n}\n",
+            2,
+            4,
+            7,
+        ),
+        (
+            Language::TypeScript,
+            "function f() {\n  let x = source();\n  {\n    let x = clean();\n    sink(x);\n  }\n  sink(x);\n}\n",
+            2,
+            4,
+            7,
+        ),
+    ];
+    for (language, source, outer_line, inner_line, use_line) in cases {
+        let parsed = parsed(source, language);
+        let func = function(&parsed);
+        let outer = def(&parsed, 0, "x", outer_line, 0, false);
+        let inner = def(&parsed, 1, "x", inner_line, 0, false);
+        let outer_edge = edge(&parsed, &func, &outer, use_line);
+        let outcome = run(&parsed, &[outer, inner], std::slice::from_ref(&outer_edge)).0;
+        assert_label(&outcome, &outer_edge, FlowConfidence::Exact);
+    }
+}
+
+#[test]
+fn outer_assignment_after_nested_scope_kills_at_outer_line() {
+    let cases = [
+        (
+            Language::Rust,
+            "fn f() {\n    let mut x = source();\n    {\n        let x = clean();\n        sink(x);\n    }\n    x = clean();\n    sink(x);\n}\n",
+            2,
+            4,
+            7,
+            8,
+        ),
+        (
+            Language::Go,
+            "package main\nfunc f() {\n\tx := source()\n\t{\n\t\tx := clean()\n\t\tsink(x)\n\t}\n\tx = clean()\n\tsink(x)\n}\n",
+            3,
+            5,
+            8,
+            9,
+        ),
+        (
+            Language::JavaScript,
+            "function f() {\n  let x = source();\n  {\n    let x = clean();\n    sink(x);\n  }\n  x = clean();\n  sink(x);\n}\n",
+            2,
+            4,
+            7,
+            8,
+        ),
+        (
+            Language::TypeScript,
+            "function f() {\n  let x = source();\n  {\n    let x = clean();\n    sink(x);\n  }\n  x = clean();\n  sink(x);\n}\n",
+            2,
+            4,
+            7,
+            8,
+        ),
+    ];
+    for (language, source, outer_line, inner_line, assignment_line, use_line) in cases {
+        let parsed = parsed(source, language);
+        let func = function(&parsed);
+        let outer = def(&parsed, 0, "x", outer_line, 0, false);
+        let inner = def(&parsed, 1, "x", inner_line, 0, false);
+        let assignment = def(&parsed, 2, "x", assignment_line, 0, false);
+        let outer_edge = edge(&parsed, &func, &outer, use_line);
+        let outcome = run(
+            &parsed,
+            &[outer, inner, assignment],
+            std::slice::from_ref(&outer_edge),
+        )
+        .0;
+        assert_label(
+            &outcome,
+            &outer_edge,
+            FlowConfidence::NameOnly(FlowDoubt::Killed {
+                kill_line: assignment_line as u32,
+            }),
+        );
+    }
+}
+
+#[test]
 fn alias_derived_defs_never_kill_in_v1() {
     let parsed = parsed(
         "def f():\n    p = q\n    p.x = 1\n    q.x = 2\n    use(q.x)\n",
@@ -252,6 +354,24 @@ fn same_line_defs_never_kill_one_another_by_byte_order() {
             FlowConfidence::NameOnly(FlowDoubt::SameLine),
         );
     }
+}
+
+#[test]
+fn duplicate_definition_observation_is_not_a_same_line_collision() {
+    let parsed = parsed(
+        "package main\nfunc f() {\n\tx := source()\n\tsink(x)\n\tx = clean()\n}\n",
+        Language::Go,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let source = defs
+        .iter()
+        .find(|def| def.path == AccessPath::simple("x") && def.line == 3)
+        .expect("short declaration must produce a definition")
+        .clone();
+    let source_edge = edge(&parsed, &func, &source, 4);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&source_edge)).0;
+    assert_label(&outcome, &source_edge, FlowConfidence::Exact);
 }
 
 #[test]
@@ -312,7 +432,7 @@ fn kill_line_is_the_lowest_reachable_killing_line() {
 }
 
 #[test]
-fn an_unreachable_kill_does_not_supply_the_payload() {
+fn no_reaching_candidate_without_a_proven_kill_is_cfg_incomplete() {
     let parsed = parsed(
         "def f():\n    x = source()\n    return\n    x = clean()\n    use(x)\n",
         Language::Python,
@@ -325,7 +445,7 @@ fn an_unreachable_kill_does_not_supply_the_payload() {
     assert_label(
         &outcome,
         &original_edge,
-        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 2 }),
+        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
     );
 }
 

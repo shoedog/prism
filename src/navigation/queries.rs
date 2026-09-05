@@ -1,5 +1,6 @@
+use crate::access_path::AccessPath;
 use crate::call_graph::{CallGraph, CallSite, FunctionId};
-use crate::cpg::{CpgEdge, CpgNode};
+use crate::cpg::{CodePropertyGraph, CpgEdge, CpgNode, FlowConfidence, FlowDoubt, VarAccess};
 use crate::navigation::seed;
 use crate::navigation::types::*;
 use crate::navigation::NavigationSession;
@@ -9,6 +10,83 @@ use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
+pub struct DfgEdgeEndpoint {
+    pub file: String,
+    pub line: usize,
+    pub path: AccessPath,
+    pub access: &'static str,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct DfgEdgeRecord {
+    pub from: DfgEdgeEndpoint,
+    pub to: DfgEdgeEndpoint,
+    pub confidence: &'static str,
+    pub doubt: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kill_line: Option<u32>,
+}
+
+pub fn dfg_edge_dump(cpg: &CodePropertyGraph) -> Vec<DfgEdgeRecord> {
+    let mut records: Vec<_> = cpg
+        .graph
+        .edge_references()
+        .filter_map(|edge| {
+            let CpgEdge::DataFlow(confidence) = *edge.weight() else {
+                return None;
+            };
+            let from = dfg_endpoint(cpg.node(edge.source()))?;
+            let to = dfg_endpoint(cpg.node(edge.target()))?;
+            let (doubt, kill_line) = match confidence {
+                FlowConfidence::Exact => (None, None),
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line }) => {
+                    (Some("killed"), Some(kill_line))
+                }
+                FlowConfidence::NameOnly(FlowDoubt::SameLine) => (Some("sameline"), None),
+                FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete) => {
+                    (Some("cfg_incomplete"), None)
+                }
+                FlowConfidence::NameOnly(FlowDoubt::AliasUnstable) => {
+                    (Some("alias_unstable"), None)
+                }
+                FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => (Some("call_nameonly"), None),
+            };
+            Some(DfgEdgeRecord {
+                from,
+                to,
+                confidence: confidence.level(),
+                doubt,
+                kill_line,
+            })
+        })
+        .collect();
+    records.sort_by(|left, right| (&left.from, &left.to).cmp(&(&right.from, &right.to)));
+    records
+}
+
+fn dfg_endpoint(node: &CpgNode) -> Option<DfgEdgeEndpoint> {
+    let CpgNode::Variable {
+        file,
+        line,
+        path,
+        access,
+        ..
+    } = node
+    else {
+        return None;
+    };
+    Some(DfgEdgeEndpoint {
+        file: file.clone(),
+        line: *line,
+        path: path.clone(),
+        access: match access {
+            VarAccess::Def => "def",
+            VarAccess::Use => "use",
+        },
+    })
+}
 
 /// Shape of a multi-target-Exact call site — what *kind* of receiver/qualifier
 /// minted the colliding pool. This decides which lever could address it:

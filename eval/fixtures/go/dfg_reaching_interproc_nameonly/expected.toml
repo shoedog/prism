@@ -7,5 +7,4 @@ probe = "dfg"
 [[expect.edges]]
 from = "main.go:5:x"
 to = "main.go:2:p"
-confidence = "nameonly"
-doubt = "call_nameonly"
+present = false

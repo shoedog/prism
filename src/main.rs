@@ -254,7 +254,25 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                     "return_flow".into(),
                     serde_json::to_value(&session.index.cpg().return_flow_stats)?,
                 );
+                stats.as_object_mut().expect("call-stats object").insert(
+                    "dfg_labels".into(),
+                    serde_json::to_value(&session.index.cpg().dfg_label_stats)?,
+                );
                 println!("{}", serde_json::to_string_pretty(&stats)?);
+            }
+            Ok(())
+        }
+        NavQuery::DfgStats { repo, edges } => {
+            let session = prism::api::nav_session(repo, &nav_options)?;
+            if *edges {
+                for edge in prism::navigation::queries::dfg_edge_dump(session.index.cpg()) {
+                    println!("{}", serde_json::to_string(&edge)?);
+                }
+            } else {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&session.index.cpg().dfg_label_stats)?
+                );
             }
             Ok(())
         }

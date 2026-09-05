@@ -751,3 +751,42 @@ fn call_stats_emits_one_return_flow_subobject_with_all_custody_counters() {
         })
     );
 }
+
+#[test]
+fn dfg_labels_are_additive_and_preserve_preexisting_call_stats_values() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("app.py"),
+        "def run():\n    x = source()\n    sink(x)\n",
+    )
+    .unwrap();
+
+    let mut options = prism::api::NavOptions::default();
+    options.no_cache = true;
+    let session = prism::api::nav_session(dir.path(), &options).unwrap();
+    let mut expected = prism::navigation::queries::call_stats(session.index.call_graph());
+    expected.as_object_mut().unwrap().insert(
+        "return_flow".into(),
+        serde_json::to_value(&session.index.cpg().return_flow_stats).unwrap(),
+    );
+
+    let output = Command::cargo_bin("prism")
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--repo"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let mut actual: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let dfg_labels = actual
+        .as_object_mut()
+        .unwrap()
+        .remove("dfg_labels")
+        .expect("call-stats must add dfg_labels");
+    assert!(dfg_labels.is_object(), "{dfg_labels:#}");
+    assert_eq!(actual, expected, "a pre-existing call-stats leaf changed");
+}

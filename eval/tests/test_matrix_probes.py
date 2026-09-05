@@ -496,6 +496,26 @@ callers = []
         load_case(path)
 
 
+def test_load_case_dfg_probe_rejects_findings_contract(tmp_path):
+    path = _write(tmp_path, "go", "dfg_findings", """
+[case]
+language = "go"
+capability = "dfg_findings"
+status = "pass"
+probe = "dfg"
+[expect]
+[[expect.edges]]
+from = "main.go:2:x"
+to = "main.go:3:x"
+[[expect.findings]]
+from = "main.go:2:x"
+to = "main.go:3:x"
+present = true
+""")
+    with pytest.raises(ValueError, match=r"unknown key.*findings"):
+        load_case(path)
+
+
 class FakeTaintSut:
     def __init__(self, evidence):
         self.evidence = evidence

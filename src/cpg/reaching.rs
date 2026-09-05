@@ -109,6 +109,7 @@ pub(crate) fn reaching_definitions(
     defs: &[DefSite],
     dfg_edges: &[FlowEdge],
 ) -> RdOutcome {
+    let defs = deduplicate_definitions(defs);
     if defs.len() > RD_MAX_DEFS {
         return RdOutcome::Unavailable(RdUnavailable::DefinitionsCapExceeded {
             actual: defs.len(),
@@ -172,6 +173,10 @@ pub(crate) fn reaching_definitions(
             }
         })
         .collect();
+    let def_scopes: Vec<DefinitionScope> = defs
+        .iter()
+        .map(|def| definition_scope(parsed, func_node, def))
+        .collect();
 
     let mut gen = vec![BitSet::new(defs.len()); node_count];
     for (index, mapped) in mapped_defs.iter().enumerate() {
@@ -190,6 +195,8 @@ pub(crate) fn reaching_definitions(
                 if !gen[node].contains(old_def)
                     && !defs[old_def].alias_derived
                     && defs[old_def].path == defs[new_def].path
+                    && (!def_scopes[new_def].introduces_block_binding
+                        || def_scopes[new_def].block == def_scopes[old_def].block)
                 {
                     kill[node].insert(old_def);
                 }
@@ -226,7 +233,7 @@ pub(crate) fn reaching_definitions(
         }
     }
 
-    let collapsed = collapsed_groups(defs);
+    let collapsed = collapsed_groups(&defs);
     let capture_facts = capture::capture_facts(parsed, *func_node);
     let mut labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence> = BTreeMap::new();
     let mut loop_carried_edges = BTreeSet::new();
@@ -234,7 +241,7 @@ pub(crate) fn reaching_definitions(
         let key = (edge.from.clone(), edge.to.clone());
         let label = classify_edge(
             edge,
-            defs,
+            &defs,
             &mapped_defs,
             &line_index,
             &spans,
@@ -258,6 +265,77 @@ pub(crate) fn reaching_definitions(
         labels,
         loop_carried_edges,
     })
+}
+
+fn deduplicate_definitions(defs: &[DefSite]) -> Vec<DefSite> {
+    let mut unique = Vec::<DefSite>::new();
+    let mut occurrences = BTreeMap::<(AccessPath, Line, usize), usize>::new();
+    for def in defs {
+        let occurrence = (def.path.clone(), def.line, def.start_byte);
+        if let Some(index) = occurrences.get(&occurrence).copied() {
+            unique[index].alias_derived |= def.alias_derived;
+        } else {
+            occurrences.insert(occurrence, unique.len());
+            unique.push(def.clone());
+        }
+    }
+    unique
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct DefinitionScope {
+    block: (usize, usize),
+    introduces_block_binding: bool,
+}
+
+fn definition_scope(parsed: &ParsedFile, func_node: &Node<'_>, def: &DefSite) -> DefinitionScope {
+    let function_block = func_node
+        .child_by_field_name("body")
+        .filter(|node| parsed.language.is_scope_block(node.kind()))
+        .map(|node| (node.start_byte(), node.end_byte()))
+        .unwrap_or((func_node.start_byte(), func_node.end_byte()));
+    let mut result = DefinitionScope {
+        block: function_block,
+        introduces_block_binding: false,
+    };
+    let Some(end_byte) = def
+        .start_byte
+        .checked_add(1)
+        .filter(|end| *end <= parsed.source.len())
+    else {
+        return result;
+    };
+    let Some(mut node) = parsed
+        .tree
+        .root_node()
+        .descendant_for_byte_range(def.start_byte, end_byte)
+    else {
+        return result;
+    };
+    loop {
+        result.introduces_block_binding |= match parsed.language {
+            Language::Rust => matches!(node.kind(), "let_declaration"),
+            Language::Go => matches!(
+                node.kind(),
+                "var_declaration" | "short_var_declaration" | "const_declaration"
+            ),
+            Language::JavaScript | Language::TypeScript | Language::Tsx => {
+                node.kind() == "lexical_declaration"
+            }
+            _ => false,
+        };
+        if parsed.language.is_scope_block(node.kind()) {
+            result.block = (node.start_byte(), node.end_byte());
+            return result;
+        }
+        if node.start_byte() <= func_node.start_byte() && func_node.end_byte() <= node.end_byte() {
+            return result;
+        }
+        let Some(parent) = node.parent() else {
+            return result;
+        };
+        node = parent;
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -369,7 +447,7 @@ fn classify_edge(
         return FlowConfidence::Exact;
     }
 
-    let kill_line = candidates
+    let Some(kill_line) = candidates
         .iter()
         .filter_map(|index| {
             lowest_reachable_kill(
@@ -382,7 +460,9 @@ fn classify_edge(
             )
         })
         .min()
-        .unwrap_or(edge.from.line);
+    else {
+        return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+    };
     FlowConfidence::NameOnly(FlowDoubt::Killed {
         kill_line: u32::try_from(kill_line).unwrap_or(u32::MAX),
     })

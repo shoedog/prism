@@ -491,6 +491,14 @@ pub enum NavQuery {
         #[arg(long)]
         dump_sites: bool,
     },
+    /// Whole-repo DataFlow confidence telemetry.
+    DfgStats {
+        #[arg(long)]
+        repo: std::path::PathBuf,
+        /// Emit deterministic JSONL custody for every labeled DataFlow edge.
+        #[arg(long)]
+        edges: bool,
+    },
     /// Whole-repo interface-dispatch in-scope manifest (Phase-IP PR-2 §8a).
     InterfaceManifest {
         #[arg(long)]

@@ -40,7 +40,7 @@ use crate::access_path::AccessPath;
 #[cfg(test)]
 use std::collections::{BTreeMap, BTreeSet};
 
-pub use build::{CodePropertyGraph, ReturnFlowStats};
+pub use build::{CodePropertyGraph, DfgLabelStats, ReturnFlowStats};
 pub use context::{CpgContext, CpgScope};
 pub use flow_confidence::{FlowConfidence, FlowDoubt};
 pub use reaching::RdFileStats;

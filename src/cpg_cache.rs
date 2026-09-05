@@ -23,7 +23,7 @@
 
 use crate::access_path::AccessPath;
 use crate::call_graph::CallGraph;
-use crate::cpg::{CodePropertyGraph, CpgEdge, CpgNode, ReturnFlowStats, VarAccess};
+use crate::cpg::{CodePropertyGraph, CpgEdge, CpgNode, DfgLabelStats, ReturnFlowStats, VarAccess};
 use crate::data_flow::DataFlowGraph;
 
 use petgraph::graph::{DiGraph, NodeIndex};
@@ -240,6 +240,8 @@ struct SerializedCpg {
     dfg: DataFlowGraph,
     /// Return-flow construction counters survive cold/cache-hit parity.
     return_flow_stats: ReturnFlowStats,
+    /// DFG label counters survive cold/cache-hit parity.
+    dfg_label_stats: DfgLabelStats,
 }
 
 /// Human-readable metadata written alongside the binary cache for debugging.
@@ -366,6 +368,7 @@ pub fn save_cache_with_topology(
             call_graph: cpg.call_graph.clone(),
             dfg: cpg.dfg.clone(),
             return_flow_stats: cpg.return_flow_stats.clone(),
+            dfg_label_stats: cpg.dfg_label_stats.clone(),
         },
     };
 
@@ -663,6 +666,7 @@ fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
         ser.dfg,
     );
     cpg.return_flow_stats = ser.return_flow_stats;
+    cpg.dfg_label_stats = ser.dfg_label_stats;
     cpg
 }
 
@@ -1329,6 +1333,7 @@ mod tests {
                 call_graph: CallGraph::empty(),
                 dfg: DataFlowGraph::empty(),
                 return_flow_stats: ReturnFlowStats::default(),
+                dfg_label_stats: DfgLabelStats::default(),
             },
         };
         std::fs::write(
@@ -1363,6 +1368,7 @@ mod tests {
                 call_graph: CallGraph::empty(),
                 dfg: DataFlowGraph::empty(),
                 return_flow_stats: ReturnFlowStats::default(),
+                dfg_label_stats: DfgLabelStats::default(),
             },
         };
         std::fs::write(

@@ -65,7 +65,6 @@ class Case:
     # probe == "dfg"
     expect_dfg_edges: list = field(default_factory=list)
     expect_dfg_stats: dict = field(default_factory=dict)
-    expect_dfg_findings: list = field(default_factory=list)
 
 
 @dataclass
@@ -101,11 +100,10 @@ EXPECT_KEYS_BY_PROBE = {
     "callers": {"callers", "exact", "resolution_kind", "forbid_resolution_kind"},
     "taint": {"reachability", "warning_kinds_present", "sanitizers_present", "frontier_count_min"},
     "module_deps": {"module_edges", "forbid_to", "exact"},
-    "dfg": {"edges", "stats", "findings"},
+    "dfg": {"edges", "stats"},
 }
 DFG_EDGE_KEYS = {"from", "to", "confidence", "doubt", "kill_line", "present"}
 DFG_STATS_KEYS = {"dfg_label_loop_carried_min"}
-DFG_FINDING_KEYS = {"from", "to", "confidence", "crossed_unlabeled", "present"}
 # Controller adjudication (e): the only wire `Reachability` variants plus this
 # harness's own "None" (JSON null / frontier mode) sentinel. Anything else is
 # a typo'd sentinel that would otherwise silently never match. "Sanitized" (P10)
@@ -285,28 +283,10 @@ def load_case(toml_path: Path) -> Case:
                 f"{toml_path}: expect.stats.dfg_label_loop_carried_min "
                 f"must be an int >= 1, got {loop_carried_min!r}"
             )
-        findings = list(expect.get("findings", []))
-        for index, finding in enumerate(findings):
-            _reject_unknown_keys(
-                toml_path, probe, f"expect.findings[{index}]", finding,
-                DFG_FINDING_KEYS,
-            )
-            if not isinstance(finding.get("from"), str) or not isinstance(
-                finding.get("to"), str
-            ):
-                raise ValueError(
-                    f"{toml_path}: expect.findings[{index}] requires string from/to endpoints"
-                )
-            for bool_key in ("crossed_unlabeled", "present"):
-                if bool_key in finding and type(finding[bool_key]) is not bool:
-                    raise ValueError(
-                        f"{toml_path}: expect.findings[{index}].{bool_key} must be a bool"
-                    )
         return Case(
             **common,
             expect_dfg_edges=edges,
             expect_dfg_stats=stats,
-            expect_dfg_findings=findings,
         )
 
     # probe == "module_deps"
@@ -550,12 +530,11 @@ def _dfg_expectation_matches(expected: dict, actual: list[dict]) -> bool:
 
 
 def _dfg_expected(case: Case) -> object:
-    if not case.expect_dfg_stats and not case.expect_dfg_findings:
+    if not case.expect_dfg_stats:
         return case.expect_dfg_edges
     return {
         "edges": case.expect_dfg_edges,
         "stats": case.expect_dfg_stats,
-        "findings": case.expect_dfg_findings,
     }
 
 
@@ -615,16 +594,43 @@ def _run_dfg_case(case: Case, lang: str, sut) -> CaseResult:
         }
         for edge in actual
     ]
-    supplemental_staged = bool(case.expect_dfg_stats or case.expect_dfg_findings)
-    matched = edges_matched and not supplemental_staged
-    got = (
-        {
+    got_stats = {}
+    stats_matched = True
+    if case.expect_dfg_stats:
+        stats_command = [
+            getattr(sut, "bin", "prism"), "nav", *cache_args, "dfg-stats",
+            "--repo", str(case.path),
+        ]
+        stats_completed = subprocess.run(stats_command, capture_output=True, text=True)
+        if stats_completed.returncode != 0:
+            got_stats = {
+                "error": "DFG_STATS_COMMAND_FAILED",
+                "exit": stats_completed.returncode,
+                "stdout": stats_completed.stdout.strip(),
+                "stderr": stats_completed.stderr.strip(),
+            }
+            stats_matched = False
+        else:
+            try:
+                got_stats = json.loads(stats_completed.stdout)
+            except json.JSONDecodeError as exc:
+                got_stats = {"error": f"DFG_STATS_INVALID_JSON|{exc}"}
+                stats_matched = False
+            else:
+                loop_min = case.expect_dfg_stats.get("dfg_label_loop_carried_min")
+                if loop_min is not None:
+                    stats_matched = (
+                        isinstance(got_stats.get("dfg_label_loop_carried"), int)
+                        and got_stats["dfg_label_loop_carried"] >= loop_min
+                    )
+
+    matched = edges_matched and stats_matched
+    got = got_edges
+    if case.expect_dfg_stats:
+        got = {
             "edges": got_edges,
-            "supplemental": "DFG_ORACLE_SUPPLEMENTAL_EXPECTATIONS_STAGED",
+            "stats": got_stats,
         }
-        if supplemental_staged
-        else got_edges
-    )
     return CaseResult(
         case.capability, lang, _status_outcome(case.status, matched), got,
         _dfg_expected(case), {}, None, None, probe="dfg",

@@ -290,7 +290,17 @@ fn cache_cold_full_hit_and_partial_hit_agree_on_every_label() {
     assert_dfg_label_membership_complete(&cold);
     let cold_labels = cold.dfg.labels.clone();
     let cold_rd_function_stats = cold.dfg.rd_function_stats.clone();
+    let cold_label_stats = cold.dfg_label_stats.clone();
     let cold_payloads = graph_dataflow_payloads(&cold);
+    let cold_nameonly_total = cold_label_stats.dfg_label_nameonly_killed
+        + cold_label_stats.dfg_label_nameonly_sameline
+        + cold_label_stats.dfg_label_nameonly_cfg_incomplete
+        + cold_label_stats.dfg_label_nameonly_alias_unstable
+        + cold_label_stats.dfg_label_nameonly_call;
+    assert!(
+        cold_label_stats.dfg_label_exact > 0 && cold_nameonly_total > 0,
+        "the serialized cold fixture must include nonzero aggregate label counters"
+    );
     assert!(cold_labels.values().any(|label| label.is_exact()));
     assert!(
         cold_labels.values().any(|label| !label.is_exact()),
@@ -323,6 +333,7 @@ fn cache_cold_full_hit_and_partial_hit_agree_on_every_label() {
     assert_dfg_label_membership_complete(&full_hit);
     assert_eq!(full_hit.dfg.labels, cold_labels);
     assert_eq!(full_hit.dfg.rd_function_stats, cold_rd_function_stats);
+    assert_eq!(full_hit.dfg_label_stats, cold_label_stats);
     assert_eq!(graph_dataflow_payloads(&full_hit), cold_payloads);
 
     let mut edited_sources = sources.clone();

@@ -463,7 +463,7 @@ fn labeled_walk_forward_carries_the_known_label_per_target() {
             .values()
             .copied()
             .fold(FlowConfidence::Exact, FlowConfidence::worst),
-        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 })
+        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
     );
 }
 

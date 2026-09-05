@@ -4,16 +4,14 @@ capability = "dfg_reaching_shadowed_inner_negative"
 status = "pass"
 probe = "dfg"
 
-# The edge stays absent, but Task 4 must project the crossed shadow boundary as
-# a non-empty conservative finding. Task 6 owns this staged oracle assertion.
 [[expect.edges]]
 from = "main.go:3:x"
 to = "main.go:6:x"
 present = false
 
-[[expect.findings]]
+[[expect.edges]]
 from = "main.go:3:x"
-to = "main.go:6:x"
+to = "main.go:9:x"
 confidence = "nameonly"
-crossed_unlabeled = true
-present = true
+doubt = "killed"
+kill_line = 8
