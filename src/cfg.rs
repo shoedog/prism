@@ -1449,6 +1449,88 @@ void f(int x) {
         );
     }
 
+    #[test]
+    fn js_ts_and_java_switch_fallthrough_cases_are_not_arm_crossings() {
+        let cases = [
+            (
+                "d.js",
+                Language::JavaScript,
+                "function f(x) {\n  switch (x) {\n    case 1:\n      a = 1;\n    case 2:\n      b = 2;\n      break;\n  }\n}\n",
+                (4usize, 6usize),
+            ),
+            (
+                "d.ts",
+                Language::TypeScript,
+                "function f(x: number) {\n  switch (x) {\n    case 1:\n      a = 1;\n    case 2:\n      b = 2;\n      break;\n  }\n}\n",
+                (4, 6),
+            ),
+            (
+                "d.tsx",
+                Language::Tsx,
+                "function f(x: number) {\n  switch (x) {\n    case 1:\n      a = 1;\n    case 2:\n      b = 2;\n      break;\n  }\n}\n",
+                (4, 6),
+            ),
+            (
+                "D.java",
+                Language::Java,
+                "class D {\n  int f(int x) {\n    switch (x) {\n      case 1:\n        a = 1;\n      case 2:\n        b = 2;\n        break;\n    }\n    return b;\n  }\n}\n",
+                (5, 7),
+            ),
+        ];
+
+        for (path, language, source, pair) in cases {
+            let parsed = ParsedFile::parse(path, source, language).unwrap();
+            let all: Vec<(usize, usize)> = crate::cfg::build_cfg_edges(&parsed)
+                .iter()
+                .map(|edge| (edge.from_line, edge.to_line))
+                .collect();
+            assert!(
+                all.contains(&pair),
+                "{path}: case fallthrough edge {pair:?} must exist, got {all:?}"
+            );
+            let flagged = flagged_pairs(&parsed);
+            assert!(
+                !flagged.contains(&pair),
+                "{path}: case fallthrough edge {pair:?} is genuine, flagged={flagged:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn finally_bodies_are_not_mutually_exclusive_arms() {
+        let cases = [
+            (
+                "d.py",
+                Language::Python,
+                "def f():\n    try:\n        x = 1\n    finally:\n        x = 2\n    return x\n",
+                (3usize, 5usize),
+            ),
+            (
+                "d.ts",
+                Language::TypeScript,
+                "function f() {\n  try {\n    x = 1;\n  } finally {\n    x = 2;\n  }\n  return x;\n}\n",
+                (3, 5),
+            ),
+        ];
+
+        for (path, language, source, pair) in cases {
+            let parsed = ParsedFile::parse(path, source, language).unwrap();
+            let all: Vec<(usize, usize)> = crate::cfg::build_cfg_edges(&parsed)
+                .iter()
+                .map(|edge| (edge.from_line, edge.to_line))
+                .collect();
+            assert!(
+                all.contains(&pair),
+                "{path}: try-to-finally edge {pair:?} must exist, got {all:?}"
+            );
+            let flagged = flagged_pairs(&parsed);
+            assert!(
+                !flagged.contains(&pair),
+                "{path}: finally is mandatory, not an alternative arm; flagged={flagged:?}"
+            );
+        }
+    }
+
     /// The arm map must be TOTAL over `statements_in_function`'s line universe:
     /// `collect_statement_arms` mirrors `collect_statements` child-for-child, so
     /// every CFG statement line has a real arm id and the `UNKNOWN_*_ARM`
@@ -1506,10 +1588,7 @@ void f(int x) {
             }
         }
 
-        // Multi-arm tagging is asserted only where the statement universe
-        // actually CONTAINS the arms. Today that is C: `collect_statements`
-        // recurses through `compound_statement`, so both halves of the diamond
-        // and the loop body are in the universe.
+        // Multi-arm tagging must be real, not a root-arm-only totality map.
         let parsed = ParsedFile::parse(cases[0].0, cases[0].2, cases[0].1).unwrap();
         let func = parsed.all_functions()[0];
         let arms = parsed.statement_arms_in_function(&func);
@@ -1519,37 +1598,24 @@ void f(int x) {
             arms.distinct_arms()
         );
 
-        // The Python and TypeScript cases above CANNOT assert that, and saying so
-        // out loud is the point: `except_clause` / `catch_clause` /
-        // `finally_clause` are neither block-ish kinds nor control-flow kinds, so
-        // `collect_nested_statements` skips them entirely and the handler bodies
-        // never enter `statements_in_function`. The totality assertion above is
-        // therefore vacuous for those arms. Task 0b closes this gap; when it
-        // lands these two assertions FLIP and this test must be updated to assert
-        // multi-arm tagging for Python and TypeScript too.
         let py = ParsedFile::parse(cases[1].0, cases[1].2, cases[1].1).unwrap();
         let py_lines: Vec<usize> = py
             .statements_in_function(&py.all_functions()[0])
             .into_iter()
             .map(|(l, _)| l)
             .collect();
-        // Positive first, so the negatives below cannot pass by mis-numbering:
-        // the `if`/`else` arms and the `try` BODY are in the universe.
         assert!(
-            py_lines.contains(&4) && py_lines.contains(&6) && py_lines.contains(&8),
-            "python universe must hold the if-arm (4), else-arm (6) and try body (8): {py_lines:?}"
+            [4usize, 6, 8, 10, 12]
+                .iter()
+                .all(|line| py_lines.contains(line)),
+            "python universe must hold the if/else, try, except and finally bodies: {py_lines:?}"
         );
-        for (line, what) in [
-            (10usize, "`except` handler body `x = 5`"),
-            (12, "`finally` body `x = 6`"),
-        ] {
-            assert!(
-                !py_lines.contains(&line),
-                "TASK 0b TRIPWIRE: python {what} (line {line}) is now in the CFG universe \
-                 {py_lines:?} — the gap this test documents is closed; assert multi-arm \
-                 tagging for Python here instead of this negative"
-            );
-        }
+        let py_arms = py.statement_arms_in_function(&py.all_functions()[0]);
+        assert!(
+            py_arms.distinct_arms() >= 3,
+            "Python: try/except alternatives must tag at least 3 distinct arms, got {}",
+            py_arms.distinct_arms()
+        );
 
         let ts = ParsedFile::parse(cases[4].0, cases[4].2, cases[4].1).unwrap();
         let ts_lines: Vec<usize> = ts
@@ -1558,20 +1624,15 @@ void f(int x) {
             .map(|(l, _)| l)
             .collect();
         assert!(
-            ts_lines.contains(&4),
-            "typescript universe must hold the try body (4): {ts_lines:?}"
+            [4usize, 6, 8].iter().all(|line| ts_lines.contains(line)),
+            "typescript universe must hold the try, catch and finally bodies: {ts_lines:?}"
         );
-        for (line, what) in [
-            (6usize, "`catch` handler body `x = 3`"),
-            (8, "`finally` body `x = 4`"),
-        ] {
-            assert!(
-                !ts_lines.contains(&line),
-                "TASK 0b TRIPWIRE: typescript {what} (line {line}) is now in the CFG universe \
-                 {ts_lines:?} — the gap this test documents is closed; assert multi-arm \
-                 tagging for TypeScript here instead of this negative"
-            );
-        }
+        let ts_arms = ts.statement_arms_in_function(&ts.all_functions()[0]);
+        assert!(
+            ts_arms.distinct_arms() >= 3,
+            "TypeScript: try/catch alternatives must tag at least 3 distinct arms, got {}",
+            ts_arms.distinct_arms()
+        );
     }
 
     /// Edge case for the fallback path: an endpoint line that is absent from the

@@ -8,7 +8,8 @@
 //!   cargo run --release --example dfg_census -- <repo-root> <label> <out-dir>
 //!
 //! Columns (CSV): repo,lang,file,function,start_line,end_line,n_lines,n_defs,
-//! n_defs_raw,n_uses,n_uses_raw,n_cfg_nodes,n_cfg_edges,n_dfg_edges,n_dfg_edges_cfg_ok
+//! n_defs_raw,n_uses,n_uses_raw,n_cfg_nodes,n_cfg_edges,n_dfg_edges,n_dfg_edges_cfg_ok,
+//! n_dfg_edges_span_ok,n_dfg_edges_nested_callable
 //!
 //! Column definitions, matching spec §4.1–4.3.
 //!
@@ -27,12 +28,15 @@
 //!
 //! `n_cfg_edges` counts CFG edges from `cfg::build_cfg_edges(parsed)` whose `from_line`
 //! is one of this function's statement lines. `build_function_cfg` is private, so a
-//! per-function CFG is not directly obtainable. Statement collection descends into
-//! nested callables, so an outer function's count includes edges lexically inside its
-//! nested closures.
+//! per-function CFG is not directly obtainable.
 //!
 //! `n_dfg_edges_cfg_ok` counts DFG edges RD could label at all: use line in the CFG line
 //! universe, def line in it or at the function start (the synthetic ENTRY of §4.2 step 4).
+//!
+//! `n_dfg_edges_span_ok` applies the v6.3 form of that test: each non-ENTRY endpoint line
+//! may fall anywhere from the start through end line of any statement span. Edges with
+//! either endpoint byte-contained by a nested callable body are excluded from this
+//! numerator and its denominator; `n_dfg_edges_nested_callable` reports that population.
 //!
 //! This binary reads only public API (`prism::ast`, `prism::cfg`, `prism::cpg`,
 //! `prism::data_flow`, `prism::repo_loader`) and changes nothing under `src/`.
@@ -48,6 +52,7 @@ use std::fmt::Write as _;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
+use tree_sitter::Node;
 
 fn lang_name(l: Language) -> &'static str {
     match l {
@@ -76,9 +81,190 @@ struct Counts {
     uses: usize,
     uses_raw: usize,
     dfg_edges: usize,
-    /// (def_line, use_line) of every DFG edge in this function, so the census can
-    /// count how many edges have both endpoints inside the CFG's line universe.
-    edge_lines: Vec<(usize, usize)>,
+    /// Source coordinates of every DFG edge in this function, retained so the
+    /// census can measure both line and lexical-body containment.
+    edge_endpoints: Vec<EdgeEndpoints>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct EdgeEndpoints {
+    def_line: usize,
+    def_start_byte: usize,
+    def_end_byte: usize,
+    use_line: usize,
+    use_start_byte: usize,
+    use_end_byte: usize,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct EdgeAdmissibility {
+    cfg_ok: usize,
+    span_ok: usize,
+    nested_callable: usize,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ByteRange {
+    start: usize,
+    end: usize,
+}
+
+impl ByteRange {
+    fn contains(self, start: usize, end: usize) -> bool {
+        self.start <= start && end <= self.end
+    }
+}
+
+fn edge_admissibility(
+    parsed: &ParsedFile,
+    func_node: Node<'_>,
+    function_start: usize,
+    stmt_lines: &BTreeSet<usize>,
+    source_line_starts: &[usize],
+    edges: &[EdgeEndpoints],
+) -> EdgeAdmissibility {
+    let statement_line_ranges: Vec<(usize, usize)> = parsed
+        .statement_spans_in_function(&func_node)
+        .into_iter()
+        .map(|span| {
+            let last_byte = span.end_byte.saturating_sub(1).max(span.start_byte);
+            (span.line, line_at_byte(source_line_starts, last_byte))
+        })
+        .collect();
+    let nested_callable_bodies = nested_callable_body_ranges(parsed, func_node);
+    let mut result = EdgeAdmissibility::default();
+
+    for edge in edges {
+        if stmt_lines.contains(&edge.use_line)
+            && (stmt_lines.contains(&edge.def_line) || edge.def_line == function_start)
+        {
+            result.cfg_ok += 1;
+        }
+
+        let touches_nested_callable = nested_callable_bodies.iter().any(|body| {
+            body.contains(edge.def_start_byte, edge.def_end_byte)
+                || body.contains(edge.use_start_byte, edge.use_end_byte)
+        });
+        if touches_nested_callable {
+            result.nested_callable += 1;
+            continue;
+        }
+
+        let use_in_statement = line_is_in_any_range(edge.use_line, &statement_line_ranges);
+        let def_in_statement = line_is_in_any_range(edge.def_line, &statement_line_ranges);
+        if use_in_statement && (def_in_statement || edge.def_line == function_start) {
+            result.span_ok += 1;
+        }
+    }
+
+    result
+}
+
+fn source_line_starts(source: &str) -> Vec<usize> {
+    let mut starts = vec![0];
+    starts.extend(
+        source
+            .as_bytes()
+            .iter()
+            .enumerate()
+            .filter_map(|(index, byte)| (*byte == b'\n').then_some(index + 1)),
+    );
+    starts
+}
+
+fn line_at_byte(line_starts: &[usize], byte: usize) -> usize {
+    line_starts.partition_point(|start| *start <= byte).max(1)
+}
+
+fn line_is_in_any_range(line: usize, ranges: &[(usize, usize)]) -> bool {
+    ranges
+        .iter()
+        .any(|(start, end)| *start <= line && line <= *end)
+}
+
+fn nested_callable_body_ranges(parsed: &ParsedFile, func_node: Node<'_>) -> Vec<ByteRange> {
+    fn collect(language: Language, node: Node<'_>, out: &mut Vec<ByteRange>) {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if is_nested_callable_kind(language, child.kind()) {
+                let body = callable_body_node(language, child).unwrap_or(child);
+                out.push(ByteRange {
+                    start: body.start_byte(),
+                    end: body.end_byte(),
+                });
+                continue;
+            }
+            collect(language, child, out);
+        }
+    }
+
+    let mut out = Vec::new();
+    let body = callable_body_node(parsed.language, func_node).unwrap_or(func_node);
+    collect(parsed.language, body, &mut out);
+    out
+}
+
+fn callable_body_node(language: Language, node: Node<'_>) -> Option<Node<'_>> {
+    let callable = if language == Language::Python && node.kind() == "decorated_definition" {
+        let mut cursor = node.walk();
+        let function = node
+            .children(&mut cursor)
+            .find(|child| child.kind() == "function_definition")
+            .unwrap_or(node);
+        function
+    } else if language == Language::Cpp && node.kind() == "template_declaration" {
+        let mut cursor = node.walk();
+        let function = node
+            .children(&mut cursor)
+            .find(|child| child.kind() == "function_definition")
+            .unwrap_or(node);
+        function
+    } else {
+        node
+    };
+
+    callable
+        .child_by_field_name("body")
+        .or_else(|| callable.child_by_field_name("consequence"))
+}
+
+fn is_nested_callable_kind(language: Language, kind: &str) -> bool {
+    match language {
+        Language::Python => matches!(
+            kind,
+            "function_definition" | "decorated_definition" | "lambda"
+        ),
+        Language::JavaScript | Language::TypeScript | Language::Tsx => matches!(
+            kind,
+            "function_declaration"
+                | "method_definition"
+                | "arrow_function"
+                | "function_expression"
+                | "generator_function_declaration"
+                | "generator_function"
+                | "generator_function_expression"
+        ),
+        Language::Go => matches!(
+            kind,
+            "function_declaration" | "method_declaration" | "func_literal"
+        ),
+        Language::Rust => matches!(
+            kind,
+            "function_item" | "closure_expression" | "async_block" | "gen_block"
+        ),
+        Language::Java => matches!(
+            kind,
+            "method_declaration" | "constructor_declaration" | "lambda_expression"
+        ),
+        Language::Cpp => matches!(
+            kind,
+            "function_definition" | "template_declaration" | "lambda_expression"
+        ),
+        Language::C => kind == "function_definition",
+        Language::Lua => matches!(kind, "function_declaration" | "function_definition"),
+        Language::Bash => kind == "function_definition",
+        Language::Terraform => false,
+    }
 }
 
 fn csv_escape(s: &str) -> String {
@@ -153,14 +339,21 @@ fn run(root: &Path, label: &str, out_dir: &Path) -> anyhow::Result<()> {
             ))
             .or_default();
         e.dfg_edges += 1;
-        e.edge_lines.push((edge.from.line, edge.to.line));
+        e.edge_endpoints.push(EdgeEndpoints {
+            def_line: edge.from.line,
+            def_start_byte: edge.from.start_byte,
+            def_end_byte: edge.from.end_byte,
+            use_line: edge.to.line,
+            use_start_byte: edge.to.start_byte,
+            use_end_byte: edge.to.end_byte,
+        });
     }
 
     // ---- 4. Walk the AST the same way `DataFlowGraph::build` does, so the CSV
     //         has a row per function the DFG iterates, joined to CFG shape.
     let mut csv = String::new();
     csv.push_str(
-        "repo,lang,file,function,start_line,end_line,n_lines,n_defs,n_defs_raw,n_uses,n_uses_raw,n_cfg_nodes,n_cfg_edges,n_dfg_edges,n_dfg_edges_cfg_ok\n",
+        "repo,lang,file,function,start_line,end_line,n_lines,n_defs,n_defs_raw,n_uses,n_uses_raw,n_cfg_nodes,n_cfg_edges,n_dfg_edges,n_dfg_edges_cfg_ok,n_dfg_edges_span_ok,n_dfg_edges_nested_callable\n",
     );
     let mut n_functions = 0usize;
     let mut n_functions_unnamed = 0usize;
@@ -168,6 +361,7 @@ fn run(root: &Path, label: &str, out_dir: &Path) -> anyhow::Result<()> {
 
     for (path, parsed) in &files {
         let lang = lang_name(parsed.language);
+        let file_line_starts = source_line_starts(&parsed.source);
         // One CFG build per file (this is exactly what CPG Step 8 does).
         let file_edges = cfg::build_cfg_edges(parsed);
         let mut from_lines: BTreeMap<usize, usize> = BTreeMap::new();
@@ -207,21 +401,22 @@ fn run(root: &Path, label: &str, out_dir: &Path) -> anyhow::Result<()> {
                 .sum();
 
             let c = counts.get(&key).cloned().unwrap_or_default();
-            // Spec §4.2 step 33: an edge is labelable at all only when its use line is
-            // in the CFG's line universe and its def line is in that universe or is the
-            // synthetic ENTRY at the function start (step 4 — parameter Defs are pinned
-            // to the signature line, which `collect_statements` never yields). Every
-            // other edge is `NameOnly(CfgIncomplete)` before any cap is consulted.
+            // The raw start-line metric is retained for comparison. The v6.3 gate uses
+            // statement-span containment and excludes edges that touch nested callable
+            // bodies; those have unmodeled execution timing and are reported separately.
             let stmt_set: BTreeSet<usize> = stmts.iter().map(|(l, _)| *l).collect();
-            let n_dfg_edges_cfg_ok = c
-                .edge_lines
-                .iter()
-                .filter(|(d, u)| stmt_set.contains(u) && (stmt_set.contains(d) || *d == start))
-                .count();
+            let admissibility = edge_admissibility(
+                parsed,
+                func_node,
+                start,
+                &stmt_set,
+                &file_line_starts,
+                &c.edge_endpoints,
+            );
             let n_lines = end.saturating_sub(start) + 1;
             let _ = writeln!(
                 csv,
-                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
                 csv_escape(label),
                 lang,
                 csv_escape(path),
@@ -236,7 +431,9 @@ fn run(root: &Path, label: &str, out_dir: &Path) -> anyhow::Result<()> {
                 n_cfg_nodes,
                 n_cfg_edges,
                 c.dfg_edges,
-                n_dfg_edges_cfg_ok,
+                admissibility.cfg_ok,
+                admissibility.span_ok,
+                admissibility.nested_callable,
             );
         }
     }
@@ -291,4 +488,100 @@ fn run(root: &Path, label: &str, out_dir: &Path) -> anyhow::Result<()> {
         eprintln!("{label}: cpg {cpg_secs:.2}s");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fixture_admissibility(
+        path: &str,
+        source: &str,
+        language: Language,
+        function_name: &str,
+    ) -> (EdgeAdmissibility, usize) {
+        let parsed = ParsedFile::parse(path, source, language).expect("fixture must parse");
+        let func_node = parsed
+            .all_functions()
+            .into_iter()
+            .find(|node| {
+                parsed
+                    .language
+                    .function_name(node)
+                    .is_some_and(|name| parsed.node_text(&name) == function_name)
+            })
+            .expect("fixture function must exist");
+        let (start, _) = parsed.node_line_range(&func_node);
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed.clone());
+        let dfg = DataFlowGraph::build(&files);
+        let edges: Vec<EdgeEndpoints> = dfg
+            .edges
+            .iter()
+            .filter(|edge| {
+                edge.from.file == path
+                    && edge.from.function == function_name
+                    && edge.from.function_start_line == start
+            })
+            .map(|edge| EdgeEndpoints {
+                def_line: edge.from.line,
+                def_start_byte: edge.from.start_byte,
+                def_end_byte: edge.from.end_byte,
+                use_line: edge.to.line,
+                use_start_byte: edge.to.start_byte,
+                use_end_byte: edge.to.end_byte,
+            })
+            .collect();
+        let stmt_lines = parsed
+            .statements_in_function(&func_node)
+            .into_iter()
+            .map(|(line, _)| line)
+            .collect();
+        let line_starts = source_line_starts(&parsed.source);
+
+        (
+            edge_admissibility(&parsed, func_node, start, &stmt_lines, &line_starts, &edges),
+            edges.len(),
+        )
+    }
+
+    #[test]
+    fn continuation_line_edge_is_span_admissible_but_not_cfg_start_admissible() {
+        let source = "def f(x):\n    consume(\n        x\n    )\n";
+        let (admissibility, n_edges) =
+            fixture_admissibility("continuation.py", source, Language::Python, "f");
+
+        assert!(n_edges > 0, "fixture must build at least one DFG edge");
+        assert_eq!(admissibility.cfg_ok, 0);
+        assert_eq!(admissibility.span_ok, n_edges);
+        assert_eq!(admissibility.nested_callable, 0);
+    }
+
+    #[test]
+    fn lambda_body_edge_is_counted_as_nested_callable() {
+        let source = "def f(x):\n    apply = lambda y: y + x\n    return apply(x)\n";
+        let (admissibility, n_edges) =
+            fixture_admissibility("lambda.py", source, Language::Python, "f");
+
+        assert!(n_edges > 0, "fixture must build at least one DFG edge");
+        assert!(
+            admissibility.nested_callable > 0,
+            "an edge touching the lambda body must be excluded"
+        );
+        assert!(admissibility.nested_callable < n_edges);
+    }
+
+    #[test]
+    fn same_line_arrow_does_not_exclude_unrelated_outer_endpoint() {
+        let source = "function f(x, z) {\n  invoke(y => y + x); use(z);\n}\n";
+        let (admissibility, n_edges) =
+            fixture_admissibility("same-line.js", source, Language::JavaScript, "f");
+
+        assert!(
+            n_edges > 1,
+            "fixture must contain nested and outer DFG edges"
+        );
+        assert!(admissibility.nested_callable > 0);
+        assert!(admissibility.nested_callable < n_edges);
+    }
 }
