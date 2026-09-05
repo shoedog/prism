@@ -1,0 +1,12 @@
+[case]
+language = "python"
+capability = "dfg_reaching_nonlocal_global"
+status = "pass"
+probe = "dfg"
+
+# The module/call-boundary relation remains unlabeled; Task 4 owns its
+# crossed_unlabeled finding projection.
+[[expect.edges]]
+from = "a.py:1:x"
+to = "a.py:8:x"
+present = false

@@ -1,0 +1,15 @@
+[case]
+language = "rust"
+capability = "dfg_reaching_shadowed_inner"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.rs:2:x"
+to = "main.rs:5:x"
+present = false
+
+[[expect.edges]]
+from = "main.rs:2:x"
+to = "main.rs:7:x"
+confidence = "exact"

@@ -1,0 +1,17 @@
+[case]
+language = "rust"
+capability = "dfg_reaching_killed_def"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.rs:2:x"
+to = "main.rs:4:x"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 3
+
+[[expect.edges]]
+from = "main.rs:3:x"
+to = "main.rs:4:x"
+confidence = "exact"

@@ -1,0 +1,11 @@
+[case]
+language = "python"
+capability = "dfg_reaching_cfg_gap"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "a.py:4:x"
+to = "a.py:5:x"
+confidence = "nameonly"
+doubt = "cfg_incomplete"

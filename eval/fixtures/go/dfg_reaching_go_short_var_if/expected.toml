@@ -1,0 +1,17 @@
+[case]
+language = "go"
+capability = "dfg_reaching_go_short_var_if"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.go:4:v"
+to = "main.go:5:v"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.go:3:v"
+to = "main.go:5:v"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 4

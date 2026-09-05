@@ -1,0 +1,11 @@
+[case]
+language = "typescript"
+capability = "dfg_reaching_same_line"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.ts:2:a"
+to = "main.ts:3:a"
+confidence = "nameonly"
+doubt = "sameline"

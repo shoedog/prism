@@ -1,0 +1,15 @@
+[case]
+language = "go"
+capability = "dfg_reaching_shadowed_inner"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.go:3:x"
+to = "main.go:6:x"
+present = false
+
+[[expect.edges]]
+from = "main.go:3:x"
+to = "main.go:8:x"
+confidence = "exact"

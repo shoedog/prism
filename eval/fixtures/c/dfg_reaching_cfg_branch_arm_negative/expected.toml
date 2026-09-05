@@ -1,0 +1,11 @@
+[case]
+language = "c"
+capability = "dfg_reaching_cfg_branch_arm_negative"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.c:4:x"
+to = "main.c:6:x"
+confidence = "nameonly"
+doubt = "cfg_incomplete"

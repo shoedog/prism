@@ -2,7 +2,7 @@
 Outcomes: ok | regression (pass case failing -> fails the run) |
 expected_gap | flip_candidate (known_fail now passing -> report, update status).
 
-Three probe types (`[case] probe`, P6bc), selected by `[case] probe`
+Four probe types (`[case] probe`, P6bc), selected by `[case] probe`
 (default "callers" -- the key is absent on all pre-P6bc fixtures, so they
 keep loading/running byte-identically):
   - "callers" (default): existing caller-site oracle. Requires `[seed]`;
@@ -11,11 +11,15 @@ keep loading/running byte-identically):
     and `[[expect.callers]]`.
   - "module_deps": `prism nav module-deps`. Requires `[module]`; forbids
     `[seed]` and `[[expect.callers]]`.
+  - "dfg": `prism nav dfg-stats --edges`. Requires a non-empty
+    `[[expect.edges]]`; forbids `[seed]`, `[taint]`, and `[module]`.
 Mixing sections across probe types, or an unknown probe value, is an
 explicit `load_case` error rather than a silently-ignored section.
 """
 from __future__ import annotations
 
+import json
+import subprocess
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -24,7 +28,7 @@ from .model import FunctionDef, Location
 
 
 MATRIX_LANGUAGES = ["rust", "go", "python", "javascript", "typescript"]
-PROBE_TYPES = ("callers", "taint", "module_deps")
+PROBE_TYPES = ("callers", "taint", "module_deps", "dfg")
 
 
 @dataclass
@@ -58,6 +62,9 @@ class Case:
     expect_module_forbid_to: set = field(default_factory=set)
     module_exact: bool = False
 
+    # probe == "dfg"
+    expect_dfg_edges: list = field(default_factory=list)
+
 
 @dataclass
 class CaseResult:
@@ -84,6 +91,7 @@ def _expect_callers(expect: dict) -> set:
 # outside the whole known vocabulary; the per-probe checks further reject a
 # *known* section that belongs to a different probe (e.g. [module] on a taint
 # fixture) -- "both directions" per finding (a).
+# `[[expect.edges]]` is nested below the known top-level `expect` table.
 KNOWN_TOP_SECTIONS = {"case", "seed", "taint", "module", "expect"}
 TAINT_SECTION_KEYS = {"sources", "sinks"}
 MODULE_SECTION_KEYS = {"file"}
@@ -91,7 +99,9 @@ EXPECT_KEYS_BY_PROBE = {
     "callers": {"callers", "exact", "resolution_kind", "forbid_resolution_kind"},
     "taint": {"reachability", "warning_kinds_present", "sanitizers_present", "frontier_count_min"},
     "module_deps": {"module_edges", "forbid_to", "exact"},
+    "dfg": {"edges"},
 }
+DFG_EDGE_KEYS = {"from", "to", "confidence", "doubt", "kill_line", "present"}
 # Controller adjudication (e): the only wire `Reachability` variants plus this
 # harness's own "None" (JSON null / frontier mode) sentinel. Anything else is
 # a typo'd sentinel that would otherwise silently never match. "Sanitized" (P10)
@@ -231,6 +241,35 @@ def load_case(toml_path: Path) -> Case:
             expect_sanitizers_present=sanitizers_present,
             frontier_count_min=frontier_count_min,
         )
+
+    if probe == "dfg":
+        if has_seed or has_taint or has_module or has_expect_callers:
+            raise ValueError(
+                f'{toml_path}: probe="dfg" must not define [seed], [taint], [module], '
+                "or expect.callers"
+            )
+        if "expect" not in d:
+            raise ValueError(f'{toml_path}: probe="dfg" requires [expect]')
+        expect = d["expect"]
+        _reject_unknown_keys(toml_path, probe, "expect", expect, EXPECT_KEYS_BY_PROBE["dfg"])
+        edges = list(expect.get("edges", []))
+        if not edges:
+            raise ValueError(
+                f'{toml_path}: probe="dfg" requires at least one [[expect.edges]] entry'
+            )
+        for index, edge in enumerate(edges):
+            _reject_unknown_keys(
+                toml_path, probe, f"expect.edges[{index}]", edge, DFG_EDGE_KEYS
+            )
+            if not isinstance(edge.get("from"), str) or not isinstance(edge.get("to"), str):
+                raise ValueError(
+                    f"{toml_path}: expect.edges[{index}] requires string from/to endpoints"
+                )
+            if "present" in edge and type(edge["present"]) is not bool:
+                raise ValueError(
+                    f"{toml_path}: expect.edges[{index}].present must be a bool"
+                )
+        return Case(**common, expect_dfg_edges=edges)
 
     # probe == "module_deps"
     if has_seed or has_expect_callers:
@@ -435,6 +474,82 @@ def _run_module_case(case: Case, lang: str, sut) -> CaseResult:
     return CaseResult(case.capability, lang, outcome, got, expected, {}, None, None, probe="module_deps")
 
 
+def _dfg_endpoint(item: dict) -> str:
+    path = item.get("path")
+    if isinstance(path, dict):
+        base = path.get("base", "?")
+        fields = path.get("fields", [])
+        path = ".".join([base, *fields])
+    return f'{item.get("file", "?")}:{item.get("line", "?")}:{path}'
+
+
+def _dfg_edge_matches(expected: dict, actual: dict) -> bool:
+    if _dfg_endpoint(actual.get("from", {})) != expected["from"]:
+        return False
+    if _dfg_endpoint(actual.get("to", {})) != expected["to"]:
+        return False
+    return all(
+        actual.get(key) == value
+        for key, value in expected.items()
+        if key not in {"from", "to", "present"}
+    )
+
+
+def _run_dfg_case(case: Case, lang: str, sut) -> CaseResult:
+    if not case.expect_dfg_edges:
+        raise ValueError(f'{case.path}: probe="dfg" expected-edge list is empty')
+
+    cache_args = ["--no-cache"] if getattr(sut, "no_cache", False) else []
+    command = [
+        getattr(sut, "bin", "prism"), "nav", *cache_args, "dfg-stats",
+        "--repo", str(case.path), "--edges",
+    ]
+    try:
+        completed = subprocess.run(command, capture_output=True, text=True)
+    except OSError as exc:
+        got = f"DFG_ORACLE_UNAVAILABLE|{exc}"
+        return CaseResult(
+            case.capability, lang, "expected_gap", got,
+            case.expect_dfg_edges, {}, None, None, probe="dfg",
+        )
+    if completed.returncode != 0:
+        detail = (completed.stdout or completed.stderr).strip()
+        got = f"DFG_ORACLE_UNAVAILABLE|exit={completed.returncode}|{detail}"
+        return CaseResult(
+            case.capability, lang, "expected_gap", got,
+            case.expect_dfg_edges, {}, None, None, probe="dfg",
+        )
+
+    try:
+        actual = [json.loads(line) for line in completed.stdout.splitlines() if line.strip()]
+    except json.JSONDecodeError as exc:
+        got = f"DFG_ORACLE_INVALID_JSONL|{exc}"
+        return CaseResult(
+            case.capability, lang, _status_outcome(case.status, False), got,
+            case.expect_dfg_edges, {}, None, None, probe="dfg",
+        )
+
+    checks = []
+    for expected in case.expect_dfg_edges:
+        found = any(_dfg_edge_matches(expected, edge) for edge in actual)
+        checks.append(found if expected.get("present", True) else not found)
+    matched = all(checks)
+    got = [
+        {
+            "from": _dfg_endpoint(edge.get("from", {})),
+            "to": _dfg_endpoint(edge.get("to", {})),
+            "confidence": edge.get("confidence"),
+            "doubt": edge.get("doubt"),
+            "kill_line": edge.get("kill_line"),
+        }
+        for edge in actual
+    ]
+    return CaseResult(
+        case.capability, lang, _status_outcome(case.status, matched), got,
+        case.expect_dfg_edges, {}, None, None, probe="dfg",
+    )
+
+
 def run_matrix(fixtures_root: Path, sut, languages: list[str]) -> list[CaseResult]:
     # Fixture eval must be deterministic: bypass the per-repo nav cache, which
     # otherwise persists pre-change results across binary versions and fakes
@@ -460,6 +575,8 @@ def _run_matrix_inner(fixtures_root: Path, sut, languages: list[str]) -> list[Ca
                 results.append(_run_callers_case(case, lang, sut))
             elif case.probe == "taint":
                 results.append(_run_taint_case(case, lang, sut))
+            elif case.probe == "dfg":
+                results.append(_run_dfg_case(case, lang, sut))
             else:
                 results.append(_run_module_case(case, lang, sut))
     return results

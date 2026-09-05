@@ -1,0 +1,11 @@
+[case]
+language = "typescript"
+capability = "dfg_reaching_loop_carried_negative"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.ts:5:x"
+to = "main.ts:4:x"
+confidence = "nameonly"
+doubt = "sameline"

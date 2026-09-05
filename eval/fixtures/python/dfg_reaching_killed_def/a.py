@@ -1,0 +1,4 @@
+def f():
+    x = source()
+    x = clean()
+    sink(x)

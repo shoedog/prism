@@ -1,0 +1,11 @@
+[case]
+language = "rust"
+capability = "dfg_reaching_alias_conservative"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.rs:3:q.x"
+to = "main.rs:4:q.x"
+confidence = "nameonly"
+doubt = "alias_unstable"
