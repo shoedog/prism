@@ -448,3 +448,124 @@ fn unclassified_language_binding_construct_uses_flat_path_fallback() {
         FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 5 }),
     );
 }
+
+#[test]
+fn go_range_target_uncertainty_uses_flat_path_fallback() {
+    let parsed = parsed(
+        "func f(items []int) {\n\tvalue := source()\n\tfor _, value := range items {\n\t\t{\n\t\t\tvalue := clean()\n\t\t\tconsume(value)\n\t\t}\n\t\tsink(value)\n\t}\n\tconsume(value)\n}\n",
+        Language::Go,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = defs
+        .iter()
+        .find(|def| def.path == AccessPath::simple("value") && def.line == 2)
+        .expect("fixture must define outer value")
+        .clone();
+    let range_use = edge(&parsed, &func, &outer, 8);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&range_use)).0;
+    assert_label(
+        &outcome,
+        &range_use,
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 5 }),
+    );
+}
+
+#[test]
+fn javascript_and_typescript_destructuring_uncertainty_use_flat_path_fallback() {
+    for language in [Language::JavaScript, Language::TypeScript] {
+        let parsed = parsed(
+            "function f(obj) {\n  const value = source();\n  {\n    const { value } = obj;\n    consume(value);\n  }\n  sink(value);\n}\n",
+            language,
+        );
+        let func = function(&parsed);
+        let defs = collect_defs(&parsed);
+        let outer = defs
+            .iter()
+            .find(|def| def.path == AccessPath::simple("value") && def.line == 2)
+            .unwrap_or_else(|| panic!("{language:?}: fixture must define outer value"))
+            .clone();
+        let outer_use = edge(&parsed, &func, &outer, 7);
+        let outcome = run(&parsed, &defs, std::slice::from_ref(&outer_use)).0;
+        let expected = FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 });
+        let RdOutcome::Available(result) = outcome else {
+            panic!("{language:?}: expected Available with {expected:?}, got {outcome:?}");
+        };
+        assert_eq!(
+            result
+                .labels
+                .get(&(outer_use.from.clone(), outer_use.to.clone())),
+            Some(&expected),
+            "{language:?}"
+        );
+    }
+}
+
+#[test]
+fn python_except_and_with_alias_uncertainty_use_flat_path_fallback() {
+    let except_parsed = parsed(
+        "def f():\n    try:\n        may_throw()\n    except E as value:\n        consume(value)\n",
+        Language::Python,
+    );
+    let except_func = function(&except_parsed);
+    let except_defs = collect_defs(&except_parsed);
+    let except_facts = scope::BindingFacts::new(&except_parsed, &except_func, &except_defs);
+    assert_eq!(except_facts.unclassified_binding_lines("value"), vec![4]);
+
+    let with_conditional = parsed(
+        "def f(flag):\n    value = source()\n    with resource() as value:\n        if flag:\n            value = clean()\n        sink(value)\n",
+        Language::Python,
+    );
+    let func = function(&with_conditional);
+    let defs = collect_defs(&with_conditional);
+    let with_facts = scope::BindingFacts::new(&with_conditional, &func, &defs);
+    assert_eq!(
+        with_facts.unclassified_binding_lines("value"),
+        vec![3, 4, 5, 6]
+    );
+    let outer = defs
+        .iter()
+        .find(|def| def.path == AccessPath::simple("value") && def.line == 2)
+        .expect("fixture must define outer value")
+        .clone();
+    let killed_use = edge(&with_conditional, &func, &outer, 6);
+    let outcome = run(&with_conditional, &defs, std::slice::from_ref(&killed_use)).0;
+    assert_label(&outcome, &killed_use, FlowConfidence::Exact);
+
+    let parsed = parsed(
+        "def f():\n    value = source()\n    with resource() as value:\n        value = clean()\n        sink(value)\n",
+        Language::Python,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = defs
+        .iter()
+        .find(|def| def.path == AccessPath::simple("value") && def.line == 2)
+        .expect("fixture must define outer value")
+        .clone();
+    let killed_use = edge(&parsed, &func, &outer, 5);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&killed_use)).0;
+    assert_label(
+        &outcome,
+        &killed_use,
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }),
+    );
+}
+
+#[test]
+fn unclassified_introduction_after_use_does_not_demote_reaching_edge() {
+    let parsed = parsed(
+        "func f(items []int) {\n\tvalue := source()\n\tconsume(value)\n\tfor _, value := range items {\n\t\tconsume(value)\n\t}\n}\n",
+        Language::Go,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = defs
+        .iter()
+        .find(|def| def.path == AccessPath::simple("value") && def.line == 2)
+        .expect("fixture must define outer value")
+        .clone();
+    let use_before_range = edge(&parsed, &func, &outer, 3);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&use_before_range)).0;
+    assert_label(&outcome, &use_before_range, FlowConfidence::Exact);
+}

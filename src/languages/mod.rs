@@ -63,6 +63,27 @@ impl Language {
         }
     }
 
+    /// The grammar's generated node-type schema.
+    ///
+    /// Consumers that need grammar-wide structural facts must derive them from
+    /// this metadata instead of maintaining a second list of node kinds.
+    pub(crate) fn node_types_json(&self) -> &'static str {
+        match self {
+            Self::Python => tree_sitter_python::NODE_TYPES,
+            Self::JavaScript => tree_sitter_javascript::NODE_TYPES,
+            Self::TypeScript => tree_sitter_typescript::TYPESCRIPT_NODE_TYPES,
+            Self::Tsx => tree_sitter_typescript::TSX_NODE_TYPES,
+            Self::Go => tree_sitter_go::NODE_TYPES,
+            Self::Java => tree_sitter_java::NODE_TYPES,
+            Self::C => tree_sitter_c::NODE_TYPES,
+            Self::Cpp => tree_sitter_cpp::NODE_TYPES,
+            Self::Rust => tree_sitter_rust::NODE_TYPES,
+            Self::Lua => tree_sitter_lua::NODE_TYPES,
+            Self::Terraform => tree_sitter_hcl::NODE_TYPES,
+            Self::Bash => tree_sitter_bash::NODE_TYPES,
+        }
+    }
+
     /// All supported languages.
     pub fn all() -> Vec<Self> {
         vec![
