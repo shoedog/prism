@@ -141,6 +141,34 @@ pub fn evidence_files(finding: &SliceFinding) -> Vec<&str> {
     files
 }
 
+/// Files whose parse quality bears on the selected witness. Legacy finding
+/// locations stay unchanged; DataFlow endpoint files and call-edge caller files
+/// are grading inputs only.
+pub fn selected_evidence_files<'a>(
+    finding: &'a SliceFinding,
+    evidence: &'a EvidencePath,
+) -> Vec<&'a str> {
+    let mut files = evidence_files(finding);
+    for hop in &evidence.hops {
+        match hop {
+            EvidenceHop::DataFlow { from, to, .. } => {
+                for file in [from.file.as_str(), to.file.as_str()] {
+                    if !files.contains(&file) {
+                        files.push(file);
+                    }
+                }
+            }
+            EvidenceHop::Call { edge, .. } => {
+                let file = edge.caller.file.as_str();
+                if !files.contains(&file) {
+                    files.push(file);
+                }
+            }
+        }
+    }
+    files
+}
+
 /// The one entry point both serializers use. Encodes the evidence rules: contract findings
 /// computed against an `--old-repo` tree (categories `contract_precondition_weakened`,
 /// `contract_precondition_strengthened`, `contract_postcondition_weakened`,
@@ -155,6 +183,26 @@ pub fn parse_quality_for(
     match finding.category.as_deref() {
         Some(category) if OLD_TREE_CONTRACT_CATEGORIES.contains(&category) => ParseQuality::Unknown,
         _ => ParseQuality::min_over(&evidence_files(finding), map, parsed),
+    }
+}
+
+/// Grade the authoritative selected witness without changing the finding's
+/// legacy anchor or related-file projection. Missing evidence retains the
+/// evidence-free parse-quality behavior; its confidence is handled separately.
+pub fn parse_quality_for_selected_evidence(
+    finding: &SliceFinding,
+    evidence: Option<&EvidencePath>,
+    map: &BTreeMap<String, FileParseQuality>,
+    parsed: &BTreeMap<String, ParsedFile>,
+) -> ParseQuality {
+    match finding.category.as_deref() {
+        Some(category) if OLD_TREE_CONTRACT_CATEGORIES.contains(&category) => ParseQuality::Unknown,
+        _ => match evidence {
+            Some(evidence) => {
+                ParseQuality::min_over(&selected_evidence_files(finding, evidence), map, parsed)
+            }
+            None => ParseQuality::min_over(&evidence_files(finding), map, parsed),
+        },
     }
 }
 

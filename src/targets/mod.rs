@@ -11,8 +11,8 @@ pub use model::{
 
 use crate::api::{build_info, ReviewInputs};
 use crate::finding_confidence::{
-    classify_with_evidence, parse_quality_for, EvidencePath, FindingConfidence, FindingTier,
-    RESOLUTION_MODE,
+    classify_with_evidence, parse_quality_for_selected_evidence, EvidencePath, FindingConfidence,
+    FindingTier, RESOLUTION_MODE,
 };
 use crate::languages::Language;
 use crate::output::{sarif::path_escapes_repo, severity_rank};
@@ -92,9 +92,14 @@ pub fn project(
             .map(|path| normalise_path(path, &mut warnings))
             .collect();
 
-        let parse_quality =
-            parse_quality_for(&normalized_finding, &inputs.parse_quality, &inputs.files);
-        let (confidence, tier) = evidence.get(index).and_then(Option::as_ref).map_or(
+        let selected_evidence = evidence.get(index).and_then(Option::as_ref);
+        let parse_quality = parse_quality_for_selected_evidence(
+            &normalized_finding,
+            selected_evidence,
+            &inputs.parse_quality,
+            &inputs.files,
+        );
+        let (confidence, tier) = selected_evidence.map_or(
             (FindingConfidence::Unlabeled, FindingTier::Candidate),
             |evidence| classify_with_evidence(&finding.algorithm, parse_quality, evidence),
         );

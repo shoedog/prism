@@ -11096,6 +11096,10 @@ pub fn slice(
     // Empty set means "added by non-path code" — caller falls back to file-scan heuristic.
     let mut sink_to_path_sources: BTreeMap<(String, usize), BTreeSet<(String, usize)>> =
         BTreeMap::new();
+    // Selected witness retained at the moment a FlowPath target is accepted as
+    // a sink. This is independent of the same-file source chosen for legacy
+    // display text.
+    let mut sink_to_path_evidence: BTreeMap<(String, usize), EvidencePath> = BTreeMap::new();
 
     let all_sinks: Vec<&str> = SINK_PATTERNS
         .iter()
@@ -11192,12 +11196,24 @@ pub fn slice(
                         continue;
                     }
                     {
-                        sink_lines.insert((edge.to.file.clone(), edge.to.line));
+                        let sink = (edge.to.file.clone(), edge.to.line);
+                        sink_lines.insert(sink.clone());
                         if let Some(first_edge) = path.edges.first() {
                             sink_to_path_sources
-                                .entry((edge.to.file.clone(), edge.to.line))
+                                .entry(sink.clone())
                                 .or_default()
                                 .insert((first_edge.from.file.clone(), first_edge.from.line));
+                        }
+                        if let Some(evidence) = evidence_by_lines
+                            .get(&(
+                                edge.from.file.clone(),
+                                edge.from.line,
+                                edge.to.file.clone(),
+                                edge.to.line,
+                            ))
+                            .cloned()
+                        {
+                            keep_best_evidence(&mut sink_to_path_evidence, sink, evidence);
                         }
                     }
                 }
@@ -11206,12 +11222,24 @@ pub fn slice(
                 if matches!(outcome, SinkMatchOutcome::Match(_))
                     && !structured_suppressed_by_cleanser
                 {
-                    sink_lines.insert((edge.to.file.clone(), edge.to.line));
+                    let sink = (edge.to.file.clone(), edge.to.line);
+                    sink_lines.insert(sink.clone());
                     if let Some(first_edge) = path.edges.first() {
                         sink_to_path_sources
-                            .entry((edge.to.file.clone(), edge.to.line))
+                            .entry(sink.clone())
                             .or_default()
                             .insert((first_edge.from.file.clone(), first_edge.from.line));
+                    }
+                    if let Some(evidence) = evidence_by_lines
+                        .get(&(
+                            edge.from.file.clone(),
+                            edge.from.line,
+                            edge.to.file.clone(),
+                            edge.to.line,
+                        ))
+                        .cloned()
+                    {
+                        keep_best_evidence(&mut sink_to_path_evidence, sink, evidence);
                     }
                 }
             }
@@ -11480,6 +11508,7 @@ pub fn slice(
             .and_then(|(source_file, source_line)| {
                 evidence_by_lines.get(&(source_file.to_string(), source_line, file.clone(), *line))
             })
+            .or_else(|| sink_to_path_evidence.get(&(file.clone(), *line)))
             .cloned()
             .unwrap_or_else(|| EvidencePath::unlabeled_for("taint"));
         result.findings.push(finding);

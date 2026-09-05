@@ -56,6 +56,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput, config: &SliceConfig) -> Result
                 *func_end,
                 lines,
                 config,
+                "fullflow",
             );
             let mut slice_lines = lf_result.slice_lines;
 

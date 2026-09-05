@@ -34,8 +34,8 @@ use super::sarif_model::{
 use super::sarif_rules::{attribution, line_text_of, rule_description, Attribution, UNCATEGORIZED};
 use crate::ast::ParsedFile;
 use crate::finding_confidence::{
-    classify_with_evidence, parse_quality_for, EvidencePath, FindingConfidence, FindingTier,
-    RESOLUTION_MODE,
+    classify_with_evidence, parse_quality_for_selected_evidence, EvidencePath, FindingConfidence,
+    FindingTier, RESOLUTION_MODE,
 };
 use crate::slice::{AlgorithmError, FileParseQuality, SliceFinding};
 use std::collections::{BTreeMap, BTreeSet};
@@ -329,7 +329,8 @@ fn build_result(
     escaping: &mut BTreeSet<String>,
 ) -> SarifResult {
     let category = finding.category.as_deref().unwrap_or(UNCATEGORIZED);
-    let quality = parse_quality_for(finding, inputs.parse_quality, inputs.files);
+    let quality =
+        parse_quality_for_selected_evidence(finding, evidence, inputs.parse_quality, inputs.files);
     let (confidence, tier) = evidence.map_or(
         (FindingConfidence::Unlabeled, FindingTier::Candidate),
         |evidence| classify_with_evidence(&finding.algorithm, quality, evidence),

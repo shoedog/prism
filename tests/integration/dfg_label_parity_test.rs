@@ -547,17 +547,7 @@ fn labeled_walk_chop_fold_uses_interior_edges_only() {
 
 #[test]
 fn labeled_walk_name_based_fallback_is_explicitly_unlabeled() {
-    use prism::finding_confidence::{
-        classify_with_evidence, EvidencePath, FindingConfidence, FindingTier, ParseQuality,
-    };
-    for algorithm in ["leftflow", "fullflow"] {
-        let evidence = EvidencePath::unlabeled_for(algorithm);
-        assert!(evidence.crossed_unlabeled && evidence.hops.is_empty());
-        assert_eq!(
-            classify_with_evidence(algorithm, ParseQuality::Clean, &evidence),
-            (FindingConfidence::Unlabeled, FindingTier::Candidate)
-        );
-    }
+    crate::common::assert_name_based_fallback_records_unlabeled_evidence();
 }
 
 #[test]
@@ -568,6 +558,16 @@ fn finding_evidence_provenance_delivers_all_three_grades() {
 #[test]
 fn finding_evidence_taint_delivers_exact_and_nameonly() {
     crate::common::assert_finding_evidence_taint_cases();
+}
+
+#[test]
+fn finding_evidence_taint_retains_cross_file_exact_witness() {
+    crate::common::assert_finding_evidence_taint_cross_file_case(false);
+}
+
+#[test]
+fn finding_evidence_taint_retains_cross_file_nameonly_witness() {
+    crate::common::assert_finding_evidence_taint_cross_file_case(true);
 }
 
 #[test]
