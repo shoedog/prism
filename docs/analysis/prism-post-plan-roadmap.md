@@ -131,7 +131,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   callers/callees gains asserted. Remaining six tracked unproven spans unchanged.
   Quick baseline-invalid SHA drift; lexical invariant, no general temporal/alias
   proof. See `docs/eval/receiver-closure/2026-09-05-constructor-fields-readout.md`.
-- **Module-local contextual aliases — verified, publication pending:**
+- **Module-local contextual aliases — PR249 OPEN, 166d2d8:**
   One source-backed non-generic function-type alias; original declaration/type and
   implementation/write anchors retained. CPG69/nav38; default3824/0/1,
   MCP4014/0/1, matrix104/104. Real2780/Exact376 unchanged; separate served alias

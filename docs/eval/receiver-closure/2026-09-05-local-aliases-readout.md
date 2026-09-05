@@ -1,7 +1,8 @@
 # Module-local contextual type aliases
 
 Base db34e80, PR248 merged. Owner approved the recommended local declaration-backed
-contextual alias slice. Verification complete; publication pending.
+contextual alias slice. Implementation166d2d8 pushed in
+[PR249](https://github.com/shoedog/prism/pull/249), OPEN against main. No merge performed.
 
 ## Result and boundary
 
