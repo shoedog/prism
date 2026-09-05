@@ -1,7 +1,8 @@
 # Local single-call-signature object aliases
 
 Base89f6ebf7, PR251 merged and fetched. Owner approved this bounded continuation.
-Implementation/publication pending.
+Implementation038b279d pushed in
+[PR252](https://github.com/shoedog/prism/pull/252), open against main.
 
 ## Result and boundary
 

@@ -152,7 +152,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   served direct/Props/same-spelled-binder fixture gains3 Exact callers with six
   exclusions. Quick baseline-invalid SHA drift. No inference/imported/ambient/recursive expansion.
   See `docs/eval/receiver-closure/2026-09-05-generic-aliases-readout.md`.
-- **Local callable-object aliases — implemented, publication pending:**
+- **Local callable-object aliases — PR252 open, 038b279d:**
   Exactly one call signature through a local non-generic or bounded generic alias;
   original declaration/argument/write anchors retained. CPG72/nav41;
   default3833/0/1, MCP4023/0/1, matrix104/104. Real2780/Exact376 unchanged;
