@@ -73,3 +73,10 @@ An optional process-list status check was sandbox-refused: inadmissible for any
 claim about oracle progress. Completion and output artifacts supply the evidence.
 Review converged within three rounds; bounded fixes retained on the same artifact.
 No rebaseline, multi-corpus run, or hosted-check success claimed.
+
+Publication: `0a2edf6ea1bc57daa71ccf0f2e49036b79ddbe1c` pushed; PR
+https://github.com/shoedog/prism/pull/240 opened with pinned observations and
+verification exclusions. All nine source/test files match final-source.tgz.
+This reconciliation changes documentation only.
+Committed `0a2edf6` release rebuild and immediate publication matrix also pass
+104/104 (publication-release.log/publication-matrix.log).

@@ -14,4 +14,6 @@ MCP 3,922/0/1, format/check/Clippy and rebuilt matrix 104/104 complete. Quick
 completed with OER/SUT 0/0, matrix 104/104, but is baseline-invalid for corpus pin
 drift (four stale adjudications). Pinned observations retained in review/handoff
 and to be included in PR, not rebaselined. Step 6 predecessor merge status
-reconciled; publication pending.
+reconciled; implementation `0a2edf6` committed/pushed and PR #240 opened. This
+follow-up reconciles publication docs only; all nine source/test files match the
+full-suite-tested snapshot.

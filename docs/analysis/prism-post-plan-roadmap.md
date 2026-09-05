@@ -81,7 +81,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   imported constructor/parameter receivers, then Python inert regular-package
   initializers. See `docs/superpowers/specs/2026-09-04-imported-class-receivers.md`.
   The bounded syntactic census is not a measured corpus-recall gain.
-- **Active continuation (2026-09-04):** separate named TS type-only class
+- **Implemented continuation — PR #240 (open, not merged), `0a2edf6`:** separate named TS type-only class
   authority and explicitly anchored Python relative submodule imports. See
   `docs/superpowers/specs/2026-09-04-type-only-relative-receivers.md` and matching handoff.
 

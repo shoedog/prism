@@ -1,6 +1,7 @@
 # Type-only and explicit-relative receiver identity
 
 Base: merged PR #239, `862166d`. Owner: “ok, merged proceed”.
+Status: implemented/pushed as `0a2edf6`, [PR #240](https://github.com/shoedog/prism/pull/240) OPEN, not merged. Full suites and matrix pass; quick corpus-pin exclusion remains.
 Two bounded slices; three-round self-review cap declared before implementation.
 
 ## Evidence and corrected assumptions
