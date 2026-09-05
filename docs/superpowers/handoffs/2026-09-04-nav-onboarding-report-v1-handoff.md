@@ -3,6 +3,7 @@
 **Refreshed:** 2026-09-04 · **By:** Codex `/root` · **Provider:** codex
 **Workspace:** `/Users/wesleyjinks/code/slicing` · `main`
 **Exact merged state:** PR #235 merge `a531355420c47948a415fb055fe7c82b13210252`
+**Current root custody:** PR #236 merge `fd4ddf05fa0f7677708d086b7de5ec1d327c2482`
 
 ## 0. Current verdict
 

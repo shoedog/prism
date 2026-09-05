@@ -6,7 +6,10 @@
 
 ## 0. Current verdict
 
-**IMPLEMENTED; TWO-ROUND REVIEW CLOSED; ALL RUNNABLE GATES GREEN.** This is item 3, the prerequisite for item 4's JS/TS typed-parameter and `new`-constructor receiver recovery. The slices remain separate.
+**MERGED AS PR #231 (`6771d530c02ab7719547d580b428188db6401b2f`); TWO-ROUND
+REVIEW CLOSED; ALL RUNNABLE GATES GREEN.** This is item 3, the prerequisite for item
+4's JS/TS typed-parameter and `new`-constructor receiver recovery. The slices remain
+separate.
 
 ## 1. Authority boundary
 
