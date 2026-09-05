@@ -118,7 +118,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   span (LibraryMenu.tsx:114), verified in served callers and callees; other ten
   tracked Library spans unchanged. Quick baseline-invalid SHA drift. No React.FC, hook-return or
   this.field expansion. See `docs/eval/receiver-closure/2026-09-05-inline-props-readout.md`.
-- **Source-backed contextual-prop foundation — implemented, publication pending:**
+- **Source-backed contextual-prop foundation — PR247 OPEN, 678bf6b:**
   owner selected explicit direct function signatures before ambient React.FC
   authority. CPG67/nav36; default3818/0/1, MCP4008/0/1, matrix104/104. Real2780
   records/Exact372 unchanged; synthetic served callers/callees positive with
