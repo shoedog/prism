@@ -1,5 +1,7 @@
 //! Deterministic projection of annotated findings into targets contract v1.0.
 
+mod dependency_hint;
+mod dependency_identity;
 pub mod mapping;
 mod model;
 
@@ -81,7 +83,45 @@ pub fn project(
         let parse_quality =
             parse_quality_for(&normalized_finding, &inputs.parse_quality, &inputs.files);
         let (confidence, tier) = classify(&finding.algorithm, parse_quality);
-        let mapped = map_finding(finding);
+        let mut mapped = map_finding(finding);
+        if mapped.kind == "external_call" {
+            let context = dependency_hint::SiteContext {
+                file: &file,
+                repo_root: &meta.repo_root,
+                known_files: &inputs.files,
+                resolved_name: mapped.hint.as_ref().and_then(|hint| hint.callee.as_deref()),
+            };
+            match inputs
+                .files
+                .get(&file)
+                .and_then(|parsed| dependency_hint::resolve(parsed, finding.line, &context))
+            {
+                // AST-recovered callee text (verbatim, dotted chain as
+                // written) supersedes the description-derived fallback in
+                // `mapped.hint`: it is the syntax the harness must glob
+                // against (roadmap `03-tooling-plan-roadmap.md` §3 Phase 1).
+                Some(dependency_hint::Resolution::Hint(hint)) => {
+                    mapped.hint = Some(DependencyHint {
+                        kind: hint.kind.map(str::to_string),
+                        callee: Some(hint.callee),
+                        counterpart: None,
+                    });
+                }
+                // Several calls span the site line and the finding's own
+                // recorded callee identity does not single one out. Keeping
+                // the description-derived hint is the honest answer: a
+                // deterministic pick would attribute an unrelated call.
+                Some(dependency_hint::Resolution::Ambiguous(count)) => {
+                    warnings.push(format!(
+                        "targets: ambiguous-callee: {count} calls on line {} in {file}",
+                        finding.line
+                    ));
+                }
+                // No call node spans the site (e.g. file not parsed): leave
+                // whatever hint the mapping already produced, never lose one.
+                None => {}
+            }
+        }
         let (symbol, function_start_line, function_end_line) =
             enclosing_site(&file, finding, inputs, &mut warnings);
         let language = Language::from_path(&file)

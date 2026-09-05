@@ -24,6 +24,15 @@ const DIFF: &str = "tests/fixtures/targets/diff.json";
 const DIFF_UNSUPPORTED: &str = "tests/fixtures/targets/diff-with-unsupported.json";
 const DEFAULT_ALGORITHMS: &str = "echo,absence,contract,provenance,membrane";
 
+// `requests.py` is a repo-local module named `requests` (the CPG resolves
+// Python imports against the analyzed tree only — it never fetches real
+// packages), so `import requests` in `svc.py` binds to it precisely. That
+// lets `svc.py`'s `requests.post(...)` call become a real, algorithm-produced
+// echo/missing_error_handling finding whose call-site text is exactly the
+// http-shaped syntax this feature targets, without faking a finding by hand.
+const REPO_HINT: &str = "tests/fixtures/targets_hint";
+const DIFF_HINT: &str = "tests/fixtures/targets_hint/diff.json";
+
 fn prism_cmd() -> Command {
     Command::cargo_bin("prism").unwrap()
 }
@@ -268,6 +277,39 @@ fn default_run_emits_all_five_producers_and_live_mappings() {
         .unwrap()
         .contains("origin at use site"));
 
+    check_against_schema(&doc, &contract_schema());
+}
+
+/// Roadmap `03-tooling-plan-roadmap.md` §3 Phase 1 / controller ruling
+/// 2026-09-04: an `external_call` target's `dependency_hint` must carry the
+/// call-site syntax (`requests.post`, not the call graph's resolved function
+/// name `post`) — before this feature the hint was `{"callee": "post"}`,
+/// accurate to the call graph and useless as a glob target.
+///
+/// This fixture is deliberately the NEGATIVE classification case: its
+/// `requests` is the repository's own `requests.py`, which is exactly what
+/// makes the `echo` finding real (the CPG resolves Python imports only against
+/// the analyzed tree). Identical spelling, different dependency. `kind` must
+/// therefore be absent — the harness then selects by callee glob with library
+/// precedence (`~/code/tools/specs/2026-09-04-runtime-harness-v0-spec.md`
+/// §5.2 steps 2–4), which is strictly better than a wrong `http` restriction.
+#[test]
+fn echo_external_call_gains_ast_recovered_callee_but_not_a_shadowed_kind() {
+    let output = run(Path::new(REPO_HINT), Path::new(DIFF_HINT), "echo", &[]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let doc = json(&output);
+    let echo = target(&doc, "echo");
+    assert_eq!(echo["kind"], "external_call");
+    assert_eq!(echo["dependency_hint"]["callee"], "requests.post");
+    assert!(
+        echo["dependency_hint"].get("kind").is_none(),
+        "a repo-local requests.py is not the requests library: {}",
+        echo["dependency_hint"]
+    );
     check_against_schema(&doc, &contract_schema());
 }
 
