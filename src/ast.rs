@@ -3432,7 +3432,15 @@ impl ParsedFile {
         None
     }
 
-    /// Fields, accessor results and explicit instance writes are not direct methods.
+    /// Normalize a field callable to the member carrying its name and modifiers.
+    fn js_ts_callable_member<'a>(&self, method: &Node<'a>) -> Node<'a> {
+        method
+            .parent()
+            .filter(|n| matches!(n.kind(), "field_definition" | "public_field_definition"))
+            .unwrap_or(*method)
+    }
+
+    /// Direct methods and bounded arrow fields share instance-slot authority.
     pub(crate) fn js_ts_method_slot_unproven(&self, method: &Node<'_>) -> bool {
         if !matches!(
             self.language,
@@ -3440,13 +3448,41 @@ impl ParsedFile {
         ) {
             return false;
         }
-        let Some(body) = method.parent().filter(|n| n.kind() == "class_body") else {
+        let slot = self.js_ts_callable_member(method);
+        let Some(body) = slot.parent().filter(|n| n.kind() == "class_body") else {
             return false;
         };
-        let Some(name) = method.child_by_field_name("name") else {
+        let Some(name) = slot
+            .child_by_field_name("name")
+            .or_else(|| slot.child_by_field_name("property"))
+        else {
             return true;
         };
+        let field = slot.id() != method.id();
+        if field {
+            let mut cursor = slot.walk();
+            let modifiers = slot.children(&mut cursor).any(|n| {
+                n.kind() == "decorator"
+                    || matches!(
+                        self.node_text(&n),
+                        "private" | "protected" | "declare" | "abstract"
+                    )
+            });
+            let class = body.parent().unwrap();
+            let mut cursor = class.walk();
+            let decorated_class = class.children(&mut cursor).any(|n| n.kind() == "decorator");
+            if method.kind() != "arrow_function"
+                || name.kind() != "property_identifier"
+                || slot.child_by_field_name("value") != Some(*method)
+                || body.has_error()
+                || modifiers
+                || decorated_class
+            {
+                return true;
+            }
+        }
         let name = self.node_text(&name);
+        let mut matches = 0;
         let mut cursor = body.walk();
         for member in body.named_children(&mut cursor) {
             if self.js_ts_method_is_static(&member) {
@@ -3460,38 +3496,29 @@ impl ParsedFile {
                     return true;
                 }
                 if self.node_text(&key).trim_matches(['\'', '"']) == name {
+                    matches += 1;
                     let mut cursor = member.walk();
                     let accessor = member
                         .children(&mut cursor)
                         .any(|n| matches!(n.kind(), "get" | "set"));
-                    if member.kind() != "method_definition" || accessor {
+                    if accessor
+                        || (member.kind() != "method_definition"
+                            && !(field && member.id() == slot.id()))
+                    {
                         return true;
                     }
                 }
             }
         }
+        if matches != 1 {
+            return true;
+        }
         fn writes_this(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
-            if matches!(
-                node.kind(),
-                "assignment_expression" | "augmented_assignment_expression" | "update_expression"
-            ) {
-                let target = node
-                    .child_by_field_name("left")
-                    .or_else(|| node.child_by_field_name("argument"));
-                if let Some(target) = target {
-                    if target
-                        .child_by_field_name("object")
-                        .is_some_and(|n| n.kind() == "this")
-                    {
-                        if target.kind() == "subscript_expression"
-                            || target
-                                .child_by_field_name("property")
-                                .is_some_and(|n| parsed.node_text(&n) == name)
-                        {
-                            return true;
-                        }
-                    }
-                }
+            if parsed
+                .js_ts_write_target(node)
+                .is_some_and(|target| parsed.js_ts_target_writes_member(target, "this", Some(name)))
+            {
+                return true;
             }
             let mut cursor = node.walk();
             let written = node
@@ -3509,11 +3536,77 @@ impl ParsedFile {
         ) {
             return false;
         }
-        let mut cursor = method.walk();
-        let found = method
+        let slot = self.js_ts_callable_member(method);
+        let mut cursor = slot.walk();
+        let found = slot
             .children(&mut cursor)
             .any(|child| child.kind() == "static");
         found
+    }
+
+    fn js_ts_write_target<'a>(&self, node: Node<'a>) -> Option<Node<'a>> {
+        let writes = matches!(
+            node.kind(),
+            "assignment_expression"
+                | "augmented_assignment_expression"
+                | "update_expression"
+                | "for_in_statement"
+                | "for_of_statement"
+                | "for_await_statement"
+        ) || (node.kind() == "unary_expression"
+            && node
+                .child_by_field_name("operator")
+                .is_some_and(|n| self.node_text(&n) == "delete"));
+        writes
+            .then(|| {
+                node.child_by_field_name("left")
+                    .or_else(|| node.child_by_field_name("argument"))
+                    .or_else(|| node.named_child(0))
+            })
+            .flatten()
+    }
+
+    /// Inspect assignment targets, not RHS reads/default initializers.
+    fn js_ts_target_writes_member(
+        &self,
+        target: Node<'_>,
+        receiver: &str,
+        member: Option<&str>,
+    ) -> bool {
+        if matches!(target.kind(), "member_expression" | "subscript_expression") {
+            return target.child_by_field_name("object").is_some_and(|mut n| {
+                while n.kind() == "parenthesized_expression" && n.named_child_count() == 1 {
+                    n = n.named_child(0).unwrap();
+                }
+                self.node_text(&n) == receiver
+            }) && (target.kind() == "subscript_expression"
+                || member.is_none()
+                || target
+                    .child_by_field_name("property")
+                    .is_some_and(|n| Some(self.node_text(&n)) == member));
+        }
+        if matches!(
+            target.kind(),
+            "pair_pattern" | "assignment_pattern" | "object_assignment_pattern"
+        ) {
+            return target
+                .child_by_field_name(if target.kind() == "pair_pattern" {
+                    "value"
+                } else {
+                    "left"
+                })
+                .is_some_and(|n| self.js_ts_target_writes_member(n, receiver, member));
+        }
+        if matches!(
+            target.kind(),
+            "object_pattern" | "array_pattern" | "rest_pattern" | "parenthesized_expression"
+        ) {
+            let mut cursor = target.walk();
+            return target
+                .named_children(&mut cursor)
+                .any(|n| self.js_ts_target_writes_member(n, receiver, member));
+        }
+        false
     }
 
     fn js_ts_direct_new_constructor(
@@ -3596,31 +3689,14 @@ impl ParsedFile {
         if node.start_byte() >= before_byte || node.end_byte() <= after_byte {
             return false;
         }
-        if matches!(
-            node.kind(),
-            "assignment_expression"
-                | "augmented_assignment_expression"
-                | "update_expression"
-                | "for_in_statement"
-                | "for_of_statement"
-                | "for_await_statement"
-        ) {
-            let target = node
-                .child_by_field_name("left")
-                .or_else(|| node.child_by_field_name("argument"))
-                .or_else(|| node.named_child(0));
-            if let Some(target) = target {
-                let mut written_names = BTreeSet::new();
-                self.collect_js_ts_binding_pattern_names(target, &mut written_names);
-                if written_names.contains(receiver_name)
-                    && !self.js_ts_receiver_has_closer_binding(
-                        &target,
-                        receiver_name,
-                        binding_scope_id,
-                    )
-                {
-                    return true;
-                }
+        if let Some(target) = self.js_ts_write_target(node) {
+            let mut written_names = BTreeSet::new();
+            self.collect_js_ts_binding_pattern_names(target, &mut written_names);
+            if (written_names.contains(receiver_name)
+                || self.js_ts_target_writes_member(target, receiver_name, None))
+                && !self.js_ts_receiver_has_closer_binding(&target, receiver_name, binding_scope_id)
+            {
+                return true;
             }
         }
         let mut cursor = node.walk();

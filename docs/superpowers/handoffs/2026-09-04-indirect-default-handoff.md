@@ -1,7 +1,7 @@
 # Handoff — indirect local default-class identity
 
 **Written:** 2026-09-04 · **By:** Codex · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/indirect-local-default-classes · **Measured state:** `[MEASURED]` implementation 257fb7fe7b1e54c25e5cedf8bb45e8e80b6884fb pushed; PR #244 OPEN against 854d53f, not merged. Probe: git push and PR creation response confirm matching head. This publication follow-up is docs-only; pre-existing .superpowers/ and eval/snapshots/prism-fb81481dafa7.json preserved.
+**Workspace:** /Users/wesleyjinks/code/slicing · historical feat/indirect-local-default-classes · **Measured state:** `[MEASURED]` implementation257fb7f; PR #244 merged at a70ea03, verified by fetch/log in the arrow-field continuation. Current custody: docs/superpowers/handoffs/2026-09-04-arrow-fields-inline-props.md.
 **Predecessor:** PR #242, merged at 854d53f.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -16,7 +16,7 @@
 ## 1. Resume order
 
 1. Run `git status --short` and read docs/eval/receiver-closure/2026-09-04-indirect-default-readout.md.
-2. Review https://github.com/shoedog/prism/pull/244 with the recorded Tier-A exclusion. No automatic merge or next feature.
+2. Follow the arrow-fields/inline-props handoff; the owner approved both follow-ups after merge.
 
 **STOP conditions:** out-of-scope suite failures are reported, not silently fixed; three-round review cap; no full multicorpus run or baseline changes.
 
@@ -44,7 +44,7 @@
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
 | 1 | Verify and measure | done | See readout and verification JSON | None | Evidence directory below |
-| 2 | Publish | done | 257fb7f pushed; PR #244 OPEN | None | https://github.com/shoedog/prism/pull/244 |
+| 2 | Publish | done | 257fb7f pushed; PR #244 mergeda70ea03 | None | https://github.com/shoedog/prism/pull/244 |
 
 ## 5. Invariants and traps — do not do these
 

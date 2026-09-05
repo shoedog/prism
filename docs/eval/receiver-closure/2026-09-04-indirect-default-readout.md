@@ -3,7 +3,7 @@
 Base: merged PR #242 at `854d53f49606`. Owner approved this bounded increment.
 Implementation and verification complete with the Tier-A exclusion below.
 Published as `257fb7f` in [PR #244](https://github.com/shoedog/prism/pull/244),
-OPEN, not merged. The publication follow-up changes documentation only.
+merged at `a70ea03` (fetch/log verified during the arrow-field continuation).
 
 ## Result
 
@@ -73,11 +73,14 @@ duplicate enclosing/nested caller records are not counted as unique source sites
 
 Library is declared at 197 and exported via identifier at 403. Its callable
 members are arrow fields (destroy249, resetLibrary261, getLatestLibrary268,
-updateLibrary287, setLibrary351), not the supported method-declaration path.
+updateLibrary287, setLibrary351). Correction from the arrow-field continuation:
+these already had method-owner metadata and could resolve through a simple
+typed/constructor receiver; their slot/static safeguards were bypassed. The
+remaining real-site miss was receiver shape, not total lack of arrow ownership.
 An executable ParsedFile probe on this exact archived library reports
 `default=Some(Class("Library")); conflicted={}`. Thus zero observed receiver gain
-is not evidence that the new export proof failed; downstream receiver/member
-shapes remain excluded. No added real Exact edges exist to validate in served
+is not evidence that the new export proof failed; downstream receiver shapes
+remain excluded. No added real Exact edges exist to validate in served
 callers/callees; synthetic navigation sidecar tests cover the added identity.
 
 Earlier fixed-source controls are byte-identical before/after: Black 400 sites /
