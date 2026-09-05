@@ -162,7 +162,7 @@ pub fn sink_nodes_at(cpg: &CodePropertyGraph, file: &str, line: usize) -> Vec<No
 fn has_incoming_dataflow(cpg: &CodePropertyGraph, n: NodeIndex) -> bool {
     cpg.graph
         .edges_directed(n, Direction::Incoming)
-        .any(|e| matches!(e.weight(), CpgEdge::DataFlow))
+        .any(|e| matches!(e.weight(), CpgEdge::DataFlow(_)))
 }
 
 /// Witness `GraphPayload` for a reached sink: parent walk-back, relation-named edges, full node

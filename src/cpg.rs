@@ -18,6 +18,7 @@
 mod build;
 mod cfg_queries;
 mod context;
+mod flow_confidence;
 #[cfg(test)]
 mod multiline_call_arg_parity_tests;
 #[cfg(test)]
@@ -40,6 +41,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub use build::{CodePropertyGraph, ReturnFlowStats};
 pub use context::{CpgContext, CpgScope};
+pub use flow_confidence::{FlowConfidence, FlowDoubt};
 pub use trace::{
     BoundaryEdge, BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning,
     Relation, ReturnFlowMode, SameLineOrderView, Trace,

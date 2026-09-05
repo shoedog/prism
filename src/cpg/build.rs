@@ -13,7 +13,7 @@ use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
 use std::collections::{BTreeMap, BTreeSet};
 
-use super::{CpgEdge, CpgNode, StmtKind, VarAccess};
+use super::{CpgEdge, CpgNode, FlowConfidence, FlowDoubt, StmtKind, VarAccess};
 use crate::ast::ParsedFile;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -575,7 +575,15 @@ impl CodePropertyGraph {
             if let (Some(&from_idx), Some(&to_idx)) =
                 (var_index.get(&from_key), var_index.get(&to_key))
             {
-                graph.add_edge(from_idx, to_idx, CpgEdge::DataFlow);
+                // Task 1 temporary constant: the reaching-definitions pass
+                // (Task 2/3) is not wired in yet, so every Step-4
+                // intraprocedural DataFlow edge is conservatively
+                // NameOnly(CfgIncomplete) until then.
+                graph.add_edge(
+                    from_idx,
+                    to_idx,
+                    CpgEdge::DataFlow(FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)),
+                );
             }
         }
 
@@ -997,7 +1005,11 @@ impl CodePropertyGraph {
                     });
                     if let Some(to) = param_idx {
                         for from in arg_idxs {
-                            out.push((from, to, CpgEdge::DataFlow));
+                            out.push((
+                                from,
+                                to,
+                                CpgEdge::DataFlow(FlowConfidence::from(resolved.confidence)),
+                            ));
                         }
                     }
                 }
@@ -1322,7 +1334,7 @@ impl CodePropertyGraph {
                     .collect();
                 let all_rhs_uses_bound = rhs_uses.iter().all(|&use_idx| {
                     graph.edges(use_idx).any(|edge| {
-                        matches!(edge.weight(), CpgEdge::DataFlow)
+                        matches!(edge.weight(), CpgEdge::DataFlow(_))
                             && matches!(
                                 &graph[edge.target()],
                                 CpgNode::Variable {
@@ -1458,7 +1470,11 @@ impl CodePropertyGraph {
                             });
                         if let Some(to) = param_idx {
                             for from in arg_idxs {
-                                out.push((from, to, CpgEdge::DataFlow));
+                                out.push((
+                                    from,
+                                    to,
+                                    CpgEdge::DataFlow(FlowConfidence::from(resolved.confidence)),
+                                ));
                             }
                         }
                     }

@@ -367,7 +367,7 @@ fn test_taint_trace_no_cfg_falls_back_to_pure_taint() {
         start_byte: 0,
         end_byte: 0,
     });
-    graph.add_edge(a, b, CpgEdge::DataFlow);
+    graph.add_edge(a, b, CpgEdge::DataFlow(FlowConfidence::Exact));
     let mut location_index = BTreeMap::new();
     location_index.insert(("manual.py".to_string(), 1), vec![a]);
     location_index.insert(("manual.py".to_string(), 2), vec![b]);
@@ -446,7 +446,7 @@ fn test_taint_trace_statement_miss_degrades_to_pure_taint() {
         start_byte: 0,
         end_byte: 0,
     });
-    graph.add_edge(src, dst, CpgEdge::DataFlow);
+    graph.add_edge(src, dst, CpgEdge::DataFlow(FlowConfidence::Exact));
     let mut location_index = BTreeMap::new();
     location_index.insert(("manual.py".to_string(), 1), vec![stmt1]);
     location_index.insert(("manual.py".to_string(), 2), vec![stmt2]);
@@ -672,8 +672,8 @@ fn test_taint_trace_keeps_per_root_attribution() {
         start_byte: 0,
         end_byte: 0,
     });
-    graph.add_edge(a, sink, CpgEdge::DataFlow);
-    graph.add_edge(b, sink, CpgEdge::DataFlow);
+    graph.add_edge(a, sink, CpgEdge::DataFlow(FlowConfidence::Exact));
+    graph.add_edge(b, sink, CpgEdge::DataFlow(FlowConfidence::Exact));
     let mut location_index = BTreeMap::new();
     location_index.insert(("manual.py".to_string(), 1), vec![a]);
     location_index.insert(("manual.py".to_string(), 2), vec![b]);
@@ -720,7 +720,7 @@ fn test_taint_trace_dataflow_wins_same_line_tie() {
         start_byte: 0,
         end_byte: 0,
     });
-    graph.add_edge(root, target, CpgEdge::DataFlow);
+    graph.add_edge(root, target, CpgEdge::DataFlow(FlowConfidence::Exact));
     let mut location_index = BTreeMap::new();
     location_index.insert(("manual.py".to_string(), 1), vec![root, target]);
     let cpg = CodePropertyGraph::from_parts(
@@ -760,7 +760,7 @@ fn test_taint_trace_skips_non_variable_dataflow_neighbors() {
         start_byte: 0,
         end_byte: 0,
     });
-    graph.add_edge(root, stmt, CpgEdge::DataFlow);
+    graph.add_edge(root, stmt, CpgEdge::DataFlow(FlowConfidence::Exact));
     let mut location_index = BTreeMap::new();
     location_index.insert(("manual.py".to_string(), 1), vec![root]);
     location_index.insert(("manual.py".to_string(), 2), vec![stmt]);
@@ -1135,11 +1135,11 @@ fn test_cpg_node_equality_excludes_byte_spans() {
 
 #[test]
 fn test_edge_classification() {
-    assert!(CpgEdge::DataFlow.is_data_flow());
+    assert!(CpgEdge::DataFlow(FlowConfidence::Exact).is_data_flow());
     assert!(!CpgEdge::Call(ResolutionConfidence::Exact).is_data_flow());
     assert!(CpgEdge::Call(ResolutionConfidence::Exact).is_interprocedural());
     assert!(CpgEdge::Return(ResolutionConfidence::Exact).is_interprocedural());
-    assert!(!CpgEdge::DataFlow.is_interprocedural());
+    assert!(!CpgEdge::DataFlow(FlowConfidence::Exact).is_interprocedural());
     assert!(!CpgEdge::Contains.is_interprocedural());
     assert!(!CpgEdge::FieldOf.is_interprocedural());
     assert!(!CpgEdge::ControlFlow.is_data_flow());
@@ -1239,7 +1239,7 @@ void flow() {
     let df_edges: Vec<_> = cpg
         .graph
         .edge_indices()
-        .filter(|&e| cpg.graph[e] == CpgEdge::DataFlow)
+        .filter(|&e| matches!(cpg.graph[e], CpgEdge::DataFlow(_)))
         .collect();
     assert!(
         !df_edges.is_empty(),
@@ -1261,7 +1261,7 @@ fn has_df_path_edge(
             if file == f && *line == l && path.to_string() == p)
     }
     cpg.graph.edge_indices().any(|e| {
-        cpg.graph[e] == CpgEdge::DataFlow
+        matches!(cpg.graph[e], CpgEdge::DataFlow(_))
             && cpg
                 .graph
                 .edge_endpoints(e)
@@ -1382,7 +1382,7 @@ fn step5b_param_binding_first_wins_parity() {
         to: (&str, usize, &str),
     ) -> bool {
         cpg.graph.edge_indices().any(|e| {
-            cpg.graph[e] == CpgEdge::DataFlow
+            matches!(cpg.graph[e], CpgEdge::DataFlow(_))
                 && cpg
                     .graph
                     .edge_endpoints(e)
@@ -1547,7 +1547,7 @@ void main_func() {
     assert!(call_reach.contains(&helper_idx));
 
     // DataFlow-only from main_func should NOT reach helper function node
-    let df_reach = cpg.reachable_forward(main_idx, &|e| matches!(e, CpgEdge::DataFlow));
+    let df_reach = cpg.reachable_forward(main_idx, &|e| matches!(e, CpgEdge::DataFlow(_)));
     assert!(
         !df_reach.contains(&helper_idx),
         "DataFlow-only traversal should not reach function nodes via Call edges"
@@ -2611,7 +2611,7 @@ func invoke(cmd *Command, v int) {\n\tcmd.Run(v)\n}\n";
         to: (&str, usize, &str),
     ) -> bool {
         cpg.graph.edge_indices().any(|e| {
-            cpg.graph[e] == CpgEdge::DataFlow
+            matches!(cpg.graph[e], CpgEdge::DataFlow(_))
                 && cpg
                     .graph
                     .edge_endpoints(e)
@@ -2672,7 +2672,7 @@ func invoke(cmd *Command, v int) {\n\tcmd.Run(v)\n}\n";
         to: (&str, usize, &str),
     ) -> bool {
         cpg.graph.edge_indices().any(|e| {
-            cpg.graph[e] == CpgEdge::DataFlow
+            matches!(cpg.graph[e], CpgEdge::DataFlow(_))
                 && cpg
                     .graph
                     .edge_endpoints(e)

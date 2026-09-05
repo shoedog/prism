@@ -2057,7 +2057,7 @@ pub fn callees_with_confidence(
 
 fn edge_kind(e: &CpgEdge) -> &'static str {
     match e {
-        CpgEdge::DataFlow => "DataFlow",
+        CpgEdge::DataFlow(_) => "DataFlow",
         CpgEdge::ControlFlow => "ControlFlow",
         CpgEdge::Call(_) => "Call",
         CpgEdge::Return(_) => "Return",

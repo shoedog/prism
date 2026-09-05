@@ -181,7 +181,7 @@ fn has_dataflow_edge(
     to: (&str, &str, usize, &str),
 ) -> bool {
     cpg.graph.edge_indices().any(|edge| {
-        cpg.graph[edge] == CpgEdge::DataFlow
+        matches!(cpg.graph[edge], CpgEdge::DataFlow(_))
             && cpg
                 .graph
                 .edge_endpoints(edge)

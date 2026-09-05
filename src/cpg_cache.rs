@@ -158,7 +158,10 @@ use std::path::{Path, PathBuf};
 ///   resolver/manifest terminal predicate.
 /// - v55: Go B1 Level-3 callback facts, exact synthetic targets, source-callee
 ///   identity, and derived CPG edges enter the serialized graph.
-const CACHE_VERSION: u32 = 55;
+/// - v56: `CpgEdge::DataFlow` carries `FlowConfidence` from the
+///   reaching-definitions pass, and `DataFlowGraph` gains the `labels` map.
+///   Label-only — the edge set is unchanged.
+const CACHE_VERSION: u32 = 56;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -688,7 +691,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_go_level3_callbacks() {
-        assert_eq!(super::CACHE_VERSION, 55);
+        assert_eq!(super::CACHE_VERSION, 56);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

@@ -252,7 +252,7 @@ fn has_edge_from_byte_to_param(
 ) -> bool {
     let source_line = line_at(source, source_byte);
     cpg.graph.edge_indices().any(|edge| {
-        cpg.graph[edge] == CpgEdge::DataFlow
+        matches!(cpg.graph[edge], CpgEdge::DataFlow(_))
             && cpg.graph.edge_endpoints(edge).is_some_and(|(from, to)| {
                 matches!(
                     cpg.node(from),
@@ -286,7 +286,7 @@ fn has_edge_from_line_to_param(
     parameter: &str,
 ) -> bool {
     cpg.graph.edge_indices().any(|edge| {
-        cpg.graph[edge] == CpgEdge::DataFlow
+        matches!(cpg.graph[edge], CpgEdge::DataFlow(_))
             && cpg.graph.edge_endpoints(edge).is_some_and(|(from, to)| {
                 matches!(
                     cpg.node(from),
@@ -313,7 +313,7 @@ fn has_edge_from_line_to_param(
 fn arg_param_shapes(cpg: &CodePropertyGraph, callee: &str, parameter: &str) -> BTreeSet<String> {
     cpg.graph
         .edge_indices()
-        .filter(|&edge| cpg.graph[edge] == CpgEdge::DataFlow)
+        .filter(|&edge| matches!(cpg.graph[edge], CpgEdge::DataFlow(_)))
         .filter_map(|edge| {
             let (from, to) = cpg.graph.edge_endpoints(edge)?;
             match (cpg.node(from), cpg.node(to)) {
