@@ -10,6 +10,7 @@ mod coverage_test;
 mod cwe_phase1_suppression_test;
 mod cwe_phase2_suppression_test;
 mod cwe_phase3_suppression_test;
+mod dfg_label_parity_test;
 mod hapi_regression_test;
 mod import_binding_test;
 mod imported_class_receiver_test;

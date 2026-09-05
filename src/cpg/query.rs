@@ -236,7 +236,7 @@ impl CodePropertyGraph {
 
     /// Find SCCs in the data flow graph (DataFlow edges only).
     pub fn data_flow_cycles(&self) -> Vec<Vec<NodeIndex>> {
-        self.strongly_connected_components(&|e| matches!(e, CpgEdge::DataFlow))
+        self.strongly_connected_components(&|e| matches!(e, CpgEdge::DataFlow(_)))
     }
 
     // -----------------------------------------------------------------------
@@ -676,7 +676,9 @@ impl CodePropertyGraph {
 
             // Follow DataFlow edges
             for edge in self.graph.edges(node) {
-                if matches!(edge.weight(), CpgEdge::DataFlow) && !visited.contains(&edge.target()) {
+                if matches!(edge.weight(), CpgEdge::DataFlow(_))
+                    && !visited.contains(&edge.target())
+                {
                     queue.push_back(edge.target());
                 }
             }
@@ -742,7 +744,7 @@ impl CodePropertyGraph {
             None => return BTreeSet::new(),
         };
 
-        let reachable = self.reachable_backward(start, &|e| matches!(e, CpgEdge::DataFlow));
+        let reachable = self.reachable_backward(start, &|e| matches!(e, CpgEdge::DataFlow(_)));
         reachable
             .into_iter()
             .filter_map(|idx| self.to_var_location(idx))
@@ -808,7 +810,7 @@ impl CodePropertyGraph {
             .collect();
 
         let on_path = self.chop(&source_nodes, &sink_nodes, &|e| {
-            matches!(e, CpgEdge::DataFlow)
+            matches!(e, CpgEdge::DataFlow(_))
         });
 
         let mut result: BTreeSet<(String, usize)> = on_path

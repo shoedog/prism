@@ -849,7 +849,7 @@ impl CodePropertyGraph {
         let mut df: Vec<NodeIndex> = self
             .graph
             .edges(node)
-            .filter(|e| matches!(e.weight(), CpgEdge::DataFlow))
+            .filter(|e| matches!(e.weight(), CpgEdge::DataFlow(_)))
             .map(|e| e.target())
             .collect();
         // General DFG neighbors can cross lines; NodeIndex order is build-deterministic.

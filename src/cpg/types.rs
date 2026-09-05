@@ -1,6 +1,7 @@
 //! Schema types for the Code Property Graph: node and edge enums plus their
 //! accessors.
 
+use super::flow_confidence::FlowConfidence;
 use crate::access_path::AccessPath;
 use crate::resolution::ResolutionConfidence;
 
@@ -194,8 +195,12 @@ pub enum VarAccess {
 /// An edge in the Code Property Graph.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CpgEdge {
-    /// Data flow: a definition reaches this use (def-use chain).
-    DataFlow,
+    /// Data flow: a definition reaches this use (def-use chain), carrying
+    /// the reaching-definitions pass's confidence that the definition
+    /// actually reaches the use. `is_data_flow` and every edge-set
+    /// traversal predicate ignore this payload (§3 non-goal 1): the edge
+    /// SET is unchanged from before this label existed.
+    DataFlow(FlowConfidence),
 
     /// Control flow: execution can proceed from source to target.
     /// Added in Phase 6.
@@ -309,9 +314,12 @@ impl CpgNode {
 }
 
 impl CpgEdge {
-    /// Whether this is a data flow edge.
+    /// Whether this is a data flow edge. Label-insensitive by design (§3
+    /// non-goal 1): a `DataFlow` edge is selected regardless of its
+    /// `FlowConfidence` payload. Pinned by
+    /// `tests/integration/dfg_label_parity_test.rs`.
     pub fn is_data_flow(&self) -> bool {
-        matches!(self, CpgEdge::DataFlow)
+        matches!(self, CpgEdge::DataFlow(_))
     }
 
     /// Whether this is a call or return edge.

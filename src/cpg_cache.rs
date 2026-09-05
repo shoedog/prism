@@ -184,7 +184,10 @@ use std::path::{Path, PathBuf};
 /// - v71: bounded module-local generic contextual alias authority.
 /// - v72: module-local single-call-signature object alias authority.
 /// - v73: bounded module-local callable interface authority.
-const CACHE_VERSION: u32 = 73;
+/// - v74: `CpgEdge::DataFlow` carries `FlowConfidence` from the
+///   reaching-definitions pass, and `DataFlowGraph` gains the `labels` map.
+///   Label-only — the edge set is unchanged.
+const CACHE_VERSION: u32 = 74;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -713,8 +716,8 @@ mod tests {
     }
 
     #[test]
-    fn cache_versions_are_pinned_for_receiver_authority() {
-        assert_eq!(super::CACHE_VERSION, 73);
+    fn cache_versions_are_pinned_for_receiver_authority_and_item2_confidence() {
+        assert_eq!(super::CACHE_VERSION, 74);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

@@ -131,7 +131,7 @@ pub fn arg_binds(cpg: &CodePropertyGraph, arg_name: &str, param_name: &str) -> b
     use prism::cpg::{CpgEdge, CpgNode, VarAccess};
 
     cpg.graph.edge_indices().any(|edge| {
-        cpg.graph[edge] == CpgEdge::DataFlow
+        matches!(cpg.graph[edge], CpgEdge::DataFlow(_))
             && cpg
                 .graph
                 .edge_endpoints(edge)
