@@ -186,6 +186,73 @@ fn rust_inner_block_declaration_does_not_kill_outer_binding() {
     assert_label(&outcome, &outer_use, FlowConfidence::Exact);
 }
 
+fn assert_rust_unclassified_pattern_uses_flat_fallback(
+    source: &str,
+    use_line: usize,
+    kill_line: u32,
+) {
+    let parsed = parsed(source, Language::Rust);
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = defs
+        .iter()
+        .find(|def| def.path == AccessPath::simple("value") && def.line == 2)
+        .unwrap_or_else(|| panic!("fixture must define value on line 2"))
+        .clone();
+    let outer_use = edge(&parsed, &func, &outer, use_line);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&outer_use)).0;
+    assert_label(
+        &outcome,
+        &outer_use,
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line }),
+    );
+}
+
+#[test]
+fn rust_if_let_pattern_uncertainty_uses_flat_path_fallback() {
+    assert_rust_unclassified_pattern_uses_flat_fallback(
+        "fn f(opt: Option<i32>) {\n    let value = source();\n    if let Some(value) = opt {\n        {\n            let value = clean();\n        }\n        sink(value);\n    }\n}\n",
+        7,
+        5,
+    );
+}
+
+#[test]
+fn rust_match_arm_pattern_uncertainty_uses_flat_path_fallback() {
+    assert_rust_unclassified_pattern_uses_flat_fallback(
+        "fn f(opt: Option<i32>) {\n    let value = source();\n    match opt {\n        Some(value) => {\n            {\n                let value = clean();\n            }\n            sink(value);\n        }\n        None => {}\n    }\n}\n",
+        8,
+        6,
+    );
+}
+
+#[test]
+fn rust_while_let_pattern_uncertainty_uses_flat_path_fallback() {
+    assert_rust_unclassified_pattern_uses_flat_fallback(
+        "fn f(mut opt: Option<i32>) {\n    let value = source();\n    while let Some(value) = opt.take() {\n        {\n            let value = clean();\n        }\n        sink(value);\n    }\n}\n",
+        7,
+        5,
+    );
+}
+
+#[test]
+fn rust_classified_blocks_keep_per_binding_ownership() {
+    let parsed = parsed(
+        "fn f() {\n    let value = source();\n    {\n        let value = clean();\n        sink(value);\n    }\n    sink(value);\n}\n",
+        Language::Rust,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = defs
+        .iter()
+        .find(|def| def.path == AccessPath::simple("value") && def.line == 2)
+        .unwrap_or_else(|| panic!("fixture must define value on line 2"))
+        .clone();
+    let outer_use = edge(&parsed, &func, &outer, 7);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&outer_use)).0;
+    assert_label(&outcome, &outer_use, FlowConfidence::Exact);
+}
+
 #[test]
 fn javascript_let_inner_block_declaration_does_not_kill_outer_binding() {
     let parsed = parsed(

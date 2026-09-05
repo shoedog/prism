@@ -239,6 +239,20 @@ fn parse_python_sources(
         .collect()
 }
 
+fn parse_javascript_sources(
+    sources: &BTreeMap<String, String>,
+) -> BTreeMap<String, prism::ast::ParsedFile> {
+    sources
+        .iter()
+        .map(|(path, source)| {
+            (
+                path.clone(),
+                prism::ast::ParsedFile::parse(path, source, Language::JavaScript).unwrap(),
+            )
+        })
+        .collect()
+}
+
 fn assert_dfg_label_membership_complete(cpg: &CodePropertyGraph) {
     let edge_keys: BTreeSet<_> = cpg
         .dfg
@@ -418,6 +432,100 @@ fn cache_cold_full_hit_and_partial_hit_agree_on_every_label() {
         }),
         "PartialHit must re-derive the edited z argument-to-value parameter edge"
     );
+}
+
+#[test]
+fn cache_partial_hit_replaces_labels_when_edge_identities_and_spans_stay_fixed() {
+    let sources = BTreeMap::from([(
+        "labels.js".to_string(),
+        "function f() {\n  var value = source();\n  {\n    let value = clean();\n  }\n  sink(value);\n}\n"
+            .to_string(),
+    )]);
+    let files = parse_javascript_sources(&sources);
+    let cold = CodePropertyGraph::build(&files);
+    let key = cold
+        .dfg
+        .labels
+        .keys()
+        .find(|(from, to)| {
+            from.file == "labels.js"
+                && from.path.base == "value"
+                && from.line == 2
+                && to.path.base == "value"
+                && to.line == 6
+        })
+        .cloned()
+        .expect("fixture must retain the outer value edge after the inner block");
+    assert_eq!(cold.dfg.labels[&key], FlowConfidence::Exact);
+
+    let cache_dir = tempfile::tempdir().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&cold, &hashes, false, cache_dir.path()).unwrap();
+
+    let mut edited_sources = sources.clone();
+    edited_sources.insert(
+        "labels.js".to_string(),
+        "function f() {\n  var value = source();\n  {\n    var value = clean();\n  }\n  sink(value);\n}\n"
+            .to_string(),
+    );
+    let edited_files = parse_javascript_sources(&edited_sources);
+    let edited_hashes = cpg_cache::compute_file_hashes(&edited_sources);
+    let incremental = match cpg_cache::load_cache(&edited_hashes, false, cache_dir.path()) {
+        CacheResult::PartialHit {
+            cached_call_graph,
+            cached_dfg,
+            changed_files,
+        } => {
+            assert_eq!(changed_files, BTreeSet::from(["labels.js".to_string()]));
+            CodePropertyGraph::build_incremental(
+                cached_call_graph,
+                cached_dfg,
+                &changed_files,
+                &edited_files,
+                None,
+            )
+        }
+        CacheResult::Hit(_) => panic!("label-only edit unexpectedly produced a full hit"),
+        CacheResult::Miss => panic!("label-only edit unexpectedly produced a miss"),
+    };
+    let edited_cold = CodePropertyGraph::build(&edited_files);
+
+    assert_eq!(
+        cold.dfg.labels.keys().collect::<BTreeSet<_>>(),
+        edited_cold.dfg.labels.keys().collect::<BTreeSet<_>>(),
+        "let-to-var edit must preserve DFG edge identities and byte spans"
+    );
+    assert_eq!(
+        edited_cold.dfg.labels[&key],
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 })
+    );
+    assert_eq!(incremental.dfg.labels, edited_cold.dfg.labels);
+    assert_eq!(
+        graph_dataflow_payloads(&incremental),
+        graph_dataflow_payloads(&edited_cold)
+    );
+    assert_eq!(
+        incremental.dfg.rd_function_stats,
+        edited_cold.dfg.rd_function_stats
+    );
+    assert_eq!(incremental.dfg_label_stats, edited_cold.dfg_label_stats);
+
+    cpg_cache::save_cache(&incremental, &edited_hashes, false, cache_dir.path()).unwrap();
+    let subsequent_hit = match cpg_cache::load_cache(&edited_hashes, false, cache_dir.path()) {
+        CacheResult::Hit(cpg) => cpg,
+        CacheResult::PartialHit { .. } => panic!("saved edited graph did not produce a full hit"),
+        CacheResult::Miss => panic!("saved edited graph unexpectedly missed"),
+    };
+    assert_eq!(subsequent_hit.dfg.labels, edited_cold.dfg.labels);
+    assert_eq!(
+        graph_dataflow_payloads(&subsequent_hit),
+        graph_dataflow_payloads(&edited_cold)
+    );
+    assert_eq!(
+        subsequent_hit.dfg.rd_function_stats,
+        edited_cold.dfg.rd_function_stats
+    );
+    assert_eq!(subsequent_hit.dfg_label_stats, edited_cold.dfg_label_stats);
 }
 
 #[test]

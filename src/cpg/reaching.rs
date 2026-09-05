@@ -186,6 +186,7 @@ pub(crate) fn reaching_definitions(
         }
     }
     let mut kill = vec![BitSet::new(defs.len()); node_count];
+    let mut flat_kill = vec![BitSet::new(defs.len()); node_count];
     for node in 0..node_count {
         let generated: Vec<usize> = gen[node].members().collect();
         for &new_def in &generated {
@@ -196,42 +197,25 @@ pub(crate) fn reaching_definitions(
                 if !gen[node].contains(old_def)
                     && !defs[old_def].alias_derived
                     && defs[old_def].path == defs[new_def].path
-                    && binding_facts.same_def_binding(new_def, old_def)
                 {
-                    kill[node].insert(old_def);
+                    flat_kill[node].insert(old_def);
+                    if binding_facts.same_def_binding(new_def, old_def) {
+                        kill[node].insert(old_def);
+                    }
                 }
             }
         }
     }
 
-    let mut in_sets = vec![BitSet::new(defs.len()); node_count];
-    let mut out_sets = vec![BitSet::new(defs.len()); node_count];
-    let order = reverse_postorder(&successors, entry);
-    let mut worklist: VecDeque<usize> = order.iter().copied().collect();
-    let mut queued = vec![false; node_count];
-    for node in &order {
-        queued[*node] = true;
-    }
-    while let Some(node) = worklist.pop_front() {
-        queued[node] = false;
-        let mut incoming = BitSet::new(defs.len());
-        for predecessor in &predecessors[node] {
-            incoming.union_with(&out_sets[*predecessor]);
-        }
-        let mut outgoing = incoming.clone();
-        outgoing.subtract(&kill[node]);
-        outgoing.union_with(&gen[node]);
-        in_sets[node] = incoming;
-        if outgoing != out_sets[node] {
-            out_sets[node] = outgoing;
-            for (successor, _) in &successors[node] {
-                if !queued[*successor] {
-                    queued[*successor] = true;
-                    worklist.push_back(*successor);
-                }
-            }
-        }
-    }
+    let in_sets = solve_reaching_sets(&gen, &kill, &predecessors, &successors, entry, defs.len());
+    let flat_in_sets = solve_reaching_sets(
+        &gen,
+        &flat_kill,
+        &predecessors,
+        &successors,
+        entry,
+        defs.len(),
+    );
 
     let collapsed = collapsed_groups(&defs);
     let capture_facts = capture::capture_facts(parsed, *func_node);
@@ -248,6 +232,8 @@ pub(crate) fn reaching_definitions(
             &spans,
             &in_sets,
             &kill,
+            &flat_in_sets,
+            &flat_kill,
             &successors,
             &collapsed,
             &capture_facts,
@@ -267,6 +253,46 @@ pub(crate) fn reaching_definitions(
         labels,
         loop_carried_edges,
     })
+}
+
+fn solve_reaching_sets(
+    gen: &[BitSet],
+    kill: &[BitSet],
+    predecessors: &[Vec<usize>],
+    successors: &[Vec<(usize, bool)>],
+    entry: usize,
+    def_count: usize,
+) -> Vec<BitSet> {
+    let mut in_sets = vec![BitSet::new(def_count); gen.len()];
+    let mut out_sets = vec![BitSet::new(def_count); gen.len()];
+    let order = reverse_postorder(&successors, entry);
+    let mut worklist: VecDeque<usize> = order.iter().copied().collect();
+    let mut queued = vec![false; gen.len()];
+    for node in &order {
+        queued[*node] = true;
+    }
+    while let Some(node) = worklist.pop_front() {
+        queued[node] = false;
+        let mut incoming = BitSet::new(def_count);
+        for predecessor in &predecessors[node] {
+            incoming.union_with(&out_sets[*predecessor]);
+        }
+        let mut outgoing = incoming.clone();
+        outgoing.subtract(&kill[node]);
+        outgoing.union_with(&gen[node]);
+        in_sets[node] = incoming;
+        if outgoing != out_sets[node] {
+            out_sets[node] = outgoing;
+            for (successor, _) in &successors[node] {
+                if !queued[*successor] {
+                    queued[*successor] = true;
+                    worklist.push_back(*successor);
+                }
+            }
+        }
+    }
+
+    in_sets
 }
 
 fn deduplicate_definitions(defs: &[DefSite]) -> Vec<DefSite> {
@@ -294,6 +320,8 @@ fn classify_edge(
     spans: &[StatementLineSpan],
     in_sets: &[BitSet],
     kill: &[BitSet],
+    flat_in_sets: &[BitSet],
+    flat_kill: &[BitSet],
     successors: &[Vec<(usize, bool)>],
     collapsed: &BTreeSet<(AccessPath, Line)>,
     capture_facts: &capture::CaptureFacts,
@@ -350,6 +378,34 @@ fn classify_edge(
         return FlowConfidence::NameOnly(FlowDoubt::AliasUnstable);
     }
 
+    let lookup_uncertain = candidates
+        .iter()
+        .any(|index| binding_facts.lookup_requires_flat_fallback(parsed, edge, *index));
+    let construct_uncertain = binding_facts
+        .unclassified_binding_lines(&edge.to.path.base)
+        .into_iter()
+        .filter_map(|line| innermost_statement(line, spans))
+        .filter_map(|line| line_index.get(&line).copied())
+        .any(|construct_node| {
+            candidates.iter().any(|index| {
+                mapped_defs[*index].is_some_and(|def_node| {
+                    path_exists(successors, def_node, construct_node, false)
+                        && path_exists(successors, construct_node, use_node, false)
+                })
+            })
+        });
+    if lookup_uncertain || construct_uncertain {
+        return classify_by_reaching_sets(
+            &candidates,
+            use_node,
+            mapped_defs,
+            flat_in_sets,
+            flat_kill,
+            successors,
+            line_index,
+        );
+    }
+
     let mut same_binding = Vec::new();
     let mut boundary_kills = Vec::new();
     for index in candidates {
@@ -368,7 +424,27 @@ fn classify_edge(
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
 
-    let reaching_candidates: Vec<usize> = same_binding
+    classify_by_reaching_sets(
+        &same_binding,
+        use_node,
+        mapped_defs,
+        in_sets,
+        kill,
+        successors,
+        line_index,
+    )
+}
+
+fn classify_by_reaching_sets(
+    candidates: &[usize],
+    use_node: usize,
+    mapped_defs: &[Option<usize>],
+    in_sets: &[BitSet],
+    kill: &[BitSet],
+    successors: &[Vec<(usize, bool)>],
+    line_index: &BTreeMap<Line, usize>,
+) -> FlowConfidence {
+    let reaching_candidates: Vec<usize> = candidates
         .iter()
         .copied()
         .filter(|index| in_sets[use_node].contains(*index))
@@ -386,7 +462,7 @@ fn classify_edge(
         return FlowConfidence::Exact;
     }
 
-    let Some(kill_line) = same_binding
+    let Some(kill_line) = candidates
         .iter()
         .filter_map(|index| {
             lowest_reachable_kill(

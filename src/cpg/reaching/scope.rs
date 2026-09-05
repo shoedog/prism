@@ -5,6 +5,7 @@ use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
 use crate::languages::Language;
 use std::cmp::Reverse;
+use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -90,6 +91,7 @@ pub(super) enum BindingRelation {
 pub(super) struct BindingFacts {
     def_bindings: Vec<Binding>,
     declarations: Vec<Declaration>,
+    unclassified_binding_lines: BTreeMap<String, BTreeSet<Line>>,
     function_scope: ScopeSpan,
     language: Language,
 }
@@ -111,6 +113,15 @@ impl BindingFacts {
                 &mut declarations,
             );
         }
+        let mut unclassified_binding_lines = BTreeMap::new();
+        let callable_boundary_kinds = parsed.language.callable_boundary_node_types();
+        collect_unclassified_binding_lines(
+            parsed,
+            *func_node,
+            func_node.id(),
+            &callable_boundary_kinds,
+            &mut unclassified_binding_lines,
+        );
         let mut declaration_for_def = vec![None; defs.len()];
         let mut order: Vec<usize> = (0..defs.len()).collect();
         order.sort_by_key(|index| defs[*index].start_byte);
@@ -156,6 +167,7 @@ impl BindingFacts {
         let mut facts = Self {
             def_bindings: Vec::with_capacity(defs.len()),
             declarations,
+            unclassified_binding_lines,
             function_scope,
             language: parsed.language,
         };
@@ -175,6 +187,35 @@ impl BindingFacts {
         left == right
             || matches!(left, BindingId::FlatFallback(_))
             || matches!(right, BindingId::FlatFallback(_))
+    }
+
+    pub(super) fn lookup_requires_flat_fallback(
+        &self,
+        parsed: &ParsedFile,
+        edge: &FlowEdge,
+        def_index: usize,
+    ) -> bool {
+        if matches!(self.def_bindings[def_index].id, BindingId::FlatFallback(_)) {
+            return true;
+        }
+        let Some(use_byte) = use_byte(parsed, edge) else {
+            return true;
+        };
+        self.visible_declaration(&edge.to.path.base, use_byte)
+            .map(|binding| matches!(binding.id, BindingId::FlatFallback(_)))
+            .unwrap_or_else(|| {
+                matches!(
+                    self.implicit_binding(&edge.to.path.base).id,
+                    BindingId::FlatFallback(_)
+                )
+            })
+    }
+
+    pub(super) fn unclassified_binding_lines(&self, name: &str) -> Vec<Line> {
+        self.unclassified_binding_lines
+            .get(name)
+            .map(|lines| lines.iter().copied().collect())
+            .unwrap_or_default()
     }
 
     pub(super) fn relation(
@@ -401,6 +442,58 @@ fn binding_scope_rule(language: Language, kind: &str) -> BindingScopeRule {
     BindingScopeRule {
         creates_scope,
         declaration,
+    }
+}
+
+fn collect_unclassified_binding_lines(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    root_function_id: usize,
+    callable_boundary_kinds: &[&str],
+    lines: &mut BTreeMap<String, BTreeSet<Line>>,
+) {
+    if node.id() != root_function_id && callable_boundary_kinds.contains(&node.kind()) {
+        return;
+    }
+
+    if parsed.language == Language::Rust {
+        let pattern = match node.kind() {
+            "let_condition" | "match_arm" | "for_expression" => node
+                .child_by_field_name("pattern")
+                .or_else(|| node.named_child(0)),
+            _ => None,
+        };
+        if let Some(pattern) = pattern {
+            collect_pattern_identifiers(parsed, pattern, lines);
+        }
+    }
+
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        collect_unclassified_binding_lines(
+            parsed,
+            child,
+            root_function_id,
+            callable_boundary_kinds,
+            lines,
+        );
+    }
+}
+
+fn collect_pattern_identifiers(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    lines: &mut BTreeMap<String, BTreeSet<Line>>,
+) {
+    if parsed.language.is_identifier_node(node.kind()) {
+        lines
+            .entry(parsed.node_text(&node).to_string())
+            .or_default()
+            .insert(node.start_position().row + 1);
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        collect_pattern_identifiers(parsed, child, lines);
     }
 }
 

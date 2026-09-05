@@ -124,6 +124,39 @@ fn rust_closure_capture_timing_is_unknown() {
 }
 
 #[test]
+fn rust_async_block_capture_timing_is_unknown() {
+    assert_capture(
+        "fn f() {\n    let x = source();\n    let delayed = async {\n        use_it(x);\n    };\n    drop(delayed);\n}\n",
+        Language::Rust,
+        2,
+        4,
+    );
+}
+
+#[test]
+fn rust_gen_block_capture_timing_is_unknown() {
+    assert_capture(
+        "fn f() {\n    let x = source();\n    let delayed = gen {\n        yield x;\n    };\n    drop(delayed);\n}\n",
+        Language::Rust,
+        2,
+        4,
+    );
+}
+
+#[test]
+fn rust_immediate_block_read_stays_exact() {
+    let parsed = parsed(
+        "fn f() {\n    let x = source();\n    {\n        use_it(x);\n    }\n}\n",
+        Language::Rust,
+    );
+    let func = function(&parsed);
+    let outer = def(&parsed, 0, "x", 2, 0, false);
+    let immediate = edge(&parsed, &func, &outer, 4);
+    let outcome = run(&parsed, &[outer], std::slice::from_ref(&immediate)).0;
+    assert_label(&outcome, &immediate, FlowConfidence::Exact);
+}
+
+#[test]
 fn go_defer_argument_is_evaluated_now() {
     let parsed = parsed(
         "package p\nfunc f() {\n    x := 1\n    defer use(x)\n    x = 2\n    return\n}\n",

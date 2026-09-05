@@ -1,7 +1,6 @@
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
-use crate::languages::Language;
 use std::collections::BTreeSet;
 use tree_sitter::Node;
 
@@ -11,15 +10,20 @@ pub(super) struct CaptureFacts {
 }
 
 pub(super) fn capture_facts(parsed: &ParsedFile, func_node: Node<'_>) -> CaptureFacts {
-    fn visit(parsed: &ParsedFile, node: Node<'_>, facts: &mut CaptureFacts) {
+    fn visit(
+        parsed: &ParsedFile,
+        node: Node<'_>,
+        boundary_kinds: &[&str],
+        facts: &mut CaptureFacts,
+    ) {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            if is_nested_callable_kind(parsed.language, child.kind()) {
+            if is_nested_callable_kind(boundary_kinds, child.kind()) {
                 let body = child.child_by_field_name("body").unwrap_or(child);
                 facts.ranges.push((body.start_byte(), body.end_byte()));
                 collect_reference_identities(parsed, body, &mut facts.references);
             } else {
-                visit(parsed, child, facts);
+                visit(parsed, child, boundary_kinds, facts);
             }
         }
     }
@@ -28,7 +32,8 @@ pub(super) fn capture_facts(parsed: &ParsedFile, func_node: Node<'_>) -> Capture
         ranges: Vec::new(),
         references: BTreeSet::new(),
     };
-    visit(parsed, func_node, &mut facts);
+    let boundary_kinds = parsed.language.callable_boundary_node_types();
+    visit(parsed, func_node, &boundary_kinds, &mut facts);
     facts
 }
 
@@ -104,17 +109,25 @@ fn is_field_access_kind(kind: &str) -> bool {
     )
 }
 
-fn is_nested_callable_kind(language: Language, kind: &str) -> bool {
-    match language {
-        Language::Python => matches!(kind, "lambda" | "function_definition"),
-        Language::Go => kind == "func_literal",
-        Language::JavaScript | Language::TypeScript | Language::Tsx => {
-            matches!(
-                kind,
-                "arrow_function" | "function_expression" | "function_declaration"
-            )
+fn is_nested_callable_kind(boundary_kinds: &[&str], kind: &str) -> bool {
+    boundary_kinds.contains(&kind)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::languages::Language;
+
+    #[test]
+    fn capture_boundaries_match_every_language_callable_boundary() {
+        for language in Language::all() {
+            let boundary_kinds = language.callable_boundary_node_types();
+            for kind in &boundary_kinds {
+                assert!(
+                    is_nested_callable_kind(&boundary_kinds, kind),
+                    "capture classifier drifted from {language:?} boundary {kind}"
+                );
+            }
         }
-        Language::Rust => kind == "closure_expression",
-        _ => false,
     }
 }

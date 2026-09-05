@@ -46,7 +46,7 @@ fn results(doc: &Value) -> &[Value] {
 }
 
 #[test]
-fn default_json_and_review_are_byte_identical_to_base() {
+fn default_and_explicit_json_and_review_are_byte_equivalent() {
     let files = call_files(true);
     for format in ["json", "review"] {
         let implicit = command_output(&files, "src/api.c", 8, "echo", Some(format), false, &[]);
