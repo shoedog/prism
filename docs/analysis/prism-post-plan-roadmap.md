@@ -145,7 +145,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   three Exact callers with optional/write/shadow/explicit-failure exclusions.
   Quick baseline-invalid SHA drift. No imported/generic/recursive/ambient alias authority. See
   `docs/eval/receiver-closure/2026-09-05-props-aliases-readout.md`.
-- **Bounded local generic contextual aliases — implemented, publication pending:**
+- **Bounded local generic contextual aliases — PR251 open, 06524d3e:**
   One explicit argument substitutes the entire parameter type of a local F<P>
   function alias, retaining argument/declaration/write scope. CPG71/nav40;
   default3830/0/1, MCP4020/0/1, matrix104/104. Real2780/Exact376 unchanged;
