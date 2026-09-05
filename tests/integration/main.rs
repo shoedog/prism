@@ -15,5 +15,6 @@ mod js_export_test;
 mod r6_candidate_test;
 mod resolution_test;
 mod scoped_cpg_test;
+mod targets_dependency_hint_test;
 mod targets_mapping_test;
 mod umbrella_completeness_test;
