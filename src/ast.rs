@@ -2295,7 +2295,7 @@ impl ParsedFile {
     /// Out of scope (skipped, counted in `skipped_expr_count` where the
     /// syntax is otherwise a recognized export/CJS-assignment shape but the
     /// value isn't a plain identifier): dynamic `require(expr)`/`import(expr)`,
-    /// TS `export =` CJS interop, anonymous/indirect class exports, anonymous default
+    /// TS `export =` CJS interop, anonymous/aliased class exports, anonymous default
     /// function/arrow exports, spread in `module.exports = { ...x }`.
     pub fn extract_js_ts_export_facts(&self) -> crate::js_exports::JsExportFacts {
         let mut facts = crate::js_exports::JsExportFacts::default();
@@ -2493,6 +2493,60 @@ impl ParsedFile {
         (declaration.kind() == "class_declaration" && !decorated).then_some(declaration)
     }
 
+    /// None means this is not a local declared class. Some(false) is terminal
+    /// class poison, not permission to reinterpret the export as a function.
+    fn js_ts_local_default_class(&self, value: &Node<'_>, name: &str) -> Option<bool> {
+        let root = self.tree.root_node();
+        let mut cursor = root.walk();
+        let classes: Vec<_> = root
+            .named_children(&mut cursor)
+            .filter_map(|node| {
+                let declaration = if node.kind() == "export_statement" {
+                    node.child_by_field_name("declaration")?
+                } else {
+                    node
+                };
+                (matches!(
+                    declaration.kind(),
+                    "class_declaration" | "abstract_class_declaration"
+                ) && declaration
+                    .child_by_field_name("name")
+                    .is_some_and(|n| self.node_text(&n) == name))
+                .then_some((node, declaration))
+            })
+            .collect();
+        if classes.is_empty() {
+            return None;
+        }
+        let (wrapper, declaration) = classes[0];
+        let mut cursor = wrapper.walk();
+        let decorated = wrapper
+            .named_children(&mut cursor)
+            .any(|n| n.kind() == "decorator");
+        let mut cursor = declaration.walk();
+        let decorated = decorated
+            || declaration
+                .named_children(&mut cursor)
+                .any(|n| n.kind() == "decorator");
+        Some(
+            !root.has_error()
+                && classes.len() == 1
+                && declaration.kind() == "class_declaration"
+                && !decorated
+                && declaration.end_byte() < value.start_byte()
+                && matches!(
+                    self.js_ts_scope_receiver_binding_evidence(root, value, name, false, false),
+                    Some(JsTsReceiverBindingEvidence::ClassOwner)
+                )
+                && !self.js_ts_type_only_imports().contains_key(name)
+                && !self
+                    .extract_import_bindings()
+                    .iter()
+                    .any(|binding| binding.local == name)
+                && !self.js_ts_module_value_written(name),
+        )
+    }
+
     /// Handle a single top-level `export_statement` node: default exports,
     /// named export lists (local or re-export), direct declaration exports
     /// (`export function`/`export const`), and `export * [from]`.
@@ -2562,10 +2616,16 @@ impl ParsedFile {
         // `export default <expr>;` (no `declaration` field — a bare value).
         if let Some(value) = node.child_by_field_name("value") {
             if value.kind() == "identifier" {
-                facts.insert_named(
-                    "default".to_string(),
-                    JsExportTarget::Local(self.node_text(&value).to_string()),
-                );
+                let name = self.node_text(&value).to_string();
+                if let Some(proven) = self.js_ts_local_default_class(&value, &name) {
+                    facts.insert_named("default".to_string(), JsExportTarget::Class(name));
+                    if !proven {
+                        // A rejected class must not retry the callable Local lane.
+                        facts.conflicted.insert("default".to_string());
+                    }
+                    return;
+                }
+                facts.insert_named("default".to_string(), JsExportTarget::Local(name));
             } else {
                 facts.skipped_expr_count += 1;
             }

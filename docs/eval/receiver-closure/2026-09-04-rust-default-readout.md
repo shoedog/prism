@@ -3,8 +3,8 @@
 Base: PR #241 merged at `18869079452d1ec7f92809875c5d35bc486bcbff`.
 Authority: owner approved the next increment and explicitly the Rust recall repair.
 Implementation and verification complete within the three-round cap. Published
-as `e9e153e` in [PR #242](https://github.com/shoedog/prism/pull/242), OPEN, not merged.
-The publication follow-up changes documentation only.
+as `e9e153e` in [PR #242](https://github.com/shoedog/prism/pull/242), now merged
+at `854d53f` (verified by fetch/log in the indirect-default continuation).
 
 ## Result
 
@@ -118,7 +118,8 @@ existing committed baselines and the pre-existing untracked snapshot were untouc
 
 ## Next bounded item
 
-After review/merge: indirect **local** default-class exports such as
+Owner approved the continuation after merge: indirect **local** default-class exports such as
 `class Library ...; export default Library;`, with declaration identity, duplicate
 and write barriers, then measure the relevant real receiver sites. Do not combine
 that with arbitrary reexport traversal or Python initializer execution modeling.
+Current custody: `docs/superpowers/handoffs/2026-09-04-indirect-default-handoff.md`.

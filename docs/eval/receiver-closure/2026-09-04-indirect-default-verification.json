@@ -1,0 +1,142 @@
+{
+  "base": "854d53f49606",
+  "corpus_sha": "0642e72cfa2d9a71198200e52f37399384610ee3",
+  "sample": "five unchanged files, not whole corpus",
+  "sites": 2780,
+  "exact_sites_before": 369,
+  "exact_sites_after": 369,
+  "changed_site_count": 0,
+  "relevant_call_records": 18,
+  "relevant_unique_source_spans": 11,
+  "relevant_sites": [
+    {
+      "file": "packages/excalidraw/components/App.tsx",
+      "line": 3224,
+      "before": "name_only",
+      "after": "name_only"
+    },
+    {
+      "file": "packages/excalidraw/components/App.tsx",
+      "line": 12113,
+      "before": "name_only",
+      "after": "name_only"
+    },
+    {
+      "file": "packages/excalidraw/components/App.tsx",
+      "line": 2929,
+      "before": "name_only",
+      "after": "name_only"
+    },
+    {
+      "file": "packages/excalidraw/components/App.tsx",
+      "line": 12239,
+      "before": "name_only",
+      "after": "name_only"
+    },
+    {
+      "file": "packages/excalidraw/components/LibraryMenu.tsx",
+      "line": 114,
+      "before": "name_only",
+      "after": "name_only"
+    },
+    {
+      "file": "packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+      "line": 307,
+      "before": "name_only",
+      "after": "name_only"
+    },
+    {
+      "file": "packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+      "line": 297,
+      "before": "name_only",
+      "after": "name_only"
+    },
+    {
+      "file": "packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+      "line": 184,
+      "before": "name_only",
+      "after": "name_only"
+    },
+    {
+      "file": "packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+      "line": 155,
+      "before": "name_only",
+      "after": "name_only"
+    },
+    {
+      "file": "packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+      "line": 265,
+      "before": "name_only",
+      "after": "name_only"
+    },
+    {
+      "file": "packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+      "line": 160,
+      "before": "name_only",
+      "after": "name_only"
+    }
+  ],
+  "call_bearing_source_sha256": {
+    "packages/excalidraw/components/App.tsx": "474ccd0778686bf0fff7d3b6eba41590aa552410d61ab95511c078db67572d5c",
+    "packages/excalidraw/components/LibraryMenu.tsx": "42b6ccfd00ba3f15575114bcf50180e4682dfc001f1cc694529643036be0210a",
+    "packages/excalidraw/components/LibraryMenuHeaderContent.tsx": "c02b2e4d82f6e1916f18a07d5c8abb0666a10bb7b50f559a3fe973379f3bb711",
+    "packages/excalidraw/data/library.ts": "b242773104cb14645820e5b7f1d43d2a56f86d95206f7b9571360fbddfbc8b61"
+  },
+  "real_export_fact": {
+    "default": "Class(Library)",
+    "conflicted": []
+  },
+  "default_suite": {
+    "passed": 3744,
+    "failed": 0,
+    "ignored": 1
+  },
+  "mcp_suite": {
+    "passed": 3934,
+    "failed": 0,
+    "ignored": 1
+  },
+  "matrix": {
+    "passed": 104,
+    "failed": 0
+  },
+  "quick": {
+    "exit": 2,
+    "baseline_invalid": true,
+    "invalid_reasons": ["corpus_sha_drift: 854d53f49606 != pinned 20c8490591a3"],
+    "oracle_not_quiescent": false,
+    "oracle_error_rate": 0,
+    "sut_error_rate": 0,
+    "stale_adjudications": 4,
+    "pinned_outcomes": {
+      "target-c-method": "flip_candidate",
+      "module-deps-feature-gated": "missing",
+      "load-repo-feature-gated": "missing",
+      "ambiguous-symbol-contract": "ok"
+    }
+  },
+  "binary_sha256": {
+    "base": "1772087c7ff442cc67a4b392e1208ee32562fb643347aedf54ffbe8f0e235809",
+    "candidate": "ef2a716ea1a87cc7a5491005985bd37c1984605b20a251d829593886e6e61418"
+  },
+  "controls": [
+    {
+      "sample": "black",
+      "sites": 400,
+      "exact": 79,
+      "byte_identical": true
+    },
+    {
+      "sample": "excalidraw",
+      "sites": 136,
+      "exact": 26,
+      "byte_identical": true
+    },
+    {
+      "sample": "javascript",
+      "sites": 12,
+      "exact": 4,
+      "byte_identical": true
+    }
+  ]
+}

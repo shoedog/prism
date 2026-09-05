@@ -31,7 +31,7 @@ pub const MAX_REEXPORT_DEPTH: usize = 2;
 pub enum JsExportTarget {
     /// A function / const-arrow / function-expression declared in this same file.
     Local(String),
-    /// Direct named class declaration. Never a callable-function export.
+    /// Declaration-backed local class. Never a callable-function export.
     Class(String),
     /// `export { imported as exported_name } from './y'` (also used for the
     /// re-export half of barrel resolution). `imported` is the name as

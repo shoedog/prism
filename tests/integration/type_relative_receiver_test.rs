@@ -37,6 +37,106 @@ fn check(cg: &CallGraph, caller: &str, target: Option<&str>, kind: ResolutionKin
 }
 
 #[test]
+fn indirect_default_class_identity() {
+    for (lang, ext) in [
+        (Language::JavaScript, "js"),
+        (Language::TypeScript, "ts"),
+        (Language::Tsx, "tsx"),
+    ] {
+        let caller = format!("app.{ext}");
+        let owner = format!("client.{ext}");
+        for declaration in [
+            "class Client { m() {} } export default Client;",
+            "export class Client { m() {} } export default Client;",
+            "class Client { m() {} } function change(Client) { Client = other; } export default Client;",
+        ] {
+            for (import, body, kind) in [
+                ("import Alias from './client';", "function run() { const x = new Alias(); x.m(); }", ResolutionKind::ConstructorLocal),
+                ("import {default as Alias} from './client';", "function run(x: Alias) { x.m(); }", ResolutionKind::TypedParam),
+                ("import type Alias from './client';", "function run(x: Alias) { x.m(); }", ResolutionKind::TypedParam),
+            ] {
+                if lang == Language::JavaScript && kind == ResolutionKind::TypedParam { continue; }
+                let parsed = files(&[(&caller, &format!("{import} {body}")), (&owner, declaration)], lang);
+                for cg in [CallGraph::build(&parsed), CallGraph::build_direct_subset(&parsed, &parsed.keys().cloned().collect())] {
+                    check(&cg, &caller, Some(&owner), kind);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn indirect_default_class_duplicate_and_write_barriers() {
+    let mut failures = Vec::new();
+    for declaration in [
+        "export default Client; class Client { m() {} }",
+        "class Client { m() {} } class Client { m() {} } export default Client;",
+        "class Client { m() {} } function Client() {} export default Client;",
+        "class Client { m() {} } import Client from './other'; export default Client;",
+        "class Client { m() {} } import * as Client from './other'; export default Client;",
+        "class Client { m() {} } import type Client from './other'; export default Client;",
+        "class Client { m() {} } const {Client} = other; export default Client;",
+        "class Client { m() {} } let Client = other; export default Client;",
+        "class Client { m() {} } Client = Other; export default Client;",
+        "class Client { m() {} } export default Client; Client = Other;",
+        "class Client { m() {} } function change() { Client = Other; } export default Client;",
+        "class Client { m() {} } ({Client} = other); export default Client;",
+        "class Client { m() {} } for (Client of xs) {} export default Client;",
+        "class Client { m() {} } Client++; export default Client;",
+        "class Client { m() {} } Client += other; export default Client;",
+        "class Client { m() {} } export default Client; export default Client;",
+        "class Client { m() {} } export {Client as default}; export default Client;",
+        "function factory() { class Client { m() {} } } export default Client;",
+        "import Client from './other'; export default Client;",
+        "const Client = class { m() {} }; export default Client;",
+        "class Client { m() {} } const Alias = Client; export default Alias;",
+        "class Client { m() {} } export default (Client);",
+        "@decorate class Client { m() {} } export default Client;",
+    ] {
+        let cg = CallGraph::build(&files(&[("app.ts", "import Alias from './client'; function run() { const x = new Alias(); x.m(); }"), ("client.ts", declaration), ("other.ts", "export default class Other { m() {} }")], Language::TypeScript));
+        if std::panic::catch_unwind(|| check(&cg, "app.ts", None, ResolutionKind::ConstructorLocal))
+            .is_err()
+        {
+            failures.push(declaration);
+        }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+#[test]
+fn indirect_default_class_facts_do_not_fall_back_to_callable_exports() {
+    use prism::js_exports::JsExportTarget;
+    for (src, class, poison) in [
+        (
+            "class Client { m() {} } export default Client;",
+            true,
+            false,
+        ),
+        (
+            "class Client { m() {} } function Client() {} export default Client;",
+            true,
+            true,
+        ),
+        (
+            "class Client { m() {} } Client = other; export default Client;",
+            true,
+            true,
+        ),
+        ("function Client() {} export default Client;", false, false),
+    ] {
+        let parsed = ParsedFile::parse("client.ts", src, Language::TypeScript).unwrap();
+        let facts = parsed.extract_js_ts_export_facts();
+        let expected = if class {
+            JsExportTarget::Class("Client".into())
+        } else {
+            JsExportTarget::Local("Client".into())
+        };
+        assert_eq!(facts.named.get("default"), Some(&expected), "{src}");
+        assert_eq!(facts.conflicted.contains("default"), poison, "{src}");
+    }
+}
+
+#[test]
 fn direct_default_class_receiver_identity() {
     for (lang, ext) in [
         (Language::JavaScript, "js"),
@@ -109,7 +209,7 @@ fn default_class_receiver_boundaries() {
         ),
         (
             "import Alias from './client';",
-            "class Client { m() {} } export default Client;",
+            "class Client { m() {} } export {Client as default};",
             "const x = new Alias(); x.m();",
         ),
         (

@@ -174,7 +174,8 @@ use std::path::{Path, PathBuf};
 ///   submodule proof change recovered receiver authority and CPG topology.
 /// - v63: Cargo binary own-library bindings and direct default class receiver
 ///   authority change serialized config and resolved topology.
-const CACHE_VERSION: u32 = 63;
+/// - v64: proven indirect local default classes change receiver authority.
+const CACHE_VERSION: u32 = 64;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -704,7 +705,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_receiver_authority() {
-        assert_eq!(super::CACHE_VERSION, 63);
+        assert_eq!(super::CACHE_VERSION, 64);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -767,7 +768,9 @@ mod tests {
             resolution::ResolutionConfidence,
         };
         for (language, caller, owner, importer, good, bad, auxiliary) in [
-            (Language::JavaScript, "app.js", "client.js", "import Alias from './client'; function run() { const x = new Alias(); x.m(); }", "export default class Client { m() {} }", "class Client { m() {} } export default Client;", None),
+            (Language::JavaScript, "app.js", "client.js", "import Alias from './client'; function run() { const x = new Alias(); x.m(); }", "class Client { m() {} } export default Client;", "class Client { m() {} } export default Client; Client = Other;", None),
+            (Language::TypeScript, "app.ts", "client.ts", "import type Alias from './client'; function run(x: Alias) { x.m(); }", "class Client { m() {} } export default Client;", "class Client { m() {} } import Client from './other'; export default Client;", None),
+            (Language::Tsx, "app.tsx", "client.tsx", "import Alias from './client'; function run(x: Alias) { x.m(); }", "class Client { m() {} } export default Client;", "class Client { m() {} } export default Client; export default Client;", None),
             (Language::TypeScript, "app.ts", "client.ts", "import type Alias from './client'; function run(x: Alias) { x.m(); }", "export default class Client { m() {} }", "export default class Client { static m() {} }", None),
             (Language::Tsx, "app.tsx", "app.tsx", "", "import type Alias from './client'; function run(x: Alias) { x.m(); }", "import type Alias from './client'; import type Alias from './client'; function run(x: Alias) { x.m(); }", Some(("client.tsx", "export default class Client { m() {} }"))),
             (Language::TypeScript, "app.ts", "app.ts", "", "import type {Client as Alias} from './client'; function run(x: Alias) { x.m(); }", "import type {Client as Alias} from './client'; import type {Client as Alias} from './client'; function run(x: Alias) { x.m(); }", Some(("client.ts", "export class Client { m() {} }"))),
@@ -808,8 +811,71 @@ mod tests {
                     if expected { assert_eq!(exact[0].target.file, target); }
                 }
                 assert_eq!(full.call_graph.calls, incremental.call_graph.calls, "{language:?}");
-                force_cache_version(dir.path(), 61);
+                force_cache_version(dir.path(), 63);
                 assert!(matches!(load_cache(&hashes, false, dir.path()), CacheResult::Miss));
+            }
+        }
+    }
+
+    #[test]
+    fn indirect_default_class_cached_owner_replacement() {
+        use crate::{
+            ast::ParsedFile, cpg::CodePropertyGraph, languages::Language,
+            resolution::ResolutionConfidence,
+        };
+        for (lang, ext) in [
+            (Language::JavaScript, "js"),
+            (Language::TypeScript, "ts"),
+            (Language::Tsx, "tsx"),
+        ] {
+            let caller = format!("app.{ext}");
+            let owner = format!("client.{ext}");
+            let sources = |name: &str| {
+                BTreeMap::from([
+                (caller.clone(), "import Alias from './client'; function run() { const x = new Alias(); x.m(); }".to_string()),
+                (owner.clone(), format!("class A {{\n m() {{}}\n}}\nclass B {{\n m() {{}}\n}}\nexport default {name};")),
+            ])
+            };
+            let parse = |src: &BTreeMap<String, String>| {
+                src.iter()
+                    .map(|(p, s)| (p.clone(), ParsedFile::parse(p, s, lang).unwrap()))
+                    .collect()
+            };
+            for (before, after, line) in [("A", "B", 5), ("B", "A", 2)] {
+                let old_sources = sources(before);
+                let hashes = compute_file_hashes(&old_sources);
+                let old = CodePropertyGraph::build(&parse(&old_sources));
+                let dir = tempfile::tempdir().unwrap();
+                save_cache(&old, &hashes, false, dir.path()).unwrap();
+                let CacheResult::Hit(loaded) = load_cache(&hashes, false, dir.path()) else {
+                    panic!("cache miss");
+                };
+                let new_files = parse(&sources(after));
+                let full = CodePropertyGraph::build(&new_files);
+                let incremental = CodePropertyGraph::build_incremental(
+                    loaded.call_graph,
+                    loaded.dfg,
+                    &BTreeSet::from([owner.clone()]),
+                    &new_files,
+                    None,
+                );
+                for cg in [&full.call_graph, &incremental.call_graph] {
+                    let site = cg
+                        .calls
+                        .iter()
+                        .filter(|(id, _)| id.file == caller && id.name == "run")
+                        .flat_map(|(_, s)| s)
+                        .find(|s| s.callee_name == "m")
+                        .unwrap();
+                    let edges = cg.resolve_call_site(site);
+                    let exact: Vec<_> = edges
+                        .iter()
+                        .filter(|e| e.confidence == ResolutionConfidence::Exact)
+                        .collect();
+                    assert_eq!(exact.len(), 1, "{lang:?}: {edges:?}");
+                    assert_eq!(exact[0].target.file, owner);
+                    assert_eq!(exact[0].target.start_line, line, "stale {before} owner");
+                }
             }
         }
     }
