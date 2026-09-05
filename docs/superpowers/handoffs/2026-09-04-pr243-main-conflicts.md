@@ -1,7 +1,7 @@
 # Handoff — PR 243 main conflict resolution
 
 **Written:** 2026-09-04 · **By:** Codex /root · **Provider:** codex
-**Workspace:** /private/tmp/prism-pr243-main-drjoY2 · fix/pr243-main · **Measured state:** `[MEASURED]` HEAD f751a7569ea105ee37e35c3637df255a4df2640d, merging origin/main 854d53f49606461421ce8de84a2618aa79adac58; tree dirty. Probe: git merge --no-commit --no-ff origin/main; one roadmap conflict.
+**Workspace:** /private/tmp/prism-pr243-main-drjoY2 · fix/pr243-main · **Measured state:** `[MEASURED]` merge b0cf1a24eff04888e8311f0f3abdc93b74c82fb3 pushed to targets-dependency-hint; parents f751a756 and main854d53f. GitHub confirms PR243 OPEN and mergeable, not merged. This follow-up records publication only.
 **Predecessor:** PR #243 targets-dependency-hint; #244 remains separate and mergeable at initial GitHub check.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,14 +9,14 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Ownership: `[MEASURED]` isolated worktree created for this session; original #244 checkout and untracked files untouched — RESOLVED.
-(b) Custody: `[MEASURED]` original PR heads remote; merge resolution uncommitted; checkpoint archive in /private/tmp/prism-pr243-verify-YYpo2A — OPEN until push.
+(b) Custody: `[MEASURED]` merge b0cf1a24 pushed; raw evidence archived below; worktree clean before this documentation follow-up — RESOLVED.
 (c) In flight: `[MEASURED]` full suites/release/matrix/quick complete; no pending process — RESOLVED.
 (d) Authority: owner “can you resolve conflicts with PR 243 and main”; update #243 branch, do not merge either PR into main.
 
 ## 1. Resume order
 
 1. Read /private/tmp/prism-pr243-verify-YYpo2A/default.log, all-features.log and release.log; run git status --short in this worktree.
-2. Complete verification, commit merge, push HEAD to targets-dependency-hint, verify GitHub mergeability.
+2. Review PR243. GitHub confirms mergeable; no automatic merge. PR244 is unchanged and an object-only merge-tree compatibility check with its head5b98bee returned a clean tree (not a combined behavior test).
 
 **STOP conditions:** three review rounds maximum; unrelated test failures require same-environment base control before attribution; no rebaseline or automatic PR merge.
 
@@ -29,7 +29,7 @@
 | Full suites | done | `[MEASURED]` default3803/0/1; all-targets/all-features3991/0/1 plus doc2/0/0; logs under /private/tmp/prism-pr243-verify-YYpo2A |
 | Static and matrix | done | `[MEASURED]` fmt clean, Clippy complete with warnings; matrix104/104; dependency-hint source/tests identical to PR243; all19 main and18 PR243 integration module registrations retained |
 | Quick | done | `[MEASURED]` exit2 solely SHA drift f751a7569ea1 vs pinned20c8490591a3; oracle quiescent, oracle/SUT errors0, stale adjudications4; run label2026-09-04-pr243-main |
-| Publication | next | Push tested merge to existing PR243 branch |
+| Publication | done | `[MEASURED]` b0cf1a24 pushed to targets-dependency-hint; PR243 OPEN and mergeable |
 
 ## 3. Corrections to standing documents and memory
 
@@ -37,7 +37,7 @@ Initial assumption that #244 needed conflict work was corrected by GitHub: #243 
 
 ## 4. Open work
 
-Verification and publication above. Existing PR243 census/review claims are `[INHERITED]` from its PR body, not independently repeated by this conflict-only task.
+Owner review/merge only. Existing PR243 census/review claims are `[INHERITED]` from its PR body, not independently repeated by this conflict-only task.
 
 Quick is not a green accuracy gate. Pins: target-c-method flip_candidate
 (Exact TP5/FP0/FN0, 28 extra default candidates); module-deps-feature-gated missing
@@ -67,6 +67,8 @@ confirms they are byte-identical to main; scoped diff-check against main passes.
 | Remote branch | targets-dependency-hint |
 | Main | 854d53f49606461421ce8de84a2618aa79adac58 |
 | Evidence | /private/tmp/prism-pr243-verify-YYpo2A |
+| Evidence archive | /private/tmp/prism-pr243-verify-YYpo2A-evidence.tgz |
+| Archive SHA256 | 39ed1ba8e22b73792f213abdd7e8addc1692f7f92fbfdfad850c42c9eb7861c2 |
 
 ## 7. Refutation verdict and owner questions
 
