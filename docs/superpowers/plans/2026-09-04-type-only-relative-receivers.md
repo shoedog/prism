@@ -16,4 +16,5 @@ drift (four stale adjudications). Pinned observations retained in review/handoff
 and to be included in PR, not rebaselined. Step 6 predecessor merge status
 reconciled; implementation `0a2edf6` committed/pushed and PR #240 opened. This
 follow-up reconciles publication docs only; all nine source/test files match the
-full-suite-tested snapshot.
+full-suite-tested snapshot. Successor reconciliation: PR #240 merged as `f3bf88e`;
+owner approved measurement/correctness closure before further feature expansion.

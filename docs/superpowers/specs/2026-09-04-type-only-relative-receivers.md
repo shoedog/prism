@@ -1,13 +1,15 @@
 # Type-only and explicit-relative receiver identity
 
 Base: merged PR #239, `862166d`. Owner: “ok, merged proceed”.
-Status: implemented/pushed as `0a2edf6`, [PR #240](https://github.com/shoedog/prism/pull/240) OPEN, not merged. Full suites and matrix pass; quick corpus-pin exclusion remains.
+Status: implemented/pushed as `0a2edf6`, [PR #240](https://github.com/shoedog/prism/pull/240) merged as `f3bf88e`. Full suites and matrix pass; quick corpus-pin exclusion remains.
 Two bounded slices; three-round self-review cap declared before implementation.
 
 ## Evidence and corrected assumptions
 
-Current source drops TypeScript type-only imports before class lookup and rejects
-all leading-dot Python submodule imports. Neither is a runtime value binding.
+Pre-#240 source dropped TypeScript type-only imports before class lookup and rejected
+all leading-dot Python submodule receiver proofs. Type-only imports are erased;
+Python relative imports do introduce runtime value bindings. These are distinct
+proof routes, not two forms of non-runtime binding.
 The next increment must not turn type evidence into constructor evidence or infer
 a Python source root from a filename stem. Structural navigation identified the
 shared proof-key and resolver consumers; stale server lines are checked in source.

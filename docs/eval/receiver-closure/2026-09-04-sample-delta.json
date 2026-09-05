@@ -1,0 +1,585 @@
+{
+  "schema_version": 1,
+  "purpose": "paired partial-source receiver comparison; not a corpus accuracy baseline",
+  "control_sha": "862166dba27b8e293ad5cce969a05e231c761845",
+  "candidate_sha": "f3bf88e0b9521c2ad80e8a5e4ffcd22381e61bc0",
+  "binary_sha256": {
+    "control": "231e01cc947216ab5717e676f496873386f7c1afc3fc31269bee37bd907d4e22",
+    "merged": "df049d624b5266e9484443fedb0db20b1008c72f5e4dc5d43fe50f76b6f2a757"
+  },
+  "corpora": {
+    "black": "b74b23013fe6d0f7e0cee430a472ac70c5ba1334",
+    "excalidraw": "0642e72cfa2d9a71198200e52f37399384610ee3",
+    "javascript": "0642e72cfa2d9a71198200e52f37399384610ee3"
+  },
+  "command": "BIN nav --no-cache call-stats --repo FIXED_SOURCE --dump-sites",
+  "evidence_directory": "/private/tmp/prism-receiver-closure-HsaNcO",
+  "source_manifest": {
+    "black": {
+      "src/blib2to3/__init__.py": "f7ff302fd49cbfcfc2b3c1c9c891c6bf1d6fc1712bb2ebe5b00a8d64b709411d",
+      "src/blib2to3/pgen2/__init__.py": "858eb0f50533bd3bd16fe32815f77fabfed92ede885070b6cb15827ec66ea500",
+      "src/blib2to3/pgen2/conv.py": "29c9ec92b849fb48e143c92cb313f66f514f8c590a52376e7f485c17f761ade2",
+      "src/blib2to3/pgen2/driver.py": "c81d4ee37561101eac679b5abf29ee727b55c0b0814b54f3b1216ca90c7f0d16",
+      "src/blib2to3/pgen2/grammar.py": "c40a5265e8a0afd201a20d86f7fbcbbe13a22aa52366b40e3c796b89e0b0f251",
+      "src/blib2to3/pgen2/literals.py": "6e5ee0069c08b1d452b7c95a184452c8e561e18a4a4a7014208d78081713e4cb",
+      "src/blib2to3/pgen2/parse.py": "94db00cb97885e45d30ae7e8727b0853132c939892b644c1c25bf1e179b5d6a1",
+      "src/blib2to3/pgen2/pgen.py": "cb9a83687e3e824230f958731623d1de162ef1e0df5927fecffedd105d12e292",
+      "src/blib2to3/pgen2/token.py": "f982de75c962d4702c811941a5e6b7eca25c08da17f60744773f82cdbad4bb9c",
+      "src/blib2to3/pgen2/tokenize.py": "99ddfe8bececf4a61fc715e0dccfb763e0721dd9198ff15e73ae2c8c21feac8e"
+    },
+    "excalidraw": {
+      "packages/element/src/Scene.ts": "f0663794600692924d5ae2c68cdae3526521a3ea89828d6252d5b64336231dcc",
+      "packages/element/src/align.ts": "4f06010cffdd4a74e13bc06a40daddd42f8b52e16e87acc74de2935e8d5c6d51",
+      "packages/element/src/distribute.ts": "b561394fd214987961f1fd19fdce4e6cecc23eb6d7402efac3d306c3af369890",
+      "packages/element/src/dragElements.ts": "8e3ab514aef5491cda695921d64f9f13013f0015b8742a3170613be18a1bf277"
+    },
+    "javascript": {
+      "scripts/build-node.js": "39ce9718f885ad67ec98218771588b90b968d9b3d323d707102233d1c59310a0",
+      "scripts/buildBase.js": "58cdb611b20d4f069da84b69e377e2a4e0003fb444e30774ebea52534812359a"
+    }
+  },
+  "raw_dump_sha256": {
+    "black-control.jsonl": "97089f9f88745f64caa1f6a41435fb26e4ea582ef22faed51b3231bc1419dd73",
+    "excalidraw-control.jsonl": "cb511daf04b3e3efffbe0383907c4be4bb4aa78cc3b55c2ee10c0d07d69b279b",
+    "javascript-control.jsonl": "0a226dd23b5c5605ce183ec943474f4aae13e5c7a1d1f362454c7d6874e76769",
+    "black-merged.jsonl": "d0551c1d398ad21f31d30b06fd9057982fc3d649b7c421b5cedd6712154c5863",
+    "excalidraw-merged.jsonl": "a7d8a2cfba4d027861626df87285565359fbd357d41a88476b7b731b9aa90440",
+    "javascript-merged.jsonl": "0a226dd23b5c5605ce183ec943474f4aae13e5c7a1d1f362454c7d6874e76769"
+  },
+  "samples": {
+    "black": {
+      "sites": 400,
+      "before_exact": 75,
+      "after_exact": 79,
+      "changes": [
+        {
+          "caller": {
+            "end_line": 185,
+            "file": "src/blib2to3/pgen2/driver.py",
+            "name": "parse_tokens",
+            "start_line": 115
+          },
+          "span": {
+            "end_byte": 3566,
+            "file": "src/blib2to3/pgen2/driver.py",
+            "line": 121,
+            "start_byte": 3546
+          },
+          "callee": "setup",
+          "before": [],
+          "after": [
+            {
+              "confidence": "exact",
+              "function_id": {
+                "end_line": 224,
+                "file": "src/blib2to3/pgen2/parse.py",
+                "name": "setup",
+                "start_line": 200
+              },
+              "kind": "constructor_local"
+            }
+          ]
+        },
+        {
+          "caller": {
+            "end_line": 185,
+            "file": "src/blib2to3/pgen2/driver.py",
+            "name": "parse_tokens",
+            "start_line": 115
+          },
+          "span": {
+            "end_byte": 5217,
+            "file": "src/blib2to3/pgen2/driver.py",
+            "line": 163,
+            "start_byte": 5166
+          },
+          "callee": "addtoken",
+          "before": [],
+          "after": [
+            {
+              "confidence": "exact",
+              "function_id": {
+                "end_line": 272,
+                "file": "src/blib2to3/pgen2/parse.py",
+                "name": "addtoken",
+                "start_line": 226
+              },
+              "kind": "constructor_local"
+            }
+          ]
+        },
+        {
+          "caller": {
+            "end_line": 263,
+            "file": "src/blib2to3/pgen2/driver.py",
+            "name": "load_grammar",
+            "start_line": 241
+          },
+          "span": {
+            "end_byte": 8547,
+            "file": "src/blib2to3/pgen2/driver.py",
+            "line": 256,
+            "start_byte": 8537
+          },
+          "callee": "dump",
+          "before": [],
+          "after": [
+            {
+              "confidence": "exact",
+              "function_id": {
+                "end_line": 115,
+                "file": "src/blib2to3/pgen2/grammar.py",
+                "name": "dump",
+                "start_line": 100
+              },
+              "kind": "constructor_local"
+            }
+          ]
+        },
+        {
+          "caller": {
+            "end_line": 296,
+            "file": "src/blib2to3/pgen2/driver.py",
+            "name": "load_packaged_grammar",
+            "start_line": 275
+          },
+          "span": {
+            "end_byte": 9962,
+            "file": "src/blib2to3/pgen2/driver.py",
+            "line": 295,
+            "start_byte": 9949
+          },
+          "callee": "loads",
+          "before": [],
+          "after": [
+            {
+              "confidence": "exact",
+              "function_id": {
+                "end_line": 129,
+                "file": "src/blib2to3/pgen2/grammar.py",
+                "name": "loads",
+                "start_line": 127
+              },
+              "kind": "constructor_local"
+            }
+          ]
+        }
+      ]
+    },
+    "excalidraw": {
+      "sites": 136,
+      "before_exact": 19,
+      "after_exact": 26,
+      "changes": [
+        {
+          "caller": {
+            "end_line": 111,
+            "file": "packages/element/src/distribute.ts",
+            "name": "distributeElements",
+            "start_line": 17
+          },
+          "span": {
+            "end_byte": 2302,
+            "file": "packages/element/src/distribute.ts",
+            "line": 73,
+            "start_byte": 2181
+          },
+          "callee": "mutateElement",
+          "before": [],
+          "after": [
+            {
+              "confidence": "exact",
+              "function_id": {
+                "end_line": 445,
+                "file": "packages/element/src/Scene.ts",
+                "name": "mutateElement",
+                "start_line": 411
+              },
+              "kind": "typed_param"
+            }
+          ]
+        },
+        {
+          "caller": {
+            "end_line": 111,
+            "file": "packages/element/src/distribute.ts",
+            "name": "distributeElements",
+            "start_line": 17
+          },
+          "span": {
+            "end_byte": 2891,
+            "file": "packages/element/src/distribute.ts",
+            "line": 101,
+            "start_byte": 2776
+          },
+          "callee": "mutateElement",
+          "before": [],
+          "after": [
+            {
+              "confidence": "exact",
+              "function_id": {
+                "end_line": 445,
+                "file": "packages/element/src/Scene.ts",
+                "name": "mutateElement",
+                "start_line": 411
+              },
+              "kind": "typed_param"
+            }
+          ]
+        },
+        {
+          "caller": {
+            "end_line": 171,
+            "file": "packages/element/src/dragElements.ts",
+            "name": "dragSelectedElements",
+            "start_line": 35
+          },
+          "span": {
+            "end_byte": 2223,
+            "file": "packages/element/src/dragElements.ts",
+            "line": 80,
+            "start_byte": 2194
+          },
+          "callee": "getNonDeletedElements",
+          "before": [],
+          "after": [
+            {
+              "confidence": "exact",
+              "function_id": {
+                "end_line": 161,
+                "file": "packages/element/src/Scene.ts",
+                "name": "getNonDeletedElements",
+                "start_line": 159
+              },
+              "kind": "typed_param"
+            }
+          ]
+        },
+        {
+          "caller": {
+            "end_line": 171,
+            "file": "packages/element/src/dragElements.ts",
+            "name": "dragSelectedElements",
+            "start_line": 35
+          },
+          "span": {
+            "end_byte": 3672,
+            "file": "packages/element/src/dragElements.ts",
+            "line": 129,
+            "start_byte": 3640
+          },
+          "callee": "getNonDeletedElementsMap",
+          "before": [],
+          "after": [
+            {
+              "confidence": "exact",
+              "function_id": {
+                "end_line": 149,
+                "file": "packages/element/src/Scene.ts",
+                "name": "getNonDeletedElementsMap",
+                "start_line": 147
+              },
+              "kind": "typed_param"
+            }
+          ]
+        },
+        {
+          "caller": {
+            "end_line": 220,
+            "file": "packages/element/src/dragElements.ts",
+            "name": "updateElementCoords",
+            "start_line": 204
+          },
+          "span": {
+            "end_byte": 6301,
+            "file": "packages/element/src/dragElements.ts",
+            "line": 216,
+            "start_byte": 6238
+          },
+          "callee": "mutateElement",
+          "before": [],
+          "after": [
+            {
+              "confidence": "exact",
+              "function_id": {
+                "end_line": 445,
+                "file": "packages/element/src/Scene.ts",
+                "name": "mutateElement",
+                "start_line": 411
+              },
+              "kind": "typed_param"
+            }
+          ]
+        },
+        {
+          "caller": {
+            "end_line": 50,
+            "file": "packages/element/src/align.ts",
+            "name": "alignElements",
+            "start_line": 17
+          },
+          "span": {
+            "end_byte": 1182,
+            "file": "packages/element/src/align.ts",
+            "line": 38,
+            "start_byte": 1067
+          },
+          "callee": "mutateElement",
+          "before": [],
+          "after": [
+            {
+              "confidence": "exact",
+              "function_id": {
+                "end_line": 445,
+                "file": "packages/element/src/Scene.ts",
+                "name": "mutateElement",
+                "start_line": 411
+              },
+              "kind": "typed_param"
+            }
+          ]
+        },
+        {
+          "caller": {
+            "end_line": 50,
+            "file": "packages/element/src/align.ts",
+            "name": "alignElements",
+            "start_line": 17
+          },
+          "span": {
+            "end_byte": 741,
+            "file": "packages/element/src/align.ts",
+            "line": 25,
+            "start_byte": 709
+          },
+          "callee": "getNonDeletedElementsMap",
+          "before": [],
+          "after": [
+            {
+              "confidence": "exact",
+              "function_id": {
+                "end_line": 149,
+                "file": "packages/element/src/Scene.ts",
+                "name": "getNonDeletedElementsMap",
+                "start_line": 147
+              },
+              "kind": "typed_param"
+            }
+          ]
+        }
+      ]
+    },
+    "javascript": {
+      "sites": 12,
+      "before_exact": 4,
+      "after_exact": 4,
+      "changes": []
+    }
+  },
+  "served_checks": [
+    {
+      "sample": "black",
+      "caller": {
+        "end_line": 185,
+        "file": "src/blib2to3/pgen2/driver.py",
+        "name": "parse_tokens",
+        "start_line": 115
+      },
+      "line": 121,
+      "target": {
+        "end_line": 224,
+        "file": "src/blib2to3/pgen2/parse.py",
+        "name": "setup",
+        "start_line": 200
+      },
+      "outgoing": 1,
+      "incoming": 1
+    },
+    {
+      "sample": "black",
+      "caller": {
+        "end_line": 185,
+        "file": "src/blib2to3/pgen2/driver.py",
+        "name": "parse_tokens",
+        "start_line": 115
+      },
+      "line": 163,
+      "target": {
+        "end_line": 272,
+        "file": "src/blib2to3/pgen2/parse.py",
+        "name": "addtoken",
+        "start_line": 226
+      },
+      "outgoing": 1,
+      "incoming": 1
+    },
+    {
+      "sample": "black",
+      "caller": {
+        "end_line": 263,
+        "file": "src/blib2to3/pgen2/driver.py",
+        "name": "load_grammar",
+        "start_line": 241
+      },
+      "line": 256,
+      "target": {
+        "end_line": 115,
+        "file": "src/blib2to3/pgen2/grammar.py",
+        "name": "dump",
+        "start_line": 100
+      },
+      "outgoing": 1,
+      "incoming": 1
+    },
+    {
+      "sample": "black",
+      "caller": {
+        "end_line": 296,
+        "file": "src/blib2to3/pgen2/driver.py",
+        "name": "load_packaged_grammar",
+        "start_line": 275
+      },
+      "line": 295,
+      "target": {
+        "end_line": 129,
+        "file": "src/blib2to3/pgen2/grammar.py",
+        "name": "loads",
+        "start_line": 127
+      },
+      "outgoing": 1,
+      "incoming": 1
+    },
+    {
+      "sample": "excalidraw",
+      "caller": {
+        "end_line": 111,
+        "file": "packages/element/src/distribute.ts",
+        "name": "distributeElements",
+        "start_line": 17
+      },
+      "line": 73,
+      "target": {
+        "end_line": 445,
+        "file": "packages/element/src/Scene.ts",
+        "name": "mutateElement",
+        "start_line": 411
+      },
+      "outgoing": 1,
+      "incoming": 1
+    },
+    {
+      "sample": "excalidraw",
+      "caller": {
+        "end_line": 111,
+        "file": "packages/element/src/distribute.ts",
+        "name": "distributeElements",
+        "start_line": 17
+      },
+      "line": 101,
+      "target": {
+        "end_line": 445,
+        "file": "packages/element/src/Scene.ts",
+        "name": "mutateElement",
+        "start_line": 411
+      },
+      "outgoing": 1,
+      "incoming": 1
+    },
+    {
+      "sample": "excalidraw",
+      "caller": {
+        "end_line": 171,
+        "file": "packages/element/src/dragElements.ts",
+        "name": "dragSelectedElements",
+        "start_line": 35
+      },
+      "line": 80,
+      "target": {
+        "end_line": 161,
+        "file": "packages/element/src/Scene.ts",
+        "name": "getNonDeletedElements",
+        "start_line": 159
+      },
+      "outgoing": 1,
+      "incoming": 1
+    },
+    {
+      "sample": "excalidraw",
+      "caller": {
+        "end_line": 171,
+        "file": "packages/element/src/dragElements.ts",
+        "name": "dragSelectedElements",
+        "start_line": 35
+      },
+      "line": 129,
+      "target": {
+        "end_line": 149,
+        "file": "packages/element/src/Scene.ts",
+        "name": "getNonDeletedElementsMap",
+        "start_line": 147
+      },
+      "outgoing": 1,
+      "incoming": 1
+    },
+    {
+      "sample": "excalidraw",
+      "caller": {
+        "end_line": 220,
+        "file": "packages/element/src/dragElements.ts",
+        "name": "updateElementCoords",
+        "start_line": 204
+      },
+      "line": 216,
+      "target": {
+        "end_line": 445,
+        "file": "packages/element/src/Scene.ts",
+        "name": "mutateElement",
+        "start_line": 411
+      },
+      "outgoing": 1,
+      "incoming": 1
+    },
+    {
+      "sample": "excalidraw",
+      "caller": {
+        "end_line": 50,
+        "file": "packages/element/src/align.ts",
+        "name": "alignElements",
+        "start_line": 17
+      },
+      "line": 38,
+      "target": {
+        "end_line": 445,
+        "file": "packages/element/src/Scene.ts",
+        "name": "mutateElement",
+        "start_line": 411
+      },
+      "outgoing": 1,
+      "incoming": 1
+    },
+    {
+      "sample": "excalidraw",
+      "caller": {
+        "end_line": 50,
+        "file": "packages/element/src/align.ts",
+        "name": "alignElements",
+        "start_line": 17
+      },
+      "line": 25,
+      "target": {
+        "end_line": 149,
+        "file": "packages/element/src/Scene.ts",
+        "name": "getNonDeletedElementsMap",
+        "start_line": 147
+      },
+      "outgoing": 1,
+      "incoming": 1
+    }
+  ],
+  "limitations": [
+    "partial indexed source universes",
+    "Python/TS deltas source-audited, not LSP-adjudicated",
+    "no precision/recall denominator",
+    "no runtime reflection or monkeypatching proof"
+  ]
+}

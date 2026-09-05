@@ -81,9 +81,16 @@ Three candidate directions once the queue's top items are drained (or interleave
   imported constructor/parameter receivers, then Python inert regular-package
   initializers. See `docs/superpowers/specs/2026-09-04-imported-class-receivers.md`.
   The bounded syntactic census is not a measured corpus-recall gain.
-- **Implemented continuation — PR #240 (open, not merged), `0a2edf6`:** separate named TS type-only class
+- **Implemented continuation — PR #240 (merged as `f3bf88e`), `0a2edf6`:** separate named TS type-only class
   authority and explicitly anchored Python relative submodule imports. See
   `docs/superpowers/specs/2026-09-04-type-only-relative-receivers.md` and matching handoff.
+- **Receiver measurement closure — PR #241 (open, not merged), `f5d766b`:** fixed-source pre/post-#240 comparison
+  preserves all old Exact edges across 548 sites and adds 4 Black + 7 Excalidraw
+  edges, all checked through served callers/callees. This is partial-source evidence,
+  not whole-corpus recall. Paired Rust pins reproduce identical historical flip and
+  obsolete literal-address outcomes; an inherited fully qualified call miss at
+  `src/main.rs:183` remains a separate Rust repair item. No new Python/JS feature
+  or baseline change. See `docs/eval/receiver-closure/2026-09-04-readout.md`.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:
