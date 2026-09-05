@@ -2,7 +2,8 @@
 
 Base2aff090, PR249 merged and fetched. Owner approved the next bounded slice.
 Implementation590f677 pushed on feat/local-props-object-aliases in
-[PR250](https://github.com/shoedog/prism/pull/250), open against main.
+[PR250](https://github.com/shoedog/prism/pull/250), merged into main at83594a8a.
+Merge state and fetched origin/main verified on 2026-09-05.
 
 ## Result and boundary
 
