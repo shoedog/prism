@@ -2295,7 +2295,7 @@ impl ParsedFile {
     /// Out of scope (skipped, counted in `skipped_expr_count` where the
     /// syntax is otherwise a recognized export/CJS-assignment shape but the
     /// value isn't a plain identifier): dynamic `require(expr)`/`import(expr)`,
-    /// TS `export =` CJS interop, default/indirect class exports, anonymous default
+    /// TS `export =` CJS interop, anonymous/indirect class exports, anonymous default
     /// function/arrow exports, spread in `module.exports = { ...x }`.
     pub fn extract_js_ts_export_facts(&self) -> crate::js_exports::JsExportFacts {
         let mut facts = crate::js_exports::JsExportFacts::default();
@@ -2356,7 +2356,7 @@ impl ParsedFile {
                     if let Some(name) = node.child_by_field_name("name") {
                         let imported = parsed.node_text(&name);
                         let local = node.child_by_field_name("alias").unwrap_or(name);
-                        let target = (is_plain_ident(imported) && imported != "default")
+                        let target = is_plain_ident(imported)
                             .then(|| (module.to_string(), imported.to_string()));
                         insert(out, parsed.node_text(&local).to_string(), target);
                     }
@@ -2369,7 +2369,11 @@ impl ParsedFile {
                     .parent()
                     .is_some_and(|p| matches!(p.kind(), "import_clause" | "namespace_import"))
             {
-                insert(out, parsed.node_text(&node).to_string(), None);
+                let target = node
+                    .parent()
+                    .filter(|p| p.kind() == "import_clause")
+                    .map(|_| (module.to_string(), "default".to_string()));
+                insert(out, parsed.node_text(&node).to_string(), target);
                 return;
             }
             let mut cursor = node.walk();
@@ -2454,7 +2458,6 @@ impl ParsedFile {
                     .into_iter()
                     .filter(|b| {
                         b.kind == crate::call_graph::ImportBindingKind::MemberImport
-                            && b.member.as_deref() != Some("default")
                             && only.is_none_or(|name| b.local == name)
                     })
                     .map(|b| b.local),
@@ -2474,10 +2477,7 @@ impl ParsedFile {
 
     /// The bounded class-export lane accepts only an undecorated named declaration.
     pub(crate) fn js_ts_named_exported_class<'a>(&self, node: Node<'a>) -> Option<Node<'a>> {
-        if node.kind() != "export_statement"
-            || node.has_error()
-            || self.js_ts_export_statement_is_default(node)
-        {
+        if node.kind() != "export_statement" || node.has_error() {
             return None;
         }
         let declaration = node.child_by_field_name("declaration")?;
@@ -2580,7 +2580,12 @@ impl ParsedFile {
                 "class_declaration" if self.js_ts_named_exported_class(node).is_some() => {
                     if let Some(name) = decl.child_by_field_name("name") {
                         let name = self.node_text(&name).to_string();
-                        facts.insert_named(name.clone(), JsExportTarget::Class(name));
+                        let exported = if is_default {
+                            "default".to_string()
+                        } else {
+                            name.clone()
+                        };
+                        facts.insert_named(exported, JsExportTarget::Class(name));
                     }
                 }
                 "function_declaration" | "generator_function_declaration" => {

@@ -72,7 +72,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v29: receiver authority repair removes unsupported Exact edges (CPG v60).
 // v30: imported JS classes and inert Python packages change Exact edges (CPG v61).
 // v31: type-only TS and explicit-relative Python receiver edges (CPG v62).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 31;
+// v32: Rust binary own-library and direct default class receiver edges (CPG v63).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 32;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -616,13 +617,52 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 31);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 32);
+    }
+
+    #[test]
+    fn binary_library_sidecar_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("src")).unwrap();
+        for (path, source) in [
+            (
+                "Cargo.toml",
+                "[package]\nname='demo'\nversion='0.1.0'\nedition='2021'",
+            ),
+            ("src/lib.rs", "pub fn target(){}"),
+            (
+                "src/main.rs",
+                "fn visible(){demo::target();} fn shadow(){mod demo {} demo::target();}",
+            ),
+        ] {
+            std::fs::write(dir.path().join(path), source).unwrap();
+        }
+        let repo = crate::repo_loader::load_repo(dir.path()).unwrap();
+        let nav = crate::navigation::NavigationIndex::build(&repo);
+        let index = nav.build_resolved_call_edges();
+        let fingerprint = fixture_fingerprint();
+        save(dir.path(), &fingerprint, &index).unwrap();
+        let loaded = load(dir.path(), &fingerprint).unwrap().unwrap();
+        for index in [&index, &loaded] {
+            let edges: Vec<_> = index
+                .incoming_by_target
+                .iter()
+                .filter(|(target, _)| target.file == "src/lib.rs" && target.name == "target")
+                .flat_map(|(_, edges)| edges)
+                .filter(|edge| edge.confidence == ResolutionConfidence::Exact)
+                .collect();
+            assert_eq!(edges.len(), 1);
+            assert_eq!(edges[0].caller.name, "visible");
+        }
     }
 
     #[test]
     fn imported_receiver_sidecar_round_trip() {
         use crate::{ast::ParsedFile, cpg::CpgContext, languages::Language};
         for (lang, caller, owner, source, declaration, init) in [
+            (Language::JavaScript, "app.js", "client.js", "import Alias from './client'; function visible() { const x = new Alias(); x.m(); } function shadow(Alias) { const x = new Alias(); x.m(); }", "export default class Client { m() {} }", None),
+            (Language::TypeScript, "app.ts", "client.ts", "import type Alias from './client'; function visible(x: Alias) { x.m(); } function shadow<Alias>(x: Alias) { x.m(); }", "export default class Client { m() {} }", None),
+            (Language::Tsx, "app.tsx", "client.tsx", "import {type default as Alias} from './client'; function visible(x: Alias) { x.m(); } function shadow<Alias>(x: Alias) { x.m(); }", "export default class Client { m() {} }", None),
             (Language::TypeScript, "app.ts", "client.ts", "import type {Client as Alias} from './client';\nfunction visible(x: Alias) { x.m(); }\nfunction shadow<Alias>(x: Alias) { x.m(); }", "export class Client { m() {} }", None),
             (Language::Tsx, "app.tsx", "client.tsx", "import {type Client as Alias} from './client';\nfunction visible(x: Alias) { x.m(); }\nfunction shadow<Alias>(x: Alias) { x.m(); }", "export class Client { m() {} }", None),
             (Language::Python, "pkg/app.py", "pkg/models.py", "from . import models\ndef visible(x: models.Client):\n    x.m()\ndef shadow(models):\n    x = models.Client()\n    x.m()\n", "class Client:\n    def m(self): pass\n", Some("pkg/__init__.py")),

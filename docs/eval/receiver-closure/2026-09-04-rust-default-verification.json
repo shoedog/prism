@@ -1,0 +1,1136 @@
+{
+  "base": "18869079452d1ec7f92809875c5d35bc486bcbff",
+  "control_binary": "f3bf88e0b952",
+  "control_source_equivalent_to_base": true,
+  "candidate_binary": "18869079452d-dirty",
+  "rust": {
+    "sites": 88716,
+    "before_exact": 20966,
+    "after_exact": 21038,
+    "removed_targets": 0,
+    "changed_existing_labels": 1,
+    "changes": [
+      {
+        "file": "src/bin/prism-mcp.rs",
+        "line": 41,
+        "callee": "prism::mcp::run",
+        "before": [],
+        "after": [
+          [
+            "src/mcp/mod.rs",
+            21,
+            "run",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 37,
+        "callee": "prism::build_pool::install",
+        "before": [],
+        "after": [
+          [
+            "src/build_pool.rs",
+            40,
+            "install",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 25,
+        "callee": "prism::reasoning::seeds::parse_file_line_spec",
+        "before": [],
+        "after": [
+          [
+            "src/reasoning/seeds.rs",
+            99,
+            "parse_file_line_spec",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 58,
+        "callee": "prism::api::nav_session",
+        "before": [],
+        "after": [
+          [
+            "src/api/nav.rs",
+            14,
+            "nav_session",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 70,
+        "callee": "prism::api::nav_session",
+        "before": [],
+        "after": [
+          [
+            "src/api/nav.rs",
+            14,
+            "nav_session",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 100,
+        "callee": "prism::api::nav_session",
+        "before": [],
+        "after": [
+          [
+            "src/api/nav.rs",
+            14,
+            "nav_session",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 130,
+        "callee": "prism::api::nav_session",
+        "before": [],
+        "after": [
+          [
+            "src/api/nav.rs",
+            14,
+            "nav_session",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 160,
+        "callee": "prism::api::nav_session",
+        "before": [],
+        "after": [
+          [
+            "src/api/nav.rs",
+            14,
+            "nav_session",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 182,
+        "callee": "prism::api::nav_session",
+        "before": [],
+        "after": [
+          [
+            "src/api/nav.rs",
+            14,
+            "nav_session",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 188,
+        "callee": "prism::api::nav_session",
+        "before": [],
+        "after": [
+          [
+            "src/api/nav.rs",
+            14,
+            "nav_session",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 194,
+        "callee": "prism::api::nav_session",
+        "before": [],
+        "after": [
+          [
+            "src/api/nav.rs",
+            14,
+            "nav_session",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 237,
+        "callee": "prism::api::nav_session",
+        "before": [],
+        "after": [
+          [
+            "src/api/nav.rs",
+            14,
+            "nav_session",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 253,
+        "callee": "prism::api::nav_session",
+        "before": [],
+        "after": [
+          [
+            "src/api/nav.rs",
+            14,
+            "nav_session",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 283,
+        "callee": "prism::api::nav_session",
+        "before": [],
+        "after": [
+          [
+            "src/api/nav.rs",
+            14,
+            "nav_session",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 260,
+        "callee": "prism::navigation::inventory::functions_inventory",
+        "before": [],
+        "after": [
+          [
+            "src/navigation/inventory.rs",
+            15,
+            "functions_inventory",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 183,
+        "callee": "prism::navigation::module_graph::module_deps",
+        "before": [],
+        "after": [
+          [
+            "src/navigation/module_graph.rs",
+            196,
+            "module_deps",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 189,
+        "callee": "prism::navigation::module_graph::repo_map",
+        "before": [],
+        "after": [
+          [
+            "src/navigation/module_graph.rs",
+            367,
+            "repo_map",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 195,
+        "callee": "prism::navigation::onboarding::build_report",
+        "before": [],
+        "after": [
+          [
+            "src/navigation/onboarding.rs",
+            57,
+            "build_report",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 239,
+        "callee": "prism::navigation::queries::call_site_dump",
+        "before": [],
+        "after": [
+          [
+            "src/navigation/queries.rs",
+            157,
+            "call_site_dump",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 243,
+        "callee": "prism::navigation::queries::call_stats",
+        "before": [],
+        "after": [
+          [
+            "src/navigation/queries.rs",
+            221,
+            "call_stats",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 132,
+        "callee": "prism::navigation::queries::callees_with_confidence",
+        "before": [],
+        "after": [
+          [
+            "src/navigation/queries.rs",
+            2050,
+            "callees_with_confidence",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 102,
+        "callee": "prism::navigation::queries::callers_with_confidence",
+        "before": [],
+        "after": [
+          [
+            "src/navigation/queries.rs",
+            1942,
+            "callers_with_confidence",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 162,
+        "callee": "prism::navigation::queries::ego_graph",
+        "before": [],
+        "after": [
+          [
+            "src/navigation/queries.rs",
+            2361,
+            "ego_graph",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 255,
+        "callee": "prism::navigation::queries::interface_dispatch_manifest",
+        "before": [],
+        "after": [
+          [
+            "src/navigation/queries.rs",
+            1124,
+            "interface_dispatch_manifest",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 59,
+        "callee": "prism::navigation::queries::nodes_at",
+        "before": [],
+        "after": [
+          [
+            "src/navigation/queries.rs",
+            1742,
+            "nodes_at",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 71,
+        "callee": "prism::navigation::queries::symbol_spans",
+        "before": [],
+        "after": [
+          [
+            "src/navigation/queries.rs",
+            1629,
+            "symbol_spans",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 60,
+        "callee": "prism::output::navigation::render",
+        "before": [],
+        "after": [
+          [
+            "src/output/navigation.rs",
+            74,
+            "render",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 111,
+        "callee": "prism::output::navigation::render",
+        "before": [],
+        "after": [
+          [
+            "src/output/navigation.rs",
+            74,
+            "render",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 141,
+        "callee": "prism::output::navigation::render",
+        "before": [],
+        "after": [
+          [
+            "src/output/navigation.rs",
+            74,
+            "render",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 171,
+        "callee": "prism::output::navigation::render",
+        "before": [],
+        "after": [
+          [
+            "src/output/navigation.rs",
+            74,
+            "render",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 184,
+        "callee": "prism::output::navigation::render",
+        "before": [],
+        "after": [
+          [
+            "src/output/navigation.rs",
+            74,
+            "render",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 190,
+        "callee": "prism::output::navigation::render",
+        "before": [],
+        "after": [
+          [
+            "src/output/navigation.rs",
+            74,
+            "render",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 308,
+        "callee": "prism::output::navigation::render",
+        "before": [],
+        "after": [
+          [
+            "src/output/navigation.rs",
+            74,
+            "render",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 85,
+        "callee": "prism::output::navigation::render_err",
+        "before": [],
+        "after": [
+          [
+            "src/output/navigation.rs",
+            3,
+            "render_err",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 115,
+        "callee": "prism::output::navigation::render_err",
+        "before": [],
+        "after": [
+          [
+            "src/output/navigation.rs",
+            3,
+            "render_err",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 145,
+        "callee": "prism::output::navigation::render_err",
+        "before": [],
+        "after": [
+          [
+            "src/output/navigation.rs",
+            3,
+            "render_err",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 175,
+        "callee": "prism::output::navigation::render_err",
+        "before": [],
+        "after": [
+          [
+            "src/output/navigation.rs",
+            3,
+            "render_err",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 312,
+        "callee": "prism::output::navigation::render_err",
+        "before": [],
+        "after": [
+          [
+            "src/output/navigation.rs",
+            3,
+            "render_err",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 80,
+        "callee": "prism::output::navigation::render_symbol_spans",
+        "before": [],
+        "after": [
+          [
+            "src/output/navigation.rs",
+            26,
+            "render_symbol_spans",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 196,
+        "callee": "prism::output::onboarding::render",
+        "before": [],
+        "after": [
+          [
+            "src/output/onboarding.rs",
+            5,
+            "render",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 302,
+        "callee": "prism::reasoning::taint_reaches::taint_reaches",
+        "before": [],
+        "after": [
+          [
+            "src/reasoning/taint_reaches.rs",
+            40,
+            "taint_reaches",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 750,
+        "callee": "aggregate_diagram_warnings",
+        "before": [
+          [
+            "src/slice.rs",
+            394,
+            "aggregate_diagram_warnings",
+            "qualified_owner"
+          ]
+        ],
+        "after": [
+          [
+            "src/slice.rs",
+            394,
+            "aggregate_diagram_warnings",
+            "constructor_local"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 838,
+        "callee": "algorithms_run",
+        "before": [],
+        "after": [
+          [
+            "src/output/sarif.rs",
+            128,
+            "algorithms_run",
+            "return_typed"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 720,
+        "callee": "build_warnings",
+        "before": [],
+        "after": [
+          [
+            "src/output/sarif.rs",
+            123,
+            "build_warnings",
+            "return_typed"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 838,
+        "callee": "build_warnings",
+        "before": [],
+        "after": [
+          [
+            "src/output/sarif.rs",
+            123,
+            "build_warnings",
+            "return_typed"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 720,
+        "callee": "errors",
+        "before": [],
+        "after": [
+          [
+            "src/output/sarif.rs",
+            108,
+            "errors",
+            "return_typed"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 720,
+        "callee": "load_warnings",
+        "before": [],
+        "after": [
+          [
+            "src/output/sarif.rs",
+            118,
+            "load_warnings",
+            "return_typed"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 838,
+        "callee": "load_warnings",
+        "before": [],
+        "after": [
+          [
+            "src/output/sarif.rs",
+            118,
+            "load_warnings",
+            "return_typed"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 748,
+        "callee": "output::format_mermaid_report",
+        "before": [],
+        "after": [
+          [
+            "src/output/mermaid.rs",
+            537,
+            "format_mermaid_report",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 866,
+        "callee": "output::format_mermaid_report",
+        "before": [],
+        "after": [
+          [
+            "src/output/mermaid.rs",
+            537,
+            "format_mermaid_report",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 765,
+        "callee": "output::format_slice_result",
+        "before": [],
+        "after": [
+          [
+            "src/output/review.rs",
+            241,
+            "format_slice_result",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 881,
+        "callee": "output::format_slice_result",
+        "before": [],
+        "after": [
+          [
+            "src/output/review.rs",
+            241,
+            "format_slice_result",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 637,
+        "callee": "output::severity_rank",
+        "before": [],
+        "after": [
+          [
+            "src/output/review_compact.rs",
+            27,
+            "severity_rank",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 656,
+        "callee": "output::severity_rank",
+        "before": [],
+        "after": [
+          [
+            "src/output/review_compact.rs",
+            27,
+            "severity_rank",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 796,
+        "callee": "output::severity_rank",
+        "before": [],
+        "after": [
+          [
+            "src/output/review_compact.rs",
+            27,
+            "severity_rank",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 664,
+        "callee": "output::strip_finding_diagrams",
+        "before": [],
+        "after": [
+          [
+            "src/output/review_compact.rs",
+            126,
+            "strip_finding_diagrams",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 612,
+        "callee": "output::to_callers_output",
+        "before": [],
+        "after": [
+          [
+            "src/output/review.rs",
+            349,
+            "to_callers_output",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 645,
+        "callee": "output::to_compact_review_output",
+        "before": [],
+        "after": [
+          [
+            "src/output/review_compact.rs",
+            157,
+            "to_compact_review_output",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 797,
+        "callee": "output::to_compact_review_output",
+        "before": [],
+        "after": [
+          [
+            "src/output/review_compact.rs",
+            157,
+            "to_compact_review_output",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 823,
+        "callee": "output::to_paper_format",
+        "before": [],
+        "after": [
+          [
+            "src/output/review.rs",
+            449,
+            "to_paper_format",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 692,
+        "callee": "output::to_review_output",
+        "before": [],
+        "after": [
+          [
+            "src/output/review.rs",
+            175,
+            "to_review_output",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 814,
+        "callee": "output::to_review_output",
+        "before": [],
+        "after": [
+          [
+            "src/output/review.rs",
+            175,
+            "to_review_output",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 719,
+        "callee": "output::to_sarif",
+        "before": [],
+        "after": [
+          [
+            "src/output/sarif.rs",
+            153,
+            "to_sarif",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 837,
+        "callee": "output::to_sarif",
+        "before": [],
+        "after": [
+          [
+            "src/output/sarif.rs",
+            153,
+            "to_sarif",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 720,
+        "callee": "parse_warnings",
+        "before": [],
+        "after": [
+          [
+            "src/output/sarif.rs",
+            113,
+            "parse_warnings",
+            "return_typed"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 838,
+        "callee": "parse_warnings",
+        "before": [],
+        "after": [
+          [
+            "src/output/sarif.rs",
+            113,
+            "parse_warnings",
+            "return_typed"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 513,
+        "callee": "prism::api::parse_algorithms",
+        "before": [],
+        "after": [
+          [
+            "src/api/run.rs",
+            257,
+            "parse_algorithms",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 782,
+        "callee": "prism::api::run_algorithm",
+        "before": [],
+        "after": [
+          [
+            "src/api/run.rs",
+            53,
+            "run_algorithm",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 619,
+        "callee": "prism::api::run_review",
+        "before": [],
+        "after": [
+          [
+            "src/api/run.rs",
+            297,
+            "run_review",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 416,
+        "callee": "output::severity_rank",
+        "before": [],
+        "after": [
+          [
+            "src/output/review_compact.rs",
+            27,
+            "severity_rank",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 367,
+        "callee": "prism::api::parse_algorithms",
+        "before": [],
+        "after": [
+          [
+            "src/api/run.rs",
+            257,
+            "parse_algorithms",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 392,
+        "callee": "prism::api::review",
+        "before": [],
+        "after": [
+          [
+            "src/api/run.rs",
+            357,
+            "review",
+            "qualified_owner"
+          ]
+        ]
+      },
+      {
+        "file": "src/main.rs",
+        "line": 418,
+        "callee": "prism::targets::project",
+        "before": [],
+        "after": [
+          [
+            "src/targets/mod.rs",
+            37,
+            "project",
+            "qualified_owner"
+          ]
+        ]
+      }
+    ]
+  },
+  "samples": {
+    "black": {
+      "sites": 400,
+      "exact": 79,
+      "byte_identical": true
+    },
+    "excalidraw": {
+      "sites": 136,
+      "exact": 26,
+      "byte_identical": true
+    },
+    "javascript": {
+      "sites": 12,
+      "exact": 4,
+      "byte_identical": true
+    }
+  },
+  "callers": {
+    "symbol": {
+      "Function": {
+        "file": "src/main.rs",
+        "name": "run_nav",
+        "start_line": 44,
+        "end_line": 319,
+        "start_byte": 1932,
+        "end_byte": 12298,
+        "ordinal": 0
+      }
+    },
+    "location": {
+      "file": "src/main.rs",
+      "start_line": 44,
+      "end_line": 319,
+      "start_byte": 1932,
+      "end_byte": 12298
+    },
+    "score": 1,
+    "source": "PrismCpg",
+    "fallback": false,
+    "why": [
+      {
+        "CalledBy": {
+          "caller": "run_nav",
+          "call_site_line": 183
+        }
+      },
+      {
+        "Resolution": {
+          "kind": "qualified_owner"
+        }
+      }
+    ],
+    "snippet": null
+  },
+  "callees": {
+    "symbol": {
+      "Function": {
+        "file": "src/navigation/module_graph.rs",
+        "name": "module_deps",
+        "start_line": 196,
+        "end_line": 363,
+        "start_byte": 6662,
+        "end_byte": 12255,
+        "ordinal": 0
+      }
+    },
+    "location": {
+      "file": "src/navigation/module_graph.rs",
+      "start_line": 196,
+      "end_line": 363,
+      "start_byte": 6662,
+      "end_byte": 12255
+    },
+    "score": 1,
+    "source": "PrismCpg",
+    "fallback": false,
+    "why": [
+      {
+        "Calls": {
+          "callee": "prism::navigation::module_graph::module_deps",
+          "call_site_line": 183,
+          "qualifier": null
+        }
+      },
+      {
+        "Resolution": {
+          "kind": "qualified_owner"
+        }
+      }
+    ],
+    "snippet": null
+  }
+}

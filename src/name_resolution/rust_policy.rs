@@ -328,11 +328,39 @@ impl ResolutionPolicy for RustPolicy<'_> {
         // in-repo dependency map. A crate can name another in-repo crate iff it
         // actually depends on it; each map value is one specific target root.
         let consuming_root = crate_root_of(graph, from)?;
-        graph
+        let target = graph
             .crate_deps_by_root
             .get(&consuming_root)?
             .get(&normalize_crate_ident(name))
-            .copied()
+            .copied()?;
+        // Path anchoring starts at the enclosing module. It must not bypass
+        // a nearer block/callable type binding (or an uncertain glob/macro rib)
+        // when falling back to the extern prelude. The module rib itself was
+        // already probed by the engine. Decline uncertain lexical scopes rather
+        // than manufacture a crate edge; full lexical-prefix resolution is separate.
+        let mut scope = from;
+        while !matches!(
+            graph.scope(scope)?.kind,
+            ScopeKind::Module | ScopeKind::Root
+        ) {
+            if graph
+                .bindings
+                .iter()
+                .any(|b| b.scope == scope && b.ns == NS_TYPE && b.name == name)
+                || graph
+                    .edges
+                    .iter()
+                    .any(|e| e.from == scope && e.kind == EK_GLOB)
+                || graph
+                    .macro_wildcards
+                    .iter()
+                    .any(|m| m.scope == scope && m.ns == NS_TYPE)
+            {
+                return None;
+            }
+            scope = graph.parent_of(scope)?;
+        }
+        Some(target)
     }
 
     /// An EMPTY-path glob expands (denotes a resolvable in-scope root) ONLY for

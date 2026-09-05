@@ -48,8 +48,8 @@ pub enum JsExportTarget {
 /// (`import_bindings`, `module_bindings`): removed/merged wholesale per file.
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct JsExportFacts {
-    /// Local names introduced by top-level ESM named value imports. Syntax
-    /// provenance only; eligible binding and defining class proof are separate.
+    /// Local names introduced by top-level ESM named or default value imports.
+    /// Syntax provenance only; eligible binding and class proof are separate.
     pub esm_named_imports: BTreeSet<String>,
     /// Type namespace only: local -> (module, exported class name). None is a
     /// duplicate/conflicting or unsupported import, and must remain terminal.

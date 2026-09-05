@@ -6,7 +6,7 @@ use tree_sitter::Node;
 
 use crate::ast::ParsedFile;
 use crate::name_resolution::binding_lookup::{BindingKind, LocalFact};
-use crate::name_resolution::rust_policy::{NS_TYPE, NS_VALUE, VIS_PUB};
+use crate::name_resolution::rust_policy::{NS_TYPE, NS_VALUE, VIS_PRIV, VIS_PUB};
 use crate::name_resolution::types::{BindTarget, ExternRef, FileId, ScopeId, ScopeKind, Target};
 
 use super::super::builder::{join, parent_dir, scope_target, Builder};
@@ -311,6 +311,49 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_function(
         );
         if let Some(params_nid) = params_nid {
             bind_params(b, path, &params_nid, body_scope, ctx.file, bhi);
+        }
+        // Method bodies are re-parented to the module, so carry type-parameter
+        // shadow barriers from their syntactic fn/impl/trait ancestors explicitly.
+        // Opaque, non-callable Type items block crate fallback without claiming
+        // a concrete implementation for a generic receiver.
+        let generic_names = with_node(b, path, nid, |pf, n| {
+            let mut names = std::collections::BTreeSet::new();
+            let mut ancestor = Some(*n);
+            while let Some(node) = ancestor {
+                if matches!(node.kind(), "mod_item" | "source_file") {
+                    break;
+                }
+                if let Some(params) = node.child_by_field_name("type_parameters") {
+                    let mut cursor = params.walk();
+                    for param in params
+                        .named_children(&mut cursor)
+                        .filter(|p| p.kind() == "type_parameter")
+                    {
+                        if let Some(name) = param.child_by_field_name("name") {
+                            names.insert(pf.node_text(&name).to_string());
+                        }
+                    }
+                }
+                ancestor = node.parent();
+            }
+            names
+        });
+        for name in generic_names {
+            let id = b.fresh_item();
+            b.add_binding(
+                body_scope,
+                name,
+                NS_TYPE,
+                BindTarget::Resolved(Target::Item {
+                    id,
+                    ns: NS_TYPE,
+                    owns: None,
+                    callable: false,
+                }),
+                vis(VIS_PRIV, None),
+                None,
+                vec![full_scope_span(b, body_scope, ctx.file)],
+            );
         }
         let body_ctx = Ctx {
             file: ctx.file,

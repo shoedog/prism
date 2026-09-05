@@ -57,6 +57,167 @@ fn resolve_crate_value(repo: &prism::repo_loader::LoadedRepo, segments: &[&str])
 }
 
 #[test]
+fn binary_can_call_own_named_library() {
+    let repo_dir = write_repo(&[
+        (
+            "Cargo.toml",
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        ),
+        (
+            "src/lib.rs",
+            "pub mod api { pub fn target() {} }\nfn control() { crate::api::target(); }",
+        ),
+        ("src/main.rs", "fn main() { demo::api::target(); }"),
+    ]);
+    let repo = load_repo(repo_dir.path()).unwrap();
+    let ctx = CpgContext::build_with_scope_graph_inputs(
+        &repo.files,
+        repo.type_db.as_ref(),
+        repo.scope_graph_inputs.as_ref(),
+    );
+    let cg = &ctx.cpg.call_graph;
+    for caller in ["control", "main"] {
+        let function = &cg.functions[caller][0];
+        let site = cg.calls[function].iter().next().unwrap();
+        let targets = cg.resolve_call_site(site);
+        assert_eq!(targets.len(), 1, "{caller}: {site:?}");
+        assert_eq!(targets[0].target.file, "src/lib.rs");
+        assert_eq!(targets[0].target.name, "target");
+    }
+}
+
+#[test]
+fn binary_library_lexical_and_visibility_barriers() {
+    let mut failures = Vec::new();
+    for (library, body) in [
+        ("pub(crate) fn target(){}", "demo::target();"),
+        ("fn target(){}", "demo::target();"),
+        ("pub fn target(){}", "mod demo {} demo::target();"),
+        ("pub fn target(){}", "struct demo; demo::target();"),
+        ("pub fn target(){}", "type demo = Other; demo::target();"),
+        ("pub fn target(){}", "trait demo {} demo::target();"),
+        (
+            "pub fn target(){}",
+            "extern crate unknown as demo; demo::target();",
+        ),
+        (
+            "pub fn target(){}",
+            "mod local { pub mod demo {} } use local::*; demo::target();",
+        ),
+        ("pub fn target(){}", "fn nested<demo>() { demo::target(); }"),
+        (
+            "pub fn target(){}",
+            "struct S; impl S { fn nested<demo>() { demo::target(); } }",
+        ),
+        (
+            "pub fn target(){}",
+            "struct S<T>(T); impl<demo> S<demo> { fn nested() { demo::target(); } }",
+        ),
+        ("pub fn target(){}", "crate::demo::target();"),
+        ("pub fn target(){}", "::demo::target();"),
+    ] {
+        let dir = write_repo(&[
+            (
+                "Cargo.toml",
+                "[package]\nname='demo'\nversion='0.1.0'\nedition='2021'",
+            ),
+            ("src/lib.rs", library),
+            ("src/main.rs", &format!("fn main(){{{body}}}")),
+        ]);
+        let repo = load_repo(dir.path()).unwrap();
+        let ctx = CpgContext::build_with_scope_graph_inputs(
+            &repo.files,
+            None,
+            repo.scope_graph_inputs.as_ref(),
+        );
+        let cg = &ctx.cpg.call_graph;
+        let site = cg
+            .calls
+            .values()
+            .flat_map(|s| s.iter())
+            .find(|s| s.callee_name.ends_with("::target"))
+            .unwrap();
+        let edges = cg.resolve_call_site(site);
+        if edges
+            .iter()
+            .any(|e| e.confidence == prism::resolution::ResolutionConfidence::Exact)
+        {
+            failures.push(format!("{library} / {body}: {edges:?}"));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn binary_library_manifest_names_paths_and_shadowing() {
+    for (manifest, binary, library, source, expected) in [
+        ("[package]\nname='demo-kit'\nversion='0.1.0'\nedition='2021'", "src/main.rs", "src/lib.rs", "fn main(){demo_kit::api::target();}", Some("src/lib.rs")),
+        ("[package]\nname='package'\nversion='0.1.0'\nedition='2021'\n[lib]\nname='api_crate'\npath='lib/entry.rs'\n[[bin]]\nname='tool'\npath='tools/run.rs'", "tools/run.rs", "lib/entry.rs", "fn main(){api_crate::api::target();}", Some("lib/entry.rs")),
+        ("[package]\nname='demo'\nversion='0.1.0'\nedition='2021'", "src/bin/tool/main.rs", "src/lib.rs", "use demo::api::target; fn main(){target();}", Some("src/lib.rs")),
+        ("[package]\nname='demo'\nversion='0.1.0'\nedition='2021'", "src/bin/tool.rs", "src/lib.rs", "mod demo { pub mod api { pub fn target(){} } } fn main(){demo::api::target();}", Some("src/bin/tool.rs")),
+        ("[package]\nname='demo'\nversion='0.1.0'\nedition='2015'", "src/main.rs", "src/lib.rs", "fn main(){demo::api::target();}", None),
+        ("[package]\nname='demo'\nversion='0.1.0'\nedition='2021'\n[[bin]]\nname='demo'\nedition='2015'", "src/main.rs", "src/lib.rs", "fn main(){demo::api::target();}", None),
+        ("[package]\nname='demo'\nversion='0.1.0'\nedition='2021'\nautobins=false", "src/main.rs", "src/lib.rs", "fn main(){demo::api::target();}", None),
+        ("[package]\nname='demo'\nversion='0.1.0'\nedition='2021'\nautolib=false", "src/main.rs", "src/lib.rs", "fn main(){demo::api::target();}", None),
+        ("[package]\nname='demo'\nversion='0.1.0'\nedition='2021'\n[lib]\nname='different'", "src/main.rs", "src/lib.rs", "fn main(){demo::api::target();}", None),
+        ("[package]\nname='demo'\nversion='0.1.0'\nedition='2021'\n[lib]\npath='missing.rs'", "src/main.rs", "src/lib.rs", "fn main(){demo::api::target();}", None),
+        ("[package]\nname='demo'\nversion='0.1.0'\nedition='2021'\n[lib]\nproc-macro=true", "src/main.rs", "src/lib.rs", "fn main(){demo::api::target();}", None),
+        ("[package]\nname='demo'\nversion='0.1.0'\nedition='2021'\n[lib]\ncrate-type=['cdylib']", "src/main.rs", "src/lib.rs", "fn main(){demo::api::target();}", None),
+        ("[package]\nname='demo'\nversion='0.1.0'\nedition='2021'\n[dependencies]\ndemo='1'", "src/main.rs", "src/lib.rs", "fn main(){demo::api::target();}", None),
+    ] {
+        let dir = write_repo(&[("Cargo.toml", manifest), (binary, source), (library, "pub mod api { pub fn target(){} }")]);
+        let repo = Arc::new(load_repo(dir.path()).unwrap());
+        let index = Arc::new(NavigationIndex::build(&repo));
+        let cg = index.call_graph();
+        let site = cg.calls[&cg.functions["main"][0]].iter().next().unwrap();
+        let targets = cg.resolve_call_site(site);
+        let exact: Vec<_> = targets.iter().filter(|t| t.confidence == prism::resolution::ResolutionConfidence::Exact).collect();
+        assert_eq!(exact.len(), usize::from(expected.is_some()), "{manifest}\n{source}: {targets:?}");
+        if let Some(expected) = expected {
+            assert_eq!(exact[0].target.file, expected);
+            let session = NavigationSession { repo, index };
+            let callees = queries::callees(&session, Some("main"), Some(binary), None, 1).unwrap();
+            assert!(callees.items.iter().any(|item| matches!(&item.symbol, Some(SymbolRef::Function { file, name, .. }) if file == expected && name == "target")));
+            let callers = queries::callers(&session, Some("target"), Some(expected), None, 1).unwrap();
+            assert!(callers.items.iter().any(|item| matches!(&item.symbol, Some(SymbolRef::Function { file, name, .. }) if file == binary && name == "main")));
+        }
+    }
+}
+
+#[test]
+fn binary_library_roots_do_not_cross_workspace_members() {
+    let dir = write_repo(&[
+        ("Cargo.toml", "[workspace]\nmembers=['a','b']"),
+        ("a/Cargo.toml", "[package]\nname='a'\nversion='0.1.0'\nedition='2021'\n[lib]\nname='shared'\npath='lib/entry.rs'"),
+        ("b/Cargo.toml", "[package]\nname='b'\nversion='0.1.0'\nedition='2021'\n[lib]\nname='shared'\npath='other/entry.rs'"),
+        ("a/lib/entry.rs", "pub fn target(){}"),
+        ("b/other/entry.rs", "pub fn target(){}"),
+        ("a/src/main.rs", "fn main(){shared::target();}"),
+        ("b/src/main.rs", "fn main(){shared::target();}"),
+    ]);
+    let repo = load_repo(dir.path()).unwrap();
+    let ctx = CpgContext::build_with_scope_graph_inputs(
+        &repo.files,
+        repo.type_db.as_ref(),
+        repo.scope_graph_inputs.as_ref(),
+    );
+    let cg = &ctx.cpg.call_graph;
+    for (binary, library) in [
+        ("a/src/main.rs", "a/lib/entry.rs"),
+        ("b/src/main.rs", "b/other/entry.rs"),
+    ] {
+        let caller = cg.functions["main"]
+            .iter()
+            .find(|f| f.file == binary)
+            .unwrap();
+        let site = cg.calls[caller].iter().next().unwrap();
+        let targets = cg.resolve_call_site(site);
+        assert_eq!(targets.len(), 1, "{binary}: {targets:?}");
+        assert_eq!(targets[0].target.file, library);
+    }
+}
+
+#[test]
 fn whole_workspace_build_populates_complete_scope_graph() {
     let repo_dir = write_repo(&[
         (

@@ -1,0 +1,76 @@
+{
+  "meta": {
+    "baseline_invalid": true,
+    "corpus": "prism",
+    "corpus_dirty": true,
+    "corpus_dirty_reasons": [],
+    "corpus_sha": "18869079452d",
+    "date": "2026-09-04-rust-default",
+    "harness_sha": "18869079452d",
+    "invalid_reasons": [
+      "corpus_sha_drift: 18869079452d != pinned 20c8490591a3"
+    ],
+    "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+    "oracle_error_rate": 0,
+    "oracle_not_quiescent": false,
+    "prism_dirty": true,
+    "prism_sha": "18869079452d",
+    "seed": 42,
+    "stale_adjudications": 4,
+    "sut_error_rate": 0,
+    "wall_s": {
+      "m1_oracle_inventory": 10.083,
+      "m2": 242.658,
+      "m3": 0.001,
+      "matrix": 4.308,
+      "oracle_start": 16.182,
+      "pinned": 22.084
+    }
+  },
+  "matrix": {
+    "ok": 104
+  },
+  "pinned": [
+    {
+      "id": "target-c-method",
+      "outcome": "flip_candidate",
+      "oracle_only": [],
+      "prism_only_count": 28,
+      "exact": {
+        "fn": 0,
+        "fp": 0,
+        "precision": [
+          1,
+          0.5655175313406071,
+          1
+        ],
+        "recall": [
+          1,
+          0.5655175313406071,
+          1
+        ],
+        "tp": 5
+      }
+    },
+    {
+      "id": "module-deps-feature-gated",
+      "outcome": "missing",
+      "oracle_only": [],
+      "prism_only_count": 1,
+      "module_deps_site_present": true
+    },
+    {
+      "id": "load-repo-feature-gated",
+      "outcome": "missing",
+      "oracle_only": [
+        "tests/integration/resolution_test.rs:5299",
+        "tests/integration/resolution_test.rs:5368"
+      ],
+      "prism_only_count": 4
+    },
+    {
+      "id": "ambiguous-symbol-contract",
+      "outcome": "ok"
+    }
+  ]
+}
