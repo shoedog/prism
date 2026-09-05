@@ -24,7 +24,7 @@ pub(super) fn kind_for_binding(
     if binds_name_locally(parsed, at, root) {
         return None;
     }
-    let Some(module) = imported_module(parsed, root) else {
+    let Some((module, consumed_rest)) = imported_module(parsed, at, root, rest) else {
         // Not imported: only a language builtin can still be the real thing.
         return rest
             .is_empty()
@@ -36,7 +36,7 @@ pub(super) fn kind_for_binding(
     if parsed.language == Language::Python && repo_has_local_module(ctx, module_root(&module)) {
         return None;
     }
-    library_kind(parsed.language, &module, rest)
+    library_kind(parsed.language, &module, &rest[consumed_rest..])
 }
 
 /// A module path that names something inside this repository rather than an
@@ -60,21 +60,96 @@ fn module_root(module: &str) -> &str {
     module.split('.').next().unwrap_or(module)
 }
 
-/// The module path `name` is bound to by an import in this file, if any.
-fn imported_module(parsed: &ParsedFile, name: &str) -> Option<String> {
+/// The module path `name` is bound to by an import visible at `at`, plus the
+/// number of callee-chain segments already represented by that import.
+fn imported_module(
+    parsed: &ParsedFile,
+    at: Node<'_>,
+    name: &str,
+    rest: &[&str],
+) -> Option<(String, usize)> {
     if parsed.language == Language::Python {
-        return python_imported_module(parsed, name);
+        return python_imported_module(parsed, at, name, rest);
     }
-    // Go (`alias` → import path) and JS/TS (binding → specifier, ES6 and
-    // `require` alike) are already exact in `extract_imports`.
-    parsed.extract_imports().get(name).cloned()
+    if matches!(
+        parsed.language,
+        Language::JavaScript | Language::TypeScript | Language::Tsx
+    ) {
+        return js_imported_module(parsed, at, name).map(|module| (module, 0));
+    }
+    // Go imports are necessarily file-scoped and exact in `extract_imports`.
+    parsed
+        .extract_imports()
+        .get(name)
+        .cloned()
+        .map(|module| (module, 0))
 }
 
-/// Python's own binding rule, which `ParsedFile::extract_imports` does not
-/// model: `import a.b` binds `a` (not `b`), `import a.b as c` binds `c` to
-/// `a.b`, and `from a import b` binds `b` to `a.b`.
-fn python_imported_module(parsed: &ParsedFile, name: &str) -> Option<String> {
-    fn walk(parsed: &ParsedFile, node: Node<'_>, name: &str) -> Option<String> {
+struct PythonImportBinding {
+    module: String,
+    required_rest: Vec<String>,
+    scope_depth: usize,
+}
+
+fn binding_reaches_site(
+    parsed: &ParsedFile,
+    binding: Node<'_>,
+    at: Node<'_>,
+    name: &str,
+) -> Option<usize> {
+    let scope = enclosing_function_node(parsed, binding).unwrap_or_else(|| parsed.tree.root_node());
+    if at.start_byte() < scope.start_byte() || at.end_byte() > scope.end_byte() {
+        return None;
+    }
+    parsed
+        .find_variable_references_scoped(&scope, name, binding.start_position().row + 1)
+        .contains(&(at.start_position().row + 1))
+        .then(|| scope_depth(scope))
+}
+
+fn scope_depth(mut node: Node<'_>) -> usize {
+    let mut depth = 0;
+    while let Some(parent) = node.parent() {
+        depth += 1;
+        node = parent;
+    }
+    depth
+}
+
+/// Python's own binding rule, filtered through the scope-aware reference
+/// binder. `import a.b` binds `a` and requires the source chain to continue
+/// through `.b`; aliased and `from` imports replace the local root directly.
+fn python_imported_module(
+    parsed: &ParsedFile,
+    at: Node<'_>,
+    name: &str,
+    rest: &[&str],
+) -> Option<(String, usize)> {
+    fn push(
+        parsed: &ParsedFile,
+        binding: Node<'_>,
+        at: Node<'_>,
+        name: &str,
+        module: String,
+        required_rest: Vec<String>,
+        out: &mut Vec<PythonImportBinding>,
+    ) {
+        if let Some(scope_depth) = binding_reaches_site(parsed, binding, at, name) {
+            out.push(PythonImportBinding {
+                module,
+                required_rest,
+                scope_depth,
+            });
+        }
+    }
+
+    fn walk(
+        parsed: &ParsedFile,
+        node: Node<'_>,
+        at: Node<'_>,
+        name: &str,
+        out: &mut Vec<PythonImportBinding>,
+    ) {
         match node.kind() {
             "import_statement" => {
                 let mut cursor = node.walk();
@@ -82,25 +157,45 @@ fn python_imported_module(parsed: &ParsedFile, name: &str) -> Option<String> {
                     match child.kind() {
                         "dotted_name" => {
                             let path = parsed.node_text(&child);
-                            if path.split('.').next() == Some(name) {
-                                return Some(path.to_string());
+                            let mut parts = path.split('.');
+                            if parts.next() == Some(name) {
+                                push(
+                                    parsed,
+                                    node,
+                                    at,
+                                    name,
+                                    path.to_string(),
+                                    parts.map(str::to_string).collect(),
+                                    out,
+                                );
                             }
                         }
                         "aliased_import" => {
-                            let module = child.child_by_field_name("name")?;
-                            let alias = child.child_by_field_name("alias")?;
-                            if parsed.node_text(&alias) == name {
-                                return Some(parsed.node_text(&module).to_string());
+                            let module = child.child_by_field_name("name");
+                            let alias = child.child_by_field_name("alias");
+                            if let (Some(module), Some(alias)) = (module, alias) {
+                                if parsed.node_text(&alias) == name {
+                                    push(
+                                        parsed,
+                                        node,
+                                        at,
+                                        name,
+                                        parsed.node_text(&module).to_string(),
+                                        Vec::new(),
+                                        out,
+                                    );
+                                }
                             }
                         }
                         _ => {}
                     }
                 }
-                None
             }
             "import_from_statement" => {
-                let module_node = node.child_by_field_name("module_name")?;
-                let module = parsed.node_text(&module_node).to_string();
+                let Some(module_node) = node.child_by_field_name("module_name") else {
+                    return;
+                };
+                let module = parsed.node_text(&module_node);
                 let mut cursor = node.walk();
                 for child in node.children(&mut cursor) {
                     if child.start_byte() == module_node.start_byte() {
@@ -108,32 +203,105 @@ fn python_imported_module(parsed: &ParsedFile, name: &str) -> Option<String> {
                     }
                     match child.kind() {
                         "dotted_name" | "identifier" if parsed.node_text(&child) == name => {
-                            return Some(format!("{module}.{name}"));
+                            push(
+                                parsed,
+                                node,
+                                at,
+                                name,
+                                format!("{module}.{name}"),
+                                Vec::new(),
+                                out,
+                            );
                         }
                         "aliased_import" => {
-                            let imported = child.child_by_field_name("name")?;
-                            let alias = child.child_by_field_name("alias")?;
-                            if parsed.node_text(&alias) == name {
-                                return Some(format!("{module}.{}", parsed.node_text(&imported)));
+                            let imported = child.child_by_field_name("name");
+                            let alias = child.child_by_field_name("alias");
+                            if let (Some(imported), Some(alias)) = (imported, alias) {
+                                if parsed.node_text(&alias) == name {
+                                    push(
+                                        parsed,
+                                        node,
+                                        at,
+                                        name,
+                                        format!("{module}.{}", parsed.node_text(&imported)),
+                                        Vec::new(),
+                                        out,
+                                    );
+                                }
                             }
                         }
                         _ => {}
                     }
                 }
-                None
             }
             _ => {
                 let mut cursor = node.walk();
                 for child in node.children(&mut cursor) {
-                    if let Some(found) = walk(parsed, child, name) {
-                        return Some(found);
-                    }
+                    walk(parsed, child, at, name, out);
                 }
-                None
             }
         }
     }
-    walk(parsed, parsed.tree.root_node(), name)
+
+    let mut bindings = Vec::new();
+    walk(parsed, parsed.tree.root_node(), at, name, &mut bindings);
+    bindings.retain(|binding| {
+        binding.required_rest.len() <= rest.len()
+            && binding
+                .required_rest
+                .iter()
+                .zip(rest)
+                .all(|(required, actual)| required == actual)
+    });
+    let max_depth = bindings.iter().map(|binding| binding.scope_depth).max()?;
+    let mut nearest = bindings
+        .into_iter()
+        .filter(|binding| binding.scope_depth == max_depth);
+    let binding = nearest.next()?;
+    if nearest.next().is_some() {
+        return None;
+    }
+    Some((binding.module, binding.required_rest.len()))
+}
+
+/// JS/TS imports and CommonJS requires are parsed by Prism's existing import
+/// extractor one declaration at a time, then filtered by the scoped binder.
+fn js_imported_module(parsed: &ParsedFile, at: Node<'_>, name: &str) -> Option<String> {
+    fn walk(
+        parsed: &ParsedFile,
+        node: Node<'_>,
+        at: Node<'_>,
+        name: &str,
+        out: &mut Vec<(String, usize)>,
+    ) {
+        if matches!(
+            node.kind(),
+            "import_statement" | "lexical_declaration" | "variable_declaration"
+        ) {
+            if let Ok(fragment) =
+                ParsedFile::parse("binding.js", parsed.node_text(&node), parsed.language)
+            {
+                if let Some(module) = fragment.extract_imports().get(name) {
+                    if let Some(depth) = binding_reaches_site(parsed, node, at, name) {
+                        out.push((module.clone(), depth));
+                    }
+                }
+            }
+            return;
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            walk(parsed, child, at, name, out);
+        }
+    }
+    let mut bindings = Vec::new();
+    walk(parsed, parsed.tree.root_node(), at, name, &mut bindings);
+    let max_depth = bindings.iter().map(|(_, depth)| *depth).max()?;
+    let mut nearest = bindings
+        .into_iter()
+        .filter(|(_, depth)| *depth == max_depth);
+    let binding = nearest.next()?;
+    nearest.next().is_none().then_some(binding.0)
 }
 
 /// Does the repository ship its own module named `root`? Python resolves
@@ -171,19 +339,21 @@ fn repo_has_local_module(ctx: &SiteContext<'_>, root: &str) -> bool {
 /// `imported_module` just proved, and counting them would refuse every
 /// correctly-imported library.
 fn binds_name_locally(parsed: &ParsedFile, at: Node<'_>, name: &str) -> bool {
-    if let Some(function) = enclosing_function_node(parsed, at) {
+    let mut current = Some(at);
+    while let Some(function) = current.and_then(|node| enclosing_function_node(parsed, node)) {
         if function_parameters_bind(parsed, &function, name)
             || scope_binds(parsed, function, function, name)
         {
             return true;
         }
+        current = function.parent();
     }
     let root = parsed.tree.root_node();
     scope_binds(parsed, root, root, name)
 }
 
 pub(super) fn enclosing_function_node<'a>(parsed: &ParsedFile, node: Node<'a>) -> Option<Node<'a>> {
-    let kinds = parsed.language.function_node_types();
+    let kinds = parsed.language.callable_boundary_node_types();
     let mut current = Some(node);
     while let Some(candidate) = current {
         if kinds.contains(&candidate.kind()) {
