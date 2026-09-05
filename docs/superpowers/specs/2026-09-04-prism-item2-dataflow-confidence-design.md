@@ -529,6 +529,7 @@ Source: `reviews/item2-task6-adjudication-astra.md` (16 disagreeing DFG matrix c
 8. **Oracle correction.** `go/dfg_reaching_interproc_nameonly` expects a parameter `p` that its source (`callee(int)`) does not declare; the case is corrected to `present = false` for `5:x→2:p`, and a new realizable fixture with a named parameter and an eligible callee is added so §7.1's `CallNameOnly` coverage stays non-empty (Step 5b labels existing edges; it never manufactures parameters).
 9. **Citation fix.** The `dfg-stats` schema and counters are §4.7; §7.5 is "Cache lifecycle and CLI".
 
+- **v6.5.5 (2026-09-05)** — 1c fail-closed default restated as ownership uncertainty ⇒ flat-path (whole-branch adversarial seat); deferred-body fence must match the language layer's callable boundaries (`async`/`gen` blocks) under the provisional B8 rule.
 - **v6.5.4 (2026-09-05)** — amendment 1c (known-open shapes; fail-closed default) — class parked at the Task 6a cap.
 - **v6.5.3 (2026-09-05)** — amendment 1b (per-language binding-scope table; unconditional flat-path fallback) after the Task 6a fix-round re-review.
 - **v6.5.2 (2026-09-05)** — amendment 1a fallback clarified after the Task 6a fix round STOP: unresolvable bindings use the pre-v6.5 flat-path equation verbatim; not a CfgIncomplete doubt.
