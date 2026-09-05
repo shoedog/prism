@@ -2,7 +2,8 @@
 
 Base a70ea03 (PR243 and244 merged). Owner approved this bounded slice before a
 separate destructured inline-prop proof. Published implementation a03382a in
-[PR245](https://github.com/shoedog/prism/pull/245), OPEN, not merged.
+[PR245](https://github.com/shoedog/prism/pull/245), merged at 01310eb
+(fetch/log verified during the contextual-prop continuation on 2026-09-05).
 
 ## Result and corrected assumption
 

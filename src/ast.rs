@@ -3076,7 +3076,13 @@ impl ParsedFile {
                 binding.kind() == "identifier" && self.node_text(&binding) == receiver_name
             });
             let recovered_type = matches!(self.language, Language::TypeScript | Language::Tsx)
-                .then(|| parameter.child_by_field_name("type"))
+                .then(|| {
+                    parameter.child_by_field_name("type").or_else(|| {
+                        (!simple_binding)
+                            .then(|| self.js_ts_contextual_parameter_annotation(func_node))
+                            .flatten()
+                    })
+                })
                 .flatten()
                 .and_then(|annotation| {
                     if simple_binding {
@@ -3106,7 +3112,56 @@ impl ParsedFile {
         }
     }
 
-    /// Required inline object properties only; no contextual types or defaults.
+    /// Direct source-backed function signatures only, never generic library names.
+    fn js_ts_contextual_parameter_annotation<'a>(&self, func: Node<'a>) -> Option<Node<'a>> {
+        fn single_parameter(params: Node<'_>) -> Option<Node<'_>> {
+            let mut cursor = params.walk();
+            let mut children = params
+                .named_children(&mut cursor)
+                .filter(|n| n.kind() != "comment");
+            let parameter = children.next()?;
+            (children.next().is_none() && parameter.kind() == "required_parameter")
+                .then_some(parameter)
+        }
+        if !matches!(func.kind(), "arrow_function" | "function_expression")
+            || func.child_by_field_name("type_parameters").is_some()
+        {
+            return None;
+        }
+        let implementation = single_parameter(func.child_by_field_name("parameters")?)?;
+        if implementation.child_by_field_name("type").is_some() {
+            return None;
+        }
+        let declaration = func.parent()?;
+        if declaration.kind() != "variable_declarator"
+            || declaration.has_error()
+            || declaration.child_by_field_name("value")? != func
+            || declaration.child_by_field_name("name")?.kind() != "identifier"
+        {
+            return None;
+        }
+        let signature = declaration.child_by_field_name("type")?.named_child(0)?;
+        if signature.kind() != "function_type"
+            || signature.child_by_field_name("type_parameters").is_some()
+        {
+            return None;
+        }
+        let contextual = single_parameter(signature.child_by_field_name("parameters")?)?;
+        if contextual.child_by_field_name("pattern")?.kind() != "identifier" {
+            return None;
+        }
+        let mut cursor = contextual.walk();
+        if contextual
+            .children(&mut cursor)
+            .any(|n| matches!(n.kind(), "=" | "?"))
+        {
+            return None;
+        }
+        contextual.child_by_field_name("type")
+    }
+
+    /// Required inline object properties only; annotation and binding may be at
+    /// distinct source positions for a direct contextual function signature.
     fn js_ts_inline_prop_receiver_type(
         &self,
         parameter: Node<'_>,

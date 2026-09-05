@@ -106,18 +106,24 @@ Three candidate directions once the queue's top items are drained (or interleave
   ownership, then a separate destructured inline-prop receiver slice. Quick is
   baseline-invalid for SHA drift, not a green accuracy claim. See
   `docs/eval/receiver-closure/2026-09-04-indirect-default-readout.md`.
-- **Bounded arrow-field repair — PR245 OPEN, a03382a:** existing arrow ownership
+- **Bounded arrow-field repair — PR245 merged01310eb, a03382a:** existing arrow ownership
   bypassed static/slot/write checks; normalize member wrappers and repair explicit
   member-write barriers. CPG65/nav34; default3811/0/1, MCP4001/0/1, matrix104/104;
   quick baseline-invalid SHA drift. Real2780 records/369 Exact unchanged. The
-  separately approved inline-prop proof is published in stacked PR246.
+  separately approved inline-prop proof is merged in PR246.
   See `docs/eval/receiver-closure/2026-09-04-arrow-members-readout.md`.
-- **Destructured inline-prop proof — PR246 OPEN, 4a982ed:** separate
-  slice stacked on PR245, CPG66/nav35. Full default3815/0/1, MCP4005/0/1,
+- **Destructured inline-prop proof — PR246 mergedf348779, 4a982ed:** separate
+  slice originally stacked on PR245, CPG66/nav35. Full default3815/0/1, MCP4005/0/1,
   matrix104/104. Same Excalidraw2780 records: Exact369→372 at one unique source
   span (LibraryMenu.tsx:114), verified in served callers and callees; other ten
   tracked Library spans unchanged. Quick baseline-invalid SHA drift. No React.FC, hook-return or
   this.field expansion. See `docs/eval/receiver-closure/2026-09-05-inline-props-readout.md`.
+- **Source-backed contextual-prop foundation — implemented, publication pending:**
+  owner selected explicit direct function signatures before ambient React.FC
+  authority. CPG67/nav36; default3818/0/1, MCP4008/0/1, matrix104/104. Real2780
+  records/Exact372 unchanged; synthetic served callers/callees positive with
+  optional/write negatives. Quick baseline-invalid SHA drift. No claimed React.FC gain. See
+  `docs/eval/receiver-closure/2026-09-05-contextual-props-readout.md`.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:
