@@ -2174,10 +2174,10 @@ impl CallGraph {
         if same_class.is_empty() {
             return RecoveredDirectMethod::Miss;
         }
-        if same_class
-            .iter()
-            .any(|fid| self.method_class_span_ambiguous.contains(*fid))
-            || same_class.len() != 1
+        if same_class.iter().any(|fid| {
+            self.method_class_span_ambiguous.contains(*fid)
+                || self.js_ts_unproven_instance_methods.contains(*fid)
+        }) || same_class.len() != 1
         {
             return RecoveredDirectMethod::Blocked;
         }
@@ -2803,12 +2803,13 @@ impl CallGraph {
                         )
                     );
                     if is_js_ts {
-                        let clean_key = (caller.file.clone(), recv_ty.to_string());
-                        if self.clean_class_spans.contains_key(&clean_key) {
+                        if let Some((defining_file, owner)) =
+                            self.js_ts_recovered_class_owner(&caller.file, recv_ty)
+                        {
                             if let RecoveredDirectMethod::Hit(resolved) = self
                                 .recovered_receiver_direct_method(
-                                    &caller.file,
-                                    recv_ty,
+                                    &defining_file,
+                                    &owner,
                                     name,
                                     recovered_kind,
                                 )
@@ -2823,6 +2824,7 @@ impl CallGraph {
                             self.import_bindings.get(&caller.file).map(Vec::as_slice),
                             &self.indexed_files,
                             &self.clean_class_spans,
+                            &self.python_inert_initializers,
                         ) {
                             crate::call_graph::PythonImportedClassRoute::Proven {
                                 defining_file,
@@ -3379,7 +3381,12 @@ impl CallGraph {
                                             ResolutionKind::ImportMember,
                                         ))
                                     }
-                                    _ => {} // fall through to R5
+                                    // An unshadowed JS import names this module's
+                                    // export, not a same-named global function.
+                                    _ if is_js_ts => {
+                                        return ResolutionOutcome::dropped(DropReason::UnknownName)
+                                    }
+                                    _ => {} // Python retains its existing R5 route.
                                 }
                             }
                         }

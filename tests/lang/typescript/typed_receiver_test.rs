@@ -584,11 +584,7 @@ fn test_typescript_recovery_rejects_unsupported_type_and_owner_shapes() {
         );
     }
 
-    for (caller, recovered_type) in [
-        ("structural", "Shape"),
-        ("imported", "External"),
-        ("inherited", "Child"),
-    ] {
+    for (caller, recovered_type) in [("structural", "Shape"), ("inherited", "Child")] {
         let call = site(&cg, caller, "m");
         assert_eq!(
             call.receiver_type.as_deref(),
@@ -601,9 +597,16 @@ fn test_typescript_recovery_rejects_unsupported_type_and_owner_shapes() {
                 candidate.kind != ResolutionKind::TypedParam
                     && candidate.kind != ResolutionKind::ConstructorLocal
             }),
-            "{caller} bypassed same-file direct-class proof"
+            "{caller} bypassed direct-class proof"
         );
     }
+
+    // Named relative imports of directly exported classes now have owner proof.
+    let imported = cg.resolve_call_site(&site(&cg, "imported", "m"));
+    assert_eq!(imported.len(), 1);
+    assert_eq!(imported[0].target.file, "external.ts");
+    assert_eq!(imported[0].kind, ResolutionKind::TypedParam);
+    assert_eq!(imported[0].confidence, ResolutionConfidence::Exact);
 
     let captured = site(&cg, "innerTyped", "m");
     assert_eq!(captured.receiver_type.as_deref(), Some("Foo"));

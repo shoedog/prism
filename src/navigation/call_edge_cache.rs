@@ -70,7 +70,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v28: JS/TS typed-parameter and direct-new receiver recovery adds bounded
 // same-file Exact call edges (paired with CPG v59).
 // v29: receiver authority repair removes unsupported Exact edges (CPG v60).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 29;
+// v30: imported JS classes and inert Python packages change Exact edges (CPG v61).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 30;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -614,7 +615,32 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 29);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 30);
+    }
+
+    #[test]
+    fn imported_receiver_sidecar_round_trip() {
+        use crate::{ast::ParsedFile, cpg::CpgContext, languages::Language};
+        for (lang, caller, owner, source, declaration, init) in [
+            (Language::JavaScript, "app.js", "client.js", "import {Client as Alias} from './client';\nfunction visible() { const x = new Alias(); x.m(); }\nfunction shadow(Alias) { const x = new Alias(); x.m(); }", "export class Client { m() {} }", None),
+            (Language::TypeScript, "app.ts", "client.ts", "import {Client as Alias} from './client';\nfunction visible(x: Alias) { x.m(); }\nfunction shadow<Alias>(x: Alias) { x.m(); }", "export class Client { m() {} }", None),
+            (Language::Tsx, "app.tsx", "client.tsx", "import {Client as Alias} from './client';\nfunction visible(x: Alias) { x.m(); }\nfunction shadow<Alias>(x: Alias) { x.m(); }", "export class Client { m() {} }", None),
+            (Language::Python, "app.py", "pkg/models.py", "from pkg import models\ndef visible(x: models.Client):\n    x.m()\ndef shadow(models):\n    x = models.Client()\n    x.m()\n", "class Client:\n    def m(self): pass\n", Some("pkg/__init__.py")),
+        ] {
+            let mut files = BTreeMap::from([(caller.to_string(), ParsedFile::parse(caller,source,lang).unwrap()), (owner.to_string(), ParsedFile::parse(owner,declaration,lang).unwrap())]);
+            if let Some(init) = init { files.insert(init.to_string(), ParsedFile::parse(init,"",lang).unwrap()); }
+            let nav = crate::navigation::NavigationIndex::from_ctx(CpgContext::build(&files, None));
+            let index = nav.build_resolved_call_edges();
+            let dir = tempfile::tempdir().unwrap();
+            let fingerprint = fixture_fingerprint();
+            save(dir.path(), &fingerprint, &index).unwrap();
+            let loaded = load(dir.path(), &fingerprint).unwrap().unwrap();
+            for index in [&index, &loaded] {
+                let edges: Vec<_> = index.incoming_by_target.iter().filter(|(target,_)| target.name == "m" && target.file == owner).flat_map(|(_,edges)| edges).filter(|e| e.confidence == ResolutionConfidence::Exact).collect();
+                assert_eq!(edges.len(), 1, "{lang:?}");
+                assert_eq!(edges[0].caller.name, "visible");
+            }
+        }
     }
 
     #[test]
