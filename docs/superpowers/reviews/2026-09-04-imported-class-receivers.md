@@ -70,3 +70,7 @@ nonfatal warnings. Matrix 104/104, no regression/flip candidates. Quick complete
 with oracle/SUT errors 0/0 and matrix 104/104; exit 2 solely for corpus SHA drift
 against pinned `20c8490591a3`, with four stale adjudications. Reports preserved in
 `/private/tmp/prism-imported-receivers-sDszwH/tier-a/`, not committed as a new baseline.
+
+Publication: implementation `99d50f1ffb1cc87dbf68f01c76688b94381e15a6` pushed and
+PR https://github.com/shoedog/prism/pull/239 opened. All ten committed source/test
+files compared equal to `final-source.tgz`; this follow-up changes documentation only.

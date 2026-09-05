@@ -77,7 +77,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   at `9a790419` (merged as `350cc89`): default 3,713/0/1, MCP 3,903/0/1, matrix
   104/104; quick has zero oracle/SUT errors but remains invalid for corpus pin drift. See
   `docs/superpowers/handoffs/2026-09-04-python-js-receiver-authority-repair-handoff.md`.
-- **Approved next continuation:** directly exported JS/TS class identity,
+- **Implemented continuation — PR #239 (open, not merged), `99d50f1`:** directly exported JS/TS class identity,
   imported constructor/parameter receivers, then Python inert regular-package
   initializers. See `docs/superpowers/specs/2026-09-04-imported-class-receivers.md`.
   The bounded syntactic census is not a measured corpus-recall gain.
