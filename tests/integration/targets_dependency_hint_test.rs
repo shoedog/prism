@@ -334,3 +334,86 @@ fn a_site_without_a_call_node_keeps_the_description_derived_hint() {
     assert_eq!(callee.as_deref(), Some("commit"));
     assert_eq!(kind, None);
 }
+
+#[test]
+fn binding_scope_and_full_import_path_survive_projection() {
+    let cases = [
+        (
+            concat!(
+                "def unrelated():\n",
+                "    import requests as rq\n",
+                "\n",
+                "def run():\n",
+                "    from .store import db as rq\n",
+                "    rq.get('key')\n",
+            ),
+            6,
+            "rq.get",
+            None,
+        ),
+        (
+            concat!(
+                "import requests\n",
+                "\n",
+                "def send(client):\n",
+                "    def never_called():\n",
+                "        client = requests.Session()\n",
+                "        return client\n",
+                "    client.get('key')\n",
+            ),
+            7,
+            "client.get",
+            None,
+        ),
+        (
+            concat!(
+                "import urllib.request\n",
+                "import urllib.parse\n",
+                "\n",
+                "def run(url):\n",
+                "    urllib.parse.urljoin(url, 'child')\n",
+            ),
+            5,
+            "urllib.parse.urljoin",
+            None,
+        ),
+        (
+            "import requests as rq\n\ndef run():\n    rq.post('x')\n",
+            4,
+            "rq.post",
+            Some("http"),
+        ),
+        (
+            "import urllib.request\n\ndef run():\n    urllib.request.urlopen('x')\n",
+            4,
+            "urllib.request.urlopen",
+            Some("http"),
+        ),
+        (
+            concat!(
+                "import requests\n",
+                "\n",
+                "class Service:\n",
+                "    def __init__(self):\n",
+                "        self.client = requests.Session()\n",
+                "\n",
+                "    def run(self):\n",
+                "        self.client.get('x')\n",
+            ),
+            8,
+            "self.client.get",
+            Some("http"),
+        ),
+    ];
+
+    for (source, line, expected_callee, expected_kind) in cases {
+        let (kind, callee, _) = hint_for(
+            &[("svc.py", source)],
+            "svc.py",
+            line,
+            echo_finding("svc.py", line),
+        );
+        assert_eq!(callee.as_deref(), Some(expected_callee));
+        assert_eq!(kind.as_deref(), expected_kind, "callee={expected_callee}");
+    }
+}

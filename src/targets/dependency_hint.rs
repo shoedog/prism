@@ -19,13 +19,13 @@
 //! 2–4), so a wrong `kind` is strictly worse than none: it excludes the whole
 //! family the site actually belongs to. A `kind` therefore requires all of:
 //!
-//! 1. the chain's root **binds to an imported library** in this file — an
-//!    unimported `requests` is a local name, not the library, and the import's
-//!    module path (not the spelling of the local binding) is what is looked up;
+//! 1. the chain's root **binds at the site to a visible import** — an unimported
+//!    `requests` or a sibling function's import is not the library, and the
+//!    import's full module path must be extended by the source callee chain;
 //! 2. **no repo-local module** of that name shadows the import (a repository
 //!    that ships its own `requests.py` is what `import requests` resolves to);
 //! 3. **no local binding** — parameter, assignment or def — of that root in the
-//!    enclosing function or at file scope;
+//!    site's enclosing callable chain or at file scope;
 //! 4. for a receiver chain (`self.client.get`), **exactly one** constructor
 //!    assignment to that receiver inside the receiver's own lexical owner (the
 //!    class for `self.`/`this.`, the function for a local); a second assignment
@@ -245,7 +245,7 @@ fn sole_receiver_constructor<'a>(
 ) -> Option<(Node<'a>, String)> {
     let owner = receiver_owner_scope(parsed, call_node, receiver);
     let mut found = Vec::new();
-    collect_receiver_assignments(parsed, owner, receiver, &mut found);
+    collect_receiver_assignments(parsed, owner, owner, call_node, receiver, &mut found);
     match found.as_slice() {
         [(node, callee)] => Some((*node, callee.clone())),
         _ => None,
@@ -276,11 +276,36 @@ fn receiver_owner_scope<'a>(
 /// assignment disqualifying) and carry an empty callee.
 fn collect_receiver_assignments<'a>(
     parsed: &ParsedFile,
+    owner: Node<'a>,
     node: Node<'a>,
+    call_node: Node<'a>,
     receiver: &str,
     out: &mut Vec<(Node<'a>, String)>,
 ) {
     let language = parsed.language;
+    let is_root = node.id() == owner.id();
+    if !is_root
+        && language
+            .callable_boundary_node_types()
+            .contains(&node.kind())
+    {
+        let root = receiver.split('.').next().unwrap_or(receiver);
+        let is_direct_method = matches!(root, "self" | "this")
+            && language
+                .method_owner_class_node(&node)
+                .is_some_and(|class| class.id() == owner.id());
+        if !is_direct_method {
+            return;
+        }
+    }
+    if !is_root
+        && matches!(
+            node.kind(),
+            "class_definition" | "class_declaration" | "class"
+        )
+    {
+        return;
+    }
     if language.is_assignment_node(node.kind()) || language.is_declaration_node(node.kind()) {
         let target = language
             .assignment_target(&node)
@@ -289,7 +314,13 @@ fn collect_receiver_assignments<'a>(
             .assignment_value(&node)
             .or_else(|| language.declaration_value(&node));
         if let Some(target) = target {
-            if parsed.node_text(&target) == receiver {
+            let binding_line = node.start_position().row + 1;
+            let site_line = call_node.start_position().row + 1;
+            let root = receiver.split('.').next().unwrap_or(receiver);
+            let reaches_site = parsed
+                .find_variable_references_scoped(&owner, root, binding_line)
+                .contains(&site_line);
+            if reaches_site && parsed.node_text(&target) == receiver {
                 let callee = value
                     .filter(|value| language.is_call_node(value.kind()))
                     .and_then(|value| callee_text(parsed, &value))
@@ -300,10 +331,14 @@ fn collect_receiver_assignments<'a>(
     }
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        collect_receiver_assignments(parsed, child, receiver, out);
+        collect_receiver_assignments(parsed, owner, child, call_node, receiver, out);
     }
 }
 
 #[cfg(test)]
 #[path = "dependency_hint_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "dependency_hint_binding_scope_tests.rs"]
+mod binding_scope_tests;
