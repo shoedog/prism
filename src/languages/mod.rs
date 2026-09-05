@@ -792,6 +792,74 @@ impl Language {
         matches!(kind, "return_statement")
     }
 
+    /// Kinds that WRAP a statement without being one semantically. When
+    /// `collect_statements` meets one it must descend through it, or the wrapped
+    /// body's lines never enter the CFG's line universe
+    /// (`ParsedFile::statements_in_function`). Measured: this is why Rust scores
+    /// 14.1% line coverage and 32.9% DataFlow-edge admissibility
+    /// (logs/item2-census/REPORT.md §G, §H).
+    pub fn statement_wrapper_kinds(&self) -> &'static [&'static str] {
+        match self {
+            Self::Python => &[
+                "with_statement",
+                "except_clause",
+                "except_group_clause",
+                "finally_clause",
+                "case_clause",
+            ],
+            Self::JavaScript => &[
+                "labeled_statement",
+                "catch_clause",
+                "finally_clause",
+                "switch_case",
+                "switch_default",
+                "with_statement",
+            ],
+            Self::TypeScript | Self::Tsx => &[
+                "labeled_statement",
+                "catch_clause",
+                "finally_clause",
+                "switch_case",
+                "switch_default",
+            ],
+            Self::Go => &[
+                "labeled_statement",
+                "select_statement",
+                "communication_case",
+                "default_case",
+                "expression_switch_statement",
+                "expression_case",
+                "type_switch_statement",
+                "type_case",
+            ],
+            Self::Java => &[
+                "labeled_statement",
+                "synchronized_statement",
+                "switch_expression",
+                "switch_block",
+                "switch_block_statement_group",
+                "switch_rule",
+                "try_with_resources_statement",
+                "catch_clause",
+                "finally_clause",
+            ],
+            Self::C => &["labeled_statement", "attributed_statement"],
+            Self::Cpp => &["labeled_statement", "attributed_statement", "catch_clause"],
+            Self::Rust => &[
+                "expression_statement",
+                "async_block",
+                "const_block",
+                "gen_block",
+                "try_block",
+                "unsafe_block",
+                "while_expression",
+            ],
+            Self::Lua => &["elseif_statement", "else_statement"],
+            Self::Bash => &["do_group", "case_item", "subshell", "redirected_statement"],
+            Self::Terraform => &[],
+        }
+    }
+
     /// Whether a node is a statement-level construct suitable for CFG construction.
     ///
     /// Returns true for assignments, declarations, calls, branches, loops,
