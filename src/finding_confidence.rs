@@ -13,7 +13,12 @@
 //! reviewer's call.
 
 use crate::ast::ParsedFile;
+use crate::cpg::FlowConfidence;
+use crate::cpg::{Relation, Trace};
+use crate::data_flow::VarLocation;
+use crate::resolution::{ResolutionConfidence, ResolvedCallEdge};
 use crate::slice::{FileParseQuality, SliceFinding, SlicingAlgorithm};
+use petgraph::graph::NodeIndex;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -153,274 +158,108 @@ pub fn parse_quality_for(
     }
 }
 
+#[derive(Debug, Clone, Default)]
+#[non_exhaustive]
+pub struct EvidencePath {
+    pub hops: Vec<EvidenceHop>,
+    pub crossed_unlabeled: bool,
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum EvidenceHop {
+    DataFlow {
+        from: VarLocation,
+        to: VarLocation,
+        confidence: FlowConfidence,
+    },
+    Call {
+        edge: ResolvedCallEdge,
+        confidence: ResolutionConfidence,
+    },
+}
+
+impl EvidencePath {
+    /// The evidence-free artifact represented by [`classify`]. AST-only
+    /// algorithms have a valid empty path; CPG and unknown algorithms do not.
+    pub fn unlabeled_for(algorithm: &str) -> Self {
+        let crossed_unlabeled =
+            SlicingAlgorithm::from_str(algorithm).is_none_or(|algorithm| algorithm.needs_cpg());
+        Self {
+            hops: Vec::new(),
+            crossed_unlabeled,
+        }
+    }
+
+    /// Recover the selected root-to-sink witness from a trace's parent tree.
+    pub fn from_trace(trace: &Trace, root: NodeIndex, sink: NodeIndex) -> Self {
+        let mut evidence = Self::default();
+        let mut current = sink;
+        let mut seen = std::collections::BTreeSet::new();
+        while current != root {
+            if !seen.insert(current) {
+                evidence.crossed_unlabeled = true;
+                break;
+            }
+            let Some(&(parent, relation)) = trace.parents_by_root.get(&(root, current)) else {
+                evidence.crossed_unlabeled = true;
+                break;
+            };
+            match relation {
+                Relation::DataFlow => match trace.data_flow_hops.get(&(parent, current)) {
+                    Some(hop) => evidence.hops.push(hop.clone()),
+                    None => evidence.crossed_unlabeled = true,
+                },
+                Relation::AssignmentPropagation
+                | Relation::RecoveredDefUse
+                | Relation::CallDescent
+                | Relation::ReturnInput
+                | Relation::ReturnFlow => evidence.crossed_unlabeled = true,
+            }
+            current = parent;
+        }
+        evidence.hops.reverse();
+        evidence
+    }
+}
+
+pub fn classify_with_evidence(
+    algorithm: &str,
+    parse_quality: ParseQuality,
+    evidence: &EvidencePath,
+) -> (FindingConfidence, FindingTier) {
+    let Some(algorithm) = SlicingAlgorithm::from_str(algorithm) else {
+        return (FindingConfidence::Unlabeled, FindingTier::Candidate);
+    };
+    let confidence =
+        if evidence.crossed_unlabeled || (algorithm.needs_cpg() && evidence.hops.is_empty()) {
+            FindingConfidence::Unlabeled
+        } else if evidence.hops.iter().any(|hop| match hop {
+            EvidenceHop::DataFlow { confidence, .. } => !confidence.is_exact(),
+            EvidenceHop::Call { confidence, .. } => *confidence != ResolutionConfidence::Exact,
+        }) {
+            FindingConfidence::NameOnly
+        } else {
+            FindingConfidence::Exact
+        };
+    let tier = if confidence == FindingConfidence::Exact && parse_quality == ParseQuality::Clean {
+        FindingTier::Asserted
+    } else {
+        FindingTier::Candidate
+    };
+    (confidence, tier)
+}
+
 /// Classifies a finding's confidence and tier from its producing algorithm and
 /// the worst parse quality over its evidence files. Pure and total; never reads
 /// the CPG.
 pub fn classify(algorithm: &str, parse_quality: ParseQuality) -> (FindingConfidence, FindingTier) {
-    match SlicingAlgorithm::from_str(algorithm) {
-        None => (FindingConfidence::Unlabeled, FindingTier::Candidate),
-        Some(algorithm) => {
-            let confidence = if algorithm.needs_cpg() {
-                FindingConfidence::Unlabeled
-            } else {
-                FindingConfidence::Exact
-            };
-            let tier =
-                if confidence == FindingConfidence::Exact && parse_quality == ParseQuality::Clean {
-                    FindingTier::Asserted
-                } else {
-                    FindingTier::Candidate
-                };
-            (confidence, tier)
-        }
-    }
+    classify_with_evidence(
+        algorithm,
+        parse_quality,
+        &EvidencePath::unlabeled_for(algorithm),
+    )
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::slice::{FileParseQuality, SliceFinding};
-    use std::collections::BTreeMap;
-
-    fn fpq(q: &str) -> FileParseQuality {
-        FileParseQuality {
-            error_count: 0,
-            node_count: 1,
-            error_rate: 0.0,
-            quality: q.to_string(),
-            error_lines: vec![],
-        }
-    }
-    fn finding(algorithm: &str, file: &str, related: &[&str]) -> SliceFinding {
-        SliceFinding {
-            algorithm: algorithm.into(),
-            file: file.into(),
-            line: 1,
-            severity: "warning".into(),
-            description: String::new(),
-            function_name: None,
-            related_lines: vec![],
-            related_files: related.iter().map(|s| s.to_string()).collect(),
-            category: None,
-            parse_quality: None,
-            diagrams: vec![],
-        }
-    }
-
-    #[test]
-    fn ast_only_clean_is_exact_asserted() {
-        assert_eq!(
-            classify("absence", ParseQuality::Clean),
-            (FindingConfidence::Exact, FindingTier::Asserted)
-        );
-    }
-    #[test]
-    fn cpg_algorithm_is_unlabeled_candidate() {
-        assert_eq!(
-            classify("echo", ParseQuality::Clean),
-            (FindingConfidence::Unlabeled, FindingTier::Candidate)
-        );
-    }
-    #[test]
-    fn degraded_or_unknown_parse_is_candidate() {
-        assert_eq!(
-            classify("absence", ParseQuality::Degraded),
-            (FindingConfidence::Exact, FindingTier::Candidate)
-        );
-        assert_eq!(
-            classify("absence", ParseQuality::Unknown),
-            (FindingConfidence::Exact, FindingTier::Candidate)
-        );
-    }
-    #[test]
-    fn every_production_algorithm_string_maps_to_its_variant() {
-        use crate::slice::SlicingAlgorithm;
-        for (s, expected) in [
-            ("absence", SlicingAlgorithm::AbsenceSlice),
-            (
-                "callback_dispatcher",
-                SlicingAlgorithm::CallbackDispatcherSlice,
-            ),
-            ("contract", SlicingAlgorithm::ContractSlice),
-            ("echo", SlicingAlgorithm::EchoSlice),
-            ("membrane", SlicingAlgorithm::MembraneSlice),
-            ("peer_consistency", SlicingAlgorithm::PeerConsistencySlice),
-            ("primitive", SlicingAlgorithm::PrimitiveSlice),
-            ("provenance", SlicingAlgorithm::ProvenanceSlice),
-            ("symmetry", SlicingAlgorithm::SymmetrySlice),
-            ("taint", SlicingAlgorithm::Taint),
-        ] {
-            assert_eq!(
-                SlicingAlgorithm::from_str(s),
-                Some(expected),
-                "{s} must round-trip to {expected:?}"
-            );
-        }
-    }
-    #[test]
-    fn confidence_table_for_production_algorithms() {
-        for (s, expected) in [
-            ("absence", FindingConfidence::Exact),
-            ("contract", FindingConfidence::Exact),
-            ("symmetry", FindingConfidence::Exact),
-            ("primitive", FindingConfidence::Exact),
-            ("peer_consistency", FindingConfidence::Exact),
-            ("callback_dispatcher", FindingConfidence::Exact),
-            ("echo", FindingConfidence::Unlabeled),
-            ("membrane", FindingConfidence::Unlabeled),
-            ("provenance", FindingConfidence::Unlabeled),
-            ("taint", FindingConfidence::Unlabeled),
-        ] {
-            assert_eq!(classify(s, ParseQuality::Clean).0, expected, "{s}");
-        }
-    }
-    #[test]
-    fn unknown_algorithm_is_unlabeled_candidate() {
-        assert_eq!(
-            classify("not_an_algorithm", ParseQuality::Clean),
-            (FindingConfidence::Unlabeled, FindingTier::Candidate)
-        );
-    }
-    #[test]
-    fn serde_spellings() {
-        assert_eq!(
-            serde_json::to_string(&FindingConfidence::Exact).unwrap(),
-            "\"exact\""
-        );
-        assert_eq!(
-            serde_json::to_string(&FindingConfidence::Unlabeled).unwrap(),
-            "\"unlabeled\""
-        );
-        assert_eq!(
-            serde_json::to_string(&FindingTier::Candidate).unwrap(),
-            "\"candidate\""
-        );
-        assert_eq!(ParseQuality::Poor.as_str(), "poor");
-    }
-    #[test]
-    fn parse_quality_serde_matches_as_str() {
-        for q in [
-            ParseQuality::Clean,
-            ParseQuality::Degraded,
-            ParseQuality::Poor,
-            ParseQuality::Unparseable,
-            ParseQuality::Unknown,
-        ] {
-            assert_eq!(
-                serde_json::to_string(&q).unwrap().trim_matches('"'),
-                q.as_str()
-            );
-        }
-    }
-    #[test]
-    fn parse_quality_ordering_is_best_to_worst() {
-        assert!(
-            ParseQuality::Clean < ParseQuality::Degraded
-                && ParseQuality::Degraded < ParseQuality::Poor
-                && ParseQuality::Poor < ParseQuality::Unparseable
-                && ParseQuality::Unparseable < ParseQuality::Unknown
-        );
-    }
-    fn parsed_with(path: &str) -> BTreeMap<String, crate::ast::ParsedFile> {
-        let mut parsed = BTreeMap::new();
-        parsed.insert(
-            path.to_string(),
-            crate::ast::ParsedFile::parse(path, "x = 1\n", crate::languages::Language::Python)
-                .unwrap(),
-        );
-        parsed
-    }
-    #[test]
-    fn min_over_treats_sparse_map_absence_as_clean_when_parsed() {
-        let parsed = parsed_with("a.py");
-        let map: BTreeMap<String, FileParseQuality> = BTreeMap::new();
-        // a.py is absent from the sparse map but was parsed -> Clean, not Unknown.
-        assert_eq!(
-            ParseQuality::min_over(&["a.py"], &map, &parsed),
-            ParseQuality::Clean
-        );
-    }
-    #[test]
-    fn min_over_takes_the_worst_over_files() {
-        let parsed = parsed_with("a.py");
-        let mut map = BTreeMap::new();
-        map.insert("b.py".to_string(), fpq("degraded"));
-        assert_eq!(
-            ParseQuality::min_over(&["a.py", "b.py"], &map, &parsed),
-            ParseQuality::Degraded
-        );
-    }
-    #[test]
-    fn min_over_is_unknown_for_files_in_neither_map_nor_parsed() {
-        let parsed = parsed_with("a.py");
-        let map: BTreeMap<String, FileParseQuality> = BTreeMap::new();
-        assert_eq!(
-            ParseQuality::min_over(&["a.py", "missing.py"], &map, &parsed),
-            ParseQuality::Unknown
-        );
-    }
-    #[test]
-    fn min_over_empty_files_is_unknown() {
-        let parsed = parsed_with("a.py");
-        let map: BTreeMap<String, FileParseQuality> = BTreeMap::new();
-        assert_eq!(
-            ParseQuality::min_over(&[], &map, &parsed),
-            ParseQuality::Unknown
-        );
-    }
-    #[test]
-    fn min_over_unrecognized_map_quality_string_is_unknown() {
-        let parsed: BTreeMap<String, crate::ast::ParsedFile> = BTreeMap::new();
-        let mut map = BTreeMap::new();
-        map.insert("c.py".to_string(), fpq("weird"));
-        assert_eq!(
-            ParseQuality::min_over(&["c.py"], &map, &parsed),
-            ParseQuality::Unknown
-        );
-    }
-    #[test]
-    fn parse_quality_for_treats_contract_delta_categories_as_unknown() {
-        let parsed = parsed_with("a.py");
-        let map: BTreeMap<String, FileParseQuality> = BTreeMap::new();
-        let mut weakened = finding("contract", "a.py", &[]);
-        weakened.category = Some("contract_precondition_weakened".to_string());
-        assert_eq!(
-            parse_quality_for(&weakened, &map, &parsed),
-            ParseQuality::Unknown
-        );
-    }
-    #[test]
-    fn parse_quality_for_non_delta_contract_category_uses_min_over() {
-        let parsed = parsed_with("a.py");
-        let map: BTreeMap<String, FileParseQuality> = BTreeMap::new();
-        let mut violation = finding("contract", "a.py", &[]);
-        violation.category = Some("contract_violation".to_string());
-        assert_eq!(
-            parse_quality_for(&violation, &map, &parsed),
-            ParseQuality::Clean
-        );
-    }
-    #[test]
-    fn parse_quality_for_symmetry_related_file_dominates() {
-        let parsed = parsed_with("a.py");
-        let mut map = BTreeMap::new();
-        map.insert("b.py".to_string(), fpq("degraded"));
-        let f = finding("symmetry", "a.py", &["b.py"]);
-        assert_eq!(parse_quality_for(&f, &map, &parsed), ParseQuality::Degraded);
-    }
-    #[test]
-    fn evidence_files_is_anchor_then_related() {
-        assert_eq!(
-            evidence_files(&finding("symmetry", "a.py", &["b.py"])),
-            vec!["a.py", "b.py"]
-        );
-        assert_eq!(
-            evidence_files(&finding("absence", "a.py", &[])),
-            vec!["a.py"]
-        );
-        assert_eq!(
-            evidence_files(&finding("echo", "a.py", &["a.py", "b.py", "b.py"])),
-            vec!["a.py", "b.py"]
-        );
-    }
-}
+mod tests;

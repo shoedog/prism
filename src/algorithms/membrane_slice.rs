@@ -14,6 +14,7 @@ use crate::call_graph::FunctionId;
 use crate::cpg::query::ConfidenceFilter;
 use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
+use crate::finding_confidence::{EvidenceHop, EvidencePath};
 use crate::resolution::{ResolutionKind, ResolvedCallEdge};
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
@@ -248,6 +249,13 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                                         parse_quality: None,
                                         diagrams: vec![],
                                     });
+                                    result.evidence.push(Some(EvidencePath {
+                                        hops: vec![EvidenceHop::Call {
+                                            edge: edge.clone(),
+                                            confidence: edge.confidence,
+                                        }],
+                                        crossed_unlabeled: false,
+                                    }));
                                 }
                             }
                         }

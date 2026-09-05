@@ -10,7 +10,10 @@ pub use model::{
 };
 
 use crate::api::{build_info, ReviewInputs};
-use crate::finding_confidence::{classify, parse_quality_for, FindingTier, RESOLUTION_MODE};
+use crate::finding_confidence::{
+    classify_with_evidence, parse_quality_for, EvidencePath, FindingConfidence, FindingTier,
+    RESOLUTION_MODE,
+};
 use crate::languages::Language;
 use crate::output::{sarif::path_escapes_repo, severity_rank};
 use crate::slice::{AlgorithmError, SliceFinding};
@@ -38,6 +41,7 @@ pub struct TargetsMeta {
 /// input population before applying severity or tier filters.
 pub fn project(
     findings: &[SliceFinding],
+    evidence: &[Option<EvidencePath>],
     inputs: &ReviewInputs,
     meta: &TargetsMeta,
 ) -> TargetsDocument {
@@ -45,7 +49,15 @@ pub fn project(
     let mut targets = Vec::new();
     let mut ids = HashSet::new();
 
-    for finding in findings {
+    if findings.len() != evidence.len() {
+        warnings.push(format!(
+            "targets: evidence alignment mismatch: {} findings, {} artifacts; unmatched findings are unlabeled",
+            findings.len(),
+            evidence.len()
+        ));
+    }
+
+    for (index, finding) in findings.iter().enumerate() {
         if finding.line == 0 {
             warnings.push(format!(
                 "targets: dropped finding with line 0: {}/{} in {}",
@@ -82,7 +94,10 @@ pub fn project(
 
         let parse_quality =
             parse_quality_for(&normalized_finding, &inputs.parse_quality, &inputs.files);
-        let (confidence, tier) = classify(&finding.algorithm, parse_quality);
+        let (confidence, tier) = evidence.get(index).and_then(Option::as_ref).map_or(
+            (FindingConfidence::Unlabeled, FindingTier::Candidate),
+            |evidence| classify_with_evidence(&finding.algorithm, parse_quality, evidence),
+        );
         let mut mapped = map_finding(finding);
         if mapped.kind == "external_call" {
             let context = dependency_hint::SiteContext {

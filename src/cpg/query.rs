@@ -4,12 +4,13 @@
 use crate::access_path::AccessPath;
 use crate::call_graph::FunctionId;
 use crate::data_flow::{VarAccessKind, VarLocation};
+use crate::finding_confidence::{EvidenceHop, EvidencePath};
 
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-use super::{CodePropertyGraph, CpgEdge, CpgNode, VarAccess};
+use super::{CodePropertyGraph, CpgEdge, CpgNode, FlowConfidence, VarAccess};
 
 /// Confidence filter for node-seeded traversal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -648,6 +649,27 @@ impl CodePropertyGraph {
     /// Also handles assignment propagation: if a Use is found, finds all Defs
     /// on the same line (x = y means use of y flows to def of x).
     pub fn dfg_forward_reachable(&self, from: &VarLocation) -> BTreeSet<VarLocation> {
+        self.dfg_forward_reachable_labeled(from).0
+    }
+
+    /// Forward reachability plus the worst DataFlow label on each target's
+    /// deterministic discovering path.
+    pub fn dfg_forward_reachable_labeled(
+        &self,
+        from: &VarLocation,
+    ) -> (BTreeSet<VarLocation>, BTreeMap<NodeIndex, FlowConfidence>) {
+        let (reachable, labels, _) = self.dfg_forward_reachable_with_evidence(from);
+        (reachable, labels)
+    }
+
+    pub(crate) fn dfg_forward_reachable_with_evidence(
+        &self,
+        from: &VarLocation,
+    ) -> (
+        BTreeSet<VarLocation>,
+        BTreeMap<NodeIndex, FlowConfidence>,
+        BTreeMap<NodeIndex, EvidencePath>,
+    ) {
         let from_access = match from.kind {
             VarAccessKind::Def => VarAccess::Def,
             VarAccessKind::Use => VarAccess::Use,
@@ -661,25 +683,42 @@ impl CodePropertyGraph {
             from_access,
         ) {
             Some(idx) => idx,
-            None => return BTreeSet::new(),
+            None => return (BTreeSet::new(), BTreeMap::new(), BTreeMap::new()),
         };
 
         // BFS following DataFlow edges + same-line assignment propagation
         let mut visited = BTreeSet::new();
+        let mut labels = BTreeMap::new();
+        let mut parents = BTreeMap::new();
         let mut queue = VecDeque::new();
-        queue.push_back(start);
+        queue.push_back((start, FlowConfidence::Exact, None));
 
-        while let Some(node) = queue.pop_front() {
+        while let Some((node, path_confidence, parent)) = queue.pop_front() {
             if !visited.insert(node) {
                 continue;
             }
+            labels.insert(node, path_confidence);
+            if let Some(parent) = parent {
+                parents.insert(node, parent);
+            }
 
             // Follow DataFlow edges
-            for edge in self.graph.edges(node) {
-                if matches!(edge.weight(), CpgEdge::DataFlow(_))
-                    && !visited.contains(&edge.target())
-                {
-                    queue.push_back(edge.target());
+            let mut data_flow_targets: Vec<_> = self
+                .graph
+                .edges(node)
+                .filter_map(|edge| match edge.weight() {
+                    CpgEdge::DataFlow(confidence) => Some((edge.target(), *confidence)),
+                    _ => None,
+                })
+                .collect();
+            data_flow_targets.sort_by_key(|(target, _)| target.index());
+            for (target, confidence) in data_flow_targets {
+                if !visited.contains(&target) {
+                    queue.push_back((
+                        target,
+                        path_confidence.worst(confidence),
+                        Some((node, Some(confidence))),
+                    ));
                 }
             }
 
@@ -710,7 +749,7 @@ impl CodePropertyGraph {
                                 && def_fsl == function_start_line
                                 && !visited.contains(&other)
                             {
-                                queue.push_back(other);
+                                queue.push_back((other, path_confidence, Some((node, None))));
                             }
                         }
                     }
@@ -719,10 +758,45 @@ impl CodePropertyGraph {
         }
 
         visited.remove(&start);
-        visited
-            .into_iter()
+        labels.remove(&start);
+        let mut evidence = BTreeMap::new();
+        for &target in &visited {
+            let mut path = EvidencePath::default();
+            let mut current = target;
+            let mut seen = BTreeSet::new();
+            while current != start {
+                if !seen.insert(current) {
+                    path.crossed_unlabeled = true;
+                    break;
+                }
+                let Some(&(parent, edge_confidence)) = parents.get(&current) else {
+                    path.crossed_unlabeled = true;
+                    break;
+                };
+                match edge_confidence {
+                    Some(confidence) => {
+                        match (self.to_var_location(parent), self.to_var_location(current)) {
+                            (Some(from), Some(to)) => path.hops.push(EvidenceHop::DataFlow {
+                                from,
+                                to,
+                                confidence,
+                            }),
+                            _ => path.crossed_unlabeled = true,
+                        }
+                    }
+                    None => path.crossed_unlabeled = true,
+                }
+                current = parent;
+            }
+            path.hops.reverse();
+            evidence.insert(target, path);
+        }
+        let reachable = visited
+            .iter()
+            .copied()
             .filter_map(|idx| self.to_var_location(idx))
-            .collect()
+            .collect();
+        (reachable, labels, evidence)
     }
 
     /// Backward reachability from a VarLocation, following DataFlow edges.
@@ -757,7 +831,18 @@ impl CodePropertyGraph {
         &self,
         taint_sources: &[(String, usize)],
     ) -> Vec<crate::data_flow::FlowPath> {
+        self.taint_forward_labeled(taint_sources).0
+    }
+
+    pub(crate) fn taint_forward_labeled(
+        &self,
+        taint_sources: &[(String, usize)],
+    ) -> (
+        Vec<crate::data_flow::FlowPath>,
+        BTreeMap<(VarLocation, VarLocation), EvidencePath>,
+    ) {
         let mut paths = Vec::new();
+        let mut evidence = BTreeMap::new();
 
         for (file, line) in taint_sources {
             let source_nodes = self.nodes_at(file, *line);
@@ -769,8 +854,16 @@ impl CodePropertyGraph {
                     Some(loc) => loc,
                     None => continue,
                 };
-                let reachable = self.dfg_forward_reachable(&src_loc);
+                let (reachable, _, evidence_by_node) =
+                    self.dfg_forward_reachable_with_evidence(&src_loc);
                 if !reachable.is_empty() {
+                    for target in &reachable {
+                        let path = self
+                            .var_node_for_location(target)
+                            .and_then(|node| evidence_by_node.get(&node).cloned())
+                            .unwrap_or_else(|| EvidencePath::unlabeled_for("taint"));
+                        evidence.insert((src_loc.clone(), target.clone()), path);
+                    }
                     let path = crate::data_flow::FlowPath {
                         edges: reachable
                             .iter()
@@ -786,7 +879,7 @@ impl CodePropertyGraph {
             }
         }
 
-        paths
+        (paths, evidence)
     }
 
     /// Find all statements on any data flow path between source and sink.

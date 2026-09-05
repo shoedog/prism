@@ -13,6 +13,7 @@
 //! difference in a consumer's output between the two graphs can only be
 //! caused by that consumer's predicate being label-sensitive.
 
+use petgraph::visit::EdgeRef;
 use prism::cpg::{CodePropertyGraph, CpgContext, CpgEdge, FlowConfidence, FlowDoubt};
 use prism::diff::{DiffInfo, DiffInput, ModifyType};
 use prism::languages::Language;
@@ -396,5 +397,191 @@ fn consumer_edge_sets_ignore_payload() {
     assert!(
         !dataflow_edges_via_is_data_flow(&exact_ctx.cpg).is_empty(),
         "is_data_flow selected no edges at all: vacuous check"
+    );
+}
+
+const MIXED: &str = "def f():\n    x = 1\n    sink(x)\n    x = 2\n    sink(x)\n";
+const PURE: &str = "def g():\n    y = 1\n    sink(y)\n";
+
+fn python_cpg(source: &str) -> CodePropertyGraph {
+    let parsed = prism::ast::ParsedFile::parse("f.py", source, Language::Python).unwrap();
+    CodePropertyGraph::build(&BTreeMap::from([("f.py".to_string(), parsed)]))
+}
+
+fn variable_at(
+    cpg: &CodePropertyGraph,
+    line: usize,
+    name: &str,
+    kind: prism::data_flow::VarAccessKind,
+) -> (petgraph::graph::NodeIndex, prism::data_flow::VarLocation) {
+    variable_locations(cpg)
+        .into_iter()
+        .find(|(_, loc, access)| loc.line == line && loc.path.base == name && *access == kind)
+        .map(|(node, loc, _)| (node, loc))
+        .unwrap_or_else(|| panic!("missing {kind:?} {name} at line {line}"))
+}
+
+fn chop_label_fold(
+    cpg: &CodePropertyGraph,
+    on_path: &BTreeSet<(String, usize)>,
+) -> Option<FlowConfidence> {
+    cpg.graph
+        .edge_references()
+        .filter_map(|edge| match edge.weight() {
+            CpgEdge::DataFlow(confidence) => {
+                let from = cpg.node(edge.source());
+                let to = cpg.node(edge.target());
+                (on_path.contains(&(from.file().to_string(), from.line()))
+                    && on_path.contains(&(to.file().to_string(), to.line())))
+                .then_some(*confidence)
+            }
+            _ => None,
+        })
+        .reduce(FlowConfidence::worst)
+}
+
+#[test]
+fn labeled_walk_forward_carries_the_known_label_per_target() {
+    use prism::data_flow::VarAccessKind::{Def, Use};
+    let cpg = python_cpg(MIXED);
+    let (_, a) = variable_at(&cpg, 2, "x", Def);
+    let (u1_node, u1) = variable_at(&cpg, 3, "x", Use);
+    let (u2_node, u2) = variable_at(&cpg, 5, "x", Use);
+    let plain = cpg.dfg_forward_reachable(&a);
+    let (set, labels) = cpg.dfg_forward_reachable_labeled(&a);
+    assert_eq!(set, plain, "labeled traversal changed reachability");
+    assert!(set.contains(&u1) && set.contains(&u2));
+    assert_eq!(labels.get(&u1_node), Some(&FlowConfidence::Exact));
+    assert_eq!(
+        labels.get(&u2_node),
+        Some(&FlowConfidence::NameOnly(FlowDoubt::Killed {
+            kill_line: 4
+        }))
+    );
+    assert_eq!(
+        labels
+            .values()
+            .copied()
+            .fold(FlowConfidence::Exact, FlowConfidence::worst),
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 })
+    );
+}
+
+#[test]
+fn labeled_walk_forward_is_exact_on_a_pure_chain() {
+    use prism::data_flow::VarAccessKind::Def;
+    let cpg = python_cpg(PURE);
+    let (_, def) = variable_at(&cpg, 2, "y", Def);
+    let (set, labels) = cpg.dfg_forward_reachable_labeled(&def);
+    assert_eq!(set, cpg.dfg_forward_reachable(&def));
+    assert_eq!(labels.len(), 1, "one target, got {labels:?}");
+    assert!(labels.values().all(|label| label.is_exact()));
+}
+
+#[test]
+fn labeled_walk_backward_returns_known_incoming_hops() {
+    use prism::data_flow::VarAccessKind::{Def, Use};
+    use prism::finding_confidence::EvidenceHop;
+    let cpg = python_cpg(MIXED);
+    let (_, a) = variable_at(&cpg, 2, "x", Def);
+    let (_, b) = variable_at(&cpg, 4, "x", Def);
+    let (_, u2) = variable_at(&cpg, 5, "x", Use);
+    let (set, hops) = cpg.dfg.backward_reachable_labeled(&u2);
+    assert_eq!(set, cpg.dfg.backward_reachable(&u2));
+    assert!(set.contains(&a) && set.contains(&b));
+    let endpoints: Vec<_> = hops
+        .iter()
+        .map(|hop| match hop {
+            EvidenceHop::DataFlow {
+                from,
+                to,
+                confidence,
+            } => (from.line, to.line, *confidence),
+            other => panic!("expected DataFlow, got {other:?}"),
+        })
+        .collect();
+    assert_eq!(
+        endpoints,
+        vec![
+            (
+                2,
+                5,
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 })
+            ),
+            (4, 5, FlowConfidence::Exact),
+        ]
+    );
+}
+
+#[test]
+fn labeled_walk_backward_is_exact_on_a_pure_chain() {
+    use prism::data_flow::VarAccessKind::Use;
+    use prism::finding_confidence::EvidenceHop;
+    let cpg = python_cpg(PURE);
+    let (_, use_loc) = variable_at(&cpg, 3, "y", Use);
+    let (set, hops) = cpg.dfg.backward_reachable_labeled(&use_loc);
+    assert_eq!(set, cpg.dfg.backward_reachable(&use_loc));
+    assert_eq!(hops.len(), 1);
+    assert!(matches!(
+        &hops[0],
+        EvidenceHop::DataFlow { from, to, confidence: FlowConfidence::Exact }
+            if (from.line, to.line) == (2, 3)
+    ));
+}
+
+#[test]
+fn labeled_walk_chop_fold_uses_interior_edges_only() {
+    let cpg = python_cpg(MIXED);
+    let on_path = cpg.dfg_chop("f.py", 2, "f.py", 5);
+    assert!(on_path.contains(&("f.py".into(), 2)) && on_path.contains(&("f.py".into(), 5)));
+    assert_eq!(
+        chop_label_fold(&cpg, &on_path),
+        Some(FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }))
+    );
+    let narrowed = BTreeSet::from([("f.py".to_string(), 2), ("f.py".to_string(), 3)]);
+    assert_eq!(
+        chop_label_fold(&cpg, &narrowed),
+        Some(FlowConfidence::Exact)
+    );
+}
+
+#[test]
+fn labeled_walk_name_based_fallback_is_explicitly_unlabeled() {
+    use prism::finding_confidence::{
+        classify_with_evidence, EvidencePath, FindingConfidence, FindingTier, ParseQuality,
+    };
+    for algorithm in ["leftflow", "fullflow"] {
+        let evidence = EvidencePath::unlabeled_for(algorithm);
+        assert!(evidence.crossed_unlabeled && evidence.hops.is_empty());
+        assert_eq!(
+            classify_with_evidence(algorithm, ParseQuality::Clean, &evidence),
+            (FindingConfidence::Unlabeled, FindingTier::Candidate)
+        );
+    }
+}
+
+#[test]
+fn finding_evidence_provenance_delivers_all_three_grades() {
+    crate::common::assert_finding_evidence_provenance_cases();
+}
+
+#[test]
+fn finding_evidence_taint_delivers_exact_and_nameonly() {
+    crate::common::assert_finding_evidence_taint_cases();
+}
+
+#[test]
+fn finding_evidence_echo_delivers_exact_and_nameonly_calls() {
+    crate::common::assert_finding_evidence_call_cases(
+        prism::slice::SlicingAlgorithm::EchoSlice,
+        "echo",
+    );
+}
+
+#[test]
+fn finding_evidence_membrane_delivers_exact_and_nameonly_calls() {
+    crate::common::assert_finding_evidence_call_cases(
+        prism::slice::SlicingAlgorithm::MembraneSlice,
+        "membrane",
     );
 }

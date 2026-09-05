@@ -28,6 +28,10 @@ fn finding(algorithm: &str, category: Option<&str>, description: &str) -> SliceF
     }
 }
 
+fn exact_evidence(count: usize) -> Vec<Option<prism::finding_confidence::EvidencePath>> {
+    vec![Some(prism::finding_confidence::EvidencePath::default()); count]
+}
+
 fn inputs(path: &str) -> (TempDir, ReviewInputs) {
     let temp = TempDir::new().unwrap();
     let full = temp.path().join(path);
@@ -383,6 +387,7 @@ fn projection_is_total_normalizes_and_deduplicates_with_warnings() {
             windows_absolute,
             unc_absolute,
         ],
+        &exact_evidence(6),
         &inputs,
         &meta(temp.path().to_path_buf()),
     );
@@ -433,7 +438,12 @@ fn projection_emits_bounds_and_prefers_enclosing_symbol_on_disagreement() {
         "'serialize_x' changed but symmetric counterpart 'deserialize_x' was not",
     );
     symmetry.function_name = Some("serialize_x".to_string());
-    let doc = project(&[symmetry], &inputs, &meta(temp.path().to_path_buf()));
+    let doc = project(
+        &[symmetry],
+        &exact_evidence(1),
+        &inputs,
+        &meta(temp.path().to_path_buf()),
+    );
     let target = &doc.targets[0];
     assert_eq!(target.site.symbol.as_deref(), Some("read"));
     assert_eq!(target.site.function_start_line, Some(1));
@@ -448,7 +458,12 @@ fn projection_warns_when_bounds_are_omitted_for_an_unparsed_file() {
     let (temp, inputs) = inputs("a.py");
     let mut missing = finding("absence", Some("missing_counterpart"), "future pair");
     missing.file = "missing.py".to_string();
-    let doc = project(&[missing], &inputs, &meta(temp.path().to_path_buf()));
+    let doc = project(
+        &[missing],
+        &exact_evidence(1),
+        &inputs,
+        &meta(temp.path().to_path_buf()),
+    );
     let target = &doc.targets[0];
     assert_eq!(target.site.function_start_line, None);
     assert_eq!(target.site.function_end_line, None);
@@ -467,7 +482,12 @@ fn projection_warnings_describe_the_unfiltered_finding_population() {
     let mut metadata = meta(temp.path().to_path_buf());
     metadata.min_tier = FindingTier::Asserted;
 
-    let doc = project(&[noisy.clone(), noisy], &inputs, &metadata);
+    let doc = project(
+        &[noisy.clone(), noisy],
+        &exact_evidence(2),
+        &inputs,
+        &metadata,
+    );
     assert!(
         doc.targets.is_empty(),
         "candidate findings must be filtered"
@@ -553,7 +573,7 @@ fn projection_preserves_algorithm_errors_as_partial_coverage() {
         error: "fixture error".to_string(),
     });
     metadata.run_warnings.push("fixture warning".to_string());
-    let doc = project(&[], &inputs, &metadata);
+    let doc = project(&[], &[], &inputs, &metadata);
     assert_eq!(doc.errors.len(), 1);
     assert_eq!(doc.errors[0].algorithm, "DeltaSlice");
     assert_eq!(doc.errors[0].error, "fixture error");

@@ -2,6 +2,7 @@ use super::{build_context, load_review_inputs, ReviewInputs, ReviewOptions};
 use crate::algorithms;
 use crate::ast::ParsedFile;
 use crate::cpg::CpgContext;
+use crate::finding_confidence::EvidencePath;
 use crate::slice::{AlgorithmError, SliceConfig, SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::{Context, Result};
 use std::collections::BTreeMap;
@@ -218,6 +219,7 @@ fn run_algorithm_raw(
         // duplicating all diagram warnings.
         _ => algorithms::run_slicing_inner(ctx, &inputs.diff, config),
     }?;
+    result.align_evidence();
     crate::algorithms::finalize_diagrams(&mut result, config.diagram_node_cap);
     Ok(result)
 }
@@ -289,6 +291,7 @@ pub fn parse_algorithms(spec: &str) -> Result<Vec<SlicingAlgorithm>> {
 pub struct ReviewRun {
     pub results: Vec<SliceResult>,
     pub findings: Vec<SliceFinding>,
+    pub evidence: Vec<Option<EvidencePath>>,
     pub errors: Vec<AlgorithmError>,
     pub warnings: Vec<String>,
     pub algorithms_run: Vec<String>,
@@ -328,11 +331,16 @@ pub fn run_review(
             .iter()
             .flat_map(|result| result.findings.clone())
             .collect();
+        let evidence = results
+            .iter()
+            .flat_map(|result| result.evidence.clone())
+            .collect();
         annotate_finding_parse_quality(&mut findings, &inputs.files);
 
         ReviewRun {
             results,
             findings,
+            evidence,
             errors,
             warnings: inputs.parse_warnings.clone(),
             algorithms_run,

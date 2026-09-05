@@ -127,7 +127,7 @@ pub fn run_slicing_inner(
     diff: &DiffInput,
     config: &SliceConfig,
 ) -> Result<SliceResult> {
-    match config.algorithm {
+    let mut result = match config.algorithm {
         SlicingAlgorithm::OriginalDiff => original_diff::slice(ctx.files, diff),
         SlicingAlgorithm::ParentFunction => parent_function::slice(ctx.files, diff),
         SlicingAlgorithm::LeftFlow => left_flow::slice(ctx, diff, config),
@@ -183,7 +183,9 @@ pub fn run_slicing_inner(
             callback_dispatcher_slice::slice(ctx.files, diff)
         }
         SlicingAlgorithm::PrimitiveSlice => primitive_slice::slice(ctx.files, diff),
-    }
+    }?;
+    result.align_evidence();
+    Ok(result)
 }
 
 /// Run the configured slicing algorithm with a shared CPG context.

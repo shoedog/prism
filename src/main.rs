@@ -415,7 +415,12 @@ fn run_targets(args: &TargetsArgs) -> Result<()> {
     meta.run_warnings = run_warnings;
     meta.min_severity_rank = output::severity_rank(&args.min_severity);
     meta.min_tier = min_tier;
-    let document = prism::targets::project(&outcome.run.findings, &outcome.inputs, &meta);
+    let document = prism::targets::project(
+        &outcome.run.findings,
+        &outcome.run.evidence,
+        &outcome.inputs,
+        &meta,
+    );
 
     let mut bytes = serde_json::to_vec_pretty(&document)?;
     bytes.push(b'\n');
@@ -628,6 +633,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
         let all_errors = run.errors;
         let algorithms_run = run.algorithms_run;
         let all_findings = run.findings;
+        let all_evidence = run.evidence;
 
         match cli.format.as_str() {
             "review" => {
@@ -718,6 +724,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     .collect();
                 let document = output::to_sarif(
                     &output::SarifInputs::new(&all_findings)
+                        .evidence(&all_evidence)
                         .errors(&all_errors)
                         .parse_warnings(&inputs.parse_warnings)
                         .load_warnings(&inputs.load_warnings)
@@ -836,6 +843,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 let algorithms_run = vec![algorithm.name().to_string()];
                 let document = output::to_sarif(
                     &output::SarifInputs::new(&result.findings)
+                        .evidence(&result.evidence)
                         .parse_warnings(&result.warnings)
                         .load_warnings(&inputs.load_warnings)
                         .build_warnings(&built.warnings)

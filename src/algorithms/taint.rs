@@ -9,6 +9,7 @@ use crate::ast::ParsedFile;
 use crate::cpg::{CodePropertyGraph, CpgContext};
 use crate::data_flow::{FlowEdge, FlowPath, VarAccessKind, VarLocation};
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
+use crate::finding_confidence::{EvidenceHop, EvidencePath};
 use crate::frameworks::{CallSite, SanitizerCategory, SinkPattern};
 use crate::languages::Language;
 use crate::output::mermaid::safe_node_id;
@@ -10941,6 +10942,30 @@ fn source_line_text(source: &str, line: usize) -> String {
         .to_string()
 }
 
+fn evidence_rank(evidence: &EvidencePath) -> u8 {
+    if evidence.crossed_unlabeled || evidence.hops.is_empty() {
+        0
+    } else if evidence.hops.iter().all(|hop| match hop {
+        EvidenceHop::DataFlow { confidence, .. } => confidence.is_exact(),
+        EvidenceHop::Call { confidence, .. } => {
+            *confidence == crate::resolution::ResolutionConfidence::Exact
+        }
+    }) {
+        2
+    } else {
+        1
+    }
+}
+
+fn keep_best_evidence<K: Ord>(map: &mut BTreeMap<K, EvidencePath>, key: K, evidence: EvidencePath) {
+    match map.get(&key) {
+        Some(current) if evidence_rank(current) >= evidence_rank(&evidence) => {}
+        _ => {
+            map.insert(key, evidence);
+        }
+    }
+}
+
 pub fn slice(
     ctx: &CpgContext,
     diff: &DiffInput,
@@ -11023,12 +11048,34 @@ pub fn slice(
         js_ts_framework_source_access_ranges_by_line(ctx.files, &framework_source_set);
 
     // Forward propagation from each source (CFG-constrained when available)
-    let mut paths = if taint_config.return_flow {
-        ctx.cpg.taint_forward_cfg_with_return_flow(&taint_sources)
+    let (mut paths, flow_evidence) = if taint_config.return_flow {
+        ctx.cpg
+            .taint_forward_cfg_with_return_flow_labeled(&taint_sources)
     } else {
-        ctx.cpg.taint_forward_cfg(&taint_sources)
+        ctx.cpg.taint_forward_cfg_labeled(&taint_sources)
     };
     synthesize_target_seed_paths(&framework_sources, ctx, &mut paths);
+
+    let mut evidence_by_lines: BTreeMap<(String, usize, String, usize), EvidencePath> =
+        BTreeMap::new();
+    for path in &paths {
+        for edge in &path.edges {
+            let evidence = flow_evidence
+                .get(&(edge.from.clone(), edge.to.clone()))
+                .cloned()
+                .unwrap_or_else(|| EvidencePath::unlabeled_for("taint"));
+            keep_best_evidence(
+                &mut evidence_by_lines,
+                (
+                    edge.from.file.clone(),
+                    edge.from.line,
+                    edge.to.file.clone(),
+                    edge.to.line,
+                ),
+                evidence,
+            );
+        }
+    }
 
     // Sanitizer propagation hook (spec §3.6): for each path, walk the function
     // body containing its source and mark `cleansed_for` for any cleanser whose
@@ -11299,6 +11346,7 @@ pub fn slice(
     // `source_location` is resolved — instead of unconditionally for every
     // seed (most diff-line seeds never reach a sink and are noise).
     let mut sources_with_emitted_sinks: BTreeSet<(String, usize)> = BTreeSet::new();
+    let mut evidence_for_sources: BTreeMap<(String, usize), EvidencePath> = BTreeMap::new();
 
     // Emit findings for each taint sink reached
     for (file, line) in &sink_lines {
@@ -11351,6 +11399,11 @@ pub fn slice(
         if let Some(set) = sink_to_path_sources.get(&(file.clone(), *line)) {
             for (sf, sl) in set {
                 sources_with_emitted_sinks.insert((sf.clone(), *sl));
+                let evidence = evidence_by_lines
+                    .get(&(sf.clone(), *sl, file.clone(), *line))
+                    .cloned()
+                    .unwrap_or_else(|| EvidencePath::unlabeled_for("taint"));
+                keep_best_evidence(&mut evidence_for_sources, (sf.clone(), *sl), evidence);
             }
         }
 
@@ -11367,6 +11420,11 @@ pub fn slice(
                 if let Some((sf, sl)) = source_location {
                     if taint_sources.iter().any(|(f, l)| f == sf && *l == sl) {
                         sources_with_emitted_sinks.insert((sf.to_string(), sl));
+                        keep_best_evidence(
+                            &mut evidence_for_sources,
+                            (sf.to_string(), sl),
+                            EvidencePath::unlabeled_for("taint"),
+                        );
                     }
                 }
             }
@@ -11418,7 +11476,14 @@ pub fn slice(
             diagrams: vec![],
         };
         finding.diagrams.push(diagram);
+        let finding_evidence = source_location
+            .and_then(|(source_file, source_line)| {
+                evidence_by_lines.get(&(source_file.to_string(), source_line, file.clone(), *line))
+            })
+            .cloned()
+            .unwrap_or_else(|| EvidencePath::unlabeled_for("taint"));
         result.findings.push(finding);
+        result.evidence.push(Some(finding_evidence));
     }
 
     // Bash-specific: detect unquoted variable expansions on tainted lines.
@@ -11442,14 +11507,25 @@ pub fn slice(
             // member of `taint_sources` with the same file and the largest
             // line <= this finding's line, if any) as having reached an
             // emitted sink-style finding.
-            if let Some((sf, sl)) = taint_sources
+            let unquoted_source = taint_sources
                 .iter()
                 .filter(|(sf, sl)| sf == file && *sl <= *line)
                 .max_by_key(|(_, sl)| *sl)
-            {
+                .cloned();
+            if let Some((sf, sl)) = &unquoted_source {
                 sources_with_emitted_sinks.insert((sf.clone(), *sl));
+                let evidence = evidence_by_lines
+                    .get(&(sf.clone(), *sl, file.clone(), *line))
+                    .cloned()
+                    .unwrap_or_else(|| EvidencePath::unlabeled_for("taint"));
+                keep_best_evidence(&mut evidence_for_sources, (sf.clone(), *sl), evidence);
             }
 
+            let finding_evidence = unquoted_source
+                .as_ref()
+                .and_then(|(sf, sl)| evidence_by_lines.get(&(sf.clone(), *sl, file.clone(), *line)))
+                .cloned()
+                .unwrap_or_else(|| EvidencePath::unlabeled_for("taint"));
             result.findings.push(SliceFinding {
                 algorithm: "taint".to_string(),
                 file: file.clone(),
@@ -11470,6 +11546,7 @@ pub fn slice(
                 parse_quality: None,
                 diagrams: vec![],
             });
+            result.evidence.push(Some(finding_evidence));
         }
     }
 
@@ -11497,6 +11574,12 @@ pub fn slice(
             parse_quality: None,
             diagrams: vec![],
         });
+        result.evidence.push(Some(
+            evidence_for_sources
+                .get(&(file.clone(), *line))
+                .cloned()
+                .unwrap_or_else(|| EvidencePath::unlabeled_for("taint")),
+        ));
     }
 
     // Build output blocks

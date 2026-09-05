@@ -9,6 +9,7 @@ use crate::ast::ParsedFile;
 use crate::cpg::{
     reaching_definitions, DefId, DefSite, FlowConfidence, FlowDoubt, RdFileStats, RdOutcome,
 };
+use crate::finding_confidence::EvidenceHop;
 use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::hash::{Hash, Hasher};
@@ -789,7 +790,17 @@ impl DataFlowGraph {
 
     /// Find all locations reachable backward from a given location (transitive).
     pub fn backward_reachable(&self, from: &VarLocation) -> BTreeSet<VarLocation> {
+        self.backward_reachable_labeled(from).0
+    }
+
+    /// Backward reachability plus the concrete labeled DataFlow hops selected by
+    /// the walk. The reachable set is identical to [`Self::backward_reachable`].
+    pub fn backward_reachable_labeled(
+        &self,
+        from: &VarLocation,
+    ) -> (BTreeSet<VarLocation>, Vec<EvidenceHop>) {
         let mut visited = BTreeSet::new();
+        let mut hops = Vec::new();
         let mut queue = VecDeque::new();
         queue.push_back(from.clone());
 
@@ -798,14 +809,27 @@ impl DataFlowGraph {
                 continue;
             }
             if let Some(prevs) = self.backward.get(&loc) {
-                for prev in prevs {
+                let mut prevs = prevs.clone();
+                prevs.sort();
+                prevs.dedup();
+                for prev in &prevs {
+                    if visited.contains(prev) {
+                        continue;
+                    }
+                    if let Some(&confidence) = self.labels.get(&(prev.clone(), loc.clone())) {
+                        hops.push(EvidenceHop::DataFlow {
+                            from: prev.clone(),
+                            to: loc.clone(),
+                            confidence,
+                        });
+                    }
                     queue.push_back(prev.clone());
                 }
             }
         }
 
         visited.remove(from);
-        visited
+        (visited, hops)
     }
 
     /// Find all statements on any data flow path between source and sink.

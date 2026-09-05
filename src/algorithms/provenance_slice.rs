@@ -12,6 +12,7 @@
 
 use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
+use crate::finding_confidence::{EvidenceHop, EvidencePath};
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
@@ -525,6 +526,43 @@ pub struct ProvenanceFinding {
     pub path: Vec<(String, usize)>,
 }
 
+fn selected_origin_evidence(
+    ctx: &CpgContext,
+    use_file: &str,
+    use_line: usize,
+    var_name: &str,
+    origin_file: &str,
+    origin_line: usize,
+) -> EvidencePath {
+    let mut anchors: Vec<_> = ctx
+        .cpg
+        .nodes_at(use_file, use_line)
+        .into_iter()
+        .filter_map(|node| ctx.cpg.to_var_location(node))
+        .collect();
+    anchors.retain(|loc| {
+        loc.kind == crate::data_flow::VarAccessKind::Use && loc.path.base == var_name
+    });
+    anchors.sort();
+    for anchor in anchors {
+        let (_, hops) = ctx.cpg.dfg.backward_reachable_labeled(&anchor);
+        if let Some(hop) = hops.into_iter().find(|hop| {
+            matches!(hop,
+                EvidenceHop::DataFlow { from, to, .. }
+                    if from.file == origin_file
+                        && from.line == origin_line
+                        && from.path.base == var_name
+                        && to == &anchor)
+        }) {
+            return EvidencePath {
+                hops: vec![hop],
+                crossed_unlabeled: false,
+            };
+        }
+    }
+    EvidencePath::unlabeled_for("provenance")
+}
+
 pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::ProvenanceSlice);
     let mut block_id = 0;
@@ -650,6 +688,14 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                     Origin::Constant | Origin::Unknown => None,
                 };
                 if let Some(sev) = severity {
+                    let evidence = selected_origin_evidence(
+                        ctx,
+                        &diff_info.file_path,
+                        line,
+                        &var_name,
+                        &origin_file,
+                        origin_line,
+                    );
                     result.findings.push(SliceFinding {
                         algorithm: "provenance".to_string(),
                         file: diff_info.file_path.clone(),
@@ -672,6 +718,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                         parse_quality: None,
                         diagrams: vec![],
                     });
+                    result.evidence.push(Some(evidence));
                 }
 
                 // Build a block showing the provenance chain

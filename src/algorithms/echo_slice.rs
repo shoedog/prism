@@ -13,6 +13,7 @@ use crate::call_graph::FunctionId;
 use crate::cpg::query::ConfidenceFilter;
 use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
+use crate::finding_confidence::{EvidenceHop, EvidencePath};
 use crate::output::mermaid::safe_node_id;
 use crate::resolution::ResolutionKind;
 use crate::slice::{
@@ -234,6 +235,18 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
 
                 if !missing_checks.is_empty() {
                     let first_call = call_lines.first().copied().unwrap_or(0);
+                    let evidence = EvidencePath {
+                        hops: caller_edges
+                            .iter()
+                            .filter(|edge| edge.caller == *caller_id)
+                            .cloned()
+                            .map(|edge| EvidenceHop::Call {
+                                confidence: edge.confidence,
+                                edge,
+                            })
+                            .collect(),
+                        crossed_unlabeled: false,
+                    };
                     result.findings.push(SliceFinding {
                         algorithm: "echo".to_string(),
                         file: caller_id.file.clone(),
@@ -252,6 +265,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                         parse_quality: None,
                         diagrams: vec![],
                     });
+                    result.evidence.push(Some(evidence));
                     let mut block =
                         DiffBlock::new(block_id, caller_id.file.clone(), ModifyType::Modified);
 

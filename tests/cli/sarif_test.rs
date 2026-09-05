@@ -246,7 +246,7 @@ fn single_algorithm_sarif_shape_and_rule_index() {
 
 /// §7.2.2
 #[test]
-fn multi_algorithm_sarif_is_sorted_and_unlabeled_for_cpg() {
+fn multi_algorithm_sarif_is_sorted_and_grades_cpg_evidence() {
     let (_tmp, repo, diff) = fixture_echo();
     let (_bytes, doc) = run_sarif(&repo, &diff, "echo,absence");
 
@@ -266,8 +266,8 @@ fn multi_algorithm_sarif_is_sorted_and_unlabeled_for_cpg() {
         1,
         "echo must flag the unguarded caller: {results:#?}"
     );
-    assert_eq!(echo[0]["properties"]["confidence"], "unlabeled");
-    assert_eq!(echo[0]["properties"]["tier"], "candidate");
+    assert_eq!(echo[0]["properties"]["confidence"], "exact");
+    assert_eq!(echo[0]["properties"]["tier"], "asserted");
     assert_eq!(echo[0]["properties"]["algorithm"], "echo");
     assert_eq!(
         echo[0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"],
@@ -349,6 +349,7 @@ fn skipped_unsupported_file_becomes_a_notification() {
 /// cases are unit tests inside `src/output/sarif.rs`, and the tables they use
 /// are unit-tested in `src/output/sarif_rules.rs`.)
 mod document {
+    use prism::finding_confidence::EvidencePath;
     use prism::output::{to_sarif, SarifInputs};
     use prism::slice::SliceFinding;
     use serde_json::Value;
@@ -374,7 +375,8 @@ mod document {
     /// an embedder must: `new` + setters, never a struct literal. Everything
     /// these cases do not set keeps the builder's empty default.
     fn doc(findings: &[SliceFinding]) -> Value {
-        to_sarif(&SarifInputs::new(findings))
+        let evidence = vec![Some(EvidencePath::default()); findings.len()];
+        to_sarif(&SarifInputs::new(findings).evidence(&evidence))
     }
 
     /// The builder's setters are what the CLI's two SARIF arms use to pass the
@@ -392,8 +394,10 @@ mod document {
         let build = ["build warning".to_string()];
 
         let findings = [finding("a.py", "warning", Some("c"))];
+        let evidence = [Some(EvidencePath::default())];
         let doc = to_sarif(
             &SarifInputs::new(&findings)
+                .evidence(&evidence)
                 .parse_warnings(&parse)
                 .load_warnings(&load)
                 .build_warnings(&build)
@@ -419,7 +423,7 @@ mod document {
 
         // The sources map reached `fingerprint` via `line_text_of`: the same
         // finding fingerprints differently once its line text is known.
-        let without_sources = to_sarif(&SarifInputs::new(&findings));
+        let without_sources = to_sarif(&SarifInputs::new(&findings).evidence(&evidence));
         let fingerprint = |d: &Value| {
             d["runs"][0]["results"][0]["partialFingerprints"]["prism/finding/v1"].clone()
         };
@@ -428,6 +432,18 @@ mod document {
             notification_texts(&without_sources).is_empty(),
             "a default-built SarifInputs notifies nothing"
         );
+    }
+
+    #[test]
+    fn missing_evidence_warns_and_is_never_empty_exact() {
+        let findings = [finding("a.py", "warning", Some("c"))];
+        let doc = to_sarif(&SarifInputs::new(&findings));
+        let result = &doc["runs"][0]["results"][0];
+        assert_eq!(result["properties"]["confidence"], "unlabeled");
+        assert_eq!(result["properties"]["tier"], "candidate");
+        assert!(notification_texts(&doc)
+            .iter()
+            .any(|warning| warning.contains("evidence alignment mismatch")));
     }
 
     fn notification_texts(doc: &Value) -> Vec<String> {

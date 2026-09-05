@@ -1,6 +1,7 @@
 //! Control-flow-graph query methods on `CodePropertyGraph` (Phase 6).
 
 use crate::data_flow::VarLocation;
+use crate::finding_confidence::EvidencePath;
 
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
@@ -198,8 +199,18 @@ impl CodePropertyGraph {
         &self,
         taint_sources: &[(String, usize)],
     ) -> Vec<crate::data_flow::FlowPath> {
+        self.taint_forward_cfg_labeled(taint_sources).0
+    }
+
+    pub(crate) fn taint_forward_cfg_labeled(
+        &self,
+        taint_sources: &[(String, usize)],
+    ) -> (
+        Vec<crate::data_flow::FlowPath>,
+        BTreeMap<(VarLocation, VarLocation), EvidencePath>,
+    ) {
         if !self.has_cfg_edges() {
-            return self.taint_forward(taint_sources);
+            return self.taint_forward_labeled(taint_sources);
         }
 
         // Build per-source CFG reachability sets
@@ -213,6 +224,7 @@ impl CodePropertyGraph {
         }
 
         let mut paths = Vec::new();
+        let mut evidence = BTreeMap::new();
 
         for (file, line) in taint_sources {
             let source_nodes = self.nodes_at(file, *line);
@@ -229,7 +241,8 @@ impl CodePropertyGraph {
                     Some(loc) => loc,
                     None => continue,
                 };
-                let reachable = self.dfg_forward_reachable(&src_loc);
+                let (reachable, _, evidence_by_node) =
+                    self.dfg_forward_reachable_with_evidence(&src_loc);
 
                 // Filter: keep only DFG-reachable targets that are also CFG-reachable.
                 // Interprocedural targets (different file or function) bypass the CFG
@@ -258,6 +271,13 @@ impl CodePropertyGraph {
                     .collect();
 
                 if !filtered.is_empty() {
+                    for target in &filtered {
+                        let path = self
+                            .var_node_for_location(target)
+                            .and_then(|node| evidence_by_node.get(&node).cloned())
+                            .unwrap_or_else(|| EvidencePath::unlabeled_for("taint"));
+                        evidence.insert((src_loc.clone(), target.clone()), path);
+                    }
                     let path = crate::data_flow::FlowPath {
                         edges: filtered
                             .iter()
@@ -273,7 +293,7 @@ impl CodePropertyGraph {
             }
         }
 
-        paths
+        (paths, evidence)
     }
 
     /// CFG-constrained chop: find statements on data flow paths between source
