@@ -69,6 +69,13 @@ Three candidate directions once the queue's top items are drained (or interleave
   repo-map/call-stats orientation, stdout by default, explicit create-new-only file
   output. Java native resolution versus LSP delegation remains an owner decision after
   a future J1/J2 evidence bootstrap. Do not collapse steps 2–4 into the old combined design.
+- **Authorized correctness continuation (2026-09-04):** the completed merges do
+  not close receiver authority. Current-main REDs demonstrate enclosing constructor
+  and type-name shadows, conditional initialization, and loop-carried writes that
+  incorrectly mint Exact edges. The two bounded owner-visibility and temporal-proof
+  repair slices are implemented locally: default 3,713/0/1, MCP 3,903/0/1, matrix
+  104/104; quick has zero oracle/SUT errors but remains invalid for corpus pin drift. See
+  `docs/superpowers/handoffs/2026-09-04-python-js-receiver-authority-repair-handoff.md`.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:

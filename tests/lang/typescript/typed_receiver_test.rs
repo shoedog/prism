@@ -8,6 +8,74 @@ fn graph(src: &str) -> CallGraph {
     graph_files(&[("svc.ts", src)])
 }
 
+#[test]
+fn receiver_type_namespace_regression_matrix() {
+    let mut failures = Vec::new();
+    for (label, body) in [
+        ("generic", "function run<Foo>(x: Foo) { x.m(); }"),
+        (
+            "outer generic",
+            "function outer<Foo>() { function run(x: Foo) { x.m(); } }",
+        ),
+        (
+            "local interface",
+            "function outer() { interface Foo { m(): void } function run(x: Foo) { x.m(); } }",
+        ),
+        (
+            "local alias",
+            "function outer() { type Foo = Other; function run(x: Foo) { x.m(); } }",
+        ),
+        (
+            "local class",
+            "function outer() { class Foo {} function run(x: Foo) { x.m(); } }",
+        ),
+        (
+            "class expression self",
+            "const Holder = class Foo { run(x: Foo) { x.m(); } };",
+        ),
+    ] {
+        for language in [Language::TypeScript, Language::Tsx] {
+            let src = format!("class Foo {{ m() {{}} }}\nclass Other {{ m() {{}} }}\n{body}");
+            let files = BTreeMap::from([(
+                "svc.ts".to_string(),
+                ParsedFile::parse("svc.ts", &src, language).unwrap(),
+            )]);
+            let cg = CallGraph::build(&files);
+            let call = site(&cg, "run", "m");
+            let resolved = cg.resolve_call_site(&call);
+            if call.receiver_type.is_some()
+                || resolved
+                    .iter()
+                    .any(|r| r.confidence == ResolutionConfidence::Exact)
+            {
+                failures.push(format!(
+                    "{language:?} {label}: type={:?}, edges={resolved:?}",
+                    call.receiver_type
+                ));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn receiver_type_namespace_preserves_visible_module_type() {
+    for body in [
+        "function run(x: Foo) { x.m(); }",
+        "function run(x: Foo) { const Foo = Other; x.m(); }",
+        "function outer() { { type Foo = Other; } function run(x: Foo) { x.m(); } }",
+        "function unrelated<Foo>() {}\nfunction run(x: Foo) { x.m(); }",
+        "function outer() { function unused() { interface Foo {} } function run(x: Foo) { x.m(); } }",
+    ] {
+        let cg = graph(&format!("class Foo {{ m() {{}} }}\nclass Other {{ m() {{}} }}\n{body}"));
+        let call = site(&cg, "run", "m");
+        let edges = cg.resolve_call_site(&call);
+        assert_eq!(edges.len(), 1, "{body}: {edges:?}");
+        assert_eq!(edges[0].kind, ResolutionKind::TypedParam, "{body}");
+        assert_eq!(edges[0].confidence, ResolutionConfidence::Exact);
+    }
+}
+
 fn graph_files(srcs: &[(&str, &str)]) -> CallGraph {
     let files: BTreeMap<_, _> = srcs
         .iter()
