@@ -166,7 +166,9 @@ use std::path::{Path, PathBuf};
 ///   suppress shadowed imported-module Exact edges.
 /// - v59: JS/TS typed-parameter and direct-new receiver metadata changes
 ///   recovered receiver resolution and serialized CPG topology.
-const CACHE_VERSION: u32 = 59;
+/// - v60: Python/JS receiver owner visibility, initialization, and mutation
+///   proof remove unsupported recovered metadata and Exact edges.
+const CACHE_VERSION: u32 = 60;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -695,9 +697,112 @@ mod tests {
     }
 
     #[test]
-    fn cache_versions_are_pinned_for_js_ts_lexical_receiver_binding() {
-        assert_eq!(super::CACHE_VERSION, 59);
+    fn cache_versions_are_pinned_for_receiver_authority() {
+        assert_eq!(super::CACHE_VERSION, 60);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
+    }
+
+    #[test]
+    fn receiver_authority_cache_subset_and_incremental_parity() {
+        use crate::ast::ParsedFile;
+        use crate::call_graph::CallGraph;
+        use crate::cpg::CodePropertyGraph;
+        use crate::languages::Language;
+        use crate::resolution::ResolutionConfidence;
+
+        for (language, path, class, visible, shadowed) in [
+            (
+                Language::Python,
+                "svc.py",
+                "class Foo:\n    def m(self): pass\n",
+                "def outer():\n    def run():\n        x = Foo()\n        x.m()\n",
+                "def outer(Foo):\n    def run():\n        x = Foo()\n        x.m()\n",
+            ),
+            (
+                Language::JavaScript,
+                "svc.js",
+                "class Foo { m() {} }\n",
+                "function outer() { function run() { const x = new Foo(); x.m(); } }",
+                "function outer(Foo) { function run() { const x = new Foo(); x.m(); } }",
+            ),
+            (
+                Language::TypeScript,
+                "svc.ts",
+                "class Foo { m() {} }\n",
+                "function run(x: Foo) { x.m(); }",
+                "function run<Foo>(x: Foo) { x.m(); }",
+            ),
+            (
+                Language::Tsx,
+                "svc.tsx",
+                "class Foo { m() {} }\n",
+                "function run(x: Foo) { x.m(); }",
+                "function run<Foo>(x: Foo) { x.m(); }",
+            ),
+        ] {
+            let files = |body: &str| {
+                BTreeMap::from([(
+                    path.to_string(),
+                    ParsedFile::parse(path, &format!("{class}{body}"), language).unwrap(),
+                )])
+            };
+            let check = |cg: &CallGraph, expected: bool| {
+                let call = cg
+                    .calls
+                    .iter()
+                    .filter(|(id, _)| id.name == "run")
+                    .flat_map(|(_, calls)| calls)
+                    .find(|s| s.callee_name == "m")
+                    .unwrap();
+                assert_eq!(
+                    call.receiver_type.is_some(),
+                    expected,
+                    "{language:?}: {call:?}"
+                );
+                assert!(call.receiver_materialized);
+                assert_eq!(
+                    cg.resolve_call_site(call)
+                        .iter()
+                        .any(|r| r.confidence == ResolutionConfidence::Exact),
+                    expected,
+                    "{language:?}"
+                );
+            };
+            let only = BTreeSet::from([path.to_string()]);
+            for (before, after, expected) in [(visible, shadowed, false), (shadowed, visible, true)]
+            {
+                let before_files = files(before);
+                let after_files = files(after);
+                let sources = BTreeMap::from([(path.to_string(), format!("{class}{after}"))]);
+                let hashes = compute_file_hashes(&sources);
+                let fresh = CodePropertyGraph::build(&after_files);
+                check(&fresh.call_graph, expected);
+                check(
+                    &CallGraph::build_direct_subset(&after_files, &only),
+                    expected,
+                );
+                let cached = CodePropertyGraph::build(&before_files);
+                let incremental = CodePropertyGraph::build_incremental(
+                    cached.call_graph,
+                    cached.dfg,
+                    &only,
+                    &after_files,
+                    None,
+                );
+                check(&incremental.call_graph, expected);
+                let dir = tempfile::tempdir().unwrap();
+                save_cache(&fresh, &hashes, false, dir.path()).unwrap();
+                let CacheResult::Hit(loaded) = load_cache(&hashes, false, dir.path()) else {
+                    panic!("expected cache hit")
+                };
+                check(&loaded.call_graph, expected);
+                force_cache_version(dir.path(), 59);
+                assert!(matches!(
+                    load_cache(&hashes, false, dir.path()),
+                    CacheResult::Miss
+                ));
+            }
+        }
     }
 
     #[test]

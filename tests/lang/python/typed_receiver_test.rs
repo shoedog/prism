@@ -17,6 +17,71 @@ fn graph(srcs: &[(&str, &str)]) -> CallGraph {
     CallGraph::build(&files)
 }
 
+#[test]
+fn receiver_authority_regression_matrix() {
+    let mut failures = Vec::new();
+    for (label, body) in [
+        (
+            "outer parameter",
+            "def outer(Foo):\n    def run():\n        x = Foo()\n        x.m()\n",
+        ),
+        (
+            "local constructor shadow",
+            "def run(Foo):\n    x = Foo()\n    x.m()\n",
+        ),
+        (
+            "conditional assignment",
+            "def run(flag):\n    if flag:\n        x = Foo()\n    x.m()\n",
+        ),
+        (
+            "imported closure shadow",
+            "def outer(Imported):\n    def run():\n        x = Imported()\n        x.m()\n",
+        ),
+        ("loop carried write", "def run(items):\n    x = Foo()\n    for item in items:\n        x.m()\n        x = item\n"),
+        ("typed loop carried write", "def run(items, x: Foo):\n    for item in items:\n        x.m()\n        x = item\n"),
+    ] {
+        let src = format!("from models import Foo as Imported\nclass Foo:\n    def m(self): pass\nclass Other:\n    def m(self): pass\n{body}");
+        let cg = graph(&[
+            ("svc.py", &src),
+            ("models.py", "class Foo:\n    def m(self): pass\n"),
+        ]);
+        let call = site(&cg, "run", "m");
+        let resolved = cg.resolve_call_site(&call);
+        if call.receiver_type.is_some()
+            || resolved
+                .iter()
+                .any(|r| r.confidence == ResolutionConfidence::Exact)
+        {
+            failures.push(format!(
+                "{label}: type={:?}, edges={resolved:?}",
+                call.receiver_type
+            ));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn receiver_authority_preserves_reaching_origins() {
+    for body in [
+        "def run():\n    x = Foo()\n    x.m()\n",
+        "def outer():\n    def run():\n        x = Foo()\n        x.m()\n",
+        "def run(flag):\n    if flag:\n        x = Foo()\n        x.m()\n",
+        "def run(items):\n    for item in items:\n        x = Foo()\n        x.m()\n",
+        "def run(items):\n    for item in items:\n        x = Foo()\n        x.m()\n        x = item\n",
+        "def run(items):\n    x = Foo()\n    for item in items:\n        x.m()\n",
+        "def run(Foo, x: Foo):\n    x.m()\n",
+        "def run():\n    class Other:\n        Foo = 0\n    x = Foo()\n    x.m()\n",
+    ] {
+        let src = format!("class Foo:\n    def m(self): pass\n{body}");
+        let cg = graph(&[("svc.py", &src)]);
+        let call = site(&cg, "run", "m");
+        let edges = cg.resolve_call_site(&call);
+        assert_eq!(edges.len(), 1, "{body}: {edges:?}");
+        assert_eq!(edges[0].confidence, ResolutionConfidence::Exact, "{body}");
+    }
+}
+
 fn site(cg: &CallGraph, caller: &str, callee: &str) -> CallSite {
     cg.calls
         .iter()

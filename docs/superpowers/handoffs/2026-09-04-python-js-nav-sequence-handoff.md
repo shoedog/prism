@@ -1,5 +1,13 @@
 # Handoff — Python/JS receiver and navigation product sequence; successor queue
 
+**Successor override (2026-09-04):** the owner has now authorized further Python/JS
+architecture, planning, specification, and implementation. An exact-main audit
+reproduced false Exact receiver edges from enclosing owner/type shadows,
+conditional initialization, and loop-carried writes. The historical merges below
+remain valid custody facts; the queue-ending instruction is superseded by
+[`receiver-authority repair`](2026-09-04-python-js-receiver-authority-repair-handoff.md).
+Item 2 ownership and Java/write-tool decisions are outside this continuation.
+
 **Written:** 2026-09-04T18:23:01-0600 · **By:** Codex `/root` · **Provider:** codex
 **Workspace:** `/Users/wesleyjinks/code/slicing` · `main` at measurement, handoff branch afterward · **Measured state:** `[MEASURED]` HEAD `fd4ddf05fa0f7677708d086b7de5ec1d327c2482` + this handoff commit · Tree DIRTY only for preserved untracked `.superpowers/` and `eval/snapshots/prism-fb81481dafa7.json` before this document · Probe `git status --short --branch`, `git rev-parse HEAD`, and `git worktree list --porcelain` · Output inline in this handoff
 **Predecessor:** Codex `/root` receiver/navigation continuation plus the named per-slice handoffs below; Phase 0 came from the separate controller named in its handoff

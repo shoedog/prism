@@ -69,7 +69,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // edges (paired with CPG v58).
 // v28: JS/TS typed-parameter and direct-new receiver recovery adds bounded
 // same-file Exact call edges (paired with CPG v59).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 28;
+// v29: receiver authority repair removes unsupported Exact edges (CPG v60).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 29;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -612,8 +613,35 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_version_is_pinned_for_js_ts_receiver_recovery() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 28);
+    fn sidecar_version_is_pinned_for_receiver_authority() {
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 29);
+    }
+
+    #[test]
+    fn receiver_authority_sidecar_round_trip() {
+        use crate::ast::ParsedFile;
+        use crate::cpg::CpgContext;
+        use crate::languages::Language;
+        for (language, file, src) in [
+            (Language::Python, "svc.py", "class Foo:\n    def m(self): pass\ndef visible():\n    x = Foo()\n    x.m()\ndef outer(Foo):\n    def shadow():\n        x = Foo()\n        x.m()\n"),
+            (Language::JavaScript, "svc.js", "class Foo { m() {} }\nfunction visible() { const x = new Foo(); x.m(); }\nfunction outer(Foo) { function shadow() { const x = new Foo(); x.m(); } }"),
+            (Language::TypeScript, "svc.ts", "class Foo { m() {} }\nfunction visible(x: Foo) { x.m(); }\nfunction shadow<Foo>(x: Foo) { x.m(); }"),
+            (Language::Tsx, "svc.tsx", "class Foo { m() {} }\nfunction visible(x: Foo) { x.m(); }\nfunction shadow<Foo>(x: Foo) { x.m(); }"),
+        ] {
+            let files = BTreeMap::from([(file.to_string(), ParsedFile::parse(file, src, language).unwrap())]);
+            let nav = crate::navigation::NavigationIndex::from_ctx(CpgContext::build(&files, None));
+            let index = nav.build_resolved_call_edges();
+            let dir = tempfile::tempdir().unwrap();
+            let fingerprint = fixture_fingerprint();
+            save(dir.path(), &fingerprint, &index).unwrap();
+            let loaded = load(dir.path(), &fingerprint).unwrap().unwrap();
+            for index in [&index, &loaded] {
+                let exact: Vec<_> = index.incoming_by_target.iter().filter(|(target, _)| target.name == "m")
+                    .flat_map(|(_, edges)| edges).filter(|edge| edge.confidence == ResolutionConfidence::Exact).collect();
+                assert_eq!(exact.len(), 1, "{language:?}");
+                assert_eq!(exact[0].caller.name, "visible", "{language:?}");
+            }
+        }
     }
 
     #[test]

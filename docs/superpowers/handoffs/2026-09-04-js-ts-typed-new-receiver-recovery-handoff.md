@@ -1,5 +1,10 @@
 # Handoff — JS/TS typed-parameter and new-constructor receiver recovery
 
+**Successor correction:** exact-main regression tests refuted constructor owner
+visibility, type-name shadowing, and execution-order assumptions in the merged
+implementation. See the [`authority-repair handoff`](2026-09-04-python-js-receiver-authority-repair-handoff.md).
+The merge and earlier verification below remain historical facts.
+
 **Refreshed:** 2026-09-04 · **By:** Codex `/root` · **Provider:** codex
 **Workspace:** `/private/tmp/slicing-js-ts-typed-new-receiver-recovery` · `js-ts-typed-new-receiver-recovery-owner`
 **Exact base:** PR #231 merge `6771d530c02ab7719547d580b428188db6401b2f`

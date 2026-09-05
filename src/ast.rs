@@ -959,6 +959,45 @@ impl ParsedFile {
             &mut go_lexical_rebinding,
             recover_var,
         );
+        if self.language == Language::Python && found.is_some() && bindings == 1 {
+            let mut ancestor =
+                func_node.descendant_for_byte_range(call_start_byte, call_start_byte);
+            while let Some(scope) = ancestor {
+                if scope.id() == func_node.id() {
+                    break;
+                }
+                if matches!(scope.kind(), "for_statement" | "while_statement") {
+                    let mut prefix_bindings = 0;
+                    self.walk_receiver_bindings(
+                        scope,
+                        true,
+                        receiver,
+                        call_line,
+                        call_start_byte,
+                        false,
+                        false,
+                        &mut None,
+                        &mut None,
+                        &mut prefix_bindings,
+                        &mut false,
+                        recover_var,
+                    );
+                    // With one proven binding overall, a binding in this loop's
+                    // prefix is the origin and resets it before each call. An
+                    // origin outside the loop must also survive its back edge.
+                    if prefix_bindings == 0
+                        && self
+                            .function_local_value_bindings(&scope)
+                            .is_none_or(|names| names.contains(receiver))
+                    {
+                        found = None;
+                        bindings += 1;
+                        break;
+                    }
+                }
+                ancestor = scope.parent();
+            }
+        }
         if bindings > 1 {
             return (
                 None,
@@ -2787,7 +2826,118 @@ impl ParsedFile {
             return None;
         }
         let text = self.node_text(&ty);
-        is_plain_ident(text).then(|| text.to_string())
+        (is_plain_ident(text) && !self.js_ts_type_name_shadowed(self.tree.root_node(), &ty, text))
+            .then(|| text.to_string())
+    }
+
+    /// Value-binding absence does not prove a TypeScript type name. Only the
+    /// module class is supported; nearer type declarations and generics fence it.
+    fn js_ts_type_name_shadowed(&self, node: Node<'_>, at: &Node<'_>, name: &str) -> bool {
+        if node.kind() == "class"
+            && node
+                .child_by_field_name("name")
+                .is_some_and(|n| self.node_text(&n) == name)
+            && node.start_byte() <= at.start_byte()
+            && at.end_byte() <= node.end_byte()
+        {
+            return true;
+        }
+        if matches!(node.kind(), "type_parameter")
+            && node
+                .child_by_field_name("name")
+                .is_some_and(|n| self.node_text(&n) == name)
+            && node.parent().and_then(|n| n.parent()).is_some_and(|scope| {
+                scope.start_byte() <= at.start_byte() && at.end_byte() <= scope.end_byte()
+            })
+        {
+            return true;
+        }
+        if matches!(
+            node.kind(),
+            "class_declaration"
+                | "abstract_class_declaration"
+                | "interface_declaration"
+                | "type_alias_declaration"
+                | "enum_declaration"
+                | "internal_module"
+                | "module"
+                | "import_alias"
+        ) && node
+            .child_by_field_name("name")
+            .is_some_and(|n| self.node_text(&n) == name)
+        {
+            if let Some(scope) =
+                self.js_ts_nearest_lexical_scope_id(&node, self.tree.root_node().id())
+            {
+                // Module declarations are checked by clean_class_spans at
+                // resolution; retain their existing unsupported-type metadata.
+                if scope != self.tree.root_node().id()
+                    && self.js_ts_scope_distance(at, scope).is_some()
+                {
+                    return true;
+                }
+            }
+        }
+        let mut cursor = node.walk();
+        let found = node
+            .named_children(&mut cursor)
+            .any(|child| self.js_ts_type_name_shadowed(child, at, name));
+        found
+    }
+
+    /// A declaration must finish in a statement list that reaches the call.
+    /// Crossing a conditional, loop, exception handler, or callable is not proof
+    /// of execution. Ordinary nested blocks are transparent.
+    fn receiver_declaration_reaches_call(&self, declaration: Node<'_>, call_byte: usize) -> bool {
+        if declaration.end_byte() > call_byte {
+            return false;
+        }
+        let mut current = declaration.parent();
+        while let Some(node) = current {
+            let statement_list = matches!(
+                node.kind(),
+                "block" | "statement_block" | "module" | "program"
+            );
+            if node.start_byte() <= call_byte && call_byte < node.end_byte() {
+                return statement_list;
+            }
+            if !statement_list
+                && !matches!(
+                    node.kind(),
+                    "expression_statement" | "lexical_declaration" | "variable_declaration"
+                )
+            {
+                return false;
+            }
+            current = node.parent();
+        }
+        false
+    }
+
+    /// Python constructor/local-annotation lookup uses enclosing function scopes.
+    /// A signature annotation is evaluated outside its own function body.
+    pub(crate) fn python_receiver_owner_shadowed(
+        &self,
+        function: Node<'_>,
+        name: &str,
+        include_current: bool,
+    ) -> bool {
+        let mut current = if include_current {
+            Some(function)
+        } else {
+            function.parent()
+        };
+        while let Some(node) = current {
+            if matches!(node.kind(), "function_definition" | "lambda")
+                && self
+                    .function_local_value_bindings(&node)
+                    .is_none_or(|names| names.contains(name))
+            {
+                return true;
+            }
+            current = node.parent();
+        }
+        false
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -2910,7 +3060,7 @@ impl ParsedFile {
                         });
                         let evidence = if allow_constructor
                             && simple_name
-                            && node.start_byte() < receiver.start_byte()
+                            && self.receiver_declaration_reaches_call(node, receiver.start_byte())
                         {
                             node.child_by_field_name("value")
                                 .and_then(|value| {
@@ -3034,11 +3184,23 @@ impl ParsedFile {
         if !is_plain_ident(text) {
             return None;
         }
-        if self
-            .js_ts_scope_receiver_binding_evidence(function_scope, &constructor, text, false, true)
-            .is_some()
-        {
-            return None;
+        let mut scope = Some(function_scope);
+        while let Some(node) = scope {
+            if node.kind() == "class"
+                && node
+                    .child_by_field_name("name")
+                    .is_some_and(|name| self.node_text(&name) == text)
+            {
+                return None;
+            }
+            if is_js_ts_function_like(node.kind())
+                && self
+                    .js_ts_scope_receiver_binding_evidence(node, &constructor, text, false, true)
+                    .is_some()
+            {
+                return None;
+            }
+            scope = node.parent();
         }
         matches!(
             self.js_ts_scope_receiver_binding_evidence(
@@ -3061,13 +3223,37 @@ impl ParsedFile {
         receiver_name: &str,
         after_byte: usize,
     ) -> bool {
-        let before_byte = receiver.start_byte();
+        let mut before_byte = receiver.start_byte();
+        let mut ancestor = receiver.parent();
+        while let Some(scope) = ancestor {
+            if is_js_ts_function_like(scope.kind()) {
+                break;
+            }
+            if matches!(
+                scope.kind(),
+                "for_statement"
+                    | "for_in_statement"
+                    | "for_of_statement"
+                    | "for_await_statement"
+                    | "while_statement"
+                    | "do_statement"
+            ) && after_byte <= scope.start_byte()
+            {
+                before_byte = before_byte.max(scope.end_byte());
+            }
+            ancestor = scope.parent();
+        }
         if node.start_byte() >= before_byte || node.end_byte() <= after_byte {
             return false;
         }
         if matches!(
             node.kind(),
-            "assignment_expression" | "augmented_assignment_expression" | "update_expression"
+            "assignment_expression"
+                | "augmented_assignment_expression"
+                | "update_expression"
+                | "for_in_statement"
+                | "for_of_statement"
+                | "for_await_statement"
         ) {
             let target = node
                 .child_by_field_name("left")
@@ -8065,7 +8251,9 @@ impl ParsedFile {
                 if let Some(left) = left {
                     if self.simple_binding_text(&left).as_deref() == Some(receiver) {
                         *bindings += 1;
-                        if let Some(ty) = node.child_by_field_name("type") {
+                        if !self.receiver_declaration_reaches_call(node, call_start_byte) {
+                            *found = None;
+                        } else if let Some(ty) = node.child_by_field_name("type") {
                             *found = Some((
                                 self.node_text(&ty).to_string(),
                                 ReceiverRecovery::ConstructorLocal,

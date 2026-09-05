@@ -896,16 +896,12 @@ fn classify_simple_ident_mode(
         let imported_type_proven = ctx
             .proven_imported_receiver_types
             .is_some_and(|types| types.contains(&static_type));
-        let function_locals = ctx.parsed.function_local_value_bindings(&ctx.fn_node);
-        let imported_owner_unshadowed = if qualified_parts.is_some() {
-            function_locals.is_some_and(|bindings| !bindings.contains(imported_local))
-        } else {
-            how != ReceiverRecovery::ConstructorLocal
-                || function_locals.is_some_and(|bindings| !bindings.contains(&static_type))
-        };
-        if has_wildcard
-            || (needs_import_proof && (!imported_type_proven || !imported_owner_unshadowed))
-        {
+        let owner_shadowed = ctx.parsed.python_receiver_owner_shadowed(
+            ctx.fn_node,
+            imported_local,
+            how == ReceiverRecovery::ConstructorLocal || qualified_parts.is_some(),
+        );
+        if has_wildcard || owner_shadowed || (needs_import_proof && !imported_type_proven) {
             return ReceiverClassification::materialized_only();
         }
     }

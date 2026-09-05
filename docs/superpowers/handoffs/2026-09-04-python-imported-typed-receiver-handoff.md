@@ -1,5 +1,11 @@
 # Handoff — Python imported typed-receiver ownership
 
+**Successor correction:** the current-main audit reproduced imported-constructor
+closure shadows and shared Python execution-order defects. See the
+[`authority-repair handoff`](2026-09-04-python-js-receiver-authority-repair-handoff.md)
+for the current implementation and verification state; this document preserves
+the earlier slice's historical evidence.
+
 **Refreshed:** 2026-09-04 · **By:** Codex `/root` · **Provider:** codex  
 **Workspace:** `/private/tmp/slicing-py-imported-receiver` · `py-imported-receiver-owner`  
 **Exact base:** `c220525c6746d635d99a7a084791cfad4f0276d9`  

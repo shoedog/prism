@@ -8,6 +8,52 @@ fn graph(src: &str) -> CallGraph {
     graph_files(&[("svc.js", src)])
 }
 
+#[test]
+fn receiver_authority_regression_matrix() {
+    let mut failures = Vec::new();
+    for (label, body) in [
+        ("outer parameter", "function outer(Foo) { function run() { const x = new Foo(); x.m(); } }"),
+        ("outer block", "function outer() { const Foo = Other; function run() { const x = new Foo(); x.m(); } }"),
+        ("class expression self", "const Holder = class Foo { run() { const x = new Foo(); x.m(); } };"),
+        ("conditional var", "function run(flag) { if (flag) { var x = new Foo(); } x.m(); }"),
+        ("iteration assignment", "function run(items) { let x = new Foo(); for (x of items) { x.m(); } }"),
+        ("loop carried write", "function run(items) { let x = new Foo(); for (const item of items) { x.m(); x = item; } }"),
+    ] {
+        let cg = graph(&format!("class Foo {{ m() {{}} }}\nclass Other {{ m() {{}} }}\n{body}"));
+        let call = site(&cg, "run", "m");
+        let resolved = cg.resolve_call_site(&call);
+        if call.receiver_type.is_some() || resolved.iter().any(|r| r.confidence == ResolutionConfidence::Exact) {
+            failures.push(format!("{label}: type={:?}, edges={resolved:?}", call.receiver_type));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn receiver_authority_preserves_reaching_origins() {
+    for body in [
+        "function run() { const x = new Foo(); x.m(); }",
+        "function outer() { function run() { const x = new Foo(); x.m(); } }",
+        "function outer() { { const Foo = Other; } function run() { const x = new Foo(); x.m(); } }",
+        "function run(flag) { if (flag) { const x = new Foo(); x.m(); } }",
+        "function run() { { var x = new Foo(); } x.m(); }",
+        "function run(items) { const x = new Foo(); for (const item of items) { x.m(); } }",
+        "function run(items) { for (const item of items) { let x = new Foo(); x.m(); x = item; } }",
+        "function run(items) { const x = new Foo(); for (let x of items) {} x.m(); }",
+    ] {
+        for (language, file) in [(Language::JavaScript, "svc.js"), (Language::TypeScript, "svc.ts"), (Language::Tsx, "svc.tsx")] {
+            let src = format!("class Foo {{ m() {{}} }}\nclass Other {{ m() {{}} }}\n{body}");
+            let files = BTreeMap::from([(file.to_string(), ParsedFile::parse(file, &src, language).unwrap())]);
+            let cg = CallGraph::build(&files);
+            let call = site(&cg, "run", "m");
+            let edges = cg.resolve_call_site(&call);
+            assert_eq!(edges.len(), 1, "{language:?} {body}: {edges:?}");
+            assert_eq!(edges[0].kind, ResolutionKind::ConstructorLocal, "{language:?} {body}");
+            assert_eq!(edges[0].confidence, ResolutionConfidence::Exact);
+        }
+    }
+}
+
 fn graph_files(srcs: &[(&str, &str)]) -> CallGraph {
     let files: BTreeMap<_, _> = srcs
         .iter()
