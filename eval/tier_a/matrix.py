@@ -513,10 +513,15 @@ def _run_dfg_case(case: Case, lang: str, sut) -> CaseResult:
             case.expect_dfg_edges, {}, None, None, probe="dfg",
         )
     if completed.returncode != 0:
-        detail = (completed.stdout or completed.stderr).strip()
-        got = f"DFG_ORACLE_UNAVAILABLE|exit={completed.returncode}|{detail}"
+        detail = "\n".join(
+            part.strip() for part in (completed.stdout, completed.stderr) if part.strip()
+        )
+        oracle_missing = "unrecognized subcommand 'dfg-stats'" in detail
+        kind = "DFG_ORACLE_UNAVAILABLE" if oracle_missing else "DFG_ORACLE_COMMAND_FAILED"
+        got = f"{kind}|exit={completed.returncode}|{detail}"
         return CaseResult(
-            case.capability, lang, "expected_gap", got,
+            case.capability, lang,
+            "expected_gap" if oracle_missing else _status_outcome(case.status, False), got,
             case.expect_dfg_edges, {}, None, None, probe="dfg",
         )
 
