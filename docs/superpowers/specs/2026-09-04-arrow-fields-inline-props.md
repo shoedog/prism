@@ -49,3 +49,18 @@ types, hook-return destructuring, this.field, arbitrary aliases or JS inference.
 Design/tests must be finalized against slice A before implementation. Verify full,
 subset, cached transitions and sidecar, then measure unchanged real LibraryMenu
 site114 and preserve the other ten previously recorded Library sites.
+
+B settlement: the existing TypedParam evidence and declaration-end span carry
+the result; no new serialized field or resolution rung. Match one plain pattern
+key to one required property_signature in an inline object_type, using the
+existing simple-type/shadow proof. Renaming is supported; unrelated optional
+type properties are allowed, but the selected receiver property must be required.
+All pattern members must be simple (no rest/default/nested/computed entries),
+with unique property/local names; type members must be ordinary uniquely named
+property signatures. Defaults on the parameter itself are excluded. Only the
+selected property's value type must be a simple class identifier.
+
+B RED on untouched slice-A production (d26ae0a): 2 pass/1 fail. Positive inline
+props carry no recovered type, while shape/shadow/write exclusions pass. Alternative
+missing arrow identity is ruled out by slice-A safe-arrow tests. Evidence:
+/private/tmp/prism-inline-props-BC2ce0/red.log. CPG/nav advance to66/35.

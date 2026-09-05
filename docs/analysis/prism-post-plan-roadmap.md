@@ -98,7 +98,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   support JS/TS/TSX value imports and erased TS type imports. Prior Python/JS samples
   remain byte-identical. Quick is baseline-invalid for SHA drift; pins unchanged.
   See `docs/eval/receiver-closure/2026-09-04-rust-default-readout.md`.
-- **Indirect local default-class identity — PR #244 mergeda70ea03, implementation `257fb7f`:**
+- **Indirect local default-class identity — PR #244 merged a70ea03, implementation `257fb7f`:**
   declaration identity with duplicate/import/write barriers, CPG64/nav33;
   3744/0/1 default, 3934/0/1 MCP, matrix104/104. Real Excalidraw sample: 2780
   records, 369 Exact unchanged; 11 unique Library receiver spans remain NameOnly
@@ -112,6 +112,12 @@ Three candidate directions once the queue's top items are drained (or interleave
   quick baseline-invalid SHA drift. Real2780 records/369 Exact unchanged. The
   separately approved inline-prop receiver proof follows on a stacked branch.
   See `docs/eval/receiver-closure/2026-09-04-arrow-members-readout.md`.
+- **Destructured inline-prop proof — implemented, publication pending:** separate
+  slice stacked on PR245, CPG66/nav35. Full default3815/0/1, MCP4005/0/1,
+  matrix104/104. Same Excalidraw2780 records: Exact369→372 at one unique source
+  span (LibraryMenu.tsx:114), verified in served callers and callees; other ten
+  tracked Library spans unchanged. Quick baseline-invalid SHA drift. No React.FC, hook-return or
+  this.field expansion. See `docs/eval/receiver-closure/2026-09-05-inline-props-readout.md`.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:

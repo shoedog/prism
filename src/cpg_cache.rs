@@ -176,7 +176,8 @@ use std::path::{Path, PathBuf};
 ///   authority change serialized config and resolved topology.
 /// - v64: proven indirect local default classes change receiver authority.
 /// - v65: arrow-field slot/static and explicit receiver-member write barriers.
-const CACHE_VERSION: u32 = 65;
+/// - v66: required destructured inline-prop receiver type evidence.
+const CACHE_VERSION: u32 = 66;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -706,7 +707,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_receiver_authority() {
-        assert_eq!(super::CACHE_VERSION, 65);
+        assert_eq!(super::CACHE_VERSION, 66);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -769,6 +770,8 @@ mod tests {
             resolution::ResolutionConfidence,
         };
         for (language, caller, owner, importer, good, bad, auxiliary) in [
+            (Language::TypeScript, "app.ts", "app.ts", "", "import type Client from './client'; function run({client}: {client: Client}) { client.m(); }", "import type Client from './client'; function run({client}: {client?: Client}) { client.m(); }", Some(("client.ts", "class Client { m = () => {}; } export default Client;"))),
+            (Language::Tsx, "app.tsx", "app.tsx", "", "import type Client from './client'; function run({client: x}: {client: Client}) { x.m(); }", "import type Client from './client'; function run({client: x}: {client: Client}) { delete x.m; x.m(); }", Some(("client.tsx", "class Client { m = () => {}; } export default Client;"))),
             (Language::JavaScript, "app.js", "client.js", "import Alias from './client'; function run() { const x = new Alias(); x.m(); }", "class Client { m = () => {}; } export default Client;", "class Client { static m = () => {}; } export default Client;", None),
             (Language::TypeScript, "app.ts", "client.ts", "import type Alias from './client'; function run(x: Alias) { x.m(); }", "class Client { m = () => {}; } export default Client;", "class Client { m = () => {}; change() { delete this.m; } } export default Client;", None),
             (Language::Tsx, "app.tsx", "client.tsx", "import Alias from './client'; function run(x: Alias) { x.m(); }", "class Client { m = () => {}; } export default Client;", "class Client { m = () => {}; m = other; } export default Client;", None),
@@ -815,7 +818,7 @@ mod tests {
                     if expected { assert_eq!(exact[0].target.file, target); }
                 }
                 assert_eq!(full.call_graph.calls, incremental.call_graph.calls, "{language:?}");
-                force_cache_version(dir.path(), 64);
+                force_cache_version(dir.path(), 65);
                 assert!(matches!(load_cache(&hashes, false, dir.path()), CacheResult::Miss));
             }
         }
@@ -880,6 +883,66 @@ mod tests {
                     assert_eq!(exact[0].target.file, owner);
                     assert_eq!(exact[0].target.start_line, line, "stale {before} owner");
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn inline_prop_cached_owner_replacement() {
+        use crate::{
+            ast::ParsedFile, cpg::CodePropertyGraph, languages::Language,
+            resolution::ResolutionConfidence,
+        };
+        for (lang, ext) in [(Language::TypeScript, "ts"), (Language::Tsx, "tsx")] {
+            let caller = format!("app.{ext}");
+            let owner = format!("client.{ext}");
+            let sources = |name: &str| {
+                BTreeMap::from([
+                (caller.clone(), format!("import type {{A, B}} from './client'; function run({{client}}: {{client: {name}}}) {{ client.m(); }}")),
+                (owner.clone(), "export class A {\n m = () => {};\n}\nexport class B {\n m = () => {};\n}".to_string()),
+            ])
+            };
+            let parse = |src: &BTreeMap<String, String>| {
+                src.iter()
+                    .map(|(p, s)| (p.clone(), ParsedFile::parse(p, s, lang).unwrap()))
+                    .collect()
+            };
+            for (before, after, line) in [("A", "B", 5), ("B", "A", 2)] {
+                let old_sources = sources(before);
+                let hashes = compute_file_hashes(&old_sources);
+                let old = CodePropertyGraph::build(&parse(&old_sources));
+                let dir = tempfile::tempdir().unwrap();
+                save_cache(&old, &hashes, false, dir.path()).unwrap();
+                let CacheResult::Hit(loaded) = load_cache(&hashes, false, dir.path()) else {
+                    panic!("cache miss");
+                };
+                let new_files = parse(&sources(after));
+                let full = CodePropertyGraph::build(&new_files);
+                let incremental = CodePropertyGraph::build_incremental(
+                    loaded.call_graph,
+                    loaded.dfg,
+                    &BTreeSet::from([caller.clone()]),
+                    &new_files,
+                    None,
+                );
+                for cg in [&full.call_graph, &incremental.call_graph] {
+                    let site = cg
+                        .calls
+                        .iter()
+                        .filter(|(id, _)| id.file == caller && id.name == "run")
+                        .flat_map(|(_, s)| s)
+                        .find(|s| s.callee_name == "m")
+                        .unwrap();
+                    let exact: Vec<_> = cg
+                        .resolve_call_site(site)
+                        .into_iter()
+                        .filter(|e| e.confidence == ResolutionConfidence::Exact)
+                        .collect();
+                    assert_eq!(exact.len(), 1, "{lang:?}: {exact:?}");
+                    assert_eq!(exact[0].target.file, owner);
+                    assert_eq!(exact[0].target.start_line, line, "stale {before} owner");
+                }
+                assert_eq!(full.call_graph.calls, incremental.call_graph.calls);
             }
         }
     }
