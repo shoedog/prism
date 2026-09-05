@@ -2918,6 +2918,20 @@ impl ParsedFile {
             return None;
         }
         let receiver = receiver_node?;
+        if receiver.kind() == "member_expression"
+            && receiver
+                .child_by_field_name("object")
+                .is_some_and(|n| n.kind() == "this")
+        {
+            return Some(self.js_ts_constructor_field_type(receiver).map_or(
+                JsTsReceiverBindingEvidence::Materialized,
+                |static_type| JsTsReceiverBindingEvidence::Recovered {
+                    static_type,
+                    recovery: crate::resolution::ReceiverRecovery::FieldTyped,
+                    declaration_end_byte: None,
+                },
+            ));
+        }
         if receiver.kind() != "identifier" {
             return None;
         }
@@ -2963,6 +2977,261 @@ impl ParsedFile {
                 self.js_ts_receiver_lexically_bound_at_call(func_node, Some(receiver))
                     .then_some(JsTsReceiverBindingEvidence::Materialized)
             })
+    }
+
+    /// Own constructor assignment establishes a bounded instance-field invariant.
+    /// Dynamic-this callables and field initializer evaluation are not instances.
+    fn js_ts_constructor_field_type(&self, receiver: Node<'_>) -> Option<String> {
+        let field = receiver.child_by_field_name("property")?;
+        if field.kind() != "property_identifier" {
+            return None;
+        }
+        let field = self.node_text(&field);
+        let mut current = receiver.parent();
+        let member = loop {
+            let node = current?;
+            if node.kind() == "method_definition" {
+                if node.parent()?.kind() != "class_body" {
+                    return None;
+                }
+                break node;
+            }
+            if node.kind() == "arrow_function" {
+                let parent = node.parent()?;
+                if matches!(
+                    parent.kind(),
+                    "field_definition" | "public_field_definition"
+                ) && parent.parent()?.kind() == "class_body"
+                    && parent.child_by_field_name("value") == Some(node)
+                {
+                    break parent;
+                }
+            } else if is_js_ts_function_like(node.kind()) || node.kind() == "class_body" {
+                return None;
+            }
+            current = node.parent();
+        };
+        if self.js_ts_method_is_static(&member) {
+            return None;
+        }
+        if let Some(params) = member.child_by_field_name("parameters") {
+            let mut cursor = params.walk();
+            if params.named_children(&mut cursor).any(|p| {
+                p.child_by_field_name("pattern")
+                    .or_else(|| p.child_by_field_name("name"))
+                    .is_some_and(|n| self.node_text(&n) == "this")
+            }) {
+                return None;
+            }
+        }
+        let body = member.parent()?;
+        let class = body.parent()?;
+        let mut cursor = class.walk();
+        if class.kind() != "class_declaration"
+            || body.has_error()
+            || class.children(&mut cursor).any(|n| n.kind() == "decorator")
+        {
+            return None;
+        }
+        let mut constructor = None;
+        let mut slots = 0;
+        let mut cursor = body.walk();
+        for slot in body.named_children(&mut cursor) {
+            if self.js_ts_method_is_static(&slot) {
+                continue;
+            }
+            let key = slot
+                .child_by_field_name("name")
+                .or_else(|| slot.child_by_field_name("property"));
+            if slot.kind() == "index_signature" {
+                return None;
+            }
+            let Some(key) = key else {
+                continue;
+            };
+            if key.kind() == "computed_property_name" {
+                return None;
+            }
+            if self.node_text(&key) == "constructor" {
+                if slot.kind() != "method_definition" || constructor.replace(slot).is_some() {
+                    return None;
+                }
+            }
+            if self.node_text(&key).trim_matches(['\'', '"']) == field {
+                slots += 1;
+                let mut cursor = slot.walk();
+                if slots > 1
+                    || key.kind() != "property_identifier"
+                    || !matches!(slot.kind(), "field_definition" | "public_field_definition")
+                    || slot.child_by_field_name("value").is_some()
+                    || slot.children(&mut cursor).any(|n| {
+                        n.kind() == "decorator"
+                            || n.kind() == "?"
+                            || matches!(
+                                self.node_text(&n),
+                                "private" | "protected" | "declare" | "abstract"
+                            )
+                    })
+                {
+                    return None;
+                }
+            }
+        }
+        // Without an own field, a base-class accessor can intercept assignment.
+        let mut cursor = class.walk();
+        if slots == 0
+            && class
+                .named_children(&mut cursor)
+                .any(|n| n.kind() == "class_heritage")
+        {
+            return None;
+        }
+        let constructor = constructor?;
+        let ctor_body = constructor.child_by_field_name("body")?;
+        fn returns(node: Node<'_>) -> bool {
+            if is_js_ts_function_like(node.kind()) {
+                return false;
+            }
+            if node.kind() == "return_statement" {
+                return true;
+            }
+            let mut cursor = node.walk();
+            let found = node.named_children(&mut cursor).any(returns);
+            found
+        }
+        if returns(ctor_body) {
+            return None;
+        }
+        let mut initialization = None;
+        let mut cursor = ctor_body.walk();
+        for statement in ctor_body.named_children(&mut cursor) {
+            if statement.kind() != "expression_statement" {
+                continue;
+            }
+            let Some(assignment) = statement
+                .named_child(0)
+                .filter(|n| n.kind() == "assignment_expression")
+            else {
+                continue;
+            };
+            let left = assignment.child_by_field_name("left")?;
+            if left.kind() == "member_expression"
+                && left
+                    .child_by_field_name("object")
+                    .is_some_and(|n| n.kind() == "this")
+                && left.child_by_field_name("property").is_some_and(|n| {
+                    n.kind() == "property_identifier" && self.node_text(&n) == field
+                })
+                && initialization.replace(assignment).is_some()
+            {
+                return None;
+            }
+        }
+        let initialization = initialization?;
+        if member == constructor && receiver.start_byte() < initialization.end_byte() {
+            return None;
+        }
+        if self.js_ts_constructor_field_written(body, field, initialization.id()) {
+            return None;
+        }
+        self.js_ts_direct_new_constructor(initialization.child_by_field_name("right")?, constructor)
+    }
+
+    /// Include nested member writes and destructuring without text-based object
+    /// comparison, so whitespace/parentheses cannot hide a field mutation.
+    fn js_ts_target_writes_this_field(&self, target: Node<'_>, field: &str) -> bool {
+        if self.js_ts_target_writes_member(target, "this", Some(field)) {
+            return true;
+        }
+        if matches!(target.kind(), "member_expression" | "subscript_expression") {
+            return target
+                .child_by_field_name("object")
+                .is_some_and(|n| self.js_ts_target_writes_this_field(n, field));
+        }
+        if matches!(
+            target.kind(),
+            "pair_pattern" | "assignment_pattern" | "object_assignment_pattern"
+        ) {
+            return target
+                .child_by_field_name(if target.kind() == "pair_pattern" {
+                    "value"
+                } else {
+                    "left"
+                })
+                .is_some_and(|n| self.js_ts_target_writes_this_field(n, field));
+        }
+        if matches!(
+            target.kind(),
+            "object_pattern" | "array_pattern" | "rest_pattern" | "parenthesized_expression"
+        ) {
+            let mut cursor = target.walk();
+            return target
+                .named_children(&mut cursor)
+                .any(|n| self.js_ts_target_writes_this_field(n, field));
+        }
+        false
+    }
+
+    fn js_ts_constructor_field_written(
+        &self,
+        node: Node<'_>,
+        field: &str,
+        initialization: usize,
+    ) -> bool {
+        if node.id() != initialization
+            && self
+                .js_ts_write_target(node)
+                .is_some_and(|n| self.js_ts_target_writes_this_field(n, field))
+        {
+            return true;
+        }
+        // Explicit reflective mutators are barriers; this is not alias analysis.
+        if node.kind() == "call_expression" {
+            if let Some(callee) = node
+                .child_by_field_name("function")
+                .filter(|n| matches!(n.kind(), "member_expression" | "subscript_expression"))
+            {
+                let object = callee
+                    .child_by_field_name("object")
+                    .map(|n| self.node_text(&n));
+                let method = callee
+                    .child_by_field_name("property")
+                    .or_else(|| callee.child_by_field_name("index"))
+                    .map(|n| self.node_text(&n).trim_matches(['\'', '"']));
+                if matches!(object, Some("Object" | "Reflect"))
+                    && matches!(
+                        method,
+                        Some(
+                            "assign"
+                                | "defineProperty"
+                                | "defineProperties"
+                                | "set"
+                                | "deleteProperty"
+                                | "setPrototypeOf"
+                        )
+                    )
+                    && node
+                        .child_by_field_name("arguments")
+                        .and_then(|n| n.named_child(0))
+                        .is_some_and(|mut n| {
+                            while n.kind() == "parenthesized_expression" {
+                                let Some(inner) = n.named_child(0) else {
+                                    return true;
+                                };
+                                n = inner;
+                            }
+                            n.kind() == "this" || self.js_ts_target_writes_this_field(n, field)
+                        })
+                {
+                    return true;
+                }
+            }
+        }
+        let mut cursor = node.walk();
+        let written = node
+            .named_children(&mut cursor)
+            .any(|n| self.js_ts_constructor_field_written(n, field, initialization));
+        written
     }
 
     fn js_ts_scope_receiver_binding_evidence(

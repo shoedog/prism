@@ -4,6 +4,7 @@ mod call_graph_test;
 #[allow(dead_code)]
 #[path = "../common/mod.rs"]
 mod common;
+mod constructor_field_receiver_test;
 mod core_test;
 mod coverage_test;
 mod cwe_phase1_suppression_test;

@@ -813,7 +813,15 @@ fn classify_simple_ident_mode(
     let is_kw = matches!(q, "self" | "this" | "cls");
     let is_recv = ctx.recv_var == Some(q);
     let is_import = ctx.file_imports.map(|m| m.contains_key(q)).unwrap_or(false);
-    if !(simple && !is_kw && !is_recv) {
+    let js_this_field = matches!(
+        ctx.parsed.language,
+        Language::JavaScript | Language::TypeScript | Language::Tsx
+    ) && ctx.receiver_expr.is_some_and(|n| {
+        n.kind() == "member_expression"
+            && n.child_by_field_name("object")
+                .is_some_and(|n| n.kind() == "this")
+    });
+    if !(simple && !is_kw && !is_recv) && !js_this_field {
         return ReceiverClassification::none();
     }
     if matches!(
