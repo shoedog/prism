@@ -159,8 +159,8 @@ use std::path::{Path, PathBuf};
 /// - v55: Go B1 Level-3 callback facts, exact synthetic targets, source-callee
 ///   identity, and derived CPG edges enter the serialized graph.
 /// - v56: `CpgEdge::DataFlow` carries `FlowConfidence` from the
-///   reaching-definitions pass, and `DataFlowGraph` gains the `labels` map.
-///   Label-only — the edge set is unchanged.
+///   reaching-definitions pass, and `DataFlowGraph` gains primary `labels` and
+///   per-file `rd_function_stats`. Label-only — the edge set is unchanged.
 const CACHE_VERSION: u32 = 56;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;

@@ -26,7 +26,6 @@ mod multiline_call_arg_tests;
 #[cfg(test)]
 mod parameter_slots_parity_tests;
 pub mod query;
-#[allow(dead_code)] // The reaching-definitions core is wired by item 2 Task 3.
 mod reaching;
 #[cfg(test)]
 mod tests;
@@ -45,6 +44,7 @@ pub use build::{CodePropertyGraph, ReturnFlowStats};
 pub use context::{CpgContext, CpgScope};
 pub use flow_confidence::{FlowConfidence, FlowDoubt};
 pub use reaching::RdFileStats;
+pub(crate) use reaching::{reaching_definitions, DefId, DefSite, RdOutcome};
 pub use trace::{
     BoundaryEdge, BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning,
     Relation, ReturnFlowMode, SameLineOrderView, Trace,

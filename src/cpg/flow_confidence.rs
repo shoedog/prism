@@ -138,6 +138,21 @@ mod tests {
         assert_eq!(hi.worst(lo), lo);
     }
 
+    #[test]
+    fn doubt_badness_order_is_pinned() {
+        let ordered = [
+            FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 7 }),
+            FlowConfidence::NameOnly(FlowDoubt::SameLine),
+            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
+            FlowConfidence::NameOnly(FlowDoubt::AliasUnstable),
+            FlowConfidence::NameOnly(FlowDoubt::CallNameOnly),
+        ];
+        for pair in ordered.windows(2) {
+            assert_eq!(pair[0].worst(pair[1]), pair[1]);
+            assert_eq!(pair[1].worst(pair[0]), pair[1]);
+        }
+    }
+
     /// Pins the derived-`Ord` trap explicitly (§7.2): `Exact` sorts FIRST, so
     /// `min` returns the BEST label. `worst` must not be `min`.
     #[test]
