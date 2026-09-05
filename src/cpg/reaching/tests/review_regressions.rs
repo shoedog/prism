@@ -1,0 +1,141 @@
+use super::*;
+
+fn definition_on_line(defs: &[DefSite], line: usize) -> DefSite {
+    defs.iter()
+        .find(|def| def.path == AccessPath::simple("x") && def.line == line)
+        .unwrap_or_else(|| panic!("fixture must define x on line {line}"))
+        .clone()
+}
+
+#[test]
+fn inner_block_assignment_is_killed_by_later_outer_redeclaration() {
+    let parsed = parsed(
+        "fn f() {\n    let mut x = 0;\n    {\n        x = source();\n    }\n    let x = 0;\n    sink(x);\n}\n",
+        Language::Rust,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let nested_assignment = definition_on_line(&defs, 4);
+    let use_edge = edge(&parsed, &func, &nested_assignment, 7);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&use_edge)).0;
+    assert_label(
+        &outcome,
+        &use_edge,
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 6 }),
+    );
+}
+
+#[test]
+fn loop_initializer_kills_nested_assignment_on_next_iteration() {
+    let parsed = parsed(
+        "fn f() {\n    loop {\n        let mut x = 0;\n        sink(x);\n        {\n            x = source();\n        }\n        tick();\n    }\n}\n",
+        Language::Rust,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let nested_assignment = definition_on_line(&defs, 6);
+    let next_iteration_use = edge(&parsed, &func, &nested_assignment, 4);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&next_iteration_use)).0;
+    assert_label(
+        &outcome,
+        &next_iteration_use,
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+    );
+}
+
+#[test]
+fn assignment_to_inner_shadow_does_not_kill_outer_binding() {
+    let parsed = parsed(
+        "fn f() {\n    let mut x = source();\n    {\n        let mut x = 0;\n        x = clean();\n    }\n    sink(x);\n}\n",
+        Language::Rust,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = definition_on_line(&defs, 2);
+    let outer_use = edge(&parsed, &func, &outer, 7);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&outer_use)).0;
+    assert_label(&outcome, &outer_use, FlowConfidence::Exact);
+}
+
+#[test]
+fn go_header_binding_ends_at_implicit_scope_exit() {
+    let parsed = parsed(
+        "package main\nfunc f() {\n\tv := outer()\n\tif v := source(); v != nil {\n\t\tsink(v)\n\t}\n\tsink(v)\n}\n",
+        Language::Go,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = defs
+        .iter()
+        .find(|def| def.path == AccessPath::simple("v") && def.line == 3)
+        .expect("fixture must define outer v")
+        .clone();
+    let header = defs
+        .iter()
+        .find(|def| def.path == AccessPath::simple("v") && def.line == 4)
+        .expect("fixture must define header v")
+        .clone();
+    let outer_edge = edge(&parsed, &func, &outer, 7);
+    let header_edge = edge(&parsed, &func, &header, 7);
+    let outcome = run(&parsed, &defs, &[outer_edge.clone(), header_edge.clone()]).0;
+    assert_label(&outcome, &outer_edge, FlowConfidence::Exact);
+    assert_label(
+        &outcome,
+        &header_edge,
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 6 }),
+    );
+}
+
+#[test]
+fn exception_before_assignment_makes_kill_witness_inadmissible() {
+    let parsed = parsed(
+        "def f():\n    try:\n        x = source()\n        x = may_throw()\n        raise RuntimeError()\n    except:\n        sink(x)\n",
+        Language::Python,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let original = definition_on_line(&defs, 3);
+    let handler_use = edge(&parsed, &func, &original, 7);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&handler_use)).0;
+    assert_label(
+        &outcome,
+        &handler_use,
+        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
+    );
+}
+
+#[test]
+fn cross_arm_kill_that_cannot_reach_use_is_not_a_witness() {
+    let parsed = parsed(
+        "def f(c):\n    if c:\n        x = source()\n        x = clean()\n    else:\n        sink(x)\n    done()\n",
+        Language::Python,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let original = definition_on_line(&defs, 3);
+    let cross_arm_use = edge(&parsed, &func, &original, 6);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&cross_arm_use)).0;
+    assert_label(
+        &outcome,
+        &cross_arm_use,
+        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
+    );
+}
+
+#[test]
+fn unresolved_binding_uses_flat_path_kill_equation() {
+    let parsed = parsed(
+        "function f() {\n  x = source();\n  x = clean();\n  sink(x);\n}\n",
+        Language::TypeScript,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let original = definition_on_line(&defs, 2);
+    let use_edge = edge(&parsed, &func, &original, 4);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&use_edge)).0;
+    assert_label(
+        &outcome,
+        &use_edge,
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+    );
+}

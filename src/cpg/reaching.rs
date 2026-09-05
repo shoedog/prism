@@ -12,6 +12,10 @@ use tree_sitter::Node;
 use super::{FlowConfidence, FlowDoubt};
 
 mod capture;
+mod graph;
+mod scope;
+
+use graph::{definition_reaches_unflagged, path_exists, reverse_postorder, BitSet};
 
 /// Hard caps from the authorised measurement pass
 /// (~/code/tools/logs/item2-census/REPORT.md §2.3, 92,338 functions).
@@ -173,10 +177,7 @@ pub(crate) fn reaching_definitions(
             }
         })
         .collect();
-    let def_scopes: Vec<DefinitionScope> = defs
-        .iter()
-        .map(|def| definition_scope(parsed, func_node, def))
-        .collect();
+    let binding_facts = scope::BindingFacts::new(parsed, func_node, &defs);
 
     let mut gen = vec![BitSet::new(defs.len()); node_count];
     for (index, mapped) in mapped_defs.iter().enumerate() {
@@ -195,8 +196,7 @@ pub(crate) fn reaching_definitions(
                 if !gen[node].contains(old_def)
                     && !defs[old_def].alias_derived
                     && defs[old_def].path == defs[new_def].path
-                    && (!def_scopes[new_def].introduces_block_binding
-                        || def_scopes[new_def].block == def_scopes[old_def].block)
+                    && binding_facts.same_def_binding(new_def, old_def)
                 {
                     kill[node].insert(old_def);
                 }
@@ -241,6 +241,7 @@ pub(crate) fn reaching_definitions(
         let key = (edge.from.clone(), edge.to.clone());
         let label = classify_edge(
             edge,
+            parsed,
             &defs,
             &mapped_defs,
             &line_index,
@@ -250,6 +251,7 @@ pub(crate) fn reaching_definitions(
             &successors,
             &collapsed,
             &capture_facts,
+            &binding_facts,
             function_start,
         );
         if label.is_exact() && edge.to.line < edge.from.line {
@@ -282,102 +284,10 @@ fn deduplicate_definitions(defs: &[DefSite]) -> Vec<DefSite> {
     unique
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct DefinitionScope {
-    block: (usize, usize),
-    introduces_block_binding: bool,
-}
-
-fn definition_scope(parsed: &ParsedFile, func_node: &Node<'_>, def: &DefSite) -> DefinitionScope {
-    let function_block = func_node
-        .child_by_field_name("body")
-        .filter(|node| parsed.language.is_scope_block(node.kind()))
-        .map(|node| (node.start_byte(), node.end_byte()))
-        .unwrap_or((func_node.start_byte(), func_node.end_byte()));
-    let mut result = DefinitionScope {
-        block: function_block,
-        introduces_block_binding: false,
-    };
-    let Some(end_byte) = def
-        .start_byte
-        .checked_add(1)
-        .filter(|end| *end <= parsed.source.len())
-    else {
-        return result;
-    };
-    let Some(mut node) = parsed
-        .tree
-        .root_node()
-        .descendant_for_byte_range(def.start_byte, end_byte)
-    else {
-        return result;
-    };
-    loop {
-        result.introduces_block_binding |= match parsed.language {
-            Language::Rust => matches!(node.kind(), "let_declaration"),
-            Language::Go => matches!(
-                node.kind(),
-                "var_declaration" | "short_var_declaration" | "const_declaration"
-            ),
-            Language::JavaScript | Language::TypeScript | Language::Tsx => {
-                node.kind() == "lexical_declaration"
-            }
-            _ => false,
-        };
-        if parsed.language.is_scope_block(node.kind()) {
-            result.block = (node.start_byte(), node.end_byte());
-            return result;
-        }
-        if node.start_byte() <= func_node.start_byte() && func_node.end_byte() <= node.end_byte() {
-            return result;
-        }
-        let Some(parent) = node.parent() else {
-            return result;
-        };
-        node = parent;
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct BitSet(Vec<u64>);
-
-impl BitSet {
-    fn new(bits: usize) -> Self {
-        Self(vec![0; bits.div_ceil(64)])
-    }
-
-    fn insert(&mut self, bit: usize) {
-        self.0[bit / 64] |= 1 << (bit % 64);
-    }
-
-    fn contains(&self, bit: usize) -> bool {
-        self.0
-            .get(bit / 64)
-            .is_some_and(|word| word & (1 << (bit % 64)) != 0)
-    }
-
-    fn members(&self) -> impl Iterator<Item = usize> + '_ {
-        self.0.iter().enumerate().flat_map(|(word_index, word)| {
-            (0..64).filter_map(move |bit| (word & (1 << bit) != 0).then_some(word_index * 64 + bit))
-        })
-    }
-
-    fn union_with(&mut self, other: &Self) {
-        for (left, right) in self.0.iter_mut().zip(&other.0) {
-            *left |= right;
-        }
-    }
-
-    fn subtract(&mut self, other: &Self) {
-        for (left, right) in self.0.iter_mut().zip(&other.0) {
-            *left &= !right;
-        }
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 fn classify_edge(
     edge: &FlowEdge,
+    parsed: &ParsedFile,
     defs: &[DefSite],
     mapped_defs: &[Option<usize>],
     line_index: &BTreeMap<Line, usize>,
@@ -387,6 +297,7 @@ fn classify_edge(
     successors: &[Vec<(usize, bool)>],
     collapsed: &BTreeSet<(AccessPath, Line)>,
     capture_facts: &capture::CaptureFacts,
+    binding_facts: &scope::BindingFacts,
     function_start: Line,
 ) -> FlowConfidence {
     if capture::is_capture(edge, capture_facts) {
@@ -419,7 +330,45 @@ fn classify_edge(
     if candidates.is_empty() {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
-    let reaching_candidates: Vec<usize> = candidates
+
+    // Rule 3: no downstream classification is admissible unless this exact
+    // def-to-use query has an unflagged CFG route. Kills are checked separately
+    // below and must also reach this use through unflagged edges.
+    if !candidates.iter().any(|index| {
+        mapped_defs[*index]
+            .is_some_and(|def_node| path_exists(successors, def_node, use_node, false))
+    }) {
+        return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+    }
+    if def_line == use_line
+        || collapsed.contains(&(edge.from.path.clone(), edge.from.line))
+        || collapsed.contains(&(edge.to.path.clone(), edge.to.line))
+    {
+        return FlowConfidence::NameOnly(FlowDoubt::SameLine);
+    }
+    if candidates.iter().any(|index| defs[*index].alias_derived) {
+        return FlowConfidence::NameOnly(FlowDoubt::AliasUnstable);
+    }
+
+    let mut same_binding = Vec::new();
+    let mut boundary_kills = Vec::new();
+    for index in candidates {
+        match binding_facts.relation(parsed, edge, index) {
+            scope::BindingRelation::Same => same_binding.push(index),
+            scope::BindingRelation::KilledAt(line) => boundary_kills.push(line),
+            scope::BindingRelation::Unresolved => {}
+        }
+    }
+    if let Some(kill_line) = boundary_kills.into_iter().min() {
+        return FlowConfidence::NameOnly(FlowDoubt::Killed {
+            kill_line: u32::try_from(kill_line).unwrap_or(u32::MAX),
+        });
+    }
+    if same_binding.is_empty() {
+        return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+    }
+
+    let reaching_candidates: Vec<usize> = same_binding
         .iter()
         .copied()
         .filter(|index| in_sets[use_node].contains(*index))
@@ -433,27 +382,17 @@ fn classify_edge(
     {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
-    if def_line == use_line
-        || collapsed.contains(&(edge.from.path.clone(), edge.from.line))
-        || collapsed.contains(&(edge.to.path.clone(), edge.to.line))
-    {
-        return FlowConfidence::NameOnly(FlowDoubt::SameLine);
-    }
-
-    if candidates.iter().any(|index| defs[*index].alias_derived) {
-        return FlowConfidence::NameOnly(FlowDoubt::AliasUnstable);
-    }
     if !reaching_candidates.is_empty() {
         return FlowConfidence::Exact;
     }
 
-    let Some(kill_line) = candidates
+    let Some(kill_line) = same_binding
         .iter()
         .filter_map(|index| {
             lowest_reachable_kill(
                 *index,
-                defs[*index].line,
                 mapped_defs[*index],
+                use_node,
                 kill,
                 successors,
                 line_index,
@@ -489,8 +428,8 @@ fn matching_defs(edge: &FlowEdge, defs: &[DefSite]) -> Vec<usize> {
 
 fn lowest_reachable_kill(
     def_index: usize,
-    def_line: Line,
     def_node: Option<usize>,
+    use_node: usize,
     kill: &[BitSet],
     successors: &[Vec<(usize, bool)>],
     line_index: &BTreeMap<Line, usize>,
@@ -499,9 +438,9 @@ fn lowest_reachable_kill(
     line_index
         .iter()
         .filter_map(|(line, node)| {
-            (*line > def_line
-                && kill[*node].contains(def_index)
-                && path_exists(successors, def_node, *node, true))
+            (kill[*node].contains(def_index)
+                && path_exists(successors, def_node, *node, false)
+                && path_exists(successors, *node, use_node, false))
             .then_some(*line)
         })
         .min()
@@ -551,86 +490,6 @@ fn innermost_statement(line: Line, spans: &[StatementLineSpan]) -> Option<Line> 
             )
         })
         .map(|span| span.start_line)
-}
-
-fn reverse_postorder(successors: &[Vec<(usize, bool)>], entry: usize) -> Vec<usize> {
-    let mut seen = vec![false; successors.len()];
-    let mut stack = vec![(entry, false)];
-    let mut postorder = Vec::new();
-    while let Some((node, expanded)) = stack.pop() {
-        if expanded {
-            postorder.push(node);
-            continue;
-        }
-        if seen[node] {
-            continue;
-        }
-        seen[node] = true;
-        stack.push((node, true));
-        for (successor, _) in successors[node].iter().rev() {
-            if !seen[*successor] {
-                stack.push((*successor, false));
-            }
-        }
-    }
-    postorder.reverse();
-    postorder
-}
-
-fn path_exists(
-    successors: &[Vec<(usize, bool)>],
-    from: usize,
-    to: usize,
-    allow_incomplete: bool,
-) -> bool {
-    let mut seen = vec![false; successors.len()];
-    let mut queue = VecDeque::from([from]);
-    while let Some(node) = queue.pop_front() {
-        if node == to {
-            return true;
-        }
-        if seen[node] {
-            continue;
-        }
-        seen[node] = true;
-        for (successor, incomplete) in &successors[node] {
-            if (allow_incomplete || !incomplete) && !seen[*successor] {
-                queue.push_back(*successor);
-            }
-        }
-    }
-    false
-}
-
-fn definition_reaches_unflagged(
-    def_index: usize,
-    from: usize,
-    to: usize,
-    kill: &[BitSet],
-    successors: &[Vec<(usize, bool)>],
-) -> bool {
-    let mut seen = vec![false; successors.len()];
-    let mut queue = VecDeque::from([from]);
-    while let Some(node) = queue.pop_front() {
-        if node == to {
-            return true;
-        }
-        if seen[node] {
-            continue;
-        }
-        seen[node] = true;
-        for (successor, incomplete) in &successors[node] {
-            if !incomplete && !seen[*successor] {
-                if *successor == to {
-                    return true;
-                }
-                if !kill[*successor].contains(def_index) {
-                    queue.push_back(*successor);
-                }
-            }
-        }
-    }
-    false
 }
 
 fn is_incomplete_join(

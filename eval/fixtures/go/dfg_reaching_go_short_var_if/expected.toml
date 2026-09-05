@@ -15,3 +15,15 @@ to = "main.go:5:v"
 confidence = "nameonly"
 doubt = "killed"
 kill_line = 4
+
+[[expect.edges]]
+from = "main.go:3:v"
+to = "main.go:7:v"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.go:4:v"
+to = "main.go:7:v"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 6
