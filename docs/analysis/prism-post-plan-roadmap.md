@@ -159,7 +159,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   served4 Exact callers with eight exclusions. Quick baseline-invalid SHA drift. No overloads,
   extra members, interfaces or imported/ambient authority. See
   `docs/eval/receiver-closure/2026-09-05-callable-aliases-readout.md`.
-- **Module-private callable interfaces — implemented, publication pending:**
+- **Module-private callable interfaces — PR253 open, cf9475f0:**
   One own call signature, no heritage/merging/extra members; bounded generic binder
   and original declaration/argument/write anchors. Round2 corrected top-level≠private:
   script globals and exported interfaces remain deferred without cross-file merge

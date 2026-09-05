@@ -1,6 +1,7 @@
 # Bounded local callable interfaces — receiver evidence
 
-Status: verified within the stated bounds; publication pending. Base PR252 merge
+Status: pushed and open as https://github.com/shoedog/prism/pull/253.
+Implementation cf9475f060d454011a8910e8491b18da33c57c7b. Base PR252 merge
 04bb5583897dcd839e2d8905e43bea78368b8bc2; branch feat/local-callable-interfaces.
 Spec: docs/superpowers/specs/2026-09-05-local-callable-interfaces.md.
 

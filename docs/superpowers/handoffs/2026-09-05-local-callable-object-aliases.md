@@ -43,7 +43,7 @@ interfaces/overloads/extra members or imported/ambient authority.
 PR251 merge-record edits included. Predecessor recommendation approved; this is
 the successor handoff. No memory edit or real-site gain promise.
 PR252 open→merged04bb5583 reconciled locally in readout, roadmap and this handoff;
-these docs-only edits await the next approved branch.
+these docs-only edits are included in successor cf9475f0 / PR253.
 
 ## 4. Open work
 
