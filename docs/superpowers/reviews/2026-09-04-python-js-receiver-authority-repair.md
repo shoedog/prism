@@ -4,7 +4,10 @@ Control: fetched `origin/main` = `10d82ca58387f030a863f75cb6f83ec2f1b9c662`.
 Checkout `ea2965e0237335a1c9c5c147e3aee9168e5bb84b` had the identical tracked tree.
 Verification ran with local uncommitted changes on `docs/python-js-nav-sequence-handoff`.
 The owner subsequently authorized publication on `fix/python-js-receiver-authority`;
-current commit/PR custody is recorded in the matching handoff.
+implementation `9a790419` is pushed and [PR #238](https://github.com/shoedog/prism/pull/238)
+is open. Current custody is recorded in the matching handoff. All seven source/test
+files matched the full-suite snapshot at publication; a fresh release/matrix repeat
+passed 104/104. Publication changed documentation only after those full suites.
 
 ## Demonstrated WRONG findings and bounded repairs
 

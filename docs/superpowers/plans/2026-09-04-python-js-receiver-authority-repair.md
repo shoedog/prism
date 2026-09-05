@@ -14,5 +14,7 @@
    record exact evidence and exclusions, refresh handoff and snapshot explicit files.
    DONE: default 3,713/0/1; MCP 3,903/0/1; matrix 104/104; quick completed with
    zero oracle/SUT errors and sole invalid reason corpus pin drift. See review record.
+8. Owner-authorized publication: DONE at `9a790419`, pushed to
+   `fix/python-js-receiver-authority`, PR #238 open against main. Merge not requested.
 
 No unrelated Item 2 integration, Java work, write tools, or artifact cleanup.

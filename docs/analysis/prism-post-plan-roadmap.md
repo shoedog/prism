@@ -73,7 +73,8 @@ Three candidate directions once the queue's top items are drained (or interleave
   not close receiver authority. Current-main REDs demonstrate enclosing constructor
   and type-name shadows, conditional initialization, and loop-carried writes that
   incorrectly mint Exact edges. The two bounded owner-visibility and temporal-proof
-  repair slices are implemented locally: default 3,713/0/1, MCP 3,903/0/1, matrix
+  repair slices are published in [PR #238](https://github.com/shoedog/prism/pull/238)
+  at `9a790419` (open, not merged): default 3,713/0/1, MCP 3,903/0/1, matrix
   104/104; quick has zero oracle/SUT errors but remains invalid for corpus pin drift. See
   `docs/superpowers/handoffs/2026-09-04-python-js-receiver-authority-repair-handoff.md`.
 
