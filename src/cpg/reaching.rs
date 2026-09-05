@@ -11,6 +11,8 @@ use tree_sitter::Node;
 
 use super::{FlowConfidence, FlowDoubt};
 
+mod capture;
+
 /// Hard caps from the authorised measurement pass
 /// (~/code/tools/logs/item2-census/REPORT.md §2.3, 92,338 functions).
 /// RD_MAX_LINES bounds `stmt_lines.len()` — the CFG statement-line universe
@@ -193,7 +195,7 @@ pub(crate) fn reaching_definitions(
     }
 
     let collapsed = collapsed_groups(defs);
-    let capture_ranges = nested_callable_body_ranges(parsed, *func_node);
+    let capture_facts = capture::capture_facts(parsed, *func_node);
     let mut labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence> = BTreeMap::new();
     let mut loop_carried_edges = BTreeSet::new();
     for edge in dfg_edges {
@@ -208,7 +210,7 @@ pub(crate) fn reaching_definitions(
             &kill,
             &successors,
             &collapsed,
-            &capture_ranges,
+            &capture_facts,
             function_start,
         );
         if label.is_exact() && edge.to.line < edge.from.line {
@@ -274,10 +276,10 @@ fn classify_edge(
     kill: &[BitSet],
     successors: &[Vec<(usize, bool)>],
     collapsed: &BTreeSet<(AccessPath, Line)>,
-    capture_ranges: &[(usize, usize)],
+    capture_facts: &capture::CaptureFacts,
     function_start: Line,
 ) -> FlowConfidence {
-    if is_capture(edge, capture_ranges) {
+    if capture::is_capture(edge, capture_facts) {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
 
@@ -294,16 +296,30 @@ fn classify_edge(
     let Some(&use_node) = line_index.get(&use_line) else {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     };
-    let def_node = if def_line == function_start && !line_index.contains_key(&def_line) {
-        Some(0)
+    let def_node_mapped = if def_line == function_start && !line_index.contains_key(&def_line) {
+        true
     } else {
-        line_index.get(&def_line).copied()
+        line_index.contains_key(&def_line)
     };
-    let Some(def_node) = def_node else {
+    if !def_node_mapped {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
-    };
-    if path_exists(successors, def_node, use_node, true)
-        && !path_exists(successors, def_node, use_node, false)
+    }
+
+    let candidates = matching_defs(edge, defs);
+    if candidates.is_empty() {
+        return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+    }
+    let reaching_candidates: Vec<usize> = candidates
+        .iter()
+        .copied()
+        .filter(|index| in_sets[use_node].contains(*index))
+        .collect();
+    if !reaching_candidates.is_empty()
+        && !reaching_candidates.iter().any(|index| {
+            mapped_defs[*index].is_some_and(|def_node| {
+                definition_reaches_unflagged(*index, def_node, use_node, kill, successors)
+            })
+        })
     {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
@@ -314,17 +330,10 @@ fn classify_edge(
         return FlowConfidence::NameOnly(FlowDoubt::SameLine);
     }
 
-    let candidates = matching_defs(edge, defs);
-    if candidates.is_empty() {
-        return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
-    }
     if candidates.iter().any(|index| defs[*index].alias_derived) {
         return FlowConfidence::NameOnly(FlowDoubt::AliasUnstable);
     }
-    if candidates
-        .iter()
-        .any(|index| in_sets[use_node].contains(*index))
-    {
+    if !reaching_candidates.is_empty() {
         return FlowConfidence::Exact;
     }
 
@@ -481,6 +490,37 @@ fn path_exists(
     false
 }
 
+fn definition_reaches_unflagged(
+    def_index: usize,
+    from: usize,
+    to: usize,
+    kill: &[BitSet],
+    successors: &[Vec<(usize, bool)>],
+) -> bool {
+    let mut seen = vec![false; successors.len()];
+    let mut queue = VecDeque::from([from]);
+    while let Some(node) = queue.pop_front() {
+        if node == to {
+            return true;
+        }
+        if seen[node] {
+            continue;
+        }
+        seen[node] = true;
+        for (successor, incomplete) in &successors[node] {
+            if !incomplete && !seen[*successor] {
+                if *successor == to {
+                    return true;
+                }
+                if !kill[*successor].contains(def_index) {
+                    queue.push_back(*successor);
+                }
+            }
+        }
+    }
+    false
+}
+
 fn is_incomplete_join(
     parsed: &ParsedFile,
     statements: &[(Line, String)],
@@ -511,47 +551,6 @@ fn is_incomplete_join(
         && parsed.language.is_return_node(from_kind)
         && to_kind == "defer_statement";
     try_join || go_defer
-}
-
-fn nested_callable_body_ranges(parsed: &ParsedFile, func_node: Node<'_>) -> Vec<(usize, usize)> {
-    fn visit(parsed: &ParsedFile, node: Node<'_>, ranges: &mut Vec<(usize, usize)>) {
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            if is_nested_callable_kind(parsed.language, child.kind()) {
-                let body = child.child_by_field_name("body").unwrap_or(child);
-                ranges.push((body.start_byte(), body.end_byte()));
-            } else {
-                visit(parsed, child, ranges);
-            }
-        }
-    }
-
-    let mut ranges = Vec::new();
-    visit(parsed, func_node, &mut ranges);
-    ranges
-}
-
-fn is_nested_callable_kind(language: Language, kind: &str) -> bool {
-    match language {
-        Language::Python => matches!(kind, "lambda" | "function_definition"),
-        Language::Go => kind == "func_literal",
-        Language::JavaScript | Language::TypeScript | Language::Tsx => {
-            matches!(
-                kind,
-                "arrow_function" | "function_expression" | "function_declaration"
-            )
-        }
-        Language::Rust => kind == "closure_expression",
-        _ => false,
-    }
-}
-
-fn is_capture(edge: &FlowEdge, ranges: &[(usize, usize)]) -> bool {
-    ranges.iter().any(|(start, end)| {
-        *start <= edge.to.start_byte
-            && edge.to.start_byte < *end
-            && !(start <= &edge.from.start_byte && &edge.from.start_byte < end)
-    })
 }
 
 #[cfg(test)]
