@@ -16,9 +16,10 @@ use crate::name_resolution::types::{
 
 use super::super::builder::Builder;
 use super::super::scopes::{pattern_idents, vis};
-use super::items::{walk_function, walk_mod_item, walk_use};
+use super::items::{walk_extern_crate, walk_function, walk_mod_item, walk_use};
 use super::types::{
-    walk_enum, walk_impl, walk_macro_def, walk_macro_invocation, walk_struct, walk_value_item,
+    walk_enum, walk_impl, walk_macro_def, walk_macro_invocation, walk_struct, walk_type_alias,
+    walk_type_like, walk_value_item,
 };
 use super::{named_children, node_range, scope_end_byte, with_node, Ctx, NodeId};
 
@@ -47,6 +48,9 @@ fn walk_stmt(b: &mut Builder<'_>, path: &str, nid: NodeId, scope: ScopeId, ctx: 
         "function_item" => walk_function(b, path, &nid, scope, ctx, false),
         "struct_item" | "union_item" => walk_struct(b, path, &nid, scope, ctx),
         "enum_item" => walk_enum(b, path, &nid, scope, ctx),
+        "type_item" => walk_type_alias(b, path, &nid, scope, ctx),
+        "trait_item" => walk_type_like(b, path, &nid, scope, ctx, true),
+        "extern_crate_declaration" => walk_extern_crate(b, path, &nid, scope, ctx),
         "impl_item" => walk_impl(b, path, &nid, scope, ctx),
         "const_item" | "static_item" => walk_value_item(b, path, &nid, scope, ctx),
         "mod_item" => walk_mod_item(b, path, &nid, scope, ctx),

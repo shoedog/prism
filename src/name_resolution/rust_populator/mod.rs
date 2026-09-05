@@ -103,6 +103,11 @@ pub struct RustCrateConfig {
     /// fallback (no manifest) is empty.
     #[serde(default)]
     pub member_in_repo_deps: BTreeMap<String, BTreeMap<String, String>>,
+    /// Manifest-backed binary root -> (own library crate name, library root).
+    /// Exact per-package paths avoid the legacy flattened `lib_path` index.
+    /// This contributes only to the existing 2018+ extern-prelude lane.
+    #[serde(default)]
+    pub binary_library_deps: BTreeMap<String, (String, String)>,
 }
 
 impl Default for RustCrateConfig {
@@ -116,6 +121,7 @@ impl Default for RustCrateConfig {
             bin_paths: Vec::new(),
             edition_uniform: true,
             member_in_repo_deps: BTreeMap::new(),
+            binary_library_deps: BTreeMap::new(),
         }
     }
 }
@@ -158,6 +164,7 @@ impl RustCrateConfig {
             bin_paths: Vec::new(),
             edition_uniform: true,
             member_in_repo_deps: BTreeMap::new(),
+            binary_library_deps: BTreeMap::new(),
         }
     }
 

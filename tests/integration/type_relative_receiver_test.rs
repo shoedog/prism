@@ -37,6 +37,149 @@ fn check(cg: &CallGraph, caller: &str, target: Option<&str>, kind: ResolutionKin
 }
 
 #[test]
+fn direct_default_class_receiver_identity() {
+    for (lang, ext) in [
+        (Language::JavaScript, "js"),
+        (Language::TypeScript, "ts"),
+        (Language::Tsx, "tsx"),
+    ] {
+        let caller = format!("app.{ext}");
+        let owner = format!("client.{ext}");
+        for import in [
+            "import Alias from './client';",
+            "import {default as Alias} from './client';",
+        ] {
+            let parsed = files(
+                &[
+                    (
+                        &caller,
+                        &format!("{import} function run() {{ const x = new Alias(); x.m(); }}"),
+                    ),
+                    (&owner, "export default class Client { m() {} }"),
+                    (&format!("decoy.{ext}"), "class Client { m() {} }"),
+                ],
+                lang,
+            );
+            for cg in [
+                CallGraph::build(&parsed),
+                CallGraph::build_direct_subset(&parsed, &parsed.keys().cloned().collect()),
+            ] {
+                check(&cg, &caller, Some(&owner), ResolutionKind::ConstructorLocal);
+            }
+        }
+        if lang == Language::JavaScript {
+            continue;
+        }
+        for import in [
+            "import Alias from './client';",
+            "import {default as Alias} from './client';",
+            "import type Alias from './client';",
+            "import type {default as Alias} from './client';",
+            "import {type default as Alias} from './client';",
+        ] {
+            let parsed = files(
+                &[
+                    (
+                        &caller,
+                        &format!("{import} function run(x: Alias) {{ x.m(); }}"),
+                    ),
+                    (&owner, "export default class Client { m() {} }"),
+                ],
+                lang,
+            );
+            let cg = CallGraph::build(&parsed);
+            check(&cg, &caller, Some(&owner), ResolutionKind::TypedParam);
+            assert_eq!(
+                cg.import_bindings
+                    .get(&caller)
+                    .is_some_and(|bs| bs.iter().any(|b| b.local == "Alias")),
+                !import.contains("type")
+            );
+        }
+    }
+}
+
+#[test]
+fn default_class_receiver_boundaries() {
+    for (import, owner, body) in [
+        (
+            "import Alias from './client';",
+            "export default class { m() {} }",
+            "const x = new Alias(); x.m();",
+        ),
+        (
+            "import Alias from './client';",
+            "class Client { m() {} } export default Client;",
+            "const x = new Alias(); x.m();",
+        ),
+        (
+            "import Alias from './client';",
+            "export {Client as default} from './other';",
+            "const x = new Alias(); x.m();",
+        ),
+        (
+            "import Alias from './client';",
+            "export default class Client { m() {} } export default class Other { m() {} }",
+            "const x = new Alias(); x.m();",
+        ),
+        (
+            "import Alias from './client'; Alias = other;",
+            "export default class Client { m() {} }",
+            "const x = new Alias(); x.m();",
+        ),
+        (
+            "import Alias from './client';",
+            "export default class Client { m() {} }",
+            "const Alias = other; const x = new Alias(); x.m();",
+        ),
+        (
+            "import type Alias from './client';",
+            "export default class Client { m() {} }",
+            "const x = new Alias(); x.m();",
+        ),
+        (
+            "import Alias from './client';",
+            "export default class Client { static m() {} }",
+            "const x = new Alias(); x.m();",
+        ),
+        (
+            "const Alias = require('./client');",
+            "export default class Client { m() {} }",
+            "const x = new Alias(); x.m();",
+        ),
+    ] {
+        let cg = CallGraph::build(&files(
+            &[
+                ("app.ts", &format!("{import} function run() {{ {body} }}")),
+                ("client.ts", owner),
+                ("other.ts", "export class Client { m() {} }"),
+            ],
+            Language::TypeScript,
+        ));
+        check(&cg, "app.ts", None, ResolutionKind::ConstructorLocal);
+    }
+    for import in [
+        "import type * as Alias from './client';",
+        "import type Alias from './client'; type Alias = Other;",
+        "import type Alias from './client'; import type Alias from './other';",
+        "import type Alias from './client'; import Alias from './other';",
+    ] {
+        let cg = CallGraph::build(&files(
+            &[
+                (
+                    "app.ts",
+                    &format!("{import} function run(x: Alias) {{ x.m(); }}"),
+                ),
+                ("client.ts", "export default class Client { m() {} }"),
+                ("other.ts", "export default class Other { m() {} }"),
+            ],
+            Language::TypeScript,
+        ));
+        check(&cg, "app.ts", None, ResolutionKind::TypedParam);
+    }
+}
+
+#[test]
 fn type_only_named_class_parameters_have_defining_identity() {
     for (lang, ext) in [(Language::TypeScript, "ts"), (Language::Tsx, "tsx")] {
         for import in [

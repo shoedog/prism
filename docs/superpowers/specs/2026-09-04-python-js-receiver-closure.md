@@ -2,7 +2,7 @@
 
 Authority: owner approved item 1 (measurement/correctness) after merging #240.
 Base control `862166d` (pre-#240); merged candidate `f3bf88e`. Three-round cap.
-Published evidence: `f5d766b`, [PR #241](https://github.com/shoedog/prism/pull/241) OPEN, not merged. No production source change.
+Published evidence: `f5d766b`, [PR #241](https://github.com/shoedog/prism/pull/241) merged at `1886907`. No production source change in that PR; the subsequent authorized repair is tracked by the rust-binary-library spec/handoff.
 No default-import/reexport feature expansion, baseline rewrite or full multicorpus.
 
 ## Plan and evidence contract

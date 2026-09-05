@@ -172,7 +172,9 @@ use std::path::{Path, PathBuf};
 ///   authorize cross-file receivers; live JS class writes revoke owner proof.
 /// - v62: separate TS type-only import facts and anchored Python relative
 ///   submodule proof change recovered receiver authority and CPG topology.
-const CACHE_VERSION: u32 = 62;
+/// - v63: Cargo binary own-library bindings and direct default class receiver
+///   authority change serialized config and resolved topology.
+const CACHE_VERSION: u32 = 63;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -702,8 +704,60 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_receiver_authority() {
-        assert_eq!(super::CACHE_VERSION, 62);
+        assert_eq!(super::CACHE_VERSION, 63);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
+    }
+
+    #[test]
+    fn binary_library_cache_tracks_manifest_replacement() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        fs::create_dir_all(dir.path().join("src")).unwrap();
+        fs::write(dir.path().join("src/lib.rs"), "pub fn target(){}").unwrap();
+        fs::write(dir.path().join("src/main.rs"), "fn main(){demo::target();}").unwrap();
+        let mut previous_hashes = None;
+        for name in ["demo", "other", "demo"] {
+            fs::write(dir.path().join("Cargo.toml"), format!("[package]\nname='package'\nversion='0.1.0'\nedition='2021'\n[lib]\nname='{name}'")).unwrap();
+            let repo = crate::repo_loader::load_repo(dir.path()).unwrap();
+            let topology = compute_topology_key(&repo.file_hashes, &repo.manifest_hashes);
+            if let Some(ref hashes) = previous_hashes {
+                assert_eq!(hashes, &repo.file_hashes, "only manifest changed");
+                assert!(matches!(
+                    load_cache_with_topology(&repo.file_hashes, &topology, false, cache.path()),
+                    CacheResult::Miss
+                ));
+            }
+            let ctx = crate::cpg::CpgContext::build_with_scope_graph_inputs(
+                &repo.files,
+                None,
+                repo.scope_graph_inputs.as_ref(),
+            );
+            save_cache_with_topology(&ctx.cpg, &repo.file_hashes, &topology, false, cache.path())
+                .unwrap();
+            let CacheResult::Hit(loaded) =
+                load_cache_with_topology(&repo.file_hashes, &topology, false, cache.path())
+            else {
+                panic!("cache miss");
+            };
+            for cg in [&ctx.cpg.call_graph, &loaded.call_graph] {
+                let site = cg.calls[&cg.functions["main"][0]].iter().next().unwrap();
+                let edges = cg.resolve_call_site(site);
+                assert_eq!(
+                    edges.len(),
+                    usize::from(name == "demo"),
+                    "{name}: {edges:?}"
+                );
+                if name == "demo" {
+                    assert_eq!(edges[0].target.file, "src/lib.rs");
+                }
+            }
+            previous_hashes = Some(repo.file_hashes);
+        }
+        force_cache_version(cache.path(), 62);
+        assert!(matches!(
+            load_cache(&previous_hashes.unwrap(), false, cache.path()),
+            CacheResult::Miss
+        ));
     }
 
     #[test]
@@ -713,6 +767,9 @@ mod tests {
             resolution::ResolutionConfidence,
         };
         for (language, caller, owner, importer, good, bad, auxiliary) in [
+            (Language::JavaScript, "app.js", "client.js", "import Alias from './client'; function run() { const x = new Alias(); x.m(); }", "export default class Client { m() {} }", "class Client { m() {} } export default Client;", None),
+            (Language::TypeScript, "app.ts", "client.ts", "import type Alias from './client'; function run(x: Alias) { x.m(); }", "export default class Client { m() {} }", "export default class Client { static m() {} }", None),
+            (Language::Tsx, "app.tsx", "app.tsx", "", "import type Alias from './client'; function run(x: Alias) { x.m(); }", "import type Alias from './client'; import type Alias from './client'; function run(x: Alias) { x.m(); }", Some(("client.tsx", "export default class Client { m() {} }"))),
             (Language::TypeScript, "app.ts", "app.ts", "", "import type {Client as Alias} from './client'; function run(x: Alias) { x.m(); }", "import type {Client as Alias} from './client'; import type {Client as Alias} from './client'; function run(x: Alias) { x.m(); }", Some(("client.ts", "export class Client { m() {} }"))),
             (Language::TypeScript, "app.ts", "client.ts", "import type { Client as Alias } from './client';\nfunction run(x: Alias) { x.m(); }", "export class Client { m() {} }", "class Client { m() {} }", None),
             (Language::Tsx, "app.tsx", "client.tsx", "import { type Client as Alias } from './client';\nfunction run(x: Alias) { x.m(); }", "export class Client { m() {} }", "export class Client { static m() {} }", None),

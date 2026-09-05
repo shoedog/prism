@@ -51,6 +51,8 @@ pub(crate) struct Builder<'f> {
     /// root is NEVER recorded here (only a library root is a dependency target), so
     /// a lib+bin member does not self-collide. Built as each library root is minted.
     lib_root_by_member_dir: BTreeMap<String, ScopeId>,
+    /// Exact paths of successfully modeled roots, including binaries.
+    roots_by_path: BTreeMap<String, ScopeId>,
     /// Per consuming-crate library `Root` → (normalized in-source dep name →
     /// depended-on in-repo library `Root`). Built at `finish()` from
     /// `config.member_in_repo_deps` + `lib_root_by_member_dir`; moved onto the graph.
@@ -90,6 +92,7 @@ impl<'f> Builder<'f> {
             type_scopes: BTreeMap::new(),
             crate_roots_by_name: BTreeMap::new(),
             lib_root_by_member_dir: BTreeMap::new(),
+            roots_by_path: BTreeMap::new(),
             crate_deps_by_root: BTreeMap::new(),
         }
     }
@@ -135,6 +138,19 @@ impl<'f> Builder<'f> {
                         .entry(consuming_root)
                         .or_default()
                         .insert(normalize_crate_ident(in_source_name), target_root);
+                }
+            }
+        }
+        for (binary, (name, library)) in &self.config.binary_library_deps {
+            if let (Some(&consumer), Some(&target)) = (
+                self.roots_by_path.get(binary),
+                self.roots_by_path.get(library),
+            ) {
+                if consumer != target {
+                    self.crate_deps_by_root
+                        .entry(consumer)
+                        .or_default()
+                        .insert(name.clone(), target);
                 }
             }
         }
@@ -326,6 +342,7 @@ impl<'f> Builder<'f> {
         let src_len = self.files[root_path].source.len();
         let root_scope = self.add_scope(ScopeKind::Root, None, fid, 0, src_len.max(1), None);
         self.mark_modeled(root_path);
+        self.roots_by_path.insert(root_path.to_string(), root_scope);
         if let Some(name) = crate_name_for_root(root_path, self.config) {
             self.crate_roots_by_name.entry(name).or_insert(root_scope);
         }
