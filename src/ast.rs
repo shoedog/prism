@@ -2318,7 +2318,122 @@ impl ParsedFile {
             }
         }
         facts.esm_named_imports = self.js_ts_esm_named_imports(None);
+        facts.type_only_imports = self.js_ts_type_only_imports();
         facts
+    }
+
+    fn js_ts_type_only_imports(&self) -> BTreeMap<String, Option<(String, String)>> {
+        let mut imports = BTreeMap::new();
+        if !matches!(self.language, Language::TypeScript | Language::Tsx)
+            || self.tree.root_node().has_error()
+        {
+            return imports;
+        }
+        fn insert(
+            out: &mut BTreeMap<String, Option<(String, String)>>,
+            local: String,
+            target: Option<(String, String)>,
+        ) {
+            use std::collections::btree_map::Entry;
+            match out.entry(local) {
+                Entry::Vacant(e) => {
+                    e.insert(target);
+                }
+                Entry::Occupied(mut e) => {
+                    e.insert(None);
+                }
+            }
+        }
+        fn walk(
+            parsed: &ParsedFile,
+            node: Node<'_>,
+            module: &str,
+            statement_type_only: bool,
+            out: &mut BTreeMap<String, Option<(String, String)>>,
+        ) {
+            if node.kind() == "import_specifier" {
+                if statement_type_only || parsed.js_ts_import_specifier_is_type_only(node) {
+                    if let Some(name) = node.child_by_field_name("name") {
+                        let imported = parsed.node_text(&name);
+                        let local = node.child_by_field_name("alias").unwrap_or(name);
+                        let target = (is_plain_ident(imported) && imported != "default")
+                            .then(|| (module.to_string(), imported.to_string()));
+                        insert(out, parsed.node_text(&local).to_string(), target);
+                    }
+                }
+                return;
+            }
+            if statement_type_only
+                && node.kind() == "identifier"
+                && node
+                    .parent()
+                    .is_some_and(|p| matches!(p.kind(), "import_clause" | "namespace_import"))
+            {
+                insert(out, parsed.node_text(&node).to_string(), None);
+                return;
+            }
+            let mut cursor = node.walk();
+            for child in node.named_children(&mut cursor) {
+                walk(parsed, child, module, statement_type_only, out);
+            }
+        }
+        let root = self.tree.root_node();
+        let mut cursor = root.walk();
+        for statement in root
+            .named_children(&mut cursor)
+            .filter(|n| n.kind() == "import_statement")
+        {
+            if let Some(source) = statement.child_by_field_name("source") {
+                let module = self.node_text(&source).trim_matches(['\'', '"']);
+                walk(
+                    self,
+                    statement,
+                    module,
+                    self.js_ts_import_statement_is_type_only(statement),
+                    &mut imports,
+                );
+            }
+        }
+        fn poison_module_types(
+            parsed: &ParsedFile,
+            node: Node<'_>,
+            imports: &mut BTreeMap<String, Option<(String, String)>>,
+        ) {
+            if matches!(
+                node.kind(),
+                "class_declaration"
+                    | "abstract_class_declaration"
+                    | "interface_declaration"
+                    | "type_alias_declaration"
+                    | "enum_declaration"
+                    | "internal_module"
+                    | "module"
+                    | "import_alias"
+            ) {
+                if let Some(name) = node.child_by_field_name("name") {
+                    // A dotted namespace introduces its first component in the
+                    // enclosing type namespace, not the entire dotted spelling.
+                    let local = parsed
+                        .node_text(&name)
+                        .split('.')
+                        .next()
+                        .unwrap_or_default();
+                    if let Some(target) = imports.get_mut(local) {
+                        *target = None;
+                    }
+                }
+            } else if matches!(
+                node.kind(),
+                "program" | "export_statement" | "ambient_declaration" | "expression_statement"
+            ) {
+                let mut cursor = node.walk();
+                for child in node.named_children(&mut cursor) {
+                    poison_module_types(parsed, child, imports);
+                }
+            }
+        }
+        poison_module_types(self, root, &mut imports);
+        imports
     }
 
     fn js_ts_esm_named_imports(&self, only: Option<&str>) -> BTreeSet<String> {

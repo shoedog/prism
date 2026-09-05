@@ -51,6 +51,9 @@ pub struct JsExportFacts {
     /// Local names introduced by top-level ESM named value imports. Syntax
     /// provenance only; eligible binding and defining class proof are separate.
     pub esm_named_imports: BTreeSet<String>,
+    /// Type namespace only: local -> (module, exported class name). None is a
+    /// duplicate/conflicting or unsupported import, and must remain terminal.
+    pub type_only_imports: BTreeMap<String, Option<(String, String)>>,
     /// Exported name (what an importer writes: `"default"`, `"process"`,
     /// `"c"`, ...) -> target.
     pub named: BTreeMap<String, JsExportTarget>,
@@ -73,6 +76,7 @@ impl JsExportFacts {
     pub fn is_empty(&self) -> bool {
         self.named.is_empty()
             && self.esm_named_imports.is_empty()
+            && self.type_only_imports.is_empty()
             && self.star_reexports.is_empty()
             && self.skipped_expr_count == 0
             && self.conflicted.is_empty()
@@ -328,6 +332,7 @@ mod tests {
     fn facts(named: &[(&str, JsExportTarget)], star: &[&str]) -> JsExportFacts {
         JsExportFacts {
             esm_named_imports: BTreeSet::new(),
+            type_only_imports: BTreeMap::new(),
             named: named
                 .iter()
                 .map(|(k, v)| (k.to_string(), v.clone()))

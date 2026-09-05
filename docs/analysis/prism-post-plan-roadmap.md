@@ -77,10 +77,13 @@ Three candidate directions once the queue's top items are drained (or interleave
   at `9a790419` (merged as `350cc89`): default 3,713/0/1, MCP 3,903/0/1, matrix
   104/104; quick has zero oracle/SUT errors but remains invalid for corpus pin drift. See
   `docs/superpowers/handoffs/2026-09-04-python-js-receiver-authority-repair-handoff.md`.
-- **Implemented continuation — PR #239 (open, not merged), `99d50f1`:** directly exported JS/TS class identity,
+- **Implemented continuation — PR #239 (merged as `862166d`), `99d50f1`:** directly exported JS/TS class identity,
   imported constructor/parameter receivers, then Python inert regular-package
   initializers. See `docs/superpowers/specs/2026-09-04-imported-class-receivers.md`.
   The bounded syntactic census is not a measured corpus-recall gain.
+- **Implemented continuation — PR #240 (open, not merged), `0a2edf6`:** separate named TS type-only class
+  authority and explicitly anchored Python relative submodule imports. See
+  `docs/superpowers/specs/2026-09-04-type-only-relative-receivers.md` and matching handoff.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:

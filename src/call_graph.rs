@@ -2101,6 +2101,7 @@ impl CallGraph {
         &self,
         caller: &str,
         spelling: &str,
+        typed_parameter: bool,
     ) -> Option<(String, String)> {
         let imports: Vec<_> = self
             .import_bindings
@@ -2109,6 +2110,17 @@ impl CallGraph {
             .flatten()
             .filter(|b| b.local == spelling)
             .collect();
+        if let Some(type_import) = self
+            .js_ts_exports
+            .get(caller)
+            .and_then(|facts| facts.type_only_imports.get(spelling))
+        {
+            if !typed_parameter || !imports.is_empty() {
+                return None;
+            }
+            let (module, member) = type_import.as_ref()?;
+            return self.js_ts_direct_exported_class_owner(caller, module, member);
+        }
         if imports.is_empty() {
             let key = (caller.to_string(), spelling.to_string());
             return self.clean_class_spans.contains_key(&key).then_some(key);
@@ -2126,14 +2138,25 @@ impl CallGraph {
         {
             return None;
         }
-        let candidates =
-            js_ts_relative_module_candidates(&binding.module_path, caller, &self.indexed_files)?;
+        self.js_ts_direct_exported_class_owner(
+            caller,
+            &binding.module_path,
+            binding.member.as_deref()?,
+        )
+    }
+
+    fn js_ts_direct_exported_class_owner(
+        &self,
+        caller: &str,
+        module: &str,
+        member: &str,
+    ) -> Option<(String, String)> {
+        let candidates = js_ts_relative_module_candidates(module, caller, &self.indexed_files)?;
         if candidates.len() != 1 {
             return None;
         }
         let defining_file = &candidates[0];
         let facts = self.js_ts_exports.get(defining_file)?;
-        let member = binding.member.as_deref()?;
         if facts.conflicted.contains(member) {
             return None;
         }
@@ -5863,13 +5886,43 @@ fn python_inert_initializers(files: &BTreeMap<String, ParsedFile>) -> BTreeSet<S
 
 fn python_namespace_submodule_path(
     binding: &ImportBinding,
+    caller_file: &str,
     indexed_files: &BTreeSet<String>,
     inert_initializers: &BTreeSet<String>,
 ) -> Option<String> {
-    if !matches!(binding.kind, ImportBindingKind::MemberImport)
-        || binding.module_path.starts_with('.')
-        || !binding.module_path.split('.').all(python_identifier)
-    {
+    if !matches!(binding.kind, ImportBindingKind::MemberImport) {
+        return None;
+    }
+    let module_path = if binding.module_path.starts_with('.') {
+        let suffix = binding.module_path.trim_start_matches('.');
+        let dots = binding.module_path.len() - suffix.len();
+        if !suffix.is_empty() && !suffix.split('.').all(python_identifier) {
+            return None;
+        }
+        let (directory, _) = caller_file.rsplit_once('/')?;
+        let mut parts: Vec<_> = directory.split('/').collect();
+        if !parts.iter().all(|part| python_identifier(part)) {
+            return None;
+        }
+        // Filename proximity alone cannot prove a relative import's package.
+        for level in 0..dots {
+            if level > 0 {
+                parts.pop()?;
+            }
+            if parts.is_empty()
+                || !inert_initializers.contains(&format!("{}/__init__.py", parts.join("/")))
+            {
+                return None;
+            }
+        }
+        if !suffix.is_empty() {
+            parts.extend(suffix.split('.'));
+        }
+        parts.join(".")
+    } else {
+        binding.module_path.clone()
+    };
+    if !module_path.split('.').all(python_identifier) {
         return None;
     }
     let member = binding
@@ -5877,7 +5930,7 @@ fn python_namespace_submodule_path(
         .as_deref()
         .filter(|part| python_identifier(part))?;
     let mut parent = String::new();
-    for part in binding.module_path.split('.') {
+    for part in module_path.split('.') {
         if !parent.is_empty() {
             parent.push('/');
         }
@@ -5889,7 +5942,7 @@ fn python_namespace_submodule_path(
             return None;
         }
     }
-    Some(format!("{}.{}", binding.module_path, member))
+    Some(format!("{module_path}.{member}"))
 }
 
 fn unique_python_module_file<'a>(
@@ -5953,9 +6006,12 @@ pub(crate) fn python_imported_class_route(
             if matches!(binding.kind, ImportBindingKind::MemberImport)
                 && qualifier == binding.local =>
         {
-            let Some(module_path) =
-                python_namespace_submodule_path(binding, indexed_files, inert_initializers)
-            else {
+            let Some(module_path) = python_namespace_submodule_path(
+                binding,
+                caller_file,
+                indexed_files,
+                inert_initializers,
+            ) else {
                 return PythonImportedClassRoute::Blocked;
             };
             (owner, module_path)
@@ -6019,9 +6075,12 @@ pub(crate) fn python_imported_class_proof_keys(
                     if !binding.eligible {
                         continue;
                     }
-                    let Some(module_path) =
-                        python_namespace_submodule_path(binding, indexed_files, inert_initializers)
-                    else {
+                    let Some(module_path) = python_namespace_submodule_path(
+                        binding,
+                        caller_file,
+                        indexed_files,
+                        inert_initializers,
+                    ) else {
                         continue;
                     };
                     let Some(defining_file) =
