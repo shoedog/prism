@@ -139,3 +139,127 @@ fn unresolved_binding_uses_flat_path_kill_equation() {
         FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
     );
 }
+
+#[test]
+fn python_inner_block_assignment_reuses_function_binding() {
+    let parsed = parsed(
+        "def f(flag):\n    x = source()\n    if flag:\n        x = clean()\n    else:\n        return\n    sink(x)\n",
+        Language::Python,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = definition_on_line(&defs, 2);
+    let outer_use = edge(&parsed, &func, &outer, 7);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&outer_use)).0;
+    assert_label(
+        &outcome,
+        &outer_use,
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }),
+    );
+}
+
+#[test]
+fn go_inner_block_declaration_does_not_kill_outer_binding() {
+    let parsed = parsed(
+        "package main\nfunc f() {\n\tx := source()\n\t{\n\t\tx := clean()\n\t\tsink(x)\n\t}\n\tsink(x)\n}\n",
+        Language::Go,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = definition_on_line(&defs, 3);
+    let outer_use = edge(&parsed, &func, &outer, 8);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&outer_use)).0;
+    assert_label(&outcome, &outer_use, FlowConfidence::Exact);
+}
+
+#[test]
+fn rust_inner_block_declaration_does_not_kill_outer_binding() {
+    let parsed = parsed(
+        "fn f() {\n    let x = source();\n    {\n        let x = clean();\n        sink(x);\n    }\n    sink(x);\n}\n",
+        Language::Rust,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = definition_on_line(&defs, 2);
+    let outer_use = edge(&parsed, &func, &outer, 7);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&outer_use)).0;
+    assert_label(&outcome, &outer_use, FlowConfidence::Exact);
+}
+
+#[test]
+fn javascript_let_inner_block_declaration_does_not_kill_outer_binding() {
+    let parsed = parsed(
+        "function f() {\n  let x = source();\n  {\n    let x = clean();\n    sink(x);\n  }\n  sink(x);\n}\n",
+        Language::JavaScript,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = definition_on_line(&defs, 2);
+    let outer_use = edge(&parsed, &func, &outer, 7);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&outer_use)).0;
+    assert_label(&outcome, &outer_use, FlowConfidence::Exact);
+}
+
+#[test]
+fn javascript_repeated_var_reuses_function_binding() {
+    let parsed = parsed(
+        "function f() {\n  var x = source();\n  var x = clean();\n  sink(x);\n}\n",
+        Language::JavaScript,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let first = definition_on_line(&defs, 2);
+    let second = definition_on_line(&defs, 3);
+    let first_edge = edge(&parsed, &func, &first, 4);
+    let second_edge = edge(&parsed, &func, &second, 4);
+    let outcome = run(&parsed, &defs, &[first_edge.clone(), second_edge.clone()]).0;
+    assert_label(
+        &outcome,
+        &first_edge,
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+    );
+    assert_label(&outcome, &second_edge, FlowConfidence::Exact);
+}
+
+#[test]
+fn javascript_var_redeclaration_reuses_parameter_binding() {
+    let parsed = parsed(
+        "function f(x) {\n  var x = source();\n  sink(x);\n}\n",
+        Language::JavaScript,
+    );
+    let func = function(&parsed);
+    let parameter = def(&parsed, 0, "x", 1, 0, false);
+    let redeclaration = def(&parsed, 1, "x", 2, 0, false);
+    let parameter_edge = edge(&parsed, &func, &parameter, 3);
+    let redeclaration_edge = edge(&parsed, &func, &redeclaration, 3);
+    let outcome = run(
+        &parsed,
+        &[parameter, redeclaration],
+        &[parameter_edge.clone(), redeclaration_edge.clone()],
+    )
+    .0;
+    assert_label(
+        &outcome,
+        &parameter_edge,
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 2 }),
+    );
+    assert_label(&outcome, &redeclaration_edge, FlowConfidence::Exact);
+}
+
+#[test]
+fn unresolved_pair_uses_every_same_path_definition_as_a_kill() {
+    let parsed = parsed(
+        "function f() {\n  x = source();\n  {\n    let x = clean();\n    sink(x);\n  }\n  sink(x);\n}\n",
+        Language::TypeScript,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let original = definition_on_line(&defs, 2);
+    let outer_use = edge(&parsed, &func, &original, 7);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&outer_use)).0;
+    assert_label(
+        &outcome,
+        &outer_use,
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }),
+    );
+}

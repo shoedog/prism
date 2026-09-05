@@ -43,7 +43,23 @@ enum DeclarationKind {
     Parameter,
     GoShort,
     JavaScriptVar,
+    PythonAssignment,
     Other,
+}
+
+impl DeclarationKind {
+    fn reuses_binding_in_scope(self) -> bool {
+        matches!(
+            self,
+            Self::GoShort | Self::JavaScriptVar | Self::PythonAssignment
+        )
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct BindingScopeRule {
+    creates_scope: bool,
+    declaration: Option<DeclarationKind>,
 }
 
 #[derive(Clone, Debug)]
@@ -84,7 +100,8 @@ impl BindingFacts {
                 continue;
             };
             let name = defs[index].path.base.clone();
-            let reused = (kind == DeclarationKind::GoShort)
+            let reused = kind
+                .reuses_binding_in_scope()
                 .then(|| {
                     declarations
                         .iter()
@@ -133,7 +150,11 @@ impl BindingFacts {
     }
 
     pub(super) fn same_def_binding(&self, left: usize, right: usize) -> bool {
-        self.def_bindings[left].id == self.def_bindings[right].id
+        let left = &self.def_bindings[left].id;
+        let right = &self.def_bindings[right].id;
+        left == right
+            || matches!(left, BindingId::FlatFallback(_))
+            || matches!(right, BindingId::FlatFallback(_))
     }
 
     pub(super) fn relation(
@@ -226,20 +247,23 @@ fn declaration_seed(
         .root_node()
         .descendant_for_byte_range(def.start_byte, end_byte)?;
     loop {
-        if parsed.language.is_declaration_node(node.kind()) {
-            if parsed
-                .language
-                .declaration_value(&node)
-                .is_some_and(|value| {
-                    value.start_byte() <= def.start_byte && def.start_byte < value.end_byte()
-                })
-            {
+        let rule = binding_scope_rule(parsed.language, node.kind());
+        if let Some(kind) = rule.declaration {
+            let value = if kind == DeclarationKind::PythonAssignment {
+                parsed.language.assignment_value(&node)
+            } else {
+                parsed.language.declaration_value(&node)
+            };
+            if value.is_some_and(|value| {
+                value.start_byte() <= def.start_byte && def.start_byte < value.end_byte()
+            }) {
                 return None;
             }
-            let kind = declaration_kind(parsed, node);
             let scope = declaration_scope(parsed, func_node, node, kind, function_scope);
             let visible_from = match kind {
-                DeclarationKind::Parameter | DeclarationKind::JavaScriptVar => scope.start_byte,
+                DeclarationKind::Parameter
+                | DeclarationKind::JavaScriptVar
+                | DeclarationKind::PythonAssignment => scope.start_byte,
                 DeclarationKind::GoShort | DeclarationKind::Other => node.end_byte(),
             };
             return Some((scope, kind, visible_from));
@@ -248,23 +272,6 @@ fn declaration_seed(
             return None;
         }
         node = node.parent()?;
-    }
-}
-
-fn declaration_kind(parsed: &ParsedFile, node: Node<'_>) -> DeclarationKind {
-    if parsed.language == Language::Go && node.kind() == "short_var_declaration" {
-        DeclarationKind::GoShort
-    } else if matches!(
-        parsed.language,
-        Language::JavaScript | Language::TypeScript | Language::Tsx
-    ) && (node.kind() == "variable_declaration"
-        || node
-            .parent()
-            .is_some_and(|parent| parent.kind() == "variable_declaration"))
-    {
-        DeclarationKind::JavaScriptVar
-    } else {
-        DeclarationKind::Other
     }
 }
 
@@ -280,35 +287,89 @@ fn declaration_scope(
     }
     let mut current = node.parent();
     while let Some(parent) = current {
-        if parsed.language.is_scope_block(parent.kind()) {
-            return scope_span(parent);
-        }
-        if kind == DeclarationKind::GoShort && is_go_header_scope(parent.kind()) {
-            return scope_span(parent);
-        }
         if parent.id() == func_node.id() {
             break;
+        }
+        if binding_scope_rule(parsed.language, parent.kind()).creates_scope {
+            return scope_span(parent);
         }
         current = parent.parent();
     }
     function_scope
 }
 
-fn is_go_header_scope(kind: &str) -> bool {
-    matches!(
-        kind,
-        "if_statement"
-            | "for_statement"
-            | "expression_switch_statement"
-            | "type_switch_statement"
-            | "switch_statement"
-    )
+fn binding_scope_rule(language: Language, kind: &str) -> BindingScopeRule {
+    let (creates_scope, declaration) = match language {
+        Language::Python => (
+            matches!(
+                kind,
+                "function_definition"
+                    | "lambda"
+                    | "class_definition"
+                    | "list_comprehension"
+                    | "set_comprehension"
+                    | "dictionary_comprehension"
+                    | "generator_expression"
+            ),
+            matches!(
+                kind,
+                "assignment" | "augmented_assignment" | "named_expression"
+            )
+            .then_some(DeclarationKind::PythonAssignment),
+        ),
+        Language::JavaScript | Language::TypeScript | Language::Tsx => (
+            matches!(
+                kind,
+                "statement_block"
+                    | "class_body"
+                    | "function_declaration"
+                    | "function_expression"
+                    | "arrow_function"
+            ),
+            match kind {
+                "variable_declaration" => Some(DeclarationKind::JavaScriptVar),
+                "lexical_declaration" | "class_declaration" => Some(DeclarationKind::Other),
+                _ => None,
+            },
+        ),
+        Language::Go => (
+            matches!(
+                kind,
+                "block"
+                    | "if_statement"
+                    | "for_statement"
+                    | "expression_switch_statement"
+                    | "type_switch_statement"
+                    | "switch_statement"
+                    | "select_statement"
+            ),
+            match kind {
+                "short_var_declaration" => Some(DeclarationKind::GoShort),
+                "var_declaration" | "const_declaration" => Some(DeclarationKind::Other),
+                _ => None,
+            },
+        ),
+        Language::Rust => (
+            kind == "block",
+            matches!(kind, "let_declaration" | "const_item" | "static_item")
+                .then_some(DeclarationKind::Other),
+        ),
+        _ => (
+            language.is_scope_block(kind),
+            language
+                .is_declaration_node(kind)
+                .then_some(DeclarationKind::Other),
+        ),
+    };
+    BindingScopeRule {
+        creates_scope,
+        declaration,
+    }
 }
 
-fn function_scope(parsed: &ParsedFile, func_node: &Node<'_>) -> ScopeSpan {
+fn function_scope(_parsed: &ParsedFile, func_node: &Node<'_>) -> ScopeSpan {
     func_node
         .child_by_field_name("body")
-        .filter(|node| parsed.language.is_scope_block(node.kind()))
         .map(scope_span)
         .unwrap_or_else(|| scope_span(*func_node))
 }
