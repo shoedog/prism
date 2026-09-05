@@ -64,6 +64,8 @@ class Case:
 
     # probe == "dfg"
     expect_dfg_edges: list = field(default_factory=list)
+    expect_dfg_stats: dict = field(default_factory=dict)
+    expect_dfg_findings: list = field(default_factory=list)
 
 
 @dataclass
@@ -99,9 +101,11 @@ EXPECT_KEYS_BY_PROBE = {
     "callers": {"callers", "exact", "resolution_kind", "forbid_resolution_kind"},
     "taint": {"reachability", "warning_kinds_present", "sanitizers_present", "frontier_count_min"},
     "module_deps": {"module_edges", "forbid_to", "exact"},
-    "dfg": {"edges"},
+    "dfg": {"edges", "stats", "findings"},
 }
 DFG_EDGE_KEYS = {"from", "to", "confidence", "doubt", "kill_line", "present"}
+DFG_STATS_KEYS = {"dfg_label_loop_carried_min"}
+DFG_FINDING_KEYS = {"from", "to", "confidence", "crossed_unlabeled", "present"}
 # Controller adjudication (e): the only wire `Reachability` variants plus this
 # harness's own "None" (JSON null / frontier mode) sentinel. Anything else is
 # a typo'd sentinel that would otherwise silently never match. "Sanitized" (P10)
@@ -269,7 +273,41 @@ def load_case(toml_path: Path) -> Case:
                 raise ValueError(
                     f"{toml_path}: expect.edges[{index}].present must be a bool"
                 )
-        return Case(**common, expect_dfg_edges=edges)
+        stats = dict(expect.get("stats", {}))
+        _reject_unknown_keys(
+            toml_path, probe, "expect.stats", stats, DFG_STATS_KEYS
+        )
+        loop_carried_min = stats.get("dfg_label_loop_carried_min")
+        if loop_carried_min is not None and (
+            type(loop_carried_min) is not int or loop_carried_min < 1
+        ):
+            raise ValueError(
+                f"{toml_path}: expect.stats.dfg_label_loop_carried_min "
+                f"must be an int >= 1, got {loop_carried_min!r}"
+            )
+        findings = list(expect.get("findings", []))
+        for index, finding in enumerate(findings):
+            _reject_unknown_keys(
+                toml_path, probe, f"expect.findings[{index}]", finding,
+                DFG_FINDING_KEYS,
+            )
+            if not isinstance(finding.get("from"), str) or not isinstance(
+                finding.get("to"), str
+            ):
+                raise ValueError(
+                    f"{toml_path}: expect.findings[{index}] requires string from/to endpoints"
+                )
+            for bool_key in ("crossed_unlabeled", "present"):
+                if bool_key in finding and type(finding[bool_key]) is not bool:
+                    raise ValueError(
+                        f"{toml_path}: expect.findings[{index}].{bool_key} must be a bool"
+                    )
+        return Case(
+            **common,
+            expect_dfg_edges=edges,
+            expect_dfg_stats=stats,
+            expect_dfg_findings=findings,
+        )
 
     # probe == "module_deps"
     if has_seed or has_expect_callers:
@@ -495,6 +533,32 @@ def _dfg_edge_matches(expected: dict, actual: dict) -> bool:
     )
 
 
+def _dfg_same_endpoints(expected: dict, actual: dict) -> bool:
+    return (
+        _dfg_endpoint(actual.get("from", {})) == expected["from"]
+        and _dfg_endpoint(actual.get("to", {})) == expected["to"]
+    )
+
+
+def _dfg_expectation_matches(expected: dict, actual: list[dict]) -> bool:
+    endpoint_rows = [edge for edge in actual if _dfg_same_endpoints(expected, edge)]
+    if not expected.get("present", True):
+        return not endpoint_rows
+    return bool(endpoint_rows) and all(
+        _dfg_edge_matches(expected, edge) for edge in endpoint_rows
+    )
+
+
+def _dfg_expected(case: Case) -> object:
+    if not case.expect_dfg_stats and not case.expect_dfg_findings:
+        return case.expect_dfg_edges
+    return {
+        "edges": case.expect_dfg_edges,
+        "stats": case.expect_dfg_stats,
+        "findings": case.expect_dfg_findings,
+    }
+
+
 def _run_dfg_case(case: Case, lang: str, sut) -> CaseResult:
     if not case.expect_dfg_edges:
         raise ValueError(f'{case.path}: probe="dfg" expected-edge list is empty')
@@ -507,22 +571,25 @@ def _run_dfg_case(case: Case, lang: str, sut) -> CaseResult:
     try:
         completed = subprocess.run(command, capture_output=True, text=True)
     except OSError as exc:
-        got = f"DFG_ORACLE_UNAVAILABLE|{exc}"
+        got = f"DFG_ORACLE_LAUNCH_FAILED|{exc}"
         return CaseResult(
-            case.capability, lang, "expected_gap", got,
-            case.expect_dfg_edges, {}, None, None, probe="dfg",
+            case.capability, lang, "regression", got,
+            _dfg_expected(case), {}, None, None, probe="dfg",
         )
     if completed.returncode != 0:
         detail = "\n".join(
             part.strip() for part in (completed.stdout, completed.stderr) if part.strip()
         )
-        oracle_missing = "unrecognized subcommand 'dfg-stats'" in detail
+        oracle_missing = (
+            completed.returncode == 2
+            and "unrecognized subcommand 'dfg-stats'" in detail
+        )
         kind = "DFG_ORACLE_UNAVAILABLE" if oracle_missing else "DFG_ORACLE_COMMAND_FAILED"
         got = f"{kind}|exit={completed.returncode}|{detail}"
         return CaseResult(
             case.capability, lang,
             "expected_gap" if oracle_missing else _status_outcome(case.status, False), got,
-            case.expect_dfg_edges, {}, None, None, probe="dfg",
+            _dfg_expected(case), {}, None, None, probe="dfg",
         )
 
     try:
@@ -531,15 +598,14 @@ def _run_dfg_case(case: Case, lang: str, sut) -> CaseResult:
         got = f"DFG_ORACLE_INVALID_JSONL|{exc}"
         return CaseResult(
             case.capability, lang, _status_outcome(case.status, False), got,
-            case.expect_dfg_edges, {}, None, None, probe="dfg",
+            _dfg_expected(case), {}, None, None, probe="dfg",
         )
 
-    checks = []
-    for expected in case.expect_dfg_edges:
-        found = any(_dfg_edge_matches(expected, edge) for edge in actual)
-        checks.append(found if expected.get("present", True) else not found)
-    matched = all(checks)
-    got = [
+    edges_matched = all(
+        _dfg_expectation_matches(expected, actual)
+        for expected in case.expect_dfg_edges
+    )
+    got_edges = [
         {
             "from": _dfg_endpoint(edge.get("from", {})),
             "to": _dfg_endpoint(edge.get("to", {})),
@@ -549,10 +615,94 @@ def _run_dfg_case(case: Case, lang: str, sut) -> CaseResult:
         }
         for edge in actual
     ]
+    supplemental_staged = bool(case.expect_dfg_stats or case.expect_dfg_findings)
+    matched = edges_matched and not supplemental_staged
+    got = (
+        {
+            "edges": got_edges,
+            "supplemental": "DFG_ORACLE_SUPPLEMENTAL_EXPECTATIONS_STAGED",
+        }
+        if supplemental_staged
+        else got_edges
+    )
     return CaseResult(
         case.capability, lang, _status_outcome(case.status, matched), got,
-        case.expect_dfg_edges, {}, None, None, probe="dfg",
+        _dfg_expected(case), {}, None, None, probe="dfg",
     )
+
+
+def test_dfg_launch_oserror_is_a_regression() -> None:
+    """Contract test kept here because §9 permits this matrix module only."""
+    from types import SimpleNamespace
+
+    case = Case(
+        path=Path("."), language="python", capability="dfg_launch_oserror",
+        status="pass", probe="dfg",
+        expect_dfg_edges=[{"from": "a.py:1:x", "to": "a.py:2:x"}],
+    )
+    original = subprocess.run
+    try:
+        def raise_permission(*_args, **_kwargs):
+            raise PermissionError(13, "permission denied", "prism")
+
+        subprocess.run = raise_permission
+        result = _run_dfg_case(
+            case, "python", SimpleNamespace(bin="prism", no_cache=False)
+        )
+    finally:
+        subprocess.run = original
+    assert result.outcome == "regression"
+    assert str(result.got).startswith("DFG_ORACLE_LAUNCH_FAILED|")
+
+
+def test_dfg_unknown_subcommand_requires_prism_usage_exit_code() -> None:
+    from types import SimpleNamespace
+
+    case = Case(
+        path=Path("."), language="python", capability="dfg_missing_subcommand",
+        status="pass", probe="dfg",
+        expect_dfg_edges=[{"from": "a.py:1:x", "to": "a.py:2:x"}],
+    )
+    sut = SimpleNamespace(bin="prism", no_cache=False)
+    original = subprocess.run
+    try:
+        subprocess.run = lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=1,
+            stdout="",
+            stderr="error: unrecognized subcommand 'dfg-stats'",
+        )
+        wrong_exit = _run_dfg_case(case, "python", sut)
+        subprocess.run = lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=2,
+            stdout="",
+            stderr="error: unrecognized subcommand 'dfg-stats'",
+        )
+        prism_usage = _run_dfg_case(case, "python", sut)
+    finally:
+        subprocess.run = original
+    assert wrong_exit.outcome == "regression"
+    assert prism_usage.outcome == "expected_gap"
+
+
+def test_dfg_mixed_payload_jsonl_is_a_regression() -> None:
+    expected = {
+        "from": "main.py:2:x", "to": "main.py:3:x",
+        "confidence": "nameonly", "doubt": "sameline", "present": True,
+    }
+    mixed_jsonl = "\n".join([
+        json.dumps({
+            "from": {"file": "main.py", "line": 2, "path": "x"},
+            "to": {"file": "main.py", "line": 3, "path": "x"},
+            "confidence": "nameonly", "doubt": "sameline", "kill_line": None,
+        }),
+        json.dumps({
+            "from": {"file": "main.py", "line": 2, "path": "x"},
+            "to": {"file": "main.py", "line": 3, "path": "x"},
+            "confidence": "exact", "doubt": None, "kill_line": None,
+        }),
+    ])
+    actual = [json.loads(line) for line in mixed_jsonl.splitlines()]
+    assert not _dfg_expectation_matches(expected, actual)
 
 
 def run_matrix(fixtures_root: Path, sut, languages: list[str]) -> list[CaseResult]:
