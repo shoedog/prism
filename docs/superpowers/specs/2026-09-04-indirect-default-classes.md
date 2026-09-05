@@ -65,10 +65,12 @@ an admissible result, not permission to expand the implementation silently.
 - Round 3 survived (self-pass, not independent): reread producer/consumer and
   persistence diff; real-source probe confirms Class(Library), no conflict.
   Alternative explanation for zero gain (identity still rejected) is falsified.
-  Remaining arrow-field / this.field / destructured-prop barriers are outside
+  Remaining this.field / destructured-prop barriers are outside
   the approved scope. All 2780 real sample records unchanged; prior Python/JS
   samples byte-identical. No further implementation fixes or round extensions.
 
-Published implementation: `257fb7f`, PR #244 OPEN, not merged. Current custody is
-`docs/superpowers/handoffs/2026-09-04-indirect-default-handoff.md`; the publication
-follow-up is documentation-only.
+Published implementation: `257fb7f`, PR #244 merged at a70ea03. Current custody is
+`docs/superpowers/handoffs/2026-09-04-arrow-fields-inline-props.md`. That continuation
+refutes the prior assumption that arrow ownership was absent: base arrow positives
+already resolved, but bypassed slot/static/write safeguards. Receiver-shape misses
+still explain the zero real-site gain here.

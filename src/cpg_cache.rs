@@ -175,7 +175,8 @@ use std::path::{Path, PathBuf};
 /// - v63: Cargo binary own-library bindings and direct default class receiver
 ///   authority change serialized config and resolved topology.
 /// - v64: proven indirect local default classes change receiver authority.
-const CACHE_VERSION: u32 = 64;
+/// - v65: arrow-field slot/static and explicit receiver-member write barriers.
+const CACHE_VERSION: u32 = 65;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -705,7 +706,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_receiver_authority() {
-        assert_eq!(super::CACHE_VERSION, 64);
+        assert_eq!(super::CACHE_VERSION, 65);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -768,6 +769,9 @@ mod tests {
             resolution::ResolutionConfidence,
         };
         for (language, caller, owner, importer, good, bad, auxiliary) in [
+            (Language::JavaScript, "app.js", "client.js", "import Alias from './client'; function run() { const x = new Alias(); x.m(); }", "class Client { m = () => {}; } export default Client;", "class Client { static m = () => {}; } export default Client;", None),
+            (Language::TypeScript, "app.ts", "client.ts", "import type Alias from './client'; function run(x: Alias) { x.m(); }", "class Client { m = () => {}; } export default Client;", "class Client { m = () => {}; change() { delete this.m; } } export default Client;", None),
+            (Language::Tsx, "app.tsx", "client.tsx", "import Alias from './client'; function run(x: Alias) { x.m(); }", "class Client { m = () => {}; } export default Client;", "class Client { m = () => {}; m = other; } export default Client;", None),
             (Language::JavaScript, "app.js", "client.js", "import Alias from './client'; function run() { const x = new Alias(); x.m(); }", "class Client { m() {} } export default Client;", "class Client { m() {} } export default Client; Client = Other;", None),
             (Language::TypeScript, "app.ts", "client.ts", "import type Alias from './client'; function run(x: Alias) { x.m(); }", "class Client { m() {} } export default Client;", "class Client { m() {} } import Client from './other'; export default Client;", None),
             (Language::Tsx, "app.tsx", "client.tsx", "import Alias from './client'; function run(x: Alias) { x.m(); }", "class Client { m() {} } export default Client;", "class Client { m() {} } export default Client; export default Client;", None),
@@ -811,7 +815,7 @@ mod tests {
                     if expected { assert_eq!(exact[0].target.file, target); }
                 }
                 assert_eq!(full.call_graph.calls, incremental.call_graph.calls, "{language:?}");
-                force_cache_version(dir.path(), 63);
+                force_cache_version(dir.path(), 64);
                 assert!(matches!(load_cache(&hashes, false, dir.path()), CacheResult::Miss));
             }
         }

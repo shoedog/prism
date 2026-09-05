@@ -74,7 +74,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v31: type-only TS and explicit-relative Python receiver edges (CPG v62).
 // v32: Rust binary own-library and direct default class receiver edges (CPG v63).
 // v33: indirect local default class receiver identity (CPG v64).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 33;
+// v34: bounded arrow-field and receiver-member mutation authority (CPG v65).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 34;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -618,7 +619,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 33);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 34);
     }
 
     #[test]
@@ -661,6 +662,9 @@ mod tests {
     fn imported_receiver_sidecar_round_trip() {
         use crate::{ast::ParsedFile, cpg::CpgContext, languages::Language};
         for (lang, caller, owner, source, declaration, init) in [
+            (Language::JavaScript, "app.js", "client.js", "import Alias from './client'; function visible() { const x = new Alias(); x.m(); } function shadow() { const x = new Alias(); x.m = other; x.m(); }", "class Client { m = () => {}; } export default Client;", None),
+            (Language::TypeScript, "app.ts", "client.ts", "import type Alias from './client'; function visible(x: Alias) { x.m(); } function shadow(x: Alias) { delete x.m; x.m(); }", "class Client { m = () => {}; } export default Client;", None),
+            (Language::Tsx, "app.tsx", "client.tsx", "import type Alias from './client'; function visible(x: Alias) { x.m(); } function shadow(x: Alias) { ({m: x.m} = other); x.m(); }", "class Client { m = () => {}; } export default Client;", None),
             (Language::JavaScript, "app.js", "client.js", "import Alias from './client'; function visible() { const x = new Alias(); x.m(); } function shadow(Alias) { const x = new Alias(); x.m(); }", "class Client { m() {} } export default Client;", None),
             (Language::TypeScript, "app.ts", "client.ts", "import type Alias from './client'; function visible(x: Alias) { x.m(); } function shadow<Alias>(x: Alias) { x.m(); }", "class Client { m() {} } export default Client;", None),
             (Language::Tsx, "app.tsx", "client.tsx", "import {type default as Alias} from './client'; function visible(x: Alias) { x.m(); } function shadow<Alias>(x: Alias) { x.m(); }", "class Client { m() {} } export default Client;", None),

@@ -98,7 +98,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   support JS/TS/TSX value imports and erased TS type imports. Prior Python/JS samples
   remain byte-identical. Quick is baseline-invalid for SHA drift; pins unchanged.
   See `docs/eval/receiver-closure/2026-09-04-rust-default-readout.md`.
-- **Indirect local default-class identity — PR #244 OPEN, `257fb7f`, not merged:**
+- **Indirect local default-class identity — PR #244 mergeda70ea03, implementation `257fb7f`:**
   declaration identity with duplicate/import/write barriers, CPG64/nav33;
   3744/0/1 default, 3934/0/1 MCP, matrix104/104. Real Excalidraw sample: 2780
   records, 369 Exact unchanged; 11 unique Library receiver spans remain NameOnly
