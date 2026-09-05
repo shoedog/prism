@@ -106,6 +106,12 @@ Three candidate directions once the queue's top items are drained (or interleave
   ownership, then a separate destructured inline-prop receiver slice. Quick is
   baseline-invalid for SHA drift, not a green accuracy claim. See
   `docs/eval/receiver-closure/2026-09-04-indirect-default-readout.md`.
+- **Bounded arrow-field repair — PR245 OPEN, a03382a:** existing arrow ownership
+  bypassed static/slot/write checks; normalize member wrappers and repair explicit
+  member-write barriers. CPG65/nav34; default3811/0/1, MCP4001/0/1, matrix104/104;
+  quick baseline-invalid SHA drift. Real2780 records/369 Exact unchanged. The
+  separately approved inline-prop receiver proof follows on a stacked branch.
+  See `docs/eval/receiver-closure/2026-09-04-arrow-members-readout.md`.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:

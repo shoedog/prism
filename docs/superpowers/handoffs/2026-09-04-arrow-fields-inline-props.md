@@ -1,7 +1,7 @@
 # Handoff — bounded arrow fields, then separate inline props
 
 **Written:** 2026-09-04 · **By:** Codex /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/bounded-arrow-field-members · **Measured state:** `[MEASURED]` HEAD a70ea03, tree dirty; git fetch/log show #243 merged6cfa9ef and #244 mergeda70ea03. Original untracked .superpowers/ and eval/snapshots/prism-fb81481dafa7.json preserved.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/bounded-arrow-field-members · **Measured state:** `[MEASURED]` a03382a pushed; PR245 OPEN against a70ea03, not merged. Original untracked .superpowers/ and eval/snapshots/prism-fb81481dafa7.json preserved. This follow-up is docs-only.
 **Predecessor:** merged #244, with #243 also integrated.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,14 +9,14 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Ownership: `[MEASURED]` this session owns the branch; no subagents dispatched — RESOLVED.
-(b) Custody: `[MEASURED]` implementation uncommitted, checkpoint in /private/tmp/prism-arrow-members-1F4iiR — OPEN until commit/push.
+(b) Custody: `[MEASURED]` implementation a03382a pushed and raw evidence archived — RESOLVED.
 (c) In flight: `[MEASURED]` A suites, release, matrix/quick and paired measurement complete — RESOLVED.
 (d) Authority: owner “proceed to bounded arrow-field member ownership, then a separate destructured inline-prop receiver proof.” Both slices authorized, separate PRs; second may stack on first. Standing commit/push/open-PR authority; no merge/rebaseline/full multicorpus.
 
 ## 1. Resume order
 
 1. Read /private/tmp/prism-arrow-members-1F4iiR/full-default.log, full-mcp.log and candidate-build.log; git status --short.
-2. Finish slice A measurement/gates and publish its PR. Then finalize/run slice B RED tests and implement only inline-prop proof on a separate branch.
+2. Review PR245 independently; continue approved slice B on feat/destructured-inline-prop-receivers, stacked on A until merge.
 
 **STOP conditions:** three review rounds per slice; new open-class defects require design escalation; preserve unrelated failures and controls, never rebaseline.
 
@@ -28,7 +28,7 @@
 | A diagnosis | done | `[MEASURED]` red-complete.log: 1 pass/2 fail; positive arrows already Exact, unsafe fields/writes also Exact |
 | A repair | done | `[MEASURED]` normalized field static/slot proof, shared explicit write-target checks, CPG65/nav34; round2 parenthesized-object failure fixed |
 | A gates | done | `[MEASURED]` default3811/0/1, MCP4001/0/1, matrix104/104; quick exit2 solely SHA drift with zero oracle/SUT errors; fixed-source2780 records/369 Exact unchanged |
-| A publication | next | Commit and push verified slice, open PR |
+| A publication | done | `[MEASURED]` a03382a pushed; https://github.com/shoedog/prism/pull/245 OPEN |
 | B inline props | next | Separate approved slice, not yet implemented |
 
 ## 3. Corrections to standing documents and memory

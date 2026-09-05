@@ -1,7 +1,8 @@
 # Arrow-field authority repair
 
 Base a70ea03 (PR243 and244 merged). Owner approved this bounded slice before a
-separate destructured inline-prop proof. Implementation verified; PR pending.
+separate destructured inline-prop proof. Published implementation a03382a in
+[PR245](https://github.com/shoedog/prism/pull/245), OPEN, not merged.
 
 ## Result and corrected assumption
 
@@ -65,3 +66,5 @@ Raw RED/round2/full-suite logs, binaries and paired JSONL:
 docs/eval/receiver-closure/measure-indirect-default.mjs and the preceding five-file
 archive /private/tmp/prism-indirect-default-VUbv13/excalidraw. Existing baselines
 and unrelated untracked artifacts are preserved.
+Evidence archive: /private/tmp/prism-arrow-members-1F4iiR-evidence.tgz, SHA256
+bc4bae43d372a10d7ac7af337482969606080b206e7e3371fa1ec28691978f13.
