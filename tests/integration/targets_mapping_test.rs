@@ -44,6 +44,114 @@ fn inputs(path: &str) -> (TempDir, ReviewInputs) {
     (temp, loaded)
 }
 
+/// Like `inputs`, but with caller-supplied source text and diff line — for
+/// dependency-hint fixtures where the AST at a specific line matters and the
+/// fixed `"def read(): return 1"` body of `inputs` does not have one.
+fn inputs_with(path: &str, source: &str, diff_line: usize) -> (TempDir, ReviewInputs) {
+    let temp = TempDir::new().unwrap();
+    let full = temp.path().join(path);
+    fs::create_dir_all(full.parent().unwrap()).unwrap();
+    fs::write(&full, source).unwrap();
+    let diff = serde_json::json!({
+        "files": [{"file_path": path, "modify_type": "Modified", "diff_lines": [diff_line]}]
+    });
+    let loaded = load_review_inputs(
+        &ReviewOptions::new(temp.path()),
+        &serde_json::to_string(&diff).unwrap(),
+    )
+    .unwrap();
+    (temp, loaded)
+}
+
+/// An `echo`/`missing_error_handling` finding at `(file, line)`. The
+/// description is deliberately non-verbatim (unlike `finding()`'s callers
+/// elsewhere in this file) — proving the AST-recovered hint does not depend
+/// on `mapping::echo_callee` parsing the description at all.
+fn echo_finding(file: &str, line: usize) -> SliceFinding {
+    SliceFinding {
+        algorithm: "echo".to_string(),
+        file: file.to_string(),
+        line,
+        severity: "warning".to_string(),
+        description: "echo finding with no parseable callee in its prose".to_string(),
+        function_name: None,
+        related_lines: Vec::new(),
+        related_files: Vec::new(),
+        category: Some("missing_error_handling".to_string()),
+        parse_quality: None,
+        diagrams: Vec::new(),
+    }
+}
+
+/// Roadmap `03-tooling-plan-roadmap.md` §3 Phase 1: every `external_call`
+/// target should carry the call-site's real syntax and, where the callee
+/// chain's root resolves through the closed root-library table, a harness
+/// `kind`. These four cover the receiver-shape resolve/no-resolve pair, a Go
+/// site, and the negative (unmapped root) case named in the acceptance
+/// criteria; `dependency_hint.rs`'s unit tests cover the resolution rules
+/// themselves in isolation.
+#[test]
+fn external_call_dependency_hint_covers_receiver_go_and_negative_shapes() {
+    let (temp, py_inputs) = inputs_with(
+        "svc.py",
+        "class C:\n    def __init__(self):\n        self.client = requests.Session()\n\n    def send(self):\n        self.client.get(\"x\")\n",
+        6,
+    );
+    let doc = project(
+        &[echo_finding("svc.py", 6)],
+        &py_inputs,
+        &meta(temp.path().to_path_buf()),
+    );
+    let hint = doc.targets[0].dependency_hint.clone().unwrap();
+    assert_eq!(hint.callee.as_deref(), Some("self.client.get"));
+    assert_eq!(hint.kind.as_deref(), Some("http"));
+
+    let (temp, py_inputs) = inputs_with(
+        "svc.py",
+        "class C:\n    def send(self):\n        self.client = make_client()\n        self.client.get(\"x\")\n",
+        4,
+    );
+    let doc = project(
+        &[echo_finding("svc.py", 4)],
+        &py_inputs,
+        &meta(temp.path().to_path_buf()),
+    );
+    let hint = doc.targets[0].dependency_hint.clone().unwrap();
+    assert_eq!(hint.callee.as_deref(), Some("self.client.get"));
+    assert_eq!(
+        hint.kind, None,
+        "make_client() does not resolve through the root-library table"
+    );
+
+    let (temp, go_inputs) = inputs_with(
+        "svc.go",
+        "package main\n\nfunc send() {\n\thttp.Get(\"x\")\n}\n",
+        4,
+    );
+    let doc = project(
+        &[echo_finding("svc.go", 4)],
+        &go_inputs,
+        &meta(temp.path().to_path_buf()),
+    );
+    let hint = doc.targets[0].dependency_hint.clone().unwrap();
+    assert_eq!(hint.callee.as_deref(), Some("http.Get"));
+    assert_eq!(hint.kind.as_deref(), Some("http"));
+
+    let (temp, py_inputs) = inputs_with(
+        "svc.py",
+        "def send():\n    unknownlib.frobnicate(\"x\")\n",
+        2,
+    );
+    let doc = project(
+        &[echo_finding("svc.py", 2)],
+        &py_inputs,
+        &meta(temp.path().to_path_buf()),
+    );
+    let hint = doc.targets[0].dependency_hint.clone().unwrap();
+    assert_eq!(hint.callee.as_deref(), Some("unknownlib.frobnicate"));
+    assert_eq!(hint.kind, None, "unmapped root must never invent a kind");
+}
+
 /// `TargetsMeta` is `#[non_exhaustive]` (§2.3.1), so this builds it the way an
 /// embedder must: `Default` + field assignment, never a struct literal.
 fn meta(root: PathBuf) -> TargetsMeta {

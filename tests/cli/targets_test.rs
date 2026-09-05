@@ -24,6 +24,15 @@ const DIFF: &str = "tests/fixtures/targets/diff.json";
 const DIFF_UNSUPPORTED: &str = "tests/fixtures/targets/diff-with-unsupported.json";
 const DEFAULT_ALGORITHMS: &str = "echo,absence,contract,provenance,membrane";
 
+// `requests.py` is a repo-local module named `requests` (the CPG resolves
+// Python imports against the analyzed tree only — it never fetches real
+// packages), so `import requests` in `svc.py` binds to it precisely. That
+// lets `svc.py`'s `requests.post(...)` call become a real, algorithm-produced
+// echo/missing_error_handling finding whose call-site text is exactly the
+// http-shaped syntax this feature targets, without faking a finding by hand.
+const REPO_HINT: &str = "tests/fixtures/targets_hint";
+const DIFF_HINT: &str = "tests/fixtures/targets_hint/diff.json";
+
 fn prism_cmd() -> Command {
     Command::cargo_bin("prism").unwrap()
 }
@@ -268,6 +277,29 @@ fn default_run_emits_all_five_producers_and_live_mappings() {
         .unwrap()
         .contains("origin at use site"));
 
+    check_against_schema(&doc, &contract_schema());
+}
+
+/// Roadmap `03-tooling-plan-roadmap.md` §3 Phase 1 / owner ruling 2026-09-04:
+/// an `external_call` target's `dependency_hint` must carry the call-site
+/// syntax (`requests.post`, not the call graph's resolved function name
+/// `post`) and, when the callee chain's root binds to a cataloged library,
+/// a harness `kind`. Before this feature this target's hint was
+/// `{"callee": "post"}` — accurate to the call graph, useless to a fault
+/// injector that needs to know it is looking at an HTTP call.
+#[test]
+fn echo_external_call_gains_ast_recovered_callee_and_kind() {
+    let output = run(Path::new(REPO_HINT), Path::new(DIFF_HINT), "echo", &[]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let doc = json(&output);
+    let echo = target(&doc, "echo");
+    assert_eq!(echo["kind"], "external_call");
+    assert_eq!(echo["dependency_hint"]["callee"], "requests.post");
+    assert_eq!(echo["dependency_hint"]["kind"], "http");
     check_against_schema(&doc, &contract_schema());
 }
 

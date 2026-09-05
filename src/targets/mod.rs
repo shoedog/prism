@@ -1,5 +1,6 @@
 //! Deterministic projection of annotated findings into targets contract v1.0.
 
+mod dependency_hint;
 pub mod mapping;
 mod model;
 
@@ -81,7 +82,26 @@ pub fn project(
         let parse_quality =
             parse_quality_for(&normalized_finding, &inputs.parse_quality, &inputs.files);
         let (confidence, tier) = classify(&finding.algorithm, parse_quality);
-        let mapped = map_finding(finding);
+        let mut mapped = map_finding(finding);
+        if mapped.kind == "external_call" {
+            if let Some(hint) = inputs
+                .files
+                .get(&file)
+                .and_then(|parsed| dependency_hint::resolve(parsed, finding.line))
+            {
+                // AST-recovered callee text (verbatim, dotted chain as
+                // written) supersedes the description-derived fallback in
+                // `mapped.hint`: it is strictly more accurate (roadmap
+                // `03-tooling-plan-roadmap.md` §3 Phase 1). Left untouched
+                // when no call node spans the site (e.g. file not parsed),
+                // so a `dependency_hint` is never lost, only improved.
+                mapped.hint = Some(DependencyHint {
+                    kind: hint.kind.map(str::to_string),
+                    callee: Some(hint.callee),
+                    counterpart: None,
+                });
+            }
+        }
         let (symbol, function_start_line, function_end_line) =
             enclosing_site(&file, finding, inputs, &mut warnings);
         let language = Language::from_path(&file)
