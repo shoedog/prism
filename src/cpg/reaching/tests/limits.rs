@@ -115,7 +115,7 @@ fn continuation_line_maps_to_its_containing_statement() {
     let func = function(&parsed);
     let source = def(&parsed, 0, "x", 2, 0, false);
     let continuation = edge(&parsed, &func, &source, 4);
-    let outcome = run(&parsed, &[source], &[continuation.clone()]).0;
+    let outcome = run(&parsed, &[source], std::slice::from_ref(&continuation)).0;
     assert_label(&outcome, &continuation, FlowConfidence::Exact);
 }
 
@@ -128,7 +128,7 @@ fn endpoint_without_a_containing_statement_is_cfg_incomplete() {
     let func = function(&parsed);
     let source = def(&parsed, 0, "x", 2, 0, false);
     let unmapped = edge(&parsed, &func, &source, 3);
-    let outcome = run(&parsed, &[source], &[unmapped.clone()]).0;
+    let outcome = run(&parsed, &[source], std::slice::from_ref(&unmapped)).0;
     assert_label(
         &outcome,
         &unmapped,
@@ -145,7 +145,7 @@ fn rust_inner_statements_win_over_the_containing_if_span() {
     let func = function(&parsed);
     let source = def(&parsed, 0, "x", 3, 0, false);
     let use_edge = edge(&parsed, &func, &source, 4);
-    let outcome = run(&parsed, &[source], &[use_edge.clone()]).0;
+    let outcome = run(&parsed, &[source], std::slice::from_ref(&use_edge)).0;
     assert_label(&outcome, &use_edge, FlowConfidence::Exact);
 }
 
@@ -155,7 +155,7 @@ fn labels_have_exactly_the_supplied_edge_keys() {
     let func = function(&parsed);
     let source = def(&parsed, 0, "x", 2, 0, false);
     let supplied = edge(&parsed, &func, &source, 3);
-    let outcome = run(&parsed, &[source], &[supplied.clone()]).0;
+    let outcome = run(&parsed, &[source], std::slice::from_ref(&supplied)).0;
     let RdOutcome::Available(result) = outcome else {
         panic!("expected Available, got {outcome:?}");
     };

@@ -325,7 +325,7 @@ fn alias_derived_defs_never_kill_in_v1() {
     let alias = def(&parsed, 0, "q.x", 3, 0, true);
     let direct = def(&parsed, 1, "q.x", 4, 0, false);
     let alias_edge = edge(&parsed, &func, &alias, 5);
-    let outcome = run(&parsed, &[alias, direct], &[alias_edge.clone()]).0;
+    let outcome = run(&parsed, &[alias, direct], std::slice::from_ref(&alias_edge)).0;
     assert_label(
         &outcome,
         &alias_edge,
@@ -384,7 +384,12 @@ fn diamond_kill_on_one_branch_still_reaches() {
     let original = def(&parsed, 0, "x", 2, 0, false);
     let branch = def(&parsed, 1, "x", 4, 0, false);
     let original_edge = edge(&parsed, &func, &original, 5);
-    let outcome = run(&parsed, &[original, branch], &[original_edge.clone()]).0;
+    let outcome = run(
+        &parsed,
+        &[original, branch],
+        std::slice::from_ref(&original_edge),
+    )
+    .0;
     assert_label(&outcome, &original_edge, FlowConfidence::Exact);
 }
 
@@ -397,7 +402,7 @@ fn loop_back_edge_makes_a_textually_earlier_use_reachable() {
     let func = function(&parsed);
     let later = def(&parsed, 0, "x", 4, 0, false);
     let loop_edge = edge(&parsed, &func, &later, 3);
-    let outcome = run(&parsed, &[later], &[loop_edge.clone()]).0;
+    let outcome = run(&parsed, &[later], std::slice::from_ref(&loop_edge)).0;
     assert_label(&outcome, &loop_edge, FlowConfidence::Exact);
     let RdOutcome::Available(result) = outcome else {
         unreachable!()
@@ -421,7 +426,7 @@ fn kill_line_is_the_lowest_reachable_killing_line() {
     let outcome = run(
         &parsed,
         &[original, first_kill, second_kill],
-        &[original_edge.clone()],
+        std::slice::from_ref(&original_edge),
     )
     .0;
     assert_label(
@@ -441,7 +446,12 @@ fn no_reaching_candidate_without_a_proven_kill_is_cfg_incomplete() {
     let original = def(&parsed, 0, "x", 2, 0, false);
     let unreachable = def(&parsed, 1, "x", 4, 0, false);
     let original_edge = edge(&parsed, &func, &original, 5);
-    let outcome = run(&parsed, &[original, unreachable], &[original_edge.clone()]).0;
+    let outcome = run(
+        &parsed,
+        &[original, unreachable],
+        std::slice::from_ref(&original_edge),
+    )
+    .0;
     assert_label(
         &outcome,
         &original_edge,

@@ -5,7 +5,7 @@ fn assert_capture(source: &str, language: Language, def_line: usize, use_line: u
     let func = function(&parsed);
     let outer = def(&parsed, 0, "x", def_line, 0, false);
     let capture = edge(&parsed, &func, &outer, use_line);
-    let outcome = run(&parsed, &[outer], &[capture.clone()]).0;
+    let outcome = run(&parsed, &[outer], std::slice::from_ref(&capture)).0;
     assert_label(
         &outcome,
         &capture,
@@ -35,7 +35,7 @@ fn python_yield_lambda_line_anchor_is_a_capture() {
     let capture = edge(&parsed, &func, &original, 3);
     assert_eq!(capture.to.start_byte, parsed.line_start_byte(3));
     assert_eq!(capture.to.end_byte, capture.to.start_byte);
-    let outcome = run(&parsed, &[original, later], &[capture.clone()]).0;
+    let outcome = run(&parsed, &[original, later], std::slice::from_ref(&capture)).0;
     assert_label(
         &outcome,
         &capture,
@@ -133,6 +133,11 @@ fn go_defer_argument_is_evaluated_now() {
     let original = def(&parsed, 0, "x", 3, 0, false);
     let later = def(&parsed, 1, "x", 5, 0, false);
     let immediate = edge(&parsed, &func, &original, 4);
-    let outcome = run(&parsed, &[original, later], &[immediate.clone()]).0;
+    let outcome = run(
+        &parsed,
+        &[original, later],
+        std::slice::from_ref(&immediate),
+    )
+    .0;
     assert_label(&outcome, &immediate, FlowConfidence::Exact);
 }
