@@ -182,7 +182,8 @@ use std::path::{Path, PathBuf};
 /// - v69: module-local contextual function-type alias authority.
 /// - v70: module-local props object alias authority.
 /// - v71: bounded module-local generic contextual alias authority.
-const CACHE_VERSION: u32 = 71;
+/// - v72: module-local single-call-signature object alias authority.
+const CACHE_VERSION: u32 = 72;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -712,7 +713,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_receiver_authority() {
-        assert_eq!(super::CACHE_VERSION, 71);
+        assert_eq!(super::CACHE_VERSION, 72);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -775,6 +776,9 @@ mod tests {
             resolution::ResolutionConfidence,
         };
         for (language, caller, owner, importer, good, bad, auxiliary) in [
+            (Language::TypeScript, "app.ts", "app.ts", "", "import type Client from './client'; type F = { (p: {client: Client}): void }; const run: F = ({client}) => client.m();", "import type Client from './client'; type F = { (p: {client: Client}): void; (p: Other): void }; const run: F = ({client}) => client.m();", Some(("client.ts", "class Client { m = () => {}; } export default Client;"))),
+            (Language::Tsx, "app.tsx", "app.tsx", "", "import type Client from './client'; type F<P> = { (p: P): void }; type Props = {client: Client}; const run: F<Props> = ({client}) => client.m();", "import type Client from './client'; type F<P> = { (p: P): void; label?: string }; type Props = {client: Client}; const run: F<Props> = ({client}) => client.m();", Some(("client.tsx", "class Client { m = () => {}; } export default Client;"))),
+            (Language::Tsx, "app.tsx", "app.tsx", "", "import type Client from './client'; type F<P> = { (p: P): void }; const run: F<{client: Client}> = ({client}) => client.m();", "import type Client from './client'; type F<P> = { <P>(p: P): void }; const run: F<{client: Client}> = ({client}) => client.m();", Some(("client.tsx", "class Client { m = () => {}; } export default Client;"))),
             (Language::TypeScript, "app.ts", "app.ts", "", "import type Client from './client'; type F<P> = (p: P) => void; const run: F<{client: Client}> = ({client}) => client.m();", "import type Client from './client'; type F<P = Other> = (p: P) => void; const run: F<{client: Client}> = ({client}) => client.m();", Some(("client.ts", "class Client { m = () => {}; } export default Client;"))),
             (Language::Tsx, "app.tsx", "app.tsx", "", "import type Client from './client'; type F<P> = (p: P) => void; type Props = {client: Client}; const run: F<Props> = ({client}) => client.m();", "import type Client from './client'; type F<P> = (p: P) => void; type Props = {client?: Client}; const run: F<Props> = ({client}) => client.m();", Some(("client.tsx", "class Client { m = () => {}; } export default Client;"))),
             (Language::Tsx, "app.tsx", "app.tsx", "", "import type Client from './client'; type F<Client> = (p: Client) => void; const run: F<{client: Client}> = ({client}) => client.m();", "import type Client from './client'; type F<Client> = (p: Client) => void; const run: F<{client: Client}> = ({client}) => { delete client.m; client.m(); };", Some(("client.tsx", "class Client { m = () => {}; } export default Client;"))),
@@ -835,7 +839,7 @@ mod tests {
                     if expected { assert_eq!(exact[0].target.file, target); }
                 }
                 assert_eq!(full.call_graph.calls, incremental.call_graph.calls, "{language:?}");
-                force_cache_version(dir.path(), 70);
+                force_cache_version(dir.path(), 71);
                 assert!(matches!(load_cache(&hashes, false, dir.path()), CacheResult::Miss));
             }
         }
@@ -930,6 +934,14 @@ mod tests {
             (Language::Tsx, "tsx", 7),
             (Language::TypeScript, "ts", 8),
             (Language::Tsx, "tsx", 8),
+            (Language::TypeScript, "ts", 9),
+            (Language::Tsx, "tsx", 9),
+            (Language::TypeScript, "ts", 10),
+            (Language::Tsx, "tsx", 10),
+            (Language::TypeScript, "ts", 11),
+            (Language::Tsx, "tsx", 11),
+            (Language::TypeScript, "ts", 12),
+            (Language::Tsx, "tsx", 12),
         ] {
             let caller = format!("app.{ext}");
             let owner = format!("client.{ext}");
@@ -937,7 +949,15 @@ mod tests {
                 BTreeMap::from([
                     (
                         caller.clone(),
-                        if shape == 8 {
+                        if shape >= 9 {
+                            let consumer = match shape {
+                                9 => format!("type F = {{ (p: {{client: {name}}}): void }}; const run: F = ({{client}}) => client.m();"),
+                                10 => format!("type F = {{ (p: Props{name}): void }}; const run: F = ({{client}}) => client.m();"),
+                                11 => format!("type F<P> = {{ (p: P): void }}; const run: F<{{client: {name}}}> = ({{client}}) => client.m();"),
+                                _ => format!("type F<P> = {{ (p: P): void }}; const run: F<Props{name}> = ({{client}}) => client.m();"),
+                            };
+                            format!("import type {{A, B}} from './client'; type PropsA = {{client: A}}; type PropsB = {{client: B}}; {consumer}")
+                        } else if shape == 8 {
                             format!("import type {{A, B}} from './client'; type PropsA = {{client: A}}; type PropsB = {{client: B}}; type F<P> = (p: P) => void; const run: F<Props{name}> = ({{client}}) => client.m();")
                         } else if shape == 7 {
                             format!("import type {{A, B}} from './client'; type F<P> = (p: P) => void; const run: F<{{client: {name}}}> = ({{client}}) => client.m();")

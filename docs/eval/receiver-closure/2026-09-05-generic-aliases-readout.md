@@ -2,7 +2,8 @@
 
 Base83594a8a, PR250 merged and fetched. Owner approved the proposed one-parameter
 module-local generic function alias slice. Implementation06524d3e pushed in
-[PR251](https://github.com/shoedog/prism/pull/251), open against main.
+[PR251](https://github.com/shoedog/prism/pull/251), merged into main at89f6ebf7.
+GitHub merge state and fetched origin/main verified on 2026-09-05.
 
 ## Result and boundary
 
