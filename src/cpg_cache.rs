@@ -185,8 +185,8 @@ use std::path::{Path, PathBuf};
 /// - v72: module-local single-call-signature object alias authority.
 /// - v73: bounded module-local callable interface authority.
 /// - v74: `CpgEdge::DataFlow` carries `FlowConfidence` from the
-///   reaching-definitions pass, and `DataFlowGraph` gains the `labels` map.
-///   Label-only — the edge set is unchanged.
+///   reaching-definitions pass, and `DataFlowGraph` gains primary `labels` and
+///   per-file `rd_function_stats`. Label-only — the edge set is unchanged.
 const CACHE_VERSION: u32 = 74;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;

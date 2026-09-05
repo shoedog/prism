@@ -6,6 +6,9 @@
 
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
+use crate::cpg::{
+    reaching_definitions, DefId, DefSite, FlowConfidence, FlowDoubt, RdFileStats, RdOutcome,
+};
 use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::hash::{Hash, Hasher};
@@ -114,6 +117,11 @@ pub struct DataFlowGraph {
     pub forward: BTreeMap<VarLocation, Vec<VarLocation>>,
     /// Backward adjacency: use location → def locations it comes from
     pub backward: BTreeMap<VarLocation, Vec<VarLocation>>,
+    /// One label per unique `(from, to)` FlowEdge endpoint pair. Primary state
+    /// with the same file-partitioned lifecycle as `edges`.
+    pub labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence>,
+    /// Per-file reaching-definitions availability counters.
+    pub rd_function_stats: BTreeMap<String, RdFileStats>,
 }
 
 impl DataFlowGraph {
@@ -125,6 +133,8 @@ impl DataFlowGraph {
             uses: BTreeMap::new(),
             forward: BTreeMap::new(),
             backward: BTreeMap::new(),
+            labels: BTreeMap::new(),
+            rd_function_stats: BTreeMap::new(),
         }
     }
 
@@ -134,8 +144,8 @@ impl DataFlowGraph {
 
     /// Remove all entries originating from the given files.
     ///
-    /// Strips out edges, defs, and uses where the file matches any in `exclude`,
-    /// then rebuilds the forward/backward adjacency maps from the retained edges.
+    /// Strips out edges, labels, defs, uses, and RD stats where the file matches
+    /// any in `exclude`, then rebuilds adjacency from the retained edges.
     pub fn remove_files(&mut self, exclude: &BTreeSet<String>) {
         // Remove edges that involve excluded files (either end).
         self.edges
@@ -146,6 +156,10 @@ impl DataFlowGraph {
             .retain(|(file, _, _, _), _| !exclude.contains(file));
         self.uses
             .retain(|(file, _, _, _), _| !exclude.contains(file));
+        self.labels
+            .retain(|(from, to), _| !exclude.contains(&from.file) && !exclude.contains(&to.file));
+        self.rd_function_stats
+            .retain(|file, _| !exclude.contains(file));
 
         // Rebuild adjacency from retained edges.
         self.rebuild_adjacency();
@@ -153,7 +167,7 @@ impl DataFlowGraph {
 
     /// Merge another DataFlowGraph into this one.
     ///
-    /// Adds all edges, defs, and uses from `other`, then rebuilds adjacency.
+    /// Adds all primary per-file state from `other`, then rebuilds adjacency.
     pub fn merge(&mut self, other: DataFlowGraph) {
         self.edges.extend(other.edges);
         for (key, locs) in other.defs {
@@ -161,6 +175,12 @@ impl DataFlowGraph {
         }
         for (key, locs) in other.uses {
             self.uses.entry(key).or_default().extend(locs);
+        }
+        for (key, label) in other.labels {
+            Self::insert_label(&mut self.labels, key, label);
+        }
+        for (file, stats) in other.rd_function_stats {
+            self.rd_function_stats.insert(file, stats);
         }
         self.rebuild_adjacency();
     }
@@ -179,6 +199,31 @@ impl DataFlowGraph {
                 .or_default()
                 .push(edge.from.clone());
         }
+    }
+
+    fn insert_label(
+        labels: &mut BTreeMap<(VarLocation, VarLocation), FlowConfidence>,
+        key: (VarLocation, VarLocation),
+        label: FlowConfidence,
+    ) {
+        labels
+            .entry(key)
+            .and_modify(|stored| *stored = stored.worst(label))
+            .or_insert(label);
+    }
+
+    fn push_rd_def(rd_defs: &mut Vec<DefSite>, loc: &VarLocation, alias_derived: bool) {
+        let id = DefId(
+            u32::try_from(rd_defs.len())
+                .expect("reaching-definition count exceeds the DefId representation"),
+        );
+        rd_defs.push(DefSite {
+            id,
+            path: loc.path.clone(),
+            line: loc.line,
+            start_byte: loc.start_byte,
+            alias_derived,
+        });
     }
 
     /// Build a data flow graph from only the specified files.
@@ -212,12 +257,16 @@ impl DataFlowGraph {
         let mut uses: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>> =
             BTreeMap::new();
         let mut edges = Vec::new();
+        let mut labels = BTreeMap::new();
+        let mut rd_function_stats = BTreeMap::new();
 
         struct FileRefs {
             file_path: String,
             defs: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>>,
             uses: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>>,
             edges: Vec<FlowEdge>,
+            labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence>,
+            rd_function_stats: RdFileStats,
         }
 
         let ordered_files: Vec<(&String, &ParsedFile)> =
@@ -231,6 +280,8 @@ impl DataFlowGraph {
                 let mut uses: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>> =
                     BTreeMap::new();
                 let mut edges = Vec::new();
+                let mut labels = BTreeMap::new();
+                let mut rd_function_stats = RdFileStats::default();
 
                 for func_node in parsed.all_functions() {
                     let func_name = match parsed.language.function_name(&func_node) {
@@ -254,6 +305,8 @@ impl DataFlowGraph {
                         VarLocation,
                     > = BTreeMap::new();
                     let mut param_ref_jobs = Vec::new();
+                    let mut rd_defs = Vec::new();
+                    let function_edge_start = edges.len();
 
                     // Register function parameters as Defs at the function start line.
                     // Parameters are variable definitions that receive values from callers.
@@ -287,6 +340,7 @@ impl DataFlowGraph {
                             end_byte: *param_end_byte,
                             kind: VarAccessKind::Def,
                         };
+                        Self::push_rd_def(&mut rd_defs, &loc, false);
                         defs.entry((file_path.clone(), func_name.clone(), start, path.clone()))
                             .or_default()
                             .push(loc.clone());
@@ -305,6 +359,7 @@ impl DataFlowGraph {
                             end_byte: span.end_byte,
                             kind: VarAccessKind::Def,
                         };
+                        Self::push_rd_def(&mut rd_defs, &loc, false);
                         defs.entry((
                             file_path.clone(),
                             func_name.clone(),
@@ -334,6 +389,7 @@ impl DataFlowGraph {
                                     end_byte: span.end_byte,
                                     kind: VarAccessKind::Def,
                                 };
+                                Self::push_rd_def(&mut rd_defs, &resolved_loc, true);
                                 defs.entry((
                                     file_path.clone(),
                                     func_name.clone(),
@@ -375,6 +431,7 @@ impl DataFlowGraph {
                                     kind: VarAccessKind::Def,
                                 };
                                 debug_assert_eq!(loc.start_byte, loc.end_byte);
+                                Self::push_rd_def(&mut rd_defs, &loc, true);
                                 defs.entry((
                                     file_path.clone(),
                                     func_name.clone(),
@@ -526,6 +583,33 @@ impl DataFlowGraph {
                             }
                         }
                     }
+
+                    let function_edges = &edges[function_edge_start..];
+                    match reaching_definitions(parsed, &func_node, &rd_defs, function_edges) {
+                        RdOutcome::Available(result) => {
+                            for (key, label) in result.labels {
+                                Self::insert_label(&mut labels, key, label);
+                            }
+                            // Task 5 owns loop-carried telemetry. Consume the
+                            // classified set here without changing edge shape.
+                            drop(result.loop_carried_edges);
+                        }
+                        RdOutcome::Unavailable(reason) => {
+                            if reason.is_def_cap() || reason.is_line_cap() {
+                                rd_function_stats.functions_over_cap += 1;
+                            } else {
+                                rd_function_stats.functions_without_cfg += 1;
+                            }
+                            let fallback = FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+                            for edge in function_edges {
+                                Self::insert_label(
+                                    &mut labels,
+                                    (edge.from.clone(), edge.to.clone()),
+                                    fallback,
+                                );
+                            }
+                        }
+                    }
                 }
 
                 FileRefs {
@@ -533,6 +617,8 @@ impl DataFlowGraph {
                     defs,
                     uses,
                     edges,
+                    labels,
+                    rd_function_stats,
                 }
             })
             .collect();
@@ -545,6 +631,10 @@ impl DataFlowGraph {
                 .keys()
                 .chain(file_refs.uses.keys())
                 .all(|key| key.0.as_str() == file_refs.file_path.as_str()));
+            debug_assert!(file_refs.labels.keys().all(|(from, to)| {
+                from.file.as_str() == file_refs.file_path.as_str()
+                    && to.file.as_str() == file_refs.file_path.as_str()
+            }));
             for (key, locs) in file_refs.defs {
                 defs.entry(key).or_default().extend(locs);
             }
@@ -552,6 +642,10 @@ impl DataFlowGraph {
                 uses.entry(key).or_default().extend(locs);
             }
             edges.extend(file_refs.edges);
+            for (key, label) in file_refs.labels {
+                Self::insert_label(&mut labels, key, label);
+            }
+            rd_function_stats.insert(file_refs.file_path, file_refs.rd_function_stats);
         }
 
         // Build adjacency maps
@@ -574,6 +668,8 @@ impl DataFlowGraph {
             uses,
             forward,
             backward,
+            labels,
+            rd_function_stats,
         }
     }
 

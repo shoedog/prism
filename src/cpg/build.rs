@@ -454,7 +454,7 @@ impl CodePropertyGraph {
     /// Runs Steps 1–9 of graph construction.
     fn assemble_graph(
         cg: CallGraph,
-        dfg: DataFlowGraph,
+        mut dfg: DataFlowGraph,
         files: &BTreeMap<String, ParsedFile>,
         type_db: Option<TypeDatabase>,
     ) -> Self {
@@ -571,6 +571,7 @@ impl CodePropertyGraph {
         }
 
         // --- Step 4: DataFlow edges ---
+        let mut dfg_rd_functions_without_cfg = BTreeSet::new();
         for edge in &dfg.edges {
             let from_access = match edge.from.kind {
                 VarAccessKind::Def => VarAccess::Def,
@@ -599,16 +600,26 @@ impl CodePropertyGraph {
             if let (Some(&from_idx), Some(&to_idx)) =
                 (var_index.get(&from_key), var_index.get(&to_key))
             {
-                // Task 1 temporary constant: the reaching-definitions pass
-                // (Task 2/3) is not wired in yet, so every Step-4
-                // intraprocedural DataFlow edge is conservatively
-                // NameOnly(CfgIncomplete) until then.
-                graph.add_edge(
-                    from_idx,
-                    to_idx,
-                    CpgEdge::DataFlow(FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)),
-                );
+                let confidence = dfg
+                    .labels
+                    .get(&(edge.from.clone(), edge.to.clone()))
+                    .copied()
+                    .unwrap_or_else(|| {
+                        dfg_rd_functions_without_cfg.insert((
+                            edge.from.file.clone(),
+                            edge.from.function.clone(),
+                            edge.from.function_start_line,
+                        ));
+                        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
+                    });
+                graph.add_edge(from_idx, to_idx, CpgEdge::DataFlow(confidence));
             }
+        }
+        for (file, _, _) in dfg_rd_functions_without_cfg {
+            dfg.rd_function_stats
+                .entry(file)
+                .or_default()
+                .functions_without_cfg += 1;
         }
 
         // --- Step 5: Call edges ---
