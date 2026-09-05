@@ -76,7 +76,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v33: indirect local default class receiver identity (CPG v64).
 // v34: bounded arrow-field and receiver-member mutation authority (CPG v65).
 // v35: required destructured inline-prop receiver authority (CPG v66).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 35;
+// v36: direct contextual function-signature receiver authority (CPG v67).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 36;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -620,7 +621,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 35);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 36);
     }
 
     #[test]
@@ -663,6 +664,8 @@ mod tests {
     fn imported_receiver_sidecar_round_trip() {
         use crate::{ast::ParsedFile, cpg::CpgContext, languages::Language};
         for (lang, caller, owner, source, declaration, init) in [
+            (Language::TypeScript, "app.ts", "client.ts", "import type Client from './client'; const visible: (p: {client: Client}) => void = ({client}) => { client.m(); }; const shadow: (p: {client?: Client}) => void = ({client}) => { client.m(); };", "class Client { m = () => {}; } export default Client;", None),
+            (Language::Tsx, "app.tsx", "client.tsx", "import type Client from './client'; const visible: (p: {client: Client}) => void = ({client: x}) => { x.m(); }; const shadow: (p: {client: Client}) => void = ({client: x}) => { delete x.m; x.m(); };", "class Client { m = () => {}; } export default Client;", None),
             (Language::TypeScript, "app.ts", "client.ts", "import type Client from './client'; function visible({client}: {client: Client}) { client.m(); } function shadow({client}: {client?: Client}) { client.m(); }", "class Client { m = () => {}; } export default Client;", None),
             (Language::Tsx, "app.tsx", "client.tsx", "import type Client from './client'; function visible({client: x}: {client: Client}) { x.m(); } function shadow({client: x}: {client: Client}) { delete x.m; x.m(); }", "class Client { m = () => {}; } export default Client;", None),
             (Language::JavaScript, "app.js", "client.js", "import Alias from './client'; function visible() { const x = new Alias(); x.m(); } function shadow() { const x = new Alias(); x.m = other; x.m(); }", "class Client { m = () => {}; } export default Client;", None),

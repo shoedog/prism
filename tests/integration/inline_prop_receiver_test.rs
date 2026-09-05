@@ -66,6 +66,76 @@ fn check(source: &str, expected: bool, language: Language) {
 }
 
 #[test]
+fn contextual_prop_receiver_positive() {
+    for language in [Language::TypeScript, Language::Tsx] {
+        for source in [
+            "const run: (props: {client: Client}) => void = ({client}) => { client.m(); };",
+            "const run: (props: {client: Client}) => void = function ({client}) { client.m(); };",
+            "const run: (props: {client: Client}) => void = function named({client}) { client.m(); };",
+            "const run: (props: {client: Client}) => void = async ({client: x}) => { x.m(); };",
+            "const run: (props: {readonly client: Client; label?: string}) => void = ({client, label}) => { client.m(); };",
+            "const run: (props: {client: Client}) => void = ({client}) => { function inner() { client.m(); } };",
+            "const run: (props: {client: Client}) => void = ({client}) => { client.m(); client = other; };",
+            "const run: (props: {client: Client}) => void = ({client}) => { function change(client) { client.m = other; } client.m(); };",
+            "export const run: (/* context */ props: {client: Client}) => void = (/* binding */ {client}) => client.m();",
+            "let run: (props: {client: Client}) => void = ({client}) => { client.m(); };",
+        ] { check(source, true, language); }
+    }
+}
+
+#[test]
+fn contextual_prop_receiver_shape_barriers() {
+    let mut failures = Vec::new();
+    for source in [
+        "const run: React.FC<{client: Client}> = ({client}) => { client.m(); };",
+        "declare namespace React { type FC<P> = (p: {client: Other}) => void; } const run: React.FC<{client: Client}> = ({client}) => { client.m(); };",
+        "type F = (p: {client: Client}) => void; const run: F = ({client}) => { client.m(); };",
+        "const run: { (p: {client: Client}): void } = ({client}) => { client.m(); };",
+        "const run: ((p: {client: Client}) => void) | Other = ({client}) => { client.m(); };",
+        "const run: (p: {client?: Client}) => void = ({client}) => { client.m(); };",
+        "const run: (p?: {client: Client}) => void = ({client}) => { client.m(); };",
+        "const run: (...p: {client: Client}[]) => void = ({client}) => { client.m(); };",
+        "const run: (p: {client: Client}, other: Other) => void = ({client}) => { client.m(); };",
+        "const run: (p: {client: Client}) => void = ({client}, other) => { client.m(); };",
+        "const run: (p: {client: Client}) => void = ({client}: {client: Other}) => { client.m(); };",
+        "const run: (p: {client: Client}) => void = ({client} = other) => { client.m(); };",
+        "const run: (p: {client: Client}) => void = ({client = other}) => { client.m(); };",
+        "const run: (p: {client: Client}) => void = ({client, ...rest}) => { client.m(); };",
+        "const run: (p: {client: Client}) => void = ({['client']: client}) => { client.m(); };",
+        "const run: (p: {client: Client}) => void = ({nested: {client}}) => { client.m(); };",
+        "const run: (p: {client: Client; client: Other}) => void = ({client}) => { client.m(); };",
+        "const run: (p: {client: Client}) => void = ({client, client: client}) => { client.m(); };",
+        "const run: (p: {client: Client | Other}) => void = ({client}) => { client.m(); };",
+        "const run: (p: {client: Client}) => void = memo(({client}) => { client.m(); });",
+        "function outer() { const run = (({client}) => { client.m(); }) as (p: {client: Client}) => void; }",
+        "const run: <Client>(p: {client: Client}) => void = ({client}) => { client.m(); };",
+        "const run: (p: {client: Client}) => void = function <T>({client}) { client.m(); };",
+        "function outer<Client>() { const run: (p: {client: Client}) => void = ({client}) => { client.m(); }; }",
+        "type Props = {client: Client}; const run: (p: Props) => void = ({client}) => { client.m(); };",
+        "const run: ({client}: {client: Client}) => void = ({client}) => { client.m(); };",
+        "const run: (p: {client: Client}) => void = client => { client.m(); };",
+        "function outer() { const run: (p: {client: Client}) => void = function* ({client}) { client.m(); }; }",
+        "const run: (p: {client: Client}) => void = ({client}) => { client.m(); const broken = ; };",
+        "const run: (p: {client: Client; [key: string]: Other}) => void = ({client}) => { client.m(); };",
+        "const run: (p: {get client(): Client}) => void = ({client}) => { client.m(); };",
+    ] {
+        if std::panic::catch_unwind(|| check(source, false, Language::Tsx)).is_err() { failures.push(source); }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+#[test]
+fn contextual_prop_receiver_write_barriers() {
+    for source in [
+        "const run: (p: {client: Client}) => void = ({client}) => { client = other; client.m(); };",
+        "const run: (p: {client: Client}) => void = ({client}) => { client.m = other; client.m(); };",
+        "const run: (p: {client: Client}) => void = ({client}) => { delete client.m; client.m(); };",
+        "const run: (p: {client: Client}) => void = ({client}) => { while(ok) { client.m(); client = other; } };",
+        "const run: (p: {client: Client}) => void = ({client}) => { function inner(client) { client.m(); } };",
+    ] { check(source, false, Language::Tsx); }
+}
+
+#[test]
 fn inline_prop_receiver_positive() {
     for language in [Language::TypeScript, Language::Tsx] {
         for source in [

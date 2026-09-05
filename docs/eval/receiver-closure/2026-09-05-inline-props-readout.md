@@ -2,8 +2,8 @@
 
 Separate authorized slice B, based on d26ae0a (PR245 arrow-field repair).
 Implementation4a982ed pushed in [PR246](https://github.com/shoedog/prism/pull/246),
-OPEN against feat/bounded-arrow-field-members. Merge245 first, then retarget246
-to main; neither was merged by this worker.
+merged into main at f348779 after PR245/01310eb (fetch/log verified during the
+contextual-prop continuation on 2026-09-05). Neither was merged by this worker.
 
 ## Bounded result
 
