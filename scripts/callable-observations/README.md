@@ -1,0 +1,95 @@
+# Configured callable observations (opt-in research tool)
+
+This standalone Node tool constructs a bounded TypeScript Program and emits
+reproducible observations. **It cannot authorize a Prism edge.** Nothing imports
+it from the production resolver, and it adds no default compiler dependency.
+
+Supply the known TypeScript5.9.3 package/lib/typescript.js explicitly. Its bytes
+must match the constant in schema.mjs before execution. Dependencies must already
+be present inside the project root; the tool never installs anything or runs
+project scripts/plugins. Audited roots must be trusted, quiescent local trees.
+
+```sh
+node scripts/callable-observations/index.mjs produce "$compiler" "$project" tsconfig.json > "$packet"
+node scripts/callable-observations/index.mjs validate "$compiler" "$project" tsconfig.json < "$packet"
+```
+
+Use task-specific variables and keep the packet **outside** the audited root:
+writing it inside would change the snapshot it purports to describe. Output can
+contain private relative filenames, identifiers and type strings; do not publish
+an application packet without permission. Validation roots/config are supplied
+independently by the caller, never taken from packet fields.
+
+The module exports `produce({root,compiler,config,limits?})` and
+`validate(jsonText, sameOptions)`. Library-only limits may be lowered, not raised.
+Invalid caller options throw from produce; acquisition/worker limits produce an
+unproven packet. CLI invalid options/invalid validation exit1; CLI production of
+an unproven observation exits0. Read the JSON, not just the exit code.
+
+## Meaning of the packet
+
+The strict executable v0 schema is `schema.mjs` (`parsePacket`). It freezes these
+groups, rejecting unknown fields and unsafe IDs before project access:
+
+| Group | Meaning |
+|---|---|
+| schema / authorizes_runtime_edge | prism.callable-observation/0; authority is always false |
+| producer / compiler | Tool-byte digest; required compiler version/hash, whether actually verified, full compiler-lib inventory digest |
+| scope | Relative config, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
+| status / reasons / closure | observed means this bounded Program completed without the enumerated closure failures; unproven records limitations. Neither means a receiver or class is proven |
+| snapshot | Raw byte/file/directory manifest, roots, config reads, Program files, all reads and failed lookup IDs, options digest and outside-lookup flag |
+| resolutions / diagnostics | Compiler module-resolution outcomes and anchored diagnostic codes; unresolved dependencies are not automatically application defects |
+| observations | Direct variable annotations on arrow/function expressions; annotation/implementation/first-parameter anchors, explicit annotation flag, contextual callable declarations/signatures, direct-body member-call receiver types and method declaration anchors |
+| limits | Up to20000 files+directories,128MiB input bytes,depth64,2000 observations,30-second worker timeout;512MiB worker heap and8MiB packet cap |
+
+Anchors carry file-byte hashes and half-open UTF-16/UTF-8 coordinates. Manifest
+consistency, range/hash conflicts and impossible statuses are rejected before
+recomputation. Validation then rebuilds the entire packet and compares every field;
+there is no persisted positive cache. `valid:true, packet_status:unproven` means
+the incomplete observation reproduced, **not that closure was established**.
+`authorizes_runtime_edge` remains false on every validator outcome.
+
+No alias-chain certificate, class-identity certificate, runtime write proof, nested
+callback parameter ownership or served-resolution consumer is implemented. A
+method declaration or contextual signature is evidence to inspect, not an Exact
+target. Explicit-any, merged-overload and post-declaration assertion controls
+exercise this distinction.
+
+## Supported boundary and limitations
+
+One project, actual JSON config/extends/include/exclude/options, and installed
+in-root regular-file dependencies. The compiler host reads an immutable in-memory
+snapshot only. Its lookup/canonicalization policy follows the pinned compiler's
+host case policy; ambiguous case-folded inventory collisions are refused.
+Internal TS matchFiles/createGetCanonicalFileName APIs are used deliberately under
+the exact compiler byte pin, not as an unversioned API promise.
+
+All input bytes/membership are fingerprinted, including unused/untracked files;
+this conservatively invalidates more than a minimal dependency cache. `.git`
+contents are excluded, with boundary sentinels: explicitly reading/enumerating
+them is refused rather than silently claiming an empty input set.
+Project references and plugins remain unsupported. Outside-root/absolute-config
+lookups, unavailable packages, symlinks, special files, invalid UTF-8 compiler
+inputs and budget exhaustion stay unproven. Local extends may traverse upward
+within the supplied root, but cannot escape it.
+
+The tool does not rewrite actual project options to manufacture closure. For
+example, missing package boundaries and automatic ancestor type/lib lookups may
+leave an otherwise compilable project unproven. Synthetic positives explicitly
+supply package.json, types=[] and libReplacement=false in their own config.
+
+Two snapshots detect observed changes, not adversarial change-and-revert races or
+an atomic filesystem transaction. This is not an OS security sandbox. Mixed
+filesystem policies/mounts and hostile concurrent mutation are unsupported. A
+future authenticated proof consumer would require a stronger acquisition contract.
+
+## Tests
+
+```sh
+PRISM_TYPESCRIPT="$compiler" PRISM_CALLABLE_PROFILES="$profiles" node --test scripts/callable-observations/index.test.mjs
+```
+
+`profiles` uses PR259's pinned react18/react19 layouts. Tests create their own
+temporary installed-package projects, never install or modify an application.
+See the same-date configured-callable-observations spec/readout for RED captures,
+full-project gates, evidence limitations and the separately approved next boundary.
