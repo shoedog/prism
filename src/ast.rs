@@ -3468,7 +3468,7 @@ impl ParsedFile {
         let reference = declaration.child_by_field_name("type")?.named_child(0)?;
         let (signature, substitution) = if reference.kind() == "generic_type" {
             let (declaration, shape) =
-                self.js_ts_local_callable_type(reference.child_by_field_name("name")?)?;
+                self.js_ts_local_type_definition(reference.child_by_field_name("name")?)?;
             let binder = single_child(declaration.child_by_field_name("type_parameters")?)?;
             let name = binder.child_by_field_name("name")?;
             let mut cursor = binder.walk();
@@ -3486,7 +3486,7 @@ impl ParsedFile {
         } else if reference.kind() == "function_type" {
             (reference, None)
         } else {
-            let (declaration, shape) = self.js_ts_local_callable_type(reference)?;
+            let (declaration, shape) = self.js_ts_local_type_definition(reference)?;
             if declaration.child_by_field_name("type_parameters").is_some() {
                 return None;
             }
@@ -3528,26 +3528,21 @@ impl ParsedFile {
 
     /// Preserve the original shape node: its class names belong to the
     /// declaration scope, while receiver writes belong to the implementation.
-    /// One module-local hop only; recursive/generic/ambient authority is excluded.
-    fn js_ts_local_type_shape<'a>(
-        &'a self,
-        reference: Node<'a>,
-        expected_kind: &str,
-    ) -> Option<Node<'a>> {
-        if reference.kind() == expected_kind {
+    /// One non-generic declaration hop: an object alias or private interface.
+    fn js_ts_local_props_shape<'a>(&'a self, reference: Node<'a>) -> Option<Node<'a>> {
+        if reference.kind() == "object_type" {
             return Some(reference);
         }
-        let alias = self.js_ts_local_type_alias(reference)?;
-        if alias.child_by_field_name("type_parameters").is_some() {
+        let (declaration, shape) = self.js_ts_local_type_definition(reference)?;
+        if declaration.child_by_field_name("type_parameters").is_some() {
             return None;
         }
-        let shape = alias.child_by_field_name("value")?;
-        (shape.kind() == expected_kind).then_some(shape)
+        matches!(shape.kind(), "object_type" | "interface_body").then_some(shape)
     }
 
-    /// Callable declarations may be aliases or private, heritage-free interfaces. Keep
-    /// their original shape nodes; props consumers remain strictly alias-only.
-    fn js_ts_local_callable_type<'a>(
+    /// Keep original shape nodes for aliases or private, heritage-free interfaces.
+    /// Callable and props consumers separately prove their binders and body shape.
+    fn js_ts_local_type_definition<'a>(
         &'a self,
         reference: Node<'a>,
     ) -> Option<(Node<'a>, Node<'a>)> {
@@ -3605,10 +3600,6 @@ impl ParsedFile {
             declaration.child_by_field_name("value")?
         };
         Some((declaration, shape))
-    }
-
-    fn js_ts_local_type_alias<'a>(&'a self, reference: Node<'a>) -> Option<Node<'a>> {
-        self.js_ts_local_type_declaration(reference, &["type_alias_declaration"])
     }
 
     /// Declaration identity only. Each consumer separately proves its supported
@@ -3676,7 +3667,7 @@ impl ParsedFile {
         alias
     }
 
-    /// Required properties in a direct or local-alias object shape; declaration
+    /// Required own properties in a direct, alias or private-interface shape; declaration
     /// type names and implementation bindings retain distinct source positions.
     fn js_ts_inline_prop_receiver_type(
         &self,
@@ -3695,7 +3686,7 @@ impl ParsedFile {
         {
             return None;
         }
-        let ty = self.js_ts_local_type_shape(ty, "object_type")?;
+        let ty = self.js_ts_local_props_shape(ty)?;
         let mut properties = BTreeSet::new();
         let mut locals = BTreeSet::new();
         let mut selected = None;
