@@ -4,6 +4,8 @@ Base PR259 merge ebf7933bc3ac7fea1c3201eb48ca84611ea9a702; branch
 feat/configured-callable-observations. Standalone scripts only: no production
 resolver imports, default TypeScript dependency, runtime CLI addition, cache bump,
 served Exact edge or recall improvement. Authorizes_runtime_edge is always false.
+Implementation3bc46a4 pushed; [PR260](https://github.com/shoedog/prism/pull/260) open.
+The publication/archive closeout is docs-only after final gates.
 
 ## Outcome
 
@@ -79,4 +81,9 @@ class/member/write/duplicate/cache obligations have independently been establish
 
 Evidence: /private/tmp/prism-configured-observation-HoDwRN/public.
 Code/spec checkpoints and complete gate/RED logs are retained. Private evidence
-is separately local. Archive and publication closeout pending.
+is separately local. Public archive:
+/private/tmp/prism-configured-observation-public-evidence.tgz, SHA256
+`dbcc09e18c29e3daaf9552d404e4f45638c705fefd927bf32acbc65365a44cdb`.
+It captures3bc46a4 scoped source/checkpoints/public gate logs and predecessor public
+compiler/dependency evidence, before this docs-only closeout. No private packet,
+raw application worker output or private report is included.

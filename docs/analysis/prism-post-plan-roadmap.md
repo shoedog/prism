@@ -223,7 +223,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   See `docs/superpowers/specs/2026-09-06-callable-authority-proof.md` and same-date
   handoff/readout for measured gates, limitations and publication custody.
 
-- **Configured callable observations — feat/configured-callable-observations, base ebf7933b:**
+- **Configured callable observations — PR260 open, implementation3bc46a4, base ebf7933b:**
   Opt-in snapshot-backed TS5.9.3 producer and strict pre-I/O/recomputation validator;
   no class authority, runtime consumer, default dependency or cache bump. Actual
   config, input/negative-lookup membership, anchors and host case policy retained.
