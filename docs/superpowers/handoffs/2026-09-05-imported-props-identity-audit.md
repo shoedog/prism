@@ -1,7 +1,7 @@
 # Handoff — imported/exported type identity audit
 
 **Written:** 2026-09-05 · **By:** Codex /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · audit/imported-props-identity · **Measured state:** `[MEASURED]` HEAD e298ae7c; three carried merge records and two unrelated untracked artifacts; git status/log.
+**Workspace:** /Users/wesleyjinks/code/slicing · audit/imported-props-identity · **Measured state:** `[MEASURED]` audit df485b0 pushed; PR256 open against e298ae7c; this docs-only publication update follows; two original unrelated untracked artifacts preserved.
 **Predecessor:** PR255 / same-date private-props-interfaces handoff.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,7 +9,7 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) /root only,no subagents — RESOLVED.
-(b) Original .superpowers/ and prism-fb81481dafa7.json preserved; publication pending.
+(b) Original .superpowers/ and prism-fb81481dafa7.json preserved; audit published PR256.
 (c) No destructive action or build in flight. Compiler6.0.3 available; source pins5.9.3.
 (d) Owner approved source-backed audit, proof requirements and negative fixtures
 before expanding resolution. No React.FC expansion. Standing commit/push/PR authority;
@@ -19,7 +19,8 @@ no production edits, merge, rebaseline or additional cleanup.
 
 1. git status --short --branch; read same-date imported-props-identity-audit spec.
 2. Read completed audit readout and its P1–P8 proof requirements.
-3. Publish the audit only; any runtime expansion requires a separately approved slice.
+3. Await owner review/merge of PR256; any runtime expansion requires a separately
+   approved slice with independent producer proof. No React.FC expansion.
 
 **STOP conditions:** cap3; no resolution expansion. Missing program closure stays
 unknown, not absence of augmentation. No new behavior claimed from baseline fixtures.
@@ -33,7 +34,7 @@ unknown, not absence of augmentation. No new behavior claimed from baseline fixt
 | Compiler/fixture/proof audit | done | 24 compiler cases,96 TS/TSX full/subset comparisons; P1–P8; no LSP available; compiler6.0.3 |
 | Source custody | done | all605 source blobs/pinned path universe; three custody tests; not dependency/program closure |
 | Verification | done | default4005/0/1,MCP4195/0/1,matrix159/159; fmt/diff pass; Clippy with warnings |
-| Publication | pending | verified evidence archive complete; bounded audit PR next |
+| Publication | done | df485b0 pushed; https://github.com/shoedog/prism/pull/256 open; docs-only publication follow-up |
 
 ## 3. Corrections to standing documents and memory
 
@@ -42,7 +43,7 @@ edits carried. No memory edits. Current audit owns future recommendations.
 
 ## 4. Open work
 
-Publication only for this audit. `[UNKNOWN]` dependency and full compiler-program
+Owner review/merge of PR256. `[UNKNOWN]` dependency and full compiler-program
 augmentation closure; do not substitute source census for it. No fresh Tier-A quick,
 full multicorpus or upstream TypeScript5.9.3 whole-app check. Historical PR255 quick
 remains baseline-invalid, not a fresh green gate. Four remaining spans require
@@ -62,6 +63,8 @@ React.FC and two hook/context producer proof; imported Props identity alone clos
 |---|---|
 | Base | e298ae7c58ca25fdf0acfd8587dacbfdbb7aa4ba |
 | Branch | audit/imported-props-identity |
+| Audit commit | df485b0a476805ab7a1fd8b01814dd4e71ada473 |
+| PR | https://github.com/shoedog/prism/pull/256 |
 | Evidence | /private/tmp/prism-imported-props-audit-LjHVKt |
 | Archive | /private/tmp/prism-imported-props-audit-LjHVKt-evidence.tgz |
 | Archive SHA256 | 1e5e5a441ef4b444d20de2b7b7c3c230f76ffac5c36d8456b89c94335e292c96 |

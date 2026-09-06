@@ -176,7 +176,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   SHA drift and C-name oracle shortfall; no inheritance,merging,exports/imports or React.FC expansion.
   Merged https://github.com/shoedog/prism/pull/255. See
   `docs/eval/receiver-closure/2026-09-05-props-interfaces-readout.md`.
-- **Imported/exported type identity audit — complete, publication pending:**
+- **Imported/exported type identity audit — PR256 open, df485b0:**
   Source-backed605-file census and24 shared compiler fixtures/96 TS/TSX full/subset
   comparisons establish requirements P1–P8 without expanding resolution. Imported
   Props identity alone closes none of the six remaining real spans: four React.FC,

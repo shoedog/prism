@@ -2,7 +2,9 @@
 
 Base: PR255 merge e298ae7c58ca25fdf0acfd8587dacbfdbb7aa4ba.
 Branch: audit/imported-props-identity. Audit/fixtures only; no production resolution
-or cache changes. CPG75/nav43 remain unchanged. Publication pending.
+or cache changes. CPG75/nav43 remain unchanged. Audit committed df485b0 and pushed;
+PR https://github.com/shoedog/prism/pull/256 is open. Publication reconciliation is
+docs-only; the test/script/fixture bytes remain those covered by the recorded gates.
 
 ## Outcome and corrected assumptions
 

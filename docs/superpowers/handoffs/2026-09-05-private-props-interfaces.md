@@ -12,7 +12,8 @@
 (b) Twelve-file implementation committed466d4368 after rebase; original
 .superpowers/ and prism-fb81481dafa7.json preserved. PR255 merged e298ae7c
 at2026-09-06T04:27:02Z, confirmed by fetch and PR metadata. Three docs-only merge
-records are local and snapshotted for the next approved branch; no post-merge push.
+records were snapshotted, then published with successor audit PR256; no post-merge
+push to the old implementation branch.
 (c) Rebase resolved in round1 of cap2. PR254 owns CPG74; this slice uses CPG75/nav43,
 retaining main's DFG serialization and pinned-test name. `[INHERITED]` rebased gates complete,
 no running sessions; default4004/0/1,MCP4194/0/1,matrix159/159. Quick baseline-invalid
