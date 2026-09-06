@@ -1,0 +1,316 @@
+{
+  "schema": 1,
+  "upstream_sha": "0642e72cfa2d9a71198200e52f37399384610ee3",
+  "git_tree_blobs_verified": true,
+  "upstream_typescript": "5.9.3",
+  "upstream_react_types": "19.0.10",
+  "compiler_version": "6.0.3",
+  "compiler_program_checked": false,
+  "dependency_closure_checked": false,
+  "source_sha256": {
+    "packages/excalidraw/components/App.tsx": "474ccd0778686bf0fff7d3b6eba41590aa552410d61ab95511c078db67572d5c",
+    "packages/excalidraw/components/LibraryMenu.tsx": "42b6ccfd00ba3f15575114bcf50180e4682dfc001f1cc694529643036be0210a",
+    "packages/excalidraw/components/LibraryMenuHeaderContent.tsx": "c02b2e4d82f6e1916f18a07d5c8abb0666a10bb7b50f559a3fe973379f3bb711",
+    "packages/excalidraw/data/library.ts": "b242773104cb14645820e5b7f1d43d2a56f86d95206f7b9571360fbddfbc8b61",
+    "packages/excalidraw/types.ts": "84f35763ccc5f18faf3c3dd39fd58aa390bda6d58f1e73990faf5d5c8f08b6b0"
+  },
+  "measured_call_records": 2780,
+  "exact_records": 376,
+  "relevant_unique_spans": 11,
+  "remaining_unique_spans": [
+    {
+      "file": "packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+      "line": 155,
+      "start_byte": 4643,
+      "end_byte": 4675,
+      "expression": "library.setLibrary(nextLibItems)",
+      "caller_records": [
+        "LibraryDropdownMenuButton",
+        "onPublishLibSuccess"
+      ],
+      "producer": "React.FC"
+    },
+    {
+      "file": "packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+      "line": 160,
+      "start_byte": 4745,
+      "end_byte": 5173,
+      "expression": "library.updateLibrary({\n        libraryItems: fileOpen({\n          description: \"Excalidraw library files\",\n          // ToDo: Be over-permissive until https://bugs.webkit.org/show_bug.cgi?id=34442\n          // gets resolved. Else, iOS users cannot open `.excalidraw` files.\n          /*\n            extensions: [\".json\", \".excalidrawlib\"],\n            */\n        }),\n        merge: true,\n        openLibraryMenu: true,\n      })",
+      "caller_records": [
+        "LibraryDropdownMenuButton",
+        "onLibraryImport"
+      ],
+      "producer": "React.FC"
+    },
+    {
+      "file": "packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+      "line": 184,
+      "start_byte": 5485,
+      "end_byte": 5511,
+      "expression": "library.getLatestLibrary()",
+      "caller_records": [
+        "LibraryDropdownMenuButton",
+        "onLibraryExport"
+      ],
+      "producer": "React.FC"
+    },
+    {
+      "file": "packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+      "line": 265,
+      "start_byte": 8074,
+      "end_byte": 8123,
+      "expression": "library.setLibrary(libraryItemsData.libraryItems)",
+      "caller_records": [
+        "LibraryDropdownMenuButton"
+      ],
+      "producer": "React.FC"
+    },
+    {
+      "file": "packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+      "line": 297,
+      "start_byte": 8983,
+      "end_byte": 9012,
+      "expression": "library.setLibrary(nextItems)",
+      "caller_records": [
+        "LibraryDropdownMenu",
+        "removeFromLibrary"
+      ],
+      "producer": "useApp/useContext"
+    },
+    {
+      "file": "packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+      "line": 307,
+      "start_byte": 9224,
+      "end_byte": 9246,
+      "expression": "library.resetLibrary()",
+      "caller_records": [
+        "LibraryDropdownMenu",
+        "resetLibrary"
+      ],
+      "producer": "useApp/useContext"
+    }
+  ],
+  "proof_anchors": [
+    {
+      "file": "packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+      "line": 14,
+      "text": "import { useApp, useExcalidrawSetAppState } from \"./App\";"
+    },
+    {
+      "file": "packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+      "line": 30,
+      "text": "import type Library from \"../data/library\";"
+    },
+    {
+      "file": "packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+      "line": 38,
+      "text": "export const LibraryDropdownMenuButton: React.FC<{"
+    },
+    {
+      "file": "packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+      "line": 41,
+      "text": "  library: Library;"
+    },
+    {
+      "file": "packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+      "line": 286,
+      "text": "  const { library } = useApp();"
+    },
+    {
+      "file": "packages/excalidraw/components/App.tsx",
+      "line": 474,
+      "text": "  AppClassProperties,"
+    },
+    {
+      "file": "packages/excalidraw/components/App.tsx",
+      "line": 499,
+      "text": "} from \"../types\";"
+    },
+    {
+      "file": "packages/excalidraw/components/App.tsx",
+      "line": 503,
+      "text": "const AppContext = React.createContext<AppClassProperties>(null!);"
+    },
+    {
+      "file": "packages/excalidraw/components/App.tsx",
+      "line": 568,
+      "text": "export const useApp = () => useContext(AppContext);"
+    },
+    {
+      "file": "packages/excalidraw/types.ts",
+      "line": 56,
+      "text": "import type Library from \"./data/library\";"
+    },
+    {
+      "file": "packages/excalidraw/types.ts",
+      "line": 801,
+      "text": "export type AppClassProperties = {"
+    },
+    {
+      "file": "packages/excalidraw/types.ts",
+      "line": 809,
+      "text": "  focusContainer(): void;"
+    },
+    {
+      "file": "packages/excalidraw/types.ts",
+      "line": 810,
+      "text": "  library: Library;"
+    },
+    {
+      "file": "packages/excalidraw/data/library.ts",
+      "line": 197,
+      "text": "class Library {"
+    },
+    {
+      "file": "packages/excalidraw/data/library.ts",
+      "line": 403,
+      "text": "export default Library;"
+    }
+  ],
+  "tracked_typescript_files": 605,
+  "typescript_path_content_sha256": "304048397e311a44b8f6993f8164280a1c3443ec6eb5e3d1b91d9fa73f56f403",
+  "declarations": [
+    {
+      "file": "examples/with-script-in-browser/index.tsx",
+      "line": 10,
+      "name": "global",
+      "kind": "global_augmentation",
+      "file_sha256": "d51ed50107e1d0665ffbf3d9c74b326a00e580cfb2b658489c94baba1cae44ca"
+    },
+    {
+      "file": "excalidraw-app/App.tsx",
+      "line": 156,
+      "name": "global",
+      "kind": "global_augmentation",
+      "file_sha256": "2ce0b4b2cf0de3ac03f228bbbc9c3e524d55686734d0c34ccc82dc58f19df514"
+    },
+    {
+      "file": "excalidraw-app/collab/Collab.tsx",
+      "line": 1039,
+      "name": "global",
+      "kind": "global_augmentation",
+      "file_sha256": "ae6348fc4e14e3524866ceb1d8cb700b352eafe8adebc6ff477f9d7e10435eb0"
+    },
+    {
+      "file": "packages/element/src/visualdebug.ts",
+      "line": 23,
+      "name": "global",
+      "kind": "global_augmentation",
+      "file_sha256": "d262e92313e1d454c6054f2c8cf5ef60037e7819d3ad66ba288879e9e593df8b"
+    },
+    {
+      "file": "packages/excalidraw/components/App.tsx",
+      "line": 12989,
+      "name": "global",
+      "kind": "global_augmentation",
+      "file_sha256": "474ccd0778686bf0fff7d3b6eba41590aa552410d61ab95511c078db67572d5c"
+    },
+    {
+      "file": "packages/excalidraw/css.d.ts",
+      "line": 3,
+      "name": "csstype",
+      "kind": "module_augmentation",
+      "file_sha256": "25639fb7a82fed12a3cb9498444e78bb2e407c450dad484d76d44457896ccd5a"
+    },
+    {
+      "file": "packages/excalidraw/global.d.ts",
+      "line": 37,
+      "name": "png-chunk-text",
+      "kind": "ambient_module",
+      "file_sha256": "d7679fa3bf5d6b64bc2a526070ad97f0d653e22579c6d9056b3ce94e53750814"
+    },
+    {
+      "file": "packages/excalidraw/global.d.ts",
+      "line": 44,
+      "name": "png-chunks-encode",
+      "kind": "ambient_module",
+      "file_sha256": "d7679fa3bf5d6b64bc2a526070ad97f0d653e22579c6d9056b3ce94e53750814"
+    },
+    {
+      "file": "packages/excalidraw/global.d.ts",
+      "line": 48,
+      "name": "png-chunks-extract",
+      "kind": "ambient_module",
+      "file_sha256": "d7679fa3bf5d6b64bc2a526070ad97f0d653e22579c6d9056b3ce94e53750814"
+    },
+    {
+      "file": "packages/excalidraw/global.d.ts",
+      "line": 59,
+      "name": "*.scss",
+      "kind": "ambient_module",
+      "file_sha256": "d7679fa3bf5d6b64bc2a526070ad97f0d653e22579c6d9056b3ce94e53750814"
+    },
+    {
+      "file": "packages/excalidraw/global.d.ts",
+      "line": 74,
+      "name": "image-blob-reduce",
+      "kind": "ambient_module",
+      "file_sha256": "d7679fa3bf5d6b64bc2a526070ad97f0d653e22579c6d9056b3ce94e53750814"
+    },
+    {
+      "file": "packages/excalidraw/pwacompat.d.ts",
+      "line": 1,
+      "name": "pwacompat",
+      "kind": "ambient_module",
+      "file_sha256": "f8a7ec5b298ce49bd0e4fd5dd47880768ecb156a790c5d5c37a2baca65060e82"
+    }
+  ],
+  "script_interfaces": [
+    {
+      "file": "excalidraw-app/vite-env.d.ts",
+      "name": "ImportMetaEnv",
+      "line": 4
+    },
+    {
+      "file": "excalidraw-app/vite-env.d.ts",
+      "name": "ImportMeta",
+      "line": 47
+    },
+    {
+      "file": "packages/excalidraw/global.d.ts",
+      "name": "Window",
+      "line": 1
+    },
+    {
+      "file": "packages/excalidraw/global.d.ts",
+      "name": "CanvasRenderingContext2D",
+      "line": 13
+    },
+    {
+      "file": "packages/excalidraw/global.d.ts",
+      "name": "Clipboard",
+      "line": 29
+    },
+    {
+      "file": "packages/excalidraw/global.d.ts",
+      "name": "Blob",
+      "line": 54
+    },
+    {
+      "file": "packages/excalidraw/global.d.ts",
+      "name": "ArrayBuffer",
+      "line": 65
+    },
+    {
+      "file": "packages/excalidraw/global.d.ts",
+      "name": "Uint8Array",
+      "line": 68
+    },
+    {
+      "file": "packages/excalidraw/global.d.ts",
+      "name": "CustomMatchers",
+      "line": 102
+    },
+    {
+      "file": "packages/excalidraw/vite-env.d.ts",
+      "name": "ImportMetaEnv",
+      "line": 5
+    },
+    {
+      "file": "packages/excalidraw/vite-env.d.ts",
+      "name": "ImportMeta",
+      "line": 58
+    }
+  ],
+  "parse_errors": []
+}

@@ -1,0 +1,346 @@
+{
+  "schema": 1,
+  "description": "Characterization only: no resolution expansion. Compiler diagnostics distinguish invalid inputs from valid deferred forms.",
+  "cases": [
+    {
+      "id": "private_interface_control",
+      "obligation": "Preserve supported private interface control",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": "client.ts",
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type Client from './client';\ninterface Props {client: Client}\nexport function run({client}: Props) { client.m(); }\n"
+      }
+    },
+    {
+      "id": "exported_local_alias_control",
+      "obligation": "Do not incorrectly classify all exported types as unsupported",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": "client.ts",
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type Client from './client';\nexport type Props = {client: Client};\nexport function run({client}: Props) { client.m(); }\n"
+      }
+    },
+    {
+      "id": "named_import_declaration_scope",
+      "obligation": "Class identity belongs to types.ts, never consumer's same-spelled decoy",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "types.ts": "import type DeclaredClient from './client';\nexport interface Props { client: DeclaredClient }\n",
+        "app.ts": "import type {Props} from './types';\nclass DeclaredClient { m() {} }\nexport function run({client}: Props) { client.m(); }\n"
+      }
+    },
+    {
+      "id": "imported_alias_declaration_scope",
+      "obligation": "Imported aliases require declaration-backed type identity too",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "types.ts": "import type DeclaredClient from './client';\nexport type Props = { client: DeclaredClient };\n",
+        "app.ts": "import type {Props} from './types';\nclass DeclaredClient { m() {} }\nexport function run({client}: Props) { client.m(); }\n"
+      }
+    },
+    {
+      "id": "type_reexport_rename",
+      "obligation": "Track imported name, exported name and declaration across each hop",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "types.ts": "import type DeclaredClient from './client';\nexport interface Props { client: DeclaredClient }\n",
+        "barrel.ts": "export type {Props as PublicProps} from './types';\n",
+        "app.ts": "import type {PublicProps as Props} from './barrel';\nexport function run({client}: Props) { client.m(); }\n"
+      }
+    },
+    {
+      "id": "default_interface",
+      "obligation": "Default type export is not a default class export",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "types.ts": "import type DeclaredClient from './client';\nexport default interface Props { client: DeclaredClient }\n",
+        "app.ts": "import type Props from './types';\nexport function run({client}: Props) { client.m(); }\n"
+      }
+    },
+    {
+      "id": "namespace_type_import",
+      "obligation": "Namespace qualification is a separate identity route",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "types.ts": "import type DeclaredClient from './client';\nexport interface Props { client: DeclaredClient }\n",
+        "app.ts": "import type * as Shapes from './types';\nexport function run({client}: Shapes.Props) { client.m(); }\n"
+      }
+    },
+    {
+      "id": "import_type_query",
+      "obligation": "Import type queries require their own supported proof",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "types.ts": "import type DeclaredClient from './client';\nexport interface Props { client: DeclaredClient }\n",
+        "app.ts": "export function run({client}: import('./types').Props) { client.m(); }\n"
+      }
+    },
+    {
+      "id": "exported_interface_same_file",
+      "obligation": "Top-level exported interface is not private",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type Client from './client';\nexport interface Props {client: Client}\nexport function run({client}: Props) { client.m(); }\n"
+      }
+    },
+    {
+      "id": "module_augmentation",
+      "obligation": "Augmentation outside declaration file contributes members",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "types.ts": "import type DeclaredClient from './client';\nexport interface Props { client: DeclaredClient }\n",
+        "augment.ts": "import './types';\ndeclare module './types' { interface Props { tag: string } }\n",
+        "app.ts": "import './augment';\nimport type {Props} from './types';\nexport function run({client, tag}: Props) { client.m(); const witness: string = tag; }\n"
+      }
+    },
+    {
+      "id": "ambient_dts_augmentation",
+      "obligation": "An included d.ts file can augment without a consumer import",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "types.ts": "import type DeclaredClient from './client';\nexport interface Props { client: DeclaredClient }\n",
+        "augment.d.ts": "import './types';\ndeclare module './types' { interface Props { tag: string } }\n",
+        "app.ts": "import type {Props} from './types';\nexport function run({client, tag}: Props) { client.m(); const witness: string = tag; }\n"
+      }
+    },
+    {
+      "id": "incompatible_augmented_property",
+      "obligation": "Conflicting non-method properties are ill-typed, not a valid owner replacement",
+      "diagnostic_codes": [
+        2717
+      ],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "types.ts": "import type DeclaredClient from './client';\nexport interface Props { client: DeclaredClient }\n",
+        "augment.ts": "import './types';\ndeclare module './types' { interface Props { client: number } }\n",
+        "app.ts": "import type {Props} from './types';\nclass DeclaredClient { m() {} }\nexport function run({client}: Props) { client.m(); }\n"
+      }
+    },
+    {
+      "id": "global_augmentation",
+      "obligation": "Global/program scope is not a module-private declaration",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "augment.ts": "export {};\ndeclare global { interface Props {client: import('./client').default} }\n",
+        "app.ts": "export function run({client}: Props) { client.m(); }\n"
+      }
+    },
+    {
+      "id": "private_vs_global_control",
+      "obligation": "Global homonym must not poison the private module interface",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": "client.ts",
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "augment.ts": "export {};\ndeclare global { interface Props {client: number} }\n",
+        "app.ts": "import type Client from './client';\ninterface Props {client: Client}\nexport function run({client}: Props) { client.m(); }\n"
+      }
+    },
+    {
+      "id": "ambient_external_module",
+      "obligation": "Ambient declaration member is not a concrete source class",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "external.d.ts"
+      ],
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "external.d.ts": "declare module 'external-shapes' {\n export interface Client {m(): void}\n export interface Props {client: Client}\n}\n",
+        "app.ts": "import type {Props} from 'external-shapes';\nexport function run({client}: Props) { client.m(); }\n"
+      }
+    },
+    {
+      "id": "value_only_type_import",
+      "obligation": "import type may import a value; it does not manufacture a type declaration",
+      "diagnostic_codes": [
+        2749
+      ],
+      "ts_owner_files": null,
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "types.ts": "import type Client from './client';\ninterface Props {client: Client}\nexport const Props = 0;\n",
+        "app.ts": "import type {Props} from './types';\nclass DeclaredClient { m() {} }\nexport function run({client}: Props) { client.m(); }\n"
+      }
+    },
+    {
+      "id": "ambiguous_star_reexports",
+      "obligation": "Ambiguous exports cannot select a first matching type",
+      "diagnostic_codes": [
+        2308
+      ],
+      "ts_owner_files": null,
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "types.ts": "import type DeclaredClient from './client';\nexport interface Props { client: DeclaredClient }\n",
+        "other.ts": "import type DeclaredClient from './client';\nexport interface Props { client: DeclaredClient }\n",
+        "barrel.ts": "export * from './types';\nexport * from './other';\n",
+        "app.ts": "import type {Props} from './barrel';\nexport function run({client}: Props) { client.m(); }\n"
+      }
+    },
+    {
+      "id": "cyclic_reexport",
+      "obligation": "Cycle detection must terminate without name fallback",
+      "diagnostic_codes": [
+        2303
+      ],
+      "ts_owner_files": null,
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "types.ts": "export type {Props} from './barrel';\n",
+        "barrel.ts": "export type {Props} from './types';\n",
+        "app.ts": "import type {Props} from './types';\nclass DeclaredClient { m() {} }\nexport function run({client}: Props) { client.m(); }\n"
+      }
+    },
+    {
+      "id": "missing_module",
+      "obligation": "Missing module is incomplete evidence, not no augmentation",
+      "diagnostic_codes": [
+        2307
+      ],
+      "ts_owner_files": null,
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type {Props} from './missing';\nexport function run({client}: Props) { client.m(); }\n"
+      }
+    },
+    {
+      "id": "react_fc_homonym",
+      "obligation": "Do not grant React.FC authority by spelling",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type Client from './client';\ndeclare namespace React { type FC<P> = (p: P) => void; }\ninterface Props {client: Client}\nexport const run: React.FC<Props> = ({client}) => { client.m(); };\n"
+      }
+    },
+    {
+      "id": "hook_return_homonym",
+      "obligation": "Type identity alone does not authorize hook/return inference",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type Client from './client';\ndeclare function useApp(): {client: Client};\nexport function run() { const {client} = useApp(); client.m(); }\n"
+      }
+    },
+    {
+      "id": "private_receiver_write",
+      "obligation": "Preserve implementation binding write barrier",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type Client from './client';\ninterface Props {client: Client}\nexport function run({client}: Props, replacement: Client) { client = replacement; client.m(); }\n"
+      }
+    },
+    {
+      "id": "default_only_augmentation",
+      "obligation": "Augmenting the internal name does not augment a default-only export",
+      "diagnostic_codes": [
+        2339
+      ],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": "client.ts",
+      "files": {
+        "client.ts": "class Client {\n  m() {}\n}\nexport default Client;\n",
+        "augment.ts": "import './client';\ndeclare module './client' { interface Client {tag: string} }\n",
+        "app.ts": "import './augment';\nimport type Client from './client';\nexport function run({client}: {client: Client}) { client.m(); const witness: string = client.tag; }\n"
+      }
+    },
+    {
+      "id": "default_also_named_augmentation",
+      "obligation": "Default-import syntax does not exclude augmentation through a named export",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "exact_owner": "client.ts",
+      "files": {
+        "client.ts": "export class Client {\n  m() {}\n}\nexport default Client;\n",
+        "augment.ts": "import './client';\ndeclare module './client' { interface Client {tag: string} }\n",
+        "app.ts": "import './augment';\nimport type Client from './client';\nexport function run({client}: {client: Client}) { client.m(); const witness: string = client.tag; }\n"
+      }
+    }
+  ]
+}

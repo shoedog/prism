@@ -1,7 +1,7 @@
 # Handoff — private non-generic Props interfaces
 
 **Written:** 2026-09-05 · **By:** Codex /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/private-props-interfaces · **Measured state:** `[MEASURED]` HEAD466d4368 on main71688dc7, docs dirty and two original untracked artifacts; git status/log.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/private-props-interfaces · **Measured state:** `[MEASURED]` HEADaaf1227c, fetched origin/main e298ae7c; identical trees before these three local merge-record edits; two original untracked artifacts preserved; git status/log/diff.
 **Predecessor:** PR253 / same-date local-callable-interfaces handoff.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -10,10 +10,11 @@
 
 (a) /root only, no subagents — RESOLVED.
 (b) Twelve-file implementation committed466d4368 after rebase; original
-.superpowers/ and prism-fb81481dafa7.json preserved. Pushed and PR255 open;
-this final docs-only publication record follows the implementation commit.
+.superpowers/ and prism-fb81481dafa7.json preserved. PR255 merged e298ae7c
+at2026-09-06T04:27:02Z, confirmed by fetch and PR metadata. Three docs-only merge
+records are local and snapshotted for the next approved branch; no post-merge push.
 (c) Rebase resolved in round1 of cap2. PR254 owns CPG74; this slice uses CPG75/nav43,
-retaining main's DFG serialization and pinned-test name. Rebased gates complete,
+retaining main's DFG serialization and pinned-test name. `[INHERITED]` rebased gates complete,
 no running sessions; default4004/0/1,MCP4194/0/1,matrix159/159. Quick baseline-invalid
 SHA drift plus C-name4/6 successful probes; oracle errors2/30,SUT errors0.
 (d) Owner explicitly said "yes you can commit push and open PR. you may meed to
@@ -25,7 +26,9 @@ No merge,rebaseline,full multicorpus or further cleanup authorized.
 1. `git status --short --branch` in /Users/wesleyjinks/code/slicing.
 2. Read PR255 and the current readout's final rebase section; fresh logs under
    /private/tmp/prism-props-rebase-ZFiPT6. Do not use pre-rebase totals as current.
-3. Await owner review/merge direction. No further implementation or merge authorized.
+3. Owner approved the source-backed imported/exported identity audit. It is now
+   complete; resume from 2026-09-05-imported-props-identity-audit.md. Its proof
+   requirements and negative fixtures do not authorize lifting privacy or React.FC.
 
 **STOP conditions:** rebase cap2; original self-review cap3 already completed.
 Disk below3GiB stops build-heavy work. No authority beyond this slice.
@@ -36,9 +39,9 @@ Disk below3GiB stops build-heavy work. No authority beyond this slice.
 |---|---|---|
 | Cleanup | done | `[INHERITED]` original evidence:5.2G incremental then36 exact caches/targets ~76GiB; no additional deletion |
 | Original implementation/review | done | `[INHERITED]` original RED/GREEN,32 A↔B owner transitions and rounds1–3 SELF-PASS |
-| Rebase | done | `[MEASURED]` fetch71688dc7; commit466d4368; CPG75/nav43; receiver source diff unchanged |
-| Rebased gates/measurement | done | `[MEASURED]` default4004/0/1,MCP4194/0/1,matrix159/159; fmt/diff/clippy complete; quick invalid; paired JSON matches companion |
-| Publication | done | `[MEASURED]` pushed implementation466d4368; https://github.com/shoedog/prism/pull/255 open,not merged; docs-only custody follows |
+| Rebase | done | `[INHERITED]` fetch71688dc7; commit466d4368; CPG75/nav43; receiver source diff unchanged |
+| Rebased gates/measurement | done | `[INHERITED]` default4004/0/1,MCP4194/0/1,matrix159/159; fmt/diff/clippy complete; quick invalid; paired JSON matches companion |
+| Publication | done | `[MEASURED]` https://github.com/shoedog/prism/pull/255 merged e298ae7c; tree equals aaf1227c; tests not rerun for docs-only closeout |
 
 ## 3. Corrections to standing documents and memory
 
@@ -46,11 +49,12 @@ Controller-only block removed following explicit owner override. Predecessor doc
 roadmap,spec and readout reconciled. Original measurements remain historical;
 rebased results and PR255 publication recorded. Main's CPG74 format preserved,
 this slice advances to75. Earlier controller-only/pending claims are superseded.
-No memory edits.
+PR255 open→merged reconciled locally in this handoff,readout and roadmap.
+These three docs-only edits are carried by audit/imported-props-identity. No memory edits.
 
 ## 4. Open work
 
-Owner review/merge decision. Baseline-invalid quick results are not green accuracy
+Follow the successor audit handoff. Baseline-invalid quick results are not green accuracy
 or attributed regressions without a base control. No paired base quick run or full
 multicorpus. Original and rebase archives retain separate historical custody.
 
@@ -70,6 +74,8 @@ multicorpus. Original and rebase archives retain separate historical custody.
 | Rebased base | 71688dc7 |
 | Implementation | 466d4368 |
 | PR | https://github.com/shoedog/prism/pull/255 |
+| Merge | e298ae7c58ca25fdf0acfd8587dacbfdbb7aa4ba |
+| Local merge-record snapshot | /private/tmp/prism-props-merge-ocYhRY/merge-records.tgz |
 | Branch | feat/private-props-interfaces |
 | Rebase evidence | /private/tmp/prism-props-rebase-ZFiPT6 |
 | Rebase archive | /private/tmp/prism-props-rebase-ZFiPT6-evidence.tgz |
