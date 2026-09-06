@@ -842,9 +842,10 @@ fn classify_simple_ident_mode(
                 recovery,
                 go_field_target: None,
             }),
-            Some(crate::ast::JsTsReceiverBindingEvidence::Materialized) => {
-                ReceiverClassification::materialized_only()
-            }
+            Some(
+                crate::ast::JsTsReceiverBindingEvidence::Materialized
+                | crate::ast::JsTsReceiverBindingEvidence::ImportedProps { .. },
+            ) => ReceiverClassification::materialized_only(),
             Some(crate::ast::JsTsReceiverBindingEvidence::ClassOwner) | None => {
                 ReceiverClassification::none()
             }
@@ -2640,6 +2641,29 @@ impl CallGraph {
                 }
 
                 // R6 step 1: P6-lite recovered receiver.
+                if let Some(proof) = self.js_ts_imported_props.get(&(
+                    caller.file.clone(),
+                    site.start_byte,
+                    site.end_byte,
+                )) {
+                    if let Some((file, owner)) = self.js_ts_recovered_class_owner(
+                        &proof.defining_file,
+                        &proof.class_name,
+                        true,
+                    ) {
+                        if let RecoveredDirectMethod::Hit(resolved) = self
+                            .recovered_receiver_direct_method(
+                                &file,
+                                &owner,
+                                name,
+                                ResolutionKind::TypedParam,
+                            )
+                        {
+                            return ResolutionOutcome::hit(resolved);
+                        }
+                    }
+                    return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+                }
                 if let Some(recv_ty) = site.receiver_type.as_deref() {
                     if go_receiver_owner_is_terminally_unproven(site) {
                         return ResolutionOutcome::dropped(DropReason::ExternalReceiver);

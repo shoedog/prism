@@ -3,8 +3,10 @@
 Base: PR255 merge e298ae7c58ca25fdf0acfd8587dacbfdbb7aa4ba.
 Branch: audit/imported-props-identity. Audit/fixtures only; no production resolution
 or cache changes. CPG75/nav43 remain unchanged. Audit committed df485b0 and pushed;
-PR https://github.com/shoedog/prism/pull/256 is open. Publication reconciliation is
-docs-only; the test/script/fixture bytes remain those covered by the recorded gates.
+PR https://github.com/shoedog/prism/pull/256 merged e08af858 on2026-09-06.
+The following audit results are historical. Its approved successor is recorded in
+[the imported object-alias readout](2026-09-06-imported-object-alias-readout.md),
+including the single promoted guard, pinned5.9.3 rerun and resolved stale Prism lookup.
 
 ## Outcome and corrected assumptions
 

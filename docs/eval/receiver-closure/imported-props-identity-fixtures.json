@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "description": "Characterization only: no resolution expansion. Compiler diagnostics distinguish invalid inputs from valid deferred forms.",
+  "description": "PR256 characterization corpus; its approved direct imported object-alias successor promotes one guard. Compiler diagnostics distinguish invalid inputs from valid deferred forms.",
   "cases": [
     {
       "id": "private_interface_control",
@@ -44,12 +44,12 @@
     },
     {
       "id": "imported_alias_declaration_scope",
-      "obligation": "Imported aliases require declaration-backed type identity too",
+      "obligation": "PR256 guard promoted by the approved direct imported object-alias identity slice",
       "diagnostic_codes": [],
       "ts_owner_files": [
         "client.ts"
       ],
-      "exact_owner": null,
+      "exact_owner": "client.ts",
       "files": {
         "client.ts": "export default class Client {\n  m() {}\n}\n",
         "types.ts": "import type DeclaredClient from './client';\nexport type Props = { client: DeclaredClient };\n",

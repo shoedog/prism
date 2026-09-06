@@ -188,7 +188,8 @@ use std::path::{Path, PathBuf};
 ///   reaching-definitions pass, and `DataFlowGraph` gains primary `labels` and
 ///   per-file `rd_function_stats`. Label-only — the edge set is unchanged.
 /// - v75: bounded module-private non-generic Props interface authority.
-const CACHE_VERSION: u32 = 75;
+/// - v76: source-backed imported object-alias receiver proofs.
+const CACHE_VERSION: u32 = 76;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -722,7 +723,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_receiver_authority_and_item2_confidence() {
-        assert_eq!(super::CACHE_VERSION, 75);
+        assert_eq!(super::CACHE_VERSION, 76);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -861,7 +862,7 @@ mod tests {
                     if expected { assert_eq!(exact[0].target.file, target); }
                 }
                 assert_eq!(full.call_graph.calls, incremental.call_graph.calls, "{language:?}");
-                force_cache_version(dir.path(), 74);
+                force_cache_version(dir.path(), 75);
                 assert!(matches!(load_cache(&hashes, false, dir.path()), CacheResult::Miss));
             }
         }
@@ -1088,6 +1089,129 @@ mod tests {
                     assert_eq!(exact[0].target.start_line, line, "stale {before} owner");
                 }
                 assert_eq!(full.call_graph.calls, incremental.call_graph.calls);
+            }
+        }
+    }
+
+    #[test]
+    fn imported_object_alias_disk_cache_transitions() {
+        use crate::{
+            ast::ParsedFile, cpg::CodePropertyGraph, languages::Language,
+            resolution::ResolutionConfidence,
+        };
+        for lang in [Language::TypeScript, Language::Tsx] {
+            let a: BTreeMap<String,String> = BTreeMap::from([
+                ("app.ts".into(), "import type {Props} from './props'; function run({client}: Props) { client.m(); }".into()),
+                ("props.ts".into(), "import type {A} from './client'; export type Props = {client: A};".into()),
+                ("client.ts".into(), "export class A {\n m() {}\n}\nexport class B {\n m() {}\n}".into()),
+            ]);
+            let parse = |src: &BTreeMap<String, String>| {
+                src.iter()
+                    .map(|(p, s)| (p.clone(), ParsedFile::parse(p, s, lang).unwrap()))
+                    .collect()
+            };
+            for variant in 0..6 {
+                let mut b = a.clone();
+                match variant {
+                    0 => {
+                        b.insert(
+                            "props.ts".into(),
+                            a["props.ts"]
+                                .replace("{A}", "{B}")
+                                .replace("client: A", "client: B"),
+                        );
+                    }
+                    1 => {
+                        b.remove("props.ts");
+                    }
+                    2 => {
+                        b.insert(
+                            "augment.d.ts".into(),
+                            "export {}; declare module './client' { interface A {extra: string} }"
+                                .into(),
+                        );
+                    }
+                    3 => {
+                        b.insert("props.tsx".into(), a["props.ts"].clone());
+                    }
+                    4 => {
+                        b.insert(
+                            "props.ts".into(),
+                            "export type {Props} from './client';".into(),
+                        );
+                    }
+                    _ => {
+                        b.insert(
+                            "patch.js".into(),
+                            "import {A} from './client'; A.prototype.m = other;".into(),
+                        );
+                    }
+                }
+                for (before, after, line) in [
+                    (&a, &b, if variant == 0 { Some(5) } else { None }),
+                    (&b, &a, Some(2)),
+                ] {
+                    let hashes = compute_file_hashes(before);
+                    let old = CodePropertyGraph::build(&parse(before));
+                    let dir = tempfile::tempdir().unwrap();
+                    save_cache(&old, &hashes, false, dir.path()).unwrap();
+                    let CacheResult::Hit(loaded) = load_cache(&hashes, false, dir.path()) else {
+                        panic!("expected cache hit");
+                    };
+                    assert_eq!(
+                        loaded.call_graph.js_ts_imported_props,
+                        old.call_graph.js_ts_imported_props
+                    );
+                    assert!(
+                        !matches!(
+                            load_cache(&compute_file_hashes(after), false, dir.path()),
+                            CacheResult::Hit(_)
+                        ),
+                        "changed input must invalidate disk cache"
+                    );
+                    let changed: BTreeSet<_> = before
+                        .keys()
+                        .chain(after.keys())
+                        .filter(|p| before.get(*p) != after.get(*p))
+                        .cloned()
+                        .collect();
+                    let files = parse(after);
+                    let full = CodePropertyGraph::build(&files);
+                    let incremental = CodePropertyGraph::build_incremental(
+                        loaded.call_graph,
+                        loaded.dfg,
+                        &changed,
+                        &files,
+                        None,
+                    );
+                    assert_eq!(
+                        full.call_graph.js_ts_imported_props,
+                        incremental.call_graph.js_ts_imported_props
+                    );
+                    assert_eq!(full.call_graph.calls, incremental.call_graph.calls);
+                    for graph in [&full.call_graph, &incremental.call_graph] {
+                        let site = graph
+                            .calls
+                            .values()
+                            .flatten()
+                            .find(|s| s.caller.file == "app.ts" && s.callee_name == "m")
+                            .unwrap();
+                        let exact: Vec<_> = graph
+                            .resolve_call_site(site)
+                            .into_iter()
+                            .filter(|e| e.confidence == ResolutionConfidence::Exact)
+                            .collect();
+                        assert_eq!(
+                            exact.len(),
+                            usize::from(line.is_some()),
+                            "{lang:?}/{variant}: {exact:?}"
+                        );
+                        if let Some(line) = line {
+                            assert_eq!(exact[0].target.start_line, line);
+                            assert_eq!(exact[0].target.file, "client.ts");
+                        }
+                    }
+                }
             }
         }
     }

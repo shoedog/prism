@@ -84,7 +84,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v41: module-local single-call-signature object alias authority (CPG v72).
 // v42: bounded module-local callable interface authority (CPG v73).
 // v43: bounded module-private non-generic Props interface authority (CPG v75).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 43;
+// v44: source-backed imported object-alias receiver authority (CPG v76).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 44;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -627,8 +628,67 @@ mod tests {
     }
 
     #[test]
+    fn imported_object_alias_sidecar_identity_and_augmentation() {
+        use crate::{ast::ParsedFile, cpg::CpgContext, languages::Language};
+        for lang in [Language::TypeScript, Language::Tsx] {
+            let sources = BTreeMap::from([
+                ("app.ts".to_string(), "import type {Props} from './props'; class Client { m() {} } function run({client}: Props) { client.m(); }".to_string()),
+                ("props.ts".to_string(), "import type Client from './client'; export type Props = {client: Client};".to_string()),
+                ("client.ts".to_string(), "export default class Client { m() {} }".to_string()),
+            ]);
+            let mut guarded = sources.clone();
+            guarded.insert(
+                "augment.d.ts".into(),
+                "export {}; declare global { interface Extra {} }".into(),
+            );
+            let fingerprint = |src: &BTreeMap<String, String>| {
+                let hashes = cpg_cache::compute_file_hashes(src);
+                NavigationCallEdgeCacheFingerprint::current(
+                    &hashes,
+                    &cpg_cache::compute_topology_key(&hashes, &BTreeMap::new()),
+                    false,
+                )
+            };
+            for (src, expected) in [(&sources, 1), (&guarded, 0)] {
+                let files = src
+                    .iter()
+                    .map(|(p, s)| (p.clone(), ParsedFile::parse(p, s, lang).unwrap()))
+                    .collect();
+                let nav =
+                    crate::navigation::NavigationIndex::from_ctx(CpgContext::build(&files, None));
+                let index = nav.build_resolved_call_edges();
+                let dir = tempfile::tempdir().unwrap();
+                save(dir.path(), &fingerprint(src), &index).unwrap();
+                let loaded = load(dir.path(), &fingerprint(src)).unwrap().unwrap();
+                let incoming: Vec<_> = loaded
+                    .incoming_by_target
+                    .iter()
+                    .flat_map(|(target, edges)| {
+                        edges
+                            .iter()
+                            .filter(|e| {
+                                e.caller.file == "app.ts" && e.kind == ResolutionKind::TypedParam
+                            })
+                            .map(move |e| (target, e))
+                    })
+                    .collect();
+                assert_eq!(incoming.len(), expected);
+                if expected == 1 {
+                    assert_eq!(incoming[0].0.file, "client.ts");
+                    assert_eq!(incoming[0].1.confidence, ResolutionConfidence::Exact);
+                }
+                let other = if expected == 1 { &guarded } else { &sources };
+                assert!(
+                    load(dir.path(), &fingerprint(other)).unwrap().is_none(),
+                    "addition/removal invalidates old sidecar"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 43);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 44);
     }
 
     #[test]
@@ -836,7 +896,7 @@ mod tests {
         let (index, _) = fixture_index();
         for mutate in [
             |cache: &mut NavigationCallEdgeCache| cache.nav_call_edge_cache_version += 1,
-            |cache: &mut NavigationCallEdgeCache| cache.nav_call_edge_cache_version = 42,
+            |cache: &mut NavigationCallEdgeCache| cache.nav_call_edge_cache_version = 43,
             |cache: &mut NavigationCallEdgeCache| cache.prism_version = "stale".into(),
             |cache: &mut NavigationCallEdgeCache| cache.grammar_fingerprint = "stale".into(),
             |cache: &mut NavigationCallEdgeCache| cache.skip_policy_version += 1,

@@ -1,7 +1,7 @@
 # Handoff — imported/exported type identity audit
 
 **Written:** 2026-09-05 · **By:** Codex /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · audit/imported-props-identity · **Measured state:** `[MEASURED]` audit df485b0 pushed; PR256 open against e298ae7c; this docs-only publication update follows; two original unrelated untracked artifacts preserved.
+**Workspace:** /Users/wesleyjinks/code/slicing · audit/imported-props-identity · **Measured state:** `[MEASURED]` PR256 merged e08af858, confirmed by GitHub metadata and fetch; successor feat/imported-object-alias-identity approved; original unrelated artifacts preserved.
 **Predecessor:** PR255 / same-date private-props-interfaces handoff.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -19,8 +19,8 @@ no production edits, merge, rebaseline or additional cleanup.
 
 1. git status --short --branch; read same-date imported-props-identity-audit spec.
 2. Read completed audit readout and its P1–P8 proof requirements.
-3. Await owner review/merge of PR256; any runtime expansion requires a separately
-   approved slice with independent producer proof. No React.FC expansion.
+3. Resume from 2026-09-06-imported-object-alias-identity.md: the owner approved
+   its bounded explicit-annotation slice. No React.FC or hook expansion.
 
 **STOP conditions:** cap3; no resolution expansion. Missing program closure stays
 unknown, not absence of augmentation. No new behavior claimed from baseline fixtures.
@@ -34,7 +34,7 @@ unknown, not absence of augmentation. No new behavior claimed from baseline fixt
 | Compiler/fixture/proof audit | done | 24 compiler cases,96 TS/TSX full/subset comparisons; P1–P8; no LSP available; compiler6.0.3 |
 | Source custody | done | all605 source blobs/pinned path universe; three custody tests; not dependency/program closure |
 | Verification | done | default4005/0/1,MCP4195/0/1,matrix159/159; fmt/diff pass; Clippy with warnings |
-| Publication | done | df485b0 pushed; https://github.com/shoedog/prism/pull/256 open; docs-only publication follow-up |
+| Publication | done | https://github.com/shoedog/prism/pull/256 merged e08af858 |
 
 ## 3. Corrections to standing documents and memory
 
@@ -43,7 +43,7 @@ edits carried. No memory edits. Current audit owns future recommendations.
 
 ## 4. Open work
 
-Owner review/merge of PR256. `[UNKNOWN]` dependency and full compiler-program
+Follow the approved successor handoff. `[UNKNOWN]` dependency and full compiler-program
 augmentation closure; do not substitute source census for it. No fresh Tier-A quick,
 full multicorpus or upstream TypeScript5.9.3 whole-app check. Historical PR255 quick
 remains baseline-invalid, not a fresh green gate. Four remaining spans require

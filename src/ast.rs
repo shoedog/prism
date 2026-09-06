@@ -48,6 +48,11 @@ fn is_js_ts_function_like(kind: &str) -> bool {
 pub(crate) enum JsTsReceiverBindingEvidence {
     ClassOwner,
     Materialized,
+    ImportedProps {
+        type_name: String,
+        property: String,
+        declaration_end_byte: usize,
+    },
     Recovered {
         static_type: String,
         recovery: crate::resolution::ReceiverRecovery,
@@ -3367,6 +3372,10 @@ impl ParsedFile {
         if let JsTsReceiverBindingEvidence::Recovered {
             declaration_end_byte: Some(declaration_end_byte),
             ..
+        }
+        | JsTsReceiverBindingEvidence::ImportedProps {
+            declaration_end_byte,
+            ..
         } = &evidence
         {
             if self.js_ts_receiver_written_between(
@@ -3418,8 +3427,24 @@ impl ParsedFile {
                     }
                 })
                 .flatten();
-            matches.push(recovered_type.map_or(
-                JsTsReceiverBindingEvidence::Materialized,
+            let imported = || {
+                let ty = parameter.child_by_field_name("type")?.named_child(0)?;
+                let name = self.node_text(&ty);
+                if !matches!(self.language, Language::TypeScript | Language::Tsx)
+                    || ty.kind() != "type_identifier"
+                    || self.js_ts_type_name_shadowed(self.tree.root_node(), &ty, name)
+                    || crate::js_ts_props::named_import(self, name).is_none()
+                {
+                    return None;
+                }
+                Some(JsTsReceiverBindingEvidence::ImportedProps {
+                    type_name: name.to_string(),
+                    property: self.js_ts_prop_binding(parameter, binding?, receiver_name)?,
+                    declaration_end_byte: parameter.end_byte(),
+                })
+            };
+            matches.push(recovered_type.map_or_else(
+                || imported().unwrap_or(JsTsReceiverBindingEvidence::Materialized),
                 |static_type| JsTsReceiverBindingEvidence::Recovered {
                     static_type,
                     recovery: crate::resolution::ReceiverRecovery::TypedParam,
@@ -3676,6 +3701,18 @@ impl ParsedFile {
         ty: Node<'_>,
         receiver: &str,
     ) -> Option<String> {
+        let selected = self.js_ts_prop_binding(parameter, pattern, receiver)?;
+        let shape = self.js_ts_local_props_shape(ty)?;
+        let annotation = self.js_ts_props_property_annotation(shape, &selected)?;
+        self.js_ts_simple_type_annotation(annotation)
+    }
+
+    fn js_ts_prop_binding(
+        &self,
+        parameter: Node<'_>,
+        pattern: Node<'_>,
+        receiver: &str,
+    ) -> Option<String> {
         if pattern.kind() != "object_pattern" || parameter.has_error() {
             return None;
         }
@@ -3686,7 +3723,6 @@ impl ParsedFile {
         {
             return None;
         }
-        let ty = self.js_ts_local_props_shape(ty)?;
         let mut properties = BTreeSet::new();
         let mut locals = BTreeSet::new();
         let mut selected = None;
@@ -3716,7 +3752,14 @@ impl ParsedFile {
                 selected = Some(property);
             }
         }
-        let selected = selected?;
+        selected.map(str::to_string)
+    }
+
+    fn js_ts_props_property_annotation<'a>(
+        &self,
+        ty: Node<'a>,
+        selected: &str,
+    ) -> Option<Node<'a>> {
         let mut names = BTreeSet::new();
         let mut result = None;
         let mut cursor = ty.walk();
@@ -3740,10 +3783,72 @@ impl ParsedFile {
                 if property.children(&mut cursor).any(|n| n.kind() == "?") {
                     return None;
                 }
-                result = self.js_ts_simple_type_annotation(property.child_by_field_name("type")?);
+                result = property.child_by_field_name("type");
             }
         }
         result
+    }
+
+    /// Only an inline named export of one object alias is a foreign shape.
+    pub(crate) fn js_ts_exported_props_property(
+        &self,
+        name: &str,
+        property: &str,
+    ) -> Option<(String, (usize, usize), (usize, usize))> {
+        let root = self.tree.root_node();
+        let mut selected = None;
+        let mut cursor = root.walk();
+        for export in root.named_children(&mut cursor) {
+            if export.kind() != "export_statement" {
+                continue;
+            }
+            // This slice has no barrel or export-clause authority, including
+            // a second route that could collide with the direct alias name.
+            if export.child_by_field_name("source").is_some() {
+                return None;
+            }
+            let mut export_cursor = export.walk();
+            if export
+                .named_children(&mut export_cursor)
+                .any(|n| n.kind() == "export_clause")
+            {
+                return None;
+            }
+            let Some(declaration) = export.child_by_field_name("declaration") else {
+                continue;
+            };
+            if declaration.kind() != "type_alias_declaration" {
+                continue;
+            }
+            let reference = declaration.child_by_field_name("name")?;
+            if self.node_text(&reference) != name {
+                continue;
+            }
+            // Also reject duplicates and competing type declarations/imports.
+            if self.js_ts_local_type_declaration(reference, &["type_alias_declaration"])?
+                != declaration
+                || declaration.child_by_field_name("type_parameters").is_some()
+            {
+                return None;
+            }
+            let shape = declaration.child_by_field_name("value")?;
+            if shape.kind() != "object_type" {
+                return None;
+            }
+            let annotation = self.js_ts_props_property_annotation(shape, property)?;
+            let class_name = self.js_ts_simple_type_annotation(annotation)?;
+            if selected
+                .replace((
+                    class_name,
+                    (declaration.start_byte(), declaration.end_byte()),
+                    (annotation.start_byte(), annotation.end_byte()),
+                ))
+                .is_some()
+            {
+                return None;
+            }
+        }
+        selected
     }
 
     fn js_ts_simple_type_annotation(&self, annotation: Node<'_>) -> Option<String> {

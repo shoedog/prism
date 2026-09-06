@@ -1,4 +1,4 @@
-//! Guard fixtures for a future type-identity proof. Production resolution is unchanged.
+//! PR256 guard corpus; the direct imported object-alias case was promoted by its successor.
 use prism::{
     ast::ParsedFile,
     call_graph::CallGraph,
