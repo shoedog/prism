@@ -3,9 +3,14 @@
 Status: implementation committed as466d4368 on feat/private-props-interfaces,
 rebased onto remote main71688dc7 (PR254). Owner explicitly authorized this agent to
 commit,push and open a PR, overriding the earlier controller-only instruction.
-Published: https://github.com/shoedog/prism/pull/255 (open,not merged).
+Merged: https://github.com/shoedog/prism/pull/255 at2026-09-06T04:27:02Z,
+main e298ae7c58ca25fdf0acfd8587dacbfdbb7aa4ba. Fetch and PR metadata confirmed;
+merge tree equals tested branch tip aaf1227c. No test rerun for this docs-only record.
 Rebased verification is complete; the final section supersedes the historical
 pre-rebase gate record below. Publication custody is a docs-only follow-up.
+The subsequently approved source-backed identity audit is complete; see
+[its readout](2026-09-05-imported-props-identity-readout.md). Imported Props identity
+alone is not a fix for the six remaining real spans; no further resolution expanded.
 
 ## Contract and implementation
 
