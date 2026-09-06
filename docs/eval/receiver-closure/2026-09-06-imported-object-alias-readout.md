@@ -3,8 +3,13 @@
 Base PR256 merge e08af858128c20ae3372b62f1688593756f06af9;
 branch feat/imported-object-alias-identity. Implementation/full suites complete;
 quick completed baseline-invalid. Implementation9c99f96 committed/pushed;
-PR https://github.com/shoedog/prism/pull/257 is open. CPG76/nav44;
-no unrelated artifacts removed. Final publication reconciliation is docs-only.
+PR https://github.com/shoedog/prism/pull/257 merged 2026-09-06T16:32:06Z as
+661a95a4ecfc4ced97a2a703a22082531b95527b. Fetched origin/main matches; its tree
+equals published head153e359566e8ff6aba3745ab1f07af0f6f906f17. CPG76/nav44;
+no unrelated artifacts removed. Merge reconciliation is carried on the approved
+contextual imported-alias successor branch. Gates below are prior implementation-run
+evidence, not rerun for the merge acknowledgement. See the separate same-date
+contextual-imported-alias readout for successor scope and evidence.
 
 ## Outcome and boundary
 

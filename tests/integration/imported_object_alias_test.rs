@@ -66,6 +66,98 @@ fn imported_object_alias_defining_scope() {
 }
 
 #[test]
+fn contextual_imported_object_alias_positive_forms() {
+    let mut failures = Vec::new();
+    for lang in [Language::TypeScript, Language::Tsx] {
+        for declaration in [
+            "const run: (p: Props) => void = ({client}) => client.m();",
+            "const run: (p: Props) => void = function ({client: c}) { c.m(); };",
+            "type F = (p: Props) => void; const run: F = ({client}) => client.m();",
+            "type F<P> = (p: P) => void; const run: F<Props> = ({client}) => client.m();",
+            "type F = {(p: Props): void}; const run: F = ({client}) => client.m();",
+            "type F<P> = {(p: P): void}; const run: F<Props> = ({client}) => client.m();",
+            "interface F {(p: Props): void} const run: F = ({client}) => client.m();",
+            "interface F<P> {(p: P): void} const run: F<Props> = ({client}) => client.m();",
+            "type F = (p: Props) => void; function outer<Props>() { const run: F = ({client}) => client.m(); }",
+            "const run: (p: Props) => void = ({client}) => { function inner() { client.m(); } };",
+        ] {
+            let app = format!("import type {{Props}} from './props'; class DeclaredClient {{ m() {{}} }} {declaration}");
+            let files = sources(&app, PROPS, &[], lang);
+            let full = CallGraph::build(&files);
+            let partial = CallGraph::build_direct_subset(&files, &BTreeSet::from(["app.ts".into()]));
+            assert!(!full.js_ts_imported_props.is_empty());
+            assert_eq!(partial.js_ts_imported_props, full.js_ts_imported_props);
+            // A caller-only subset has proof, but no target method until merge.
+            check(&partial, None);
+            for graph in [full, CallGraph::build_direct_subset(&files, &files.keys().cloned().collect())] {
+                if std::panic::catch_unwind(|| check(&graph, Some("client.ts"))).is_err() {
+                    failures.push((lang, declaration));
+                }
+            }
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "complete contextual positive population: {failures:?}"
+    );
+}
+
+#[test]
+fn contextual_imported_object_alias_negative_forms() {
+    let mut failures = Vec::new();
+    for declaration in [
+        "const run: (p: Props) => void = ({client}: any) => client.m();",
+        "const run: (p: Props) => void = ({client}: Missing) => client.m();",
+        "const run: (p: Props) => void = ({client}: Props | Other) => client.m();",
+        "const run: (p?: Props) => void = ({client}) => client.m();",
+        "const run: (p: Props, x: number) => void = ({client}) => client.m();",
+        "const run: (p: Props) => void = ({client}, x) => client.m();",
+        "const run: (p: Props) => void = ({client} = other) => client.m();",
+        "const run: (p: Props) => void = ({client = other}) => client.m();",
+        "const run: (p: Props) => void = ({client, ...rest}) => client.m();",
+        "const run: (p: Props) => void = ({client, client: c}) => client.m();",
+        "const run: (p: Props) => void = ({client}) => { client = other; client.m(); };",
+        "const run: (p: Props) => void = ({client}) => { client.m = other; client.m(); };",
+        "const run: (p: Props) => void = ({client}) => { delete client.m; client.m(); };",
+        "const run: (p: Props) => void = ({client}) => { let client; client.m(); };",
+        "const run: (p: Props) => void = ({client}) => { function inner(client) { client.m(); } };",
+        "const run: (p: Props) => void = ({client}) => { while (ok) { client.m(); client = other; } };",
+        "const run: (p: Props) => void = <T>({client}) => client.m();",
+        "function outer<Props>() { const run: (p: Props) => void = ({client}) => client.m(); }",
+        "type F<P> = (p: P) => void; function outer<Props>() { const run: F<Props> = ({client}) => client.m(); }",
+        "type F = (p: Props) => void; function outer<F>() { const run: F = ({client}) => client.m(); }",
+        "type F = (p: Props) => void; type F = Other; const run: F = ({client}) => client.m();",
+        "type F = {(p: Props): void; (p: Other): void}; const run: F = ({client}) => client.m();",
+        "type F = {(p: Props): void; extra: string}; const run: F = ({client}) => client.m();",
+        "export interface F {(p: Props): void} const run: F = ({client}) => client.m();",
+        "interface F extends Other {(p: Props): void} const run: F = ({client}) => client.m();",
+        "interface F {(p: Props): void} interface F {} const run: F = ({client}) => client.m();",
+        "type F<P = Props> = (p: P) => void; const run: F<Props> = ({client}) => client.m();",
+        "type F<P extends Props> = (p: P) => void; const run: F<Props> = ({client}) => client.m();",
+        "type F<P> = (p: P | Other) => void; const run: F<Props> = ({client}) => client.m();",
+        "type F<P> = (p: P) => void; const run: F<Props, Other> = ({client}) => client.m();",
+        "function inner({client}) { client.m(); } const run = inner as (p: Props) => void;",
+        "function inner({client}) { client.m(); } const run = inner satisfies (p: Props) => void;",
+        "const run: React.FC<Props> = ({client}) => client.m();",
+        "import type {F} from './callable'; const run: F = ({client}) => client.m();",
+    ] {
+        for lang in [Language::TypeScript, Language::Tsx] {
+            let app = format!("import type {{Props}} from './props'; {declaration}");
+            let files = sources(&app, PROPS, &[("callable.ts", "import type {Props} from './props'; export type F = (p: Props) => void;")], lang);
+            for graph in [CallGraph::build(&files), CallGraph::build_direct_subset(&files, &files.keys().cloned().collect())] {
+                if std::panic::catch_unwind(|| check(&graph, None)).is_err() {
+                    failures.push((lang, declaration));
+                }
+            }
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "complete contextual negative population: {failures:?}"
+    );
+}
+
+#[test]
 fn imported_object_alias_augmentation_transition() {
     let a = sources(APP, PROPS, &[], Language::Tsx);
     let b = sources(
@@ -131,7 +223,6 @@ fn imported_object_alias_negative_population() {
         "import type {Props} from './props'; function run({['client']: client}: Props) { client.m(); }",
         "import type {Props} from './props'; function run({client, client: x}: Props) { client.m(); }",
         "import type {Props} from './props'; function run({client}: Props = other) { client.m(); }",
-        "import type {Props} from './props'; const run: (p: Props) => void = ({client}) => client.m();",
         "import type {Props} from './props'; const run: React.FC<Props> = ({client}) => client.m();",
         "import type {Props} from './props'; function run() { const {client}: Props = other; client.m(); }",
         "import type {Props} from './props'; function run({client}: Props<Other>) { client.m(); }",
@@ -203,6 +294,17 @@ fn imported_object_alias_negative_population() {
                     &CallGraph::build_direct_subset(&files, &files.keys().cloned().collect()),
                     None,
                 );
+                // The identical defining-source/member/augmentation fences must
+                // also hold when authority comes through a contextual producer.
+                if app == APP {
+                    let contextual = APP.replace(
+                        "export function run({client}: Props) { client.m(); }",
+                        "type F<P> = (p: P) => void; const run: F<Props> = ({client}) => { client.m(); };",
+                    );
+                    let files = sources(&contextual, props, extra, lang);
+                    check(&CallGraph::build(&files), None);
+                    check(&CallGraph::build_direct_subset(&files, &files.keys().cloned().collect()), None);
+                }
             })
             .is_err()
             {

@@ -184,7 +184,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   tests pass; default4005/0/1,MCP4195/0/1,matrix159/159. Real2780/Exact376 unchanged;
   source census is not dependency/program augmentation closure. No React.FC expansion.
   See `docs/eval/receiver-closure/2026-09-05-imported-props-identity-readout.md`.
-- **Direct imported object-alias identity — PR257 open,9c99f96:**
+- **Direct imported object-alias identity — PR257 merged,661a95a4 (implementation9c99f96):**
   Explicit required destructured parameter, one relative named import and inline
   exported non-generic object alias. Definition-file proof replaces stale cache
   metadata; CPG76/nav44. No contextual imported alias, interface, barrel, hook or
@@ -193,7 +193,18 @@ Three candidate directions once the queue's top items are drained (or interleave
   Pinned5.9.3 corpus24/24; reproduced Prism miss resolved by index refresh.
   Full default4012/0/1,MCP4202/0/1,matrix159/159; frozen9c99f96 quick baseline-invalid:
   SHA drift,C-name4/6 probes,oracle2/30 errors,SUT0; no rebaseline.
+  Merge tree equals published153e3595; gates are prior implementation evidence,
+  not rerun for docs-only merge acknowledgement. Contextual successor approved below.
   See `docs/eval/receiver-closure/2026-09-06-imported-object-alias-readout.md`.
+- **Contextual imported object-alias identity — implementation/full suites complete, frozen quick pending:**
+  Reuse source-defined contextual parameter nodes through supported local callable
+  forms, retaining imported declaration/class identity and replacement barriers.
+  CPG77/nav45. Explicit annotations terminal; no imported callables, interfaces,
+  barrels, React.FC or hooks. Compiler11/11 plus audit24/24; focused cache and
+  full/subset tests pass. Default4016/0/1,MCP4206/0/1,matrix159/159; Clippy warnings.
+  Real2780 records byte-identical/376 Exact; served three new Exact and three
+  exclusions, Exact callers/callees verified. Cap3 SELF-PASS, not independent.
+  See `docs/eval/receiver-closure/2026-09-06-contextual-imported-alias-readout.md`.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:
