@@ -1,7 +1,7 @@
 # Handoff — contextual imported object-alias identity
 
 **Written:** 2026-09-06 · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/contextual-imported-object-alias · **Measured state:** `[MEASURED]` git fetch/switch: base661a95a4, three carried merge records and original two unrelated untracked artifacts.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/contextual-imported-object-alias · **Measured state:** `[MEASURED]` implementatione3fb6ba committed on fetched main661a95a4;12 scoped files, original two unrelated untracked artifacts preserved. This docs-only custody update precedes the frozen-source quick; no runtime/test edits after the implementation commit.
 **Predecessor:** PR257, imported-object-alias-identity handoff.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -20,7 +20,7 @@ authority inherited from this lane's user instructions.
 
 1. git status --short --branch in the workspace.
 2. Read same-date contextual-imported-object-alias spec.
-3. Commit scoped work; rebuild/run frozen-source quick, archive, then publish.
+3. Commit this custody update; rebuild/run frozen-source quick, archive, then publish.
 
 **STOP conditions:** self-review cap3, quick cap2; disk below3GiB; no rebaseline,
 full multicorpus, broad compiler-program closure or React.FC runtime expansion.
@@ -34,7 +34,8 @@ full multicorpus, broad compiler-program closure or React.FC runtime expansion.
 | Cache/compiler | done | `[MEASURED]` round2-cache.log4/4 (64 transitions/8 sidecar states); compiler-contextual11/11, compiler-audit24/24 |
 | Full gates / review | done | `[MEASURED]` default4016/0/1,MCP4206/0/1,matrix159/159; fmt/diff pass, Clippy warnings; cap3 self-review complete |
 | Real/served measurement | done | `[MEASURED]` measurement.json:2780 byte-identical/376 Exact, served0→3; callers/callees artifacts |
-| Frozen quick / publication | next | Commit then immediate rebuild; quick cap2, no paired base quick |
+| Commit | done | `[MEASURED]` e3fb6babcf1e80e54cee76c6d6b0778c3f15f0de; scoped diff12 files |
+| Frozen quick / publication | next | Immediate rebuild after custody commit; quick cap2, no paired base quick |
 | React.FC guidance | done | `[MEASURED]` official React/DefinitelyTyped/TypeScript sources in spec |
 
 ## 3. Corrections to standing documents and memory
