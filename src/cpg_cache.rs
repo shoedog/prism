@@ -23,7 +23,7 @@
 
 use crate::access_path::AccessPath;
 use crate::call_graph::CallGraph;
-use crate::cpg::{CodePropertyGraph, CpgEdge, CpgNode, ReturnFlowStats, VarAccess};
+use crate::cpg::{CodePropertyGraph, CpgEdge, CpgNode, DfgLabelStats, ReturnFlowStats, VarAccess};
 use crate::data_flow::DataFlowGraph;
 
 use petgraph::graph::{DiGraph, NodeIndex};
@@ -184,7 +184,10 @@ use std::path::{Path, PathBuf};
 /// - v71: bounded module-local generic contextual alias authority.
 /// - v72: module-local single-call-signature object alias authority.
 /// - v73: bounded module-local callable interface authority.
-const CACHE_VERSION: u32 = 73;
+/// - v74: `CpgEdge::DataFlow` carries `FlowConfidence` from the
+///   reaching-definitions pass, and `DataFlowGraph` gains primary `labels` and
+///   per-file `rd_function_stats`. Label-only — the edge set is unchanged.
+const CACHE_VERSION: u32 = 74;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -237,6 +240,8 @@ struct SerializedCpg {
     dfg: DataFlowGraph,
     /// Return-flow construction counters survive cold/cache-hit parity.
     return_flow_stats: ReturnFlowStats,
+    /// DFG label counters survive cold/cache-hit parity.
+    dfg_label_stats: DfgLabelStats,
 }
 
 /// Human-readable metadata written alongside the binary cache for debugging.
@@ -363,6 +368,7 @@ pub fn save_cache_with_topology(
             call_graph: cpg.call_graph.clone(),
             dfg: cpg.dfg.clone(),
             return_flow_stats: cpg.return_flow_stats.clone(),
+            dfg_label_stats: cpg.dfg_label_stats.clone(),
         },
     };
 
@@ -660,6 +666,7 @@ fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
         ser.dfg,
     );
     cpg.return_flow_stats = ser.return_flow_stats;
+    cpg.dfg_label_stats = ser.dfg_label_stats;
     cpg
 }
 
@@ -713,8 +720,8 @@ mod tests {
     }
 
     #[test]
-    fn cache_versions_are_pinned_for_receiver_authority() {
-        assert_eq!(super::CACHE_VERSION, 73);
+    fn cache_versions_are_pinned_for_receiver_authority_and_item2_confidence() {
+        assert_eq!(super::CACHE_VERSION, 74);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -1326,6 +1333,7 @@ mod tests {
                 call_graph: CallGraph::empty(),
                 dfg: DataFlowGraph::empty(),
                 return_flow_stats: ReturnFlowStats::default(),
+                dfg_label_stats: DfgLabelStats::default(),
             },
         };
         std::fs::write(
@@ -1360,6 +1368,7 @@ mod tests {
                 call_graph: CallGraph::empty(),
                 dfg: DataFlowGraph::empty(),
                 return_flow_stats: ReturnFlowStats::default(),
+                dfg_label_stats: DfgLabelStats::default(),
             },
         };
         std::fs::write(

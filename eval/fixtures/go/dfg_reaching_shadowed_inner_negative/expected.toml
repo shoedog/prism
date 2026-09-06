@@ -1,0 +1,17 @@
+[case]
+language = "go"
+capability = "dfg_reaching_shadowed_inner_negative"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.go:3:x"
+to = "main.go:6:x"
+present = false
+
+[[expect.edges]]
+from = "main.go:3:x"
+to = "main.go:9:x"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 8

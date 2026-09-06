@@ -63,6 +63,27 @@ impl Language {
         }
     }
 
+    /// The grammar's generated node-type schema.
+    ///
+    /// Consumers that need grammar-wide structural facts must derive them from
+    /// this metadata instead of maintaining a second list of node kinds.
+    pub(crate) fn node_types_json(&self) -> &'static str {
+        match self {
+            Self::Python => tree_sitter_python::NODE_TYPES,
+            Self::JavaScript => tree_sitter_javascript::NODE_TYPES,
+            Self::TypeScript => tree_sitter_typescript::TYPESCRIPT_NODE_TYPES,
+            Self::Tsx => tree_sitter_typescript::TSX_NODE_TYPES,
+            Self::Go => tree_sitter_go::NODE_TYPES,
+            Self::Java => tree_sitter_java::NODE_TYPES,
+            Self::C => tree_sitter_c::NODE_TYPES,
+            Self::Cpp => tree_sitter_cpp::NODE_TYPES,
+            Self::Rust => tree_sitter_rust::NODE_TYPES,
+            Self::Lua => tree_sitter_lua::NODE_TYPES,
+            Self::Terraform => tree_sitter_hcl::NODE_TYPES,
+            Self::Bash => tree_sitter_bash::NODE_TYPES,
+        }
+    }
+
     /// All supported languages.
     pub fn all() -> Vec<Self> {
         vec![
@@ -790,6 +811,74 @@ impl Language {
     /// Whether a node is a return statement.
     pub fn is_return_node(&self, kind: &str) -> bool {
         matches!(kind, "return_statement")
+    }
+
+    /// Kinds that WRAP a statement without being one semantically. When
+    /// `collect_statements` meets one it must descend through it, or the wrapped
+    /// body's lines never enter the CFG's line universe
+    /// (`ParsedFile::statements_in_function`). Measured: this is why Rust scores
+    /// 14.1% line coverage and 32.9% DataFlow-edge admissibility
+    /// (logs/item2-census/REPORT.md §G, §H).
+    pub fn statement_wrapper_kinds(&self) -> &'static [&'static str] {
+        match self {
+            Self::Python => &[
+                "with_statement",
+                "except_clause",
+                "except_group_clause",
+                "finally_clause",
+                "case_clause",
+            ],
+            Self::JavaScript => &[
+                "labeled_statement",
+                "catch_clause",
+                "finally_clause",
+                "switch_case",
+                "switch_default",
+                "with_statement",
+            ],
+            Self::TypeScript | Self::Tsx => &[
+                "labeled_statement",
+                "catch_clause",
+                "finally_clause",
+                "switch_case",
+                "switch_default",
+            ],
+            Self::Go => &[
+                "labeled_statement",
+                "select_statement",
+                "communication_case",
+                "default_case",
+                "expression_switch_statement",
+                "expression_case",
+                "type_switch_statement",
+                "type_case",
+            ],
+            Self::Java => &[
+                "labeled_statement",
+                "synchronized_statement",
+                "switch_expression",
+                "switch_block",
+                "switch_block_statement_group",
+                "switch_rule",
+                "try_with_resources_statement",
+                "catch_clause",
+                "finally_clause",
+            ],
+            Self::C => &["labeled_statement", "attributed_statement"],
+            Self::Cpp => &["labeled_statement", "attributed_statement", "catch_clause"],
+            Self::Rust => &[
+                "expression_statement",
+                "async_block",
+                "const_block",
+                "gen_block",
+                "try_block",
+                "unsafe_block",
+                "while_expression",
+            ],
+            Self::Lua => &["elseif_statement", "else_statement"],
+            Self::Bash => &["do_group", "case_item", "subshell", "redirected_statement"],
+            Self::Terraform => &[],
+        }
     }
 
     /// Whether a node is a statement-level construct suitable for CFG construction.

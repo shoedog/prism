@@ -1,0 +1,17 @@
+[case]
+language = "javascript"
+capability = "dfg_reaching_killed_def"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.js:2:x"
+to = "main.js:4:x"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 3
+
+[[expect.edges]]
+from = "main.js:3:x"
+to = "main.js:4:x"
+confidence = "exact"

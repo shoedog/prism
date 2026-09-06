@@ -118,7 +118,7 @@ fn edge_steps_corpus_has_call_dataflow_and_controlflow_edges() {
         match g[e] {
             CpgEdge::Call(_) => call += 1,
             CpgEdge::ControlFlow => controlflow += 1,
-            CpgEdge::DataFlow => {
+            CpgEdge::DataFlow(_) => {
                 if let Some((a, b)) = g.edge_endpoints(e) {
                     if let (
                         CpgNode::Variable {

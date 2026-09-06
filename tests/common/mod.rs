@@ -131,7 +131,7 @@ pub fn arg_binds(cpg: &CodePropertyGraph, arg_name: &str, param_name: &str) -> b
     use prism::cpg::{CpgEdge, CpgNode, VarAccess};
 
     cpg.graph.edge_indices().any(|edge| {
-        cpg.graph[edge] == CpgEdge::DataFlow
+        matches!(cpg.graph[edge], CpgEdge::DataFlow(_))
             && cpg
                 .graph
                 .edge_endpoints(edge)
@@ -1046,4 +1046,360 @@ pub fn make_bash_test() -> (
     };
 
     (files, sources, diff)
+}
+
+fn evidence_parsed_files(sources: &[(&str, &str)]) -> BTreeMap<String, ParsedFile> {
+    sources
+        .iter()
+        .map(|(path, source)| {
+            (
+                (*path).to_string(),
+                ParsedFile::parse(path, source, Language::from_path(path).unwrap()).unwrap(),
+            )
+        })
+        .collect()
+}
+
+fn evidence_diff(file: &str, line: usize) -> DiffInput {
+    DiffInput {
+        files: vec![DiffInfo {
+            file_path: file.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([line]),
+        }],
+    }
+}
+
+fn evidence_run(
+    files: &BTreeMap<String, ParsedFile>,
+    diff: &DiffInput,
+    algorithm: SlicingAlgorithm,
+) -> SliceResult {
+    algorithms::run_slicing_compat(
+        files,
+        diff,
+        &SliceConfig::default().with_algorithm(algorithm),
+        None,
+    )
+    .unwrap()
+}
+
+fn evidence_at<'a>(
+    result: &'a SliceResult,
+    category: &str,
+    needle: &str,
+    line: Option<usize>,
+) -> &'a prism::finding_confidence::EvidencePath {
+    assert_eq!(
+        result.findings.len(),
+        result.evidence.len(),
+        "unaligned evidence"
+    );
+    let index = result
+        .findings
+        .iter()
+        .position(|finding| {
+            finding.category.as_deref() == Some(category)
+                && finding.description.contains(needle)
+                && line.is_none_or(|line| finding.line == line)
+        })
+        .unwrap_or_else(|| panic!("missing {category}/{needle}: {:?}", result.findings));
+    result.evidence[index]
+        .as_ref()
+        .unwrap_or_else(|| panic!("missing evidence for {:?}", result.findings[index]))
+}
+
+fn evidence_at_file<'a>(
+    result: &'a SliceResult,
+    file: &str,
+    category: &str,
+    needle: &str,
+    line: usize,
+) -> &'a prism::finding_confidence::EvidencePath {
+    assert_eq!(
+        result.findings.len(),
+        result.evidence.len(),
+        "unaligned evidence"
+    );
+    let index = result
+        .findings
+        .iter()
+        .position(|finding| {
+            finding.file == file
+                && finding.category.as_deref() == Some(category)
+                && finding.description.contains(needle)
+                && finding.line == line
+        })
+        .unwrap_or_else(|| {
+            panic!(
+                "missing {file}:{line} {category}/{needle}: {:?}",
+                result.findings
+            )
+        });
+    result.evidence[index]
+        .as_ref()
+        .unwrap_or_else(|| panic!("missing evidence for {:?}", result.findings[index]))
+}
+
+pub fn assert_name_based_fallback_records_unlabeled_evidence() {
+    use prism::finding_confidence::{
+        classify_with_evidence, FindingConfidence, FindingTier, ParseQuality,
+    };
+
+    let source = "def f():\n    value = source()\n";
+    let files = BTreeMap::from([(
+        "fallback.py".to_string(),
+        ParsedFile::parse("fallback.py", source, Language::Python).unwrap(),
+    )]);
+    let ctx = CpgContext::build(&files, None);
+    assert!(
+        ctx.cpg.dfg.edges.is_empty(),
+        "fixture must leave the DFG unavailable"
+    );
+    assert_eq!(
+        ctx.cpg.dfg.rd_function_stats["fallback.py"].functions_without_cfg, 1,
+        "fixture must exercise the RD Unavailable path"
+    );
+    let parsed = &files["fallback.py"];
+    let function = parsed.enclosing_function(2).unwrap();
+    let lines = BTreeSet::from([2]);
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow);
+    let core = algorithms::left_flow::left_flow_core(
+        &ctx,
+        "fallback.py",
+        &function,
+        1,
+        2,
+        &lines,
+        &config,
+        "leftflow",
+    );
+
+    assert!(
+        !core.fallback_evidence.is_empty(),
+        "fixture must execute fallback"
+    );
+    for evidence in &core.fallback_evidence {
+        assert!(evidence.crossed_unlabeled && evidence.hops.is_empty());
+        assert_eq!(
+            classify_with_evidence("leftflow", ParseQuality::Clean, evidence),
+            (FindingConfidence::Unlabeled, FindingTier::Candidate)
+        );
+    }
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "fallback.py".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: lines,
+        }],
+    };
+    let result = algorithms::left_flow::slice(&ctx, &diff, &config).unwrap();
+    assert!(
+        result.findings.is_empty(),
+        "traversal-only algorithm minted a finding"
+    );
+}
+
+fn assert_evidence_grade(
+    algorithm: &str,
+    evidence: &prism::finding_confidence::EvidencePath,
+    expected: prism::finding_confidence::FindingConfidence,
+) {
+    use prism::finding_confidence::{classify_with_evidence, FindingTier, ParseQuality};
+    let tier = if expected == prism::finding_confidence::FindingConfidence::Exact {
+        FindingTier::Asserted
+    } else {
+        FindingTier::Candidate
+    };
+    assert_eq!(
+        classify_with_evidence(algorithm, ParseQuality::Clean, evidence),
+        (expected, tier)
+    );
+}
+
+pub fn assert_finding_evidence_provenance_cases() {
+    use prism::cpg::{FlowConfidence, FlowDoubt};
+    use prism::finding_confidence::{EvidenceHop, FindingConfidence};
+    let cases = [
+        ("def f():\n    query = request.GET['q']\n    cursor.execute(query)\n", 3, FindingConfidence::Exact),
+        ("def f():\n    query = request.GET['q']\n    query = clean(query)\n    cursor.execute(query)\n", 4, FindingConfidence::NameOnly),
+    ];
+    for (source, line, expected) in cases {
+        let files = evidence_parsed_files(&[("p.py", source)]);
+        let result = evidence_run(
+            &files,
+            &evidence_diff("p.py", line),
+            SlicingAlgorithm::ProvenanceSlice,
+        );
+        let evidence = evidence_at(&result, "untrusted_origin", "variable 'query'", Some(line));
+        assert!(!evidence.hops.is_empty() && !evidence.crossed_unlabeled);
+        assert_evidence_grade("provenance", evidence, expected);
+        let expected_hop = match expected {
+            FindingConfidence::Exact => FlowConfidence::Exact,
+            FindingConfidence::NameOnly => {
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 })
+            }
+            _ => unreachable!(),
+        };
+        assert!(evidence.hops.iter().any(|hop| matches!(hop,
+            EvidenceHop::DataFlow { from, to, confidence }
+                if from.line == 2 && to.line == line && *confidence == expected_hop)));
+    }
+
+    let source = "def source():\n    query = request.GET['q']\n\ndef consume():\n    cursor.execute(query)\n";
+    let files = evidence_parsed_files(&[("p.py", source)]);
+    let result = evidence_run(
+        &files,
+        &evidence_diff("p.py", 5),
+        SlicingAlgorithm::ProvenanceSlice,
+    );
+    let evidence = evidence_at(&result, "untrusted_origin", "variable 'query'", Some(5));
+    assert!(evidence.crossed_unlabeled && evidence.hops.is_empty());
+    assert_evidence_grade("provenance", evidence, FindingConfidence::Unlabeled);
+}
+
+pub fn assert_finding_evidence_taint_cases() {
+    use prism::cpg::{FlowConfidence, FlowDoubt};
+    use prism::finding_confidence::{EvidenceHop, FindingConfidence};
+    for (source, sink_line, expected) in [
+        ("def f(request):\n    query = request.GET['q']\n    cursor.execute(query)\n", 3, FindingConfidence::Exact),
+        ("def f(request):\n    query = request.GET['q']\n    query = clean(query)\n    cursor.execute(query)\n", 4, FindingConfidence::NameOnly),
+    ] {
+        let files = evidence_parsed_files(&[("t.py", source)]);
+        let result = evidence_run(&files, &evidence_diff("t.py", 2), SlicingAlgorithm::Taint);
+        let evidence = evidence_at(&result, "taint_sink", "reaches sink", Some(sink_line));
+        assert!(!evidence.hops.is_empty() && !evidence.crossed_unlabeled);
+        assert_evidence_grade("taint", evidence, expected);
+        let expected_hop = match expected {
+            FindingConfidence::Exact => FlowConfidence::Exact,
+            FindingConfidence::NameOnly => {
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 })
+            }
+            _ => unreachable!(),
+        };
+        assert!(evidence.hops.iter().any(|hop| matches!(hop,
+            EvidenceHop::DataFlow { from, to, confidence }
+                if from.line == 2 && to.line == sink_line && *confidence == expected_hop)));
+    }
+}
+
+pub fn assert_finding_evidence_taint_cross_file_case(killed: bool) {
+    use prism::cpg::{FlowConfidence, FlowDoubt};
+    use prism::finding_confidence::{EvidenceHop, FindingConfidence};
+    let (source, expected) = if killed {
+        (
+            "def entry(request):\n    query = request.GET['q']\n    query = clean(query)\n    deliver(query)\n",
+            FindingConfidence::NameOnly,
+        )
+    } else {
+        (
+            "def entry(request):\n    query = request.GET['q']\n    deliver(query)\n",
+            FindingConfidence::Exact,
+        )
+    };
+    let callee = "def deliver(query):\n    marker = 0\n    cursor.execute(query)\n";
+    let sink_line = 3;
+    let files = evidence_parsed_files(&[("a.py", source), ("b.py", callee)]);
+    let result = evidence_run(&files, &evidence_diff("a.py", 2), SlicingAlgorithm::Taint);
+    let evidence = evidence_at_file(&result, "b.py", "taint_sink", "reaches sink", sink_line);
+    assert!(
+        !evidence.hops.is_empty() && !evidence.crossed_unlabeled,
+        "cross-file sink must retain its accepted witness: {evidence:#?}"
+    );
+    assert_evidence_grade("taint", evidence, expected);
+    assert!(
+        evidence.hops.iter().any(|hop| matches!(hop,
+            EvidenceHop::DataFlow { from, to, .. }
+                if from.file == "a.py" && to.file == "b.py")),
+        "selected witness must contain the cross-file delivery hop: {evidence:#?}"
+    );
+    assert!(
+        evidence.hops.iter().any(|hop| matches!(hop,
+        EvidenceHop::DataFlow { from, to, confidence }
+            if from.file == "b.py"
+                && to.file == "b.py"
+                && to.line == sink_line
+                && *confidence == FlowConfidence::Exact)),
+        "selected witness must retain the Exact sink hop: {evidence:#?}"
+    );
+    if killed {
+        assert!(
+            evidence.hops.iter().any(|hop| matches!(hop,
+            EvidenceHop::DataFlow { from, to, confidence }
+                if from.file == "a.py"
+                    && from.line == 2
+                    && to.file == "a.py"
+                    && to.line == 4
+                    && *confidence
+                        == FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }))),
+            "selected witness must retain the NameOnly pre-call hop: {evidence:#?}"
+        );
+    }
+}
+
+fn call_evidence_fixture(name_only: bool) -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    if name_only {
+        let sources = [
+            (
+                "src/api.c",
+                "\n#include <stdlib.h>\n\nint process(int *data, int len) {\n    for (int i = 0; i < len; i++) {\n        data[i] *= 2;\n    }\n    return 0;\n}\n",
+            ),
+            (
+                "src/driver.c",
+                "\n#include \"api.h\"\n\nstruct operations {\n    int (*process)(int *data, int len);\n};\n\nint run_pipeline(struct operations *ops, int *data, int len) {\n    int ret = ops->process(data, len);\n    consume(ret);\n    return ret;\n}\n",
+            ),
+        ];
+        (
+            evidence_parsed_files(&sources),
+            evidence_diff("src/api.c", 8),
+        )
+    } else {
+        let sources = [
+            (
+                "src/device.c",
+                "\nint open_device(const char *path) {\n    int fd = open(path, 0);\n    return fd;\n}\n",
+            ),
+            (
+                "src/init.c",
+                "\nvoid init_system(void) {\n    int fd = open_device(\"/dev/eth0\");\n    use_fd(fd);\n}\n",
+            ),
+        ];
+        (
+            evidence_parsed_files(&sources),
+            evidence_diff("src/device.c", 4),
+        )
+    }
+}
+
+pub fn assert_finding_evidence_call_cases(algorithm: SlicingAlgorithm, name: &str) {
+    use prism::finding_confidence::{EvidenceHop, FindingConfidence};
+    use prism::resolution::ResolutionConfidence;
+    for (name_only, expected) in [
+        (false, FindingConfidence::Exact),
+        (true, FindingConfidence::NameOnly),
+    ] {
+        let (files, diff) = call_evidence_fixture(name_only);
+        let result = evidence_run(&files, &diff, algorithm);
+        let category = if name == "echo" {
+            "missing_error_handling"
+        } else {
+            "unprotected_caller"
+        };
+        let changed_name = if name_only { "process" } else { "open_device" };
+        let evidence = evidence_at(&result, category, changed_name, None);
+        assert!(!evidence.hops.is_empty() && !evidence.crossed_unlabeled);
+        assert_evidence_grade(name, evidence, expected);
+        let expected_call = if name_only {
+            ResolutionConfidence::NameOnly
+        } else {
+            ResolutionConfidence::Exact
+        };
+        let expected_line = if name_only { 9 } else { 3 };
+        assert!(evidence.hops.iter().any(|hop| matches!(hop,
+            EvidenceHop::Call { edge, confidence }
+                if edge.call_site_line == expected_line
+                    && edge.confidence == expected_call
+                    && *confidence == expected_call)));
+    }
 }

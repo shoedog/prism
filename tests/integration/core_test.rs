@@ -870,7 +870,7 @@ fn no_dataflow_edge_crosses_same_named_functions() {
                impl B { fn run(&self) { let v = src(); other(v); } }\n";
     let cpg = build_rust_cpg(src);
     for e in cpg.graph.edge_indices() {
-        if cpg.graph[e] != prism::cpg::CpgEdge::DataFlow {
+        if !matches!(cpg.graph[e], prism::cpg::CpgEdge::DataFlow(_)) {
             continue;
         }
         let (s, t) = cpg.graph.edge_endpoints(e).unwrap();

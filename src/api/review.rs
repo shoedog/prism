@@ -4,6 +4,9 @@ use crate::call_graph::ScopeGraphBuildInputs;
 use crate::cpg::{CodePropertyGraph, CpgContext};
 use crate::cpg_cache::{self, CacheResult};
 use crate::diff::DiffInput;
+use crate::finding_confidence::{
+    MinConfidence, ResolutionMode, DEFAULT_MIN_CONFIDENCE, DEFAULT_RESOLUTION,
+};
 use crate::languages::Language;
 use crate::slice::FileParseQuality;
 use crate::type_db::TypeDatabase;
@@ -23,6 +26,8 @@ pub struct ReviewOptions {
     pub cache_dir: Option<PathBuf>,
     pub no_cache: bool,
     pub language_versions: Vec<(Language, LanguageVersion)>,
+    pub min_confidence: MinConfidence,
+    pub resolution: ResolutionMode,
 }
 
 impl ReviewOptions {
@@ -35,6 +40,8 @@ impl ReviewOptions {
             cache_dir: None,
             no_cache: false,
             language_versions: Vec::new(),
+            min_confidence: DEFAULT_MIN_CONFIDENCE,
+            resolution: DEFAULT_RESOLUTION,
         }
     }
 }
@@ -51,6 +58,8 @@ pub struct ReviewInputs {
     pub load_warnings: Vec<String>,
     pub parse_quality: BTreeMap<String, FileParseQuality>,
     pub scope_graph_inputs: ScopeGraphBuildInputs,
+    pub min_confidence: MinConfidence,
+    pub resolution: ResolutionMode,
     build_warnings: Vec<String>,
 }
 
@@ -164,6 +173,8 @@ pub fn load_review_inputs(opts: &ReviewOptions, diff_text: &str) -> Result<Revie
             load_warnings,
             parse_quality,
             scope_graph_inputs,
+            min_confidence: opts.min_confidence,
+            resolution: opts.resolution,
             build_warnings,
         })
     })

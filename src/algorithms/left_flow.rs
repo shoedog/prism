@@ -14,6 +14,7 @@
 
 use crate::cpg::{CpgContext, CpgNode, VarAccess};
 use crate::diff::{DiffBlock, DiffInput};
+use crate::finding_confidence::EvidencePath;
 use crate::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
@@ -32,8 +33,12 @@ pub struct LeftFlowResult {
     pub slice_lines: BTreeMap<usize, bool>,
     /// Function calls found on the diff lines: `(callee_name, line)`.
     pub diff_line_calls: Vec<(String, usize)>,
+    /// Conservative artifacts recorded only when the name-based fallback is
+    /// actually selected. Traversal-only algorithms still emit no findings.
+    pub fallback_evidence: Vec<EvidencePath>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn left_flow_core(
     ctx: &CpgContext,
     file_path: &str,
@@ -42,9 +47,11 @@ pub fn left_flow_core(
     func_end: usize,
     lines: &BTreeSet<usize>,
     config: &SliceConfig,
+    algorithm: &str,
 ) -> LeftFlowResult {
     let parsed = &ctx.files[file_path];
     let mut slice_lines: BTreeMap<usize, bool> = BTreeMap::new();
+    let mut fallback_evidence = Vec::new();
 
     // Always include function signature and closing
     slice_lines.insert(func_start, false);
@@ -101,6 +108,7 @@ pub fn left_flow_core(
             if dfg_covered_lines.contains(decl_line) {
                 continue; // Already handled by DFG
             }
+            fallback_evidence.push(EvidencePath::unlabeled_for(algorithm));
             let refs = parsed.find_variable_references_scoped(func_node, var_name, *decl_line);
             for ref_line in refs {
                 if ref_line >= func_start && ref_line <= func_end {
@@ -113,6 +121,7 @@ pub fn left_flow_core(
         // No DFG available — pure name-based (original behavior)
         let lvalues = parsed.assignment_lvalues_on_lines(func_node, lines);
         for (var_name, decl_line) in &lvalues {
+            fallback_evidence.push(EvidencePath::unlabeled_for(algorithm));
             let refs = parsed.find_variable_references_scoped(func_node, var_name, *decl_line);
             for ref_line in refs {
                 if ref_line >= func_start && ref_line <= func_end {
@@ -186,6 +195,7 @@ pub fn left_flow_core(
             if dfg_covered_conds.contains(var_name) {
                 continue;
             }
+            fallback_evidence.push(EvidencePath::unlabeled_for(algorithm));
             let refs = parsed.find_variable_references(func_node, var_name);
             for ref_line in refs {
                 if ref_line >= func_start && ref_line <= func_end {
@@ -196,6 +206,7 @@ pub fn left_flow_core(
     } else {
         let cond_vars = parsed.condition_variables_on_lines(func_node, lines);
         for (var_name, _) in &cond_vars {
+            fallback_evidence.push(EvidencePath::unlabeled_for(algorithm));
             let refs = parsed.find_variable_references(func_node, var_name);
             for ref_line in refs {
                 if ref_line >= func_start && ref_line <= func_end {
@@ -232,6 +243,7 @@ pub fn left_flow_core(
     LeftFlowResult {
         slice_lines,
         diff_line_calls,
+        fallback_evidence,
     }
 }
 
@@ -294,6 +306,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput, config: &SliceConfig) -> Result
                 *func_end,
                 lines,
                 config,
+                "leftflow",
             );
 
             // Build block

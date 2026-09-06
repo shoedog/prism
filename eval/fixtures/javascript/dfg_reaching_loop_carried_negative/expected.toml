@@ -1,0 +1,11 @@
+[case]
+language = "javascript"
+capability = "dfg_reaching_loop_carried_negative"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.js:5:x"
+to = "main.js:4:x"
+confidence = "nameonly"
+doubt = "sameline"

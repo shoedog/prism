@@ -10,7 +10,10 @@ pub use model::{
 };
 
 use crate::api::{build_info, ReviewInputs};
-use crate::finding_confidence::{classify, parse_quality_for, FindingTier, RESOLUTION_MODE};
+use crate::finding_confidence::{
+    admit_finding_for_resolution, parse_quality_for_selected_evidence, EvidencePath, FindingTier,
+    MinConfidence, ResolutionMode,
+};
 use crate::languages::Language;
 use crate::output::{sarif::path_escapes_repo, severity_rank};
 use crate::slice::{AlgorithmError, SliceFinding};
@@ -32,12 +35,15 @@ pub struct TargetsMeta {
     pub run_warnings: Vec<String>,
     pub min_severity_rank: u8,
     pub min_tier: FindingTier,
+    pub min_confidence: MinConfidence,
+    pub resolution: ResolutionMode,
 }
 
 /// Projects findings and records per-finding warnings against the complete
 /// input population before applying severity or tier filters.
 pub fn project(
     findings: &[SliceFinding],
+    evidence: &[Option<EvidencePath>],
     inputs: &ReviewInputs,
     meta: &TargetsMeta,
 ) -> TargetsDocument {
@@ -45,7 +51,15 @@ pub fn project(
     let mut targets = Vec::new();
     let mut ids = HashSet::new();
 
-    for finding in findings {
+    if findings.len() != evidence.len() {
+        warnings.push(format!(
+            "targets: evidence alignment mismatch: {} findings, {} artifacts; unmatched findings are unlabeled",
+            findings.len(),
+            evidence.len()
+        ));
+    }
+
+    for (index, finding) in findings.iter().enumerate() {
         if finding.line == 0 {
             warnings.push(format!(
                 "targets: dropped finding with line 0: {}/{} in {}",
@@ -80,9 +94,20 @@ pub fn project(
             .map(|path| normalise_path(path, &mut warnings))
             .collect();
 
-        let parse_quality =
-            parse_quality_for(&normalized_finding, &inputs.parse_quality, &inputs.files);
-        let (confidence, tier) = classify(&finding.algorithm, parse_quality);
+        let selected_evidence = evidence.get(index).and_then(Option::as_ref);
+        let parse_quality = parse_quality_for_selected_evidence(
+            &normalized_finding,
+            selected_evidence,
+            &inputs.parse_quality,
+            &inputs.files,
+        );
+        let admission = admit_finding_for_resolution(
+            &finding.algorithm,
+            parse_quality,
+            selected_evidence,
+            meta.min_confidence,
+            meta.resolution,
+        );
         let mut mapped = map_finding(finding);
         if mapped.kind == "external_call" {
             let context = dependency_hint::SiteContext {
@@ -122,6 +147,9 @@ pub fn project(
                 None => {}
             }
         }
+        let Some((confidence, tier)) = admission else {
+            continue;
+        };
         let (symbol, function_start_line, function_end_line) =
             enclosing_site(&file, finding, inputs, &mut warnings);
         let language = Language::from_path(&file)
@@ -224,7 +252,7 @@ pub fn project(
         producer: Producer {
             tool: "prism".to_string(),
             version: build.package_version.to_string(),
-            resolution_mode: RESOLUTION_MODE.to_string(),
+            resolution_mode: meta.resolution.as_str().to_string(),
             build_identity: Some(build.build_identity.to_string()),
             algorithms: meta.algorithms_run.clone(),
         },

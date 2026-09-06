@@ -1,4 +1,5 @@
 use crate::diff::DiffBlock;
+use crate::finding_confidence::EvidencePath;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -296,11 +297,16 @@ impl SlicingAlgorithm {
 
 /// Result of running a slicing algorithm on a diff.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SliceResult {
     pub algorithm: SlicingAlgorithm,
     pub blocks: Vec<DiffBlock>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub findings: Vec<SliceFinding>,
+    /// Selected evidence for each finding, aligned by index and kept out of
+    /// every legacy output format.
+    #[serde(skip)]
+    pub evidence: Vec<Option<EvidencePath>>,
     /// Parse quality warnings for input files (e.g. high ERROR-node rate).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
@@ -316,6 +322,7 @@ impl SliceResult {
             algorithm,
             blocks: Vec::new(),
             findings: Vec::new(),
+            evidence: Vec::new(),
             warnings: Vec::new(),
             diagrams: Vec::new(),
             diagram_warnings: Vec::new(),
@@ -324,6 +331,28 @@ impl SliceResult {
 
     pub fn to_json(&self) -> anyhow::Result<String> {
         Ok(serde_json::to_string_pretty(self)?)
+    }
+
+    /// Restore the finding/evidence invariant at algorithm boundaries. AST-only
+    /// findings have a valid empty witness; missing CPG evidence stays `None`.
+    pub(crate) fn align_evidence(&mut self) {
+        if self.findings.len() == self.evidence.len() {
+            return;
+        }
+        if !self.algorithm.needs_cpg() && self.evidence.is_empty() {
+            self.evidence
+                .resize(self.findings.len(), Some(EvidencePath::default()));
+            return;
+        }
+        self.warnings.push(format!(
+            "evidence alignment mismatch for {}: {} findings, {} artifacts",
+            self.algorithm.name(),
+            self.findings.len(),
+            self.evidence.len()
+        ));
+        self.evidence.truncate(self.findings.len());
+        let fill = (!self.algorithm.needs_cpg()).then(EvidencePath::default);
+        self.evidence.resize(self.findings.len(), fill);
     }
 }
 

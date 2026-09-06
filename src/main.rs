@@ -27,7 +27,16 @@ fn parse_loc_seeds(
 }
 
 fn main() -> Result<()> {
+    let min_confidence_explicit = std::env::args_os().any(|argument| {
+        argument == "--min-confidence"
+            || argument
+                .to_str()
+                .is_some_and(|argument| argument.starts_with("--min-confidence="))
+    });
     let cli = Cli::parse();
+    if let Err(error) = cli.validate_min_confidence(min_confidence_explicit) {
+        error.exit();
+    }
     // Run the whole command on the large-stack pool. prism walks tree-sitter
     // ASTs recursively in parsing, CPG build, and the live-type scan; on deeply
     // nested files those overflow a default ~2 MiB thread/worker stack. install()
@@ -245,7 +254,25 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                     "return_flow".into(),
                     serde_json::to_value(&session.index.cpg().return_flow_stats)?,
                 );
+                stats.as_object_mut().expect("call-stats object").insert(
+                    "dfg_labels".into(),
+                    serde_json::to_value(&session.index.cpg().dfg_label_stats)?,
+                );
                 println!("{}", serde_json::to_string_pretty(&stats)?);
+            }
+            Ok(())
+        }
+        NavQuery::DfgStats { repo, edges } => {
+            let session = prism::api::nav_session(repo, &nav_options)?;
+            if *edges {
+                for edge in prism::navigation::queries::dfg_edge_dump(session.index.cpg()) {
+                    println!("{}", serde_json::to_string(&edge)?);
+                }
+            } else {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&session.index.cpg().dfg_label_stats)?
+                );
             }
             Ok(())
         }
@@ -381,6 +408,8 @@ fn run_targets(args: &TargetsArgs) -> Result<()> {
     review_options.scoped_cpg = args.scoped_cpg;
     review_options.cache_dir = args.cache_dir.clone();
     review_options.no_cache = args.no_cache;
+    review_options.min_confidence = args.min_confidence;
+    review_options.resolution = args.resolution;
 
     let mut algorithm_params = prism::api::AlgorithmParams::default();
     algorithm_params.old_repo = args.old_repo.clone();
@@ -415,7 +444,14 @@ fn run_targets(args: &TargetsArgs) -> Result<()> {
     meta.run_warnings = run_warnings;
     meta.min_severity_rank = output::severity_rank(&args.min_severity);
     meta.min_tier = min_tier;
-    let document = prism::targets::project(&outcome.run.findings, &outcome.inputs, &meta);
+    meta.min_confidence = outcome.min_confidence;
+    meta.resolution = outcome.resolution;
+    let document = prism::targets::project(
+        &outcome.run.findings,
+        &outcome.run.evidence,
+        &outcome.inputs,
+        &meta,
+    );
 
     let mut bytes = serde_json::to_vec_pretty(&document)?;
     bytes.push(b'\n');
@@ -540,6 +576,8 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
     review_options.scoped_cpg = cli.scoped_cpg;
     review_options.cache_dir = cli.cache_dir.clone();
     review_options.no_cache = cli.no_cache;
+    review_options.min_confidence = cli.min_confidence;
+    review_options.resolution = cli.resolution;
     if let Some(ref v) = cli.python_version {
         if let Some(lv) = prism::type_provider::LanguageVersion::parse(v) {
             review_options
@@ -628,6 +666,9 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
         let all_errors = run.errors;
         let algorithms_run = run.algorithms_run;
         let all_findings = run.findings;
+        let all_evidence = run.evidence;
+        let min_confidence = run.min_confidence;
+        let resolution = run.resolution;
 
         match cli.format.as_str() {
             "review" => {
@@ -718,6 +759,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     .collect();
                 let document = output::to_sarif(
                     &output::SarifInputs::new(&all_findings)
+                        .evidence(&all_evidence)
                         .errors(&all_errors)
                         .parse_warnings(&inputs.parse_warnings)
                         .load_warnings(&inputs.load_warnings)
@@ -725,7 +767,9 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                         .algorithms_run(&algorithms_run)
                         .parse_quality(&inputs.parse_quality)
                         .files(&inputs.files)
-                        .sources(&inputs.sources),
+                        .sources(&inputs.sources)
+                        .min_confidence(min_confidence)
+                        .resolution(resolution),
                 );
                 println!("{}", serde_json::to_string_pretty(&document)?);
                 emit_warnings_to_stderr(&all_diagram_warnings);
@@ -788,6 +832,12 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
             repo,
         )?;
         result.warnings = inputs.parse_warnings.clone();
+        prism::api::filter_result_findings(
+            &mut result,
+            &inputs,
+            cli.min_confidence,
+            cli.resolution,
+        );
 
         match cli.format.as_str() {
             "review" => {
@@ -836,13 +886,16 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 let algorithms_run = vec![algorithm.name().to_string()];
                 let document = output::to_sarif(
                     &output::SarifInputs::new(&result.findings)
+                        .evidence(&result.evidence)
                         .parse_warnings(&result.warnings)
                         .load_warnings(&inputs.load_warnings)
                         .build_warnings(&built.warnings)
                         .algorithms_run(&algorithms_run)
                         .parse_quality(&inputs.parse_quality)
                         .files(&inputs.files)
-                        .sources(&inputs.sources),
+                        .sources(&inputs.sources)
+                        .min_confidence(cli.min_confidence)
+                        .resolution(cli.resolution),
                 );
                 println!("{}", serde_json::to_string_pretty(&document)?);
                 emit_warnings_to_stderr(&result.diagram_warnings);

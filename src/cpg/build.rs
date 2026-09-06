@@ -13,7 +13,7 @@ use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
 use std::collections::{BTreeMap, BTreeSet};
 
-use super::{CpgEdge, CpgNode, StmtKind, VarAccess};
+use super::{CpgEdge, CpgNode, FlowConfidence, FlowDoubt, StmtKind, VarAccess};
 use crate::ast::ParsedFile;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -30,6 +30,55 @@ pub struct ReturnFlowStats {
     pub return_flow_suppression_certified: usize,
     pub return_flow_suppression_void_incomplete_returns: usize,
     pub return_flow_suppression_void_unbound_uses: usize,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct DfgLabelStats {
+    pub dfg_label_exact: usize,
+    pub dfg_label_loop_carried: usize,
+    pub dfg_label_nameonly_killed: usize,
+    pub dfg_label_nameonly_sameline: usize,
+    pub dfg_label_nameonly_cfg_incomplete: usize,
+    pub dfg_label_nameonly_alias_unstable: usize,
+    pub dfg_label_nameonly_call: usize,
+    pub dfg_rd_functions_over_cap: usize,
+    pub dfg_rd_functions_without_cfg: usize,
+}
+
+impl DfgLabelStats {
+    fn record_label(&mut self, confidence: FlowConfidence) {
+        match confidence {
+            FlowConfidence::Exact => self.dfg_label_exact += 1,
+            FlowConfidence::NameOnly(FlowDoubt::Killed { .. }) => {
+                self.dfg_label_nameonly_killed += 1;
+            }
+            FlowConfidence::NameOnly(FlowDoubt::SameLine) => {
+                self.dfg_label_nameonly_sameline += 1;
+            }
+            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete) => {
+                self.dfg_label_nameonly_cfg_incomplete += 1;
+            }
+            FlowConfidence::NameOnly(FlowDoubt::AliasUnstable) => {
+                self.dfg_label_nameonly_alias_unstable += 1;
+            }
+            FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => {
+                self.dfg_label_nameonly_call += 1;
+            }
+        }
+    }
+
+    fn record_rd_stats(&mut self, dfg: &DataFlowGraph) {
+        self.dfg_rd_functions_over_cap = dfg
+            .rd_function_stats
+            .values()
+            .map(|stats| stats.functions_over_cap)
+            .sum();
+        self.dfg_rd_functions_without_cfg = dfg
+            .rd_function_stats
+            .values()
+            .map(|stats| stats.functions_without_cfg)
+            .sum();
+    }
 }
 
 /// The one fail-closed callee predicate shared by build and trace ascent.
@@ -134,6 +183,9 @@ pub struct CodePropertyGraph {
 
     /// Additive call-stats custody for return-flow construction decisions.
     pub return_flow_stats: ReturnFlowStats,
+
+    /// Additive telemetry derived from every assembled DataFlow edge label.
+    pub dfg_label_stats: DfgLabelStats,
 }
 
 impl CodePropertyGraph {
@@ -179,6 +231,7 @@ impl CodePropertyGraph {
             dfg,
             type_db: None,
             return_flow_stats: ReturnFlowStats::default(),
+            dfg_label_stats: DfgLabelStats::default(),
         }
     }
 
@@ -196,6 +249,7 @@ impl CodePropertyGraph {
             dfg: DataFlowGraph::empty(),
             type_db: None,
             return_flow_stats: ReturnFlowStats::default(),
+            dfg_label_stats: DfgLabelStats::default(),
         }
     }
 
@@ -454,7 +508,7 @@ impl CodePropertyGraph {
     /// Runs Steps 1–9 of graph construction.
     fn assemble_graph(
         cg: CallGraph,
-        dfg: DataFlowGraph,
+        mut dfg: DataFlowGraph,
         files: &BTreeMap<String, ParsedFile>,
         type_db: Option<TypeDatabase>,
     ) -> Self {
@@ -571,6 +625,8 @@ impl CodePropertyGraph {
         }
 
         // --- Step 4: DataFlow edges ---
+        let mut dfg_label_stats = DfgLabelStats::default();
+        let mut dfg_rd_functions_without_cfg = BTreeSet::new();
         for edge in &dfg.edges {
             let from_access = match edge.from.kind {
                 VarAccessKind::Def => VarAccess::Def,
@@ -599,9 +655,35 @@ impl CodePropertyGraph {
             if let (Some(&from_idx), Some(&to_idx)) =
                 (var_index.get(&from_key), var_index.get(&to_key))
             {
-                graph.add_edge(from_idx, to_idx, CpgEdge::DataFlow);
+                let confidence = dfg
+                    .labels
+                    .get(&(edge.from.clone(), edge.to.clone()))
+                    .copied()
+                    .unwrap_or_else(|| {
+                        dfg_rd_functions_without_cfg.insert((
+                            edge.from.file.clone(),
+                            edge.from.function.clone(),
+                            edge.from.function_start_line,
+                        ));
+                        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
+                    });
+                dfg_label_stats.record_label(confidence);
+                if confidence.is_exact() && edge.to.line < edge.from.line {
+                    dfg_label_stats.dfg_label_loop_carried += 1;
+                }
+                graph.add_edge(from_idx, to_idx, CpgEdge::DataFlow(confidence));
             }
         }
+        for (file, function, start_line) in dfg_rd_functions_without_cfg {
+            // The identity set persists through PartialHit. Inserting the same
+            // retained fallback again is idempotent, while a missing label in a
+            // newly affected function grows the exact per-file union.
+            dfg.rd_function_stats
+                .entry(file)
+                .or_default()
+                .record_without_cfg(function, start_line);
+        }
+        dfg_label_stats.record_rd_stats(&dfg);
 
         // --- Step 5: Call edges ---
         for (from, to, w) in Self::collect_step5_edges(&cg, &func_index) {
@@ -610,6 +692,9 @@ impl CodePropertyGraph {
 
         // --- Step 5b: Interprocedural data flow edges ---
         for (from, to, w) in Self::collect_step5b_edges(&cg, &var_index, &graph, files) {
+            if let CpgEdge::DataFlow(confidence) = w {
+                dfg_label_stats.record_label(confidence);
+            }
             graph.add_edge(from, to, w);
         }
 
@@ -746,6 +831,7 @@ impl CodePropertyGraph {
             dfg,
             type_db,
             return_flow_stats,
+            dfg_label_stats,
         }
     }
 
@@ -1021,7 +1107,11 @@ impl CodePropertyGraph {
                     });
                     if let Some(to) = param_idx {
                         for from in arg_idxs {
-                            out.push((from, to, CpgEdge::DataFlow));
+                            out.push((
+                                from,
+                                to,
+                                CpgEdge::DataFlow(FlowConfidence::from(resolved.confidence)),
+                            ));
                         }
                     }
                 }
@@ -1346,7 +1436,7 @@ impl CodePropertyGraph {
                     .collect();
                 let all_rhs_uses_bound = rhs_uses.iter().all(|&use_idx| {
                     graph.edges(use_idx).any(|edge| {
-                        matches!(edge.weight(), CpgEdge::DataFlow)
+                        matches!(edge.weight(), CpgEdge::DataFlow(_))
                             && matches!(
                                 &graph[edge.target()],
                                 CpgNode::Variable {
@@ -1482,7 +1572,11 @@ impl CodePropertyGraph {
                             });
                         if let Some(to) = param_idx {
                             for from in arg_idxs {
-                                out.push((from, to, CpgEdge::DataFlow));
+                                out.push((
+                                    from,
+                                    to,
+                                    CpgEdge::DataFlow(FlowConfidence::from(resolved.confidence)),
+                                ));
                             }
                         }
                     }
@@ -1726,5 +1820,34 @@ impl CodePropertyGraph {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod dfg_label_stats_tests {
+    use super::{DataFlowGraph, DfgLabelStats};
+    use crate::cpg::RdFileStats;
+
+    #[test]
+    fn rd_function_counters_sum_across_files_and_keep_zero_as_the_edge_case() {
+        let mut empty = DfgLabelStats::default();
+        empty.record_rd_stats(&DataFlowGraph::empty());
+        assert_eq!(empty.dfg_rd_functions_over_cap, 0);
+        assert_eq!(empty.dfg_rd_functions_without_cfg, 0);
+
+        let mut first = RdFileStats::default();
+        first.record_over_cap("large".to_string(), 1);
+        first.record_without_cfg("opaque".to_string(), 20);
+        let mut second = RdFileStats::default();
+        second.record_without_cfg("generated".to_string(), 8);
+
+        let mut dfg = DataFlowGraph::empty();
+        dfg.rd_function_stats.insert("a.py".to_string(), first);
+        dfg.rd_function_stats.insert("b.py".to_string(), second);
+
+        let mut stats = DfgLabelStats::default();
+        stats.record_rd_stats(&dfg);
+        assert_eq!(stats.dfg_rd_functions_over_cap, 1);
+        assert_eq!(stats.dfg_rd_functions_without_cfg, 2);
     }
 }

@@ -1,0 +1,17 @@
+[case]
+language = "javascript"
+capability = "dfg_reaching_shadowed_inner_negative"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.js:2:x"
+to = "main.js:5:x"
+present = false
+
+[[expect.edges]]
+from = "main.js:2:x"
+to = "main.js:8:x"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 7

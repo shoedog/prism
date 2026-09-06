@@ -18,6 +18,7 @@
 mod build;
 mod cfg_queries;
 mod context;
+mod flow_confidence;
 #[cfg(test)]
 mod multiline_call_arg_parity_tests;
 #[cfg(test)]
@@ -25,6 +26,7 @@ mod multiline_call_arg_tests;
 #[cfg(test)]
 mod parameter_slots_parity_tests;
 pub mod query;
+mod reaching;
 #[cfg(test)]
 mod tests;
 mod trace;
@@ -38,8 +40,11 @@ use crate::access_path::AccessPath;
 #[cfg(test)]
 use std::collections::{BTreeMap, BTreeSet};
 
-pub use build::{CodePropertyGraph, ReturnFlowStats};
+pub use build::{CodePropertyGraph, DfgLabelStats, ReturnFlowStats};
 pub use context::{CpgContext, CpgScope};
+pub use flow_confidence::{FlowConfidence, FlowDoubt};
+pub use reaching::RdFileStats;
+pub(crate) use reaching::{reaching_definitions, DefId, DefSite, RdOutcome};
 pub use trace::{
     BoundaryEdge, BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning,
     Relation, ReturnFlowMode, SameLineOrderView, Trace,

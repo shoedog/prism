@@ -9,9 +9,9 @@ pub use build_info::{build_info, BuildInfo};
 pub use nav::{callees, callers, nav_session, NavOptions, Seed};
 pub use review::{build_context, load_review_inputs, BuiltContext, ReviewInputs, ReviewOptions};
 pub use run::{
-    annotate_finding_parse_quality, parse_algorithms, run_algorithm, run_review, AlgorithmParams,
-    ReviewOutcome, ReviewRun, DEFAULT_BARRIER_DEPTH, DEFAULT_SPIRAL_MAX_RING,
-    DEFAULT_TEMPORAL_DAYS,
+    annotate_finding_parse_quality, filter_result_findings, parse_algorithms, run_algorithm,
+    run_review, AlgorithmParams, ReviewOutcome, ReviewRun, DEFAULT_BARRIER_DEPTH,
+    DEFAULT_SPIRAL_MAX_RING, DEFAULT_TEMPORAL_DAYS,
 };
 
 /// Run a complete diff-driven review through the stable facade: load inputs, build the CPG,
@@ -54,7 +54,9 @@ pub use run::review;
 
 pub use crate::build_pool::install as with_build_pool;
 pub use crate::finding_confidence::{
-    classify, evidence_files, FindingConfidence, FindingTier, ParseQuality, RESOLUTION_MODE,
+    classify, classify_for_resolution, classify_with_evidence, evidence_files, EvidenceHop,
+    EvidencePath, FindingConfidence, FindingTier, MinConfidence, ParseQuality, ResolutionMode,
+    DEFAULT_MIN_CONFIDENCE, DEFAULT_RESOLUTION,
 };
 pub use crate::output::sarif::{to_sarif, SarifInputs};
 pub use crate::targets::{project, TargetsDocument, TargetsMeta};

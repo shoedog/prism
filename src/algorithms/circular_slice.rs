@@ -236,7 +236,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
             for &from_idx in cycle {
                 if let Some(from_id) = df_node_id_for_idx.get(&from_idx) {
                     for edge in ctx.cpg.graph.edges(from_idx) {
-                        if matches!(edge.weight(), CpgEdge::DataFlow)
+                        if matches!(edge.weight(), CpgEdge::DataFlow(_))
                             && df_node_id_for_idx.contains_key(&edge.target())
                         {
                             if let Some(to_id) = df_node_id_for_idx.get(&edge.target()) {

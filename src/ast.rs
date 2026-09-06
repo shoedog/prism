@@ -200,6 +200,66 @@ pub struct StatementSpan {
     pub end_byte: usize,
 }
 
+/// The lexical branch-arm tree of one function's CFG statement universe.
+///
+/// Arm `0` is the function body; every other arm is one *mutually exclusive*
+/// lexical alternative (an `if` consequence, an `else` clause, a loop body, a
+/// `match` arm, …). Ids are allocated in depth-first **preorder**, so an arm's
+/// descendants occupy the contiguous id range `(id ..= subtree_last)` — which is
+/// what makes containment an integer comparison rather than a tree walk. Ids are
+/// only comparable within one function: the counter restarts at every
+/// `ParsedFile::statement_arms_in_function` call, and `cfg::build_function_cfg`
+/// never emits an edge that leaves its function.
+///
+/// Built by `ParsedFile::statement_arms_in_function`; consumed by
+/// `cfg::build_cfg_edges_with_arms`.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct LexicalArms {
+    /// Innermost arm containing each statement line.
+    of_line: BTreeMap<usize, u32>,
+    /// `subtree_last[a]` is the largest arm id allocated inside arm `a`.
+    subtree_last: Vec<u32>,
+}
+
+/// Preorder arm-id allocator for one function.
+///
+/// `collect_nested_statements` — which the arm walk mirrors exactly — descends
+/// into a block-ish child **twice** (once via `collect_statements`, once via
+/// itself), so a block is visited a number of times exponential in its nesting
+/// depth. `seen` gives each block node ONE arm however often it is reached:
+/// without it a 154-line C fixture allocated 55,356 arms for the 70 that hold a
+/// statement line, which is unbounded memory per function, not just waste.
+struct ArmAllocator {
+    next: u32,
+    /// tree-sitter node id -> the arm allocated for that node.
+    seen: BTreeMap<usize, u32>,
+}
+
+impl LexicalArms {
+    /// Innermost arm holding `line`, paired with the last id in that arm's
+    /// subtree. `None` when the line is not one of the function's
+    /// `statements_in_function` lines.
+    pub(crate) fn interval_of_line(&self, line: usize) -> Option<(u32, u32)> {
+        let arm = *self.of_line.get(&line)?;
+        Some((arm, self.subtree_last[arm as usize]))
+    }
+
+    /// Innermost arm holding `line`, if any. Production code wants the interval,
+    /// not the bare id; this is the arm-tree assertion helper for `cfg`'s tests.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn arm_of_line(&self, line: usize) -> Option<u32> {
+        self.of_line.get(&line).copied()
+    }
+
+    /// How many distinct arms actually hold a statement line. Test-only: it is
+    /// how `cfg`'s tests prove the channel discriminates rather than tagging
+    /// everything arm 0.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn distinct_arms(&self) -> usize {
+        self.of_line.values().collect::<BTreeSet<_>>().len()
+    }
+}
+
 /// P5 S2 (Go func-value callbacks): which syntactic form a raw registration
 /// candidate matched. Raw/unresolved — `call_graph.rs` applies target
 /// resolution, the shadow gate, and per-form owner-identity/field-typing
@@ -8027,6 +8087,192 @@ impl ParsedFile {
         stmts
     }
 
+    /// Build the lexical branch-arm tree for `func_node`.
+    ///
+    /// **Why this exists.** `statements_in_function` (`:5778`) sorts and
+    /// line-deduplicates its result, so `cfg::build_function_cfg`'s sequential
+    /// fall-through loop walks one globally ordered line list and can join two
+    /// statements that live in *different, mutually exclusive* lexical arms —
+    /// e.g. the last statement of a `then` block to the first statement of the
+    /// `else` block. Such an edge is not a control-flow fact. This tree is the
+    /// evidence `cfg::build_cfg_edges_with_arms` pairs with each edge so the
+    /// reaching-definitions pass (item 2 Task 3, `src/cpg/reaching.rs`) can
+    /// refuse to call such an edge a proof.
+    ///
+    /// Entering or leaving a *nested* arm is genuine control flow, so the
+    /// consumer asks whether the two arms are **incomparable** (neither contains
+    /// the other), not merely whether they differ — hence the preorder interval.
+    ///
+    /// **This is metadata only.** It does not change which lines
+    /// `statements_in_function` returns; it walks the same tree with the same
+    /// recursion and the same node-kind predicates, and records the first
+    /// traversal occurrence of each line — matching the stable
+    /// `sort_by_key` + `dedup_by_key` pair that decides which duplicate line
+    /// `statements_in_function` keeps.
+    pub(crate) fn statement_arms_in_function(&self, func_node: &Node<'_>) -> LexicalArms {
+        let func_node = self.unwrap_decorated(*func_node);
+        let mut arms = LexicalArms {
+            of_line: BTreeMap::new(),
+            // Arm 0 (the body) is allocated up front; its subtree bound is
+            // patched below once every nested arm has been allocated.
+            subtree_last: vec![0],
+        };
+        let mut alloc = ArmAllocator {
+            next: 1,
+            seen: BTreeMap::new(),
+        };
+        let body = func_node
+            .child_by_field_name("body")
+            .or_else(|| func_node.child_by_field_name("consequence"));
+        if let Some(body_node) = body {
+            self.collect_statement_arms(body_node, 0, &mut alloc, &mut arms);
+        }
+        arms.subtree_last[0] = alloc.next - 1;
+        arms
+    }
+
+    /// The arm for `node`, allocating one in preorder on first sight. Returns
+    /// `(arm, newly_opened)`; only a newly opened arm may have its
+    /// `subtree_last` written, because on a repeat visit the ids allocated since
+    /// belong to siblings, not to this arm's subtree.
+    fn open_arm(node: &Node<'_>, alloc: &mut ArmAllocator, arms: &mut LexicalArms) -> (u32, bool) {
+        if let Some(&existing) = alloc.seen.get(&node.id()) {
+            return (existing, false);
+        }
+        let id = alloc.next;
+        alloc.next += 1;
+        alloc.seen.insert(node.id(), id);
+        arms.subtree_last.push(id);
+        (id, true)
+    }
+
+    /// Arm-tagging twin of `collect_statements` (`:5805`). Same children, same
+    /// predicates, same recursion — only the payload differs.
+    fn collect_statement_arms(
+        &self,
+        node: Node<'_>,
+        arm: u32,
+        alloc: &mut ArmAllocator,
+        arms: &mut LexicalArms,
+    ) {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            let kind = child.kind();
+            let line = child.start_position().row + 1;
+
+            if self.language.is_statement_node(kind) {
+                arms.of_line.entry(line).or_insert(arm);
+
+                if self.language.is_control_flow_node(kind)
+                    || self.language.statement_wrapper_kinds().contains(&kind)
+                {
+                    self.collect_nested_statement_arms(child, arm, alloc, arms);
+                }
+            } else if self.language.statement_wrapper_kinds().contains(&kind) {
+                self.collect_nested_statement_arms(child, arm, alloc, arms);
+            } else if kind == "compound_statement" || kind == "block" || kind == "statement_block" {
+                // A bare nested block is not a branch arm — it inherits the
+                // current arm. Arms are allocated in
+                // `collect_nested_statement_arms`, which is the only place a
+                // block is reached *through* a control-flow node.
+                self.collect_statement_arms(child, arm, alloc, arms);
+            }
+        }
+    }
+
+    /// Arm-tagging twin of `collect_nested_statements` (`:5849`). A block-ish
+    /// child of a control-flow node is a new arm only when it is a *mutually
+    /// exclusive* alternative:
+    ///
+    /// - `switch_body` / `match_block` are containers of arms, not arms.
+    /// - `case_statement` / `default_statement` in a language whose `switch`
+    ///   falls through (`Language::switch_has_fallthrough`: C, C++, JS, TS, TSX,
+    ///   Java) are **not** mutually exclusive — control runs from one case into
+    ///   the next, which `cfg::tests::test_c_switch_fallthrough` pins as genuine
+    ///   — so they share the enclosing arm. In a language without fall-through
+    ///   each case is a real alternative and gets its own arm.
+    fn collect_nested_statement_arms(
+        &self,
+        node: Node<'_>,
+        arm: u32,
+        alloc: &mut ArmAllocator,
+        arms: &mut LexicalArms,
+    ) {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            let kind = child.kind();
+            if kind == "compound_statement"
+                || kind == "block"
+                || kind == "statement_block"
+                || kind == "else_clause"
+                || kind == "elif_clause"
+                || kind == "else_if_clause"
+                || kind == "switch_body"
+                || kind == "case_statement"
+                || kind == "default_statement"
+                || kind == "match_block"
+                || kind == "match_arm"
+                || self.language.statement_wrapper_kinds().contains(&kind)
+            {
+                let container = matches!(
+                    kind,
+                    "switch_body"
+                        | "match_block"
+                        | "expression_statement"
+                        | "labeled_statement"
+                        | "attributed_statement"
+                        | "with_statement"
+                        | "finally_clause"
+                        | "select_statement"
+                        | "expression_switch_statement"
+                        | "type_switch_statement"
+                        | "switch_expression"
+                        | "switch_block"
+                        | "synchronized_statement"
+                        | "try_with_resources_statement"
+                        | "async_block"
+                        | "const_block"
+                        | "gen_block"
+                        | "try_block"
+                        | "unsafe_block"
+                        | "subshell"
+                        | "redirected_statement"
+                );
+                let fallthrough_case = matches!(
+                    kind,
+                    "case_statement"
+                        | "default_statement"
+                        | "switch_case"
+                        | "switch_default"
+                        | "switch_block_statement_group"
+                ) && self.language.switch_has_fallthrough();
+                let (child_arm, newly_opened) = if container || fallthrough_case {
+                    (arm, false)
+                } else {
+                    Self::open_arm(&child, alloc, arms)
+                };
+                self.collect_statement_arms(child, child_arm, alloc, arms);
+                self.collect_nested_statement_arms(child, child_arm, alloc, arms);
+                if newly_opened {
+                    // Preorder: everything allocated since `child_arm` opened is
+                    // lexically inside `child`, so the ids are contiguous.
+                    arms.subtree_last[child_arm as usize] = alloc.next - 1;
+                }
+            } else if self.language.is_control_flow_node(kind) {
+                // Nested control flow (if inside if, etc.) — the header itself
+                // belongs to the enclosing arm.
+                let line = child.start_position().row + 1;
+                arms.of_line.entry(line).or_insert(arm);
+                self.collect_nested_statement_arms(child, arm, alloc, arms);
+            } else if self.language.is_statement_node(kind) {
+                // Some wrappers (notably Bash subshells) contain statements
+                // directly rather than through a block node.
+                let line = child.start_position().row + 1;
+                arms.of_line.entry(line).or_insert(arm);
+            }
+        }
+    }
+
     /// Byte-bearing sibling of `statements_in_function`.
     pub fn statement_spans_in_function(&self, func_node: &Node<'_>) -> Vec<StatementSpan> {
         let func_node = self.unwrap_decorated(*func_node);
@@ -8050,9 +8296,13 @@ impl ParsedFile {
 
                 // For control flow nodes, also recurse into their bodies
                 // to find nested statements (then-branch, else-branch, loop body)
-                if self.language.is_control_flow_node(kind) {
+                if self.language.is_control_flow_node(kind)
+                    || self.language.statement_wrapper_kinds().contains(&kind)
+                {
                     self.collect_nested_statements(child, out);
                 }
+            } else if self.language.statement_wrapper_kinds().contains(&kind) {
+                self.collect_nested_statements(child, out);
             } else if kind == "compound_statement" || kind == "block" || kind == "statement_block" {
                 // Recurse into blocks
                 self.collect_statements(child, out);
@@ -8074,9 +8324,13 @@ impl ParsedFile {
                     end_byte: child.end_byte(),
                 });
 
-                if self.language.is_control_flow_node(kind) {
+                if self.language.is_control_flow_node(kind)
+                    || self.language.statement_wrapper_kinds().contains(&kind)
+                {
                     self.collect_nested_statement_spans(child, out);
                 }
+            } else if self.language.statement_wrapper_kinds().contains(&kind) {
+                self.collect_nested_statement_spans(child, out);
             } else if kind == "compound_statement" || kind == "block" || kind == "statement_block" {
                 self.collect_statement_spans(child, out);
             }
@@ -8098,6 +8352,7 @@ impl ParsedFile {
                 || kind == "default_statement"
                 || kind == "match_block"
                 || kind == "match_arm"
+                || self.language.statement_wrapper_kinds().contains(&kind)
             {
                 self.collect_statements(child, out);
                 self.collect_nested_statements(child, out);
@@ -8106,6 +8361,11 @@ impl ParsedFile {
                 let line = child.start_position().row + 1;
                 out.push((line, kind.to_string()));
                 self.collect_nested_statements(child, out);
+            } else if self.language.is_statement_node(kind) {
+                // Some wrappers (notably Bash subshells) contain statements
+                // directly rather than through a block node.
+                let line = child.start_position().row + 1;
+                out.push((line, kind.to_string()));
             }
         }
     }
@@ -8125,6 +8385,7 @@ impl ParsedFile {
                 || kind == "default_statement"
                 || kind == "match_block"
                 || kind == "match_arm"
+                || self.language.statement_wrapper_kinds().contains(&kind)
             {
                 self.collect_statement_spans(child, out);
                 self.collect_nested_statement_spans(child, out);
@@ -8136,6 +8397,13 @@ impl ParsedFile {
                     end_byte: child.end_byte(),
                 });
                 self.collect_nested_statement_spans(child, out);
+            } else if self.language.is_statement_node(kind) {
+                out.push(StatementSpan {
+                    line: child.start_position().row + 1,
+                    kind: kind.to_string(),
+                    start_byte: child.start_byte(),
+                    end_byte: child.end_byte(),
+                });
             }
         }
     }
@@ -10488,6 +10756,232 @@ mod tests {
             }
         }
         None
+    }
+
+    fn assert_statement_markers(path: &str, source: &str, language: Language, markers: &[&str]) {
+        let parsed = ParsedFile::parse(path, source, language).unwrap();
+        let func = parsed.all_functions()[0];
+        let lines: Vec<usize> = parsed
+            .statements_in_function(&func)
+            .into_iter()
+            .map(|(line, _)| line)
+            .collect();
+        let span_lines: Vec<usize> = parsed
+            .statement_spans_in_function(&func)
+            .into_iter()
+            .map(|span| span.line)
+            .collect();
+        assert_eq!(
+            span_lines, lines,
+            "{path}: byte-span and line-only statement walkers must stay identical"
+        );
+        let arms = parsed.statement_arms_in_function(&func);
+        let untagged: Vec<usize> = lines
+            .iter()
+            .copied()
+            .filter(|line| arms.arm_of_line(*line).is_none())
+            .collect();
+        assert!(
+            untagged.is_empty(),
+            "{path}: statement lines missing lexical arms: {untagged:?}; got {lines:?}"
+        );
+        let missing: Vec<(&str, usize)> = markers
+            .iter()
+            .map(|marker| {
+                let line = source
+                    .lines()
+                    .position(|source_line| source_line.contains(marker))
+                    .map(|line| line + 1)
+                    .unwrap_or_else(|| panic!("marker `{marker}` must occur in the fixture"));
+                (*marker, line)
+            })
+            .filter(|(_, line)| !lines.contains(line))
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "{path}: nested statement markers missing from CFG universe: {missing:?}; got {lines:?}"
+        );
+    }
+
+    #[test]
+    fn statements_in_function_descends_rust_expression_statement_wrappers() {
+        let source = "fn h(x: i32) {\n    let a = x + 1;\n    if a > 0 {\n        sink_rust_if(a);\n    }\n    match a {\n        _ => { sink_rust_match(a); }\n    }\n    loop {\n        sink_rust_loop(a);\n        break;\n    }\n    while a > 0 {\n        sink_rust_while(a);\n        break;\n    }\n    for v in 0..a {\n        sink_rust_for(v);\n    }\n    unsafe {\n        sink_rust_unsafe(a);\n    }\n    async {\n        sink_rust_async(a);\n    };\n    const {\n        sink_rust_const(a);\n    };\n    try {\n        sink_rust_try(a);\n    };\n    gen {\n        sink_rust_gen(a);\n    };\n    sink(a);\n}\n";
+        assert_statement_markers(
+            "m.rs",
+            source,
+            Language::Rust,
+            &[
+                "sink_rust_if",
+                "sink_rust_match",
+                "sink_rust_loop",
+                "sink_rust_while",
+                "sink_rust_for",
+                "sink_rust_unsafe",
+                "sink_rust_async",
+                "sink_rust_const",
+                "sink_rust_try",
+                "sink_rust_gen",
+            ],
+        );
+    }
+
+    #[test]
+    fn statements_in_function_descends_python_statement_wrappers() {
+        let source = "def h(x, lock):\n    with lock:\n        sink_py_with(x)\n    match x:\n        case 1:\n            sink_py_case(x)\n    try:\n        sink_py_try(x)\n    except ValueError:\n        sink_py_except(x)\n    finally:\n        sink_py_finally(x)\n    try:\n        sink_py_group_try(x)\n    except* TypeError:\n        sink_py_except_group(x)\n    return x\n";
+        assert_statement_markers(
+            "m.py",
+            source,
+            Language::Python,
+            &[
+                "sink_py_with",
+                "sink_py_case",
+                "sink_py_except(x)",
+                "sink_py_finally",
+                "sink_py_except_group",
+            ],
+        );
+    }
+
+    const JS_WRAPPER_SOURCE: &str = "function h(x, obj) {\n  let y = x;\nlabel:\n  while (y < 2) {\n    sink_js_label(y);\n    break;\n  }\n  switch (y) {\n    case 1:\n      sink_js_case(y);\n      break;\n    default:\n      sink_js_default(y);\n  }\n  try {\n    sink_js_try(y);\n  } catch (e) {\n    sink_js_catch(y);\n  } finally {\n    sink_js_finally(y);\n  }\n  with (obj) {\n    sink_js_with(y);\n  }\n  return y;\n}\n";
+
+    #[test]
+    fn statements_in_function_descends_javascript_statement_wrappers() {
+        assert_statement_markers(
+            "m.js",
+            JS_WRAPPER_SOURCE,
+            Language::JavaScript,
+            &[
+                "sink_js_label",
+                "sink_js_case",
+                "sink_js_default",
+                "sink_js_catch",
+                "sink_js_finally",
+                "sink_js_with",
+            ],
+        );
+    }
+
+    const TS_WRAPPER_SOURCE: &str = "function h(x: number): number {\n  let y = x;\nlabel:\n  while (y < 2) {\n    sink_ts_label(y);\n    break;\n  }\n  switch (y) {\n    case 1:\n      sink_ts_case(y);\n      break;\n    default:\n      sink_ts_default(y);\n  }\n  try {\n    sink_ts_try(y);\n  } catch (e) {\n    sink_ts_catch(y);\n  } finally {\n    sink_ts_finally(y);\n  }\n  return y;\n}\n";
+
+    #[test]
+    fn statements_in_function_descends_typescript_statement_wrappers() {
+        assert_statement_markers(
+            "m.ts",
+            TS_WRAPPER_SOURCE,
+            Language::TypeScript,
+            &[
+                "sink_ts_label",
+                "sink_ts_case",
+                "sink_ts_default",
+                "sink_ts_catch",
+                "sink_ts_finally",
+            ],
+        );
+    }
+
+    #[test]
+    fn statements_in_function_descends_tsx_statement_wrappers() {
+        assert_statement_markers(
+            "m.tsx",
+            TS_WRAPPER_SOURCE,
+            Language::Tsx,
+            &[
+                "sink_ts_label",
+                "sink_ts_case",
+                "sink_ts_default",
+                "sink_ts_catch",
+                "sink_ts_finally",
+            ],
+        );
+    }
+
+    #[test]
+    fn statements_in_function_descends_go_statement_wrappers() {
+        let source = "package p\nfunc h(ch chan any, x any) any {\n    y := x\nlabel:\n    for y == nil {\n        sink_go_label(y)\n        break\n    }\n    select {\n    case v := <-ch:\n        sink_go_select(v)\n    default:\n        sink_go_select_default(y)\n    }\n    switch y {\n    case 1:\n        sink_go_switch(y)\n    default:\n        sink_go_switch_default(y)\n    }\n    switch v := y.(type) {\n    case int:\n        sink_go_type(v)\n    default:\n        sink_go_type_default(y)\n    }\n    return y\n}\n";
+        assert_statement_markers(
+            "m.go",
+            source,
+            Language::Go,
+            &[
+                "sink_go_label",
+                "sink_go_select(v)",
+                "sink_go_select_default",
+                "sink_go_switch(y)",
+                "sink_go_switch_default",
+                "sink_go_type(v)",
+                "sink_go_type_default",
+            ],
+        );
+    }
+
+    #[test]
+    fn statements_in_function_descends_c_labeled_statement_wrapper() {
+        let source = "int h(int x) {\n    int y = x;\nlabel:\n    while (y < 2) {\n        sink_c_label(y);\n        y++;\n    }\n    [[likely]] while (y < 3) {\n        sink_c_attribute(y);\n        break;\n    }\n    return y;\n}\n";
+        assert_statement_markers(
+            "m.c",
+            source,
+            Language::C,
+            &["sink_c_label", "sink_c_attribute"],
+        );
+    }
+
+    #[test]
+    fn statements_in_function_descends_cpp_statement_wrappers() {
+        let source = "int h(int x) {\n    int y = x;\nlabel:\n    while (y < 2) {\n        sink_cpp_label(y);\n        y++;\n    }\n    [[likely]] while (y < 3) {\n        sink_cpp_attribute(y);\n        break;\n    }\n    try {\n        sink_cpp_try(y);\n    } catch (...) {\n        sink_cpp_catch(y);\n    }\n    return y;\n}\n";
+        assert_statement_markers(
+            "m.cpp",
+            source,
+            Language::Cpp,
+            &["sink_cpp_label", "sink_cpp_attribute", "sink_cpp_catch"],
+        );
+    }
+
+    #[test]
+    fn statements_in_function_descends_java_statement_wrappers() {
+        let source = "class M {\n  static int h(int x, Object lock) {\n    int y = x;\nlabel:\n    while (y < 0) {\n      sink_java_label(y);\n      break;\n    }\n    synchronized (lock) {\n      sink_java_sync(y);\n    }\n    switch (y) {\n      case 1:\n        sink_java_case(y);\n        break;\n      default:\n        sink_java_default(y);\n    }\n    switch (y) {\n      case 2 -> sink_java_rule(y);\n      default -> sink_java_rule_default(y);\n    }\n    try (Resource r = open()) {\n      sink_java_try(y);\n    } catch (RuntimeException e) {\n      sink_java_catch(y);\n    } finally {\n      sink_java_finally(y);\n    }\n    return y;\n  }\n}\n";
+        assert_statement_markers(
+            "M.java",
+            source,
+            Language::Java,
+            &[
+                "sink_java_label",
+                "sink_java_sync",
+                "sink_java_case",
+                "sink_java_default",
+                "sink_java_rule(y)",
+                "sink_java_rule_default",
+                "sink_java_try",
+                "sink_java_catch",
+                "sink_java_finally",
+            ],
+        );
+    }
+
+    #[test]
+    fn statements_in_function_descends_bash_statement_wrappers() {
+        let source = "h() {\n  local x=0\n  for i in 1; do\n    sink_bash_do \"$x\"\n  done\n  case \"$x\" in\n    1) sink_bash_case \"$x\" ;;\n  esac\n  (\n    sink_bash_subshell \"$x\"\n  )\n  {\n    sink_bash_redirect \"$x\"\n  } > /dev/null\n}\n";
+        assert_statement_markers(
+            "m.sh",
+            source,
+            Language::Bash,
+            &[
+                "sink_bash_do",
+                "sink_bash_case",
+                "sink_bash_subshell",
+                "sink_bash_redirect",
+            ],
+        );
+    }
+
+    #[test]
+    fn statements_in_function_descends_lua_statement_wrappers() {
+        let source = "function h(x)\n  if x == 1 then\n    sink_lua_first(x)\n  elseif x == 2 then\n    sink_lua_middle(x)\n  else\n    sink_lua_last(x)\n  end\n  return x\nend\n";
+        assert_statement_markers(
+            "m.lua",
+            source,
+            Language::Lua,
+            &["sink_lua_middle", "sink_lua_last"],
+        );
     }
 
     #[test]

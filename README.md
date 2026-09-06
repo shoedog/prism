@@ -153,15 +153,26 @@ prism nav repo-map --repo . --format json
 prism nav onboard --repo . --out prism-project-overview.md
 ```
 
-Twelve subcommands in total: `nodes-at`, `symbol-spans`, `callers`, `callees`, `ego`, `module-deps`,
-`repo-map`, `onboard`, `call-stats`, `interface-manifest`, `functions`, `taint-reaches`.
-`--no-cache`/`--cache-dir` on `nav` gate the whole-repo navigation cache — a separate cache from the
-diff-review CPG cache (see [CPG Caching](#cpg-caching)).
+Thirteen subcommands in total: `nodes-at`, `symbol-spans`, `callers`, `callees`, `ego`,
+`module-deps`, `repo-map`, `onboard`, `call-stats`, `dfg-stats`, `interface-manifest`, `functions`,
+`taint-reaches`. `--no-cache`/`--cache-dir` on `nav` gate the whole-repo navigation cache — a separate
+cache from the diff-review CPG cache (see [CPG Caching](#cpg-caching)).
 
 `onboard` packages one cached navigation build into a bounded project-orientation report: inventory,
 language counts, module connectivity, call-resolution totals, warnings, and suggested follow-up queries.
 Markdown is the default and JSON is available with `--format json`. It writes to stdout unless `--out`
 names a new file; an existing output target is refused and never overwritten.
+
+`prism nav dfg-stats --repo .` prints the whole-repo DataFlow confidence counters. Add `--edges`
+for deterministic JSONL with one row per labeled DataFlow edge, including `confidence`, optional
+`doubt`, and `kill_line` only when the doubt is `killed`. The doubt vocabulary is `killed`,
+`sameline`, `cfg_incomplete`, `alias_unstable`, and `call_nameonly`.
+
+The counters are `dfg_label_exact`, `dfg_label_loop_carried`, the five
+`dfg_label_nameonly_*` doubt counters, `dfg_rd_functions_over_cap`, and
+`dfg_rd_functions_without_cfg`. `dfg_label_loop_carried` is a subset of
+`dfg_label_exact`; labeled edges therefore equal `dfg_label_exact` plus the five mutually
+exclusive NameOnly counters. The same object appears as `dfg_labels` in `prism nav call-stats`.
 
 ---
 
@@ -477,6 +488,8 @@ git show abc123 --format="" > changes.patch
 | `--compile-commands path` | | `compile_commands.json` for C/C++ type enrichment |
 | `--cache-dir path` | | Cache the CPG to this directory (see [CPG Caching](#cpg-caching)) |
 | `--no-cache` | off | Ignore any existing CPG cache and force a full rebuild |
+| `--min-confidence` | `nameonly` | Finding-bearing `json`, `review`, `sarif`, and `targets` only. `exact` keeps Exact findings; `nameonly` keeps Exact, NameOnly, and ungraded Unlabeled findings. Rejected for `text`, `paper`, `mermaid`, and `callers`. |
+| `--resolution` | `nominal` | `nominal` reports CPG-derived findings as `unlabeled`/`candidate`; `scoped` reports retained evidence-path labels. |
 | `--caller-depth N` | `5` | Max traversal depth for `--format callers` |
 | `--diagram-node-cap N` | `40` | Max nodes per Mermaid diagram before truncation (must be >= 4) |
 | `--strict-diagrams` | off | Exit non-zero if any bug-class diagram warning is produced |
@@ -578,6 +591,11 @@ full required-field list per object):
   "targets": [{ "kind": "resource_acquire", "source_algorithm": "absence", "severity": "warning" }]
 }
 ```
+
+Finding `confidence` is one of `exact`, `nameonly`, or `unlabeled`. A target is tier `asserted`
+only when its confidence is `exact` and every evidence-bearing file parsed cleanly; `asserted`
+describes the evidence path, not whether the heuristic's defect claim is true. All other targets
+are `candidate`.
 
 ---
 
@@ -725,6 +743,11 @@ Cache behavior:
 - **Partial hit:** Some files changed → load cached data for unchanged files,
   rebuild only changed files, merge results
 - **Miss:** Cache stale or absent → full rebuild
+
+The current CPG cache format is v73. DataFlow confidence labels and reaching-definition function
+statistics survive cold builds, full hits, and partial hits. Capture reads inside deferred or nested
+callables currently use `NameOnly(CfgIncomplete)`; this B8 capture rule is **PROVISIONAL** pending
+callable-timing work.
 
 The type registry is rebuilt from source files on every run (not cached),
 so adding a new language provider never invalidates the cache.

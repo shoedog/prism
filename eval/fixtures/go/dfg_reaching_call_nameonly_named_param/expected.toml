@@ -1,0 +1,11 @@
+[case]
+language = "go"
+capability = "dfg_reaching_call_nameonly_named_param"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.go:8:x"
+to = "main.go:3:p"
+confidence = "nameonly"
+doubt = "call_nameonly"

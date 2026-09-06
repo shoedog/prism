@@ -2,6 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
+use crate::finding_confidence::{EvidenceHop, EvidencePath};
 use crate::resolution::ResolutionConfidence;
 
 use petgraph::graph::NodeIndex;
@@ -109,6 +110,9 @@ pub struct Trace {
     /// would re-introduce the "Reached with no witness" dead-end bug A3 exists to prevent).
     pub frontier_by_root: BTreeMap<NodeIndex, BTreeSet<NodeIndex>>,
     pub parents_by_root: BTreeMap<(NodeIndex, NodeIndex), (NodeIndex, Relation)>,
+    /// Concrete DataFlow hop payloads for parent entries whose relation is
+    /// `DataFlow`; other relations remain explicit conservative bridges.
+    pub data_flow_hops: BTreeMap<(NodeIndex, NodeIndex), EvidenceHop>,
     /// Set (not Vec) so repeated `(root, from, to)` triples from parallel edges / multi-root
     /// traversal collapse — Plan B counts `InterproceduralBoundary` warnings off this.
     pub boundary: BTreeSet<BoundaryEdge>,
@@ -130,6 +134,43 @@ impl Trace {
 }
 
 impl CodePropertyGraph {
+    fn attach_data_flow_hops(&self, trace: &mut Trace) {
+        let pairs: BTreeSet<_> = trace
+            .parents_by_root
+            .iter()
+            .filter_map(|(&(_, child), &(parent, relation))| {
+                (relation == Relation::DataFlow).then_some((parent, child))
+            })
+            .collect();
+        for (parent, child) in pairs {
+            let confidence = self
+                .graph
+                .edges(parent)
+                .filter(|edge| edge.target() == child)
+                .filter_map(|edge| match edge.weight() {
+                    CpgEdge::DataFlow(confidence) => Some(*confidence),
+                    _ => None,
+                })
+                .reduce(crate::cpg::FlowConfidence::worst);
+            let Some(confidence) = confidence else {
+                continue;
+            };
+            let (Some(from), Some(to)) =
+                (self.to_var_location(parent), self.to_var_location(child))
+            else {
+                continue;
+            };
+            trace.data_flow_hops.insert(
+                (parent, child),
+                EvidenceHop::DataFlow {
+                    from,
+                    to,
+                    confidence,
+                },
+            );
+        }
+    }
+
     /// Total, deterministic same-line ordering key (S2 §3): byte range, then access (Def<Use),
     /// then build-order NodeIndex. Non-Variable nodes sort last.
     fn node_sort_key(&self, idx: NodeIndex) -> (usize, usize, u8, usize) {
@@ -244,6 +285,7 @@ impl CodePropertyGraph {
                 );
             }
         }
+        self.attach_data_flow_hops(&mut trace);
         trace
     }
 
@@ -372,6 +414,7 @@ impl CodePropertyGraph {
                 );
             }
         }
+        self.attach_data_flow_hops(&mut trace);
         trace
     }
 
@@ -849,7 +892,7 @@ impl CodePropertyGraph {
         let mut df: Vec<NodeIndex> = self
             .graph
             .edges(node)
-            .filter(|e| matches!(e.weight(), CpgEdge::DataFlow))
+            .filter(|e| matches!(e.weight(), CpgEdge::DataFlow(_)))
             .map(|e| e.target())
             .collect();
         // General DFG neighbors can cross lines; NodeIndex order is build-deterministic.
@@ -969,8 +1012,19 @@ impl CodePropertyGraph {
         &self,
         sources: &[(String, usize)],
     ) -> Vec<crate::data_flow::FlowPath> {
+        self.taint_forward_cfg_with_return_flow_labeled(sources).0
+    }
+
+    pub(crate) fn taint_forward_cfg_with_return_flow_labeled(
+        &self,
+        sources: &[(String, usize)],
+    ) -> (
+        Vec<crate::data_flow::FlowPath>,
+        BTreeMap<(crate::data_flow::VarLocation, crate::data_flow::VarLocation), EvidencePath>,
+    ) {
         let trace = self.taint_trace_with_mode(sources, ReturnFlowMode::On);
         let mut paths = Vec::new();
+        let mut evidence = BTreeMap::new();
         for (root, frontier) in &trace.frontier_by_root {
             let Some(source) = self.to_var_location(*root) else {
                 continue;
@@ -978,17 +1032,23 @@ impl CodePropertyGraph {
             let mut targets: Vec<_> = frontier
                 .iter()
                 .filter(|&&node| node != *root)
-                .filter_map(|&node| self.to_var_location(node))
+                .filter_map(|&node| self.to_var_location(node).map(|location| (location, node)))
                 .collect();
-            targets.sort();
-            targets.dedup();
+            targets.sort_by(|left, right| left.0.cmp(&right.0));
+            targets.dedup_by(|left, right| left.0 == right.0);
             if targets.is_empty() {
                 continue;
+            }
+            for (target, target_node) in &targets {
+                evidence.insert(
+                    (source.clone(), target.clone()),
+                    EvidencePath::from_trace(&trace, *root, *target_node),
+                );
             }
             paths.push(crate::data_flow::FlowPath {
                 edges: targets
                     .into_iter()
-                    .map(|target| crate::data_flow::FlowEdge {
+                    .map(|(target, _)| crate::data_flow::FlowEdge {
                         from: source.clone(),
                         to: target,
                     })
@@ -996,7 +1056,7 @@ impl CodePropertyGraph {
                 cleansed_for: BTreeSet::new(),
             });
         }
-        paths
+        (paths, evidence)
     }
 
     pub(crate) fn forward_reachable_in_function_ordered(

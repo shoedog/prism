@@ -171,11 +171,11 @@ Whole-repo `prism nav` indexes use a prism-owned per-repo cache at
 `dirs::cache_dir()/prism/nav/<hash(canonical repo root)>/`, with `--no-cache`
 and `--cache-dir` gating that navigation store specifically.
 Navigation queries include `nodes-at`, `symbol-spans`, `callers`, `callees`, `ego`,
-`module-deps`, `repo-map`, and the CLI-only `onboard` report. `module-deps`/`repo-map`
-live in `src/navigation/module_graph.rs`; onboarding report construction lives in
-`src/navigation/onboarding.rs` and deterministic Markdown/JSON rendering in
-`src/output/onboarding.rs`. `onboard --out` is explicit create-new-only output and
-must never overwrite an existing file.
+`module-deps`, `repo-map`, `dfg-stats`, and the CLI-only `onboard` report.
+`module-deps`/`repo-map` live in `src/navigation/module_graph.rs`; onboarding report
+construction lives in `src/navigation/onboarding.rs` and deterministic Markdown/JSON
+rendering in `src/output/onboarding.rs`. `onboard --out` is explicit create-new-only
+output and must never overwrite an existing file.
 Navigation and CPG call resolution share one ordered ladder (S3),
 `CallGraph::resolve_call_site` in `src/resolution.rs`, which returns each callee
 with a `ResolutionConfidence` (`Exact` | `NameOnly`) and a `ResolutionKind`. The
@@ -203,6 +203,26 @@ cross-package concrete-asserted keys, and package-level `var` receivers.
 `prism nav call-stats --repo <dir>` reports the resolution-kind histogram and drop
 classification; `prism nav interface-manifest --repo <dir>` emits the PR-2 in-scope
 interface-dispatch manifest (the §8a denominator for the precision gate report).
+
+`prism nav dfg-stats --repo <dir>` reports `dfg_label_exact`,
+`dfg_label_loop_carried`, five mutually exclusive `dfg_label_nameonly_*` doubt counters, and the
+two reaching-definition availability counters. Loop-carried is a subset of Exact, so labeled-edge
+count is Exact plus the five NameOnly counters. `--edges` emits sorted JSONL with the doubt
+vocabulary `killed`, `sameline`, `cfg_incomplete`, `alias_unstable`, and `call_nameonly`;
+`kill_line` is present only for `killed`. The same counters are nested under `call-stats.dfg_labels`.
+
+Finding confidence is `exact | nameonly | unlabeled`; tier is `asserted` only for Exact evidence
+whose evidence-bearing files all parse cleanly, otherwise `candidate`. `asserted` grades the
+evidence path, not the heuristic's truth. `--resolution nominal` is the default and reports
+CPG-derived findings as `unlabeled/candidate`; `--resolution scoped` reports retained evidence
+labels. `--min-confidence exact` keeps only Exact findings. Its default, `nameonly`, retains all
+three confidence values, including ungraded Unlabeled findings. The filter is supported only by
+finding-bearing `json`, `review`, `sarif`, and `targets`; the CLI rejects it for `text`, `paper`,
+`mermaid`, and `callers`.
+
+CPG cache v73 persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
+`NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
 ### MCP Adapter
 
@@ -301,6 +321,8 @@ cargo run -- nav --no-cache callers --repo /path/to/repo --symbol run
 cargo run -- nav --cache-dir /tmp/prism-nav callers --repo /path/to/repo --symbol run
 cargo run -- nav module-deps --repo /path/to/repo --file src/main.rs --format json
 cargo run -- nav repo-map --repo /path/to/repo --format json
+cargo run -- nav dfg-stats --repo /path/to/repo
+cargo run -- nav dfg-stats --repo /path/to/repo --edges
 ```
 
 Key algorithm-specific flags:

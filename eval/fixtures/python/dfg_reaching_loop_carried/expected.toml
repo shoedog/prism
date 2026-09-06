@@ -1,0 +1,13 @@
+[case]
+language = "python"
+capability = "dfg_reaching_loop_carried"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "a.py:5:x"
+to = "a.py:4:x"
+confidence = "exact"
+
+[expect.stats]
+dfg_label_loop_carried_min = 1

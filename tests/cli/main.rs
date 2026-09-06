@@ -2,6 +2,8 @@ mod algo_test;
 mod call_stats_test;
 mod confidence_test;
 mod diagram_e2e_test;
+mod min_confidence_admission_test;
+mod min_confidence_test;
 mod nav_compat_test;
 mod output_test;
 mod readme_test;

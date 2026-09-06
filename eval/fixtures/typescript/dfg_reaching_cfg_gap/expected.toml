@@ -1,0 +1,10 @@
+[case]
+language = "typescript"
+capability = "dfg_reaching_cfg_gap"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.ts:3:x"
+to = "main.ts:5:x"
+confidence = "exact"

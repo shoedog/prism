@@ -90,7 +90,12 @@ fn hint_for(
     finding: SliceFinding,
 ) -> (Option<String>, Option<String>, Vec<String>) {
     let (temp, inputs) = inputs_with_repo(files, path, line);
-    let doc = project(&[finding], &inputs, &meta(temp.path().to_path_buf()));
+    let doc = project(
+        &[finding],
+        &[None],
+        &inputs,
+        &meta(temp.path().to_path_buf()),
+    );
     let hint = doc.targets[0].dependency_hint.clone().unwrap();
     (hint.kind, hint.callee, doc.warnings.clone())
 }
@@ -268,6 +273,7 @@ fn external_call_dependency_hint_covers_receiver_go_and_negative_shapes() {
     );
     let doc = project(
         &[echo_finding("svc.py", 9)],
+        &[None],
         &py_inputs,
         &meta(temp.path().to_path_buf()),
     );
@@ -282,6 +288,7 @@ fn external_call_dependency_hint_covers_receiver_go_and_negative_shapes() {
     );
     let doc = project(
         &[echo_finding("svc.py", 4)],
+        &[None],
         &py_inputs,
         &meta(temp.path().to_path_buf()),
     );
@@ -299,6 +306,7 @@ fn external_call_dependency_hint_covers_receiver_go_and_negative_shapes() {
     );
     let doc = project(
         &[echo_finding("svc.go", 6)],
+        &[None],
         &go_inputs,
         &meta(temp.path().to_path_buf()),
     );
@@ -313,6 +321,7 @@ fn external_call_dependency_hint_covers_receiver_go_and_negative_shapes() {
     );
     let doc = project(
         &[echo_finding("svc.py", 2)],
+        &[None],
         &py_inputs,
         &meta(temp.path().to_path_buf()),
     );

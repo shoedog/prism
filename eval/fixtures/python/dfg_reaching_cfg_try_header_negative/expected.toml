@@ -1,0 +1,11 @@
+[case]
+language = "python"
+capability = "dfg_reaching_cfg_try_header_negative"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "a.py:4:x"
+to = "a.py:7:x"
+confidence = "nameonly"
+doubt = "cfg_incomplete"

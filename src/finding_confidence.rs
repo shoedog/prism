@@ -13,7 +13,12 @@
 //! reviewer's call.
 
 use crate::ast::ParsedFile;
+use crate::cpg::FlowConfidence;
+use crate::cpg::{Relation, Trace};
+use crate::data_flow::VarLocation;
+use crate::resolution::{ResolutionConfidence, ResolvedCallEdge};
 use crate::slice::{FileParseQuality, SliceFinding, SlicingAlgorithm};
+use petgraph::graph::NodeIndex;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -52,6 +57,78 @@ pub enum FindingTier {
     Candidate,
 }
 
+/// Minimum confidence admitted by finding-bearing output formats.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, clap::ValueEnum)]
+#[non_exhaustive]
+pub enum MinConfidence {
+    /// Only findings whose evidence path is entirely Exact.
+    Exact,
+    /// Exact, NameOnly AND Unlabeled. An unlabeled finding is not below
+    /// nameonly; it is ungraded, and the default must retain legacy findings.
+    #[value(name = "nameonly")]
+    NameOnly,
+}
+
+pub const DEFAULT_MIN_CONFIDENCE: MinConfidence = MinConfidence::NameOnly;
+
+impl Default for MinConfidence {
+    fn default() -> Self {
+        DEFAULT_MIN_CONFIDENCE
+    }
+}
+
+impl MinConfidence {
+    pub fn admits(self, confidence: FindingConfidence) -> bool {
+        match self {
+            Self::Exact => confidence == FindingConfidence::Exact,
+            Self::NameOnly => true,
+        }
+    }
+}
+
+impl std::fmt::Display for MinConfidence {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match self {
+            Self::Exact => "exact",
+            Self::NameOnly => "nameonly",
+        })
+    }
+}
+
+/// Finding-confidence projection selected at runtime by `--resolution`.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, clap::ValueEnum)]
+#[non_exhaustive]
+pub enum ResolutionMode {
+    /// Report every CPG-derived finding as unlabeled/candidate. The
+    /// conservative default and the byte-control mode.
+    Nominal,
+    /// Report the retained evidence-path labels.
+    Scoped,
+}
+
+pub const DEFAULT_RESOLUTION: ResolutionMode = ResolutionMode::Nominal;
+
+impl Default for ResolutionMode {
+    fn default() -> Self {
+        DEFAULT_RESOLUTION
+    }
+}
+
+impl ResolutionMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Nominal => "nominal",
+            Self::Scoped => "scoped",
+        }
+    }
+}
+
+impl std::fmt::Display for ResolutionMode {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
 /// Per-file parse quality grade, ordered best → worst by declaration order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -63,11 +140,6 @@ pub enum ParseQuality {
     Unparseable,
     Unknown,
 }
-
-/// The BUILD's dataflow-labeling capability (roadmap 04 §3.6 `--resolution`): a
-/// DIFFERENT AXIS from a finding's confidence. Phase 0: "nominal" = DataFlow
-/// edges unlabeled.
-pub const RESOLUTION_MODE: &str = "nominal";
 
 impl ParseQuality {
     /// Maps a raw quality string (`"clean"|"degraded"|"poor"|"unparseable"`) to
@@ -136,6 +208,34 @@ pub fn evidence_files(finding: &SliceFinding) -> Vec<&str> {
     files
 }
 
+/// Files whose parse quality bears on the selected witness. Legacy finding
+/// locations stay unchanged; DataFlow endpoint files and call-edge caller files
+/// are grading inputs only.
+pub fn selected_evidence_files<'a>(
+    finding: &'a SliceFinding,
+    evidence: &'a EvidencePath,
+) -> Vec<&'a str> {
+    let mut files = evidence_files(finding);
+    for hop in &evidence.hops {
+        match hop {
+            EvidenceHop::DataFlow { from, to, .. } => {
+                for file in [from.file.as_str(), to.file.as_str()] {
+                    if !files.contains(&file) {
+                        files.push(file);
+                    }
+                }
+            }
+            EvidenceHop::Call { edge, .. } => {
+                let file = edge.caller.file.as_str();
+                if !files.contains(&file) {
+                    files.push(file);
+                }
+            }
+        }
+    }
+    files
+}
+
 /// The one entry point both serializers use. Encodes the evidence rules: contract findings
 /// computed against an `--old-repo` tree (categories `contract_precondition_weakened`,
 /// `contract_precondition_strengthened`, `contract_postcondition_weakened`,
@@ -153,274 +253,173 @@ pub fn parse_quality_for(
     }
 }
 
+/// Grade the authoritative selected witness without changing the finding's
+/// legacy anchor or related-file projection. Missing evidence retains the
+/// evidence-free parse-quality behavior; its confidence is handled separately.
+pub fn parse_quality_for_selected_evidence(
+    finding: &SliceFinding,
+    evidence: Option<&EvidencePath>,
+    map: &BTreeMap<String, FileParseQuality>,
+    parsed: &BTreeMap<String, ParsedFile>,
+) -> ParseQuality {
+    match finding.category.as_deref() {
+        Some(category) if OLD_TREE_CONTRACT_CATEGORIES.contains(&category) => ParseQuality::Unknown,
+        _ => match evidence {
+            Some(evidence) => {
+                ParseQuality::min_over(&selected_evidence_files(finding, evidence), map, parsed)
+            }
+            None => ParseQuality::min_over(&evidence_files(finding), map, parsed),
+        },
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+#[non_exhaustive]
+pub struct EvidencePath {
+    pub hops: Vec<EvidenceHop>,
+    pub crossed_unlabeled: bool,
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum EvidenceHop {
+    DataFlow {
+        from: VarLocation,
+        to: VarLocation,
+        confidence: FlowConfidence,
+    },
+    Call {
+        edge: ResolvedCallEdge,
+        confidence: ResolutionConfidence,
+    },
+}
+
+impl EvidencePath {
+    /// The evidence-free artifact represented by [`classify`]. AST-only
+    /// algorithms have a valid empty path; CPG and unknown algorithms do not.
+    pub fn unlabeled_for(algorithm: &str) -> Self {
+        let crossed_unlabeled =
+            SlicingAlgorithm::from_str(algorithm).is_none_or(|algorithm| algorithm.needs_cpg());
+        Self {
+            hops: Vec::new(),
+            crossed_unlabeled,
+        }
+    }
+
+    /// Recover the selected root-to-sink witness from a trace's parent tree.
+    pub fn from_trace(trace: &Trace, root: NodeIndex, sink: NodeIndex) -> Self {
+        let mut evidence = Self::default();
+        let mut current = sink;
+        let mut seen = std::collections::BTreeSet::new();
+        while current != root {
+            if !seen.insert(current) {
+                evidence.crossed_unlabeled = true;
+                break;
+            }
+            let Some(&(parent, relation)) = trace.parents_by_root.get(&(root, current)) else {
+                evidence.crossed_unlabeled = true;
+                break;
+            };
+            match relation {
+                Relation::DataFlow => match trace.data_flow_hops.get(&(parent, current)) {
+                    Some(hop) => evidence.hops.push(hop.clone()),
+                    None => evidence.crossed_unlabeled = true,
+                },
+                Relation::AssignmentPropagation
+                | Relation::RecoveredDefUse
+                | Relation::CallDescent
+                | Relation::ReturnInput
+                | Relation::ReturnFlow => evidence.crossed_unlabeled = true,
+            }
+            current = parent;
+        }
+        evidence.hops.reverse();
+        evidence
+    }
+}
+
+pub fn classify_with_evidence(
+    algorithm: &str,
+    parse_quality: ParseQuality,
+    evidence: &EvidencePath,
+) -> (FindingConfidence, FindingTier) {
+    let Some(algorithm) = SlicingAlgorithm::from_str(algorithm) else {
+        return (FindingConfidence::Unlabeled, FindingTier::Candidate);
+    };
+    let confidence =
+        if evidence.crossed_unlabeled || (algorithm.needs_cpg() && evidence.hops.is_empty()) {
+            FindingConfidence::Unlabeled
+        } else if evidence.hops.iter().any(|hop| match hop {
+            EvidenceHop::DataFlow { confidence, .. } => !confidence.is_exact(),
+            EvidenceHop::Call { confidence, .. } => *confidence != ResolutionConfidence::Exact,
+        }) {
+            FindingConfidence::NameOnly
+        } else {
+            FindingConfidence::Exact
+        };
+    let tier = if confidence == FindingConfidence::Exact && parse_quality == ParseQuality::Clean {
+        FindingTier::Asserted
+    } else {
+        FindingTier::Candidate
+    };
+    (confidence, tier)
+}
+
+/// Apply the runtime emitter projection without changing the retained evidence.
+/// Nominal mode under-claims every CPG-derived finding; AST-only findings keep
+/// their evidence-derived Phase 0 grade in both modes.
+pub fn classify_for_resolution(
+    algorithm: &str,
+    parse_quality: ParseQuality,
+    evidence: Option<&EvidencePath>,
+    resolution: ResolutionMode,
+) -> (FindingConfidence, FindingTier) {
+    if resolution == ResolutionMode::Nominal
+        && SlicingAlgorithm::from_str(algorithm).is_some_and(|algorithm| algorithm.needs_cpg())
+    {
+        return (FindingConfidence::Unlabeled, FindingTier::Candidate);
+    }
+    evidence.map_or(
+        (FindingConfidence::Unlabeled, FindingTier::Candidate),
+        |evidence| classify_with_evidence(algorithm, parse_quality, evidence),
+    )
+}
+
+/// Admit a finding against its evidence grade, then apply the selected emitter
+/// projection to the retained finding. Keeping both operations here prevents a
+/// nominal projection from weakening an Exact finding before the floor runs.
+pub(crate) fn admit_finding_for_resolution(
+    algorithm: &str,
+    parse_quality: ParseQuality,
+    evidence: Option<&EvidencePath>,
+    min_confidence: MinConfidence,
+    resolution: ResolutionMode,
+) -> Option<(FindingConfidence, FindingTier)> {
+    let evidence_grade = evidence.map_or(
+        (FindingConfidence::Unlabeled, FindingTier::Candidate),
+        |evidence| classify_with_evidence(algorithm, parse_quality, evidence),
+    );
+    if !min_confidence.admits(evidence_grade.0) {
+        return None;
+    }
+    Some(classify_for_resolution(
+        algorithm,
+        parse_quality,
+        evidence,
+        resolution,
+    ))
+}
+
 /// Classifies a finding's confidence and tier from its producing algorithm and
 /// the worst parse quality over its evidence files. Pure and total; never reads
 /// the CPG.
 pub fn classify(algorithm: &str, parse_quality: ParseQuality) -> (FindingConfidence, FindingTier) {
-    match SlicingAlgorithm::from_str(algorithm) {
-        None => (FindingConfidence::Unlabeled, FindingTier::Candidate),
-        Some(algorithm) => {
-            let confidence = if algorithm.needs_cpg() {
-                FindingConfidence::Unlabeled
-            } else {
-                FindingConfidence::Exact
-            };
-            let tier =
-                if confidence == FindingConfidence::Exact && parse_quality == ParseQuality::Clean {
-                    FindingTier::Asserted
-                } else {
-                    FindingTier::Candidate
-                };
-            (confidence, tier)
-        }
-    }
+    classify_with_evidence(
+        algorithm,
+        parse_quality,
+        &EvidencePath::unlabeled_for(algorithm),
+    )
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::slice::{FileParseQuality, SliceFinding};
-    use std::collections::BTreeMap;
-
-    fn fpq(q: &str) -> FileParseQuality {
-        FileParseQuality {
-            error_count: 0,
-            node_count: 1,
-            error_rate: 0.0,
-            quality: q.to_string(),
-            error_lines: vec![],
-        }
-    }
-    fn finding(algorithm: &str, file: &str, related: &[&str]) -> SliceFinding {
-        SliceFinding {
-            algorithm: algorithm.into(),
-            file: file.into(),
-            line: 1,
-            severity: "warning".into(),
-            description: String::new(),
-            function_name: None,
-            related_lines: vec![],
-            related_files: related.iter().map(|s| s.to_string()).collect(),
-            category: None,
-            parse_quality: None,
-            diagrams: vec![],
-        }
-    }
-
-    #[test]
-    fn ast_only_clean_is_exact_asserted() {
-        assert_eq!(
-            classify("absence", ParseQuality::Clean),
-            (FindingConfidence::Exact, FindingTier::Asserted)
-        );
-    }
-    #[test]
-    fn cpg_algorithm_is_unlabeled_candidate() {
-        assert_eq!(
-            classify("echo", ParseQuality::Clean),
-            (FindingConfidence::Unlabeled, FindingTier::Candidate)
-        );
-    }
-    #[test]
-    fn degraded_or_unknown_parse_is_candidate() {
-        assert_eq!(
-            classify("absence", ParseQuality::Degraded),
-            (FindingConfidence::Exact, FindingTier::Candidate)
-        );
-        assert_eq!(
-            classify("absence", ParseQuality::Unknown),
-            (FindingConfidence::Exact, FindingTier::Candidate)
-        );
-    }
-    #[test]
-    fn every_production_algorithm_string_maps_to_its_variant() {
-        use crate::slice::SlicingAlgorithm;
-        for (s, expected) in [
-            ("absence", SlicingAlgorithm::AbsenceSlice),
-            (
-                "callback_dispatcher",
-                SlicingAlgorithm::CallbackDispatcherSlice,
-            ),
-            ("contract", SlicingAlgorithm::ContractSlice),
-            ("echo", SlicingAlgorithm::EchoSlice),
-            ("membrane", SlicingAlgorithm::MembraneSlice),
-            ("peer_consistency", SlicingAlgorithm::PeerConsistencySlice),
-            ("primitive", SlicingAlgorithm::PrimitiveSlice),
-            ("provenance", SlicingAlgorithm::ProvenanceSlice),
-            ("symmetry", SlicingAlgorithm::SymmetrySlice),
-            ("taint", SlicingAlgorithm::Taint),
-        ] {
-            assert_eq!(
-                SlicingAlgorithm::from_str(s),
-                Some(expected),
-                "{s} must round-trip to {expected:?}"
-            );
-        }
-    }
-    #[test]
-    fn confidence_table_for_production_algorithms() {
-        for (s, expected) in [
-            ("absence", FindingConfidence::Exact),
-            ("contract", FindingConfidence::Exact),
-            ("symmetry", FindingConfidence::Exact),
-            ("primitive", FindingConfidence::Exact),
-            ("peer_consistency", FindingConfidence::Exact),
-            ("callback_dispatcher", FindingConfidence::Exact),
-            ("echo", FindingConfidence::Unlabeled),
-            ("membrane", FindingConfidence::Unlabeled),
-            ("provenance", FindingConfidence::Unlabeled),
-            ("taint", FindingConfidence::Unlabeled),
-        ] {
-            assert_eq!(classify(s, ParseQuality::Clean).0, expected, "{s}");
-        }
-    }
-    #[test]
-    fn unknown_algorithm_is_unlabeled_candidate() {
-        assert_eq!(
-            classify("not_an_algorithm", ParseQuality::Clean),
-            (FindingConfidence::Unlabeled, FindingTier::Candidate)
-        );
-    }
-    #[test]
-    fn serde_spellings() {
-        assert_eq!(
-            serde_json::to_string(&FindingConfidence::Exact).unwrap(),
-            "\"exact\""
-        );
-        assert_eq!(
-            serde_json::to_string(&FindingConfidence::Unlabeled).unwrap(),
-            "\"unlabeled\""
-        );
-        assert_eq!(
-            serde_json::to_string(&FindingTier::Candidate).unwrap(),
-            "\"candidate\""
-        );
-        assert_eq!(ParseQuality::Poor.as_str(), "poor");
-    }
-    #[test]
-    fn parse_quality_serde_matches_as_str() {
-        for q in [
-            ParseQuality::Clean,
-            ParseQuality::Degraded,
-            ParseQuality::Poor,
-            ParseQuality::Unparseable,
-            ParseQuality::Unknown,
-        ] {
-            assert_eq!(
-                serde_json::to_string(&q).unwrap().trim_matches('"'),
-                q.as_str()
-            );
-        }
-    }
-    #[test]
-    fn parse_quality_ordering_is_best_to_worst() {
-        assert!(
-            ParseQuality::Clean < ParseQuality::Degraded
-                && ParseQuality::Degraded < ParseQuality::Poor
-                && ParseQuality::Poor < ParseQuality::Unparseable
-                && ParseQuality::Unparseable < ParseQuality::Unknown
-        );
-    }
-    fn parsed_with(path: &str) -> BTreeMap<String, crate::ast::ParsedFile> {
-        let mut parsed = BTreeMap::new();
-        parsed.insert(
-            path.to_string(),
-            crate::ast::ParsedFile::parse(path, "x = 1\n", crate::languages::Language::Python)
-                .unwrap(),
-        );
-        parsed
-    }
-    #[test]
-    fn min_over_treats_sparse_map_absence_as_clean_when_parsed() {
-        let parsed = parsed_with("a.py");
-        let map: BTreeMap<String, FileParseQuality> = BTreeMap::new();
-        // a.py is absent from the sparse map but was parsed -> Clean, not Unknown.
-        assert_eq!(
-            ParseQuality::min_over(&["a.py"], &map, &parsed),
-            ParseQuality::Clean
-        );
-    }
-    #[test]
-    fn min_over_takes_the_worst_over_files() {
-        let parsed = parsed_with("a.py");
-        let mut map = BTreeMap::new();
-        map.insert("b.py".to_string(), fpq("degraded"));
-        assert_eq!(
-            ParseQuality::min_over(&["a.py", "b.py"], &map, &parsed),
-            ParseQuality::Degraded
-        );
-    }
-    #[test]
-    fn min_over_is_unknown_for_files_in_neither_map_nor_parsed() {
-        let parsed = parsed_with("a.py");
-        let map: BTreeMap<String, FileParseQuality> = BTreeMap::new();
-        assert_eq!(
-            ParseQuality::min_over(&["a.py", "missing.py"], &map, &parsed),
-            ParseQuality::Unknown
-        );
-    }
-    #[test]
-    fn min_over_empty_files_is_unknown() {
-        let parsed = parsed_with("a.py");
-        let map: BTreeMap<String, FileParseQuality> = BTreeMap::new();
-        assert_eq!(
-            ParseQuality::min_over(&[], &map, &parsed),
-            ParseQuality::Unknown
-        );
-    }
-    #[test]
-    fn min_over_unrecognized_map_quality_string_is_unknown() {
-        let parsed: BTreeMap<String, crate::ast::ParsedFile> = BTreeMap::new();
-        let mut map = BTreeMap::new();
-        map.insert("c.py".to_string(), fpq("weird"));
-        assert_eq!(
-            ParseQuality::min_over(&["c.py"], &map, &parsed),
-            ParseQuality::Unknown
-        );
-    }
-    #[test]
-    fn parse_quality_for_treats_contract_delta_categories_as_unknown() {
-        let parsed = parsed_with("a.py");
-        let map: BTreeMap<String, FileParseQuality> = BTreeMap::new();
-        let mut weakened = finding("contract", "a.py", &[]);
-        weakened.category = Some("contract_precondition_weakened".to_string());
-        assert_eq!(
-            parse_quality_for(&weakened, &map, &parsed),
-            ParseQuality::Unknown
-        );
-    }
-    #[test]
-    fn parse_quality_for_non_delta_contract_category_uses_min_over() {
-        let parsed = parsed_with("a.py");
-        let map: BTreeMap<String, FileParseQuality> = BTreeMap::new();
-        let mut violation = finding("contract", "a.py", &[]);
-        violation.category = Some("contract_violation".to_string());
-        assert_eq!(
-            parse_quality_for(&violation, &map, &parsed),
-            ParseQuality::Clean
-        );
-    }
-    #[test]
-    fn parse_quality_for_symmetry_related_file_dominates() {
-        let parsed = parsed_with("a.py");
-        let mut map = BTreeMap::new();
-        map.insert("b.py".to_string(), fpq("degraded"));
-        let f = finding("symmetry", "a.py", &["b.py"]);
-        assert_eq!(parse_quality_for(&f, &map, &parsed), ParseQuality::Degraded);
-    }
-    #[test]
-    fn evidence_files_is_anchor_then_related() {
-        assert_eq!(
-            evidence_files(&finding("symmetry", "a.py", &["b.py"])),
-            vec!["a.py", "b.py"]
-        );
-        assert_eq!(
-            evidence_files(&finding("absence", "a.py", &[])),
-            vec!["a.py"]
-        );
-        assert_eq!(
-            evidence_files(&finding("echo", "a.py", &["a.py", "b.py", "b.py"])),
-            vec!["a.py", "b.py"]
-        );
-    }
-}
+mod tests;
