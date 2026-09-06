@@ -85,7 +85,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v42: bounded module-local callable interface authority (CPG v73).
 // v43: bounded module-private non-generic Props interface authority (CPG v75).
 // v44: source-backed imported object-alias receiver authority (CPG v76).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 44;
+// v45: contextual imported object-alias receiver authority (CPG v77).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 45;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -629,12 +630,28 @@ mod tests {
 
     #[test]
     fn imported_object_alias_sidecar_identity_and_augmentation() {
+        imported_object_alias_sidecar_identity_for("import type {Props} from './props'; class Client { m() {} } function run({client}: Props) { client.m(); }");
+    }
+
+    #[test]
+    fn contextual_imported_object_alias_sidecar_identity_and_augmentation() {
+        imported_object_alias_sidecar_identity_for("import type {Props} from './props'; class Client { m() {} } interface F<P> {(p: P): void} const run: F<Props> = ({client}) => { client.m(); };");
+    }
+
+    fn imported_object_alias_sidecar_identity_for(app: &str) {
         use crate::{ast::ParsedFile, cpg::CpgContext, languages::Language};
         for lang in [Language::TypeScript, Language::Tsx] {
             let sources = BTreeMap::from([
-                ("app.ts".to_string(), "import type {Props} from './props'; class Client { m() {} } function run({client}: Props) { client.m(); }".to_string()),
-                ("props.ts".to_string(), "import type Client from './client'; export type Props = {client: Client};".to_string()),
-                ("client.ts".to_string(), "export default class Client { m() {} }".to_string()),
+                ("app.ts".to_string(), app.to_string()),
+                (
+                    "props.ts".to_string(),
+                    "import type Client from './client'; export type Props = {client: Client};"
+                        .to_string(),
+                ),
+                (
+                    "client.ts".to_string(),
+                    "export default class Client { m() {} }".to_string(),
+                ),
             ]);
             let mut guarded = sources.clone();
             guarded.insert(
@@ -688,7 +705,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 44);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 45);
     }
 
     #[test]
@@ -896,7 +913,7 @@ mod tests {
         let (index, _) = fixture_index();
         for mutate in [
             |cache: &mut NavigationCallEdgeCache| cache.nav_call_edge_cache_version += 1,
-            |cache: &mut NavigationCallEdgeCache| cache.nav_call_edge_cache_version = 43,
+            |cache: &mut NavigationCallEdgeCache| cache.nav_call_edge_cache_version = 44,
             |cache: &mut NavigationCallEdgeCache| cache.prism_version = "stale".into(),
             |cache: &mut NavigationCallEdgeCache| cache.grammar_fingerprint = "stale".into(),
             |cache: &mut NavigationCallEdgeCache| cache.skip_policy_version += 1,

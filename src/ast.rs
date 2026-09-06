@@ -3413,22 +3413,24 @@ impl ParsedFile {
             let simple_binding = binding.is_some_and(|binding| {
                 binding.kind() == "identifier" && self.node_text(&binding) == receiver_name
             });
+            // Preserve the original contextual declaration/argument node. An
+            // explicit annotation is terminal, including unsupported forms.
+            let props_type = || match parameter.child_by_field_name("type") {
+                Some(annotation) => annotation.named_child(0),
+                None => self.js_ts_contextual_parameter_type(func_node),
+            };
             let recovered_type = matches!(self.language, Language::TypeScript | Language::Tsx)
                 .then(|| {
                     if simple_binding {
                         self.js_ts_simple_type_annotation(parameter.child_by_field_name("type")?)
                     } else {
-                        // An explicit annotation is terminal even when unsupported.
-                        let ty = match parameter.child_by_field_name("type") {
-                            Some(annotation) => annotation.named_child(0)?,
-                            None => self.js_ts_contextual_parameter_type(func_node)?,
-                        };
+                        let ty = props_type()?;
                         self.js_ts_inline_prop_receiver_type(parameter, binding?, ty, receiver_name)
                     }
                 })
                 .flatten();
             let imported = || {
-                let ty = parameter.child_by_field_name("type")?.named_child(0)?;
+                let ty = props_type()?;
                 let name = self.node_text(&ty);
                 if !matches!(self.language, Language::TypeScript | Language::Tsx)
                     || ty.kind() != "type_identifier"

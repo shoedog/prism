@@ -189,7 +189,8 @@ use std::path::{Path, PathBuf};
 ///   per-file `rd_function_stats`. Label-only — the edge set is unchanged.
 /// - v75: bounded module-private non-generic Props interface authority.
 /// - v76: source-backed imported object-alias receiver proofs.
-const CACHE_VERSION: u32 = 76;
+/// - v77: contextual imported object-alias receiver authority.
+const CACHE_VERSION: u32 = 77;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -723,7 +724,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_receiver_authority_and_item2_confidence() {
-        assert_eq!(super::CACHE_VERSION, 76);
+        assert_eq!(super::CACHE_VERSION, 77);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -862,7 +863,7 @@ mod tests {
                     if expected { assert_eq!(exact[0].target.file, target); }
                 }
                 assert_eq!(full.call_graph.calls, incremental.call_graph.calls, "{language:?}");
-                force_cache_version(dir.path(), 75);
+                force_cache_version(dir.path(), 76);
                 assert!(matches!(load_cache(&hashes, false, dir.path()), CacheResult::Miss));
             }
         }
@@ -1095,22 +1096,39 @@ mod tests {
 
     #[test]
     fn imported_object_alias_disk_cache_transitions() {
+        imported_object_alias_disk_cache_transitions_for(
+            "import type {Props} from './props'; function run({client}: Props) { client.m(); }",
+        );
+    }
+
+    #[test]
+    fn contextual_imported_object_alias_disk_cache_transitions() {
+        imported_object_alias_disk_cache_transitions_for("import type {Props} from './props'; type F<P> = (p: P) => void; const run: F<Props> = ({client}) => { client.m(); };");
+    }
+
+    fn imported_object_alias_disk_cache_transitions_for(app: &str) {
         use crate::{
             ast::ParsedFile, cpg::CodePropertyGraph, languages::Language,
             resolution::ResolutionConfidence,
         };
         for lang in [Language::TypeScript, Language::Tsx] {
-            let a: BTreeMap<String,String> = BTreeMap::from([
-                ("app.ts".into(), "import type {Props} from './props'; function run({client}: Props) { client.m(); }".into()),
-                ("props.ts".into(), "import type {A} from './client'; export type Props = {client: A};".into()),
-                ("client.ts".into(), "export class A {\n m() {}\n}\nexport class B {\n m() {}\n}".into()),
+            let a: BTreeMap<String, String> = BTreeMap::from([
+                ("app.ts".into(), app.into()),
+                (
+                    "props.ts".into(),
+                    "import type {A} from './client'; export type Props = {client: A};".into(),
+                ),
+                (
+                    "client.ts".into(),
+                    "export class A {\n m() {}\n}\nexport class B {\n m() {}\n}".into(),
+                ),
             ]);
             let parse = |src: &BTreeMap<String, String>| {
                 src.iter()
                     .map(|(p, s)| (p.clone(), ParsedFile::parse(p, s, lang).unwrap()))
                     .collect()
             };
-            for variant in 0..6 {
+            for variant in 0..8 {
                 let mut b = a.clone();
                 match variant {
                     0 => {
@@ -1140,11 +1158,17 @@ mod tests {
                             "export type {Props} from './client';".into(),
                         );
                     }
-                    _ => {
+                    5 => {
                         b.insert(
                             "patch.js".into(),
                             "import {A} from './client'; A.prototype.m = other;".into(),
                         );
+                    }
+                    6 => {
+                        b.insert("app.ts".into(), "import type {Props} from './props'; const run: (p: Props) => void = ({client}: any) => { client.m(); };".into());
+                    }
+                    _ => {
+                        b.insert("app.ts".into(), "import type {Props} from './props'; type F<P> = (p: P) => void; function outer<Props>() { const run: F<Props> = ({client}) => { client.m(); }; }".into());
                     }
                 }
                 for (before, after, line) in [
