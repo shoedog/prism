@@ -1,8 +1,10 @@
 # Callable-authority foundation: observations, not runtime edges
 
 Branch `design/callable-authority-proof`, base PR258 merge835c4fbc.
-Implementation2272351 pushed; [PR259](https://github.com/shoedog/prism/pull/259) open.
-This publication/archive closeout changes documentation only after final gates.
+Implementation2272351 pushed; [PR259](https://github.com/shoedog/prism/pull/259)
+merged2026-09-06T22:16:10Z as ebf7933bc3ac7fea1c3201eb48ca84611ea9a702;
+merge tree equals published a5169697. Gates below are historical, not a merge rerun.
+The approved successor is feat/configured-callable-observations; no runtime consumer.
 Design, compiler characterization, regression guards and read-only source audit
 only. No production change, dependency/CLI addition, cache bump or Exact-edge gain.
 The contract and next-slice boundary are in

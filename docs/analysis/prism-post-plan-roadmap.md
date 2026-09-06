@@ -210,7 +210,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   Compiler-backed callable-authority design and negative fixtures approved as
   successor; no runtime expansion yet.
   See `docs/eval/receiver-closure/2026-09-06-contextual-imported-alias-readout.md`.
-- **Callable-authority foundation — PR259 open, implementation2272351, base835c4fbc:**
+- **Callable-authority foundation — PR259 merged ebf7933b, implementation2272351:**
   Approved design/audit-only slice. Pinned TS5.9.3 with React19.0.10/18.3.31
   declarations;20 synthetic cases across two compiler profiles and TS/TSX
   full/subset Prism guards. Explicit annotations remain terminal, consumer casts
@@ -218,10 +218,19 @@ Three candidate directions once the queue's top items are drained (or interleave
   introduce two receiver owners. No src/ changes, Exact gains or cache bump.
   Default4017/0/1,MCP4207/0/1,compiler40/40,Node4/4; public2780/376 Exact
   byte-identical. Cap3 SELF-PASS, not independent; prior quick still baseline-invalid.
-  Proposed next is a separately approved non-authorizing configured-program
-  producer/validator; no production React.FC, hook or wrapper expansion.
+  Non-authorizing configured-program producer/validator successor approved;
+  no production React.FC, hook or wrapper expansion.
   See `docs/superpowers/specs/2026-09-06-callable-authority-proof.md` and same-date
   handoff/readout for measured gates, limitations and publication custody.
+
+- **Configured callable observations — feat/configured-callable-observations, base ebf7933b:**
+  Opt-in snapshot-backed TS5.9.3 producer and strict pre-I/O/recomputation validator;
+  no class authority, runtime consumer, default dependency or cache bump. Actual
+  config, input/negative-lookup membership, anchors and host case policy retained.
+  Node23/23, predecessor compiler40/40/helpers4/4; full default4017/0/1,
+  MCP4207/0/1, including doctests. Cap3 SELF-PASS, not independent. Next proposed:
+  bounded declaration/alias-chain provenance, still non-authorizing; see same-date
+  configured-callable-observations spec/readout/handoff for limitations and custody.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:
