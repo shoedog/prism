@@ -1,6 +1,8 @@
 # Callable-authority foundation: observations, not runtime edges
 
 Branch `design/callable-authority-proof`, base PR258 merge835c4fbc.
+Implementation2272351 pushed; [PR259](https://github.com/shoedog/prism/pull/259) open.
+This publication/archive closeout changes documentation only after final gates.
 Design, compiler characterization, regression guards and read-only source audit
 only. No production change, dependency/CLI addition, cache bump or Exact-edge gain.
 The contract and next-slice boundary are in
@@ -116,4 +118,9 @@ rebaseline, application tests or whole-application compiler check were run.
 Evidence root: `/private/tmp/prism-callable-authority-98TLLN/public`.
 Only this public subtree and scoped source checkpoints may enter the public archive.
 Owner-provided private audit details are separately retained locally, never part
-of this readout, the public archive or PR text. Archive/publication pending closure.
+of this readout, the public archive or PR text.
+Public archive: `/private/tmp/prism-callable-authority-public-evidence.tgz`, SHA256
+`d443c2e3b217cdfee5a8737d08c6b62dd436feb082cc0ef6398450a4e1bdae41`.
+It includes2272351 source custody and prior checkpoints, full gate/RED/GREEN logs,
+public declaration profiles/compiler/binary and source replay; it predates this
+docs-only publication closeout. Private evidence is not included.

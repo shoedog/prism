@@ -1,7 +1,7 @@
 # Handoff — compiler-backed callable authority design
 
 **Written:** 2026-09-06 · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · design/callable-authority-proof · **Measured state:** `[MEASURED]` fetched/switched on835c4fbc; three carried merge records, two original unrelated untracked artifacts preserved.
+**Workspace:** /Users/wesleyjinks/code/slicing · design/callable-authority-proof · **Measured state:** `[MEASURED]` implementation2272351 pushed; PR259 open on refreshed main835c4fbc. Three carried merge records reconciled; two original unrelated untracked artifacts preserved. This closeout is docs-only after full gates.
 **Predecessor:** PR258 contextual imported-object-alias handoff.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -19,7 +19,8 @@ real-repo read-only test authorized; no runtime expansion or application edits.
 
 1. git status --short --branch in the workspace.
 2. Read same-date callable-authority-proof spec.
-3. Archive and publish the scoped result; code/fixtures frozen and full gates closed.
+3. Await review/merge of PR259 and separate approval for a bounded non-authorizing
+   configured-program producer/validator. No runtime consumer is authorized.
 
 **STOP conditions:** review cap3; disk below3GiB; source/private-report publication,
 application writes or dependency installation require new authority. No runtime
@@ -35,17 +36,19 @@ FC expansion, full multicorpus or rebaseline in this slice.
 | Audit-helper regressions | done | `[MEASURED]` captured census/pin RED→GREEN; node-final.log4/4 |
 | Public runtime replay | done | `[MEASURED]`2780 raw/376 Exact, byte-identical to PR258; frozen binary src/Cargo equality to base verified |
 | Full gates | done | `[MEASURED]` final default4017/0/1 (28 groups), MCP4207/0/1 (30), including two doctests each; fmt/diff pass; test-code warnings |
-| Review / custody | checkpoint | SELF-PASS rounds1–3 complete, no open in-scope WRONG; separate public/private checkpoints retained; publication pending |
+| Review / custody | done | SELF-PASS rounds1–3 complete, no open in-scope WRONG; separate public/private archives retained |
+| Publication | done | `[MEASURED]`2272351 pushed, https://github.com/shoedog/prism/pull/259 open; docs-only closeout follows |
 
 ## 3. Corrections to standing documents and memory
 
-Carry PR258 merge records onto this approved successor. No memory edits authorized.
+PR258 merge records carried onto this approved successor; PR259 publication reconciled
+in handoff/readout/roadmap. No memory edits authorized.
 Prism MCP query warned stale; current source and compiler evidence take precedence.
 LSP tools unavailable. No third-party source enters the public fixtures.
 
 ## 4. Open work
 
-Archive and publication. Whole-application installed TypeScript
+Owner review/merge and separate next-slice approval. Whole-application installed TypeScript
 program/dependency/augmentation closure was NOT checked. The proposed observation
 format is not a deployed wire schema; no producer/consumer or runtime FC authority
 is implemented. Prior Tier-A quick remains INHERITED baseline-invalid, not green.
@@ -64,10 +67,18 @@ Tier-A gates not triggered by this docs/test-only slice; no full multicorpus.
 | Item | Verbatim |
 |---|---|
 | Base | 835c4fbc3f7a9d9dcd3e6ec5dbbe96eb5e219f65 |
+| Implementation | 2272351f2b4c0e65e1a161217e1ffaa29f951ba4 |
+| PR | https://github.com/shoedog/prism/pull/259 |
+| Public archive | /private/tmp/prism-callable-authority-public-evidence.tgz |
+| Public archive SHA256 | d443c2e3b217cdfee5a8737d08c6b62dd436feb082cc0ef6398450a4e1bdae41 |
 | Evidence root | /private/tmp/prism-callable-authority-98TLLN |
 | Public evidence | /private/tmp/prism-callable-authority-98TLLN/public |
 | Private evidence | /private/tmp/prism-callable-authority-98TLLN/private |
 | Compiler | /private/tmp/prism-imported-alias-O4d6E1/package/lib/typescript.js |
+
+Archive captures2272351 and prior source checkpoints, full gate/RED/GREEN logs,
+public dependency profiles/compiler/binary and public source replay. It predates
+this docs-only publication closeout. Private archive/details remain local only.
 
 ## 7. Refutation verdict and owner questions
 

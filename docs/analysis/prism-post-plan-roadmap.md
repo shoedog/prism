@@ -210,12 +210,14 @@ Three candidate directions once the queue's top items are drained (or interleave
   Compiler-backed callable-authority design and negative fixtures approved as
   successor; no runtime expansion yet.
   See `docs/eval/receiver-closure/2026-09-06-contextual-imported-alias-readout.md`.
-- **Callable-authority foundation — design/callable-authority-proof, base835c4fbc:**
+- **Callable-authority foundation — PR259 open, implementation2272351, base835c4fbc:**
   Approved design/audit-only slice. Pinned TS5.9.3 with React19.0.10/18.3.31
   declarations;20 synthetic cases across two compiler profiles and TS/TSX
   full/subset Prism guards. Explicit annotations remain terminal, consumer casts
   do not contextualize implementations, and diagnostic-free augmentation may
   introduce two receiver owners. No src/ changes, Exact gains or cache bump.
+  Default4017/0/1,MCP4207/0/1,compiler40/40,Node4/4; public2780/376 Exact
+  byte-identical. Cap3 SELF-PASS, not independent; prior quick still baseline-invalid.
   Proposed next is a separately approved non-authorizing configured-program
   producer/validator; no production React.FC, hook or wrapper expansion.
   See `docs/superpowers/specs/2026-09-06-callable-authority-proof.md` and same-date
