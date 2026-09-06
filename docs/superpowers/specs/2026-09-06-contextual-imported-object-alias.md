@@ -98,5 +98,8 @@ of an inherited WRONG. SELF-PASS, NOT INDEPENDENT; cap3 complete.
 Full default4016/0/1 including two doctests; immediate release/matrix159/159.
 MCP4206/0/1 including two doctests; Clippy completes with warnings, fmt/diff pass.
 Fresh same-environment real replay2780 records byte-identical/376 Exact; served
-three newly Exact and three exclusions; Exact callers/callees verified. Frozen
-committed-source quick is next, no paired base quick or rebaseline.
+three newly Exact and three exclusions; Exact callers/callees verified.
+Frozen48dfc45 quick complete, source/SUT clean: baseline-invalid SHA drift/C-name4/6,
+oracle2/30,SUT0,quiescent,zero stale adjudications,matrix159/159. One run of cap2;
+no paired base quick, attribution or rebaseline. PR258 opened; final readout/handoff
+carry archive and publication custody. No runtime/test edits aftere3fb6ba.

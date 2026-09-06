@@ -1,8 +1,10 @@
 # Contextual imported object-alias receiver identity
 
 Base PR257 merge661a95a4ecfc4ced97a2a703a22082531b95527b;
-branch feat/contextual-imported-object-alias. Implementation/full suites complete;
-frozen-commit quick and publication next. CPG77/navigation sidecar45.
+branch feat/contextual-imported-object-alias. Implementatione3fb6ba and frozen
+custody48dfc45 pushed; PR https://github.com/shoedog/prism/pull/258 open.
+Full suites complete; frozen quick baseline-invalid. CPG77/navigation sidecar45.
+This final gate/archive/publication reconciliation is docs-only.
 
 ## Outcome and scope
 
@@ -57,7 +59,15 @@ No inherited WRONG downgraded; SELF-PASS, NOT INDEPENDENT.
 Full default4016 passed/0 failed/1 existing ignored (28 summary groups);
 MCP4206/0/1 (30 groups), including two doctests each. fmt/diff checks pass;
 Clippy completes with warnings, not warning-clean. Immediate release rebuild and
-Tier-A matrix159/159. Frozen-commit quick pending, cap2; no paired base quick yet.
+Tier-A matrix159/159. Frozen quick completed at48dfc456f244 with corpus_dirty=false
+and prism_dirty=false; exit2, baseline-invalid for corpus SHA drift versus
+20c8490591a3 and C-name4/6 successful probes. Oracle2/30 errors (6.67%), SUT0,
+quiescent, zero stale adjudications; its matrix159/159. One run of cap2, no retry,
+no paired base quick and no rebaseline. Raw Exact tp/fp/fn: callers17/0/22,
+callees27/3/10; observations, not attributed regressions or a green accuracy gate.
+Pinned target-c-method flip_candidate (supplementary Exact5/0/0,30 default-tier
+Prism-only sites), module-deps-feature-gated and load-repo-feature-gated missing
+literal pins; ambiguous-symbol-contract ok. Full site lists in PR258 and raw JSON.
 Fresh same-environment replay with the PR257 runtime and candidate: all2780 raw
 real-site records byte-identical,376 Exact. The refreshed605-file source census
 validates pinned bytes (not compiler-program closure). Six remaining spans are
@@ -88,6 +98,12 @@ with the instance props shape. This slice does not implement React.FC support.
 
 ## Custody
 
-Evidence: /private/tmp/prism-contextual-import-Y1y31N. Initial plan and implementation
-checkpoints retained; final archive and publication identifiers pending. Original
-.superpowers/ and eval/snapshots/prism-fb81481dafa7.json remain untouched.
+Evidence: /private/tmp/prism-contextual-import-Y1y31N. Archive:
+/private/tmp/prism-contextual-import-Y1y31N-evidence.tgz
+SHA256:7d08b546b44eb1b509aa80c5c98a26efbec8a1b9ee0ab08e074a30672325c431.
+Includes plan/implementation/frozen-source checkpoints, baseline/measured/frozen
+binaries, compiler package, full gate logs, cache fixtures, source audit, real/served
+replay, raw quick run/report/snapshot. Generated quick artifacts moved recoverably
+out of the checkout; original .superpowers/ and eval/snapshots/prism-fb81481dafa7.json
+remain untouched. Checkpoint publication fields are historical; this final committed
+record supersedes them. No runtime/test edits after implementatione3fb6ba.

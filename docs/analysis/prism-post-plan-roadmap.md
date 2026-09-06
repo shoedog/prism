@@ -196,7 +196,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   Merge tree equals published153e3595; gates are prior implementation evidence,
   not rerun for docs-only merge acknowledgement. Contextual successor approved below.
   See `docs/eval/receiver-closure/2026-09-06-imported-object-alias-readout.md`.
-- **Contextual imported object-alias identity — implementation/full suites complete, frozen quick pending:**
+- **Contextual imported object-alias identity — PR258 open, implementatione3fb6ba:**
   Reuse source-defined contextual parameter nodes through supported local callable
   forms, retaining imported declaration/class identity and replacement barriers.
   CPG77/nav45. Explicit annotations terminal; no imported callables, interfaces,
@@ -204,6 +204,8 @@ Three candidate directions once the queue's top items are drained (or interleave
   full/subset tests pass. Default4016/0/1,MCP4206/0/1,matrix159/159; Clippy warnings.
   Real2780 records byte-identical/376 Exact; served three new Exact and three
   exclusions, Exact callers/callees verified. Cap3 SELF-PASS, not independent.
+  Frozen48dfc45 quick baseline-invalid (clean source/SUT): SHA drift,C-name4/6,
+  oracle2/30,SUT0; one run of cap2, no rebaseline or paired base quick.
   See `docs/eval/receiver-closure/2026-09-06-contextual-imported-alias-readout.md`.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
