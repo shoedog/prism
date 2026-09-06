@@ -64,6 +64,7 @@ mod go_receiver_index_visibility;
 mod go_selector_supply;
 mod go_type_alias;
 pub mod js_exports;
+pub mod js_ts_props;
 pub mod languages;
 pub mod live_types;
 mod manifest_snapshot;

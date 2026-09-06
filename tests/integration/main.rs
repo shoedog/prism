@@ -16,6 +16,7 @@ mod dfg_rd_stats_identity_test;
 mod hapi_regression_test;
 mod import_binding_test;
 mod imported_class_receiver_test;
+mod imported_object_alias_test;
 mod imported_props_identity_audit_test;
 mod inline_prop_receiver_test;
 mod js_export_reexport_test;

@@ -767,6 +767,9 @@ pub struct CallGraph {
     /// module-scope class byte span, only when the owner is occurrence-clean.
     #[serde(default)]
     pub clean_class_spans: BTreeMap<(String, String), (usize, usize)>,
+    /// Complete-snapshot imported alias proofs. Replaced, never unioned, on merge.
+    #[serde(default)]
+    pub js_ts_imported_props: crate::js_ts_props::ImportedPropsProofs,
     /// Complete indexed Python initializer files proven syntactically inert.
     #[serde(default)]
     pub python_inert_initializers: BTreeSet<String>,
@@ -1125,6 +1128,7 @@ impl CallGraph {
             js_ts_unproven_instance_methods: BTreeSet::new(),
             class_bases: BTreeMap::new(),
             clean_class_spans: BTreeMap::new(),
+            js_ts_imported_props: BTreeMap::new(),
             python_inert_initializers: BTreeSet::new(),
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
@@ -1383,6 +1387,7 @@ impl CallGraph {
             js_ts_unproven_instance_methods,
             class_bases: BTreeMap::new(),
             clean_class_spans: BTreeMap::new(),
+            js_ts_imported_props: BTreeMap::new(),
             python_inert_initializers: BTreeSet::new(),
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
@@ -1828,6 +1833,7 @@ impl CallGraph {
             js_ts_unproven_instance_methods,
             class_bases,
             clean_class_spans,
+            js_ts_imported_props: crate::js_ts_props::collect(files),
             python_inert_initializers,
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
@@ -2287,6 +2293,9 @@ impl CallGraph {
         // `js_ts_exports` after remove_files + merge.
         self.clear_js_export_resolution();
 
+        // Imported proofs depend on the complete input universe, not just callers.
+        self.js_ts_imported_props.clear();
+
         // P5: Go func-value state (S1 field-typing index + S2 registration
         // table) is whole-program derived, same rationale as the promoted
         // embedding aliases above — a registration's field-key validity can
@@ -2405,6 +2414,7 @@ impl CallGraph {
         // correct whole-program fact and simply replaces whatever `self`
         // was carrying from its own last build.
         self.macro_shadow_intersection = other.macro_shadow_intersection;
+        self.js_ts_imported_props = other.js_ts_imported_props;
 
         // P4 (JS/TS resolved export facts): deliberately NOT merged here,
         // same rationale as the Go func-value callbacks note below — the
@@ -5087,6 +5097,7 @@ impl CallGraph {
             js_ts_unproven_instance_methods,
             class_bases,
             clean_class_spans,
+            js_ts_imported_props: crate::js_ts_props::collect(files),
             python_inert_initializers,
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
@@ -6356,7 +6367,7 @@ pub fn resolve_js_ts_relative_module(
 
 /// Preserve the existing function-import precedence; class identity callers
 /// additionally require candidate cardinality one before consulting a class.
-fn js_ts_relative_module_candidates(
+pub(crate) fn js_ts_relative_module_candidates(
     module_path: &str,
     caller_file: &str,
     indexed_files: &BTreeSet<String>,
