@@ -187,7 +187,8 @@ use std::path::{Path, PathBuf};
 /// - v74: `CpgEdge::DataFlow` carries `FlowConfidence` from the
 ///   reaching-definitions pass, and `DataFlowGraph` gains primary `labels` and
 ///   per-file `rd_function_stats`. Label-only — the edge set is unchanged.
-const CACHE_VERSION: u32 = 74;
+/// - v75: bounded module-private non-generic Props interface authority.
+const CACHE_VERSION: u32 = 75;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -721,7 +722,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_receiver_authority_and_item2_confidence() {
-        assert_eq!(super::CACHE_VERSION, 74);
+        assert_eq!(super::CACHE_VERSION, 75);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -784,6 +785,14 @@ mod tests {
             resolution::ResolutionConfidence,
         };
         for (language, caller, owner, importer, good, bad, auxiliary) in [
+            (Language::TypeScript, "app.ts", "app.ts", "", "import type Client from './client'; interface Props {client: Client} function run({client}: Props) { client.m(); }", "import type Client from './client'; export interface Props {client: Client} function run({client}: Props) { client.m(); }", Some(("client.ts", "class Client { m = () => {}; } export default Client;"))),
+            (Language::Tsx, "app.tsx", "app.tsx", "", "import type Client from './client'; interface Props {client: Client} const run: (p: Props) => void = ({client}) => client.m();", "import type Client from './client'; interface Props {client: Client} interface Props {} const run: (p: Props) => void = ({client}) => client.m();", Some(("client.tsx", "class Client { m = () => {}; } export default Client;"))),
+            (Language::TypeScript, "app.ts", "app.ts", "", "import type Client from './client'; interface Props {client: Client} type F = (p: Props) => void; const run: F = ({client}) => client.m();", "import type Client from './client'; interface Props {client?: Client} type F = (p: Props) => void; const run: F = ({client}) => client.m();", Some(("client.ts", "class Client { m = () => {}; } export default Client;"))),
+            (Language::Tsx, "app.tsx", "app.tsx", "", "import type Client from './client'; interface Props {client: Client} type F<P> = (p: P) => void; const run: F<Props> = ({client}) => client.m();", "import type Client from './client'; interface Props<P = Client> {client: Client} type F<P> = (p: P) => void; const run: F<Props> = ({client}) => client.m();", Some(("client.tsx", "class Client { m = () => {}; } export default Client;"))),
+            (Language::TypeScript, "app.ts", "app.ts", "", "import type Client from './client'; interface Props {client: Client} type F = { (p: Props): void }; const run: F = ({client}) => client.m();", "import type Client from './client'; interface Props extends Other {client: Client} type F = { (p: Props): void }; const run: F = ({client}) => client.m();", Some(("client.ts", "class Client { m = () => {}; } export default Client;"))),
+            (Language::Tsx, "app.tsx", "app.tsx", "", "import type Client from './client'; interface Props {client: Client} type F<P> = { (p: P): void }; const run: F<Props> = ({client}) => client.m();", "import type Client from './client'; interface Props {client: Client} export {type Props as Public}; type F<P> = { (p: P): void }; const run: F<Props> = ({client}) => client.m();", Some(("client.tsx", "class Client { m = () => {}; } export default Client;"))),
+            (Language::TypeScript, "app.ts", "app.ts", "", "import type Client from './client'; interface Props {client: Client} interface F { (p: Props): void } const run: F = ({client}) => client.m();", "import type Client from './client'; declare interface Props {client: Client} interface F { (p: Props): void } const run: F = ({client}) => client.m();", Some(("client.ts", "class Client { m = () => {}; } export default Client;"))),
+            (Language::Tsx, "app.tsx", "app.tsx", "", "import type Client from './client'; interface Props {client: Client} interface F<P> { (p: P): void } const run: F<Props> = ({client}) => client.m();", "import type Client from './client'; interface Props {client: Client; m(): void} interface F<P> { (p: P): void } const run: F<Props> = ({client}) => client.m();", Some(("client.tsx", "class Client { m = () => {}; } export default Client;"))),
             (Language::TypeScript, "app.ts", "app.ts", "", "import type Client from './client'; interface F { (p: {client: Client}): void } const run: F = ({client}) => client.m();", "import type Client from './client'; interface F { (p: {client: Client}): void } export type {F}; const run: F = ({client}) => client.m();", Some(("client.ts", "class Client { m = () => {}; } export default Client;"))),
             (Language::TypeScript, "app.ts", "app.ts", "", "import type Client from './client'; interface F { (p: {client: Client}): void } const run: F = ({client}) => client.m();", "import type Client from './client'; interface F extends Other { (p: {client: Client}): void } const run: F = ({client}) => client.m();", Some(("client.ts", "class Client { m = () => {}; } export default Client;"))),
             (Language::Tsx, "app.tsx", "app.tsx", "", "import type Client from './client'; interface F<P> { (p: P): void } type Props = {client: Client}; const run: F<Props> = ({client}) => client.m();", "import type Client from './client'; interface F<P> { (p: P): void } interface F<P> {} type Props = {client: Client}; const run: F<Props> = ({client}) => client.m();", Some(("client.tsx", "class Client { m = () => {}; } export default Client;"))),
@@ -852,7 +861,7 @@ mod tests {
                     if expected { assert_eq!(exact[0].target.file, target); }
                 }
                 assert_eq!(full.call_graph.calls, incremental.call_graph.calls, "{language:?}");
-                force_cache_version(dir.path(), 72);
+                force_cache_version(dir.path(), 74);
                 assert!(matches!(load_cache(&hashes, false, dir.path()), CacheResult::Miss));
             }
         }
@@ -963,6 +972,22 @@ mod tests {
             (Language::Tsx, "tsx", 15),
             (Language::TypeScript, "ts", 16),
             (Language::Tsx, "tsx", 16),
+            (Language::TypeScript, "ts", 17),
+            (Language::Tsx, "tsx", 17),
+            (Language::TypeScript, "ts", 18),
+            (Language::Tsx, "tsx", 18),
+            (Language::TypeScript, "ts", 19),
+            (Language::Tsx, "tsx", 19),
+            (Language::TypeScript, "ts", 20),
+            (Language::Tsx, "tsx", 20),
+            (Language::TypeScript, "ts", 21),
+            (Language::Tsx, "tsx", 21),
+            (Language::TypeScript, "ts", 22),
+            (Language::Tsx, "tsx", 22),
+            (Language::TypeScript, "ts", 23),
+            (Language::Tsx, "tsx", 23),
+            (Language::TypeScript, "ts", 24),
+            (Language::Tsx, "tsx", 24),
         ] {
             let caller = format!("app.{ext}");
             let owner = format!("client.{ext}");
@@ -970,7 +995,19 @@ mod tests {
                 BTreeMap::from([
                     (
                         caller.clone(),
-                        if shape >= 9 {
+                        if shape >= 17 {
+                            let consumer = match shape {
+                                17 => "function run({client}: Props) { client.m(); }",
+                                18 => "const run: (p: Props) => void = ({client}) => client.m();",
+                                19 => "type F = (p: Props) => void; const run: F = ({client}) => client.m();",
+                                20 => "type F<P> = (p: P) => void; const run: F<Props> = ({client}) => client.m();",
+                                21 => "type F = { (p: Props): void }; const run: F = ({client}) => client.m();",
+                                22 => "type F<P> = { (p: P): void }; const run: F<Props> = ({client}) => client.m();",
+                                23 => "interface F { (p: Props): void } const run: F = ({client}) => client.m();",
+                                _ => "interface F<P> { (p: P): void } const run: F<Props> = ({client}) => client.m();",
+                            };
+                            format!("import type {{A, B}} from './client'; interface Props {{client: {name}}} {consumer}")
+                        } else if shape >= 9 {
                             let consumer = match shape {
                                 9 => format!("type F = {{ (p: {{client: {name}}}): void }}; const run: F = ({{client}}) => client.m();"),
                                 10 => format!("type F = {{ (p: Props{name}): void }}; const run: F = ({{client}}) => client.m();"),

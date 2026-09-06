@@ -493,8 +493,6 @@ fn local_callable_interface_authority_and_receiver_barriers() {
         "interface F<P> { (p: {client: P}): void } const run: F<Client> = ({client}) => client.m();",
         "interface F<P> { (p: Other): void } const run: F<{client: Client}> = ({client}) => client.m();",
         "interface G<P> { (p: P): void } type F<P> = G<P>; const run: F<{client: Client}> = ({client}) => client.m();",
-        "interface Props {client: Client} interface F<P> { (p: P): void } const run: F<Props> = ({client}) => client.m();",
-        "interface Props {client: Client} interface F { (p: Props): void } const run: F = ({client}) => client.m();",
         "interface F<P> { (p: P): void } const run: F<{client?: Client}> = ({client}) => client.m();",
         "interface F<P> { (p: P): void } const run: F<{client: Client; client: Other}> = ({client}) => client.m();",
         "interface F<P> { (p: P): void } const run: F<{client: Client}> = ({client}: Missing) => client.m();",
@@ -645,6 +643,178 @@ fn local_generic_alias_argument_and_receiver_barriers() {
 }
 
 #[test]
+fn private_props_interface_positive() {
+    let mut failures = Vec::new();
+    for language in [Language::TypeScript, Language::Tsx] {
+        for source in [
+            "interface Props { /* own */ readonly client: Client; label?: string } type F<P> = (p: P) => void; const run: F<Props> = ({client}) => client.m();",
+            "interface Props { /* own */ readonly client: Client; label?: string } type F = { (p: Props): void }; const run: F = ({client}) => client.m();",
+            "interface Props { /* own */ readonly client: Client; label?: string } type F<P> = { (p: P): void }; const run: F<Props> = ({client}) => client.m();",
+            "interface Props { /* own */ readonly client: Client; label?: string } interface F { (p: Props): void } const run: F = ({client}) => client.m();",
+            "interface Props { /* own */ readonly client: Client; label?: string } interface F<P> { (p: P): void } const run: F<Props> = ({client}) => client.m();",
+            "interface Props { /* own */ readonly client: Client; label?: string } type F<Props> = (p: Props) => void; function outer<Client>() { const run: F<Props> = ({client}) => client.m(); }",
+            "interface Props { /* own */ readonly client: Client; label?: string } export type {Props} from './other'; function run({client}: Props) { client.m(); }",
+            "interface Props { /* own */ readonly client: Client; label?: string } interface F<P> { (p: P): void } const run: F<Props> = function named({client: x}) { x.m(); };",
+            "interface Props {client: Client} function run({client}: Props) { client.m(); }",
+            "interface Props {client: Client} const run: (p: Props) => void = ({client}) => client.m();",
+            "interface Props {client: Client} type F = (p: Props) => void; const run: F = ({client}) => client.m();",
+            "interface Props {client: Client} export const run = function named({client: x}: Props) { x.m(); };",
+            "function run({client}: Props) { client.m(); } interface Props {client: Client}",
+            "type F = (p: Props) => void; const run: F = ({client}) => client.m(); interface Props {client: Client}",
+            "interface Props {readonly client: Client; label?: string} const run = async ({client, label}: Props) => client.m();",
+            "interface Props {client: Client} function run<Client>({client}: Props) { client.m(); }",
+            "interface Props {client: Client} type F = (p: Props) => void; function outer<Props, Client>() { const run: F = ({client}) => client.m(); }",
+            "interface Props {client: Client} let Props = other; Props = value; function run({client}: Props) { client.m(); }",
+            "interface Props {client: Client} function run({client}: Props) { function inner() { client.m(); } }",
+            "interface Props {client: Client} function run({client: x}: Props) { x.m(); x = other; }",
+            "interface Props {client: Client} const run = memo(({client}: Props) => client.m());",
+            "interface Props {client: Client} function run({client}: Props) { type Client = Other; client.m(); }",
+            "interface Props {client: Client} const run: (p: Props) => void = ({client}) => { function change(client) { delete client.m; } client.m(); };",
+        ] {
+            if std::panic::catch_unwind(|| check(source, true, language)).is_err() { failures.push((language, source)); }
+        }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+#[test]
+fn private_props_interface_declaration_barriers() {
+    let mut failures = Vec::new();
+    for declaration in [
+        "",
+        "interface Props {client: Client} interface Props {client: Client}",
+        "interface Props {client: Client} interface Props {}",
+        "interface Props {client: Client} class Props {}",
+        "interface Props {client: Client} enum Props { A }",
+        "interface Props {client: Client} namespace Props.Inner {}",
+        "interface Props {client: Client} import Props from './other';",
+        "interface Props {client: Client} import type Props from './other';",
+        "interface Props {client: Client} import * as Props from './other';",
+        "interface Props {client: Client} import Props = NS.Other;",
+        "interface Props {client: Client} declare class Props {}",
+        "declare interface Props {client: Client}",
+        "interface Props<T = Client> {client: T}",
+        "interface Props<T> {client: Client}",
+        "interface Props extends Other {client: Client}",
+        "interface Base {} interface Props extends Base {client: Client}",
+        "export interface Props {client: Client}",
+        "export default interface Props {client: Client}",
+        "interface Props {client: Client} export type {Props};",
+        "interface Props {client: Client} export {type Props as Public};",
+        "interface Props {client: Client} export {Props as Public};",
+        "interface Props {client: Client} export default Props;",
+        "interface Other {client: Client} type Props = Other;",
+        "type Other = {client: Client}; type Props = Other;",
+        "type Props = Props;",
+        "type Props = Other; type Other = Props;",
+        "type Props = {client: Client} | Other;",
+        "type Props = {client: Client} & Other;",
+        "type Props = ({client: Client});",
+        "interface Props { [K in Key]: Client }",
+        "type Props = T extends U ? {client: Client} : Other;",
+        "type Props = (p: {client: Client}) => void;",
+    ] {
+        for consumer in [
+            "type F<P> = (p: P) => void; const run: F<Props> = ({client}) => client.m();",
+            "type F = { (p: Props): void }; const run: F = ({client}) => client.m();",
+            "type F<P> = { (p: P): void }; const run: F<Props> = ({client}) => client.m();",
+            "interface F { (p: Props): void } const run: F = ({client}) => client.m();",
+            "interface F<P> { (p: P): void } const run: F<Props> = ({client}) => client.m();",
+            "function run({client}: Props) { client.m(); }",
+            "const run: (p: Props) => void = ({client}) => client.m();",
+            "type F = (p: Props) => void; const run: F = ({client}) => client.m();",
+        ] {
+            let source = format!("{declaration} {consumer}");
+            if std::panic::catch_unwind(|| check(&source, false, Language::Tsx)).is_err() {
+                failures.push(source);
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+#[test]
+fn private_props_interface_receiver_barriers() {
+    let mut failures = Vec::new();
+    for source in [
+        "interface Props {client: Client; (p: Other): void} function run({client}: Props) { client.m(); }",
+        "interface Props {client: Client; new(): Other} function run({client}: Props) { client.m(); }",
+        "interface Props {client: Client; m(): void} function run({client}: Props) { client.m(); }",
+        "interface Props {client: Client; other: string; other: number} function run({client}: Props) { client.m(); }",
+        "interface Props {client: Client} function run({client}: Props<Client>) { client.m(); }",
+        "interface Props {client: Client} const run: React.FC<Props> = ({client}) => client.m();",
+        "interface Props {client: Client} const run: (p: Props) => void = memo(({client}) => client.m());",
+        "interface Props {client: Client} function run({client, client: client}: Props) { client.m(); }",
+        "interface Props {client: Client} function run({client}: Props) { client.m = other; client.m(); }",
+        "interface Props {client: Client} type F<P> = (p: P) => void; function outer<Props>() { const run: F<Props> = ({client}) => client.m(); }",
+        "interface Props {client: Client} type Client = Other; function run({client}: Props) { client.m(); }",
+        "interface Props {client?: Client} function run({client}: Props) { client.m(); }",
+        "interface Props {client: Client; client: Other} function run({client}: Props) { client.m(); }",
+        "interface Props {get client(): Client} function run({client}: Props) { client.m(); }",
+        "interface Props {client: Client; [key: string]: Other} function run({client}: Props) { client.m(); }",
+        "interface Props {client: Client | Other} function run({client}: Props) { client.m(); }",
+        "type C = Client; interface Props {client: C} function run({client}: Props) { client.m(); }",
+        "interface Props {client: Client} function run<Props>({client}: Props) { client.m(); }",
+        "interface Props {client: Client} function outer() { type Props = Other; const run: (p: Props) => void = ({client}) => client.m(); }",
+        "function outer() { interface Props {client: Client} function run({client}: Props) { client.m(); } }",
+        "interface Props {client: Client} function run({client = other}: Props) { client.m(); }",
+        "interface Props {client: Client} function run({client, ...rest}: Props) { client.m(); }",
+        "interface Props {client: Client} function run({client}: Props = other) { client.m(); }",
+        "interface Props {client: Client} const run: (p: Props) => void = ({client}: Missing) => client.m();",
+        "interface Props {client: Other} const run: (p: {client: Client}) => void = ({client}: Props) => client.m();",
+        "interface Props {client: Client} function run({client}: Props) { client = other; client.m(); }",
+        "interface Props {client: Client} function run({client}: Props) { delete client.m; client.m(); }",
+        "interface Props {client: Client} function run({client}: Props) { while(ok) { client.m(); client = other; } }",
+        "interface Props {client: Client} function run({client}: Props) { function inner(client) { client.m(); } }",
+        "interface Props {client: Client} function run() { const {client}: Props = other; client.m(); }",
+        "interface Props {client: Client} function run({client}: Props) { client.m(); const broken = ; }",
+        "interface Props {client: Client} type F = (p: Props) => void; const run: F = ({client}) => { delete client.m; client.m(); };",
+        "interface Props {client: Client} const run: (p: Props) => void = ({client}) => { ({m: client.m} = other); client.m(); };",
+        "interface Props {client: Client} type F = (p: Props) => void; const run: F = ({client}: Missing) => client.m();",
+        "interface Props {client: Client} function outer() { interface Props {} type F = (p: Props) => void; const run: F = ({client}) => client.m(); }",
+        "interface Props {client: Client} function outer() { const run: (p: Props) => void = ({client}) => client.m(); interface Props {} }",
+    ] {
+        if std::panic::catch_unwind(|| check(source, false, Language::Tsx)).is_err() { failures.push(source); }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+#[test]
+fn private_props_interface_module_boundary() {
+    let mut failures = Vec::new();
+    for language in [Language::TypeScript, Language::Tsx] {
+        for (marker, expected) in [("", false), ("export {};", true)] {
+            let files = BTreeMap::from([
+                ("app.ts".to_string(), ParsedFile::parse("app.ts", &format!("{marker} class Client {{ m() {{}} }} interface Props {{client: Client}} function run({{client}}: Props) {{ client.m(); }}"), language).unwrap()),
+                ("global.ts".to_string(), ParsedFile::parse("global.ts", "interface Props {client: Other}", language).unwrap()),
+            ]);
+            for cg in [
+                CallGraph::build(&files),
+                CallGraph::build_direct_subset(&files, &files.keys().cloned().collect()),
+            ] {
+                let site = cg
+                    .calls
+                    .values()
+                    .flatten()
+                    .find(|s| s.callee_name == "m")
+                    .unwrap();
+                let exact: Vec<_> = cg
+                    .resolve_call_site(site)
+                    .into_iter()
+                    .filter(|e| e.confidence == ResolutionConfidence::Exact)
+                    .collect();
+                if exact.len() != usize::from(expected)
+                    || (expected && exact[0].target.file != "app.ts")
+                {
+                    failures.push(format!("{language:?} {marker}: {site:?} {exact:?}"));
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+#[test]
 fn local_props_alias_positive() {
     let mut failures = Vec::new();
     for language in [Language::TypeScript, Language::Tsx] {
@@ -691,7 +861,6 @@ fn local_props_alias_declaration_barriers() {
         "type Other = {client: Client}; type Props = Other;",
         "type Props = Props;",
         "type Props = Other; type Other = Props;",
-        "interface Props { client: Client }",
         "type Props = {client: Client} | Other;",
         "type Props = {client: Client} & Other;",
         "type Props = ({client: Client});",

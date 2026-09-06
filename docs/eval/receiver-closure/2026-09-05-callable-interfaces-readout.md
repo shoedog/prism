@@ -1,6 +1,10 @@
 # Bounded local callable interfaces — receiver evidence
 
-Status: pushed and open as https://github.com/shoedog/prism/pull/253.
+Status: https://github.com/shoedog/prism/pull/253 merged into main at
+eb884824efc1686da2e789248783afe089c2cd14 (2026-09-05T20:11:11Z).
+GitHub merge state and fetched origin/main verified this turn; implementation
+and test files match the merged main. Gates below are the implementation turn's
+results, not rerun for this docs-only merge reconciliation.
 Implementation cf9475f060d454011a8910e8491b18da33c57c7b. Base PR252 merge
 04bb5583897dcd839e2d8905e43bea78368b8bc2; branch feat/local-callable-interfaces.
 Spec: docs/superpowers/specs/2026-09-05-local-callable-interfaces.md.
@@ -111,7 +115,10 @@ readout/handoff is the final operational record.
 
 PR252 merge records reconciled in this branch; original .superpowers/ and
 eval/snapshots/prism-fb81481dafa7.json untouched. No memory edit, merge or rebaseline.
-Recommendation only: reuse private declaration proof for a separately specified
-non-generic Props-interface slice, retaining own-property/duplicate/write barriers.
+Approved successor feat/private-props-interfaces is implemented and verified locally;
+disk stop resolved by authorized cleanup. See same-date props-interfaces readout
+and private-props-interfaces handoff; controller publication remains pending.
+It reuses private declaration proof for non-generic Props interfaces, retaining
+own-property/duplicate/write barriers.
 Export/import/augmentation evidence must precede lifting the private restriction;
 neither next step grants React.FC by spelling.
