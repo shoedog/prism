@@ -1,0 +1,276 @@
+{
+  "schema": 1,
+  "description": "Non-authorizing external callable characterization; no runtime React.FC consumer.",
+  "cases": [
+    {
+      "id": "named_fc",
+      "policy": "context_candidate",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "prism_exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type {FC} from 'react';\nimport Client from './client';\nexport const run: FC<{client: Client}> = ({client}) => { client.m(); return null; };"
+      }
+    },
+    {
+      "id": "namespace_fc",
+      "policy": "context_candidate",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "prism_exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import * as R from 'react';\nimport Client from './client';\nexport const run: R.FC<{client: Client}> = ({client}) => { client.m(); return null; };"
+      }
+    },
+    {
+      "id": "renamed_fc",
+      "policy": "context_candidate",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "prism_exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type {FC as Component} from 'react';\nimport Client from './client';\nexport const run: Component<{client: Client}> = ({client}) => { client.m(); return null; };"
+      }
+    },
+    {
+      "id": "unicode_scope",
+      "policy": "context_candidate",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "prism_exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type {FC} from 'react';\nimport Client from './client';\nconst label = \"🦊\";\r\nexport const run: FC<{client: Client}> = ({client}) => { client.m(); return null; };"
+      }
+    },
+    {
+      "id": "function_component",
+      "policy": "context_candidate",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "prism_exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type {FunctionComponent} from 'react';\nimport Client from './client';\nexport const run: FunctionComponent<{client: Client}> = ({client}) => { client.m(); return null; };"
+      }
+    },
+    {
+      "id": "explicit_any",
+      "policy": "defer",
+      "diagnostic_codes": [],
+      "ts_owner_files": [],
+      "prism_exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type {FC} from 'react';\nimport Client from './client';\nexport const run: FC<{client: Client}> = ({client}: any) => { client.m(); return null; };"
+      }
+    },
+    {
+      "id": "explicit_decoy",
+      "policy": "independent_explicit_control",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "app.ts"
+      ],
+      "prism_exact_owner": "app.ts",
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type {FC} from 'react';\nimport Client from './client';\nclass Decoy { m() {} }\nexport const run: FC<{client: Client}> = ({client}: {client: Decoy}) => { client.m(); return null; };"
+      }
+    },
+    {
+      "id": "local_fc_homonym",
+      "policy": "defer",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "app.ts"
+      ],
+      "prism_exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "class Decoy { m() {} }\nclass Client { m() {} }\ntype FC<P> = (p: {client: Decoy}) => null;\nexport const run: FC<{client: Client}> = ({client}) => { client.m(); return null; };"
+      }
+    },
+    {
+      "id": "namespace_homonym",
+      "policy": "defer",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "app.ts"
+      ],
+      "prism_exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "class Decoy { m() {} }\nclass Client { m() {} }\nnamespace React { export type FC<P> = (p: {client: Decoy}) => null; }\nexport const run: React.FC<{client: Client}> = ({client}) => { client.m(); return null; };"
+      }
+    },
+    {
+      "id": "paths_substitution",
+      "policy": "defer",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "fake-react.ts"
+      ],
+      "prism_exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type {FC} from 'react';\nimport Client from './client';\nexport const run: FC<{client: Client}> = ({client}) => { client.m(); return null; };",
+        "fake-react.ts": "export class Decoy { m() {} }\nexport type FC<P> = (p: {client: Decoy}) => null;"
+      },
+      "options": {
+        "paths": {
+          "react": [
+            "./fake-react.ts"
+          ]
+        }
+      }
+    },
+    {
+      "id": "missing_dependency",
+      "policy": "defer",
+      "diagnostic_codes": [
+        2307,
+        7031
+      ],
+      "ts_owner_files": [],
+      "prism_exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type {FC} from 'react';\nimport Client from './client';\nexport const run: FC<{client: Client}> = ({client}) => { client.m(); return null; };"
+      },
+      "omit_react": true
+    },
+    {
+      "id": "augmentation_static_member",
+      "policy": "defer",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "prism_exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type {FC} from 'react';\nimport Client from './client';\nexport const run: FC<{client: Client}> = ({client}) => { client.m(); return null; };",
+        "augment.d.ts": "import 'react'; declare module 'react' { interface FunctionComponent<P> { extra?: string; } }"
+      }
+    },
+    {
+      "id": "augmentation_overload",
+      "policy": "defer",
+      "diagnostic_codes": [],
+      "ts_owner_files": ["client.ts", "other.ts"],
+      "prism_exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type {FC} from 'react';\nimport Client from './client';\nexport const run: FC<{client: Client}> = ({client}) => { client.m(); return null; };",
+        "augment.d.ts": "import 'react'; import Other from './other'; declare module 'react' { interface FunctionComponent<P> { (props: {client: Other}): ReactNode; } }",
+        "other.ts": "export default class Other { m() {} }"
+      }
+    },
+    {
+      "id": "optional_receiver",
+      "policy": "defer",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "prism_exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type {FC} from 'react';\nimport Client from './client';\nexport const run: FC<{client?: Client}> = ({client}) => { client?.m(); return null; };"
+      }
+    },
+    {
+      "id": "any_receiver",
+      "policy": "defer",
+      "diagnostic_codes": [],
+      "ts_owner_files": [],
+      "prism_exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type {FC} from 'react';\nimport Client from './client';\nexport const run: FC<{client: any}> = ({client}) => { client.m(); return null; };"
+      }
+    },
+    {
+      "id": "assertion_not_context",
+      "policy": "defer",
+      "diagnostic_codes": [
+        7031
+      ],
+      "ts_owner_files": [],
+      "prism_exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type {FC} from 'react';\nimport Client from './client';\nexport function run({client}) { client.m(); return null; }\nexport const Wrapped = run as FC<{client: Client}>;"
+      }
+    },
+    {
+      "id": "satisfies_not_retroactive",
+      "policy": "defer",
+      "diagnostic_codes": [
+        7031
+      ],
+      "ts_owner_files": [],
+      "prism_exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type {FC} from 'react';\nimport Client from './client';\nexport function run({client}) { client.m(); return null; }\nexport const Wrapped = run satisfies FC<{client: Client}>;"
+      }
+    },
+    {
+      "id": "imported_js_cast",
+      "policy": "defer",
+      "diagnostic_codes": [],
+      "ts_owner_files": [],
+      "prism_exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type {FC} from 'react';\nimport Client from './client';\nimport {run} from './impl'; export const Wrapped = run as FC<{client: Client}>;",
+        "impl.js": "export function run({client}) { client.m(); return null; }"
+      },
+      "options": {
+        "checkJs": false
+      },
+      "call_file": "impl.js"
+    },
+    {
+      "id": "structural_prop",
+      "policy": "defer",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "app.ts"
+      ],
+      "prism_exact_owner": null,
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import type {FC} from 'react';\ninterface Service {m(): void}\nexport const run: FC<{client: Service}> = ({client}) => { client.m(); return null; };"
+      }
+    },
+    {
+      "id": "local_signature_control",
+      "policy": "independent_local_control",
+      "diagnostic_codes": [],
+      "ts_owner_files": [
+        "client.ts"
+      ],
+      "prism_exact_owner": "client.ts",
+      "files": {
+        "client.ts": "export default class Client {\n  m() {}\n}\n",
+        "app.ts": "import Client from './client';\nexport const run: (props: {client: Client}) => void = ({client}) => { client.m(); };"
+      }
+    }
+  ]
+}

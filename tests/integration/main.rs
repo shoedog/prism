@@ -1,6 +1,7 @@
 mod api_test;
 mod arrow_field_receiver_test;
 mod call_graph_test;
+mod callable_authority_audit_test;
 #[allow(dead_code)]
 #[path = "../common/mod.rs"]
 mod common;
