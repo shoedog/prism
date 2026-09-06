@@ -2,7 +2,9 @@
 
 Base PR256 merge e08af858128c20ae3372b62f1688593756f06af9;
 branch feat/imported-object-alias-identity. Implementation/full suites complete;
-frozen-tree quick and publication pending. CPG76/nav44; no unrelated artifacts removed.
+quick completed baseline-invalid. Implementation9c99f96 committed/pushed;
+PR https://github.com/shoedog/prism/pull/257 is open. CPG76/nav44;
+no unrelated artifacts removed. Final publication reconciliation is docs-only.
 
 ## Outcome and boundary
 
@@ -75,6 +77,21 @@ adjudications. It overlapped final test-only additions, so it is not a frozen-tr
 comparison. One final committed-source quick is allowed (two-run cap); no regression
 attribution without a same-environment base control.
 
+Final quick,2026-09-06-imported-alias-frozen: source and SUT9c99f96a7067,
+corpus_dirty=false,prism_dirty=false. Completed exit2, baseline-invalid for SHA drift
+versus20c8490591a3 and C-name4/6 successful probes. Oracle2/30 errors (6.67%),SUT0,
+quiescent,zero stale adjudications; matrix159/159. Stop at cap2, no rebaseline.
+Raw Exact-tier tp/fp/fn: callers17/0/22,callees23/3/10. No paired pre-change quick:
+these are observations, not attributed regressions or a green accuracy gate.
+
+Pinned observations (full source-site lists retained in raw JSON and PR body):
+target-c-method flip_candidate,Exact supplementary5/0/0,30 default-tier Prism-only
+sites and no oracle-only sites. module-deps-feature-gated missing literal pin:
+Prism-only src/mcp/tools.rs:230. load-repo-feature-gated missing literal pin:
+oracle-only examples/dfg_census.rs:359 and tests/integration/resolution_test.rs:5299,:5368;
+Prism-only src/mcp/freshness.rs:401 and src/mcp/session.rs:359,:374,:400.
+ambiguous-symbol-contract:ok. Failed oracle probes are inadmissible product evidence.
+
 ## Measurement and custody
 
 Fresh real replay:2780 call-site records,376 Exact, unchanged. The pinned605-file
@@ -88,4 +105,10 @@ Disk/sidecar cache evidence comes from the explicit tests above.
 
 Evidence directory: /private/tmp/prism-imported-alias-O4d6E1. Includes pinned compiler
 package, RED/GREEN/cache logs, fresh binary and raw real/served call-stats, and source
-audit. Archive/hash and publication records follow after final gates.
+audit. Archive: /private/tmp/prism-imported-alias-O4d6E1-evidence.tgz;
+SHA256 55fe6a37b4bdc6d97092fd3cb47b4db7ad4b10b5f98213edd9829959467c8d69.
+Contains both quick runs/reports/snapshots, baseline and candidate source checkpoints,
+both candidate binaries, compiler package and source/served fixtures. Generated quick
+artifacts were moved there recoverably; original unrelated artifacts remain in place.
+Archive checkpoint publication fields are historical; this committed readout/handoff
+carry the subsequent PR257 publication state.

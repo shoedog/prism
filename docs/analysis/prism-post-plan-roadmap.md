@@ -184,14 +184,15 @@ Three candidate directions once the queue's top items are drained (or interleave
   tests pass; default4005/0/1,MCP4195/0/1,matrix159/159. Real2780/Exact376 unchanged;
   source census is not dependency/program augmentation closure. No React.FC expansion.
   See `docs/eval/receiver-closure/2026-09-05-imported-props-identity-readout.md`.
-- **Direct imported object-alias identity — implemented, publication pending:**
+- **Direct imported object-alias identity — PR257 open,9c99f96:**
   Explicit required destructured parameter, one relative named import and inline
   exported non-generic object alias. Definition-file proof replaces stale cache
   metadata; CPG76/nav44. No contextual imported alias, interface, barrel, hook or
   React.FC expansion. Observed ambient/prototype/reflection input blocks this new
   route across the supplied snapshot; no full TypeScript-program closure claim.
   Pinned5.9.3 corpus24/24; reproduced Prism miss resolved by index refresh.
-  Full default4012/0/1,MCP4202/0/1,matrix159/159; quick baseline-invalid, frozen rerun pending.
+  Full default4012/0/1,MCP4202/0/1,matrix159/159; frozen9c99f96 quick baseline-invalid:
+  SHA drift,C-name4/6 probes,oracle2/30 errors,SUT0; no rebaseline.
   See `docs/eval/receiver-closure/2026-09-06-imported-object-alias-readout.md`.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
