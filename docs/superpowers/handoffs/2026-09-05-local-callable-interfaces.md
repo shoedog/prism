@@ -60,7 +60,7 @@ these docs-only edits await the next approved branch.
 `[INHERITED]` PR253 round3 SELF-PASS complete. Next Props-interface slice now
 explicitly approved; cap3 completed. Disk stop resolved and successor implementation,
 full tests and paired measurement complete. Resume private-props-interfaces handoff;
-controller publication remains pending under supplied machine instructions.
+successor published as PR255 on PR254, fresh tests/measurement complete; quick invalid.
 Round2 corrected module-local to module-private: scripts and exported interfaces
 are deferred pending cross-file merge/augmentation evidence. `[INHERITED]` fixed real
 sites unchanged. Quick baseline-invalid is measured, not a green accuracy claim.

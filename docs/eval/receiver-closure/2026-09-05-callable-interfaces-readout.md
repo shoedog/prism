@@ -117,7 +117,8 @@ PR252 merge records reconciled in this branch; original .superpowers/ and
 eval/snapshots/prism-fb81481dafa7.json untouched. No memory edit, merge or rebaseline.
 Approved successor feat/private-props-interfaces is implemented and verified locally;
 disk stop resolved by authorized cleanup. See same-date props-interfaces readout
-and private-props-interfaces handoff; controller publication remains pending.
+and private-props-interfaces handoff; published as PR255, rebased onto PR254 with
+fresh tests and paired measurements complete; quick remains baseline-invalid.
 It reuses private declaration proof for non-generic Props interfaces, retaining
 own-property/duplicate/write barriers.
 Export/import/augmentation evidence must precede lifting the private restriction;

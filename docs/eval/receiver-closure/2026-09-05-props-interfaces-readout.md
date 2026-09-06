@@ -1,8 +1,11 @@
 # Bounded private Props interfaces — implementation readout
 
-Status: implemented and verified locally on feat/private-props-interfaces, based on
-PR253 merge eb884824efc1686da2e789248783afe089c2cd14. Not committed, pushed or opened
-as a PR: supplied machine instructions reserve committing for the controller.
+Status: implementation committed as466d4368 on feat/private-props-interfaces,
+rebased onto remote main71688dc7 (PR254). Owner explicitly authorized this agent to
+commit,push and open a PR, overriding the earlier controller-only instruction.
+Published: https://github.com/shoedog/prism/pull/255 (open,not merged).
+Rebased verification is complete; the final section supersedes the historical
+pre-rebase gate record below. Publication custody is a docs-only follow-up.
 
 ## Contract and implementation
 
@@ -18,7 +21,10 @@ inheritance, merging, exported/imported Props, selected optional properties, ext
 non-property members, shadows and receiver/member writes remain barriers. Existing
 direct class imports remain supported; this does not authorize importing Props.
 No React.FC, inference, hook, alias-chain or imported-type expansion.
-CPG cache73→74 and navigation sidecar42→43 invalidate prior persisted authority.
+CPG cache74→75 and navigation sidecar42→43 invalidate prior persisted authority.
+Rebase preserved PR254's v74 dataflow-confidence format and test name; this slice
+uses v75, and its stale-version regression now rejects a v74 cache. The original
+pre-rebase tests below used v74 before that version was allocated on remote main.
 
 ## RED, controls, review and gates
 
@@ -112,8 +118,8 @@ Source,logs,prompts,results,archives and worktree registrations were retained.
 
 Original .superpowers/ and eval/snapshots/prism-fb81481dafa7.json are untouched.
 Generated quick artifacts are retained in evidence, not added to the baseline.
-No memory edits. Controller must commit the scoped12-file change, push and open a
-PR with the quick observations above; merge is not authorized. The current handoff
+No memory edits. Owner now authorizes this agent to publish the scoped12-file change
+with the quick observations; merge is not authorized. The current handoff
 lists exact publication custody and the evidence archive.
 
 Archive: /private/tmp/prism-props-interfaces-JPIR2j-evidence.tgz;
@@ -123,3 +129,56 @@ cleanup audit and twelve-file verified-checkpoint.tgz, plus fixed Excalidraw sou
 Raw machine process/open-file inventories are excluded from the archive and remain
 local. Checkpoint documents are historical; this workspace readout/handoff adds
 the final archive pointer. Neither an archive nor a local snapshot is publication.
+
+## Rebase onto PR254 — current publication evidence
+
+Fetched main71688dc785e4ea70388bce18152d6e883cb2999c; original commit3fff2100
+rebased to466d436890aa1a68a312f30fa4fbba8a29a2c730. Conflict-resolution cap2,
+resolved in round1 with no extension: main's v74 DFG schema and test name retained,
+Props authority uses CPG75/nav43, old-version test rejects74. Normalized receiver
+AST patch is byte-identical across rebase after excluding hunk offsets/index hashes.
+No additional receiver behavior or unrelated main changes were introduced.
+
+Fresh saved base-prism was built from an archive of main71688dc7, followed by
+candidate-prism from466d4368. All paired real/fixture/control measurements passed
+again and exactly match the committed companion JSON:2780 real records,376 Exact,
+zero changed records,eight newly served Exact fixture callers,eight exclusions,
+three byte-identical controls. Original RED evidence remains historical; these fresh
+served before/after results also establish the positive behavior difference on main.
+
+Fresh matrix159/159 after immediate candidate release build. Fresh quick run
+2026-09-05-props-rebase followed another immediate rebuild and completed exit2:
+baseline-invalid due corpus466d436890aa versus pinned20c8490591a3 and C-name4/6
+successful probes. Oracle error rate2/30 (6.67%),SUT error rate0,oracle quiescent,
+zero stale adjudications. Failed oracle probes are inadmissible as product evidence.
+
+Current raw Exact-tier tp/fp/fn: callers43/1/42,callees13/2/8. Caller gaps:
+C-method25,U-method17,plus C-name1 raw FP; callee gaps:C-name5,Q-scoped3,
+plus U-free2 raw FPs. No paired base quick was run; changed inventory/sampling and
+oracle failures prevent regression attribution from these counts. No rebaseline.
+
+Current pinned observations for the PR (supersede pre-rebase coordinates above):
+
+- target-c-method: flip_candidate,Exact supplementary5/0/0; default tier30
+  Prism-only sites,zero oracle-only; full site list in raw quick JSON.
+- module-deps-feature-gated: missing literal pin; oracle-only none,
+  Prism-only src/mcp/tools.rs:230.
+- load-repo-feature-gated: missing literal pin; oracle-only examples/dfg_census.rs:359
+  and tests/integration/resolution_test.rs:5299,:5368; Prism-only
+  src/mcp/freshness.rs:401 and src/mcp/session.rs:359,:374,:400.
+- ambiguous-symbol-contract: ok.
+
+Fresh logs,binaries,source archive and raw quick artifacts live at
+/private/tmp/prism-props-rebase-ZFiPT6. Generated quick files were moved there
+recoverably; original unrelated snapshot remains untouched.
+
+Fresh full gates: cargo test4004 passed/0 failed/1 ignored; cargo test --features
+mcp4194/0/1 (totals include two doctests). Same ignored SliceElem control. fmt/diff
+checks pass; Clippy completed with warnings. No full multicorpus or paired base
+quick run. Only documentation changed after these gates; implementation remains466d4368.
+
+Rebase archive: /private/tmp/prism-props-rebase-ZFiPT6-evidence.tgz;
+SHA256 fd629af0f9a2c6e6c4d56957f41f2645bb5379a514acc0220938fb1258efde60.
+Contains saved main/candidate binaries,main source,candidate-source.tgz,paired
+outputs and all gate logs/raw quick artifacts. Checkpoint docs are historical;
+this committed readout and handoff carry publication at PR255.

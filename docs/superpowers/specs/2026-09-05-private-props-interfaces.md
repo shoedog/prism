@@ -31,7 +31,8 @@ signature/binder restrictions remain. No React.FC, hook or imported type expansi
    its unchanged private-interface/heritage proof for Props. Props consumer rejects
    any generic declaration and allows only object_type/interface_body. Existing own
    property traversal proves shape; no recursive type evaluation or string cloning.
-3. CPG73→74/nav42→43; persisted valid↔invalid transitions, declaration-only A↔B
+3. CPG74→75/nav42→43 after rebasing onto PR254 (which allocated CPG74);
+   persisted valid↔invalid transitions, declaration-only A↔B
    owner replacement across explicit/contextual forms; full/subset/incremental and
    sidecar parity plus old-version misses.
 4. Round2 adversarial boundaries; round3 source-to-served consumer self-review.

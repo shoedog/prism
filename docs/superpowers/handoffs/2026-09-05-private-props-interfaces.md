@@ -1,7 +1,7 @@
 # Handoff — private non-generic Props interfaces
 
 **Written:** 2026-09-05 · **By:** Codex /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/private-props-interfaces · **Measured state:** `[MEASURED]` HEAD eb884824; carried three PR253 merge-record edits and original two untracked artifacts; git status --short.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/private-props-interfaces · **Measured state:** `[MEASURED]` HEAD466d4368 on main71688dc7, docs dirty and two original untracked artifacts; git status/log.
 **Predecessor:** PR253 / same-date local-callable-interfaces handoff.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,87 +9,79 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) /root only, no subagents — RESOLVED.
-(b) Original .superpowers/ and prism-fb81481dafa7.json preserved. Spec/handoff and
-merge records snapshotted in evidence/start-checkpoint.tgz; publication pending.
-Verified twelve-file snapshot in evidence/verified-checkpoint.tgz and hashed archive
-below; archive contents verified, raw machine inventories excluded. Local custody
-RESOLVED by snapshots; remote publication remains OPEN for controller.
-(c) `[MEASURED]` disk stop resolved: owner authorized exact target/debug/incremental
-removal; realpath confirmed, 5.2G deleted, absence verified, df13GiB afterward. Base
-release build complete and binary saved. Owner additionally approved30 Tier-C caches
-and six old Prism target dirs. Canonical paths/no active use verified, exactly36
-directories removed, all parents retained; df10→86GiB. No other deletion.
-RED46 positive misses plus four explicit-module comparisons, alias control passes;
-GREEN4/4 and round2 receivers26/26, cache groups2/2+2/2. Full gates complete;
-default3841/0/1,MCP4031/0/1,matrix104/104; quick baseline-invalid SHA drift.
-No running gate process. Later df247GiB is not attributed to this cleanup.
-(d) Owner approved bounded module-private, non-generic Props interfaces through
-explicit and supported contextual annotations; preserve duplicate/write/cache
-barriers; exclude inheritance, merging, exports/imports and React.FC expansion.
-Standing commit/push/open PR; no merge/rebaseline/full multicorpus.
-Supplied machine instructions specifically leave committing to the controller:
-publication remains OPEN; no sandbox commit attempted and no PR created.
+(b) Twelve-file implementation committed466d4368 after rebase; original
+.superpowers/ and prism-fb81481dafa7.json preserved. Pushed and PR255 open;
+this final docs-only publication record follows the implementation commit.
+(c) Rebase resolved in round1 of cap2. PR254 owns CPG74; this slice uses CPG75/nav43,
+retaining main's DFG serialization and pinned-test name. Rebased gates complete,
+no running sessions; default4004/0/1,MCP4194/0/1,matrix159/159. Quick baseline-invalid
+SHA drift plus C-name4/6 successful probes; oracle errors2/30,SUT errors0.
+(d) Owner explicitly said "yes you can commit push and open PR. you may meed to
+rebase on remote main". Controller-only restriction overridden for this slice.
+No merge,rebaseline,full multicorpus or further cleanup authorized.
 
 ## 1. Resume order
 
-1. `git status --short --branch` in /Users/wesleyjinks/code/slicing (seconds);
-   expect feat/private-props-interfaces based on eb884824, twelve scoped files and
-   the two original unrelated untracked artifacts.
-2. Controller: read same-date props-interfaces-readout and inspect the scoped diff;
-   commit only src/ast.rs,src/cpg_cache.rs,src/navigation/call_edge_cache.rs,
-   tests/integration/inline_prop_receiver_test.rs, three carried PR253 merge records,
-   and five new Props documents (spec,handoff,readout,measurement,verifier).
-3. Controller: push feat/private-props-interfaces and open PR against main; paste
-   quick gaps/flip candidate from readout, then reconcile PR/commit custody in docs.
-   Do not merge or rebaseline. No further implementation authorized by this handoff.
+1. `git status --short --branch` in /Users/wesleyjinks/code/slicing.
+2. Read PR255 and the current readout's final rebase section; fresh logs under
+   /private/tmp/prism-props-rebase-ZFiPT6. Do not use pre-rebase totals as current.
+3. Await owner review/merge direction. No further implementation or merge authorized.
 
-**STOP conditions:** cap3; open-class findings escalate design; disk below3GiB stops
-build-heavy work. Never infer cleanup authority beyond the cache already removed.
+**STOP conditions:** rebase cap2; original self-review cap3 already completed.
+Disk below3GiB stops build-heavy work. No authority beyond this slice.
 
 ## 2. State ledger
 
 | Item | State | Evidence / correction |
 |---|---|---|
-| Cleanup/branch | done | `[MEASURED]` exact cache removal; fetch/switch to main eb884824 |
-| Contract | done | same-date private-props-interfaces spec |
-| RED/implementation/cache | done | red.log, green.log, round2.log, cache-transitions.log, cache-owner.log; CPG74/nav43 |
-| Full gates | done | `[MEASURED]` default3841/0/1,MCP4031/0/1,matrix104/104; fmt/diff/clippy complete; quick baseline-invalid SHA drift |
-| Measurement/review | done | `[MEASURED]` verified-measurement.json: real2780/Exact376 unchanged,eight served synthetic callers; rounds1–3 SELF-PASS |
-| Publication | blocked | controller-owned committing per supplied instructions; branch has no new commits, no push/PR |
+| Cleanup | done | `[INHERITED]` original evidence:5.2G incremental then36 exact caches/targets ~76GiB; no additional deletion |
+| Original implementation/review | done | `[INHERITED]` original RED/GREEN,32 A↔B owner transitions and rounds1–3 SELF-PASS |
+| Rebase | done | `[MEASURED]` fetch71688dc7; commit466d4368; CPG75/nav43; receiver source diff unchanged |
+| Rebased gates/measurement | done | `[MEASURED]` default4004/0/1,MCP4194/0/1,matrix159/159; fmt/diff/clippy complete; quick invalid; paired JSON matches companion |
+| Publication | done | `[MEASURED]` pushed implementation466d4368; https://github.com/shoedog/prism/pull/255 open,not merged; docs-only custody follows |
 
 ## 3. Corrections to standing documents and memory
 
-PR253 merge records carried; its recommendation approved and disk block resolved.
-Predecessor/readout redirect to this handoff. No memory edit.
+Controller-only block removed following explicit owner override. Predecessor docs,
+roadmap,spec and readout reconciled. Original measurements remain historical;
+rebased results and PR255 publication recorded. Main's CPG74 format preserved,
+this slice advances to75. Earlier controller-only/pending claims are superseded.
+No memory edits.
 
 ## 4. Open work
 
-Implementation, three-round SELF-PASS and verification complete. Publication remains
-controller-owned. Latest cleanup approval fulfilled exactly; cleanup-preflight.json
-and cleanup-deletion.log record custody. Quick has raw accuracy gaps and invalid
-baseline; no paired base quick run, so no regression attribution or green claim.
+Owner review/merge decision. Baseline-invalid quick results are not green accuracy
+or attributed regressions without a base control. No paired base quick run or full
+multicorpus. Original and rebase archives retain separate historical custody.
 
 ## 5. Invariants and traps — do not do these
 
-- Preserve original property/type-use/write nodes; no string substitution.
+- Preserve original property/type-use/write nodes and main's DFG format.
 - Reject exported/merged/ambient/inherited/generic Props; no React.FC authority.
-- Preserve unrelated artifacts; controller commits, network needs escalation.
+- Preserve original unrelated artifacts; escalate network/.git writes up front.
+- Do not reuse CPG74 for changed Props authority after PR254.
 - Indexed SymbolNotFound is not absent-caller proof.
 
 ## 6. Identifiers
 
 | Item | Verbatim |
 |---|---|
-| Base | eb884824efc1686da2e789248783afe089c2cd14 |
+| Original base | eb884824efc1686da2e789248783afe089c2cd14 |
+| Rebased base | 71688dc7 |
+| Implementation | 466d4368 |
+| PR | https://github.com/shoedog/prism/pull/255 |
 | Branch | feat/private-props-interfaces |
-| Evidence | /private/tmp/prism-props-interfaces-JPIR2j |
-| Archive | /private/tmp/prism-props-interfaces-JPIR2j-evidence.tgz |
-| Archive SHA256 | e0aa11fee9fe6535841a6e786417250759d7bfd6a45b6595b2e91f5b956226d0 |
+| Rebase evidence | /private/tmp/prism-props-rebase-ZFiPT6 |
+| Rebase archive | /private/tmp/prism-props-rebase-ZFiPT6-evidence.tgz |
+| Rebase archive SHA256 | fd629af0f9a2c6e6c4d56957f41f2645bb5379a514acc0220938fb1258efde60 |
+| Original evidence | /private/tmp/prism-props-interfaces-JPIR2j |
+| Original archive | /private/tmp/prism-props-interfaces-JPIR2j-evidence.tgz |
+| Original archive SHA256 | e0aa11fee9fe6535841a6e786417250759d7bfd6a45b6595b2e91f5b956226d0 |
 | Fixed source | /private/tmp/prism-indirect-default-VUbv13/excalidraw |
 | Fixed source SHA | 0642e72cfa2d9a71198200e52f37399384610ee3 |
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED within bounded scope; quick baseline-invalid · claim: "private Props interfaces preserve receiver identity" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: same-date spec/readout and logs, rounds1–3, cap3 with no extension.
+**§2c verdict:** SURVIVED within bounded scope; rebased tests/measurement pass, quick baseline-invalid · claim: "private Props interfaces preserve receiver identity" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: original rounds1–3; rebase resolution round1 of cap2, fresh gates/paired outputs and PR255 readout.
 
 **Questions the owner owes an answer to:** None.
