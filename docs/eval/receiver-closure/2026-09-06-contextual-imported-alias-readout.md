@@ -2,9 +2,12 @@
 
 Base PR257 merge661a95a4ecfc4ced97a2a703a22082531b95527b;
 branch feat/contextual-imported-object-alias. Implementatione3fb6ba and frozen
-custody48dfc45 pushed; PR https://github.com/shoedog/prism/pull/258 open.
+custody48dfc45 pushed; PR https://github.com/shoedog/prism/pull/258 merged
+2026-09-06T19:49:56Z as835c4fbc3f7a9d9dcd3e6ec5dbbe96eb5e219f65. Fetched
+origin/main matches; its tree equals published98166c7d9bd52bcaa794b1efaa0ba0e733767852.
 Full suites complete; frozen quick baseline-invalid. CPG77/navigation sidecar45.
-This final gate/archive/publication reconciliation is docs-only.
+Merge reconciliation is carried by approved successor design/callable-authority-proof.
+Gates below are prior implementation evidence, not rerun for this acknowledgement.
 
 ## Outcome and scope
 

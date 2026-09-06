@@ -196,7 +196,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   Merge tree equals published153e3595; gates are prior implementation evidence,
   not rerun for docs-only merge acknowledgement. Contextual successor approved below.
   See `docs/eval/receiver-closure/2026-09-06-imported-object-alias-readout.md`.
-- **Contextual imported object-alias identity — PR258 open, implementatione3fb6ba:**
+- **Contextual imported object-alias identity — PR258 merged835c4fbc, implementatione3fb6ba:**
   Reuse source-defined contextual parameter nodes through supported local callable
   forms, retaining imported declaration/class identity and replacement barriers.
   CPG77/nav45. Explicit annotations terminal; no imported callables, interfaces,
@@ -206,7 +206,22 @@ Three candidate directions once the queue's top items are drained (or interleave
   exclusions, Exact callers/callees verified. Cap3 SELF-PASS, not independent.
   Frozen48dfc45 quick baseline-invalid (clean source/SUT): SHA drift,C-name4/6,
   oracle2/30,SUT0; one run of cap2, no rebaseline or paired base quick.
+  Merge tree equals published98166c7d; no gate rerun for docs-only acknowledgement.
+  Compiler-backed callable-authority design and negative fixtures approved as
+  successor; no runtime expansion yet.
   See `docs/eval/receiver-closure/2026-09-06-contextual-imported-alias-readout.md`.
+- **Callable-authority foundation — PR259 open, implementation2272351, base835c4fbc:**
+  Approved design/audit-only slice. Pinned TS5.9.3 with React19.0.10/18.3.31
+  declarations;20 synthetic cases across two compiler profiles and TS/TSX
+  full/subset Prism guards. Explicit annotations remain terminal, consumer casts
+  do not contextualize implementations, and diagnostic-free augmentation may
+  introduce two receiver owners. No src/ changes, Exact gains or cache bump.
+  Default4017/0/1,MCP4207/0/1,compiler40/40,Node4/4; public2780/376 Exact
+  byte-identical. Cap3 SELF-PASS, not independent; prior quick still baseline-invalid.
+  Proposed next is a separately approved non-authorizing configured-program
+  producer/validator; no production React.FC, hook or wrapper expansion.
+  See `docs/superpowers/specs/2026-09-06-callable-authority-proof.md` and same-date
+  handoff/readout for measured gates, limitations and publication custody.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:
