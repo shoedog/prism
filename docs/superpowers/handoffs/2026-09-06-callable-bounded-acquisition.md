@@ -1,7 +1,7 @@
 # Handoff — bounded callable acquisition
 
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
-**Workspace:** /private/tmp/prism-acquisition-next-NoX18k/links · feat/callable-canonical-links · **Measured state:** `[MEASURED]` eb5367a2; all three implementations committed, final verification closeout in progress.
+**Workspace:** /private/tmp/prism-acquisition-next-NoX18k/links · feat/callable-canonical-links · **Measured state:** `[MEASURED]` implementation2c885b4/integrationeb5367a2, readout2d93d2c; all local gates complete; this docs-only publication closeout follows.
 **Predecessor:** PR266, confirmed merged at d4f06b58b11ed09f46a80f769a94764dafa5ddf0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,16 +9,17 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) /root only; isolated from dirty original — RESOLVED.
-(b) PR267/268 published; slice3 committed, publication next — OPEN publication.
-(c) Observer109/109 and public replay validated; final-head Rust reruns completing;
-PR267 CI test job pending — OPEN verification. No install or app writes.
+(b) PR267/268/269 published; final closeout recorded here — RESOLVED custody.
+(c) Observer109/109, default4017/0/1 and MCP4207/0/1 complete, including doctests;
+public replay validated — RESOLVED local verification. PR267 coverage pending;
+no merge until all current checks green. No install or app writes.
 (d) Owner: “merged. next 3 slices approved. merge when green or stack”.
 
 ## 1. Resume order
 
 1. `git -C /private/tmp/prism-acquisition-next-NoX18k/links status --short --branch`.
-2. Inspect task-root slice3-cargo-final.log and slice3-mcp-final.log for complete doctests and totals.
-3. Publish slice3 on PR268. Merge only exact green heads; retarget dependents to
+2. `gh pr checks 267 --repo shoedog/prism`; current handoff records coverage pending.
+3. PR269 is stacked on268, which is stacked on267. Merge only exact green heads; retarget dependents to
    main in order after parent merge and wait for their own CI (stacked-base PRs
    do not currently report checks). Owner explicitly permits leaving a stack.
 
@@ -34,8 +35,8 @@ increase or runtime authority; two self-review rounds per slice, classify at cap
 | Streamed inventory RED | done | `[MEASURED]` slice1-red-fixed.log: 5 tests, 2 pass, 3 fail on extracted eager implementation |
 | Streaming and verified lazy read | done | `[MEASURED]` 90 observer,4017 default Rust,4207 MCP passed;0 failed; Rust1 ignored each; readout records controls |
 | Larger explicit profile | done | `[MEASURED]` RED4 fail; final96 observer,4017 default Rust,4207 MCP passed;0 failed; Rust1 ignored each; defaults unchanged |
-| Canonical links/public replay | done | `[MEASURED]` 109 observer passed;249 links,853674175 regular-file bytes; valid reproduced unproven packet; canonical-links readout |
-| Publication | pending | `[MEASURED]` PR267 on main; PR268 on267; third slice awaiting final gate closeout |
+| Canonical links/public replay | done | `[MEASURED]` 109 observer,4017 default,4207 MCP passed;0 failed; Rust1 ignored each;249 links,853674175 regular-file bytes; valid reproduced unproven packet |
+| Publication | done | `[MEASURED]` PR267 on main; PR268 on267; PR269 on268; final docs-only closeout here; merge not attempted while CI pending |
 
 ## 3. Corrections to standing documents and memory
 
@@ -51,8 +52,8 @@ at ambiguous_declaration. No barrier may be removed on that evidence alone.
 
 ## 4. Open work
 
-Finish final verification and publish/merge green heads or leave the approved
-dependent stack. Evidence logs live in
+All three implementations and local gates are complete; dependent PR stack is
+published as authorized. CI completion and ordered merges remain. Evidence logs live in
 /private/tmp/prism-acquisition-next-NoX18k outside the audited application.
 Next recommendation, not a fourth implementation: source/compiler-backed audit of
 the React qualifier's actual declaration population and ambient/global identity.
@@ -80,6 +81,8 @@ the React qualifier's actual declaration population and ambient/global identity.
 | Profiles | `/private/tmp/prism-callable-authority-98TLLN/public/profiles` |
 | Public packet | `/private/tmp/prism-acquisition-next-NoX18k/public-packet-final.json` |
 | Packet SHA256 | `0c4acbb619db405af129588cd7fe992945de1c6d93ce03c5a423570752c52a04` |
+| Evidence archive | `/private/tmp/prism-acquisition-next-NoX18k/public-evidence.tgz` |
+| Archive SHA256 | `bce0b82d5a4bedd8b75a56dc9cd39bf0d05b63f8d02757a93c0aa50b6f3168df` |
 
 ## 7. Refutation verdict and owner questions
 

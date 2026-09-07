@@ -103,8 +103,19 @@ Producer SHA25647e122b154ab46335cbeb5bd6c7da6def57138d143cf8f0068c607528ca1bff5.
 Raw task-root evidence: public-packet-final.json, public-validation.json,
 public-summary.json, public-predecessor-control.json, source-before.json,
 source-after.json, slice3-red.log, slice3-bom-red.log, slice3-integration.log,
-slice3-integration-canonical.log, slice3-node-final.log. Full final-head default/MCP
-Rust reruns are completing; totals must be recorded before completion.
+slice3-integration-canonical.log, slice3-node-final.log. Final source-head repeats:
+default Rust4017 passed,0 failed,1 ignored across28 result groups; MCP4207 passed,
+0 failed,1 ignored across30 result groups. Both include2 doctests. Logs:
+slice3-cargo-final.log and slice3-mcp-final.log. Observer109 passed,0 failed,
+0 skipped. cargo fmt --check and git diff --check pass. Final producer byte hash
+was independently rechecked against the reproduced packet after committing.
+
+Evidence archive: /private/tmp/prism-acquisition-next-NoX18k/public-evidence.tgz,
+SHA256bce0b82d5a4bedd8b75a56dc9cd39bf0d05b63f8d02757a93c0aa50b6f3168df.
+It contains public packet/custody and all three slices' verification logs, not the
+installed source/cache/tools. Source, artifacts and isolated worktrees retained.
+Publication: PR267 → PR268 → PR269. Owner permits a stack; no merge while CI is
+pending. Stacked-base PRs need main-base CI after retargeting before merge.
 
 Replay (outputs must remain outside the audited root):
 
