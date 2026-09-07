@@ -1,5 +1,7 @@
 # Refused compiler lookups — packet repair and real census
 
+> Status reconciliation: PR264 merged at f2f8a3c5. The same-date callable-dependency-acquisition spec records the completed successor preflight. Its plan separates package acquisition from snapshot admission and compiler closure; no install or new receiver gain is claimed.
+
 Implemented from merged main54b6755ab1cc4601e61d8e5a0b991a8775c29b76 on
 fix/callable-lookup-packets. Implementationbf6d4fc is pushed in [PR264](https://github.com/shoedog/prism/pull/264), targeting main. Owner approved
 this successor after PR261/262/263 merged. No runtime authority or resolver,
