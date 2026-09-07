@@ -46,9 +46,10 @@ provide the lsp-nav fallback. Do not label collapsed alias identity a full chain
 ## 4. Open work
 
 Controller commit/publication only. No class authority. Current AGENTS operation
-notes leave committing to the controller. Next recommendation, not implemented:
-nested callback binding ownership observations; instantiated Props/class identity
-and runtime Exact remain separate. Tier-A not triggered (no runtime changes);
+notes leave committing to the controller. Nested callback binding observations
+are now approved and active in the isolated callable-nested-bindings successor;
+see its same-date handoff. Instantiated Props/class identity and runtime Exact
+remain separate. Tier-A not triggered (no runtime changes);
 prior quick INHERITED baseline-invalid. No multicorpus/rebaseline/application tests.
 
 ## 5. Invariants and traps — do not do these
