@@ -1,5 +1,5 @@
 import {createHash} from "node:crypto";
-export const SCHEMA="prism.callable-observation/7";
+export const SCHEMA="prism.callable-observation/8";
 export const COMPILER_HASH="3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675";
 export const LIMITS={files:20000,bytes:128*1024*1024,read_bytes:128*1024*1024,link_steps:32,depth:64,timeout_ms:30000,observations:2000,provenance_steps:32,nested_depth:8,nested_calls:128,props_type_args:8};
 export const PACKET_BYTES=8*1024*1024;
@@ -29,6 +29,12 @@ const object=shape=>x=>x!==null && typeof x==="object" && !Array.isArray(x)
   && Object.keys(x).length===Object.keys(shape).length
   && Object.entries(shape).every(([k,v])=>Object.hasOwn(x,k) && v(x[k]));
 const anchor=object({file:id,sha256:digest,kind:str,start_utf16:integer,end_utf16:integer,start_byte:integer,end_byte:integer});
+const lookup=object({status:x=>['observed','unproven'].includes(x),
+  reason:nullable(x=>['synthetic_request','augmentation_request','unsupported_request','filesystem_target',
+    'augmentation','duplicate_provider','unresolved_symbol','ambiguous_binding','non_exact_binding',
+    'binding_mismatch','unsupported_provider'].includes(x)),
+  context:x=>['synthetic','import','export','import_type','import_equals','augmentation_name','dynamic_import','require','other'].includes(x),
+  request:nullable(anchor),declarations:array(anchor),providers:array(anchor),augmentations:array(anchor)});
 const alias=object({declarations:array(anchor),target:array(anchor),module:nullable(anchor),
   module_declarations:array(anchor),module_exports:array(anchor),module_bindings:array(anchor)});
 const provenance=object({status:x=>["traced","unproven"].includes(x),
@@ -55,7 +61,7 @@ const reasons=array(x=>[
 ].includes(x));
 const packet=object({
   schema:literal(SCHEMA),authorizes_runtime_edge:literal(false),
-  producer:object({version:literal("0.8.0"),sha256:digest}),
+  producer:object({version:literal("0.9.0"),sha256:digest}),
   compiler:object({version:literal("5.9.3"),sha256:literal(COMPILER_HASH),verified:boolean,library_sha256:digest}),
   scope:object({config:id,acquisition_profile:x=>typeof x==="string" && Object.hasOwn(PROFILES,x),link_policy:x=>["reject","in-root"].includes(x),callable_scope:literal("direct-annotated-function"),class_authority:literal(false),case_sensitive:nullable(boolean)}),
   status:x=>["observed","unproven"].includes(x),reasons,
@@ -64,7 +70,7 @@ const packet=object({
   snapshot:object({sha256:digest,files:array(object({id,sha256:digest,size:integer})),directories:array(id),links:array(object({id,target:id,sha256:digest})),
     roots:array(id),config_files:array(id),program_files:array(id),reads:array(id),failed_lookups:array(id),
     refused_lookup_sha256:array(digest),outside_lookups:boolean,options_sha256:digest}),
-  resolutions:array(object({from:id,specifier:str,target:nullable(id)})),
+  resolutions:array(object({from:id,specifier:str,target:nullable(id),lookup})),
   diagnostics:array(object({code:integer,file:nullable(id),start:nullable(integer)})),
   observations:array(object({annotation:anchor,implementation:anchor,parameter:nullable(anchor),
     explicit_parameter:boolean,signatures:array(anchor),callable_declarations:array(anchor),provenance,nested,
@@ -102,6 +108,31 @@ export function parsePacket(text) {
     const f=files.get(a.file);
     if(!f || f.sha256!==a.sha256 || a.start_utf16>a.end_utf16 || a.start_byte>a.end_byte
       || a.end_byte>f.size || a.end_utf16>a.end_byte) throw Error("invalid_packet");
+  }
+  const programFiles=new Set(value.snapshot.program_files);
+  for(const r of value.resolutions) {
+    const l=r.lookup,synthetic=l.context==='synthetic';
+    for(const a of [l.request,...l.declarations,...l.providers,...l.augmentations]) {
+      checkAnchor(a);if(a && !programFiles.has(a.file))throw Error('invalid_packet');
+    }
+    if(!programFiles.has(r.from) || (l.request===null)!==synthetic
+      || r.target===null && (!value.reasons.includes('unresolved_module') || value.status!=='unproven'
+        || value.closure.dependencies || value.closure.augmentation || value.closure.resolution)
+      || l.request && l.request.file!==r.from
+      || [...l.providers,...l.augmentations].some(a=>a.kind!=='ModuleDeclaration')
+      || (l.status==='observed'
+        ? l.reason!==null || r.target!==null || !value.compiler.verified || !l.request
+          || l.request.kind!=='StringLiteral' || !['import','export','import_type','import_equals'].includes(l.context)
+          || l.declarations.length!==1 || l.providers.length!==1 || l.augmentations.length
+          || canonical(l.declarations[0])!==canonical(l.providers[0])
+        : !l.reason)
+      || synthetic!==(l.reason==='synthetic_request')
+      || (l.context==='augmentation_name')!==(l.reason==='augmentation_request')
+      || l.reason==='filesystem_target' && r.target===null
+      || l.reason==='augmentation' && !l.augmentations.length
+      || l.reason==='duplicate_provider' && l.providers.length<2
+      || l.reason==='unresolved_symbol' && l.declarations.length
+      || l.reason==='ambiguous_binding' && l.declarations.length<2)throw Error('invalid_packet');
   }
   for(const o of value.observations) {
     [o.annotation,o.implementation,o.parameter,...o.signatures,...o.callable_declarations].forEach(checkAnchor);

@@ -1,6 +1,6 @@
 # Prism — post-plan roadmap (follow-up queue, strategic fork, Java, Serena)
 
-> Status reconciliation (2026-09-07): PR261–271 are merged through2abb5de0. The approved source-backed closure audit is published in PR272 (classification commit cbbca18):603 null filesystem requests comprise588 ambient use bindings,1 augmentation-name request and14 source gaps;264 refusal digests and806 outside directory probes are separately explained. Four Library candidates remain program_unproven. Production observer/runtime and all closure barriers are unchanged;155 observer tests pass. Local recoverya86bbeb remains untouched/unpublished. See the callable-closure-classification handoff for current gates/publication; earlier pending statements are historical.
+> Status reconciliation (2026-09-07): PR261–272 are merged through c49d5b93. The approved successor adds schema8 / producer0.9.0 singleton exact-ambient lookup observations:272 supported source bindings in the fixed public Program, without changing the603 null filesystem results or14 source gaps. Runtime, closure policy, refusal/outside evidence and four program_unproven Library candidates remain unchanged. Local recovery a86bbeb remains untouched/unpublished. See the callable-exact-ambient-observations handoff for current gates/publication; earlier pending statements are historical.
 
 Date: 2026-07-04. Companion to `docs/analysis/prism-llm-and-accuracy-plan.md` (the
 ranked plan). Written as P14 (the final live plan item) is in implementation; refer

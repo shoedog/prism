@@ -1,5 +1,9 @@
 # Handoff — Program-closure lookup classification
 
+> Superseded operational state: PR272 merged at c49d5b93 on 2026-09-07.
+> Active lane: `2026-09-07-callable-exact-ambient-observations.md` in this directory.
+> The audit evidence below remains historical; it does not authorize closure expansion.
+
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · audit/callable-program-closure · **Measured state:** `[MEASURED]` base2abb5de0; production observer unchanged; all local gates complete; classification commit cbbca18 pushed and PR272 opened against main.
 **Predecessor:** PR271 merged2abb5de025491fec000316f68e5565c32879f22e.

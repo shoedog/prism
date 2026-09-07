@@ -7,6 +7,7 @@ import {emptyPacket} from "./index.mjs";
 import {traceProvenance} from "./provenance.mjs";
 import {observeNested} from "./nested.mjs";
 import {observePropsClasses} from "./props-class.mjs";
+import {observeExactAmbient} from "./exact-ambient.mjs";
 import {snapshot} from "./inventory.mjs";
 
 const options=JSON.parse(readFileSync(0,"utf8"));
@@ -72,6 +73,7 @@ function build() {
   if(parsed.projectReferences?.length) reasons.add("unsupported_references");
   if(parsed.options.plugins?.length) reasons.add("unsupported_plugins");
   if(first.links.length && parsed.options.preserveSymlinks)fail("unsupported_input");
+  const lookupRequests=[];
   const host={...basic,getSourceFile:(f,v)=>{const text=read(f);return text===undefined?undefined:ts.createSourceFile(f,text,v,true);},
     getDefaultLibFileName:o=>virtual("compiler/"+ts.getDefaultLibFileName(o)),
     getDefaultLibLocation:()=>virtual("compiler"),writeFile:()=>fail("unsupported_input"),
@@ -80,7 +82,8 @@ function build() {
     resolveModuleNameLiterals:(literals,from,redirected,compilerOptions,source)=>literals.map(l=>{
       const result=ts.resolveModuleName(l.text,from,compilerOptions,host,undefined,redirected,ts.getModeForUsageLocation(source,l,compilerOptions));
       const target=result.resolvedModule?toId(result.resolvedModule.resolvedFileName):null;
-      packet.resolutions.push({from:toId(from),specifier:l.text,target});
+      const resolution={from:toId(from),specifier:l.text,target};
+      packet.resolutions.push(resolution);lookupRequests.push({resolution,literal:l,source});
       if(!target)reasons.add("unresolved_module");
       return result;
     })};
@@ -94,7 +97,10 @@ function build() {
     .sort((a,b)=>canonical(a)<canonical(b)?-1:1);
   if(packet.diagnostics.length)reasons.add("compiler_diagnostics");
   function anchor(node) {
-    const sf=node.getSourceFile(),file=toId(sf.fileName),start=node.getStart(sf),end=node.end;
+    return anchorInSource(node,node.getSourceFile());
+  }
+  function anchorInSource(node,sf) {
+    const file=toId(sf.fileName),start=node.getStart(sf),end=node.end;
     const startByte=Buffer.byteLength(sf.text.slice(0,start)),endByte=Buffer.byteLength(sf.text.slice(0,end));
     const bytes=first.read(file);
     if(!bytes || !bytes.subarray(startByte,endByte).equals(Buffer.from(sf.text.slice(start,end))))fail("unsupported_input");
@@ -131,6 +137,7 @@ function build() {
     }
     visit(sf);
   }
+  observeExactAmbient(ts,program,checker,lookupRequests,anchor,anchorInSource);
   const second=snapshot(options);
   if(first.digest!==second.digest)reasons.add("unstable_snapshot");
   if(outside)reasons.add("outside_lookup");
@@ -145,7 +152,13 @@ function build() {
   packet.snapshot={sha256:first.digest,files:first.manifest,directories:first.dirs,links:first.links,
     roots:parsed.fileNames.map(toId).sort(),config_files:configFiles,program_files:program.getSourceFiles().map(f=>toId(f.fileName)).sort(),
     reads:[...reads].sort(),failed_lookups:[...missing].sort(),refused_lookup_sha256:[...refused].sort(),outside_lookups:outside,options_sha256:hash(canonical(parsed.options))};
-  packet.resolutions.sort((a,b)=>canonical(a)<canonical(b)?-1:1);
+  // Preserve the pre-observation filesystem-result ordering. New evidence is a
+  // tiebreaker only for otherwise identical request triples.
+  const resolutionKey=({from,specifier,target})=>canonical({from,specifier,target});
+  packet.resolutions.sort((a,b)=>{
+    const x=resolutionKey(a),y=resolutionKey(b);
+    return x<y?-1:x>y?1:canonical(a)<canonical(b)?-1:canonical(a)>canonical(b)?1:0;
+  });
   return packet;
 }
 try {console.log(JSON.stringify(build()));}

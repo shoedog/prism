@@ -33,17 +33,18 @@ an unproven observation exits0. Read the JSON, not just the exit code.
 
 ## Meaning of the packet
 
-The strict executable v7 schema is `schema.mjs` (`parsePacket`). It freezes these
+The strict executable v8 schema is `schema.mjs` (`parsePacket`). It freezes these
 groups, rejecting unknown fields and unsafe IDs before project access:
 
 | Group | Meaning |
 |---|---|
-| schema / authorizes_runtime_edge | prism.callable-observation/7; authority is always false; older packets reject before root access |
+| schema / authorizes_runtime_edge | prism.callable-observation/8; authority is always false; older packets reject before root access |
 | producer / compiler | Tool-byte digest; required compiler version/hash, whether actually verified, full compiler-lib inventory digest |
 | scope | Relative config, acquisition profile, link policy, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
 | status / reasons / closure | observed means this bounded Program completed without the enumerated closure failures; unproven records limitations. Neither means a receiver or class is proven |
 | snapshot | Raw byte/file/directory manifest, link spelling hashes and canonical targets, roots, config reads, Program files, reads and safe failed lookup IDs, refused-lookup digests, options digest and outside-lookup flag |
 | resolutions / diagnostics | Compiler module-resolution outcomes and anchored diagnostic codes; unresolved dependencies are not automatically application defects |
+| resolutions[].lookup | Actual request anchor/context, checker declarations and configured-Program exact-name provider/augmentation census; observed means singleton exact-ambient binding only, never filesystem or closure authority |
 | observations | Direct variable annotations on arrow/function expressions; annotation/implementation/first-parameter anchors, explicit annotation flag, contextual callable declarations/signatures, direct-body member-call receiver types and method declaration anchors |
 | observations.provenance | Bounded defining-source declaration/alias observations, generic use/binder anchors, namespace qualifiers and partial-chain reasons; not a substitution or ownership certificate |
 | observations.nested | Nested arrow/function-expression call anchors, enclosing callback anchors, first-parameter binding observations and explicit scope/budget barriers |
@@ -75,7 +76,7 @@ exercise this distinction.
 
 ## Declaration provenance
 
-Producer0.8.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs` and `props-class.mjs` in its byte digest. `provenance.status=traced`
+Producer0.9.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs`, `props-class.mjs` and `exact-ambient.mjs` in its byte digest. `provenance.status=traced`
 means the supported syntactic chain reached an inline callable type or a singleton,
 non-inherited callable interface. It is independent of program closure: even a
 traced chain can belong to an unproven packet. Type arguments and parameters keep
@@ -103,7 +104,7 @@ Program-keyed population census is bounded by acquisition bytes/files and worker
 timeout/heap; it is not reused across Programs or snapshots. No compiler option is
 changed: `allowUmdGlobalAccess` value-use diagnostics do not gate type-only use.
 Traced UMD candidates still cannot overcome receiver writes or incomplete Program
-closure; both authority flags remain false. Schema7 rejects older observations.
+closure; both authority flags remain false. Schema8 rejects older observations.
 
 Star exports in any consulted module, unresolved/duplicate/merged declarations,
 inheritance, unsupported types/declarations, cycles and step exhaustion retain an
@@ -112,6 +113,28 @@ callable paths and conditional/mapped/intersection/union evaluation are excluded
 The visit budget bounds chain traversal; source inventories
 are bounded by the existing file/byte/heap/time limits. No runtime write/cache
 barriers in Prism are changed.
+
+## Exact-ambient lookup observations
+
+Filesystem `target` is unchanged. A separate `lookup.status=observed` requires
+an actual import, export-from, import-type or import-equals StringLiteral bound
+by the pinned checker to one exact top-level ambient module with a body in a
+non-external declaration file. The canonical configured Program must contain
+one same-name provider and no augmentation; a separate full AST census catches
+duplicates hidden by symbol merging/error recovery. Excluded inventory files
+are not providers. The census lives only for this Program and snapshot.
+
+Wildcard/merged bindings, require/dynamic-import requests, unsupported providers,
+missing symbols and augmentation declaration names remain unproven. Candidate
+declarations are retained independently of status. Synthetic JSX requests have
+`context=synthetic`, null request anchors and no checker binding query. Multiple
+source files can generate the same synthetic specifier; occurrences remain separate.
+
+None of these observations clears unresolved-module, refused/outside-lookup,
+diagnostic, receiver-write or class barriers. The schema rejects null filesystem
+targets without their existing closure refusal before audited-root access; full
+recomputation checks every anchor, census and binding. No new closure policy,
+runtime consumer, persistent positive cache or React.FC authority is supplied.
 
 ## Nested lexical bindings
 
