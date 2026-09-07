@@ -1,7 +1,7 @@
 # Handoff — bounded UMD bridge and dirty checkout recovery
 
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-umd-bridge · **Measured state:** `[MEASURED]` implementationfa67821/control56106b0; base9a34ef62; recovery and all local gates complete; publication next.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-umd-bridge · **Measured state:** `[MEASURED]` implementationfa67821/control56106b0/closeout553bad5 pushed; base9a34ef62; recovery and all local gates complete; PR271 open.
 **Predecessor:** PR270 merged9a34ef62bb48b6abb569ff62ad95e266e3124f51.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -12,7 +12,8 @@
 (b) All15 dirty files committed locally in a86bbeb on archive/dirty-callable-20260907;
     not pushed or merged. Original checkout switched cleanly to new main branch — RESOLVED.
 (c) Implementation and local gates complete; two SELF-PASS rounds completed — RESOLVED.
-    Remote publication/CI is a separate OPEN gate.
+    Publication RESOLVED: https://github.com/shoedog/prism/pull/271 against main.
+    Remote CI/review is separate; check live state before merge. No merge performed.
 (d) Owner: "270 merged, proceed to next" plus analyze/save or reset dirty checkout.
     Authorizes bounded UMD observer bridge, not runtime authority or new installs.
 
@@ -45,7 +46,7 @@ No memory edits authorized.
 
 ## 4. Open work
 
-Publish scoped branch/PR, then check remote CI/review. No unique implementation
+PR271 is published; check current remote CI/review. No unique implementation
 was recovered that needs a separate completion slice; historical ledger/eval
 evidence stays local. Next proposal: source-backed classification of remaining
 Program-closure lookup failures, with negative fixtures before any expansion.
