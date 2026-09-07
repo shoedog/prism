@@ -1,0 +1,553 @@
+{
+  "schema": "prism.exact-ambient-replay-audit/1",
+  "audit_only": true,
+  "authorizes_runtime_edge": false,
+  "base": "c49d5b93e896ba699ee378e7de3027fb59b6d163",
+  "compiler_sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675",
+  "producer": {
+    "version": "0.9.0",
+    "sha256": "9675885e5e5246dad32896415f8a82e1a22e3ebe0dfabeffdc63bb03804e40a0"
+  },
+  "old_packet_sha256": "41b2493070badf82040cb794634b262357d9cc1c770ee85f74fa5647caedcf8a",
+  "packet_sha256": "58d41edb089f3551adb0f1da4387256146956a3c59600a9232ffa4833f8b8a78",
+  "legacy_projection_equal_including_order": true,
+  "source_manifest_sha256": "353187a695df2683a3631e4739c173cb6d33190901093549b61e28efeda60cbb",
+  "source_preserved": true,
+  "validation": {
+    "valid": true,
+    "authorizes_runtime_edge": false,
+    "packet_status": "unproven",
+    "reason": "reproduced_observation"
+  },
+  "resolutions": 6893,
+  "null_filesystem_requests": 603,
+  "all_lookup_dispositions": {
+    "ambiguous_binding": 84,
+    "augmentation": 1,
+    "augmentation_request": 22,
+    "filesystem_target": 5669,
+    "non_exact_binding": 231,
+    "observed": 272,
+    "synthetic_request": 583,
+    "unresolved_symbol": 13,
+    "unsupported_request": 18
+  },
+  "null_lookup_dispositions": {
+    "ambiguous_binding": 84,
+    "augmentation": 1,
+    "augmentation_request": 1,
+    "non_exact_binding": 231,
+    "observed": 272,
+    "unresolved_symbol": 13,
+    "unsupported_request": 1
+  },
+  "observed_contexts": {
+    "export": 1,
+    "import": 152,
+    "import_equals": 5,
+    "import_type": 114
+  },
+  "observed_specifiers": {
+    "assert": 2,
+    "assert/strict": 1,
+    "async_hooks": 1,
+    "child_process": 2,
+    "cluster": 1,
+    "console": 1,
+    "constants": 1,
+    "crypto": 1,
+    "dgram": 1,
+    "diagnostics_channel": 1,
+    "dns": 1,
+    "dns/promises": 1,
+    "domain": 1,
+    "fs": 2,
+    "fs/promises": 1,
+    "http": 1,
+    "http2": 1,
+    "https": 1,
+    "inspector": 1,
+    "inspector/promises": 1,
+    "module": 1,
+    "net": 4,
+    "node:assert": 3,
+    "node:assert/strict": 1,
+    "node:async_hooks": 4,
+    "node:buffer": 5,
+    "node:child_process": 2,
+    "node:cluster": 1,
+    "node:console": 1,
+    "node:constants": 1,
+    "node:crypto": 6,
+    "node:dgram": 2,
+    "node:diagnostics_channel": 1,
+    "node:dns": 5,
+    "node:dns/promises": 2,
+    "node:domain": 1,
+    "node:events": 21,
+    "node:fs": 9,
+    "node:fs/promises": 3,
+    "node:http": 9,
+    "node:http2": 3,
+    "node:https": 3,
+    "node:inspector": 1,
+    "node:inspector/promises": 1,
+    "node:module": 2,
+    "node:net": 10,
+    "node:os": 5,
+    "node:path": 1,
+    "node:path/posix": 1,
+    "node:path/win32": 1,
+    "node:perf_hooks": 2,
+    "node:punycode": 1,
+    "node:querystring": 2,
+    "node:readline": 4,
+    "node:readline/promises": 2,
+    "node:repl": 1,
+    "node:sea": 1,
+    "node:sqlite": 1,
+    "node:stream": 22,
+    "node:stream/consumers": 1,
+    "node:stream/promises": 2,
+    "node:stream/web": 4,
+    "node:string_decoder": 1,
+    "node:test": 1,
+    "node:test/reporters": 1,
+    "node:timers": 2,
+    "node:timers/promises": 2,
+    "node:tls": 6,
+    "node:trace_events": 1,
+    "node:tty": 2,
+    "node:url": 13,
+    "node:util": 4,
+    "node:util/types": 1,
+    "node:v8": 1,
+    "node:vm": 3,
+    "node:wasi": 1,
+    "node:worker_threads": 6,
+    "node:zlib": 3,
+    "os": 1,
+    "path": 3,
+    "path/posix": 1,
+    "path/win32": 1,
+    "perf_hooks": 1,
+    "querystring": 1,
+    "readline": 1,
+    "readline/promises": 1,
+    "repl": 1,
+    "stream": 5,
+    "stream/consumers": 1,
+    "stream/promises": 1,
+    "stream/web": 2,
+    "timers": 1,
+    "timers/promises": 1,
+    "tls": 3,
+    "trace_events": 1,
+    "tty": 1,
+    "url": 9,
+    "util": 3,
+    "util/types": 1,
+    "v8": 1,
+    "virtual:pwa-register": 1,
+    "vm": 1,
+    "wasi": 1,
+    "worker_threads": 3,
+    "zlib": 1
+  },
+  "lookup_anchor_occurrences_checked": 13990,
+  "unique_lookup_anchors_checked": 7600,
+  "independent_program_provider_census_equal": true,
+  "unchanged_no_source_binding_residuals": [
+    {
+      "from": "project/node_modules/@excalidraw/mermaid-to-excalidraw/dist/interfaces.d.ts",
+      "specifier": "@excalidraw/excalidraw/element/transform",
+      "reason": "unresolved_symbol",
+      "request": {
+        "file": "project/node_modules/@excalidraw/mermaid-to-excalidraw/dist/interfaces.d.ts",
+        "sha256": "f4ef4ff2b33641aeaf2b83468b9407c00aab74353834576cf71f08bd0815deb4",
+        "kind": "StringLiteral",
+        "start_utf16": 47,
+        "end_utf16": 89,
+        "start_byte": 47,
+        "end_byte": 89
+      }
+    },
+    {
+      "from": "project/node_modules/@svgr/core/dist/index.d.ts",
+      "specifier": "svgo",
+      "reason": "unresolved_symbol",
+      "request": {
+        "file": "project/node_modules/@svgr/core/dist/index.d.ts",
+        "sha256": "fe1baccba85e2af0fdaca57b32b34f3fd602609bb0b29aeb0609000dbcd75446",
+        "kind": "StringLiteral",
+        "start_utf16": 71,
+        "end_utf16": 77,
+        "start_byte": 71,
+        "end_byte": 77
+      }
+    },
+    {
+      "from": "project/node_modules/i18next-browser-languagedetector/index.d.ts",
+      "specifier": "i18next",
+      "reason": "augmentation",
+      "request": {
+        "file": "project/node_modules/i18next-browser-languagedetector/index.d.ts",
+        "sha256": "332bd67a6233b14fd19c10d14110b12e5eea53ffe4a3a54e1eaf3c933e69d0e6",
+        "kind": "StringLiteral",
+        "start_utf16": 25,
+        "end_utf16": 34,
+        "start_byte": 25,
+        "end_byte": 34
+      }
+    },
+    {
+      "from": "project/node_modules/jotai-scope/dist/src/ScopeProvider/ScopeProvider.d.ts",
+      "specifier": "./types",
+      "reason": "unresolved_symbol",
+      "request": {
+        "file": "project/node_modules/jotai-scope/dist/src/ScopeProvider/ScopeProvider.d.ts",
+        "sha256": "d82809c7c74d9524846ac44d6ddb6cdca541d45d9bebecec612fc3eee0d46bce",
+        "kind": "StringLiteral",
+        "start_utf16": 92,
+        "end_utf16": 101,
+        "start_byte": 92,
+        "end_byte": 101
+      }
+    },
+    {
+      "from": "project/node_modules/vite-plugin-checker/dist/esm/main.d.ts",
+      "specifier": "stylelint",
+      "reason": "unresolved_symbol",
+      "request": {
+        "file": "project/node_modules/vite-plugin-checker/dist/esm/main.d.ts",
+        "sha256": "274762c452543766f326c660991e9284d5192bc68540e3158d7b39fadaf90f69",
+        "kind": "StringLiteral",
+        "start_utf16": 132,
+        "end_utf16": 143,
+        "start_byte": 132,
+        "end_byte": 143
+      }
+    },
+    {
+      "from": "project/node_modules/vite-plugin-checker/dist/esm/types.d.ts",
+      "specifier": "stylelint",
+      "reason": "unresolved_symbol",
+      "request": {
+        "file": "project/node_modules/vite-plugin-checker/dist/esm/types.d.ts",
+        "sha256": "7f25c6fe23c3b766558b4a98c760f8200ddeb72a5fa9f8b2641379ccd21650b5",
+        "kind": "StringLiteral",
+        "start_utf16": 106,
+        "end_utf16": 117,
+        "start_byte": 106,
+        "end_byte": 117
+      }
+    },
+    {
+      "from": "project/node_modules/vite-plugin-pwa/dist/index.d.ts",
+      "specifier": "@vite-pwa/assets-generator/api",
+      "reason": "unresolved_symbol",
+      "request": {
+        "file": "project/node_modules/vite-plugin-pwa/dist/index.d.ts",
+        "sha256": "6e3ea33e31abac39c337ed0b2841c9ea55d90d8e74ccf95160c71a676c0752e9",
+        "kind": "StringLiteral",
+        "start_utf16": 434,
+        "end_utf16": 466,
+        "start_byte": 434,
+        "end_byte": 466
+      }
+    },
+    {
+      "from": "project/node_modules/vite-plugin-pwa/dist/index.d.ts",
+      "specifier": "@vite-pwa/assets-generator/config",
+      "reason": "unresolved_symbol",
+      "request": {
+        "file": "project/node_modules/vite-plugin-pwa/dist/index.d.ts",
+        "sha256": "6e3ea33e31abac39c337ed0b2841c9ea55d90d8e74ccf95160c71a676c0752e9",
+        "kind": "StringLiteral",
+        "start_utf16": 284,
+        "end_utf16": 319,
+        "start_byte": 284,
+        "end_byte": 319
+      }
+    },
+    {
+      "from": "project/node_modules/vite/dist/node/index.d.ts",
+      "specifier": "rollup/parseAst",
+      "reason": "unresolved_symbol",
+      "request": {
+        "file": "project/node_modules/vite/dist/node/index.d.ts",
+        "sha256": "304df321f3b710c2a0951f2c9cddfe34986e4aeb6994fa4f9d21efd06835abec",
+        "kind": "StringLiteral",
+        "start_utf16": 580,
+        "end_utf16": 597,
+        "start_byte": 580,
+        "end_byte": 597
+      }
+    },
+    {
+      "from": "project/node_modules/vitest/node_modules/vite/dist/node/index.d.ts",
+      "specifier": "rollup/parseAst",
+      "reason": "unresolved_symbol",
+      "request": {
+        "file": "project/node_modules/vitest/node_modules/vite/dist/node/index.d.ts",
+        "sha256": "08971f8379717d46a8a990ce9a7eed3af3e47e22c3d45c3a046054b7a2fffe7a",
+        "kind": "StringLiteral",
+        "start_utf16": 520,
+        "end_utf16": 537,
+        "start_byte": 520,
+        "end_byte": 537
+      }
+    },
+    {
+      "from": "project/node_modules/vitest/node_modules/vite/types/internal/cssPreprocessorOptions.d.ts",
+      "specifier": "less",
+      "reason": "unresolved_symbol",
+      "request": {
+        "file": "project/node_modules/vitest/node_modules/vite/types/internal/cssPreprocessorOptions.d.ts",
+        "sha256": "7870becb94cbc11d2d01b77c4422589adcba4d8e59f726246d40cd0d129784d8",
+        "kind": "StringLiteral",
+        "start_utf16": 292,
+        "end_utf16": 298,
+        "start_byte": 292,
+        "end_byte": 298
+      }
+    },
+    {
+      "from": "project/node_modules/vitest/node_modules/vite/types/internal/cssPreprocessorOptions.d.ts",
+      "specifier": "sass-embedded",
+      "reason": "unresolved_symbol",
+      "request": {
+        "file": "project/node_modules/vitest/node_modules/vite/types/internal/cssPreprocessorOptions.d.ts",
+        "sha256": "7870becb94cbc11d2d01b77c4422589adcba4d8e59f726246d40cd0d129784d8",
+        "kind": "StringLiteral",
+        "start_utf16": 212,
+        "end_utf16": 227,
+        "start_byte": 212,
+        "end_byte": 227
+      }
+    },
+    {
+      "from": "project/node_modules/vitest/node_modules/vite/types/internal/cssPreprocessorOptions.d.ts",
+      "specifier": "stylus",
+      "reason": "unresolved_symbol",
+      "request": {
+        "file": "project/node_modules/vitest/node_modules/vite/types/internal/cssPreprocessorOptions.d.ts",
+        "sha256": "7870becb94cbc11d2d01b77c4422589adcba4d8e59f726246d40cd0d129784d8",
+        "kind": "StringLiteral",
+        "start_utf16": 367,
+        "end_utf16": 375,
+        "start_byte": 367,
+        "end_byte": 375
+      }
+    },
+    {
+      "from": "project/node_modules/vitest/node_modules/vite/types/internal/lightningcssOptions.d.ts",
+      "specifier": "lightningcss",
+      "reason": "unresolved_symbol",
+      "request": {
+        "file": "project/node_modules/vitest/node_modules/vite/types/internal/lightningcssOptions.d.ts",
+        "sha256": "4ec16d7a4e366c06a4573d299e15fe6207fc080f41beac5da06f4af33ea9761e",
+        "kind": "StringLiteral",
+        "start_utf16": 136,
+        "end_utf16": 150,
+        "start_byte": 136,
+        "end_byte": 150
+      }
+    }
+  ],
+  "snapshot": {
+    "files": 59924,
+    "directories": 9073,
+    "links": 249,
+    "roots": 591,
+    "program_files": 1445,
+    "refused": 264,
+    "outside": true
+  },
+  "closure": {
+    "stable_snapshot": true,
+    "dependencies": false,
+    "references": true,
+    "augmentation": false,
+    "resolution": false
+  },
+  "reasons": [
+    "outside_lookup",
+    "unresolved_module",
+    "unsupported_lookup"
+  ],
+  "diagnostics": 0,
+  "observations": 30,
+  "nested_calls": 53,
+  "class_candidates_still_unproven": 4,
+  "samples": [
+    {
+      "from": "project/packages/excalidraw/tests/helpers/polyfills.ts",
+      "specifier": "node:url",
+      "target": null,
+      "lookup": {
+        "status": "observed",
+        "reason": null,
+        "context": "import",
+        "request": {
+          "file": "project/packages/excalidraw/tests/helpers/polyfills.ts",
+          "sha256": "250cb6620ac581d8ad4eb9f05c38c457b53e67b74ffcb91463e6be97d2d6de7b",
+          "kind": "StringLiteral",
+          "start_utf16": 20,
+          "end_utf16": 30,
+          "start_byte": 20,
+          "end_byte": 30
+        },
+        "declarations": [
+          {
+            "file": "project/node_modules/@types/node/url.d.ts",
+            "sha256": "7d6ff413e198d25639f9f01f16673e7df4e4bd2875a42455afd4ecc02ef156da",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 42609,
+            "end_utf16": 42663,
+            "start_byte": 42641,
+            "end_byte": 42695
+          }
+        ],
+        "providers": [
+          {
+            "file": "project/node_modules/@types/node/url.d.ts",
+            "sha256": "7d6ff413e198d25639f9f01f16673e7df4e4bd2875a42455afd4ecc02ef156da",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 42609,
+            "end_utf16": 42663,
+            "start_byte": 42641,
+            "end_byte": 42695
+          }
+        ],
+        "augmentations": []
+      }
+    },
+    {
+      "from": "project/node_modules/@types/node/inspector.d.ts",
+      "specifier": "node:events",
+      "target": null,
+      "lookup": {
+        "status": "observed",
+        "reason": null,
+        "context": "import_equals",
+        "request": {
+          "file": "project/node_modules/@types/node/inspector.d.ts",
+          "sha256": "6d386bc0d7f3afa1d401afc3e00ed6b09205a354a9795196caed937494a713e6",
+          "kind": "StringLiteral",
+          "start_utf16": 587,
+          "end_utf16": 600,
+          "start_byte": 587,
+          "end_byte": 600
+        },
+        "declarations": [
+          {
+            "file": "project/node_modules/@types/node/events.d.ts",
+            "sha256": "88bc59b32d0d5b4e5d9632ac38edea23454057e643684c3c0b94511296f2998c",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 43076,
+            "end_utf16": 43168,
+            "start_byte": 43076,
+            "end_byte": 43168
+          }
+        ],
+        "providers": [
+          {
+            "file": "project/node_modules/@types/node/events.d.ts",
+            "sha256": "88bc59b32d0d5b4e5d9632ac38edea23454057e643684c3c0b94511296f2998c",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 43076,
+            "end_utf16": 43168,
+            "start_byte": 43076,
+            "end_byte": 43168
+          }
+        ],
+        "augmentations": []
+      }
+    },
+    {
+      "from": "project/node_modules/@types/node/test.d.ts",
+      "specifier": "assert",
+      "target": null,
+      "lookup": {
+        "status": "observed",
+        "reason": null,
+        "context": "import_type",
+        "request": {
+          "file": "project/node_modules/@types/node/test.d.ts",
+          "sha256": "993985beef40c7d113f6dd8f0ba26eed63028b691fbfeb6a5b63f26408dd2c6d",
+          "kind": "StringLiteral",
+          "start_utf16": 37750,
+          "end_utf16": 37758,
+          "start_byte": 37750,
+          "end_byte": 37758
+        },
+        "declarations": [
+          {
+            "file": "project/node_modules/@types/node/assert.d.ts",
+            "sha256": "4f0539c58717cbc8b73acb29f9e992ab5ff20adba5f9b57130691c7f9b186a4d",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 177,
+            "end_utf16": 46205,
+            "start_byte": 177,
+            "end_byte": 46205
+          }
+        ],
+        "providers": [
+          {
+            "file": "project/node_modules/@types/node/assert.d.ts",
+            "sha256": "4f0539c58717cbc8b73acb29f9e992ab5ff20adba5f9b57130691c7f9b186a4d",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 177,
+            "end_utf16": 46205,
+            "start_byte": 177,
+            "end_byte": 46205
+          }
+        ],
+        "augmentations": []
+      }
+    },
+    {
+      "from": "project/node_modules/@types/node/http2.d.ts",
+      "specifier": "node:http",
+      "target": null,
+      "lookup": {
+        "status": "observed",
+        "reason": null,
+        "context": "export",
+        "request": {
+          "file": "project/node_modules/@types/node/http2.d.ts",
+          "sha256": "5135bdd72cc05a8192bd2e92f0914d7fc43ee077d1293dc622a049b7035a0afb",
+          "kind": "StringLiteral",
+          "start_utf16": 774,
+          "end_utf16": 785,
+          "start_byte": 774,
+          "end_byte": 785
+        },
+        "declarations": [
+          {
+            "file": "project/node_modules/@types/node/http.d.ts",
+            "sha256": "2ea254f944dfe131df1264d1fb96e4b1f7d110195b21f1f5dbb68fdd394e5518",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 87209,
+            "end_utf16": 87265,
+            "start_byte": 87213,
+            "end_byte": 87269
+          }
+        ],
+        "providers": [
+          {
+            "file": "project/node_modules/@types/node/http.d.ts",
+            "sha256": "2ea254f944dfe131df1264d1fb96e4b1f7d110195b21f1f5dbb68fdd394e5518",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 87209,
+            "end_utf16": 87265,
+            "start_byte": 87213,
+            "end_byte": 87269
+          }
+        ],
+        "augmentations": []
+      }
+    }
+  ]
+}
