@@ -1,5 +1,9 @@
 # Handoff — singleton exact-ambient observations
 
+> Operational successor: PR273 merged at5a4b9b5e on 2026-09-07. Active lane is
+> `2026-09-07-callable-singleton-wildcard.md` in this directory. Earlier publication
+> state below is historical; the exact-ambient evidence remains valid for its base.
+
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-exact-ambient-observations · **Measured state:** `[MEASURED]` implementation ca2982f on base c49d5b93; all gates and two self-review rounds complete; closeout6022f92 pushed and PR273 opened against main.
 **Predecessor:** PR272 classification.

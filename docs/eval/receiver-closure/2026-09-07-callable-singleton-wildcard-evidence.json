@@ -1,0 +1,459 @@
+{
+  "schema": "prism.singleton-wildcard-replay-audit/1",
+  "audit_only": true,
+  "authorizes_runtime_edge": false,
+  "base": "5a4b9b5eee03dc18c1d2b6cc794b0950e3f39b80",
+  "compiler_sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675",
+  "producer": {
+    "version": "0.10.0",
+    "sha256": "f33f0edcaadaaac15fb6e1682f094a7aa1b07f5e2352bbe9e81c8ac7ace387bf"
+  },
+  "old_packet_sha256": "58d41edb089f3551adb0f1da4387256146956a3c59600a9232ffa4833f8b8a78",
+  "packet_sha256": "f8b266d6bf7de4124d968d31187c82cd32fd94d8e3aae786baf89afe3c509fa5",
+  "legacy_projection_equal_including_exact_lookup_and_order": true,
+  "source_manifest_sha256": "353187a695df2683a3631e4739c173cb6d33190901093549b61e28efeda60cbb",
+  "source_preserved": true,
+  "validation": {
+    "valid": true,
+    "authorizes_runtime_edge": false,
+    "packet_status": "unproven",
+    "reason": "reproduced_observation"
+  },
+  "resolutions": 6893,
+  "null_filesystem_requests": 603,
+  "exact_ambient_observed": 272,
+  "wildcard_records": 315,
+  "wildcard_dispositions": {
+    "duplicate_provider": 84,
+    "observed": 231
+  },
+  "observed_patterns": {
+    "*.css": 1,
+    "*.woff2": 230
+  },
+  "observed_contexts": {
+    "import": 231
+  },
+  "lookup_anchor_occurrences_checked": 14788,
+  "unique_lookup_anchors_checked": 7600,
+  "independent_program_census_and_pattern_matches_equal": true,
+  "source_gaps_preserved": [
+    {
+      "from": "project/node_modules/@excalidraw/mermaid-to-excalidraw/dist/interfaces.d.ts",
+      "specifier": "@excalidraw/excalidraw/element/transform",
+      "request": {
+        "file": "project/node_modules/@excalidraw/mermaid-to-excalidraw/dist/interfaces.d.ts",
+        "sha256": "f4ef4ff2b33641aeaf2b83468b9407c00aab74353834576cf71f08bd0815deb4",
+        "kind": "StringLiteral",
+        "start_utf16": 47,
+        "end_utf16": 89,
+        "start_byte": 47,
+        "end_byte": 89
+      }
+    },
+    {
+      "from": "project/node_modules/@svgr/core/dist/index.d.ts",
+      "specifier": "svgo",
+      "request": {
+        "file": "project/node_modules/@svgr/core/dist/index.d.ts",
+        "sha256": "fe1baccba85e2af0fdaca57b32b34f3fd602609bb0b29aeb0609000dbcd75446",
+        "kind": "StringLiteral",
+        "start_utf16": 71,
+        "end_utf16": 77,
+        "start_byte": 71,
+        "end_byte": 77
+      }
+    },
+    {
+      "from": "project/node_modules/i18next-browser-languagedetector/index.d.ts",
+      "specifier": "i18next",
+      "request": {
+        "file": "project/node_modules/i18next-browser-languagedetector/index.d.ts",
+        "sha256": "332bd67a6233b14fd19c10d14110b12e5eea53ffe4a3a54e1eaf3c933e69d0e6",
+        "kind": "StringLiteral",
+        "start_utf16": 25,
+        "end_utf16": 34,
+        "start_byte": 25,
+        "end_byte": 34
+      }
+    },
+    {
+      "from": "project/node_modules/jotai-scope/dist/src/ScopeProvider/ScopeProvider.d.ts",
+      "specifier": "./types",
+      "request": {
+        "file": "project/node_modules/jotai-scope/dist/src/ScopeProvider/ScopeProvider.d.ts",
+        "sha256": "d82809c7c74d9524846ac44d6ddb6cdca541d45d9bebecec612fc3eee0d46bce",
+        "kind": "StringLiteral",
+        "start_utf16": 92,
+        "end_utf16": 101,
+        "start_byte": 92,
+        "end_byte": 101
+      }
+    },
+    {
+      "from": "project/node_modules/vite-plugin-checker/dist/esm/main.d.ts",
+      "specifier": "stylelint",
+      "request": {
+        "file": "project/node_modules/vite-plugin-checker/dist/esm/main.d.ts",
+        "sha256": "274762c452543766f326c660991e9284d5192bc68540e3158d7b39fadaf90f69",
+        "kind": "StringLiteral",
+        "start_utf16": 132,
+        "end_utf16": 143,
+        "start_byte": 132,
+        "end_byte": 143
+      }
+    },
+    {
+      "from": "project/node_modules/vite-plugin-checker/dist/esm/types.d.ts",
+      "specifier": "stylelint",
+      "request": {
+        "file": "project/node_modules/vite-plugin-checker/dist/esm/types.d.ts",
+        "sha256": "7f25c6fe23c3b766558b4a98c760f8200ddeb72a5fa9f8b2641379ccd21650b5",
+        "kind": "StringLiteral",
+        "start_utf16": 106,
+        "end_utf16": 117,
+        "start_byte": 106,
+        "end_byte": 117
+      }
+    },
+    {
+      "from": "project/node_modules/vite-plugin-pwa/dist/index.d.ts",
+      "specifier": "@vite-pwa/assets-generator/api",
+      "request": {
+        "file": "project/node_modules/vite-plugin-pwa/dist/index.d.ts",
+        "sha256": "6e3ea33e31abac39c337ed0b2841c9ea55d90d8e74ccf95160c71a676c0752e9",
+        "kind": "StringLiteral",
+        "start_utf16": 434,
+        "end_utf16": 466,
+        "start_byte": 434,
+        "end_byte": 466
+      }
+    },
+    {
+      "from": "project/node_modules/vite-plugin-pwa/dist/index.d.ts",
+      "specifier": "@vite-pwa/assets-generator/config",
+      "request": {
+        "file": "project/node_modules/vite-plugin-pwa/dist/index.d.ts",
+        "sha256": "6e3ea33e31abac39c337ed0b2841c9ea55d90d8e74ccf95160c71a676c0752e9",
+        "kind": "StringLiteral",
+        "start_utf16": 284,
+        "end_utf16": 319,
+        "start_byte": 284,
+        "end_byte": 319
+      }
+    },
+    {
+      "from": "project/node_modules/vite/dist/node/index.d.ts",
+      "specifier": "rollup/parseAst",
+      "request": {
+        "file": "project/node_modules/vite/dist/node/index.d.ts",
+        "sha256": "304df321f3b710c2a0951f2c9cddfe34986e4aeb6994fa4f9d21efd06835abec",
+        "kind": "StringLiteral",
+        "start_utf16": 580,
+        "end_utf16": 597,
+        "start_byte": 580,
+        "end_byte": 597
+      }
+    },
+    {
+      "from": "project/node_modules/vitest/node_modules/vite/dist/node/index.d.ts",
+      "specifier": "rollup/parseAst",
+      "request": {
+        "file": "project/node_modules/vitest/node_modules/vite/dist/node/index.d.ts",
+        "sha256": "08971f8379717d46a8a990ce9a7eed3af3e47e22c3d45c3a046054b7a2fffe7a",
+        "kind": "StringLiteral",
+        "start_utf16": 520,
+        "end_utf16": 537,
+        "start_byte": 520,
+        "end_byte": 537
+      }
+    },
+    {
+      "from": "project/node_modules/vitest/node_modules/vite/types/internal/cssPreprocessorOptions.d.ts",
+      "specifier": "less",
+      "request": {
+        "file": "project/node_modules/vitest/node_modules/vite/types/internal/cssPreprocessorOptions.d.ts",
+        "sha256": "7870becb94cbc11d2d01b77c4422589adcba4d8e59f726246d40cd0d129784d8",
+        "kind": "StringLiteral",
+        "start_utf16": 292,
+        "end_utf16": 298,
+        "start_byte": 292,
+        "end_byte": 298
+      }
+    },
+    {
+      "from": "project/node_modules/vitest/node_modules/vite/types/internal/cssPreprocessorOptions.d.ts",
+      "specifier": "sass-embedded",
+      "request": {
+        "file": "project/node_modules/vitest/node_modules/vite/types/internal/cssPreprocessorOptions.d.ts",
+        "sha256": "7870becb94cbc11d2d01b77c4422589adcba4d8e59f726246d40cd0d129784d8",
+        "kind": "StringLiteral",
+        "start_utf16": 212,
+        "end_utf16": 227,
+        "start_byte": 212,
+        "end_byte": 227
+      }
+    },
+    {
+      "from": "project/node_modules/vitest/node_modules/vite/types/internal/cssPreprocessorOptions.d.ts",
+      "specifier": "stylus",
+      "request": {
+        "file": "project/node_modules/vitest/node_modules/vite/types/internal/cssPreprocessorOptions.d.ts",
+        "sha256": "7870becb94cbc11d2d01b77c4422589adcba4d8e59f726246d40cd0d129784d8",
+        "kind": "StringLiteral",
+        "start_utf16": 367,
+        "end_utf16": 375,
+        "start_byte": 367,
+        "end_byte": 375
+      }
+    },
+    {
+      "from": "project/node_modules/vitest/node_modules/vite/types/internal/lightningcssOptions.d.ts",
+      "specifier": "lightningcss",
+      "request": {
+        "file": "project/node_modules/vitest/node_modules/vite/types/internal/lightningcssOptions.d.ts",
+        "sha256": "4ec16d7a4e366c06a4573d299e15fe6207fc080f41beac5da06f4af33ea9761e",
+        "kind": "StringLiteral",
+        "start_utf16": 136,
+        "end_utf16": 150,
+        "start_byte": 136,
+        "end_byte": 150
+      }
+    }
+  ],
+  "snapshot": {
+    "files": 59924,
+    "directories": 9073,
+    "links": 249,
+    "roots": 591,
+    "program_files": 1445,
+    "refused": 264,
+    "outside": true
+  },
+  "closure": {
+    "stable_snapshot": true,
+    "dependencies": false,
+    "references": true,
+    "augmentation": false,
+    "resolution": false
+  },
+  "reasons": [
+    "outside_lookup",
+    "unresolved_module",
+    "unsupported_lookup"
+  ],
+  "diagnostics": 0,
+  "observations": 30,
+  "nested_calls": 53,
+  "class_candidates_still_unproven": 4,
+  "asset_existence_authority": false,
+  "samples": [
+    {
+      "from": "project/packages/excalidraw/index.tsx",
+      "specifier": "./css/styles.scss",
+      "target": null,
+      "lookup": {
+        "status": "unproven",
+        "reason": "ambiguous_binding",
+        "context": "import",
+        "request": {
+          "file": "project/packages/excalidraw/index.tsx",
+          "sha256": "496d053b21e589a739270db978bc4114b345b10478243fbb0fd99622a538c958",
+          "kind": "StringLiteral",
+          "start_utf16": 965,
+          "end_utf16": 984,
+          "start_byte": 965,
+          "end_byte": 984
+        },
+        "declarations": [
+          {
+            "file": "project/node_modules/vite/client.d.ts",
+            "sha256": "84d68135178bf014e5cdc27e88c9148fc22f82e1a733dc6e1869a5263e58d5db",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 911,
+            "end_utf16": 937,
+            "start_byte": 911,
+            "end_byte": 937
+          },
+          {
+            "file": "project/packages/excalidraw/global.d.ts",
+            "sha256": "d7679fa3bf5d6b64bc2a526070ad97f0d653e22579c6d9056b3ce94e53750814",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 1758,
+            "end_utf16": 1782,
+            "start_byte": 1758,
+            "end_byte": 1782
+          }
+        ],
+        "providers": [],
+        "augmentations": [],
+        "wildcard": {
+          "status": "unproven",
+          "reason": "duplicate_provider",
+          "pattern": "*.scss",
+          "providers": [
+            {
+              "file": "project/node_modules/vite/client.d.ts",
+              "sha256": "84d68135178bf014e5cdc27e88c9148fc22f82e1a733dc6e1869a5263e58d5db",
+              "kind": "ModuleDeclaration",
+              "start_utf16": 911,
+              "end_utf16": 937,
+              "start_byte": 911,
+              "end_byte": 937
+            },
+            {
+              "file": "project/packages/excalidraw/global.d.ts",
+              "sha256": "d7679fa3bf5d6b64bc2a526070ad97f0d653e22579c6d9056b3ce94e53750814",
+              "kind": "ModuleDeclaration",
+              "start_utf16": 1758,
+              "end_utf16": 1782,
+              "start_byte": 1758,
+              "end_byte": 1782
+            }
+          ],
+          "augmentations": [],
+          "matches": [
+            {
+              "file": "project/node_modules/vite/client.d.ts",
+              "sha256": "84d68135178bf014e5cdc27e88c9148fc22f82e1a733dc6e1869a5263e58d5db",
+              "kind": "ModuleDeclaration",
+              "start_utf16": 911,
+              "end_utf16": 937,
+              "start_byte": 911,
+              "end_byte": 937
+            },
+            {
+              "file": "project/packages/excalidraw/global.d.ts",
+              "sha256": "d7679fa3bf5d6b64bc2a526070ad97f0d653e22579c6d9056b3ce94e53750814",
+              "kind": "ModuleDeclaration",
+              "start_utf16": 1758,
+              "end_utf16": 1782,
+              "start_byte": 1758,
+              "end_byte": 1782
+            }
+          ]
+        }
+      }
+    },
+    {
+      "from": "project/packages/excalidraw/fonts/Xiaolai/index.ts",
+      "specifier": "./Xiaolai-Regular-f8ee5d36068a42b51d0e4a1116cfcec1.woff2",
+      "target": null,
+      "lookup": {
+        "status": "unproven",
+        "reason": "non_exact_binding",
+        "context": "import",
+        "request": {
+          "file": "project/packages/excalidraw/fonts/Xiaolai/index.ts",
+          "sha256": "92882c3762cd155663341f19f63b28dc9fe868d796a97176dabb84c0016223d6",
+          "kind": "StringLiteral",
+          "start_utf16": 13408,
+          "end_utf16": 13466,
+          "start_byte": 13408,
+          "end_byte": 13466
+        },
+        "declarations": [
+          {
+            "file": "project/node_modules/vite/client.d.ts",
+            "sha256": "84d68135178bf014e5cdc27e88c9148fc22f82e1a733dc6e1869a5263e58d5db",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 2695,
+            "end_utf16": 2764,
+            "start_byte": 2695,
+            "end_byte": 2764
+          }
+        ],
+        "providers": [],
+        "augmentations": [],
+        "wildcard": {
+          "status": "observed",
+          "reason": null,
+          "pattern": "*.woff2",
+          "providers": [
+            {
+              "file": "project/node_modules/vite/client.d.ts",
+              "sha256": "84d68135178bf014e5cdc27e88c9148fc22f82e1a733dc6e1869a5263e58d5db",
+              "kind": "ModuleDeclaration",
+              "start_utf16": 2695,
+              "end_utf16": 2764,
+              "start_byte": 2695,
+              "end_byte": 2764
+            }
+          ],
+          "augmentations": [],
+          "matches": [
+            {
+              "file": "project/node_modules/vite/client.d.ts",
+              "sha256": "84d68135178bf014e5cdc27e88c9148fc22f82e1a733dc6e1869a5263e58d5db",
+              "kind": "ModuleDeclaration",
+              "start_utf16": 2695,
+              "end_utf16": 2764,
+              "start_byte": 2695,
+              "end_byte": 2764
+            }
+          ]
+        }
+      }
+    },
+    {
+      "from": "project/packages/excalidraw/index.tsx",
+      "specifier": "./fonts/fonts.css",
+      "target": null,
+      "lookup": {
+        "status": "unproven",
+        "reason": "non_exact_binding",
+        "context": "import",
+        "request": {
+          "file": "project/packages/excalidraw/index.tsx",
+          "sha256": "496d053b21e589a739270db978bc4114b345b10478243fbb0fd99622a538c958",
+          "kind": "StringLiteral",
+          "start_utf16": 993,
+          "end_utf16": 1012,
+          "start_byte": 993,
+          "end_byte": 1012
+        },
+        "declarations": [
+          {
+            "file": "project/node_modules/vite/client.d.ts",
+            "sha256": "84d68135178bf014e5cdc27e88c9148fc22f82e1a733dc6e1869a5263e58d5db",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 885,
+            "end_utf16": 910,
+            "start_byte": 885,
+            "end_byte": 910
+          }
+        ],
+        "providers": [],
+        "augmentations": [],
+        "wildcard": {
+          "status": "observed",
+          "reason": null,
+          "pattern": "*.css",
+          "providers": [
+            {
+              "file": "project/node_modules/vite/client.d.ts",
+              "sha256": "84d68135178bf014e5cdc27e88c9148fc22f82e1a733dc6e1869a5263e58d5db",
+              "kind": "ModuleDeclaration",
+              "start_utf16": 885,
+              "end_utf16": 910,
+              "start_byte": 885,
+              "end_byte": 910
+            }
+          ],
+          "augmentations": [],
+          "matches": [
+            {
+              "file": "project/node_modules/vite/client.d.ts",
+              "sha256": "84d68135178bf014e5cdc27e88c9148fc22f82e1a733dc6e1869a5263e58d5db",
+              "kind": "ModuleDeclaration",
+              "start_utf16": 885,
+              "end_utf16": 910,
+              "start_byte": 885,
+              "end_byte": 910
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
