@@ -3,7 +3,8 @@
 Owner approval: “merged. next 3 slices approved. merge when green or stack”.
 Base: PR266 merge d4f06b58b11ed09f46a80f769a94764dafa5ddf0.
 
-The measured public installed tree exceeds the default count/byte ceilings and
+Starting baseline (subsequently superseded by the 2026-09-07 canonical-links readout):
+the measured public installed tree exceeds the default count/byte ceilings and
 contains 249 links. It has not yet supplied a configured Program observation.
 Acquisition compatibility is separate from closure and runtime authority.
 
