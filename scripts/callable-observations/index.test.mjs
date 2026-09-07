@@ -33,6 +33,14 @@ test("configured include membership replaces a syntax-only empty census",()=>fix
   assert.equal(packet.status,"observed",JSON.stringify({reasons:packet.reasons,diagnostics:packet.diagnostics,outside:packet.snapshot.outside_lookups}));
   assert.equal(packet.authorizes_runtime_edge,false);
 }));
+test("explicit installed profile produces and reproduces a real configured Program",()=>fixture(({options})=>{
+  const selected={...options,profile:"installed"},p=produce(selected);
+  assert.equal(p.status,"observed");assert.equal(p.scope.acquisition_profile,"installed");
+  assert.equal(validate(JSON.stringify(p),selected).valid,true);
+  assert.equal(validate(JSON.stringify(p),options).valid,false);
+  const cli=spawnSync(process.execPath,["scripts/callable-observations/index.mjs","produce",options.compiler,options.root,options.config,"installed"],{encoding:"utf8"});
+  assert.deepEqual(parsePacket(cli.stdout),p);
+}));
 test("installed declarations supply anchored contextual observations, not class authority",()=>fixture(({options})=>{
   const packet=produce(options);
   assert.equal(packet.observations.length,1);

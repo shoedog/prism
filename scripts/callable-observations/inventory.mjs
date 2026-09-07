@@ -47,6 +47,7 @@ export function snapshot(options) {
   const dirs=[...directories.keys()].sort();
   const read=id=>{
     const expected=files.get(id);if(!expected)return undefined;
+    if(expected.size>options.limits.read_bytes)fail("budget_exceeded");
     const [root,...parts]=id.split("/");
     try {
       const actual=content(path.join(roots[root],...parts),expected.size,true);

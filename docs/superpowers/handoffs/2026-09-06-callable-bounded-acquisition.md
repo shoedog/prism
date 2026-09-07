@@ -1,7 +1,7 @@
 # Handoff — bounded callable acquisition
 
 **Written:** 2026-09-06 · **By:** /root · **Provider:** codex
-**Workspace:** /private/tmp/prism-acquisition-next-NoX18k/worktree · feat/callable-streamed-inventory · **Measured state:** `[MEASURED]` base d4f06b58; isolated implementation in progress.
+**Workspace:** /private/tmp/prism-acquisition-next-NoX18k/profile · feat/callable-installed-profile · **Measured state:** `[MEASURED]` parent0ea180d4; explicit-profile implementation in progress.
 **Predecessor:** PR266, confirmed merged at d4f06b58b11ed09f46a80f769a94764dafa5ddf0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -15,8 +15,8 @@
 
 ## 1. Resume order
 
-1. `git -C /private/tmp/prism-acquisition-next-NoX18k/worktree status --short --branch`.
-2. Inspect task-root slice1-node.log and slice1-cargo.log; finish MCP/full controls.
+1. `git -C /private/tmp/prism-acquisition-next-NoX18k/profile status --short --branch`.
+2. Inspect task-root slice2-node.log, slice2-cargo.log and slice2-mcp.log; finish controls.
 3. Publish slice1, then explicit profile, then links/public replay per the spec.
 
 **STOP conditions:** no new installs/private acquisition; no quiet default-limit
@@ -29,8 +29,8 @@ increase or runtime authority; two self-review rounds per slice, classify at cap
 | Merge/isolation | done | `[MEASURED]` PR266 merged; original dirty files preserved |
 | Sequence/spec | done | callable-bounded-acquisition spec; three increments, no runtime changes |
 | Streamed inventory RED | done | `[MEASURED]` slice1-red-fixed.log: 5 tests, 2 pass, 3 fail on extracted eager implementation |
-| Streaming and verified lazy read | pending | inventory.mjs; worker uses verified reads for compiler inputs and anchors |
-| Larger explicit profile | next | default limits unchanged |
+| Streaming and verified lazy read | done | `[MEASURED]` 0ea180d4; 90 observer tests,4017 default Rust passed,0 failed,1 ignored; MCP pending |
+| Larger explicit profile | pending | `[MEASURED]` slice2-red.log:4 fail before,4 pass after; defaults unchanged; extra typed-profile, packet-cap, CLI and Program controls added |
 | Canonical links/public replay | next | acquired source retained at prior task root; no install needed |
 
 ## 3. Corrections to standing documents and memory
@@ -66,6 +66,6 @@ Finish all three increments and publish/merge green heads. Evidence logs live in
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** NOT RUN — implementation gates pending · claim: "lazy reads preserve captured input identity" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: slice1-red-fixed.log, slice1-node.log
+**§2c verdict:** NOT RUN — final profile gates pending · claim: "larger profile selection is explicit and independently validated" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: slice2-red.log, slice2-node.log
 
 **Questions the owner owes an answer to:** None.
