@@ -1,7 +1,7 @@
 # Handoff — bounded merged wildcard observations
 
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-merged-wildcard-observations · **Measured state:** `[MEASURED]` implementation f719b2b and RED edad861 on base e45eaef0; all final local gates/replay and two self-review rounds complete; closeout publication pending.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-merged-wildcard-observations · **Measured state:** `[MEASURED]` implementation f719b2b, RED edad861 and verification7c42aea pushed on base e45eaef0; PR276 open; all final local gates/replay and two self-review rounds complete. This is the final documentation-only publication note.
 **Predecessor:** PR275, confirmed merged e45eaef07e24764597bfbd904aeca83771f97cbb.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,7 +9,7 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) /root only, no agents; dedicated clean-main branch — RESOLVED.
-(b) RED/implementation committed; closeout commit/push/PR pending — OPEN.
+(b) RED/implementation/verification committed and pushed; PR276 open — RESOLVED. Remote CI/review is separate from completed local gates.
 (c) All processes complete; final gate totals and raw archive reconciled — RESOLVED.
 (d) Owner: "merged, proceed to next" after PR275 and bounded observation recommendation.
 
@@ -17,7 +17,7 @@
 
 1. `git status --short --branch` in /Users/wesleyjinks/code/slicing.
 2. Read same-date merged-wildcard-observations spec and task-root red.log.
-3. Commit/push closeout and open PR; do not merge without owner direction.
+3. Check PR276 remote CI/review; do not merge without owner direction.
 
 **STOP conditions:** two SELF-PASS rounds, no closure/asset/runtime/class expansion,
 React.FC, installs, application/config edits, or unrelated recovery changes.
@@ -35,7 +35,7 @@ React.FC, installs, application/config edits, or unrelated recovery changes.
 | Full gates | done | `[MEASURED]` observer264/0/0; helpers7/7; authority40/failures=[]; Rust default4017/0/1,MCP4207/0/1 including doctests; adjacent gates JSON |
 | Exact-base control | done | `[MEASURED]` base-final-red.log41 missing-field failures and2 passing ordering controls |
 | Self-review | done | Two SELF-PASS rounds, NOT INDEPENDENT; no additional WRONG/SMELL, zero open findings, no cap extension |
-| Publication | next | All local gates complete; commit/push/PR |
+| Publication | done | `[MEASURED]` https://github.com/shoedog/prism/pull/276 open against main; branch pushed |
 
 ## 3. Corrections to standing documents and memory
 
@@ -44,7 +44,7 @@ audit uses its fixed digest independently of schema10. No memory edits authorize
 
 ## 4. Open work
 
-Publish this slice. Recommended next: source-backed closure-policy proof
+PR276 awaits remote CI/review and owner merge. Recommended next: source-backed closure-policy proof
 requirements, not admission; keep14 source gaps/264 refused probes and outside
 lookups explicit. No asset, typed/value merge or React.FC expansion.
 
