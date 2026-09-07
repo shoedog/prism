@@ -1,5 +1,7 @@
 # Bounded callable declaration/alias provenance
 
+> Publication reconciliation (2026-09-06): alias implementation `2bfe7092` is published in [PR261](https://github.com/shoedog/prism/pull/261); nested implementation `16de216` is published in [PR262](https://github.com/shoedog/prism/pull/262), based on PR261. Merge261 first. The owner's new instruction authorizes agent commit/push/PR. Controller-pending and uncommitted-predecessor statements below are historical for these two slices. Bounded Props/property-to-class provenance is approved next; runtime authority remains excluded.
+
 Implemented locally on feat/callable-alias-provenance, base PR260 merge
 8e7744e27573ab55d0ef70dee22a6dd9eae5c935. Commit/publication is controller-owned
 under the current AGENTS operation notes; no new commit, push or PR is claimed.
