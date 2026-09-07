@@ -21,7 +21,7 @@ test("inventory retains hashes and sizes, not eager content buffers",()=>fixture
   assert.deepEqual(s.files.get("project/unused.bin"),{id:"project/unused.bin",sha256:hash(bytes),size:bytes.length});
   assert(s.read("project/unused.bin").equals(bytes));
   assert.equal(s.read("project/missing"),undefined);
-  assert.equal(s.digest,hash(canonical({files:s.manifest,directories:s.dirs})));
+  assert.equal(s.digest,hash(canonical({files:s.manifest,directories:s.dirs,links:s.links})));
 }));
 test("same-size writes cannot be served as captured bytes",()=>fixture(({put,options})=>{
   put("project/a","AAAA");const s=snapshot(options);put("project/a","BBBB");

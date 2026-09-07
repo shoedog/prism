@@ -20,10 +20,12 @@ contain private relative filenames, identifiers and type strings; do not publish
 an application packet without permission. Validation roots/config are supplied
 independently by the caller, never taken from packet fields.
 
-The module exports `produce({root,compiler,config,profile?,limits?})` and
+The module exports `produce({root,compiler,config,profile?,links?,limits?})` and
 `validate(jsonText, sameOptions)`. Select `profile: "installed"` explicitly for
 the larger bounded inventory; omission selects `default`. Limits may only lower
-the selected profile. The CLI accepts the profile as its optional final argument.
+the selected profile. `links: "in-root"` separately enables bounded canonical
+links; omission selects `reject`. CLI optional final arguments are profile, then
+link policy (for example `installed in-root`). Neither is inferred from the tree.
 Validation independently selects its profile; packet fields never select it.
 Invalid caller options throw from produce; acquisition/worker limits produce an
 unproven packet. CLI invalid options/invalid validation exit1; CLI production of
@@ -31,16 +33,16 @@ an unproven observation exits0. Read the JSON, not just the exit code.
 
 ## Meaning of the packet
 
-The strict executable v5 schema is `schema.mjs` (`parsePacket`). It freezes these
+The strict executable v6 schema is `schema.mjs` (`parsePacket`). It freezes these
 groups, rejecting unknown fields and unsafe IDs before project access:
 
 | Group | Meaning |
 |---|---|
-| schema / authorizes_runtime_edge | prism.callable-observation/5; authority is always false; older packets reject before root access |
+| schema / authorizes_runtime_edge | prism.callable-observation/6; authority is always false; older packets reject before root access |
 | producer / compiler | Tool-byte digest; required compiler version/hash, whether actually verified, full compiler-lib inventory digest |
-| scope | Relative config, acquisition profile, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
+| scope | Relative config, acquisition profile, link policy, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
 | status / reasons / closure | observed means this bounded Program completed without the enumerated closure failures; unproven records limitations. Neither means a receiver or class is proven |
-| snapshot | Raw byte/file/directory manifest, roots, config reads, Program files, reads and safe failed lookup IDs, refused-lookup digests, options digest and outside-lookup flag |
+| snapshot | Raw byte/file/directory manifest, link spelling hashes and canonical targets, roots, config reads, Program files, reads and safe failed lookup IDs, refused-lookup digests, options digest and outside-lookup flag |
 | resolutions / diagnostics | Compiler module-resolution outcomes and anchored diagnostic codes; unresolved dependencies are not automatically application defects |
 | observations | Direct variable annotations on arrow/function expressions; annotation/implementation/first-parameter anchors, explicit annotation flag, contextual callable declarations/signatures, direct-body member-call receiver types and method declaration anchors |
 | observations.provenance | Bounded defining-source declaration/alias observations, generic use/binder anchors, namespace qualifiers and partial-chain reasons; not a substitution or ownership certificate |
@@ -55,6 +57,8 @@ materialized read to32MiB (`read_bytes`); default read_bytes is128MiB, its exist
 total-input ceiling. Hashing an unused larger file does not materialize it. Depth
 and observation/provenance/nested limits remain unchanged. Heap caps are not RSS
 caps. Larger profile selection does not grant link support or Program closure.
+When links are enabled, they count as entries; `link_steps` bounds each resolution
+to32 traversals and can be lowered. Metadata boundary sentinels also obey budgets.
 
 Anchors carry file-byte hashes and half-open UTF-16/UTF-8 coordinates. Manifest
 consistency, range/hash conflicts and impossible statuses are rejected before
@@ -71,7 +75,7 @@ exercise this distinction.
 
 ## Declaration provenance
 
-Producer0.6.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs` and `props-class.mjs` in its byte digest. `provenance.status=traced`
+Producer0.7.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs` and `props-class.mjs` in its byte digest. `provenance.status=traced`
 means the supported syntactic chain reached an inline callable type or a singleton,
 non-inherited callable interface. It is independent of program closure: even a
 traced chain can belong to an unproven packet. Type arguments and parameters keep
@@ -162,9 +166,25 @@ this conservatively invalidates more than a minimal dependency cache. `.git`
 contents are excluded, with boundary sentinels: explicitly reading/enumerating
 them is refused rather than silently claiming an empty input set.
 Project references and plugins remain unsupported. Outside-root/absolute-config
-lookups, unavailable packages, symlinks, special files, invalid UTF-8 compiler
+lookups, unavailable packages, unsupported symlinks, special files, invalid UTF-8 compiler
 inputs and budget exhaustion stay unproven. Local extends may traverse upward
 within the supplied root, but cannot escape it.
+
+With explicit `links: "in-root"`, relative file/directory link chains resolve
+against the captured physical inventory, without expanding linked subtrees or
+opening link targets. Link records include the original spelling's byte hash and
+canonical target ID. Only leading `../` segments are supported; embedded dot/
+parent segments, absolute/unsafe targets, cross-root targets, dangling targets,
+link-resolution cycles and exhausted traversal budgets are refused. UTF-8 filename
+bytes (including a leading BOM) remain literal. Canonical identity means path
+identity, not hard-link/inode identity or a runtime class certificate.
+
+The compiler's realpath hook and enumeration receive captured canonical IDs;
+actual options are not rewritten. `preserveSymlinks` with links is refused.
+Distinct Program source files mapping to one canonical ID are refused, not merged
+into a singleton declaration. Case-folded collisions include link names. Complete
+recomputation catches link retargeting even when old/new target bytes are equal.
+Both default link refusal and the independent closure barriers remain intact.
 
 The tool does not rewrite actual project options to manufacture closure. For
 example, missing package boundaries and automatic ancestor type/lib lookups may

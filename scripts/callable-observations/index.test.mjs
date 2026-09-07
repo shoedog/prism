@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync, rmSync, symlinkSync} from "node:fs";
+import {mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync, rmSync, symlinkSync,realpathSync} from "node:fs";
 import {spawn,spawnSync} from "node:child_process";
 import {once} from "node:events";
 import {createRequire} from "node:module";
@@ -26,6 +26,41 @@ async function fixture(run,profile="react19") {
     await run({root,put,config,options:{root,compiler,config:"tsconfig.json"}});
   } finally {rmSync(root,{recursive:true,force:true});}
 }
+
+test("package links preserve pinned-compiler defining identity and stale-retarget barriers",()=>fixture(({root,put,config,options})=>{
+  put("packages/client/package.json",JSON.stringify({name:"clientpkg",types:"index.ts"}));
+  put("packages/client/index.ts","export default class Client {m(){}}");
+  put("packages/other/package.json",JSON.stringify({name:"clientpkg",types:"index.ts"}));
+  put("packages/other/index.ts","export default class Client {m(){}}");
+  const link=path.join(root,"node_modules/clientpkg");symlinkSync("../packages/client",link);
+  put("src/app.ts","import type {FC} from 'react';import Client from 'clientpkg';import Same from '../packages/client';const same:Same=new Client();export const run: FC<{client:Client}>=({client})=>{const cb=()=>client.m();return null;};");
+  const ts=createRequire(import.meta.url)(compiler),canonicalRoot=realpathSync(root),parsed=ts.parseJsonConfigFileContent(config,ts.sys,canonicalRoot);
+  const program=ts.createProgram(parsed.fileNames,parsed.options),checker=program.getTypeChecker();
+  const app=program.getSourceFile(path.join(canonicalRoot,"src/app.ts"));
+  const imports=app.statements.filter(n=>ts.isImportDeclaration(n) && n.importClause.name).map(n=>checker.getAliasedSymbol(checker.getSymbolAtLocation(n.importClause.name)));
+  assert.equal(imports.length,2);assert.equal(imports[0]===imports[1],true,"pinned compiler must establish singleton identity");
+  assert.equal(realpathSync(imports[0].declarations[0].getSourceFile().fileName),path.join(canonicalRoot,"packages/client/index.ts"));
+  const selected={...options,links:"in-root"},p=produce(selected);
+  assert.equal(p.status,"observed",JSON.stringify(p.reasons));
+  assert.equal(p.observations[0].nested.calls[0].props_class.class_declaration.file,"project/packages/client/index.ts");
+  assert.equal(p.snapshot.program_files.filter(f=>f.endsWith("packages/client/index.ts")).length,1);
+  assert.equal(p.snapshot.links.length,1);assert.equal(validate(JSON.stringify(p),selected).valid,true);
+  assert.equal(validate(JSON.stringify(p),options).valid,false);
+  const forged=structuredClone(p);forged.snapshot.links[0].target="project/missing";
+  let consulted=0;assert.equal(validate(JSON.stringify(forged),{get root(){consulted++;throw Error();}}).valid,false);assert.equal(consulted,0);
+  rmSync(link);symlinkSync("../packages/other",link);
+  assert.equal(validate(JSON.stringify(p),selected).valid,false);
+  const changed=produce(selected);assert.equal(changed.observations[0].nested.calls[0].props_class.class_declaration.file,"project/packages/other/index.ts");
+  put("tsconfig.json",JSON.stringify({...config,compilerOptions:{...config.compilerOptions,preserveSymlinks:true}}));
+  assert.deepEqual(produce(selected).reasons,["unsupported_input"]);
+}));
+
+test("duplicate physical Program declarations through relative file aliases are refused",()=>fixture(({root,put,options})=>{
+  put("packages/client.ts","export default class Client {m(){}}");
+  symlinkSync("../packages/client.ts",path.join(root,"src/alias.ts"));
+  put("src/app.ts","import A from './alias';import B from '../packages/client';export const both=[A,B];");
+  assert.deepEqual(produce({...options,links:"in-root"}).reasons,["unsupported_input"]);
+}));
 
 test("configured include membership replaces a syntax-only empty census",()=>fixture(({options})=>{
   const packet=produce(options);
@@ -348,7 +383,7 @@ test("missing imports and namespace merges remain partial observations",()=>fixt
 }));
 
 test("provenance budgets and corrupted nested anchors fail closed",()=>fixture(({options})=>{
-  const p=produce(options);assert.equal(p.schema,"prism.callable-observation/5");
+  const p=produce(options);assert.equal(p.schema,"prism.callable-observation/6");
   assert.equal(p.observations[0].provenance.status,"traced");
   const limited=produce({...options,limits:{provenance_steps:1}});
   assert.equal(limited.observations[0].provenance.reason,"step_limit");

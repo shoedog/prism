@@ -1,6 +1,6 @@
 # Prism — post-plan roadmap (follow-up queue, strategic fork, Java, Serena)
 
-> Status reconciliation (2026-09-06): PR261–265 merged at main3001ca58. The explicitly authorized single public disposable dependency install completed; observer admission was declined on measured byte/entry/symlink barriers. Historical approval/publication statements below are superseded. No acquisition implementation or runtime expansion is authorized.
+> Status reconciliation (2026-09-07): PR261–266 merged through d4f06b58. The owner approved three bounded acquisition increments and green merge/stack. Streamed inventory and explicit installed-profile slices are PR267/268; canonical links now admit the already-acquired public tree and reproduce an unproven Program packet. Default ceilings, lookup/duplicate barriers and false runtime authority remain. Historical approval-pending statements below are superseded; see the bounded-acquisition handoff.
 
 Date: 2026-07-04. Companion to `docs/analysis/prism-llm-and-accuracy-plan.md` (the
 ranked plan). Written as P14 (the final live plan item) is in implementation; refer
@@ -288,7 +288,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   Source/control bytes preserved;1445 cached archives verified (1442 distinct URLs).
   Candidate+compiler853674175 bytes/68997 file-directory entries/249 symlinks exceed
   current128MiB/20000/no-link admission. No producer replay, pruning or limit change.
-  Next approval: bounded streamed/lazy acquisition and canonical in-root link-identity
+  Subsequently approved: bounded streamed/lazy acquisition and canonical in-root link-identity
   design with negative fixtures before implementation. No runtime authority. See
   2026-09-06-callable-acquisition-measurement readout/handoff.
 

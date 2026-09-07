@@ -1,7 +1,7 @@
 import {createHash} from "node:crypto";
-export const SCHEMA="prism.callable-observation/5";
+export const SCHEMA="prism.callable-observation/6";
 export const COMPILER_HASH="3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675";
-export const LIMITS={files:20000,bytes:128*1024*1024,read_bytes:128*1024*1024,depth:64,timeout_ms:30000,observations:2000,provenance_steps:32,nested_depth:8,nested_calls:128,props_type_args:8};
+export const LIMITS={files:20000,bytes:128*1024*1024,read_bytes:128*1024*1024,link_steps:32,depth:64,timeout_ms:30000,observations:2000,provenance_steps:32,nested_depth:8,nested_calls:128,props_type_args:8};
 export const PACKET_BYTES=8*1024*1024;
 export const PROFILES={
   default:{limits:LIMITS,packet_bytes:PACKET_BYTES,heap_mb:512},
@@ -55,13 +55,13 @@ const reasons=array(x=>[
 ].includes(x));
 const packet=object({
   schema:literal(SCHEMA),authorizes_runtime_edge:literal(false),
-  producer:object({version:literal("0.6.0"),sha256:digest}),
+  producer:object({version:literal("0.7.0"),sha256:digest}),
   compiler:object({version:literal("5.9.3"),sha256:literal(COMPILER_HASH),verified:boolean,library_sha256:digest}),
-  scope:object({config:id,acquisition_profile:x=>typeof x==="string" && Object.hasOwn(PROFILES,x),callable_scope:literal("direct-annotated-function"),class_authority:literal(false),case_sensitive:nullable(boolean)}),
+  scope:object({config:id,acquisition_profile:x=>typeof x==="string" && Object.hasOwn(PROFILES,x),link_policy:x=>["reject","in-root"].includes(x),callable_scope:literal("direct-annotated-function"),class_authority:literal(false),case_sensitive:nullable(boolean)}),
   status:x=>["observed","unproven"].includes(x),reasons,
   closure:object({stable_snapshot:boolean,dependencies:boolean,references:boolean,augmentation:boolean,resolution:boolean}),
   limits:object(Object.fromEntries(Object.keys(LIMITS).map(k=>[k,integer]))),
-  snapshot:object({sha256:digest,files:array(object({id,sha256:digest,size:integer})),directories:array(id),
+  snapshot:object({sha256:digest,files:array(object({id,sha256:digest,size:integer})),directories:array(id),links:array(object({id,target:id,sha256:digest})),
     roots:array(id),config_files:array(id),program_files:array(id),reads:array(id),failed_lookups:array(id),
     refused_lookup_sha256:array(digest),outside_lookups:boolean,options_sha256:digest}),
   resolutions:array(object({from:id,specifier:str,target:nullable(id)})),
@@ -87,7 +87,13 @@ export function parsePacket(text) {
     || !!refused.length!==value.reasons.includes("unsupported_lookup")
     || refused.length && (value.status!=="unproven" || value.closure.dependencies
       || value.closure.augmentation || value.closure.resolution))throw Error("invalid_packet");
-  if(value.snapshot.files.length && value.snapshot.sha256!==hash(canonical({files:value.snapshot.files,directories:value.snapshot.directories}))) throw Error("invalid_packet");
+  const dirs=new Set(value.snapshot.directories),links=value.snapshot.links;
+  if(dirs.size!==value.snapshot.directories.length || (value.scope.link_policy==="reject" && links.length))throw Error("invalid_packet");
+  if(files.size+dirs.size+links.length>value.limits.files || value.snapshot.files.reduce((n,f)=>n+f.size,0)>value.limits.bytes)throw Error("invalid_packet");
+  if(links.some((l,i)=>i>0 && l.id<=links[i-1].id || files.has(l.id) || dirs.has(l.id)
+      || !files.has(l.target) && !dirs.has(l.target) || l.id.split("/")[0]!==l.target.split("/")[0]
+      || [l.id,l.target].some(v=>v.split("/").some(p=>p.toLowerCase()===".git"))))throw Error("invalid_packet");
+  if(value.snapshot.files.length && value.snapshot.sha256!==hash(canonical({files:value.snapshot.files,directories:value.snapshot.directories,links}))) throw Error("invalid_packet");
   for(const name of ["roots","program_files","config_files","reads"]) {
     if(value.snapshot[name].some(id=>!files.has(id))) throw Error("invalid_packet");
   }
