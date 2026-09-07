@@ -1,5 +1,6 @@
 // Source observations only. Filesystem outcomes and closure policy stay in worker.
 import {wildcardObserver} from './wildcard.mjs';
+import {mergedWildcardObserver} from './merged-wildcard.mjs';
 export function observeExactAmbient(ts,program,checker,requests,anchor,anchorInSource) {
   const sources=new Set(program.getSourceFiles()),population=new Map();
   const owned=n=>n && n.pos>=0 && n.end>=n.pos && sources.has(n.getSourceFile());
@@ -36,6 +37,7 @@ export function observeExactAmbient(ts,program,checker,requests,anchor,anchorInS
   const anchors=nodes=>nodes.filter(owned).map(anchor);
   const censusAnchors=entries=>entries.map(({node,source})=>anchorInSource(node,source));
   const observeWildcard=wildcardObserver(ts,checker,population,owned,censusAnchors);
+  const observeMergedWildcard=mergedWildcardObserver(ts,checker,population,owned,anchor);
   for(const {resolution,literal,source} of requests) {
     const context=contextOf(literal),synthetic=context==='synthetic';
     const symbol=synthetic?undefined:checker.getSymbolAtLocation(literal);
@@ -68,5 +70,6 @@ export function observeExactAmbient(ts,program,checker,requests,anchor,anchorInS
     if(reason)observation.reason=reason;
     else observation.status='observed';
     observation.wildcard=observeWildcard(resolution,literal,source,observation,symbol,declarations);
+    observation.merged_wildcard=observeMergedWildcard(resolution,literal,source,observation,symbol,declarations);
   }
 }

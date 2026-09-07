@@ -4,13 +4,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
-import {canonical,hash,parsePacket,COMPILER_HASH} from '../../../scripts/callable-observations/schema.mjs';
+import {canonical,hash,COMPILER_HASH} from '../../../scripts/callable-observations/schema.mjs';
 const [compiler,root,packetFile]=process.argv.slice(2);
 assert(compiler&&root&&packetFile,'compiler, source root and packet required');
 assert.equal(hash(fs.readFileSync(compiler)),COMPILER_HASH);
-const ts=createRequire(import.meta.url)(compiler),bytes=fs.readFileSync(packetFile),p=parsePacket(bytes.toString());
+const ts=createRequire(import.meta.url)(compiler),bytes=fs.readFileSync(packetFile);
 const baseline=JSON.parse(fs.readFileSync(new URL('./2026-09-07-callable-singleton-wildcard-evidence.json',import.meta.url)));
 assert.equal(hash(bytes),baseline.packet_sha256,'entire packet, including closure, must be unchanged');
+// Historical schema9 evidence is accepted only by its pinned byte digest, not
+// by the current producer schema. This is deliberately not a general validator.
+const p=JSON.parse(bytes.toString());
 const inventory=new Map(p.snapshot.files.map(f=>[f.id,f])),sources=new Map(),providers=[],augmentations=[];
 const anchor=(n,sf)=>({file:sf.fileName,sha256:inventory.get(sf.fileName).sha256,kind:ts.SyntaxKind[n.kind],
   start_utf16:n.getStart(sf),end_utf16:n.end,start_byte:Buffer.byteLength(sf.text.slice(0,n.getStart(sf))),end_byte:Buffer.byteLength(sf.text.slice(0,n.end))});

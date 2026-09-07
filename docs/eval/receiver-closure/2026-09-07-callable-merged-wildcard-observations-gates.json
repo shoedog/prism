@@ -1,0 +1,82 @@
+{
+  "schema": "prism.merged-wildcard-observation-gates/1",
+  "audit_only": true,
+  "authorizes_runtime_edge": false,
+  "base": "e45eaef07e24764597bfbd904aeca83771f97cbb",
+  "implementation": "f719b2b",
+  "initial_red": {
+    "tests": 33,
+    "passed": 0,
+    "failed": 33,
+    "log_sha256": "29ba8344c05872e4a2206875b5826ceb7d116db5f8c01e125c4306ec5db1405f"
+  },
+  "exact_base_final": {
+    "tests": 43,
+    "passed": 2,
+    "failed": 41,
+    "log_sha256": "16a451bc6d40e2d14886900a47209cc5205bb6ddaf1576d5237601c26f98b9c9"
+  },
+  "exact_base_note": "41 missing-field failures plus2 passing legacy-order controls",
+  "intermediate_order_regression": {
+    "tests": 2,
+    "passed": 1,
+    "failed": 1,
+    "log_sha256": "bb2d2b2ad82efddd62a93cad197cc1a70b099ca94aef96757fcbdeb42018a346"
+  },
+  "observer": {
+    "tests": 264,
+    "passed": 264,
+    "failed": 0,
+    "log_sha256": "4adfb7f5e60f05893b3d74f2c14b56e55fedc65ae074fe8982d3dfed0821cc7f"
+  },
+  "helpers": {
+    "tests": 7,
+    "passed": 7,
+    "failed": 0,
+    "log_sha256": "56a6fb61923d734a88e7ed10feaf24bd91bc2e551ab96bf39902af8022ca36f6"
+  },
+  "rust_default": {
+    "groups": 28,
+    "passed": 4017,
+    "failed": 0,
+    "ignored": 1,
+    "includes_doctests": true,
+    "log_sha256": "83b6df935d718cb77493bf9b5eec8804ae8f7a4a10df460b6cc2cc7cf7c567a7"
+  },
+  "rust_mcp": {
+    "groups": 30,
+    "passed": 4207,
+    "failed": 0,
+    "ignored": 1,
+    "includes_doctests": true,
+    "log_sha256": "57c1664bd413cb76cfc074a932fab19024484cf691d6af90e3e8efa900ae4b14"
+  },
+  "authority": {
+    "results": 40,
+    "failures": [],
+    "sha256": "8746d8f89c3efa5029869de3c0d1d0297f2499da22e20d02b922bc6576a9b57f"
+  },
+  "validation": {
+    "valid": true,
+    "authorizes_runtime_edge": false,
+    "packet_status": "unproven",
+    "reason": "reproduced_observation"
+  },
+  "source_preserved": true,
+  "source_manifest_sha256": "353187a695df2683a3631e4739c173cb6d33190901093549b61e28efeda60cbb",
+  "packet_sha256": "19871f6f359422afd029c22a0f1109da6d363d5b5b98e4a49ca429f13629b78a",
+  "source_gaps": 14,
+  "historical_audit_base_equals_repaired": true,
+  "historical_audit_intermediate_failure": "schema9 rejected by schema10 parser; captured historical-audit-red.log",
+  "reviews": {
+    "rounds": 2,
+    "independent": false,
+    "open_wrong": 0,
+    "open_smell": 0,
+    "cap_extended": false
+  },
+  "not_run": [
+    "Tier-A: no triggering src paths changed",
+    "human-triggered full multi-corpus evaluation"
+  ]
+}
