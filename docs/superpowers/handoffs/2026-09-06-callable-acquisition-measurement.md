@@ -1,5 +1,8 @@
 # Handoff — public dependency acquisition measurement
 
+Publication: measurement4597f6b pushed in https://github.com/shoedog/prism/pull/266
+against main; this docs-only closeout follows.
+
 **Written:** 2026-09-06 · **By:** /root · **Provider:** codex
 **Workspace:** /private/tmp/prism-acquire-w2FtSq/worktree · docs/callable-acquisition-measurement · **Measured state:** `[MEASURED]` base3001ca58; single install complete, admission declined on measured size/count/symlink barriers; no observer replay.
 **Predecessor:** PR265, confirmed merged at3001ca58c04aa323a686968bbfb57eb7b927d730.
@@ -35,17 +38,19 @@ Two SELF-PASS rounds, NOT INDEPENDENT. No observer implementation authorized.
 | Source preservation | done | `[MEASURED]` source-before.json equals source-after.json; original clean and copied tracked bytes/executable bits unchanged |
 | Compatibility | done | `[MEASURED]` installed-inventory.json and repeat match:830105343 source bytes,59799 files,9059 dirs,249 links; compiler23568832 bytes,125 files,14 dirs; admission declined, no replay |
 | Archive integrity / review | done | `[MEASURED]` archive-verification-corrected.json:1445/1445 archives,1445 records,1442 URLs,0 missing/failures; two self-review rounds, no extension |
-| Publication | pending | Source-backed measurement readout and docs PR |
+| Publication | done | `[MEASURED]` measurement4597f6b pushed; PR266 open against main |
 
 ## 3. Corrections to standing documents and memory
 
 PR265 is merged and installation is now explicitly authorized. Previous approval-
-pending statements are historical. No memory edits authorized. Final predecessor
-notice/roadmap and original pointer will be reconciled with measured outcome.
+pending statements are historical. No memory edits authorized. Predecessor
+notice/roadmap and original pointer are reconciled with measured outcome.
 
 ## 4. Open work
 
-Scoped docs publication and final public evidence snapshot remain.
+No acquisition/publication work remains; owner review/merge is next.
+Public-only evidence: /private/tmp/prism-acquire-w2FtSq/public-evidence.tgz with
+adjacent checksum sidecar. Installed source/cache/tools remain intact separately.
 Next requires approval for bounded acquisition design covering measured large-tree
 budgets and canonical in-root link identity; do not automatically implement it.
 
@@ -69,6 +74,6 @@ budgets and canonical in-root link identity; do not automatically implement it.
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED — two rounds, no extension · claim: "single isolated acquisition is measured without changing source or observer authority" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: MEASURED ACQUISITION AND INTEGRITY CHECKS, no observer replay · record: admission.json, source-before/after.json, archive-verification-corrected.json and same-date readout; probe setup error explicitly excluded.
+**§2c verdict:** SURVIVED — two rounds, no extension · claim: "single isolated acquisition is measured without changing source or observer authority" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: admission.json, source-before/after.json, archive-verification-corrected.json and same-date readout; integrity/source assertions, no observer replay, probe setup error explicitly excluded.
 
 **Questions the owner owes an answer to:** None within approved scope.

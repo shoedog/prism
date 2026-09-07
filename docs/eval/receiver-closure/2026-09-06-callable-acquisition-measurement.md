@@ -2,7 +2,8 @@
 
 Owner explicitly authorized the frozen-lock, script-disabled public disposable
 install and pinned tool bootstrap after PR265 merged. Measured from Prism main
-3001ca58c04aa323a686968bbfb57eb7b927d730; publication pending at this checkpoint.
+3001ca58c04aa323a686968bbfb57eb7b927d730; measurement4597f6b is pushed in
+[PR266](https://github.com/shoedog/prism/pull/266), targeting main.
 No observer, Rust/runtime, schema, cache or application-source changes. No private
 repository acquisition. Two SELF-PASS rounds, NOT INDEPENDENT; no agents.
 

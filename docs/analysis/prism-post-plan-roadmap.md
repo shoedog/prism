@@ -283,7 +283,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   Owner-authorized acquisition measurement is complete below; no original-app writes
   or runtime expansion. See 2026-09-06-callable-dependency-acquisition spec/handoff.
 
-- **Public dependency acquisition — completed, admission declined; publication pending:**
+- **Public dependency acquisition — completed, admission declined; PR266, measurement4597f6b:**
   Pinned Yarn1.22.22/Node24.15.0, frozen lock and scripts disabled; one24.436s install.
   Source/control bytes preserved;1445 cached archives verified (1442 distinct URLs).
   Candidate+compiler853674175 bytes/68997 file-directory entries/249 symlinks exceed
