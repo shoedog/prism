@@ -1,5 +1,7 @@
 # Nested callback lexical binding observations
 
+> Publication reconciliation (2026-09-06): alias implementation `2bfe7092` is published in [PR261](https://github.com/shoedog/prism/pull/261); nested implementation `16de216` is published in [PR262](https://github.com/shoedog/prism/pull/262), based on PR261. Merge261 first. The owner's new instruction authorizes agent commit/push/PR. Controller-pending and uncommitted-predecessor statements below are historical for these two slices. Bounded Props/property-to-class provenance is approved next; runtime authority remains excluded.
+
 Locally implemented and verified in feat/callable-nested-bindings at
 /private/tmp/prism-nested-bindings-fcihjG/worktree. Base8e7744e2 plus the exact
 unpublished alias-provenance source snapshot; neither local increment is claimed
