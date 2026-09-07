@@ -1,5 +1,10 @@
 # Handoff — merged wildcard proof requirements
 
+> Superseded operational status (2026-09-07): PR275 is confirmed merged at
+> e45eaef0. The approved bounded implementation now records84 separate source-pair
+> observations without changing old lookup/closure evidence. See the same-date
+> `callable-merged-wildcard-observations.md` handoff; open-PR statements below are historical.
+
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · audit/callable-merged-wildcard-proof · **Measured state:** `[MEASURED]` audit2cd2bc1 and verification999962d pushed on base d66328d1; PR275 open; all local gates and two review rounds complete. This publication note is the final documentation-only closeout.
 **Predecessor:** PR274 singleton wildcard observations, confirmed merged.
