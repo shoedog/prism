@@ -5,7 +5,7 @@ import {fileURLToPath} from "node:url";
 import path from "node:path";
 import {SCHEMA,COMPILER_HASH,LIMITS,PACKET_BYTES,relative,hash,canonical,parsePacket} from "./schema.mjs";
 export function producerHash() {
-  return hash(Buffer.concat(["schema.mjs","index.mjs","worker.mjs","provenance.mjs","nested.mjs","props-class.mjs"].map(f=>readFileSync(new URL(f,import.meta.url)))));
+  return hash(Buffer.concat(["schema.mjs","index.mjs","worker.mjs","inventory.mjs","provenance.mjs","nested.mjs","props-class.mjs"].map(f=>readFileSync(new URL(f,import.meta.url)))));
 }
 export function settings(options) {
   if(!options || typeof options.root!=="string" || typeof options.compiler!=="string"

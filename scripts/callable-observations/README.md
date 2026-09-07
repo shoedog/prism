@@ -136,8 +136,12 @@ precede audited-root I/O; full recomputation replaces stale class evidence.
 ### Acquisition
 
 One project, actual JSON config/extends/include/exclude/options, and installed
-in-root regular-file dependencies. The compiler host reads an immutable in-memory
-snapshot only. Its lookup/canonicalization policy follows the pinned compiler's
+in-root regular-file dependencies. Acquisition streams every file into a hash/size
+inventory using 64KiB chunks without retaining all input bytes. Compiler-requested
+reads and anchor checks load inventoried content on demand and verify its captured
+size/hash before use; a second full inventory checks the epoch. The new
+`inventory.mjs` module participates in the producer digest. Default limits are
+unchanged. Its lookup/canonicalization policy follows the pinned compiler's
 host case policy; ambiguous case-folded inventory collisions are refused.
 Internal TS matchFiles/createGetCanonicalFileName APIs are used deliberately under
 the exact compiler byte pin, not as an unversioned API promise.

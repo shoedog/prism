@@ -1,7 +1,9 @@
 # Handoff — public dependency acquisition measurement
 
-Publication: measurement4597f6b pushed in https://github.com/shoedog/prism/pull/266
-against main; this docs-only closeout follows.
+Publication: PR266 merged at d4f06b58. The owner subsequently approved three
+bounded acquisition increments and green merge/stack. See
+[the successor handoff](2026-09-06-callable-bounded-acquisition.md); approval-pending
+statements below describe this predecessor's historical boundary.
 
 **Written:** 2026-09-06 · **By:** /root · **Provider:** codex
 **Workspace:** /private/tmp/prism-acquire-w2FtSq/worktree · docs/callable-acquisition-measurement · **Measured state:** `[MEASURED]` base3001ca58; single install complete, admission declined on measured size/count/symlink barriers; no observer replay.
