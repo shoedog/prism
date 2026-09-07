@@ -110,7 +110,7 @@ function build() {
         const fn=node.initializer,context=checker.getContextualType(fn);
         const signatures=context?checker.getSignaturesOfType(context,ts.SignatureKind.Call):[];
         const observation={annotation:anchor(node.type),implementation:anchor(fn),parameter:fn.parameters[0]?anchor(fn.parameters[0]):null,
-          provenance:traceProvenance(ts,checker,node.type,anchor,options.limits.provenance_steps),
+          provenance:traceProvenance(ts,checker,node.type,anchor,options.limits.provenance_steps,program),
           nested:observeNested(ts,checker,fn,anchor,options.limits),
           explicit_parameter:!!fn.parameters[0]?.type,signatures:signatures.flatMap(s=>s.declaration?[anchor(s.declaration)]:[]),
           callable_declarations:[...new Set([...(context?.symbol?.declarations??[]),...(context?.aliasSymbol?.declarations??[])])].map(anchor),calls:[]};

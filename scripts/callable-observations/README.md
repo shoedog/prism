@@ -33,12 +33,12 @@ an unproven observation exits0. Read the JSON, not just the exit code.
 
 ## Meaning of the packet
 
-The strict executable v6 schema is `schema.mjs` (`parsePacket`). It freezes these
+The strict executable v7 schema is `schema.mjs` (`parsePacket`). It freezes these
 groups, rejecting unknown fields and unsafe IDs before project access:
 
 | Group | Meaning |
 |---|---|
-| schema / authorizes_runtime_edge | prism.callable-observation/6; authority is always false; older packets reject before root access |
+| schema / authorizes_runtime_edge | prism.callable-observation/7; authority is always false; older packets reject before root access |
 | producer / compiler | Tool-byte digest; required compiler version/hash, whether actually verified, full compiler-lib inventory digest |
 | scope | Relative config, acquisition profile, link policy, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
 | status / reasons / closure | observed means this bounded Program completed without the enumerated closure failures; unproven records limitations. Neither means a receiver or class is proven |
@@ -75,7 +75,7 @@ exercise this distinction.
 
 ## Declaration provenance
 
-Producer0.7.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs` and `props-class.mjs` in its byte digest. `provenance.status=traced`
+Producer0.8.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs` and `props-class.mjs` in its byte digest. `provenance.status=traced`
 means the supported syntactic chain reached an inline callable type or a singleton,
 non-inherited callable interface. It is independent of program closure: even a
 traced chain can belong to an unproven packet. Type arguments and parameters keep
@@ -88,6 +88,22 @@ assignments/star exports and their binding declarations. Namespace `export =`
 traversal requires a direct unique local namespace, never an imported gateway or
 a React spelling heuristic. Local bindings and export names are checked separately
 for duplicates, including compiler error recovery that exposes only one symbol.
+
+A type-only UMD qualifier may traverse one eligible `export as namespace` in an
+external declaration file, then one `export =` alias to a direct same-file local
+namespace. Global-export and local-name populations are separate. The configured
+Program must contain exactly one global provider and no same-name global binding
+or augmentation; duplicate/merged/imported targets and star gateways are refused,
+including when `skipLibCheck` suppresses diagnostics. Compiler alias-table identity
+and canonical Program source ownership are required, not just a syntax census.
+For this gateway, `module` anchors the owning SourceFile (not a module specifier),
+with separate assignment and local-binding anchors in the existing record fields.
+Each alias and the owning-module traversal consume provenance steps. One lazy
+Program-keyed population census is bounded by acquisition bytes/files and worker
+timeout/heap; it is not reused across Programs or snapshots. No compiler option is
+changed: `allowUmdGlobalAccess` value-use diagnostics do not gate type-only use.
+Traced UMD candidates still cannot overcome receiver writes or incomplete Program
+closure; both authority flags remain false. Schema7 rejects older observations.
 
 Star exports in any consulted module, unresolved/duplicate/merged declarations,
 inheritance, unsupported types/declarations, cycles and step exhaustion retain an
