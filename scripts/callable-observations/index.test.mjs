@@ -406,7 +406,7 @@ test("nested namespace uses and limits retain source identity",()=>fixture(({put
 }));
 
 test("producer digest covers the new provenance implementation",()=>{
-  const sources=["schema.mjs","index.mjs","worker.mjs","provenance.mjs","nested.mjs","props-class.mjs"].map(f=>readFileSync(new URL(f,import.meta.url)));
+  const sources=["schema.mjs","index.mjs","worker.mjs","inventory.mjs","provenance.mjs","nested.mjs","props-class.mjs"].map(f=>readFileSync(new URL(f,import.meta.url)));
   assert.equal(producerHash(),hash(Buffer.concat(sources)));
   assert.notEqual(producerHash(),hash(Buffer.concat(sources.slice(0,3))));
 });

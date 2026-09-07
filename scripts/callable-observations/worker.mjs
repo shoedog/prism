@@ -1,5 +1,5 @@
 // Worker confines synchronous compiler work to a parent-enforced timeout/heap cap.
-import {readFileSync,readdirSync,lstatSync,realpathSync} from "node:fs";
+import {readFileSync} from "node:fs";
 import {createRequire} from "node:module";
 import path from "node:path";
 import {COMPILER_HASH,relative,hash,canonical} from "./schema.mjs";
@@ -7,43 +7,14 @@ import {emptyPacket} from "./index.mjs";
 import {traceProvenance} from "./provenance.mjs";
 import {observeNested} from "./nested.mjs";
 import {observePropsClasses} from "./props-class.mjs";
+import {snapshot} from "./inventory.mjs";
 
 const options=JSON.parse(readFileSync(0,"utf8"));
 const fail=reason=>{throw Error(reason);};
-function snapshot() {
-  const files=new Map(),directories=new Map();let bytes=0;
-  const roots={project:realpathSync(options.root),compiler:realpathSync(path.dirname(options.compiler))};
-  if(roots.project===path.parse(roots.project).root || roots.project===roots.compiler) fail("unsupported_input");
-  function walk(absolute,id,depth) {
-    if(depth>options.limits.depth || files.size+directories.size>=options.limits.files) fail("budget_exceeded");
-    const stat=lstatSync(absolute);
-    if(stat.isSymbolicLink()) fail("unsupported_input");
-    if(stat.isDirectory()) {
-      const entries=readdirSync(absolute).sort();
-      directories.set(id,entries);
-      for(const name of entries) {
-        // Keep an excluded-boundary sentinel so explicit include patterns cannot
-        // silently turn existing metadata inputs into an apparently empty directory.
-        if(name.toLowerCase()===".git") {directories.set(id+"/"+name,[]);continue;}
-        if(!relative(name) || name.includes("/")) fail("unsupported_input");
-        walk(path.join(absolute,name),id+"/"+name,depth+1);
-      }
-    } else if(stat.isFile()) {
-      if(bytes+stat.size>options.limits.bytes) fail("budget_exceeded");
-      const content=readFileSync(absolute);bytes+=content.length;
-      if(bytes>options.limits.bytes) fail("budget_exceeded");
-      files.set(id,content);
-    } else fail("unsupported_input");
-  }
-  for(const [id,absolute] of Object.entries(roots)) walk(absolute,id,0);
-  const manifest=[...files].map(([id,b])=>({id,sha256:hash(b),size:b.length})).sort((a,b)=>a.id<b.id?-1:1);
-  const dirs=[...directories.keys()].sort();
-  return {files,directories,roots,manifest,dirs,digest:hash(canonical({files:manifest,directories:dirs}))};
-}
 function build() {
-  const first=snapshot();
+  const first=snapshot(options);
   const compilerId="compiler/"+path.basename(options.compiler);
-  if(hash(first.files.get(compilerId)??"")!==COMPILER_HASH) fail("compiler_mismatch");
+  if(hash(first.read(compilerId)??"")!==COMPILER_HASH) fail("compiler_mismatch");
   const ts=createRequire(import.meta.url)(options.compiler);
   if(ts.version!=="5.9.3") fail("compiler_mismatch");
   const packet=emptyPacket(options,"invalid_config");packet.reasons=[];packet.compiler.verified=true;
@@ -74,7 +45,8 @@ function build() {
     const id=toId(f);if(!id)return undefined;
     if(!first.files.has(id)){missing.add(id);return undefined;}
     reads.add(id);
-    try{return new TextDecoder("utf-8",{fatal:true,ignoreBOM:true}).decode(first.files.get(id));}
+    const bytes=first.read(id);
+    try{return new TextDecoder("utf-8",{fatal:true,ignoreBOM:true}).decode(bytes);}
     catch{fail("unsupported_input");}
   };
   const entries=f=>{
@@ -118,7 +90,7 @@ function build() {
   function anchor(node) {
     const sf=node.getSourceFile(),file=toId(sf.fileName),start=node.getStart(sf),end=node.end;
     const startByte=Buffer.byteLength(sf.text.slice(0,start)),endByte=Buffer.byteLength(sf.text.slice(0,end));
-    const bytes=first.files.get(file);
+    const bytes=first.read(file);
     if(!bytes || !bytes.subarray(startByte,endByte).equals(Buffer.from(sf.text.slice(start,end))))fail("unsupported_input");
     return {file,sha256:hash(bytes),kind:ts.SyntaxKind[node.kind],start_utf16:start,end_utf16:end,start_byte:startByte,end_byte:endByte};
   }
@@ -153,7 +125,7 @@ function build() {
     }
     visit(sf);
   }
-  const second=snapshot();
+  const second=snapshot(options);
   if(first.digest!==second.digest)reasons.add("unstable_snapshot");
   if(outside)reasons.add("outside_lookup");
   const complete=reasons.size===0;
@@ -172,6 +144,6 @@ function build() {
 }
 try {console.log(JSON.stringify(build()));}
 catch(error) {
-  const reason=["budget_exceeded","unsupported_input","compiler_mismatch"].includes(error.message)?error.message:"worker_failed";
+  const reason=["budget_exceeded","unsupported_input","compiler_mismatch","unstable_snapshot"].includes(error.message)?error.message:"worker_failed";
   console.log(JSON.stringify(emptyPacket(options,reason)));
 }
