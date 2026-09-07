@@ -61,7 +61,25 @@ The audit script checks the expected packet hash and all source hashes before
 asserting the fixed population; it is not a generic resolver or packet validator.
 Use the producer's `validate` command separately for full recomputation.
 
-Characterization:9/9 locally; exact-base control and full gates are in progress.
+Final verification (log hashes in adjacent `callable-merged-wildcard-gates.json`):
+
+- Observer221/0/0; helpers7/7; authority40 cases/failures=[];
+  exact-base characterization9/9, including strengthened review assertions.
+- `cargo test --offline`:4017 passed/0 failed/1 ignored,28 result groups.
+- `cargo test --offline --features mcp`:4207 passed/0 failed/1 ignored,30 groups.
+  Both totals include2 doctests. Rust production bytes are unchanged from base.
+- Full packet recomputation:valid=true/status=unproven. Source-before/after
+  manifests equal: `353187a695df2683a3631e4739c173cb6d33190901093549b61e28efeda60cbb`.
+- Two SELF-PASS rounds, NOT INDEPENDENT, no extension or open findings. Round1
+  SMELL: typed-pair side-effect table rows needed direct assertions, now added
+  and passed on both base/current. Round2 WRONG source locator:61356 points to
+  assignment widening, not shorthand `any`; corrected to Worker61351–61354.
+  This was a documentation locator error, not a production behavior defect.
+
+Raw archive (local, not hosted): task-root `merged-wildcard-evidence.tgz`, SHA256
+`1bd19fd859929f5346ceba799a4cda26d4645d58de77c5d3a89507d2732c1f6d`.
+The full84-site census and gate hashes are committed beside this readout.
+
 These tests pass pre-change production; no behavioral RED is claimed for an
 audit-only slice. No Tier-A run is triggered: `src/ast.rs`, `src/call_graph.rs`,
 `src/navigation/` and `src/cpg/` are unchanged; human-triggered full multi-corpus

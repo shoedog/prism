@@ -32,7 +32,9 @@ for(const [first,second] of [[empty,shorthand],[shorthand,empty],[empty,empty],[
 }
 for(const reverse of [false,true])test(`typed and shorthand merge preserves selected-declaration behavior: reverse=${reverse}`,()=>{
   const r=inspect(reverse?[shorthand,typed]:[typed,shorthand]);assert.equal(r.symbol.declarations.length,2);assert.deepEqual(r.exports,['value']);
+  assert.equal(r.selected,'/fixture/p0.d.ts');assert.equal(r.shorthand,reverse);
   assert.deepEqual(r.types,reverse?['any','any','any']:['any','string','any']);assert.deepEqual(r.codes,reverse?[]:[1192,2305]);
+  assert.deepEqual(inspect(reverse?[shorthand,typed]:[typed,shorthand],true).codes,[]);
 });
 test('duplicate typed declarations can diagnose even when two anchors bind',()=>{
   const r=inspect([typed,typed],true);assert.equal(r.symbol.declarations.length,2);assert.deepEqual(r.codes,[2451,2451]);

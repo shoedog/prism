@@ -37,7 +37,7 @@ Line numbers below refer to its `lib/typescript.js`, not current upstream:
 | `mergeSymbol`, 52261–52310 | Appends declarations, merges exports/members, and consults `setValueDeclaration`; declaration multiplicity alone says nothing about resulting value semantics. |
 | `isShorthandAmbientModuleSymbol`, 17329 | Tests the selected `valueDeclaration`, not whether any member of `declarations` is bodyless. |
 | `getTargetofModuleDefault`, 53207; import member resolution, 53413 | Shorthand selected declaration enables otherwise absent default/named imports. |
-| `getTypeOfFuncClassEnumModule`, 61356 | A shorthand module symbol supplies `any`. |
+| `getTypeOfFuncClassEnumModuleWorker`, 61351–61354 | A shorthand module symbol supplies `any`. |
 | `resolveExternalModule`, 54132–54140 | Pattern selection and request-specific augmentation participate in binding. |
 | `mergeModuleAugmentation`, 52382–52447 | Augmentation can alter the merged symbol; it is not another harmless provider. |
 
