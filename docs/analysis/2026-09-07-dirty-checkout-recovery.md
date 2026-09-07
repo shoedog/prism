@@ -26,3 +26,9 @@ Recovery: inspect `git show a86bbeb:<path>` or create a separate recovery worktr
 on the archive branch. Do not merge it into main: that would regress the observer
 and publish local historical evidence. The working directory no longer contains
 the two untracked ledger/snapshot files; their exact bytes remain in that commit.
+
+An additional local bundle was verified with `git bundle verify`:
+`/private/tmp/prism-umd-bridge-LqRG69/dirty-recovery.bundle`, SHA256
+`296aa9127662fbe99ffbf797c046f1d91334347f829fc104b1a77119d561623b`.
+It retains the recovery ref and requires base8e7744e2 already in this repository;
+it is not a standalone full-history repository backup and is not published.

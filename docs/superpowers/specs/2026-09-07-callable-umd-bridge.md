@@ -32,11 +32,14 @@ not runtime receiver resolution or general ambient/merged namespace support.
 
 ## Tests and review
 
-29 UMD tests include same-name and renamed singleton targets, pinned React18/19,
+32 UMD tests include same-name and renamed singleton targets, pinned React18/19,
 duplicate providers/assignments, module/global augmentation, explicit import/local
 shadow controls, invalid/missing/imported/qualified targets, type/value option
 semantics, budgets, epoch changes, tampering, receiver writes and Program closure.
 Initial RED:10 failures/19 passes on unchanged base; first implementation:29 passes.
+Final test population on exact merged main:13 failures/19 passes; changed producer:
+32 passes, within the full141-test observer suite. Added controls explicitly cover
+schema6 pre-I/O refusal, duplicate-provider addition/removal and unrelated globals.
 The negatives are controls, not separate implementation RED claims.
 
 Two SELF-PASS rounds, NOT INDEPENDENT. Stop on an open-class identity gap; do not

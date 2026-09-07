@@ -206,3 +206,25 @@ test("UMD source anchors are recomputed, not accepted from a tampered packet",()
   p.observations[0].provenance.hops[0].qualifiers[0].aliases[0].module_bindings=[];
   assert.equal(validate(JSON.stringify(p),options).valid,false);
 }));
+test("pre-bridge schema is refused before audited-root access",()=>fixture(({options})=>{
+  const p=produce(options);p.schema="prism.callable-observation/6";p.producer.version="0.7.0";
+  let reads=0;const forbidden={get root(){reads++;throw Error("root accessed");}};
+  assert.equal(validate(JSON.stringify(p),forbidden).valid,false);assert.equal(reads,0);
+}));
+test("provider population is replaced after duplicate addition and removal",()=>fixture(({root,put,config,options})=>{
+  put("tsconfig.json",JSON.stringify({...config,compilerOptions:{...config.compilerOptions,skipLibCheck:true}}));
+  const before=produce(options);supported(before);
+  put("src/extra.d.ts",provider("Other"));withheld(produce(options));
+  assert.equal(validate(JSON.stringify(before),options).valid,false);
+  rmSync(path.join(root,"src/extra.d.ts"));supported(produce(options));
+  assert.equal(validate(JSON.stringify(before),options).valid,true);
+}));
+test("unrelated globals and explicit import routes are not poisoned by the UMD census",()=>fixture(({put,config,options})=>{
+  put("src/extra.d.ts","export {};declare global {namespace Unrelated {const marker:number;}}");
+  supported(produce(options));
+  put("tsconfig.json",JSON.stringify({...config,compilerOptions:{...config.compilerOptions,skipLibCheck:true}}));
+  put("src/extra.d.ts",provider("Other"));put("src/app.ts","import * as Widget from './umd';"+app);
+  const p=produce(options);assert.equal(p.observations[0].provenance.status,"traced");
+  assert.equal(p.observations[0].provenance.hops[0].qualifiers[0].aliases[0].declarations[0].kind,"NamespaceImport");
+  assert.equal(p.authorizes_runtime_edge,false);assert.equal(p.scope.class_authority,false);
+}));

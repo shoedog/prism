@@ -1,6 +1,6 @@
 # Prism — post-plan roadmap (follow-up queue, strategic fork, Java, Serena)
 
-> Status reconciliation (2026-09-07): PR261–269 are merged through dc9b9e84. The approved source/compiler qualifier audit is published in PR270 and finds a singleton UMD global alias → export= → module-local namespace; the observer's current ambiguity label mixes those name domains, not demonstrated React augmentation at that hop. Fifteen new characterization/negative tests precede any proposed UMD bridge. Production observer/runtime behavior and all closure/duplicate barriers remain unchanged. See the callable-umd-qualifier-audit handoff; older stack/approval-pending statements are historical.
+> Status reconciliation (2026-09-07): PR261–270 are merged through9a34ef62. The approved bounded UMD observer bridge is implemented infa67821 with32 UMD controls and141 passing observer tests. The fixed public replay retains four Library class anchors but remains program_unproven; runtime authority and closure/duplicate/write/cache barriers are unchanged. The old dirty source is already merged; all15 dirty files were preserved in local recoverya86bbeb before switching the checkout cleanly to main. See the callable-umd-bridge handoff for gates/publication; earlier pending statements are historical.
 
 Date: 2026-07-04. Companion to `docs/analysis/prism-llm-and-accuracy-plan.md` (the
 ranked plan). Written as P14 (the final live plan item) is in implementation; refer
