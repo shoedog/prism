@@ -5,7 +5,7 @@ import {fileURLToPath} from "node:url";
 import path from "node:path";
 import {SCHEMA,COMPILER_HASH,LIMITS,PACKET_BYTES,relative,hash,canonical,parsePacket} from "./schema.mjs";
 export function producerHash() {
-  return hash(Buffer.concat(["schema.mjs","index.mjs","worker.mjs","provenance.mjs","nested.mjs"].map(f=>readFileSync(new URL(f,import.meta.url)))));
+  return hash(Buffer.concat(["schema.mjs","index.mjs","worker.mjs","provenance.mjs","nested.mjs","props-class.mjs"].map(f=>readFileSync(new URL(f,import.meta.url)))));
 }
 export function settings(options) {
   if(!options || typeof options.root!=="string" || typeof options.compiler!=="string"
@@ -17,7 +17,7 @@ export function settings(options) {
 }
 export function emptyPacket(options,reason) {
   const zero=hash("");
-  return {schema:SCHEMA,authorizes_runtime_edge:false,producer:{version:"0.3.0",sha256:producerHash()},
+  return {schema:SCHEMA,authorizes_runtime_edge:false,producer:{version:"0.4.0",sha256:producerHash()},
     compiler:{version:"5.9.3",sha256:COMPILER_HASH,verified:false,library_sha256:zero},
     scope:{config:"project/"+options.config,callable_scope:"direct-annotated-function",class_authority:false,case_sensitive:null},
     status:"unproven",reasons:[reason],limits:options.limits,
