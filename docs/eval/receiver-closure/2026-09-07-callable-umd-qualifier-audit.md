@@ -72,9 +72,22 @@ do not accept the transient symbols as bindings. No production oracle was change
 
 Full observer suite:124 passed,0 failed,0 skipped. These are characterization
 controls on unchanged production behavior, not an implementation RED claim.
-Full default/MCP Rust and authority controls are running; final totals follow
-before publication completion. No Tier-A trigger because relevant Rust surfaces
-are untouched. Review cap two SELF-PASS rounds, NOT INDEPENDENT.
+Full default Rust suite: 4017 passed, 0 failed, 1 ignored across 28 result groups.
+Full MCP Rust suite: 4207 passed, 0 failed, 1 ignored across 30 result groups.
+Both totals include doctests. Authority verifier reports no failures; its four
+tests pass with zero failures/skips. `cargo fmt --check` and the base-to-HEAD
+whitespace check pass. No Tier-A trigger because relevant Rust surfaces are
+untouched. Two SELF-PASS rounds completed, NOT INDEPENDENT.
+
+Verification commands, with the compiler/profile paths recorded in the handoff:
+
+```sh
+PRISM_TYPESCRIPT="$compiler" PRISM_CALLABLE_PROFILES="$profiles" node --test scripts/callable-observations/*.test.mjs
+CARGO_TARGET_DIR=/Users/wesleyjinks/code/slicing/target cargo test --offline
+CARGO_TARGET_DIR=/Users/wesleyjinks/code/slicing/target cargo test --offline --features mcp
+cargo fmt --check
+git diff --check origin/main..HEAD
+```
 
 Hypothesis/probe/result:
 
@@ -96,6 +109,14 @@ instrumented-packet.json, main-validation.json, source-before.json, source-after
 characterization.log, unresolved-symbol-probe.log, observer-full.log, cargo-default.log,
 cargo-mcp.log, authority.log and authority-tests.log. Instrumentation is removed,
 not a shipped observer option; the small source/probe files are retained with logs.
+
+The committed [compact evidence](2026-09-07-callable-umd-qualifier-evidence.json)
+was checked against the raw observer capture, unchanged producer, normal validation
+and before/after source custody. The complete local archive is
+`/private/tmp/prism-qualifier-audit-5LdjYI/qualifier-audit-evidence.tgz`, SHA256
+`ea201d05d083e2ee69e73dcd9ae57349155f0f1c138b433c8d260a1bca729abb`.
+The archive is local, not a published dependency; source anchors, hashes, fixtures
+and proof requirements are committed for review.
 
 Next recommendation is a separately bounded, source-identity-based UMD declaration
 bridge, following the [proof requirements](../../superpowers/specs/2026-09-07-callable-umd-qualifier-proof.md).

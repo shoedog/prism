@@ -1,7 +1,7 @@
 # Handoff — UMD qualifier source audit
 
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
-**Workspace:** /private/tmp/prism-qualifier-audit-5LdjYI/worktree · audit/callable-umd-qualifier · **Measured state:** `[MEASURED]` base dc9b9e84; audit/test files in progress; production observer unchanged.
+**Workspace:** /private/tmp/prism-qualifier-audit-5LdjYI/worktree · audit/callable-umd-qualifier · **Measured state:** `[MEASURED]` base dc9b9e84; audit/tests captured in d044a2b; verification complete; production observer unchanged.
 **Predecessor:** PR267–269, confirmed merged through dc9b9e847b829bf84a43a323a9eb7e28e6aa5c16.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,16 +9,17 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) /root only; original dirty checkout preserved using isolated worktree — RESOLVED.
-(b) New characterization/spec/readout files local; snapshot next — OPEN publication.
-(c) Full Rust/authority gates running; observer124/124 passed — OPEN final verification.
+(b) Audit/tests committed in d044a2b; closeout evidence captured — OPEN remote publication.
+(c) Observer124/124; Rust default4017/MCP4207 passed,0 failed,1 ignored each,
+    including doctests; authority verifier clean and4/4 controls passed — RESOLVED.
 (d) Owner: “267, 268, 269 are merged, proceed to next”. Next was a source/compiler
 audit and negative fixtures, not automatic UMD resolution expansion.
 
 ## 1. Resume order
 
 1. `git -C /private/tmp/prism-qualifier-audit-5LdjYI/worktree status --short --branch`.
-2. Read task-root cargo-default.log and cargo-mcp.log through completed doctests;
-   total result lines, then finish readout and publish audit PR.
+2. Verify remote publication and PR checks; full gate logs and compact committed
+   evidence are recorded in the readout. Do not rerun acquisition or install.
 3. Proposed implementation requirements are in callable-umd-qualifier-proof spec;
    do not infer runtime or broad global/merged-namespace support from the audit.
 
@@ -34,7 +35,7 @@ runtime expansion, React spelling heuristics or removal of duplicate/closure bar
 | Production instrumentation | done | `[MEASURED]` removed; packet comparison differs only in producer hash; normal main validates predecessor packet |
 | Characterization fixtures | done | `[MEASURED]`15 new tests; full observer124 passed,0 failed,0 skipped |
 | Public source custody | done | `[MEASURED]` before/after manifests equal, original clean; no install or source edits |
-| Full project gates | pending | cargo-default.log, cargo-mcp.log, authority.log, authority-tests.log |
+| Full project gates | done | `[MEASURED]` default4017/MCP4207 passed,0 failed,1 ignored each; authority failures=[] and4 tests passed; fmt/diff clean |
 | UMD resolution implementation | next | separately bounded proposal; no implementation in this audit |
 
 ## 3. Corrections to standing documents and memory
@@ -47,7 +48,11 @@ augmentation closure or runtime WRONG established. No memory edits authorized.
 
 ## 4. Open work
 
-Finish full verification, capture evidence archive, commit/push/open audit PR.
+Publish the audit PR; all local gates and two self-review rounds are complete.
+Evidence archive: task-root `qualifier-audit-evidence.tgz`, SHA256
+`ea201d05d083e2ee69e73dcd9ae57349155f0f1c138b433c8d260a1bca729abb`.
+Compact evidence, source anchors and executable fixtures are committed; the full
+archive remains local and is not required to execute the fixtures.
 Next proposal: bounded generic UMD declaration bridge with source-identity and
 global provider/duplicate checks, not React.FC spelling expansion.
 
@@ -72,6 +77,6 @@ global provider/duplicate checks, not React.FC spelling expansion.
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED · claim: "the reported qualifier ambiguity is scope-mixed candidate evidence, not multiple compiler declarations at this hop" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: observer-symbols.json, observer-full.log, proof spec; full project gates pending
+**§2c verdict:** SURVIVED · claim: "the reported qualifier ambiguity is scope-mixed candidate evidence, not multiple compiler declarations at this hop" · pass: two SELF-PASS rounds (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: observer-symbols.json, observer-full.log, proof spec; full project gates complete
 
 **Questions the owner owes an answer to:** None for this audit; the successor bridge is a proposed bounded implementation.
