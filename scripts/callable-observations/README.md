@@ -33,12 +33,12 @@ an unproven observation exits0. Read the JSON, not just the exit code.
 
 ## Meaning of the packet
 
-The strict executable v9 schema is `schema.mjs` (`parsePacket`). It freezes these
+The strict executable v10 schema is `schema.mjs` (`parsePacket`). It freezes these
 groups, rejecting unknown fields and unsafe IDs before project access:
 
 | Group | Meaning |
 |---|---|
-| schema / authorizes_runtime_edge | prism.callable-observation/9; authority is always false; older packets reject before root access |
+| schema / authorizes_runtime_edge | prism.callable-observation/10; authority is always false; older packets reject before root access |
 | producer / compiler | Tool-byte digest; required compiler version/hash, whether actually verified, full compiler-lib inventory digest |
 | scope | Relative config, acquisition profile, link policy, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
 | status / reasons / closure | observed means this bounded Program completed without the enumerated closure failures; unproven records limitations. Neither means a receiver or class is proven |
@@ -46,6 +46,7 @@ groups, rejecting unknown fields and unsafe IDs before project access:
 | resolutions / diagnostics | Compiler module-resolution outcomes and anchored diagnostic codes; unresolved dependencies are not automatically application defects |
 | resolutions[].lookup | Actual request anchor/context, checker declarations and configured-Program exact-name provider/augmentation census; observed means singleton exact-ambient binding only, never filesystem or closure authority |
 | resolutions[].lookup.wildcard | Independent nullable single-star binding observation: pattern, original-source providers, relevant augmentations and matching-provider census; never asset-existence or closure authority |
+| resolutions[].lookup.merged_wildcard | Separate nullable side-effect-only empty-block/shorthand pair observation; checker-ordered source shapes and actual selected value declaration; old wildcard refusal remains unchanged |
 | observations | Direct variable annotations on arrow/function expressions; annotation/implementation/first-parameter anchors, explicit annotation flag, contextual callable declarations/signatures, direct-body member-call receiver types and method declaration anchors |
 | observations.provenance | Bounded defining-source declaration/alias observations, generic use/binder anchors, namespace qualifiers and partial-chain reasons; not a substitution or ownership certificate |
 | observations.nested | Nested arrow/function-expression call anchors, enclosing callback anchors, first-parameter binding observations and explicit scope/budget barriers |
@@ -77,7 +78,7 @@ exercise this distinction.
 
 ## Declaration provenance
 
-Producer0.10.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs`, `props-class.mjs`, `exact-ambient.mjs` and `wildcard.mjs` in its byte digest. `provenance.status=traced`
+Producer0.11.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs`, `props-class.mjs`, `exact-ambient.mjs`, `wildcard.mjs` and `merged-wildcard.mjs` in its byte digest. `provenance.status=traced`
 means the supported syntactic chain reached an inline callable type or a singleton,
 non-inherited callable interface. It is independent of program closure: even a
 traced chain can belong to an unproven packet. Type arguments and parameters keep
@@ -105,7 +106,7 @@ Program-keyed population census is bounded by acquisition bytes/files and worker
 timeout/heap; it is not reused across Programs or snapshots. No compiler option is
 changed: `allowUmdGlobalAccess` value-use diagnostics do not gate type-only use.
 Traced UMD candidates still cannot overcome receiver writes or incomplete Program
-closure; both authority flags remain false. Schema9 rejects older observations.
+closure; both authority flags remain false. Schema10 rejects older observations.
 
 Star exports in any consulted module, unresolved/duplicate/merged declarations,
 inheritance, unsupported types/declarations, cycles and step exhaustion retain an
@@ -187,6 +188,29 @@ binding. Writes through aliases, opaque calls and external effects are NOT prove
 absent. This is lexical observation tooling, not a runtime write/effect certificate.
 All nested anchors and linked-status invariants are checked pre-I/O; complete
 recomputation rejects forged or deleted binding/write/barrier evidence.
+
+## Bounded merged wildcard observations
+
+`lookup.merged_wildcard` is separate from the old wildcard disposition, which
+continues to refuse duplicate providers. A positive new record requires an actual
+side-effect-only import (no clause/attributes/modifiers) and exactly two same-pattern
+top-level non-external declaration-file providers: one empty ModuleBlock and one
+bodyless shorthand. No exact provider, competing match or relevant augmentation
+may coexist. The actual request symbol, contributor symbols, original-source
+census and selected `valueDeclaration` must agree by identity in this Program.
+
+`declarations` preserves checker order with `{declaration,shape}` entries;
+`selected` records the actual selected declaration, never an order-based guess.
+Shapes are empty_block/shorthand/other, with other always ineligible. Value/type
+imports, typed merges, other pairs, third/nested/excluded providers and unsupported
+ownership retain refusals or no candidate. Source/body/context/membership changes
+invalidate validation, including genuine selected-declaration substitutions.
+
+All schema9 fields and ordering are preserved before the new lane is compared.
+Filesystem targets, asset inventory and closure/refusal/write/class barriers stay
+independent. In particular, an observed pair still belongs to an unproven Program
+with a null filesystem target. Historical fixed-packet audit commands use their
+explicit pinned digest, not the current packet validator's schema.
 
 ## Supported boundary and limitations
 

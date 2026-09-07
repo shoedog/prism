@@ -1,7 +1,9 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';import path from 'node:path';import {tmpdir} from 'node:os';
+import {mkdtempSync,mkdirSync,writeFileSync,rmSync,readFileSync} from 'node:fs';import path from 'node:path';import {tmpdir} from 'node:os';import {createRequire} from 'node:module';
 import {produce,validate} from './index.mjs';
+import {observeExactAmbient} from './exact-ambient.mjs';import {COMPILER_HASH,hash,canonical} from './schema.mjs';
 const compiler=process.env.PRISM_TYPESCRIPT;assert(compiler,'pinned compiler required');
+assert.equal(hash(readFileSync(compiler)),COMPILER_HASH);const ts=createRequire(import.meta.url)(compiler);
 const empty='declare module "*.scss" {}',short='declare module "*.scss";';
 const app='class Client{m(){}}type View<P>=(p:P)=>void;const run:View<{client:Client}>=({client})=>{const cb=()=>client.m();};';
 function fixture(run){const root=mkdtempSync(path.join(tmpdir(),'prism-merged-wildcard-'));
@@ -95,4 +97,33 @@ for(const changed of [false,true])test(`redirected augmentation census uses actu
   }
   source('import "x";import "y";import "./style.scss";');const p=produce(options),r=resolution(p);assert.equal(r.lookup.merged_wildcard.reason,'augmentation');
   assert.equal(r.lookup.wildcard.augmentations.length,2);assert.equal(r.lookup.wildcard.augmentations[0].sha256!==r.lookup.wildcard.augmentations[1].sha256,changed);
+}));
+// Defensive seam controls use real compiler nodes with explicitly injected
+// inconsistent request/checker metadata. They do not claim natural reachability.
+for(const mode of ['synthetic','filesystem','missing_selected','foreign_selected','foreign_declaration','duplicate_declaration','non_value','name_symbol'])
+  test(`defensive source/selection seam: ${mode}`,()=>fixture(({put,config,options})=>{
+    put('src/other.d.ts','declare module "*.other" {}');
+    const parsed=ts.parseJsonConfigFileContent(config,ts.sys,options.root),program=ts.createProgram(parsed.fileNames,parsed.options),checker=program.getTypeChecker();
+    const sf=program.getSourceFile(path.join(options.root,'src/app.ts')),literal=sf.statements[0].moduleSpecifier,symbol=checker.getSymbolAtLocation(literal);
+    const other=program.getSourceFile(path.join(options.root,'src/other.d.ts')).statements[0];
+    const injected={...symbol};let use=literal;
+    if(mode==='missing_selected')injected.valueDeclaration=undefined;
+    if(mode==='foreign_selected')injected.valueDeclaration=other;
+    if(mode==='foreign_declaration')injected.declarations=[symbol.declarations[0],ts.createSourceFile('excluded.d.ts',short,ts.ScriptTarget.Latest,true).statements[0]];
+    if(mode==='duplicate_declaration')injected.declarations=[symbol.declarations[0],symbol.declarations[0]];
+    if(mode==='non_value')injected.flags=0;
+    if(mode==='synthetic')use=ts.factory.createStringLiteral('./style.scss');
+    const fake={...checker,getSymbolAtLocation(n){const original=checker.getSymbolAtLocation(n);return original===symbol?(mode==='name_symbol'&&n!==literal?symbol:injected):original;}};
+    const r={from:sf.fileName,specifier:'./style.scss',target:mode==='filesystem'?'project/claimed.ts':null};
+    const anchor=(n,source=n.getSourceFile())=>({file:source.fileName,kind:ts.SyntaxKind[n.kind],start_utf16:n.getStart(source),end_utf16:n.end});
+    observeExactAmbient(ts,program,fake,[{resolution:r,literal:use,source:sf}],n=>anchor(n),anchor);
+    assert(Object.hasOwn(r.lookup,'merged_wildcard'));
+    if(mode==='synthetic')assert.equal(r.lookup.merged_wildcard,null);
+    else assert.equal(r.lookup.merged_wildcard.reason,mode==='filesystem'?'filesystem_target':mode.endsWith('selected')?'selected_declaration':'binding_mismatch');
+  }));
+for(const reverse of [false,true])test(`repeated specifier preserves legacy occurrence order: reverse=${reverse}`,()=>fixture(({source,options})=>{
+  const imports=['import "./style.scss";','import value from "./style.scss";'];source((reverse?imports.reverse():imports).join(' '));
+  const rs=produce(options).resolutions.filter(r=>r.specifier==='./style.scss');assert.equal(rs.length,2);
+  const keys=rs.map(r=>{const q=structuredClone(r);delete q.lookup.merged_wildcard;return canonical(q);});
+  assert.deepEqual(keys,[...keys].sort(),'new disposition must not reorder legacy evidence');
 }));

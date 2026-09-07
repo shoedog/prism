@@ -152,12 +152,18 @@ function build() {
   packet.snapshot={sha256:first.digest,files:first.manifest,directories:first.dirs,links:first.links,
     roots:parsed.fileNames.map(toId).sort(),config_files:configFiles,program_files:program.getSourceFiles().map(f=>toId(f.fileName)).sort(),
     reads:[...reads].sort(),failed_lookups:[...missing].sort(),refused_lookup_sha256:[...refused].sort(),outside_lookups:outside,options_sha256:hash(canonical(parsed.options))};
-  // Preserve the pre-observation filesystem-result ordering. New evidence is a
-  // tiebreaker only for otherwise identical request triples.
+  // Preserve filesystem triples and all schema9 evidence before comparing the
+  // new lane. Mixed repeated imports can have different merged dispositions.
   const resolutionKey=({from,specifier,target})=>canonical({from,specifier,target});
+  const legacyKey=({lookup,...resolution})=>{
+    const {merged_wildcard,...legacy}=lookup;
+    return canonical({...resolution,lookup:legacy});
+  };
   packet.resolutions.sort((a,b)=>{
     const x=resolutionKey(a),y=resolutionKey(b);
-    return x<y?-1:x>y?1:canonical(a)<canonical(b)?-1:canonical(a)>canonical(b)?1:0;
+    if(x!==y)return x<y?-1:1;
+    const u=legacyKey(a),v=legacyKey(b);
+    return u<v?-1:u>v?1:canonical(a)<canonical(b)?-1:canonical(a)>canonical(b)?1:0;
   });
   return packet;
 }

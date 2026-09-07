@@ -1,5 +1,5 @@
 import {createHash} from "node:crypto";
-export const SCHEMA="prism.callable-observation/9";
+export const SCHEMA="prism.callable-observation/10";
 export const COMPILER_HASH="3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675";
 export const LIMITS={files:20000,bytes:128*1024*1024,read_bytes:128*1024*1024,link_steps:32,depth:64,timeout_ms:30000,observations:2000,provenance_steps:32,nested_depth:8,nested_calls:128,props_type_args:8};
 export const PACKET_BYTES=8*1024*1024;
@@ -33,12 +33,17 @@ const wildcard=object({status:x=>['observed','unproven'].includes(x),
   reason:nullable(x=>['unsupported_request','filesystem_target','augmentation','duplicate_provider','competing_pattern',
     'ambiguous_binding','exact_provider','binding_mismatch','unsupported_provider'].includes(x)),
   pattern:x=>str(x)&&x.split('*').length===2,providers:array(anchor),augmentations:array(anchor),matches:array(anchor)});
+const moduleEntry=object({declaration:anchor,shape:x=>['empty_block','shorthand','other'].includes(x)});
+const mergedWildcard=object({status:x=>['observed','unproven'].includes(x),
+  reason:nullable(x=>['unsupported_request','filesystem_target','augmentation','provider_count','competing_pattern',
+    'exact_provider','binding_mismatch','unsupported_provider','selected_declaration'].includes(x)),
+  declarations:array(moduleEntry),selected:nullable(moduleEntry)});
 const lookup=object({status:x=>['observed','unproven'].includes(x),
   reason:nullable(x=>['synthetic_request','augmentation_request','unsupported_request','filesystem_target',
     'augmentation','duplicate_provider','unresolved_symbol','ambiguous_binding','non_exact_binding',
     'binding_mismatch','unsupported_provider'].includes(x)),
   context:x=>['synthetic','import','export','import_type','import_equals','augmentation_name','dynamic_import','require','other'].includes(x),
-  request:nullable(anchor),declarations:array(anchor),providers:array(anchor),augmentations:array(anchor),wildcard:nullable(wildcard)});
+  request:nullable(anchor),declarations:array(anchor),providers:array(anchor),augmentations:array(anchor),wildcard:nullable(wildcard),merged_wildcard:nullable(mergedWildcard)});
 const alias=object({declarations:array(anchor),target:array(anchor),module:nullable(anchor),
   module_declarations:array(anchor),module_exports:array(anchor),module_bindings:array(anchor)});
 const provenance=object({status:x=>["traced","unproven"].includes(x),
@@ -65,7 +70,7 @@ const reasons=array(x=>[
 ].includes(x));
 const packet=object({
   schema:literal(SCHEMA),authorizes_runtime_edge:literal(false),
-  producer:object({version:literal("0.10.0"),sha256:digest}),
+  producer:object({version:literal("0.11.0"),sha256:digest}),
   compiler:object({version:literal("5.9.3"),sha256:literal(COMPILER_HASH),verified:boolean,library_sha256:digest}),
   scope:object({config:id,acquisition_profile:x=>typeof x==="string" && Object.hasOwn(PROFILES,x),link_policy:x=>["reject","in-root"].includes(x),callable_scope:literal("direct-annotated-function"),class_authority:literal(false),case_sensitive:nullable(boolean)}),
   status:x=>["observed","unproven"].includes(x),reasons,
@@ -158,6 +163,33 @@ export function parsePacket(text) {
         || w.reason==='ambiguous_binding' && l.declarations.length<2
         || w.reason==='exact_provider' && !l.providers.length)throw Error('invalid_packet');
     }
+  }
+  for(const r of value.resolutions) {
+    const l=r.lookup,w=l.wildcard,m=l.merged_wildcard;if(!m)continue;
+    if(!w || w.providers.length<2 && l.declarations.length<2)throw Error('invalid_packet');
+    for(const e of [...m.declarations,...(m.selected?[m.selected]:[])]) {
+      checkAnchor(e.declaration);
+      if(!programFiles.has(e.declaration.file)||e.declaration.kind!=='ModuleDeclaration')throw Error('invalid_packet');
+    }
+    const sameSet=(a,b)=>canonical(a.map(canonical).sort())===canonical(b.map(canonical).sort());
+    const [prefix,suffix]=w.pattern.split('*');
+    if((m.status==='observed'
+      ? m.reason!==null || r.target!==null || !value.compiler.verified || !l.request || l.request.kind!=='StringLiteral'
+        || l.context!=='import' || l.status!=='unproven' || w.status!=='unproven' || w.reason!=='duplicate_provider'
+        || l.providers.length || l.augmentations.length || w.augmentations.length || m.declarations.length!==2
+        || canonical(m.declarations.map(e=>e.declaration))!==canonical(l.declarations)
+        || new Set(m.declarations.map(e=>canonical(e.declaration))).size!==2
+        || !sameSet(w.providers,l.declarations) || !sameSet(w.matches,l.declarations)
+        || m.declarations.filter(e=>e.shape==='empty_block').length!==1 || m.declarations.filter(e=>e.shape==='shorthand').length!==1
+        || !m.selected || !m.declarations.some(e=>canonical(e)===canonical(m.selected))
+        || r.specifier.length<prefix.length+suffix.length || !r.specifier.startsWith(prefix) || !r.specifier.endsWith(suffix)
+      : !m.reason)
+      || m.reason==='filesystem_target' && r.target===null
+      || m.reason==='augmentation' && !w.augmentations.length && !l.augmentations.length
+      || m.reason==='provider_count' && w.providers.length===2 && l.declarations.length===2
+      || m.reason==='competing_pattern' && w.matches.length===2
+      || m.reason==='exact_provider' && !l.providers.length
+      || m.reason==='selected_declaration' && m.selected && m.declarations.some(e=>canonical(e)===canonical(m.selected)))throw Error('invalid_packet');
   }
   for(const o of value.observations) {
     [o.annotation,o.implementation,o.parameter,...o.signatures,...o.callable_declarations].forEach(checkAnchor);

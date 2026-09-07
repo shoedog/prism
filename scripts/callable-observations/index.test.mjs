@@ -383,7 +383,7 @@ test("missing imports and namespace merges remain partial observations",()=>fixt
 }));
 
 test("provenance budgets and corrupted nested anchors fail closed",()=>fixture(({options})=>{
-  const p=produce(options);assert.equal(p.schema,"prism.callable-observation/9");
+  const p=produce(options);assert.equal(p.schema,"prism.callable-observation/10");
   assert.equal(p.observations[0].provenance.status,"traced");
   const limited=produce({...options,limits:{provenance_steps:1}});
   assert.equal(limited.observations[0].provenance.reason,"step_limit");
@@ -449,7 +449,7 @@ test("nested namespace uses and limits retain source identity",()=>fixture(({put
 }));
 
 test("producer digest covers the new provenance implementation",()=>{
-  const sources=["schema.mjs","index.mjs","worker.mjs","inventory.mjs","provenance.mjs","nested.mjs","props-class.mjs","exact-ambient.mjs","wildcard.mjs"].map(f=>readFileSync(new URL(f,import.meta.url)));
+  const sources=["schema.mjs","index.mjs","worker.mjs","inventory.mjs","provenance.mjs","nested.mjs","props-class.mjs","exact-ambient.mjs","wildcard.mjs","merged-wildcard.mjs"].map(f=>readFileSync(new URL(f,import.meta.url)));
   assert.equal(producerHash(),hash(Buffer.concat(sources)));
   assert.notEqual(producerHash(),hash(Buffer.concat(sources.slice(0,3))));
   assert.notEqual(producerHash(),hash(Buffer.concat(sources.slice(0,-1))));
