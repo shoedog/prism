@@ -1,6 +1,7 @@
 # Callable dependency acquisition — bounded preflight and execution plan
 
 Status: planning complete; acquisition NOT executed or authorized by this document.
+Published as [PR265](https://github.com/shoedog/prism/pull/265), plan commit786a019.
 Owner approved this planning successor after PR264 merged. Base
 f2f8a3c535fca20013ee642cec977403beec51b5. Two SELF-PASS rounds, NOT INDEPENDENT;
 no agents. Documentation only: no observer/runtime/schema/cache changes.

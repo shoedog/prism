@@ -275,7 +275,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   below; dependency installation still needs separate approval.
   No runtime authority expansion. See same-date callable-lookup-packets readout.
 
-- **Dependency-acquisition preflight — docs-only plan complete, publication pending:**
+- **Dependency-acquisition preflight — docs-only PR265, plan786a019:**
   Public/private configs, locks, manager/runtime constraints and repeatable metadata
   audited read-only. Public source+compiler currently77976115 bytes, no dependencies;
   installed bytes UNKNOWN. Yarn workspace symlinks conflict with current snapshot

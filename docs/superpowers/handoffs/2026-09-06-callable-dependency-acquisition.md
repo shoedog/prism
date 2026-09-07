@@ -1,7 +1,7 @@
 # Handoff — callable dependency acquisition preflight
 
 **Written:** 2026-09-06 · **By:** /root · **Provider:** codex
-**Workspace:** /private/tmp/prism-acquisition-plan-6kg7fn/worktree · docs/callable-acquisition-preflight · **Measured state:** `[MEASURED]` base f2f8a3c5; docs-only plan prepared, publication pending.
+**Workspace:** /private/tmp/prism-acquisition-plan-6kg7fn/worktree · docs/callable-acquisition-preflight · **Measured state:** `[MEASURED]` base f2f8a3c5; docs-only plan786a019 pushed in PR265; this publication closeout follows.
 **Predecessor:** PR264, confirmed merged at f2f8a3c535fca20013ee642cec977403beec51b5.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -30,7 +30,7 @@ runtime/observer authority expansion; two self-review rounds, NOT INDEPENDENT.
 | Source/control metadata preflight | done | `[MEASURED]` public/excalidraw-preflight.json and repeat match; compiler-preflight.json; private repeat matches |
 | Acquisition plan | done | `[MEASURED]` same-date spec; normal Yarn workspace links conflict with all-symlink refusal, installed size UNKNOWN |
 | Verification | done | `[MEASURED]` two source-backed self-review rounds; no code changes; inherited test results not reused as fresh |
-| Publication | pending | Scoped docs commit/push/PR |
+| Publication | done | `[MEASURED]` plan786a019 pushed; https://github.com/shoedog/prism/pull/265 open against main |
 | Acquisition execution | blocked | Requires explicit public-only disposable install/tool-bootstrap approval and plan caps |
 
 ## 3. Corrections to standing documents and memory
@@ -41,8 +41,10 @@ roadmap and predecessor notice are reconciled at publication. No memory edits.
 
 ## 4. Open work
 
-Publish docs; request approval for the single public disposable acquisition
-measurement specified in the plan. No new observer implementation is authorized.
+No planning/publication work remains. Owner review/merge and approval for the single
+public disposable acquisition measurement are next. No new observer implementation
+is authorized. Public-only archive: /private/tmp/prism-acquisition-plan-6kg7fn/public-evidence.tgz,
+with adjacent checksum sidecar; private evidence excluded.
 
 ## 5. Invariants and traps — do not do these
 
@@ -60,6 +62,7 @@ measurement specified in the plan. No new observer implementation is authorized.
 | Base | f2f8a3c535fca20013ee642cec977403beec51b5 |
 | Public source | 0642e72cfa2d9a71198200e52f37399384610ee3 |
 | Active plan | docs/superpowers/specs/2026-09-06-callable-dependency-acquisition.md |
+| PR | https://github.com/shoedog/prism/pull/265 |
 
 ## 7. Refutation verdict and owner questions
 
