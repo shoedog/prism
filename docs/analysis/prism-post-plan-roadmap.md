@@ -1,6 +1,6 @@
 # Prism — post-plan roadmap (follow-up queue, strategic fork, Java, Serena)
 
-> Status reconciliation (2026-09-06): PR261 alias, PR262 nested bindings and PR263 Props/class observations are merged at main54b6755a. Historical controller/publication/next statements below are superseded. The owner-approved lookup-packet successor is implemented; runtime authority remains excluded.
+> Status reconciliation (2026-09-06): PR261–264 are merged at mainf2f8a3c5. Historical controller/publication/next statements below are superseded. The owner-approved dependency-acquisition preflight/plan is complete; actual installation and runtime authority remain unapproved.
 
 Date: 2026-07-04. Companion to `docs/analysis/prism-llm-and-accuracy-plan.md` (the
 ranked plan). Written as P14 (the final live plan item) is in implementation; refer
@@ -265,15 +265,24 @@ Three candidate directions once the queue's top items are drained (or interleave
   Successor below repairs lookup packets and repeats the configured census; see
   same-date callable-props-class spec/readout/handoff. Private evidence stays local.
 
-- **Refused compiler lookup packets — published PR264, implementationbf6d4fc:**
+- **Refused compiler lookup packets — merged PR264, mainf2f8a3c5:**
   Base54b6755a; schema4/producer0.5.0. Separate opaque refusal digests repair invalid
   path-ID serialization while preserving strict paths and independent closure
   barriers. Excalidraw configured packet now retains30 observations/53 nested calls,
   including4 watched linked library sites; still unproven,0 class candidates.
   Node85/85, compiler40/40, helpers4/4; default4017/0/1,MCP4207/0/1 including doctests.
-  React declaration inputs are absent. Next: bounded dependency-acquisition/preflight
-  plan and dependency-complete actual-config replay, with separate install approval.
+  React declaration inputs are absent. Acquisition/preflight planning is complete
+  below; dependency installation still needs separate approval.
   No runtime authority expansion. See same-date callable-lookup-packets readout.
+
+- **Dependency-acquisition preflight — docs-only plan complete, publication pending:**
+  Public/private configs, locks, manager/runtime constraints and repeatable metadata
+  audited read-only. Public source+compiler currently77976115 bytes, no dependencies;
+  installed bytes UNKNOWN. Yarn workspace symlinks conflict with current snapshot
+  refusal. Install success cannot imply observer admission or compiler closure.
+  Next approval: one public-only frozen-lock, script-disabled disposable acquisition
+  measurement, bounded by time/disk/trust limits; no original-app writes or runtime
+  expansion. See 2026-09-06-callable-dependency-acquisition spec/handoff.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:
