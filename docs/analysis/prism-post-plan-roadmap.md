@@ -1,6 +1,6 @@
 # Prism — post-plan roadmap (follow-up queue, strategic fork, Java, Serena)
 
-> Status reconciliation (2026-09-07): PR261–270 are merged through9a34ef62. The approved bounded UMD observer bridge is published in PR271, implemented infa67821 with32 UMD controls and141 passing observer tests. The fixed public replay retains four Library class anchors but remains program_unproven; runtime authority and closure/duplicate/write/cache barriers are unchanged. The old dirty source is already merged; all15 dirty files were preserved in local recoverya86bbeb before switching the checkout cleanly to main. See the callable-umd-bridge handoff for gates/publication; earlier pending statements are historical.
+> Status reconciliation (2026-09-07): PR261–271 are merged through2abb5de0. The approved source-backed closure audit is published in PR272 (classification commit cbbca18):603 null filesystem requests comprise588 ambient use bindings,1 augmentation-name request and14 source gaps;264 refusal digests and806 outside directory probes are separately explained. Four Library candidates remain program_unproven. Production observer/runtime and all closure barriers are unchanged;155 observer tests pass. Local recoverya86bbeb remains untouched/unpublished. See the callable-closure-classification handoff for current gates/publication; earlier pending statements are historical.
 
 Date: 2026-07-04. Companion to `docs/analysis/prism-llm-and-accuracy-plan.md` (the
 ranked plan). Written as P14 (the final live plan item) is in implementation; refer
