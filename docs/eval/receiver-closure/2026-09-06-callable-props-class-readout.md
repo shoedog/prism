@@ -1,5 +1,7 @@
 # Instantiated Props/property-to-class observations
 
+> Successor reconciliation: PR261/262/263 merged; main54b6755a. The lookup-packet defect below is repaired by the owner-approved callable-lookup-packets slice. Its readout records the same-environment control and restored, still-unproven configured census. Historical gates below remain tied to this Props slice.
+
 Implemented on PR262 head f0c9053c942525d59683849df83fcd98dc141f89, dependent on
 PR261. Implementation4e1f4d8 is pushed in [PR263](https://github.com/shoedog/prism/pull/263).
 Merge order: PR261 → PR262 → PR263. The owner authorized agent

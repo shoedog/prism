@@ -1,5 +1,7 @@
 # Bounded instantiated Props/property-to-class observations
 
+> Status reconciliation: merged in PR263 (main54b6755a), after PR261/262. The separately approved lookup-packets successor repairs packet acquisition without expanding this Props or runtime-authority contract.
+
 Owner explicitly approved this slice and agent commit/push/PR. Base PR262 head
 f0c9053c942525d59683849df83fcd98dc141f89, dependent on PR261. Cap3 SELF-PASS,
 NOT INDEPENDENT; no agents. Only standalone observer tooling/docs/tests change.

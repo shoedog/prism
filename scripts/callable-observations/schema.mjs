@@ -1,5 +1,5 @@
 import {createHash} from "node:crypto";
-export const SCHEMA="prism.callable-observation/3";
+export const SCHEMA="prism.callable-observation/4";
 export const COMPILER_HASH="3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675";
 export const LIMITS={files:20000,bytes:128*1024*1024,depth:64,timeout_ms:30000,observations:2000,provenance_steps:32,nested_depth:8,nested_calls:128,props_type_args:8};
 export const PACKET_BYTES=8*1024*1024;
@@ -46,11 +46,11 @@ const nested=object({calls:array(object({call:anchor,receiver:anchor,receiver_ty
 const reasons=array(x=>[
   "budget_exceeded","unsupported_input","compiler_mismatch","unstable_snapshot",
   "compiler_diagnostics","unsupported_references","unsupported_plugins",
-  "outside_lookup","unresolved_module","invalid_config","worker_failed",
+  "outside_lookup","unsupported_lookup","unresolved_module","invalid_config","worker_failed",
 ].includes(x));
 const packet=object({
   schema:literal(SCHEMA),authorizes_runtime_edge:literal(false),
-  producer:object({version:literal("0.4.0"),sha256:digest}),
+  producer:object({version:literal("0.5.0"),sha256:digest}),
   compiler:object({version:literal("5.9.3"),sha256:literal(COMPILER_HASH),verified:boolean,library_sha256:digest}),
   scope:object({config:id,callable_scope:literal("direct-annotated-function"),class_authority:literal(false),case_sensitive:nullable(boolean)}),
   status:x=>["observed","unproven"].includes(x),reasons,
@@ -58,7 +58,7 @@ const packet=object({
   limits:object(Object.fromEntries(Object.keys(LIMITS).map(k=>[k,integer]))),
   snapshot:object({sha256:digest,files:array(object({id,sha256:digest,size:integer})),directories:array(id),
     roots:array(id),config_files:array(id),program_files:array(id),reads:array(id),failed_lookups:array(id),
-    outside_lookups:boolean,options_sha256:digest}),
+    refused_lookup_sha256:array(digest),outside_lookups:boolean,options_sha256:digest}),
   resolutions:array(object({from:id,specifier:str,target:nullable(id)})),
   diagnostics:array(object({code:integer,file:nullable(id),start:nullable(integer)})),
   observations:array(object({annotation:anchor,implementation:anchor,parameter:nullable(anchor),
@@ -75,6 +75,11 @@ export function parsePacket(text) {
   if(!value.scope.config.startsWith("project/")) throw Error("invalid_packet");
   if(value.status==="observed" && (value.reasons.length || !value.compiler.verified || Object.values(value.closure).some(x=>!x))) throw Error("invalid_packet");
   if(value.status==="unproven" && !value.reasons.length) throw Error("invalid_packet");
+  const refused=value.snapshot.refused_lookup_sha256;
+  if(refused.some((v,i)=>i>0 && v<=refused[i-1])
+    || !!refused.length!==value.reasons.includes("unsupported_lookup")
+    || refused.length && (value.status!=="unproven" || value.closure.dependencies
+      || value.closure.augmentation || value.closure.resolution))throw Error("invalid_packet");
   if(value.snapshot.files.length && value.snapshot.sha256!==hash(canonical({files:value.snapshot.files,directories:value.snapshot.directories}))) throw Error("invalid_packet");
   for(const name of ["roots","program_files","config_files","reads"]) {
     if(value.snapshot[name].some(id=>!files.has(id))) throw Error("invalid_packet");

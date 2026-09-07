@@ -55,13 +55,16 @@ function build() {
     if(canonicalIds.has(key) && canonicalIds.get(key)!==id)fail("unsupported_input");
     canonicalIds.set(key,id);
   }
-  const reasons=new Set(),reads=new Set(),missing=new Set();let outside=false;
+  const reasons=new Set(),reads=new Set(),missing=new Set(),refused=new Set();let outside=false;
   // Virtual paths make observations portable across equivalent caller-owned roots.
   const toId=f=>{
     const n=path.posix.normalize(f).replace(/\/+$/,"");
     if(n.split("/").some(p=>p.toLowerCase()===".git"))fail("unsupported_input");
     for(const root of ["project","compiler"]) if(n==="/__prism__/"+root || n.startsWith("/__prism__/"+root+"/")) {
       const id=n.slice("/__prism__/".length);
+      // Compiler probes may contain virtual module spellings, not safe file IDs.
+      // Preserve opaque refusal evidence without consulting files or claiming absence.
+      if(!relative(id)){refused.add(hash(n));reasons.add("unsupported_lookup");return null;}
       return canonicalIds.get(canonicalFile(id))??id;
     }
     outside=true;return null;
@@ -158,12 +161,12 @@ function build() {
   if(!complete)for(const o of packet.observations)for(const c of o.nested.calls) {
     if(c.props_class.status==="observed"){c.props_class.status="unproven";c.props_class.reason="program_unproven";}
   }
-  packet.closure={stable_snapshot:first.digest===second.digest,dependencies:!outside && !packet.diagnostics.length && !reasons.has("unresolved_module"),
+  packet.closure={stable_snapshot:first.digest===second.digest,dependencies:!outside && !refused.size && !packet.diagnostics.length && !reasons.has("unresolved_module"),
     references:!reasons.has("unsupported_references"),augmentation:complete,resolution:complete};
   packet.compiler.library_sha256=hash(canonical(first.manifest.filter(f=>f.id.startsWith("compiler/"))));
   packet.snapshot={sha256:first.digest,files:first.manifest,directories:first.dirs,
     roots:parsed.fileNames.map(toId).sort(),config_files:configFiles,program_files:program.getSourceFiles().map(f=>toId(f.fileName)).sort(),
-    reads:[...reads].sort(),failed_lookups:[...missing].sort(),outside_lookups:outside,options_sha256:hash(canonical(parsed.options))};
+    reads:[...reads].sort(),failed_lookups:[...missing].sort(),refused_lookup_sha256:[...refused].sort(),outside_lookups:outside,options_sha256:hash(canonical(parsed.options))};
   packet.resolutions.sort((a,b)=>canonical(a)<canonical(b)?-1:1);
   return packet;
 }

@@ -17,13 +17,13 @@ export function settings(options) {
 }
 export function emptyPacket(options,reason) {
   const zero=hash("");
-  return {schema:SCHEMA,authorizes_runtime_edge:false,producer:{version:"0.4.0",sha256:producerHash()},
+  return {schema:SCHEMA,authorizes_runtime_edge:false,producer:{version:"0.5.0",sha256:producerHash()},
     compiler:{version:"5.9.3",sha256:COMPILER_HASH,verified:false,library_sha256:zero},
     scope:{config:"project/"+options.config,callable_scope:"direct-annotated-function",class_authority:false,case_sensitive:null},
     status:"unproven",reasons:[reason],limits:options.limits,
     closure:{stable_snapshot:false,dependencies:false,references:false,augmentation:false,resolution:false},
     snapshot:{sha256:zero,files:[],directories:[],roots:[],config_files:[],program_files:[],reads:[],
-      failed_lookups:[],outside_lookups:false,options_sha256:zero},
+      failed_lookups:[],refused_lookup_sha256:[],outside_lookups:false,options_sha256:zero},
     diagnostics:[],resolutions:[],observations:[]};
 }
 export function produce(input) {
