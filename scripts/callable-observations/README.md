@@ -123,6 +123,8 @@ non-external declaration file. The canonical configured Program must contain
 one same-name provider and no augmentation; a separate full AST census catches
 duplicates hidden by symbol merging/error recovery. Excluded inventory files
 are not providers. The census lives only for this Program and snapshot.
+Package-ID redirects are censused through their original parsed SourceFiles,
+preserving each file's bytes/anchors instead of shared AST parent pointers.
 
 Wildcard/merged bindings, require/dynamic-import requests, unsupported providers,
 missing symbols and augmentation declaration names remain unproven. Candidate
