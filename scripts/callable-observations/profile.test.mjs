@@ -43,6 +43,8 @@ test("profile-specific packet caps and types are strict before I/O",()=>{
   const p=emptyPacket(settings(input),"budget_exceeded"),text=JSON.stringify(p);
   assert.throws(()=>parsePacket(text+" ".repeat(PACKET_BYTES)),/invalid_packet/);
   p.scope.acquisition_profile="installed";
+  assert.throws(()=>parsePacket(JSON.stringify(p)),/invalid_packet/);
+  p.limits.read_bytes=32*1024*1024;
   assert.equal(parsePacket(JSON.stringify(p)+" ".repeat(PACKET_BYTES)).scope.acquisition_profile,"installed");
   assert.throws(()=>parsePacket(" ".repeat(MAX_PACKET_BYTES+1)),/invalid_packet/);
   p.scope.acquisition_profile=["default"];assert.throws(()=>parsePacket(JSON.stringify(p)),/invalid_packet/);
