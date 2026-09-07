@@ -9,14 +9,14 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) /root only; isolated from dirty original — RESOLVED.
-(b) New implementation currently local; commit after gates — OPEN.
-(c) Observer and full Rust tests running; no install — OPEN verification.
+(b) Implementation committed0ea180d4; publication next — OPEN publication.
+(c) Full observer/default/MCP gates green; no install — RESOLVED verification.
 (d) Owner: “merged. next 3 slices approved. merge when green or stack”.
 
 ## 1. Resume order
 
 1. `git -C /private/tmp/prism-acquisition-next-NoX18k/profile status --short --branch`.
-2. Inspect task-root slice2-node.log, slice2-cargo.log and slice2-mcp.log; finish controls.
+2. Inspect task-root slice2-node-final.log, slice2-cargo.log and slice2-mcp.log; all complete and green.
 3. Publish slice1, then explicit profile, then links/public replay per the spec.
 
 **STOP conditions:** no new installs/private acquisition; no quiet default-limit
@@ -29,8 +29,8 @@ increase or runtime authority; two self-review rounds per slice, classify at cap
 | Merge/isolation | done | `[MEASURED]` PR266 merged; original dirty files preserved |
 | Sequence/spec | done | callable-bounded-acquisition spec; three increments, no runtime changes |
 | Streamed inventory RED | done | `[MEASURED]` slice1-red-fixed.log: 5 tests, 2 pass, 3 fail on extracted eager implementation |
-| Streaming and verified lazy read | done | `[MEASURED]` 0ea180d4; 90 observer tests,4017 default Rust passed,0 failed,1 ignored; MCP pending |
-| Larger explicit profile | pending | `[MEASURED]` slice2-red.log:4 fail before,4 pass after; defaults unchanged; extra typed-profile, packet-cap, CLI and Program controls added |
+| Streaming and verified lazy read | done | `[MEASURED]` 90 observer,4017 default Rust,4207 MCP passed;0 failed; Rust1 ignored each; readout records controls |
+| Larger explicit profile | done | `[MEASURED]` RED4 fail; final96 observer,4017 default Rust,4207 MCP passed;0 failed; Rust1 ignored each; defaults unchanged |
 | Canonical links/public replay | next | acquired source retained at prior task root; no install needed |
 
 ## 3. Corrections to standing documents and memory
@@ -66,6 +66,6 @@ Finish all three increments and publish/merge green heads. Evidence logs live in
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** NOT RUN — final profile gates pending · claim: "larger profile selection is explicit and independently validated" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: slice2-red.log, slice2-node.log
+**§2c verdict:** SURVIVED · claim: "larger profile selection is explicit and independently validated" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: slice2-red.log, slice2-node-final.log; two rounds
 
 **Questions the owner owes an answer to:** None.
