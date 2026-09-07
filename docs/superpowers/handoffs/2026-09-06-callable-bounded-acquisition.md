@@ -9,14 +9,14 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) /root only; isolated from dirty original — RESOLVED.
-(b) New implementation currently local; commit after gates — OPEN.
-(c) Observer and full Rust tests running; no install — OPEN verification.
+(b) Implementation committed0ea180d4; publication next — OPEN publication.
+(c) Full observer/default/MCP gates green; no install — RESOLVED verification.
 (d) Owner: “merged. next 3 slices approved. merge when green or stack”.
 
 ## 1. Resume order
 
 1. `git -C /private/tmp/prism-acquisition-next-NoX18k/worktree status --short --branch`.
-2. Inspect task-root slice1-node.log and slice1-cargo.log; finish MCP/full controls.
+2. Read the 2026-09-07-callable-streamed-inventory readout; all slice1 gates passed.
 3. Publish slice1, then explicit profile, then links/public replay per the spec.
 
 **STOP conditions:** no new installs/private acquisition; no quiet default-limit
@@ -29,7 +29,7 @@ increase or runtime authority; two self-review rounds per slice, classify at cap
 | Merge/isolation | done | `[MEASURED]` PR266 merged; original dirty files preserved |
 | Sequence/spec | done | callable-bounded-acquisition spec; three increments, no runtime changes |
 | Streamed inventory RED | done | `[MEASURED]` slice1-red-fixed.log: 5 tests, 2 pass, 3 fail on extracted eager implementation |
-| Streaming and verified lazy read | pending | inventory.mjs; worker uses verified reads for compiler inputs and anchors |
+| Streaming and verified lazy read | done | `[MEASURED]` 90 observer,4017 default Rust,4207 MCP passed;0 failed; Rust1 ignored each; readout records controls |
 | Larger explicit profile | next | default limits unchanged |
 | Canonical links/public replay | next | acquired source retained at prior task root; no install needed |
 
@@ -66,6 +66,6 @@ Finish all three increments and publish/merge green heads. Evidence logs live in
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** NOT RUN — implementation gates pending · claim: "lazy reads preserve captured input identity" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: slice1-red-fixed.log, slice1-node.log
+**§2c verdict:** SURVIVED · claim: "lazy reads preserve captured input identity within the quiescent-tree contract" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: 2026-09-07-callable-streamed-inventory readout; two rounds
 
 **Questions the owner owes an answer to:** None.
