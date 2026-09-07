@@ -1,6 +1,6 @@
 # Prism — post-plan roadmap (follow-up queue, strategic fork, Java, Serena)
 
-> Status reconciliation (2026-09-07): PR261–272 are merged through c49d5b93. The approved successor is published in PR273: schema8 / producer0.9.0 singleton exact-ambient lookup observations,272 supported source bindings in the fixed public Program, without changing the603 null filesystem results or14 source gaps. Runtime, closure policy, refusal/outside evidence and four program_unproven Library candidates remain unchanged;181 observer tests pass. Local recovery a86bbeb remains untouched/unpublished. See the callable-exact-ambient-observations handoff for current gates/publication; earlier pending statements are historical.
+> Status reconciliation (2026-09-07): PR261–273 are merged through5a4b9b5e. The approved successor adds schema9 / producer0.10.0 singleton wildcard observations:231 observed,84 merged bindings still unproven. All272 exact-ambient observations,603 null filesystem results,14 source gaps and four program_unproven Library candidates remain unchanged. No asset-presence, closure or runtime authority is added;212 observer tests pass. Local recovery a86bbeb remains untouched/unpublished. See the callable-singleton-wildcard handoff for current gates/publication; earlier pending statements are historical.
 
 Date: 2026-07-04. Companion to `docs/analysis/prism-llm-and-accuracy-plan.md` (the
 ranked plan). Written as P14 (the final live plan item) is in implementation; refer
