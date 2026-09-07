@@ -237,9 +237,19 @@ Three candidate directions once the queue's top items are drained (or interleave
   defining-source anchors with duplicate/merge/star/cycle/step barriers. Generic
   arguments are not substituted; no class/runtime authority or cache change.
   Node38/38, compiler40/40, helpers4/4; full default4017/0/1 and MCP4207/0/1,
-  including doctests. Three SELF-PASS rounds, not independent. Next recommendation:
-  separately approved nested callback binding ownership observations. See same-date
+  including doctests. Three SELF-PASS rounds, not independent. Successor approved:
+  nested callback binding observations in an isolated worktree. See same-date
   callable-alias-provenance spec/readout/handoff; private evidence stays local.
+
+- **Nested callback binding observations — locally verified, controller publication pending:**
+  Isolated successor stacks on unpublished alias provenance; schema2/producer0.3.0.
+  Source-anchored captures retain shadow/duplicate/direct-write barriers and scope/
+  budget fences. Optional calls stay unproven; inherited class-body inventory leak
+  fixed with same-environment predecessor RED. Node54/54, compiler40/40, helpers4/4;
+  full default4017/0/1 and MCP4207/0/1, including doctests. Four public receiver sites
+  link lexically in an isolated check, NOT installed-program/class/runtime authority.
+  Next recommendation: bounded instantiated Props/property-to-class provenance.
+  See same-date callable-nested-bindings spec/readout/handoff; no runtime/cache change.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:

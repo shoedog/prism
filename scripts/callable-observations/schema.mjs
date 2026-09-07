@@ -1,7 +1,7 @@
 import {createHash} from "node:crypto";
-export const SCHEMA="prism.callable-observation/1";
+export const SCHEMA="prism.callable-observation/2";
 export const COMPILER_HASH="3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675";
-export const LIMITS={files:20000,bytes:128*1024*1024,depth:64,timeout_ms:30000,observations:2000,provenance_steps:32};
+export const LIMITS={files:20000,bytes:128*1024*1024,depth:64,timeout_ms:30000,observations:2000,provenance_steps:32,nested_depth:8,nested_calls:128};
 export const PACKET_BYTES=8*1024*1024;
 export const hash=b=>createHash("sha256").update(b).digest("hex");
 export const canonical=x=>JSON.stringify(sort(x));
@@ -32,6 +32,11 @@ const provenance=object({status:x=>["traced","unproven"].includes(x),
   steps_used:integer,terminal:nullable(anchor),hops:array(object({reference:anchor,type_arguments:array(anchor),
     type_parameters:array(anchor),declarations:array(anchor),aliases:array(alias),
     qualifiers:array(object({use:anchor,aliases:array(alias),declarations:array(anchor)}))}))});
+const nested=object({calls:array(object({call:anchor,receiver:anchor,receiver_type:str,declarations:array(anchor),functions:array(anchor),
+  binding:object({status:x=>["linked","unproven"].includes(x),
+    reason:nullable(x=>["unsupported_receiver","unresolved_symbol","unsupported_parameter","other_binding","duplicate_binding","write_barrier"].includes(x)),
+    use:nullable(anchor),parameter:nullable(anchor),declarations:array(anchor),writes:array(anchor)})})),
+  barriers:array(object({scope:anchor,reason:x=>["unsupported_scope","depth_limit","call_limit"].includes(x)}))});
 const reasons=array(x=>[
   "budget_exceeded","unsupported_input","compiler_mismatch","unstable_snapshot",
   "compiler_diagnostics","unsupported_references","unsupported_plugins",
@@ -39,7 +44,7 @@ const reasons=array(x=>[
 ].includes(x));
 const packet=object({
   schema:literal(SCHEMA),authorizes_runtime_edge:literal(false),
-  producer:object({version:literal("0.2.0"),sha256:digest}),
+  producer:object({version:literal("0.3.0"),sha256:digest}),
   compiler:object({version:literal("5.9.3"),sha256:literal(COMPILER_HASH),verified:boolean,library_sha256:digest}),
   scope:object({config:id,callable_scope:literal("direct-annotated-function"),class_authority:literal(false),case_sensitive:nullable(boolean)}),
   status:x=>["observed","unproven"].includes(x),reasons,
@@ -51,7 +56,7 @@ const packet=object({
   resolutions:array(object({from:id,specifier:str,target:nullable(id)})),
   diagnostics:array(object({code:integer,file:nullable(id),start:nullable(integer)})),
   observations:array(object({annotation:anchor,implementation:anchor,parameter:nullable(anchor),
-    explicit_parameter:boolean,signatures:array(anchor),callable_declarations:array(anchor),provenance,
+    explicit_parameter:boolean,signatures:array(anchor),callable_declarations:array(anchor),provenance,nested,
     calls:array(object({call:anchor,receiver:anchor,receiver_type:str,declarations:array(anchor)}))})),
 });
 export function parsePacket(text) {
@@ -77,6 +82,14 @@ export function parsePacket(text) {
   for(const o of value.observations) {
     [o.annotation,o.implementation,o.parameter,...o.signatures,...o.callable_declarations].forEach(checkAnchor);
     for(const c of o.calls)[c.call,c.receiver,...c.declarations].forEach(checkAnchor);
+    if(o.nested.calls.length>value.limits.nested_calls)throw Error("invalid_packet");
+    o.nested.barriers.forEach(b=>checkAnchor(b.scope));
+    for(const c of o.nested.calls) {
+      const b=c.binding;
+      [c.call,c.receiver,...c.declarations,...c.functions,b.use,b.parameter,...b.declarations,...b.writes].forEach(checkAnchor);
+      if(!c.functions.length || c.functions.length>value.limits.nested_depth
+        || (b.status==="linked" ? b.reason!==null || !b.use || !b.parameter || b.declarations.length!==1 || b.writes.length : !b.reason))throw Error("invalid_packet");
+    }
     const p=o.provenance;
     if(p.steps_used>value.limits.provenance_steps || (p.status==="traced" ? p.reason!==null || !p.terminal : !p.reason || p.terminal!==null))throw Error("invalid_packet");
     checkAnchor(p.terminal);

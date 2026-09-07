@@ -83,7 +83,7 @@ intermediate and final logs and source checkpoints. The final public archive is
 SHA256 sidecar binds the archive without a self-referential source digest. Only
 public evidence is included. The controller handoff names the scoped source files.
 
-Recommended separately approved successor: source-backed nested callback binding
-ownership observations inside supported annotated implementations, with shadow,
-write and duplicate negatives first. Instantiated Props/class identity and any
+Successor approved and active: source-backed nested callback binding observations
+inside supported annotated implementations; see same-date callable-nested-bindings
+spec/handoff. This predecessor remains unpublished. Instantiated Props/class identity and any
 runtime Exact consumer remain later, separately justified boundaries.

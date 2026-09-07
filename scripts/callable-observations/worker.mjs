@@ -5,6 +5,7 @@ import path from "node:path";
 import {COMPILER_HASH,relative,hash,canonical} from "./schema.mjs";
 import {emptyPacket} from "./index.mjs";
 import {traceProvenance} from "./provenance.mjs";
+import {observeNested} from "./nested.mjs";
 
 const options=JSON.parse(readFileSync(0,"utf8"));
 const fail=reason=>{throw Error(reason);};
@@ -128,10 +129,12 @@ function build() {
         const signatures=context?checker.getSignaturesOfType(context,ts.SignatureKind.Call):[];
         const observation={annotation:anchor(node.type),implementation:anchor(fn),parameter:fn.parameters[0]?anchor(fn.parameters[0]):null,
           provenance:traceProvenance(ts,checker,node.type,anchor,options.limits.provenance_steps),
+          nested:observeNested(ts,checker,fn,anchor,options.limits),
           explicit_parameter:!!fn.parameters[0]?.type,signatures:signatures.flatMap(s=>s.declaration?[anchor(s.declaration)]:[]),
           callable_declarations:[...new Set([...(context?.symbol?.declarations??[]),...(context?.aliasSymbol?.declarations??[])])].map(anchor),calls:[]};
         function calls(n) {
-          if(ts.isFunctionLike(n))return; // nested binding ownership is a separate proof slice
+          // Class initializers/static blocks also have their own lexical scope.
+          if(ts.isFunctionLike(n) || ts.isClassDeclaration(n) || ts.isClassExpression(n))return;
           if(ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression)) {
             observation.calls.push({call:anchor(n),receiver:anchor(n.expression.expression),
               receiver_type:checker.typeToString(checker.getTypeAtLocation(n.expression.expression)),
