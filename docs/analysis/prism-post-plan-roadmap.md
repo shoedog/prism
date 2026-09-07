@@ -1,6 +1,6 @@
 # Prism — post-plan roadmap (follow-up queue, strategic fork, Java, Serena)
 
-> Status reconciliation (2026-09-07): PR261–269 are merged through dc9b9e84. The approved source/compiler qualifier audit finds a singleton UMD global alias → export= → module-local namespace; the observer's current ambiguity label mixes those name domains, not demonstrated React augmentation at that hop. Fifteen new characterization/negative tests precede any proposed UMD bridge. Production observer/runtime behavior and all closure/duplicate barriers remain unchanged. See the callable-umd-qualifier-audit handoff; older stack/approval-pending statements are historical.
+> Status reconciliation (2026-09-07): PR261–269 are merged through dc9b9e84. The approved source/compiler qualifier audit is published in PR270 and finds a singleton UMD global alias → export= → module-local namespace; the observer's current ambiguity label mixes those name domains, not demonstrated React augmentation at that hop. Fifteen new characterization/negative tests precede any proposed UMD bridge. Production observer/runtime behavior and all closure/duplicate barriers remain unchanged. See the callable-umd-qualifier-audit handoff; older stack/approval-pending statements are historical.
 
 Date: 2026-07-04. Companion to `docs/analysis/prism-llm-and-accuracy-plan.md` (the
 ranked plan). Written as P14 (the final live plan item) is in implementation; refer

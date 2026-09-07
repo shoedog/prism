@@ -9,7 +9,9 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) /root only; original dirty checkout preserved using isolated worktree — RESOLVED.
-(b) Audit/tests committed in d044a2b; closeout evidence captured — OPEN remote publication.
+(b) Audit/tests d044a2b and verification/evidence70fc728 pushed;
+    https://github.com/shoedog/prism/pull/270 open against main — RESOLVED publication;
+    remote CI/review remains a separate gate, not a local test claim.
 (c) Observer124/124; Rust default4017/MCP4207 passed,0 failed,1 ignored each,
     including doctests; authority verifier clean and4/4 controls passed — RESOLVED.
 (d) Owner: “267, 268, 269 are merged, proceed to next”. Next was a source/compiler
@@ -48,7 +50,8 @@ augmentation closure or runtime WRONG established. No memory edits authorized.
 
 ## 4. Open work
 
-Publish the audit PR; all local gates and two self-review rounds are complete.
+PR270 is published against main; all local gates and two self-review rounds are
+complete. Check current remote CI/review before merging; no merge performed here.
 Evidence archive: task-root `qualifier-audit-evidence.tgz`, SHA256
 `ea201d05d083e2ee69e73dcd9ae57349155f0f1c138b433c8d260a1bca729abb`.
 Compact evidence, source anchors and executable fixtures are committed; the full
