@@ -1,5 +1,10 @@
 # Handoff — bounded callable acquisition
 
+Successor notice (2026-09-07): PR267–269 are confirmed merged through dc9b9e84.
+The source/compiler qualifier audit continues in
+[the active handoff](2026-09-07-callable-umd-qualifier-audit.md). Stack/CI-pending
+statements below are historical; no runtime authority followed from acquisition.
+
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
 **Workspace:** /private/tmp/prism-acquisition-next-NoX18k/links · feat/callable-canonical-links · **Measured state:** `[MEASURED]` implementation2c885b4/integrationeb5367a2, readout2d93d2c; all local gates complete; this docs-only publication closeout follows.
 **Predecessor:** PR266, confirmed merged at d4f06b58b11ed09f46a80f769a94764dafa5ddf0.

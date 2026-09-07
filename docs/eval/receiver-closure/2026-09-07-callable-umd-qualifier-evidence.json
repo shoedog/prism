@@ -1,0 +1,32 @@
+{
+  "schema": "prism.umd-qualifier-audit/1",
+  "audit_only": true,
+  "authorizes_runtime_edge": false,
+  "base": "dc9b9e847b829bf84a43a323a9eb7e28e6aa5c16",
+  "compiler_sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675",
+  "observer_producer_sha256": "47e122b154ab46335cbeb5bd6c7da6def57138d143cf8f0068c607528ca1bff5",
+  "raw_observer_capture_sha256": "bce6752fa074c1528c4f626b3f5317e3a121383bdea2539b26380bcdbe47b754",
+  "instrumentation_patch_sha256": "389c0c0e58b9126a05936a51c1d6062d26c8833a568975315571262b0d84046a",
+  "use": {
+    "file": "project/packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+    "sha256": "c02b2e4d82f6e1916f18a07d5c8abb0666a10bb7b50f559a3fe973379f3bb711",
+    "start_utf16": 1252,
+    "end_utf16": 1257,
+    "start_byte": 1252,
+    "end_byte": 1257
+  },
+  "declaration_file": "project/node_modules/@types/react/index.d.ts",
+  "declaration_sha256": "51409be337d5cdf32915ace99a4c49bf62dbc124a49135120dfdff73236b0bad",
+  "chain": [
+    {"symbol_name": "React", "flags": 2097152, "alias": true, "declaration_count": 1, "kind": "NamespaceExportDeclaration", "start_utf16": 2149, "end_utf16": 2175, "start_byte": 2149, "end_byte": 2175},
+    {"symbol_name": "export=", "flags": 2097152, "alias": true, "declaration_count": 1, "kind": "ExportAssignment", "start_utf16": 2133, "end_utf16": 2148, "start_byte": 2133, "end_byte": 2148},
+    {"symbol_name": "React", "flags": 512, "alias": false, "declaration_count": 1, "kind": "ModuleDeclaration", "start_utf16": 2177, "end_utf16": 170379, "start_byte": 2177, "end_byte": 170413}
+  ],
+  "global_export_population": 1,
+  "same_named_top_level_kinds": ["NamespaceExportDeclaration", "ModuleDeclaration"],
+  "current_provenance_reason": "ambiguous_declaration",
+  "instrumented_packet_equals_predecessor_except_producer": true,
+  "normal_main_validation": {"valid": true, "authorizes_runtime_edge": false, "packet_status": "unproven", "reason": "reproduced_observation"},
+  "source_preserved": true,
+  "scope_limit": "One qualifier in one fixed configured Program; no whole-Program augmentation or runtime identity certificate"
+}
