@@ -1,7 +1,8 @@
 # Instantiated Props/property-to-class observations
 
 Implemented on PR262 head f0c9053c942525d59683849df83fcd98dc141f89, dependent on
-PR261. Publication is pending this checkpoint. The owner authorized agent
+PR261. Implementation4e1f4d8 is pushed in [PR263](https://github.com/shoedog/prism/pull/263).
+Merge order: PR261 → PR262 → PR263. The owner authorized agent
 commit/push/PR and this bounded slice. No production resolver, Rust, CPG,
 navigation, cache or default dependency changed.
 

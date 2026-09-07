@@ -253,7 +253,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   Successor implemented: bounded instantiated Props/property-to-class provenance below.
   See same-date callable-nested-bindings spec/readout/handoff; no runtime/cache change.
 
-- **Instantiated Props/property-to-class observations — verified, publication pending:**
+- **Instantiated Props/property-to-class observations — published PR263, implementation4e1f4d8:**
   Dependent on published PR262 (which depends on PR261); schema3/producer0.4.0.
   Actual contextual parameter/property types retain defining-file class instance
   identity and generic binder anchors, with explicit unsupported/program barriers.
