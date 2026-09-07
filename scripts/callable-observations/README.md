@@ -28,19 +28,20 @@ an unproven observation exits0. Read the JSON, not just the exit code.
 
 ## Meaning of the packet
 
-The strict executable v0 schema is `schema.mjs` (`parsePacket`). It freezes these
+The strict executable v1 schema is `schema.mjs` (`parsePacket`). It freezes these
 groups, rejecting unknown fields and unsafe IDs before project access:
 
 | Group | Meaning |
 |---|---|
-| schema / authorizes_runtime_edge | prism.callable-observation/0; authority is always false |
+| schema / authorizes_runtime_edge | prism.callable-observation/1; authority is always false; v0 packets reject before root access |
 | producer / compiler | Tool-byte digest; required compiler version/hash, whether actually verified, full compiler-lib inventory digest |
 | scope | Relative config, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
 | status / reasons / closure | observed means this bounded Program completed without the enumerated closure failures; unproven records limitations. Neither means a receiver or class is proven |
 | snapshot | Raw byte/file/directory manifest, roots, config reads, Program files, all reads and failed lookup IDs, options digest and outside-lookup flag |
 | resolutions / diagnostics | Compiler module-resolution outcomes and anchored diagnostic codes; unresolved dependencies are not automatically application defects |
 | observations | Direct variable annotations on arrow/function expressions; annotation/implementation/first-parameter anchors, explicit annotation flag, contextual callable declarations/signatures, direct-body member-call receiver types and method declaration anchors |
-| limits | Up to20000 files+directories,128MiB input bytes,depth64,2000 observations,30-second worker timeout;512MiB worker heap and8MiB packet cap |
+| observations.provenance | Bounded defining-source declaration/alias observations, generic use/binder anchors, namespace qualifiers and partial-chain reasons; not a substitution or ownership certificate |
+| limits | Up to20000 files+directories,128MiB input bytes,depth64,2000 observations,32 provenance steps per observation,30-second worker timeout;512MiB worker heap and8MiB packet cap |
 
 Anchors carry file-byte hashes and half-open UTF-16/UTF-8 coordinates. Manifest
 consistency, range/hash conflicts and impossible statuses are rejected before
@@ -49,11 +50,35 @@ there is no persisted positive cache. `valid:true, packet_status:unproven` means
 the incomplete observation reproduced, **not that closure was established**.
 `authorizes_runtime_edge` remains false on every validator outcome.
 
-No alias-chain certificate, class-identity certificate, runtime write proof, nested
+No authenticated alias-chain certificate, class-identity certificate, runtime write proof, nested
 callback parameter ownership or served-resolution consumer is implemented. A
 method declaration or contextual signature is evidence to inspect, not an Exact
 target. Explicit-any, merged-overload and post-declaration assertion controls
 exercise this distinction.
+
+## Declaration provenance
+
+Producer0.2.0 includes `provenance.mjs` in its byte digest. `provenance.status=traced`
+means the supported syntactic chain reached an inline callable type or a singleton,
+non-inherited callable interface. It is independent of program closure: even a
+traced chain can belong to an unproven packet. Type arguments and parameters keep
+their own defining-file anchors; they are not substituted or certified as classes.
+
+Each hop retains reference, declaration, generic argument/binder and immediate
+import/re-export alias anchors. Qualified names also retain each namespace use and
+binding. Module evidence records the specifier, module declarations, export
+assignments/star exports and their binding declarations. Namespace `export =`
+traversal requires a direct unique local namespace, never an imported gateway or
+a React spelling heuristic. Local bindings and export names are checked separately
+for duplicates, including compiler error recovery that exposes only one symbol.
+
+Star exports in any consulted module, unresolved/duplicate/merged declarations,
+inheritance, unsupported types/declarations, cycles and step exhaustion retain an
+unproven reason and partial evidence. General import-equals/export-assignment
+callable paths, conditional/mapped/intersection/union evaluation and nested callback
+ownership are excluded. The visit budget bounds chain traversal; source inventories
+are bounded by the existing file/byte/heap/time limits. No runtime write/cache
+barriers in Prism are changed.
 
 ## Supported boundary and limitations
 
@@ -91,5 +116,5 @@ PRISM_TYPESCRIPT="$compiler" PRISM_CALLABLE_PROFILES="$profiles" node --test scr
 
 `profiles` uses PR259's pinned react18/react19 layouts. Tests create their own
 temporary installed-package projects, never install or modify an application.
-See the same-date configured-callable-observations spec/readout for RED captures,
+See the same-date callable-alias-provenance spec/readout for RED captures,
 full-project gates, evidence limitations and the separately approved next boundary.

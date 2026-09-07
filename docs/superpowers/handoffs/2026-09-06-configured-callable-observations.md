@@ -1,7 +1,7 @@
 # Handoff — configured callable observations
 
 **Written:** 2026-09-06 · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/configured-callable-observations · **Measured state:** `[MEASURED]` implementation3bc46a4 pushed on refreshed main ebf7933b; PR260 open. Two original untracked artifacts preserved. This publication closeout changes docs only after final gates.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/configured-callable-observations · **Measured state:** `[MEASURED]` PR260 merged 2026-09-06T23:19:27Z as8e7744e2; merge tree equals published54843d15. Two original untracked artifacts preserved. Successor: same-date callable-alias-provenance handoff.
 **Predecessor:** PR259 callable-authority foundation.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -17,7 +17,7 @@ validator, not a runtime consumer, installs or application writes.
 
 1. git status --short --branch in /Users/wesleyjinks/code/slicing.
 2. Read same-date configured-callable-observations spec/readout; gates are complete.
-3. Await PR260 review/merge and separate approval for declaration/alias-chain work.
+3. PR260 is merged; owner approved declaration/alias-chain work. Resume the successor handoff.
 
 **STOP conditions:** cap3 SELF-PASS; disk3GiB; no runtime consumer, project writes,
 private evidence publication, dependency installs, full multicorpus or rebaseline.
@@ -31,20 +31,20 @@ private evidence publication, dependency installs, full multicorpus or rebaselin
 | Review / Node | done | `[MEASURED]` final-node-23.log23/23; closed enumerable final-round fixes retained; SELF-PASS, not independent |
 | Full gates | done | `[MEASURED]` default4017/0/1 (28 groups), MCP4207/0/1 (30), two doctests each; predecessor compiler40/40, helpers4/4; fmt/diff pass |
 | Private application | done | `[MEASURED]` bounded configured snapshot remains unproven; private evidence segregated; no source edits or installs |
-| Custody / publication | done | `[MEASURED]`3bc46a4 pushed; https://github.com/shoedog/prism/pull/260 open; separate archives below; docs-only closeout follows |
+| Custody / publication | merged | `[MEASURED]` https://github.com/shoedog/prism/pull/260 merged8e7744e2; separate historical archives below |
 
 ## 3. Corrections to standing documents and memory
 
 PR259 merge reconciled in predecessor handoff/readout/roadmap.
-PR260 publication reconciled in active handoff/readout/roadmap.
+PR260 merge reconciled in active handoff/readout/roadmap.
 No memory edits authorized. `[UNKNOWN]` LSP tools absent; pinned compiler source
 and declarations supply API evidence under lsp-nav fallback.
 
 ## 4. Open work
 
-Owner review/merge and separate next-slice approval. No class authority claimed. Proposed follow-on:
-separate declaration/alias-chain provenance observations and nested parameter
-binding ownership, still without a runtime consumer; installed real-program closure
+Declaration/alias-chain provenance observations are approved and active in the
+successor handoff. Nested parameter binding ownership remains separate, still
+without a runtime consumer; installed real-program closure
 is also a prerequisite to any future Exact proposal, not established by this slice.
 Prior Tier-A quick remains INHERITED baseline-invalid; no src/ changes trigger a
 fresh Tier-A gate, and no full multicorpus/rebaseline/application tests were run.

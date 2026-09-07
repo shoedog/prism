@@ -1,5 +1,7 @@
 # Prism — post-plan roadmap (follow-up queue, strategic fork, Java, Serena)
 
+> Publication reconciliation (2026-09-06): alias implementation `2bfe7092` is published in [PR261](https://github.com/shoedog/prism/pull/261); nested implementation `16de216` is published in [PR262](https://github.com/shoedog/prism/pull/262), based on PR261. Merge261 first. The owner's new instruction authorizes agent commit/push/PR. Controller-pending and uncommitted-predecessor statements below are historical for these two slices. Bounded Props/property-to-class provenance is approved next; runtime authority remains excluded.
+
 Date: 2026-07-04. Companion to `docs/analysis/prism-llm-and-accuracy-plan.md` (the
 ranked plan). Written as P14 (the final live plan item) is in implementation; refer
 back here when choosing what comes after. Owner decisions are marked **[OWNER]**.
@@ -223,14 +225,23 @@ Three candidate directions once the queue's top items are drained (or interleave
   See `docs/superpowers/specs/2026-09-06-callable-authority-proof.md` and same-date
   handoff/readout for measured gates, limitations and publication custody.
 
-- **Configured callable observations — PR260 open, implementation3bc46a4, base ebf7933b:**
+- **Configured callable observations — PR260 merged8e7744e2, implementation3bc46a4, base ebf7933b:**
   Opt-in snapshot-backed TS5.9.3 producer and strict pre-I/O/recomputation validator;
   no class authority, runtime consumer, default dependency or cache bump. Actual
   config, input/negative-lookup membership, anchors and host case policy retained.
   Node23/23, predecessor compiler40/40/helpers4/4; full default4017/0/1,
-  MCP4207/0/1, including doctests. Cap3 SELF-PASS, not independent. Next proposed:
+  MCP4207/0/1, including doctests. Cap3 SELF-PASS, not independent. Successor approved:
   bounded declaration/alias-chain provenance, still non-authorizing; see same-date
   configured-callable-observations spec/readout/handoff for limitations and custody.
+
+- **Callable declaration/alias provenance — locally verified, controller publication pending:**
+  Base8e7744e2; schema1/producer0.2.0; immediate alias and namespace gateways retain
+  defining-source anchors with duplicate/merge/star/cycle/step barriers. Generic
+  arguments are not substituted; no class/runtime authority or cache change.
+  Node38/38, compiler40/40, helpers4/4; full default4017/0/1 and MCP4207/0/1,
+  including doctests. Three SELF-PASS rounds, not independent. Next recommendation:
+  separately approved nested callback binding ownership observations. See same-date
+  callable-alias-provenance spec/readout/handoff; private evidence stays local.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:

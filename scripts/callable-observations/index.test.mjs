@@ -6,8 +6,8 @@ import {once} from "node:events";
 import {createRequire} from "node:module";
 import {tmpdir} from "node:os";
 import path from "node:path";
-import {produce, validate} from "./index.mjs";
-import {parsePacket,PACKET_BYTES} from "./schema.mjs";
+import {produce, validate, producerHash} from "./index.mjs";
+import {parsePacket,PACKET_BYTES,hash} from "./schema.mjs";
 
 const compiler=process.env.PRISM_TYPESCRIPT, profiles=process.env.PRISM_CALLABLE_PROFILES;
 assert(compiler && profiles,"explicit pinned compiler and profiles required; no silent skip");
@@ -233,3 +233,180 @@ test("compiler host case policy cannot select a declaration shadow ahead of a so
   assert.equal(live.extension,ts.sys.useCaseSensitiveFileNames?".d.ts":".ts");
   const p=produce(options);assert.equal(p.observations[0].calls[0].declarations[0].file,expected);
 }));
+
+test("provenance retains each explicit renamed import and barrel hop",()=>fixture(({put,options})=>{
+  put("src/barrel.ts","export type {FC as Component} from 'react';");
+  put("src/app.ts","import type {Component as View} from './barrel';import Client from './client';export const run: View<{client:Client}>=({client})=>{client.m();return null;};");
+  const p=produce(options),chain=p.observations[0].provenance;
+  assert(chain,"configured observation lacks declaration/alias provenance");
+  assert.equal(chain.status,"traced",JSON.stringify(chain));
+  assert.deepEqual(chain.hops[0].aliases.map(a=>a.declarations[0].kind),["ImportSpecifier","ExportSpecifier"]);
+  assert.deepEqual(chain.hops[0].aliases.map(a=>a.declarations[0].file),["project/src/app.ts","project/src/barrel.ts"]);
+  assert.equal(chain.terminal.kind,"InterfaceDeclaration");
+  assert.equal(chain.terminal.file,"project/node_modules/@types/react/index.d.ts");
+}));
+
+test("qualified generic aliases retain namespace binding, argument and binder source scope",()=>fixture(({put,options})=>{
+  put("src/shape.ts","import * as R from 'react';export type View<P> = R.FC<P>;");
+  put("src/app.ts","import type {View} from './shape';import Client from './client';export const run: View<{client:Client}>=({client})=>{client.m();return null;};");
+  const p=produce(options),chain=p.observations[0].provenance;
+  assert(chain,"configured observation lacks scoped generic provenance");
+  assert.equal(chain.status,"traced",JSON.stringify(chain));
+  assert.equal(chain.hops[0].type_arguments[0].file,"project/src/app.ts");
+  assert.equal(chain.hops[0].type_parameters[0].file,"project/src/shape.ts");
+  assert.equal(chain.hops[1].qualifiers[0].aliases[0].declarations[0].kind,"NamespaceImport");
+  assert.deepEqual(chain.hops[1].qualifiers[0].aliases.map(a=>a.declarations[0].kind),["NamespaceImport","ExportAssignment"]);
+  assert.equal(chain.hops[1].qualifiers[0].aliases[0].module_bindings[0].kind,"ModuleDeclaration");
+  assert.equal(chain.hops[1].qualifiers[0].use.file,"project/src/shape.ts");
+  assert.equal(p.authorizes_runtime_edge,false);
+}));
+
+test("schema zero is rejected before root access after provenance schema transition",()=>fixture(({options})=>{
+  const p=produce(options);p.schema="prism.callable-observation/0";
+  let consulted=0;const forbidden={get root(){consulted++;throw Error("old schema must reject pre-I/O");}};
+  assert.equal(validate(JSON.stringify(p),forbidden).valid,false);
+  assert.equal(consulted,0);
+}));
+
+test("provenance default imports, namespace gateways and inline callable terminals",()=>fixture(({put,options})=>{
+  put("src/barrel.ts","export type {FC as default} from 'react';");
+  const cases=[
+    ["import View from './barrel';","View<{client:Client}>","InterfaceDeclaration"],
+    ["import R from 'react';","R.FC<{client:Client}>","InterfaceDeclaration"],
+    ["","(p:{client:Client})=>null","FunctionType"],
+    ["type View = {(p:{client:Client}):null};","View","TypeLiteral"],
+    ["interface View {(p:{client:Client}):null}","View","InterfaceDeclaration"],
+  ];
+  for(const [imports,type,terminal] of cases){
+    put("src/app.ts",`import Client from './client';${imports}export const run: ${type}=({client})=>{client.m();return null;};`);
+    const p=produce(options),chain=p.observations[0].provenance;
+    assert.equal(chain.status,"traced",JSON.stringify(chain));assert.equal(chain.terminal.kind,terminal);
+    assert.equal(validate(JSON.stringify(p),options).valid,true);
+  }
+}));
+
+test("same-spelled FC and generic parameters retain defining identity without substitution",()=>fixture(({put,options})=>{
+  put("src/app.ts","import Client from './client';type FC<T>=(p:{client:Client})=>null;export const run: FC<string>=({client}:any)=>{client.m();return null;};");
+  const p=produce(options),o=p.observations[0];assert.equal(o.provenance.status,"traced");
+  assert.equal(o.provenance.terminal.file,"project/src/app.ts");
+  assert.equal(o.provenance.hops[0].type_arguments[0].kind,"StringKeyword");
+  assert.equal(o.explicit_parameter,true);assert.equal(o.calls[0].receiver_type,"any");
+  assert.equal(p.scope.class_authority,false);
+}));
+
+test("provenance negative population is explicitly bounded",()=>fixture(({put,options})=>{
+  const cases=[
+    ["type View=Other;type Other=View;","View","cycle"],
+    ["type View<T>=T;","View<(p:{client:Client})=>null>","unsupported_declaration"],
+    ["type View<T>=T extends string?never:(p:{client:Client})=>null;","View<Client>","unsupported_type"],
+    ["type View=((p:{client:Client})=>null)&{x?:string};","View","unsupported_type"],
+    ["type View=(p:{client:Client})=>null;type View=(p:any)=>null;","View","ambiguous_declaration"],
+    ["interface View {(p:{client:Client}):null} interface View {x?:string}","View","ambiguous_declaration"],
+    ["interface Base {(p:{client:Client}):null} interface View extends Base {}","View","unsupported_heritage"],
+    ["interface View {m():void}","View","unsupported_type"],
+    ["type View={x:string};","View","unsupported_type"],
+    ["","Missing","unresolved_symbol"],
+  ];
+  const outcomes=[];
+  for(const [declaration,type,reason] of cases) {
+    put("src/app.ts",`import Client from './client';${declaration}export const run: ${type}=({client}:any)=>{client.m();return null;};`);
+    const p=produce(options);assert(p.observations.length,JSON.stringify(p.reasons));
+    const chain=p.observations[0].provenance;
+    outcomes.push({declaration,status:chain.status,reason:chain.reason,terminal:chain.terminal===null,authority:p.authorizes_runtime_edge});
+  }
+  assert.deepEqual(outcomes,cases.map(([declaration,,reason])=>({declaration,status:"unproven",reason,terminal:true,authority:false})));
+}));
+
+test("star barrels and imported export-equals gateways do not become complete chains",()=>fixture(({put,options})=>{
+  const cases=[
+    ["export * from 'react';","unsupported_export_star"],
+    ["export type {FC} from 'react';export * as extras from 'react';","unsupported_export_star"],
+    ["import * as R from 'react';export = R;","unsupported_declaration"],
+  ];
+  put("src/app.ts","import type {FC} from './barrel';import Client from './client';export const run: FC<{client:Client}>=({client})=>{client.m();return null;};");
+  for(const [source,reason] of cases) {
+    put("src/barrel.ts",source);const p=produce(options),chain=p.observations[0].provenance;
+    assert.equal(chain.status,"unproven",source);assert.equal(chain.reason,reason,source);
+    assert.equal(p.authorizes_runtime_edge,false);
+  }
+}));
+
+test("missing imports and namespace merges remain partial observations",()=>fixture(({put,options})=>{
+  put("src/app.ts","import type {FC} from './missing';import Client from './client';export const run: FC<{client:Client}>=({client}:any)=>{client.m();return null;};");
+  let p=produce(options);assert.equal(p.observations[0].provenance.reason,"unresolved_symbol");
+  put("src/app.ts","import Client from './client';namespace R {export type FC<T>=(p:T)=>null} namespace R {export type Other=string} export const run: R.FC<{client:Client}>=({client})=>{client.m();return null;};");
+  p=produce(options);assert.equal(p.observations[0].provenance.reason,"ambiguous_declaration");
+  assert.equal(p.observations[0].provenance.hops[0].qualifiers[0].declarations.length,2);
+}));
+
+test("provenance budgets and corrupted nested anchors fail closed",()=>fixture(({options})=>{
+  const p=produce(options);assert.equal(p.schema,"prism.callable-observation/1");
+  assert.equal(p.observations[0].provenance.status,"traced");
+  const limited=produce({...options,limits:{provenance_steps:1}});
+  assert.equal(limited.observations[0].provenance.reason,"step_limit");
+  assert.equal(limited.observations[0].provenance.steps_used,1);
+  let consulted=0;const forbidden={get root(){consulted++;throw Error("pre-I/O");}};
+  for(const change of [q=>q.hops[0].aliases[0].module.sha256="0".repeat(64),
+    q=>q.hops[0].aliases[0].module_bindings[0].sha256="0".repeat(64),
+    q=>q.hops[0].type_arguments[0].end_byte=0,q=>q.terminal.file="project/../escape",
+    q=>q.steps_used=33,q=>q.hops[0].extra="forged"]){
+    const forged=structuredClone(p);change(forged.observations[0].provenance);
+    assert.equal(validate(JSON.stringify(forged),forbidden).valid,false);
+  }
+  assert.equal(consulted,0);
+  const forged=structuredClone(p);forged.observations[0].provenance.hops[0].aliases=[];
+  assert.equal(validate(JSON.stringify(forged),options).valid,false);
+}));
+
+test("barrel A to B and restoration replace provenance even with unchanged consumer bytes",()=>fixture(({root,put,options})=>{
+  put("src/a.ts","export type FC<T>=(p:T)=>null;");put("src/b.ts","export type FC<T>=(p:T)=>null;");
+  put("src/barrel.ts","export type {FC} from './a';");
+  put("src/app.ts","import type {FC} from './barrel';import Client from './client';export const run: FC<{client:Client}>=({client})=>{client.m();return null;};");
+  const a=produce(options);assert.equal(a.observations[0].provenance.terminal.file,"project/src/a.ts");
+  put("src/barrel.ts","export type {FC} from './b';");const b=produce(options);
+  assert.equal(b.observations[0].provenance.terminal.file,"project/src/b.ts");
+  assert.equal(validate(JSON.stringify(a),options).valid,false);
+  rmSync(path.join(root,"src/barrel.ts"));assert.equal(validate(JSON.stringify(b),options).valid,false);
+  put("src/barrel.ts","export type {FC} from './a';");assert.equal(validate(JSON.stringify(a),options).valid,true);
+}));
+
+test("duplicate explicit export names are not hidden by checker error recovery",()=>fixture(({put,options})=>{
+  put("src/a.ts","export type A=(p:any)=>null;");put("src/b.ts","export type B=(p:any)=>null;");
+  put("src/barrel.ts","export type {A as View} from './a';export type {B as View} from './b';");
+  put("src/app.ts","import type {View} from './barrel';export const run:View=p=>null;");
+  const chain=produce(options).observations[0].provenance;
+  assert.equal(chain.status,"unproven");assert.equal(chain.reason,"ambiguous_declaration");
+}));
+
+test("direct exported declarations also reject conflicting re-export names",()=>fixture(({put,options})=>{
+  put("src/a.ts","export type A=(p:any)=>null;");
+  const cases=["export type View=(p:any)=>null;export type {A as View} from './a';",
+    "export type {A as View} from './a';export type View=(p:any)=>null;"];
+  put("src/app.ts","import type {View} from './barrel';export const run:View=p=>null;");
+  const outcomes=cases.map(source=>{put("src/barrel.ts",source);return produce(options).observations[0].provenance.status;});
+  assert.deepEqual(outcomes,["unproven","unproven"]);
+}));
+
+test("local export aliases stay distinct from local bindings and duplicate imports",()=>fixture(({put,options})=>{
+  put("src/barrel.ts","type View=(p:any)=>null;export type {View};");
+  put("src/app.ts","import type {View} from './barrel';export const run:View=p=>null;");
+  let p=produce(options);assert.equal(p.observations[0].provenance.status,"traced");
+  assert.deepEqual(p.observations[0].provenance.hops[0].aliases.map(a=>a.declarations[0].kind),["ImportSpecifier","ExportSpecifier"]);
+  put("src/app.ts","import type {View} from './barrel';import type {View} from './barrel';export const run:View=p=>null;");
+  p=produce(options);assert.equal(p.observations[0].provenance.reason,"ambiguous_declaration");
+}));
+
+test("nested namespace uses and limits retain source identity",()=>fixture(({put,options})=>{
+  put("src/barrel.ts","export namespace Outer {export namespace Inner {export type View<P>=(p:P)=>null}};");
+  put("src/app.ts","import * as N from './barrel';export const run:N.Outer.Inner.View<string>=p=>null;");
+  const p=produce(options),chain=p.observations[0].provenance;
+  assert.equal(chain.status,"traced");assert.equal(chain.hops[0].qualifiers.length,3);
+  assert.equal(chain.terminal.file,"project/src/barrel.ts");
+  assert.equal(produce({...options,limits:{provenance_steps:2}}).observations[0].provenance.reason,"step_limit");
+}));
+
+test("producer digest covers the new provenance implementation",()=>{
+  const sources=["schema.mjs","index.mjs","worker.mjs","provenance.mjs"].map(f=>readFileSync(new URL(f,import.meta.url)));
+  assert.equal(producerHash(),hash(Buffer.concat(sources)));
+  assert.notEqual(producerHash(),hash(Buffer.concat(sources.slice(0,3))));
+});

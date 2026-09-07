@@ -4,8 +4,9 @@ Base PR259 merge ebf7933bc3ac7fea1c3201eb48ca84611ea9a702; branch
 feat/configured-callable-observations. Standalone scripts only: no production
 resolver imports, default TypeScript dependency, runtime CLI addition, cache bump,
 served Exact edge or recall improvement. Authorizes_runtime_edge is always false.
-Implementation3bc46a4 pushed; [PR260](https://github.com/shoedog/prism/pull/260) open.
-The publication/archive closeout is docs-only after final gates.
+Implementation3bc46a4 and docs closeout54843d15 published;
+[PR260](https://github.com/shoedog/prism/pull/260) merged8e7744e2 on2026-09-06.
+The merge tree equals the published closeout. Gates below remain historical.
 
 ## Outcome
 
@@ -72,8 +73,9 @@ mixed-policy mounts are unsupported. Direct-body observations also omit nested
 callback binding ownership, arbitrary callable aliases and runtime class/write
 proof. No consumer may treat these omissions or zero diagnostics as Exact authority.
 
-Recommended next: a separately approved bounded declaration/alias-chain provenance
-slice, then nested parameter-binding ownership as needed by the public FC sites.
+Successor approved: bounded declaration/alias-chain provenance; see the same-date
+callable-alias-provenance spec/handoff. Nested parameter-binding ownership remains
+a separate future slice as needed by the public FC sites.
 Keep both non-authorizing until installed real-program closure and Prism's own
 class/member/write/duplicate/cache obligations have independently been established.
 
