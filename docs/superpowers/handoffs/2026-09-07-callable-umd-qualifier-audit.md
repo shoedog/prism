@@ -1,5 +1,10 @@
 # Handoff — UMD qualifier source audit
 
+> Superseded operational state (2026-09-07): PR270 is merged as9a34ef62. The owner
+> approved the bounded UMD bridge. Dirty predecessor custody is saved locally in
+> a86bbeb; active work is the [UMD bridge handoff](2026-09-07-callable-umd-bridge.md).
+> The audit's unsupported-UMD statements below describe its historical producer.
+
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
 **Workspace:** /private/tmp/prism-qualifier-audit-5LdjYI/worktree · audit/callable-umd-qualifier · **Measured state:** `[MEASURED]` base dc9b9e84; audit/tests captured in d044a2b; verification complete; production observer unchanged.
 **Predecessor:** PR267–269, confirmed merged through dc9b9e847b829bf84a43a323a9eb7e28e6aa5c16.

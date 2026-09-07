@@ -21,7 +21,7 @@ export function settings(options) {
 }
 export function emptyPacket(options,reason) {
   const zero=hash("");
-  return {schema:SCHEMA,authorizes_runtime_edge:false,producer:{version:"0.7.0",sha256:producerHash()},
+  return {schema:SCHEMA,authorizes_runtime_edge:false,producer:{version:"0.8.0",sha256:producerHash()},
     compiler:{version:"5.9.3",sha256:COMPILER_HASH,verified:false,library_sha256:zero},
     scope:{config:"project/"+options.config,acquisition_profile:options.profile,link_policy:options.links,callable_scope:"direct-annotated-function",class_authority:false,case_sensitive:null},
     status:"unproven",reasons:[reason],limits:options.limits,

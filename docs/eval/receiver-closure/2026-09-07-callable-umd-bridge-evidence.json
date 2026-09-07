@@ -1,0 +1,206 @@
+{
+  "schema": "prism.umd-bridge-readout/1",
+  "authorizes_runtime_edge": false,
+  "base": "9a34ef62bb48b6abb569ff62ad95e266e3124f51",
+  "compiler_sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675",
+  "base_packet_sha256": "0c4acbb619db405af129588cd7fe992945de1c6d93ce03c5a423570752c52a04",
+  "packet_sha256": "41b2493070badf82040cb794634b262357d9cc1c770ee85f74fa5647caedcf8a",
+  "producer": {
+    "version": "0.8.0",
+    "sha256": "02317c3bcd3fc19cdea0b4ff11bdb18be679f22f27d03449e8906a0a0b3ea9b3"
+  },
+  "packet_schema": "prism.callable-observation/7",
+  "validation": {
+    "valid": true,
+    "authorizes_runtime_edge": false,
+    "packet_status": "unproven",
+    "reason": "reproduced_observation"
+  },
+  "source_preserved": true,
+  "source_manifest_sha256": "353187a695df2683a3631e4739c173cb6d33190901093549b61e28efeda60cbb",
+  "unchanged_non_observation_fields": true,
+  "unchanged_non_provenance_props_observation_fields": true,
+  "reasons": [
+    "outside_lookup",
+    "unresolved_module",
+    "unsupported_lookup"
+  ],
+  "census": {
+    "files": 59924,
+    "directories": 9073,
+    "links": 249,
+    "bytes": 853674175,
+    "roots": 591,
+    "program_files": 1445,
+    "diagnostics": 0,
+    "observations": 30,
+    "calls": 53,
+    "linked": 10,
+    "observed_props_class": 0,
+    "retained_unproven_class_anchors": 4,
+    "refused": 264,
+    "unresolved": 603
+  },
+  "provenance_changes": [
+    {
+      "annotation": {
+        "file": "project/packages/excalidraw/components/EyeDropper.tsx",
+        "sha256": "e3287c7d888166e60b7eec90cbdcedabd79797042f1d7c6b1530db07a6ffb02c",
+        "kind": "TypeReference",
+        "start_utf16": 1249,
+        "end_utf16": 1603,
+        "start_byte": 1249,
+        "end_byte": 1603
+      },
+      "before": "ambiguous_declaration",
+      "after": "traced"
+    },
+    {
+      "annotation": {
+        "file": "project/packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+        "sha256": "c02b2e4d82f6e1916f18a07d5c8abb0666a10bb7b50f559a3fe973379f3bb711",
+        "kind": "TypeReference",
+        "start_utf16": 1252,
+        "end_utf16": 1548,
+        "start_byte": 1252,
+        "end_byte": 1548
+      },
+      "before": "ambiguous_declaration",
+      "after": "traced"
+    },
+    {
+      "annotation": {
+        "file": "project/packages/excalidraw/components/Modal.tsx",
+        "sha256": "e34a11a7f22acd045afa5e93e719865d89f8e6dcbc7a65d28a16dcd3bec51aad",
+        "kind": "TypeReference",
+        "start_utf16": 310,
+        "end_utf16": 505,
+        "start_byte": 310,
+        "end_byte": 505
+      },
+      "before": "ambiguous_declaration",
+      "after": "traced"
+    },
+    {
+      "annotation": {
+        "file": "project/packages/excalidraw/components/LoadingMessage.tsx",
+        "sha256": "7765923fa7127d51678e9b29b2c86b4c973cf384254ac5239f5a659da04b419f",
+        "kind": "TypeReference",
+        "start_utf16": 266,
+        "end_utf16": 309,
+        "start_byte": 266,
+        "end_byte": 309
+      },
+      "before": "ambiguous_declaration",
+      "after": "traced"
+    },
+    {
+      "annotation": {
+        "file": "project/packages/excalidraw/components/Card.tsx",
+        "sha256": "9744a32f0a7ce040b2f9989f019304d8d7953db78ed866d23e33ee9cf42ced4f",
+        "kind": "TypeReference",
+        "start_utf16": 589,
+        "end_utf16": 670,
+        "start_byte": 589,
+        "end_byte": 670
+      },
+      "before": "ambiguous_declaration",
+      "after": "traced"
+    }
+  ],
+  "receiver_sites": [
+    {
+      "line": 155,
+      "call": {
+        "file": "project/packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+        "sha256": "c02b2e4d82f6e1916f18a07d5c8abb0666a10bb7b50f559a3fe973379f3bb711",
+        "kind": "CallExpression",
+        "start_utf16": 4643,
+        "end_utf16": 4675,
+        "start_byte": 4643,
+        "end_byte": 4675
+      },
+      "class_declaration": {
+        "file": "project/packages/excalidraw/data/library.ts",
+        "sha256": "b242773104cb14645820e5b7f1d43d2a56f86d95206f7b9571360fbddfbc8b61",
+        "kind": "ClassDeclaration",
+        "start_utf16": 5710,
+        "end_utf16": 11888,
+        "start_byte": 5710,
+        "end_byte": 11888
+      },
+      "status": "unproven",
+      "reason": "program_unproven"
+    },
+    {
+      "line": 160,
+      "call": {
+        "file": "project/packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+        "sha256": "c02b2e4d82f6e1916f18a07d5c8abb0666a10bb7b50f559a3fe973379f3bb711",
+        "kind": "CallExpression",
+        "start_utf16": 4745,
+        "end_utf16": 5173,
+        "start_byte": 4745,
+        "end_byte": 5173
+      },
+      "class_declaration": {
+        "file": "project/packages/excalidraw/data/library.ts",
+        "sha256": "b242773104cb14645820e5b7f1d43d2a56f86d95206f7b9571360fbddfbc8b61",
+        "kind": "ClassDeclaration",
+        "start_utf16": 5710,
+        "end_utf16": 11888,
+        "start_byte": 5710,
+        "end_byte": 11888
+      },
+      "status": "unproven",
+      "reason": "program_unproven"
+    },
+    {
+      "line": 184,
+      "call": {
+        "file": "project/packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+        "sha256": "c02b2e4d82f6e1916f18a07d5c8abb0666a10bb7b50f559a3fe973379f3bb711",
+        "kind": "CallExpression",
+        "start_utf16": 5485,
+        "end_utf16": 5511,
+        "start_byte": 5485,
+        "end_byte": 5511
+      },
+      "class_declaration": {
+        "file": "project/packages/excalidraw/data/library.ts",
+        "sha256": "b242773104cb14645820e5b7f1d43d2a56f86d95206f7b9571360fbddfbc8b61",
+        "kind": "ClassDeclaration",
+        "start_utf16": 5710,
+        "end_utf16": 11888,
+        "start_byte": 5710,
+        "end_byte": 11888
+      },
+      "status": "unproven",
+      "reason": "program_unproven"
+    },
+    {
+      "line": 265,
+      "call": {
+        "file": "project/packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+        "sha256": "c02b2e4d82f6e1916f18a07d5c8abb0666a10bb7b50f559a3fe973379f3bb711",
+        "kind": "CallExpression",
+        "start_utf16": 8074,
+        "end_utf16": 8123,
+        "start_byte": 8074,
+        "end_byte": 8123
+      },
+      "class_declaration": {
+        "file": "project/packages/excalidraw/data/library.ts",
+        "sha256": "b242773104cb14645820e5b7f1d43d2a56f86d95206f7b9571360fbddfbc8b61",
+        "kind": "ClassDeclaration",
+        "start_utf16": 5710,
+        "end_utf16": 11888,
+        "start_byte": 5710,
+        "end_byte": 11888
+      },
+      "status": "unproven",
+      "reason": "program_unproven"
+    }
+  ],
+  "limit": "Candidate source observations only; Program closure and runtime class authority remain unproven"
+}

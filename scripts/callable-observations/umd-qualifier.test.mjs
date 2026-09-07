@@ -1,4 +1,4 @@
-// Audit/characterization only: no new provenance support or runtime consumer.
+// Source-backed UMD bridge acceptance and preserved audit negatives; no runtime consumer.
 import test from "node:test";
 import assert from "node:assert/strict";
 import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync,realpathSync,cpSync} from "node:fs";
@@ -44,6 +44,18 @@ function withheld(p) {
   assert.equal(p.observations[0].provenance.status,"unproven");
   assert(p.observations[0].nested.calls.every(c=>c.props_class.status==="unproven"));
 }
+function supported(p) {
+  assert.equal(p.authorizes_runtime_edge,false);assert.equal(p.scope.class_authority,false);
+  assert.equal(p.status,"observed");assert.equal(p.observations[0].provenance.status,"traced");
+  const aliases=p.observations[0].provenance.hops[0].qualifiers[0].aliases;
+  assert.deepEqual(aliases.map(a=>a.declarations.map(d=>d.kind)),[["NamespaceExportDeclaration"],["ExportAssignment"]]);
+  assert.equal(aliases[0].module.kind,"SourceFile");
+  assert.deepEqual(aliases[0].module_declarations,[aliases[0].module]);
+  assert.deepEqual(aliases[0].module_exports,aliases[0].target);
+  assert.deepEqual(aliases[0].module_bindings,aliases[1].target);
+  assert.equal(p.observations[0].nested.calls.length,1);
+  assert.equal(p.observations[0].nested.calls[0].props_class.status,"observed");
+}
 
 test("singleton UMD global export and same-named local namespace are distinct symbols",()=>fixture(({inspect,options})=>{
   const raw=inspect();assert.deepEqual(raw.codes,[]);
@@ -54,18 +66,15 @@ test("singleton UMD global export and same-named local namespace are distinct sy
   assert.equal(global.symbol,global.declarations[0].parent.symbol.globalExports.get("Widget"));
   assert.equal(raw.checker.getSymbolAtLocation(assignment.declarations[0].expression),local.symbol);
   assert.equal(raw.checker.getSymbolAtLocation(local.declarations[0].name),local.symbol);
-  const p=produce(options);assert.equal(p.status,"observed");withheld(p);
-  // Characterize the current conservative diagnostic, not a future desired reason.
-  assert.equal(p.observations[0].provenance.reason,"ambiguous_declaration");
-  assert.deepEqual(p.observations[0].provenance.hops[0].qualifiers[0].aliases,[]);
+  const p=produce(options);supported(p);
+  assert.equal(validate(JSON.stringify(p),options).valid,true);
 }));
 
-test("renaming only the module-local namespace changes the refusal label, not singleton authority",()=>fixture(({put,inspect,options})=>{
+test("renamed module-local namespace has the same source-backed singleton bridge",()=>fixture(({put,inspect,options})=>{
   put("src/umd.d.ts",provider("Implementation"));const raw=inspect();
   assert.deepEqual(raw.codes,[]);assert.deepEqual(kinds(raw),[["NamespaceExportDeclaration"],["ExportAssignment"],["ModuleDeclaration"]]);
   assert.equal(raw.chain[2].symbol.getName(),"Implementation");
-  const p=produce(options);assert.equal(p.status,"observed");withheld(p);
-  assert.equal(p.observations[0].provenance.reason,"unsupported_declaration");
+  supported(produce(options));
 }));
 
 for(const profile of ["react18","react19"])test(`${profile} UMD type annotation needs source identity, not an FC spelling exception`,()=>fixture(({root,put,inspect,options})=>{
@@ -75,8 +84,7 @@ for(const profile of ["react18","react19"])test(`${profile} UMD type annotation 
   assert.deepEqual(kinds(raw),[["NamespaceExportDeclaration"],["ExportAssignment"],["ModuleDeclaration"]]);
   assert.equal(raw.exports.length,1);assert.equal(raw.signatures.length,1);
   assert.equal(path.relative(root,raw.chain[0].declarations[0].getSourceFile().fileName),"node_modules/@types/react/index.d.ts");
-  const p=produce(options);assert.equal(p.status,"observed");withheld(p);
-  assert.equal(p.observations[0].provenance.reason,"ambiguous_declaration");
+  supported(produce(options));
 }));
 
 test("same global name from two provider files is a distinct negative population",()=>fixture(({put,inspect,options})=>{
@@ -138,15 +146,85 @@ test("global export syntax outside a declaration file is not compiler-bound glob
 test("allowUmdGlobalAccess governs value-use diagnostics, not this type-only qualifier",()=>fixture(({put,config,inspect,options})=>{
   for(const enabled of [false,true]) {
     put("tsconfig.json",JSON.stringify({...config,compilerOptions:{...config.compilerOptions,allowUmdGlobalAccess:enabled}}));
-    put("src/app.ts",app);assert.deepEqual(inspect().codes,[]);withheld(produce(options));
+    put("src/app.ts",app);assert.deepEqual(inspect().codes,[]);supported(produce(options));
     put("src/app.ts",app+"export const value=Widget.marker;");
     assert.equal(inspect().codes.includes(2686),!enabled);
   }
 }));
-test("provider changes and removal replace the epoch even when old refusal still applies",()=>fixture(({root,put,options})=>{
+test("provider changes and removal replace the source-backed epoch",()=>fixture(({root,put,options})=>{
   const before=produce(options);assert.equal(validate(JSON.stringify(before),options).valid,true);
   put("src/umd.d.ts",provider("Implementation"));assert.equal(validate(JSON.stringify(before),options).valid,false);
-  const renamed=produce(options);withheld(renamed);
+  const renamed=produce(options);supported(renamed);
   rmSync(path.join(root,"src/umd.d.ts"));assert.equal(validate(JSON.stringify(renamed),options).valid,false);
   put("src/umd.d.ts",provider());assert.equal(validate(JSON.stringify(before),options).valid,true);
+}));
+
+for(const [label,extra] of [
+  ["competing global provider",provider("Second")],
+  ["global namespace augmentation","export {};declare global {namespace Widget {interface Extra {tag:string}}}"],
+  ["global script namespace","declare namespace Widget {interface Extra {tag:string}}"],
+  ["external module augmentation","import './umd';declare module './umd' {interface View<P>{(props:P,extra:number):null;}}"],
+])test(`skipLibCheck does not erase ${label}`,()=>fixture(({put,config,options})=>{
+  put("tsconfig.json",JSON.stringify({...config,compilerOptions:{...config.compilerOptions,skipLibCheck:true}}));
+  put("src/extra.d.ts",extra);const p=produce(options);
+  assert.equal(p.authorizes_runtime_edge,false);assert.equal(p.scope.class_authority,false);
+  assert(p.observations[0].provenance.status==="unproven" || p.observations[0].provenance.terminal.file==="project/src/extra.d.ts");
+  assert(p.observations[0].nested.calls.every(c=>c.props_class.status==="unproven"));
+}));
+for(const [label,text] of [
+  ["duplicate export assignment",provider("Implementation")+"export = Implementation;"],
+  ["duplicate global export",provider("Implementation")+"export as namespace Widget;"],
+  ["merged local target",provider()+"declare namespace Widget {const extra:number;}"],
+  ["star export",provider()+"export * from './extra';"],
+  ["imported namespace target","import * as Implementation from './extra';export = Implementation;export as namespace Widget;"],
+  ["qualified export target","declare namespace Outer {namespace Inner {interface View<P>{(props:P):null;}}}export = Outer.Inner;export as namespace Widget;"],
+])test(`UMD bridge excludes ${label} even with skipLibCheck`,()=>fixture(({put,config,options})=>{
+  put("tsconfig.json",JSON.stringify({...config,compilerOptions:{...config.compilerOptions,skipLibCheck:true}}));
+  put("src/extra.d.ts","export interface View<P>{(props:P):null;}export const unrelated:number;");
+  put("src/umd.d.ts",text);withheld(produce(options));
+}));
+test("UMD traversal consumes the existing step budget",()=>fixture(({options})=>{
+  const p=produce({...options,limits:{provenance_steps:2}});withheld(p);
+  assert.equal(p.observations[0].provenance.reason,"step_limit");
+  supported(produce(options));
+}));
+test("traced UMD candidates cannot overcome incomplete Program closure",()=>fixture(({put,options})=>{
+  put("src/app.ts","import './missing';"+app);const p=produce(options);
+  assert.equal(p.status,"unproven");assert(p.reasons.includes("unresolved_module"));
+  assert.equal(p.observations[0].provenance.status,"traced");
+  assert.equal(p.observations[0].nested.calls[0].props_class.reason,"program_unproven");
+  assert.equal(p.authorizes_runtime_edge,false);assert.equal(p.scope.class_authority,false);
+}));
+test("traced UMD cannot bypass receiver write barriers",()=>fixture(({put,options})=>{
+  put("src/app.ts",app.replace("const cb=()","client = new Client();const cb=()"));
+  const p=produce(options);assert.equal(p.observations[0].provenance.status,"traced");
+  assert.equal(p.observations[0].nested.calls[0].binding.reason,"write_barrier");
+  assert.equal(p.observations[0].nested.calls[0].props_class.status,"unproven");
+}));
+test("UMD source anchors are recomputed, not accepted from a tampered packet",()=>fixture(({options})=>{
+  const p=produce(options);supported(p);
+  p.observations[0].provenance.hops[0].qualifiers[0].aliases[0].module_bindings=[];
+  assert.equal(validate(JSON.stringify(p),options).valid,false);
+}));
+test("pre-bridge schema is refused before audited-root access",()=>fixture(({options})=>{
+  const p=produce(options);p.schema="prism.callable-observation/6";p.producer.version="0.7.0";
+  let reads=0;const forbidden={get root(){reads++;throw Error("root accessed");}};
+  assert.equal(validate(JSON.stringify(p),forbidden).valid,false);assert.equal(reads,0);
+}));
+test("provider population is replaced after duplicate addition and removal",()=>fixture(({root,put,config,options})=>{
+  put("tsconfig.json",JSON.stringify({...config,compilerOptions:{...config.compilerOptions,skipLibCheck:true}}));
+  const before=produce(options);supported(before);
+  put("src/extra.d.ts",provider("Other"));withheld(produce(options));
+  assert.equal(validate(JSON.stringify(before),options).valid,false);
+  rmSync(path.join(root,"src/extra.d.ts"));supported(produce(options));
+  assert.equal(validate(JSON.stringify(before),options).valid,true);
+}));
+test("unrelated globals and explicit import routes are not poisoned by the UMD census",()=>fixture(({put,config,options})=>{
+  put("src/extra.d.ts","export {};declare global {namespace Unrelated {const marker:number;}}");
+  supported(produce(options));
+  put("tsconfig.json",JSON.stringify({...config,compilerOptions:{...config.compilerOptions,skipLibCheck:true}}));
+  put("src/extra.d.ts",provider("Other"));put("src/app.ts","import * as Widget from './umd';"+app);
+  const p=produce(options);assert.equal(p.observations[0].provenance.status,"traced");
+  assert.equal(p.observations[0].provenance.hops[0].qualifiers[0].aliases[0].declarations[0].kind,"NamespaceImport");
+  assert.equal(p.authorizes_runtime_edge,false);assert.equal(p.scope.class_authority,false);
 }));

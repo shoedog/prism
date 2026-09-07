@@ -1,5 +1,36 @@
 // Declaration observations only. Generic arguments are anchored, not substituted.
-export function traceProvenance(ts,checker,annotation,anchor,maxSteps) {
+// One census per exact Program; no cross-snapshot name/identity cache. Inventory
+// bytes/files and worker timeout/heap bound this scan, not the per-chain step cap.
+const umdPopulations=new WeakMap();
+function umdPopulation(ts,program) {
+  if(umdPopulations.has(program))return umdPopulations.get(program);
+  const providers=new Map(),globals=new Set();
+  const names=name=>{
+    if(ts.isIdentifier(name))globals.add(name.text);
+    else if(ts.isObjectBindingPattern(name) || ts.isArrayBindingPattern(name))
+      for(const e of name.elements)if(ts.isBindingElement(e))names(e.name);
+  };
+  const globalStatements=statements=>{
+    for(const s of statements) {
+      if(s.name)names(s.name);
+      if(ts.isVariableStatement(s))s.declarationList.declarations.forEach(d=>names(d.name));
+    }
+  };
+  for(const sf of program.getSourceFiles()) {
+    if(!ts.isExternalModule(sf))globalStatements(sf.statements);
+    function visit(n) {
+      if(ts.isNamespaceExportDeclaration(n)) {
+        const name=n.name.text;providers.set(name,[...(providers.get(name)??[]),n]);
+      }
+      if(ts.isModuleDeclaration(n) && n.flags & ts.NodeFlags.GlobalAugmentation
+        && n.body && ts.isModuleBlock(n.body))globalStatements(n.body.statements);
+      ts.forEachChild(n,visit);
+    }
+    visit(sf);
+  }
+  const result={providers,globals};umdPopulations.set(program,result);return result;
+}
+export function traceProvenance(ts,checker,annotation,anchor,maxSteps,program) {
   const result={status:"unproven",reason:null,steps_used:0,hops:[],terminal:null};
   const stop=reason=>{throw {provenanceReason:reason};};
   const tick=()=>{if(result.steps_used>=maxSteps)stop("step_limit");result.steps_used++;};
@@ -8,6 +39,12 @@ export function traceProvenance(ts,checker,annotation,anchor,maxSteps) {
     const found=new Set(symbol?.declarations??[]);
     for(const d of [...found]) {
       if(!d.name || !ts.isIdentifier(d.name))continue;
+      if(ts.isNamespaceExportDeclaration(d)) {
+        // Global export and same-file local namespace are distinct bindings.
+        // Include all global-export providers, including compiler-hidden peers.
+        if(program)for(const peer of umdPopulation(ts,program).providers.get(d.name.text)??[])found.add(peer);
+        continue;
+      }
       let scope=d.parent;
       while(scope && !scope.statements)scope=scope.parent;
       if(!scope)continue;
@@ -66,6 +103,28 @@ export function traceProvenance(ts,checker,annotation,anchor,maxSteps) {
       module_exports:anchors([...exports,...stars]),
       module_bindings:anchors(exports.flatMap(d=>declarations(checker.getSymbolAtLocation(d.expression))))}};
   }
+  function umdEvidence(declaration,symbol) {
+    tick(); // Owning source-module traversal, in addition to each alias hop.
+    const sf=declaration.parent;
+    if(!program || !ts.isSourceFile(sf) || !sf.isDeclarationFile || !ts.isExternalModule(sf)
+      || declaration.modifiers?.length || program.getSourceFile(sf.fileName)!==sf
+      || sf.symbol?.globalExports?.get(symbol.escapedName)!==symbol)stop("unsupported_declaration");
+    const population=umdPopulation(ts,program),providers=population.providers.get(declaration.name.text)??[];
+    if(providers.length!==1 || providers[0]!==declaration || population.globals.has(declaration.name.text))stop("ambiguous_declaration");
+    const moduleDefs=declarations(sf.symbol);
+    if(moduleDefs.length!==1 || moduleDefs[0]!==sf)stop("ambiguous_declaration");
+    const exports=sf.statements.filter(ts.isExportAssignment);
+    if(sf.statements.some(s=>ts.isExportDeclaration(s) && (!s.exportClause || ts.isNamespaceExport(s.exportClause))))stop("unsupported_export_star");
+    if(exports.length!==1)stop(exports.length?"ambiguous_declaration":"unsupported_declaration");
+    const assignment=exports[0],local=namespaceTarget(assignment),localDefs=declarations(local);
+    if(!local || localDefs.length!==1 || !ts.isIdentifier(localDefs[0].name)
+      || !localDefs[0].body || !ts.isModuleBlock(localDefs[0].body))stop("unsupported_declaration");
+    const target=checker.getImmediateAliasedSymbol(symbol),targetDefs=declarations(target);
+    if(!(target?.flags & ts.SymbolFlags.Alias) || targetDefs.length!==1 || targetDefs[0]!==assignment
+      || sf.symbol.exports?.get("export=")!==target)stop("unsupported_declaration");
+    return {target,reason:null,record:{module:anchor(sf),module_declarations:anchors(moduleDefs),
+      module_exports:anchors(exports),module_bindings:anchors(localDefs)}};
+  }
   function follow(symbol,output,namespace=false) {
     const seen=new Set();
     while(symbol && (symbol.flags & ts.SymbolFlags.Alias)) {
@@ -74,12 +133,13 @@ export function traceProvenance(ts,checker,annotation,anchor,maxSteps) {
       if(defs.length!==1)stop(defs.length?"ambiguous_declaration":"unresolved_symbol");
       const declaration=defs[0];
       const gateway=namespace && ts.isExportAssignment(declaration) && namespaceTarget(declaration);
+      const umd=namespace && ts.isNamespaceExportDeclaration(declaration);
       if(!ts.isImportSpecifier(declaration) && !ts.isImportClause(declaration)
-        && !ts.isNamespaceImport(declaration) && !ts.isExportSpecifier(declaration) && !gateway)stop("unsupported_declaration");
-      const evidence=moduleEvidence(declaration);
+        && !ts.isNamespaceImport(declaration) && !ts.isExportSpecifier(declaration) && !gateway && !umd)stop("unsupported_declaration");
+      const evidence=umd?umdEvidence(declaration,symbol):moduleEvidence(declaration);
       const item={declarations:anchors(defs),target:[],...evidence.record};output.push(item);
       if(evidence.reason)stop(evidence.reason);
-      const target=checker.getImmediateAliasedSymbol(symbol);
+      const target=umd?evidence.target:checker.getImmediateAliasedSymbol(symbol);
       item.target=anchors(declarations(target));
       if(gateway && target!==gateway)stop("unsupported_declaration");
       if(!target || !declarations(target).length)stop("unresolved_symbol");
