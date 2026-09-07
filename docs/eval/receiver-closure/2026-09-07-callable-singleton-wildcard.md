@@ -66,7 +66,7 @@ snapshots. There is no Prism runtime consumer.
  31 behavioral failures; only the test module's index import points to the control.
 - Full observer suite:212 passed,0 failed,0 skipped.
 - Default Rust:4017 passed,0 failed,1 ignored;28 groups including2 doctests.
-- MCP Rust: in flight at this documentation checkpoint; final total in handoff.
+- MCP Rust:4207 passed,0 failed,1 ignored;30 groups including2 doctests.
 - Authority controls:40 results,failures=[]; audit helper tests:7/7 passed.
 - fmt/diff checks and independent public replay passed. No Rust source/tests or
  Cargo files changed; no Tier-A-triggering resolver/navigation/CPG paths changed.
