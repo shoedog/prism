@@ -1,5 +1,7 @@
 # Callable dependency acquisition — bounded preflight and execution plan
 
+> Execution reconciliation: PR265 merged at3001ca58. The owner then explicitly authorized this public-only acquisition. The single install completed; current observer admission was declined on measured size/count/symlink barriers. See the same-date callable-acquisition-measurement readout/handoff. Approval-pending and unexecuted statements below describe the earlier plan, not current state.
+
 Status: planning complete; acquisition NOT executed or authorized by this document.
 Published as [PR265](https://github.com/shoedog/prism/pull/265), plan commit786a019.
 Owner approved this planning successor after PR264 merged. Base

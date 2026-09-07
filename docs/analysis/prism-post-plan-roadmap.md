@@ -1,6 +1,6 @@
 # Prism — post-plan roadmap (follow-up queue, strategic fork, Java, Serena)
 
-> Status reconciliation (2026-09-06): PR261–264 are merged at mainf2f8a3c5. Historical controller/publication/next statements below are superseded. The owner-approved dependency-acquisition preflight/plan is complete; actual installation and runtime authority remain unapproved.
+> Status reconciliation (2026-09-06): PR261–265 merged at main3001ca58. The explicitly authorized single public disposable dependency install completed; observer admission was declined on measured byte/entry/symlink barriers. Historical approval/publication statements below are superseded. No acquisition implementation or runtime expansion is authorized.
 
 Date: 2026-07-04. Companion to `docs/analysis/prism-llm-and-accuracy-plan.md` (the
 ranked plan). Written as P14 (the final live plan item) is in implementation; refer
@@ -280,9 +280,17 @@ Three candidate directions once the queue's top items are drained (or interleave
   audited read-only. Public source+compiler currently77976115 bytes, no dependencies;
   installed bytes UNKNOWN. Yarn workspace symlinks conflict with current snapshot
   refusal. Install success cannot imply observer admission or compiler closure.
-  Next approval: one public-only frozen-lock, script-disabled disposable acquisition
-  measurement, bounded by time/disk/trust limits; no original-app writes or runtime
-  expansion. See 2026-09-06-callable-dependency-acquisition spec/handoff.
+  Owner-authorized acquisition measurement is complete below; no original-app writes
+  or runtime expansion. See 2026-09-06-callable-dependency-acquisition spec/handoff.
+
+- **Public dependency acquisition — completed, admission declined; PR266, measurement4597f6b:**
+  Pinned Yarn1.22.22/Node24.15.0, frozen lock and scripts disabled; one24.436s install.
+  Source/control bytes preserved;1445 cached archives verified (1442 distinct URLs).
+  Candidate+compiler853674175 bytes/68997 file-directory entries/249 symlinks exceed
+  current128MiB/20000/no-link admission. No producer replay, pruning or limit change.
+  Next approval: bounded streamed/lazy acquisition and canonical in-root link-identity
+  design with negative fixtures before implementation. No runtime authority. See
+  2026-09-06-callable-acquisition-measurement readout/handoff.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:

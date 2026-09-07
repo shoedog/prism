@@ -1,5 +1,7 @@
 # Handoff — callable dependency acquisition preflight
 
+> Superseded by 2026-09-06-callable-acquisition-measurement.md: PR265 merged; the owner-authorized single public disposable install completed. No observer replay: measured byte/entry/link barriers decline admission. Historical installation-approval questions below are resolved for that one attempt, not authority for another.
+
 **Written:** 2026-09-06 · **By:** /root · **Provider:** codex
 **Workspace:** /private/tmp/prism-acquisition-plan-6kg7fn/worktree · docs/callable-acquisition-preflight · **Measured state:** `[MEASURED]` base f2f8a3c5; docs-only plan786a019 pushed in PR265; this publication closeout follows.
 **Predecessor:** PR264, confirmed merged at f2f8a3c535fca20013ee642cec977403beec51b5.
