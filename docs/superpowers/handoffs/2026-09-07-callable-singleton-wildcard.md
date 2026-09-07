@@ -1,5 +1,10 @@
 # Handoff — singleton wildcard observations
 
+> Superseded operational status (2026-09-07): PR274 is confirmed merged at
+> d66328d1. Its packet reproduces byte-for-byte in the successor source-backed
+> audit. See `2026-09-07-callable-merged-wildcard-proof.md` for current work;
+> open-PR statements below describe the historical closeout, not current state.
+
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-singleton-wildcard-observations · **Measured state:** `[MEASURED]` implementation9d31f54f on base5a4b9b5e; all local gates and two self-review rounds complete; closeout ae599b3 pushed and PR274 opened against main.
 **Predecessor:** PR273 exact-ambient observations.

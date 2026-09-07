@@ -1,0 +1,68 @@
+{
+  "schema": "prism.merged-wildcard-gates/1",
+  "audit_only": true,
+  "authorizes_runtime_edge": false,
+  "base": "d66328d1ad5b11ef937cd0823fac093f5e8c01bd",
+  "observer": {
+    "passed": 221,
+    "failed": 0,
+    "skipped": 0,
+    "log_sha256": "b71548067ffbbece1dea8f827628ab0f303de1ab7b6854c6c16f7f83802088bf"
+  },
+  "helpers": {
+    "passed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "log_sha256": "961ba1813d46fc3b9ee01af45c226c8f30a9b8154afbb0bc7ada819ddcfedb1f"
+  },
+  "exact_base_characterization": {
+    "passed": 9,
+    "failed": 0,
+    "skipped": 0,
+    "log_sha256": "bce8ee690c77e55f945b5be2746fae2630279539022008e193b8178b403a3d03"
+  },
+  "implementation_red_claimed": false,
+  "rust_default": {
+    "groups": 28,
+    "passed": 4017,
+    "failed": 0,
+    "ignored": 1,
+    "includes_doctests": true,
+    "log_sha256": "5cf231844b57d9a4fde7addbe8ddfa181b5e7bc4c9dea2efac12850b2ab56556"
+  },
+  "rust_mcp": {
+    "groups": 30,
+    "passed": 4207,
+    "failed": 0,
+    "ignored": 1,
+    "includes_doctests": true,
+    "log_sha256": "7f7d24f174bd6b3c8f0bbd4892df1aed0bbcadce8c66a3db5bcfdbdd4f99f28b"
+  },
+  "authority": {
+    "results": 40,
+    "failures": [],
+    "sha256": "8746d8f89c3efa5029869de3c0d1d0297f2499da22e20d02b922bc6576a9b57f"
+  },
+  "validation": {
+    "valid": true,
+    "authorizes_runtime_edge": false,
+    "packet_status": "unproven",
+    "reason": "reproduced_observation"
+  },
+  "source_preserved": true,
+  "source_manifest_sha256": "353187a695df2683a3631e4739c173cb6d33190901093549b61e28efeda60cbb",
+  "packet_sha256": "f8b266d6bf7de4124d968d31187c82cd32fd94d8e3aae786baf89afe3c509fa5",
+  "source_audit_sha256": "19194595b0b000aa5e74eb618bb31959112f5ef51da7ff64bbe31cd0dcacf968",
+  "reviews": {
+    "rounds": 2,
+    "independent": false,
+    "open_wrong": 0,
+    "open_smell": 0,
+    "cap_extended": false
+  },
+  "not_run": [
+    "Tier-A: no triggering production paths changed",
+    "human-triggered full multi-corpus evaluation"
+  ],
+  "public_selected_value_declaration_measured": false
+}
