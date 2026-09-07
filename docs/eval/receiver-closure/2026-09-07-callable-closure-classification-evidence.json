@@ -1,0 +1,702 @@
+{
+  "schema": "prism.closure-classification-audit/1",
+  "audit_only": true,
+  "authorizes_runtime_edge": false,
+  "base": "2abb5de025491fec000316f68e5565c32879f22e",
+  "compiler_sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675",
+  "producer": {
+    "version": "0.8.0",
+    "sha256": "02317c3bcd3fc19cdea0b4ff11bdb18be679f22f27d03449e8906a0a0b3ea9b3"
+  },
+  "packet_sha256": "41b2493070badf82040cb794634b262357d9cc1c770ee85f74fa5647caedcf8a",
+  "capture_sha256": "96332e46fd156409cea498e17a7ff3cf8600886e6ec2ab3247d8dfaf77ab0c1b",
+  "instrumentation_patch_sha256": "ae185464950c96754719be34933be4638cdd6b22a2791ccf5962e09e8df2060e",
+  "classification_sha256": "39f2064fe31f1245cc5da1da94716f88bbd0f11ed2a611f5ee7eef67ca4230e9",
+  "source_preserved": true,
+  "source_manifest_sha256": "353187a695df2683a3631e4739c173cb6d33190901093549b61e28efeda60cbb",
+  "packet_equal_except_temporary_producer": true,
+  "validation": {
+    "valid": true,
+    "authorizes_runtime_edge": false,
+    "packet_status": "unproven",
+    "reason": "reproduced_observation"
+  },
+  "config": {
+    "file": "project/tsconfig.json",
+    "sha256": "4f3289effdd213d3c0c8fa290645308157f8418aafc0c2cb4a3c459102d54cf6",
+    "moduleResolution": 2,
+    "skipLibCheck": true,
+    "noUncheckedSideEffectImports": false,
+    "baseUrl": "/__prism__/project"
+  },
+  "null_filesystem_requests": 603,
+  "request_parent_counts": {
+    "ImportDeclaration": 479,
+    "LiteralType": 114,
+    "ExternalModuleReference": 5,
+    "ExportDeclaration": 3,
+    "CallExpression": 1,
+    "ModuleDeclaration": 1
+  },
+  "dispositions": {
+    "no_source_symbol": 14,
+    "merged_wildcard_ambient": 84,
+    "singleton_wildcard_ambient": 231,
+    "exact_node_ambient": 272,
+    "augmentation_name_not_import_authority": 1,
+    "exact_virtual_ambient": 1
+  },
+  "residual_categories": {
+    "missing_relative_declaration": 1,
+    "obsolete_workspace_subpath": 1,
+    "exports_subpath_mode_mismatch": 2,
+    "absent_optional_peer": 8,
+    "absent_dev_only_reference": 2
+  },
+  "asset_inventory_matches": 315,
+  "refused": {
+    "unique_digests": 264,
+    "requests": 1269,
+    "contextual_records": 1072,
+    "node_prefix": {
+      "unique_paths": 258,
+      "requests": 1262
+    },
+    "virtual_pwa": {
+      "unique_paths": 6,
+      "requests": 7
+    }
+  },
+  "outside": {
+    "ancestor_type_root": {
+      "records": 2,
+      "requests": 28,
+      "paths": [
+        "/__prism__/node_modules/@types",
+        "/node_modules/@types"
+      ]
+    },
+    "ancestor_module_search": {
+      "records": 222,
+      "requests": 772,
+      "paths": [
+        "/__prism__/node_modules",
+        "/node_modules"
+      ]
+    },
+    "workspace_peer_id_metadata": {
+      "records": 6,
+      "requests": 6,
+      "paths": [
+        "/__prism__/react",
+        "/__prism__/react-dom"
+      ]
+    }
+  },
+  "ambient_samples": {
+    "merged_wildcard_ambient": {
+      "use": {
+        "file": "project/packages/excalidraw/components/ToolButton.tsx",
+        "sha256": "174fc5fee6ed22e96775e3c7939acc573cbde67b4687bab9f735dcd109be6f91",
+        "kind": "StringLiteral",
+        "start_utf16": 250,
+        "end_utf16": 267,
+        "start_byte": 250,
+        "end_byte": 267
+      },
+      "specifier": "./ToolIcon.scss",
+      "parent": "ImportDeclaration",
+      "declarations": [
+        {
+          "file": "project/node_modules/vite/client.d.ts",
+          "sha256": "84d68135178bf014e5cdc27e88c9148fc22f82e1a733dc6e1869a5263e58d5db",
+          "kind": "ModuleDeclaration",
+          "start_utf16": 911,
+          "end_utf16": 937,
+          "start_byte": 911,
+          "end_byte": 937
+        },
+        {
+          "file": "project/packages/excalidraw/global.d.ts",
+          "sha256": "d7679fa3bf5d6b64bc2a526070ad97f0d653e22579c6d9056b3ce94e53750814",
+          "kind": "ModuleDeclaration",
+          "start_utf16": 1758,
+          "end_utf16": 1782,
+          "start_byte": 1758,
+          "end_byte": 1782
+        }
+      ]
+    },
+    "singleton_wildcard_ambient": {
+      "use": {
+        "file": "project/packages/excalidraw/fonts/Cascadia/index.ts",
+        "sha256": "ac256ed45478f418e12bd61223f492dbbc2949a5fff7727dd8697a5844e98908",
+        "kind": "StringLiteral",
+        "start_utf16": 95,
+        "end_utf16": 125,
+        "start_byte": 95,
+        "end_byte": 125
+      },
+      "specifier": "./CascadiaCode-Regular.woff2",
+      "parent": "ImportDeclaration",
+      "declarations": [
+        {
+          "file": "project/node_modules/vite/client.d.ts",
+          "sha256": "84d68135178bf014e5cdc27e88c9148fc22f82e1a733dc6e1869a5263e58d5db",
+          "kind": "ModuleDeclaration",
+          "start_utf16": 2695,
+          "end_utf16": 2764,
+          "start_byte": 2695,
+          "end_byte": 2764
+        }
+      ]
+    },
+    "exact_node_ambient": {
+      "use": {
+        "file": "project/node_modules/vitest/dist/index.d.ts",
+        "sha256": "f11ef2a3809e6ed67d42e17e15678d4dcf2c75005eb80d1d8b390188b7e9bbea",
+        "kind": "StringLiteral",
+        "start_utf16": 4423,
+        "end_utf16": 4436,
+        "start_byte": 4423,
+        "end_byte": 4436
+      },
+      "specifier": "node:stream",
+      "parent": "ImportDeclaration",
+      "declarations": [
+        {
+          "file": "project/node_modules/@types/node/stream.d.ts",
+          "sha256": "c878f74b6d10b267f6075c51ac1d8becd15b4aa6a58f79c0cfe3b24908357f60",
+          "kind": "ModuleDeclaration",
+          "start_utf16": 84832,
+          "end_utf16": 84924,
+          "start_byte": 84832,
+          "end_byte": 84924
+        }
+      ]
+    },
+    "augmentation_name_not_import_authority": {
+      "use": {
+        "file": "project/node_modules/i18next-browser-languagedetector/index.d.ts",
+        "sha256": "332bd67a6233b14fd19c10d14110b12e5eea53ffe4a3a54e1eaf3c933e69d0e6",
+        "kind": "StringLiteral",
+        "start_utf16": 2040,
+        "end_utf16": 2049,
+        "start_byte": 2040,
+        "end_byte": 2049
+      },
+      "specifier": "i18next",
+      "parent": "ModuleDeclaration",
+      "declarations": [
+        {
+          "file": "project/node_modules/i18next-browser-languagedetector/index.d.ts",
+          "sha256": "332bd67a6233b14fd19c10d14110b12e5eea53ffe4a3a54e1eaf3c933e69d0e6",
+          "kind": "ModuleDeclaration",
+          "start_utf16": 2025,
+          "end_utf16": 2118,
+          "start_byte": 2025,
+          "end_byte": 2118
+        }
+      ]
+    },
+    "exact_virtual_ambient": {
+      "use": {
+        "file": "project/excalidraw-app/index.tsx",
+        "sha256": "423b98cad0b4f3508501ba86a165580bfec462fcbbdce66f6fbe1d7d63c566f8",
+        "kind": "StringLiteral",
+        "start_utf16": 110,
+        "end_utf16": 132,
+        "start_byte": 110,
+        "end_byte": 132
+      },
+      "specifier": "virtual:pwa-register",
+      "parent": "ImportDeclaration",
+      "declarations": [
+        {
+          "file": "project/node_modules/vite-plugin-pwa/vanillajs.d.ts",
+          "sha256": "3673a976f820b60345ea6e90bb96d3c6d6f4e8a6233351f3fe41dab087ab5894",
+          "kind": "ModuleDeclaration",
+          "start_utf16": 0,
+          "end_utf16": 557,
+          "start_byte": 0,
+          "end_byte": 557
+        }
+      ]
+    }
+  },
+  "residuals": [
+    {
+      "category": "missing_relative_declaration",
+      "use": {
+        "file": "project/node_modules/jotai-scope/dist/src/ScopeProvider/ScopeProvider.d.ts",
+        "sha256": "d82809c7c74d9524846ac44d6ddb6cdca541d45d9bebecec612fc3eee0d46bce",
+        "kind": "StringLiteral",
+        "start_utf16": 92,
+        "end_utf16": 101,
+        "start_byte": 92,
+        "end_byte": 101
+      },
+      "line": 2,
+      "specifier": "./types",
+      "parent": "ImportDeclaration",
+      "owner": {
+        "file": "project/node_modules/jotai-scope/package.json",
+        "sha256": "a625ca66bb1a248d74ac96a5f794ca61b7a8f991ed0fdabf6e1272e3081d7e1a",
+        "name": "jotai-scope",
+        "version": "0.7.2",
+        "optional_peer": false,
+        "peer": null,
+        "dev": null
+      },
+      "target_package": null,
+      "actual_node10_target": null,
+      "diagnostic_only_bundler_target": null
+    },
+    {
+      "category": "obsolete_workspace_subpath",
+      "use": {
+        "file": "project/node_modules/@excalidraw/mermaid-to-excalidraw/dist/interfaces.d.ts",
+        "sha256": "f4ef4ff2b33641aeaf2b83468b9407c00aab74353834576cf71f08bd0815deb4",
+        "kind": "StringLiteral",
+        "start_utf16": 47,
+        "end_utf16": 89,
+        "start_byte": 47,
+        "end_byte": 89
+      },
+      "line": 1,
+      "specifier": "@excalidraw/excalidraw/element/transform",
+      "parent": "ImportDeclaration",
+      "owner": {
+        "file": "project/node_modules/@excalidraw/mermaid-to-excalidraw/package.json",
+        "sha256": "c9fa0296e0d77ea77e0332d039dd77608019547844adb6383faabd7dba4a7f73",
+        "name": "@excalidraw/mermaid-to-excalidraw",
+        "version": "2.2.2",
+        "optional_peer": false,
+        "peer": null,
+        "dev": "^0.18.0-a9ca16e"
+      },
+      "target_package": {
+        "file": "project/packages/excalidraw/package.json",
+        "sha256": "160dabbd052e579a5b7b0e341d653e0739d17d44d68f16be8c1cf893e1e4236d",
+        "name": "@excalidraw/excalidraw",
+        "version": "0.18.0",
+        "exports": {
+          "./common/*": {
+            "types": "./dist/types/common/src/*.d.ts"
+          },
+          "./element/*": {
+            "types": "./dist/types/element/src/*.d.ts"
+          },
+          "./math/*": {
+            "types": "./dist/types/math/src/*.d.ts"
+          },
+          "./utils/*": {
+            "types": "./dist/types/utils/src/*.d.ts"
+          },
+          "./*": {
+            "types": "./dist/types/excalidraw/*.d.ts"
+          },
+          "./index.css": {
+            "development": "./dist/dev/index.css",
+            "production": "./dist/prod/index.css"
+          },
+          ".": {
+            "types": "./dist/types/excalidraw/index.d.ts",
+            "development": "./dist/dev/index.js",
+            "production": "./dist/prod/index.js",
+            "default": "./dist/prod/index.js"
+          }
+        }
+      },
+      "actual_node10_target": null,
+      "diagnostic_only_bundler_target": null
+    },
+    {
+      "category": "exports_subpath_mode_mismatch",
+      "use": {
+        "file": "project/node_modules/vitest/node_modules/vite/dist/node/index.d.ts",
+        "sha256": "08971f8379717d46a8a990ce9a7eed3af3e47e22c3d45c3a046054b7a2fffe7a",
+        "kind": "StringLiteral",
+        "start_utf16": 520,
+        "end_utf16": 537,
+        "start_byte": 520,
+        "end_byte": 537
+      },
+      "line": 5,
+      "specifier": "rollup/parseAst",
+      "parent": "ExportDeclaration",
+      "owner": {
+        "file": "project/node_modules/vitest/node_modules/vite/package.json",
+        "sha256": "5e43b0e53f19d224eb71c3cf7358c241e536ccefd0a233f17af9b822aaaa4d8f",
+        "name": "vite",
+        "version": "6.2.0",
+        "optional_peer": false,
+        "peer": null,
+        "dev": null
+      },
+      "target_package": {
+        "file": "project/node_modules/vitest/node_modules/rollup/package.json",
+        "sha256": "53bd7229f25eeffeef9b6bad91c5c503726d430d00174ce8d9def10472acea0b",
+        "name": "rollup",
+        "version": "4.34.9",
+        "exports": {
+          ".": {
+            "types": "./dist/rollup.d.ts",
+            "require": "./dist/rollup.js",
+            "import": "./dist/es/rollup.js"
+          },
+          "./loadConfigFile": {
+            "types": "./dist/loadConfigFile.d.ts",
+            "require": "./dist/loadConfigFile.js",
+            "default": "./dist/loadConfigFile.js"
+          },
+          "./getLogFilter": {
+            "types": "./dist/getLogFilter.d.ts",
+            "require": "./dist/getLogFilter.js",
+            "import": "./dist/es/getLogFilter.js"
+          },
+          "./parseAst": {
+            "types": "./dist/parseAst.d.ts",
+            "require": "./dist/parseAst.js",
+            "import": "./dist/es/parseAst.js"
+          },
+          "./dist/*": "./dist/*"
+        }
+      },
+      "actual_node10_target": null,
+      "diagnostic_only_bundler_target": {
+        "file": "project/node_modules/vitest/node_modules/rollup/dist/parseAst.d.ts",
+        "sha256": "a660aa95476042d3fdcc1343cf6bb8fdf24772d31712b1db321c5a4dcc325434"
+      }
+    },
+    {
+      "category": "absent_optional_peer",
+      "use": {
+        "file": "project/node_modules/vitest/node_modules/vite/types/internal/lightningcssOptions.d.ts",
+        "sha256": "4ec16d7a4e366c06a4573d299e15fe6207fc080f41beac5da06f4af33ea9761e",
+        "kind": "StringLiteral",
+        "start_utf16": 136,
+        "end_utf16": 150,
+        "start_byte": 136,
+        "end_byte": 150
+      },
+      "line": 4,
+      "specifier": "lightningcss",
+      "parent": "ImportDeclaration",
+      "owner": {
+        "file": "project/node_modules/vitest/node_modules/vite/package.json",
+        "sha256": "5e43b0e53f19d224eb71c3cf7358c241e536ccefd0a233f17af9b822aaaa4d8f",
+        "name": "vite",
+        "version": "6.2.0",
+        "optional_peer": true,
+        "peer": "^1.21.0",
+        "dev": "^1.29.1"
+      },
+      "target_package": null,
+      "actual_node10_target": null,
+      "diagnostic_only_bundler_target": null
+    },
+    {
+      "category": "absent_optional_peer",
+      "use": {
+        "file": "project/node_modules/vitest/node_modules/vite/types/internal/cssPreprocessorOptions.d.ts",
+        "sha256": "7870becb94cbc11d2d01b77c4422589adcba4d8e59f726246d40cd0d129784d8",
+        "kind": "StringLiteral",
+        "start_utf16": 212,
+        "end_utf16": 227,
+        "start_byte": 212,
+        "end_byte": 227
+      },
+      "line": 6,
+      "specifier": "sass-embedded",
+      "parent": "ImportDeclaration",
+      "owner": {
+        "file": "project/node_modules/vitest/node_modules/vite/package.json",
+        "sha256": "5e43b0e53f19d224eb71c3cf7358c241e536ccefd0a233f17af9b822aaaa4d8f",
+        "name": "vite",
+        "version": "6.2.0",
+        "optional_peer": true,
+        "peer": "*",
+        "dev": "^1.85.0"
+      },
+      "target_package": null,
+      "actual_node10_target": null,
+      "diagnostic_only_bundler_target": null
+    },
+    {
+      "category": "absent_optional_peer",
+      "use": {
+        "file": "project/node_modules/vitest/node_modules/vite/types/internal/cssPreprocessorOptions.d.ts",
+        "sha256": "7870becb94cbc11d2d01b77c4422589adcba4d8e59f726246d40cd0d129784d8",
+        "kind": "StringLiteral",
+        "start_utf16": 292,
+        "end_utf16": 298,
+        "start_byte": 292,
+        "end_byte": 298
+      },
+      "line": 8,
+      "specifier": "less",
+      "parent": "ImportDeclaration",
+      "owner": {
+        "file": "project/node_modules/vitest/node_modules/vite/package.json",
+        "sha256": "5e43b0e53f19d224eb71c3cf7358c241e536ccefd0a233f17af9b822aaaa4d8f",
+        "name": "vite",
+        "version": "6.2.0",
+        "optional_peer": true,
+        "peer": "*",
+        "dev": null
+      },
+      "target_package": null,
+      "actual_node10_target": null,
+      "diagnostic_only_bundler_target": null
+    },
+    {
+      "category": "absent_optional_peer",
+      "use": {
+        "file": "project/node_modules/vitest/node_modules/vite/types/internal/cssPreprocessorOptions.d.ts",
+        "sha256": "7870becb94cbc11d2d01b77c4422589adcba4d8e59f726246d40cd0d129784d8",
+        "kind": "StringLiteral",
+        "start_utf16": 367,
+        "end_utf16": 375,
+        "start_byte": 367,
+        "end_byte": 375
+      },
+      "line": 10,
+      "specifier": "stylus",
+      "parent": "ImportDeclaration",
+      "owner": {
+        "file": "project/node_modules/vitest/node_modules/vite/package.json",
+        "sha256": "5e43b0e53f19d224eb71c3cf7358c241e536ccefd0a233f17af9b822aaaa4d8f",
+        "name": "vite",
+        "version": "6.2.0",
+        "optional_peer": true,
+        "peer": "*",
+        "dev": null
+      },
+      "target_package": null,
+      "actual_node10_target": null,
+      "diagnostic_only_bundler_target": null
+    },
+    {
+      "category": "absent_dev_only_reference",
+      "use": {
+        "file": "project/node_modules/i18next-browser-languagedetector/index.d.ts",
+        "sha256": "332bd67a6233b14fd19c10d14110b12e5eea53ffe4a3a54e1eaf3c933e69d0e6",
+        "kind": "StringLiteral",
+        "start_utf16": 25,
+        "end_utf16": 34,
+        "start_byte": 25,
+        "end_byte": 34
+      },
+      "line": 1,
+      "specifier": "i18next",
+      "parent": "ImportDeclaration",
+      "owner": {
+        "file": "project/node_modules/i18next-browser-languagedetector/package.json",
+        "sha256": "cab285c5d52d948709094bba1e5ba7c4ee99174432b85eb34a95a849d7823162",
+        "name": "i18next-browser-languagedetector",
+        "version": "6.1.4",
+        "optional_peer": false,
+        "peer": null,
+        "dev": "21.6.7"
+      },
+      "target_package": null,
+      "actual_node10_target": null,
+      "diagnostic_only_bundler_target": null
+    },
+    {
+      "category": "exports_subpath_mode_mismatch",
+      "use": {
+        "file": "project/node_modules/vite/dist/node/index.d.ts",
+        "sha256": "304df321f3b710c2a0951f2c9cddfe34986e4aeb6994fa4f9d21efd06835abec",
+        "kind": "StringLiteral",
+        "start_utf16": 580,
+        "end_utf16": 597,
+        "start_byte": 580,
+        "end_byte": 597
+      },
+      "line": 6,
+      "specifier": "rollup/parseAst",
+      "parent": "ExportDeclaration",
+      "owner": {
+        "file": "project/node_modules/vite/package.json",
+        "sha256": "b6a9e35f780df8006d84e7a2b7371e23c26d29e39eab65855ae849cfd110d467",
+        "name": "vite",
+        "version": "5.0.12",
+        "optional_peer": false,
+        "peer": null,
+        "dev": null
+      },
+      "target_package": {
+        "file": "project/node_modules/vite/node_modules/rollup/package.json",
+        "sha256": "53bd7229f25eeffeef9b6bad91c5c503726d430d00174ce8d9def10472acea0b",
+        "name": "rollup",
+        "version": "4.34.9",
+        "exports": {
+          ".": {
+            "types": "./dist/rollup.d.ts",
+            "require": "./dist/rollup.js",
+            "import": "./dist/es/rollup.js"
+          },
+          "./loadConfigFile": {
+            "types": "./dist/loadConfigFile.d.ts",
+            "require": "./dist/loadConfigFile.js",
+            "default": "./dist/loadConfigFile.js"
+          },
+          "./getLogFilter": {
+            "types": "./dist/getLogFilter.d.ts",
+            "require": "./dist/getLogFilter.js",
+            "import": "./dist/es/getLogFilter.js"
+          },
+          "./parseAst": {
+            "types": "./dist/parseAst.d.ts",
+            "require": "./dist/parseAst.js",
+            "import": "./dist/es/parseAst.js"
+          },
+          "./dist/*": "./dist/*"
+        }
+      },
+      "actual_node10_target": null,
+      "diagnostic_only_bundler_target": {
+        "file": "project/node_modules/vite/node_modules/rollup/dist/parseAst.d.ts",
+        "sha256": "a660aa95476042d3fdcc1343cf6bb8fdf24772d31712b1db321c5a4dcc325434"
+      }
+    },
+    {
+      "category": "absent_dev_only_reference",
+      "use": {
+        "file": "project/node_modules/@svgr/core/dist/index.d.ts",
+        "sha256": "fe1baccba85e2af0fdaca57b32b34f3fd602609bb0b29aeb0609000dbcd75446",
+        "kind": "StringLiteral",
+        "start_utf16": 71,
+        "end_utf16": 77,
+        "start_byte": 71,
+        "end_byte": 77
+      },
+      "line": 2,
+      "specifier": "svgo",
+      "parent": "ImportDeclaration",
+      "owner": {
+        "file": "project/node_modules/@svgr/core/package.json",
+        "sha256": "d2b96db8ea2a274e1c8dbc52fad992d6ff02ae3e2b917087678d9131292c0932",
+        "name": "@svgr/core",
+        "version": "8.1.0",
+        "optional_peer": false,
+        "peer": null,
+        "dev": "^3.0.2"
+      },
+      "target_package": null,
+      "actual_node10_target": null,
+      "diagnostic_only_bundler_target": null
+    },
+    {
+      "category": "absent_optional_peer",
+      "use": {
+        "file": "project/node_modules/vite-plugin-pwa/dist/index.d.ts",
+        "sha256": "6e3ea33e31abac39c337ed0b2841c9ea55d90d8e74ccf95160c71a676c0752e9",
+        "kind": "StringLiteral",
+        "start_utf16": 284,
+        "end_utf16": 319,
+        "start_byte": 284,
+        "end_byte": 319
+      },
+      "line": 4,
+      "specifier": "@vite-pwa/assets-generator/config",
+      "parent": "ImportDeclaration",
+      "owner": {
+        "file": "project/node_modules/vite-plugin-pwa/package.json",
+        "sha256": "73cd19966cf5aacad070f77035341ace37c6069faa1c3b65eab607ce14d1bea1",
+        "name": "vite-plugin-pwa",
+        "version": "0.21.1",
+        "optional_peer": true,
+        "peer": "^0.2.6",
+        "dev": "^0.2.6"
+      },
+      "target_package": null,
+      "actual_node10_target": null,
+      "diagnostic_only_bundler_target": null
+    },
+    {
+      "category": "absent_optional_peer",
+      "use": {
+        "file": "project/node_modules/vite-plugin-pwa/dist/index.d.ts",
+        "sha256": "6e3ea33e31abac39c337ed0b2841c9ea55d90d8e74ccf95160c71a676c0752e9",
+        "kind": "StringLiteral",
+        "start_utf16": 434,
+        "end_utf16": 466,
+        "start_byte": 434,
+        "end_byte": 466
+      },
+      "line": 5,
+      "specifier": "@vite-pwa/assets-generator/api",
+      "parent": "ImportDeclaration",
+      "owner": {
+        "file": "project/node_modules/vite-plugin-pwa/package.json",
+        "sha256": "73cd19966cf5aacad070f77035341ace37c6069faa1c3b65eab607ce14d1bea1",
+        "name": "vite-plugin-pwa",
+        "version": "0.21.1",
+        "optional_peer": true,
+        "peer": "^0.2.6",
+        "dev": "^0.2.6"
+      },
+      "target_package": null,
+      "actual_node10_target": null,
+      "diagnostic_only_bundler_target": null
+    },
+    {
+      "category": "absent_optional_peer",
+      "use": {
+        "file": "project/node_modules/vite-plugin-checker/dist/esm/main.d.ts",
+        "sha256": "274762c452543766f326c660991e9284d5192bc68540e3158d7b39fadaf90f69",
+        "kind": "StringLiteral",
+        "start_utf16": 132,
+        "end_utf16": 143,
+        "start_byte": 132,
+        "end_byte": 143
+      },
+      "line": 5,
+      "specifier": "stylelint",
+      "parent": "ImportDeclaration",
+      "owner": {
+        "file": "project/node_modules/vite-plugin-checker/package.json",
+        "sha256": "90ad41275b7347fee9c067bdb4a8b3d2109e0a55f1140acba3671f5ace3c0e08",
+        "name": "vite-plugin-checker",
+        "version": "0.7.2",
+        "optional_peer": true,
+        "peer": ">=13",
+        "dev": "^14.0.0"
+      },
+      "target_package": null,
+      "actual_node10_target": null,
+      "diagnostic_only_bundler_target": null
+    },
+    {
+      "category": "absent_optional_peer",
+      "use": {
+        "file": "project/node_modules/vite-plugin-checker/dist/esm/types.d.ts",
+        "sha256": "7f25c6fe23c3b766558b4a98c760f8200ddeb72a5fa9f8b2641379ccd21650b5",
+        "kind": "StringLiteral",
+        "start_utf16": 106,
+        "end_utf16": 117,
+        "start_byte": 106,
+        "end_byte": 117
+      },
+      "line": 3,
+      "specifier": "stylelint",
+      "parent": "ImportDeclaration",
+      "owner": {
+        "file": "project/node_modules/vite-plugin-checker/package.json",
+        "sha256": "90ad41275b7347fee9c067bdb4a8b3d2109e0a55f1140acba3671f5ace3c0e08",
+        "name": "vite-plugin-checker",
+        "version": "0.7.2",
+        "optional_peer": true,
+        "peer": ">=13",
+        "dev": "^14.0.0"
+      },
+      "target_package": null,
+      "actual_node10_target": null,
+      "diagnostic_only_bundler_target": null
+    }
+  ],
+  "scope_limit": "Classification of one fixed Program; no closure policy change, missing-dependency repair, or runtime authority"
+}

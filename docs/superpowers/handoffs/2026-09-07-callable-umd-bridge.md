@@ -1,5 +1,9 @@
 # Handoff — bounded UMD bridge and dirty checkout recovery
 
+> Operational successor (2026-09-07): PR271 is merged as2abb5de0. The approved
+> [closure-classification handoff](2026-09-07-callable-closure-classification.md)
+> is active; publication/CI-pending statements below are historical.
+
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-umd-bridge · **Measured state:** `[MEASURED]` implementationfa67821/control56106b0/closeout553bad5 pushed; base9a34ef62; recovery and all local gates complete; PR271 open.
 **Predecessor:** PR270 merged9a34ef62bb48b6abb569ff62ad95e266e3124f51.
