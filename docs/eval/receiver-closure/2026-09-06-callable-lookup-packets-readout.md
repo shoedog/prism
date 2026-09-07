@@ -1,7 +1,7 @@
 # Refused compiler lookups — packet repair and real census
 
 Implemented from merged main54b6755ab1cc4601e61d8e5a0b991a8775c29b76 on
-fix/callable-lookup-packets. Publication pending at this checkpoint. Owner approved
+fix/callable-lookup-packets. Implementationbf6d4fc is pushed in [PR264](https://github.com/shoedog/prism/pull/264), targeting main. Owner approved
 this successor after PR261/262/263 merged. No runtime authority or resolver,
 Rust/CPG/navigation/cache/default dependency changes.
 
@@ -62,6 +62,18 @@ explicit pre-existing react18/react19 fixture profiles. Rust commands run offlin
 in this worktree with the existing shared target directory. The ignored test is
 resolution_test::slice_elem_variant_reserved. No Tier-A trigger; no fresh Tier-A,
 Clippy-clean, full multicorpus or rebaseline claim.
+
+Exact gate commands (compiler/profiles paths are pinned in the handoff):
+
+```sh
+PRISM_TYPESCRIPT="$compiler" PRISM_CALLABLE_PROFILES="$profiles" node --test scripts/callable-observations/*.test.mjs
+node docs/eval/receiver-closure/verify-callable-authority.mjs "$compiler" "$profiles"
+PRISM_TYPESCRIPT="$compiler" PRISM_CALLABLE_PROFILES="$profiles" node --test docs/eval/receiver-closure/verify-callable-authority.test.mjs docs/eval/receiver-closure/audit-callable-source.test.mjs
+CARGO_TARGET_DIR=/Users/wesleyjinks/code/slicing/target cargo test --offline
+CARGO_TARGET_DIR=/Users/wesleyjinks/code/slicing/target cargo test --offline --features mcp
+cargo fmt --check
+git diff --check origin/main..HEAD
+```
 
 ## Configured real receiver census
 

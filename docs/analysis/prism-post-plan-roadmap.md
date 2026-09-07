@@ -265,7 +265,7 @@ Three candidate directions once the queue's top items are drained (or interleave
   Successor below repairs lookup packets and repeats the configured census; see
   same-date callable-props-class spec/readout/handoff. Private evidence stays local.
 
-- **Refused compiler lookup packets — verified, publication pending:**
+- **Refused compiler lookup packets — published PR264, implementationbf6d4fc:**
   Base54b6755a; schema4/producer0.5.0. Separate opaque refusal digests repair invalid
   path-ID serialization while preserving strict paths and independent closure
   barriers. Excalidraw configured packet now retains30 observations/53 nested calls,

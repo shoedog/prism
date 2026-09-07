@@ -1,7 +1,7 @@
 # Handoff — refused compiler-lookup packets
 
 **Written:** 2026-09-06 · **By:** /root · **Provider:** codex
-**Workspace:** /private/tmp/prism-lookup-packet-YGuUwA/worktree · fix/callable-lookup-packets · **Measured state:** `[MEASURED]` base HEAD54b6755a; implementation,three self-review rounds and full gates complete; publication pending.
+**Workspace:** /private/tmp/prism-lookup-packet-YGuUwA/worktree · fix/callable-lookup-packets · **Measured state:** `[MEASURED]` base HEAD54b6755a; implementationbf6d4fc pushed in PR264, three self-review rounds and full gates complete; this docs-only publication closeout follows tested source.
 **Predecessor:** PR263 Props/class observations; PR261/262/263 confirmed merged via gh pr view.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -32,17 +32,19 @@ no application writes/installs, private publication, runtime authority or rebase
 | Public census | done | `[MEASURED]` base worker has30 observations but invalid IDs; repaired packet30 observations/53 nested/10 linked/12 refused, validated unproven; watched library sites4 linked but callable_unproven |
 | Gates | done | `[MEASURED]` Node85/85, compiler40/40, helpers4/4; default4017/0/1, MCP4207/0/1, each includes2 doctests; fmt/diff passed, public logs |
 | Private replay | done | `[MEASURED]` validation reproduces unproven; details local only |
-| Publication | pending | Scoped commit/push/PR remains at this checkpoint |
+| Publication | done | `[MEASURED]` implementationbf6d4fc pushed; https://github.com/shoedog/prism/pull/264 open against main |
 
 ## 3. Corrections to standing documents and memory
 
 Previous PRs are merged, not pending review. Previously parked lookup defect is
-now owner-authorized active work. This handoff supersedes those historical states;
-readout/roadmap will be reconciled on completion. No memory edits authorized.
+now repaired and published. This handoff supersedes those historical states;
+readout/roadmap and predecessor notices are reconciled. No memory edits authorized.
 
 ## 4. Open work
 
-Scoped commit/push/PR and final public evidence archive. Next recommendation:
+No implementation/publication work remains; owner review/merge is next.
+Public-only archive: /private/tmp/prism-lookup-packet-YGuUwA/public-evidence.tgz,
+with adjacent checksum sidecar. Next recommendation:
 dependency-acquisition/preflight plan for a dependency-complete actual-config
 Program; installing dependencies or runtime authority requires separate approval.
 
@@ -61,6 +63,7 @@ Program; installing dependencies or runtime authority requires separate approval
 | Compiler | /private/tmp/prism-imported-alias-O4d6E1/package/lib/typescript.js |
 | Profiles | /private/tmp/prism-callable-authority-98TLLN/public/profiles |
 | Base | 54b6755ab1cc4601e61d8e5a0b991a8775c29b76 |
+| PR | https://github.com/shoedog/prism/pull/264 |
 
 ## 7. Refutation verdict and owner questions
 
