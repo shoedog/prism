@@ -1,5 +1,7 @@
 # Handoff — refused compiler-lookup packets
 
+> Superseded by 2026-09-06-callable-dependency-acquisition.md: PR264 merged at f2f8a3c5; owner-approved read-only acquisition preflight and plan are complete. Actual package acquisition still requires approval. Historical publication/next statements below describe the prior slice.
+
 **Written:** 2026-09-06 · **By:** /root · **Provider:** codex
 **Workspace:** /private/tmp/prism-lookup-packet-YGuUwA/worktree · fix/callable-lookup-packets · **Measured state:** `[MEASURED]` base HEAD54b6755a; implementationbf6d4fc pushed in PR264, three self-review rounds and full gates complete; this docs-only publication closeout follows tested source.
 **Predecessor:** PR263 Props/class observations; PR261/262/263 confirmed merged via gh pr view.
