@@ -4,6 +4,7 @@ import {createRequire} from "node:module";
 import path from "node:path";
 import {COMPILER_HASH,relative,hash,canonical} from "./schema.mjs";
 import {emptyPacket} from "./index.mjs";
+import {traceProvenance} from "./provenance.mjs";
 
 const options=JSON.parse(readFileSync(0,"utf8"));
 const fail=reason=>{throw Error(reason);};
@@ -126,6 +127,7 @@ function build() {
         const fn=node.initializer,context=checker.getContextualType(fn);
         const signatures=context?checker.getSignaturesOfType(context,ts.SignatureKind.Call):[];
         const observation={annotation:anchor(node.type),implementation:anchor(fn),parameter:fn.parameters[0]?anchor(fn.parameters[0]):null,
+          provenance:traceProvenance(ts,checker,node.type,anchor,options.limits.provenance_steps),
           explicit_parameter:!!fn.parameters[0]?.type,signatures:signatures.flatMap(s=>s.declaration?[anchor(s.declaration)]:[]),
           callable_declarations:[...new Set([...(context?.symbol?.declarations??[]),...(context?.aliasSymbol?.declarations??[])])].map(anchor),calls:[]};
         function calls(n) {
