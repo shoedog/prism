@@ -20,22 +20,25 @@ contain private relative filenames, identifiers and type strings; do not publish
 an application packet without permission. Validation roots/config are supplied
 independently by the caller, never taken from packet fields.
 
-The module exports `produce({root,compiler,config,limits?})` and
-`validate(jsonText, sameOptions)`. Library-only limits may be lowered, not raised.
+The module exports `produce({root,compiler,config,profile?,limits?})` and
+`validate(jsonText, sameOptions)`. Select `profile: "installed"` explicitly for
+the larger bounded inventory; omission selects `default`. Limits may only lower
+the selected profile. The CLI accepts the profile as its optional final argument.
+Validation independently selects its profile; packet fields never select it.
 Invalid caller options throw from produce; acquisition/worker limits produce an
 unproven packet. CLI invalid options/invalid validation exit1; CLI production of
 an unproven observation exits0. Read the JSON, not just the exit code.
 
 ## Meaning of the packet
 
-The strict executable v4 schema is `schema.mjs` (`parsePacket`). It freezes these
+The strict executable v5 schema is `schema.mjs` (`parsePacket`). It freezes these
 groups, rejecting unknown fields and unsafe IDs before project access:
 
 | Group | Meaning |
 |---|---|
-| schema / authorizes_runtime_edge | prism.callable-observation/4; authority is always false; older packets reject before root access |
+| schema / authorizes_runtime_edge | prism.callable-observation/5; authority is always false; older packets reject before root access |
 | producer / compiler | Tool-byte digest; required compiler version/hash, whether actually verified, full compiler-lib inventory digest |
-| scope | Relative config, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
+| scope | Relative config, acquisition profile, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
 | status / reasons / closure | observed means this bounded Program completed without the enumerated closure failures; unproven records limitations. Neither means a receiver or class is proven |
 | snapshot | Raw byte/file/directory manifest, roots, config reads, Program files, reads and safe failed lookup IDs, refused-lookup digests, options digest and outside-lookup flag |
 | resolutions / diagnostics | Compiler module-resolution outcomes and anchored diagnostic codes; unresolved dependencies are not automatically application defects |
@@ -44,6 +47,14 @@ groups, rejecting unknown fields and unsafe IDs before project access:
 | observations.nested | Nested arrow/function-expression call anchors, enclosing callback anchors, first-parameter binding observations and explicit scope/budget barriers |
 | observations.nested.calls[].props_class | Instantiated contextual Props/property/class declaration observations, generic binder/argument anchors, and explicit unsupported/program barriers; never runtime class authority |
 | limits | Up to20000 files+directories,128MiB input bytes,depth64,2000 observations,32 provenance steps,8 nested callback levels,128 nested calls per observation,8 Props type arguments,30-second worker timeout;512MiB worker heap and8MiB packet cap |
+
+The table describes default ceilings, unchanged from the prior producer. Explicit
+`installed` raises inventory entries to100000, hashed input to1GiB, worker timeout
+to120 seconds, V8 old-space to1024MiB and packet cap to32MiB. It bounds an individual
+materialized read to32MiB (`read_bytes`); default read_bytes is128MiB, its existing
+total-input ceiling. Hashing an unused larger file does not materialize it. Depth
+and observation/provenance/nested limits remain unchanged. Heap caps are not RSS
+caps. Larger profile selection does not grant link support or Program closure.
 
 Anchors carry file-byte hashes and half-open UTF-16/UTF-8 coordinates. Manifest
 consistency, range/hash conflicts and impossible statuses are rejected before
@@ -60,7 +71,7 @@ exercise this distinction.
 
 ## Declaration provenance
 
-Producer0.5.0 includes `provenance.mjs`, `nested.mjs` and `props-class.mjs` in its byte digest. `provenance.status=traced`
+Producer0.6.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs` and `props-class.mjs` in its byte digest. `provenance.status=traced`
 means the supported syntactic chain reached an inline callable type or a singleton,
 non-inherited callable interface. It is independent of program closure: even a
 traced chain can belong to an unproven packet. Type arguments and parameters keep

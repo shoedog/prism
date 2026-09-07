@@ -1,8 +1,13 @@
 import {createHash} from "node:crypto";
-export const SCHEMA="prism.callable-observation/4";
+export const SCHEMA="prism.callable-observation/5";
 export const COMPILER_HASH="3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675";
-export const LIMITS={files:20000,bytes:128*1024*1024,depth:64,timeout_ms:30000,observations:2000,provenance_steps:32,nested_depth:8,nested_calls:128,props_type_args:8};
+export const LIMITS={files:20000,bytes:128*1024*1024,read_bytes:128*1024*1024,depth:64,timeout_ms:30000,observations:2000,provenance_steps:32,nested_depth:8,nested_calls:128,props_type_args:8};
 export const PACKET_BYTES=8*1024*1024;
+export const PROFILES={
+  default:{limits:LIMITS,packet_bytes:PACKET_BYTES,heap_mb:512},
+  installed:{limits:{...LIMITS,files:100000,bytes:1024*1024*1024,read_bytes:32*1024*1024,timeout_ms:120000},packet_bytes:32*1024*1024,heap_mb:1024},
+};
+export const MAX_PACKET_BYTES=32*1024*1024;
 export const hash=b=>createHash("sha256").update(b).digest("hex");
 export const canonical=x=>JSON.stringify(sort(x));
 function sort(x) {
@@ -50,9 +55,9 @@ const reasons=array(x=>[
 ].includes(x));
 const packet=object({
   schema:literal(SCHEMA),authorizes_runtime_edge:literal(false),
-  producer:object({version:literal("0.5.0"),sha256:digest}),
+  producer:object({version:literal("0.6.0"),sha256:digest}),
   compiler:object({version:literal("5.9.3"),sha256:literal(COMPILER_HASH),verified:boolean,library_sha256:digest}),
-  scope:object({config:id,callable_scope:literal("direct-annotated-function"),class_authority:literal(false),case_sensitive:nullable(boolean)}),
+  scope:object({config:id,acquisition_profile:x=>typeof x==="string" && Object.hasOwn(PROFILES,x),callable_scope:literal("direct-annotated-function"),class_authority:literal(false),case_sensitive:nullable(boolean)}),
   status:x=>["observed","unproven"].includes(x),reasons,
   closure:object({stable_snapshot:boolean,dependencies:boolean,references:boolean,augmentation:boolean,resolution:boolean}),
   limits:object(Object.fromEntries(Object.keys(LIMITS).map(k=>[k,integer]))),
@@ -66,12 +71,14 @@ const packet=object({
     calls:array(object({call:anchor,receiver:anchor,receiver_type:str,declarations:array(anchor)}))})),
 });
 export function parsePacket(text) {
-  if(typeof text!=="string" || Buffer.byteLength(text)>PACKET_BYTES) throw Error("invalid_packet");
+  if(typeof text!=="string" || Buffer.byteLength(text)>MAX_PACKET_BYTES) throw Error("invalid_packet");
   const value=JSON.parse(text);
   if(!packet(value)) throw Error("invalid_packet");
+  const profile=PROFILES[value.scope.acquisition_profile];
+  if(Buffer.byteLength(text)>profile.packet_bytes)throw Error("invalid_packet");
   const files=new Map(value.snapshot.files.map(f=>[f.id,f]));
   if(files.size!==value.snapshot.files.length) throw Error("invalid_packet");
-  if(Object.values(value.limits).some(n=>n<1) || Object.entries(value.limits).some(([k,v])=>v>LIMITS[k])) throw Error("invalid_packet");
+  if(Object.values(value.limits).some(n=>n<1) || Object.entries(value.limits).some(([k,v])=>v>profile.limits[k])) throw Error("invalid_packet");
   if(!value.scope.config.startsWith("project/")) throw Error("invalid_packet");
   if(value.status==="observed" && (value.reasons.length || !value.compiler.verified || Object.values(value.closure).some(x=>!x))) throw Error("invalid_packet");
   if(value.status==="unproven" && !value.reasons.length) throw Error("invalid_packet");
