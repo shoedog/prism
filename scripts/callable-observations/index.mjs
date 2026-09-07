@@ -9,22 +9,24 @@ export function producerHash() {
 }
 export function settings(options) {
   if(!options || typeof options.root!=="string" || typeof options.compiler!=="string"
-      || !relative(options.config) || Object.keys(options).some(k=>!["root","compiler","config","limits","profile"].includes(k))) throw Error("invalid_options");
+      || !relative(options.config) || Object.keys(options).some(k=>!["root","compiler","config","limits","profile","links"].includes(k))) throw Error("invalid_options");
   const profile=options.profile===undefined?"default":options.profile;
   if(typeof profile!=="string" || !Object.hasOwn(PROFILES,profile))throw Error("invalid_options");
+  const links=options.links===undefined?"reject":options.links;
+  if(!["reject","in-root"].includes(links))throw Error("invalid_options");
   const ceiling=PROFILES[profile].limits,limits={...ceiling,...options.limits};
   if(Object.keys(limits).some(k=>!Object.hasOwn(LIMITS,k) || !Number.isSafeInteger(limits[k])
       || limits[k]<1 || limits[k]>ceiling[k])) throw Error("invalid_limits");
-  return {root:path.resolve(options.root),compiler:path.resolve(options.compiler),config:options.config,profile,limits};
+  return {root:path.resolve(options.root),compiler:path.resolve(options.compiler),config:options.config,profile,links,limits};
 }
 export function emptyPacket(options,reason) {
   const zero=hash("");
-  return {schema:SCHEMA,authorizes_runtime_edge:false,producer:{version:"0.6.0",sha256:producerHash()},
+  return {schema:SCHEMA,authorizes_runtime_edge:false,producer:{version:"0.7.0",sha256:producerHash()},
     compiler:{version:"5.9.3",sha256:COMPILER_HASH,verified:false,library_sha256:zero},
-    scope:{config:"project/"+options.config,acquisition_profile:options.profile,callable_scope:"direct-annotated-function",class_authority:false,case_sensitive:null},
+    scope:{config:"project/"+options.config,acquisition_profile:options.profile,link_policy:options.links,callable_scope:"direct-annotated-function",class_authority:false,case_sensitive:null},
     status:"unproven",reasons:[reason],limits:options.limits,
     closure:{stable_snapshot:false,dependencies:false,references:false,augmentation:false,resolution:false},
-    snapshot:{sha256:zero,files:[],directories:[],roots:[],config_files:[],program_files:[],reads:[],
+    snapshot:{sha256:zero,files:[],directories:[],links:[],roots:[],config_files:[],program_files:[],reads:[],
       failed_lookups:[],refused_lookup_sha256:[],outside_lookups:false,options_sha256:zero},
     diagnostics:[],resolutions:[],observations:[]};
 }
@@ -59,10 +61,10 @@ export function readPacket(fd,cap=PACKET_BYTES) {
   return Buffer.concat(chunks).toString("utf8");
 }
 if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
-  const [mode,compiler,root,config,profile="default"]=process.argv.slice(2);
-  if(!["produce","validate"].includes(mode) || ![6,7].includes(process.argv.length)) throw Error("usage: index.mjs produce|validate <typescript.js> <project-root> <relative-config> [default|installed]; validate reads JSON on stdin");
+  const [mode,compiler,root,config,profile="default",links="reject"]=process.argv.slice(2);
+  if(!["produce","validate"].includes(mode) || ![6,7,8].includes(process.argv.length)) throw Error("usage: index.mjs produce|validate <typescript.js> <project-root> <relative-config> [default|installed] [reject|in-root]; validate reads JSON on stdin");
   let result;
-  try {const options=settings({compiler,root,config,profile});result=mode==="produce"?produce(options):validate(readPacket(0,PROFILES[profile].packet_bytes),options);}
+  try {const options=settings({compiler,root,config,profile,links});result=mode==="produce"?produce(options):validate(readPacket(0,PROFILES[profile].packet_bytes),options);}
   catch {result={valid:false,authorizes_runtime_edge:false,reason:"invalid_packet_or_options"};process.exitCode=1;}
   console.log(JSON.stringify(result,null,2));
   if(mode==="validate" && !result.valid) process.exitCode=1;

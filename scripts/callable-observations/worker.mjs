@@ -21,11 +21,12 @@ function build() {
   const caseSensitive=ts.sys.useCaseSensitiveFileNames;
   const canonicalFile=ts.createGetCanonicalFileName(caseSensitive),canonicalIds=new Map();
   packet.scope.case_sensitive=caseSensitive;
-  for(const id of [...first.files.keys(),...first.directories.keys()]) {
+  for(const id of [...first.files.keys(),...first.directories.keys(),...first.links.map(l=>l.id)]) {
     const key=canonicalFile(id);
     if(canonicalIds.has(key) && canonicalIds.get(key)!==id)fail("unsupported_input");
     canonicalIds.set(key,id);
   }
+  const canonicalId=id=>first.resolve(id,v=>canonicalIds.get(canonicalFile(v))??v);
   const reasons=new Set(),reads=new Set(),missing=new Set(),refused=new Set();let outside=false;
   // Virtual paths make observations portable across equivalent caller-owned roots.
   const toId=f=>{
@@ -36,7 +37,7 @@ function build() {
       // Compiler probes may contain virtual module spellings, not safe file IDs.
       // Preserve opaque refusal evidence without consulting files or claiming absence.
       if(!relative(id)){refused.add(hash(n));reasons.add("unsupported_lookup");return null;}
-      return canonicalIds.get(canonicalFile(id))??id;
+      return canonicalId(id);
     }
     outside=true;return null;
   };
@@ -52,15 +53,17 @@ function build() {
   const entries=f=>{
     const id=toId(f);if(!id)return {files:[],directories:[]};
     if(!first.directories.has(id))missing.add(id);
-    return {files:(first.directories.get(id)??[]).filter(n=>first.files.has(id+"/"+n)),
-      directories:(first.directories.get(id)??[]).filter(n=>first.directories.has(id+"/"+n))};
+    // Keep metadata boundaries visible to matchFiles; actual traversal refuses.
+    const names=first.directories.get(id)??[];
+    return {files:names.filter(n=>n.toLowerCase()!==".git" && first.files.has(canonicalId(id+"/"+n))),
+      directories:names.filter(n=>n.toLowerCase()===".git" || first.directories.has(canonicalId(id+"/"+n)))};
   };
   const basic={readFile:read,fileExists:f=>{const id=toId(f);if(!id)return false;
       if(!first.files.has(id))missing.add(id);return first.files.has(id);},
     directoryExists:f=>{const id=toId(f);if(!id)return false;
       if(!first.directories.has(id))missing.add(id);return first.directories.has(id);},
     getDirectories:f=>entries(f).directories,realpath:f=>{const id=toId(f);return id?virtual(id):f;},getCurrentDirectory:()=>virtual("project"),
-    readDirectory:(dir,extensions,excludes,includes,depth)=>ts.matchFiles(dir,extensions,excludes,includes,caseSensitive,virtual("project"),depth,entries,f=>f)};
+    readDirectory:(dir,extensions,excludes,includes,depth)=>ts.matchFiles(dir,extensions,excludes,includes,caseSensitive,virtual("project"),depth,entries,f=>{const id=toId(f);return id?virtual(id):f;})};
   const configFile=virtual("project/"+options.config);
   const config=ts.readConfigFile(configFile,read);
   const parsed=ts.parseJsonConfigFileContent(config.config??{}, {...basic,useCaseSensitiveFileNames:caseSensitive},path.posix.dirname(configFile),undefined,configFile);
@@ -68,6 +71,7 @@ function build() {
   if(config.error || parsed.errors.length) reasons.add("invalid_config");
   if(parsed.projectReferences?.length) reasons.add("unsupported_references");
   if(parsed.options.plugins?.length) reasons.add("unsupported_plugins");
+  if(first.links.length && parsed.options.preserveSymlinks)fail("unsupported_input");
   const host={...basic,getSourceFile:(f,v)=>{const text=read(f);return text===undefined?undefined:ts.createSourceFile(f,text,v,true);},
     getDefaultLibFileName:o=>virtual("compiler/"+ts.getDefaultLibFileName(o)),
     getDefaultLibLocation:()=>virtual("compiler"),writeFile:()=>fail("unsupported_input"),
@@ -82,6 +86,8 @@ function build() {
     })};
   // References/plugins are recorded but never traversed/executed in this bounded slice.
   const program=ts.createProgram(parsed.fileNames,parsed.options,host);
+  const programIds=program.getSourceFiles().map(f=>toId(f.fileName));
+  if(new Set(programIds).size!==programIds.length)fail("unsupported_input");
   const checker=program.getTypeChecker();
   packet.diagnostics=[config.error,...parsed.errors,...ts.getPreEmitDiagnostics(program)].filter(Boolean)
     .map(d=>({code:d.code,file:d.file?toId(d.file.fileName):null,start:d.start??null}))
@@ -136,7 +142,7 @@ function build() {
   packet.closure={stable_snapshot:first.digest===second.digest,dependencies:!outside && !refused.size && !packet.diagnostics.length && !reasons.has("unresolved_module"),
     references:!reasons.has("unsupported_references"),augmentation:complete,resolution:complete};
   packet.compiler.library_sha256=hash(canonical(first.manifest.filter(f=>f.id.startsWith("compiler/"))));
-  packet.snapshot={sha256:first.digest,files:first.manifest,directories:first.dirs,
+  packet.snapshot={sha256:first.digest,files:first.manifest,directories:first.dirs,links:first.links,
     roots:parsed.fileNames.map(toId).sort(),config_files:configFiles,program_files:program.getSourceFiles().map(f=>toId(f.fileName)).sort(),
     reads:[...reads].sort(),failed_lookups:[...missing].sort(),refused_lookup_sha256:[...refused].sort(),outside_lookups:outside,options_sha256:hash(canonical(parsed.options))};
   packet.resolutions.sort((a,b)=>canonical(a)<canonical(b)?-1:1);
