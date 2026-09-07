@@ -33,18 +33,19 @@ an unproven observation exits0. Read the JSON, not just the exit code.
 
 ## Meaning of the packet
 
-The strict executable v8 schema is `schema.mjs` (`parsePacket`). It freezes these
+The strict executable v9 schema is `schema.mjs` (`parsePacket`). It freezes these
 groups, rejecting unknown fields and unsafe IDs before project access:
 
 | Group | Meaning |
 |---|---|
-| schema / authorizes_runtime_edge | prism.callable-observation/8; authority is always false; older packets reject before root access |
+| schema / authorizes_runtime_edge | prism.callable-observation/9; authority is always false; older packets reject before root access |
 | producer / compiler | Tool-byte digest; required compiler version/hash, whether actually verified, full compiler-lib inventory digest |
 | scope | Relative config, acquisition profile, link policy, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
 | status / reasons / closure | observed means this bounded Program completed without the enumerated closure failures; unproven records limitations. Neither means a receiver or class is proven |
 | snapshot | Raw byte/file/directory manifest, link spelling hashes and canonical targets, roots, config reads, Program files, reads and safe failed lookup IDs, refused-lookup digests, options digest and outside-lookup flag |
 | resolutions / diagnostics | Compiler module-resolution outcomes and anchored diagnostic codes; unresolved dependencies are not automatically application defects |
 | resolutions[].lookup | Actual request anchor/context, checker declarations and configured-Program exact-name provider/augmentation census; observed means singleton exact-ambient binding only, never filesystem or closure authority |
+| resolutions[].lookup.wildcard | Independent nullable single-star binding observation: pattern, original-source providers, relevant augmentations and matching-provider census; never asset-existence or closure authority |
 | observations | Direct variable annotations on arrow/function expressions; annotation/implementation/first-parameter anchors, explicit annotation flag, contextual callable declarations/signatures, direct-body member-call receiver types and method declaration anchors |
 | observations.provenance | Bounded defining-source declaration/alias observations, generic use/binder anchors, namespace qualifiers and partial-chain reasons; not a substitution or ownership certificate |
 | observations.nested | Nested arrow/function-expression call anchors, enclosing callback anchors, first-parameter binding observations and explicit scope/budget barriers |
@@ -76,7 +77,7 @@ exercise this distinction.
 
 ## Declaration provenance
 
-Producer0.9.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs`, `props-class.mjs` and `exact-ambient.mjs` in its byte digest. `provenance.status=traced`
+Producer0.10.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs`, `props-class.mjs`, `exact-ambient.mjs` and `wildcard.mjs` in its byte digest. `provenance.status=traced`
 means the supported syntactic chain reached an inline callable type or a singleton,
 non-inherited callable interface. It is independent of program closure: even a
 traced chain can belong to an unproven packet. Type arguments and parameters keep
@@ -104,7 +105,7 @@ Program-keyed population census is bounded by acquisition bytes/files and worker
 timeout/heap; it is not reused across Programs or snapshots. No compiler option is
 changed: `allowUmdGlobalAccess` value-use diagnostics do not gate type-only use.
 Traced UMD candidates still cannot overcome receiver writes or incomplete Program
-closure; both authority flags remain false. Schema8 rejects older observations.
+closure; both authority flags remain false. Schema9 rejects older observations.
 
 Star exports in any consulted module, unresolved/duplicate/merged declarations,
 inheritance, unsupported types/declarations, cycles and step exhaustion retain an
@@ -126,7 +127,7 @@ are not providers. The census lives only for this Program and snapshot.
 Package-ID redirects are censused through their original parsed SourceFiles,
 preserving each file's bytes/anchors instead of shared AST parent pointers.
 
-Wildcard/merged bindings, require/dynamic-import requests, unsupported providers,
+In the exact-ambient lane, wildcard/merged bindings, require/dynamic-import requests, unsupported providers,
 missing symbols and augmentation declaration names remain unproven. Candidate
 declarations are retained independently of status. Synthetic JSX requests have
 `context=synthetic`, null request anchors and no checker binding query. Multiple
@@ -137,6 +138,28 @@ diagnostic, receiver-write or class barriers. The schema rejects null filesystem
 targets without their existing closure refusal before audited-root access; full
 recomputation checks every anchor, census and binding. No new closure policy,
 runtime consumer, persistent positive cache or React.FC authority is supplied.
+
+## Singleton wildcard observations
+
+`lookup.wildcard` is null without a uniquely named valid single-star checker
+binding. Otherwise it retains candidate pattern/providers/augmentations/matches.
+Its status is independent of the existing exact-ambient status: a supported
+wildcard remains `lookup.reason=non_exact_binding` while
+`lookup.wildcard.status=observed`. Filesystem results are unchanged.
+
+A positive needs one actual supported literal use, one checker declaration,
+one original-source top-level provider with a body in a non-external .d.ts,
+no matching augmentation or exact-name provider, and no other matching wildcard
+provider. Matching is case-sensitive prefix/suffix matching with TypeScript's
+minimum-length rule. Competing patterns are refused even when the compiler can
+pick a longest-prefix winner. Merged/shorthand/nested/redirected duplicates and
+unsupported request contexts stay unproven. Pattern matches are memoized only
+within the current configured Program, never across epochs.
+
+No asset path or existence fact is inferred. Tests observe the same binding with
+and without asset bytes. Every old unresolved/refused/outside/diagnostic/write/
+class barrier and both false authority flags remain unchanged. Strict schema
+checks run before root access; full recomputation validates every field.
 
 ## Nested lexical bindings
 
