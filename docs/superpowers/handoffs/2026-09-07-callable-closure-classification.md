@@ -1,7 +1,7 @@
 # Handoff — Program-closure lookup classification
 
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · audit/callable-program-closure · **Measured state:** `[MEASURED]` base2abb5de0; production observer unchanged; all local gates complete; publication next.
+**Workspace:** /Users/wesleyjinks/code/slicing · audit/callable-program-closure · **Measured state:** `[MEASURED]` base2abb5de0; production observer unchanged; all local gates complete; classification commit cbbca18 pushed and PR272 opened against main.
 **Predecessor:** PR271 merged2abb5de025491fec000316f68e5565c32879f22e.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,7 +9,7 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Clean main-based branch; /root only, no agents — RESOLVED.
-(b) Raw public evidence archived and compact source evidence ready for commit — OPEN publication.
+(b) Raw public evidence archived; compact source evidence and fixtures published in PR272 — RESOLVED. Remote CI/review remain separate from local verification.
 (c) Temporary instrumentation removed; worker diff zero — RESOLVED.
     Full gates complete:155 observer,4017 default Rust,4207 MCP passed — RESOLVED.
 (d) Owner: "PR 271 is merged. Proceed to source-backed classification of the
@@ -36,7 +36,7 @@ writes, barrier removal, ambient/optional spelling heuristics or runtime authori
 |14 residual requests | done | `[MEASURED]`8 absent optional-peer requests,2 dev-only absent packages,2 mode-sensitive Rollup subpaths,1 missing relative declaration,1 obsolete workspace subpath |
 |Characterization | done | `[MEASURED]`14/14; no implementation RED claim |
 |Full gates | done | `[MEASURED]`155/0/0 observer;4017/0/1 default and4207/0/1 MCP including doctests; authority40 clean,helpers7/7; fmt/diff clean |
-|Publication | pending | Commit/push/open audit PR; raw archive retained locally |
+|Publication | open PR | `[MEASURED]` cbbca18 pushed; https://github.com/shoedog/prism/pull/272 opened against main; raw archive retained locally |
 
 ## 3. Corrections to standing documents and memory
 
@@ -48,7 +48,7 @@ No memory edits authorized; local recoverya86bbeb remains untouched/unpublished.
 
 ## 4. Open work
 
-Publish scoped classification PR. Proposed next boundary:
+PR272 is published; await remote CI/review and owner merge. Proposed next boundary:
 source-backed lookup-disposition observations for bounded singleton exact ambient
 modules; closure policy remains separate. Never erase the14 residual requests.
 
