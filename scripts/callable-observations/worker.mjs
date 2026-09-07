@@ -6,6 +6,7 @@ import {COMPILER_HASH,relative,hash,canonical} from "./schema.mjs";
 import {emptyPacket} from "./index.mjs";
 import {traceProvenance} from "./provenance.mjs";
 import {observeNested} from "./nested.mjs";
+import {observePropsClasses} from "./props-class.mjs";
 
 const options=JSON.parse(readFileSync(0,"utf8"));
 const fail=reason=>{throw Error(reason);};
@@ -132,6 +133,7 @@ function build() {
           nested:observeNested(ts,checker,fn,anchor,options.limits),
           explicit_parameter:!!fn.parameters[0]?.type,signatures:signatures.flatMap(s=>s.declaration?[anchor(s.declaration)]:[]),
           callable_declarations:[...new Set([...(context?.symbol?.declarations??[]),...(context?.aliasSymbol?.declarations??[])])].map(anchor),calls:[]};
+        observePropsClasses(ts,checker,fn,signatures,observation,anchor,options.limits.props_type_args);
         function calls(n) {
           // Class initializers/static blocks also have their own lexical scope.
           if(ts.isFunctionLike(n) || ts.isClassDeclaration(n) || ts.isClassExpression(n))return;
@@ -153,6 +155,9 @@ function build() {
   if(outside)reasons.add("outside_lookup");
   const complete=reasons.size===0;
   packet.status=complete?"observed":"unproven";packet.reasons=[...reasons].sort();
+  if(!complete)for(const o of packet.observations)for(const c of o.nested.calls) {
+    if(c.props_class.status==="observed"){c.props_class.status="unproven";c.props_class.reason="program_unproven";}
+  }
   packet.closure={stable_snapshot:first.digest===second.digest,dependencies:!outside && !packet.diagnostics.length && !reasons.has("unresolved_module"),
     references:!reasons.has("unsupported_references"),augmentation:complete,resolution:complete};
   packet.compiler.library_sha256=hash(canonical(first.manifest.filter(f=>f.id.startsWith("compiler/"))));

@@ -1,7 +1,7 @@
 import {createHash} from "node:crypto";
-export const SCHEMA="prism.callable-observation/2";
+export const SCHEMA="prism.callable-observation/3";
 export const COMPILER_HASH="3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675";
-export const LIMITS={files:20000,bytes:128*1024*1024,depth:64,timeout_ms:30000,observations:2000,provenance_steps:32,nested_depth:8,nested_calls:128};
+export const LIMITS={files:20000,bytes:128*1024*1024,depth:64,timeout_ms:30000,observations:2000,provenance_steps:32,nested_depth:8,nested_calls:128,props_type_args:8};
 export const PACKET_BYTES=8*1024*1024;
 export const hash=b=>createHash("sha256").update(b).digest("hex");
 export const canonical=x=>JSON.stringify(sort(x));
@@ -32,7 +32,13 @@ const provenance=object({status:x=>["traced","unproven"].includes(x),
   steps_used:integer,terminal:nullable(anchor),hops:array(object({reference:anchor,type_arguments:array(anchor),
     type_parameters:array(anchor),declarations:array(anchor),aliases:array(alias),
     qualifiers:array(object({use:anchor,aliases:array(alias),declarations:array(anchor)}))}))});
-const nested=object({calls:array(object({call:anchor,receiver:anchor,receiver_type:str,declarations:array(anchor),functions:array(anchor),
+const propsClass=object({status:x=>["observed","unproven"].includes(x),
+  reason:nullable(x=>["binding_unproven","explicit_parameter","callable_unproven","signature_ambiguity","unsupported_path","unsupported_props","ambiguous_declaration","unsupported_property","unsupported_class","type_argument_limit","program_unproven"].includes(x)),
+  signatures:array(anchor),props_type:nullable(str),props_declarations:array(anchor),
+  instantiation:array(object({parameter:anchor,argument_type:str,argument_declarations:array(anchor)})),
+  property_name:nullable(str),property_declarations:array(anchor),property_type:nullable(str),
+  declared_type_declarations:array(anchor),class_declaration:nullable(anchor)});
+const nested=object({calls:array(object({call:anchor,receiver:anchor,receiver_type:str,declarations:array(anchor),functions:array(anchor),props_class:propsClass,
   binding:object({status:x=>["linked","unproven"].includes(x),
     reason:nullable(x=>["unsupported_receiver","unresolved_symbol","unsupported_parameter","other_binding","duplicate_binding","write_barrier"].includes(x)),
     use:nullable(anchor),parameter:nullable(anchor),declarations:array(anchor),writes:array(anchor)})})),
@@ -44,7 +50,7 @@ const reasons=array(x=>[
 ].includes(x));
 const packet=object({
   schema:literal(SCHEMA),authorizes_runtime_edge:literal(false),
-  producer:object({version:literal("0.3.0"),sha256:digest}),
+  producer:object({version:literal("0.4.0"),sha256:digest}),
   compiler:object({version:literal("5.9.3"),sha256:literal(COMPILER_HASH),verified:boolean,library_sha256:digest}),
   scope:object({config:id,callable_scope:literal("direct-annotated-function"),class_authority:literal(false),case_sensitive:nullable(boolean)}),
   status:x=>["observed","unproven"].includes(x),reasons,
@@ -89,6 +95,15 @@ export function parsePacket(text) {
       [c.call,c.receiver,...c.declarations,...c.functions,b.use,b.parameter,...b.declarations,...b.writes].forEach(checkAnchor);
       if(!c.functions.length || c.functions.length>value.limits.nested_depth
         || (b.status==="linked" ? b.reason!==null || !b.use || !b.parameter || b.declarations.length!==1 || b.writes.length : !b.reason))throw Error("invalid_packet");
+      const k=c.props_class;
+      [...k.signatures,...k.props_declarations,...k.property_declarations,...k.declared_type_declarations,k.class_declaration].forEach(checkAnchor);
+      if(k.class_declaration && k.class_declaration.kind!=="ClassDeclaration")throw Error("invalid_packet");
+      k.instantiation.forEach(i=>[i.parameter,...i.argument_declarations].forEach(checkAnchor));
+      if(k.instantiation.length>value.limits.props_type_args || (k.status==="observed"
+        ? k.reason!==null || !k.class_declaration || !k.property_name || k.property_declarations.length!==1
+          || k.signatures.length!==1 || !k.props_type || !k.property_type || b.status!=="linked"
+          || o.explicit_parameter || o.provenance.status!=="traced" || value.status!=="observed"
+        : !k.reason))throw Error("invalid_packet");
     }
     const p=o.provenance;
     if(p.steps_used>value.limits.provenance_steps || (p.status==="traced" ? p.reason!==null || !p.terminal : !p.reason || p.terminal!==null))throw Error("invalid_packet");

@@ -28,12 +28,12 @@ an unproven observation exits0. Read the JSON, not just the exit code.
 
 ## Meaning of the packet
 
-The strict executable v2 schema is `schema.mjs` (`parsePacket`). It freezes these
+The strict executable v3 schema is `schema.mjs` (`parsePacket`). It freezes these
 groups, rejecting unknown fields and unsafe IDs before project access:
 
 | Group | Meaning |
 |---|---|
-| schema / authorizes_runtime_edge | prism.callable-observation/2; authority is always false; v0/v1 packets reject before root access |
+| schema / authorizes_runtime_edge | prism.callable-observation/3; authority is always false; older packets reject before root access |
 | producer / compiler | Tool-byte digest; required compiler version/hash, whether actually verified, full compiler-lib inventory digest |
 | scope | Relative config, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
 | status / reasons / closure | observed means this bounded Program completed without the enumerated closure failures; unproven records limitations. Neither means a receiver or class is proven |
@@ -42,7 +42,8 @@ groups, rejecting unknown fields and unsafe IDs before project access:
 | observations | Direct variable annotations on arrow/function expressions; annotation/implementation/first-parameter anchors, explicit annotation flag, contextual callable declarations/signatures, direct-body member-call receiver types and method declaration anchors |
 | observations.provenance | Bounded defining-source declaration/alias observations, generic use/binder anchors, namespace qualifiers and partial-chain reasons; not a substitution or ownership certificate |
 | observations.nested | Nested arrow/function-expression call anchors, enclosing callback anchors, first-parameter binding observations and explicit scope/budget barriers |
-| limits | Up to20000 files+directories,128MiB input bytes,depth64,2000 observations,32 provenance steps,8 nested callback levels and128 nested calls per observation,30-second worker timeout;512MiB worker heap and8MiB packet cap |
+| observations.nested.calls[].props_class | Instantiated contextual Props/property/class declaration observations, generic binder/argument anchors, and explicit unsupported/program barriers; never runtime class authority |
+| limits | Up to20000 files+directories,128MiB input bytes,depth64,2000 observations,32 provenance steps,8 nested callback levels,128 nested calls per observation,8 Props type arguments,30-second worker timeout;512MiB worker heap and8MiB packet cap |
 
 Anchors carry file-byte hashes and half-open UTF-16/UTF-8 coordinates. Manifest
 consistency, range/hash conflicts and impossible statuses are rejected before
@@ -59,7 +60,7 @@ exercise this distinction.
 
 ## Declaration provenance
 
-Producer0.3.0 includes `provenance.mjs` and `nested.mjs` in its byte digest. `provenance.status=traced`
+Producer0.4.0 includes `provenance.mjs`, `nested.mjs` and `props-class.mjs` in its byte digest. `provenance.status=traced`
 means the supported syntactic chain reached an inline callable type or a singleton,
 non-inherited callable interface. It is independent of program closure: even a
 traced chain can belong to an unproven packet. Type arguments and parameters keep
@@ -110,6 +111,30 @@ recomputation rejects forged or deleted binding/write/barrier evidence.
 
 ## Supported boundary and limitations
 
+### Instantiated Props/property declarations
+
+`props_class.status=observed` requires the existing linked lexical binding, traced
+callable provenance, one contextual signature and a complete configured Program.
+Its actual first-parameter type supplies Props; outer generic argument order and
+React/FC names do not. Explicit implementation annotations are excluded.
+
+Support one selected property from a plain parameter or flat destructured/renamed
+binding, through a singleton non-inherited interface or type literal (including
+generic literal aliases). Record Props/property declarations and instantiated
+generic binder/argument pairs. The selected property must directly reference a
+class or that Props declaration's type parameter. Its instantiated type must be a
+singleton non-generic, non-inherited ClassDeclaration instance. Constructor types,
+structural interfaces, merging, optional/computed/index/accessor properties and
+arbitrary type evaluation remain unproven. Imports retain compiler-resolved
+defining-file anchors; intermediate type-argument aliases are not certified.
+
+Incomplete Programs retain candidate anchors with `program_unproven`. Class
+declaration identity does not prove a runtime value, subclasses, member stability
+or opaque effects. Both authority flags remain false. Strict anchor/status checks
+precede audited-root I/O; full recomputation replaces stale class evidence.
+
+### Acquisition
+
 One project, actual JSON config/extends/include/exclude/options, and installed
 in-root regular-file dependencies. The compiler host reads an immutable in-memory
 snapshot only. Its lookup/canonicalization policy follows the pinned compiler's
@@ -131,6 +156,13 @@ example, missing package boundaries and automatic ancestor type/lib lookups may
 leave an otherwise compilable project unproven. Synthetic positives explicitly
 supply package.json, types=[] and libReplacement=false in their own config.
 
+Known inherited defect: colon-containing compiler lookup probes (for example
+`node:url` with baseUrl resolution) can enter failed_lookups as invalid path IDs.
+The parent then rejects the worker packet as `worker_failed`, losing its partial
+observations. This remains fail-closed but prevents a configured public census;
+see the Props/class readout for the same-environment predecessor control. Do not
+relax path validation or interpret this result as absence of receiver sites.
+
 Two snapshots detect observed changes, not adversarial change-and-revert races or
 an atomic filesystem transaction. This is not an OS security sandbox. Mixed
 filesystem policies/mounts and hostile concurrent mutation are unsupported. A
@@ -144,5 +176,5 @@ PRISM_TYPESCRIPT="$compiler" PRISM_CALLABLE_PROFILES="$profiles" node --test scr
 
 `profiles` uses PR259's pinned react18/react19 layouts. Tests create their own
 temporary installed-package projects, never install or modify an application.
-See the same-date callable-nested-bindings spec/readout for RED captures,
+See the same-date callable-props-class spec/readout for RED captures,
 full-project gates, evidence limitations and the separately approved next boundary.

@@ -250,8 +250,20 @@ Three candidate directions once the queue's top items are drained (or interleave
   fixed with same-environment predecessor RED. Node54/54, compiler40/40, helpers4/4;
   full default4017/0/1 and MCP4207/0/1, including doctests. Four public receiver sites
   link lexically in an isolated check, NOT installed-program/class/runtime authority.
-  Next recommendation: bounded instantiated Props/property-to-class provenance.
+  Successor implemented: bounded instantiated Props/property-to-class provenance below.
   See same-date callable-nested-bindings spec/readout/handoff; no runtime/cache change.
+
+- **Instantiated Props/property-to-class observations — published PR263, implementation4e1f4d8:**
+  Dependent on published PR262 (which depends on PR261); schema3/producer0.4.0.
+  Actual contextual parameter/property types retain defining-file class instance
+  identity and generic binder anchors, with explicit unsupported/program barriers.
+  No runtime/class authority, resolver/cache change or default dependency. Node71/71,
+  compiler40/40, helpers4/4; full default4017/0/1 and MCP4207/0/1 including doctests.
+  Three SELF-PASS rounds, not independent. Public configured replay exposes an
+  inherited WRONG: colon-containing compiler lookup IDs cause parent packet rejection,
+  reproduced on PR262 in the same environment. No public class gain is claimed.
+  Next: bounded lookup-packet repair and configured real-site remeasurement; see
+  same-date callable-props-class spec/readout/handoff. Private evidence stays local.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:
