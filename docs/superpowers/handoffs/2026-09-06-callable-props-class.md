@@ -1,5 +1,7 @@
 # Handoff — instantiated Props/property-to-class observations
 
+> Superseded by 2026-09-06-callable-lookup-packets.md: PR261/262/263 merged at main54b6755a; owner approved the lookup repair and census, now implemented. Publication/next-authorization statements below are historical; runtime authority remains excluded.
+
 **Written:** 2026-09-06 · **By:** /root · **Provider:** codex
 **Workspace:** /private/tmp/prism-props-class-t7KqIt/worktree · feat/callable-props-class-provenance · **Measured state:** `[MEASURED]` base HEADf0c9053c; implementation4e1f4d8 pushed in PR263; PR261 and PR262 published. This docs-only closeout follows the tested source commit.
 **Predecessor:** PR262 nested binding observations, based on PR261 alias provenance.

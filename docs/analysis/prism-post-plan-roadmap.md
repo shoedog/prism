@@ -1,6 +1,6 @@
 # Prism — post-plan roadmap (follow-up queue, strategic fork, Java, Serena)
 
-> Publication reconciliation (2026-09-06): alias implementation `2bfe7092` is published in [PR261](https://github.com/shoedog/prism/pull/261); nested implementation `16de216` is published in [PR262](https://github.com/shoedog/prism/pull/262), based on PR261. Merge261 first. The owner's new instruction authorizes agent commit/push/PR. Controller-pending and uncommitted-predecessor statements below are historical for these two slices. Bounded Props/property-to-class provenance is approved next; runtime authority remains excluded.
+> Status reconciliation (2026-09-06): PR261 alias, PR262 nested bindings and PR263 Props/class observations are merged at main54b6755a. Historical controller/publication/next statements below are superseded. The owner-approved lookup-packet successor is implemented; runtime authority remains excluded.
 
 Date: 2026-07-04. Companion to `docs/analysis/prism-llm-and-accuracy-plan.md` (the
 ranked plan). Written as P14 (the final live plan item) is in implementation; refer
@@ -262,8 +262,18 @@ Three candidate directions once the queue's top items are drained (or interleave
   Three SELF-PASS rounds, not independent. Public configured replay exposes an
   inherited WRONG: colon-containing compiler lookup IDs cause parent packet rejection,
   reproduced on PR262 in the same environment. No public class gain is claimed.
-  Next: bounded lookup-packet repair and configured real-site remeasurement; see
+  Successor below repairs lookup packets and repeats the configured census; see
   same-date callable-props-class spec/readout/handoff. Private evidence stays local.
+
+- **Refused compiler lookup packets — published PR264, implementationbf6d4fc:**
+  Base54b6755a; schema4/producer0.5.0. Separate opaque refusal digests repair invalid
+  path-ID serialization while preserving strict paths and independent closure
+  barriers. Excalidraw configured packet now retains30 observations/53 nested calls,
+  including4 watched linked library sites; still unproven,0 class candidates.
+  Node85/85, compiler40/40, helpers4/4; default4017/0/1,MCP4207/0/1 including doctests.
+  React declaration inputs are absent. Next: bounded dependency-acquisition/preflight
+  plan and dependency-complete actual-config replay, with separate install approval.
+  No runtime authority expansion. See same-date callable-lookup-packets readout.
 
 ### B. Tier-C Part-C continuation (measure end-task value) — **Part-D run 2026-08-21: REFUTED on the 11-task corpus with gpt-5.5 (median ΔdR 0.0; 6/9 off-saturated; TS unmeasured) — see `docs/analysis/2026-08-21-tier-c-partd-readout.md`**
 - The A/B end-task harness is BUILT (branch `tier-c-part-c`, unmerged). Prior verdict:

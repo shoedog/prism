@@ -28,16 +28,16 @@ an unproven observation exits0. Read the JSON, not just the exit code.
 
 ## Meaning of the packet
 
-The strict executable v3 schema is `schema.mjs` (`parsePacket`). It freezes these
+The strict executable v4 schema is `schema.mjs` (`parsePacket`). It freezes these
 groups, rejecting unknown fields and unsafe IDs before project access:
 
 | Group | Meaning |
 |---|---|
-| schema / authorizes_runtime_edge | prism.callable-observation/3; authority is always false; older packets reject before root access |
+| schema / authorizes_runtime_edge | prism.callable-observation/4; authority is always false; older packets reject before root access |
 | producer / compiler | Tool-byte digest; required compiler version/hash, whether actually verified, full compiler-lib inventory digest |
 | scope | Relative config, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
 | status / reasons / closure | observed means this bounded Program completed without the enumerated closure failures; unproven records limitations. Neither means a receiver or class is proven |
-| snapshot | Raw byte/file/directory manifest, roots, config reads, Program files, all reads and failed lookup IDs, options digest and outside-lookup flag |
+| snapshot | Raw byte/file/directory manifest, roots, config reads, Program files, reads and safe failed lookup IDs, refused-lookup digests, options digest and outside-lookup flag |
 | resolutions / diagnostics | Compiler module-resolution outcomes and anchored diagnostic codes; unresolved dependencies are not automatically application defects |
 | observations | Direct variable annotations on arrow/function expressions; annotation/implementation/first-parameter anchors, explicit annotation flag, contextual callable declarations/signatures, direct-body member-call receiver types and method declaration anchors |
 | observations.provenance | Bounded defining-source declaration/alias observations, generic use/binder anchors, namespace qualifiers and partial-chain reasons; not a substitution or ownership certificate |
@@ -60,7 +60,7 @@ exercise this distinction.
 
 ## Declaration provenance
 
-Producer0.4.0 includes `provenance.mjs`, `nested.mjs` and `props-class.mjs` in its byte digest. `provenance.status=traced`
+Producer0.5.0 includes `provenance.mjs`, `nested.mjs` and `props-class.mjs` in its byte digest. `provenance.status=traced`
 means the supported syntactic chain reached an inline callable type or a singleton,
 non-inherited callable interface. It is independent of program closure: even a
 traced chain can belong to an unproven packet. Type arguments and parameters keep
@@ -156,12 +156,23 @@ example, missing package boundaries and automatic ancestor type/lib lookups may
 leave an otherwise compilable project unproven. Synthetic positives explicitly
 supply package.json, types=[] and libReplacement=false in their own config.
 
-Known inherited defect: colon-containing compiler lookup probes (for example
-`node:url` with baseUrl resolution) can enter failed_lookups as invalid path IDs.
-The parent then rejects the worker packet as `worker_failed`, losing its partial
-observations. This remains fail-closed but prevents a configured public census;
-see the Props/class readout for the same-environment predecessor control. Do not
-relax path validation or interpret this result as absence of receiver sites.
+Compiler probes that cannot be represented as safe in-root IDs (for example
+`node:url` with baseUrl resolution) are refused before the host consults its
+snapshot. `snapshot.refused_lookup_sha256` records sorted unique SHA256 hashes of
+the normalized virtual-root probe strings, not paths or proof of file absence.
+Nonempty refusal evidence adds `unsupported_lookup` and independently prevents
+dependency/augmentation/resolution closure, even when ambient declarations or a
+later safe paths-mapping fallback resolve the import without diagnostics.
+Partial observations remain available; Props/class candidates stay unproven.
+
+This is not a module-name blacklist: a virtual specifier that resolves through a
+safe paths mapping without refused probes can remain observed. Actual unsupported
+inventory names still fail acquisition; outside-root and .git barriers are
+unchanged. The schema checks digest/order/reason/closure consistency before root
+access, and full recomputation rejects forged or removed refusal evidence.
+Opaque hashes are not anonymization; packets remain potentially private data.
+This repairs the inherited whole-packet rejection documented in the Props/class
+readout. See the lookup-packets readout for merged-base controls and real census.
 
 Two snapshots detect observed changes, not adversarial change-and-revert races or
 an atomic filesystem transaction. This is not an OS security sandbox. Mixed
@@ -176,5 +187,5 @@ PRISM_TYPESCRIPT="$compiler" PRISM_CALLABLE_PROFILES="$profiles" node --test scr
 
 `profiles` uses PR259's pinned react18/react19 layouts. Tests create their own
 temporary installed-package projects, never install or modify an application.
-See the same-date callable-props-class spec/readout for RED captures,
+See the same-date callable-lookup-packets spec/readout for RED captures,
 full-project gates, evidence limitations and the separately approved next boundary.

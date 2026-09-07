@@ -340,7 +340,7 @@ test("missing imports and namespace merges remain partial observations",()=>fixt
 }));
 
 test("provenance budgets and corrupted nested anchors fail closed",()=>fixture(({options})=>{
-  const p=produce(options);assert.equal(p.schema,"prism.callable-observation/3");
+  const p=produce(options);assert.equal(p.schema,"prism.callable-observation/4");
   assert.equal(p.observations[0].provenance.status,"traced");
   const limited=produce({...options,limits:{provenance_steps:1}});
   assert.equal(limited.observations[0].provenance.reason,"step_limit");
