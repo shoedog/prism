@@ -1,7 +1,7 @@
 # Handoff — merged wildcard proof requirements
 
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · audit/callable-merged-wildcard-proof · **Measured state:** `[MEASURED]` checkpoint 2cd2bc1 on base d66328d1; all local gates and two review rounds complete; closeout ready for commit/publication.
+**Workspace:** /Users/wesleyjinks/code/slicing · audit/callable-merged-wildcard-proof · **Measured state:** `[MEASURED]` audit2cd2bc1 and verification999962d pushed on base d66328d1; PR275 open; all local gates and two review rounds complete. This publication note is the final documentation-only closeout.
 **Predecessor:** PR274 singleton wildcard observations, confirmed merged.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,7 +9,7 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) /root only, no agents — RESOLVED.
-(b) Audit checkpoint committed; closeout publication pending — OPEN.
+(b) Audit and verification committed/pushed; PR275 open — RESOLVED. Remote CI/review is separate from completed local verification.
 (c) All processes completed and gates passed; no production mutation — RESOLVED.
 (d) Owner: "PR #274 is merged proceed to next source-backed proof requirements for the 84 merged wildcard bindings, keeping asset presence and closure admission separate."
 
@@ -17,7 +17,7 @@
 
 1. `git status --short --branch` in /Users/wesleyjinks/code/slicing.
 2. Inspect adjacent readout/gates JSON for completed verification.
-3. Commit/push closeout and open PR; do not merge without owner direction.
+3. Check PR275 remote CI/review; do not merge without owner direction.
 
 **STOP conditions:** two SELF-PASS rounds; no production/schema/closure expansion,
 asset authority, install, app/config changes, or unrelated archive edits.
@@ -35,7 +35,7 @@ asset authority, install, app/config changes, or unrelated archive edits.
 | Rust default | done | `[MEASURED]` rust-default.log4017/0/1,28 groups including2 doctests |
 | MCP gate | done | `[MEASURED]` rust-mcp.log4207/0/1,30 groups including2 doctests |
 | Self-review | done | Two SELF-PASS rounds, NOT INDEPENDENT; round1 coverage SMELL corrected with typed-pair side-effect assertions; round2 WRONG compiler source locator corrected to Worker61351–61354; zero open findings, no cap extension |
-| Publication | next | All local checks complete; commit/push/open PR |
+| Publication | done | `[MEASURED]` https://github.com/shoedog/prism/pull/275 open against main; branch pushed |
 
 ## 3. Corrections to standing documents and memory
 
@@ -43,7 +43,7 @@ Roadmap and PR274 handoff reconciled to merged/successor status. No memory edits
 
 ## 4. Open work
 
-Publish this audit only. A bounded side-effect empty/shorthand observation is the
+PR275 awaits remote CI/review and owner merge. A bounded side-effect empty/shorthand observation is the
 recommended later slice; no asset, value, React.FC or closure admission.
 Recovery a86bbeb remains untouched/unpublished.
 
