@@ -33,7 +33,7 @@ an unproven observation exits0. Read the JSON, not just the exit code.
 
 ## Meaning of the packet
 
-Producer0.17.0 retains the path-completeness repair: required triple-slash
+Producer0.18.0 retains the path-completeness repair: required triple-slash
 paths are checked independently of `skipLibCheck`/`noCheck` diagnostics. Each
 original-source directive needs a compiler-cache target and matching source/index
 inclusion record. Missing, self-referential, unsupported or unprocessed paths add
@@ -61,13 +61,13 @@ lib names are normalized compiler filenames, not JSON source spans.
 Entries are additive observations and do not change existing reasons or closure
 bits. Unprocessed entries do not prove why traversal was suppressed or that an
 obligation is missing. Even an observed packet is not full reference-channel or
-semantic-closure authority: config inheritance locations, complete type/lib search
-attribution and entry-channel closure policy remain separate work. Loaded
+semantic-closure authority: observed config origins, search attribution and entry
+completeness are separate proof layers, not a Program-closure policy. Loaded
 sources' directives ARE included in the source ledger, not invented as entries.
 The public `react-scripts` directive is now explicitly unresolved, not installed,
 substituted or waived. Both runtime/class authority flags remain false.
 Historical schema10 (producer0.11.0/0.11.1), schema11 (producer0.12.0),
-schema12 (producer0.13.0), schema13 (producer0.14.0), schema14 (producer0.15.0) and schema15 (producer0.16.0) packets
+schema12 (producer0.13.0), schema13 (producer0.14.0), schema14 (producer0.15.0), schema15 (producer0.16.0) and schema16 (producer0.17.0) packets
 remain parseable without invented reference/entry rows for pinned audits, but
 cannot validate as current output; validation
 recomputes the producer identity and every field.
@@ -113,12 +113,19 @@ duplicate properties, null resets and unprovable selections yield an empty unpro
 observation, without changing prior diagnostics, reasons or closure. This is not
 automatic-type discovery completeness or whole-Program validity.
 
-The strict executable v16 schema is `schema.mjs` (`parsePacket`). It freezes these
+`entry_obligations` separately classifies each existing entry as selected, disabled
+or unproven. Only no roots or an observed explicit noLib:true can disable an old
+unprocessed row. Source no-default-lib suppression remains unknown. With roots,
+implicit types remain automatic_discovery_unproven even if all listed automatic
+names resolve or no names are listed. Explicit types:[] is a configured choice.
+The parser recomputes the whole field; no existing closure bit or reason changes.
+
+The strict executable v17 schema is `schema.mjs` (`parsePacket`). It freezes these
 groups, rejecting unknown fields and unsafe IDs before project access:
 
 | Group | Meaning |
 |---|---|
-| schema / authorizes_runtime_edge | prism.callable-observation/16; authority is always false; historical schemas10/11/12/13/14/15 remain readable, earlier schemas reject before root access |
+| schema / authorizes_runtime_edge | prism.callable-observation/17; authority is always false; historical schemas10/11/12/13/14/15/16 remain readable, earlier schemas reject before root access |
 | producer / compiler | Tool-byte digest; required compiler version/hash, whether actually verified, full compiler-lib inventory digest |
 | scope | Relative config, acquisition profile, link policy, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
 | status / reasons / closure | observed means this bounded Program completed without the enumerated closure failures; unproven records limitations. Neither means a receiver or class is proven |
@@ -128,6 +135,7 @@ groups, rejecting unknown fields and unsafe IDs before project access:
 | type_lib_entries | Effective configured/automatic/default entries: kind, origin, index, name, null mode, selected Program target, inclusion and observation reason. Canonical serialized kind/index ordering; separate100000-row cap; no closure-policy effect |
 | search_provenance | Module occurrences, type batches/occurrences/executions, actual lib searches/positive beneficiaries, and outside/refused boundary events with nullable module/type/lib owners; exact row and legacy aggregate reconciliation; no complete lexical or search-channel census |
 | config_provenance | Bounded root-first canonical config anchors, exact extends edges, seven ordered option-origin/value digests; all and only successful config reads; unproven chains have empty arrays |
+| entry_obligations | Exact ordered entry dispositions and conservative config/automatic-universe/row completeness; independently recomputed, no old closure effect |
 | resolutions[].lookup | Actual request anchor/context, checker declarations and configured-Program exact-name provider/augmentation census; observed means singleton exact-ambient binding only, never filesystem or closure authority |
 | resolutions[].lookup.wildcard | Independent nullable single-star binding observation: pattern, original-source providers, relevant augmentations and matching-provider census; never asset-existence or closure authority |
 | resolutions[].lookup.merged_wildcard | Separate nullable side-effect-only empty-block/shorthand pair observation; checker-ordered source shapes and actual selected value declaration; old wildcard refusal remains unchanged |
@@ -162,7 +170,7 @@ exercise this distinction.
 
 ## Declaration provenance
 
-Producer0.17.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs`, `props-class.mjs`, `exact-ambient.mjs`, `wildcard.mjs`, `merged-wildcard.mjs`, `required-paths.mjs`, `type-lib.mjs`, `entries.mjs`, `search-provenance.mjs`, `identity-domains.mjs`, `lib-search.mjs` and `config-provenance.mjs` in its byte digest. `provenance.status=traced`
+Producer0.18.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs`, `props-class.mjs`, `exact-ambient.mjs`, `wildcard.mjs`, `merged-wildcard.mjs`, `required-paths.mjs`, `type-lib.mjs`, `entries.mjs`, `search-provenance.mjs`, `identity-domains.mjs`, `lib-search.mjs`, `config-provenance.mjs` and `entry-obligations.mjs` in its byte digest. `provenance.status=traced`
 means the supported syntactic chain reached an inline callable type or a singleton,
 non-inherited callable interface. It is independent of program closure: even a
 traced chain can belong to an unproven packet. Type arguments and parameters keep

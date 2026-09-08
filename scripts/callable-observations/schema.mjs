@@ -1,9 +1,11 @@
 import {createHash} from "node:crypto";
 import path from "node:path";
 import {libFileForReference,libraryNameFromLibFile} from './lib-search.mjs';
+import {classifyEntryObligations} from './entry-obligations.mjs';
 const SCHEMA14="prism.callable-observation/14";
 const SCHEMA15="prism.callable-observation/15";
-export const SCHEMA="prism.callable-observation/16";
+const SCHEMA16="prism.callable-observation/16";
+export const SCHEMA="prism.callable-observation/17";
 export const REFERENCE_LIMIT=100000;
 export const referenceKey=r=>JSON.stringify([r.request.file,r.kind,r.index]);
 export const entryKey=r=>JSON.stringify([r.kind,r.index]);
@@ -120,17 +122,22 @@ const configOptionNames=['types','lib','typeRoots','noLib','libReplacement','noR
 const configReason=x=>['chain_limit','unavailable','invalid_config','duplicate_property','unsupported_extends','cycle','missing_target','selection_mismatch','unsupported_option','value_mismatch'].includes(x);
 const configProvenance=object({status:x=>['observed','unproven'].includes(x),reason:nullable(configReason),files:array(anchor),
   extends:array(object({source:anchor,target:anchor})),options:array(object({name:x=>configOptionNames.includes(x),present:boolean,value_sha256:digest,origin:nullable(anchor)}))});
+const entryObligation=object({kind:x=>['types','lib'].includes(x),origin:x=>['configured','automatic','default'].includes(x),index:integer,
+  disposition:x=>['selected','disabled','unproven'].includes(x),reason:nullable(x=>['no_roots','no_lib','suppression_unproven','unprocessed','unresolved','target_not_in_program','missing_inclusion'].includes(x))});
+const entryObligations=object({complete:boolean,reasons:array(x=>['configuration_unproven','automatic_discovery_unproven','unproven_entry'].includes(x)),rows:array(entryObligation)});
 const packet13=object({...referenceShape,schema:literal('prism.callable-observation/13'),producer:object({version:literal('0.14.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),search_provenance:object({module_requests:array(moduleRequest),boundary_events:array(boundaryEvent(moduleOwner))})});
 const packet14=object({...referenceShape,schema:literal(SCHEMA14),producer:object({version:literal('0.15.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
   search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),boundary_events:array(boundaryEvent(typeSearchOwner))})});
 const packet15=object({...referenceShape,schema:literal(SCHEMA15),producer:object({version:literal('0.16.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
   search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),lib_searches:array(libSearch),boundary_events:array(boundaryEvent(searchOwner))})});
-const packet16=object({...referenceShape,schema:literal(SCHEMA),producer:object({version:literal('0.17.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
+const packet16=object({...referenceShape,schema:literal(SCHEMA16),producer:object({version:literal('0.17.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
   search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),lib_searches:array(libSearch),boundary_events:array(boundaryEvent(searchOwner))}),config_provenance:configProvenance});
+const packet17=object({...referenceShape,schema:literal(SCHEMA),producer:object({version:literal('0.18.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
+  search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),lib_searches:array(libSearch),boundary_events:array(boundaryEvent(searchOwner))}),config_provenance:configProvenance,entry_obligations:entryObligations});
 export function parsePacket(text) {
   if(typeof text!=="string" || Buffer.byteLength(text)>MAX_PACKET_BYTES) throw Error("invalid_packet");
   const value=JSON.parse(text);
-  if(!packet10(value)&&!packet11(value)&&!packet12(value)&&!packet13(value)&&!packet14(value)&&!packet15(value)&&!packet16(value)) throw Error("invalid_packet");
+  if(!packet10(value)&&!packet11(value)&&!packet12(value)&&!packet13(value)&&!packet14(value)&&!packet15(value)&&!packet16(value)&&!packet17(value)) throw Error("invalid_packet");
   const profile=PROFILES[value.scope.acquisition_profile];
   if(Buffer.byteLength(text)>profile.packet_bytes)throw Error("invalid_packet");
   const files=new Map(value.snapshot.files.map(f=>[f.id,f]));
@@ -139,7 +146,7 @@ export function parsePacket(text) {
   if(!value.scope.config.startsWith("project/")) throw Error("invalid_packet");
   if(value.status==="observed" && (value.reasons.length || !value.compiler.verified || Object.values(value.closure).some(x=>!x))) throw Error("invalid_packet");
   if(value.status==="unproven" && !value.reasons.length) throw Error("invalid_packet");
-  if(value.reasons.includes("unproven_path_reference") && (!["0.11.1","0.12.0","0.13.0","0.14.0","0.15.0","0.16.0","0.17.0"].includes(value.producer.version)
+  if(value.reasons.includes("unproven_path_reference") && (!["0.11.1","0.12.0","0.13.0","0.14.0","0.15.0","0.16.0","0.17.0","0.18.0"].includes(value.producer.version)
     || value.status!=="unproven" || value.closure.dependencies || value.closure.references
     || value.closure.augmentation || value.closure.resolution))throw Error("invalid_packet");
   const refused=value.snapshot.refused_lookup_sha256;
@@ -241,7 +248,7 @@ export function parsePacket(text) {
       usedLinks.add(link);coveredRows.add(rowLink);
     }
     const expectedRows=new Set();
-    if([SCHEMA14,SCHEMA15,SCHEMA].includes(value.schema)) {
+    if([SCHEMA14,SCHEMA15,SCHEMA16,SCHEMA].includes(value.schema)) {
       for(const batch of typeBatches) {
         if(batch.origin==='source'?!programFiles.has(batch.from):batch.from!==inferredFrom)throw Error('invalid_packet');
         const rows=(batch.origin==='source'?references.filter(r=>r.kind==='types'&&r.request.file===batch.from)
@@ -283,7 +290,7 @@ export function parsePacket(text) {
   }
   const references=value.type_lib_references??[],unproven=references.some(r=>r.status==='unproven');
   if(unproven!==value.reasons.includes('unproven_type_lib_reference')
-    || unproven&&(!['prism.callable-observation/11','prism.callable-observation/12','prism.callable-observation/13',SCHEMA14,SCHEMA15,SCHEMA].includes(value.schema)||value.status!=='unproven'||value.closure.dependencies
+    || unproven&&(!['prism.callable-observation/11','prism.callable-observation/12','prism.callable-observation/13',SCHEMA14,SCHEMA15,SCHEMA16,SCHEMA].includes(value.schema)||value.status!=='unproven'||value.closure.dependencies
       ||value.closure.references||value.closure.augmentation||value.closure.resolution))throw Error('invalid_packet');
   for(const [i,r] of references.entries()) {
     checkAnchor(r.request);
@@ -305,6 +312,15 @@ export function parsePacket(text) {
       ||(r.status==='observed'
         ? r.reason!==null||!r.target||!programFiles.has(r.target)||!r.inclusion||!value.compiler.verified
         : !r.reason||r.target!==null||r.inclusion))throw Error('invalid_packet');
+  }
+  if(value.entry_obligations) {
+    const configObserved=value.config_provenance.status==='observed';
+    const option=name=>configObserved&&value.config_provenance.options.find(row=>row.name===name);
+    const noLib=option('noLib')?.present===true
+      &&option('noLib').value_sha256===hash(canonical({present:true,value:true}));
+    const expected=classifyEntryObligations({entries,rootCount:value.snapshot.roots.length,configObserved,
+      noLib,explicitTypes:option('types')?.present===true});
+    if(canonical(value.entry_obligations)!==canonical(expected))throw Error('invalid_packet');
   }
   for(const r of value.resolutions) {
     const l=r.lookup,synthetic=l.context==='synthetic';

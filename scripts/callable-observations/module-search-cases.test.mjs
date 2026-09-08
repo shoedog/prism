@@ -91,7 +91,7 @@ test('source and configuration epochs invalidate prior module provenance',()=>fi
 }));
 test('historical schema12 missing type-reference refusal remains readable, never current-valid',()=>fixture(({put,options})=>{
   put('src/types.d.ts','/// <reference types="missing-types" />');const p=produce(options);ledger(p);assert(p.reasons.includes('unproven_type_lib_reference'));
-  const old=structuredClone(p);old.schema='prism.callable-observation/12';old.producer.version='0.13.0';delete old.search_provenance;delete old.config_provenance;
+  const old=structuredClone(p);old.schema='prism.callable-observation/12';old.producer.version='0.13.0';delete old.search_provenance;delete old.config_provenance;delete old.entry_obligations;
   assert.doesNotThrow(()=>parsePacket(JSON.stringify(old)));assert.equal(validate(JSON.stringify(old),options).valid,false);
 }));
 for(const [extension,mode] of [['mts','import'],['cts','require']])test(`NodeNext ${extension} request retains actual ${mode} resolution mode`,()=>fixture(({put,config,save,options})=>{

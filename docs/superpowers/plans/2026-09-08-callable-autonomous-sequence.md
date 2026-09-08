@@ -16,13 +16,14 @@ Task root: `/private/tmp/prism-overnight-0zmx3n`.
 | 3 | Type-search provenance | PR284 open on PR283; full gates passed | actual configured/source channels; preserve batch/global caches |
 | D1 | Shared lib-search/beneficiary semantics + first value checkpoint | PR285 open on PR284; full gates passed; checkpoint continue | separate global lib cache; beneficiaries are not causal demands |
 | 4 | Bounded local configuration provenance | PR286 open on PR285; full gates passed on960c99a | local extends/options origin, no plugins/project references |
-| 5 | Entry-obligation completeness | frozen63c557b5,506 copied tests; independent ACCEPT97; public parity passes | conservative automatic-discovery/suppression unknown; no old-bit defect claim |
-| 6 | Bounded closure-policy contract | strict retained barriers adopted; unwired helper preparation | additive semantic observation only; no denied-space waiver or old-bit reinterpretation |
-| 7 | Singleton exact ambient admission + value checkpoint | pending | supported context, all unrelated barriers retained |
+| 5 | Entry-obligation completeness | PR287 open on PR286; full gates passed onf7f5ac9 | conservative automatic-discovery/suppression unknown; no old-bit defect claim |
+| 6 | Bounded closure-policy contract | strict contract/helper accepted final99; separate unwired PR next | additive semantic observation only; no denied-space waiver or old-bit reinterpretation |
+| 7 | Singleton exact ambient admission + value checkpoint | disposable implementation after24 intended REDfailures/16controls | additive semantic_closure; all oldfields and outside/refused barriers retained |
 | 8 | Singleton wildcard admission | pending | binding separate from assets/runtime |
 | 9 | Supported merged wildcard pair admission | pending | side-effect pair only, contributor/selection barriers |
 | 10 | First production-authority contract | pending | spec and public-seam RED requirements; no runtime consumer implementation |
-| D2–D3 | Remaining discovered work reserve | unused | record cause and exact scope before use |
+| D2 | Present JS targets outside configured Program | source-only exact20-occurrence audit allocated | classification/proof requirements only, no membership or closure waiver |
+| D3 | Remaining discovered work reserve | unused | record cause and exact scope before use |
 | H1 | Canonical source versus synthetic lookup identity contract | PR283 open on PR282; full gates passed | unwired pure helper; no current producer change; precedes3 |
 | H2–H3 | Remaining fix/hardening reserve | unused | closed enumerable findings; no silent restart |
 
