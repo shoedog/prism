@@ -56,10 +56,13 @@ for those pending channels.
 
 ## Verification and review
 
-Full301 observer and4017 default Rust tests passed; one existing ignored Rust test.
-Helpers7/7, authority40/failures=[], historical audit controls3/3. MCP and final
-committed-checkpoint observer rerun are still pending at this checkpoint. Tier-A
-not triggered: no src call-resolution/navigation/CPG/AST changes.
+Full301 observer,4017 default Rust and4207 MCP Rust tests passed, with zero failures.
+Rust includes doctests and one existing ignored reserved SliceElem test per run.
+The observer rerun is from final-control checkpoint0acdf87; Rust code/Cargo inputs
+are unchanged across both repair checkpoints. Helpers7/7, authority40/failures=[],
+historical audit controls3/3; cargo fmt --check and git diff --check passed.
+See [gate totals and capture hashes](2026-09-07-callable-required-path-gates.json).
+Tier-A not triggered: no src call-resolution/navigation/CPG/AST changes.
 
 Two SELF-PASS rounds (NOT INDEPENDENT), cap2, no extension:
 
