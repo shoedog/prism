@@ -137,5 +137,6 @@ remote CI after predecessor merge. No auto-merge was performed.
 
 The owner subsequently authorized ordered merging and then waived waiting for
 coverage; the other four checks remain required. The publication snapshot above
-is historical; current progress and per-merge CI evidence are in the
+is historical. Owner stack294 subsequently took over286–293; agent verifies the
+286-to287 transition, then owner merges287–293. Timestamped progress and live-state links are in the
 [ordered merge handoff](../../superpowers/handoffs/2026-09-08-callable-ordered-merges.md).

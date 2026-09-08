@@ -1,5 +1,28 @@
 # Handoff — ordered callable PR merges
 
+## Owner stack takeover — pre-transition snapshot
+
+Recorded 2026-09-08T16:42Z. The owner created stack294 for286–293 and asked the
+agent to watch286, verify automatic287 retarget/rebase and CI startup after286
+merges, then leave287–293 for the owner to merge in the stack. This supersedes
+the earlier agent-through293/manual-retarget resume instructions below.
+
+Agent scope: finish286 under the four non-coverage gates and tested-tree check;
+observe287 for up to10 minutes after merge without manually changing its base,
+head or open state. Check actual head/main ancestry and CI run association; a
+started run is not a green run. Stop and report if the expected transition does
+not happen. No further agent merge of287–293 is authorized by this takeover.
+
+At this snapshot286 is OPEN on main, head185163cf, CI34252139675 running;
+287 is OPEN on `feat/callable-config-provenance`, head6e396c73, with no checks.
+The owner's stack identifier294 is not exposed as a GitHub pull request by the
+queried API; verify observable286/287 behavior directly, without claiming access
+to the stack controller. Later operational truth is the live
+[PR286](https://github.com/shoedog/prism/pull/286) /
+[PR287](https://github.com/shoedog/prism/pull/287) state and the agent's transition
+receipt. Everything below is the earlier timestamped merge snapshot, not a
+claim that its pending states persist after the owner stack advances.
+
 **Written:** 2026-09-08T16:37Z · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · docs/callable-production-authority-contract · **Measured state:** `[MEASURED]` PR281–285 merged in order, latest main0fe868d9 (owner merged285). PR286 already targeted main at refresh; reopened once for missing CI34252139675, running on unchanged185163cf. Owner explicitly waived waiting for coverage. Probe: gh PR/workflow queries; receipts in `/private/tmp/prism-ordered-merges-stfAUR`.
 **Predecessor:** approved ten-increment sequence, published PR281–293.

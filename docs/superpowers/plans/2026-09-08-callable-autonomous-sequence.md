@@ -8,7 +8,10 @@ separate PRs and stack as needed. Stop at an unresolved crossroads or scope expa
 
 Subsequent owner instruction: "proceed to merge in order". Ordered merges are now
 authorized. Owner later explicitly waived waiting for coverage; the other four
-checks and exact tested-tree verification remain required. Current status is in the
+checks and exact tested-tree verification remain required. The owner then created
+stack294 for286–293: agent finishes286 and verifies automatic287 update/CI startup;
+owner merges287–293. The state table below is the pre-transition snapshot, not live
+stack status. Operational authority and live-state links are in the
 [merge handoff](../handoffs/2026-09-08-callable-ordered-merges.md).
 
 Base: PR280 confirmed merged670bccb0d7fd3181b0405128c68d84fe51de0002.
