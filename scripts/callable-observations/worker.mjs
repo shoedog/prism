@@ -10,6 +10,7 @@ import {observePropsClasses} from "./props-class.mjs";
 import {observeExactAmbient} from "./exact-ambient.mjs";
 import {hasUnprovenRequiredPath} from "./required-paths.mjs";
 import {observeTypeLib} from "./type-lib.mjs";
+import {observeEntries} from "./entries.mjs";
 import {snapshot} from "./inventory.mjs";
 
 const options=JSON.parse(readFileSync(0,"utf8"));
@@ -143,6 +144,7 @@ function build() {
   if(hasUnprovenRequiredPath(program,toId,read))reasons.add("unproven_path_reference");
   packet.type_lib_references=observeTypeLib(ts,program,toId,read);
   if(packet.type_lib_references.some(r=>r.status==='unproven'))reasons.add("unproven_type_lib_reference");
+  packet.type_lib_entries=observeEntries(ts,program,toId);
   const second=snapshot(options);
   if(first.digest!==second.digest)reasons.add("unstable_snapshot");
   if(outside)reasons.add("outside_lookup");

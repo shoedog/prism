@@ -5,7 +5,7 @@ import {fileURLToPath} from "node:url";
 import path from "node:path";
 import {SCHEMA,COMPILER_HASH,LIMITS,PACKET_BYTES,PROFILES,relative,hash,canonical,parsePacket} from "./schema.mjs";
 export function producerHash() {
-  return hash(Buffer.concat(["schema.mjs","index.mjs","worker.mjs","inventory.mjs","provenance.mjs","nested.mjs","props-class.mjs","exact-ambient.mjs","wildcard.mjs","merged-wildcard.mjs","required-paths.mjs","type-lib.mjs"].map(f=>readFileSync(new URL(f,import.meta.url)))));
+  return hash(Buffer.concat(["schema.mjs","index.mjs","worker.mjs","inventory.mjs","provenance.mjs","nested.mjs","props-class.mjs","exact-ambient.mjs","wildcard.mjs","merged-wildcard.mjs","required-paths.mjs","type-lib.mjs","entries.mjs"].map(f=>readFileSync(new URL(f,import.meta.url)))));
 }
 export function settings(options) {
   if(!options || typeof options.root!=="string" || typeof options.compiler!=="string"
@@ -21,14 +21,14 @@ export function settings(options) {
 }
 export function emptyPacket(options,reason) {
   const zero=hash("");
-  return {schema:SCHEMA,authorizes_runtime_edge:false,producer:{version:"0.12.0",sha256:producerHash()},
+  return {schema:SCHEMA,authorizes_runtime_edge:false,producer:{version:"0.13.0",sha256:producerHash()},
     compiler:{version:"5.9.3",sha256:COMPILER_HASH,verified:false,library_sha256:zero},
     scope:{config:"project/"+options.config,acquisition_profile:options.profile,link_policy:options.links,callable_scope:"direct-annotated-function",class_authority:false,case_sensitive:null},
     status:"unproven",reasons:[reason],limits:options.limits,
     closure:{stable_snapshot:false,dependencies:false,references:false,augmentation:false,resolution:false},
     snapshot:{sha256:zero,files:[],directories:[],links:[],roots:[],config_files:[],program_files:[],reads:[],
       failed_lookups:[],refused_lookup_sha256:[],outside_lookups:false,options_sha256:zero},
-    diagnostics:[],resolutions:[],observations:[],type_lib_references:[]};
+    diagnostics:[],resolutions:[],observations:[],type_lib_references:[],type_lib_entries:[]};
 }
 export function produce(input) {
   const options=settings(input);

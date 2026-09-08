@@ -1,7 +1,8 @@
 import {createHash} from "node:crypto";
-export const SCHEMA="prism.callable-observation/11";
+export const SCHEMA="prism.callable-observation/12";
 export const REFERENCE_LIMIT=100000;
 export const referenceKey=r=>JSON.stringify([r.request.file,r.kind,r.index]);
+export const entryKey=r=>JSON.stringify([r.kind,r.index]);
 export const COMPILER_HASH="3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675";
 export const LIMITS={files:20000,bytes:128*1024*1024,read_bytes:128*1024*1024,link_steps:32,depth:64,timeout_ms:30000,observations:2000,provenance_steps:32,nested_depth:8,nested_calls:128,props_type_args:8};
 export const PACKET_BYTES=8*1024*1024;
@@ -93,11 +94,16 @@ const packet10=object(packetShape);
 const typeLibReference=object({kind:x=>['types','lib'].includes(x),index:integer,name:str,
   mode:nullable(x=>['import','require'].includes(x)),request:anchor,status:x=>['observed','unproven'].includes(x),
   reason:nullable(x=>['unprocessed','unresolved','target_not_in_program','missing_inclusion'].includes(x)),target:nullable(id),inclusion:boolean});
-const packet11=object({...packetShape,schema:literal(SCHEMA),producer:object({version:literal('0.12.0'),sha256:digest}),type_lib_references:array(typeLibReference)});
+const referenceShape={...packetShape,type_lib_references:array(typeLibReference)};
+const packet11=object({...referenceShape,schema:literal('prism.callable-observation/11'),producer:object({version:literal('0.12.0'),sha256:digest})});
+const typeLibEntry=object({kind:x=>['types','lib'].includes(x),origin:x=>['configured','automatic','default'].includes(x),
+  index:integer,name:str,mode:literal(null),status:x=>['observed','unproven'].includes(x),
+  reason:nullable(x=>['unprocessed','unresolved','target_not_in_program','missing_inclusion'].includes(x)),target:nullable(id),inclusion:boolean});
+const packet12=object({...referenceShape,schema:literal(SCHEMA),producer:object({version:literal('0.13.0'),sha256:digest}),type_lib_entries:array(typeLibEntry)});
 export function parsePacket(text) {
   if(typeof text!=="string" || Buffer.byteLength(text)>MAX_PACKET_BYTES) throw Error("invalid_packet");
   const value=JSON.parse(text);
-  if(!packet10(value)&&!packet11(value)) throw Error("invalid_packet");
+  if(!packet10(value)&&!packet11(value)&&!packet12(value)) throw Error("invalid_packet");
   const profile=PROFILES[value.scope.acquisition_profile];
   if(Buffer.byteLength(text)>profile.packet_bytes)throw Error("invalid_packet");
   const files=new Map(value.snapshot.files.map(f=>[f.id,f]));
@@ -106,7 +112,7 @@ export function parsePacket(text) {
   if(!value.scope.config.startsWith("project/")) throw Error("invalid_packet");
   if(value.status==="observed" && (value.reasons.length || !value.compiler.verified || Object.values(value.closure).some(x=>!x))) throw Error("invalid_packet");
   if(value.status==="unproven" && !value.reasons.length) throw Error("invalid_packet");
-  if(value.reasons.includes("unproven_path_reference") && (!["0.11.1","0.12.0"].includes(value.producer.version)
+  if(value.reasons.includes("unproven_path_reference") && (!["0.11.1","0.12.0","0.13.0"].includes(value.producer.version)
     || value.status!=="unproven" || value.closure.dependencies || value.closure.references
     || value.closure.augmentation || value.closure.resolution))throw Error("invalid_packet");
   const refused=value.snapshot.refused_lookup_sha256;
@@ -133,7 +139,7 @@ export function parsePacket(text) {
   const programFiles=new Set(value.snapshot.program_files);
   const references=value.type_lib_references??[],unproven=references.some(r=>r.status==='unproven');
   if(unproven!==value.reasons.includes('unproven_type_lib_reference')
-    || unproven&&(value.schema!==SCHEMA||value.status!=='unproven'||value.closure.dependencies
+    || unproven&&(!['prism.callable-observation/11',SCHEMA].includes(value.schema)||value.status!=='unproven'||value.closure.dependencies
       ||value.closure.references||value.closure.augmentation||value.closure.resolution))throw Error('invalid_packet');
   for(const [i,r] of references.entries()) {
     checkAnchor(r.request);
@@ -143,6 +149,15 @@ export function parsePacket(text) {
       ||r.kind==='lib'&&r.mode!==null
       ||r.request.end_utf16-r.request.start_utf16!==r.name.length
       ||r.request.end_byte-r.request.start_byte!==Buffer.byteLength(r.name)
+      ||(r.status==='observed'
+        ? r.reason!==null||!r.target||!programFiles.has(r.target)||!r.inclusion||!value.compiler.verified
+        : !r.reason||r.target!==null||r.inclusion))throw Error('invalid_packet');
+  }
+  const entries=value.type_lib_entries??[];
+  for(const [i,r] of entries.entries()) {
+    if(i>0&&entryKey(entries[i-1])>=entryKey(r)||r.index>=REFERENCE_LIMIT
+      ||r.kind==='types'&&r.origin==='default'||r.kind==='lib'&&r.origin==='automatic'
+      ||r.origin==='default'&&r.index!==0
       ||(r.status==='observed'
         ? r.reason!==null||!r.target||!programFiles.has(r.target)||!r.inclusion||!value.compiler.verified
         : !r.reason||r.target!==null||r.inclusion))throw Error('invalid_packet');
