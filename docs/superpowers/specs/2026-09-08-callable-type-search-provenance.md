@@ -1,5 +1,12 @@
 # Primary design: S3-T type search provenance, then D1-L shared lib searches
 
+Status: implementation is not yet accepted. After two ordinary review rounds and
+one disclosed numeric-order verification extension, synthetic config-link identity
+exposed a recurring contract gap. The existing artifact was parked and archived,
+then resumed under the reviewed [H1 identity contract](2026-09-08-callable-identity-domains.md).
+That contract controls lexical synthetic from versus canonical source/target IDs.
+No artifact restart or hidden extension. All integration gates remain required.
+
 Independent source review approved the architecture, confidence88. Primary adopts
 the bounded split: S3-T implements the TYPE half only; D1-L consumes one discovered-
 work reserve for the independently cached lib-search/beneficiary distinction exposed
