@@ -63,3 +63,7 @@ clean8fc6624:571 observer,4017 Rust,4207 MCP,18 helpers,40 authority; doctests i
 one known ignored per Rust run; fmt/diff passed. Tier-A not triggered: no Rust
 call-resolution/navigation/CPG/AST changes. Local evidence archive8599628 bytes,
 SHA2561c01ca111a07a7273e649d8e0c934e490ded77de186f7dea3a9a13ad41feb41f.
+
+Published as [PR291](https://github.com/shoedog/prism/pull/291), stacked on PR290.
+Feature-base PR CI is not scheduled by the main-only workflow filter; the above
+local gates are not a claim of remote CI. No auto-merge.

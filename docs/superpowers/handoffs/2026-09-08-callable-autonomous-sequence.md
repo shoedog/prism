@@ -17,7 +17,7 @@
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
 2. S2 is published as PR282 against feat/callable-search-classification. S2 full gates are complete:395 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored per Rust run, doctests included. Check CI without auto-merge.
-3. D2 published PR290. S8 clean full gates/archive complete; publish against D2, then finish S9 bounded test-only review repairs, primary public replay/integration/full gates. S8 byte-frozen v1 and separate v2 wrapper preserve historicalschema18. S10 contract only. No auto-merge.
+3. S8 published as PR291 on PR290, pushed980657f. Finish S9 bounded test-only review repairs, primary public replay/integration/full gates. S8 byte-frozen v1 and separate v2 wrapper preserve historicalschema18. S10 contract only. No auto-merge.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
 
@@ -42,7 +42,7 @@
 | S5 | published PR287 | Pushed6ac9934 against PR286; cleanf7f5ac9506/4017/4207 plus18/40; archive7e8851be; independent97; public5selected/complete/alloldfields/91409 operations equal |
 | S6 | published PR288 | Pushed67588fc against PR287; clean5faf199521/4017/4207 plus18/40; archiveb06fb9f4; producer63c557 unchanged; independent99 |
 | S7 | published PR289 | Pushed48de24e against PR288; clean59fd6eb546/4017/4207 plus18/40; archivec00ec9c8; independent98; public/private checkpoint continue |
-| S8 | full gates passed | Clean8fc6624:571/4017/4207 plus18/40, archive1c01ca11; independent98/65; public parity unchanged, publication next |
+| S8 | published PR291 | Pushed980657f on PR290; clean8fc6624:571/4017/4207 plus18/40, archive1c01ca11; independent98/65; public parity unchanged |
 | S9–S10 | in progress | S9 candidate32ae5bc4 independent round1 WRONG0/SMELL3 test/evidence gaps, test-only repair; S10 contract independently accepted98, docs-only |
 | D2 | published PR290 |Pushedca8504d against PR289;20 occurrences/14 present JS targets; sufficient compiler depth-elision branch,9 sourceambient/11 no checker declarations; corrected diagnostic/raw-path capture; archive50724ca2; docs checks pass |
 
