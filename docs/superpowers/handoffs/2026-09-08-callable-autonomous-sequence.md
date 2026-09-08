@@ -1,23 +1,23 @@
 # Handoff — approved callable-completeness sequence
 
-**Written:** 2026-09-08T06:54Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-module-search-provenance · **Measured state:** `[MEASURED]` implementation ac9a0f3bf14fa95862f1e7308bd4d966a4f0e843 passed all seven gates on clean unchanged HEAD; this documentation closeout follows. Producer hash7ea9f31c2da12979fcb1d395492ed6ec0c0564fdc1b6cce27c75d79f71c0a369 exactly matches the verified disposable candidate. Probe: runner summary and git status.
+**Written:** 2026-09-08T07:55Z · **By:** /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-identity-domains · **Measured state:** `[MEASURED]` H1 clean12aa795 full gates passed402/4017/4207 plus18 helpers/40 authority; producer remains7ea9f31c. S3 disposable134739e passes435 copied observer tests and public plus14 cache/identity transcript controls; independent H1 integration review running, not published. Probe: exact gate summaries, producerHash, parity artifacts and git status.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims name their source.
 
 ## 0. Gating facts — settle these before starting anything below
 
-(a) Lane ownership — RESOLVED: `[MEASURED]` /root owns architecture/integration; boundary_audit completed independent S2 final review; compiler_search_review is implementing S3-T only in a new disposable task-root copy; no other agent writes the repository.
+(a) Lane ownership — RESOLVED: `[MEASURED]` /root owns architecture/integration; compiler_search_review resumes existing S3-T under H1 lexical synthetic identity; gate_runner completed independent H1 final review; boundary_audit corrects the pure S4 helper's pinned case-insensitive config-cache key handling. No other agent writes the repository.
 (b) Custody exposure — RESOLVED: `[MEASURED]` implementation d43dd54 and gate closeout2ce3b00 pushed; PR281 open (gh pr create returned https://github.com/shoedog/prism/pull/281). S1 raw evidence archived, 7,308,737 bytes, SHA256 8f737f4947a69a8d6cbeacd9e504af0d95d236c98389ef6ea1351d176b0926b4. This publication note follows.
-(c) In flight / irreversible — RESOLVED: `[MEASURED]` S2 implementation ac9a0f3 and gate closeout f1b5fac pushed; PR282 opened against PR281. S3-T disposable review round1 found one bounded parser occurrence-omission defect, correction in progress; public replay running. No install or application change.
+(c) In flight / irreversible — RESOLVED: `[MEASURED]` S2 tip559e80e pushed; PR282 open against PR281. S3 ordinary cap2 plus one disclosed numeric-order extension reached; a synthetic-config-link counterexample caused explicit H1 design escalation, not another patch-loop extension. H1 closed coordinate contract independently accepted96; same S3 artifact resumes under it. Parked977275dd source hash checked unchanged before/after archive SHA9792ac47cbb6d3c8bb1b89b1d3fd2eb21664c362645840b407cf858bfd9e6b98. No install or application change.
 (d) Authorization granted but not exercised — owner: "PR 280 is merged, approced to proceed with next 10 slices/increments with recommended value checkpoints. Approved for 3 additional slices/increments to cover additonal work flind doing those 10 ( if needed). Approved for 3 additional slices for fixes/hardening." Owner also permits stopping at a crossroads and approved model delegation. No auto-merge authority inferred.
 
 ## 1. Resume order
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
 2. S2 is published as PR282 against feat/callable-search-classification. S2 full gates are complete:395 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored per Rust run, doctests included. Check CI without auto-merge.
-3. S2 evidence archive is12,344,595 bytes, SHA256 fbec2ea2bb9642475ea96fd307f5b09a5f80cca1fd9f034d35c80bfae24fe461. Then integrate the reviewed S3-T candidate. S3-T then D1-L precede checkpoint one. Source-backed primary designs: task-root/s2-design.md and s3-design.md. S4 draft source review is in progress. Do not auto-merge PR281 or later stacks.
+3. H1 published as PR283 against S2, pushed cf2cc3c; full gates passed on clean12aa795 and archive8531891103598f490edbf850d8dd4ae504b114a166e4066fbe964f8388cbbc5f retained. Create S3 branch from H1 and integrate only its independently reviewed134739e candidate. H1 integration cap2, finite identity matrix; do not hide original review history. S3 then D1 precede checkpoint one. S4 helper remains unwired with bounded case/null corrections in progress. No auto-merge.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
 
@@ -35,8 +35,9 @@
 | S2 public parity | done | `[MEASURED]` s2-public-parity.json: old fields equal,91409 identical basic-host operations; s2-capture-parity.json ordered requests/events equal; validation reproduced/unproven;1229 sources unchanged |
 | S2 full gates | done | `[MEASURED]` clean ac9a0f3: observer395, Rust4017/1 ignored, MCP4207/1 ignored, helpers18, authority40, fmt/diff; archive receipt recorded |
 | S2 publication | done | `[MEASURED]` pushed f1b5fac; gh pr create returned https://github.com/shoedog/prism/pull/282 |
-| S3-T | in progress | Disposable s3t.YJIQVv; round1 bounded parser omission correction, public parity running |
-| D1 / S4–S10 | pending | D1 allocated to separately cached lib searches/beneficiary semantics; other reserves unused |
+| S3-T | in progress | Same-artifact H1 integration134739e passes435 copied tests, public91409 operations and14 cache/identity transcript controls. Original977275dd archived; integration review round1 of2 running |
+| H1 | published | PR283 against S2, pushed cf2cc3c; contract/unwired helper independently ACCEPT96; clean12aa795 full402/4017/4207 plus18/40, one ignored per Rust run; producer unchanged7ea9f31c |
+| D1 / S4–S10 | pending | D1 allocated to separate lib cache/beneficiaries; H1 allocated identity design escalation; D2–D3/H2–H3 unused |
 
 ## 3. Corrections to standing documents and memory
 
@@ -47,6 +48,11 @@
 | Operational gate runner | Ignored test regex required line to end at ignored | `[MEASURED]` actual Rust output appends the known reason; original failed summary preserved, all raw hashes checked, correction recognizes that exact annotated test. No tests rerun or re-baselined |
 | Initial S2 candidate | schema12 unresolved type packet rejected | `[MEASURED]` exact base accepted, candidate rejected, repaired version guard now accepts; controls in s2.AZF7YL |
 | Initial S2 JSX fixture | First synthetic request belongs to view.tsx | `[MEASURED]` base and candidate both synthesize app.ts and view.tsx requests; fixture selects the intended source, no production change |
+| Initial S3 design | Actual callback occurrences uniquely map to source rows globally | `[MEASURED]` imported package then explicit root triggers repeated type callback visits; exact S2 retains normal packet, initial S3 returns unsupported_input. Revised contract records batches and exact per-batch occurrences; s3-revisit-result.json |
+| S3 cache probe setup | Raw produce options can be sent to worker | `[MEASURED]` worker requires normalized settings; first JSON-transcript parse failure inadmissible. Corrected probe validates actual callback populations and six equal transcripts |
+| S3 numeric comparison | Serialized row order equals numeric callback index order | `[MEASURED]`12 source/configured occurrences raw worker normal but parser failed on lexical0,10,11,1 order. Corrected numeric expected-row sort; source/configured/automatic RED3 and final420 copied tests |
+| S3 synthetic from | All safe from coordinates are canonical file identities | `[MEASURED]` config directory alias preserves lexical compiler lookup address; canonicalizing it caused parser failure. H1 separately specifies lexical synthetic coordinates; s3-config-link-result.json |
+| Independent interim summaries |405/417 is latest S3 suite | `[MEASURED]` exact977275dd full suite420 in FULL-FINAL-GREEN.log; older totals belong to predecessor candidates, not current acceptance |
 
 No relevant memory registry hit; no memory edits.
 
@@ -54,9 +60,10 @@ No relevant memory registry hit; no memory edits.
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | S1 publication | done | `[MEASURED]` c57c354 CI test/clippy/format/matrix passed; coverage still running; retain open PR for owner merge | None | PR281 |
-| 2 | Module provenance publication | done | Check CI, retain PR282 for owner merge | None | S2 |
-| 3 | Type provenance implementation | next | Review corrected disposable S3-T, complete public parity, then integrate | Bounded round1 correction | S3-T |
+| 1 | S1 publication | done | `[MEASURED]` c57c354 all five CI checks SUCCESS including coverage; retain open PR for owner merge | None | PR281 |
+| 2 | Module provenance publication | done | `[MEASURED]` PR282 has no remote checks: CI pull_request filter targets main only, this stack targets feature branch. Local gates pass; retarget/run CI after predecessor merge | Owner merge order | S2 |
+| 3 | H1 identity contract publication | done | PR283 open; feature-base CI limitation applies, no auto-merge | Owner merge order | H1 |
+| 4 | Type provenance integration | next | Review same-artifact lexical coordinate repair and full identity matrix, then public/full gates | H1 publication and integration review | S3-T |
 
 ## 5. Invariants and traps — do not do these
 
