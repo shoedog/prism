@@ -1,23 +1,23 @@
 # Handoff — approved callable-completeness sequence
 
-**Written:** 2026-09-08T05:52Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-search-classification · **Measured state:** `[MEASURED]` HEAD 670bccb0d7fd3181b0405128c68d84fe51de0002; owned untracked S1 tooling and sequence plan. Probe: `git status --short --branch`; output: branch tracks origin/main, only owned new files.
+**Written:** 2026-09-08T06:24Z · **By:** /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-search-classification · **Measured state:** `[MEASURED]` implementation d43dd5409c4ab43f52b6c333ff6d539c5b8bf73f; full gates held this HEAD and a clean tree throughout. Only this docs/evidence closeout follows. Probe: gate pre/postflight and `git status --short --branch`; output recorded in callable-search-gates.json.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims name their source.
 
 ## 0. Gating facts — settle these before starting anything below
 
-(a) Lane ownership — RESOLVED: `[MEASURED]` collaboration list shows /root owns architecture; compiler_search_review completed a read-only source review; boundary_audit owns two S1 audit tooling files; gate_runner owns only a task-root runner.
-(b) Custody exposure — OPEN until stable commit: `[MEASURED]` owned S1 tooling/docs ready; raw evidence under task root. Commit before full gates and archive before publication.
+(a) Lane ownership — RESOLVED: `[MEASURED]` /root owns architecture; compiler_search_review and boundary_audit completed bounded work; gate_runner delivered an S2 disposable candidate, not repository edits. Primary is finishing its enumerated test population.
+(b) Custody exposure — RESOLVED locally: `[MEASURED]` implementation d43dd54 committed; S1 raw evidence archived, 7,308,737 bytes, SHA256 8f737f4947a69a8d6cbeacd9e504af0d95d236c98389ef6ea1351d176b0926b4. Remote publication follows.
 (c) In flight / irreversible — RESOLVED: `[MEASURED]` S1 replay/audit controls complete; S2 implementation delegated ONLY in disposable task-root copy, no repository writes. No install or application change.
 (d) Authorization granted but not exercised — owner: "PR 280 is merged, approced to proceed with next 10 slices/increments with recommended value checkpoints. Approved for 3 additional slices/increments to cover additonal work flind doing those 10 ( if needed). Approved for 3 additional slices for fixes/hardening." Owner also permits stopping at a crossroads and approved model delegation. No auto-merge authority inferred.
 
 ## 1. Resume order
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
-2. Commit the owned S1 files, then run `node /private/tmp/prism-overnight-0zmx3n/run-gates.mjs /Users/wesleyjinks/code/slicing /private/tmp/prism-overnight-0zmx3n` on the clean stable HEAD. Expected minutes; capture all seven gate outputs.
-3. Record full gates, archive evidence and publish S1 PR. Then branch S2 from published S1 and integrate the disposable implementation after review (or freshly verified main if merged).
+2. Commit this docs-only gate closeout and publish S1 to a PR against main. Full gates and raw custody are complete; no production source changed after them.
+3. Branch S2 from published S1 and integrate `/private/tmp/prism-overnight-0zmx3n/s2.AZF7YL/callable-observations` only after its expanded tests, public/transcript parity and review. S3 type half then D1 lib half precede checkpoint one.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
 
@@ -29,8 +29,10 @@
 | Source-backed seam review | done | `[MEASURED]` compiler_search_review one-pass report; pinned compiler SHA verified; no new WRONG, three provenance SMELLs, public hook/cache constraints |
 | S1 fresh capture | done | `[MEASURED]` capture-location.json; 2,075 boundary events, 6,893 module occurrences; normal packet differs only in producer hash |
 | S1 audit and negative controls | done | `[MEASURED]` s1-audit.json and s1-audit-controls.log: 11 pass, zero failure/skip; primary review cap two completed |
-| S1 full gates / publication | pending | No current gate or publication claim |
-| S2–S10 / checkpoints | pending | Approved sequence plan; reserves unused |
+| S1 full gates | done | `[MEASURED]` callable-search-gates.json: observer375, Rust4017/1 ignored, MCP4207/1 ignored, helpers18, authority40; all pass including doctests, fmt/diff |
+| S1 publication | next | Gate closeout commit and PR; do not auto-merge |
+| S2 | next | Disposable candidate and expanded RED tests; public parity/review/full gates still required |
+| S3 / D1 / S4–S10 | pending | D1 allocated to separately cached lib searches/beneficiary semantics; other reserves unused |
 
 ## 3. Corrections to standing documents and memory
 
@@ -38,6 +40,7 @@
 |---|---|---|
 | PR280 predecessor handoff | PR280 open / await merge | `[MEASURED]` merged 670bccb0; this handoff is the active successor |
 | Interim diagnostic heuristic | Any source-type frame identifies source-type phase | `[MEASURED]` nested library searches retain outer source-type frames; choose nearest actual resolver frame, not membership priority. This was a probe-classifier error, not a producer defect |
+| Operational gate runner | Ignored test regex required line to end at ignored | `[MEASURED]` actual Rust output appends the known reason; original failed summary preserved, all raw hashes checked, correction recognizes that exact annotated test. No tests rerun or re-baselined |
 
 No relevant memory registry hit; no memory edits.
 
@@ -45,7 +48,7 @@ No relevant memory registry hit; no memory edits.
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | S1 publication | next | Stable commit, full gates, archive raw evidence, publish | Full gates | capture-location.json |
+| 1 | S1 publication | next | Commit docs closeout, push and PR | None | d43dd54 |
 | 2 | Module provenance design | pending | Separate actual host boundary events from pure identity conversion; occurrence context stack | S1 publication | S2 |
 | 3 | Type/lib provenance design | pending | Preserve batch/shared-cache behavior and all lib contributors; no second resolver | S2 | S3 |
 

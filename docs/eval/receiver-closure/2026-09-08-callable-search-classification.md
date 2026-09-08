@@ -64,9 +64,18 @@ compare anchor-bearing occurrences, with negative controls. Round two verifies
 that repair plus mode, unknown-outside, population and receipt controls. These are
 primary integration passes (NOT an independent review of the whole lane); the
 compiler seam review was independently delegated. Cap two, no extension.
-Full gates and publication are pending at this stable implementation point.
+Full gates pass on stable clean implementation `d43dd54`: observer375/375,
+default Rust4,017 and MCP4,207 passed (one known ignored test each, doctests included),
+helper/audit18/18, authority40 with no failures, fmt/diff checks. Tier-A not triggered.
+The [gate record](2026-09-08-callable-search-gates.json) retains raw log hashes.
+The operational runner's ignored-name regex initially missed the compiler's appended
+ignore reason. Its failed summary is preserved; a closed correction independently
+recounts both Rust logs and recognizes only the exact known ignored test. No test
+result changed, no failing test was re-baselined, and no suite was rerun for that
+report-parser correction.
 The active [handoff](../../superpowers/handoffs/2026-09-08-callable-autonomous-sequence.md)
 is authoritative for operational state. Raw normal/captured packets, full stacks,
 copied instrumentation and receipts are under `/private/tmp/prism-overnight-0zmx3n`;
-they must be archived and hash-recorded before publication. No private repository
-source or measurements are included in this public readout.
+archived as `s1-evidence.tgz`, 7,308,737 bytes, SHA256
+`8f737f4947a69a8d6cbeacd9e504af0d95d236c98389ef6ea1351d176b0926b4`.
+No private repository source or measurements are included in this public readout.
