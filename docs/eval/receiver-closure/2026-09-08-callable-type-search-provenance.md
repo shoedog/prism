@@ -29,9 +29,14 @@ module-literal gaps. New ledgers do not imply receiver recall improvement.
 Seven cache controls preserve old fields and ordered host transcripts: configured
 duplicates, source duplicates/shared cache, automatic duplicates, import/require
 modes, noResolve, rootless config and imported-package-then-root repeated visits.
-Seven identity controls do the same for config-file/directory/multihop aliases,
+Eight identity controls do the same for config-file/directory/multihop aliases,
 mixed-case config, twelve configured/automatic indices, and canonical source/type/
-module targets through aliases. Combined alias-plus-revisit is not separately claimed.
+module targets through aliases, and combined config-directory alias plus canonical-
+package-root revisit. The last control retains two batches and30 identical host
+operations. Its initial alias-spelled second root hit the existing duplicate-
+canonical-Program-file barrier on both base and candidate; a copied base catch
+stack identified worker104, ruling out inventory/resource/candidate-only causes.
+That refused transcript was inadmissible, not a regression. No barrier was changed.
 
 ## Captured RED and review corrections
 
@@ -65,7 +70,12 @@ list omitted the newly hashed helper. The test list was fixed, then the full sui
 rerun; production bytes did not change. The disposable README was stale and is
 not integrated: current S2 documentation is preserved and additively updated.
 
-Repository full gates and final independent integration verdict are pending.
+Independent H1 integration review completed round2/2, ACCEPT98/100, WRONG0/SMELL0
+within the final bounded coverage check. Its first-round alias/revisit SMELL was
+closed by the fifteenth transcript control above. Full [repository gates](2026-09-08-callable-type-search-gates.json)
+passed on clean ea81801:435 observer,4017 Rust,4207 MCP,18 helpers,40 authority;
+doctests included and one known ignored per Rust run. fmt/diff passed; Tier-A not
+triggered. All1229 public sources were freshly verified unchanged. Publication follows.
 The [contract](../../superpowers/specs/2026-09-08-callable-type-search-provenance.md)
 and [H1 identity requirements](../../superpowers/specs/2026-09-08-callable-identity-domains.md)
 define the bounded scope. D1 library searches/beneficiaries follow separately before
