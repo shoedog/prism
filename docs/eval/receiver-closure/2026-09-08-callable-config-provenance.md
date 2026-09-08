@@ -33,6 +33,12 @@ optional and explicit, and requires the ordinary compiler env for both suites.
 Current assertions remain mandatory; historical comparisons are claimed only when
 the frozen baseline was actually supplied. No copied candidate or RED log discarded.
 
-Full clean repository gates, archive receipt and publication follow. Tier-A is not
-triggered; no Rust resolution/navigation/CPG/AST path changed. No entry completeness,
-outside-search waiver, React.FC expansion or runtime/class authority is introduced.
+Final independent round2/2 ACCEPT99, WRONG0/SMELL0; normal-env32/32 independently
+rerun after the closed repairs. Full repository gates passed on clean
+960c99a227eed2c0a6343bd0a903dc2db1db4e55:485 observer,4017 Rust,4207 MCP,18 helpers,
+40 authority,fmt/diff; one known ignored per Rust run, doctests included. The [gate
+receipt](2026-09-08-callable-config-gates.json) binds raw logs and archive0a6ce282.
+Publication follows. Feature-base PRs do not schedule current main-only CI; local
+full gates are not a remote-green claim. Tier-A is not triggered; no Rust resolution/
+navigation/CPG/AST path changed. No entry completeness, outside-search waiver,
+React.FC expansion or runtime/class authority is introduced.

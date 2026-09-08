@@ -1,14 +1,14 @@
 # Handoff — approved callable-completeness sequence
 
-**Written:** 2026-09-08T08:58Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-config-provenance · **Measured state:** `[MEASURED]` S4 integrated exact3d346dce, public91409 operations/11 config transcripts equal. Copied485 tests passed; publication preflight repaired two test-only disposable-path dependencies, normal-env32/32 pass. Full clean repository gates next. D1 PR285 published tip78be904; checkpoint continue. Probe: git/hash, parity receipts, focused output and closed independent round2 findings.
+**Written:** 2026-09-08T09:12Z · **By:** /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-config-provenance · **Measured state:** `[MEASURED]` S4 full clean960c99a gates485/4017/4207 plus18/40 pass, one ignored per Rust run/doctests; independent round2 ACCEPT99. Archive0a6ce282. Publication next. S5 frozen63c557b5 full copied506/506, independent round1 ACCEPT97, public5 selected entries/91409 identical operations. Probe: full gate summary, hashes, parity receipts and independent reviews.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims name their source.
 
 ## 0. Gating facts — settle these before starting anything below
 
-(a) Lane ownership — RESOLVED: `[MEASURED]` /root owns architecture/integration; compiler_search_review probes strict no-outside ambient feasibility without waivers; boundary_audit implements S5 in a separate disposable after exact-S4 RED; gate_runner verifies the closed S4 test portability repairs within round2. No other agent writes the repository.
+(a) Lane ownership — RESOLVED: `[MEASURED]` /root owns architecture/integration; compiler_search_review prepares S6 unwired strict-policy helper; boundary_audit prepares S7 RED tests only after frozen S5; gate_runner completed S5 independent round1 ACCEPT97. No other agent writes the repository.
 (b) Custody exposure — RESOLVED: `[MEASURED]` implementation d43dd54 and gate closeout2ce3b00 pushed; PR281 open (gh pr create returned https://github.com/shoedog/prism/pull/281). S1 raw evidence archived, 7,308,737 bytes, SHA256 8f737f4947a69a8d6cbeacd9e504af0d95d236c98389ef6ea1351d176b0926b4. This publication note follows.
 (c) In flight / irreversible — RESOLVED: `[MEASURED]` S2 tip559e80e pushed; PR282 open against PR281. S3 ordinary cap2 plus one disclosed numeric-order extension reached; a synthetic-config-link counterexample caused explicit H1 design escalation, not another patch-loop extension. H1 closed coordinate contract independently accepted96; same S3 artifact resumes under it. Parked977275dd source hash checked unchanged before/after archive SHA9792ac47cbb6d3c8bb1b89b1d3fd2eb21664c362645840b407cf858bfd9e6b98. No install or application change.
 (d) Authorization granted but not exercised — owner: "PR 280 is merged, approced to proceed with next 10 slices/increments with recommended value checkpoints. Approved for 3 additional slices/increments to cover additonal work flind doing those 10 ( if needed). Approved for 3 additional slices for fixes/hardening." Owner also permits stopping at a crossroads and approved model delegation. No auto-merge authority inferred.
@@ -17,7 +17,7 @@
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
 2. S2 is published as PR282 against feat/callable-search-classification. S2 full gates are complete:395 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored per Rust run, doctests included. Check CI without auto-merge.
-3. Commit integrated S4 then run full clean repository gates and publish on D1. Public parity and11 config/alias transcripts pass, source1229 unchanged. Test-only portability fixes preserve production3d346dce; normal-env32/32 pass, exact-baseline comparisons remain separately captured. S5 disposable implementation authorized under accepted conservative contract; inherit portable tests before its full suite. S6 strict-barrier feasibility is being source/probe tested, no outside/denied-space waiver selected. Private evidence remains separate. No auto-merge.
+3. Publish S4 gate/archive closeout on D1, then integrate S5 separately and run full clean gates. S5 public5 configured entries selected/complete, all oldfields and91409 operations equal; source1229 unchanged. S6 adopts strict retained outside/refused barriers: eight-case source-backed matrix proves positive colon-name/relative cases, plain/scoped names remain blocked. Additive semantic_closure keeps oldstatus/reasons/closure/Props/authority unchanged. S7 tests only until contract/helper accepted. Private evidence remains separate. No auto-merge.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
 
@@ -38,7 +38,7 @@
 | S3-T | published PR284 | Pushed5d7e466 against H1; clean ea81801 full435/4017/4207 plus18/40; producer134739e; public91409 operations and15 transcripts equal. Independent H1 integration round2 ACCEPT98; archiveb59834a9 |
 | H1 | published | PR283 against S2, pushed cf2cc3c; contract/unwired helper independently ACCEPT96; clean12aa795 full402/4017/4207 plus18/40, one ignored per Rust run; producer unchanged7ea9f31c |
 | D1 | published PR285 | Clean7d28638,453/4017/4207 plus18/40, doctests and one ignored per Rust run; archive6fb8d120; checkpoint continue; pushed dde3666 |
-| S4 | integrated; full gates next |3d346dce485 copied tests; test-only portability repairs normal-env32/32; exact D1 RED15 failures; independent round1 ACCEPT96 plus closed round2 portability findings; public91409/11 transcripts equal |
+| S4 | full gates passed | Clean960c99a485/4017/4207 plus18/40; archive0a6ce282; independent final round2 ACCEPT99; public91409/11 transcripts equal |
 | S5–S10 | pending | S5 conservative complete/reasons/rows contract independently accepted97; helper1639fce2 tests8/8 unwired. D2–D3/H2–H3 remain unused |
 
 ## 3. Corrections to standing documents and memory
