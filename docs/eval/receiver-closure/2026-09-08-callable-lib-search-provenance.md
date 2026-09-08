@@ -55,7 +55,33 @@ searches decorators/decorators.legacy. The final control verifies all three exac
 filenames and every owner ID; it does not reduce the fixture's callbacks. Full453
 then passes. No compiler-result change was required for this expectation update.
 
-Repository full gates and publication are next. The [contract](../../superpowers/specs/2026-09-08-callable-lib-search-provenance.md)
-defines the scope. Value checkpoint one follows publication, before configuration
-origins and conservative entry-obligation completeness. No receiver recall gain
-or production authority is claimed from these added ledgers.
+Repository full gates passed on clean `7d28638cc8a73588376da8f202924336765fa3ea`:
+453 observer,4017 Rust,4207 MCP,18 helpers,40 authority; one known ignored per Rust
+run, doctests included, fmt/diff passed. Tier-A not triggered. The [gate receipt](2026-09-08-callable-lib-search-gates.json)
+binds logs and the archived evidence. The [contract](../../superpowers/specs/2026-09-08-callable-lib-search-provenance.md)
+defines the scope. Publication is next; feature-base PRs do not schedule the current
+main-only remote CI workflow. Local gates are not a remote-green claim.
+
+## Value checkpoint one
+
+Continue to bounded configuration origins and conservative entry obligations.
+All2075 fixed public boundary events now have an actual module/type/lib search
+owner; this explains where searches occurred, not whether outside files exist.
+The public packet remains unproven with outside_lookup, unsupported_lookup,
+unresolved_module and unproven_type_lib_reference. Stable snapshot is true; all
+dependency/reference/augmentation/resolution closure bits remain false. The139
+source type/lib rows include the independent unresolved react-scripts directive;
+all5 configured entries are selected. No module gap has been waived.
+
+Private read-only compatibility evidence is retained separately, outside the public
+archive. The default profile produced the same output-cap refusal on base/current;
+one replay under the existing larger profile produced nonempty observations with
+old-field parity and successful reproduction. Source was unchanged, no dependencies
+were installed, and all authority remained false. This checks current acquisition
+compatibility, not installed-dependency fidelity or receiver recall. No private
+paths, source, packet details or metrics are published here.
+
+Value gained: attributable searches with preserved caches and a reproducible basis
+for later policy decisions. Remaining work: config origins, conservative entry
+completeness, then a separately reviewed input-universe policy. No receiver recall
+gain or production authority is claimed from these added ledgers.
