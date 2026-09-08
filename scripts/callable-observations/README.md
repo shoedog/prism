@@ -33,7 +33,7 @@ an unproven observation exits0. Read the JSON, not just the exit code.
 
 ## Meaning of the packet
 
-Producer0.15.0 retains the path-completeness repair: required triple-slash
+Producer0.16.0 retains the path-completeness repair: required triple-slash
 paths are checked independently of `skipLibCheck`/`noCheck` diagnostics. Each
 original-source directive needs a compiler-cache target and matching source/index
 inclusion record. Missing, self-referential, unsupported or unprocessed paths add
@@ -67,7 +67,7 @@ sources' directives ARE included in the source ledger, not invented as entries.
 The public `react-scripts` directive is now explicitly unresolved, not installed,
 substituted or waived. Both runtime/class authority flags remain false.
 Historical schema10 (producer0.11.0/0.11.1), schema11 (producer0.12.0),
-schema12 (producer0.13.0) and schema13 (producer0.14.0) packets
+schema12 (producer0.13.0), schema13 (producer0.14.0) and schema14 (producer0.15.0) packets
 remain parseable without invented reference/entry rows for pinned audits, but
 cannot validate as current output; validation
 recomputes the producer identity and every field.
@@ -75,9 +75,9 @@ recomputes the producer identity and every field.
 `search_provenance` adds actual module callback occurrences and outside/refused
 boundary encounters. Module rows reuse existing literal anchors after observation;
 synthetic requests keep null anchors. Boundary rows retain occurrence order,
-operation, opaque normalized-probe digest and module/type owner or explicit null owner.
+operation, opaque normalized-probe digest and module/type/lib owner or explicit null owner.
 Repeated paths do not collapse. Identity conversion is distinct from a host
-operation. Library/config/discovery work without an active resolver context stays unattributed,
+operation. Config/discovery work without an active resolver context stays unattributed,
 not waived. A context stack covers resolver execution through target projection;
 no second resolver or new module cache is introduced. Each population is capped
 independently at100000 and overflow fails closed. Structural consistency does not
@@ -92,14 +92,25 @@ preserve lexical config-directory aliases and case and need no file membership.
 Per-batch indices use numeric order even though older row serialization is lexical.
 Suppressed or rootless rows do not invent callbacks. Parsing checks exact per-batch
 row coverage; reproduction authenticates repeated callback count/order and ownership.
-Library-search attribution and entry-obligation policy remain separate increments.
+Entry-obligation policy remains separate.
 
-The strict executable v14 schema is `schema.mjs` (`parsePacket`). It freezes these
+Library searches preserve the separate pinned library resolution cache and actual
+hook invocation order. Each search records its lexical synthetic address, resolver
+target and Program-selected replacement/builtin fallback. The selected fallback can
+be absent from the inventory/Program. Source/configured beneficiaries require exact
+existing positive inclusion; they are not causal demands. A shared search can serve
+several beneficiaries, while a missing fallback can serve none. Default selection
+and libReplacement:false do not fabricate searches; transitive source-lib searches
+remain real. Per-search and total relationships are bounded before insertion, with
+separate retained-record guards. Full reproduction authenticates search census,
+actual selections and beneficiaries; attribution never proves outside absence.
+
+The strict executable v15 schema is `schema.mjs` (`parsePacket`). It freezes these
 groups, rejecting unknown fields and unsafe IDs before project access:
 
 | Group | Meaning |
 |---|---|
-| schema / authorizes_runtime_edge | prism.callable-observation/14; authority is always false; historical schemas10/11/12/13 remain readable, earlier schemas reject before root access |
+| schema / authorizes_runtime_edge | prism.callable-observation/15; authority is always false; historical schemas10/11/12/13/14 remain readable, earlier schemas reject before root access |
 | producer / compiler | Tool-byte digest; required compiler version/hash, whether actually verified, full compiler-lib inventory digest |
 | scope | Relative config, acquisition profile, link policy, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
 | status / reasons / closure | observed means this bounded Program completed without the enumerated closure failures; unproven records limitations. Neither means a receiver or class is proven |
@@ -107,7 +118,7 @@ groups, rejecting unknown fields and unsafe IDs before project access:
 | resolutions / diagnostics | Compiler module-resolution outcomes and anchored diagnostic codes; unresolved dependencies are not automatically application defects |
 | type_lib_references | Source-written types/lib occurrences only: kind-local index, name anchor, effective mode, selected Program target, inclusion and refusal. Canonical serialized source/kind/index ordering; at most100000 rows, then budget_exceeded, never truncation |
 | type_lib_entries | Effective configured/automatic/default entries: kind, origin, index, name, null mode, selected Program target, inclusion and observation reason. Canonical serialized kind/index ordering; separate100000-row cap; no closure-policy effect |
-| search_provenance | Module occurrences, type batches/occurrences/executions, and outside/refused boundary events with nullable module/type owners; exact row and legacy aggregate reconciliation; no complete lexical or search-channel census |
+| search_provenance | Module occurrences, type batches/occurrences/executions, actual lib searches/positive beneficiaries, and outside/refused boundary events with nullable module/type/lib owners; exact row and legacy aggregate reconciliation; no complete lexical or search-channel census |
 | resolutions[].lookup | Actual request anchor/context, checker declarations and configured-Program exact-name provider/augmentation census; observed means singleton exact-ambient binding only, never filesystem or closure authority |
 | resolutions[].lookup.wildcard | Independent nullable single-star binding observation: pattern, original-source providers, relevant augmentations and matching-provider census; never asset-existence or closure authority |
 | resolutions[].lookup.merged_wildcard | Separate nullable side-effect-only empty-block/shorthand pair observation; checker-ordered source shapes and actual selected value declaration; old wildcard refusal remains unchanged |
@@ -142,7 +153,7 @@ exercise this distinction.
 
 ## Declaration provenance
 
-Producer0.15.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs`, `props-class.mjs`, `exact-ambient.mjs`, `wildcard.mjs`, `merged-wildcard.mjs`, `required-paths.mjs`, `type-lib.mjs`, `entries.mjs`, `search-provenance.mjs` and `identity-domains.mjs` in its byte digest. `provenance.status=traced`
+Producer0.16.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs`, `props-class.mjs`, `exact-ambient.mjs`, `wildcard.mjs`, `merged-wildcard.mjs`, `required-paths.mjs`, `type-lib.mjs`, `entries.mjs`, `search-provenance.mjs`, `identity-domains.mjs` and `lib-search.mjs` in its byte digest. `provenance.status=traced`
 means the supported syntactic chain reached an inline callable type or a singleton,
 non-inherited callable interface. It is independent of program closure: even a
 traced chain can belong to an unproven packet. Type arguments and parameters keep

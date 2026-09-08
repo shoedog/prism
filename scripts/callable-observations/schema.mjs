@@ -1,6 +1,8 @@
 import {createHash} from "node:crypto";
 import path from "node:path";
-export const SCHEMA="prism.callable-observation/14";
+import {libFileForReference,libraryNameFromLibFile} from './lib-search.mjs';
+const SCHEMA14="prism.callable-observation/14";
+export const SCHEMA="prism.callable-observation/15";
 export const REFERENCE_LIMIT=100000;
 export const referenceKey=r=>JSON.stringify([r.request.file,r.kind,r.index]);
 export const entryKey=r=>JSON.stringify([r.kind,r.index]);
@@ -107,16 +109,21 @@ const typeBatch=object({id:integer,origin:x=>['source','configured','automatic']
 const typeRequest=object({id:integer,origin:x=>['source','configured','automatic'].includes(x),from:id,name:str,mode:searchMode,
   request:nullable(anchor),index:integer,execution:integer,batch:integer});
 const typeSearch=object({id:integer,from:id,name:str,mode:searchMode,target:nullable(id)});
+const libBeneficiary=object({origin:x=>['source','configured'].includes(x),request:nullable(anchor),index:integer});
+const libSearch=object({id:integer,name:str,from:id,lib_file:str,target:nullable(id),selected:nullable(id),beneficiaries:array(libBeneficiary)});
 const boundaryEvent=ownerRule=>object({id:integer,kind:x=>['outside','refused'].includes(x),operation:x=>['identity','readFile','entries','fileExists','directoryExists','realpath'].includes(x),probe_sha256:digest,owner:nullable(ownerRule)});
 const moduleOwner=object({channel:literal('module'),id:integer});
-const searchOwner=object({channel:x=>['module','type'].includes(x),id:integer});
+const typeSearchOwner=object({channel:x=>['module','type'].includes(x),id:integer});
+const searchOwner=object({channel:x=>['module','type','lib'].includes(x),id:integer});
 const packet13=object({...referenceShape,schema:literal('prism.callable-observation/13'),producer:object({version:literal('0.14.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),search_provenance:object({module_requests:array(moduleRequest),boundary_events:array(boundaryEvent(moduleOwner))})});
-const packet14=object({...referenceShape,schema:literal(SCHEMA),producer:object({version:literal('0.15.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
-  search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),boundary_events:array(boundaryEvent(searchOwner))})});
+const packet14=object({...referenceShape,schema:literal(SCHEMA14),producer:object({version:literal('0.15.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
+  search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),boundary_events:array(boundaryEvent(typeSearchOwner))})});
+const packet15=object({...referenceShape,schema:literal(SCHEMA),producer:object({version:literal('0.16.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
+  search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),lib_searches:array(libSearch),boundary_events:array(boundaryEvent(searchOwner))})});
 export function parsePacket(text) {
   if(typeof text!=="string" || Buffer.byteLength(text)>MAX_PACKET_BYTES) throw Error("invalid_packet");
   const value=JSON.parse(text);
-  if(!packet10(value)&&!packet11(value)&&!packet12(value)&&!packet13(value)&&!packet14(value)) throw Error("invalid_packet");
+  if(!packet10(value)&&!packet11(value)&&!packet12(value)&&!packet13(value)&&!packet14(value)&&!packet15(value)) throw Error("invalid_packet");
   const profile=PROFILES[value.scope.acquisition_profile];
   if(Buffer.byteLength(text)>profile.packet_bytes)throw Error("invalid_packet");
   const files=new Map(value.snapshot.files.map(f=>[f.id,f]));
@@ -125,7 +132,7 @@ export function parsePacket(text) {
   if(!value.scope.config.startsWith("project/")) throw Error("invalid_packet");
   if(value.status==="observed" && (value.reasons.length || !value.compiler.verified || Object.values(value.closure).some(x=>!x))) throw Error("invalid_packet");
   if(value.status==="unproven" && !value.reasons.length) throw Error("invalid_packet");
-  if(value.reasons.includes("unproven_path_reference") && (!["0.11.1","0.12.0","0.13.0","0.14.0","0.15.0"].includes(value.producer.version)
+  if(value.reasons.includes("unproven_path_reference") && (!["0.11.1","0.12.0","0.13.0","0.14.0","0.15.0","0.16.0"].includes(value.producer.version)
     || value.status!=="unproven" || value.closure.dependencies || value.closure.references
     || value.closure.augmentation || value.closure.resolution))throw Error("invalid_packet");
   const refused=value.snapshot.refused_lookup_sha256;
@@ -161,8 +168,8 @@ export function parsePacket(text) {
     const key=r=>canonical({from:r.from,specifier:r.specifier,target:r.target,request:r.request});
     const actual=value.resolutions.map(r=>({from:r.from,specifier:r.specifier,target:r.target,request:r.lookup.request})).map(key).sort();
     if(canonical(requests.map(key).sort())!==canonical(actual))throw Error('invalid_packet');
-    const typeBatches=value.search_provenance.type_batches??[],typeRequests=value.search_provenance.type_requests??[],typeSearches=value.search_provenance.type_searches??[];
-    if(typeBatches.length>REFERENCE_LIMIT||typeRequests.length>REFERENCE_LIMIT||typeSearches.length>REFERENCE_LIMIT)throw Error('invalid_packet');
+    const typeBatches=value.search_provenance.type_batches??[],typeRequests=value.search_provenance.type_requests??[],typeSearches=value.search_provenance.type_searches??[],libSearches=value.search_provenance.lib_searches??[];
+    if(typeBatches.length>REFERENCE_LIMIT||typeRequests.length>REFERENCE_LIMIT||typeSearches.length>REFERENCE_LIMIT||libSearches.length>REFERENCE_LIMIT)throw Error('invalid_packet');
     const batchById=new Map();
     for(const [i,b] of typeBatches.entries()){if(b.id!==i||b.size>REFERENCE_LIMIT||batchById.has(b.id))throw Error('invalid_packet');batchById.set(b.id,b);}
     const typeSearchIds=new Set();
@@ -199,7 +206,7 @@ export function parsePacket(text) {
       usedLinks.add(link);coveredRows.add(rowLink);
     }
     const expectedRows=new Set();
-    if(value.schema===SCHEMA) {
+    if([SCHEMA14,SCHEMA].includes(value.schema)) {
       for(const batch of typeBatches) {
         if(batch.origin==='source'?!programFiles.has(batch.from):batch.from!==inferredFrom)throw Error('invalid_packet');
         const rows=(batch.origin==='source'?references.filter(r=>r.kind==='types'&&r.request.file===batch.from)
@@ -213,8 +220,27 @@ export function parsePacket(text) {
       for(const row of entries)if(row.kind==='types'&&row.reason!=='unprocessed')expectedRows.add(canonical({origin:row.origin,index:row.index}));
     }
     if(usedSearches.size!==typeSearches.length||[...expectedRows].some(link=>!coveredRows.has(link)))throw Error('invalid_packet');
+    const libSearchIds=new Set(),libFiles=new Set();let beneficiaryCount=0;
+    for(const [i,s] of libSearches.entries()) {
+      if(s.id!==i||libSearchIds.has(s.id)||libFiles.has(s.lib_file)
+        ||libraryNameFromLibFile(s.lib_file)!==s.name
+        ||s.from!==path.posix.join(path.posix.dirname(value.scope.config),`__lib_node_modules_lookup_${s.lib_file}__.ts`))throw Error('invalid_packet');
+      libSearchIds.add(s.id);libFiles.add(s.lib_file);
+      beneficiaryCount+=s.beneficiaries.length;if(beneficiaryCount>REFERENCE_LIMIT)throw Error('invalid_packet');
+      for(const beneficiary of s.beneficiaries)checkAnchor(beneficiary.request);
+      const expected=[
+        ...references.filter(row=>row.kind==='lib'&&row.status==='observed'
+          &&libFileForReference(row.name)===s.lib_file&&row.target===s.selected)
+          .map(row=>({origin:'source',request:row.request,index:row.index})),
+        ...entries.filter(row=>row.kind==='lib'&&row.origin==='configured'&&row.status==='observed'
+          &&row.name===s.lib_file&&row.target===s.selected)
+          .map(row=>({origin:'configured',request:null,index:row.index})),
+      ];
+      if(canonical(s.beneficiaries)!==canonical(expected))throw Error('invalid_packet');
+    }
     for(const [i,event] of events.entries()) {
-      if(event.id!==i||event.owner&&(event.owner.channel==='module'?!requestIds.has(event.owner.id):!typeSearchIds.has(event.owner.id)))throw Error('invalid_packet');
+      const ownerIds=event.owner?.channel==='module'?requestIds:event.owner?.channel==='type'?typeSearchIds:libSearchIds;
+      if(event.id!==i||event.owner&&!ownerIds.has(event.owner.id))throw Error('invalid_packet');
     }
     const refused=new Set(events.filter(e=>e.kind==='refused').map(e=>e.probe_sha256));
     if(canonical([...refused].sort())!==canonical(value.snapshot.refused_lookup_sha256)
@@ -222,7 +248,7 @@ export function parsePacket(text) {
   }
   const references=value.type_lib_references??[],unproven=references.some(r=>r.status==='unproven');
   if(unproven!==value.reasons.includes('unproven_type_lib_reference')
-    || unproven&&(!['prism.callable-observation/11','prism.callable-observation/12','prism.callable-observation/13',SCHEMA].includes(value.schema)||value.status!=='unproven'||value.closure.dependencies
+    || unproven&&(!['prism.callable-observation/11','prism.callable-observation/12','prism.callable-observation/13',SCHEMA14,SCHEMA].includes(value.schema)||value.status!=='unproven'||value.closure.dependencies
       ||value.closure.references||value.closure.augmentation||value.closure.resolution))throw Error('invalid_packet');
   for(const [i,r] of references.entries()) {
     checkAnchor(r.request);

@@ -14,6 +14,7 @@ import {observeEntries} from "./entries.mjs";
 import {snapshot} from "./inventory.mjs";
 import {createSearchProvenance,classifyBoundary} from "./search-provenance.mjs";
 import {projectSyntheticAddress} from "./identity-domains.mjs";
+import {libraryNameFromLibFile} from "./lib-search.mjs";
 
 const options=JSON.parse(readFileSync(0,"utf8"));
 const fail=reason=>{throw Error(reason);};
@@ -35,7 +36,8 @@ function build() {
   const canonicalId=id=>first.resolve(id,v=>canonicalIds.get(canonicalFile(v))??v);
   const reasons=new Set(),reads=new Set(),missing=new Set(),refused=new Set();let outside=false;
   const search=createSearchProvenance(hash);packet.search_provenance={module_requests:search.module_requests,
-    type_batches:search.type_batches,type_requests:search.type_requests,type_searches:search.type_searches,boundary_events:search.boundary_events};
+    type_batches:search.type_batches,type_requests:search.type_requests,type_searches:search.type_searches,
+    lib_searches:search.lib_searches,boundary_events:search.boundary_events};
   // Virtual paths make observations portable across equivalent caller-owned roots.
   const toId=(f,operation="identity")=>{
     const classified=classifyBoundary(f),n=classified.normalized;
@@ -82,9 +84,10 @@ function build() {
   if(parsed.projectReferences?.length) reasons.add("unsupported_references");
   if(parsed.options.plugins?.length) reasons.add("unsupported_plugins");
   if(first.links.length && parsed.options.preserveSymlinks)fail("unsupported_input");
-  const lookupRequests=[],typeLookupRequests=[];
+  const lookupRequests=[],typeLookupRequests=[],libLookupSearches=[];
   // Match the pinned Program's private cache construction without another host call.
   const typeResolutionCache=ts.createTypeReferenceDirectiveResolutionCache(virtual('project'),canonicalFile,undefined,undefined,undefined);
+  const libResolutionCache=ts.createModuleResolutionCache(virtual('project'),canonicalFile,parsed.options,undefined);
   const host={...basic,getSourceFile:(f,v)=>{const text=read(f);return text===undefined?undefined:ts.createSourceFile(f,text,v,true);},
     getDefaultLibFileName:o=>virtual("compiler/"+ts.getDefaultLibFileName(o)),
     getDefaultLibLocation:()=>virtual("compiler"),writeFile:()=>fail("unsupported_input"),
@@ -125,6 +128,14 @@ function build() {
         }
         typeLookupRequests.push({id,batch:batch.id,origin,from:fromId,name,mode,ref:entry,source,index,execution:execution.id});
         return execution.result;
+      });
+    },
+    resolveLibrary:(name,from,compilerOptions,libFileName)=>{
+      const record={id:search.claimLibSearch(),name,from:projectSyntheticAddress(from),libFile:libFileName,result:null,target:null};
+      return search.withLibSearch(record,()=>{
+        const result=ts.resolveLibrary(name,from,compilerOptions,host,libResolutionCache);
+        record.result=result;record.target=result.resolvedModule?pureId(result.resolvedModule.resolvedFileName):null;
+        libLookupSearches.push(record);return result;
       });
     }};
   // References/plugins are recorded but never traversed/executed in this bounded slice.
@@ -200,6 +211,21 @@ function build() {
     if(!row||usedRows.has(key)||row.name!==record.name||row.mode!==record.mode)fail('unsupported_input');usedRows.add(key);
     search.typeRequest({id:record.id,batch:record.batch,origin:record.origin,from:record.from,name:record.name,mode:record.mode,
       request,index:record.index,execution:record.execution});
+  }
+  for(const record of libLookupSearches) {
+    const selectedRecord=program.resolvedLibReferences?.get(record.libFile);
+    if(libraryNameFromLibFile(record.libFile)!==record.name||!selectedRecord
+      ||selectedRecord.resolution!==record.result||typeof selectedRecord.actual!=='string')fail('unsupported_input');
+    const selected=pureId(selectedRecord.actual),beneficiaries=[];
+    for(const row of packet.type_lib_references)if(row.kind==='lib'&&row.status==='observed'
+      &&ts.libMap.get(row.name.toLowerCase())===record.libFile&&row.target===selected) {
+      search.libBeneficiaries(beneficiaries,[{origin:'source',request:row.request,index:row.index}]);
+    }
+    for(const row of packet.type_lib_entries)if(row.kind==='lib'&&row.origin==='configured'&&row.status==='observed'
+      &&row.name===record.libFile&&row.target===selected) {
+      search.libBeneficiaries(beneficiaries,[{origin:'configured',request:null,index:row.index}]);
+    }
+    search.libSearch({id:record.id,name:record.name,from:record.from,lib_file:record.libFile,target:record.target,selected,beneficiaries});
   }
   const second=snapshot(options);
   if(first.digest!==second.digest)reasons.add("unstable_snapshot");
