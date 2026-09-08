@@ -1,7 +1,7 @@
 # Handoff — approved callable-completeness sequence
 
-**Written:** 2026-09-08T07:38Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-identity-domains · **Measured state:** `[MEASURED]` branch renamed without dropping commits; H1 reviewed contract/unwired helper and7 passing controls added. Current producer remains7ea9f31c. S3 remains disposable, resumed under the closed H1 contract after archive; not accepted/published. Probe: producerHash, git status, independent H1 review and archive hashes.
+**Written:** 2026-09-08T07:55Z · **By:** /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-identity-domains · **Measured state:** `[MEASURED]` H1 clean12aa795 full gates passed402/4017/4207 plus18 helpers/40 authority; producer remains7ea9f31c. S3 disposable134739e passes435 copied observer tests and public plus14 cache/identity transcript controls; independent H1 integration review running, not published. Probe: exact gate summaries, producerHash, parity artifacts and git status.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims name their source.
@@ -17,7 +17,7 @@
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
 2. S2 is published as PR282 against feat/callable-search-classification. S2 full gates are complete:395 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored per Rust run, doctests included. Check CI without auto-merge.
-3. Commit H1 contract/helper on a stable clean HEAD, run full gates (expected402 observer plus Rust/MCP/helpers/authority), archive and publish a separate stacked H1 PR against S2. Then create S3 branch from H1 and integrate only its reviewed corrected candidate. H1 integration cap2, finite identity matrix; do not hide original review history. S3 then D1 precede checkpoint one. S4 helper remains unwired and has a bounded case-policy correction in progress. No auto-merge.
+3. Publish H1 separately against S2; full gates passed on clean12aa795 and archive8531891103598f490edbf850d8dd4ae504b114a166e4066fbe964f8388cbbc5f retained. Then create S3 branch from H1 and integrate only its independently reviewed134739e candidate. H1 integration cap2, finite identity matrix; do not hide original review history. S3 then D1 precede checkpoint one. S4 helper remains unwired with bounded case/null corrections in progress. No auto-merge.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
 
@@ -35,8 +35,8 @@
 | S2 public parity | done | `[MEASURED]` s2-public-parity.json: old fields equal,91409 identical basic-host operations; s2-capture-parity.json ordered requests/events equal; validation reproduced/unproven;1229 sources unchanged |
 | S2 full gates | done | `[MEASURED]` clean ac9a0f3: observer395, Rust4017/1 ignored, MCP4207/1 ignored, helpers18, authority40, fmt/diff; archive receipt recorded |
 | S2 publication | done | `[MEASURED]` pushed f1b5fac; gh pr create returned https://github.com/shoedog/prism/pull/282 |
-| S3-T | in progress | Parked977275dd passed420 copied tests/public+7 transcript controls but failed config-directory-alias packet parsing. Archived; same artifact resumes under H1 lexical/canonical contract; not accepted |
-| H1 | in progress | Contract and unwired helper independently ACCEPT96,7 tests pass; producer unchanged7ea9f31c; full gates/publication next |
+| S3-T | in progress | Same-artifact H1 integration134739e passes435 copied tests, public91409 operations and14 cache/identity transcript controls. Original977275dd archived; integration review round1 of2 running |
+| H1 | gates passed | Contract/unwired helper independently ACCEPT96; clean12aa795 full402/4017/4207 plus18/40, one ignored per Rust run; producer unchanged7ea9f31c; publication next |
 | D1 / S4–S10 | pending | D1 allocated to separate lib cache/beneficiaries; H1 allocated identity design escalation; D2–D3/H2–H3 unused |
 
 ## 3. Corrections to standing documents and memory
@@ -62,7 +62,7 @@ No relevant memory registry hit; no memory edits.
 |---:|---|---|---|---|---|
 | 1 | S1 publication | done | `[MEASURED]` c57c354 all five CI checks SUCCESS including coverage; retain open PR for owner merge | None | PR281 |
 | 2 | Module provenance publication | done | `[MEASURED]` PR282 has no remote checks: CI pull_request filter targets main only, this stack targets feature branch. Local gates pass; retarget/run CI after predecessor merge | Owner merge order | S2 |
-| 3 | H1 identity contract publication | next | Stable commit/full gates/stacked PR; producer unchanged | None | H1 |
+| 3 | H1 identity contract publication | next | Full gates passed, archive/gate receipt recorded; push/open stacked PR | None | H1 |
 | 4 | Type provenance integration | next | Review same-artifact lexical coordinate repair and full identity matrix, then public/full gates | H1 publication and integration review | S3-T |
 
 ## 5. Invariants and traps — do not do these
