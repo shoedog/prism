@@ -1,0 +1,43 @@
+{
+  "all_remote_shas_equal": true,
+  "rows": [
+    {
+      "sha": "1900682c3a9a193bd78e6a805f3796e320331574",
+      "ref": "refs/heads/custody/worktree-20260907-16c1"
+    },
+    {
+      "sha": "b7fc86010ed13953d04f9c4c78511c5070a19ee3",
+      "ref": "refs/heads/custody/worktree-20260907-16c1-dirty"
+    },
+    {
+      "sha": "158d49c5a69ccee088d4202a0aea510e222644f5",
+      "ref": "refs/heads/custody/worktree-20260907-p4b-eval"
+    },
+    {
+      "sha": "1cd3322df1496ce2bde972f6fb041393b3502e55",
+      "ref": "refs/heads/custody/worktree-20260907-p4b-java-ts"
+    },
+    {
+      "sha": "5b56c35fc35a1afcc9eccb20463aee914411e2a9",
+      "ref": "refs/heads/custody/worktree-20260907-phase0-item2"
+    },
+    {
+      "sha": "3a6a94920cb52527081588655149400ab564d555",
+      "ref": "refs/heads/custody/worktree-20260907-phase0-review"
+    },
+    {
+      "sha": "b880b26aaff7f512769c301881e6791bf4ccc491",
+      "ref": "refs/heads/custody/worktree-20260907-phase0-targets"
+    },
+    {
+      "sha": "5a616575f9f363ecd44b821c54ebb6e21b36e633",
+      "ref": "refs/heads/custody/worktree-cleanup-20260907"
+    }
+  ],
+  "evidence_restore": {
+    "restored_files": 37,
+    "all_hashes_equal": true,
+    "restore": "/private/tmp/prism-worktree-custody-K76Tg3/evidence-restore-EAfa7s",
+    "artifact_sha256": "307d5e8940568b759a2c4fa06ab641ea8ec6420c2f6ee0805dfed4e411ba1bde"
+  }
+}

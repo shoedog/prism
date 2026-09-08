@@ -1251,6 +1251,6 @@
     "openFiles": [],
     "not_deletion_authority": true
   },
-  "publication": "pending_remote_verification",
+  "publication": "archive_commit_5a61657_and_seven_recovery_refs_pushed_and_remote_shas_verified; see publication.json",
   "tests_not_run": "No implementation; custody restoration/hash/ref verification only"
 }

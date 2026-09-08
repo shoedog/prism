@@ -1,7 +1,7 @@
 # Handoff — named worktree cleanup assessment and custody
 
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · custody/worktree-cleanup-20260907 · **Measured state:** `[MEASURED]` base8534f4af; 17 directories inventoried; seven recovery refs anchored; dirty snapshot committed via isolated index; publication/restore verification pending.
+**Workspace:** /Users/wesleyjinks/code/slicing · custody/worktree-cleanup-20260907 · **Measured state:** `[MEASURED]` base8534f4af; archive commit5a61657 and seven recovery refs pushed atomically; all eight remote SHAs verified. Full object/evidence restores pass;17 original HEADs/statuses unchanged. No deletion.
 **Predecessor:** PR277 merged; next implementation slice paused for owner-requested cleanup assessment.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,15 +9,15 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) `[MEASURED]` host-visible process/lsof sweep found no matches for the17 paths — RESOLVED for assessment, not permission to delete later.
-(b) `[MEASURED]` named histories and four dirty files anchored locally; full object-store restore verification and remote publication pending — OPEN.
-(c) No deletion authorized/executed. Object archive verification in flight — OPEN.
+(b) `[MEASURED]` named histories, four dirty files,33 ignored files and complete clone objects remotely preserved; isolated restores and remote SHAs match — RESOLVED.
+(c) No deletion authorized/executed; no verification processes remain — RESOLVED for custody. Deletion requires new authority/fresh checks.
 (d) Owner: evaluate17 named directories; "if they havent been merged we should take custody and oush ti a remote branch and document."
 
 ## 1. Resume order
 
 1. `git status --short --branch` in /Users/wesleyjinks/code/slicing.
 2. Read task-root audit.json, ref-audit.json, artifact-manifest.json and dirty-snapshot.json.
-3. Complete isolated full-object restores, publish recovery refs and archive/report branch; verify remote SHAs. Report candidates and request deletion approval separately.
+3. Read docs/custody/2026-09-07-named-worktrees/README.md and assessment.json. Obtain deletion approval, then refresh all volatile gates before retiring the17 named directories only.
 
 **STOP conditions:** no deletion, reset, rebase, integration or build of recovered code; do not publish the overbroad central all-ref bundle. Use only named clone object archives and scoped review history.
 
@@ -29,8 +29,8 @@
 | Merge/ref assessment | done | `[MEASURED]` ref-audit.json uses central main8534f4af, not stale clone origin refs; PR-list captures squash merges |
 | Dirty custody | done | `[MEASURED]` dirty-snapshot.json:four original files byte-equal to committed blobs; original index/worktree not modified |
 | Ignored evidence | done | `[MEASURED]` artifact-manifest.json:33 ignored files +4 dirty source/design files,1880844 bytes; no flags from bounded secret-pattern scan |
-| Full clone objects | pending | Initial refs/reflog bundles omit513/1013/563 unreachable commit objects; full object archives now undergoing independent bare restore/fsck |
-| Remote custody | next | Seven explicitly named recovery refs plus archive/report branch; no force pushes |
+| Full clone objects | done | `[MEASURED]` 13089/14498/14822 objects restored exactly without alternates;1848/2357/2087 commits; fsck passes; all37 file hashes restored |
+| Remote custody | done | `[MEASURED]` publication.json:seven recovery refs + archive/report branch exact remote SHAs; no force pushes |
 
 ## 3. Corrections to standing documents and memory
 
@@ -40,8 +40,9 @@ branches/reflogs/objects and ignored evidence. No memory edits authorized.
 
 ## 4. Open work
 
-Finish archive restore proof and remote custody, document per-directory disposition,
-then seek deletion authority. Preserve old work as unverified recovery, not merge-ready code.
+All17 are retirement candidates after fresh deletion approval and live-use/status
+checks. Preserve old work as unverified recovery, not merge-ready code. No recovered
+implementation was tested or integrated. Next receiver slice remains paused.
 
 ## 5. Invariants and traps — do not do these
 
@@ -63,6 +64,6 @@ then seek deletion authority. Preserve old work as unverified recovery, not merg
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** NOT RUN — final custody reconciliation pending · claim: "named directories can be retired without losing local work" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: STATIC-ONLY · record: task-root manifests and restore logs; no deletion readiness claim yet.
+**§2c verdict:** SURVIVED · claim: "named work and clone objects have recoverable custody before retirement" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: object-store-verification.json, evidence-restore.json, publication.json and committed assessment; storage restoration tests only, not code correctness. Future deletion eligibility still requires fresh gates.
 
 **Questions the owner owes an answer to:** None for authorized custody; deletion will require separate approval after the report.
