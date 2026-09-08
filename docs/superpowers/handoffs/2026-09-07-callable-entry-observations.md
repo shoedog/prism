@@ -1,5 +1,10 @@
 # Handoff — configured/automatic type and lib entry observations
 
+Superseded operational state: PR280 merged as `670bccb0` on 2026-09-08.
+The approved ten-increment sequence is active in the
+[successor handoff](2026-09-08-callable-autonomous-sequence.md).
+The publication/gate details below remain historical evidence, not a current open-PR claim.
+
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-entry-observations · **Measured state:** `[MEASURED]` implementation97b5524 and gate recordfbc2421 pushed; PR280 open. Observer-head375/375 on implementation HEAD; final publication note changes docs only. Probe: git push and gh pr create returned https://github.com/shoedog/prism/pull/280.
 **Predecessor:** PR279, `gh pr view 279 --json state,mergeCommit,mergedAt` returned MERGED, merge ca473cd1, 2026-09-08T04:31:53Z.

@@ -1,0 +1,30 @@
+{
+  "schema": "prism.search-boundary-readout/1",
+  "base": "670bccb0d7fd3181b0405128c68d84fe51de0002",
+  "diagnostic_only": true,
+  "closure_admission": false,
+  "authorizes_runtime_edge": false,
+  "normal_packet_sha256": "47f41ee5d64aada696f89b7a3933f36d1a34c7cb59bd26789dceaf96664843de",
+  "captured_packet_sha256": "03498b52ebf291ce4952cfc34ecd200a5cdef6646bd4c1f83308ffb0d9127d92",
+  "capture_sha256": "e650a26b0842baaf4719af6ab73522129a1e55fb67fc90d3c628c6ebaa40fa83",
+  "unchanged_previous_packet": true,
+  "instrumented_packet_changed_fields": ["producer"],
+  "source_files_verified": 1229,
+  "source_manifest_sha256": "353187a695df2683a3631e4739c173cb6d33190901093549b61e28efeda60cbb",
+  "module_occurrences": 6893,
+  "boundary_occurrences": 2075,
+  "refused_occurrences": 1269,
+  "distinct_refused_paths": 264,
+  "outside_occurrences": 806,
+  "outside_phase_mechanism": {
+    "module": {"ancestor_module": 442, "peer_metadata": 6},
+    "lib": {"ancestor_module": 328},
+    "source_types": {"type_root": 24, "ancestor_module": 2},
+    "configured_types": {"type_root": 4}
+  },
+  "refused_ownership": {"module": 1269},
+  "shared_module_owner_paths": 169,
+  "shared_module_owner_events": 1604,
+  "audit_controls": {"passed": 11, "failed": 0, "skipped": 0},
+  "receipt_is_authentication": false
+}
