@@ -1,5 +1,12 @@
 # Handoff — named worktree cleanup assessment and custody
 
+> Deletion authorization update (2026-09-07): owner explicitly authorized deletion
+> of all17 listed directories provided fresh status/live-use checks pass. Fresh
+> deletion-preflight.json passes17/17, including unchanged hashes/refs/objects,
+> locks, process/lsof and12-container mount checks. Exact-path deletion is next,
+> with those gates repeated per path; park failures without retry. No paths have
+> been removed at this checkpoint. Earlier no-authorization text is historical.
+
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · custody/worktree-cleanup-20260907 · **Measured state:** `[MEASURED]` base8534f4af; archive commit5a61657 and seven recovery refs pushed atomically; all eight remote SHAs verified. Full object/evidence restores pass;17 original HEADs/statuses unchanged. No deletion.
 **Predecessor:** PR277 merged; next implementation slice paused for owner-requested cleanup assessment.
