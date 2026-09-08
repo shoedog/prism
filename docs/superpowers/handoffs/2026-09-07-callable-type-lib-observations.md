@@ -2,7 +2,7 @@
 
 > Superseded operationally by the [entry-observation handoff](2026-09-07-callable-entry-observations.md).
 > PR279 is now confirmed merged at ca473cd1. The keep-unresolved owner decision is
-> retained and will publish with the approved entry slice. The record below is historical.
+> retained and published with the approved entry slice in PR280. The record below is historical.
 
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-type-lib-observations · **Measured state:** `[MEASURED]` `git status --short --branch` initially clean on the tracked feature branch; this follow-up edits only the readout and this handoff. `[INHERITED]` owner reports PR279 merged; remote merge not rechecked this turn. Implementation/gate/publication records below are historical, not rerun results.

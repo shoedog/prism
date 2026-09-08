@@ -1,6 +1,8 @@
 # Configured/automatic type and lib entry observations
 
 Base: merged PR279 `ca473cd198d3a906a9ba9b14402118a4bbcd952a`.
+Published in [PR280](https://github.com/shoedog/prism/pull/280): implementation97b5524,
+gate recordfbc2421; final publication note is docs-only.
 Schema12/producer0.13.0 adds a separate `type_lib_entries[]` ledger without changing
 existing reasons, closure bits or receiver observations. See the
 [bounded contract](../../superpowers/specs/2026-09-07-callable-entry-observations.md).
