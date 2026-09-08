@@ -1,7 +1,7 @@
 # Handoff — approved callable-completeness sequence
 
 **Written:** 2026-09-08T09:12Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-config-provenance · **Measured state:** `[MEASURED]` S4 full clean960c99a gates485/4017/4207 plus18/40 pass, one ignored per Rust run/doctests; independent round2 ACCEPT99. Archive0a6ce282. Publication next. S5 frozen63c557b5 full copied506/506, independent round1 ACCEPT97, public5 selected entries/91409 identical operations. Probe: full gate summary, hashes, parity receipts and independent reviews.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-config-provenance · **Measured state:** `[MEASURED]` S4 published PR286 on PR285, pushed c11f3ec. Full clean960c99a gates485/4017/4207 plus18/40 pass, one ignored per Rust run/doctests; independent round2 ACCEPT99. Archive0a6ce282. S5 frozen63c557b5 full copied506/506, independent round1 ACCEPT97, public5 selected entries/91409 identical operations. Probe: gh PR creation, full gate summary, hashes, parity receipts and independent reviews.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims name their source.
@@ -17,7 +17,7 @@
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
 2. S2 is published as PR282 against feat/callable-search-classification. S2 full gates are complete:395 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored per Rust run, doctests included. Check CI without auto-merge.
-3. Publish S4 gate/archive closeout on D1, then integrate S5 separately and run full clean gates. S5 public5 configured entries selected/complete, all oldfields and91409 operations equal; source1229 unchanged. S6 adopts strict retained outside/refused barriers: eight-case source-backed matrix proves positive colon-name/relative cases, plain/scoped names remain blocked. Additive semantic_closure keeps oldstatus/reasons/closure/Props/authority unchanged. S7 tests only until contract/helper accepted. Private evidence remains separate. No auto-merge.
+3. S4 PR286 published; integrate S5 separately and run full clean gates. S5 public5 configured entries selected/complete, all oldfields and91409 operations equal; source1229 unchanged. S6 adopts strict retained outside/refused barriers: eight-case source-backed matrix proves positive colon-name/relative cases, plain/scoped names remain blocked. Additive semantic_closure keeps oldstatus/reasons/closure/Props/authority unchanged. S6 helper1ac30091 is frozen15/15, final independent review pending; S7 tests only until contract/helper accepted. Private evidence remains separate. No auto-merge.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
 
@@ -38,7 +38,7 @@
 | S3-T | published PR284 | Pushed5d7e466 against H1; clean ea81801 full435/4017/4207 plus18/40; producer134739e; public91409 operations and15 transcripts equal. Independent H1 integration round2 ACCEPT98; archiveb59834a9 |
 | H1 | published | PR283 against S2, pushed cf2cc3c; contract/unwired helper independently ACCEPT96; clean12aa795 full402/4017/4207 plus18/40, one ignored per Rust run; producer unchanged7ea9f31c |
 | D1 | published PR285 | Clean7d28638,453/4017/4207 plus18/40, doctests and one ignored per Rust run; archive6fb8d120; checkpoint continue; pushed dde3666 |
-| S4 | full gates passed | Clean960c99a485/4017/4207 plus18/40; archive0a6ce282; independent final round2 ACCEPT99; public91409/11 transcripts equal |
+| S4 | published PR286 | Pushed c11f3ec; clean960c99a485/4017/4207 plus18/40; archive0a6ce282; independent final round2 ACCEPT99; public91409/11 transcripts equal |
 | S5–S10 | pending | S5 conservative complete/reasons/rows contract independently accepted97; helper1639fce2 tests8/8 unwired. D2–D3/H2–H3 remain unused |
 
 ## 3. Corrections to standing documents and memory
