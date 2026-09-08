@@ -4,9 +4,9 @@ import {readFileSync,readSync} from "node:fs";
 import {fileURLToPath} from "node:url";
 import path from "node:path";
 import {SCHEMA,COMPILER_HASH,LIMITS,PACKET_BYTES,PROFILES,relative,hash,canonical,parsePacket} from "./schema.mjs";
-import {classifySemanticClosure} from "./semantic-closure.mjs";
+import {classifySemanticClosureV2} from "./semantic-closure-v2.mjs";
 export function producerHash() {
-  return hash(Buffer.concat(["schema.mjs","index.mjs","worker.mjs","inventory.mjs","provenance.mjs","nested.mjs","props-class.mjs","exact-ambient.mjs","wildcard.mjs","merged-wildcard.mjs","required-paths.mjs","type-lib.mjs","entries.mjs","search-provenance.mjs","identity-domains.mjs","lib-search.mjs","config-provenance.mjs","entry-obligations.mjs","semantic-closure.mjs"].map(f=>readFileSync(new URL(f,import.meta.url)))));
+  return hash(Buffer.concat(["schema.mjs","index.mjs","worker.mjs","inventory.mjs","provenance.mjs","nested.mjs","props-class.mjs","exact-ambient.mjs","wildcard.mjs","merged-wildcard.mjs","required-paths.mjs","type-lib.mjs","entries.mjs","search-provenance.mjs","identity-domains.mjs","lib-search.mjs","config-provenance.mjs","entry-obligations.mjs","semantic-closure.mjs","semantic-closure-v2.mjs"].map(f=>readFileSync(new URL(f,import.meta.url)))));
 }
 export function settings(options) {
   if(!options || typeof options.root!=="string" || typeof options.compiler!=="string"
@@ -22,10 +22,10 @@ export function settings(options) {
 }
 export function emptyPacket(options,reason) {
   const zero=hash("");
-  const semantic_closure=classifySemanticClosure({compilerVerified:false,stableSnapshot:false,
+  const semantic_closure=classifySemanticClosureV2({compilerVerified:false,stableSnapshot:false,
     configObserved:false,entryComplete:false,noResolve:false,diagnosticCount:0,globalReasons:[reason],
     outside:false,refusedCount:0,boundaryCount:0,programFiles:[],resolutions:[]});
-  return {schema:SCHEMA,authorizes_runtime_edge:false,producer:{version:"0.19.0",sha256:producerHash()},
+  return {schema:SCHEMA,authorizes_runtime_edge:false,producer:{version:"0.20.0",sha256:producerHash()},
     compiler:{version:"5.9.3",sha256:COMPILER_HASH,verified:false,library_sha256:zero},
     scope:{config:"project/"+options.config,acquisition_profile:options.profile,link_policy:options.links,callable_scope:"direct-annotated-function",class_authority:false,case_sensitive:null},
     status:"unproven",reasons:[reason],limits:options.limits,

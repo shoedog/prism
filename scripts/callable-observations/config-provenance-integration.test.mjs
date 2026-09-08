@@ -47,8 +47,8 @@ const unproven=(record,reason)=>assert.deepEqual(record,{status:'unproven',reaso
 
 test('direct full worker retains seven-option provenance and reproduces in schema17',()=>fixture(({options})=>{
   const {after}=pair(options),record=provenance(after);
-  assert.equal(after.schema,'prism.callable-observation/18');
-  assert.equal(after.producer.version,'0.19.0');
+  assert.equal(after.schema,'prism.callable-observation/19');
+  assert.equal(after.producer.version,'0.20.0');
   assert.equal(record.status,'observed');
   assert.deepEqual(record.files.map(row=>row.file),['project/tsconfig.json']);
   assert.deepEqual(after.snapshot.config_files,record.files.map(row=>row.file));

@@ -19,8 +19,8 @@ Task root: `/private/tmp/prism-overnight-0zmx3n`.
 | 5 | Entry-obligation completeness | PR287 open on PR286; full gates passed onf7f5ac9 | conservative automatic-discovery/suppression unknown; no old-bit defect claim |
 | 6 | Bounded closure-policy contract | PR288 open on PR287; clean5faf199 full521/4017/4207 plus18/40 passed | additive semantic observation only; no denied-space waiver or old-bit reinterpretation |
 | 7 | Singleton exact ambient admission + value checkpoint | PR289 open on PR288; clean59fd6eb full546/4017/4207 plus18/40 passed; checkpoint continue | additive semantic_closure; all oldfields and outside/refused barriers retained |
-| 8 | Singleton wildcard admission | disposable RED captured; fixed v2 wrapper implementation authorized | binding separate from assets/runtime; historicalschema18 staysv1 |
-| 9 | Supported merged wildcard pair admission | pending | side-effect pair only, contributor/selection barriers |
+| 8 | Singleton wildcard admission | integrated020fb7b4; independent98/65controls/native571copied; full repo gates next | binding separate from assets/runtime; historicalschema18 staysv1 |
+| 9 | Supported merged wildcard pair admission | disposable RED/implementation authorized on accepted S8 | side-effect pair only, contributor/selection barriers; fixedv3, oldpolicies frozen |
 | 10 | First production-authority contract | draft independently ACCEPT98; publication after9 | spec and public-seam RED requirements; no runtime consumer implementation |
 | D2 | Present JS targets outside configured Program | PR290 open on PR289; docs-only checks passed | classification/proof requirements only, no membership or closure waiver |
 | D3 | Remaining discovered work reserve | unused | record cause and exact scope before use |

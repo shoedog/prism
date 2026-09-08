@@ -5,7 +5,7 @@ import {tmpdir} from "node:os";
 import path from "node:path";
 import {produce,validate} from "./index.mjs";
 import {hash,relative,canonical} from "./schema.mjs";
-import {classifySemanticClosure} from "./semantic-closure.mjs";
+import {classifySemanticClosureV2} from "./semantic-closure-v2.mjs";
 const compiler=process.env.PRISM_TYPESCRIPT;
 assert(compiler,"PRISM_TYPESCRIPT must name the pinned compiler");
 async function fixture(run){
@@ -20,7 +20,7 @@ async function fixture(run){
 }
 const candidate=p=>p.observations[0]?.nested.calls[0]?.props_class;
 function refreshSemantic(p){const observed=p.config_provenance.status==='observed',option=observed&&p.config_provenance.options.find(r=>r.name==='noResolve');
-  p.semantic_closure=classifySemanticClosure({compilerVerified:p.compiler.verified,stableSnapshot:p.closure.stable_snapshot,
+  p.semantic_closure=classifySemanticClosureV2({compilerVerified:p.compiler.verified,stableSnapshot:p.closure.stable_snapshot,
     configObserved:observed,entryComplete:p.entry_obligations.complete,noResolve:option?.present===true&&option.value_sha256===hash(canonical({present:true,value:true})),
     diagnosticCount:p.diagnostics.length,globalReasons:p.reasons,outside:p.snapshot.outside_lookups,refusedCount:p.snapshot.refused_lookup_sha256.length,
     boundaryCount:p.search_provenance.boundary_events.length,programFiles:p.snapshot.program_files,resolutions:p.resolutions});}

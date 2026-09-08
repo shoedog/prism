@@ -36,7 +36,7 @@ function pair(options) {
   assert(!after.reasons.includes('worker_failed'),'worker fixture failed');return {before,after};
 }
 function semantic(packet) {
-  assert(Object.hasOwn(packet,'semantic_closure'),'missing schema18 semantic_closure');return packet.semantic_closure;
+  assert(Object.hasOwn(packet,'semantic_closure'),'missing semantic_closure');return packet.semantic_closure;
 }
 const exactFiles=specifier=>({
   'src/app.ts':`import type {Client} from "${specifier}";type View<P>=(p:P)=>void;export const run:View<{client:Client}>=({client})=>{const cb=()=>client.m();};`,
@@ -51,7 +51,7 @@ function exactSetup(specifier,extraOptions={}) {
     return {packet,options,resolution};
   });
 }
-const exactResult={policy:'prism.semantic-closure/exact-ambient-v1',complete:true,reasons:[],
+const exactResult={policy:'prism.semantic-closure/singleton-wildcard-v2',complete:true,reasons:[],
   rows:[{index:0,disposition:'exact_ambient',reason:null}]};
 
 for(const specifier of ['node:known','virtual:known'])test(`${specifier} exact ambient is semantically complete without baseUrl`,()=>{
@@ -68,14 +68,14 @@ test('filesystem-selected local module is complete without reclassifying old clo
 },({options})=>{
   const packet=pair(options).after,[resolution]=packet.resolutions;assert.equal(resolution.target,'project/src/client.ts');
   assert(packet.snapshot.program_files.includes(resolution.target));assert.equal(packet.search_provenance.boundary_events.length,0);
-  assert.deepEqual(semantic(packet),{policy:'prism.semantic-closure/exact-ambient-v1',complete:true,reasons:[],
+  assert.deepEqual(semantic(packet),{policy:'prism.semantic-closure/singleton-wildcard-v2',complete:true,reasons:[],
     rows:[{index:0,disposition:'filesystem_selected',reason:null}]});
 }));
 
 for(const specifier of ['known','@scope/known'])test(`${specifier} exact row cannot waive outside lookup barriers`,()=>{
   const {packet}=exactSetup(specifier);assert.equal(packet.snapshot.outside_lookups,true);
   assert(packet.search_provenance.boundary_events.some(row=>row.kind==='outside'));
-  assert.deepEqual(semantic(packet),{policy:'prism.semantic-closure/exact-ambient-v1',complete:false,
+  assert.deepEqual(semantic(packet),{policy:'prism.semantic-closure/singleton-wildcard-v2',complete:false,
     reasons:['boundary_encounter'],rows:[{index:0,disposition:'exact_ambient',reason:null}]});
 });
 
@@ -103,7 +103,7 @@ test('explicit noResolve blocks an otherwise exact eligible occurrence',()=>{
   const {packet}=exactSetup('node:known',{noResolve:true});
   const noResolve=packet.config_provenance.options.find(row=>row.name==='noResolve');
   assert.equal(noResolve.value_sha256,schema.hash(schema.canonical({present:true,value:true})));
-  assert.deepEqual(semantic(packet),{policy:'prism.semantic-closure/exact-ambient-v1',complete:false,reasons:['no_resolve'],
+  assert.deepEqual(semantic(packet),{policy:'prism.semantic-closure/singleton-wildcard-v2',complete:false,reasons:['no_resolve'],
     rows:[{index:0,disposition:'exact_ambient',reason:null}]});
 });
 
@@ -169,11 +169,11 @@ test('empty/refusal packet retains every strict prerequisite barrier',()=>fixtur
   const selected={...options,compiler:path.join(options.root,'missing-typescript.js')},packet=pair(selected).after;
   assert.equal(packet.compiler.verified,false);assert.equal(packet.closure.stable_snapshot,false);
   assert.equal(packet.config_provenance.status,'unproven');assert.equal(packet.entry_obligations.complete,false);
-  assert.deepEqual(semantic(packet),{policy:'prism.semantic-closure/exact-ambient-v1',complete:false,
+  assert.deepEqual(semantic(packet),{policy:'prism.semantic-closure/singleton-wildcard-v2',complete:false,
     reasons:['compiler_unverified','unstable_snapshot','config_unproven','entry_obligations_incomplete','global_refusal'],rows:[]});
 }));
 
-test('schema18 recomputes exact rows/reasons and rejects same-genuine row swaps before root I/O',()=>fixture(baseConfig(),{
+test('schema19 recomputes exact rows/reasons and rejects same-genuine row swaps before root I/O',()=>fixture(baseConfig(),{
   ...exactFiles('node:known'),'src/client.ts':'export class Local {}',
   'src/app.ts':exactFiles('node:known')['src/app.ts']+'\nimport {Local} from "./client";',
 },({options})=>{
@@ -197,9 +197,11 @@ test('source change leaves a shaped packet readable but fails full reproduction'
   });
 });
 
-test('schema10 through schema17 remain readable without invented semantic closure',()=>fixture(baseConfig(),exactFiles('node:known'),({options})=>{
+test('schema10 through schema18 preserve their historical semantic closure shape',()=>fixture(baseConfig(),exactFiles('node:known'),({options})=>{
   const current=pair(options).after;
-  const p17=structuredClone(current);p17.schema='prism.callable-observation/17';p17.producer.version='0.18.0';delete p17.semantic_closure;
+  const p18=structuredClone(current);p18.schema='prism.callable-observation/18';p18.producer.version='0.19.0';
+  p18.semantic_closure={...p18.semantic_closure,policy:'prism.semantic-closure/exact-ambient-v1'};
+  const p17=structuredClone(p18);p17.schema='prism.callable-observation/17';p17.producer.version='0.18.0';delete p17.semantic_closure;
   const p16=structuredClone(p17);p16.schema='prism.callable-observation/16';p16.producer.version='0.17.0';delete p16.entry_obligations;
   const p15=structuredClone(p16);p15.schema='prism.callable-observation/15';p15.producer.version='0.16.0';delete p15.config_provenance;
   const p14=structuredClone(p15);p14.schema='prism.callable-observation/14';p14.producer.version='0.15.0';delete p14.search_provenance.lib_searches;
@@ -210,8 +212,8 @@ test('schema10 through schema17 remain readable without invented semantic closur
   const p12=structuredClone(p13);p12.schema='prism.callable-observation/12';p12.producer.version='0.13.0';delete p12.search_provenance;
   const p11=structuredClone(p12);p11.schema='prism.callable-observation/11';p11.producer.version='0.12.0';delete p11.type_lib_entries;
   const p10=structuredClone(p11);p10.schema='prism.callable-observation/10';p10.producer.version='0.11.1';delete p10.type_lib_references;
-  for(const packet of [p10,p11,p12,p13,p14,p15,p16,p17]) {
-    const parsed=schema.parsePacket(JSON.stringify(packet));assert.equal(Object.hasOwn(parsed,'semantic_closure'),false);
+  for(const packet of [p10,p11,p12,p13,p14,p15,p16,p17,p18]) {
+    const parsed=schema.parsePacket(JSON.stringify(packet));assert.equal(Object.hasOwn(parsed,'semantic_closure'),packet===p18);
   }
 }));
 
