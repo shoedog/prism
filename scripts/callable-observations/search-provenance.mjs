@@ -14,17 +14,27 @@ export function classifyBoundary(file) {
 
 // Bounded ownership ledger for compiler module-search boundary encounters.
 export function createSearchProvenance(hash,cap=100000) {
-  const module_requests=[],boundary_events=[],stack=[];let claimedRequests=0;
+  const module_requests=[],type_batches=[],type_requests=[],type_searches=[],boundary_events=[],stack=[];
+  let claimedRequests=0,claimedTypeBatches=0,claimedTypeRequests=0,claimedTypeSearches=0;
   const bounded=array=>{if(array.length>=cap)throw Error('budget_exceeded');};
   const owner=()=>stack.length?stack.at(-1):null;
+  const withOwner=(channel,id,fn)=>{stack.push({channel,id});try{return fn();}finally{stack.pop();}};
   return {
-    module_requests,boundary_events,
+    module_requests,type_batches,type_requests,type_searches,boundary_events,
     claimRequest() {if(claimedRequests>=cap)throw Error('budget_exceeded');return claimedRequests++;},
-    withRequest(request,fn) { stack.push({channel:'module',id:request.id});try{return fn();}finally{stack.pop();} },
+    claimTypeBatch() {if(claimedTypeBatches>=cap)throw Error('budget_exceeded');return claimedTypeBatches++;},
+    claimTypeRequest() {if(claimedTypeRequests>=cap)throw Error('budget_exceeded');return claimedTypeRequests++;},
+    claimTypeSearch() {if(claimedTypeSearches>=cap)throw Error('budget_exceeded');return claimedTypeSearches++;},
+    withOwner,
+    withRequest(request,fn) {return withOwner('module',request.id,fn);},
+    withTypeSearch(search,fn) {return withOwner('type',search.id,fn);},
     boundary(kind,operation,unsafePath) {
       bounded(boundary_events);
       boundary_events.push({id:boundary_events.length,kind,operation,probe_sha256:hash(unsafePath),owner:owner()});
     },
     request(record) { bounded(module_requests);module_requests.push(record); },
+    typeBatch(record) {if(record.size>cap)throw Error('budget_exceeded');bounded(type_batches);type_batches.push(record);},
+    typeRequest(record) {bounded(type_requests);type_requests.push(record);},
+    typeSearch(record) {bounded(type_searches);type_searches.push(record);},
   };
 }
