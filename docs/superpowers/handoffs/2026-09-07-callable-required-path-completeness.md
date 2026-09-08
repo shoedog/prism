@@ -1,7 +1,7 @@
 # Handoff — bounded required-path completeness repair
 
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · fix/callable-required-path-completeness · **Measured state:** `[MEASURED]` implementation5bdf173 and final controls0acdf87 committed; all gates and reviews passed. Evidence closeout follows. Probe git status and task-root logs.
+**Workspace:** /Users/wesleyjinks/code/slicing · fix/callable-required-path-completeness · **Measured state:** `[MEASURED]` implementation5bdf173, controls0acdf87 and evidence2b21e17 pushed; PR278 open. All local gates and reviews passed; final publication note changes docs only. Probe git status, push result and gh pr create.
 **Predecessor:** PR277 merged8534f4af7bafd069728faa4ebbe4d5fc062e3edd, freshly checked this turn.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,15 +9,15 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Lane ownership: /root only, dedicated fresh branch; no agents dispatched — RESOLVED.
-(b) Custody exposure: `[MEASURED]` implementation5bdf173/controls0acdf87 committed; evidence closeout follows; raw evidence snapshotted3,743,307-byte archive; no push yet — OPEN until publication.
+(b) Custody exposure: `[MEASURED]` implementation/controls/evidence pushed through2b21e17; PR278 open; raw evidence snapshotted3,743,307-byte archive — RESOLVED. Final publication note follows in docs only.
 (c) In flight: all local gates finished; no application/install changes — RESOLVED. Remote CI/review is separate.
 (d) Owner: "Proceed to next. Recommend where we fix the two issues the audit found in the next slice or later. authorized to fix in next slice if that is the recommendation". Recommendation: path repair now, type/lib observations and react-scripts disposition separately. Commit/push/PR workflow; no auto-merge.
 
 ## 1. Resume order
 
 1. `git status --short --branch` in /Users/wesleyjinks/code/slicing; inspect task-root logs.
-2. Commit final gate closeout, push branch and open PR against main; remote main freshly remains8534f4af.
-3. Verify remote SHA/PR state. Do not merge; next type/lib slice follows owner approval.
+2. `gh pr view 278 --repo shoedog/prism --json state,headRefOid,statusCheckRollup` (network authority required).
+3. Await CI/review and owner merge. Next type/lib slice follows owner approval; do not merge automatically.
 
 **STOP conditions:** no closure admission, runtime/class authority, React.FC expansion,
 application/install changes, unrelated custody branches, or review-cap extension without classification.
@@ -33,16 +33,19 @@ application/install changes, unrelated custody branches, or review-cap extension
 | Full gates | done | `[MEASURED]` committed-control observer301/0/0; default4017/0/1 and MCP4207/0/1 including doctests; helpers7/7, authority40/failures=[]; historical audit controls3/3; fmt/diff checks pass; adjacent required-path-gates.json |
 | react-scripts | parked | `[MEASURED]` fresh type/lib139-row cache byte-identical to PR277; sole null react-scripts at[22,35); next type/lib slice, no app edit |
 | Self-review | done | `[MEASURED]` two SELF-PASS rounds, NOT INDEPENDENT; stale digest test fixed; final targeted24/24 and exact-base7/24; no open WRONG in bounded repair |
+| Publish | done | `[MEASURED]` https://github.com/shoedog/prism/pull/278 against main; branch pushed through2b21e17; final publication-note commit follows |
 
 ## 3. Corrections to standing documents and memory
 
 PR277 is merged; its known-WRONG characterization is replaced with a rejecting
 regression. Historical readout remains base evidence. README/roadmap and predecessor
-handoff have successor links; final gates reconciled, publication pending. No memory edits authorized.
+handoff have successor links; final gates and PR278 publication reconciled. No memory edits authorized.
 
 ## 4. Open work
 
-Publication only. All local verification, source-backed evidence and two reviews complete.
+PR278 awaits remote CI/review and owner merge. All local verification, source-backed
+evidence and two reviews complete. Recommended next: actual type/lib reference
+observations and source-backed react-scripts disposition, not closure admission.
 
 ## 5. Invariants and traps — do not do these
 
