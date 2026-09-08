@@ -47,11 +47,35 @@ tool was removed. The repository is shallow; directive origin is not proven.
 
 Disposition: **source-declared, unprovisioned type directive; likely obsolete CRA
 residue**. This is not evidence that the frozen-lock acquisition malfunctioned.
-Recommend owner review of removing the candidate obsolete directive; if still
-intended, explicitly provision its dependency in a separate application change.
+The audit initially recommended owner review of removal or explicit provisioning
+if still intended. The owner decision below supersedes that pending recommendation.
 Neither action was performed, and Vite declarations are not assumed generally
 equivalent to the missing CRA declarations. Do not install, substitute or waive it
 merely to obtain complete closure.
+
+### Owner decision: preserve the unresolved reference (2026-09-07)
+
+The Prism owner selected **keep unresolved and document**. Treat the directive as
+obsolete for maintenance prioritization, while preserving the pinned public
+Excalidraw benchmark source and its unresolved-reference negative case. This is
+not a finding about Prism's dependencies or the team's frontend-portal repository.
+
+- Do not install or bootstrap react-scripts or its transitive dependencies.
+- Do not remove the directive, substitute Vite declarations, add a shim, exclude
+  the input, or waive its refusal to improve benchmark completeness.
+- Keep the unresolved observation and existing closure/authority barriers. No
+  removal experiment, application change, or closure-policy expansion is approved
+  by this decision.
+- The disposition is settled; it does not block proposing the next bounded
+  configured/automatic type/lib entry-observation slice.
+
+Owner rationale: the directive is obsolete CRA residue and reintroducing legacy
+build-tool dependencies is unwanted. Package publication/availability is separate
+from provider presence in this pinned installation. Package release age, CRA
+lifecycle dates, React 19 compatibility and dependency vulnerability status were
+not independently established by this audit and are not premises of Prism's
+refusal. The historical machine-readable evidence remains unchanged; this section
+records the subsequent owner decision, not a new compiler measurement.
 
 The14 module-literal gaps are unchanged and separate. All6,893 module outcomes,
 603 nulls,272 exact/231 singleton/84 merged observations,264 refusal digests, outside
@@ -93,7 +117,7 @@ Two SELF-PASS rounds (NOT INDEPENDENT), cap2, no extension:
    removal was described too definitively; final wording preserves "likely obsolete"
    and owner review, with shallow-history and remaining CRA lint counter-evidence.
 
-Next: bounded configured/automatic type/lib entry observations, then causal
-outside/refused lookup attribution before any semantic-closure admission proposal.
+Successor: [bounded configured/automatic entry observations](2026-09-07-callable-entry-observations.md),
+then causal outside/refused lookup attribution before any semantic-closure admission proposal.
 Source/compiler fallback under the LSP-navigation skill was used because no LSP
 tools were exposed. Raw logs/captures: `/private/tmp/prism-type-lib-4gqvH5`.

@@ -33,7 +33,7 @@ an unproven observation exits0. Read the JSON, not just the exit code.
 
 ## Meaning of the packet
 
-Producer0.12.0 retains the path-completeness repair: required triple-slash
+Producer0.13.0 retains the path-completeness repair: required triple-slash
 paths are checked independently of `skipLibCheck`/`noCheck` diagnostics. Each
 original-source directive needs a compiler-cache target and matching source/index
 inclusion record. Missing, self-referential, unsupported or unprocessed paths add
@@ -50,27 +50,40 @@ unprocessed, absent-Program and missing-inclusion cases add
 `unproven_type_lib_reference` and withhold the same four completeness bits/class
 candidates. No second resolver runs. Ordinary failed optional searches stay separate.
 
-This is not full reference-channel or semantic-closure authority: configured and
-automatic type/lib entry occurrences, config inheritance and causal outside/refused
-lookup coverage remain separate work. Their loaded sources' directives ARE included.
+`type_lib_entries[]` separately records effective configured types/libs, compiler
+automatic type discovery and the default lib entry. Rows retain kind, origin,
+index, effective name, null entry mode, actual Program target and matching entry
+inclusion. Types use the retained name/mode cache and kind8 name inclusion;
+configured libs use cached actual targets and kind6 option indices; default libs
+use indexless kind6 selection. Repeated names retain occurrence indices. Configured
+lib names are normalized compiler filenames, not JSON source spans.
+
+Entries are additive observations and do not change existing reasons or closure
+bits. Unprocessed entries do not prove why traversal was suppressed or that an
+obligation is missing. Even an observed packet is not full reference-channel or
+semantic-closure authority: config inheritance locations, causal outside/refused
+lookup coverage and entry-channel closure policy remain separate work. Loaded
+sources' directives ARE included in the source ledger, not invented as entries.
 The public `react-scripts` directive is now explicitly unresolved, not installed,
 substituted or waived. Both runtime/class authority flags remain false.
-Historical producer0.11.0/0.11.1 schema10 packets remain parseable without invented
-reference rows for pinned audits, but cannot validate as current output; validation
+Historical schema10 (producer0.11.0/0.11.1) and schema11 (producer0.12.0) packets
+remain parseable without invented reference/entry rows for pinned audits, but
+cannot validate as current output; validation
 recomputes the producer identity and every field.
 
-The strict executable v11 schema is `schema.mjs` (`parsePacket`). It freezes these
+The strict executable v12 schema is `schema.mjs` (`parsePacket`). It freezes these
 groups, rejecting unknown fields and unsafe IDs before project access:
 
 | Group | Meaning |
 |---|---|
-| schema / authorizes_runtime_edge | prism.callable-observation/11; authority is always false; historical schema10 remains readable, earlier schemas reject before root access |
+| schema / authorizes_runtime_edge | prism.callable-observation/12; authority is always false; historical schemas10/11 remain readable, earlier schemas reject before root access |
 | producer / compiler | Tool-byte digest; required compiler version/hash, whether actually verified, full compiler-lib inventory digest |
 | scope | Relative config, acquisition profile, link policy, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
 | status / reasons / closure | observed means this bounded Program completed without the enumerated closure failures; unproven records limitations. Neither means a receiver or class is proven |
 | snapshot | Raw byte/file/directory manifest, link spelling hashes and canonical targets, roots, config reads, Program files, reads and safe failed lookup IDs, refused-lookup digests, options digest and outside-lookup flag |
 | resolutions / diagnostics | Compiler module-resolution outcomes and anchored diagnostic codes; unresolved dependencies are not automatically application defects |
 | type_lib_references | Source-written types/lib occurrences only: kind-local index, name anchor, effective mode, selected Program target, inclusion and refusal. Canonical serialized source/kind/index ordering; at most100000 rows, then budget_exceeded, never truncation |
+| type_lib_entries | Effective configured/automatic/default entries: kind, origin, index, name, null mode, selected Program target, inclusion and observation reason. Canonical serialized kind/index ordering; separate100000-row cap; no closure-policy effect |
 | resolutions[].lookup | Actual request anchor/context, checker declarations and configured-Program exact-name provider/augmentation census; observed means singleton exact-ambient binding only, never filesystem or closure authority |
 | resolutions[].lookup.wildcard | Independent nullable single-star binding observation: pattern, original-source providers, relevant augmentations and matching-provider census; never asset-existence or closure authority |
 | resolutions[].lookup.merged_wildcard | Separate nullable side-effect-only empty-block/shorthand pair observation; checker-ordered source shapes and actual selected value declaration; old wildcard refusal remains unchanged |
@@ -105,7 +118,7 @@ exercise this distinction.
 
 ## Declaration provenance
 
-Producer0.12.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs`, `props-class.mjs`, `exact-ambient.mjs`, `wildcard.mjs`, `merged-wildcard.mjs`, `required-paths.mjs` and `type-lib.mjs` in its byte digest. `provenance.status=traced`
+Producer0.13.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs`, `props-class.mjs`, `exact-ambient.mjs`, `wildcard.mjs`, `merged-wildcard.mjs`, `required-paths.mjs`, `type-lib.mjs` and `entries.mjs` in its byte digest. `provenance.status=traced`
 means the supported syntactic chain reached an inline callable type or a singleton,
 non-inherited callable interface. It is independent of program closure: even a
 traced chain can belong to an unproven packet. Type arguments and parameters keep
