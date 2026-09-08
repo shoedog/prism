@@ -1,0 +1,172 @@
+{
+  "results": [
+    {
+      "label": "exact-node-colon",
+      "old_fields_equal": true,
+      "validation_valid": true,
+      "semantic": {
+        "policy": "prism.semantic-closure/exact-ambient-v1",
+        "complete": true,
+        "reasons": [],
+        "rows": [
+          {
+            "index": 0,
+            "disposition": "exact_ambient",
+            "reason": null
+          }
+        ]
+      }
+    },
+    {
+      "label": "exact-plain",
+      "old_fields_equal": true,
+      "validation_valid": true,
+      "semantic": {
+        "policy": "prism.semantic-closure/exact-ambient-v1",
+        "complete": false,
+        "reasons": [
+          "boundary_encounter"
+        ],
+        "rows": [
+          {
+            "index": 0,
+            "disposition": "exact_ambient",
+            "reason": null
+          }
+        ]
+      }
+    },
+    {
+      "label": "exact-virtual-colon",
+      "old_fields_equal": true,
+      "validation_valid": true,
+      "semantic": {
+        "policy": "prism.semantic-closure/exact-ambient-v1",
+        "complete": true,
+        "reasons": [],
+        "rows": [
+          {
+            "index": 0,
+            "disposition": "exact_ambient",
+            "reason": null
+          }
+        ]
+      }
+    },
+    {
+      "label": "exact-scoped",
+      "old_fields_equal": true,
+      "validation_valid": true,
+      "semantic": {
+        "policy": "prism.semantic-closure/exact-ambient-v1",
+        "complete": false,
+        "reasons": [
+          "boundary_encounter"
+        ],
+        "rows": [
+          {
+            "index": 0,
+            "disposition": "exact_ambient",
+            "reason": null
+          }
+        ]
+      }
+    },
+    {
+      "label": "wildcard-relative-absent",
+      "old_fields_equal": true,
+      "validation_valid": true,
+      "semantic": {
+        "policy": "prism.semantic-closure/exact-ambient-v1",
+        "complete": false,
+        "reasons": [
+          "resolution_unproven"
+        ],
+        "rows": [
+          {
+            "index": 0,
+            "disposition": "unproven",
+            "reason": "unadmitted_binding"
+          }
+        ]
+      }
+    },
+    {
+      "label": "wildcard-relative-present",
+      "old_fields_equal": true,
+      "validation_valid": true,
+      "semantic": {
+        "policy": "prism.semantic-closure/exact-ambient-v1",
+        "complete": false,
+        "reasons": [
+          "resolution_unproven"
+        ],
+        "rows": [
+          {
+            "index": 0,
+            "disposition": "unproven",
+            "reason": "unadmitted_binding"
+          }
+        ]
+      }
+    },
+    {
+      "label": "wildcard-query-absent",
+      "old_fields_equal": true,
+      "validation_valid": true,
+      "semantic": {
+        "policy": "prism.semantic-closure/exact-ambient-v1",
+        "complete": false,
+        "reasons": [
+          "resolution_unproven"
+        ],
+        "rows": [
+          {
+            "index": 0,
+            "disposition": "unproven",
+            "reason": "unadmitted_binding"
+          }
+        ]
+      }
+    },
+    {
+      "label": "merged-relative-absent",
+      "old_fields_equal": true,
+      "validation_valid": true,
+      "semantic": {
+        "policy": "prism.semantic-closure/exact-ambient-v1",
+        "complete": false,
+        "reasons": [
+          "resolution_unproven"
+        ],
+        "rows": [
+          {
+            "index": 0,
+            "disposition": "unproven",
+            "reason": "unadmitted_binding"
+          }
+        ]
+      }
+    }
+  ],
+  "public": {
+    "complete": false,
+    "reasons": [
+      "type_lib_unproven",
+      "boundary_encounter",
+      "resolution_unproven"
+    ],
+    "rows": 6893,
+    "dispositions": {
+      "filesystem_selected": 6270,
+      "unproven": 351,
+      "exact_ambient": 272
+    },
+    "row_reasons": {
+      "null": 6542,
+      "unadmitted_binding": 315,
+      "unresolved_module": 16,
+      "target_not_in_program": 20
+    }
+  }
+}

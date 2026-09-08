@@ -120,6 +120,13 @@ implicit types remain automatic_discovery_unproven even if all listed automatic
 names resolve or no names are listed. Explicit types:[] is a configured choice.
 The parser recomputes the whole field; no existing closure bit or reason changes.
 
+The [strict semantic-closure contract](../../docs/superpowers/specs/2026-09-08-callable-semantic-policy.md)
+and `semantic-closure.mjs` classifier are published **unwired**. They specify a future
+additive type-source completeness field, retaining every outside/refused barrier.
+No producer/schema/digest or current packet field changes in this contract increment.
+Singleton exact ambient eligibility will be wired separately; wildcard/merged lanes
+remain withheld by the initial fixed policy. This is not runtime/asset authority.
+
 The strict executable v17 schema is `schema.mjs` (`parsePacket`). It freezes these
 groups, rejecting unknown fields and unsafe IDs before project access:
 

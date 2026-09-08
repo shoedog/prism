@@ -1,14 +1,14 @@
 # Handoff — approved callable-completeness sequence
 
-**Written:** 2026-09-08T09:40Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-entry-completeness · **Measured state:** `[MEASURED]` S5 PR287 open against PR286, pushed6ac9934; full clean f7f5ac9 gates506/4017/4207 plus18/40 pass, one ignored per Rust run/doctests. Archive7e8851be. S6 helper15/15 independently accepted99,8 strict controls replayed on S5. S7 implementation authorized disposable after exact S6-equivalent RED24fail/16compat. D2 agent report delivered; primary review pending. Probe: gh create URL, full gate summary, exact hashes, parity receipts and preserved RED.
+**Written:** 2026-09-08T09:45Z · **By:** /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-semantic-policy-contract · **Measured state:** `[MEASURED]` S5 PR287 open against PR286, publication closeout6e396c7 pushed. S6 strict contract/helper integrated unwired,15 controls pass; producer remains63c557. Full clean gates next. `[INHERITED]` S7 candidate b75dbd6d frozen,546 copied tests pass; independent integration review round1/2 underway. D2 report delivered, primary review pending. Probe: git status, accepted helper hashes, focused output; agent messages name candidate evidence.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims name their source.
 
 ## 0. Gating facts — settle these before starting anything below
 
-(a) Lane ownership — RESOLVED: `[MEASURED]` /root owns architecture/integration; compiler_search_review audits D2 exact20 public out-of-Program JS targets; boundary_audit implements S7 in its preserved disposable artifact; gate_runner completed S5/S6 reviews and S10 source-contract prep. No other agent writes the repository.
+(a) Lane ownership — RESOLVED: `[MEASURED]` /root owns architecture/integration; compiler_search_review delivered D2 source audit; boundary_audit froze S7 in its preserved disposable artifact; gate_runner independently reviews S7 round1/2. No other agent writes the repository.
 (b) Custody exposure — RESOLVED: `[MEASURED]` implementation d43dd54 and gate closeout2ce3b00 pushed; PR281 open (gh pr create returned https://github.com/shoedog/prism/pull/281). S1 raw evidence archived, 7,308,737 bytes, SHA256 8f737f4947a69a8d6cbeacd9e504af0d95d236c98389ef6ea1351d176b0926b4. This publication note follows.
 (c) In flight / irreversible — RESOLVED: `[MEASURED]` S2 tip559e80e pushed; PR282 open against PR281. S3 ordinary cap2 plus one disclosed numeric-order extension reached; a synthetic-config-link counterexample caused explicit H1 design escalation, not another patch-loop extension. H1 closed coordinate contract independently accepted96; same S3 artifact resumes under it. Parked977275dd source hash checked unchanged before/after archive SHA9792ac47cbb6d3c8bb1b89b1d3fd2eb21664c362645840b407cf858bfd9e6b98. No install or application change.
 (d) Authorization granted but not exercised — owner: "PR 280 is merged, approced to proceed with next 10 slices/increments with recommended value checkpoints. Approved for 3 additional slices/increments to cover additonal work flind doing those 10 ( if needed). Approved for 3 additional slices for fixes/hardening." Owner also permits stopping at a crossroads and approved model delegation. No auto-merge authority inferred.
@@ -40,7 +40,7 @@
 | D1 | published PR285 | Clean7d28638,453/4017/4207 plus18/40, doctests and one ignored per Rust run; archive6fb8d120; checkpoint continue; pushed dde3666 |
 | S4 | published PR286 | Pushed c11f3ec; clean960c99a485/4017/4207 plus18/40; archive0a6ce282; independent final round2 ACCEPT99; public91409/11 transcripts equal |
 | S5 | published PR287 | Pushed6ac9934 against PR286; cleanf7f5ac9506/4017/4207 plus18/40; archive7e8851be; independent97; public5selected/complete/alloldfields/91409 operations equal |
-| S6 | contract/helper accepted | Strict additive semantic policy, unchanged outside/refused barriers; helper1ac3009115/15, independent final round2 ACCEPT99; still unwired |
+| S6 | integrated unwired | Strict additive semantic policy, unchanged outside/refused barriers; helper1ac3009115/15, independent final round2 ACCEPT99; producer63c557 unchanged; full gates next |
 | S7–S10 | in progress | S7 disposable implementation after exactS6-equivalent RED; S10 production-authority contract only. D2 allocated below; D3/H2/H3 remain unused |
 | D2 | source-only audit allocated |20 public filesystem targets present but outsideProgram; source/compiler classification and proof requirements only, separate PR afterS7checkpoint |
 
