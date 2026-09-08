@@ -73,10 +73,10 @@ test("refusals are sorted unique opaque digests and cannot inhabit path fields",
 
 test("removed or forged refusal evidence fails full recomputation",()=>fixture(({source,options})=>{
   source("import 'node:url';");const p=produce(options);assert.equal(p.observations.length,1);
-  const removed=structuredClone(p);removed.snapshot.refused_lookup_sha256=[];
+  const removed=structuredClone(p);removed.snapshot.refused_lookup_sha256=[];removed.search_provenance.boundary_events=removed.search_provenance.boundary_events.filter(e=>e.kind!=="refused");
   removed.reasons=removed.reasons.filter(r=>r!=="unsupported_lookup");
   assert.equal(validate(JSON.stringify(removed),options).reason,"stale_or_tampered");
-  const forged=structuredClone(p);forged.snapshot.refused_lookup_sha256=["0".repeat(64)];
+  const forged=structuredClone(p);forged.snapshot.refused_lookup_sha256=["0".repeat(64)];for(const e of forged.search_provenance.boundary_events)if(e.kind==="refused")e.probe_sha256="0".repeat(64);
   assert.equal(validate(JSON.stringify(forged),options).reason,"stale_or_tampered");
 }));
 

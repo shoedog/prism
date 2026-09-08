@@ -2,7 +2,7 @@
 import {readFileSync} from "node:fs";
 import {createRequire} from "node:module";
 import path from "node:path";
-import {COMPILER_HASH,relative,hash,canonical} from "./schema.mjs";
+import {COMPILER_HASH,hash,canonical} from "./schema.mjs";
 import {emptyPacket} from "./index.mjs";
 import {traceProvenance} from "./provenance.mjs";
 import {observeNested} from "./nested.mjs";
@@ -12,6 +12,7 @@ import {hasUnprovenRequiredPath} from "./required-paths.mjs";
 import {observeTypeLib} from "./type-lib.mjs";
 import {observeEntries} from "./entries.mjs";
 import {snapshot} from "./inventory.mjs";
+import {createSearchProvenance,classifyBoundary} from "./search-provenance.mjs";
 
 const options=JSON.parse(readFileSync(0,"utf8"));
 const fail=reason=>{throw Error(reason);};
@@ -32,22 +33,23 @@ function build() {
   }
   const canonicalId=id=>first.resolve(id,v=>canonicalIds.get(canonicalFile(v))??v);
   const reasons=new Set(),reads=new Set(),missing=new Set(),refused=new Set();let outside=false;
+  const search=createSearchProvenance(hash);packet.search_provenance={module_requests:search.module_requests,boundary_events:search.boundary_events};
   // Virtual paths make observations portable across equivalent caller-owned roots.
-  const toId=f=>{
-    const n=path.posix.normalize(f).replace(/\/+$/,"");
-    if(n.split("/").some(p=>p.toLowerCase()===".git"))fail("unsupported_input");
-    for(const root of ["project","compiler"]) if(n==="/__prism__/"+root || n.startsWith("/__prism__/"+root+"/")) {
-      const id=n.slice("/__prism__/".length);
+  const toId=(f,operation="identity")=>{
+    const classified=classifyBoundary(f),n=classified.normalized;
+    if(classified.kind==='unsafe')fail("unsupported_input");
+    if(classified.kind==='in_root') {
+      const id=classified.id;
       // Compiler probes may contain virtual module spellings, not safe file IDs.
       // Preserve opaque refusal evidence without consulting files or claiming absence.
-      if(!relative(id)){refused.add(hash(n));reasons.add("unsupported_lookup");return null;}
       return canonicalId(id);
     }
-    outside=true;return null;
+    if(classified.kind==='refused'){refused.add(hash(n));search.boundary("refused",operation,n);reasons.add("unsupported_lookup");return null;}
+    outside=true;search.boundary("outside",operation,n);return null;
   };
   const virtual=id=>"/__prism__/"+id;
   const read=f=>{
-    const id=toId(f);if(!id)return undefined;
+    const id=toId(f,"readFile");if(!id)return undefined;
     if(!first.files.has(id)){missing.add(id);return undefined;}
     reads.add(id);
     const bytes=first.read(id);
@@ -55,19 +57,19 @@ function build() {
     catch{fail("unsupported_input");}
   };
   const entries=f=>{
-    const id=toId(f);if(!id)return {files:[],directories:[]};
+    const id=toId(f,"entries");if(!id)return {files:[],directories:[]};
     if(!first.directories.has(id))missing.add(id);
     // Keep metadata boundaries visible to matchFiles; actual traversal refuses.
     const names=first.directories.get(id)??[];
     return {files:names.filter(n=>n.toLowerCase()!==".git" && first.files.has(canonicalId(id+"/"+n))),
       directories:names.filter(n=>n.toLowerCase()===".git" || first.directories.has(canonicalId(id+"/"+n)))};
   };
-  const basic={readFile:read,fileExists:f=>{const id=toId(f);if(!id)return false;
+  const basic={readFile:read,fileExists:f=>{const id=toId(f,"fileExists");if(!id)return false;
       if(!first.files.has(id))missing.add(id);return first.files.has(id);},
-    directoryExists:f=>{const id=toId(f);if(!id)return false;
+    directoryExists:f=>{const id=toId(f,"directoryExists");if(!id)return false;
       if(!first.directories.has(id))missing.add(id);return first.directories.has(id);},
-    getDirectories:f=>entries(f).directories,realpath:f=>{const id=toId(f);return id?virtual(id):f;},getCurrentDirectory:()=>virtual("project"),
-    readDirectory:(dir,extensions,excludes,includes,depth)=>ts.matchFiles(dir,extensions,excludes,includes,caseSensitive,virtual("project"),depth,entries,f=>{const id=toId(f);return id?virtual(id):f;})};
+    getDirectories:f=>entries(f).directories,realpath:f=>{const id=toId(f,"realpath");return id?virtual(id):f;},getCurrentDirectory:()=>virtual("project"),
+    readDirectory:(dir,extensions,excludes,includes,depth)=>ts.matchFiles(dir,extensions,excludes,includes,caseSensitive,virtual("project"),depth,entries,f=>{const id=toId(f,"realpath");return id?virtual(id):f;})};
   const configFile=virtual("project/"+options.config);
   const config=ts.readConfigFile(configFile,read);
   const parsed=ts.parseJsonConfigFileContent(config.config??{}, {...basic,useCaseSensitiveFileNames:caseSensitive},path.posix.dirname(configFile),undefined,configFile);
@@ -83,12 +85,18 @@ function build() {
     getCanonicalFileName:canonicalFile,useCaseSensitiveFileNames:()=>caseSensitive,getNewLine:()=>"\n",
     getEnvironmentVariable:()=>"",
     resolveModuleNameLiterals:(literals,from,redirected,compilerOptions,source)=>literals.map(l=>{
-      const result=ts.resolveModuleName(l.text,from,compilerOptions,host,undefined,redirected,ts.getModeForUsageLocation(source,l,compilerOptions));
-      const target=result.resolvedModule?toId(result.resolvedModule.resolvedFileName):null;
-      const resolution={from:toId(from),specifier:l.text,target};
-      packet.resolutions.push(resolution);lookupRequests.push({resolution,literal:l,source});
-      if(!target)reasons.add("unresolved_module");
-      return result;
+      const rawMode=ts.getModeForUsageLocation(source,l,compilerOptions);
+      const record={id:search.claimRequest(),resolution:null,literal:l,source,
+        mode:rawMode===ts.ModuleKind.ESNext?'import':rawMode===ts.ModuleKind.CommonJS?'require':null};
+      return search.withRequest(record,()=>{
+        const result=ts.resolveModuleName(l.text,from,compilerOptions,host,undefined,redirected,rawMode);
+        // Keep ownership active through target identity and legacy insertion.
+        const target=result.resolvedModule?toId(result.resolvedModule.resolvedFileName):null;
+        const resolution={from:toId(from),specifier:l.text,target};
+        packet.resolutions.push(resolution);record.resolution=resolution;lookupRequests.push(record);
+        if(!target)reasons.add("unresolved_module");
+        return result;
+      });
     })};
   // References/plugins are recorded but never traversed/executed in this bounded slice.
   const program=ts.createProgram(parsed.fileNames,parsed.options,host);
@@ -141,6 +149,9 @@ function build() {
     visit(sf);
   }
   observeExactAmbient(ts,program,checker,lookupRequests,anchor,anchorInSource);
+  // The observer owns source anchoring. Reuse that exact request anchor here.
+  for(const record of lookupRequests)search.request({id:record.id,from:record.resolution.from,specifier:record.resolution.specifier,
+    mode:record.mode===undefined?null:record.mode,request:record.resolution.lookup.request,target:record.resolution.target});
   if(hasUnprovenRequiredPath(program,toId,read))reasons.add("unproven_path_reference");
   packet.type_lib_references=observeTypeLib(ts,program,toId,read);
   if(packet.type_lib_references.some(r=>r.status==='unproven'))reasons.add("unproven_type_lib_reference");
@@ -158,7 +169,7 @@ function build() {
     references:!reasons.has("unsupported_references") && requiredReferences,augmentation:complete,resolution:complete};
   packet.compiler.library_sha256=hash(canonical(first.manifest.filter(f=>f.id.startsWith("compiler/"))));
   packet.snapshot={sha256:first.digest,files:first.manifest,directories:first.dirs,links:first.links,
-    roots:parsed.fileNames.map(toId).sort(),config_files:configFiles,program_files:program.getSourceFiles().map(f=>toId(f.fileName)).sort(),
+    roots:parsed.fileNames.map(f=>toId(f)).sort(),config_files:configFiles,program_files:program.getSourceFiles().map(f=>toId(f.fileName)).sort(),
     reads:[...reads].sort(),failed_lookups:[...missing].sort(),refused_lookup_sha256:[...refused].sort(),outside_lookups:outside,options_sha256:hash(canonical(parsed.options))};
   // Preserve filesystem triples and all schema9 evidence before comparing the
   // new lane. Mixed repeated imports can have different merged dispositions.

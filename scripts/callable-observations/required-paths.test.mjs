@@ -91,7 +91,7 @@ test('path refusal closure promotions fail schema validation before root I/O',()
   assert.doesNotThrow(()=>parsePacket(JSON.stringify(erased)));assert.equal(validate(JSON.stringify(erased),options).valid,false);
 }));
 test('historical schema10 packet remains readable but cannot validate as current',()=>fixture(({options})=>{
-  const p=produce(options);complete(p);const old=structuredClone(p);old.schema='prism.callable-observation/10';old.producer.version='0.11.0';delete old.type_lib_references;delete old.type_lib_entries;
+  const p=produce(options);complete(p);const old=structuredClone(p);old.schema='prism.callable-observation/10';old.producer.version='0.11.0';delete old.type_lib_references;delete old.type_lib_entries;delete old.search_provenance;
   assert.doesNotThrow(()=>parsePacket(JSON.stringify(old)));assert.equal(validate(JSON.stringify(old),options).valid,false);
 }));
 test('same-byte wrong-file substitution does not discharge a required path',()=>fixture(({put,options})=>{

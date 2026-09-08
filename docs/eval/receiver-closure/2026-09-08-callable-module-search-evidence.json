@@ -1,0 +1,51 @@
+{
+  "schema": "prism.module-search-audit/1",
+  "packet_schema": "prism.callable-observation/13",
+  "base": "c57c3549e486dc09d6c0cda4f3fbc89c8a69f64c",
+  "closure_admission": false,
+  "authorizes_runtime_edge": false,
+  "producer": {
+    "version": "0.14.0",
+    "sha256": "7ea9f31c2da12979fcb1d395492ed6ec0c0564fdc1b6cce27c75d79f71c0a369"
+  },
+  "events": 2075,
+  "requests": 6893,
+  "refused": 1269,
+  "outside": 806,
+  "module_owned_outside": 448,
+  "unowned": 358,
+  "old_fields_equal": true,
+  "host_transcript_events": 91409,
+  "host_transcript_sha256": "fc4cfa95458d5521bab94c2e9bcf809c674e67acd5e62b119fd4a07a5b3d2eca",
+  "host_transcript_equal": true,
+  "ordered_requests_equal": true,
+  "ordered_events_equal": true,
+  "source": {
+    "source_files": 1229,
+    "source_manifest_sha256": "353187a695df2683a3631e4739c173cb6d33190901093549b61e28efeda60cbb",
+    "unchanged": true
+  },
+  "validation": {
+    "valid": true,
+    "authorizes_runtime_edge": false,
+    "packet_status": "unproven",
+    "reason": "reproduced_observation"
+  },
+  "packet_sha256": "9bad4a14b87d01f3fcea723ed8c67a10335da2d5146931b7fa17706ba682c5f1",
+  "base_packet_sha256": "47f41ee5d64aada696f89b7a3933f36d1a34c7cb59bd26789dceaf96664843de",
+  "contract_red": {
+    "initial": 1,
+    "expanded": 13,
+    "mode": 2,
+    "reason": "missing new provenance ledger on exact base"
+  },
+  "expanded_green": {
+    "tests": 15,
+    "passed": 15
+  },
+  "helper_green": {
+    "tests": 3,
+    "passed": 3
+  },
+  "full_gates": "pending"
+}

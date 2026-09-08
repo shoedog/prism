@@ -12,8 +12,8 @@ Task root: `/private/tmp/prism-overnight-0zmx3n`.
 | # | Increment | State | Boundary |
 |---|---|---|---|
 | 1 | Source-backed outside/refused classification | PR281 open; verified | diagnostic capture only, no producer/policy changes |
-| 2 | Module-search provenance | disposable candidate | request-owned observations, not waivers |
-| 3 | Type-search provenance | pending | actual configured/source channels; preserve batch/global caches |
+| 2 | Module-search provenance | integrated; full gates next | request-owned observations, not waivers |
+| 3 | Type-search provenance | disposable implementation | actual configured/source channels; preserve batch/global caches |
 | D1 | Shared lib-search/beneficiary semantics + first value checkpoint | allocated after3 | separate global lib cache; beneficiaries are not causal demands |
 | 4 | Bounded local configuration provenance | pending | local extends/options origin, no plugins/project references |
 | 5 | Entry-obligation completeness | pending | intentional disabling versus missing requirements; RED first for defects |
