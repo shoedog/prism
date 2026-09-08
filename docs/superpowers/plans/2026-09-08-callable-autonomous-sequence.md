@@ -6,12 +6,16 @@ Primary agent retains architecture/decisions; bounded implementation/review dele
 to the approved GPT models is allowed. No merge authority is inferred: publish
 separate PRs and stack as needed. Stop at an unresolved crossroads or scope expansion.
 
+Subsequent owner instruction: "proceed to merge in order". Ordered merges are now
+authorized; current status and per-merge CI gates are in the
+[merge handoff](../handoffs/2026-09-08-callable-ordered-merges.md).
+
 Base: PR280 confirmed merged670bccb0d7fd3181b0405128c68d84fe51de0002.
 Task root: `/private/tmp/prism-overnight-0zmx3n`.
 
 | # | Increment | State | Boundary |
 |---|---|---|---|
-| 1 | Source-backed outside/refused classification | PR281 open; verified | diagnostic capture only, no producer/policy changes |
+| 1 | Source-backed outside/refused classification | PR281 merged172975a3 after five successful remote checks | diagnostic capture only, no producer/policy changes |
 | 2 | Module-search provenance | PR282 open on PR281; full gates passed | request-owned observations, not waivers |
 | 3 | Type-search provenance | PR284 open on PR283; full gates passed | actual configured/source channels; preserve batch/global caches |
 | D1 | Shared lib-search/beneficiary semantics + first value checkpoint | PR285 open on PR284; full gates passed; checkpoint continue | separate global lib cache; beneficiaries are not causal demands |

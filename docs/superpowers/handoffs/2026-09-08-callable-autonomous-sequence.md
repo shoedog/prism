@@ -1,5 +1,9 @@
 # Handoff — approved callable-completeness sequence
 
+Current merge authority/status supersedes the historical publication snapshot below:
+the owner instructed "proceed to merge in order". PR281 is merged; PR282 CI is running.
+Continue from the [ordered merge handoff](2026-09-08-callable-ordered-merges.md).
+
 **Written:** 2026-09-08T11:40Z · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · docs/callable-production-authority-contract · **Measured state:** `[MEASURED]` All ten planned boundaries plus D1/D2/H1 are published as PR281–293. Remote refresh: all13 OPEN in exact dependency order; PR281 five checks SUCCESS, feature-base successors no scheduled checks. S10 clean2af5b2be docs verification and S9 cleanb826a668 full591/4017/4207 plus18/40 passed. Cache77/45 and producer32ae5bc4 unchanged; no new receiver edges or installs. Probe: final gh stack response, exact local gate/source receipts.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
