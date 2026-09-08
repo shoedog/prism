@@ -1,0 +1,242 @@
+{
+  "schema": "prism.required-path-repair-gates/1",
+  "base": "8534f4af7bafd069728faa4ebbe4d5fc062e3edd",
+  "implementation_commit": "5bdf1734",
+  "final_control_commit": "0acdf87",
+  "producer": {
+    "version": "0.11.1",
+    "sha256": "7585120a4c49515d20de002b31fb92c7f476063b9e0ea2ccf04475bdba0d6421"
+  },
+  "compiler": {
+    "version": "5.9.3",
+    "sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675",
+    "verified": true,
+    "library_sha256": "d62148caac5381611f033ed809c8a1ad68d08bce806d9c46b1cac9c2b02caf52"
+  },
+  "tool_only": true,
+  "closure_admission": false,
+  "authorizes_runtime_edge": false,
+  "red_initial": {
+    "tests": 19,
+    "passed": 5,
+    "failed": 14,
+    "skipped": 0,
+    "artifact": {
+      "file": "red-base.log",
+      "sha256": "e4861ed4cb43f0513ca8708410d8efca92a4d09313f13ae9484229254a5deff2",
+      "bytes": 21086
+    }
+  },
+  "red_final": {
+    "tests": 24,
+    "passed": 7,
+    "failed": 17,
+    "skipped": 0,
+    "artifact": {
+      "file": "red-review2-base.log",
+      "sha256": "40e1cee5844056c4612e9e0d347432ba119a27d8c8b7078fc3c6f0b042021765",
+      "bytes": 25347
+    }
+  },
+  "green_targeted": {
+    "tests": 24,
+    "passed": 24,
+    "failed": 0,
+    "skipped": 0,
+    "artifact": {
+      "file": "green-review2.log",
+      "sha256": "479d7b191a3a91194c38c83c0e05471ef0aeb20589a0afe8375ccdb79d45c0bb",
+      "bytes": 2282
+    }
+  },
+  "observer_initial": {
+    "tests": 296,
+    "passed": 295,
+    "failed": 1,
+    "skipped": 0,
+    "artifact": {
+      "file": "observer-full.log",
+      "sha256": "c1fd0839d7727f30f934116ccc89d033bdcf5b26b36380c2ac31298909369cbf",
+      "bytes": 26672
+    }
+  },
+  "digest_base_control": {
+    "tests": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "artifact": {
+      "file": "digest-base-control-valid.log",
+      "sha256": "043073c8d46ca932777801944e13ac47047411a93000052d911578c2d940ddc6",
+      "bytes": 186
+    }
+  },
+  "observer": {
+    "tests": 301,
+    "passed": 301,
+    "failed": 0,
+    "skipped": 0,
+    "artifact": {
+      "file": "observer-head.log",
+      "sha256": "3ea9f9a1c5e71ec625e46b39ab5420d5dab95578fa9d0a8156c32de769ca9d87",
+      "bytes": 25831
+    }
+  },
+  "rust_default": {
+    "groups": 28,
+    "passed": 4017,
+    "failed": 0,
+    "ignored": 1,
+    "includes_doctests": true,
+    "ignored_cases": [
+      "test resolution_test::slice_elem_variant_reserved ... ignored, SliceElem is reserved (spec §5/§10); classifier returns None until a future slice"
+    ],
+    "artifact": {
+      "file": "rust-default.log",
+      "sha256": "5ab2b9e422f4c5f5a9d9edbc30ce408320bc41461af34077f7fabf84432ed2e4",
+      "bytes": 322236
+    }
+  },
+  "rust_mcp": {
+    "groups": 30,
+    "passed": 4207,
+    "failed": 0,
+    "ignored": 1,
+    "includes_doctests": true,
+    "ignored_cases": [
+      "test resolution_test::slice_elem_variant_reserved ... ignored, SliceElem is reserved (spec §5/§10); classifier returns None until a future slice"
+    ],
+    "artifact": {
+      "file": "rust-mcp.log",
+      "sha256": "ddf1795ecfadc5dfe0ab018df4ea015d558efe6239e916ed4019fbd0875fd132",
+      "bytes": 338513
+    }
+  },
+  "helpers": {
+    "tests": 7,
+    "passed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "artifact": {
+      "file": "helpers.log",
+      "sha256": "fa277c887cf6335432fd75900a8dd78f7e49d317847372cdea07a3c6d52e6080",
+      "bytes": 769
+    }
+  },
+  "authority": {
+    "cases": 40,
+    "failures": [],
+    "artifact": {
+      "file": "authority.json",
+      "sha256": "8746d8f89c3efa5029869de3c0d1d0297f2499da22e20d02b922bc6576a9b57f",
+      "bytes": 494914
+    }
+  },
+  "historical_audit_controls": {
+    "passed": 3,
+    "artifact": {
+      "file": "historical-controls.json",
+      "sha256": "f97502107b95c78fb7e3c1e6c4526e71b99f2f5a00fb05e8e94470b88eface8d",
+      "bytes": 2337
+    }
+  },
+  "public": {
+    "packet": {
+      "file": "packet.json",
+      "sha256": "7808361410f98f5c984c1585bd7ba69578b3a1f5b6bf8771e15c70d9f83d89dd",
+      "bytes": 22920808
+    },
+    "previous_packet_sha256": "19871f6f359422afd029c22a0f1109da6d363d5b5b98e4a49ca429f13629b78a",
+    "changed_fields": [
+      "producer"
+    ],
+    "validation": {
+      "valid": true,
+      "authorizes_runtime_edge": false,
+      "packet_status": "unproven",
+      "reason": "reproduced_observation"
+    },
+    "source_manifest_sha256": "353187a695df2683a3631e4739c173cb6d33190901093549b61e28efeda60cbb",
+    "source_tracked_files": 1229,
+    "source_unchanged": true,
+    "inventory": {
+      "files": 59924,
+      "directories": 9073,
+      "links": 249,
+      "roots": 591,
+      "program": 1445
+    },
+    "resolutions": 6893,
+    "nulls": 603,
+    "refusal_digests": 264,
+    "outside_lookups": true,
+    "diagnostics": 0,
+    "observations": 30,
+    "nested_calls": 53,
+    "class_candidates": [
+      {
+        "status": "unproven",
+        "reason": "program_unproven"
+      },
+      {
+        "status": "unproven",
+        "reason": "program_unproven"
+      },
+      {
+        "status": "unproven",
+        "reason": "program_unproven"
+      },
+      {
+        "status": "unproven",
+        "reason": "program_unproven"
+      }
+    ],
+    "required_paths": {
+      "total": 78,
+      "proved": 78,
+      "unproven": 0,
+      "artifact": {
+        "file": "path-proof.json",
+        "sha256": "7e60e223702ae44ea63d5bc5fbf0e916d1b028e0cdb147d1893a9c353ea273d7",
+        "bytes": 39231
+      }
+    },
+    "type_lib_cache": {
+      "rows": 139,
+      "sha256": "e9f39176f6902eb340a79e92b737da58a6f46006723c8e0b2a946f83e0a309f3",
+      "unchanged": true,
+      "gaps": [
+        {
+          "from": "/__prism__/project/packages/excalidraw/react-app-env.d.ts",
+          "kind": "types",
+          "name": "react-scripts",
+          "start_utf16": 22,
+          "end_utf16": 35,
+          "target": null
+        }
+      ]
+    }
+  },
+  "review": {
+    "rounds": 2,
+    "cap": 2,
+    "independent": false,
+    "extension": false,
+    "verdict": "SURVIVED",
+    "open_bounded_repair_wrong": 0,
+    "limitation": "No portable normal-packet reference ledger; pending type/lib/config channels and causal refused/outside attribution are not admitted."
+  },
+  "exclusions": [
+    "Tier-A not triggered: no Rust call-resolution, navigation, CPG or AST changes",
+    "No app install/config repair, type/lib resolution expansion, ambient closure admission or runtime/class authority"
+  ],
+  "inadmissible_probe": {
+    "file": "digest-base-control.log",
+    "reason": "Required profiles environment variable omitted; corrected probe passes1/1"
+  },
+  "raw_archive": {
+    "file": "required-path-repair-evidence.tgz",
+    "sha256": "7f7bedfbfcc63517e99856f4f964d737520f8efe2ff588555e0335c05c0215ea",
+    "bytes": 3743307
+  }
+}

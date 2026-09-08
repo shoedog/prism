@@ -1,5 +1,9 @@
 # Handoff — source-backed closure-policy proof requirements
 
+> Successor reconciliation, 2026-09-07: PR277 is merged8534f4af. The owner authorized
+> the [bounded required-path repair](2026-09-07-callable-required-path-completeness.md).
+> Below is the historical audit closeout, not current publication or repair status.
+
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · audit/callable-closure-policy-proof · **Measured state:** `[MEASURED]` base52e72bed; checkpoint4e1d9ec and evidenceeaa70a3 pushed; PR277 open. Full gates, source/cache proof and two self-review rounds complete. Existing required-path false closure remains open; audit only.
 **Predecessor:** PR276 confirmed merged52e72bed7d0685cf0a0901d053563e067dc64387.

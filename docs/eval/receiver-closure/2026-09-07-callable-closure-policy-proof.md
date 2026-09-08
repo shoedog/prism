@@ -1,5 +1,9 @@
 # Closure-policy proof audit — 2026-09-07
 
+> Historical exact-base evidence. The known path defect is addressed by the
+> [authorized bounded repair](../../superpowers/specs/2026-09-07-callable-required-path-completeness.md);
+> type/lib observations and react-scripts disposition remain separate work.
+
 **Repair completeness before considering closure admission.** This audit changes
 no production worker, schema, resolver or authority. Base is merged PR276,
 `52e72bed7d0685cf0a0901d053563e067dc64387`.

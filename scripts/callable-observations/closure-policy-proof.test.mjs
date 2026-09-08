@@ -1,4 +1,4 @@
-// Characterization of independent closure obligations. No closure policy change.
+// Independent closure obligations; the former missing-path defect is a regression.
 import test from 'node:test';import assert from 'node:assert/strict';
 import {mkdtempSync,mkdirSync,writeFileSync,rmSync,readFileSync} from 'node:fs';import {tmpdir} from 'node:os';import path from 'node:path';import {createRequire} from 'node:module';
 import {produce,validate} from './index.mjs';import {hash,COMPILER_HASH} from './schema.mjs';
@@ -50,11 +50,11 @@ test('a missing type-reference directive is distinct from module source coverage
     assert(p.resolutions.every(observed));assert(!p.resolutions.some(r=>r.specifier==='missing-types'));assert.equal(p.diagnostics.some(d=>d.code===2688),!skip);withheld(p);
   }
 }));
-test('KNOWN WRONG: skipped absent path can falsely report a complete Program',()=>fixture(({put,config,save,options})=>{
+test('skipped absent path cannot report a complete Program',()=>fixture(({put,config,save,options})=>{
   put('src/app.ts',app);put('src/reference.d.ts','/// <reference path="./absent.d.ts" />\ninterface Other {}');
   for(const skip of [false,true]){config.compilerOptions.skipLibCheck=skip;save();const p=produce(options);
     assert.equal(p.resolutions.length,0);assert(p.snapshot.program_files.includes('project/src/reference.d.ts'));assert(p.snapshot.failed_lookups.includes('project/src/absent.d.ts'));
-    assert.equal(p.status,skip?'observed':'unproven');assert.equal(p.closure.resolution,skip);assert.equal(p.observations[0].nested.calls[0].props_class.status,skip?'observed':'unproven');
+    assert.equal(p.status,'unproven');assert.equal(p.closure.resolution,false);assert.equal(p.observations[0].nested.calls[0].props_class.status,'unproven');
     assert.equal(p.authorizes_runtime_edge,false);assert.equal(p.scope.class_authority,false);
   }
 }));

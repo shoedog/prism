@@ -33,21 +33,26 @@ an unproven observation exits0. Read the JSON, not just the exit code.
 
 ## Meaning of the packet
 
-Known completeness defect (source-backed audit, 2026-09-07): an absent required
-triple-slash path in a declaration file can be hidden by `skipLibCheck`, leaving
-all closure bits and a class candidate `observed`. `closure.references` currently
-checks configured project references, not triple-slash completeness. Validation
-can reproduce this false closure; it does not repair it. Runtime/class authority
-remains false. See the [proof requirements](../../docs/superpowers/specs/2026-09-07-callable-closure-policy-proof.md)
-and KNOWN WRONG characterization; a separate bounded repair is required before
-closure admission.
+Producer0.11.1 repairs the audited false-completeness defect: required triple-slash
+paths are checked independently of `skipLibCheck`/`noCheck` diagnostics. Each
+original-source directive needs a compiler-cache target and matching source/index
+inclusion record. Missing, self-referential, unsupported or unprocessed paths add
+`unproven_path_reference`, withholding dependency/reference/augmentation/resolution
+bits and class candidates. Ordinary failed search candidates remain harmless.
+See the [bounded repair](../../docs/superpowers/specs/2026-09-07-callable-required-path-completeness.md).
+
+This is not full reference-channel or semantic-closure authority: type/lib channels,
+including the audited unresolved `react-scripts` directive, remain separate work.
+Both runtime/class authority flags remain false. Historical producer0.11.0 schema10
+packets remain parseable for pinned audits, but cannot validate as current output;
+validation recomputes the producer identity and every field.
 
 The strict executable v10 schema is `schema.mjs` (`parsePacket`). It freezes these
 groups, rejecting unknown fields and unsafe IDs before project access:
 
 | Group | Meaning |
 |---|---|
-| schema / authorizes_runtime_edge | prism.callable-observation/10; authority is always false; older packets reject before root access |
+| schema / authorizes_runtime_edge | prism.callable-observation/10; authority is always false; earlier schema versions reject before root access |
 | producer / compiler | Tool-byte digest; required compiler version/hash, whether actually verified, full compiler-lib inventory digest |
 | scope | Relative config, acquisition profile, link policy, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
 | status / reasons / closure | observed means this bounded Program completed without the enumerated closure failures; unproven records limitations. Neither means a receiver or class is proven |
