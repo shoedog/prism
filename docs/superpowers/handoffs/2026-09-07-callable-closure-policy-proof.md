@@ -1,7 +1,7 @@
 # Handoff — source-backed closure-policy proof requirements
 
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · audit/callable-closure-policy-proof · **Measured state:** `[MEASURED]` base52e72bed; checkpoint4e1d9ec; full gates, source/cache proof and two self-review rounds complete; final commit/PR pending. Existing required-path false closure remains open; audit only.
+**Workspace:** /Users/wesleyjinks/code/slicing · audit/callable-closure-policy-proof · **Measured state:** `[MEASURED]` base52e72bed; checkpoint4e1d9ec and evidenceeaa70a3 pushed; PR277 open. Full gates, source/cache proof and two self-review rounds complete. Existing required-path false closure remains open; audit only.
 **Predecessor:** PR276 confirmed merged52e72bed7d0685cf0a0901d053563e067dc64387.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,15 +9,15 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) /root only; no agents; dedicated audit branch — RESOLVED.
-(b) Characterization/spec checkpoint4e1d9ec committed; final evidence/PR pending — OPEN.
-(c) All gates, source/cache capture/reproduction and two self-review rounds complete — RESOLVED.
+(b) Characterization/spec4e1d9ec and evidenceeaa70a3 committed/pushed; PR277 open — RESOLVED. Remote CI/review remains separate from local verification.
+(c) All gates, source/cache capture/reproduction and two self-review rounds complete — RESOLVED. Committed-HEADeaa70a3 rerun confirms observer277, helpers7, controls3, Rust4017/4207 with0 failures and1 ignored each; final note changes documentation only.
 (d) Owner: "merged, proceed to next" after source-backed closure-policy proof recommendation. Audit only; no closure admission.
 
 ## 1. Resume order
 
 1. `git status --short --branch` in /Users/wesleyjinks/code/slicing.
 2. Read same-date closure-policy-proof spec and reference-control.json in task root.
-3. Commit final evidence, push and open PR; verify remote HEAD. Do not merge without owner direction.
+3. Check PR277 remote CI/review. Do not merge without owner direction; next repair requires its own authorization.
 
 **STOP conditions:** two SELF-PASS rounds; no runtime/closure fix or admission,
 asset/React.FC expansion, install, application edits or unrelated recovery changes.
@@ -32,7 +32,7 @@ asset/React.FC expansion, install, application edits or unrelated recovery chang
 | Public source channels | done | `[MEASURED]` 1445 original sources/603 request coordinates;78 path candidates present;26/27 types and112/112 libs cached; additional react-scripts gap; exact normal packet unchanged |
 | Full gates | done | `[MEASURED]` observer277/0/0; base13/13; helpers7/7; authority40/failures=[]; Rust4017/0/1 and4207/0/1 with doctests; source equal; validate true/unproven |
 | Self-review | done | Two SELF-PASS rounds, NOT INDEPENDENT; two audit-verifier WRONGs fixed; controls3/3; no audit findings open; known production WRONG1 open; no cap extension |
-| Publish | next | Final evidence commit/push/PR pending |
+| Publish | done | `[MEASURED]` https://github.com/shoedog/prism/pull/277 open against main; remote HEAD verifiedeaa70a3; final documentation-only publication note follows |
 
 ## 3. Corrections to standing documents and memory
 
@@ -43,7 +43,7 @@ counts remain inherited; this capture does not remeasure outside probe causes.
 
 ## 4. Open work
 
-Publish completed audit only. Prioritize a separately approved required-path
+PR277 awaits remote CI/review and owner merge. Prioritize a separately approved required-path
 completeness repair before broader closure admission. Keep the known WRONG explicit.
 
 ## 5. Invariants and traps — do not do these

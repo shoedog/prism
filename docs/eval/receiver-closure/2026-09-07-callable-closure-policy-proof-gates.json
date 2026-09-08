@@ -4,6 +4,42 @@
   "authorizes_runtime_edge": false,
   "base": "52e72bed7d0685cf0a0901d053563e067dc64387",
   "checkpoint": "4e1d9ec",
+  "committed_head_rerun": {
+    "head": "eaa70a34a695114a3e7e21fd41b115114c3897f1",
+    "observer": {
+      "passed": 277,
+      "failed": 0,
+      "skipped": 0,
+      "log_sha256": "3ce33b85f3c59ef12a54b390b740e904940db66d9419ff1ec6820d38a699c26c"
+    },
+    "helpers": {
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "log_sha256": "044ba5eb834bfd1c6cff3b0adfc7bce86dc1339809b0f34e39c46a1eb35fd70f"
+    },
+    "rust_default": {
+      "groups": 28,
+      "passed": 4017,
+      "failed": 0,
+      "ignored": 1,
+      "log_sha256": "097e15fcfcebae767845221ec6018f7401da1c43a2a0185542cbb15c4d57d472"
+    },
+    "rust_mcp": {
+      "groups": 30,
+      "passed": 4207,
+      "failed": 0,
+      "ignored": 1,
+      "log_sha256": "5d975561cb321690d0f8c2e70438fde8ea1c2ea8f3cdba53a9dfa21e4d082bf8"
+    },
+    "verifier_controls": 3,
+    "verifier_controls_sha256": "f97502107b95c78fb7e3c1e6c4526e71b99f2f5a00fb05e8e94470b88eface8d",
+    "archive": {
+      "local_only": true,
+      "path": "/private/tmp/prism-closure-policy-proof-OHzYXp/closure-policy-proof-head-gates.tgz",
+      "sha256": "0810783887f29b33290dfb8d28e93a0266f9f84e1e5a721337fd23b7eb43f1df"
+    }
+  },
   "production_unchanged": true,
   "characterization_is_not_implementation_red": true,
   "characterization": {
