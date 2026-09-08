@@ -82,7 +82,13 @@ test('path refusal closure promotions fail schema validation before root I/O',()
   for(const k of ['dependencies','references','augmentation','resolution']){
     const r=structuredClone(q);r.closure[k]=true;assert.throws(()=>parsePacket(JSON.stringify(r)),/invalid_packet/);assert.equal(validate(JSON.stringify(r),forbidden).valid,false);
   }
+  const old=structuredClone(q);old.producer.version='0.11.0';assert.throws(()=>parsePacket(JSON.stringify(old)),/invalid_packet/);
+  assert.equal(validate(JSON.stringify(old),forbidden).valid,false);
   assert.equal(reads,0);
+  // Removing the reason and forging all bits can be well-shaped, but cannot
+  // manufacture the occurrence evidence that full recomputation requires.
+  const erased=structuredClone(p);erased.reasons=[];erased.status='observed';for(const k of Object.keys(erased.closure))erased.closure[k]=true;
+  assert.doesNotThrow(()=>parsePacket(JSON.stringify(erased)));assert.equal(validate(JSON.stringify(erased),options).valid,false);
 }));
 test('historical schema10 packet remains readable but cannot validate as current',()=>fixture(({options})=>{
   const p=produce(options);complete(p);const old=structuredClone(p);old.producer.version='0.11.0';

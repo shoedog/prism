@@ -57,6 +57,9 @@ is added in this bounded repair; a later versioned reference-channel slice owns 
 2. Implement the bounded Program-cache predicate and pre-I/O refusal consistency.
 3. Add parser forgery/stale packet, source identity and remaining edge controls;
    re-run identical final tests on base and current with captured output.
+   Final24: base7 pass/17 fail; current24 pass/0 fail. Repeated-index/BOM/noResolve
+   no-directive positives stay compatible; removal of the refusal and promotion of
+   every closure bit is rejected by full recomputation even when well-shaped.
 4. Replay fixed public source without edits; compare all module/receiver/snapshot
    fields, report new path dispositions separately. Keep14 module source gaps and
    the unresolved react-scripts type directive explicit.
@@ -75,5 +78,10 @@ is added in this bounded repair; a later versioned reference-channel slice owns 
 - Missing react-scripts is an additional source-environment type-reference gap,
   not the same required-path defect. Disposition remains pending the separate
   actual type/lib observation slice; no package installation inferred from this fix.
+- Full-suite failure hypothesis: the expected producer file list omitted the new
+  helper, rather than producerHash omitting implementation bytes. Captured actual
+  hash includes required-paths.mjs; exact-base digest test passes1/1. Initial control
+  without profiles was inadmissible; corrected environment passes. Updated list
+  makes all301 observer tests pass; no production change was needed.
 
 Raw evidence root: `/private/tmp/prism-required-path-o41JkY`.
