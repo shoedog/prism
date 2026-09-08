@@ -1,7 +1,7 @@
 # Handoff — approved callable-completeness sequence
 
 **Written:** 2026-09-08T08:51Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-lib-search-provenance · **Measured state:** `[MEASURED]` D1 full gates passed on clean7d28638:453/4017/4207 plus18/40, one ignored per Rust run, doctests included. Archive6fb8d120; checkpoint one supports continuing with no authority gain. Publication next. S4 frozen3d346dce passes485 copied tests, independent round1 ACCEPT96 and public91409-operation parity. Probe: full gate summary, exact hashes, independent verdict and parity receipts.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-lib-search-provenance · **Measured state:** `[MEASURED]` D1 published PR285 on PR284, pushed dde3666. Full gates passed on clean7d28638:453/4017/4207 plus18/40, one ignored per Rust run, doctests included. Archive6fb8d120; checkpoint one supports continuing with no authority gain. S4 frozen3d346dce passes485 copied tests, independent round1 ACCEPT96, public91409-operation parity and11 config/alias transcripts. Probe: gh PR creation, full gate summary, exact hashes, independent verdict and parity receipts.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims name their source.
@@ -17,7 +17,7 @@
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
 2. S2 is published as PR282 against feat/callable-search-classification. S2 full gates are complete:395 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored per Rust run, doctests included. Check CI without auto-merge.
-3. Publish D1 gate/checkpoint closeout against S3; archive6fb8d120 and full gates453/4017/4207 plus18/40 verified. Checkpoint supports continuing; no closure/receiver authority changed. Private replay default output-cap refusal was discriminated from timeout; existing larger profile preserved old fields and reproduced without source changes or installs. Private evidence remains outside public task/archive. S4 frozen3d346dce public parity passed;11 config/alias transcripts in progress. S5 helper1639fce2 final corrected8/8 primary-reviewed/accepted; actual worker RED preparation only, no production edits until S4 acceptance. No auto-merge.
+3. D1 PR285 published on S3, no feature-base CI scheduled. Integrate S4 on separate branch, run full clean repository gates and publish. Public parity and11 config/alias transcripts pass, source1229 unchanged. S5 helper1639fce2 corrected8/8 accepted; worker implementation authorized after exact-S4 RED, disposable only. Private checkpoint larger-profile parity/reproduction passed with source unchanged and no installs; private evidence outside public archive. S6 policy review must distinguish strict retained outside/refused barriers from a new bounded-universe waiver; no waiver authorized. No auto-merge.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
 
@@ -37,7 +37,7 @@
 | S2 publication | done | `[MEASURED]` pushed f1b5fac; gh pr create returned https://github.com/shoedog/prism/pull/282 |
 | S3-T | published PR284 | Pushed5d7e466 against H1; clean ea81801 full435/4017/4207 plus18/40; producer134739e; public91409 operations and15 transcripts equal. Independent H1 integration round2 ACCEPT98; archiveb59834a9 |
 | H1 | published | PR283 against S2, pushed cf2cc3c; contract/unwired helper independently ACCEPT96; clean12aa795 full402/4017/4207 plus18/40, one ignored per Rust run; producer unchanged7ea9f31c |
-| D1 | full gates passed | Clean7d28638,453/4017/4207 plus18/40, doctests and one ignored per Rust run; archive6fb8d120; checkpoint continue; publication next |
+| D1 | published PR285 | Clean7d28638,453/4017/4207 plus18/40, doctests and one ignored per Rust run; archive6fb8d120; checkpoint continue; pushed dde3666 |
 | S4 | disposable frozen candidate |3d346dce485/485, helper17/integration15, exact D1 RED15 failures; independent round1 ACCEPT96; public old-field/91409-operation parity passes |
 | S5–S10 | pending | S5 conservative complete/reasons/rows contract independently accepted97; helper1639fce2 tests8/8 unwired. D2–D3/H2–H3 remain unused |
 

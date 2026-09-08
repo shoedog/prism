@@ -59,7 +59,8 @@ Repository full gates passed on clean `7d28638cc8a73588376da8f202924336765fa3ea`
 453 observer,4017 Rust,4207 MCP,18 helpers,40 authority; one known ignored per Rust
 run, doctests included, fmt/diff passed. Tier-A not triggered. The [gate receipt](2026-09-08-callable-lib-search-gates.json)
 binds logs and the archived evidence. The [contract](../../superpowers/specs/2026-09-08-callable-lib-search-provenance.md)
-defines the scope. Publication is next; feature-base PRs do not schedule the current
+defines the scope. Published as [PR285](https://github.com/shoedog/prism/pull/285)
+against PR284; feature-base PRs do not schedule the current
 main-only remote CI workflow. Local gates are not a remote-green claim.
 
 ## Value checkpoint one
