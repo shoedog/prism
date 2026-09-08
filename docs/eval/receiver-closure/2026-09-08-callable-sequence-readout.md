@@ -111,3 +111,20 @@ classes as executable owners, or weaken whole-Program closure to manufacture a
 benchmark gain. Receiver-local proof islands and canonical proof for the D2 JavaScript
 cases are separate design choices. The overnight sequence stops at this approved
 contract boundary, not at an unimplemented production-authority claim.
+
+## S10 documentation verification and custody
+
+[Scoped verification](2026-09-08-callable-production-contract-verification.json)
+passed on clean `2af5b2be`: 31 changed Markdown documents, 64 local links, no
+missing links; all 11 source blobs, producer/compiler fingerprints and cache
+versions unchanged. No source, dependency, workflow or consumer code changed.
+This is not a new full-suite run; the nearest implementation gate is S9 `b826a668`.
+Independent design review accepted 98/100 and final factual review accepted 99/100,
+both WRONG 0 / SMELL 0 within their documented scope. The latter binds its exact
+pre-publication scratch bytes; subsequent edits resolve gate/PR status and links,
+not a claim that the reviewer reran on different bytes.
+
+Local archive: 27,492 bytes, SHA-256
+`72804231f756d3cb425e34925cf5842f772bfcbf03c0bbbb9f4aaec68f1a6f72`.
+It retains reviewed scratch documents, the checked Git snapshot and receipts.
+Private source/evidence is not included.

@@ -1,7 +1,7 @@
 # Handoff — approved callable-completeness sequence
 
-**Written:** 2026-09-08T11:33Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · docs/callable-production-authority-contract · **Measured state:** `[MEASURED]` S9 PR292 closeout20dd53bf pushed; cleanb826a668 full591/4017/4207 plus18/40 passed, doctests and one ignored per Rust run. S10 contract/foundation/readout integrated, docs-only checks and publication next. All 11 production source blobs/cache77/45 unchanged. `[INHERITED]` S9 independent99, S10 design98 and final factual99; exact review bytes and publication-only changes are distinguished. Probe: PR create/push output, gate summary, source blob checks and review receipts.
+**Written:** 2026-09-08T11:37Z · **By:** /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/slicing · docs/callable-production-authority-contract · **Measured state:** `[MEASURED]` S10 clean2af5b2be scoped checks passed: 31 Markdown/64 local links, 11 unchanged source blobs, cache77/45 and producer32ae5bc4 unchanged; archive72804231. S9 PR292 and its full591/4017/4207 plus18/40 gates are complete. `[INHERITED]` S10 design98/factual99; original reviewed bytes remain distinct from publication-only updates. Probe: docs verification JSON, archive hash, source-preservation receipt.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims name their source.
@@ -16,7 +16,7 @@
 ## 1. Resume order
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
-2. Complete S10 scoped docs/source checks, archive and publish on PR292, then refresh remote stack state. All implementation gates are complete.
+2. S10 scoped checks/archive complete; publish on PR292, then refresh remote stack state. All implementation gates are complete.
 3. Owner merge order follows PR281 upward; feature-base PRs need CI after predecessor merge/retarget. The sequence ends at the contract boundary. A future executable-owner proof design/implementation needs a new bounded decision, not a closure waiver.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
@@ -44,7 +44,7 @@
 | S7 | published PR289 | Pushed48de24e against PR288; clean59fd6eb546/4017/4207 plus18/40; archivec00ec9c8; independent98; public/private checkpoint continue |
 | S8 | published PR291 | Pushed980657f on PR290; clean8fc6624:571/4017/4207 plus18/40, archive1c01ca11; independent98/65; public parity unchanged |
 | S9 | published PR292 | Pushed7387cfd on PR291; cleanb826a668:591/4017/4207 plus18/40, archive44e5056a; independent99; public84merged/36unproven and all old fields/host/source parity; private read-only parity valid/incomplete |
-| S10 | integrated, publication next | Primary contract independently accepted98 and factual review99; 11 source blobs/cache77/45 unchanged; no consumer or cache change |
+| S10 | verified, publication next | Clean2af5b2be:31 Markdown/64 links/11 source blobs; archive72804231; design98/factual99; no consumer or cache change |
 | D2 | published PR290 |Pushedca8504d against PR289;20 occurrences/14 present JS targets; sufficient compiler depth-elision branch,9 sourceambient/11 no checker declarations; corrected diagnostic/raw-path capture; archive50724ca2; docs checks pass |
 
 ## 3. Corrections to standing documents and memory
