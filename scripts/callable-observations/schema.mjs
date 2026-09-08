@@ -1,5 +1,7 @@
 import {createHash} from "node:crypto";
-export const SCHEMA="prism.callable-observation/10";
+export const SCHEMA="prism.callable-observation/11";
+export const REFERENCE_LIMIT=100000;
+export const referenceKey=r=>JSON.stringify([r.request.file,r.kind,r.index]);
 export const COMPILER_HASH="3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675";
 export const LIMITS={files:20000,bytes:128*1024*1024,read_bytes:128*1024*1024,link_steps:32,depth:64,timeout_ms:30000,observations:2000,provenance_steps:32,nested_depth:8,nested_calls:128,props_type_args:8};
 export const PACKET_BYTES=8*1024*1024;
@@ -66,10 +68,10 @@ const nested=object({calls:array(object({call:anchor,receiver:anchor,receiver_ty
 const reasons=array(x=>[
   "budget_exceeded","unsupported_input","compiler_mismatch","unstable_snapshot",
   "compiler_diagnostics","unsupported_references","unsupported_plugins",
-  "outside_lookup","unsupported_lookup","unresolved_module","unproven_path_reference","invalid_config","worker_failed",
+  "outside_lookup","unsupported_lookup","unresolved_module","unproven_path_reference","unproven_type_lib_reference","invalid_config","worker_failed",
 ].includes(x));
-const packet=object({
-  schema:literal(SCHEMA),authorizes_runtime_edge:literal(false),
+const packetShape={
+  schema:literal("prism.callable-observation/10"),authorizes_runtime_edge:literal(false),
   // Historical schema10 packets remain readable for pinned audit tooling.
   // validate() still requires exact reproduction by the current producer.
   producer:object({version:x=>["0.11.0","0.11.1"].includes(x),sha256:digest}),
@@ -86,11 +88,16 @@ const packet=object({
   observations:array(object({annotation:anchor,implementation:anchor,parameter:nullable(anchor),
     explicit_parameter:boolean,signatures:array(anchor),callable_declarations:array(anchor),provenance,nested,
     calls:array(object({call:anchor,receiver:anchor,receiver_type:str,declarations:array(anchor)}))})),
-});
+};
+const packet10=object(packetShape);
+const typeLibReference=object({kind:x=>['types','lib'].includes(x),index:integer,name:str,
+  mode:nullable(x=>['import','require'].includes(x)),request:anchor,status:x=>['observed','unproven'].includes(x),
+  reason:nullable(x=>['unprocessed','unresolved','target_not_in_program','missing_inclusion'].includes(x)),target:nullable(id),inclusion:boolean});
+const packet11=object({...packetShape,schema:literal(SCHEMA),producer:object({version:literal('0.12.0'),sha256:digest}),type_lib_references:array(typeLibReference)});
 export function parsePacket(text) {
   if(typeof text!=="string" || Buffer.byteLength(text)>MAX_PACKET_BYTES) throw Error("invalid_packet");
   const value=JSON.parse(text);
-  if(!packet(value)) throw Error("invalid_packet");
+  if(!packet10(value)&&!packet11(value)) throw Error("invalid_packet");
   const profile=PROFILES[value.scope.acquisition_profile];
   if(Buffer.byteLength(text)>profile.packet_bytes)throw Error("invalid_packet");
   const files=new Map(value.snapshot.files.map(f=>[f.id,f]));
@@ -99,7 +106,7 @@ export function parsePacket(text) {
   if(!value.scope.config.startsWith("project/")) throw Error("invalid_packet");
   if(value.status==="observed" && (value.reasons.length || !value.compiler.verified || Object.values(value.closure).some(x=>!x))) throw Error("invalid_packet");
   if(value.status==="unproven" && !value.reasons.length) throw Error("invalid_packet");
-  if(value.reasons.includes("unproven_path_reference") && (value.producer.version!=="0.11.1"
+  if(value.reasons.includes("unproven_path_reference") && (!["0.11.1","0.12.0"].includes(value.producer.version)
     || value.status!=="unproven" || value.closure.dependencies || value.closure.references
     || value.closure.augmentation || value.closure.resolution))throw Error("invalid_packet");
   const refused=value.snapshot.refused_lookup_sha256;
@@ -124,6 +131,22 @@ export function parsePacket(text) {
       || a.end_byte>f.size || a.end_utf16>a.end_byte) throw Error("invalid_packet");
   }
   const programFiles=new Set(value.snapshot.program_files);
+  const references=value.type_lib_references??[],unproven=references.some(r=>r.status==='unproven');
+  if(unproven!==value.reasons.includes('unproven_type_lib_reference')
+    || unproven&&(value.schema!==SCHEMA||value.status!=='unproven'||value.closure.dependencies
+      ||value.closure.references||value.closure.augmentation||value.closure.resolution))throw Error('invalid_packet');
+  for(const [i,r] of references.entries()) {
+    checkAnchor(r.request);
+    if(i>0&&referenceKey(references[i-1])>=referenceKey(r)
+      ||!programFiles.has(r.request.file)||r.index>=REFERENCE_LIMIT
+      ||r.request.kind!==(r.kind==='types'?'TypeReferenceDirective':'LibReferenceDirective')
+      ||r.kind==='lib'&&r.mode!==null
+      ||r.request.end_utf16-r.request.start_utf16!==r.name.length
+      ||r.request.end_byte-r.request.start_byte!==Buffer.byteLength(r.name)
+      ||(r.status==='observed'
+        ? r.reason!==null||!r.target||!programFiles.has(r.target)||!r.inclusion||!value.compiler.verified
+        : !r.reason||r.target!==null||r.inclusion))throw Error('invalid_packet');
+  }
   for(const r of value.resolutions) {
     const l=r.lookup,synthetic=l.context==='synthetic';
     for(const a of [l.request,...l.declarations,...l.providers,...l.augmentations]) {

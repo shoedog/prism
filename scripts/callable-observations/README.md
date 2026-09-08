@@ -33,7 +33,7 @@ an unproven observation exits0. Read the JSON, not just the exit code.
 
 ## Meaning of the packet
 
-Producer0.11.1 repairs the audited false-completeness defect: required triple-slash
+Producer0.12.0 retains the path-completeness repair: required triple-slash
 paths are checked independently of `skipLibCheck`/`noCheck` diagnostics. Each
 original-source directive needs a compiler-cache target and matching source/index
 inclusion record. Missing, self-referential, unsupported or unprocessed paths add
@@ -41,23 +41,36 @@ inclusion record. Missing, self-referential, unsupported or unprocessed paths ad
 bits and class candidates. Ordinary failed search candidates remain harmless.
 See the [bounded repair](../../docs/superpowers/specs/2026-09-07-callable-required-path-completeness.md).
 
-This is not full reference-channel or semantic-closure authority: type/lib channels,
-including the audited unresolved `react-scripts` directive, remain separate work.
-Both runtime/class authority flags remain false. Historical producer0.11.0 schema10
-packets remain parseable for pinned audits, but cannot validate as current output;
-validation recomputes the producer identity and every field.
+Source-written `types` and `lib` directives now have separate observations in
+`type_lib_references[]`. Original-source name spans and kind-local indices retain
+actual effective type modes and compiler-selected targets, including lib replacement
+and builtin fallback. Observed requires Program membership plus source/index
+inclusion. Redirect originals and disabled traversal remain unprocessed; unresolved,
+unprocessed, absent-Program and missing-inclusion cases add
+`unproven_type_lib_reference` and withhold the same four completeness bits/class
+candidates. No second resolver runs. Ordinary failed optional searches stay separate.
 
-The strict executable v10 schema is `schema.mjs` (`parsePacket`). It freezes these
+This is not full reference-channel or semantic-closure authority: configured and
+automatic type/lib entry occurrences, config inheritance and causal outside/refused
+lookup coverage remain separate work. Their loaded sources' directives ARE included.
+The public `react-scripts` directive is now explicitly unresolved, not installed,
+substituted or waived. Both runtime/class authority flags remain false.
+Historical producer0.11.0/0.11.1 schema10 packets remain parseable without invented
+reference rows for pinned audits, but cannot validate as current output; validation
+recomputes the producer identity and every field.
+
+The strict executable v11 schema is `schema.mjs` (`parsePacket`). It freezes these
 groups, rejecting unknown fields and unsafe IDs before project access:
 
 | Group | Meaning |
 |---|---|
-| schema / authorizes_runtime_edge | prism.callable-observation/10; authority is always false; earlier schema versions reject before root access |
+| schema / authorizes_runtime_edge | prism.callable-observation/11; authority is always false; historical schema10 remains readable, earlier schemas reject before root access |
 | producer / compiler | Tool-byte digest; required compiler version/hash, whether actually verified, full compiler-lib inventory digest |
 | scope | Relative config, acquisition profile, link policy, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
 | status / reasons / closure | observed means this bounded Program completed without the enumerated closure failures; unproven records limitations. Neither means a receiver or class is proven |
 | snapshot | Raw byte/file/directory manifest, link spelling hashes and canonical targets, roots, config reads, Program files, reads and safe failed lookup IDs, refused-lookup digests, options digest and outside-lookup flag |
 | resolutions / diagnostics | Compiler module-resolution outcomes and anchored diagnostic codes; unresolved dependencies are not automatically application defects |
+| type_lib_references | Source-written types/lib occurrences only: kind-local index, name anchor, effective mode, selected Program target, inclusion and refusal. Canonical serialized source/kind/index ordering; at most100000 rows, then budget_exceeded, never truncation |
 | resolutions[].lookup | Actual request anchor/context, checker declarations and configured-Program exact-name provider/augmentation census; observed means singleton exact-ambient binding only, never filesystem or closure authority |
 | resolutions[].lookup.wildcard | Independent nullable single-star binding observation: pattern, original-source providers, relevant augmentations and matching-provider census; never asset-existence or closure authority |
 | resolutions[].lookup.merged_wildcard | Separate nullable side-effect-only empty-block/shorthand pair observation; checker-ordered source shapes and actual selected value declaration; old wildcard refusal remains unchanged |
@@ -92,7 +105,7 @@ exercise this distinction.
 
 ## Declaration provenance
 
-Producer0.11.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs`, `props-class.mjs`, `exact-ambient.mjs`, `wildcard.mjs` and `merged-wildcard.mjs` in its byte digest. `provenance.status=traced`
+Producer0.12.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs`, `props-class.mjs`, `exact-ambient.mjs`, `wildcard.mjs`, `merged-wildcard.mjs`, `required-paths.mjs` and `type-lib.mjs` in its byte digest. `provenance.status=traced`
 means the supported syntactic chain reached an inline callable type or a singleton,
 non-inherited callable interface. It is independent of program closure: even a
 traced chain can belong to an unproven packet. Type arguments and parameters keep
@@ -120,7 +133,8 @@ Program-keyed population census is bounded by acquisition bytes/files and worker
 timeout/heap; it is not reused across Programs or snapshots. No compiler option is
 changed: `allowUmdGlobalAccess` value-use diagnostics do not gate type-only use.
 Traced UMD candidates still cannot overcome receiver writes or incomplete Program
-closure; both authority flags remain false. Schema10 rejects older observations.
+closure; both authority flags remain false. Schema11 requires its reference ledger;
+schema10 remains historical-only and is never upcast.
 
 Star exports in any consulted module, unresolved/duplicate/merged declarations,
 inheritance, unsupported types/declarations, cycles and step exhaustion retain an
