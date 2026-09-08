@@ -8,7 +8,7 @@
 > and unrelated workspaces remain. Earlier assessment-only states are superseded.
 
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · custody/worktree-cleanup-20260907 · **Measured state:** `[MEASURED]` approval checkpoint38ad6dc pushed; all17 authorized directories removed after fresh gates;0 parked;14 worktree registrations retired; archives/other registrations preserved; available space increased5.57 GiB. Final deletion record publication pending.
+**Workspace:** /Users/wesleyjinks/code/slicing · custody/worktree-cleanup-20260907 · **Measured state:** `[MEASURED]` deletion recorde4b65d1 pushed and remote verified; all17 authorized directories removed after fresh gates;0 parked;14 worktree registrations retired; archives/other registrations preserved; available space increased5.57 GiB. This is the documentation-only publication closeout.
 **Predecessor:** PR277 merged; next implementation slice paused for owner-requested cleanup assessment.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -24,7 +24,7 @@
 
 1. `git status --short --branch` in /Users/wesleyjinks/code/slicing.
 2. Read task-root audit.json, ref-audit.json, artifact-manifest.json and dirty-snapshot.json.
-3. Read docs/custody/2026-09-07-named-worktrees/deletion.json. Verify final deletion-record publication, then await direction for the next implementation slice.
+3. Read docs/custody/2026-09-07-named-worktrees/deletion.json. Cleanup is complete; await direction for the next implementation slice.
 
 **STOP conditions:** no further deletion, reset, rebase, integration or build of recovered code; do not publish the overbroad central all-ref bundle. Custody archives remain protected.
 
@@ -49,7 +49,7 @@ their initial inventory rows are historical. No memory edits authorized.
 
 ## 4. Open work
 
-Publish the final deletion record. Preserve old work as unverified recovery,
+Deletion recorde4b65d1 is published. Preserve old work as unverified recovery,
 not merge-ready code. No recovered implementation was tested or integrated.
 Next receiver slice remains paused; no cleanup remains for the named17 paths.
 
