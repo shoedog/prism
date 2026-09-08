@@ -75,7 +75,7 @@ test('absent path becoming present invalidates prior packet and removes only its
 test('path refusal closure promotions fail schema validation before root I/O',()=>fixture(({put,options})=>{
   put('src/ref.d.ts','/// <reference path="./absent.d.ts" />');const p=produce(options);let reads=0;const forbidden={get root(){reads++;throw Error('forbidden');}};
   // An independent valid refusal packet makes the parser RED meaningful on base.
-  const q=structuredClone(p);q.producer.version='0.11.1';q.reasons=['unproven_path_reference'];q.status='unproven';
+  const q=structuredClone(p);q.reasons=['unproven_path_reference'];q.status='unproven';
   for(const k of ['dependencies','references','augmentation','resolution'])q.closure[k]=false;
   for(const o of q.observations)for(const c of o.nested.calls){c.props_class.status='unproven';c.props_class.reason='program_unproven';}
   assert.doesNotThrow(()=>parsePacket(JSON.stringify(q)));
@@ -91,7 +91,7 @@ test('path refusal closure promotions fail schema validation before root I/O',()
   assert.doesNotThrow(()=>parsePacket(JSON.stringify(erased)));assert.equal(validate(JSON.stringify(erased),options).valid,false);
 }));
 test('historical schema10 packet remains readable but cannot validate as current',()=>fixture(({options})=>{
-  const p=produce(options);complete(p);const old=structuredClone(p);old.producer.version='0.11.0';
+  const p=produce(options);complete(p);const old=structuredClone(p);old.schema='prism.callable-observation/10';old.producer.version='0.11.0';delete old.type_lib_references;
   assert.doesNotThrow(()=>parsePacket(JSON.stringify(old)));assert.equal(validate(JSON.stringify(old),options).valid,false);
 }));
 test('same-byte wrong-file substitution does not discharge a required path',()=>fixture(({put,options})=>{

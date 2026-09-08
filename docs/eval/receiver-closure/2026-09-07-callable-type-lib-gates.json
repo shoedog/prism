@@ -1,0 +1,321 @@
+{
+  "schema": "prism.type-lib-observation-gates/1",
+  "base": "f8c6982e6b4e10fa74a8be281243eec0e6176883",
+  "implementation_commit": "118da81",
+  "final_control_commit": "cb99024",
+  "producer": {
+    "version": "0.12.0",
+    "sha256": "1f4c4b0620be1c4108b33f0a5c77c2b6f038a321215dddbc93e4e57cbfa924ef"
+  },
+  "compiler": {
+    "version": "5.9.3",
+    "sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675",
+    "verified": true,
+    "library_sha256": "d62148caac5381611f033ed809c8a1ad68d08bce806d9c46b1cac9c2b02caf52"
+  },
+  "closure_admission": false,
+  "authorizes_runtime_edge": false,
+  "red_initial": {
+    "tests": 20,
+    "passed": 0,
+    "failed": 20,
+    "skipped": 0,
+    "artifact": {
+      "file": "red-base.log",
+      "sha256": "bd6037e40c1eb4ddc108ee1e6b6529e0b17c63e9d478f3924d2664c0ac70803e",
+      "bytes": 26701
+    }
+  },
+  "red_behavior": {
+    "tests": 3,
+    "passed": 0,
+    "failed": 3,
+    "skipped": 0,
+    "artifact": {
+      "file": "red-behavior-base.log",
+      "sha256": "fb3793d6cd0765c2f55e3532496dde48cc0ca7de4238d2c32c58bb333df1c5f0",
+      "bytes": 3947
+    }
+  },
+  "red_final": {
+    "tests": 26,
+    "passed": 0,
+    "failed": 26,
+    "skipped": 0,
+    "artifact": {
+      "file": "red-expanded-base.log",
+      "sha256": "97ebcee22df32ba0579110dcbd0ca0c5ebd6d14118cb7f9d243034bff1e785d8",
+      "bytes": 34586
+    }
+  },
+  "green_initial": {
+    "tests": 20,
+    "passed": 19,
+    "failed": 1,
+    "skipped": 0,
+    "artifact": {
+      "file": "green-initial.log",
+      "sha256": "8a92759c7455a057dba98831502b3ec79b686983365ad8e6bd6bf9289b14c289",
+      "bytes": 3102
+    }
+  },
+  "green_targeted": {
+    "tests": 26,
+    "passed": 26,
+    "failed": 0,
+    "skipped": 0,
+    "artifact": {
+      "file": "green-expanded.log",
+      "sha256": "05adb9a2eda096633614f3e7ce71c14baab29c0888dd4ae0faa3e30cc9f612be",
+      "bytes": 2452
+    }
+  },
+  "guard_controls": {
+    "tests": 8,
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0,
+    "artifact": {
+      "file": "guard-controls.log",
+      "sha256": "45a6a88ddec5a20e90706ef3f86968bd5136f7d3d5288df005b822729bdf0101",
+      "bytes": 736
+    }
+  },
+  "observer_initial": {
+    "tests": 321,
+    "passed": 321,
+    "failed": 0,
+    "skipped": 0,
+    "artifact": {
+      "file": "observer-initial.log",
+      "sha256": "5107a1fa9bcc947f66210a864312d46e0dbdded4abe3910563b1da6a067293e1",
+      "bytes": 27674
+    }
+  },
+  "observer": {
+    "tests": 335,
+    "passed": 335,
+    "failed": 0,
+    "skipped": 0,
+    "artifact": {
+      "file": "observer-head.log",
+      "sha256": "722546f31e7e7fad9caddf754a79b142801fdf8b4a378ac0525c65fc437a6a5b",
+      "bytes": 28789
+    }
+  },
+  "rust_default": {
+    "groups": 28,
+    "passed": 4017,
+    "failed": 0,
+    "ignored": 1,
+    "includes_doctests": true,
+    "ignored_cases": [
+      "test resolution_test::slice_elem_variant_reserved ... ignored, SliceElem is reserved (spec §5/§10); classifier returns None until a future slice"
+    ],
+    "artifact": {
+      "file": "rust-default.log",
+      "sha256": "445c711fdf68d508b9fc942dcfc53d71fde9f3b2dcac78ea60f3d121c68663b8",
+      "bytes": 322136
+    }
+  },
+  "rust_mcp": {
+    "groups": 30,
+    "passed": 4207,
+    "failed": 0,
+    "ignored": 1,
+    "includes_doctests": true,
+    "ignored_cases": [
+      "test resolution_test::slice_elem_variant_reserved ... ignored, SliceElem is reserved (spec §5/§10); classifier returns None until a future slice"
+    ],
+    "artifact": {
+      "file": "rust-mcp.log",
+      "sha256": "0afaa98d5d367fbe4b8b5065a682b23efdb01b93a65c04b8b2d3a79bf144f833",
+      "bytes": 338401
+    }
+  },
+  "helpers": {
+    "tests": 7,
+    "passed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "artifact": {
+      "file": "helpers.log",
+      "sha256": "03d6a07ab17364cdf3307cf7ca9a02e6b012c26b4c50c45dccacb0c704834e25",
+      "bytes": 767
+    }
+  },
+  "authority": {
+    "cases": 40,
+    "failures": [],
+    "artifact": {
+      "file": "authority.json",
+      "sha256": "8746d8f89c3efa5029869de3c0d1d0297f2499da22e20d02b922bc6576a9b57f",
+      "bytes": 494914
+    }
+  },
+  "source_audit_controls": {
+    "passed": 5,
+    "artifact": {
+      "file": "audit-controls-final.json",
+      "sha256": "f8bcd2df43075b034e82302f8dc029cceb7c37c3c546d87a1612f5aa550e1521",
+      "bytes": 143239
+    }
+  },
+  "historical_audit_controls": {
+    "passed": 3,
+    "artifact": {
+      "file": "historical-controls.json",
+      "sha256": "f97502107b95c78fb7e3c1e6c4526e71b99f2f5a00fb05e8e94470b88eface8d",
+      "bytes": 2337
+    }
+  },
+  "public": {
+    "packet": {
+      "file": "packet.json",
+      "sha256": "25ea7dba031a0f4d9a1d6f3022d68a8e4ed6c8c495a93dabcc664150f51bbca5",
+      "bytes": 22996221
+    },
+    "evidence": {
+      "file": "source-audit.json",
+      "sha256": "37e38c45859b825297e5225628c651412c915af6857213eb281df4c88f563fa2",
+      "bytes": 78908
+    },
+    "source_unchanged": true,
+    "validation": {
+      "valid": true,
+      "authorizes_runtime_edge": false,
+      "packet_status": "unproven",
+      "reason": "reproduced_observation"
+    },
+    "source_directives": {
+      "types": 27,
+      "lib": 112,
+      "total": 139,
+      "observed": 138,
+      "unproven": 1
+    },
+    "gaps": [
+      {
+        "kind": "types",
+        "index": 0,
+        "name": "react-scripts",
+        "mode": null,
+        "request": {
+          "file": "project/packages/excalidraw/react-app-env.d.ts",
+          "sha256": "57eda4c4c04a1dca45c62857326882ce9cc948c4b52973c0e3c3b7e4c3fa3990",
+          "kind": "TypeReferenceDirective",
+          "start_utf16": 22,
+          "end_utf16": 35,
+          "start_byte": 22,
+          "end_byte": 35
+        },
+        "status": "unproven",
+        "reason": "unresolved",
+        "target": null,
+        "inclusion": false
+      }
+    ],
+    "changed_previous_fields": [
+      "schema",
+      "producer",
+      "reasons",
+      "closure"
+    ],
+    "unchanged_fields": [
+      "authorizes_runtime_edge",
+      "compiler",
+      "scope",
+      "status",
+      "limits",
+      "snapshot",
+      "diagnostics",
+      "resolutions",
+      "observations"
+    ],
+    "disposition": {
+      "classification": "source-declared unprovisioned type directive",
+      "acquisition_failure_proven": false,
+      "tracked_package_manifests": 11,
+      "manifest_declarations": [],
+      "lockfile_mentions": 0,
+      "installed_provider_files": 0,
+      "app_build": "cross-env VITE_APP_GIT_SHA=$VERCEL_GIT_COMMIT_SHA cross-env VITE_APP_ENABLE_TRACKING=true vite build",
+      "vite_version": "5.0.12",
+      "remaining_cra_lint_tooling": "7.0.1",
+      "inference": "Likely obsolete CRA environment reference alongside existing Vite declarations; origin/removal safety is not proven by shallow source history.",
+      "recommendation": "Owner review of candidate removal as likely obsolete, or explicit provisioning if still intended; neither performed. Do not silently install react-scripts, substitute vite/client, or waive the reference.",
+      "source_changes": false,
+      "evidence": [
+        {
+          "file": "package.json",
+          "sha256": "3afad0abc6d241112e95fdd74e111e93f31bc1b7d420a4345326c456706b1d42"
+        },
+        {
+          "file": "excalidraw-app/package.json",
+          "sha256": "8f205d668b7e09fb3c1878688d285c7ed51571434cd53caf27a556d2a5d4038b"
+        },
+        {
+          "file": "packages/excalidraw/package.json",
+          "sha256": "160dabbd052e579a5b7b0e341d653e0739d17d44d68f16be8c1cf893e1e4236d"
+        },
+        {
+          "file": "tsconfig.json",
+          "sha256": "4f3289effdd213d3c0c8fa290645308157f8418aafc0c2cb4a3c459102d54cf6"
+        },
+        {
+          "file": "yarn.lock",
+          "sha256": "a2a92a778255e83a576290948a23db0d05ec4ee994dd43c1d368a3979f16ecd0"
+        },
+        {
+          "file": "packages/excalidraw/react-app-env.d.ts",
+          "sha256": "57eda4c4c04a1dca45c62857326882ce9cc948c4b52973c0e3c3b7e4c3fa3990"
+        },
+        {
+          "file": "packages/excalidraw/vite-env.d.ts",
+          "sha256": "72ebb8cb009923c4f378f04123ce878a46520b9da7c6a82e3779687c2d13fbfd"
+        }
+      ]
+    },
+    "scope": {
+      "config": "project/tsconfig.json",
+      "acquisition_profile": "installed",
+      "link_policy": "in-root",
+      "callable_scope": "direct-annotated-function",
+      "class_authority": false,
+      "case_sensitive": false
+    },
+    "inventory": {
+      "files": 59924,
+      "directories": 9073,
+      "links": 249,
+      "roots": 591,
+      "program": 1445
+    },
+    "resolutions": 6893,
+    "nulls": 603,
+    "refusal_digests": 264,
+    "outside_lookups": true,
+    "diagnostics": 0,
+    "observations": 30,
+    "nested_calls": 53
+  },
+  "review": {
+    "rounds": 2,
+    "cap": 2,
+    "independent": false,
+    "extension": false,
+    "verdict": "SURVIVED",
+    "open_wrong": 0,
+    "edge_controls_are_not_behavioral_red": true
+  },
+  "exclusions": [
+    "Tier-A not triggered: no Rust call-resolution/navigation/CPG/AST changes",
+    "Configured/automatic entry occurrences, config inheritance and causal outside/refused attribution remain separate work",
+    "No app install/config/source change or React.FC/runtime/class/closure admission"
+  ],
+  "raw_archive": {
+    "file": "type-lib-evidence.tgz",
+    "sha256": "1400e1ede80a2ba6a09edfa4721f55bd3675d90a64058ce7d2a8c46270660e05",
+    "bytes": 3762882
+  }
+}

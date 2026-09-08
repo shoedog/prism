@@ -1,5 +1,9 @@
 # Handoff — bounded required-path completeness repair
 
+> Successor reconciliation: PR278 is mergedf8c6982e. The owner authorized
+> [source type/lib observations](2026-09-07-callable-type-lib-observations.md).
+> The publication and pending-work statements below are historical closeout.
+
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · fix/callable-required-path-completeness · **Measured state:** `[MEASURED]` implementation5bdf173, controls0acdf87 and evidence2b21e17 pushed; PR278 open. All local gates and reviews passed; final publication note changes docs only. Probe git status, push result and gh pr create.
 **Predecessor:** PR277 merged8534f4af7bafd069728faa4ebbe4d5fc062e3edd, freshly checked this turn.
