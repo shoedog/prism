@@ -1,7 +1,7 @@
 # Handoff — approved callable-completeness sequence
 
-**Written:** 2026-09-08T09:56Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-semantic-policy-contract · **Measured state:** `[MEASURED]` S6 clean5faf199 full521/4017/4207 plus18/40 passed, one ignored per Rust run/doctests; archiveb06fb9f4, publication next. Producer unchanged63c557. S7 b75dbd6d public oldfields/91409hostoperations/source unchanged, fullreproduction valid; private existing-profile oldfield/source parity also valid, semantic incomplete. `[INHERITED]` S7 independentACCEPT98/40controls and copied546 pass. D2 bounded evidence correction underway; S8 preparing/implementing disposable after RED; S10 contract independently ACCEPT98, docs-only. Probe: full gate summary, source hashes, public/private receipts and independent reviews.
+**Written:** 2026-09-08T09:59Z · **By:** /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-semantic-policy-contract · **Measured state:** `[MEASURED]` S6 PR288 open against PR287, pushed67588fc; clean5faf199 full521/4017/4207 plus18/40 passed, one ignored per Rust run/doctests; archiveb06fb9f4. Producer unchanged63c557. S7 b75dbd6d public oldfields/91409hostoperations/source unchanged, fullreproduction valid; private existing-profile oldfield/source parity also valid, semantic incomplete. `[INHERITED]` S7 independentACCEPT98/40controls and copied546 pass. D2 correction delivered ACCEPT98; S8 disposable implementation authorized after RED; S10 contract independently ACCEPT98, docs-only. Probe: gh create URL, full gate summary, source hashes, public/private receipts and independent reviews.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims name their source.
@@ -17,7 +17,7 @@
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
 2. S2 is published as PR282 against feat/callable-search-classification. S2 full gates are complete:395 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored per Rust run, doctests included. Check CI without auto-merge.
-3. S5 published PR287. Next S6 separate contract/unwired-helper PR, producer stays63c557b5; helperreview99/15tests and8source-backed controls accepted. S7 implementation proceeds on exact preserved S6-equivalent baseline after24 intended REDfailures/16compatcontrols, schema18/0.19, alloldfields unchanged. D2 is source-only classification of20 present JS targets outsideProgram; do not label them missingfiles or waive membership. S10 sourceprep distinguishes static Exact from runtime dispatch and preserves the separate existing imported-Props proof route. No auto-merge.
+3. S6 published PR288; integrate accepted S7 b75dbd6d on a separate branch, then full clean repository gates/archive/PR and checkpoint2 closeout. Preserve alloldfields and strict barriers. D2 corrected source-only classification delivered, primary review/integration in separate PR afterS7; no missingfile/membership waiver. S8 uses byte-frozen v1 plus separate fixed v2 wrapper; historicalschema18 must retain v1. S9 fixed policy merged-side-effect-v3; S10 contract only. No auto-merge.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
 
@@ -40,7 +40,7 @@
 | D1 | published PR285 | Clean7d28638,453/4017/4207 plus18/40, doctests and one ignored per Rust run; archive6fb8d120; checkpoint continue; pushed dde3666 |
 | S4 | published PR286 | Pushed c11f3ec; clean960c99a485/4017/4207 plus18/40; archive0a6ce282; independent final round2 ACCEPT99; public91409/11 transcripts equal |
 | S5 | published PR287 | Pushed6ac9934 against PR286; cleanf7f5ac9506/4017/4207 plus18/40; archive7e8851be; independent97; public5selected/complete/alloldfields/91409 operations equal |
-| S6 | full gates passed | Clean5faf199521/4017/4207 plus18/40; archiveb06fb9f4; producer63c557 unchanged; independent99; publication next |
+| S6 | published PR288 | Pushed67588fc against PR287; clean5faf199521/4017/4207 plus18/40; archiveb06fb9f4; producer63c557 unchanged; independent99 |
 | S7–S10 | in progress | S7 disposable implementation after exactS6-equivalent RED; S10 production-authority contract only. D2 allocated below; D3/H2/H3 remain unused |
 | D2 | source-only audit allocated |20 public filesystem targets present but outsideProgram; source/compiler classification and proof requirements only, separate PR afterS7checkpoint |
 

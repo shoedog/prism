@@ -41,6 +41,7 @@ contract/helper round2 ACCEPT99, WRONG0/SMELL0,15 controls. Review cap two concl
 Full repository gates passed on clean5faf199cfca47a615bf609810ed45d12a2c59ab6:
 521 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored
 per Rust run, doctests included. The [gate receipt](2026-09-08-callable-semantic-policy-gates.json)
-binds raw logs and archiveb06fb9f4. Publication follows; feature-base CI is not
+binds raw logs and archiveb06fb9f4. Published as [PR288](https://github.com/shoedog/prism/pull/288),
+pushed67588fc against PR287; feature-base CI is not
 scheduled by the main-only workflow. No remote-green claim or auto-merge.
 Tier-A is not triggered: no Rust resolution/navigation/CPG/AST code changed.
