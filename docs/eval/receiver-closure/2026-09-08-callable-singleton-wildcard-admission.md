@@ -57,6 +57,9 @@ no manual footer is represented as a native runner aggregate.
 
 Independent review round1/2 ACCEPT98, WRONG0/SMELL0;65 independent focused controls
 passed, including history, empty refusal, tamper before root I/O, reproduction, cap
-and portability. Main source review and public transcript checks agree. Full clean
-repository gates, archive and publication follow integration. Tier-A not triggered:
-no Rust call-resolution/navigation/CPG/AST changes.
+and portability. Main source review and public transcript checks agree.
+[Full repository gates](2026-09-08-callable-singleton-wildcard-gates.json) passed on
+clean8fc6624:571 observer,4017 Rust,4207 MCP,18 helpers,40 authority; doctests included,
+one known ignored per Rust run; fmt/diff passed. Tier-A not triggered: no Rust
+call-resolution/navigation/CPG/AST changes. Local evidence archive8599628 bytes,
+SHA2561c01ca111a07a7273e649d8e0c934e490ded77de186f7dea3a9a13ad41feb41f.
