@@ -92,3 +92,7 @@ doctests included, one known ignored per Rust run, fmt/diff passed. Tier-A was n
 triggered: no Rust call-resolution, navigation, CPG or AST code changed.
 Local raw archive: 8,820,331 bytes, SHA-256
 `44e5056ada0ef6da15665ecca2175bd739a3e3a9f065260d16f48b25fa77f467`.
+
+Published as [PR292](https://github.com/shoedog/prism/pull/292), stacked on PR291.
+Feature-base CI is not scheduled by the main-only workflow filter; local green is
+not a claim of remote checks. No auto-merge.

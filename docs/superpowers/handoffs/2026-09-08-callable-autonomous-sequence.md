@@ -17,7 +17,7 @@
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
 2. S2 is published as PR282 against feat/callable-search-classification. S2 full gates are complete:395 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored per Rust run, doctests included. Check CI without auto-merge.
-3. S8 published as PR291 on PR290, closeout0abad3b pushed. S9 full gates/archive/final review complete; publish on PR291, then S10 docs-only contract/readout. No auto-merge.
+3. S9 published as PR292 on PR291, pushed7387cfd. Finish S10 docs-only contract/readout and final stack-state verification. No auto-merge.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
 
@@ -43,7 +43,7 @@
 | S6 | published PR288 | Pushed67588fc against PR287; clean5faf199521/4017/4207 plus18/40; archiveb06fb9f4; producer63c557 unchanged; independent99 |
 | S7 | published PR289 | Pushed48de24e against PR288; clean59fd6eb546/4017/4207 plus18/40; archivec00ec9c8; independent98; public/private checkpoint continue |
 | S8 | published PR291 | Pushed980657f on PR290; clean8fc6624:571/4017/4207 plus18/40, archive1c01ca11; independent98/65; public parity unchanged |
-| S9 | full gates passed | Cleanb826a668:591/4017/4207 plus18/40, archive44e5056a; independent99; public84merged/36unproven and all old fields/host/source parity; private read-only parity valid/incomplete |
+| S9 | published PR292 | Pushed7387cfd on PR291; cleanb826a668:591/4017/4207 plus18/40, archive44e5056a; independent99; public84merged/36unproven and all old fields/host/source parity; private read-only parity valid/incomplete |
 | S10 | prepared | Primary contract independently accepted98, source blobs/cache77/45 rebound unchanged; docs-only publication after9 |
 | D2 | published PR290 |Pushedca8504d against PR289;20 occurrences/14 present JS targets; sufficient compiler depth-elision branch,9 sourceambient/11 no checker declarations; corrected diagnostic/raw-path capture; archive50724ca2; docs checks pass |
 
