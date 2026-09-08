@@ -68,8 +68,9 @@ Full [repository gates](2026-09-08-callable-module-search-gates.json) passed on 
 implementation HEAD `ac9a0f3bf14fa95862f1e7308bd4d966a4f0e843`: observer395,
 Rust4,017 and MCP4,207 (one known ignored test per Rust run, doctests included),
 helpers18, authority40, fmt/diff. Tier-A was not triggered. Raw logs and provenance
-evidence are archived locally with the receipt in the gate record. Publication is
-next. The [contract](../../superpowers/specs/2026-09-08-callable-module-search-provenance.md)
+evidence are archived locally with the receipt in the gate record. Published as
+[PR282](https://github.com/shoedog/prism/pull/282), stacked on PR281; not auto-merged.
+The [contract](../../superpowers/specs/2026-09-08-callable-module-search-provenance.md)
 and active [handoff](../../superpowers/handoffs/2026-09-08-callable-autonomous-sequence.md)
 define scope. S1's diagnostic capture/audit remains pinned to its exact worker base;
 use that checkout for historical raw-capture replay, not a newer changed worker.
