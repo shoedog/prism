@@ -15,6 +15,7 @@ import {snapshot} from "./inventory.mjs";
 import {createSearchProvenance,classifyBoundary} from "./search-provenance.mjs";
 import {projectSyntheticAddress} from "./identity-domains.mjs";
 import {libraryNameFromLibFile} from "./lib-search.mjs";
+import {createConfigCapture,observeConfigProvenance} from "./config-provenance.mjs";
 
 const options=JSON.parse(readFileSync(0,"utf8"));
 const fail=reason=>{throw Error(reason);};
@@ -77,9 +78,16 @@ function build() {
     getDirectories:f=>entries(f).directories,realpath:f=>{const id=toId(f,"realpath");return id?virtual(id):f;},getCurrentDirectory:()=>virtual("project"),
     readDirectory:(dir,extensions,excludes,includes,depth)=>ts.matchFiles(dir,extensions,excludes,includes,caseSensitive,virtual("project"),depth,entries,f=>{const id=toId(f,"realpath");return id?virtual(id):f;})};
   const configFile=virtual("project/"+options.config);
-  const config=ts.readConfigFile(configFile,read);
-  const parsed=ts.parseJsonConfigFileContent(config.config??{}, {...basic,useCaseSensitiveFileNames:caseSensitive},path.posix.dirname(configFile),undefined,configFile);
+  let rootConfigText;
+  const config=ts.readConfigFile(configFile,f=>{const text=read(f);rootConfigText=text;return text;});
+  const configCapture=createConfigCapture();
+  const parsed=ts.parseJsonConfigFileContent(config.config??{}, {...basic,useCaseSensitiveFileNames:caseSensitive},path.posix.dirname(configFile),undefined,configFile,undefined,undefined,configCapture);
   const configFiles=[...reads].sort();
+  try {
+    packet.config_provenance=observeConfigProvenance({ts,source:rootConfigText===undefined?null:ts.parseJsonText(configFile,rootConfigText),
+      effectiveOptions:parsed.options,capturedRecords:configCapture.capturedRecords,canonicalId:pureId,
+      configReadMembership:new Set(configFiles),inventory:first.files,configDiagnostics:[config.error,...parsed.errors].filter(Boolean),caseSensitive});
+  } catch {packet.config_provenance={status:"unproven",reason:"unavailable",files:[],extends:[],options:[]};}
   if(config.error || parsed.errors.length) reasons.add("invalid_config");
   if(parsed.projectReferences?.length) reasons.add("unsupported_references");
   if(parsed.options.plugins?.length) reasons.add("unsupported_plugins");
