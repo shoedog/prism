@@ -1,7 +1,7 @@
 # Handoff — source type/lib reference observations
 
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-type-lib-observations · **Measured state:** `[MEASURED]` HEADf8c6982e; dirty bounded helper/schema/tests/spec. Probe git status and task-root logs.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-type-lib-observations · **Measured state:** `[MEASURED]` implementation checkpoint118da81 committed; final guard/audit controls added. Probe git status and task-root logs.
 **Predecessor:** PR278 freshly confirmed mergedf8c6982e6b4e10fa74a8be281243eec0e6176883.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,7 +9,7 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Lane: /root only, dedicated fresh branch, no agents dispatched — RESOLVED.
-(b) Custody: `[MEASURED]` uncommitted implementation; task-root RED/spec saved — OPEN until checkpoint.
+(b) Custody: `[MEASURED]` implementation118da81 committed; guard/audit controls and public evidence checkpoint follow — OPEN until publication.
 (c) In flight: MCP Rust gate; final observer/review controls next; no app installs or edits — RESOLVED.
 (d) Owner: "merged, proceed to separate type/lib reference observations and source-backed react-scripts disposition." Commit/push/PR workflow retained; no auto-merge.
 
@@ -30,7 +30,8 @@ configured/automatic entry-channel expansion, React.FC/runtime authority or sile
 | RED | done | `[MEASURED]` red-base.log20/20 fail at absent ledger; red-behavior-base.log two actual false-observed lib failures and one missing-channel failure |
 | Implementation | done | `[MEASURED]` expanded26/26 green; exact-base26 failures, including separately captured behavioral lib failures; wrong global-closure expectation corrected with same-environment type-control.json |
 | Public/disposition | done | `[MEASURED]` source-audit.json:139 directives138 observed1 unresolved; old snapshot/module/receiver fields equal;11 tracked manifests/lock/inventory omit react-scripts; Vite builds/environment declarations support likely obsolete residue, no app edits |
-| Full gates/reviews | pending | `[MEASURED]` initial observer321/321 and helpers7/7; default Rust completed; MCP in progress; expanded final observer and two reviews pending |
+| Full gates | pending | `[MEASURED]` initial observer321/321; helpers7/7; authority40/failures=[]; guard controls8/8; audit controls5/5; historical controls3/3; default Rust completed; MCP/final observer pending |
+| Reviews | done | Two SELF-PASS rounds, NOT INDEPENDENT; actual cache/source/index/mode and migration/forgery/source-disposition checks; no open WRONG; inference wording qualified; no cap extension |
 
 ## 3. Corrections to standing documents and memory
 
@@ -40,8 +41,8 @@ final gates/publication pending. Memory search found no relevant registry entry;
 
 ## 4. Open work
 
-Finish MCP/final observer, negative audit/guard controls and two reviews, then
-durable evidence and publication. Source disposition and public reconciliation done.
+Finish MCP/final observer, durable evidence and publication. Source disposition,
+public reconciliation, guard/audit controls and two reviews done.
 
 ## 5. Invariants and traps — do not do these
 
@@ -64,6 +65,6 @@ durable evidence and publication. Source disposition and public reconciliation d
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** NOT RUN — implementation checkpoint · claim: "source type/lib observations retain actual cache and inclusion identity without closure admission" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: task-root RED and type-control.json; two reviews pending.
+**§2c verdict:** SURVIVED · claim: "source type/lib observations retain actual cache and inclusion identity without closure admission" · pass: two SELF-PASS rounds (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: green-expanded.log26/26, guard-controls.log8/8, audit-controls.json5/5, source-audit.json139 rows; final full gates pending.
 
 **Questions the owner owes an answer to:** None.

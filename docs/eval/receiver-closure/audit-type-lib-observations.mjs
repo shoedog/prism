@@ -48,5 +48,5 @@ console.log(JSON.stringify({schema:'prism.type-lib-source-audit/1',audit_only:tr
   gaps,disposition:{classification:'source-declared unprovisioned type directive',acquisition_failure_proven:false,tracked_package_manifests:packages.length,manifest_declarations:declared,lockfile_mentions:0,installed_provider_files:0,
     app_build:appPackage.scripts['build:app'],vite_version:rootPackage.devDependencies.vite,remaining_cra_lint_tooling:rootPackage.devDependencies['eslint-config-react-app'],
     inference:'Likely obsolete CRA environment reference alongside existing Vite declarations; origin/removal safety is not proven by shallow source history.',
-    recommendation:'Owner-reviewed removal of the obsolete directive, or explicit provisioning if still intended; neither performed. Do not silently install react-scripts, substitute vite/client, or waive the reference.',
+    recommendation:'Owner review of candidate removal as likely obsolete, or explicit provisioning if still intended; neither performed. Do not silently install react-scripts, substitute vite/client, or waive the reference.',
     source_changes:false,evidence:evidenceFiles.map(file=>({file,sha256:hash(tracked.get(file))}))},references:p.type_lib_references},null,2));
