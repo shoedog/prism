@@ -58,8 +58,9 @@ production regressions.
 Independent round 1 found WRONG 0 and three test/evidence SMELLs: incomplete pair
 provider guards, absent genuine-pair inherited-barrier coverage, and an overstated
 baseline-projection count. Its native full run passed 581/581. The reported 30-test
-baseline group actually contained 25 projections plus five pair/parser tests;
-it is not described as 30 projected fixtures.
+baseline group actually contained 24 fixture projections, one digest-only control
+and five pair/parser tests. Primary caught the digest-only distinction in the final
+source census; the native 30/30 total never changed. It is not 30 projected fixtures.
 
 Bounded test-only round 2 adds four order/asset and ten genuine-pair barrier legacy
 comparisons. Direct before/after row assertions are retrospective evidence, not a
@@ -79,6 +80,15 @@ Primary's retrospective final-source four-positive recheck has native totals:
 exact S8 0 pass / 4 fail at the actual unadmitted-versus-merged row assertion before
 schema checking; S9 4 pass / 0 fail; no skips, cancellations or todo in either run.
 This captured row-behavior recheck does not replace the original envelope RED.
-Primary public/source checks are complete; final review and clean repository gates
-will be recorded before publication. Tier-A is not triggered: no Rust call-resolution,
-navigation, CPG or AST code changed.
+Final independent round 2/2 ACCEPT 99/100, WRONG 0 / SMELL 0. Native pair/barrier
+group 15/15 and combined group 40/40 pass: the latter is 38 actual fixture projections,
+one digest-only control and one parser-only control. Final copied full 591/591 passes.
+The standalone review receipt hashes to
+`0bf11cb48d1632320217e197158ecb1fca706a1b825a98c73aea3aba69df64f6`.
+
+[Clean repository gates](2026-09-08-callable-merged-side-effect-gates.json) passed
+on `b826a668`: observer 591, Rust 4,017, MCP 4,207, helpers 18, authority 40;
+doctests included, one known ignored per Rust run, fmt/diff passed. Tier-A was not
+triggered: no Rust call-resolution, navigation, CPG or AST code changed.
+Local raw archive: 8,820,331 bytes, SHA-256
+`44e5056ada0ef6da15665ecca2175bd739a3e3a9f065260d16f48b25fa77f467`.

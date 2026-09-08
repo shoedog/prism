@@ -1,7 +1,7 @@
 # Handoff — approved callable-completeness sequence
 
-**Written:** 2026-09-08T11:23Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-merged-side-effect-admission · **Measured state:** `[MEASURED]` S8 PR291 closeout0abad3b pushed. S9 producer32ae5bc4 integrated; public84merged/36unproven, all old fields/91409 operations/1229 sources unchanged. Final private read-only reproduction valid/incomplete, source unchanged, no install. Retrospective final-source four-positive S8 row RED0/4, S9 GREEN4/4; original envelope RED kept distinct. `[INHERITED]` S9 ongoing round2 finite test-only source-fact assertions closed in frozen51855e9d; final independent review/full repository gates next. S10 contract independentlyACCEPT98. Probe: producer/test hashes, native recheck and public/private receipts.
+**Written:** 2026-09-08T11:28Z · **By:** /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-merged-side-effect-admission · **Measured state:** `[MEASURED]` S9 cleanb826a668 full591/4017/4207 plus18/40 passed, doctests and one ignored per Rust run, fmt/diff. Archive44e5056a. Public84merged/36unproven; all old fields/91409 operations/1229 sources unchanged. Final private read-only reproduction valid/incomplete, no install. `[INHERITED]` final independent S9 round2 ACCEPT99 WRONG0/SMELL0; S10 contract98 and final factual99. Probe: clean gate summary, archive hash, final review receipts and prior replay.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims name their source.
@@ -17,7 +17,7 @@
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
 2. S2 is published as PR282 against feat/callable-search-classification. S2 full gates are complete:395 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored per Rust run, doctests included. Check CI without auto-merge.
-3. S8 published as PR291 on PR290, closeout0abad3b pushed. Finish S9 final round2 review and clean full repository gates/archive/publication on PR291. Primary replay and final-source row RED/GREEN are complete. S10 contract only. No auto-merge.
+3. S8 published as PR291 on PR290, closeout0abad3b pushed. S9 full gates/archive/final review complete; publish on PR291, then S10 docs-only contract/readout. No auto-merge.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
 
@@ -43,7 +43,7 @@
 | S6 | published PR288 | Pushed67588fc against PR287; clean5faf199521/4017/4207 plus18/40; archiveb06fb9f4; producer63c557 unchanged; independent99 |
 | S7 | published PR289 | Pushed48de24e against PR288; clean59fd6eb546/4017/4207 plus18/40; archivec00ec9c8; independent98; public/private checkpoint continue |
 | S8 | published PR291 | Pushed980657f on PR290; clean8fc6624:571/4017/4207 plus18/40, archive1c01ca11; independent98/65; public parity unchanged |
-| S9 | integrated, gates next | Producer32ae5bc4; final test51855e9d direct barrier evidence; public84merged/36unproven and all old fields/host/source parity; private read-only parity valid/incomplete; final review pending |
+| S9 | full gates passed | Cleanb826a668:591/4017/4207 plus18/40, archive44e5056a; independent99; public84merged/36unproven and all old fields/host/source parity; private read-only parity valid/incomplete |
 | S10 | prepared | Primary contract independently accepted98, source blobs/cache77/45 rebound unchanged; docs-only publication after9 |
 | D2 | published PR290 |Pushedca8504d against PR289;20 occurrences/14 present JS targets; sufficient compiler depth-elision branch,9 sourceambient/11 no checker declarations; corrected diagnostic/raw-path capture; archive50724ca2; docs checks pass |
 
