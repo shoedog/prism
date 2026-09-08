@@ -1,0 +1,22 @@
+{
+  "schema": "prism.local-gates/1",
+  "implementation_head": "5faf199cfca47a615bf609810ed45d12a2c59ab6",
+  "clean_before_and_after": true,
+  "finished_at": "2026-09-08T09:55:22.200Z",
+  "observer": {"passed": 521, "failed": 0, "skipped": 0},
+  "rust": {"passed": 4017, "failed": 0, "ignored": 1, "groups": 28},
+  "mcp": {"passed": 4207, "failed": 0, "ignored": 1, "groups": 30},
+  "doctests_included": true,
+  "ignored_test": "resolution_test::slice_elem_variant_reserved",
+  "helpers": {"passed": 18, "failed": 0, "skipped": 0},
+  "authority": {"results": 40, "failures": []},
+  "fmt": "passed",
+  "diff_check": "passed",
+  "tier_a": "not triggered: no call resolution, navigation, CPG or AST changes",
+  "archive": {
+    "local_path": "/private/tmp/prism-overnight-0zmx3n/s6-evidence.tgz",
+    "bytes": 398252,
+    "sha256": "b06fb9f4aae35f40b588c2ab776ed6c5b29adec71b03ba2e43d140dc0a797e7b"
+  },
+  "raw_summary": "gate-logs-2026-09-08T09-43-09-051Z-99514/summary.json"
+}
