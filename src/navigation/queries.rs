@@ -690,7 +690,10 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
         ReceiverRecovery::ReturnTyped => "return_typed",
         ReceiverRecovery::StdWrapperPeel | ReceiverRecovery::TypedLet => "rust_receiver",
     };
+    let c1_census_enabled = std::env::var_os("PRISM_C1_CENSUS").is_some();
     let mut sites = Vec::new();
+    let mut c1_sites = Vec::new();
+    let mut c1_census = Vec::new();
     for site_set in cg.calls.values() {
         for site in site_set {
             let (Some(recv_ty), Some(recovery)) =
@@ -724,6 +727,7 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             );
             let mut visibility_interface = None;
             let mut legacy_bare = false;
+            let mut c1_consult = None;
             let mut dispatch_route;
             let impls: &[FunctionId];
             match &go_route {
@@ -857,6 +861,14 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                     } else {
                         dispatch_route = "unproven_drop";
                         legacy_bare = true;
+                        if c1_census_enabled {
+                            c1_consult = Some(cg.go_bare_interface_consult(
+                                recv_ty,
+                                site.receiver_owner_identity.as_ref(),
+                                &site.callee_name,
+                                &site.caller.file,
+                            ));
+                        }
                         impls = crate::resolution::iface_key(recv_ty)
                             .and_then(|key| {
                                 cg.interface_impls.get(&(key, site.callee_name.clone()))
@@ -904,58 +916,9 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             if legacy_bare && !kept.is_empty() {
                 dispatch_route = "interface_dispatch";
             }
-            let implementers: BTreeSet<String> = kept
-                .iter()
-                .map(|fid| {
-                    cg.method_owners
-                        .get(*fid)
-                        .cloned()
-                        .unwrap_or_else(|| crate::resolution::file_stem(&fid.file).to_string())
-                })
-                .collect();
-            let implementers: Vec<String> = implementers.into_iter().collect();
-            // #14 slice 1: preserve the legacy owner-name wire field above, and add
-            // enough target evidence for the oracle to distinguish same-named Go
-            // implementers across packages, clauses, and build-tagged files. This
-            // intentionally dedupes only identical full target tuples: two methods
-            // named Impl in different build-tag files are distinct Exact-edge targets.
-            let implementer_identities: BTreeSet<_> =
-                kept.iter()
-                    .map(|fid| {
-                        let name =
-                            cg.method_owners.get(*fid).cloned().unwrap_or_else(|| {
-                                crate::resolution::file_stem(&fid.file).to_string()
-                            });
-                        let package_dir = crate::resolution::dir_of(&fid.file).to_string();
-                        let package_clause = cg
-                            .go_file_profiles
-                            .get(&fid.file)
-                            .map(|profile| profile.package_clause.clone());
-                        (
-                            package_dir,
-                            package_clause,
-                            name,
-                            fid.file.clone(),
-                            fid.start_line,
-                            fid.end_line,
-                        )
-                    })
-                    .collect();
-            let implementer_identities: Vec<_> = implementer_identities
-                .into_iter()
-                .map(
-                    |(package_dir, package_clause, name, file, start_line, end_line)| {
-                        serde_json::json!({
-                            "name": name,
-                            "file": file,
-                            "span": [start_line, end_line],
-                            "package_dir": package_dir,
-                            "package_clause": package_clause,
-                        })
-                    },
-                )
-                .collect();
-            sites.push(serde_json::json!({
+            let (implementers, implementer_identities, today_keys) =
+                interface_manifest_implementers(cg, &kept);
+            let site_value = serde_json::json!({
                 "file": site.caller.file,
                 "start_byte": site.start_byte,
                 "end_byte": site.end_byte,
@@ -966,7 +929,101 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                 "fanout": implementers.len(),
                 "implementers": implementers,
                 "implementer_identities": implementer_identities,
-            }));
+            });
+            if let Some(consult) = c1_consult {
+                let c1_kept: Vec<&FunctionId> = consult
+                    .selection
+                    .value
+                    .clone()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter(|target| {
+                        crate::resolution::arity_admits(
+                            site.arg_count,
+                            site.arg_spread,
+                            cg.method_arity.get(*target),
+                        )
+                    })
+                    .collect();
+                let (c1_implementers, c1_identities, c1_keys) =
+                    interface_manifest_implementers(cg, &c1_kept);
+                let identity_route = match consult.identity_route {
+                    crate::resolution::GoBareInterfaceIdentityRoute::ValidatedDirect => {
+                        "validated_direct"
+                    }
+                    crate::resolution::GoBareInterfaceIdentityRoute::IdentityInvalidFallback => {
+                        "identity_invalid_fallback"
+                    }
+                    crate::resolution::GoBareInterfaceIdentityRoute::UniqueIndex => "unique_index",
+                    crate::resolution::GoBareInterfaceIdentityRoute::Missing => "missing",
+                    crate::resolution::GoBareInterfaceIdentityRoute::Collision => "collision",
+                };
+                let fell_back_from_invalid = consult.identity_route
+                    == crate::resolution::GoBareInterfaceIdentityRoute::IdentityInvalidFallback;
+                let walk_disposition = if consult.identity_route
+                    == crate::resolution::GoBareInterfaceIdentityRoute::Collision
+                    || (fell_back_from_invalid && consult.identity_count >= 2)
+                {
+                    "collision_drop"
+                } else if consult.identity_route
+                    == crate::resolution::GoBareInterfaceIdentityRoute::Missing
+                    || (fell_back_from_invalid && consult.identity_count == 0)
+                {
+                    "identity_missing_drop"
+                } else if consult.selection.evidence.conflict {
+                    "walk_conflict_drop"
+                } else if consult.selection.evidence.uncertain {
+                    "walk_uncertain_drop"
+                } else if c1_kept.is_empty() {
+                    "walk_or_arity_empty"
+                } else if consult.fallback_fired {
+                    "fallback_hit"
+                } else {
+                    "live_hit"
+                };
+                let mut c1_site = site_value.clone();
+                c1_site["dispatch_route"] = if c1_kept.is_empty() {
+                    serde_json::json!(walk_disposition)
+                } else {
+                    serde_json::json!("interface_dispatch")
+                };
+                c1_site["fanout"] = serde_json::json!(c1_implementers.len());
+                c1_site["implementers"] = serde_json::json!(c1_implementers);
+                c1_site["implementer_identities"] = serde_json::json!(c1_identities);
+                let lost: Vec<_> = today_keys.difference(&c1_keys).cloned().collect();
+                let added: Vec<_> = c1_keys.difference(&today_keys).cloned().collect();
+                c1_census.push(serde_json::json!({
+                    "file": site.caller.file,
+                    "start_byte": site.start_byte,
+                    "end_byte": site.end_byte,
+                    "line": site.line,
+                    "receiver_type": recv_ty,
+                    "method": site.callee_name,
+                    "identity_route": identity_route,
+                    "identity_valid": consult.identity_valid,
+                    "route": identity_route,
+                    "identity_count": consult.identity_count,
+                    "interface_owner": consult.interface_owner,
+                    "walk_disposition": walk_disposition,
+                    "walk_uncertain": consult.selection.evidence.uncertain,
+                    "walk_conflict": consult.selection.evidence.conflict,
+                    "all_satisfiers": consult.all_satisfiers,
+                    "live_satisfiers": consult.live_satisfiers,
+                    "fallback_fired": consult.fallback_fired,
+                    "promoted_conflict_drop": consult.promoted.conflict_drop,
+                    "promoted_variant_drop": consult.promoted.variant_drop,
+                    "promoted_invariant_drop": consult.promoted.invariant_drop,
+                    "promoted_signature_drop": consult.promoted.signature_drop,
+                    "today": site_value,
+                    "c1": c1_site,
+                    "lost_targets": lost,
+                    "added_targets": added,
+                }));
+                c1_sites.push(c1_site);
+            } else if c1_census_enabled {
+                c1_sites.push(site_value.clone());
+            }
+            sites.push(site_value);
         }
     }
     // `interface_dispatch_computed` (review MINOR 6): false on a raw build_direct_subset
@@ -974,6 +1031,8 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
     // not "no dispatch found". The CLI feeds a full-build graph, so this is true in practice.
     serde_json::json!({
         "sites": sites,
+        "c1_sites": c1_sites,
+        "c1_census": c1_census,
         "interface_dispatch_computed": cg.interface_dispatch_computed,
         "go_promoted_snapshot": {
             "owners": cg.go_promoted_selector_snapshot().owners.len(),
@@ -981,6 +1040,75 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             "promoted_methods": cg.go_promoted_selector_snapshot().promoted_methods(),
         },
     })
+}
+
+fn interface_manifest_implementers(
+    cg: &CallGraph,
+    kept: &[&FunctionId],
+) -> (Vec<String>, Vec<serde_json::Value>, BTreeSet<String>) {
+    let implementers: BTreeSet<String> = kept
+        .iter()
+        .map(|fid| {
+            cg.method_owners
+                .get(*fid)
+                .cloned()
+                .unwrap_or_else(|| crate::resolution::file_stem(&fid.file).to_string())
+        })
+        .collect();
+    let identities: BTreeSet<_> = kept
+        .iter()
+        .map(|fid| {
+            let name = cg
+                .method_owners
+                .get(*fid)
+                .cloned()
+                .unwrap_or_else(|| crate::resolution::file_stem(&fid.file).to_string());
+            let package_dir = crate::resolution::dir_of(&fid.file).to_string();
+            let package_clause = cg
+                .go_file_profiles
+                .get(&fid.file)
+                .map(|profile| profile.package_clause.clone());
+            (
+                package_dir,
+                package_clause,
+                name,
+                fid.file.clone(),
+                fid.start_line,
+                fid.end_line,
+            )
+        })
+        .collect();
+    let keys = identities
+        .iter()
+        .map(
+            |(package_dir, package_clause, name, file, start_line, end_line)| {
+                format!(
+                    "{}|{}|{}|{}:{}-{}",
+                    package_dir,
+                    package_clause.as_deref().unwrap_or(""),
+                    name,
+                    file,
+                    start_line,
+                    end_line
+                )
+            },
+        )
+        .collect();
+    let identities = identities
+        .into_iter()
+        .map(
+            |(package_dir, package_clause, name, file, start_line, end_line)| {
+                serde_json::json!({
+                    "name": name,
+                    "file": file,
+                    "span": [start_line, end_line],
+                    "package_dir": package_dir,
+                    "package_clause": package_clause,
+                })
+            },
+        )
+        .collect();
+    (implementers.into_iter().collect(), identities, keys)
 }
 
 fn confidence_score(c: crate::resolution::ResolutionConfidence) -> f32 {
