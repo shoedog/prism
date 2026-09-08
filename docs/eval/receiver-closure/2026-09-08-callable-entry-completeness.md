@@ -31,8 +31,12 @@ expected file list yields506/506 with standard compiler/profile env only. Final
 focused21/21 and explicit frozen-S4 old-field parity13/13 pass. Frozen S4 was never
 edited. Independent round1/2 ACCEPT97, WRONG0/SMELL0,21 independent controls.
 
-Full clean repository gates and archive/publication follow. No installed/private
-source changes, runtime/class authority or semantic-closure admission. Automatic
+Full repository gates passed on clean f7f5ac941d3b62ef0330537b39e5b4b116ab72ab:
+506 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored
+per Rust run, doctests included. The [gate receipt](2026-09-08-callable-entry-completeness-gates.json)
+binds raw logs and archive7e8851be. Publication follows; feature-base CI is not
+scheduled by the main-only workflow, so no remote-green claim. Tier-A not triggered.
+No installed/private source changes, runtime/class authority or semantic admission. Automatic
 discovery and source-based lib suppression intentionally remain unproven where the
 bounded contract cannot establish them; no discovered-work reserve is spent to
 manufacture a positive result.
