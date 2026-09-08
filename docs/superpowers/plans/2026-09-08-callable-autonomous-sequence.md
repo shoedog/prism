@@ -22,7 +22,7 @@ Task root: `/private/tmp/prism-overnight-0zmx3n`.
 | 8 | Singleton wildcard admission | disposable RED captured; fixed v2 wrapper implementation authorized | binding separate from assets/runtime; historicalschema18 staysv1 |
 | 9 | Supported merged wildcard pair admission | pending | side-effect pair only, contributor/selection barriers |
 | 10 | First production-authority contract | draft independently ACCEPT98; publication after9 | spec and public-seam RED requirements; no runtime consumer implementation |
-| D2 | Present JS targets outside configured Program | corrected source audit accepted; public spec/report prepared | classification/proof requirements only, no membership or closure waiver |
+| D2 | Present JS targets outside configured Program | corrected source audit/spec/report integrated; docs-only checks/publication next | classification/proof requirements only, no membership or closure waiver |
 | D3 | Remaining discovered work reserve | unused | record cause and exact scope before use |
 | H1 | Canonical source versus synthetic lookup identity contract | PR283 open on PR282; full gates passed | unwired pure helper; no current producer change; precedes3 |
 | H2–H3 | Remaining fix/hardening reserve | unused | closed enumerable findings; no silent restart |

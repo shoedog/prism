@@ -1,0 +1,1127 @@
+{
+  "schema": "prism.d2-out-of-program-audit/2",
+  "audit_only": true,
+  "closure_admission": false,
+  "second_resolution": false,
+  "normal_packet_sha256": "7eab1ef833f04c19a86880c7a55ead36b5165e6200b34fca2c77bd97c4a64d15",
+  "normal_producer": {
+    "version": "0.18.0",
+    "sha256": "63c557b55cbfcb1b357cfb8b33b3ba40f632dc83a40534911d6bf49a572cae7f"
+  },
+  "instrumented_producer": {
+    "version": "0.18.0",
+    "sha256": "2c28068edf38f5fb8ca6ca8b837c140e005d15190f4e183de532b6a6b6e2d055"
+  },
+  "non_producer_packet_equal": true,
+  "project_reference_count": 0,
+  "effective": {
+    "allowJs": true,
+    "checkJs": false,
+    "noImplicitAny": true,
+    "noResolve": false,
+    "maxNodeModuleJsDepth": 0
+  },
+  "count": 20,
+  "classification_counts": {
+    "no_checker_declaration": 11,
+    "source_exact_ambient": 9
+  },
+  "population": [
+    {
+      "request_id": 1780,
+      "from": "project/packages/excalidraw/data/blob.ts",
+      "specifier": "image-blob-reduce",
+      "target": "project/node_modules/image-blob-reduce/index.js",
+      "mode": null,
+      "context": "dynamic_import",
+      "request": {
+        "file": "project/packages/excalidraw/data/blob.ts",
+        "sha256": "a9c9e0d53540de9eaa20eea51ed320b5ecdeeca1da0578e41f507ad3ff60f84c",
+        "kind": "StringLiteral",
+        "start_utf16": 10834,
+        "end_utf16": 10853,
+        "start_byte": 10834,
+        "end_byte": 10853
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 17,
+      "source_import_count": 18,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/image-blob-reduce/index.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": true,
+        "flags": 512,
+        "name": "\"image-blob-reduce\"",
+        "declarations": [
+          {
+            "file": "project/packages/excalidraw/global.d.ts",
+            "sha256": "d7679fa3bf5d6b64bc2a526070ad97f0d653e22579c6d9056b3ce94e53750814",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 2290,
+            "end_utf16": 2990,
+            "start_byte": 2294,
+            "end_byte": 2994
+          }
+        ],
+        "declaration_kinds": [
+          "ModuleDeclaration"
+        ],
+        "declaration_sources_in_program": [
+          true
+        ]
+      },
+      "ambient": {
+        "providers": [
+          {
+            "file": "project/packages/excalidraw/global.d.ts",
+            "sha256": "d7679fa3bf5d6b64bc2a526070ad97f0d653e22579c6d9056b3ce94e53750814",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 2290,
+            "end_utf16": 2990,
+            "start_byte": 2294,
+            "end_byte": 2994
+          }
+        ],
+        "augmentations": [],
+        "source_exact": true
+      },
+      "classification": "source_exact_ambient"
+    },
+    {
+      "request_id": 1895,
+      "from": "project/packages/excalidraw/data/image.ts",
+      "specifier": "png-chunk-text",
+      "target": "project/node_modules/png-chunk-text/index.js",
+      "mode": null,
+      "context": "import",
+      "request": {
+        "file": "project/packages/excalidraw/data/image.ts",
+        "sha256": "414bf5beb41337f809080a6ab68a174349c814cd2ab07ff98bba2d4eb8c3cd93",
+        "kind": "StringLiteral",
+        "start_utf16": 17,
+        "end_utf16": 33,
+        "start_byte": 17,
+        "end_byte": 33
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 1,
+      "source_import_count": 7,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/png-chunk-text/index.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": true,
+        "flags": 512,
+        "name": "\"png-chunk-text\"",
+        "declarations": [
+          {
+            "file": "project/packages/excalidraw/global.d.ts",
+            "sha256": "d7679fa3bf5d6b64bc2a526070ad97f0d653e22579c6d9056b3ce94e53750814",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 1165,
+            "end_utf16": 1369,
+            "start_byte": 1165,
+            "end_byte": 1369
+          }
+        ],
+        "declaration_kinds": [
+          "ModuleDeclaration"
+        ],
+        "declaration_sources_in_program": [
+          true
+        ]
+      },
+      "ambient": {
+        "providers": [
+          {
+            "file": "project/packages/excalidraw/global.d.ts",
+            "sha256": "d7679fa3bf5d6b64bc2a526070ad97f0d653e22579c6d9056b3ce94e53750814",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 1165,
+            "end_utf16": 1369,
+            "start_byte": 1165,
+            "end_byte": 1369
+          }
+        ],
+        "augmentations": [],
+        "source_exact": true
+      },
+      "classification": "source_exact_ambient"
+    },
+    {
+      "request_id": 1896,
+      "from": "project/packages/excalidraw/data/image.ts",
+      "specifier": "png-chunks-encode",
+      "target": "project/node_modules/png-chunks-encode/index.js",
+      "mode": null,
+      "context": "import",
+      "request": {
+        "file": "project/packages/excalidraw/data/image.ts",
+        "sha256": "414bf5beb41337f809080a6ab68a174349c814cd2ab07ff98bba2d4eb8c3cd93",
+        "kind": "StringLiteral",
+        "start_utf16": 57,
+        "end_utf16": 76,
+        "start_byte": 57,
+        "end_byte": 76
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 2,
+      "source_import_count": 7,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/png-chunks-encode/index.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": true,
+        "flags": 512,
+        "name": "\"png-chunks-encode\"",
+        "declarations": [
+          {
+            "file": "project/packages/excalidraw/global.d.ts",
+            "sha256": "d7679fa3bf5d6b64bc2a526070ad97f0d653e22579c6d9056b3ce94e53750814",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 1370,
+            "end_utf16": 1492,
+            "start_byte": 1370,
+            "end_byte": 1492
+          }
+        ],
+        "declaration_kinds": [
+          "ModuleDeclaration"
+        ],
+        "declaration_sources_in_program": [
+          true
+        ]
+      },
+      "ambient": {
+        "providers": [
+          {
+            "file": "project/packages/excalidraw/global.d.ts",
+            "sha256": "d7679fa3bf5d6b64bc2a526070ad97f0d653e22579c6d9056b3ce94e53750814",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 1370,
+            "end_utf16": 1492,
+            "start_byte": 1370,
+            "end_byte": 1492
+          }
+        ],
+        "augmentations": [],
+        "source_exact": true
+      },
+      "classification": "source_exact_ambient"
+    },
+    {
+      "request_id": 1897,
+      "from": "project/packages/excalidraw/data/image.ts",
+      "specifier": "png-chunks-extract",
+      "target": "project/node_modules/png-chunks-extract/index.js",
+      "mode": null,
+      "context": "import",
+      "request": {
+        "file": "project/packages/excalidraw/data/image.ts",
+        "sha256": "414bf5beb41337f809080a6ab68a174349c814cd2ab07ff98bba2d4eb8c3cd93",
+        "kind": "StringLiteral",
+        "start_utf16": 100,
+        "end_utf16": 120,
+        "start_byte": 100,
+        "end_byte": 120
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 3,
+      "source_import_count": 7,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/png-chunks-extract/index.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": true,
+        "flags": 512,
+        "name": "\"png-chunks-extract\"",
+        "declarations": [
+          {
+            "file": "project/packages/excalidraw/global.d.ts",
+            "sha256": "d7679fa3bf5d6b64bc2a526070ad97f0d653e22579c6d9056b3ce94e53750814",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 1493,
+            "end_utf16": 1605,
+            "start_byte": 1493,
+            "end_byte": 1605
+          }
+        ],
+        "declaration_kinds": [
+          "ModuleDeclaration"
+        ],
+        "declaration_sources_in_program": [
+          true
+        ]
+      },
+      "ambient": {
+        "providers": [
+          {
+            "file": "project/packages/excalidraw/global.d.ts",
+            "sha256": "d7679fa3bf5d6b64bc2a526070ad97f0d653e22579c6d9056b3ce94e53750814",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 1493,
+            "end_utf16": 1605,
+            "start_byte": 1493,
+            "end_byte": 1605
+          }
+        ],
+        "augmentations": [],
+        "source_exact": true
+      },
+      "classification": "source_exact_ambient"
+    },
+    {
+      "request_id": 4010,
+      "from": "project/node_modules/undici-types/dispatcher.d.ts",
+      "specifier": "events",
+      "target": "project/node_modules/events/events.js",
+      "mode": null,
+      "context": "import",
+      "request": {
+        "file": "project/node_modules/undici-types/dispatcher.d.ts",
+        "sha256": "6bdc71028db658243775263e93a7db2fd2abfce3ca569c3cca5aee6ed5eb186d",
+        "kind": "StringLiteral",
+        "start_utf16": 107,
+        "end_utf16": 115,
+        "start_byte": 107,
+        "end_byte": 115
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 2,
+      "source_import_count": 8,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/events/events.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": true,
+        "flags": 512,
+        "name": "\"events\"",
+        "declarations": [
+          {
+            "file": "project/node_modules/@types/node/events.d.ts",
+            "sha256": "88bc59b32d0d5b4e5d9632ac38edea23454057e643684c3c0b94511296f2998c",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 1568,
+            "end_utf16": 43075,
+            "start_byte": 1568,
+            "end_byte": 43075
+          }
+        ],
+        "declaration_kinds": [
+          "ModuleDeclaration"
+        ],
+        "declaration_sources_in_program": [
+          true
+        ]
+      },
+      "ambient": {
+        "providers": [
+          {
+            "file": "project/node_modules/@types/node/events.d.ts",
+            "sha256": "88bc59b32d0d5b4e5d9632ac38edea23454057e643684c3c0b94511296f2998c",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 1568,
+            "end_utf16": 43075,
+            "start_byte": 1568,
+            "end_byte": 43075
+          }
+        ],
+        "augmentations": [],
+        "source_exact": true
+      },
+      "classification": "source_exact_ambient"
+    },
+    {
+      "request_id": 4121,
+      "from": "project/node_modules/@types/node/dom-events.d.ts",
+      "specifier": "events",
+      "target": "project/node_modules/events/events.js",
+      "mode": null,
+      "context": "import",
+      "request": {
+        "file": "project/node_modules/@types/node/dom-events.d.ts",
+        "sha256": "ee1ee365d88c4c6c0c0a5a5701d66ebc27ccd0bcfcfaa482c6e2e7fe7b98edf7",
+        "kind": "StringLiteral",
+        "start_utf16": 5135,
+        "end_utf16": 5143,
+        "start_byte": 5135,
+        "end_byte": 5143
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 0,
+      "source_import_count": 1,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/events/events.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": true,
+        "flags": 512,
+        "name": "\"events\"",
+        "declarations": [
+          {
+            "file": "project/node_modules/@types/node/events.d.ts",
+            "sha256": "88bc59b32d0d5b4e5d9632ac38edea23454057e643684c3c0b94511296f2998c",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 1568,
+            "end_utf16": 43075,
+            "start_byte": 1568,
+            "end_byte": 43075
+          }
+        ],
+        "declaration_kinds": [
+          "ModuleDeclaration"
+        ],
+        "declaration_sources_in_program": [
+          true
+        ]
+      },
+      "ambient": {
+        "providers": [
+          {
+            "file": "project/node_modules/@types/node/events.d.ts",
+            "sha256": "88bc59b32d0d5b4e5d9632ac38edea23454057e643684c3c0b94511296f2998c",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 1568,
+            "end_utf16": 43075,
+            "start_byte": 1568,
+            "end_byte": 43075
+          }
+        ],
+        "augmentations": [],
+        "source_exact": true
+      },
+      "classification": "source_exact_ambient"
+    },
+    {
+      "request_id": 4189,
+      "from": "project/node_modules/@types/node/process.d.ts",
+      "specifier": "events",
+      "target": "project/node_modules/events/events.js",
+      "mode": null,
+      "context": "import_type",
+      "request": {
+        "file": "project/node_modules/@types/node/process.d.ts",
+        "sha256": "5f6f1d54779d0b9ed152b0516b0958cd34889764c1190434bbf18e7a8bb884cd",
+        "kind": "StringLiteral",
+        "start_utf16": 1677,
+        "end_utf16": 1685,
+        "start_byte": 1677,
+        "end_byte": 1685
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 31,
+      "source_import_count": 115,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/events/events.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": true,
+        "flags": 512,
+        "name": "\"events\"",
+        "declarations": [
+          {
+            "file": "project/node_modules/@types/node/events.d.ts",
+            "sha256": "88bc59b32d0d5b4e5d9632ac38edea23454057e643684c3c0b94511296f2998c",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 1568,
+            "end_utf16": 43075,
+            "start_byte": 1568,
+            "end_byte": 43075
+          }
+        ],
+        "declaration_kinds": [
+          "ModuleDeclaration"
+        ],
+        "declaration_sources_in_program": [
+          true
+        ]
+      },
+      "ambient": {
+        "providers": [
+          {
+            "file": "project/node_modules/@types/node/events.d.ts",
+            "sha256": "88bc59b32d0d5b4e5d9632ac38edea23454057e643684c3c0b94511296f2998c",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 1568,
+            "end_utf16": 43075,
+            "start_byte": 1568,
+            "end_byte": 43075
+          }
+        ],
+        "augmentations": [],
+        "source_exact": true
+      },
+      "classification": "source_exact_ambient"
+    },
+    {
+      "request_id": 4219,
+      "from": "project/node_modules/@types/node/process.d.ts",
+      "specifier": "punycode",
+      "target": "project/node_modules/punycode/punycode.js",
+      "mode": null,
+      "context": "import_type",
+      "request": {
+        "file": "project/node_modules/@types/node/process.d.ts",
+        "sha256": "5f6f1d54779d0b9ed152b0516b0958cd34889764c1190434bbf18e7a8bb884cd",
+        "kind": "StringLiteral",
+        "start_utf16": 3279,
+        "end_utf16": 3289,
+        "start_byte": 3279,
+        "end_byte": 3289
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 63,
+      "source_import_count": 115,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/punycode/punycode.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": true,
+        "flags": 512,
+        "name": "\"punycode\"",
+        "declarations": [
+          {
+            "file": "project/node_modules/@types/node/punycode.d.ts",
+            "sha256": "3f16a7e4deafa527ed9995a772bb380eb7d3c2c0fd4ae178c5263ed18394db2c",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 1700,
+            "end_utf16": 5389,
+            "start_byte": 1704,
+            "end_byte": 5413
+          }
+        ],
+        "declaration_kinds": [
+          "ModuleDeclaration"
+        ],
+        "declaration_sources_in_program": [
+          true
+        ]
+      },
+      "ambient": {
+        "providers": [
+          {
+            "file": "project/node_modules/@types/node/punycode.d.ts",
+            "sha256": "3f16a7e4deafa527ed9995a772bb380eb7d3c2c0fd4ae178c5263ed18394db2c",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 1700,
+            "end_utf16": 5389,
+            "start_byte": 1704,
+            "end_byte": 5413
+          }
+        ],
+        "augmentations": [],
+        "source_exact": true
+      },
+      "classification": "source_exact_ambient"
+    },
+    {
+      "request_id": 4239,
+      "from": "project/node_modules/@types/node/process.d.ts",
+      "specifier": "string_decoder",
+      "target": "project/node_modules/string_decoder/lib/string_decoder.js",
+      "mode": null,
+      "context": "import_type",
+      "request": {
+        "file": "project/node_modules/@types/node/process.d.ts",
+        "sha256": "5f6f1d54779d0b9ed152b0516b0958cd34889764c1190434bbf18e7a8bb884cd",
+        "kind": "StringLiteral",
+        "start_utf16": 4413,
+        "end_utf16": 4429,
+        "start_byte": 4413,
+        "end_byte": 4429
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 83,
+      "source_import_count": 115,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/string_decoder/lib/string_decoder.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": true,
+        "flags": 512,
+        "name": "\"string_decoder\"",
+        "declarations": [
+          {
+            "file": "project/node_modules/@types/node/string_decoder.d.ts",
+            "sha256": "2754d8221d77c7b382096651925eb476f1066b3348da4b73fe71ced7801edada",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 1489,
+            "end_utf16": 2742,
+            "start_byte": 1496,
+            "end_byte": 2749
+          }
+        ],
+        "declaration_kinds": [
+          "ModuleDeclaration"
+        ],
+        "declaration_sources_in_program": [
+          true
+        ]
+      },
+      "ambient": {
+        "providers": [
+          {
+            "file": "project/node_modules/@types/node/string_decoder.d.ts",
+            "sha256": "2754d8221d77c7b382096651925eb476f1066b3348da4b73fe71ced7801edada",
+            "kind": "ModuleDeclaration",
+            "start_utf16": 1489,
+            "end_utf16": 2742,
+            "start_byte": 1496,
+            "end_byte": 2749
+          }
+        ],
+        "augmentations": [],
+        "source_exact": true
+      },
+      "classification": "source_exact_ambient"
+    },
+    {
+      "request_id": 4649,
+      "from": "project/packages/excalidraw/index.tsx",
+      "specifier": "canvas-roundrect-polyfill",
+      "target": "project/node_modules/canvas-roundrect-polyfill/roundRect.js",
+      "mode": null,
+      "context": "dynamic_import",
+      "request": {
+        "file": "project/packages/excalidraw/index.tsx",
+        "sha256": "496d053b21e589a739270db978bc4114b345b10478243fbb0fd99622a538c958",
+        "kind": "StringLiteral",
+        "start_utf16": 4095,
+        "end_utf16": 4122,
+        "start_byte": 4095,
+        "end_byte": 4122
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 52,
+      "source_import_count": 53,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/canvas-roundrect-polyfill/roundRect.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": false,
+        "flags": null,
+        "name": null,
+        "declarations": [],
+        "declaration_kinds": [],
+        "declaration_sources_in_program": []
+      },
+      "ambient": {
+        "providers": [],
+        "augmentations": [],
+        "source_exact": false
+      },
+      "classification": "no_checker_declaration"
+    },
+    {
+      "request_id": 4737,
+      "from": "project/packages/excalidraw/tests/test-utils.ts",
+      "specifier": "pepjs",
+      "target": "project/node_modules/pepjs/dist/pep.js",
+      "mode": null,
+      "context": "import",
+      "request": {
+        "file": "project/packages/excalidraw/tests/test-utils.ts",
+        "sha256": "a39e3ac551e15e3ac2176082ac58ff7caf86e15303ff2c000a150250a3058ef7",
+        "kind": "StringLiteral",
+        "start_utf16": 7,
+        "end_utf16": 14,
+        "start_byte": 7,
+        "end_byte": 14
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 1,
+      "source_import_count": 16,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/pepjs/dist/pep.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": false,
+        "flags": null,
+        "name": null,
+        "declarations": [],
+        "declaration_kinds": [],
+        "declaration_sources_in_program": []
+      },
+      "ambient": {
+        "providers": [],
+        "augmentations": [],
+        "source_exact": false
+      },
+      "classification": "no_checker_declaration"
+    },
+    {
+      "request_id": 6540,
+      "from": "project/node_modules/@vitejs/plugin-react/dist/index.d.ts",
+      "specifier": "@babel/core",
+      "target": "project/node_modules/@babel/core/lib/index.js",
+      "mode": null,
+      "context": "import",
+      "request": {
+        "file": "project/node_modules/@vitejs/plugin-react/dist/index.d.ts",
+        "sha256": "8bfd1a53124627d97ecf8c479d0a94566713e8af269e83256c20d2adb4f190c0",
+        "kind": "StringLiteral",
+        "start_utf16": 48,
+        "end_utf16": 61,
+        "start_byte": 48,
+        "end_byte": 61
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 0,
+      "source_import_count": 2,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/@babel/core/lib/index.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": false,
+        "flags": null,
+        "name": null,
+        "declarations": [],
+        "declaration_kinds": [],
+        "declaration_sources_in_program": []
+      },
+      "ambient": {
+        "providers": [],
+        "augmentations": [],
+        "source_exact": false
+      },
+      "classification": "no_checker_declaration"
+    },
+    {
+      "request_id": 6548,
+      "from": "project/node_modules/@svgr/core/dist/index.d.ts",
+      "specifier": "prettier",
+      "target": "project/node_modules/prettier/index.js",
+      "mode": null,
+      "context": "import",
+      "request": {
+        "file": "project/node_modules/@svgr/core/dist/index.d.ts",
+        "sha256": "fe1baccba85e2af0fdaca57b32b34f3fd602609bb0b29aeb0609000dbcd75446",
+        "kind": "StringLiteral",
+        "start_utf16": 24,
+        "end_utf16": 34,
+        "start_byte": 24,
+        "end_byte": 34
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 0,
+      "source_import_count": 4,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/prettier/index.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": false,
+        "flags": null,
+        "name": null,
+        "declarations": [],
+        "declaration_kinds": [],
+        "declaration_sources_in_program": []
+      },
+      "ambient": {
+        "providers": [],
+        "augmentations": [],
+        "source_exact": false
+      },
+      "classification": "no_checker_declaration"
+    },
+    {
+      "request_id": 6551,
+      "from": "project/node_modules/@svgr/core/dist/index.d.ts",
+      "specifier": "@babel/core",
+      "target": "project/node_modules/@babel/core/lib/index.js",
+      "mode": null,
+      "context": "import",
+      "request": {
+        "file": "project/node_modules/@svgr/core/dist/index.d.ts",
+        "sha256": "fe1baccba85e2af0fdaca57b32b34f3fd602609bb0b29aeb0609000dbcd75446",
+        "kind": "StringLiteral",
+        "start_utf16": 171,
+        "end_utf16": 184,
+        "start_byte": 171,
+        "end_byte": 184
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 3,
+      "source_import_count": 4,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/@babel/core/lib/index.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": false,
+        "flags": null,
+        "name": null,
+        "declarations": [],
+        "declaration_kinds": [],
+        "declaration_sources_in_program": []
+      },
+      "ambient": {
+        "providers": [],
+        "augmentations": [],
+        "source_exact": false
+      },
+      "classification": "no_checker_declaration"
+    },
+    {
+      "request_id": 6552,
+      "from": "project/node_modules/@svgr/babel-preset/dist/index.d.ts",
+      "specifier": "@babel/core",
+      "target": "project/node_modules/@babel/core/lib/index.js",
+      "mode": null,
+      "context": "import",
+      "request": {
+        "file": "project/node_modules/@svgr/babel-preset/dist/index.d.ts",
+        "sha256": "ae18a824baa6829b4b687f4e678d97c2b3f0ee75a82e2cff792180002f1e2a82",
+        "kind": "StringLiteral",
+        "start_utf16": 26,
+        "end_utf16": 39,
+        "start_byte": 26,
+        "end_byte": 39
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 0,
+      "source_import_count": 2,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/@babel/core/lib/index.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": false,
+        "flags": null,
+        "name": null,
+        "declarations": [],
+        "declaration_kinds": [],
+        "declaration_sources_in_program": []
+      },
+      "ambient": {
+        "providers": [],
+        "augmentations": [],
+        "source_exact": false
+      },
+      "classification": "no_checker_declaration"
+    },
+    {
+      "request_id": 6554,
+      "from": "project/node_modules/@svgr/babel-plugin-transform-svg-component/dist/index.d.ts",
+      "specifier": "@babel/core",
+      "target": "project/node_modules/@babel/core/lib/index.js",
+      "mode": null,
+      "context": "import",
+      "request": {
+        "file": "project/node_modules/@svgr/babel-plugin-transform-svg-component/dist/index.d.ts",
+        "sha256": "3d922ac35e7bd201c09c71d0a3be9cab0ac41bdd0d5115f2734c8555629e5414",
+        "kind": "StringLiteral",
+        "start_utf16": 43,
+        "end_utf16": 56,
+        "start_byte": 43,
+        "end_byte": 56
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 0,
+      "source_import_count": 2,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/@babel/core/lib/index.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": false,
+        "flags": null,
+        "name": null,
+        "declarations": [],
+        "declaration_kinds": [],
+        "declaration_sources_in_program": []
+      },
+      "ambient": {
+        "providers": [],
+        "augmentations": [],
+        "source_exact": false
+      },
+      "classification": "no_checker_declaration"
+    },
+    {
+      "request_id": 6555,
+      "from": "project/node_modules/@svgr/babel-plugin-transform-svg-component/dist/index.d.ts",
+      "specifier": "@babel/template",
+      "target": "project/node_modules/@babel/template/lib/index.js",
+      "mode": null,
+      "context": "import",
+      "request": {
+        "file": "project/node_modules/@svgr/babel-plugin-transform-svg-component/dist/index.d.ts",
+        "sha256": "3d922ac35e7bd201c09c71d0a3be9cab0ac41bdd0d5115f2734c8555629e5414",
+        "kind": "StringLiteral",
+        "start_utf16": 90,
+        "end_utf16": 107,
+        "start_byte": 90,
+        "end_byte": 107
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 1,
+      "source_import_count": 2,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/@babel/template/lib/index.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": false,
+        "flags": null,
+        "name": null,
+        "declarations": [],
+        "declaration_kinds": [],
+        "declaration_sources_in_program": []
+      },
+      "ambient": {
+        "providers": [],
+        "augmentations": [],
+        "source_exact": false
+      },
+      "classification": "no_checker_declaration"
+    },
+    {
+      "request_id": 6557,
+      "from": "project/node_modules/vite-plugin-ejs/index.d.ts",
+      "specifier": "ejs",
+      "target": "project/node_modules/ejs/lib/ejs.js",
+      "mode": null,
+      "context": "import",
+      "request": {
+        "file": "project/node_modules/vite-plugin-ejs/index.d.ts",
+        "sha256": "10106cfade7b80899d51a6023f03b693e9b52f89f31fa98184de5502f1b6d775",
+        "kind": "StringLiteral",
+        "start_utf16": 63,
+        "end_utf16": 68,
+        "start_byte": 63,
+        "end_byte": 68
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 1,
+      "source_import_count": 2,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/ejs/lib/ejs.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": false,
+        "flags": null,
+        "name": null,
+        "declarations": [],
+        "declaration_kinds": [],
+        "declaration_sources_in_program": []
+      },
+      "ambient": {
+        "providers": [],
+        "augmentations": [],
+        "source_exact": false
+      },
+      "classification": "no_checker_declaration"
+    },
+    {
+      "request_id": 6840,
+      "from": "project/node_modules/vite-plugin-html/dist/index.d.ts",
+      "specifier": "ejs",
+      "target": "project/node_modules/ejs/lib/ejs.js",
+      "mode": null,
+      "context": "import",
+      "request": {
+        "file": "project/node_modules/vite-plugin-html/dist/index.d.ts",
+        "sha256": "68ce1dfdccaf8d3faceb5243d06edbaad60ffc71b8b85139046b474e70e38da1",
+        "kind": "StringLiteral",
+        "start_utf16": 93,
+        "end_utf16": 98,
+        "start_byte": 93,
+        "end_byte": 98
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 1,
+      "source_import_count": 3,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/ejs/lib/ejs.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": false,
+        "flags": null,
+        "name": null,
+        "declarations": [],
+        "declaration_kinds": [],
+        "declaration_sources_in_program": []
+      },
+      "ambient": {
+        "providers": [],
+        "augmentations": [],
+        "source_exact": false
+      },
+      "classification": "no_checker_declaration"
+    },
+    {
+      "request_id": 6841,
+      "from": "project/node_modules/vite-plugin-html/dist/index.d.ts",
+      "specifier": "html-minifier-terser",
+      "target": "project/node_modules/html-minifier-terser/src/htmlminifier.js",
+      "mode": null,
+      "context": "import",
+      "request": {
+        "file": "project/node_modules/vite-plugin-html/dist/index.d.ts",
+        "sha256": "68ce1dfdccaf8d3faceb5243d06edbaad60ffc71b8b85139046b474e70e38da1",
+        "kind": "StringLiteral",
+        "start_utf16": 124,
+        "end_utf16": 146,
+        "start_byte": 124,
+        "end_byte": 146
+      },
+      "target_in_inventory": true,
+      "target_in_program": false,
+      "source_in_program": true,
+      "source_import_index": 2,
+      "source_import_count": 3,
+      "jsdoc_reference": false,
+      "raw_resolution": {
+        "resolved_file_name": "/__prism__/project/node_modules/html-minifier-terser/src/htmlminifier.js",
+        "original_path": null,
+        "extension": ".js",
+        "external": true,
+        "resolver_diagnostic_codes": []
+      },
+      "checker": {
+        "symbol": false,
+        "flags": null,
+        "name": null,
+        "declarations": [],
+        "declaration_kinds": [],
+        "declaration_sources_in_program": []
+      },
+      "ambient": {
+        "providers": [],
+        "augmentations": [],
+        "source_exact": false
+      },
+      "classification": "no_checker_declaration"
+    }
+  ]
+}
