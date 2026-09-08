@@ -8,6 +8,7 @@ import {traceProvenance} from "./provenance.mjs";
 import {observeNested} from "./nested.mjs";
 import {observePropsClasses} from "./props-class.mjs";
 import {observeExactAmbient} from "./exact-ambient.mjs";
+import {hasUnprovenRequiredPath} from "./required-paths.mjs";
 import {snapshot} from "./inventory.mjs";
 
 const options=JSON.parse(readFileSync(0,"utf8"));
@@ -138,6 +139,7 @@ function build() {
     visit(sf);
   }
   observeExactAmbient(ts,program,checker,lookupRequests,anchor,anchorInSource);
+  if(hasUnprovenRequiredPath(program,toId,read))reasons.add("unproven_path_reference");
   const second=snapshot(options);
   if(first.digest!==second.digest)reasons.add("unstable_snapshot");
   if(outside)reasons.add("outside_lookup");
@@ -146,8 +148,8 @@ function build() {
   if(!complete)for(const o of packet.observations)for(const c of o.nested.calls) {
     if(c.props_class.status==="observed"){c.props_class.status="unproven";c.props_class.reason="program_unproven";}
   }
-  packet.closure={stable_snapshot:first.digest===second.digest,dependencies:!outside && !refused.size && !packet.diagnostics.length && !reasons.has("unresolved_module"),
-    references:!reasons.has("unsupported_references"),augmentation:complete,resolution:complete};
+  packet.closure={stable_snapshot:first.digest===second.digest,dependencies:!outside && !refused.size && !packet.diagnostics.length && !reasons.has("unresolved_module") && !reasons.has("unproven_path_reference"),
+    references:!reasons.has("unsupported_references") && !reasons.has("unproven_path_reference"),augmentation:complete,resolution:complete};
   packet.compiler.library_sha256=hash(canonical(first.manifest.filter(f=>f.id.startsWith("compiler/"))));
   packet.snapshot={sha256:first.digest,files:first.manifest,directories:first.dirs,links:first.links,
     roots:parsed.fileNames.map(toId).sort(),config_files:configFiles,program_files:program.getSourceFiles().map(f=>toId(f.fileName)).sort(),

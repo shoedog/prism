@@ -66,11 +66,13 @@ const nested=object({calls:array(object({call:anchor,receiver:anchor,receiver_ty
 const reasons=array(x=>[
   "budget_exceeded","unsupported_input","compiler_mismatch","unstable_snapshot",
   "compiler_diagnostics","unsupported_references","unsupported_plugins",
-  "outside_lookup","unsupported_lookup","unresolved_module","invalid_config","worker_failed",
+  "outside_lookup","unsupported_lookup","unresolved_module","unproven_path_reference","invalid_config","worker_failed",
 ].includes(x));
 const packet=object({
   schema:literal(SCHEMA),authorizes_runtime_edge:literal(false),
-  producer:object({version:literal("0.11.0"),sha256:digest}),
+  // Historical schema10 packets remain readable for pinned audit tooling.
+  // validate() still requires exact reproduction by the current producer.
+  producer:object({version:x=>["0.11.0","0.11.1"].includes(x),sha256:digest}),
   compiler:object({version:literal("5.9.3"),sha256:literal(COMPILER_HASH),verified:boolean,library_sha256:digest}),
   scope:object({config:id,acquisition_profile:x=>typeof x==="string" && Object.hasOwn(PROFILES,x),link_policy:x=>["reject","in-root"].includes(x),callable_scope:literal("direct-annotated-function"),class_authority:literal(false),case_sensitive:nullable(boolean)}),
   status:x=>["observed","unproven"].includes(x),reasons,
@@ -97,6 +99,9 @@ export function parsePacket(text) {
   if(!value.scope.config.startsWith("project/")) throw Error("invalid_packet");
   if(value.status==="observed" && (value.reasons.length || !value.compiler.verified || Object.values(value.closure).some(x=>!x))) throw Error("invalid_packet");
   if(value.status==="unproven" && !value.reasons.length) throw Error("invalid_packet");
+  if(value.reasons.includes("unproven_path_reference") && (value.producer.version!=="0.11.1"
+    || value.status!=="unproven" || value.closure.dependencies || value.closure.references
+    || value.closure.augmentation || value.closure.resolution))throw Error("invalid_packet");
   const refused=value.snapshot.refused_lookup_sha256;
   if(refused.some((v,i)=>i>0 && v<=refused[i-1])
     || !!refused.length!==value.reasons.includes("unsupported_lookup")
