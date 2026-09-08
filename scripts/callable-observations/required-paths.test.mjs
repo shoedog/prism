@@ -6,10 +6,10 @@ const implementation=process.env.PRISM_CALLABLE_IMPLEMENTATION;
 const moduleURL=f=>implementation?pathToFileURL(path.join(implementation,f)):new URL(f,import.meta.url);
 const {produce,validate}=await import(moduleURL('index.mjs'));
 const {parsePacket,hash,canonical,COMPILER_HASH}=await import(moduleURL('schema.mjs'));
-const {classifySemanticClosureV2}=await import(moduleURL('semantic-closure-v2.mjs'));
+const {classifySemanticClosureV3}=await import(moduleURL('semantic-closure-v3.mjs'));
 const compiler=process.env.PRISM_TYPESCRIPT;assert(compiler);assert.equal(hash(readFileSync(compiler)),COMPILER_HASH);
 function refreshSemantic(p){const observed=p.config_provenance.status==='observed',option=observed&&p.config_provenance.options.find(r=>r.name==='noResolve');
-  p.semantic_closure=classifySemanticClosureV2({compilerVerified:p.compiler.verified,stableSnapshot:p.closure.stable_snapshot,
+  p.semantic_closure=classifySemanticClosureV3({compilerVerified:p.compiler.verified,stableSnapshot:p.closure.stable_snapshot,
     configObserved:observed,entryComplete:p.entry_obligations.complete,noResolve:option?.present===true&&option.value_sha256===hash(canonical({present:true,value:true})),
     diagnosticCount:p.diagnostics.length,globalReasons:p.reasons,outside:p.snapshot.outside_lookups,refusedCount:p.snapshot.refused_lookup_sha256.length,
     boundaryCount:p.search_provenance.boundary_events.length,programFiles:p.snapshot.program_files,resolutions:p.resolutions});}

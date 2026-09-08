@@ -33,7 +33,7 @@ an unproven observation exits0. Read the JSON, not just the exit code.
 
 ## Meaning of the packet
 
-Producer0.20.0 retains the path-completeness repair: required triple-slash
+Producer0.21.0 retains the path-completeness repair: required triple-slash
 paths are checked independently of `skipLibCheck`/`noCheck` diagnostics. Each
 original-source directive needs a compiler-cache target and matching source/index
 inclusion record. Missing, self-referential, unsupported or unprocessed paths add
@@ -67,7 +67,7 @@ sources' directives ARE included in the source ledger, not invented as entries.
 The public `react-scripts` directive is now explicitly unresolved, not installed,
 substituted or waived. Both runtime/class authority flags remain false.
 Historical schema10 (producer0.11.0/0.11.1), schema11 (producer0.12.0),
-schema12 (producer0.13.0), schema13 (producer0.14.0), schema14 (producer0.15.0), schema15 (producer0.16.0), schema16 (producer0.17.0), schema17 (producer0.18.0) and schema18 (producer0.19.0) packets
+schema12 (producer0.13.0), schema13 (producer0.14.0), schema14 (producer0.15.0), schema15 (producer0.16.0), schema16 (producer0.17.0), schema17 (producer0.18.0), schema18 (producer0.19.0) and schema19 (producer0.20.0) packets
 remain parseable without invented reference/entry rows for pinned audits, but
 cannot validate as current output; validation
 recomputes the producer identity and every field.
@@ -120,23 +120,24 @@ implicit types remain automatic_discovery_unproven even if all listed automatic
 names resolve or no names are listed. Explicit types:[] is a configured choice.
 The parser recomputes the whole field; no existing closure bit or reason changes.
 
-`semantic_closure` implements the [strict singleton-wildcard contract](../../docs/superpowers/specs/2026-09-08-callable-singleton-wildcard-admission.md)
-as an additive type-source completeness field. Fixed policy singleton-wildcard-v2
-admits selected Program targets and existing observed singleton exact-ambient or
-singleton-wildcard null-target bindings. Merged lanes remain withheld. The byte-frozen
-v1 classifier still governs historical schema18; newer policy is never selected by
+`semantic_closure` implements the [strict merged-side-effect contract](../../docs/superpowers/specs/2026-09-08-callable-merged-side-effect-admission.md)
+as an additive type-source completeness field. Fixed policy merged-side-effect-v3
+retains selected Program targets, observed singleton exact-ambient and singleton
+wildcard bindings, and admits only the existing observed empty-block/shorthand
+side-effect pair. Assets and typed/value imports do not gain authority. Byte-frozen
+v1/v2 classifiers govern historical schema18/19; newer policy is never selected by
 a caller or retroactively applied to older packets. Every outside/refused event, config,
 entry, source-reference and diagnostic barrier remains independently mandatory.
 No old status/reason/closure/Props field changes; even semantic complete can coexist
 with old unresolved_module and program_unproven. Full reproduction authenticates
 the facts; no runtime/asset authority or production consumer is added.
 
-The strict executable v19 schema is `schema.mjs` (`parsePacket`). It freezes these
+The strict executable v20 schema is `schema.mjs` (`parsePacket`). It freezes these
 groups, rejecting unknown fields and unsafe IDs before project access:
 
 | Group | Meaning |
 |---|---|
-| schema / authorizes_runtime_edge | prism.callable-observation/19; authority is always false; historical schemas10/11/12/13/14/15/16/17/18 remain readable, earlier schemas reject before root access |
+| schema / authorizes_runtime_edge | prism.callable-observation/20; authority is always false; historical schemas10/11/12/13/14/15/16/17/18/19 remain readable, earlier schemas reject before root access |
 | producer / compiler | Tool-byte digest; required compiler version/hash, whether actually verified, full compiler-lib inventory digest |
 | scope | Relative config, acquisition profile, link policy, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
 | status / reasons / closure | observed means this bounded Program completed without the enumerated closure failures; unproven records limitations. Neither means a receiver or class is proven |
@@ -147,7 +148,7 @@ groups, rejecting unknown fields and unsafe IDs before project access:
 | search_provenance | Module occurrences, type batches/occurrences/executions, actual lib searches/positive beneficiaries, and outside/refused boundary events with nullable module/type/lib owners; exact row and legacy aggregate reconciliation; no complete lexical or search-channel census |
 | config_provenance | Bounded root-first canonical config anchors, exact extends edges, seven ordered option-origin/value digests; all and only successful config reads; unproven chains have empty arrays |
 | entry_obligations | Exact ordered entry dispositions and conservative config/automatic-universe/row completeness; independently recomputed, no old closure effect |
-| semantic_closure | Fixed singleton-wildcard-v2 type-source completeness (schema18 retains exact-ambient-v1), exact ordered resolution dispositions and strict aggregate barriers; recomputed from validated facts; no old status/closure or receiver authority effect |
+| semantic_closure | Fixed merged-side-effect-v3 type-source completeness (schema18 retains v1, schema19 retains v2), exact ordered resolution dispositions and strict aggregate barriers; recomputed from validated facts; no old status/closure or receiver authority effect |
 | resolutions[].lookup | Actual request anchor/context, checker declarations and configured-Program exact-name provider/augmentation census; observed means singleton exact-ambient binding only, never filesystem or closure authority |
 | resolutions[].lookup.wildcard | Independent nullable single-star binding observation: pattern, original-source providers, relevant augmentations and matching-provider census; never asset-existence or closure authority |
 | resolutions[].lookup.merged_wildcard | Separate nullable side-effect-only empty-block/shorthand pair observation; checker-ordered source shapes and actual selected value declaration; old wildcard refusal remains unchanged |

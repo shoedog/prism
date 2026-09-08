@@ -4,12 +4,14 @@ import {libFileForReference,libraryNameFromLibFile} from './lib-search.mjs';
 import {classifyEntryObligations} from './entry-obligations.mjs';
 import {classifySemanticClosure,SEMANTIC_CLOSURE_POLICY} from './semantic-closure.mjs';
 import {classifySemanticClosureV2,SEMANTIC_CLOSURE_POLICY_V2} from './semantic-closure-v2.mjs';
+import {classifySemanticClosureV3,SEMANTIC_CLOSURE_POLICY_V3} from './semantic-closure-v3.mjs';
 const SCHEMA14="prism.callable-observation/14";
 const SCHEMA15="prism.callable-observation/15";
 const SCHEMA16="prism.callable-observation/16";
 const SCHEMA17="prism.callable-observation/17";
 const SCHEMA18="prism.callable-observation/18";
-export const SCHEMA="prism.callable-observation/19";
+const SCHEMA19="prism.callable-observation/19";
+export const SCHEMA="prism.callable-observation/20";
 export const REFERENCE_LIMIT=100000;
 export const referenceKey=r=>JSON.stringify([r.request.file,r.kind,r.index]);
 export const entryKey=r=>JSON.stringify([r.kind,r.index]);
@@ -146,12 +148,14 @@ const packet17=object({...referenceShape,schema:literal(SCHEMA17),producer:objec
   search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),lib_searches:array(libSearch),boundary_events:array(boundaryEvent(searchOwner))}),config_provenance:configProvenance,entry_obligations:entryObligations});
 const packet18=object({...referenceShape,schema:literal(SCHEMA18),producer:object({version:literal('0.19.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
   search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),lib_searches:array(libSearch),boundary_events:array(boundaryEvent(searchOwner))}),config_provenance:configProvenance,entry_obligations:entryObligations,semantic_closure:semanticClosure(SEMANTIC_CLOSURE_POLICY)});
-const packet19=object({...referenceShape,schema:literal(SCHEMA),producer:object({version:literal('0.20.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
+const packet19=object({...referenceShape,schema:literal(SCHEMA19),producer:object({version:literal('0.20.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
   search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),lib_searches:array(libSearch),boundary_events:array(boundaryEvent(searchOwner))}),config_provenance:configProvenance,entry_obligations:entryObligations,semantic_closure:semanticClosure(SEMANTIC_CLOSURE_POLICY_V2)});
+const packet20=object({...referenceShape,schema:literal(SCHEMA),producer:object({version:literal('0.21.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
+  search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),lib_searches:array(libSearch),boundary_events:array(boundaryEvent(searchOwner))}),config_provenance:configProvenance,entry_obligations:entryObligations,semantic_closure:semanticClosure(SEMANTIC_CLOSURE_POLICY_V3)});
 export function parsePacket(text) {
   if(typeof text!=="string" || Buffer.byteLength(text)>MAX_PACKET_BYTES) throw Error("invalid_packet");
   const value=JSON.parse(text);
-  if(!packet10(value)&&!packet11(value)&&!packet12(value)&&!packet13(value)&&!packet14(value)&&!packet15(value)&&!packet16(value)&&!packet17(value)&&!packet18(value)&&!packet19(value)) throw Error("invalid_packet");
+  if(!packet10(value)&&!packet11(value)&&!packet12(value)&&!packet13(value)&&!packet14(value)&&!packet15(value)&&!packet16(value)&&!packet17(value)&&!packet18(value)&&!packet19(value)&&!packet20(value)) throw Error("invalid_packet");
   const profile=PROFILES[value.scope.acquisition_profile];
   if(Buffer.byteLength(text)>profile.packet_bytes)throw Error("invalid_packet");
   const files=new Map(value.snapshot.files.map(f=>[f.id,f]));
@@ -160,7 +164,7 @@ export function parsePacket(text) {
   if(!value.scope.config.startsWith("project/")) throw Error("invalid_packet");
   if(value.status==="observed" && (value.reasons.length || !value.compiler.verified || Object.values(value.closure).some(x=>!x))) throw Error("invalid_packet");
   if(value.status==="unproven" && !value.reasons.length) throw Error("invalid_packet");
-  if(value.reasons.includes("unproven_path_reference") && (!["0.11.1","0.12.0","0.13.0","0.14.0","0.15.0","0.16.0","0.17.0","0.18.0","0.19.0","0.20.0"].includes(value.producer.version)
+  if(value.reasons.includes("unproven_path_reference") && (!["0.11.1","0.12.0","0.13.0","0.14.0","0.15.0","0.16.0","0.17.0","0.18.0","0.19.0","0.20.0","0.21.0"].includes(value.producer.version)
     || value.status!=="unproven" || value.closure.dependencies || value.closure.references
     || value.closure.augmentation || value.closure.resolution))throw Error("invalid_packet");
   const refused=value.snapshot.refused_lookup_sha256;
@@ -262,7 +266,7 @@ export function parsePacket(text) {
       usedLinks.add(link);coveredRows.add(rowLink);
     }
     const expectedRows=new Set();
-    if([SCHEMA14,SCHEMA15,SCHEMA16,SCHEMA17,SCHEMA18,SCHEMA].includes(value.schema)) {
+    if([SCHEMA14,SCHEMA15,SCHEMA16,SCHEMA17,SCHEMA18,SCHEMA19,SCHEMA].includes(value.schema)) {
       for(const batch of typeBatches) {
         if(batch.origin==='source'?!programFiles.has(batch.from):batch.from!==inferredFrom)throw Error('invalid_packet');
         const rows=(batch.origin==='source'?references.filter(r=>r.kind==='types'&&r.request.file===batch.from)
@@ -304,7 +308,7 @@ export function parsePacket(text) {
   }
   const references=value.type_lib_references??[],unproven=references.some(r=>r.status==='unproven');
   if(unproven!==value.reasons.includes('unproven_type_lib_reference')
-    || unproven&&(!['prism.callable-observation/11','prism.callable-observation/12','prism.callable-observation/13',SCHEMA14,SCHEMA15,SCHEMA16,SCHEMA17,SCHEMA18,SCHEMA].includes(value.schema)||value.status!=='unproven'||value.closure.dependencies
+    || unproven&&(!['prism.callable-observation/11','prism.callable-observation/12','prism.callable-observation/13',SCHEMA14,SCHEMA15,SCHEMA16,SCHEMA17,SCHEMA18,SCHEMA19,SCHEMA].includes(value.schema)||value.status!=='unproven'||value.closure.dependencies
       ||value.closure.references||value.closure.augmentation||value.closure.resolution))throw Error('invalid_packet');
   for(const [i,r] of references.entries()) {
     checkAnchor(r.request);
@@ -438,10 +442,10 @@ export function parsePacket(text) {
       for(const q of h.qualifiers){[q.use,...q.declarations].forEach(checkAnchor);q.aliases.forEach(checkAlias);}
     }
   }
-  if(value.schema===SCHEMA18||value.schema===SCHEMA) {
+  if(value.schema===SCHEMA18||value.schema===SCHEMA19||value.schema===SCHEMA) {
     const configObserved=value.config_provenance.status==='observed';
     const noResolveOption=configObserved&&value.config_provenance.options.find(row=>row.name==='noResolve');
-    const classify=value.schema===SCHEMA18?classifySemanticClosure:classifySemanticClosureV2;
+    const classify=value.schema===SCHEMA18?classifySemanticClosure:value.schema===SCHEMA19?classifySemanticClosureV2:classifySemanticClosureV3;
     const expected=classify({compilerVerified:value.compiler.verified,
       stableSnapshot:value.closure.stable_snapshot,configObserved,entryComplete:value.entry_obligations.complete,
       noResolve:noResolveOption?.present===true

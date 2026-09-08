@@ -20,7 +20,7 @@ Task root: `/private/tmp/prism-overnight-0zmx3n`.
 | 6 | Bounded closure-policy contract | PR288 open on PR287; clean5faf199 full521/4017/4207 plus18/40 passed | additive semantic observation only; no denied-space waiver or old-bit reinterpretation |
 | 7 | Singleton exact ambient admission + value checkpoint | PR289 open on PR288; clean59fd6eb full546/4017/4207 plus18/40 passed; checkpoint continue | additive semantic_closure; all oldfields and outside/refused barriers retained |
 | 8 | Singleton wildcard admission | PR291 open on PR290; clean8fc6624 full571/4017/4207 plus18/40 passed | binding separate from assets/runtime; historicalschema18 staysv1 |
-| 9 | Supported merged wildcard pair admission | candidate32ae5bc4; independent round1 WRONG0/SMELL3 test/evidence gaps; bounded test-only repair | side-effect pair only, contributor/selection barriers; fixedv3, oldpolicies frozen |
+| 9 | Supported merged wildcard pair admission | integrated32ae5bc4; finite round2 test repairs frozen51855e9d; public84merged/36unproven and oldfield/host/source parity; full gates next | side-effect pair only, contributor/selection barriers; fixedv3, oldpolicies frozen |
 | 10 | First production-authority contract | draft independently ACCEPT98; publication after9 | spec and public-seam RED requirements; no runtime consumer implementation |
 | D2 | Present JS targets outside configured Program | PR290 open on PR289; docs-only checks passed | classification/proof requirements only, no membership or closure waiver |
 | D3 | Remaining discovered work reserve | unused | record cause and exact scope before use |

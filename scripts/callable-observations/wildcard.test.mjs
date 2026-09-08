@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';import path from 'node:path';import {tmpdir} from 'node:os';
 import {produce,validate} from './index.mjs';
 import {hash,canonical} from './schema.mjs';
-import {classifySemanticClosureV2} from './semantic-closure-v2.mjs';
+import {classifySemanticClosureV3} from './semantic-closure-v3.mjs';
 const compiler=process.env.PRISM_TYPESCRIPT;assert(compiler,'pinned compiler required');
 const app='class Client{m(){}}type View<P>=(p:P)=>void;export const run:View<{client:Client}>=({client})=>{const cb=()=>client.m();};';
 const provider='declare module "*.asset" {export const value:string;export interface Thing{x:number}}';
@@ -24,7 +24,7 @@ function withheld(p){assert.equal(p.status,'unproven');assert(p.reasons.includes
   assert.equal(p.authorizes_runtime_edge,false);assert.equal(p.scope.class_authority,false);
   assert.equal(p.observations.at(-1).nested.calls[0].props_class.reason,'program_unproven');}
 function refreshSemantic(p){const observed=p.config_provenance.status==='observed',option=observed&&p.config_provenance.options.find(r=>r.name==='noResolve');
-  p.semantic_closure=classifySemanticClosureV2({compilerVerified:p.compiler.verified,stableSnapshot:p.closure.stable_snapshot,
+  p.semantic_closure=classifySemanticClosureV3({compilerVerified:p.compiler.verified,stableSnapshot:p.closure.stable_snapshot,
     configObserved:observed,entryComplete:p.entry_obligations.complete,noResolve:option?.present===true&&option.value_sha256===hash(canonical({present:true,value:true})),
     diagnosticCount:p.diagnostics.length,globalReasons:p.reasons,outside:p.snapshot.outside_lookups,refusedCount:p.snapshot.refused_lookup_sha256.length,
     boundaryCount:p.search_provenance.boundary_events.length,programFiles:p.snapshot.program_files,resolutions:p.resolutions});}
