@@ -1,7 +1,7 @@
 # Handoff — approved callable-completeness sequence
 
-**Written:** 2026-09-08T06:38Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-module-search-provenance · **Measured state:** `[MEASURED]` base c57c3549 (published PR281); owned S2 source/tests/docs integrated and ready for stable commit. Producer hash7ea9f31c2da12979fcb1d395492ed6ec0c0564fdc1b6cce27c75d79f71c0a369 exactly matches the verified disposable candidate. Probe: git status and producerHash equality.
+**Written:** 2026-09-08T06:54Z · **By:** /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-module-search-provenance · **Measured state:** `[MEASURED]` implementation ac9a0f3bf14fa95862f1e7308bd4d966a4f0e843 passed all seven gates on clean unchanged HEAD; this documentation closeout follows. Producer hash7ea9f31c2da12979fcb1d395492ed6ec0c0564fdc1b6cce27c75d79f71c0a369 exactly matches the verified disposable candidate. Probe: runner summary and git status.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims name their source.
@@ -16,8 +16,8 @@
 ## 1. Resume order
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
-2. Commit the owned S2 source/tests/docs, then run `node /private/tmp/prism-overnight-0zmx3n/run-gates.mjs /Users/wesleyjinks/code/slicing /private/tmp/prism-overnight-0zmx3n` on that clean stable HEAD. Expect395 observer tests plus full Rust/MCP/helper/authority gates.
-3. Archive S2 evidence, publish a stacked PR against feat/callable-search-classification, then integrate the reviewed S3-T candidate. S3-T then D1-L precede checkpoint one. Source-backed primary designs: task-root/s2-design.md and s3-design.md. Do not auto-merge PR281 or later stacks.
+2. Commit the S2 gate closeout, push and open its stacked PR against feat/callable-search-classification. S2 full gates are complete:395 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored per Rust run, doctests included.
+3. S2 evidence archive is12,344,595 bytes, SHA256 fbec2ea2bb9642475ea96fd307f5b09a5f80cca1fd9f034d35c80bfae24fe461. Then integrate the reviewed S3-T candidate. S3-T then D1-L precede checkpoint one. Source-backed primary designs: task-root/s2-design.md and s3-design.md. S4 draft source review is in progress. Do not auto-merge PR281 or later stacks.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
 
@@ -33,7 +33,8 @@
 | S1 publication | done | `[MEASURED]` PR281 open, pushed d43dd54 and2ce3b00; do not auto-merge |
 | S2 implementation/review | done | `[MEASURED]` integrated producer7ea9f31c; final expanded15/15, helper3/3; independent ACCEPT WRONG0, one remaining documented integration-coverage SMELL |
 | S2 public parity | done | `[MEASURED]` s2-public-parity.json: old fields equal,91409 identical basic-host operations; s2-capture-parity.json ordered requests/events equal; validation reproduced/unproven;1229 sources unchanged |
-| S2 full gates/publication | next | Stable commit then full gates; interim disposable393 passed before two mode controls, not final395 claim |
+| S2 full gates | done | `[MEASURED]` clean ac9a0f3: observer395, Rust4017/1 ignored, MCP4207/1 ignored, helpers18, authority40, fmt/diff; archive receipt recorded |
+| S2 publication | next | Commit gate closeout and publish stacked PR |
 | S3-T | next | Disposable implementation with exact type cache/mode/occurrence contract |
 | D1 / S4–S10 | pending | D1 allocated to separately cached lib searches/beneficiary semantics; other reserves unused |
 
@@ -53,8 +54,8 @@ No relevant memory registry hit; no memory edits.
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | S1 publication | done | Check CI, retain open PR for owner merge | None | PR281 |
-| 2 | Module provenance verification | next | Stable commit, full gates and stacked PR | None | S2 |
+| 1 | S1 publication | done | `[MEASURED]` c57c354 CI test/clippy/format/matrix passed; coverage still running; retain open PR for owner merge | None | PR281 |
+| 2 | Module provenance publication | next | Commit gate closeout and stacked PR | None | S2 |
 | 3 | Type provenance implementation | next | Review disposable S3-T delivery against adopted design | S2 publication | S3-T |
 
 ## 5. Invariants and traps — do not do these
@@ -83,6 +84,6 @@ No relevant memory registry hit; no memory edits.
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED · claim: "module provenance preserves existing compiler outcomes and search operations without admission" · pass: primary round one plus INDEPENDENT final round two by boundary_audit · evidence tier: TEST-BACKED · record: s2-public-parity.json, s2-capture-parity.json, s2-expanded-final-green.log15/15; full S2 gates pending. Historical12 candidate regression corrected; review cap two converged without extension. Out-of-root resolved target integration fixture not claimed (helper/static coverage only).
+**§2c verdict:** SURVIVED · claim: "module provenance preserves existing compiler outcomes and search operations without admission" · pass: primary round one plus INDEPENDENT final round two by boundary_audit · evidence tier: TEST-BACKED · record: s2-public-parity.json, s2-capture-parity.json, s2-expanded-final-green.log15/15; full S2 gates passed on clean ac9a0f3. Historical12 candidate regression corrected; review cap two converged without extension. Out-of-root resolved target integration fixture not claimed (helper/static coverage only).
 
 **Questions the owner owes an answer to:** None at this checkpoint.

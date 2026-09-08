@@ -47,5 +47,5 @@
     "tests": 3,
     "passed": 3
   },
-  "full_gates": "pending"
+  "full_gates": "2026-09-08-callable-module-search-gates.json"
 }

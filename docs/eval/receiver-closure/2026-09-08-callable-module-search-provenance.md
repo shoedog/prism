@@ -41,8 +41,8 @@ these new-helper tests are not claimed as production RED.
 Final review requested positive non-null mode coverage. Two additional NodeNext
 import/require controls fail on exact S1 at the missing-ledger assertion and pass
 on the candidate; the final expanded file passes15/15. The complete disposable
-observer suite passed393/393 before those two additions; the final repository
-suite must therefore cover395 tests. Do not confuse that interim total with final gates.
+observer suite passed393/393 before those two additions; the final clean repository
+suite passed395/395 including both. Do not confuse the interim total with final gates.
 
 WRONG found and corrected during candidate review: the schema migration's source-
 reference version guard omitted historical schema12. The genuine PR280 packet
@@ -64,7 +64,12 @@ order against S1's diagnostic capture, including anchors/owners/digests/operatio
 Two review rounds converged, no open-class issue or review-cap extension.
 All1,229 public source files were freshly rechecked unchanged.
 
-Full repository gates and publication are pending. The [contract](../../superpowers/specs/2026-09-08-callable-module-search-provenance.md)
+Full [repository gates](2026-09-08-callable-module-search-gates.json) passed on clean
+implementation HEAD `ac9a0f3bf14fa95862f1e7308bd4d966a4f0e843`: observer395,
+Rust4,017 and MCP4,207 (one known ignored test per Rust run, doctests included),
+helpers18, authority40, fmt/diff. Tier-A was not triggered. Raw logs and provenance
+evidence are archived locally with the receipt in the gate record. Publication is
+next. The [contract](../../superpowers/specs/2026-09-08-callable-module-search-provenance.md)
 and active [handoff](../../superpowers/handoffs/2026-09-08-callable-autonomous-sequence.md)
 define scope. S1's diagnostic capture/audit remains pinned to its exact worker base;
 use that checkout for historical raw-capture replay, not a newer changed worker.
