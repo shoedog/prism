@@ -16,7 +16,7 @@ Task root: `/private/tmp/prism-overnight-0zmx3n`.
 | 3 | Type-search provenance | PR284 open on PR283; full gates passed | actual configured/source channels; preserve batch/global caches |
 | D1 | Shared lib-search/beneficiary semantics + first value checkpoint | PR285 open on PR284; full gates passed; checkpoint continue | separate global lib cache; beneficiaries are not causal demands |
 | 4 | Bounded local configuration provenance | PR286 open on PR285; full gates passed on960c99a | local extends/options origin, no plugins/project references |
-| 5 | Entry-obligation completeness | full gates passed onf7f5ac9; publication next | conservative automatic-discovery/suppression unknown; no old-bit defect claim |
+| 5 | Entry-obligation completeness | PR287 open on PR286; full gates passed onf7f5ac9 | conservative automatic-discovery/suppression unknown; no old-bit defect claim |
 | 6 | Bounded closure-policy contract | strict contract/helper accepted final99; separate unwired PR next | additive semantic observation only; no denied-space waiver or old-bit reinterpretation |
 | 7 | Singleton exact ambient admission + value checkpoint | disposable implementation after24 intended REDfailures/16controls | additive semantic_closure; all oldfields and outside/refused barriers retained |
 | 8 | Singleton wildcard admission | pending | binding separate from assets/runtime |

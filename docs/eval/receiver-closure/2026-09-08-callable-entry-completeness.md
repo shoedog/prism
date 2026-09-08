@@ -34,7 +34,8 @@ edited. Independent round1/2 ACCEPT97, WRONG0/SMELL0,21 independent controls.
 Full repository gates passed on clean f7f5ac941d3b62ef0330537b39e5b4b116ab72ab:
 506 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored
 per Rust run, doctests included. The [gate receipt](2026-09-08-callable-entry-completeness-gates.json)
-binds raw logs and archive7e8851be. Publication follows; feature-base CI is not
+binds raw logs and archive7e8851be. Published as [PR287](https://github.com/shoedog/prism/pull/287),
+pushed6ac9934 against PR286; feature-base CI is not
 scheduled by the main-only workflow, so no remote-green claim. Tier-A not triggered.
 No installed/private source changes, runtime/class authority or semantic admission. Automatic
 discovery and source-based lib suppression intentionally remain unproven where the
