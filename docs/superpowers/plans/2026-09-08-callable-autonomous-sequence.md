@@ -21,7 +21,7 @@ Task root: `/private/tmp/prism-overnight-0zmx3n`.
 | 7 | Singleton exact ambient admission + value checkpoint | PR289 open on PR288; clean59fd6eb full546/4017/4207 plus18/40 passed; checkpoint continue | additive semantic_closure; all oldfields and outside/refused barriers retained |
 | 8 | Singleton wildcard admission | PR291 open on PR290; clean8fc6624 full571/4017/4207 plus18/40 passed | binding separate from assets/runtime; historicalschema18 staysv1 |
 | 9 | Supported merged wildcard pair admission | PR292 open on PR291; cleanb826a668 full591/4017/4207 plus18/40 passed; final independent99; public84merged/36unproven and oldfield/host/source parity | side-effect pair only, contributor/selection barriers; fixedv3, oldpolicies frozen |
-| 10 | First production-authority contract | draft independently ACCEPT98; publication after9 | spec and public-seam RED requirements; no runtime consumer implementation |
+| 10 | First production-authority contract | integrated; design98/factual99 accepted; scoped docs checks/publication next | spec and public-seam RED requirements; no runtime consumer implementation |
 | D2 | Present JS targets outside configured Program | PR290 open on PR289; docs-only checks passed | classification/proof requirements only, no membership or closure waiver |
 | D3 | Remaining discovered work reserve | unused | record cause and exact scope before use |
 | H1 | Canonical source versus synthetic lookup identity contract | PR283 open on PR282; full gates passed | unwired pure helper; no current producer change; precedes3 |
