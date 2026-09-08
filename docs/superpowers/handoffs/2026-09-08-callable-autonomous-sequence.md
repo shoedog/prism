@@ -17,7 +17,7 @@
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
 2. S2 is published as PR282 against feat/callable-search-classification. S2 full gates are complete:395 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored per Rust run, doctests included. Check CI without auto-merge.
-3. Publish H1 separately against S2; full gates passed on clean12aa795 and archive8531891103598f490edbf850d8dd4ae504b114a166e4066fbe964f8388cbbc5f retained. Then create S3 branch from H1 and integrate only its independently reviewed134739e candidate. H1 integration cap2, finite identity matrix; do not hide original review history. S3 then D1 precede checkpoint one. S4 helper remains unwired with bounded case/null corrections in progress. No auto-merge.
+3. H1 published as PR283 against S2, pushed cf2cc3c; full gates passed on clean12aa795 and archive8531891103598f490edbf850d8dd4ae504b114a166e4066fbe964f8388cbbc5f retained. Create S3 branch from H1 and integrate only its independently reviewed134739e candidate. H1 integration cap2, finite identity matrix; do not hide original review history. S3 then D1 precede checkpoint one. S4 helper remains unwired with bounded case/null corrections in progress. No auto-merge.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
 
@@ -36,7 +36,7 @@
 | S2 full gates | done | `[MEASURED]` clean ac9a0f3: observer395, Rust4017/1 ignored, MCP4207/1 ignored, helpers18, authority40, fmt/diff; archive receipt recorded |
 | S2 publication | done | `[MEASURED]` pushed f1b5fac; gh pr create returned https://github.com/shoedog/prism/pull/282 |
 | S3-T | in progress | Same-artifact H1 integration134739e passes435 copied tests, public91409 operations and14 cache/identity transcript controls. Original977275dd archived; integration review round1 of2 running |
-| H1 | gates passed | Contract/unwired helper independently ACCEPT96; clean12aa795 full402/4017/4207 plus18/40, one ignored per Rust run; producer unchanged7ea9f31c; publication next |
+| H1 | published | PR283 against S2, pushed cf2cc3c; contract/unwired helper independently ACCEPT96; clean12aa795 full402/4017/4207 plus18/40, one ignored per Rust run; producer unchanged7ea9f31c |
 | D1 / S4–S10 | pending | D1 allocated to separate lib cache/beneficiaries; H1 allocated identity design escalation; D2–D3/H2–H3 unused |
 
 ## 3. Corrections to standing documents and memory
@@ -62,7 +62,7 @@ No relevant memory registry hit; no memory edits.
 |---:|---|---|---|---|---|
 | 1 | S1 publication | done | `[MEASURED]` c57c354 all five CI checks SUCCESS including coverage; retain open PR for owner merge | None | PR281 |
 | 2 | Module provenance publication | done | `[MEASURED]` PR282 has no remote checks: CI pull_request filter targets main only, this stack targets feature branch. Local gates pass; retarget/run CI after predecessor merge | Owner merge order | S2 |
-| 3 | H1 identity contract publication | next | Full gates passed, archive/gate receipt recorded; push/open stacked PR | None | H1 |
+| 3 | H1 identity contract publication | done | PR283 open; feature-base CI limitation applies, no auto-merge | Owner merge order | H1 |
 | 4 | Type provenance integration | next | Review same-artifact lexical coordinate repair and full identity matrix, then public/full gates | H1 publication and integration review | S3-T |
 
 ## 5. Invariants and traps — do not do these

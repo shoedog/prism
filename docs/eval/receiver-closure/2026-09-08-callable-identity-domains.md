@@ -30,7 +30,8 @@ Full repository gates passed on clean implementation12aa795:402 observer,4017 Ru
 4207 MCP,18 helpers,40 authority controls; doctests included, one known ignored
 test per Rust run. fmt/diff passed. The [gate receipt](2026-09-08-callable-identity-gates.json)
 records the raw archive hash. All1229 public source files and every public packet
-field remain unchanged from S2. Publication follows these gates; stacked feature-base
+field remain unchanged from S2. [PR283](https://github.com/shoedog/prism/pull/283)
+is published against S2; stacked feature-base
 PRs do not trigger the current main-only PR workflow. Runtime/class authority remains
 false; react-scripts and all14 module-literal gaps remain unresolved. No receiver
 recall gain, app change, dependency install or outside-absence proof is claimed.

@@ -23,7 +23,7 @@ Task root: `/private/tmp/prism-overnight-0zmx3n`.
 | 9 | Supported merged wildcard pair admission | pending | side-effect pair only, contributor/selection barriers |
 | 10 | First production-authority contract | pending | spec and public-seam RED requirements; no runtime consumer implementation |
 | D2–D3 | Remaining discovered work reserve | unused | record cause and exact scope before use |
-| H1 | Canonical source versus synthetic lookup identity contract | reviewed; helper7 passed, full gates next | unwired pure helper; no current producer change; precedes3 |
+| H1 | Canonical source versus synthetic lookup identity contract | PR283 open on PR282; full gates passed | unwired pure helper; no current producer change; precedes3 |
 | H2–H3 | Remaining fix/hardening reserve | unused | closed enumerable findings; no silent restart |
 
 Per increment: exact-base custody, bounded spec, captured contract/behavioral RED
