@@ -56,8 +56,8 @@ No relevant memory registry hit; no memory edits.
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | S1 publication | done | `[MEASURED]` c57c354 CI test/clippy/format/matrix passed; coverage still running; retain open PR for owner merge | None | PR281 |
-| 2 | Module provenance publication | done | Check CI, retain PR282 for owner merge | None | S2 |
+| 1 | S1 publication | done | `[MEASURED]` c57c354 all five CI checks SUCCESS including coverage; retain open PR for owner merge | None | PR281 |
+| 2 | Module provenance publication | done | `[MEASURED]` PR282 has no remote checks: CI pull_request filter targets main only, this stack targets feature branch. Local gates pass; retarget/run CI after predecessor merge | Owner merge order | S2 |
 | 3 | Type provenance implementation | next | Review corrected disposable S3-T, complete public parity, then integrate | Bounded round1 correction | S3-T |
 
 ## 5. Invariants and traps — do not do these
