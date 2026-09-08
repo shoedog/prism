@@ -1,7 +1,7 @@
 # Handoff — ordered callable PR merges
 
-**Written:** 2026-09-08T15:09Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · docs/callable-production-authority-contract · **Measured state:** `[MEASURED]` PR281–282 merged in order, latest main91baaf8a. PR283 retargeted to main and reopened once; CI34242873595 running on unchanged9fc80fe0. Probe: gh PR/workflow queries; receipts in `/private/tmp/prism-ordered-merges-stfAUR`.
+**Written:** 2026-09-08T15:33Z · **By:** /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/slicing · docs/callable-production-authority-contract · **Measured state:** `[MEASURED]` PR281–283 merged in order, latest main5a4abb4a. PR284 retargeted to main and reopened once; CI34245471664 running on unchanged90c67fca. Probe: gh PR/workflow queries; receipts in `/private/tmp/prism-ordered-merges-stfAUR`.
 **Predecessor:** approved ten-increment sequence, published PR281–293.
 **Truth ordering:** measured live state > explicit owner authority within scope > this current merge handoff > historical publication snapshots.
 **Provenance:** written live from merge/API output; earlier implementation gate claims remain bound to their original checked HEADs.
@@ -10,13 +10,13 @@
 
 (a) Ownership — RESOLVED: primary owns merging; no implementation work is in scope.
 (b) Custody — RESOLVED: branch history retained; progress commits are published on final PR293. No branch deletion/reset/force push.
-(c) In flight — RESOLVED: PR283 CI; no local implementation test process.
+(c) In flight — RESOLVED: PR284 CI; no local implementation test process.
 (d) Authority — owner explicitly requested "proceed to merge in order". This supersedes the earlier no-inferred-merge status, not code-change or CI-bypass limits.
 
 ## 1. Resume order
 
 1. Read current gh PR state, expected head, main base and latest CI before any mutation. Do not repeat a merge based on stale local status.
-2. Wait for all five CI jobs on283, verify each job's actual checkout tree equals a fresh merge of its head into current main, then merge with `--merge --match-head-commit`; verify merged state/commit/tree. Repeat through293.
+2. Wait for all five CI jobs on284, verify each job's actual checkout tree equals a fresh merge of its head into current main, then merge with `--merge --match-head-commit`; verify merged state/commit/tree. Repeat through293.
 3. Retarget only the next successor after its predecessor merges. Retarget alone did not trigger CI for282; one close/reopen produced the expected main-targeted run without changing source.
 4. Before293 CI, finish all status/documentation updates on its branch and freeze the head. After merging, verify the remote final tree and preserve all branches/evidence.
 
@@ -28,8 +28,9 @@ STOP on failed CI, conflict, unexpected head, requested changes, missing checks 
 |---|---|---|
 | 281 | done | merged172975a322b76256487f8fb630b401d3f1b594ea at2026-09-08T14:31:32Z; five SUCCESS checks on c57c3549 |
 | 282 | done | merged91baaf8a3bc06aec52be69bde0689804dde4f543 at2026-09-08T15:08:10Z; five SUCCESS jobs in34238928555; all actual job trees and final merge tree0b98026e equal fresh-main preflight |
-| 283 | pending | main target; head9fc80fe036fb97c17abddca2d9fa3744bfaea830; CI34242873595 running |
-| 284–293 | pending | original predecessor-base stack; do not merge ahead |
+| 283 | done | merged5a4abb4a7e8da3b93923fd3cbf1c41c172f399d9 at2026-09-08T15:32:25Z; five SUCCESS jobs in34242873595; all actual job trees and final merge tree11c682d7 equal fresh-main preflight |
+| 284 | pending | main target; head90c67fcaad621401253e242977abe2d9dab8ec53; CI34245471664 running |
+| 285–293 | pending | original predecessor-base stack; do not merge ahead |
 
 ## 3. Corrections to standing documents and memory
 
@@ -39,7 +40,7 @@ The earlier sequence handoff required an owner merge decision. That decision has
 
 | Work | State | Next action |
 |---|---|---|
-| Ordered merges | pending | wait for283 CI, then predecessor-first merge/retarget/check |
+| Ordered merges | pending | wait for284 CI, then predecessor-first merge/retarget/check |
 | Final status reconciliation | pending | finish before293 freezes; verify final merge externally afterward |
 
 ## 5. Invariants and traps — do not do these
@@ -58,6 +59,6 @@ Repository shoedog/prism. Starting final branch tip787dfe1a84652604ba5dcf8ca85ff
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED for281–282 merge preconditions; SELF-PASS with remote CI-backed evidence. Exact head/main base, mergeability and all five jobs were checked before merging. PR282 additionally has all-five actual checkout tree equality and final merge-tree verification. Later merges remain gated, not preapproved as green.
+**§2c verdict:** SURVIVED for281–283 merge preconditions; SELF-PASS with remote CI-backed evidence. Exact head/main base, mergeability and all five jobs were checked before merging. PR282–283 additionally have all-five actual checkout tree equality and final merge-tree verification. Later merges remain gated, not preapproved as green.
 
 **Questions the owner owes an answer to:** None while CI progresses.
