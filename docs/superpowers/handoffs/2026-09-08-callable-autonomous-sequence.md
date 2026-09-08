@@ -1,7 +1,7 @@
 # Handoff — approved callable-completeness sequence
 
-**Written:** 2026-09-08T10:16Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · docs/callable-js-program-exclusion · **Measured state:** `[MEASURED]` S7 PR289 closeoutee7b2f4 pushed. D2 corrected public audit/spec/report integrated, report4cd2d0c5/archive50724ca2; primary verified20 occurrence/14 target population and pinned-source elide predicates. Documentation-only checks passed: exact report,4 local links,diff-check,1229 source files unchanged; publication next. Producer remainsb75dbd6d; no new full-suite run claimed beyond S7 clean59fd6eb546/4017/4207 plus18/40. `[INHERITED]` S8 implementation proceeds after captured3RED/11compat; S10 contract independentlyACCEPT98. Probe: source/report hashes, current scoped diff and source-control output.
+**Written:** 2026-09-08T10:19Z · **By:** /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/slicing · docs/callable-js-program-exclusion · **Measured state:** `[MEASURED]` D2 PR290 open against PR289, pushedca8504d; report4cd2d0c5/archive50724ca2. Exact20 occurrence/14 target source-backed audit; docs checks exact report/4links/diff/1229sources passed. Producer remainsb75dbd6d; no new full-suite run claimed beyond S7 clean59fd6eb546/4017/4207 plus18/40. `[INHERITED]` S8 production020fb7b4 frozen; focused50pass, full570/571single testdigest-census correction, finalfullrunning; independent reviewround1/2 and primarypublicreplay underway. S10 contract independentlyACCEPT98. Probe: ghcreate URL, source/report hashes, primary schema diff and agent logs.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims name their source.
@@ -17,7 +17,7 @@
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
 2. S2 is published as PR282 against feat/callable-search-classification. S2 full gates are complete:395 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored per Rust run, doctests included. Check CI without auto-merge.
-3. S7 published PR289. Next D2 documentation/report-only branch and PR, using accepted corrected audit/proof requirements; no producer/schema/membership change. Then independently review/integrate S8 once frozen; full gates/public parity required. S8 uses byte-frozen v1 plus separate fixed v2 wrapper; historicalschema18 retains v1. S9 fixed policy merged-side-effect-v3; S10 contract only. No auto-merge.
+3. D2 published PR290. Complete independent S8 review/current public replay, integrate accepted020fb7b4 on its own branch, then clean full gates/archive/PR. S8 byte-frozen v1 and separate v2 wrapper preserve historicalschema18. After S8 accepted/frozen, delegate S9 RED/implementation using primary-reviewed fixture matrix and fixed merged-side-effect-v3; S10 contract only. No auto-merge.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
 
@@ -43,7 +43,7 @@
 | S6 | published PR288 | Pushed67588fc against PR287; clean5faf199521/4017/4207 plus18/40; archiveb06fb9f4; producer63c557 unchanged; independent99 |
 | S7 | published PR289 | Pushed48de24e against PR288; clean59fd6eb546/4017/4207 plus18/40; archivec00ec9c8; independent98; public/private checkpoint continue |
 | S8–S10 | in progress | S8 fixedv2 wrapper after capturedRED; S9 primary-frozen merged-side-effect-v3 fixture matrix; S10 contract independently accepted98, docs-only |
-| D2 | corrected audit accepted |20 occurrences/14 present JS targets; sufficient compiler depth-elision branch,9 sourceambient/11 no checker declarations; diagnostic distinction corrected with new raw-path capture; archive50724ca2; separate PR next |
+| D2 | published PR290 |Pushedca8504d against PR289;20 occurrences/14 present JS targets; sufficient compiler depth-elision branch,9 sourceambient/11 no checker declarations; corrected diagnostic/raw-path capture; archive50724ca2; docs checks pass |
 
 ## 3. Corrections to standing documents and memory
 

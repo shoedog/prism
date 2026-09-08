@@ -188,7 +188,8 @@ documentation/report data, so no new production behavioral RED or Tier-A trigger
 The [nearest implementation's full gate receipt](2026-09-08-callable-exact-ambient-gates.json)
 records clean59fd6eb546 observer/4017 Rust/4207 MCP plus18 helpers/40 authority, all
 passing with one known ignored per Rust run and doctests included. It is not a new
-full-suite run on this documentation-only commit. Publication follows; the main-only
+full-suite run on this documentation-only commit. Published as [PR290](https://github.com/shoedog/prism/pull/290),
+pushedca8504d against PR289; the main-only
 CI base filter does not schedule feature-base checks. No auto-merge.
 
 Publication checks: corrected report bytes match the retained SHA256, all4 local
