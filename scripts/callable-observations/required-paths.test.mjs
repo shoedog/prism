@@ -5,8 +5,14 @@ import {tmpdir} from 'node:os';import path from 'node:path';import {pathToFileUR
 const implementation=process.env.PRISM_CALLABLE_IMPLEMENTATION;
 const moduleURL=f=>implementation?pathToFileURL(path.join(implementation,f)):new URL(f,import.meta.url);
 const {produce,validate}=await import(moduleURL('index.mjs'));
-const {parsePacket,hash,COMPILER_HASH}=await import(moduleURL('schema.mjs'));
+const {parsePacket,hash,canonical,COMPILER_HASH}=await import(moduleURL('schema.mjs'));
+const {classifySemanticClosure}=await import(moduleURL('semantic-closure.mjs'));
 const compiler=process.env.PRISM_TYPESCRIPT;assert(compiler);assert.equal(hash(readFileSync(compiler)),COMPILER_HASH);
+function refreshSemantic(p){const observed=p.config_provenance.status==='observed',option=observed&&p.config_provenance.options.find(r=>r.name==='noResolve');
+  p.semantic_closure=classifySemanticClosure({compilerVerified:p.compiler.verified,stableSnapshot:p.closure.stable_snapshot,
+    configObserved:observed,entryComplete:p.entry_obligations.complete,noResolve:option?.present===true&&option.value_sha256===hash(canonical({present:true,value:true})),
+    diagnosticCount:p.diagnostics.length,globalReasons:p.reasons,outside:p.snapshot.outside_lookups,refusedCount:p.snapshot.refused_lookup_sha256.length,
+    boundaryCount:p.search_provenance.boundary_events.length,programFiles:p.snapshot.program_files,resolutions:p.resolutions});}
 const app='class Client{m(){}}type View<P>=(p:P)=>void;const run:View<{client:Client}>=({client})=>{const cb=()=>client.m();};';
 function fixture(run){const root=mkdtempSync(path.join(tmpdir(),'prism-required-path-test-'));
   const put=(f,s)=>{mkdirSync(path.dirname(path.join(root,f)),{recursive:true});writeFileSync(path.join(root,f),s);};
@@ -78,6 +84,7 @@ test('path refusal closure promotions fail schema validation before root I/O',()
   const q=structuredClone(p);q.reasons=['unproven_path_reference'];q.status='unproven';
   for(const k of ['dependencies','references','augmentation','resolution'])q.closure[k]=false;
   for(const o of q.observations)for(const c of o.nested.calls){c.props_class.status='unproven';c.props_class.reason='program_unproven';}
+  refreshSemantic(q);
   assert.doesNotThrow(()=>parsePacket(JSON.stringify(q)));
   for(const k of ['dependencies','references','augmentation','resolution']){
     const r=structuredClone(q);r.closure[k]=true;assert.throws(()=>parsePacket(JSON.stringify(r)),/invalid_packet/);assert.equal(validate(JSON.stringify(r),forbidden).valid,false);
@@ -87,11 +94,11 @@ test('path refusal closure promotions fail schema validation before root I/O',()
   assert.equal(reads,0);
   // Removing the reason and forging all bits can be well-shaped, but cannot
   // manufacture the occurrence evidence that full recomputation requires.
-  const erased=structuredClone(p);erased.reasons=[];erased.status='observed';for(const k of Object.keys(erased.closure))erased.closure[k]=true;
+  const erased=structuredClone(p);erased.reasons=[];erased.status='observed';for(const k of Object.keys(erased.closure))erased.closure[k]=true;refreshSemantic(erased);
   assert.doesNotThrow(()=>parsePacket(JSON.stringify(erased)));assert.equal(validate(JSON.stringify(erased),options).valid,false);
 }));
 test('historical schema10 packet remains readable but cannot validate as current',()=>fixture(({options})=>{
-  const p=produce(options);complete(p);const old=structuredClone(p);old.schema='prism.callable-observation/10';old.producer.version='0.11.0';delete old.type_lib_references;delete old.type_lib_entries;delete old.search_provenance;delete old.config_provenance;delete old.entry_obligations;
+  const p=produce(options);complete(p);const old=structuredClone(p);old.schema='prism.callable-observation/10';old.producer.version='0.11.0';delete old.type_lib_references;delete old.type_lib_entries;delete old.search_provenance;delete old.config_provenance;delete old.entry_obligations;delete old.semantic_closure;
   assert.doesNotThrow(()=>parsePacket(JSON.stringify(old)));assert.equal(validate(JSON.stringify(old),options).valid,false);
 }));
 test('same-byte wrong-file substitution does not discharge a required path',()=>fixture(({put,options})=>{

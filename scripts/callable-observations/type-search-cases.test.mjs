@@ -188,7 +188,7 @@ test('historical schema13 with non-null module mode and unresolved schema12 rema
   config.compilerOptions.module='NodeNext';config.compilerOptions.moduleResolution='NodeNext';save();
   put('src/mode.mts','import "missing-module";');put('src/ref.d.ts','/// <reference types="missing-types" />');const p=produce(options),current=provenance(p);
   assert(current.module_requests.some(r=>r.mode==='import'));
-  const old14=structuredClone(p);old14.schema='prism.callable-observation/14';old14.producer.version='0.15.0';delete old14.search_provenance.lib_searches;delete old14.config_provenance;delete old14.entry_obligations;
+  const old14=structuredClone(p);old14.schema='prism.callable-observation/14';old14.producer.version='0.15.0';delete old14.search_provenance.lib_searches;delete old14.config_provenance;delete old14.entry_obligations;delete old14.semantic_closure;
   for(const e of old14.search_provenance.boundary_events)if(e.owner?.channel==='lib')e.owner=null;
   assert.doesNotThrow(()=>parsePacket(JSON.stringify(old14)));const bad14=structuredClone(old14);bad14.search_provenance.type_batches[0].size++;
   assert.throws(()=>parsePacket(JSON.stringify(bad14)),/invalid_packet/);assert.equal(validate(JSON.stringify(old14),options).valid,false);

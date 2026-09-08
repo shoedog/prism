@@ -1,6 +1,8 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';import path from 'node:path';import {tmpdir} from 'node:os';
 import {produce,validate} from './index.mjs';
+import {hash,canonical} from './schema.mjs';
+import {classifySemanticClosure} from './semantic-closure.mjs';
 const compiler=process.env.PRISM_TYPESCRIPT;assert(compiler,'pinned compiler required');
 const app='class Client{m(){}}type View<P>=(p:P)=>void;export const run:View<{client:Client}>=({client})=>{const cb=()=>client.m();};';
 const provider='declare module "*.asset" {export const value:string;export interface Thing{x:number}}';
@@ -21,6 +23,11 @@ function withheld(p){assert.equal(p.status,'unproven');assert(p.reasons.includes
   for(const key of ['dependencies','augmentation','resolution'])assert.equal(p.closure[key],false);
   assert.equal(p.authorizes_runtime_edge,false);assert.equal(p.scope.class_authority,false);
   assert.equal(p.observations.at(-1).nested.calls[0].props_class.reason,'program_unproven');}
+function refreshSemantic(p){const observed=p.config_provenance.status==='observed',option=observed&&p.config_provenance.options.find(r=>r.name==='noResolve');
+  p.semantic_closure=classifySemanticClosure({compilerVerified:p.compiler.verified,stableSnapshot:p.closure.stable_snapshot,
+    configObserved:observed,entryComplete:p.entry_obligations.complete,noResolve:option?.present===true&&option.value_sha256===hash(canonical({present:true,value:true})),
+    diagnosticCount:p.diagnostics.length,globalReasons:p.reasons,outside:p.snapshot.outside_lookups,refusedCount:p.snapshot.refused_lookup_sha256.length,
+    boundaryCount:p.search_provenance.boundary_events.length,programFiles:p.snapshot.program_files,resolutions:p.resolutions});}
 for(const exists of [false,true])test(`singleton wildcard binding is independent of asset presence=${exists}`,()=>fixture(({put,options})=>{
   if(exists)put('src/file.asset','asset bytes');const p=produce(options),r=resolution(p),w=r.lookup.wildcard;
   assert.equal(w.status,'observed');assert.equal(w.reason,null);assert.equal(w.pattern,'*.asset');
@@ -86,6 +93,7 @@ test('malformed wildcard evidence rejects before audited-root access',()=>fixtur
 }));
 test('well-shaped forged wildcard disposition is rejected by full recomputation',()=>fixture(({options})=>{
   const p=produce(options),w=resolution(p).lookup.wildcard;assert(w);w.status='unproven';w.reason='binding_mismatch';
+  refreshSemantic(p);
   assert.equal(validate(JSON.stringify(p),options).reason,'stale_or_tampered');
 }));
 test('JSDoc import types retain actual wildcard use anchors',()=>fixture(({put,config,options})=>{
@@ -116,6 +124,7 @@ for(const changed of [false,true])test(`redirected wildcard augmentation census 
 }));
 test('removing the wildcard observation cannot survive recomputation',()=>fixture(({options})=>{
   const p=produce(options);assert.equal(resolution(p).lookup.wildcard.status,'observed');resolution(p).lookup.wildcard=null;
+  refreshSemantic(p);
   assert.equal(validate(JSON.stringify(p),options).reason,'stale_or_tampered');
 }));
 test('require wildcard candidates remain outside the supported request contexts',()=>fixture(({put,config,options})=>{

@@ -17,6 +17,7 @@ import {projectSyntheticAddress} from "./identity-domains.mjs";
 import {libraryNameFromLibFile} from "./lib-search.mjs";
 import {createConfigCapture,observeConfigProvenance} from "./config-provenance.mjs";
 import {classifyEntryObligations} from "./entry-obligations.mjs";
+import {classifySemanticClosure} from "./semantic-closure.mjs";
 
 const options=JSON.parse(readFileSync(0,"utf8"));
 const fail=reason=>{throw Error(reason);};
@@ -209,6 +210,8 @@ function build() {
   const configOption=name=>configObserved&&packet.config_provenance.options.find(row=>row.name===name);
   const noLib=configOption('noLib')?.present===true
     &&configOption('noLib').value_sha256===hash(canonical({present:true,value:true}));
+  const noResolve=configOption('noResolve')?.present===true
+    &&configOption('noResolve').value_sha256===hash(canonical({present:true,value:true}));
   packet.entry_obligations=classifyEntryObligations({entries:packet.type_lib_entries,rootCount:parsed.fileNames.length,
     configObserved,noLib,explicitTypes:configOption('types')?.present===true});
   const usedRowsByBatch=new Map(search.type_batches.map(batch=>[batch.id,new Set()]));
@@ -270,6 +273,12 @@ function build() {
     const u=legacyKey(a),v=legacyKey(b);
     return u<v?-1:u>v?1:canonical(a)<canonical(b)?-1:canonical(a)>canonical(b)?1:0;
   });
+  packet.semantic_closure=classifySemanticClosure({compilerVerified:packet.compiler.verified,
+    stableSnapshot:packet.closure.stable_snapshot,configObserved,entryComplete:packet.entry_obligations.complete,
+    noResolve,diagnosticCount:packet.diagnostics.length,globalReasons:packet.reasons,
+    outside:packet.snapshot.outside_lookups,refusedCount:packet.snapshot.refused_lookup_sha256.length,
+    boundaryCount:packet.search_provenance.boundary_events.length,programFiles:packet.snapshot.program_files,
+    resolutions:packet.resolutions});
   return packet;
 }
 try {console.log(JSON.stringify(build()));}
