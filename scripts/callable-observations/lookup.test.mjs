@@ -4,7 +4,8 @@ import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from "node:fs";
 import {tmpdir} from "node:os";
 import path from "node:path";
 import {produce,validate} from "./index.mjs";
-import {hash,relative} from "./schema.mjs";
+import {hash,relative,canonical} from "./schema.mjs";
+import {classifySemanticClosure} from "./semantic-closure.mjs";
 const compiler=process.env.PRISM_TYPESCRIPT;
 assert(compiler,"PRISM_TYPESCRIPT must name the pinned compiler");
 async function fixture(run){
@@ -18,6 +19,11 @@ async function fixture(run){
   }finally{rmSync(root,{recursive:true,force:true});}
 }
 const candidate=p=>p.observations[0]?.nested.calls[0]?.props_class;
+function refreshSemantic(p){const observed=p.config_provenance.status==='observed',option=observed&&p.config_provenance.options.find(r=>r.name==='noResolve');
+  p.semantic_closure=classifySemanticClosure({compilerVerified:p.compiler.verified,stableSnapshot:p.closure.stable_snapshot,
+    configObserved:observed,entryComplete:p.entry_obligations.complete,noResolve:option?.present===true&&option.value_sha256===hash(canonical({present:true,value:true})),
+    diagnosticCount:p.diagnostics.length,globalReasons:p.reasons,outside:p.snapshot.outside_lookups,refusedCount:p.snapshot.refused_lookup_sha256.length,
+    boundaryCount:p.search_provenance.boundary_events.length,programFiles:p.snapshot.program_files,resolutions:p.resolutions});}
 for(const specifier of ["node:url","virtual:pwa-register"]){
   test(`refused ${specifier} lookup preserves partial observations and blocks closure`,()=>fixture(({source,options})=>{
     source(`import '${specifier}';`);const p=produce(options);
@@ -74,9 +80,9 @@ test("refusals are sorted unique opaque digests and cannot inhabit path fields",
 test("removed or forged refusal evidence fails full recomputation",()=>fixture(({source,options})=>{
   source("import 'node:url';");const p=produce(options);assert.equal(p.observations.length,1);
   const removed=structuredClone(p);removed.snapshot.refused_lookup_sha256=[];removed.search_provenance.boundary_events=removed.search_provenance.boundary_events.filter(e=>e.kind!=="refused");
-  removed.reasons=removed.reasons.filter(r=>r!=="unsupported_lookup");
+  removed.reasons=removed.reasons.filter(r=>r!=="unsupported_lookup");refreshSemantic(removed);
   assert.equal(validate(JSON.stringify(removed),options).reason,"stale_or_tampered");
-  const forged=structuredClone(p);forged.snapshot.refused_lookup_sha256=["0".repeat(64)];for(const e of forged.search_provenance.boundary_events)if(e.kind==="refused")e.probe_sha256="0".repeat(64);
+  const forged=structuredClone(p);forged.snapshot.refused_lookup_sha256=["0".repeat(64)];for(const e of forged.search_provenance.boundary_events)if(e.kind==="refused")e.probe_sha256="0".repeat(64);refreshSemantic(forged);
   assert.equal(validate(JSON.stringify(forged),options).reason,"stale_or_tampered");
 }));
 

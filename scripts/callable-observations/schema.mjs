@@ -2,10 +2,12 @@ import {createHash} from "node:crypto";
 import path from "node:path";
 import {libFileForReference,libraryNameFromLibFile} from './lib-search.mjs';
 import {classifyEntryObligations} from './entry-obligations.mjs';
+import {classifySemanticClosure,SEMANTIC_CLOSURE_POLICY} from './semantic-closure.mjs';
 const SCHEMA14="prism.callable-observation/14";
 const SCHEMA15="prism.callable-observation/15";
 const SCHEMA16="prism.callable-observation/16";
-export const SCHEMA="prism.callable-observation/17";
+const SCHEMA17="prism.callable-observation/17";
+export const SCHEMA="prism.callable-observation/18";
 export const REFERENCE_LIMIT=100000;
 export const referenceKey=r=>JSON.stringify([r.request.file,r.kind,r.index]);
 export const entryKey=r=>JSON.stringify([r.kind,r.index]);
@@ -125,6 +127,12 @@ const configProvenance=object({status:x=>['observed','unproven'].includes(x),rea
 const entryObligation=object({kind:x=>['types','lib'].includes(x),origin:x=>['configured','automatic','default'].includes(x),index:integer,
   disposition:x=>['selected','disabled','unproven'].includes(x),reason:nullable(x=>['no_roots','no_lib','suppression_unproven','unprocessed','unresolved','target_not_in_program','missing_inclusion'].includes(x))});
 const entryObligations=object({complete:boolean,reasons:array(x=>['configuration_unproven','automatic_discovery_unproven','unproven_entry'].includes(x)),rows:array(entryObligation)});
+const semanticClosure=object({policy:literal(SEMANTIC_CLOSURE_POLICY),complete:boolean,
+  reasons:array(x=>['compiler_unverified','unstable_snapshot','config_unproven','entry_obligations_incomplete','no_resolve',
+    'compiler_diagnostics','unsupported_project_references','unsupported_plugins','required_path_unproven','type_lib_unproven',
+    'boundary_encounter','global_refusal','resolution_unproven'].includes(x)),
+  rows:array(object({index:integer,disposition:x=>['filesystem_selected','exact_ambient','singleton_wildcard','merged_side_effect','unproven'].includes(x),
+    reason:nullable(x=>['target_not_in_program','unresolved_module','unadmitted_binding'].includes(x))}))});
 const packet13=object({...referenceShape,schema:literal('prism.callable-observation/13'),producer:object({version:literal('0.14.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),search_provenance:object({module_requests:array(moduleRequest),boundary_events:array(boundaryEvent(moduleOwner))})});
 const packet14=object({...referenceShape,schema:literal(SCHEMA14),producer:object({version:literal('0.15.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
   search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),boundary_events:array(boundaryEvent(typeSearchOwner))})});
@@ -132,12 +140,14 @@ const packet15=object({...referenceShape,schema:literal(SCHEMA15),producer:objec
   search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),lib_searches:array(libSearch),boundary_events:array(boundaryEvent(searchOwner))})});
 const packet16=object({...referenceShape,schema:literal(SCHEMA16),producer:object({version:literal('0.17.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
   search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),lib_searches:array(libSearch),boundary_events:array(boundaryEvent(searchOwner))}),config_provenance:configProvenance});
-const packet17=object({...referenceShape,schema:literal(SCHEMA),producer:object({version:literal('0.18.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
+const packet17=object({...referenceShape,schema:literal(SCHEMA17),producer:object({version:literal('0.18.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
   search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),lib_searches:array(libSearch),boundary_events:array(boundaryEvent(searchOwner))}),config_provenance:configProvenance,entry_obligations:entryObligations});
+const packet18=object({...referenceShape,schema:literal(SCHEMA),producer:object({version:literal('0.19.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
+  search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),lib_searches:array(libSearch),boundary_events:array(boundaryEvent(searchOwner))}),config_provenance:configProvenance,entry_obligations:entryObligations,semantic_closure:semanticClosure});
 export function parsePacket(text) {
   if(typeof text!=="string" || Buffer.byteLength(text)>MAX_PACKET_BYTES) throw Error("invalid_packet");
   const value=JSON.parse(text);
-  if(!packet10(value)&&!packet11(value)&&!packet12(value)&&!packet13(value)&&!packet14(value)&&!packet15(value)&&!packet16(value)&&!packet17(value)) throw Error("invalid_packet");
+  if(!packet10(value)&&!packet11(value)&&!packet12(value)&&!packet13(value)&&!packet14(value)&&!packet15(value)&&!packet16(value)&&!packet17(value)&&!packet18(value)) throw Error("invalid_packet");
   const profile=PROFILES[value.scope.acquisition_profile];
   if(Buffer.byteLength(text)>profile.packet_bytes)throw Error("invalid_packet");
   const files=new Map(value.snapshot.files.map(f=>[f.id,f]));
@@ -146,7 +156,7 @@ export function parsePacket(text) {
   if(!value.scope.config.startsWith("project/")) throw Error("invalid_packet");
   if(value.status==="observed" && (value.reasons.length || !value.compiler.verified || Object.values(value.closure).some(x=>!x))) throw Error("invalid_packet");
   if(value.status==="unproven" && !value.reasons.length) throw Error("invalid_packet");
-  if(value.reasons.includes("unproven_path_reference") && (!["0.11.1","0.12.0","0.13.0","0.14.0","0.15.0","0.16.0","0.17.0","0.18.0"].includes(value.producer.version)
+  if(value.reasons.includes("unproven_path_reference") && (!["0.11.1","0.12.0","0.13.0","0.14.0","0.15.0","0.16.0","0.17.0","0.18.0","0.19.0"].includes(value.producer.version)
     || value.status!=="unproven" || value.closure.dependencies || value.closure.references
     || value.closure.augmentation || value.closure.resolution))throw Error("invalid_packet");
   const refused=value.snapshot.refused_lookup_sha256;
@@ -248,7 +258,7 @@ export function parsePacket(text) {
       usedLinks.add(link);coveredRows.add(rowLink);
     }
     const expectedRows=new Set();
-    if([SCHEMA14,SCHEMA15,SCHEMA16,SCHEMA].includes(value.schema)) {
+    if([SCHEMA14,SCHEMA15,SCHEMA16,SCHEMA17,SCHEMA].includes(value.schema)) {
       for(const batch of typeBatches) {
         if(batch.origin==='source'?!programFiles.has(batch.from):batch.from!==inferredFrom)throw Error('invalid_packet');
         const rows=(batch.origin==='source'?references.filter(r=>r.kind==='types'&&r.request.file===batch.from)
@@ -290,7 +300,7 @@ export function parsePacket(text) {
   }
   const references=value.type_lib_references??[],unproven=references.some(r=>r.status==='unproven');
   if(unproven!==value.reasons.includes('unproven_type_lib_reference')
-    || unproven&&(!['prism.callable-observation/11','prism.callable-observation/12','prism.callable-observation/13',SCHEMA14,SCHEMA15,SCHEMA16,SCHEMA].includes(value.schema)||value.status!=='unproven'||value.closure.dependencies
+    || unproven&&(!['prism.callable-observation/11','prism.callable-observation/12','prism.callable-observation/13',SCHEMA14,SCHEMA15,SCHEMA16,SCHEMA17,SCHEMA].includes(value.schema)||value.status!=='unproven'||value.closure.dependencies
       ||value.closure.references||value.closure.augmentation||value.closure.resolution))throw Error('invalid_packet');
   for(const [i,r] of references.entries()) {
     checkAnchor(r.request);
@@ -423,6 +433,19 @@ export function parsePacket(text) {
       h.aliases.forEach(checkAlias);
       for(const q of h.qualifiers){[q.use,...q.declarations].forEach(checkAnchor);q.aliases.forEach(checkAlias);}
     }
+  }
+  if(value.schema===SCHEMA) {
+    const configObserved=value.config_provenance.status==='observed';
+    const noResolveOption=configObserved&&value.config_provenance.options.find(row=>row.name==='noResolve');
+    const expected=classifySemanticClosure({compilerVerified:value.compiler.verified,
+      stableSnapshot:value.closure.stable_snapshot,configObserved,entryComplete:value.entry_obligations.complete,
+      noResolve:noResolveOption?.present===true
+        &&noResolveOption.value_sha256===hash(canonical({present:true,value:true})),
+      diagnosticCount:value.diagnostics.length,globalReasons:value.reasons,
+      outside:value.snapshot.outside_lookups,refusedCount:value.snapshot.refused_lookup_sha256.length,
+      boundaryCount:value.search_provenance.boundary_events.length,programFiles:value.snapshot.program_files,
+      resolutions:value.resolutions});
+    if(canonical(value.semantic_closure)!==canonical(expected))throw Error('invalid_packet');
   }
   return value;
 }

@@ -136,7 +136,7 @@ test('configured library target and inclusion failures retain their old reason l
 test('schema10 through schema16 history remains readable without invented obligations',()=>fixture(
   baseOptions({types:[],lib:['es5']}),({options})=>{
     const current=pair(options).after;
-    const p16=structuredClone(current);p16.schema='prism.callable-observation/16';p16.producer.version='0.17.0';delete p16.entry_obligations;
+    const p16=structuredClone(current);p16.schema='prism.callable-observation/16';p16.producer.version='0.17.0';delete p16.entry_obligations;delete p16.semantic_closure;
     const p15=structuredClone(p16);p15.schema='prism.callable-observation/15';p15.producer.version='0.16.0';delete p15.config_provenance;
     const p14=structuredClone(p15);p14.schema='prism.callable-observation/14';p14.producer.version='0.15.0';delete p14.search_provenance.lib_searches;
     for(const event of p14.search_provenance.boundary_events)if(event.owner?.channel==='lib')event.owner=null;
