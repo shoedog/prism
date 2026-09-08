@@ -57,6 +57,7 @@ no automatic membership or closure waiver is included here.
 Full repository gates passed on clean59fd6eb00d64ef958849237379e1413799494dd2:
 546 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored
 per Rust run, doctests included. The [gate receipt](2026-09-08-callable-exact-ambient-gates.json)
-binds raw logs and archivec00ec9c8. Publication follows; feature-base CI is not
+binds raw logs and archivec00ec9c8. Published as [PR289](https://github.com/shoedog/prism/pull/289),
+pushed48de24e against PR288; feature-base CI is not
 scheduled by the main-only workflow. No remote-green claim or auto-merge.
 Tier-A is not triggered; no Rust resolution/navigation/CPG/AST changes.
