@@ -16,7 +16,7 @@ Task root: `/private/tmp/prism-overnight-0zmx3n`.
 | # | Increment | State | Boundary |
 |---|---|---|---|
 | 1 | Source-backed outside/refused classification | PR281 merged172975a3 after five successful remote checks | diagnostic capture only, no producer/policy changes |
-| 2 | Module-search provenance | PR282 open on PR281; full gates passed | request-owned observations, not waivers |
+| 2 | Module-search provenance | PR282 merged91baaf8a after five successful remote checks and exact tested-tree verification | request-owned observations, not waivers |
 | 3 | Type-search provenance | PR284 open on PR283; full gates passed | actual configured/source channels; preserve batch/global caches |
 | D1 | Shared lib-search/beneficiary semantics + first value checkpoint | PR285 open on PR284; full gates passed; checkpoint continue | separate global lib cache; beneficiaries are not causal demands |
 | 4 | Bounded local configuration provenance | PR286 open on PR285; full gates passed on960c99a | local extends/options origin, no plugins/project references |
@@ -28,7 +28,7 @@ Task root: `/private/tmp/prism-overnight-0zmx3n`.
 | 10 | First production-authority contract | PR293 open on PR292; clean2af5b2be scoped docs checks passed; design98/factual99 accepted | spec and public-seam RED requirements; no runtime consumer implementation |
 | D2 | Present JS targets outside configured Program | PR290 open on PR289; docs-only checks passed | classification/proof requirements only, no membership or closure waiver |
 | D3 | Remaining discovered work reserve | unused | record cause and exact scope before use |
-| H1 | Canonical source versus synthetic lookup identity contract | PR283 open on PR282; full gates passed | unwired pure helper; no current producer change; precedes3 |
+| H1 | Canonical source versus synthetic lookup identity contract | PR283 open on main; CI34242873595 running; implementation full gates passed | unwired pure helper; no current producer change; precedes3 |
 | H2–H3 | Remaining fix/hardening reserve | unused | closed enumerable findings; no silent restart |
 
 Per increment: exact-base custody, bounded spec, captured contract/behavioral RED
