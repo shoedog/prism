@@ -76,6 +76,8 @@ Default Rust4017/0/1 and MCP4207/0/1 include doctests; the existing reserved Sli
 case is the sole ignored test in each run. Helpers7/7, authority40/failures=[],
 historical source-audit controls5/5, cargo fmt --check and git diff --check pass.
 Evidence is in the [source/cache audit](2026-09-07-callable-entry-evidence.json);
+the [gate record](2026-09-07-callable-entry-gates.json) captures hashes, totals and
+the20,685,315-byte raw archive. Observer375/375 was rerun on committed97b5524;
 publication custody is tracked in the
 [handoff](../../superpowers/handoffs/2026-09-07-callable-entry-observations.md).
 

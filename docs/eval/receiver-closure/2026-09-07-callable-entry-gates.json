@@ -1,0 +1,281 @@
+{
+  "schema": "prism.entry-observation-gates/1",
+  "base": "ca473cd198d3a906a9ba9b14402118a4bbcd952a",
+  "implementation_commit": "97b55246483bdb215ee2d1f0b800ac8e85ccf2ba",
+  "producer": {
+    "version": "0.13.0",
+    "sha256": "08a4b24b1a14c417831a56544e2965b3d352fc2ca086d74b444469dddac1e411"
+  },
+  "compiler": {
+    "version": "5.9.3",
+    "sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675",
+    "verified": true,
+    "library_sha256": "d62148caac5381611f033ed809c8a1ad68d08bce806d9c46b1cac9c2b02caf52"
+  },
+  "closure_admission": false,
+  "authorizes_runtime_edge": false,
+  "red_initial": {
+    "tests": 23,
+    "passed": 0,
+    "failed": 23,
+    "skipped": 0,
+    "artifact": {
+      "file": "red-base.log",
+      "sha256": "f36e5efa5b9c8ec4774e69d1f4b77b7286cca963ed270c0d99bd4b4c523f364e",
+      "bytes": 30000
+    }
+  },
+  "red_final": {
+    "tests": 27,
+    "passed": 0,
+    "failed": 27,
+    "skipped": 0,
+    "artifact": {
+      "file": "red-expanded-base.log",
+      "sha256": "48a78536933d5a0ac723095a08a9e1dce0edff12c524134b8b4a86520da562a8",
+      "bytes": 35340
+    }
+  },
+  "red_claim": "Missing entry-observation contract, not a false-closure repair",
+  "green_initial": {
+    "tests": 23,
+    "passed": 22,
+    "failed": 1,
+    "skipped": 0,
+    "artifact": {
+      "file": "green-initial.log",
+      "sha256": "5f67e214a81aeb26fa5ee36e711738e6aa56b1e81c1179ec420a20715106b4b2",
+      "bytes": 3468
+    }
+  },
+  "green_final": {
+    "tests": 40,
+    "passed": 40,
+    "failed": 0,
+    "skipped": 0,
+    "artifact": {
+      "file": "green-expanded.log",
+      "sha256": "4d2174712f9cc27f13afa89ccda6112691f4c7cdc51d0cfd6e3beab8de868762",
+      "bytes": 3681
+    }
+  },
+  "cache_double_controls": 13,
+  "observer_initial": {
+    "tests": 371,
+    "passed": 368,
+    "failed": 3,
+    "skipped": 0,
+    "artifact": {
+      "file": "observer-initial.log",
+      "sha256": "88994e7213248d2330d1d647e49cee3e294aad1a7bcafc64b42cf3c4358ef438",
+      "bytes": 36522
+    }
+  },
+  "observer": {
+    "tests": 375,
+    "passed": 375,
+    "failed": 0,
+    "skipped": 0,
+    "artifact": {
+      "file": "observer-head.log",
+      "sha256": "db35ac9fe262290fce02bd3280d571dad9c33f34f720c34566d729a0ad07ebba",
+      "bytes": 32363
+    }
+  },
+  "base_index_controls": {
+    "tests": 2,
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "artifact": {
+      "file": "index-base-control.log",
+      "sha256": "b110ebfb722d37abd50d84d84eb501ad24210255a12bacc9c242dd96ca7df45a",
+      "bytes": 281
+    }
+  },
+  "base_path_controls": {
+    "tests": 24,
+    "passed": 24,
+    "failed": 0,
+    "skipped": 0,
+    "artifact": {
+      "file": "required-paths-base.log",
+      "sha256": "357d7c614777a014239382f38a7d790c4b6868655b3add4ba90a336b93101c9f",
+      "bytes": 2286
+    }
+  },
+  "rust_default": {
+    "groups": 28,
+    "passed": 4017,
+    "failed": 0,
+    "ignored": 1,
+    "includes_doctests": true,
+    "ignored_cases": [
+      "test resolution_test::slice_elem_variant_reserved ... ignored, SliceElem is reserved (spec §5/§10); classifier returns None until a future slice"
+    ],
+    "artifact": {
+      "file": "rust-default.log",
+      "sha256": "b3c52929f4a02aadbce026d33adc5313e4239fde1270984027d8c7e5037406a9",
+      "bytes": 322017
+    }
+  },
+  "rust_mcp": {
+    "groups": 30,
+    "passed": 4207,
+    "failed": 0,
+    "ignored": 1,
+    "includes_doctests": true,
+    "ignored_cases": [
+      "test resolution_test::slice_elem_variant_reserved ... ignored, SliceElem is reserved (spec §5/§10); classifier returns None until a future slice"
+    ],
+    "artifact": {
+      "file": "rust-mcp.log",
+      "sha256": "3466a57ba7e421e6184b17cc148f6cbb3328f9130a4fe30334cb1340f23ec306",
+      "bytes": 338513
+    }
+  },
+  "helpers": {
+    "tests": 7,
+    "passed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "artifact": {
+      "file": "helpers-complete.log",
+      "sha256": "39842354b3653d2b2a29a240a47091f58c89e71d5d3b3206dbc82796e315eae4",
+      "bytes": 770
+    }
+  },
+  "inadmissible_helper_probe": {
+    "reason": "Missing PRISM_AUDIT_* fixture environment; complete invocation passes7/7",
+    "artifact": {
+      "file": "helpers-final.log",
+      "sha256": "0ed16f81601c0294b2ba2469689c7c3d7263c0f8debf0d152ad22dcd09b92eaa",
+      "bytes": 1589
+    }
+  },
+  "authority": {
+    "cases": 40,
+    "failures": [],
+    "artifact": {
+      "file": "authority.json",
+      "sha256": "8746d8f89c3efa5029869de3c0d1d0297f2499da22e20d02b922bc6576a9b57f",
+      "bytes": 494914
+    }
+  },
+  "source_audit_controls": {
+    "passed": 7,
+    "artifact": {
+      "file": "audit-controls.json",
+      "sha256": "b32f30e7c79d7252cc92e87032b97a840f60185949e232ffaeaed4a196f1a7cc",
+      "bytes": 654
+    }
+  },
+  "historical_audit_controls": {
+    "passed": 5,
+    "artifact": {
+      "file": "historical-controls.json",
+      "sha256": "f8bcd2df43075b034e82302f8dc029cceb7c37c3c546d87a1612f5aa550e1521",
+      "bytes": 143239
+    }
+  },
+  "public": {
+    "packet": {
+      "file": "public-current.json",
+      "sha256": "47f41ee5d64aada696f89b7a3933f36d1a34c7cb59bd26789dceaf96664843de",
+      "bytes": 22997588
+    },
+    "base_packet": {
+      "file": "public-base.json",
+      "sha256": "25ea7dba031a0f4d9a1d6f3022d68a8e4ed6c8c495a93dabcc664150f51bbca5",
+      "bytes": 22996221
+    },
+    "instrumented_base_packet": {
+      "file": "public-capture.json",
+      "sha256": "bf2405632bc2ed23baef89554607a97edfae89d5ebe8503166a35b2a8cdbb175",
+      "bytes": 17210366
+    },
+    "entry_cache": {
+      "file": "entry-cache.json",
+      "sha256": "6b2670c2a7992e0d1fe6474fa870268f1a77517644432b7bd0254246fc92b507",
+      "bytes": 291621
+    },
+    "capture_worker": {
+      "file": "capture/worker.mjs",
+      "sha256": "1f2946d0745c3c493d1dac278023ce31ababf497cdd1e544586bc200645e7a74",
+      "bytes": 12309
+    },
+    "audit": {
+      "file": "public-audit.json",
+      "sha256": "c700146646430d08294a82dfeeddc3493c81c155211c13d9230868fafd9737ed",
+      "bytes": 3796
+    },
+    "validation": {
+      "valid": true,
+      "authorizes_runtime_edge": false,
+      "packet_status": "unproven",
+      "reason": "reproduced_observation"
+    },
+    "unchanged_fields": [
+      "authorizes_runtime_edge",
+      "compiler",
+      "scope",
+      "status",
+      "reasons",
+      "limits",
+      "closure",
+      "snapshot",
+      "diagnostics",
+      "resolutions",
+      "observations",
+      "type_lib_references"
+    ],
+    "changed_previous_fields": [
+      "schema",
+      "producer"
+    ],
+    "entries": {
+      "configured_types": 2,
+      "configured_libs": 3,
+      "automatic": 0,
+      "default": 0,
+      "observed": 5,
+      "unproven": 0
+    },
+    "source_manifest_sha256": "353187a695df2683a3631e4739c173cb6d33190901093549b61e28efeda60cbb",
+    "source_files_verified": 1229,
+    "lookup": {
+      "total": 6893,
+      "nulls": 603,
+      "refusal_digests": 264,
+      "outside": true
+    },
+    "receivers": {
+      "observations": 30,
+      "nested_calls": 53
+    },
+    "disposition": "Owner decision: keep react-scripts unresolved; no install, removal, shim, substitution or waiver."
+  },
+  "review": {
+    "rounds": 2,
+    "cap": 2,
+    "independent": false,
+    "extension": false,
+    "verdict": "SURVIVED",
+    "open_wrong": 0
+  },
+  "exclusions": [
+    "Tier-A not triggered: no Rust resolution/navigation/CPG/AST edits",
+    "No configured-inheritance location proof, causal outside/refused attribution or entry-channel closure-policy admission",
+    "No app source/config/dependency changes or React.FC/runtime/class authority"
+  ],
+  "committed_source": {
+    "file": "committed-source.tgz",
+    "sha256": "2515f6625148248ffe83c6a7b8635094a94862f3873e2161f2455c7acd8c8d45",
+    "bytes": 10298242
+  },
+  "raw_archive": {
+    "file": "entry-evidence.tgz",
+    "sha256": "013e8d71e905e6e0a0b84757b1db7b588a1070f5cf0ff47d8bc640621269e330",
+    "bytes": 20685315
+  }
+}

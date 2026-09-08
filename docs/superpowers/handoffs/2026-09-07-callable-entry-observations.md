@@ -1,7 +1,7 @@
 # Handoff — configured/automatic type and lib entry observations
 
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-entry-observations · **Measured state:** `[MEASURED]` base HEAD ca473cd198d3a906a9ba9b14402118a4bbcd952a; dirty implementation/tests/docs. `git status --short` shows only this slice and the retained owner-decision docs.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-entry-observations · **Measured state:** `[MEASURED]` implementation HEAD97b55246483bdb215ee2d1f0b800ac8e85ccf2ba, clean after commit; observer-head375/375 on that HEAD. Only docs/gate records follow; source/compiler producer bytes unchanged.
 **Predecessor:** PR279, `gh pr view 279 --json state,mergeCommit,mergedAt` returned MERGED, merge ca473cd1, 2026-09-08T04:31:53Z.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims were not.
@@ -9,15 +9,15 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Lane: /root, no subagents dispatched; only prior owned documentation dirty at start — RESOLVED.
-(b) Custody: owner-decision snapshot retained at `/private/tmp/prism-react-scripts-decision-mJ0LJx`; implementation checkpoint.tgz under task root — RESOLVED local snapshot; commit/publication next.
+(b) Custody: implementation committed97b5524; task-root/entry-evidence.tgz20,685,315 bytes, SHA256013e8d71e905e6e0a0b84757b1db7b588a1070f5cf0ff47d8bc640621269e330 — RESOLVED local archive; push/PR next. Final gate record is tracked separately.
 (c) In flight: all full suites, public replays and validation complete — RESOLVED. No dependency acquisition or app writes.
 (d) Owner: "bounded configured/automatic type/lib entry observations. We can document in the remote as part of this slice". Implement and publish this slice plus keep-unresolved decision; no merge or closure admission.
 
 ## 1. Resume order
 
 1. `git status --short --branch` in `/Users/wesleyjinks/code/slicing`, then inspect logs under `/private/tmp/prism-entry-observations-iZY1n0`.
-2. Inspect the final logs/readout; record committed checkpoint and gate hashes.
-3. Snapshot/commit/push and open PR. Two capped SELF-PASS rounds are complete (NOT INDEPENDENT). Do not auto-merge.
+2. Inspect the final [gate record](../../eval/receiver-closure/2026-09-07-callable-entry-gates.json); implementation and evidence are complete.
+3. Commit final docs/gates, push and open PR. Two capped SELF-PASS rounds are complete (NOT INDEPENDENT). Do not auto-merge.
 
 **STOP conditions:** app source/config/dependency changes; React.FC/runtime/class or closure-policy expansion; gates requiring unsupported host facilities; open-class findings at review cap2.
 
@@ -29,8 +29,8 @@
 | Owner decision | done | `[INHERITED]` owner selects keep unresolved, no react-scripts installation; predecessor readout records decision |
 | Contract RED | done | `[MEASURED]` red-base.log 23/23 fail at missing entry ledger; red-expanded-base.log27/27 fail after fixture correction and four added regressions |
 | Targeted GREEN | done | `[MEASURED]` green-expanded.log40/40 pass:27 real Program tests plus13 cache-double guards |
-| Implementation | done | `[MEASURED]` entries.mjs/schema12/producer0.13.0; additive entry rows, no closure changes |
-| Full/public gates | done | `[MEASURED]` observer-final375/375, default4017/0/1 and MCP4207/0/1 including doctests; helpers-complete7/7; authority40/failures=[]; audit-controls7/7; historical-controls5/5; fmt/diff checks pass |
+| Implementation | done | `[MEASURED]` commit97b5524, entries.mjs/schema12/producer0.13.0; additive entry rows, no closure changes |
+| Full/public gates | done | `[MEASURED]` committed observer-head375/375, default4017/0/1 and MCP4207/0/1 including doctests; helpers-complete7/7; authority40/failures=[]; audit-controls7/7; historical-controls5/5; fmt/diff checks pass; callable-entry-gates.json |
 | Public measurement | done | `[MEASURED]` public-audit.json: five configured entries observed (two types/three libs);139 source directives138 observed/react-scripts unresolved; every previous field except schema/producer identical; validation.json valid/unproven |
 | Review | done | Two SELF-PASS rounds, NOT INDEPENDENT, cap2, no extension; no open implementation WRONG; see readout |
 | Publication | pending | no PR yet |
