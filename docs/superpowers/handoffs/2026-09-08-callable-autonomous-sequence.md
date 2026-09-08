@@ -9,15 +9,15 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Lane ownership — RESOLVED: `[MEASURED]` /root owns architecture; compiler_search_review and boundary_audit completed bounded work; gate_runner delivered an S2 disposable candidate, not repository edits. Primary is finishing its enumerated test population.
-(b) Custody exposure — RESOLVED locally: `[MEASURED]` implementation d43dd54 committed; S1 raw evidence archived, 7,308,737 bytes, SHA256 8f737f4947a69a8d6cbeacd9e504af0d95d236c98389ef6ea1351d176b0926b4. Remote publication follows.
+(b) Custody exposure — RESOLVED: `[MEASURED]` implementation d43dd54 and gate closeout2ce3b00 pushed; PR281 open (gh pr create returned https://github.com/shoedog/prism/pull/281). S1 raw evidence archived, 7,308,737 bytes, SHA256 8f737f4947a69a8d6cbeacd9e504af0d95d236c98389ef6ea1351d176b0926b4. This publication note follows.
 (c) In flight / irreversible — RESOLVED: `[MEASURED]` S1 replay/audit controls complete; S2 implementation delegated ONLY in disposable task-root copy, no repository writes. No install or application change.
 (d) Authorization granted but not exercised — owner: "PR 280 is merged, approced to proceed with next 10 slices/increments with recommended value checkpoints. Approved for 3 additional slices/increments to cover additonal work flind doing those 10 ( if needed). Approved for 3 additional slices for fixes/hardening." Owner also permits stopping at a crossroads and approved model delegation. No auto-merge authority inferred.
 
 ## 1. Resume order
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
-2. Commit this docs-only gate closeout and publish S1 to a PR against main. Full gates and raw custody are complete; no production source changed after them.
-3. Branch S2 from published S1 and integrate `/private/tmp/prism-overnight-0zmx3n/s2.AZF7YL/callable-observations` only after its expanded tests, public/transcript parity and review. S3 type half then D1 lib half precede checkpoint one.
+2. S1 is published as PR281; inspect CI without auto-merging. Commit/push this publication note before branching S2.
+3. Branch S2 from published S1 and integrate `/private/tmp/prism-overnight-0zmx3n/s2.AZF7YL/callable-observations` only after its expanded tests, public/transcript parity and review. S3 type half then D1 lib half precede checkpoint one. The source-backed primary designs are task-root/s2-design.md and s3-design.md.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
 
@@ -30,7 +30,7 @@
 | S1 fresh capture | done | `[MEASURED]` capture-location.json; 2,075 boundary events, 6,893 module occurrences; normal packet differs only in producer hash |
 | S1 audit and negative controls | done | `[MEASURED]` s1-audit.json and s1-audit-controls.log: 11 pass, zero failure/skip; primary review cap two completed |
 | S1 full gates | done | `[MEASURED]` callable-search-gates.json: observer375, Rust4017/1 ignored, MCP4207/1 ignored, helpers18, authority40; all pass including doctests, fmt/diff |
-| S1 publication | next | Gate closeout commit and PR; do not auto-merge |
+| S1 publication | done | `[MEASURED]` PR281 open, pushed d43dd54 and2ce3b00; do not auto-merge |
 | S2 | next | Disposable candidate and expanded RED tests; public parity/review/full gates still required |
 | S3 / D1 / S4–S10 | pending | D1 allocated to separately cached lib searches/beneficiary semantics; other reserves unused |
 
@@ -48,7 +48,7 @@ No relevant memory registry hit; no memory edits.
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | S1 publication | next | Commit docs closeout, push and PR | None | d43dd54 |
+| 1 | S1 publication | done | Check CI, retain open PR for owner merge | None | PR281 |
 | 2 | Module provenance design | pending | Separate actual host boundary events from pure identity conversion; occurrence context stack | S1 publication | S2 |
 | 3 | Type/lib provenance design | pending | Preserve batch/shared-cache behavior and all lib contributors; no second resolver | S2 | S3 |
 
