@@ -54,5 +54,9 @@ The owner-settled react-scripts directive,14 module-literal gaps and all boundar
 encounters are unchanged. D2 separately audits the20 present non-Program JS targets;
 no automatic membership or closure waiver is included here.
 
-Full clean repository gates, archive and publication receipt follow integration.
+Full repository gates passed on clean59fd6eb00d64ef958849237379e1413799494dd2:
+546 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored
+per Rust run, doctests included. The [gate receipt](2026-09-08-callable-exact-ambient-gates.json)
+binds raw logs and archivec00ec9c8. Publication follows; feature-base CI is not
+scheduled by the main-only workflow. No remote-green claim or auto-merge.
 Tier-A is not triggered; no Rust resolution/navigation/CPG/AST changes.

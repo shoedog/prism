@@ -1,7 +1,7 @@
 # Handoff — approved callable-completeness sequence
 
-**Written:** 2026-09-08T10:01Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-exact-ambient-admission · **Measured state:** `[MEASURED]` S6 PR288 closeouteeb950f pushed. S7 b75dbd6d integrated exactly (test-header clarification only), public oldfields/91409hostoperations/source unchanged and fullreproduction valid; private existing-profile oldfield/source parity valid, semantic incomplete. Full clean repository gates next. `[INHERITED]` independentACCEPT98/40controls and copied546 pass. D2 correction delivered ACCEPT98; S8 disposable implementation authorized after RED; S10 contract independently ACCEPT98, docs-only. Probe: integrated producer hash, current diff, public/private receipts and independent reviews.
+**Written:** 2026-09-08T10:12Z · **By:** /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-exact-ambient-admission · **Measured state:** `[MEASURED]` S7 clean59fd6eb full546/4017/4207 plus18/40 passed, one ignored per Rust run/doctests; archivec00ec9c8, publication next. Producerb75dbd6d; public oldfields/91409hostoperations/source and private existing-profile oldfield/source parity valid, semantic incomplete. Checkpoint2 continues without receiver-gain claim. D2 corrected20-row report exactly matches S7 nonProgram population; primary verified source predicates and report4cd2d0c5, archive50724ca2. `[INHERITED]` S8 implementation proceeds after captured3RED/11compat; S10 contract independentlyACCEPT98. Probe: full gate summary, source/packet/report hashes, current diff and independent reviews.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims name their source.
@@ -41,8 +41,9 @@
 | S4 | published PR286 | Pushed c11f3ec; clean960c99a485/4017/4207 plus18/40; archive0a6ce282; independent final round2 ACCEPT99; public91409/11 transcripts equal |
 | S5 | published PR287 | Pushed6ac9934 against PR286; cleanf7f5ac9506/4017/4207 plus18/40; archive7e8851be; independent97; public5selected/complete/alloldfields/91409 operations equal |
 | S6 | published PR288 | Pushed67588fc against PR287; clean5faf199521/4017/4207 plus18/40; archiveb06fb9f4; producer63c557 unchanged; independent99 |
-| S7–S10 | in progress | S7 disposable implementation after exactS6-equivalent RED; S10 production-authority contract only. D2 allocated below; D3/H2/H3 remain unused |
-| D2 | source-only audit allocated |20 public filesystem targets present but outsideProgram; source/compiler classification and proof requirements only, separate PR afterS7checkpoint |
+| S7 | full gates passed | Clean59fd6eb546/4017/4207 plus18/40; archivec00ec9c8; independent98; public/private checkpoint continue; publication next |
+| S8–S10 | in progress | S8 fixedv2 wrapper after capturedRED; S9 primary-frozen merged-side-effect-v3 fixture matrix; S10 contract independently accepted98, docs-only |
+| D2 | corrected audit accepted |20 occurrences/14 present JS targets; sufficient compiler depth-elision branch,9 sourceambient/11 no checker declarations; diagnostic distinction corrected with new raw-path capture; archive50724ca2; separate PR next |
 
 ## 3. Corrections to standing documents and memory
 
