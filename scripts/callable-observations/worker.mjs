@@ -13,6 +13,7 @@ import {observeTypeLib} from "./type-lib.mjs";
 import {observeEntries} from "./entries.mjs";
 import {snapshot} from "./inventory.mjs";
 import {createSearchProvenance,classifyBoundary} from "./search-provenance.mjs";
+import {projectSyntheticAddress} from "./identity-domains.mjs";
 
 const options=JSON.parse(readFileSync(0,"utf8"));
 const fail=reason=>{throw Error(reason);};
@@ -33,7 +34,8 @@ function build() {
   }
   const canonicalId=id=>first.resolve(id,v=>canonicalIds.get(canonicalFile(v))??v);
   const reasons=new Set(),reads=new Set(),missing=new Set(),refused=new Set();let outside=false;
-  const search=createSearchProvenance(hash);packet.search_provenance={module_requests:search.module_requests,boundary_events:search.boundary_events};
+  const search=createSearchProvenance(hash);packet.search_provenance={module_requests:search.module_requests,
+    type_batches:search.type_batches,type_requests:search.type_requests,type_searches:search.type_searches,boundary_events:search.boundary_events};
   // Virtual paths make observations portable across equivalent caller-owned roots.
   const toId=(f,operation="identity")=>{
     const classified=classifyBoundary(f),n=classified.normalized;
@@ -48,6 +50,8 @@ function build() {
     outside=true;search.boundary("outside",operation,n);return null;
   };
   const virtual=id=>"/__prism__/"+id;
+  const pureId=f=>{const classified=classifyBoundary(f);if(classified.kind==='unsafe')fail('unsupported_input');
+    return classified.kind==='in_root'?canonicalId(classified.id):null;};
   const read=f=>{
     const id=toId(f,"readFile");if(!id)return undefined;
     if(!first.files.has(id)){missing.add(id);return undefined;}
@@ -78,7 +82,9 @@ function build() {
   if(parsed.projectReferences?.length) reasons.add("unsupported_references");
   if(parsed.options.plugins?.length) reasons.add("unsupported_plugins");
   if(first.links.length && parsed.options.preserveSymlinks)fail("unsupported_input");
-  const lookupRequests=[];
+  const lookupRequests=[],typeLookupRequests=[];
+  // Match the pinned Program's private cache construction without another host call.
+  const typeResolutionCache=ts.createTypeReferenceDirectiveResolutionCache(virtual('project'),canonicalFile,undefined,undefined,undefined);
   const host={...basic,getSourceFile:(f,v)=>{const text=read(f);return text===undefined?undefined:ts.createSourceFile(f,text,v,true);},
     getDefaultLibFileName:o=>virtual("compiler/"+ts.getDefaultLibFileName(o)),
     getDefaultLibLocation:()=>virtual("compiler"),writeFile:()=>fail("unsupported_input"),
@@ -97,7 +103,30 @@ function build() {
         if(!target)reasons.add("unresolved_module");
         return result;
       });
-    })};
+    }),
+    resolveTypeReferenceDirectiveReferences:(entries,from,redirected,compilerOptions,source)=>{
+      const origin=source?'source':compilerOptions.types!==undefined?'configured':'automatic';
+      const fromId=source?pureId(from):projectSyntheticAddress(from);
+      const batch={id:search.claimTypeBatch(),origin,from:fromId,size:entries.length};search.typeBatch(batch);
+      const resultsByKey=new Map(),effectiveOptions=redirected?.commandLine.options||compilerOptions;
+      return entries.map((entry,index)=>{
+        const id=search.claimTypeRequest(),name=typeof entry==='string'?entry:entry.fileName;
+        const rawMode=ts.getModeForFileReference(entry,source&&ts.getDefaultResolutionModeForFileWorker(source,effectiveOptions));
+        const mode=rawMode===ts.ModuleKind.ESNext?'import':rawMode===ts.ModuleKind.CommonJS?'require':null;
+        const key=ts.createModeAwareCacheKey(name,rawMode);let execution=resultsByKey.get(key);
+        if(!execution) {
+          const searchRecord={id:search.claimTypeSearch()};
+          execution=search.withTypeSearch(searchRecord,()=>{
+            const result=ts.resolveTypeReferenceDirective(name,from,compilerOptions,host,redirected,typeResolutionCache,rawMode);
+            const target=result.resolvedTypeReferenceDirective?pureId(result.resolvedTypeReferenceDirective.resolvedFileName):null;
+            search.typeSearch({id:searchRecord.id,from:fromId,name,mode,target});return {id:searchRecord.id,result};
+          });
+          resultsByKey.set(key,execution);
+        }
+        typeLookupRequests.push({id,batch:batch.id,origin,from:fromId,name,mode,ref:entry,source,index,execution:execution.id});
+        return execution.result;
+      });
+    }};
   // References/plugins are recorded but never traversed/executed in this bounded slice.
   const program=ts.createProgram(parsed.fileNames,parsed.options,host);
   const programIds=program.getSourceFiles().map(f=>toId(f.fileName));
@@ -156,6 +185,22 @@ function build() {
   packet.type_lib_references=observeTypeLib(ts,program,toId,read);
   if(packet.type_lib_references.some(r=>r.status==='unproven'))reasons.add("unproven_type_lib_reference");
   packet.type_lib_entries=observeEntries(ts,program,toId);
+  const usedRowsByBatch=new Map(search.type_batches.map(batch=>[batch.id,new Set()]));
+  for(const record of typeLookupRequests) {
+    let request=null,row,key;const usedRows=usedRowsByBatch.get(record.batch);
+    if(!usedRows)fail('unsupported_input');
+    if(record.origin==='source') {
+      if(record.source?.typeReferenceDirectives?.[record.index]!==record.ref)fail('unsupported_input');
+      row=packet.type_lib_references.find(r=>r.kind==='types'&&r.request.file===record.from&&r.index===record.index);
+      key=row&&canonical({file:row.request.file,index:row.index});request=row?.request??null;
+    } else {
+      row=packet.type_lib_entries.find(r=>r.kind==='types'&&r.origin===record.origin&&r.index===record.index);
+      key=row&&canonical({origin:row.origin,index:row.index});
+    }
+    if(!row||usedRows.has(key)||row.name!==record.name||row.mode!==record.mode)fail('unsupported_input');usedRows.add(key);
+    search.typeRequest({id:record.id,batch:record.batch,origin:record.origin,from:record.from,name:record.name,mode:record.mode,
+      request,index:record.index,execution:record.execution});
+  }
   const second=snapshot(options);
   if(first.digest!==second.digest)reasons.add("unstable_snapshot");
   if(outside)reasons.add("outside_lookup");

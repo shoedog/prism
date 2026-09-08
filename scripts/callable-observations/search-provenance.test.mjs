@@ -31,3 +31,20 @@ test('independent ledgers cap module and boundary populations fail closed',()=>{
   ledger.request({id:0});assert.throws(()=>ledger.request({id:1}),/budget_exceeded/);
   ledger.boundary('outside','identity','a');assert.throws(()=>ledger.boundary('outside','identity','b'),/budget_exceeded/);
 });
+
+test('type request and execution caps are independent and type contexts restore',()=>{
+  const ledger=createSearchProvenance(s=>s,1),search={id:ledger.claimTypeSearch()};
+  assert.throws(()=>ledger.claimTypeSearch(),/budget_exceeded/);assert.equal(ledger.claimTypeRequest(),0);assert.throws(()=>ledger.claimTypeRequest(),/budget_exceeded/);
+  ledger.typeRequest({id:0});assert.throws(()=>ledger.typeRequest({id:1}),/budget_exceeded/);
+  ledger.typeSearch(search);assert.throws(()=>ledger.typeSearch({id:1}),/budget_exceeded/);
+  assert.throws(()=>ledger.withTypeSearch(search,()=>{throw Error('type failure');}),/type failure/);
+  const other=createSearchProvenance(s=>s);other.withTypeSearch({id:0},()=>other.boundary('outside','identity','owned'));
+  other.boundary('outside','identity','unowned');assert.deepEqual(other.boundary_events.map(e=>e.owner),[{channel:'type',id:0},null]);
+});
+
+test('type batch claims and records have an independent cap',()=>{
+  const ledger=createSearchProvenance(s=>s,1);
+  assert.equal(ledger.claimTypeBatch(),0);assert.throws(()=>ledger.claimTypeBatch(),/budget_exceeded/);
+  assert.equal(ledger.claimTypeRequest(),0);assert.equal(ledger.claimTypeSearch(),0);
+  ledger.typeBatch({id:0});assert.throws(()=>ledger.typeBatch({id:1}),/budget_exceeded/);
+});

@@ -40,12 +40,15 @@ test('synthetic JSX runtime request has no invented source literal anchor',()=>f
   const p=produce(options),s=sameRequests(p),r=s.module_requests.find(r=>r.specifier==='react/jsx-runtime'&&r.from==='project/src/view.tsx');
   assert(r);assert.equal(r.request,null);assert.equal(r.from,'project/src/view.tsx');assert(s.boundary_events.some(e=>e.owner?.id===r.id));
 }));
-for(const channel of ['source_type','configured_type','lib'])test(`${channel} boundary encounters remain explicitly unowned in S2`,()=>fixture(({put,config,save,options})=>{
+for(const channel of ['source_type','configured_type','lib'])test(`${channel} boundary encounters retain the intended owner channel`,()=>fixture(({put,config,save,options})=>{
   if(channel==='source_type')put('src/types.d.ts','/// <reference types="missing-types" />');
   if(channel==='configured_type')config.compilerOptions.types=['missing-types'];
   if(channel==='lib'){config.compilerOptions.lib=['es5'];config.compilerOptions.libReplacement=true;}
   save();const p=produce(options),s=sameRequests(p);assert.equal(s.module_requests.length,0);
-  assert(s.boundary_events.length>0);assert(s.boundary_events.every(e=>e.owner===null));assert.equal(p.closure.dependencies,false);
+  assert(s.boundary_events.length>0);
+  if(channel==='lib')assert(s.boundary_events.every(e=>e.owner===null));
+  else {assert.equal(s.type_requests.length,1);assert(s.boundary_events.every(e=>e.owner?.channel==='type'&&e.owner.id===s.type_requests[0].execution));}
+  assert.equal(p.closure.dependencies,false);
 }));
 test('a resolved local package retains its module-owned outside peer metadata probe',()=>fixture(({put,options})=>{
   put('src/app.ts','import {value} from "./dep";export {value};');
