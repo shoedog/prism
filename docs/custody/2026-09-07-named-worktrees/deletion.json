@@ -1,0 +1,357 @@
+{
+  "authorized_names": [
+    "slicing-13a-go-level3-design",
+    "slicing-16-post-provenance",
+    "slicing-16c1-sol",
+    "slicing-18-rta-fallback",
+    "slicing-4b-go-dot-import-v7",
+    "slicing-a-receiver-provenance-s0",
+    "slicing-a-receiver-provenance-s1",
+    "slicing-a-receiver-provenance-s2",
+    "slicing-a-receiver-provenance-s2-closeout",
+    "slicing-a-receiver-provenance-s2-custody",
+    "slicing-a-receiver-provenance-s3",
+    "slicing-a-receiver-provenance-scope-prereq",
+    "slicing-p4b-go-dot-import",
+    "slicing-phase0",
+    "slicing-phase0-review",
+    "slicing-phase0-sol",
+    "slicing-targets-hint"
+  ],
+  "mode": "delete",
+  "head": "38ad6dc3e47509e4cf3f5be1c66c2b90541b80d6",
+  "started": "2026-09-08T01:11:23.898Z",
+  "before_df": "Filesystem   1024-blocks      Used Available Capacity iused      ifree %iused  Mounted on\n/dev/disk3s5   971298980 764419096 180704324    81% 4393941 1807043240    0%   /System/Volumes/Data\n",
+  "protectedPaths": [
+    "/Users/wesleyjinks/code/slicing",
+    "/private/tmp/prism-worktree-custody-K76Tg3",
+    "/Users/wesleyjinks/code/stockTrading",
+    "/Users/wesleyjinks/code/a2a-bridge",
+    "/Users/wesleyjinks/code/frontend-portal"
+  ],
+  "rows": [
+    {
+      "name": "slicing-13a-go-level3-design",
+      "path": "/Users/wesleyjinks/code/slicing-13a-go-level3-design",
+      "kind": "registered_worktree",
+      "mounts": {
+        "host_mount_clear": true,
+        "containers_checked": 12
+      },
+      "live": {
+        "process_clear": true,
+        "lsof_clear": true
+      },
+      "checked_at": "2026-09-08T01:11:24.392Z",
+      "status": "removed",
+      "metadata_backup": "/private/tmp/prism-worktree-custody-K76Tg3/deletion-git-metadata-slicing-13a-go-level3-design.tgz",
+      "metadata_sha256": "84d1fc4383b4c9bb54a26d9cacf1d6c3d446bbaefe1254d0c0a48b21ab0e0d14",
+      "removed_at": "2026-09-08T01:11:24.589Z"
+    },
+    {
+      "name": "slicing-16-post-provenance",
+      "path": "/Users/wesleyjinks/code/slicing-16-post-provenance",
+      "kind": "registered_worktree",
+      "mounts": {
+        "host_mount_clear": true,
+        "containers_checked": 12
+      },
+      "live": {
+        "process_clear": true,
+        "lsof_clear": true
+      },
+      "checked_at": "2026-09-08T01:11:24.989Z",
+      "status": "removed",
+      "metadata_backup": "/private/tmp/prism-worktree-custody-K76Tg3/deletion-git-metadata-slicing-16-post-provenance.tgz",
+      "metadata_sha256": "eda44c863c877b1ad27294e13f87c0f94cd4ac5c13f1307136ef481ee748d5cd",
+      "removed_at": "2026-09-08T01:11:25.303Z"
+    },
+    {
+      "name": "slicing-16c1-sol",
+      "path": "/Users/wesleyjinks/code/slicing-16c1-sol",
+      "kind": "clone",
+      "mounts": {
+        "host_mount_clear": true,
+        "containers_checked": 12
+      },
+      "live": {
+        "process_clear": true,
+        "lsof_clear": true
+      },
+      "checked_at": "2026-09-08T01:11:25.656Z",
+      "status": "removed",
+      "metadata_backup": "/private/tmp/prism-worktree-custody-K76Tg3/deletion-git-metadata-slicing-16c1-sol.tgz",
+      "metadata_sha256": "7e32b3a6090fd94589eca09bc77177bf27b01658735a85b5954fd1da15f5cf15",
+      "removed_at": "2026-09-08T01:11:25.770Z"
+    },
+    {
+      "name": "slicing-18-rta-fallback",
+      "path": "/Users/wesleyjinks/code/slicing-18-rta-fallback",
+      "kind": "registered_worktree",
+      "mounts": {
+        "host_mount_clear": true,
+        "containers_checked": 12
+      },
+      "live": {
+        "process_clear": true,
+        "lsof_clear": true
+      },
+      "checked_at": "2026-09-08T01:11:26.042Z",
+      "status": "removed",
+      "metadata_backup": "/private/tmp/prism-worktree-custody-K76Tg3/deletion-git-metadata-slicing-18-rta-fallback.tgz",
+      "metadata_sha256": "d8b68f15d890f92b2e693fb21b2ae8bb39cf74c99f6c4d7b9bb4e164873c310c",
+      "removed_at": "2026-09-08T01:11:26.173Z"
+    },
+    {
+      "name": "slicing-4b-go-dot-import-v7",
+      "path": "/Users/wesleyjinks/code/slicing-4b-go-dot-import-v7",
+      "kind": "registered_worktree",
+      "mounts": {
+        "host_mount_clear": true,
+        "containers_checked": 12
+      },
+      "live": {
+        "process_clear": true,
+        "lsof_clear": true
+      },
+      "checked_at": "2026-09-08T01:11:26.479Z",
+      "status": "removed",
+      "metadata_backup": "/private/tmp/prism-worktree-custody-K76Tg3/deletion-git-metadata-slicing-4b-go-dot-import-v7.tgz",
+      "metadata_sha256": "9d1cefea7709bb126b20023192b525b0dfad526c76a40521ba387bd5554470ec",
+      "removed_at": "2026-09-08T01:11:26.647Z"
+    },
+    {
+      "name": "slicing-a-receiver-provenance-s0",
+      "path": "/Users/wesleyjinks/code/slicing-a-receiver-provenance-s0",
+      "kind": "registered_worktree",
+      "mounts": {
+        "host_mount_clear": true,
+        "containers_checked": 12
+      },
+      "live": {
+        "process_clear": true,
+        "lsof_clear": true
+      },
+      "checked_at": "2026-09-08T01:11:27.042Z",
+      "status": "removed",
+      "metadata_backup": "/private/tmp/prism-worktree-custody-K76Tg3/deletion-git-metadata-slicing-a-receiver-provenance-s0.tgz",
+      "metadata_sha256": "de7ec04ac5ad28a4683755e03dd96ac19b4f6429b40fc3af1868dbab77028b15",
+      "removed_at": "2026-09-08T01:11:27.356Z"
+    },
+    {
+      "name": "slicing-a-receiver-provenance-s1",
+      "path": "/Users/wesleyjinks/code/slicing-a-receiver-provenance-s1",
+      "kind": "registered_worktree",
+      "mounts": {
+        "host_mount_clear": true,
+        "containers_checked": 12
+      },
+      "live": {
+        "process_clear": true,
+        "lsof_clear": true
+      },
+      "checked_at": "2026-09-08T01:11:27.754Z",
+      "status": "removed",
+      "metadata_backup": "/private/tmp/prism-worktree-custody-K76Tg3/deletion-git-metadata-slicing-a-receiver-provenance-s1.tgz",
+      "metadata_sha256": "502daba4e93d7570f171e8a94f796eab0e90b7ffc6f572bc3b95b3a40328b4a9",
+      "removed_at": "2026-09-08T01:11:28.186Z"
+    },
+    {
+      "name": "slicing-a-receiver-provenance-s2",
+      "path": "/Users/wesleyjinks/code/slicing-a-receiver-provenance-s2",
+      "kind": "registered_worktree",
+      "mounts": {
+        "host_mount_clear": true,
+        "containers_checked": 12
+      },
+      "live": {
+        "process_clear": true,
+        "lsof_clear": true
+      },
+      "checked_at": "2026-09-08T01:11:28.575Z",
+      "status": "removed",
+      "metadata_backup": "/private/tmp/prism-worktree-custody-K76Tg3/deletion-git-metadata-slicing-a-receiver-provenance-s2.tgz",
+      "metadata_sha256": "27b5a4326f8eb91435478c874f077efa7005ed686193318be41b1f86fd56443e",
+      "removed_at": "2026-09-08T01:11:28.907Z"
+    },
+    {
+      "name": "slicing-a-receiver-provenance-s2-closeout",
+      "path": "/Users/wesleyjinks/code/slicing-a-receiver-provenance-s2-closeout",
+      "kind": "registered_worktree",
+      "mounts": {
+        "host_mount_clear": true,
+        "containers_checked": 12
+      },
+      "live": {
+        "process_clear": true,
+        "lsof_clear": true
+      },
+      "checked_at": "2026-09-08T01:11:29.185Z",
+      "status": "removed",
+      "metadata_backup": "/private/tmp/prism-worktree-custody-K76Tg3/deletion-git-metadata-slicing-a-receiver-provenance-s2-closeout.tgz",
+      "metadata_sha256": "bbbf9ca06b704b47aa2a90ebbfe3760b73e4f48b4e80cd43eeac3703fb962112",
+      "removed_at": "2026-09-08T01:11:29.316Z"
+    },
+    {
+      "name": "slicing-a-receiver-provenance-s2-custody",
+      "path": "/Users/wesleyjinks/code/slicing-a-receiver-provenance-s2-custody",
+      "kind": "registered_worktree",
+      "mounts": {
+        "host_mount_clear": true,
+        "containers_checked": 12
+      },
+      "live": {
+        "process_clear": true,
+        "lsof_clear": true
+      },
+      "checked_at": "2026-09-08T01:11:29.597Z",
+      "status": "removed",
+      "metadata_backup": "/private/tmp/prism-worktree-custody-K76Tg3/deletion-git-metadata-slicing-a-receiver-provenance-s2-custody.tgz",
+      "metadata_sha256": "5c277d99f88846f22975b96a63e84a930d6123cc2c9439df5cd97b0eb259bb43",
+      "removed_at": "2026-09-08T01:11:29.701Z"
+    },
+    {
+      "name": "slicing-a-receiver-provenance-s3",
+      "path": "/Users/wesleyjinks/code/slicing-a-receiver-provenance-s3",
+      "kind": "registered_worktree",
+      "mounts": {
+        "host_mount_clear": true,
+        "containers_checked": 12
+      },
+      "live": {
+        "process_clear": true,
+        "lsof_clear": true
+      },
+      "checked_at": "2026-09-08T01:11:30.431Z",
+      "status": "removed",
+      "metadata_backup": "/private/tmp/prism-worktree-custody-K76Tg3/deletion-git-metadata-slicing-a-receiver-provenance-s3.tgz",
+      "metadata_sha256": "a05da7f25c7c97a64e1985821774d019f9e37734c0da543fab1eac163c194a26",
+      "removed_at": "2026-09-08T01:11:31.815Z"
+    },
+    {
+      "name": "slicing-a-receiver-provenance-scope-prereq",
+      "path": "/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq",
+      "kind": "registered_worktree",
+      "mounts": {
+        "host_mount_clear": true,
+        "containers_checked": 12
+      },
+      "live": {
+        "process_clear": true,
+        "lsof_clear": true
+      },
+      "checked_at": "2026-09-08T01:11:32.205Z",
+      "status": "removed",
+      "metadata_backup": "/private/tmp/prism-worktree-custody-K76Tg3/deletion-git-metadata-slicing-a-receiver-provenance-scope-prereq.tgz",
+      "metadata_sha256": "383cda1edf75349529644b81cb97b34e425e453a7a17a83f1a4c2bcafb6d3fb7",
+      "removed_at": "2026-09-08T01:11:32.521Z"
+    },
+    {
+      "name": "slicing-p4b-go-dot-import",
+      "path": "/Users/wesleyjinks/code/slicing-p4b-go-dot-import",
+      "kind": "clone",
+      "mounts": {
+        "host_mount_clear": true,
+        "containers_checked": 12
+      },
+      "live": {
+        "process_clear": true,
+        "lsof_clear": true
+      },
+      "checked_at": "2026-09-08T01:11:33.367Z",
+      "status": "removed",
+      "metadata_backup": "/private/tmp/prism-worktree-custody-K76Tg3/deletion-git-metadata-slicing-p4b-go-dot-import.tgz",
+      "metadata_sha256": "201c8ea2fe6d7e882a5d9506ca0e3ad9c0dbabca0820b6b13393232224047786",
+      "removed_at": "2026-09-08T01:11:33.678Z"
+    },
+    {
+      "name": "slicing-phase0",
+      "path": "/Users/wesleyjinks/code/slicing-phase0",
+      "kind": "registered_worktree",
+      "mounts": {
+        "host_mount_clear": true,
+        "containers_checked": 12
+      },
+      "live": {
+        "process_clear": true,
+        "lsof_clear": true
+      },
+      "checked_at": "2026-09-08T01:11:33.952Z",
+      "status": "removed",
+      "metadata_backup": "/private/tmp/prism-worktree-custody-K76Tg3/deletion-git-metadata-slicing-phase0.tgz",
+      "metadata_sha256": "618417dda9531321190cac5baba65d7b207490f5a03f962f503c390c4d87082a",
+      "removed_at": "2026-09-08T01:11:34.104Z"
+    },
+    {
+      "name": "slicing-phase0-review",
+      "path": "/Users/wesleyjinks/code/slicing-phase0-review",
+      "kind": "registered_worktree",
+      "mounts": {
+        "host_mount_clear": true,
+        "containers_checked": 12
+      },
+      "live": {
+        "process_clear": true,
+        "lsof_clear": true
+      },
+      "checked_at": "2026-09-08T01:11:34.383Z",
+      "status": "removed",
+      "metadata_backup": "/private/tmp/prism-worktree-custody-K76Tg3/deletion-git-metadata-slicing-phase0-review.tgz",
+      "metadata_sha256": "535cd45244bfbd1d8e932dc2ab7600fedc168686399b63139ee1c233acfaa258",
+      "removed_at": "2026-09-08T01:11:34.541Z"
+    },
+    {
+      "name": "slicing-phase0-sol",
+      "path": "/Users/wesleyjinks/code/slicing-phase0-sol",
+      "kind": "clone",
+      "mounts": {
+        "host_mount_clear": true,
+        "containers_checked": 12
+      },
+      "live": {
+        "process_clear": true,
+        "lsof_clear": true
+      },
+      "checked_at": "2026-09-08T01:11:35.049Z",
+      "status": "removed",
+      "metadata_backup": "/private/tmp/prism-worktree-custody-K76Tg3/deletion-git-metadata-slicing-phase0-sol.tgz",
+      "metadata_sha256": "74b50ce608abd3d4962c3164a73152c022bcb526d9d92a4fcf70efddbec8bbd8",
+      "removed_at": "2026-09-08T01:11:35.406Z"
+    },
+    {
+      "name": "slicing-targets-hint",
+      "path": "/Users/wesleyjinks/code/slicing-targets-hint",
+      "kind": "registered_worktree",
+      "mounts": {
+        "host_mount_clear": true,
+        "containers_checked": 12
+      },
+      "live": {
+        "process_clear": true,
+        "lsof_clear": true
+      },
+      "checked_at": "2026-09-08T01:11:35.684Z",
+      "status": "removed",
+      "metadata_backup": "/private/tmp/prism-worktree-custody-K76Tg3/deletion-git-metadata-slicing-targets-hint.tgz",
+      "metadata_sha256": "c1950fbd55625b4abf45f5ea7d0a1e70c7757b551d8656485814dd33ce744d03",
+      "removed_at": "2026-09-08T01:11:35.841Z"
+    }
+  ],
+  "after_df": "Filesystem   1024-blocks      Used Available Capacity iused      ifree %iused  Mounted on\n/dev/disk3s5   971298980 758583020 186540400    81% 4302858 1865404000    0%   /System/Volumes/Data\n",
+  "finished": "2026-09-08T01:11:35.851Z",
+  "verification": {
+    "removed": 17,
+    "parked": 0,
+    "worktrees_removed": 14,
+    "clones_removed": 3,
+    "all_authorized_paths_absent": true,
+    "protected_paths_present": true,
+    "archives_hashes_equal": true,
+    "available_before_KiB": 180704324,
+    "available_after_KiB": 186540400,
+    "increase_KiB": 5836076,
+    "increase_GiB": 5.565715789794922,
+    "unrelated_worktree_registrations_preserved": true
+  },
+  "startup_guard": "First invocation stopped before target checks/removal because the approval checkpoint advanced the archive branch. Documentation-only delta verified, checkpoint pushed, exact remote refs refreshed, then execution resumed."
+}

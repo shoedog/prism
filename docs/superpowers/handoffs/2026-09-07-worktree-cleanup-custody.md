@@ -3,30 +3,30 @@
 > Deletion authorization update (2026-09-07): owner explicitly authorized deletion
 > of all17 listed directories provided fresh status/live-use checks pass. Fresh
 > deletion-preflight.json passes17/17, including unchanged hashes/refs/objects,
-> locks, process/lsof and12-container mount checks. Exact-path deletion is next,
-> with those gates repeated per path; park failures without retry. No paths have
-> been removed at this checkpoint. Earlier no-authorization text is historical.
+> locks, process/lsof and12-container mount checks. All17 directories are now
+> removed with those gates repeated per path; no paths parked. Recovery archives
+> and unrelated workspaces remain. Earlier assessment-only states are superseded.
 
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · custody/worktree-cleanup-20260907 · **Measured state:** `[MEASURED]` base8534f4af; archive commit5a61657 and seven recovery refs pushed atomically; all eight remote SHAs verified. Full object/evidence restores pass;17 original HEADs/statuses unchanged. No deletion.
+**Workspace:** /Users/wesleyjinks/code/slicing · custody/worktree-cleanup-20260907 · **Measured state:** `[MEASURED]` approval checkpoint38ad6dc pushed; all17 authorized directories removed after fresh gates;0 parked;14 worktree registrations retired; archives/other registrations preserved; available space increased5.57 GiB. Final deletion record publication pending.
 **Predecessor:** PR277 merged; next implementation slice paused for owner-requested cleanup assessment.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
 
 ## 0. Gating facts — settle these before starting anything below
 
-(a) `[MEASURED]` host-visible process/lsof sweep found no matches for the17 paths — RESOLVED for assessment, not permission to delete later.
+(a) `[MEASURED]` per-path host-visible process/lsof checks and12-container mount checks passed immediately before removal — RESOLVED.
 (b) `[MEASURED]` named histories, four dirty files,33 ignored files and complete clone objects remotely preserved; isolated restores and remote SHAs match — RESOLVED.
-(c) No deletion authorized/executed; no verification processes remain — RESOLVED for custody. Deletion requires new authority/fresh checks.
-(d) Owner: evaluate17 named directories; "if they havent been merged we should take custody and oush ti a remote branch and document."
+(c) `[MEASURED]` all17 removed;0 parked; no verification/deletion processes remain — RESOLVED. No wider cleanup authorized.
+(d) Owner: "authorizing deletion of all 17 listed directories, provided fresh status and live-use checks pass" — exercised exactly.
 
 ## 1. Resume order
 
 1. `git status --short --branch` in /Users/wesleyjinks/code/slicing.
 2. Read task-root audit.json, ref-audit.json, artifact-manifest.json and dirty-snapshot.json.
-3. Read docs/custody/2026-09-07-named-worktrees/README.md and assessment.json. Obtain deletion approval, then refresh all volatile gates before retiring the17 named directories only.
+3. Read docs/custody/2026-09-07-named-worktrees/deletion.json. Verify final deletion-record publication, then await direction for the next implementation slice.
 
-**STOP conditions:** no deletion, reset, rebase, integration or build of recovered code; do not publish the overbroad central all-ref bundle. Use only named clone object archives and scoped review history.
+**STOP conditions:** no further deletion, reset, rebase, integration or build of recovered code; do not publish the overbroad central all-ref bundle. Custody archives remain protected.
 
 ## 2. State ledger
 
@@ -38,18 +38,20 @@
 | Ignored evidence | done | `[MEASURED]` artifact-manifest.json:33 ignored files +4 dirty source/design files,1880844 bytes; no flags from bounded secret-pattern scan |
 | Full clone objects | done | `[MEASURED]` 13089/14498/14822 objects restored exactly without alternates;1848/2357/2087 commits; fsck passes; all37 file hashes restored |
 | Remote custody | done | `[MEASURED]` publication.json:seven recovery refs + archive/report branch exact remote SHAs; no force pushes |
+| Authorized removal | done | `[MEASURED]` deletion.json:17 removed/0 parked,14 worktree registrations retired, all protected paths and unrelated registrations retained;5.57 GiB available-space increase |
 
 ## 3. Corrections to standing documents and memory
 
 Initial clone origin/main comparisons were stale; superseded by explicit central
 main SHA with read-only alternate object lookup. Clean HEAD alone misses clone
-branches/reflogs/objects and ignored evidence. No memory edits authorized.
+branches/reflogs/objects and ignored evidence. README/assessment now record removal;
+their initial inventory rows are historical. No memory edits authorized.
 
 ## 4. Open work
 
-All17 are retirement candidates after fresh deletion approval and live-use/status
-checks. Preserve old work as unverified recovery, not merge-ready code. No recovered
-implementation was tested or integrated. Next receiver slice remains paused.
+Publish the final deletion record. Preserve old work as unverified recovery,
+not merge-ready code. No recovered implementation was tested or integrated.
+Next receiver slice remains paused; no cleanup remains for the named17 paths.
 
 ## 5. Invariants and traps — do not do these
 
@@ -67,10 +69,10 @@ implementation was tested or integrated. Next receiver slice remains paused.
 | Task root | /private/tmp/prism-worktree-custody-K76Tg3 |
 | Report branch | custody/worktree-cleanup-20260907 |
 | Recovery refs | refs/heads/custody/worktree-20260907-* |
-| Dirty original | /Users/wesleyjinks/code/slicing-16c1-sol |
+| Removed dirty original | /Users/wesleyjinks/code/slicing-16c1-sol; recover via custody/worktree-20260907-16c1-dirty |
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED · claim: "named work and clone objects have recoverable custody before retirement" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: object-store-verification.json, evidence-restore.json, publication.json and committed assessment; storage restoration tests only, not code correctness. Future deletion eligibility still requires fresh gates.
+**§2c verdict:** SURVIVED · claim: "only the17 authorized directories were retired after fresh gates with recovery custody retained" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: deletion.json, object-store-verification.json, evidence-restore.json, publication.json; storage/ref/hash verification only, not code correctness.
 
-**Questions the owner owes an answer to:** None for authorized custody; deletion will require separate approval after the report.
+**Questions the owner owes an answer to:** None for this completed cleanup.
