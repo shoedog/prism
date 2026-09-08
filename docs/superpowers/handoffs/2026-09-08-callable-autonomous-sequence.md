@@ -1,7 +1,7 @@
 # Handoff — approved callable-completeness sequence
 
 **Written:** 2026-09-08T08:15Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-type-search-provenance · **Measured state:** `[MEASURED]` S3 clean ea81801 full gates passed435/4017/4207 plus18/40, producer134739e; public91409 operations and15 cache/identity transcripts equal. Independent H1-integration round2/2 ACCEPT98, archiveb59834a9 retained. Publication next. Probe: exact gate summary, independent verdict, archive and producer hashes.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-type-search-provenance · **Measured state:** `[MEASURED]` S3 published PR284 against H1, pushed5d7e466; clean ea81801 full gates passed435/4017/4207 plus18/40, producer134739e; public91409 operations and15 transcripts equal. Independent H1-integration round2/2 ACCEPT98, archiveb59834a9 retained. Probe: gh pr create result, exact gate summary, verdict and hashes.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims name their source.
@@ -17,7 +17,7 @@
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
 2. S2 is published as PR282 against feat/callable-search-classification. S2 full gates are complete:395 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored per Rust run, doctests included. Check CI without auto-merge.
-3. Publish S3 separately against H1: clean ea81801 full gates and independent H1 review complete, archiveb59834a9 retained. D1 in d1.Jr5OQN is implementing after RED15/15; await frozen artifact, review cap2/public and cache transcripts/full gates before publication and checkpoint one. S4 helper098141aa is unwired, case/null corrections17/17 accepted in helper round2; integration contract reviewed94. No auto-merge.
+3. S3 published PR284 against H1; clean ea81801 full gates and independent H1 review complete, archiveb59834a9 retained. Create separate D1 branch from published S3. D1 in d1.Jr5OQN is implementing after RED15/15; await frozen artifact, review cap2/public and cache transcripts/full gates before publication and checkpoint one. S4 helper098141aa is unwired,17/17 accepted; boundary_audit prepares integration RED only under appended final task contract. No auto-merge.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
 
@@ -35,7 +35,7 @@
 | S2 public parity | done | `[MEASURED]` s2-public-parity.json: old fields equal,91409 identical basic-host operations; s2-capture-parity.json ordered requests/events equal; validation reproduced/unproven;1229 sources unchanged |
 | S2 full gates | done | `[MEASURED]` clean ac9a0f3: observer395, Rust4017/1 ignored, MCP4207/1 ignored, helpers18, authority40, fmt/diff; archive receipt recorded |
 | S2 publication | done | `[MEASURED]` pushed f1b5fac; gh pr create returned https://github.com/shoedog/prism/pull/282 |
-| S3-T | accepted, publication next | Clean ea81801 full435/4017/4207 plus18/40; producer134739e; public91409 operations and15 transcripts equal. Independent H1 integration round2 ACCEPT98; archiveb59834a9 |
+| S3-T | published PR284 | Pushed5d7e466 against H1; clean ea81801 full435/4017/4207 plus18/40; producer134739e; public91409 operations and15 transcripts equal. Independent H1 integration round2 ACCEPT98; archiveb59834a9 |
 | H1 | published | PR283 against S2, pushed cf2cc3c; contract/unwired helper independently ACCEPT96; clean12aa795 full402/4017/4207 plus18/40, one ignored per Rust run; producer unchanged7ea9f31c |
 | D1 / S4–S10 | pending | D1 allocated to separate lib cache/beneficiaries; H1 allocated identity design escalation; D2–D3/H2–H3 unused |
 
@@ -63,7 +63,7 @@ No relevant memory registry hit; no memory edits.
 | 1 | S1 publication | done | `[MEASURED]` c57c354 all five CI checks SUCCESS including coverage; retain open PR for owner merge | None | PR281 |
 | 2 | Module provenance publication | done | `[MEASURED]` PR282 has no remote checks: CI pull_request filter targets main only, this stack targets feature branch. Local gates pass; retarget/run CI after predecessor merge | Owner merge order | S2 |
 | 3 | H1 identity contract publication | done | PR283 open; feature-base CI limitation applies, no auto-merge | Owner merge order | H1 |
-| 4 | Type provenance publication | next | Complete stable-HEAD full gates and independent integration verdict, archive and publish | Gates/review | S3-T |
+| 4 | Type provenance publication | done | PR284 open; feature-base CI limitation applies | Owner merge order | S3-T |
 
 ## 5. Invariants and traps — do not do these
 

@@ -75,7 +75,10 @@ within the final bounded coverage check. Its first-round alias/revisit SMELL was
 closed by the fifteenth transcript control above. Full [repository gates](2026-09-08-callable-type-search-gates.json)
 passed on clean ea81801:435 observer,4017 Rust,4207 MCP,18 helpers,40 authority;
 doctests included and one known ignored per Rust run. fmt/diff passed; Tier-A not
-triggered. All1229 public sources were freshly verified unchanged. Publication follows.
+triggered. All1229 public sources were freshly verified unchanged. Published as
+[PR284](https://github.com/shoedog/prism/pull/284) against H1. Existing main-only PR
+workflow excludes this feature-base stack until predecessor merge/retarget; local
+gates are green, remote CI is not claimed. No auto-merge.
 The [contract](../../superpowers/specs/2026-09-08-callable-type-search-provenance.md)
 and [H1 identity requirements](../../superpowers/specs/2026-09-08-callable-identity-domains.md)
 define the bounded scope. D1 library searches/beneficiaries follow separately before
