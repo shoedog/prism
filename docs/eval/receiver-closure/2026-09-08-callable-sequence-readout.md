@@ -135,6 +135,7 @@ PR281 has five successful checks; PR282–293 have no scheduled checks because t
 base is a feature branch. Start with PR281, then verify/retarget successors and run
 remote CI after predecessor merge. No auto-merge was performed.
 
-The owner subsequently authorized ordered merging. The publication snapshot above
+The owner subsequently authorized ordered merging and then waived waiting for
+coverage; the other four checks remain required. The publication snapshot above
 is historical; current progress and per-merge CI evidence are in the
 [ordered merge handoff](../../superpowers/handoffs/2026-09-08-callable-ordered-merges.md).

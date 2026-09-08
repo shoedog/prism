@@ -1,7 +1,8 @@
 # Handoff — approved callable-completeness sequence
 
 Current merge authority/status supersedes the historical publication snapshot below:
-the owner instructed "proceed to merge in order". PR281–284 are merged; PR285 CI is running.
+the owner instructed "proceed to merge in order" and later waived waiting for coverage.
+PR281–285 are merged (285 by owner); PR286's four required non-coverage checks are pending.
 Continue from the [ordered merge handoff](2026-09-08-callable-ordered-merges.md).
 
 **Written:** 2026-09-08T11:40Z · **By:** /root · **Provider:** codex
