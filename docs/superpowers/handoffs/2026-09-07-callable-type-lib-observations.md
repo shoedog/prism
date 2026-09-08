@@ -1,7 +1,7 @@
 # Handoff — source type/lib reference observations
 
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-type-lib-observations · **Measured state:** `[MEASURED]` implementation118da81 and controls/evidencecb99024 committed; all local gates/reviews passed. Final docs/gate closeout follows. Probe git status and task-root logs.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-type-lib-observations · **Measured state:** `[MEASURED]` implementation118da81, controlscb99024 and verification29eba5e pushed; PR279 open. All local gates/reviews passed. Final publication note changes docs only. Probe git status, push result and gh pr create.
 **Predecessor:** PR278 freshly confirmed mergedf8c6982e6b4e10fa74a8be281243eec0e6176883.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,15 +9,15 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Lane: /root only, dedicated fresh branch, no agents dispatched — RESOLVED.
-(b) Custody: `[MEASURED]` implementation118da81/controlscb99024 committed; raw evidence snapshotted3,762,882-byte archive; docs/gate closeout follows — OPEN until publication.
+(b) Custody: `[MEASURED]` implementation/controls/verification pushed through29eba5e; PR279 open; raw evidence snapshotted3,762,882-byte archive — RESOLVED. Final docs-only publication note follows.
 (c) In flight: all local gates finished; no app installs or edits — RESOLVED. Remote CI/review is separate.
 (d) Owner: "merged, proceed to separate type/lib reference observations and source-backed react-scripts disposition." Commit/push/PR workflow retained; no auto-merge.
 
 ## 1. Resume order
 
 1. `git status --short --branch` in /Users/wesleyjinks/code/slicing, then inspect /private/tmp/prism-type-lib-4gqvH5 logs.
-2. Commit final closeout, push branch and open PR against main; remote main freshly remainsf8c6982e.
-3. Verify remote SHA and PR state. Do not auto-merge; next entry-channel slice needs owner direction.
+2. `gh pr view 279 --repo shoedog/prism --json state,headRefOid,statusCheckRollup` (network authority required).
+3. Await CI/review and owner merge. Do not auto-merge; next entry-channel slice needs owner direction.
 
 **STOP conditions:** no application install/config/source edits, closure admission,
 configured/automatic entry-channel expansion, React.FC/runtime authority or silent review-cap extension.
@@ -32,17 +32,18 @@ configured/automatic entry-channel expansion, React.FC/runtime authority or sile
 | Public/disposition | done | `[MEASURED]` source-audit.json:139 directives138 observed1 unresolved; old snapshot/module/receiver fields equal;11 tracked manifests/lock/inventory omit react-scripts; Vite builds/environment declarations support likely obsolete residue, no app edits |
 | Full gates | done | `[MEASURED]` final-control observer335/0/0; default4017/0/1 and MCP4207/0/1 including doctests; helpers7/7; authority40/failures=[]; guard controls8/8; audit controls5/5; historical controls3/3; fmt/diff checks passed; adjacent type-lib-gates.json |
 | Reviews | done | Two SELF-PASS rounds, NOT INDEPENDENT; actual cache/source/index/mode and migration/forgery/source-disposition checks; no open WRONG; inference wording qualified; no cap extension |
+| Publish | done | `[MEASURED]` https://github.com/shoedog/prism/pull/279 against main; pushed through29eba5e; final docs-only publication note follows |
 
 ## 3. Corrections to standing documents and memory
 
 PR278 is merged. Its unknown type/lib channels are now this authorized slice.
 README/roadmap/predecessor handoff reconciled with schema11 and successor links;
-final gates reconciled, publication pending. Memory search found no relevant registry entry; no memory edits.
+final gates and PR279 publication reconciled. Memory search found no relevant registry entry; no memory edits.
 
 ## 4. Open work
 
-Publication only. All local verification, source-backed evidence and two reviews
-complete. Next: bounded configured/automatic entry-channel observations, before
+PR279 awaits remote CI/review and owner merge. All local verification, source-backed
+evidence and two reviews complete. Next: bounded configured/automatic entry-channel observations, before
 causal refused/outside attribution or any closure-admission proposal.
 
 ## 5. Invariants and traps — do not do these
