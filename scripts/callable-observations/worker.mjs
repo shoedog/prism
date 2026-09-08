@@ -16,6 +16,7 @@ import {createSearchProvenance,classifyBoundary} from "./search-provenance.mjs";
 import {projectSyntheticAddress} from "./identity-domains.mjs";
 import {libraryNameFromLibFile} from "./lib-search.mjs";
 import {createConfigCapture,observeConfigProvenance} from "./config-provenance.mjs";
+import {classifyEntryObligations} from "./entry-obligations.mjs";
 
 const options=JSON.parse(readFileSync(0,"utf8"));
 const fail=reason=>{throw Error(reason);};
@@ -204,6 +205,12 @@ function build() {
   packet.type_lib_references=observeTypeLib(ts,program,toId,read);
   if(packet.type_lib_references.some(r=>r.status==='unproven'))reasons.add("unproven_type_lib_reference");
   packet.type_lib_entries=observeEntries(ts,program,toId);
+  const configObserved=packet.config_provenance.status==='observed';
+  const configOption=name=>configObserved&&packet.config_provenance.options.find(row=>row.name===name);
+  const noLib=configOption('noLib')?.present===true
+    &&configOption('noLib').value_sha256===hash(canonical({present:true,value:true}));
+  packet.entry_obligations=classifyEntryObligations({entries:packet.type_lib_entries,rootCount:parsed.fileNames.length,
+    configObserved,noLib,explicitTypes:configOption('types')?.present===true});
   const usedRowsByBatch=new Map(search.type_batches.map(batch=>[batch.id,new Set()]));
   for(const record of typeLookupRequests) {
     let request=null,row,key;const usedRows=usedRowsByBatch.get(record.batch);

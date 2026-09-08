@@ -32,7 +32,7 @@ function fixture(run,config={compilerOptions:{types:[],lib:['es5'],target:'ES202
   } finally {rmSync(root,{recursive:true,force:true});}
 }
 
-const legacyProjection=packet=>{const value=structuredClone(packet);delete value.schema;delete value.producer;delete value.config_provenance;return value;};
+const legacyProjection=packet=>{const value=structuredClone(packet);delete value.schema;delete value.producer;delete value.config_provenance;delete value.entry_obligations;return value;};
 function pair(options) {
   const before=baseline?.produce(options),after=candidate.produce(options);
   // Historical parity is asserted only when the caller supplies a frozen base.
@@ -45,10 +45,10 @@ const option=(record,name)=>record.options.find(row=>row.name===name);
 const full=(record,file)=>record.files.find(anchor=>anchor.file===file);
 const unproven=(record,reason)=>assert.deepEqual(record,{status:'unproven',reason,files:[],extends:[],options:[]});
 
-test('direct full worker emits schema16 seven-option provenance and reproduces',()=>fixture(({options})=>{
+test('direct full worker retains seven-option provenance and reproduces in schema17',()=>fixture(({options})=>{
   const {after}=pair(options),record=provenance(after);
-  assert.equal(after.schema,'prism.callable-observation/16');
-  assert.equal(after.producer.version,'0.17.0');
+  assert.equal(after.schema,'prism.callable-observation/17');
+  assert.equal(after.producer.version,'0.18.0');
   assert.equal(record.status,'observed');
   assert.deepEqual(record.files.map(row=>row.file),['project/tsconfig.json']);
   assert.deepEqual(after.snapshot.config_files,record.files.map(row=>row.file));
