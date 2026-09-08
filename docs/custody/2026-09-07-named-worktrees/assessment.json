@@ -1,0 +1,1256 @@
+{
+  "schema": "prism.named-worktree-custody/1",
+  "date": "2026-09-07",
+  "main": "8534f4af7bafd069728faa4ebbe4d5fc062e3edd",
+  "deletion_authorized": false,
+  "deleted_paths": [],
+  "total_allocated_KiB": 6710264,
+  "rows": [
+    {
+      "name": "slicing-13a-go-level3-design",
+      "path": "/Users/wesleyjinks/code/slicing-13a-go-level3-design",
+      "kind": "registered_worktree",
+      "directory": true,
+      "symlink": false,
+      "uid": 501,
+      "head": "4ba1e74e99dd9c1ac1e17a319f845ddfc653f571",
+      "branch": "p13a-go-level3-design",
+      "allocated_KiB": 339984,
+      "ancestor_of_fixed_main": false,
+      "dirty": [],
+      "refs": [
+        {
+          "ref": "p13a-go-level3-design",
+          "sha": "4ba1e74e99dd9c1ac1e17a319f845ddfc653f571",
+          "ancestor": false,
+          "cherry": "- 4ba1e74e99dd9c1ac1e17a319f845ddfc653f571",
+          "unique": "4ba1e74e99dd9c1ac1e17a319f845ddfc653f571 docs(go): settle level3 bare callback design",
+          "remote_contains": [
+            "refs/remotes/origin/p13a-go-level3-design"
+          ]
+        }
+      ],
+      "ignored_noncache_files": [],
+      "git_locks": [],
+      "matching_prs": [
+        {
+          "headRefName": "p13a-go-level3-design",
+          "mergeCommit": {
+            "oid": "8c40bfc344b263e06fd21419dc133a4aed92ae98"
+          },
+          "mergedAt": "2026-08-31T03:48:58Z",
+          "number": 220,
+          "state": "MERGED",
+          "title": "docs(go): settle Level-3 bare callback design"
+        }
+      ]
+    },
+    {
+      "name": "slicing-16-post-provenance",
+      "path": "/Users/wesleyjinks/code/slicing-16-post-provenance",
+      "kind": "registered_worktree",
+      "directory": true,
+      "symlink": false,
+      "uid": 501,
+      "head": "6b7f028e1002036d55e40e2578abe394f33ced50",
+      "branch": "a-go-interface-identity-post-provenance",
+      "allocated_KiB": 178152,
+      "ancestor_of_fixed_main": true,
+      "dirty": [],
+      "refs": [
+        {
+          "ref": "a-go-interface-identity-post-provenance",
+          "sha": "6b7f028e1002036d55e40e2578abe394f33ced50",
+          "ancestor": true,
+          "cherry": "",
+          "unique": "",
+          "remote_contains": [
+            "refs/remotes/origin/a-go-interface-identity-post-provenance",
+            "refs/remotes/origin/main"
+          ]
+        }
+      ],
+      "ignored_noncache_files": [],
+      "git_locks": [],
+      "matching_prs": [
+        {
+          "headRefName": "a-go-interface-identity-post-provenance",
+          "mergeCommit": {
+            "oid": "fe506487e4629757a8f9d7afeaa8fa033c193489"
+          },
+          "mergedAt": "2026-08-31T02:44:26Z",
+          "number": 216,
+          "state": "MERGED",
+          "title": "docs(go): close out p16 merge"
+        },
+        {
+          "headRefName": "a-go-interface-identity-post-provenance",
+          "mergeCommit": {
+            "oid": "d21c8cb4ae4f4a2a6b43ce66ea4ed5a76f8a15a9"
+          },
+          "mergedAt": "2026-08-31T02:35:52Z",
+          "number": 215,
+          "state": "MERGED",
+          "title": "fix(go): retire bare interface fallback after provenance"
+        }
+      ]
+    },
+    {
+      "name": "slicing-16c1-sol",
+      "path": "/Users/wesleyjinks/code/slicing-16c1-sol",
+      "kind": "clone",
+      "directory": true,
+      "symlink": false,
+      "uid": 501,
+      "head": "1900682c3a9a193bd78e6a805f3796e320331574",
+      "branch": "c1-bare-walk-consult",
+      "allocated_KiB": 118160,
+      "ancestor_of_fixed_main": false,
+      "dirty": [
+        " M src/go_promoted_snapshot.rs",
+        " M src/navigation/queries.rs",
+        " M src/resolution.rs",
+        "?? docs/superpowers/specs/2026-08-23-go-package-qualified-interface-identity-design.md"
+      ],
+      "refs": [
+        {
+          "ref": "refs/heads/c1-bare-walk-consult",
+          "sha": "1900682c3a9a193bd78e6a805f3796e320331574",
+          "ancestor": false,
+          "cherry": "+ 1f8924405a2a28d7cf66d6f68e9d5264f4878acc\n+ 1900682c3a9a193bd78e6a805f3796e320331574",
+          "unique": "1900682c3a9a193bd78e6a805f3796e320331574 docs(census): satisfy verification gate\n1f8924405a2a28d7cf66d6f68e9d5264f4878acc docs(census): refresh #16 v8 slice-0 evidence",
+          "remote_contains": []
+        },
+        {
+          "ref": "refs/heads/main",
+          "sha": "0ca571c5e80e12fb3c00e68f5ec0ea53a247d158",
+          "ancestor": true,
+          "cherry": "",
+          "unique": "",
+          "remote_contains": [
+            "refs/remotes/origin/main"
+          ]
+        }
+      ],
+      "ignored_noncache_files": [],
+      "git_locks": [],
+      "matching_prs": []
+    },
+    {
+      "name": "slicing-18-rta-fallback",
+      "path": "/Users/wesleyjinks/code/slicing-18-rta-fallback",
+      "kind": "registered_worktree",
+      "directory": true,
+      "symlink": false,
+      "uid": 501,
+      "head": "de369eb8855a383668c745ddd9be5dcfbd16fdc3",
+      "branch": "p18-rta-empty-live-fallback-closeout",
+      "allocated_KiB": 76788,
+      "ancestor_of_fixed_main": false,
+      "dirty": [],
+      "refs": [
+        {
+          "ref": "p18-rta-empty-live-fallback-closeout",
+          "sha": "de369eb8855a383668c745ddd9be5dcfbd16fdc3",
+          "ancestor": false,
+          "cherry": "- de369eb8855a383668c745ddd9be5dcfbd16fdc3",
+          "unique": "de369eb8855a383668c745ddd9be5dcfbd16fdc3 docs(go): record p18 publication",
+          "remote_contains": [
+            "refs/remotes/origin/p18-rta-empty-live-fallback-closeout"
+          ]
+        }
+      ],
+      "ignored_noncache_files": [],
+      "git_locks": [],
+      "matching_prs": [
+        {
+          "headRefName": "p18-rta-empty-live-fallback-closeout",
+          "mergeCommit": {
+            "oid": "e96d9c5011e2f979dbb1d4c6eeaa5c29629c5c5e"
+          },
+          "mergedAt": "2026-08-31T03:11:07Z",
+          "number": 218,
+          "state": "MERGED",
+          "title": "docs(go): record p18 publication"
+        }
+      ]
+    },
+    {
+      "name": "slicing-4b-go-dot-import-v7",
+      "path": "/Users/wesleyjinks/code/slicing-4b-go-dot-import-v7",
+      "kind": "registered_worktree",
+      "directory": true,
+      "symlink": false,
+      "uid": 501,
+      "head": "ef213faa0b107d5c94c49ecb67911e35d98e161f",
+      "branch": "p4b-go-dot-import-v7",
+      "allocated_KiB": 339940,
+      "ancestor_of_fixed_main": false,
+      "dirty": [],
+      "refs": [
+        {
+          "ref": "p4b-go-dot-import-v7",
+          "sha": "ef213faa0b107d5c94c49ecb67911e35d98e161f",
+          "ancestor": false,
+          "cherry": "- ef213faa0b107d5c94c49ecb67911e35d98e161f",
+          "unique": "ef213faa0b107d5c94c49ecb67911e35d98e161f docs(go): park dot-import redesign at review cap",
+          "remote_contains": [
+            "refs/remotes/origin/p4b-go-dot-import-v7"
+          ]
+        }
+      ],
+      "ignored_noncache_files": [],
+      "git_locks": [],
+      "matching_prs": [
+        {
+          "headRefName": "p4b-go-dot-import-v7",
+          "mergeCommit": {
+            "oid": "a3768a9d40903c32251346d196107d48af25eb47"
+          },
+          "mergedAt": "2026-08-31T03:22:16Z",
+          "number": 219,
+          "state": "MERGED",
+          "title": "docs(go): park dot-import redesign at review cap"
+        }
+      ]
+    },
+    {
+      "name": "slicing-a-receiver-provenance-s0",
+      "path": "/Users/wesleyjinks/code/slicing-a-receiver-provenance-s0",
+      "kind": "registered_worktree",
+      "directory": true,
+      "symlink": false,
+      "uid": 501,
+      "head": "ba033f22608a592df9d3104f82c245cd558ccb3e",
+      "branch": "a-receiver-provenance-slice0-plan",
+      "allocated_KiB": 178032,
+      "ancestor_of_fixed_main": false,
+      "dirty": [],
+      "refs": [
+        {
+          "ref": "a-receiver-provenance-slice0-plan",
+          "sha": "ba033f22608a592df9d3104f82c245cd558ccb3e",
+          "ancestor": false,
+          "cherry": "+ 6eb6ceb847ca61f0948f603dbf470dacc239ed60\n+ 558cc094d797d901d33824aebbb73762aa5ec4c8\n+ ba033f22608a592df9d3104f82c245cd558ccb3e",
+          "unique": "ba033f22608a592df9d3104f82c245cd558ccb3e fix(go): require receiver provenance before dispatch\n558cc094d797d901d33824aebbb73762aa5ec4c8 docs: refresh Slice 0 handoff custody\n6eb6ceb847ca61f0948f603dbf470dacc239ed60 docs: plan Go receiver provenance Slice 0",
+          "remote_contains": [
+            "refs/remotes/origin/a-receiver-provenance-slice0-plan"
+          ]
+        }
+      ],
+      "ignored_noncache_files": [
+        {
+          "file": "eval/runs/2026-08-26-prism.json",
+          "bytes": 121366,
+          "sha256": "6e2e9086c4a8e638033bac352d5b0de4ada04c76f698da0ee52f43c19f832037"
+        }
+      ],
+      "git_locks": [],
+      "matching_prs": [
+        {
+          "headRefName": "a-receiver-provenance-slice0-plan",
+          "mergeCommit": {
+            "oid": "2d8fdbb42705388993b4dae814d2118891f28600"
+          },
+          "mergedAt": "2026-08-27T03:45:02Z",
+          "number": 205,
+          "state": "MERGED",
+          "title": "fix(go): require receiver provenance before dispatch"
+        }
+      ]
+    },
+    {
+      "name": "slicing-a-receiver-provenance-s1",
+      "path": "/Users/wesleyjinks/code/slicing-a-receiver-provenance-s1",
+      "kind": "registered_worktree",
+      "directory": true,
+      "symlink": false,
+      "uid": 501,
+      "head": "445629fd0ff034490d213fb6d82232e2abf784c6",
+      "branch": "a-receiver-provenance-slice1-owner-carrying",
+      "allocated_KiB": 178072,
+      "ancestor_of_fixed_main": false,
+      "dirty": [],
+      "refs": [
+        {
+          "ref": "a-receiver-provenance-slice1-owner-carrying",
+          "sha": "445629fd0ff034490d213fb6d82232e2abf784c6",
+          "ancestor": false,
+          "cherry": "+ d781c98919356b947f2b139ecd4a862f71f07f6d\n+ d8bbce4c8d6180dda78392e3615549461f2dfc46\n+ 445629fd0ff034490d213fb6d82232e2abf784c6",
+          "unique": "445629fd0ff034490d213fb6d82232e2abf784c6 docs(handoff): record Slice 1 verification\nd8bbce4c8d6180dda78392e3615549461f2dfc46 fix(go): carry package variable receiver owners\nd781c98919356b947f2b139ecd4a862f71f07f6d docs: plan Go receiver provenance Slice 1",
+          "remote_contains": [
+            "refs/remotes/origin/a-receiver-provenance-slice1-owner-carrying"
+          ]
+        }
+      ],
+      "ignored_noncache_files": [
+        {
+          "file": "eval/runs/2026-08-27-prism.json",
+          "bytes": 125297,
+          "sha256": "747f8bcd2155087e7303a19ee2ac188caaa2083c86ecad4e5e9c25ee5afe0141"
+        }
+      ],
+      "git_locks": [],
+      "matching_prs": [
+        {
+          "headRefName": "a-receiver-provenance-slice1-owner-carrying",
+          "mergeCommit": {
+            "oid": "d9aae91f10d8a8355f052607cefeebe18f0f46fd"
+          },
+          "mergedAt": "2026-08-27T07:15:32Z",
+          "number": 207,
+          "state": "MERGED",
+          "title": "fix(go): carry package variable receiver owners"
+        }
+      ]
+    },
+    {
+      "name": "slicing-a-receiver-provenance-s2",
+      "path": "/Users/wesleyjinks/code/slicing-a-receiver-provenance-s2",
+      "kind": "registered_worktree",
+      "directory": true,
+      "symlink": false,
+      "uid": 501,
+      "head": "24dab5c72cc48574ea112bde53e96c4b0a721327",
+      "branch": "a-receiver-provenance-slice2-eager-local-owner",
+      "allocated_KiB": 178092,
+      "ancestor_of_fixed_main": true,
+      "dirty": [],
+      "refs": [
+        {
+          "ref": "a-receiver-provenance-slice2-eager-local-owner",
+          "sha": "24dab5c72cc48574ea112bde53e96c4b0a721327",
+          "ancestor": true,
+          "cherry": "",
+          "unique": "",
+          "remote_contains": [
+            "refs/remotes/origin/a-receiver-provenance-slice2-eager-local-owner",
+            "refs/remotes/origin/main"
+          ]
+        }
+      ],
+      "ignored_noncache_files": [
+        {
+          "file": "eval/runs/2026-08-27-prism.json",
+          "bytes": 120685,
+          "sha256": "b07d605a7681b2cc20a5b727e7970f847134bf6c10ed0dad2a41b5a7b55b3d9e"
+        }
+      ],
+      "git_locks": [],
+      "matching_prs": [
+        {
+          "headRefName": "a-receiver-provenance-slice2-eager-local-owner",
+          "mergeCommit": {
+            "oid": "63b504cd01489e3b029f53cec5717ee7be261d7a"
+          },
+          "mergedAt": "2026-08-28T03:28:05Z",
+          "number": 209,
+          "state": "MERGED",
+          "title": "fix(go): carry eager local receiver owners"
+        }
+      ]
+    },
+    {
+      "name": "slicing-a-receiver-provenance-s2-closeout",
+      "path": "/Users/wesleyjinks/code/slicing-a-receiver-provenance-s2-closeout",
+      "kind": "registered_worktree",
+      "directory": true,
+      "symlink": false,
+      "uid": 501,
+      "head": "eb82db885a7e9888a04aa46d4c4ba8b8ed5d3165",
+      "branch": "a-receiver-provenance-slice2-closeout",
+      "allocated_KiB": 76592,
+      "ancestor_of_fixed_main": true,
+      "dirty": [],
+      "refs": [
+        {
+          "ref": "a-receiver-provenance-slice2-closeout",
+          "sha": "eb82db885a7e9888a04aa46d4c4ba8b8ed5d3165",
+          "ancestor": true,
+          "cherry": "",
+          "unique": "",
+          "remote_contains": [
+            "refs/remotes/origin/a-receiver-provenance-slice2-closeout",
+            "refs/remotes/origin/main"
+          ]
+        }
+      ],
+      "ignored_noncache_files": [],
+      "git_locks": [],
+      "matching_prs": [
+        {
+          "headRefName": "a-receiver-provenance-slice2-closeout",
+          "mergeCommit": {
+            "oid": "7fc719ae21ba130c554c318c3f8306093a804c92"
+          },
+          "mergedAt": "2026-08-28T14:27:31Z",
+          "number": 211,
+          "state": "MERGED",
+          "title": "docs(handoff): close Slice 2 custody"
+        }
+      ]
+    },
+    {
+      "name": "slicing-a-receiver-provenance-s2-custody",
+      "path": "/Users/wesleyjinks/code/slicing-a-receiver-provenance-s2-custody",
+      "kind": "registered_worktree",
+      "directory": true,
+      "symlink": false,
+      "uid": 501,
+      "head": "aa3bca2f7a4a73b1d0238b583a4f118fc3ada960",
+      "branch": "a-receiver-provenance-slice2-custody",
+      "allocated_KiB": 76592,
+      "ancestor_of_fixed_main": true,
+      "dirty": [],
+      "refs": [
+        {
+          "ref": "a-receiver-provenance-slice2-custody",
+          "sha": "aa3bca2f7a4a73b1d0238b583a4f118fc3ada960",
+          "ancestor": true,
+          "cherry": "",
+          "unique": "",
+          "remote_contains": [
+            "refs/remotes/origin/a-receiver-provenance-slice2-custody",
+            "refs/remotes/origin/main"
+          ]
+        }
+      ],
+      "ignored_noncache_files": [],
+      "git_locks": [],
+      "matching_prs": [
+        {
+          "headRefName": "a-receiver-provenance-slice2-custody",
+          "mergeCommit": {
+            "oid": "f5e781a2dd8a295935035e4c80b34965410d3bad"
+          },
+          "mergedAt": "2026-08-28T12:31:06Z",
+          "number": 210,
+          "state": "MERGED",
+          "title": "docs(handoff): record Slice 2 merge"
+        }
+      ]
+    },
+    {
+      "name": "slicing-a-receiver-provenance-s3",
+      "path": "/Users/wesleyjinks/code/slicing-a-receiver-provenance-s3",
+      "kind": "registered_worktree",
+      "directory": true,
+      "symlink": false,
+      "uid": 501,
+      "head": "e4dd24e992052f9edc5d7e5ad818549465ce569e",
+      "branch": "a-receiver-provenance-slice3-closeout",
+      "allocated_KiB": 4252776,
+      "ancestor_of_fixed_main": true,
+      "dirty": [],
+      "refs": [
+        {
+          "ref": "a-receiver-provenance-slice3-closeout",
+          "sha": "e4dd24e992052f9edc5d7e5ad818549465ce569e",
+          "ancestor": true,
+          "cherry": "",
+          "unique": "",
+          "remote_contains": [
+            "refs/remotes/origin/a-receiver-provenance-slice3-closeout",
+            "refs/remotes/origin/main"
+          ]
+        }
+      ],
+      "ignored_noncache_files": [
+        {
+          "file": "eval/runs/2026-08-30-prism.json",
+          "bytes": 121048,
+          "sha256": "bb4850412e13b3f4559d1e56e8f5edb0da714257ab17532da72d41ddca68dfa6"
+        }
+      ],
+      "git_locks": [],
+      "matching_prs": [
+        {
+          "headRefName": "a-receiver-provenance-slice3-closeout",
+          "mergeCommit": {
+            "oid": "b7a5cf934a44060de98588837b3c8c75ddffdc37"
+          },
+          "mergedAt": "2026-08-31T00:22:32Z",
+          "number": 214,
+          "state": "MERGED",
+          "title": "docs: close out receiver provenance slice 3"
+        }
+      ]
+    },
+    {
+      "name": "slicing-a-receiver-provenance-scope-prereq",
+      "path": "/Users/wesleyjinks/code/slicing-a-receiver-provenance-scope-prereq",
+      "kind": "registered_worktree",
+      "directory": true,
+      "symlink": false,
+      "uid": 501,
+      "head": "95b81f5e5b99a49930869f83ab06974606768f62",
+      "branch": "a-receiver-provenance-scope-aware-shadow-prereq",
+      "allocated_KiB": 178008,
+      "ancestor_of_fixed_main": true,
+      "dirty": [],
+      "refs": [
+        {
+          "ref": "a-receiver-provenance-scope-aware-shadow-prereq",
+          "sha": "95b81f5e5b99a49930869f83ab06974606768f62",
+          "ancestor": true,
+          "cherry": "",
+          "unique": "",
+          "remote_contains": [
+            "refs/remotes/origin/a-receiver-provenance-scope-aware-shadow-prereq",
+            "refs/remotes/origin/main"
+          ]
+        }
+      ],
+      "ignored_noncache_files": [],
+      "git_locks": [],
+      "matching_prs": [
+        {
+          "headRefName": "a-receiver-provenance-scope-aware-shadow-prereq",
+          "mergeCommit": {
+            "oid": "0139d7fab18d71cfa33f9de609bf280674df85e8"
+          },
+          "mergedAt": "2026-08-30T23:24:09Z",
+          "number": 212,
+          "state": "MERGED",
+          "title": "fix(go): respect receiver declaration scope"
+        }
+      ]
+    },
+    {
+      "name": "slicing-p4b-go-dot-import",
+      "path": "/Users/wesleyjinks/code/slicing-p4b-go-dot-import",
+      "kind": "clone",
+      "directory": true,
+      "symlink": false,
+      "uid": 501,
+      "head": "36b2796cb48854723a097990d3b4eae894e3fd6c",
+      "branch": "main",
+      "allocated_KiB": 109404,
+      "ancestor_of_fixed_main": true,
+      "dirty": [],
+      "refs": [
+        {
+          "ref": "refs/heads/eval-partd-abs-cache-dir-pr",
+          "sha": "158d49c5a69ccee088d4202a0aea510e222644f5",
+          "ancestor": false,
+          "cherry": "+ c3ae3dd4446f65982ef17fb22bc4ce544de46d95\n+ fdc6cfc633df96c874cfed85c1758980484d4ed7\n+ 158d49c5a69ccee088d4202a0aea510e222644f5",
+          "unique": "158d49c5a69ccee088d4202a0aea510e222644f5 eval(tier-c): warm_gate_check absolutizes repo_root too (relative root would spawn in <root>/<root>)\nfdc6cfc633df96c874cfed85c1758980484d4ed7 eval(tier-c): absolutize cache_dir at the callee too (run_arm_isolated, _prewarm_cpg, warm_gate_check)\nc3ae3dd4446f65982ef17fb22bc4ce544de46d95 eval(tier-c): absolutize run/cache paths (relative --run-store-root voided a Part-D slate); Part-D read-out; 2026-08-21 designs/reviews; roadmap reconciliation",
+          "remote_contains": []
+        },
+        {
+          "ref": "refs/heads/go-dot-import-resolution",
+          "sha": "47e21aee9f9443efcb41086799ba30e369814c8c",
+          "ancestor": true,
+          "cherry": "",
+          "unique": "",
+          "remote_contains": [
+            "refs/remotes/origin/main"
+          ]
+        },
+        {
+          "ref": "refs/heads/java-ts-param-materialization-wip",
+          "sha": "1cd3322df1496ce2bde972f6fb041393b3502e55",
+          "ancestor": false,
+          "cherry": "+ 1cd3322df1496ce2bde972f6fb041393b3502e55",
+          "unique": "1cd3322df1496ce2bde972f6fb041393b3502e55 Preserve multiline call argument identity",
+          "remote_contains": []
+        },
+        {
+          "ref": "refs/heads/main",
+          "sha": "36b2796cb48854723a097990d3b4eae894e3fd6c",
+          "ancestor": true,
+          "cherry": "",
+          "unique": "",
+          "remote_contains": [
+            "refs/remotes/origin/main"
+          ]
+        }
+      ],
+      "ignored_noncache_files": [],
+      "git_locks": [],
+      "matching_prs": []
+    },
+    {
+      "name": "slicing-phase0",
+      "path": "/Users/wesleyjinks/code/slicing-phase0",
+      "kind": "registered_worktree",
+      "directory": true,
+      "symlink": false,
+      "uid": 501,
+      "head": "bffb84750d97f80bfdbeafa8a7cb58ea4f63b8fd",
+      "branch": "phase0-sarif-targets-api",
+      "allocated_KiB": 77424,
+      "ancestor_of_fixed_main": true,
+      "dirty": [],
+      "refs": [
+        {
+          "ref": "phase0-sarif-targets-api",
+          "sha": "bffb84750d97f80bfdbeafa8a7cb58ea4f63b8fd",
+          "ancestor": true,
+          "cherry": "",
+          "unique": "",
+          "remote_contains": [
+            "refs/remotes/origin/main",
+            "refs/remotes/origin/phase0-sarif-targets-api"
+          ]
+        }
+      ],
+      "ignored_noncache_files": [
+        {
+          "file": ".superpowers/sdd/.gitignore",
+          "bytes": 2,
+          "sha256": "cdbcae15105d6b781e620813c79c7e868740d4e9cc53ce6f5fcbbc12387adf4b"
+        }
+      ],
+      "git_locks": [],
+      "matching_prs": [
+        {
+          "headRefName": "phase0-sarif-targets-api",
+          "mergeCommit": {
+            "oid": "551adc463e2e164637378757f2ba1ba872a43946"
+          },
+          "mergedAt": "2026-09-04T19:22:41Z",
+          "number": 229,
+          "state": "MERGED",
+          "title": "Phase 0 interfaces: --format sarif, prism targets, prism::api, README truth pass"
+        }
+      ]
+    },
+    {
+      "name": "slicing-phase0-review",
+      "path": "/Users/wesleyjinks/code/slicing-phase0-review",
+      "kind": "registered_worktree",
+      "directory": true,
+      "symlink": false,
+      "uid": 501,
+      "head": "3a6a94920cb52527081588655149400ab564d555",
+      "branch": "",
+      "allocated_KiB": 79188,
+      "ancestor_of_fixed_main": false,
+      "dirty": [],
+      "refs": [
+        {
+          "ref": "DETACHED",
+          "sha": "3a6a94920cb52527081588655149400ab564d555",
+          "ancestor": false,
+          "cherry": "- 80d9b5e508f075bba6b6e9a030dafd857152416a\n- 8ed4f5717e576af1a76cf9ca5e8633e66cd5fa69\n- c265bafdbee7cea4421a7b906df8d498a191b921\n- 9fbdd9290fa841de3d7434d9230f96e07e4afc8e\n- 81f2943b19cada893afc56a1ff152ce78d13da7f\n- 083e26fcd7a6c1be7af6fc525ee0d0ebdf7c8643\n- e91dedd29ed808f61f36bf80f1744e31f0b20505\n+ 53b0dbd1857b3c0fcbdffb36ed9516cd71133060\n- 7395c2345613c314eec9503dedaa65b9ce7cae59\n- 3690eb541072eab7b9723950c15c4737a7f77ad9\n- 252f905247dacc30c9e4824dabe57428b0e988f1\n- 3f87fc3b761bb458b14ecc9f3c16de96f638936e\n+ c32e6bd7aa3ff9a85b3a604881a407b6427d6643\n- 5b4b2382705e3c97e8d60943aeff08832cc20709\n+ 3a6a94920cb52527081588655149400ab564d555",
+          "unique": "3a6a94920cb52527081588655149400ab564d555 fix(item2): harden DFG label lifecycle\n5b4b2382705e3c97e8d60943aeff08832cc20709 fix(item2): keep dfg matrix command failures visible\nc32e6bd7aa3ff9a85b3a604881a407b6427d6643 feat(item2): label existing DFG edges with reaching defs\n3f87fc3b761bb458b14ecc9f3c16de96f638936e test(item2): stage reaching-definition matrix fixtures\n252f905247dacc30c9e4824dabe57428b0e988f1 fix(item2): harden reaching confidence\n3690eb541072eab7b9723950c15c4737a7f77ad9 feat(item2): add the reaching-definitions core\n7395c2345613c314eec9503dedaa65b9ce7cae59 test(item2): add reaching-definitions RED suite\n53b0dbd1857b3c0fcbdffb36ed9516cd71133060 feat(item2): carry confidence on DataFlow edges\ne91dedd29ed808f61f36bf80f1744e31f0b20505 Measure distinct-statement DFG admissibility\n083e26fcd7a6c1be7af6fc525ee0d0ebdf7c8643 docs: item 2 design v6.4 (Task 0b metric attribution, exclusion control, byte-control blind spot); plan v4 sync\n81f2943b19cada893afc56a1ff152ce78d13da7f Complete per-language CFG statement universe\n9fbdd9290fa841de3d7434d9230f96e07e4afc8e fix(item2): flag only sequential joins between incomparable lexical arms\nc265bafdbee7cea4421a7b906df8d498a191b921 feat(item2): tag CFG sequential edges with lexical arm ids\n8ed4f5717e576af1a76cf9ca5e8633e66cd5fa69 docs: item 2 design (spec v6.2) and implementation plan (v4) — DataFlow confidence via reaching definitions\n80d9b5e508f075bba6b6e9a030dafd857152416a chore(item2): add dfg_census example for the RD cap measurement (spec §12 Q1)",
+          "remote_contains": []
+        }
+      ],
+      "ignored_noncache_files": [
+        {
+          "file": ".superpowers/sdd/.gitignore",
+          "bytes": 2,
+          "sha256": "cdbcae15105d6b781e620813c79c7e868740d4e9cc53ce6f5fcbbc12387adf4b"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/review-7a3c04b..ab4d656.diff",
+          "bytes": 70195,
+          "sha256": "d1eb07c59f100f0af924bcf769ba3105d26a7168dc72a3ed151bf177eeb74d4c"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/review-8a1545e..7a3c04b.diff",
+          "bytes": 25589,
+          "sha256": "cb91c54bd4763b761991e2162e26b711b16161e0015cc349e050cf56bed98fcf"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/review-f627d0a..444b673.diff",
+          "bytes": 103412,
+          "sha256": "0bdbffe3cfe35e842b37dbc7bc963140eec60b6446a2417df56696af0987bf48"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/review-final.diff",
+          "bytes": 503227,
+          "sha256": "79bdf53b9e057adaccf3206cd72d355315105ef621354e1646b5c8b6ea2a4bd7"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-1-brief.md",
+          "bytes": 6730,
+          "sha256": "d8cab7904b3b242eadbdbfc35f1d55fe7503aa3e8508901e190dd3034b7d7f01"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-1-report.md",
+          "bytes": 17661,
+          "sha256": "fe5f52675a78bb22ddb7f3d64dd8e54a8c48199354899ff60b9f97124f8616a2"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-2-brief.md",
+          "bytes": 9422,
+          "sha256": "453474aacc0024bc8570b72a735a897bac2a4740e4a0b6967e2919ccae6b7817"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-2-report.md",
+          "bytes": 27142,
+          "sha256": "9f6d36ac047980413d78eff403213046ce18535870ba48a3b83e5e99e2df12ad"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-3-brief.md",
+          "bytes": 9948,
+          "sha256": "b76d43edaba04dd99823f76e7c0da914cee3dcf47f2f991721f6f11bfd13cff7"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-3-report.md",
+          "bytes": 686,
+          "sha256": "35ff8afb12847079dc0b6b4e9a71e8433c397e7c1f2868810b6585ddecfbef22"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-4-brief.md",
+          "bytes": 8592,
+          "sha256": "6d647d7e61dd12840cb4d546d3bc29561a5c4737c534b718f92227264b235bcb"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-4-report.md",
+          "bytes": 16553,
+          "sha256": "3ab473916555db65281af52fa3e336c8e9b634d82cef68ccd06d2fc513d4d733"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-5-brief.md",
+          "bytes": 3840,
+          "sha256": "b94312b1a59c23693fac9068a700c6e93a9979b88d68111600687a9da2389a3f"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-5-report.md",
+          "bytes": 29105,
+          "sha256": "b56266d6e2552a20b964af29ca185fb69b2888cff5ff8e832c547b2ba7090046"
+        }
+      ],
+      "git_locks": [],
+      "matching_prs": []
+    },
+    {
+      "name": "slicing-phase0-sol",
+      "path": "/Users/wesleyjinks/code/slicing-phase0-sol",
+      "kind": "clone",
+      "directory": true,
+      "symlink": false,
+      "uid": 501,
+      "head": "b880b26aaff7f512769c301881e6791bf4ccc491",
+      "branch": "targets-dependency-hint",
+      "allocated_KiB": 195540,
+      "ancestor_of_fixed_main": false,
+      "dirty": [],
+      "refs": [
+        {
+          "ref": "refs/heads/item2-dataflow-confidence",
+          "sha": "5b56c35fc35a1afcc9eccb20463aee914411e2a9",
+          "ancestor": false,
+          "cherry": "- 80d9b5e508f075bba6b6e9a030dafd857152416a\n- 8ed4f5717e576af1a76cf9ca5e8633e66cd5fa69\n- c265bafdbee7cea4421a7b906df8d498a191b921\n- 9fbdd9290fa841de3d7434d9230f96e07e4afc8e\n- 81f2943b19cada893afc56a1ff152ce78d13da7f\n- 083e26fcd7a6c1be7af6fc525ee0d0ebdf7c8643\n- e91dedd29ed808f61f36bf80f1744e31f0b20505\n+ 53b0dbd1857b3c0fcbdffb36ed9516cd71133060\n- 3ef0c4b6dd781a6670f349236f7ba65ac34c4359\n- 5b56c35fc35a1afcc9eccb20463aee914411e2a9",
+          "unique": "5b56c35fc35a1afcc9eccb20463aee914411e2a9 feat(item2): add the reaching-definitions core\n3ef0c4b6dd781a6670f349236f7ba65ac34c4359 test(item2): add reaching-definitions RED suite\n53b0dbd1857b3c0fcbdffb36ed9516cd71133060 feat(item2): carry confidence on DataFlow edges\ne91dedd29ed808f61f36bf80f1744e31f0b20505 Measure distinct-statement DFG admissibility\n083e26fcd7a6c1be7af6fc525ee0d0ebdf7c8643 docs: item 2 design v6.4 (Task 0b metric attribution, exclusion control, byte-control blind spot); plan v4 sync\n81f2943b19cada893afc56a1ff152ce78d13da7f Complete per-language CFG statement universe\n9fbdd9290fa841de3d7434d9230f96e07e4afc8e fix(item2): flag only sequential joins between incomparable lexical arms\nc265bafdbee7cea4421a7b906df8d498a191b921 feat(item2): tag CFG sequential edges with lexical arm ids\n8ed4f5717e576af1a76cf9ca5e8633e66cd5fa69 docs: item 2 design (spec v6.2) and implementation plan (v4) — DataFlow confidence via reaching definitions\n80d9b5e508f075bba6b6e9a030dafd857152416a chore(item2): add dfg_census example for the RD cap measurement (spec §12 Q1)",
+          "remote_contains": []
+        },
+        {
+          "ref": "refs/heads/main",
+          "sha": "5e54d48381f329cae370557eeac35bc00ff7b801",
+          "ancestor": true,
+          "cherry": "",
+          "unique": "",
+          "remote_contains": [
+            "refs/remotes/origin/main"
+          ]
+        },
+        {
+          "ref": "refs/heads/phase0-sarif-targets-api",
+          "sha": "602a6ed260ffd31fe99571b44c094d59027d3219",
+          "ancestor": true,
+          "cherry": "",
+          "unique": "",
+          "remote_contains": [
+            "refs/remotes/origin/main",
+            "refs/remotes/origin/phase0-sarif-targets-api"
+          ]
+        },
+        {
+          "ref": "refs/heads/targets-dependency-hint",
+          "sha": "b880b26aaff7f512769c301881e6791bf4ccc491",
+          "ancestor": false,
+          "cherry": "- b880b26aaff7f512769c301881e6791bf4ccc491",
+          "unique": "b880b26aaff7f512769c301881e6791bf4ccc491 fix(targets): resolve dependency kinds at call-site scope",
+          "remote_contains": []
+        }
+      ],
+      "ignored_noncache_files": [
+        {
+          "file": ".superpowers/sdd/.gitignore",
+          "bytes": 2,
+          "sha256": "cdbcae15105d6b781e620813c79c7e868740d4e9cc53ce6f5fcbbc12387adf4b"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-item2-dataflow-confidence/task-0b-brief.md",
+          "bytes": 13284,
+          "sha256": "5dd9fb5d9174463d9cd7ad4689232d200f34c8a58072272ae6accd7abb729b70"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-item2-dataflow-confidence/task-0b-report.md",
+          "bytes": 19058,
+          "sha256": "deabee6ca703e067666c5579ca05cd35b02dc4f0083caa86683311a342f3603d"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-item2-dataflow-confidence/task-2-brief.md",
+          "bytes": 13718,
+          "sha256": "fa5c449c7fc075ac8466759d578fc59547288a4746fbf87037faf2551c41cfca"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-item2-dataflow-confidence/task-2-report.md",
+          "bytes": 6480,
+          "sha256": "b63c134dfcffe325c1ed752d2692b3a6ff3d48babd06f7bf5f9ea6a955cc6830"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-item2-dataflow-confidence/task-2-signatures.md",
+          "bytes": 5766,
+          "sha256": "9ddcb8768ff1b8eb6a534de5d2a913976395f4cb95d93f288001086a6322f312"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-3-brief.md",
+          "bytes": 9948,
+          "sha256": "b76d43edaba04dd99823f76e7c0da914cee3dcf47f2f991721f6f11bfd13cff7"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-3-report.md",
+          "bytes": 686,
+          "sha256": "35ff8afb12847079dc0b6b4e9a71e8433c397e7c1f2868810b6585ddecfbef22"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-4-brief.md",
+          "bytes": 8592,
+          "sha256": "6d647d7e61dd12840cb4d546d3bc29561a5c4737c534b718f92227264b235bcb"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-4-report.md",
+          "bytes": 11742,
+          "sha256": "bb9c761f289ad5e4c70e948fefda55d9ff3980ee022b1b4e863b2973cfeb6ed1"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-5-brief.md",
+          "bytes": 3840,
+          "sha256": "b94312b1a59c23693fac9068a700c6e93a9979b88d68111600687a9da2389a3f"
+        },
+        {
+          "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-5-report.md",
+          "bytes": 29105,
+          "sha256": "b56266d6e2552a20b964af29ca185fb69b2888cff5ff8e832c547b2ba7090046"
+        },
+        {
+          "file": "eval/runs/2026-09-04-prism.json",
+          "bytes": 115364,
+          "sha256": "ed570c5a783e2abaa4240b93d9e4bd448445cdb35a70dc6f52ac6b078fda6c39"
+        }
+      ],
+      "git_locks": [],
+      "matching_prs": [
+        {
+          "headRefName": "targets-dependency-hint",
+          "mergeCommit": {
+            "oid": "6cfa9efae2fdc27222842e850c94c004760413d1"
+          },
+          "mergedAt": "2026-09-05T05:29:53Z",
+          "number": 243,
+          "state": "MERGED",
+          "title": "prism targets: dependency_hint for every external_call target (verified-identity kind, source-verbatim callee)"
+        }
+      ]
+    },
+    {
+      "name": "slicing-targets-hint",
+      "path": "/Users/wesleyjinks/code/slicing-targets-hint",
+      "kind": "registered_worktree",
+      "directory": true,
+      "symlink": false,
+      "uid": 501,
+      "head": "f751a7569ea105ee37e35c3637df255a4df2640d",
+      "branch": "targets-dependency-hint",
+      "allocated_KiB": 77520,
+      "ancestor_of_fixed_main": true,
+      "dirty": [],
+      "refs": [
+        {
+          "ref": "targets-dependency-hint",
+          "sha": "f751a7569ea105ee37e35c3637df255a4df2640d",
+          "ancestor": true,
+          "cherry": "",
+          "unique": "",
+          "remote_contains": [
+            "refs/remotes/origin/main",
+            "refs/remotes/origin/targets-dependency-hint"
+          ]
+        }
+      ],
+      "ignored_noncache_files": [],
+      "git_locks": [],
+      "matching_prs": [
+        {
+          "headRefName": "targets-dependency-hint",
+          "mergeCommit": {
+            "oid": "6cfa9efae2fdc27222842e850c94c004760413d1"
+          },
+          "mergedAt": "2026-09-05T05:29:53Z",
+          "number": 243,
+          "state": "MERGED",
+          "title": "prism targets: dependency_hint for every external_call target (verified-identity kind, source-verbatim callee)"
+        }
+      ]
+    }
+  ],
+  "squash_proofs": [
+    {
+      "name": "slicing-a-receiver-provenance-s0",
+      "head": "ba033f22608a592df9d3104f82c245cd558ccb3e",
+      "pr": 205,
+      "merge": "2d8fdbb42705388993b4dae814d2118891f28600",
+      "aggregate_patch_id": "4423624b1db5a1b1e86d0b0e905fe05334e3bbb4",
+      "merged_patch_id": "4423624b1db5a1b1e86d0b0e905fe05334e3bbb4"
+    },
+    {
+      "name": "slicing-a-receiver-provenance-s1",
+      "head": "445629fd0ff034490d213fb6d82232e2abf784c6",
+      "pr": 207,
+      "merge": "d9aae91f10d8a8355f052607cefeebe18f0f46fd",
+      "aggregate_patch_id": "65e638acb8f4407867a765ca6f20463eaa5a4022",
+      "merged_patch_id": "65e638acb8f4407867a765ca6f20463eaa5a4022"
+    },
+    {
+      "name": "slicing-p4b-go-dot-import",
+      "head": "158d49c5a69ccee088d4202a0aea510e222644f5",
+      "pr": 172,
+      "merge": "b8bd54348a7e8dfdf70b8580b1bce2a0f194c2c4",
+      "aggregate_patch_id": "511a24bcef480a820263c160b2f962b0f27c29e8",
+      "merged_patch_id": "511a24bcef480a820263c160b2f962b0f27c29e8"
+    }
+  ],
+  "dirty_snapshot": {
+    "parent": "1900682c3a9a193bd78e6a805f3796e320331574",
+    "tree": "e5298e1b451dd6044a5238c42ba3e090c7a0d82e",
+    "commit": "b7fc86010ed13953d04f9c4c78511c5070a19ee3",
+    "branch": "custody/worktree-20260907-16c1-dirty",
+    "files": [
+      {
+        "file": "src/go_promoted_snapshot.rs",
+        "sha256": "b2e22b6d9c97e09e38dcd801abed4b4ff6fa51f90373587e96976c25e01045ab"
+      },
+      {
+        "file": "src/navigation/queries.rs",
+        "sha256": "677a1378d300a865f224aa8c6327f3b36257bf3bdedffc140590921623e77741"
+      },
+      {
+        "file": "src/resolution.rs",
+        "sha256": "3ab28c22fd3c76bafd1af50e35342c4af43ef74e47c5ad9b76e4a64cfb77919b"
+      },
+      {
+        "file": "docs/superpowers/specs/2026-08-23-go-package-qualified-interface-identity-design.md",
+        "sha256": "e45a41e3edbdc00f2d48700601dacfabb8027870275222ac681d65be73a86c3c"
+      }
+    ],
+    "original_index_untouched": true,
+    "unverified_recovery_only": true
+  },
+  "captured_files": [
+    {
+      "directory": "slicing-16c1-sol",
+      "file": "src/go_promoted_snapshot.rs",
+      "kind": "dirty_source",
+      "bytes": 20705,
+      "sha256": "b2e22b6d9c97e09e38dcd801abed4b4ff6fa51f90373587e96976c25e01045ab"
+    },
+    {
+      "directory": "slicing-16c1-sol",
+      "file": "src/navigation/queries.rs",
+      "kind": "dirty_source",
+      "bytes": 80160,
+      "sha256": "677a1378d300a865f224aa8c6327f3b36257bf3bdedffc140590921623e77741"
+    },
+    {
+      "directory": "slicing-16c1-sol",
+      "file": "src/resolution.rs",
+      "kind": "dirty_source",
+      "bytes": 201335,
+      "sha256": "3ab28c22fd3c76bafd1af50e35342c4af43ef74e47c5ad9b76e4a64cfb77919b"
+    },
+    {
+      "directory": "slicing-16c1-sol",
+      "file": "docs/superpowers/specs/2026-08-23-go-package-qualified-interface-identity-design.md",
+      "kind": "dirty_source",
+      "bytes": 20557,
+      "sha256": "e45a41e3edbdc00f2d48700601dacfabb8027870275222ac681d65be73a86c3c"
+    },
+    {
+      "directory": "slicing-a-receiver-provenance-s0",
+      "file": "eval/runs/2026-08-26-prism.json",
+      "kind": "ignored_evidence",
+      "bytes": 121366,
+      "sha256": "6e2e9086c4a8e638033bac352d5b0de4ada04c76f698da0ee52f43c19f832037"
+    },
+    {
+      "directory": "slicing-a-receiver-provenance-s1",
+      "file": "eval/runs/2026-08-27-prism.json",
+      "kind": "ignored_evidence",
+      "bytes": 125297,
+      "sha256": "747f8bcd2155087e7303a19ee2ac188caaa2083c86ecad4e5e9c25ee5afe0141"
+    },
+    {
+      "directory": "slicing-a-receiver-provenance-s2",
+      "file": "eval/runs/2026-08-27-prism.json",
+      "kind": "ignored_evidence",
+      "bytes": 120685,
+      "sha256": "b07d605a7681b2cc20a5b727e7970f847134bf6c10ed0dad2a41b5a7b55b3d9e"
+    },
+    {
+      "directory": "slicing-a-receiver-provenance-s3",
+      "file": "eval/runs/2026-08-30-prism.json",
+      "kind": "ignored_evidence",
+      "bytes": 121048,
+      "sha256": "bb4850412e13b3f4559d1e56e8f5edb0da714257ab17532da72d41ddca68dfa6"
+    },
+    {
+      "directory": "slicing-phase0",
+      "file": ".superpowers/sdd/.gitignore",
+      "kind": "ignored_evidence",
+      "bytes": 2,
+      "sha256": "cdbcae15105d6b781e620813c79c7e868740d4e9cc53ce6f5fcbbc12387adf4b"
+    },
+    {
+      "directory": "slicing-phase0-review",
+      "file": ".superpowers/sdd/.gitignore",
+      "kind": "ignored_evidence",
+      "bytes": 2,
+      "sha256": "cdbcae15105d6b781e620813c79c7e868740d4e9cc53ce6f5fcbbc12387adf4b"
+    },
+    {
+      "directory": "slicing-phase0-review",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/review-7a3c04b..ab4d656.diff",
+      "kind": "ignored_evidence",
+      "bytes": 70195,
+      "sha256": "d1eb07c59f100f0af924bcf769ba3105d26a7168dc72a3ed151bf177eeb74d4c"
+    },
+    {
+      "directory": "slicing-phase0-review",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/review-8a1545e..7a3c04b.diff",
+      "kind": "ignored_evidence",
+      "bytes": 25589,
+      "sha256": "cb91c54bd4763b761991e2162e26b711b16161e0015cc349e050cf56bed98fcf"
+    },
+    {
+      "directory": "slicing-phase0-review",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/review-f627d0a..444b673.diff",
+      "kind": "ignored_evidence",
+      "bytes": 103412,
+      "sha256": "0bdbffe3cfe35e842b37dbc7bc963140eec60b6446a2417df56696af0987bf48"
+    },
+    {
+      "directory": "slicing-phase0-review",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/review-final.diff",
+      "kind": "ignored_evidence",
+      "bytes": 503227,
+      "sha256": "79bdf53b9e057adaccf3206cd72d355315105ef621354e1646b5c8b6ea2a4bd7"
+    },
+    {
+      "directory": "slicing-phase0-review",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-1-brief.md",
+      "kind": "ignored_evidence",
+      "bytes": 6730,
+      "sha256": "d8cab7904b3b242eadbdbfc35f1d55fe7503aa3e8508901e190dd3034b7d7f01"
+    },
+    {
+      "directory": "slicing-phase0-review",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-1-report.md",
+      "kind": "ignored_evidence",
+      "bytes": 17661,
+      "sha256": "fe5f52675a78bb22ddb7f3d64dd8e54a8c48199354899ff60b9f97124f8616a2"
+    },
+    {
+      "directory": "slicing-phase0-review",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-2-brief.md",
+      "kind": "ignored_evidence",
+      "bytes": 9422,
+      "sha256": "453474aacc0024bc8570b72a735a897bac2a4740e4a0b6967e2919ccae6b7817"
+    },
+    {
+      "directory": "slicing-phase0-review",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-2-report.md",
+      "kind": "ignored_evidence",
+      "bytes": 27142,
+      "sha256": "9f6d36ac047980413d78eff403213046ce18535870ba48a3b83e5e99e2df12ad"
+    },
+    {
+      "directory": "slicing-phase0-review",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-3-brief.md",
+      "kind": "ignored_evidence",
+      "bytes": 9948,
+      "sha256": "b76d43edaba04dd99823f76e7c0da914cee3dcf47f2f991721f6f11bfd13cff7"
+    },
+    {
+      "directory": "slicing-phase0-review",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-3-report.md",
+      "kind": "ignored_evidence",
+      "bytes": 686,
+      "sha256": "35ff8afb12847079dc0b6b4e9a71e8433c397e7c1f2868810b6585ddecfbef22"
+    },
+    {
+      "directory": "slicing-phase0-review",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-4-brief.md",
+      "kind": "ignored_evidence",
+      "bytes": 8592,
+      "sha256": "6d647d7e61dd12840cb4d546d3bc29561a5c4737c534b718f92227264b235bcb"
+    },
+    {
+      "directory": "slicing-phase0-review",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-4-report.md",
+      "kind": "ignored_evidence",
+      "bytes": 16553,
+      "sha256": "3ab473916555db65281af52fa3e336c8e9b634d82cef68ccd06d2fc513d4d733"
+    },
+    {
+      "directory": "slicing-phase0-review",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-5-brief.md",
+      "kind": "ignored_evidence",
+      "bytes": 3840,
+      "sha256": "b94312b1a59c23693fac9068a700c6e93a9979b88d68111600687a9da2389a3f"
+    },
+    {
+      "directory": "slicing-phase0-review",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-5-report.md",
+      "kind": "ignored_evidence",
+      "bytes": 29105,
+      "sha256": "b56266d6e2552a20b964af29ca185fb69b2888cff5ff8e832c547b2ba7090046"
+    },
+    {
+      "directory": "slicing-phase0-sol",
+      "file": ".superpowers/sdd/.gitignore",
+      "kind": "ignored_evidence",
+      "bytes": 2,
+      "sha256": "cdbcae15105d6b781e620813c79c7e868740d4e9cc53ce6f5fcbbc12387adf4b"
+    },
+    {
+      "directory": "slicing-phase0-sol",
+      "file": ".superpowers/sdd/2026-09-04-prism-item2-dataflow-confidence/task-0b-brief.md",
+      "kind": "ignored_evidence",
+      "bytes": 13284,
+      "sha256": "5dd9fb5d9174463d9cd7ad4689232d200f34c8a58072272ae6accd7abb729b70"
+    },
+    {
+      "directory": "slicing-phase0-sol",
+      "file": ".superpowers/sdd/2026-09-04-prism-item2-dataflow-confidence/task-0b-report.md",
+      "kind": "ignored_evidence",
+      "bytes": 19058,
+      "sha256": "deabee6ca703e067666c5579ca05cd35b02dc4f0083caa86683311a342f3603d"
+    },
+    {
+      "directory": "slicing-phase0-sol",
+      "file": ".superpowers/sdd/2026-09-04-prism-item2-dataflow-confidence/task-2-brief.md",
+      "kind": "ignored_evidence",
+      "bytes": 13718,
+      "sha256": "fa5c449c7fc075ac8466759d578fc59547288a4746fbf87037faf2551c41cfca"
+    },
+    {
+      "directory": "slicing-phase0-sol",
+      "file": ".superpowers/sdd/2026-09-04-prism-item2-dataflow-confidence/task-2-report.md",
+      "kind": "ignored_evidence",
+      "bytes": 6480,
+      "sha256": "b63c134dfcffe325c1ed752d2692b3a6ff3d48babd06f7bf5f9ea6a955cc6830"
+    },
+    {
+      "directory": "slicing-phase0-sol",
+      "file": ".superpowers/sdd/2026-09-04-prism-item2-dataflow-confidence/task-2-signatures.md",
+      "kind": "ignored_evidence",
+      "bytes": 5766,
+      "sha256": "9ddcb8768ff1b8eb6a534de5d2a913976395f4cb95d93f288001086a6322f312"
+    },
+    {
+      "directory": "slicing-phase0-sol",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-3-brief.md",
+      "kind": "ignored_evidence",
+      "bytes": 9948,
+      "sha256": "b76d43edaba04dd99823f76e7c0da914cee3dcf47f2f991721f6f11bfd13cff7"
+    },
+    {
+      "directory": "slicing-phase0-sol",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-3-report.md",
+      "kind": "ignored_evidence",
+      "bytes": 686,
+      "sha256": "35ff8afb12847079dc0b6b4e9a71e8433c397e7c1f2868810b6585ddecfbef22"
+    },
+    {
+      "directory": "slicing-phase0-sol",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-4-brief.md",
+      "kind": "ignored_evidence",
+      "bytes": 8592,
+      "sha256": "6d647d7e61dd12840cb4d546d3bc29561a5c4737c534b718f92227264b235bcb"
+    },
+    {
+      "directory": "slicing-phase0-sol",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-4-report.md",
+      "kind": "ignored_evidence",
+      "bytes": 11742,
+      "sha256": "bb9c761f289ad5e4c70e948fefda55d9ff3980ee022b1b4e863b2973cfeb6ed1"
+    },
+    {
+      "directory": "slicing-phase0-sol",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-5-brief.md",
+      "kind": "ignored_evidence",
+      "bytes": 3840,
+      "sha256": "b94312b1a59c23693fac9068a700c6e93a9979b88d68111600687a9da2389a3f"
+    },
+    {
+      "directory": "slicing-phase0-sol",
+      "file": ".superpowers/sdd/2026-09-04-prism-phase0-sarif-targets-api/task-5-report.md",
+      "kind": "ignored_evidence",
+      "bytes": 29105,
+      "sha256": "b56266d6e2552a20b964af29ca185fb69b2888cff5ff8e832c547b2ba7090046"
+    },
+    {
+      "directory": "slicing-phase0-sol",
+      "file": "eval/runs/2026-09-04-prism.json",
+      "kind": "ignored_evidence",
+      "bytes": 115364,
+      "sha256": "ed570c5a783e2abaa4240b93d9e4bd448445cdb35a70dc6f52ac6b078fda6c39"
+    }
+  ],
+  "objects": [
+    {
+      "directory": "slicing-16c1-sol",
+      "archive": "/private/tmp/prism-worktree-custody-K76Tg3/slicing-16c1-sol-objects.tgz",
+      "bytes": 15412868,
+      "sha256": "7912a2053d2c6737917ee64f3a79707ce24f1f68e827f776aeec2abdaf54e58d",
+      "objects": 13089,
+      "commits": 1848,
+      "all_objects_equal": true,
+      "no_alternates": true,
+      "fsck_passed": true
+    },
+    {
+      "directory": "slicing-p4b-go-dot-import",
+      "archive": "/private/tmp/prism-worktree-custody-K76Tg3/slicing-p4b-go-dot-import-objects.tgz",
+      "bytes": 26948742,
+      "sha256": "d40345874359e7d5604e74e290341cd7b7d79a311cdc50e21a9ee43f5b1be175",
+      "objects": 14498,
+      "commits": 2357,
+      "all_objects_equal": true,
+      "no_alternates": true,
+      "fsck_passed": true
+    },
+    {
+      "directory": "slicing-phase0-sol",
+      "archive": "/private/tmp/prism-worktree-custody-K76Tg3/slicing-phase0-sol-objects.tgz",
+      "bytes": 15805296,
+      "sha256": "2961560bcd6e5d71735adcc390ca9eacc2bdb0438002245717478717d54376c0",
+      "objects": 14822,
+      "commits": 2087,
+      "all_objects_equal": true,
+      "no_alternates": true,
+      "fsck_passed": true
+    }
+  ],
+  "artifact_archive": {
+    "file": "ignored-and-dirty.tgz",
+    "sha256": "307d5e8940568b759a2c4fa06ab641ea8ec6420c2f6ee0805dfed4e411ba1bde"
+  },
+  "live_check": {
+    "process_status": 0,
+    "lsof_status": 0,
+    "lsof_warning": "",
+    "processMatches": [],
+    "openFiles": [],
+    "not_deletion_authority": true
+  },
+  "publication": "pending_remote_verification",
+  "tests_not_run": "No implementation; custody restoration/hash/ref verification only"
+}
