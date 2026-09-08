@@ -46,7 +46,7 @@ for(const channel of ['source_type','configured_type','lib'])test(`${channel} bo
   if(channel==='lib'){config.compilerOptions.lib=['es5'];config.compilerOptions.libReplacement=true;}
   save();const p=produce(options),s=sameRequests(p);assert.equal(s.module_requests.length,0);
   assert(s.boundary_events.length>0);
-  if(channel==='lib')assert(s.boundary_events.every(e=>e.owner===null));
+  if(channel==='lib'){const ids=new Set(s.lib_searches.map(r=>r.id));assert.deepEqual(s.lib_searches.map(r=>r.lib_file).sort(),['lib.decorators.d.ts','lib.decorators.legacy.d.ts','lib.es5.d.ts']);assert(s.boundary_events.every(e=>e.owner?.channel==='lib'&&ids.has(e.owner.id)));}
   else {assert.equal(s.type_requests.length,1);assert(s.boundary_events.every(e=>e.owner?.channel==='type'&&e.owner.id===s.type_requests[0].execution));}
   assert.equal(p.closure.dependencies,false);
 }));

@@ -14,9 +14,9 @@ Task root: `/private/tmp/prism-overnight-0zmx3n`.
 | 1 | Source-backed outside/refused classification | PR281 open; verified | diagnostic capture only, no producer/policy changes |
 | 2 | Module-search provenance | PR282 open on PR281; full gates passed | request-owned observations, not waivers |
 | 3 | Type-search provenance | PR284 open on PR283; full gates passed | actual configured/source channels; preserve batch/global caches |
-| D1 | Shared lib-search/beneficiary semantics + first value checkpoint | allocated after3 | separate global lib cache; beneficiaries are not causal demands |
-| 4 | Bounded local configuration provenance | pending | local extends/options origin, no plugins/project references |
-| 5 | Entry-obligation completeness | pending | intentional disabling versus missing requirements; RED first for defects |
+| D1 | Shared lib-search/beneficiary semantics + first value checkpoint | PR285 open on PR284; full gates passed; checkpoint continue | separate global lib cache; beneficiaries are not causal demands |
+| 4 | Bounded local configuration provenance | frozen3d346dce,485 copied tests; independent round1 ACCEPT96; public parity passed | local extends/options origin, no plugins/project references |
+| 5 | Entry-obligation completeness | contract accepted; pure helper unwired | conservative automatic-discovery/suppression unknown; no old-bit defect claim |
 | 6 | Bounded closure-policy contract | pending | explicit input universe, negatives, stop if policy authority needs a new decision |
 | 7 | Singleton exact ambient admission + value checkpoint | pending | supported context, all unrelated barriers retained |
 | 8 | Singleton wildcard admission | pending | binding separate from assets/runtime |

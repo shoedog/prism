@@ -188,7 +188,11 @@ test('historical schema13 with non-null module mode and unresolved schema12 rema
   config.compilerOptions.module='NodeNext';config.compilerOptions.moduleResolution='NodeNext';save();
   put('src/mode.mts','import "missing-module";');put('src/ref.d.ts','/// <reference types="missing-types" />');const p=produce(options),current=provenance(p);
   assert(current.module_requests.some(r=>r.mode==='import'));
-  const old13=structuredClone(p);old13.schema='prism.callable-observation/13';old13.producer.version='0.14.0';delete old13.search_provenance.type_batches;delete old13.search_provenance.type_requests;delete old13.search_provenance.type_searches;
+  const old14=structuredClone(p);old14.schema='prism.callable-observation/14';old14.producer.version='0.15.0';delete old14.search_provenance.lib_searches;
+  for(const e of old14.search_provenance.boundary_events)if(e.owner?.channel==='lib')e.owner=null;
+  assert.doesNotThrow(()=>parsePacket(JSON.stringify(old14)));const bad14=structuredClone(old14);bad14.search_provenance.type_batches[0].size++;
+  assert.throws(()=>parsePacket(JSON.stringify(bad14)),/invalid_packet/);assert.equal(validate(JSON.stringify(old14),options).valid,false);
+  const old13=structuredClone(old14);old13.schema='prism.callable-observation/13';old13.producer.version='0.14.0';delete old13.search_provenance.type_batches;delete old13.search_provenance.type_requests;delete old13.search_provenance.type_searches;
   for(const e of old13.search_provenance.boundary_events)if(e.owner?.channel==='type')e.owner=null;
   assert.doesNotThrow(()=>parsePacket(JSON.stringify(old13)));assert.equal(validate(JSON.stringify(old13),options).valid,false);
   const old12=structuredClone(old13);old12.schema='prism.callable-observation/12';old12.producer.version='0.13.0';delete old12.search_provenance;

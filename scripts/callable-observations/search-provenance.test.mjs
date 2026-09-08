@@ -48,3 +48,28 @@ test('type batch claims and records have an independent cap',()=>{
   assert.equal(ledger.claimTypeRequest(),0);assert.equal(ledger.claimTypeSearch(),0);
   ledger.typeBatch({id:0});assert.throws(()=>ledger.typeBatch({id:1}),/budget_exceeded/);
 });
+
+test('lib execution and beneficiary caps are independent and nested owners restore',()=>{
+  const ledger=createSearchProvenance(s=>s,1),lib={id:ledger.claimLibSearch()};
+  assert.throws(()=>ledger.claimLibSearch(),/budget_exceeded/);
+  assert.equal(ledger.claimRequest(),0);assert.equal(ledger.claimTypeSearch(),0);
+  ledger.libSearch({...lib,beneficiaries:[{index:0}]});
+  assert.throws(()=>ledger.libSearch({id:1,beneficiaries:[]}),/budget_exceeded/);
+  const each=createSearchProvenance(s=>s,1);
+  assert.throws(()=>each.libSearch({id:0,beneficiaries:[{index:0},{index:1}]}),/budget_exceeded/);
+  const relationships=createSearchProvenance(s=>s,2);
+  relationships.libSearch({id:0,beneficiaries:[{index:0},{index:1}]});
+  assert.throws(()=>relationships.libSearch({id:1,beneficiaries:[{index:2}]}),/budget_exceeded/);
+  const preappend=createSearchProvenance(s=>s,2),beneficiaries=[];
+  assert.throws(()=>preappend.libBeneficiaries(beneficiaries,[{index:0},{index:1},{index:2}]),/budget_exceeded/);
+  assert.deepEqual(beneficiaries,[]);
+  preappend.libBeneficiaries(beneficiaries,[{index:0},{index:1}]);assert.equal(beneficiaries.length,2);
+  const other=[];assert.throws(()=>preappend.libBeneficiaries(other,[{index:2}]),/budget_exceeded/);assert.deepEqual(other,[]);
+  const nested=createSearchProvenance(s=>s),module={id:0},type={id:0},search={id:0};
+  nested.withRequest(module,()=>nested.withTypeSearch(type,()=>{
+    assert.throws(()=>nested.withLibSearch(search,()=>{nested.boundary('outside','identity','lib');throw Error('lib failure');}),/lib failure/);
+    nested.boundary('outside','identity','type');
+  }));
+  nested.boundary('outside','identity','none');
+  assert.deepEqual(nested.boundary_events.map(e=>e.owner),[{channel:'lib',id:0},{channel:'type',id:0},null]);
+});
