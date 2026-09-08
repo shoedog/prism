@@ -1,5 +1,10 @@
 # Handoff — bounded merged wildcard observations
 
+> Reconciled 2026-09-07: PR276 merged52e72bed7d0685cf0a0901d053563e067dc64387.
+> The successor is [closure-policy proof](2026-09-07-callable-closure-policy-proof.md),
+> which records a pre-existing required-path completeness WRONG and an additional
+> public type-reference gap. Earlier open-PR/next-audit text below is historical.
+
 **Written:** 2026-09-07 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-merged-wildcard-observations · **Measured state:** `[MEASURED]` implementation f719b2b, RED edad861 and verification7c42aea pushed on base e45eaef0; PR276 open; all final local gates/replay and two self-review rounds complete. This is the final documentation-only publication note.
 **Predecessor:** PR275, confirmed merged e45eaef07e24764597bfbd904aeca83771f97cbb.

@@ -27,6 +27,15 @@ pair observations,14 module source gaps,1 source-bound unsupported `require("fs"
 and1 augmentation declaration-name request. The last two are not two augmentation
 requests. An augmentation's own symbol does not resolve its missing imported target.
 
+Original-source census adds78 path,27 type and112 lib directives outside that
+module-literal ledger. A frozen-packet configured-Program cache capture resolves
+26 type and112 lib targets but leaves `react-scripts` unresolved at
+`packages/excalidraw/react-app-env.d.ts` UTF16/byte[22,35). This is an additional
+public closure gap, not one of the14 module-literal gaps. All78 lexical path
+candidates are in inventory and Program; that is candidate presence, not a general
+path-resolution proof. The actual configuration has skipLibCheck=true and the
+normal packet has zero diagnostics. No package/config changes are authorized.
+
 The587 positive observations are source-binding evidence, not a closed dependency
 universe. Preserve their actual context and contributor/selection proofs. A
 side-effect empty/shorthand pair cannot authorize a value import. Type-only source

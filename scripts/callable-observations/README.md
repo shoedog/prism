@@ -33,6 +33,15 @@ an unproven observation exits0. Read the JSON, not just the exit code.
 
 ## Meaning of the packet
 
+Known completeness defect (source-backed audit, 2026-09-07): an absent required
+triple-slash path in a declaration file can be hidden by `skipLibCheck`, leaving
+all closure bits and a class candidate `observed`. `closure.references` currently
+checks configured project references, not triple-slash completeness. Validation
+can reproduce this false closure; it does not repair it. Runtime/class authority
+remains false. See the [proof requirements](../../docs/superpowers/specs/2026-09-07-callable-closure-policy-proof.md)
+and KNOWN WRONG characterization; a separate bounded repair is required before
+closure admission.
+
 The strict executable v10 schema is `schema.mjs` (`parsePacket`). It freezes these
 groups, rejecting unknown fields and unsafe IDs before project access:
 
