@@ -2,7 +2,8 @@ import {createHash} from "node:crypto";
 import path from "node:path";
 import {libFileForReference,libraryNameFromLibFile} from './lib-search.mjs';
 const SCHEMA14="prism.callable-observation/14";
-export const SCHEMA="prism.callable-observation/15";
+const SCHEMA15="prism.callable-observation/15";
+export const SCHEMA="prism.callable-observation/16";
 export const REFERENCE_LIMIT=100000;
 export const referenceKey=r=>JSON.stringify([r.request.file,r.kind,r.index]);
 export const entryKey=r=>JSON.stringify([r.kind,r.index]);
@@ -115,15 +116,21 @@ const boundaryEvent=ownerRule=>object({id:integer,kind:x=>['outside','refused'].
 const moduleOwner=object({channel:literal('module'),id:integer});
 const typeSearchOwner=object({channel:x=>['module','type'].includes(x),id:integer});
 const searchOwner=object({channel:x=>['module','type','lib'].includes(x),id:integer});
+const configOptionNames=['types','lib','typeRoots','noLib','libReplacement','noResolve','target'];
+const configReason=x=>['chain_limit','unavailable','invalid_config','duplicate_property','unsupported_extends','cycle','missing_target','selection_mismatch','unsupported_option','value_mismatch'].includes(x);
+const configProvenance=object({status:x=>['observed','unproven'].includes(x),reason:nullable(configReason),files:array(anchor),
+  extends:array(object({source:anchor,target:anchor})),options:array(object({name:x=>configOptionNames.includes(x),present:boolean,value_sha256:digest,origin:nullable(anchor)}))});
 const packet13=object({...referenceShape,schema:literal('prism.callable-observation/13'),producer:object({version:literal('0.14.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),search_provenance:object({module_requests:array(moduleRequest),boundary_events:array(boundaryEvent(moduleOwner))})});
 const packet14=object({...referenceShape,schema:literal(SCHEMA14),producer:object({version:literal('0.15.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
   search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),boundary_events:array(boundaryEvent(typeSearchOwner))})});
-const packet15=object({...referenceShape,schema:literal(SCHEMA),producer:object({version:literal('0.16.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
+const packet15=object({...referenceShape,schema:literal(SCHEMA15),producer:object({version:literal('0.16.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
   search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),lib_searches:array(libSearch),boundary_events:array(boundaryEvent(searchOwner))})});
+const packet16=object({...referenceShape,schema:literal(SCHEMA),producer:object({version:literal('0.17.0'),sha256:digest}),type_lib_entries:array(typeLibEntry),
+  search_provenance:object({module_requests:array(moduleRequest),type_batches:array(typeBatch),type_requests:array(typeRequest),type_searches:array(typeSearch),lib_searches:array(libSearch),boundary_events:array(boundaryEvent(searchOwner))}),config_provenance:configProvenance});
 export function parsePacket(text) {
   if(typeof text!=="string" || Buffer.byteLength(text)>MAX_PACKET_BYTES) throw Error("invalid_packet");
   const value=JSON.parse(text);
-  if(!packet10(value)&&!packet11(value)&&!packet12(value)&&!packet13(value)&&!packet14(value)&&!packet15(value)) throw Error("invalid_packet");
+  if(!packet10(value)&&!packet11(value)&&!packet12(value)&&!packet13(value)&&!packet14(value)&&!packet15(value)&&!packet16(value)) throw Error("invalid_packet");
   const profile=PROFILES[value.scope.acquisition_profile];
   if(Buffer.byteLength(text)>profile.packet_bytes)throw Error("invalid_packet");
   const files=new Map(value.snapshot.files.map(f=>[f.id,f]));
@@ -132,7 +139,7 @@ export function parsePacket(text) {
   if(!value.scope.config.startsWith("project/")) throw Error("invalid_packet");
   if(value.status==="observed" && (value.reasons.length || !value.compiler.verified || Object.values(value.closure).some(x=>!x))) throw Error("invalid_packet");
   if(value.status==="unproven" && !value.reasons.length) throw Error("invalid_packet");
-  if(value.reasons.includes("unproven_path_reference") && (!["0.11.1","0.12.0","0.13.0","0.14.0","0.15.0","0.16.0"].includes(value.producer.version)
+  if(value.reasons.includes("unproven_path_reference") && (!["0.11.1","0.12.0","0.13.0","0.14.0","0.15.0","0.16.0","0.17.0"].includes(value.producer.version)
     || value.status!=="unproven" || value.closure.dependencies || value.closure.references
     || value.closure.augmentation || value.closure.resolution))throw Error("invalid_packet");
   const refused=value.snapshot.refused_lookup_sha256;
@@ -157,6 +164,34 @@ export function parsePacket(text) {
       || a.end_byte>f.size || a.end_utf16>a.end_byte) throw Error("invalid_packet");
   }
   const programFiles=new Set(value.snapshot.program_files);
+  if(value.config_provenance) {
+    const record=value.config_provenance;
+    if(record.status==='unproven') {
+      if(!record.reason||record.files.length||record.extends.length||record.options.length)throw Error('invalid_packet');
+    } else {
+      if(record.reason!==null||record.files.length<1||record.files.length>32||record.extends.length!==record.files.length-1
+          ||record.options.length!==configOptionNames.length)throw Error('invalid_packet');
+      const ids=new Set(record.files.map(a=>a.file)),configFiles=value.snapshot.config_files;
+      if(ids.size!==record.files.length||new Set(configFiles).size!==configFiles.length
+          ||canonical([...ids].sort())!==canonical([...configFiles].sort()))throw Error('invalid_packet');
+      for(const anchor of record.files) {
+        checkAnchor(anchor);const file=files.get(anchor.file);
+        if(anchor.kind!=='SourceFile'||anchor.start_utf16!==0||anchor.start_byte!==0||anchor.end_byte!==file.size)throw Error('invalid_packet');
+      }
+      for(const [i,edge] of record.extends.entries()) {
+        checkAnchor(edge.source);checkAnchor(edge.target);
+        if(edge.source.kind!=='StringLiteral'||edge.source.file!==record.files[i].file
+            ||canonical(edge.target)!==canonical(record.files[i+1]))throw Error('invalid_packet');
+      }
+      const absent=hash(canonical({present:false,value:null}));
+      for(const [i,row] of record.options.entries()) {
+        checkAnchor(row.origin);
+        if(row.name!==configOptionNames[i]||row.present!==!!row.origin
+            ||row.origin&&(row.origin.kind!=='PropertyAssignment'||!ids.has(row.origin.file))
+            ||!row.present&&row.value_sha256!==absent)throw Error('invalid_packet');
+      }
+    }
+  }
   if(value.search_provenance) {
     const {module_requests:requests,boundary_events:events}=value.search_provenance;
     const requestIds=new Set();
@@ -206,7 +241,7 @@ export function parsePacket(text) {
       usedLinks.add(link);coveredRows.add(rowLink);
     }
     const expectedRows=new Set();
-    if([SCHEMA14,SCHEMA].includes(value.schema)) {
+    if([SCHEMA14,SCHEMA15,SCHEMA].includes(value.schema)) {
       for(const batch of typeBatches) {
         if(batch.origin==='source'?!programFiles.has(batch.from):batch.from!==inferredFrom)throw Error('invalid_packet');
         const rows=(batch.origin==='source'?references.filter(r=>r.kind==='types'&&r.request.file===batch.from)
@@ -248,7 +283,7 @@ export function parsePacket(text) {
   }
   const references=value.type_lib_references??[],unproven=references.some(r=>r.status==='unproven');
   if(unproven!==value.reasons.includes('unproven_type_lib_reference')
-    || unproven&&(!['prism.callable-observation/11','prism.callable-observation/12','prism.callable-observation/13',SCHEMA14,SCHEMA].includes(value.schema)||value.status!=='unproven'||value.closure.dependencies
+    || unproven&&(!['prism.callable-observation/11','prism.callable-observation/12','prism.callable-observation/13',SCHEMA14,SCHEMA15,SCHEMA].includes(value.schema)||value.status!=='unproven'||value.closure.dependencies
       ||value.closure.references||value.closure.augmentation||value.closure.resolution))throw Error('invalid_packet');
   for(const [i,r] of references.entries()) {
     checkAnchor(r.request);

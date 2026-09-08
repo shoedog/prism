@@ -15,9 +15,9 @@ Task root: `/private/tmp/prism-overnight-0zmx3n`.
 | 2 | Module-search provenance | PR282 open on PR281; full gates passed | request-owned observations, not waivers |
 | 3 | Type-search provenance | PR284 open on PR283; full gates passed | actual configured/source channels; preserve batch/global caches |
 | D1 | Shared lib-search/beneficiary semantics + first value checkpoint | PR285 open on PR284; full gates passed; checkpoint continue | separate global lib cache; beneficiaries are not causal demands |
-| 4 | Bounded local configuration provenance | frozen3d346dce,485 copied tests; independent round1 ACCEPT96; public parity passed | local extends/options origin, no plugins/project references |
-| 5 | Entry-obligation completeness | contract accepted; pure helper unwired | conservative automatic-discovery/suppression unknown; no old-bit defect claim |
-| 6 | Bounded closure-policy contract | pending | explicit input universe, negatives, stop if policy authority needs a new decision |
+| 4 | Bounded local configuration provenance | PR286 open on PR285; full gates passed on960c99a | local extends/options origin, no plugins/project references |
+| 5 | Entry-obligation completeness | frozen63c557b5,506 copied tests; independent ACCEPT97; public parity passes | conservative automatic-discovery/suppression unknown; no old-bit defect claim |
+| 6 | Bounded closure-policy contract | strict retained barriers adopted; unwired helper preparation | additive semantic observation only; no denied-space waiver or old-bit reinterpretation |
 | 7 | Singleton exact ambient admission + value checkpoint | pending | supported context, all unrelated barriers retained |
 | 8 | Singleton wildcard admission | pending | binding separate from assets/runtime |
 | 9 | Supported merged wildcard pair admission | pending | side-effect pair only, contributor/selection barriers |

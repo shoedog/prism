@@ -97,7 +97,7 @@ test('cached builtin filename without its SourceFile is not an observed target',
   }finally{rmSync(copy,{recursive:true,force:true});}
 }));
 test('legacy schema10 is readable without invented observations and never current-valid',()=>fixture(({options})=>{
-  const p=produce(options);refs(p);const old=structuredClone(p);old.schema='prism.callable-observation/10';old.producer.version='0.11.1';delete old.type_lib_references;delete old.type_lib_entries;delete old.search_provenance;
+  const p=produce(options);refs(p);const old=structuredClone(p);old.schema='prism.callable-observation/10';old.producer.version='0.11.1';delete old.type_lib_references;delete old.type_lib_entries;delete old.search_provenance;delete old.config_provenance;
   assert.doesNotThrow(()=>parsePacket(JSON.stringify(old)));assert.equal(Object.hasOwn(parsePacket(JSON.stringify(old)),'type_lib_references'),false);assert.equal(validate(JSON.stringify(old),options).valid,false);
   old.reasons.push('unproven_type_lib_reference');old.status='unproven';for(const k of ['dependencies','references','augmentation','resolution'])old.closure[k]=false;
   assert.throws(()=>parsePacket(JSON.stringify(old)),/invalid_packet/);
