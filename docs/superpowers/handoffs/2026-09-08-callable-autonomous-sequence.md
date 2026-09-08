@@ -1,7 +1,7 @@
 # Handoff — approved callable-completeness sequence
 
-**Written:** 2026-09-08T11:37Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · docs/callable-production-authority-contract · **Measured state:** `[MEASURED]` S10 clean2af5b2be scoped checks passed: 31 Markdown/64 local links, 11 unchanged source blobs, cache77/45 and producer32ae5bc4 unchanged; archive72804231. S9 PR292 and its full591/4017/4207 plus18/40 gates are complete. `[INHERITED]` S10 design98/factual99; original reviewed bytes remain distinct from publication-only updates. Probe: docs verification JSON, archive hash, source-preservation receipt.
+**Written:** 2026-09-08T11:40Z · **By:** /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/slicing · docs/callable-production-authority-contract · **Measured state:** `[MEASURED]` All ten planned boundaries plus D1/D2/H1 are published as PR281–293. Remote refresh: all13 OPEN in exact dependency order; PR281 five checks SUCCESS, feature-base successors no scheduled checks. S10 clean2af5b2be docs verification and S9 cleanb826a668 full591/4017/4207 plus18/40 passed. Cache77/45 and producer32ae5bc4 unchanged; no new receiver edges or installs. Probe: final gh stack response, exact local gate/source receipts.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims name their source.
@@ -9,14 +9,14 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Lane ownership — RESOLVED: `[MEASURED]` /root retained architecture, decisions and integration. All delegated implementation/review work is finished and frozen; no agent writes the repository.
-(b) Custody exposure — RESOLVED: `[MEASURED]` PR281–292 are published as a dependency stack. Implementation evidence archives and private replay are local and separate; public Git contains audits, receipts and code, not private artifacts. S10 is the final docs-only publication in progress.
+(b) Custody exposure — RESOLVED: `[MEASURED]` PR281–293 are published as a dependency stack. Implementation evidence archives and private replay are local and separate; public Git contains audits, receipts and code, not private artifacts. S10 publication is complete; local archives must not be casually deleted.
 (c) In flight / irreversible — RESOLVED: `[MEASURED]` no gate or implementation process remains. No merge, app/config change, dependency install or runtime authority was performed. Historical S3 cap escalation and preserved-artifact custody remain in its audit and the corrections below.
 (d) Authorization accounting — owner approved ten planned increments plus up to three discovered-work and three hardening increments. Ten planned boundaries are handled; D1/D2 and H1 were needed. D3 and H2/H3 remain unused. No auto-merge authority inferred; do not spend reserves merely because they exist.
 
 ## 1. Resume order
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
-2. S10 scoped checks/archive complete; publish on PR292, then refresh remote stack state. All implementation gates are complete.
+2. Read the [final sequence readout](../../eval/receiver-closure/2026-09-08-callable-sequence-readout.md). All authorized increments, gates, archives and PR publication are complete. No autonomous implementation remains.
 3. Owner merge order follows PR281 upward; feature-base PRs need CI after predecessor merge/retarget. The sequence ends at the contract boundary. A future executable-owner proof design/implementation needs a new bounded decision, not a closure waiver.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
@@ -44,7 +44,7 @@
 | S7 | published PR289 | Pushed48de24e against PR288; clean59fd6eb546/4017/4207 plus18/40; archivec00ec9c8; independent98; public/private checkpoint continue |
 | S8 | published PR291 | Pushed980657f on PR290; clean8fc6624:571/4017/4207 plus18/40, archive1c01ca11; independent98/65; public parity unchanged |
 | S9 | published PR292 | Pushed7387cfd on PR291; cleanb826a668:591/4017/4207 plus18/40, archive44e5056a; independent99; public84merged/36unproven and all old fields/host/source parity; private read-only parity valid/incomplete |
-| S10 | verified, publication next | Clean2af5b2be:31 Markdown/64 links/11 source blobs; archive72804231; design98/factual99; no consumer or cache change |
+| S10 | published PR293 | Pushed7ca5e88 on PR292; clean2af5b2be:31 Markdown/64 links/11 source blobs; archive72804231; design98/factual99; no consumer or cache change |
 | D2 | published PR290 |Pushedca8504d against PR289;20 occurrences/14 present JS targets; sufficient compiler depth-elision branch,9 sourceambient/11 no checker declarations; corrected diagnostic/raw-path capture; archive50724ca2; docs checks pass |
 
 ## 3. Corrections to standing documents and memory
@@ -70,7 +70,7 @@ No relevant memory registry hit; no memory edits.
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | S10 publication | in progress | Finish scoped checks and final PR/custody closeout | None | docs/callable-production-authority-contract |
+| 1 | Approved sequence | done | No remaining autonomous work; preserve local evidence archives and private separation | None | PR281–293 |
 | 2 | Stack merge and remote CI | owner action | Start PR281 (five remote checks successful at last refresh); then predecessor-first merge/retarget/CI for feature-base successors | Owner merge decision | PR281 onward |
 | 3 | Future production proof | outside completed sequence | Decide one executable-owner fixture and constructor predicates under the S10 contract before implementation | New bounded decision | S10 contract |
 

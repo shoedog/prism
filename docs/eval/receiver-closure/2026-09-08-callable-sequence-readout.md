@@ -14,19 +14,19 @@ pull-request CI, so local green is not represented as remote CI success.
 
 | Increment | Delivered value | PR | Full observer gate |
 |---|---|---:|---:|
-| S1 | Actual outside/refused encounter classification | 281 | 375 |
-| S2 | Module request/search ownership | 282 | 395 |
-| H1 | Canonical source versus lexical synthetic lookup identity | 283 | 402 |
-| S3 | Repeated type batches, requests and cache provenance | 284 | 435 |
-| D1 | Shared library search and inclusion-backed beneficiaries | 285 | 453 |
-| S4 | Bounded local config/extends and seven option origins | 286 | 485 |
-| S5 | Conservative configured/automatic entry obligations | 287 | 506 |
-| S6 | Strict semantic policy contract and unwired helper | 288 | 521 |
-| S7 | Singleton exact-ambient semantic admission | 289 | 546 |
-| D2 | Source-backed present-JS/non-Program classification | 290 | Docs-only; nearest S7 |
-| S8 | Singleton-wildcard semantic admission | 291 | 571 |
-| S9 | Existing supported merged side-effect pair admission | 292 | 591 on clean b826a668 |
-| S10 | Future production-authority contract and public-seam RED requirements | This docs-only increment | Nearest S9; no new code |
+| S1 | Actual outside/refused encounter classification | [281](https://github.com/shoedog/prism/pull/281) | 375 |
+| S2 | Module request/search ownership | [282](https://github.com/shoedog/prism/pull/282) | 395 |
+| H1 | Canonical source versus lexical synthetic lookup identity | [283](https://github.com/shoedog/prism/pull/283) | 402 |
+| S3 | Repeated type batches, requests and cache provenance | [284](https://github.com/shoedog/prism/pull/284) | 435 |
+| D1 | Shared library search and inclusion-backed beneficiaries | [285](https://github.com/shoedog/prism/pull/285) | 453 |
+| S4 | Bounded local config/extends and seven option origins | [286](https://github.com/shoedog/prism/pull/286) | 485 |
+| S5 | Conservative configured/automatic entry obligations | [287](https://github.com/shoedog/prism/pull/287) | 506 |
+| S6 | Strict semantic policy contract and unwired helper | [288](https://github.com/shoedog/prism/pull/288) | 521 |
+| S7 | Singleton exact-ambient semantic admission | [289](https://github.com/shoedog/prism/pull/289) | 546 |
+| D2 | Source-backed present-JS/non-Program classification | [290](https://github.com/shoedog/prism/pull/290) | Docs-only; nearest S7 |
+| S8 | Singleton-wildcard semantic admission | [291](https://github.com/shoedog/prism/pull/291) | 571 |
+| S9 | Existing supported merged side-effect pair admission | [292](https://github.com/shoedog/prism/pull/292) | 591 on clean b826a668 |
+| S10 | Future production-authority contract and public-seam RED requirements | [293](https://github.com/shoedog/prism/pull/293) | Nearest S9; no new code |
 
 Every completed implementation gate also passed Rust default **4,017**, Rust MCP
 **4,207**, receiver helpers **18**, authority profiles **40**, fmt and diff checks.
@@ -128,3 +128,9 @@ Local archive: 27,492 bytes, SHA-256
 `72804231f756d3cb425e34925cf5842f772bfcbf03c0bbbb9f4aaec68f1a6f72`.
 It retains reviewed scratch documents, the checked Git snapshot and receipts.
 Private source/evidence is not included.
+
+Final publication: [PR293](https://github.com/shoedog/prism/pull/293), stacked on
+PR292. Remote refresh at 2026-09-08T11:40Z: all 13 PRs are open in exact dependency order.
+PR281 has five successful checks; PR282–293 have no scheduled checks because their
+base is a feature branch. Start with PR281, then verify/retarget successors and run
+remote CI after predecessor merge. No auto-merge was performed.
