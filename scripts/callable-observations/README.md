@@ -33,7 +33,7 @@ an unproven observation exits0. Read the JSON, not just the exit code.
 
 ## Meaning of the packet
 
-Producer0.13.0 retains the path-completeness repair: required triple-slash
+Producer0.14.0 retains the path-completeness repair: required triple-slash
 paths are checked independently of `skipLibCheck`/`noCheck` diagnostics. Each
 original-source directive needs a compiler-cache target and matching source/index
 inclusion record. Missing, self-referential, unsupported or unprocessed paths add
@@ -61,22 +61,34 @@ lib names are normalized compiler filenames, not JSON source spans.
 Entries are additive observations and do not change existing reasons or closure
 bits. Unprocessed entries do not prove why traversal was suppressed or that an
 obligation is missing. Even an observed packet is not full reference-channel or
-semantic-closure authority: config inheritance locations, causal outside/refused
-lookup coverage and entry-channel closure policy remain separate work. Loaded
+semantic-closure authority: config inheritance locations, complete type/lib search
+attribution and entry-channel closure policy remain separate work. Loaded
 sources' directives ARE included in the source ledger, not invented as entries.
 The public `react-scripts` directive is now explicitly unresolved, not installed,
 substituted or waived. Both runtime/class authority flags remain false.
-Historical schema10 (producer0.11.0/0.11.1) and schema11 (producer0.12.0) packets
+Historical schema10 (producer0.11.0/0.11.1), schema11 (producer0.12.0) and
+schema12 (producer0.13.0) packets
 remain parseable without invented reference/entry rows for pinned audits, but
 cannot validate as current output; validation
 recomputes the producer identity and every field.
 
-The strict executable v12 schema is `schema.mjs` (`parsePacket`). It freezes these
+`search_provenance` adds actual module callback occurrences and outside/refused
+boundary encounters. Module rows reuse existing literal anchors after observation;
+synthetic requests keep null anchors. Boundary rows retain occurrence order,
+operation, opaque normalized-probe digest and module owner or explicit null owner.
+Repeated paths do not collapse. Identity conversion is distinct from a host
+operation. Source/type/lib/config work without a module callback stays unattributed,
+not waived. A context stack covers resolver execution through target projection;
+no second resolver or new module cache is introduced. Each population is capped
+independently at100000 and overflow fails closed. Structural consistency does not
+authenticate event ownership: full reproduction checks every new field.
+
+The strict executable v13 schema is `schema.mjs` (`parsePacket`). It freezes these
 groups, rejecting unknown fields and unsafe IDs before project access:
 
 | Group | Meaning |
 |---|---|
-| schema / authorizes_runtime_edge | prism.callable-observation/12; authority is always false; historical schemas10/11 remain readable, earlier schemas reject before root access |
+| schema / authorizes_runtime_edge | prism.callable-observation/13; authority is always false; historical schemas10/11/12 remain readable, earlier schemas reject before root access |
 | producer / compiler | Tool-byte digest; required compiler version/hash, whether actually verified, full compiler-lib inventory digest |
 | scope | Relative config, acquisition profile, link policy, direct-annotated-function scope, class_authority=false, compiler host case policy (null before acquisition) |
 | status / reasons / closure | observed means this bounded Program completed without the enumerated closure failures; unproven records limitations. Neither means a receiver or class is proven |
@@ -84,6 +96,7 @@ groups, rejecting unknown fields and unsafe IDs before project access:
 | resolutions / diagnostics | Compiler module-resolution outcomes and anchored diagnostic codes; unresolved dependencies are not automatically application defects |
 | type_lib_references | Source-written types/lib occurrences only: kind-local index, name anchor, effective mode, selected Program target, inclusion and refusal. Canonical serialized source/kind/index ordering; at most100000 rows, then budget_exceeded, never truncation |
 | type_lib_entries | Effective configured/automatic/default entries: kind, origin, index, name, null mode, selected Program target, inclusion and observation reason. Canonical serialized kind/index ordering; separate100000-row cap; no closure-policy effect |
+| search_provenance | Module callback occurrences and outside/refused boundary events, source/mode/target and nullable module owner; exact resolution multiset and legacy aggregate reconciliation; no complete lexical or search-channel census |
 | resolutions[].lookup | Actual request anchor/context, checker declarations and configured-Program exact-name provider/augmentation census; observed means singleton exact-ambient binding only, never filesystem or closure authority |
 | resolutions[].lookup.wildcard | Independent nullable single-star binding observation: pattern, original-source providers, relevant augmentations and matching-provider census; never asset-existence or closure authority |
 | resolutions[].lookup.merged_wildcard | Separate nullable side-effect-only empty-block/shorthand pair observation; checker-ordered source shapes and actual selected value declaration; old wildcard refusal remains unchanged |
@@ -118,7 +131,7 @@ exercise this distinction.
 
 ## Declaration provenance
 
-Producer0.13.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs`, `props-class.mjs`, `exact-ambient.mjs`, `wildcard.mjs`, `merged-wildcard.mjs`, `required-paths.mjs`, `type-lib.mjs` and `entries.mjs` in its byte digest. `provenance.status=traced`
+Producer0.14.0 includes `inventory.mjs`, `provenance.mjs`, `nested.mjs`, `props-class.mjs`, `exact-ambient.mjs`, `wildcard.mjs`, `merged-wildcard.mjs`, `required-paths.mjs`, `type-lib.mjs`, `entries.mjs` and `search-provenance.mjs` in its byte digest. `provenance.status=traced`
 means the supported syntactic chain reached an inline callable type or a singleton,
 non-inherited callable interface. It is independent of program closure: even a
 traced chain can belong to an unproven packet. Type arguments and parameters keep

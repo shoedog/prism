@@ -4,6 +4,7 @@ import {mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync, rmSync, sym
 import {spawn,spawnSync} from "node:child_process";
 import {once} from "node:events";
 import {createRequire} from "node:module";
+import {fileURLToPath} from "node:url";
 import {tmpdir} from "node:os";
 import path from "node:path";
 import {produce, validate, producerHash} from "./index.mjs";
@@ -73,7 +74,7 @@ test("explicit installed profile produces and reproduces a real configured Progr
   assert.equal(p.status,"observed");assert.equal(p.scope.acquisition_profile,"installed");
   assert.equal(validate(JSON.stringify(p),selected).valid,true);
   assert.equal(validate(JSON.stringify(p),options).valid,false);
-  const cli=spawnSync(process.execPath,["scripts/callable-observations/index.mjs","produce",options.compiler,options.root,options.config,"installed"],{encoding:"utf8"});
+  const cli=spawnSync(process.execPath,[fileURLToPath(new URL("index.mjs",import.meta.url)),"produce",options.compiler,options.root,options.config,"installed"],{encoding:"utf8"});
   assert.deepEqual(parsePacket(cli.stdout),p);
 }));
 test("installed declarations supply anchored contextual observations, not class authority",()=>fixture(({options})=>{
@@ -230,7 +231,7 @@ test("concurrent monotonically changing input prevents stable-snapshot closure",
 }));
 
 test("CLI emits and validates packets through stdout/stdin without project writes",()=>fixture(({root,options})=>{
-  const args=["scripts/callable-observations/index.mjs","produce",compiler,root,options.config];
+  const args=[fileURLToPath(new URL("index.mjs",import.meta.url)),"produce",compiler,root,options.config];
   const made=spawnSync(process.execPath,args,{encoding:"utf8",maxBuffer:PACKET_BYTES});
   assert.equal(made.status,0,made.stderr);const p=parsePacket(made.stdout);assert.equal(p.status,"observed");
   args[1]="validate";const checked=spawnSync(process.execPath,args,{input:made.stdout,encoding:"utf8"});
@@ -253,7 +254,7 @@ test("directory import probes with trailing slashes retain valid manifest IDs",(
 }));
 
 test("CLI rejects oversized stdin before project access",()=>{
-  const r=spawnSync(process.execPath,["scripts/callable-observations/index.mjs","validate",compiler,"/nonexistent-project","tsconfig.json"],
+  const r=spawnSync(process.execPath,[fileURLToPath(new URL("index.mjs",import.meta.url)),"validate",compiler,"/nonexistent-project","tsconfig.json"],
     {input:" ".repeat(PACKET_BYTES+1),encoding:"utf8"});
   assert.equal(r.status,1,r.stderr);assert.equal(JSON.parse(r.stdout).reason,"invalid_packet_or_options");
 });
@@ -383,7 +384,7 @@ test("missing imports and namespace merges remain partial observations",()=>fixt
 }));
 
 test("provenance budgets and corrupted nested anchors fail closed",()=>fixture(({options})=>{
-  const p=produce(options);assert.equal(p.schema,"prism.callable-observation/12");
+  const p=produce(options);assert.equal(p.schema,"prism.callable-observation/13");
   assert.equal(p.observations[0].provenance.status,"traced");
   const limited=produce({...options,limits:{provenance_steps:1}});
   assert.equal(limited.observations[0].provenance.reason,"step_limit");
@@ -449,7 +450,7 @@ test("nested namespace uses and limits retain source identity",()=>fixture(({put
 }));
 
 test("producer digest covers provenance, source references and entry observations",()=>{
-  const sources=["schema.mjs","index.mjs","worker.mjs","inventory.mjs","provenance.mjs","nested.mjs","props-class.mjs","exact-ambient.mjs","wildcard.mjs","merged-wildcard.mjs","required-paths.mjs","type-lib.mjs","entries.mjs"].map(f=>readFileSync(new URL(f,import.meta.url)));
+  const sources=["schema.mjs","index.mjs","worker.mjs","inventory.mjs","provenance.mjs","nested.mjs","props-class.mjs","exact-ambient.mjs","wildcard.mjs","merged-wildcard.mjs","required-paths.mjs","type-lib.mjs","entries.mjs","search-provenance.mjs"].map(f=>readFileSync(new URL(f,import.meta.url)));
   assert.equal(producerHash(),hash(Buffer.concat(sources)));
   assert.notEqual(producerHash(),hash(Buffer.concat(sources.slice(0,3))));
   assert.notEqual(producerHash(),hash(Buffer.concat(sources.slice(0,-1))));

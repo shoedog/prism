@@ -97,7 +97,7 @@ test('invalid observation shapes and previous schema reject before root access',
   assert.equal(reads,0);
 }));
 test('structurally valid forged binding evidence fails independent recomputation',()=>fixture(({options})=>{
-  const p=produce(options),l=lookup(p);l.request.start_utf16++;l.request.start_byte++;
+  const p=produce(options),l=lookup(p);l.request.start_utf16++;l.request.start_byte++;p.search_provenance.module_requests.find(r=>r.specifier===p.resolutions.find(r=>r.lookup===l).specifier).request=l.request;
   assert.equal(validate(JSON.stringify(p),options).reason,'stale_or_tampered');
 }));
 test('positive lookup observations cannot clear the existing unresolved-module barrier pre-I/O',()=>fixture(({options})=>{
