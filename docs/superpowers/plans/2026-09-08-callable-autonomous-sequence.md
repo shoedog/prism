@@ -17,8 +17,8 @@ Task root: `/private/tmp/prism-overnight-0zmx3n`.
 |---|---|---|---|
 | 1 | Source-backed outside/refused classification | PR281 merged172975a3 after five successful remote checks | diagnostic capture only, no producer/policy changes |
 | 2 | Module-search provenance | PR282 merged91baaf8a after five successful remote checks and exact tested-tree verification | request-owned observations, not waivers |
-| 3 | Type-search provenance | PR284 open on main; CI34245471664 running; implementation full gates passed | actual configured/source channels; preserve batch/global caches |
-| D1 | Shared lib-search/beneficiary semantics + first value checkpoint | PR285 open on PR284; full gates passed; checkpoint continue | separate global lib cache; beneficiaries are not causal demands |
+| 3 | Type-search provenance | PR284 mergedc1091d18 after five successful remote checks and exact tested-tree verification | actual configured/source channels; preserve batch/global caches |
+| D1 | Shared lib-search/beneficiary semantics + first value checkpoint | PR285 open on main; CI34249817791 running; implementation full gates passed; checkpoint continue | separate global lib cache; beneficiaries are not causal demands |
 | 4 | Bounded local configuration provenance | PR286 open on PR285; full gates passed on960c99a | local extends/options origin, no plugins/project references |
 | 5 | Entry-obligation completeness | PR287 open on PR286; full gates passed onf7f5ac9 | conservative automatic-discovery/suppression unknown; no old-bit defect claim |
 | 6 | Bounded closure-policy contract | PR288 open on PR287; clean5faf199 full521/4017/4207 plus18/40 passed | additive semantic observation only; no denied-space waiver or old-bit reinterpretation |
