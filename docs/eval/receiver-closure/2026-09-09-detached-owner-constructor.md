@@ -6,7 +6,7 @@ Implements the first checkpoint of the [approved owner design](../../superpowers
 
 The new compiler pass derives the direct binding, actual contextual signature and whole-binder substitution, local private Props alias, required property, imported class and own executable method from one live Program/checker. It emits 21 original-source anchors in a separate `prism.detached-owner/1` observation envelope. Both this envelope and the old packet explicitly set `authorizes_runtime_edge: false`; neither deserializes into a proof.
 
-The private Rust acquisition path accepts an independently supplied root/config/compiler and owned Prism files. It fixes the default acquisition profile and reject-links policy, pins all 23 transitive local worker assets at compile time, verifies the pinned compiler/library/source snapshot through the existing observer, and reproduces the complete observation twice. Workers have a 512 MB heap limit, 35-second deadline and 16 MiB output cap; inherited NODE_OPTIONS/NODE_PATH are removed. The trusted Node runtime and quiescent-root assumptions remain: this is not an adversarial filesystem transaction or a project-code sandbox.
+The private Rust acquisition path accepts an independently supplied root/config/compiler and owned Prism files. It fixes the default acquisition profile and reject-links policy, pins all 23 transitive local worker assets at compile time, verifies the pinned compiler and binds observed library/source bytes in the existing observer snapshot, and reproduces the complete observation twice. Workers have a 512 MB heap limit, 35-second deadline and 16 MiB output cap; inherited NODE_OPTIONS/NODE_PATH are removed. The trusted Node runtime and quiescent-root assumptions remain: this is not an adversarial filesystem transaction or a project-code sandbox.
 
 Input agreement has three independent checks: the complete project Program census, supplied source identities/hashes, and Prism's actual repository load between the two snapshots. An out-of-Program file that Prism indexes refuses the route even if the caller omits it. Prism's indexing policy is unchanged. Owned JS/TS inputs are reparsed because ParsedFile exposes independently mutable source/tree fields. Input and loader source inventories are conservatively bounded to 512 files / 8 MiB; loader inventory counts all supported source languages. Declaration and compiler-library domains cannot provide executable bodies.
 
@@ -34,12 +34,23 @@ Two self-review rounds completed. Round 1 found one WRONG: a caller map matching
 
 The ordinary worker was refactored into an internal trusted factory hook; normal CLI behavior and schema20/version0.21.0 remain unchanged. On the exact merged base and same compiler/root fixtures, all 54 observer packets are deeply equal after removing **only** producer.sha256. Base fingerprint: `32ae5bc44000af31bb7cd5994a14de5700bafb02a1089f3ac16a79687e40f88d`; current: `cfbaacfa426606f0d308b71db21c3e9d98f5e00218c825687bd68a298042ee1d`.
 
-All seven full gates passed on clean `d0a1ce9`: observer694, default Rust4025,
-MCP4215, helpers18 and authority40, with doctests/fmt/diff passing. An additional
-full `mcp detached-owner-audit` run passed4221. Each Rust run has exactly one
-ignored `resolution_test::slice_elem_variant_reserved`; no failures or other
-required-suite exclusion. A test-only lint-helper simplification is being reverified;
-the final receipt will distinguish its tested HEAD from this first checkpoint.
+All seven full gates first passed on clean `d0a1ce9`. After a test-helper-only lint
+simplification, the full suites passed again on clean `3479818`: observer694,
+default Rust4025, MCP4215, full MCP+detached-owner-audit4221, helpers18 and
+authority40. Each Rust run includes doctests and exactly one ignored
+`resolution_test::slice_elem_variant_reserved`; no failures or other required-suite
+exclusion. fmt/diff and CI-equivalent clippy pass. Clippy retains warnings in unchanged
+files, not the new constructor files; no warning-free claim.
+
+The manual helper rerun initially omitted required compiler/profile environment:
+14 tests passed and two setup assertions failed. This is inadmissible regression
+evidence, not a source failure. The unchanged helper files passed with the complete
+environment before and after; the corrected final run passed18 with no skips.
+
+The [hash-bound gate/archive receipt](2026-09-09-detached-owner-constructor-gates.json)
+records the exact code HEAD, logs, RED/control distinction and exclusions. Published
+as [PR296](https://github.com/shoedog/prism/pull/296). The subsequent publication
+closeout changes documentation/receipts only and does not claim another full-suite run.
 
 Reproduce the explicit real-compiler audit with the already installed pinned TypeScript 5.9.3 compiler:
 
