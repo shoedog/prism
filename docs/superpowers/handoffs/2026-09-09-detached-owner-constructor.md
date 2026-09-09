@@ -1,5 +1,10 @@
 # Handoff — detached executable-owner constructor
 
+**Historical handoff:** PR296 was merged at a892b67d. The current approved lane is
+[disabled integration/lifecycle](2026-09-09-owner-integration-lifecycle.md).
+The open-PR and next-approval statements below describe the original closeout,
+not current remote state; its measured test receipts remain historical evidence.
+
 **Written:** 2026-09-09 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · feat/detached-executable-owner-proof · **Measured state:** `[MEASURED]` final full suites passed on clean3479818, committed/pushed and published as PR296. Closeout changes documentation/receipts only, not tested executable code. Remote CI/review remain separate from local verification.
 **Predecessor:** PR295 design and characterization.

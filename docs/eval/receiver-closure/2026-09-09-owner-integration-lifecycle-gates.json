@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "historical_receipt": true,
+  "readiness_superseded_by": "2026-09-09-pr297-tier-a-disposition.json",
+  "base": "a892b67ddec0883fc0ba7cfaae7fa33fdfb97eaf",
+  "tested_code_head": "2c033e80c26df33f9fa403968a5c4d76ab10ef59",
+  "closeout_changes": "documentation and receipts only; no claim of full rerun on closeout commit",
+  "pr": "https://github.com/shoedog/prism/pull/297",
+  "publication_at_original_closeout": "draft; accuracy readiness unresolved then; see readiness_superseded_by for current disposition",
+  "clean_gate_preflight_and_postflight": true,
+  "evidence_root": "/private/tmp/prism-owner-integration-jYIuUv",
+  "archive": {
+    "path": "/private/tmp/prism-owner-integration-jYIuUv-evidence.tgz",
+    "sha256": "b3d0e6a056766a1a902e76bf2b3a772edfdbd5bb7ed984de84853b591c013e66"
+  },
+  "gate_runner_receipt": {
+    "path": "gate-logs-2026-09-09T05-28-37-471Z-13054/summary.json",
+    "sha256": "fc321214024f58ea3589fcc989d9559c0f14830d73961b48a7e64c9aaa6178f0",
+    "gates": 7,
+    "failed": false
+  },
+  "totals": {
+    "observer": {"passed": 694, "failed": 0},
+    "default_rust": {"passed": 4026, "failed": 0, "ignored": 1, "groups": 28},
+    "mcp_rust": {"passed": 4216, "failed": 0, "ignored": 1, "groups": 30},
+    "mcp_detached_owner_audit": {"passed": 4233, "failed": 0, "ignored": 1, "groups": 30},
+    "helpers": {"passed": 18, "failed": 0},
+    "authority": {"passed": 40, "failed": 0},
+    "focused_owner_selection": {"passed": 39, "failed": 0, "filtered_out": 1182}
+  },
+  "rust_ignore": "resolution_test::slice_elem_variant_reserved",
+  "doctests_per_full_rust_run": 2,
+  "full_audit": {
+    "command": "PRISM_TYPESCRIPT=/private/tmp/prism-imported-alias-O4d6E1/package/lib/typescript.js cargo test --offline --features 'mcp detached-owner-audit'",
+    "artifact": "full-audit.log",
+    "sha256": "5a266db1be4fc10b1581ae53f12e8223c4648d3948da25478167a6151711c94d"
+  },
+  "format_diff": "passed",
+  "clippy": {
+    "command": "cargo clippy --offline --all-targets --features 'mcp detached-owner-audit' -- -W clippy::all",
+    "status": 0,
+    "warnings": "present; no diagnostics in new integration or guard test files",
+    "artifact": "clippy-final.log",
+    "sha256": "8cd020fa72d45feddcda2c48a971a854d6a785140845c0df82272af987625a73"
+  },
+  "tier_a": {
+    "release_build": "cargo build --offline --release immediately before matrix/quick, same worktree and executable source; dirty pre-commit source",
+    "matrix_command": "uv run --offline tier-a --matrix-only --allow-stale-sut",
+    "matrix": {"ok": 159, "regression": 0, "status": 0},
+    "matrix_artifact": {"path": "tier-a-matrix-final.log", "sha256": "411a6f90bb8b6cd6a800532ac3bf4b0bacd4059fcd5fd024fb5ed958ff04a649"},
+    "quick_command": "uv run --offline tier-a --quick --allow-stale-sut",
+    "quick": {
+      "status": 2,
+      "baseline_invalid": true,
+      "invalid_reasons": [
+        "corpus_sha_drift: a892b67ddec0 != pinned 20c8490591a3",
+        "stratum C-method: 4/6 successful probes",
+        "stratum C-name: 2/6 successful probes",
+        "oracle_error_rate 0.20 > 0.10"
+      ],
+      "oracle_error_rate": 0.2,
+      "sut_error_rate": 0,
+      "matrix_ok": 159,
+      "pinned": {"target-c-method": "flip_candidate", "module-deps-feature-gated": "missing", "load-repo-feature-gated": "missing", "ambiguous-symbol-contract": "ok"},
+      "m3_unadjudicated": {"confirmed_fp": 6, "ambiguous": 4},
+      "report": {"path": "tier-a-quick-report.json", "sha256": "0fb9cd4f59154e53423a201a6078073311c0959ea11b5b3c21eb4c7643faabfc"}
+    },
+    "attribution": "No same-environment base accuracy control; no attribution to the change or claim that failures are pre-existing. No re-baseline or waiver."
+  },
+  "red": [
+    {"log": "seam-red.log", "result": "1 failed: NameOnly versus Exact", "source": "seam-source.tgz", "sha256": "aae03720cce88f4353f1c39c459613899fe4e15a13d60d82c6e6aa893ef0686e"},
+    {"log": "boundary-red.log", "result": "7 passed, 2 failed: cached context and reconstruction", "source": "boundary-before-fix.tgz", "sha256": "301458f1cec15202abbb471551dd854d48544b418b87f53f83244e2512eadbd5"},
+    {"log": "recompute-red.log", "result": "0 passed, 1 failed: recomputation retains authority", "source": "recompute-before-fix.tgz", "sha256": "80ca5647e73a2e35980615e340c4c820abd9f016ed0b42bc91a826df8d6ebc4a"}
+  ],
+  "review_rounds": 2,
+  "excluded_claims": ["production activation", "valid Tier-A quick baseline", "independent-agent review", "real-repository recall gain", "ReturnFlow gain", "closure expansion", "React.FC expansion", "react-scripts resolution"],
+  "inadmissible_attempts": ["test tuple-pattern compile error", "initial uv cache permission refusal", "initial clean-HEAD runner preflight refusal: generated untracked oracle snapshot; zero gates ran"]
+}

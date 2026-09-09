@@ -770,6 +770,13 @@ pub struct CallGraph {
     /// Complete-snapshot imported alias proofs. Replaced, never unioned, on merge.
     #[serde(default)]
     pub js_ts_imported_props: crate::js_ts_props::ImportedPropsProofs,
+    /// Disabled integration: ephemeral authority, absent from ordinary builds.
+    #[serde(skip)]
+    pub(crate) executable_owner:
+        Option<std::sync::Arc<crate::executable_owner::integration::InstalledOwner>>,
+    /// Refusal-only origin marker survives generic mutation, never grants proof.
+    #[serde(skip)]
+    pub(crate) owner_ephemeral: bool,
     /// Complete indexed Python initializer files proven syntactically inert.
     #[serde(default)]
     pub python_inert_initializers: BTreeSet<String>,
@@ -1129,6 +1136,8 @@ impl CallGraph {
             class_bases: BTreeMap::new(),
             clean_class_spans: BTreeMap::new(),
             js_ts_imported_props: BTreeMap::new(),
+            executable_owner: None,
+            owner_ephemeral: false,
             python_inert_initializers: BTreeSet::new(),
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
@@ -1388,6 +1397,8 @@ impl CallGraph {
             class_bases: BTreeMap::new(),
             clean_class_spans: BTreeMap::new(),
             js_ts_imported_props: BTreeMap::new(),
+            executable_owner: None,
+            owner_ephemeral: false,
             python_inert_initializers: BTreeSet::new(),
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
@@ -1834,6 +1845,8 @@ impl CallGraph {
             class_bases,
             clean_class_spans,
             js_ts_imported_props: crate::js_ts_props::collect(files),
+            executable_owner: None,
+            owner_ephemeral: false,
             python_inert_initializers,
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
@@ -2182,6 +2195,7 @@ impl CallGraph {
     /// Used by incremental cache update: when a file changes, its call graph
     /// contributions are stripped out before fresh data is merged in.
     pub fn remove_files(&mut self, exclude: &BTreeSet<String>) {
+        self.executable_owner = None;
         // Both are whole-program pass products and are repopulated from the
         // complete files map by `build_direct_subset` / `recompute_indirect_calls`.
         self.param_slots_unknown.clear();
@@ -2337,6 +2351,8 @@ impl CallGraph {
     /// Entries from `other` are added to the existing data. Typically called
     /// after `remove_files` to splice in freshly-built data for changed files.
     pub fn merge(&mut self, other: CallGraph) {
+        self.executable_owner = None;
+        self.owner_ephemeral |= other.owner_ephemeral;
         self.param_slots_unknown = other.param_slots_unknown;
         self.level3_indirect_resolved = other.level3_indirect_resolved;
         self.go_level3_b1_telemetry = other.go_level3_b1_telemetry;
@@ -2455,6 +2471,7 @@ impl CallGraph {
     }
 
     pub(crate) fn recompute_indirect_calls(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        self.executable_owner = None;
         self.clear_indirect_calls();
         let (sites, level3_telemetry) = self.compute_indirect_call_sites(files);
         self.apply_indirect_call_sites(sites);
@@ -5098,6 +5115,8 @@ impl CallGraph {
             class_bases,
             clean_class_spans,
             js_ts_imported_props: crate::js_ts_props::collect(files),
+            executable_owner: None,
+            owner_ephemeral: false,
             python_inert_initializers,
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),

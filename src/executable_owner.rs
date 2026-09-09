@@ -13,6 +13,7 @@ use std::{
 };
 
 mod acquisition;
+pub(crate) mod integration;
 type CallKey = (String, usize, usize);
 type Result<T> = std::result::Result<T, String>;
 const ANCHORS: [(&str, &str); 21] = [
