@@ -72,7 +72,9 @@ and `noResolve` also remain incomplete. No packages were installed or removed.
    zero and one edge, making a future implementation unable to pass. Bounded fix:
    select the future expectation instead of the baseline for both genuine inputs.
    Only the final verifier receipt is admissible RED evidence; earlier runs remain
-   in local custody. Round 2 checks the corrected contract and complete population.
+   in local custody. **Round 2/2:** SELF-PASS for the corrected design-only scope,
+   no open WRONG, confidence 95/100; not an independent review. The final run passed
+   all 54 baseline cells and failed exactly the four intended future-positive cells.
 
 ## Reproduction and verification scope
 
@@ -98,8 +100,14 @@ input/binary/compiler/producer hashes, warnings, diagnostics and closure reasons
 Pinned compiler SHA: `3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675`.
 Unchanged observer producer SHA: `32ae5bc44000af31bb7cd5994a14de5700bafb02a1089f3ac16a79687e40f88d`.
 Raw evidence root: `/private/tmp/prism-owner-proof-xutDxX`.
-Full-suite and final review receipts are recorded at closeout, not inferred from
-the targeted test. No production `src/`, observer or workflow change; CPG77/nav45.
+The [fixture receipt](2026-09-09-executable-owner-design-receipt.json) records all54
+rows and the four captured intended RED failures. The [full gate receipt](2026-09-09-executable-owner-design-gates.json)
+binds clean `e1355b40`: observer591, Rust default4018, Rust MCP4208, receiver helpers18
+and authority profiles40 passed; fmt/diff passed. Both Rust runs include doctests and
+one existing ignored `resolution_test::slice_elem_variant_reserved`. No failures or
+other required-suite exclusions. Subsequent closeout edits are documentation/receipts
+only and do not claim another full-suite run. No production `src/`, observer or
+workflow change; CPG77/nav45. Published as [PR295](https://github.com/shoedog/prism/pull/295).
 Tier-A is not triggered. Constructor field substitution, cache/lifecycle, served
 callers and CPG integration remain unimplemented acceptance work, not skipped passes.
 

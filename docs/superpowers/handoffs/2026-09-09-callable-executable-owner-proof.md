@@ -1,7 +1,7 @@
 # Handoff — bounded executable-owner proof design
 
 **Written:** 2026-09-09 · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · docs/callable-executable-owner-proof · **Measured state:** `[MEASURED]` base7040ceb63c77142793ba08fed5946e6e54f29a86; fresh origin/main fetch and clean branch creation. Design work in progress.
+**Workspace:** /Users/wesleyjinks/code/slicing · docs/callable-executable-owner-proof · **Measured state:** `[MEASURED]` base7040ceb63c77142793ba08fed5946e6e54f29a86; design/fixtures committed and pushed as e1355b40, PR295 open. All seven local gates passed on that clean stable HEAD; closeout adds documentation/receipts only. No production authority changed.
 **Predecessor:** merged S10 production-authority contract, PR293.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff > historical snapshots.
 **Provenance:** written live; claims below distinguish measured evidence from planned acceptance.
@@ -9,15 +9,15 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Lane ownership — RESOLVED: primary owns design and verification; no delegated work.
-(b) Custody — initial design/fixture snapshot being committed; previous stack branch retained unchanged. Evidence root `/private/tmp/prism-owner-proof-xutDxX`.
-(c) In flight — source/compiler and baseline characterization only; no production changes authorized.
+(b) Custody — RESOLVED: design/fixtures and compact evidence receipts in Git/PR295; previous stack branch retained unchanged. Raw evidence `/private/tmp/prism-owner-proof-xutDxX`, archived at `/private/tmp/prism-owner-proof-xutDxX-evidence.tgz`; hash in gate receipt. No private artifacts published.
+(c) In flight — local verification complete; remote CI started for PR295, not claimed green. No production changes or further merges authorized by this slice.
 (d) Authority — owner approved "bounded executable-owner proof design--one direct contextual TS/TSX receiver fixture plus refusal cases--before production wiring. Closure barriers and the unresolved react-scripts decision remain unchanged."
 
 ## 1. Resume order
 
-1. Characterize imported local `Handler<Props>` versus inline-signature control using pinned compiler, unchanged observer, fresh Prism binary and exact source spans.
-2. Define bounded constructor predicates, identity/lifecycle ownership, terminal refusals and public-seam future RED requirements. Do not implement a proof consumer.
-3. Verify fixture/observation evidence and source parity; review at most two rounds, commit custody and report remaining production work separately.
+1. Refresh PR295 and local status before further work; do not confuse this design PR with a shipped production consumer.
+2. Read the [design](../specs/2026-09-09-callable-executable-owner-proof.md) and [readout](../../eval/receiver-closure/2026-09-09-executable-owner-design.md), including the exact admitted grammar and unimplemented acceptance requirements.
+3. If separately approved, implement the detached constructor/new direct facts first, with per-predicate RED and genuine-epoch substitution tests. Production wiring, lifecycle/cache and public consumers remain separate gated work.
 
 STOP on a required closure waiver, installation/private-repo mutation, unsupported executable-owner assumption, or production-wiring requirement. At review cap, classify findings before extending.
 
@@ -28,9 +28,11 @@ STOP on a required closure waiver, installation/private-repo mutation, unsupport
 | Base | done | origin/main7040ceb6, previous branch preserved |
 | Navigation orientation | done | Prism resolve_call_site_full callers returned20/242 with StaleIndex; LSP tools unexposed; verify source directly |
 | Positive candidate/control | characterized | compiler complete, absent imported Handler edge; inline/explicit controls resolve intended owners |
-| Constructor design/refusals | drafted | eight required predicates, exact epoch ownership, index/Program census and cache bypass; no constructor implemented |
+| Constructor design/refusals | complete at design boundary | eight required predicates, exact epoch ownership, index/Program census and cache bypass; no constructor implemented |
 | Rust characterization | passed | one test, 108 TS/TSX full/subset cells; baseline controls, not new-route RED |
-| Compiler/public characterization | running final | corrected harness; 54 cells plus separate future RED; earlier setup failures inadmissible |
+| Compiler/public characterization | passed | 54/54 baseline; future mode fails exactly four intended cells; earlier setup failures inadmissible |
+| Full local gates | passed | clean e1355b40:591 observer,4018 Rust,4208 MCP,18 helpers,40 authority; one existing ignored per Rust run, doctests/fmt/diff pass |
+| Publication | open PR295 | GitHub connector created PR; CI started for e1355b40. Publication is not CI success or merge authority |
 
 ## 3. Corrections to standing documents and memory
 
@@ -40,9 +42,9 @@ S10's separate owner design decision is now granted; production implementation i
 
 | Work | State | Next action |
 |---|---|---|
-| Design evidence | final run in progress | persist final 54-row report and four intended public RED cells |
-| Design contract | drafted | round-two self-refutation within declared two-round cap |
-| Verification/custody | pending | stable committed HEAD; full observer/Rust/MCP/helpers/authority gates |
+| Approved design slice | done | retain receipts and local evidence archive; no production implementation claim |
+| Remote CI/review | pending externally | refresh exact PR head/checks; owner controls merge |
+| Detached constructor | recommended, not implemented | obtain next bounded approval; require new direct derivation and epoch/negative tests before wiring |
 
 ## 5. Invariants and traps — do not do these
 
@@ -54,10 +56,10 @@ S10's separate owner design decision is now granted; production implementation i
 
 ## 6. Identifiers
 
-Base7040ceb63c77142793ba08fed5946e6e54f29a86. Compiler `/private/tmp/prism-imported-alias-O4d6E1/package/lib/typescript.js`, expected SHA3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675. Evidence `/private/tmp/prism-owner-proof-xutDxX`.
+Base7040ceb63c77142793ba08fed5946e6e54f29a86. Tested e1355b40bf0ba5aa30e9c9506bf504a8b588a2bf. Compiler `/private/tmp/prism-imported-alias-O4d6E1/package/lib/typescript.js`, expected SHA3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675. Evidence `/private/tmp/prism-owner-proof-xutDxX`. [PR295](https://github.com/shoedog/prism/pull/295); [gate/archive receipt](../../eval/receiver-closure/2026-09-09-executable-owner-design-gates.json).
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** IN PROGRESS — round 1/2 self-review found and fixed one contradictory future-test expectation (WRONG); no production change. Claim: "one bounded imported contextual receiver has a constructible future static-owner opportunity and explicit proof requirements", not an implemented proof. Evidence tier: compiler/public-CLI-backed characterization; final round and full gates pending.
+**§2c verdict:** SELF-PASS at round2/2 (NOT INDEPENDENT), no open WRONG, confidence95/100. Round1's contradictory future-test expectation was fixed and the final complete population rerun. Claim: "one bounded imported contextual receiver has a constructible future static-owner opportunity and explicit proof requirements", not an implemented proof. Evidence tier: compiler/public-CLI-backed characterization plus full Rust/MCP gates. Production construction/consumption/substitution/lifecycle correctness is not claimed.
 
 **Questions the owner owes an answer to:** None within the design-only boundary.
