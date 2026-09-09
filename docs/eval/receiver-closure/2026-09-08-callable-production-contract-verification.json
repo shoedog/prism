@@ -1,0 +1,99 @@
+{
+  "schema": "prism.docs-verification/1",
+  "checked_at": "2026-09-08T11:36:01.402Z",
+  "head": "2af5b2be87a08ce8205455cf1b3ac1d6fd40ad57",
+  "base": "20dd53bfe7a5e8ab39a15fce1cc5dd50314e68a0",
+  "clean_before_and_after": true,
+  "changed": [
+    "docs/eval/receiver-closure/2026-09-08-callable-production-foundation.md",
+    "docs/eval/receiver-closure/2026-09-08-callable-sequence-readout.md",
+    "docs/superpowers/handoffs/2026-09-08-callable-autonomous-sequence.md",
+    "docs/superpowers/plans/2026-09-08-callable-autonomous-sequence.md",
+    "docs/superpowers/specs/2026-09-08-callable-production-authority-contract.md"
+  ],
+  "changed_markdown_checked": 31,
+  "local_links_checked": 64,
+  "missing_links": [],
+  "production_source_blobs": [
+    {
+      "file": "src/api/nav.rs",
+      "blob": "0d3db0df68fc858683731fb9456b1a46a55b1c62"
+    },
+    {
+      "file": "src/ast.rs",
+      "blob": "b9e3306370c912cc49ff2e78de99ee3cc8cab60b"
+    },
+    {
+      "file": "src/call_graph.rs",
+      "blob": "90ac77f07fa7727a079db9eb8f9b3f9262ac707a"
+    },
+    {
+      "file": "src/cpg/build.rs",
+      "blob": "b99ad52b3c33a289eaa36b06453f42dbe6a68fd8"
+    },
+    {
+      "file": "src/cpg/trace.rs",
+      "blob": "179fd8b8d67538a536f95b2dbc37e71148084036"
+    },
+    {
+      "file": "src/cpg_cache.rs",
+      "blob": "b07f3ab5737903b8517a5996762ca0f269193468"
+    },
+    {
+      "file": "src/js_ts_props.rs",
+      "blob": "286873e4b09a2b64daa0745b35149c97e704a6af"
+    },
+    {
+      "file": "src/navigation/call_edge_cache.rs",
+      "blob": "c9aa71d60a863a1d82adcab81a84ec236dfb814b"
+    },
+    {
+      "file": "src/navigation/call_resolve.rs",
+      "blob": "83cd2c3c7b5b2f36240e92e3c604f609bed3eeb0"
+    },
+    {
+      "file": "src/navigation/queries.rs",
+      "blob": "d482518dba47e2bd79aa93395ea47d53b7a542f8"
+    },
+    {
+      "file": "src/resolution.rs",
+      "blob": "f7177e971a01c24a8d22d5884efe6bd1cefaa64e"
+    }
+  ],
+  "cache_versions": {
+    "cpg": 77,
+    "navigation_calls": 45
+  },
+  "producer_sha256": "32ae5bc44000af31bb7cd5994a14de5700bafb02a1089f3ac16a79687e40f88d",
+  "compiler_sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675",
+  "no_code_or_workflow_change": true,
+  "no_new_behavioral_suite_claim": true,
+  "nearest_full_gate_head": "b826a668f43adf9176b01a78132071c1cd7abc88",
+  "documents": [
+    {
+      "path": "docs/eval/receiver-closure/2026-09-08-callable-production-foundation.md",
+      "sha256": "14c51c886695d37a9fb7bb90ec81868f03ea3364feacf78dd8af9f041e43d717"
+    },
+    {
+      "path": "docs/eval/receiver-closure/2026-09-08-callable-sequence-readout.md",
+      "sha256": "c777444c8e6402e58e0a0a25254fcb48683758a84d6632c289e026eb5f6ecad6"
+    },
+    {
+      "path": "docs/superpowers/handoffs/2026-09-08-callable-autonomous-sequence.md",
+      "sha256": "d9b7bc889d98f462cc1d05002e9f7fe7251e82fd2ad4923de82c975fddcdd99b"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-09-08-callable-autonomous-sequence.md",
+      "sha256": "cb178665c6955af06380ef2f9e9dd994ed4099350f0a3177c966d85adc8f1679"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-09-08-callable-production-authority-contract.md",
+      "sha256": "e025c0ee89fdc581e99d80fc74699b196e5f95a6c99f8be68bfa44724ffa6850"
+    }
+  ],
+  "archive": {
+    "local_path": "/private/tmp/prism-overnight-0zmx3n/s10-evidence.tgz",
+    "bytes": 27492,
+    "sha256": "72804231f756d3cb425e34925cf5842f772bfcbf03c0bbbb9f4aaec68f1a6f72"
+  }
+}

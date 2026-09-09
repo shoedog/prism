@@ -1,23 +1,29 @@
 # Handoff — approved callable-completeness sequence
 
-**Written:** 2026-09-08T11:28Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-merged-side-effect-admission · **Measured state:** `[MEASURED]` S9 cleanb826a668 full591/4017/4207 plus18/40 passed, doctests and one ignored per Rust run, fmt/diff. Archive44e5056a. Public84merged/36unproven; all old fields/91409 operations/1229 sources unchanged. Final private read-only reproduction valid/incomplete, no install. `[INHERITED]` final independent S9 round2 ACCEPT99 WRONG0/SMELL0; S10 contract98 and final factual99. Probe: clean gate summary, archive hash, final review receipts and prior replay.
+Merge-authority snapshot before the owner stack transition supersedes the historical publication snapshot below:
+the owner instructed "proceed to merge in order" and later waived waiting for coverage.
+At the snapshot PR281–285 are merged (285 by owner); PR286's four required non-coverage checks are pending.
+Owner stack294 now manages286–293: agent verifies286-to287 transition, owner merges287–293.
+Continue from the [ordered merge handoff](2026-09-08-callable-ordered-merges.md).
+
+**Written:** 2026-09-08T11:40Z · **By:** /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/slicing · docs/callable-production-authority-contract · **Measured state:** `[MEASURED]` All ten planned boundaries plus D1/D2/H1 are published as PR281–293. Remote refresh: all13 OPEN in exact dependency order; PR281 five checks SUCCESS, feature-base successors no scheduled checks. S10 clean2af5b2be docs verification and S9 cleanb826a668 full591/4017/4207 plus18/40 passed. Cache77/45 and producer32ae5bc4 unchanged; no new receiver edges or installs. Probe: final gh stack response, exact local gate/source receipts.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims name their source.
 
 ## 0. Gating facts — settle these before starting anything below
 
-(a) Lane ownership — RESOLVED: `[MEASURED]` /root owns architecture/integration; compiler_search_review froze S8 and clarified custody; boundary_audit completed S8 independent review; gate_runner implements S9 on its own disposable copy after frozen-S8 RED. No other agent writes the repository.
-(b) Custody exposure — RESOLVED: `[MEASURED]` implementation d43dd54 and gate closeout2ce3b00 pushed; PR281 open (gh pr create returned https://github.com/shoedog/prism/pull/281). S1 raw evidence archived, 7,308,737 bytes, SHA256 8f737f4947a69a8d6cbeacd9e504af0d95d236c98389ef6ea1351d176b0926b4. This publication note follows.
-(c) In flight / irreversible — RESOLVED: `[MEASURED]` S2 tip559e80e pushed; PR282 open against PR281. S3 ordinary cap2 plus one disclosed numeric-order extension reached; a synthetic-config-link counterexample caused explicit H1 design escalation, not another patch-loop extension. H1 closed coordinate contract independently accepted96; same S3 artifact resumes under it. Parked977275dd source hash checked unchanged before/after archive SHA9792ac47cbb6d3c8bb1b89b1d3fd2eb21664c362645840b407cf858bfd9e6b98. No install or application change.
-(d) Authorization granted but not exercised — owner: "PR 280 is merged, approced to proceed with next 10 slices/increments with recommended value checkpoints. Approved for 3 additional slices/increments to cover additonal work flind doing those 10 ( if needed). Approved for 3 additional slices for fixes/hardening." Owner also permits stopping at a crossroads and approved model delegation. No auto-merge authority inferred.
+(a) Lane ownership — RESOLVED: `[MEASURED]` /root retained architecture, decisions and integration. All delegated implementation/review work is finished and frozen; no agent writes the repository.
+(b) Custody exposure — RESOLVED: `[MEASURED]` PR281–293 are published as a dependency stack. Implementation evidence archives and private replay are local and separate; public Git contains audits, receipts and code, not private artifacts. S10 publication is complete; local archives must not be casually deleted.
+(c) In flight / irreversible — RESOLVED: `[MEASURED]` no gate or implementation process remains. No merge, app/config change, dependency install or runtime authority was performed. Historical S3 cap escalation and preserved-artifact custody remain in its audit and the corrections below.
+(d) Authorization accounting — owner approved ten planned increments plus up to three discovered-work and three hardening increments. Ten planned boundaries are handled; D1/D2 and H1 were needed. D3 and H2/H3 remain unused. No auto-merge authority inferred; do not spend reserves merely because they exist.
 
 ## 1. Resume order
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
-2. S2 is published as PR282 against feat/callable-search-classification. S2 full gates are complete:395 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored per Rust run, doctests included. Check CI without auto-merge.
-3. S9 published as PR292 on PR291, pushed7387cfd. Finish S10 docs-only contract/readout and final stack-state verification. No auto-merge.
+2. Read the [final sequence readout](../../eval/receiver-closure/2026-09-08-callable-sequence-readout.md). All authorized increments, gates, archives and PR publication are complete. No autonomous implementation remains.
+3. Owner merge order follows PR281 upward; feature-base PRs need CI after predecessor merge/retarget. The sequence ends at the contract boundary. A future executable-owner proof design/implementation needs a new bounded decision, not a closure waiver.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
 
@@ -44,7 +50,7 @@
 | S7 | published PR289 | Pushed48de24e against PR288; clean59fd6eb546/4017/4207 plus18/40; archivec00ec9c8; independent98; public/private checkpoint continue |
 | S8 | published PR291 | Pushed980657f on PR290; clean8fc6624:571/4017/4207 plus18/40, archive1c01ca11; independent98/65; public parity unchanged |
 | S9 | published PR292 | Pushed7387cfd on PR291; cleanb826a668:591/4017/4207 plus18/40, archive44e5056a; independent99; public84merged/36unproven and all old fields/host/source parity; private read-only parity valid/incomplete |
-| S10 | prepared | Primary contract independently accepted98, source blobs/cache77/45 rebound unchanged; docs-only publication after9 |
+| S10 | published PR293 | Pushed7ca5e88 on PR292; clean2af5b2be:31 Markdown/64 links/11 source blobs; archive72804231; design98/factual99; no consumer or cache change |
 | D2 | published PR290 |Pushedca8504d against PR289;20 occurrences/14 present JS targets; sufficient compiler depth-elision branch,9 sourceambient/11 no checker declarations; corrected diagnostic/raw-path capture; archive50724ca2; docs checks pass |
 
 ## 3. Corrections to standing documents and memory
@@ -61,6 +67,8 @@
 | S3 numeric comparison | Serialized row order equals numeric callback index order | `[MEASURED]`12 source/configured occurrences raw worker normal but parser failed on lexical0,10,11,1 order. Corrected numeric expected-row sort; source/configured/automatic RED3 and final420 copied tests |
 | S3 synthetic from | All safe from coordinates are canonical file identities | `[MEASURED]` config directory alias preserves lexical compiler lookup address; canonicalizing it caused parser failure. H1 separately specifies lexical synthetic coordinates; s3-config-link-result.json |
 | Independent interim summaries |405/417 is latest S3 suite | `[MEASURED]` exact977275dd full suite420 in FULL-FINAL-GREEN.log; older totals belong to predecessor candidates, not current acceptance |
+| S9 baseline receipt census | Every passing test is a projected fixture | `[MEASURED]` original30 group has24 projections, one digest-only and five pair/parser tests; final40 group has38 projections plus digest/parser controls. Native passing totals unchanged |
+| S8/S9 RED custody | Final-source checks are original pre-edit RED | `[MEASURED]` S8 original14-case source not separately kept; S9 originalfour source kept but first RED is envelope-only. Final-source row rechecks remain explicitly retrospective |
 
 No relevant memory registry hit; no memory edits.
 
@@ -68,10 +76,9 @@ No relevant memory registry hit; no memory edits.
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | S1 publication | done | `[MEASURED]` c57c354 all five CI checks SUCCESS including coverage; retain open PR for owner merge | None | PR281 |
-| 2 | Module provenance publication | done | `[MEASURED]` PR282 has no remote checks: CI pull_request filter targets main only, this stack targets feature branch. Local gates pass; retarget/run CI after predecessor merge | Owner merge order | S2 |
-| 3 | H1 identity contract publication | done | PR283 open; feature-base CI limitation applies, no auto-merge | Owner merge order | H1 |
-| 4 | Type provenance publication | done | PR284 open; feature-base CI limitation applies | Owner merge order | S3-T |
+| 1 | Approved sequence | done | No remaining autonomous work; preserve local evidence archives and private separation | None | PR281–293 |
+| 2 | Stack merge and remote CI | owner action | Start PR281 (five remote checks successful at last refresh); then predecessor-first merge/retarget/CI for feature-base successors | Owner merge decision | PR281 onward |
+| 3 | Future production proof | outside completed sequence | Decide one executable-owner fixture and constructor predicates under the S10 contract before implementation | New bounded decision | S10 contract |
 
 ## 5. Invariants and traps — do not do these
 
@@ -99,6 +106,6 @@ No relevant memory registry hit; no memory edits.
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED · claim: "module provenance preserves existing compiler outcomes and search operations without admission" · pass: primary round one plus INDEPENDENT final round two by boundary_audit · evidence tier: TEST-BACKED · record: s2-public-parity.json, s2-capture-parity.json, s2-expanded-final-green.log15/15; full S2 gates passed on clean ac9a0f3. Historical12 candidate regression corrected; review cap two converged without extension. Out-of-root resolved target integration fixture not claimed (helper/static coverage only).
+**§2c verdict:** SURVIVED within the approved sequence boundary. Source-backed provenance and strict additive type-source admission preserve legacy fields and independent barriers; final public/private Programs remain incomplete, and zero new receiver edges are claimed. S9 final independent round2 ACCEPT99; cleanb826a668 full gates pass. S10 contract design98 and factual99 specify, but do not implement, production authority. Historical coverage/custody limitations remain in each audit, including S2 out-of-root target helper/static-only coverage.
 
-**Questions the owner owes an answer to:** None at this checkpoint.
+**Questions the owner owes an answer to:** None to complete this sequence. Owner merge and the next bounded production-proof decision are separate follow-on actions.

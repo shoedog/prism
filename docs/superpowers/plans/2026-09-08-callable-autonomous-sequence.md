@@ -6,25 +6,33 @@ Primary agent retains architecture/decisions; bounded implementation/review dele
 to the approved GPT models is allowed. No merge authority is inferred: publish
 separate PRs and stack as needed. Stop at an unresolved crossroads or scope expansion.
 
+Subsequent owner instruction: "proceed to merge in order". Ordered merges are now
+authorized. Owner later explicitly waived waiting for coverage; the other four
+checks and exact tested-tree verification remain required. The owner then created
+stack294 for286–293: agent finishes286 and verifies automatic287 update/CI startup;
+owner merges287–293. The state table below is the pre-transition snapshot, not live
+stack status. Operational authority and live-state links are in the
+[merge handoff](../handoffs/2026-09-08-callable-ordered-merges.md).
+
 Base: PR280 confirmed merged670bccb0d7fd3181b0405128c68d84fe51de0002.
 Task root: `/private/tmp/prism-overnight-0zmx3n`.
 
 | # | Increment | State | Boundary |
 |---|---|---|---|
-| 1 | Source-backed outside/refused classification | PR281 open; verified | diagnostic capture only, no producer/policy changes |
-| 2 | Module-search provenance | PR282 open on PR281; full gates passed | request-owned observations, not waivers |
-| 3 | Type-search provenance | PR284 open on PR283; full gates passed | actual configured/source channels; preserve batch/global caches |
-| D1 | Shared lib-search/beneficiary semantics + first value checkpoint | PR285 open on PR284; full gates passed; checkpoint continue | separate global lib cache; beneficiaries are not causal demands |
-| 4 | Bounded local configuration provenance | PR286 open on PR285; full gates passed on960c99a | local extends/options origin, no plugins/project references |
+| 1 | Source-backed outside/refused classification | PR281 merged172975a3 after five successful remote checks | diagnostic capture only, no producer/policy changes |
+| 2 | Module-search provenance | PR282 merged91baaf8a after five successful remote checks and exact tested-tree verification | request-owned observations, not waivers |
+| 3 | Type-search provenance | PR284 mergedc1091d18 after five successful remote checks and exact tested-tree verification | actual configured/source channels; preserve batch/global caches |
+| D1 | Shared lib-search/beneficiary semantics + first value checkpoint | PR285 owner-merged0fe868d9; four remote checks passed, coverage pending at refresh; checkpoint continue | separate global lib cache; beneficiaries are not causal demands |
+| 4 | Bounded local configuration provenance | PR286 open on main; CI34252139675 running; implementation full gates passed on960c99a | local extends/options origin, no plugins/project references |
 | 5 | Entry-obligation completeness | PR287 open on PR286; full gates passed onf7f5ac9 | conservative automatic-discovery/suppression unknown; no old-bit defect claim |
 | 6 | Bounded closure-policy contract | PR288 open on PR287; clean5faf199 full521/4017/4207 plus18/40 passed | additive semantic observation only; no denied-space waiver or old-bit reinterpretation |
 | 7 | Singleton exact ambient admission + value checkpoint | PR289 open on PR288; clean59fd6eb full546/4017/4207 plus18/40 passed; checkpoint continue | additive semantic_closure; all oldfields and outside/refused barriers retained |
 | 8 | Singleton wildcard admission | PR291 open on PR290; clean8fc6624 full571/4017/4207 plus18/40 passed | binding separate from assets/runtime; historicalschema18 staysv1 |
 | 9 | Supported merged wildcard pair admission | PR292 open on PR291; cleanb826a668 full591/4017/4207 plus18/40 passed; final independent99; public84merged/36unproven and oldfield/host/source parity | side-effect pair only, contributor/selection barriers; fixedv3, oldpolicies frozen |
-| 10 | First production-authority contract | draft independently ACCEPT98; publication after9 | spec and public-seam RED requirements; no runtime consumer implementation |
+| 10 | First production-authority contract | PR293 open on PR292; clean2af5b2be scoped docs checks passed; design98/factual99 accepted | spec and public-seam RED requirements; no runtime consumer implementation |
 | D2 | Present JS targets outside configured Program | PR290 open on PR289; docs-only checks passed | classification/proof requirements only, no membership or closure waiver |
 | D3 | Remaining discovered work reserve | unused | record cause and exact scope before use |
-| H1 | Canonical source versus synthetic lookup identity contract | PR283 open on PR282; full gates passed | unwired pure helper; no current producer change; precedes3 |
+| H1 | Canonical source versus synthetic lookup identity contract | PR283 merged5a4abb4a after five successful remote checks and exact tested-tree verification | unwired pure helper; no current producer change; precedes3 |
 | H2–H3 | Remaining fix/hardening reserve | unused | closed enumerable findings; no silent restart |
 
 Per increment: exact-base custody, bounded spec, captured contract/behavioral RED
