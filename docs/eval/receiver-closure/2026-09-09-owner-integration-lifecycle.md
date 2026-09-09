@@ -75,10 +75,10 @@ Pinned observations: target-c-method=flip_candidate (expected known_fail, no
 oracle-only/Prism-only sites); module-deps-feature-gated=missing; load-repo-feature-gated=missing;
 ambiguous-symbol-contract=ok. M3 labels six confirmed_fp and four ambiguous; these
 are not adjudicated change findings. Exact report and source snapshot are archived.
-No same-environment base accuracy control was run, so no causal regression or
-pre-existing-failure attribution is made. No pin change, allow-drift waiver or
-re-baseline. [PR297](https://github.com/shoedog/prism/pull/297) is draft pending this
-accuracy-readiness disposition and review. Initial clean-HEAD runner refusal due
+At original closeout no same-environment base control had run. The subsequent
+[matched disposition](2026-09-09-pr297-tier-a-disposition.md) supports review
+readiness: PR297 is no longer draft, while this historical quick remains invalid.
+No pin change, allow-drift waiver or re-baseline. Initial clean-HEAD runner refusal due
 to the generated untracked oracle snapshot ran zero gates; after preserving that
 artifact outside the checkout, the full seven-gate runner passed with clean HEAD
 before and after.
@@ -87,8 +87,8 @@ Prism navigation supplied stale/truncated caller orientation; LSP tools were not
 available. Direct source traces and actual parser/compiler consumer tests supplied
 the evidence, following the navigation skills' fallback guidance.
 
-Next checkpoint: bounded baseline/oracle control for accuracy readiness, then
-separately design and enable the bounded CLI/MCP opt-in and its
+Baseline/oracle disposition is complete; next, after review/merge, separately
+design and enable the bounded CLI/MCP opt-in and its
 actual failure/refresh publication boundary. Preserve default behavior and pinned
 compiler requirements; do not expand provenance grammar or closure policy at the
 same time.

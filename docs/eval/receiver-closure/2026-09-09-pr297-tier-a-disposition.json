@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "pr": 297,
+  "disposition": "ready for review; original quick remains invalid as a baseline",
+  "base": "a892b67ddec0883fc0ba7cfaae7fa33fdfb97eaf",
+  "candidate": "997b39d0a3b13262a933450dabf17e4ce70f7faf",
+  "corpus_pin": "20c8490591a3",
+  "code_changes_this_turn": false,
+  "baseline_or_policy_changes": false,
+  "binary_sha256": {
+    "base": "3d8571f848d66ac9b2c84cd3f12bc6d0890ae25d6d7b9e27e923acf69b4e3a11",
+    "candidate": "5748c935e22f0518cdb1af393fc72f29546a4a59ebfe7938fe2fecb905a70e63"
+  },
+  "raw_pairs": {
+    "total": 140,
+    "different": 0,
+    "inventory": 1,
+    "sample": 30,
+    "pinned": 5,
+    "matrix_adapter": 104,
+    "artifact": "all-requests.jsonl",
+    "sha256": "af4af57e6cf91dc3d30dfa2c2e6fd1cea3cf6a5b7981804b44052e9669c836f3"
+  },
+  "complete_matrix": {
+    "cases_each": 159,
+    "ok_each": 159,
+    "different": 0,
+    "includes_direct_cli_dfg_cases": 55,
+    "artifact": "matrix-pair.json",
+    "sha256": "01e4644bae16361225c6a36c3b9eae3d0f56d17e4e9b4a9d35e652a7e3c4c5f2"
+  },
+  "oracle_controls": {
+    "original_missing_probes": 6,
+    "base_no_item_replays": 6,
+    "candidate_no_item_replays": 6,
+    "pinned_sample_answered": 28,
+    "pinned_sample_no_item": 2,
+    "pinned_sample_floor": "still invalid: C-name4/6; no new baseline claim",
+    "cold_paired_quick": "stopped redundant partial diagnostic; not a completed quick result"
+  },
+  "pinned_disposition": {
+    "target-c-method": {"outcome": "unchanged flip_candidate", "all_tp_fp_fn": [5,23,0], "exact_tp_fp_fn": [5,0,0]},
+    "module-deps-feature-gated": "ok on original pinned source",
+    "load-repo-feature-gated": "ok on original pinned source",
+    "ambiguous-symbol-contract": "ok",
+    "artifact": "pinned-disposition.json",
+    "sha256": "39e3b6379713e028aadd73b55d174654c81f3a9a6162fb4c6dd04ffb2ed11a80"
+  },
+  "evaluation_suites": {
+    "candidate": {"passed": 883, "failed": 0, "skipped": 2, "sha256": "05ef527d3662302a81b9464d0bc59e1ab34bb37b0c5a14402356e578b471d1cf"},
+    "base": {"passed": 883, "failed": 0, "skipped": 2, "sha256": "5097feb5e9a8dcc243e24a4ba9dc08593542a8cc4d99e6f5073f97488118eb27"},
+    "skips": ["test_resolve_matched_binaries_against_real_binaries", "test_warm_gate_real_cache_distinguishes_cold_from_warm"],
+    "skip_reason": "PRISM_BIN/PRISM_MCP_BIN matched real pair not configured"
+  },
+  "ci": {"head": "997b39d0a3b13262a933450dabf17e4ce70f7faf", "run": 34316205421, "conclusion": "success"},
+  "review": {"rounds": 2, "kind": "self-pass, not independent-agent review", "demonstrated_pr_regressions": 0},
+  "archive": {"path": "/private/tmp/prism-tier-a-297-dSTyZl-evidence.tgz", "sha256": "6e3df1e3cae462a68c4c48aaadfda04ad97e5a8737fd92123bb9833605173b75"},
+  "limits": ["not a new valid accuracy anchor", "not proof of zero Prism defects", "not production activation", "no full Rust suite rerun this documentation-only turn", "no original M3 adjudication", "no merge"]
+}

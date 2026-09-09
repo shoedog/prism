@@ -1,10 +1,12 @@
 {
   "schema_version": 1,
+  "historical_receipt": true,
+  "readiness_superseded_by": "2026-09-09-pr297-tier-a-disposition.json",
   "base": "a892b67ddec0883fc0ba7cfaae7fa33fdfb97eaf",
   "tested_code_head": "2c033e80c26df33f9fa403968a5c4d76ab10ef59",
   "closeout_changes": "documentation and receipts only; no claim of full rerun on closeout commit",
   "pr": "https://github.com/shoedog/prism/pull/297",
-  "publication": "draft; accuracy readiness unresolved",
+  "publication_at_original_closeout": "draft; accuracy readiness unresolved then; see readiness_superseded_by for current disposition",
   "clean_gate_preflight_and_postflight": true,
   "evidence_root": "/private/tmp/prism-owner-integration-jYIuUv",
   "archive": {
