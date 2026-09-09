@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
-  "base": "a120220f",
+  "base": "a120220fb388dad8bb1c4882dc854d0a1e7d239c",
+  "publication": {"pr": 298, "url": "https://github.com/shoedog/prism/pull/298", "branch": "feat/owner-opt-in-activation"},
   "tested_commit": "ffc974711cf4a851c614a7af461e73ec8d010919",
   "scope": "explicit cache-free JS/TS navigation; eager fresh-per-tool MCP; defaults unchanged",
   "review": {"rounds": 2, "independent": false, "wrong_closed": 1, "wrong_open": 0},
