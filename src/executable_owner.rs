@@ -13,9 +13,12 @@ use std::{
 };
 
 mod acquisition;
+pub(crate) mod admission;
 pub(crate) mod integration;
 type CallKey = (String, usize, usize);
 type Result<T> = std::result::Result<T, String>;
+const INPUT_FILE_LIMIT: usize = 512;
+const INPUT_BYTE_LIMIT: usize = 8 * 1024 * 1024;
 const ANCHORS: [(&str, &str); 21] = [
     ("annotation", "TypeReference"),
     ("implementation", "ArrowFunction"),
@@ -116,7 +119,7 @@ fn js(language: Language) -> bool {
     )
 }
 fn owned_inputs(files: BTreeMap<String, ParsedFile>) -> Result<BTreeMap<String, ParsedFile>> {
-    ensure(files.len() <= 512, "input_budget")?;
+    ensure(files.len() <= INPUT_FILE_LIMIT, "input_budget")?;
     let mut out = BTreeMap::new();
     let mut bytes = 0usize;
     for (file, parsed) in files {
@@ -132,7 +135,7 @@ fn owned_inputs(files: BTreeMap<String, ParsedFile>) -> Result<BTreeMap<String, 
         bytes = bytes
             .checked_add(parsed.source.len())
             .ok_or("input_budget")?;
-        ensure(bytes <= 8 * 1024 * 1024, "input_budget")?;
+        ensure(bytes <= INPUT_BYTE_LIMIT, "input_budget")?;
         // ParsedFile has public mutable source/tree fields: reparse owned bytes,
         // rather than authenticating the text and trusting an unrelated old tree.
         let fresh =
@@ -151,16 +154,30 @@ impl AuthenticatedProgramEpoch {
         compiler: &Path,
         files: BTreeMap<String, ParsedFile>,
     ) -> Result<Self> {
+        Self::acquire_observed(root, config, compiler, files, &mut admission::Report::new())
+    }
+
+    fn acquire_observed(
+        root: &Path,
+        config: &str,
+        compiler: &Path,
+        files: BTreeMap<String, ParsedFile>,
+        report: &mut admission::Report,
+    ) -> Result<Self> {
+        report.phase = admission::Phase::PrepareInputs;
         ensure(relative(config), "config_identity")?;
         let files = owned_inputs(files)?;
+        report.phase = admission::Phase::LocateInputs;
         let root = root.canonicalize().map_err(|_| "root_unavailable")?;
         let compiler = compiler
             .canonicalize()
             .map_err(|_| "compiler_unavailable")?;
         // Only this independently configured, byte-pinned live acquisition path
         // may produce evidence for construction. There is no raw-packet API.
+        report.phase = admission::Phase::CompilerEvidence;
         let evidence = acquisition::reproduce(&root, config, &compiler, &files)?;
         validate_inputs(&evidence, &files)?;
+        report.phase = admission::Phase::OwnerMapping;
         let graph = CallGraph::build(&files);
         let mut members = BTreeMap::new();
         for candidate in &evidence.candidates {

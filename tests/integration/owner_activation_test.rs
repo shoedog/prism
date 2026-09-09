@@ -1,6 +1,147 @@
 //! Installed CLI process coverage; compiler tests explicitly opt in to the audit feature.
 use assert_cmd::Command;
 
+fn admission(error: &str) -> serde_json::Value {
+    let (_, json) = error.split_once("; owner_admission=").expect(error);
+    serde_json::from_str(json.trim()).unwrap()
+}
+
+fn refused(root: &std::path::Path) -> serde_json::Value {
+    use prism::api::{nav_session, NavOptions, OwnerOptions};
+    let mut options = NavOptions::default();
+    options.no_cache = true;
+    options.owner = Some(OwnerOptions::new(root.join("absent.js"), "tsconfig.json"));
+    let error = nav_session(root, &options).err().unwrap().to_string();
+    let output = Command::cargo_bin("prism")
+        .unwrap()
+        .args([
+            "nav",
+            "--no-cache",
+            "--owner-config",
+            "tsconfig.json",
+            "--owner-compiler",
+        ])
+        .arg(root.join("absent.js"))
+        .args(["repo-map", "--format", "json", "--repo"])
+        .arg(root)
+        .assert()
+        .failure()
+        .get_output()
+        .clone();
+    assert!(output.stdout.is_empty());
+    let report = admission(&error);
+    assert_eq!(
+        report,
+        admission(&String::from_utf8(output.stderr).unwrap())
+    );
+    assert_eq!(report["authorizes_runtime_edge"], false);
+    assert_eq!(report["schema"], "prism.owner-admission/1");
+    assert_eq!(report["phases"]["compiler_evidence"], "not_reached");
+    assert_eq!(report["phases"]["owner_mapping"], "not_reached");
+    assert_eq!(report["phases"]["session_build"], "not_reached");
+    report
+}
+
+#[test]
+fn owner_admission_reports_simultaneous_language_and_count_facts_without_bypassing_first_gate() {
+    let root = tempfile::tempdir().unwrap();
+    for i in 0..512 {
+        std::fs::write(root.path().join(format!("f{i}.ts")), "// input\n").unwrap();
+    }
+    std::fs::write(root.path().join("extra.sh"), "echo hello\n").unwrap();
+    let r = refused(root.path());
+    assert_eq!(r["reason"], "owner_requires_js_ts_only");
+    assert_eq!(r["failed_phase"], "select_inputs");
+    assert_eq!(r["phases"]["prepare_inputs"], "not_reached");
+    assert_eq!(r["inputs"]["loaded_files"], 513);
+    assert_eq!(r["inputs"]["js_ts_files"], 512);
+    assert_eq!(r["inputs"]["languages"]["Bash"], 1);
+    assert_eq!(r["inputs"]["within_file_limit"], false);
+    assert_eq!(r["inputs"]["within_byte_limit"], true);
+}
+
+#[test]
+fn owner_admission_reports_empty_missing_and_exact_file_boundary() {
+    let root = tempfile::tempdir().unwrap();
+    let empty = refused(root.path());
+    assert_eq!(empty["reason"], "empty_inputs");
+    assert_eq!(empty["inputs"]["loaded_files"], 0);
+    for i in 0..512 {
+        std::fs::write(root.path().join(format!("f{i}.ts")), "// input\n").unwrap();
+    }
+    let exact = refused(root.path());
+    assert_eq!(exact["reason"], "compiler_unavailable");
+    assert_eq!(exact["failed_phase"], "locate_inputs");
+    assert_eq!(exact["inputs"]["within_file_limit"], true);
+    std::fs::write(root.path().join("overflow.ts"), "// input\n").unwrap();
+    let over = refused(root.path());
+    assert_eq!(over["reason"], "input_budget");
+    assert_eq!(over["failed_phase"], "prepare_inputs");
+    assert_eq!(over["inputs"]["within_file_limit"], false);
+}
+
+#[test]
+fn owner_admission_reports_exact_byte_boundary_and_overflow() {
+    let root = tempfile::tempdir().unwrap();
+    let source = format!("//{}", " ".repeat(2 * 1024 * 1024 - 2));
+    for i in 0..4 {
+        std::fs::write(root.path().join(format!("f{i}.ts")), &source).unwrap();
+    }
+    let exact = refused(root.path());
+    assert_eq!(exact["reason"], "compiler_unavailable");
+    assert_eq!(exact["inputs"]["js_ts_bytes"], 8 * 1024 * 1024);
+    assert_eq!(exact["inputs"]["within_byte_limit"], true);
+    std::fs::write(root.path().join("overflow.ts"), " ").unwrap();
+    let over = refused(root.path());
+    assert_eq!(over["reason"], "input_budget");
+    assert_eq!(over["inputs"]["within_byte_limit"], false);
+    assert_eq!(over["inputs"]["within_file_limit"], true);
+}
+
+#[test]
+fn owner_admission_reports_loader_failure_as_unknown_inputs() {
+    let parent = tempfile::tempdir().unwrap();
+    let report = refused(&parent.path().join("absent"));
+    assert_eq!(report["reason"], "index_unavailable");
+    assert_eq!(report["failed_phase"], "load_inputs");
+    assert!(report["inputs"].is_null());
+    assert_eq!(report["phases"]["select_inputs"], "not_reached");
+}
+
+#[test]
+fn owner_admission_reports_parse_failure_before_compiler_location() {
+    let root = tempfile::tempdir().unwrap();
+    let source = format!(
+        "{}\nconst broken = ;",
+        "export const okay = 1;\n".repeat(30)
+    );
+    let parsed =
+        prism::ast::ParsedFile::parse("a.ts", &source, prism::languages::Language::TypeScript)
+            .unwrap();
+    assert!(parsed.parse_error_count > 0 && parsed.error_rate() < 0.3);
+    std::fs::write(root.path().join("a.ts"), source).unwrap();
+    let report = refused(root.path());
+    assert_eq!(report["reason"], "parse_error");
+    assert_eq!(report["failed_phase"], "prepare_inputs");
+    assert_eq!(report["inputs"]["loaded_files"], 1);
+    assert_eq!(report["phases"]["locate_inputs"], "not_reached");
+}
+
+#[cfg(feature = "mcp")]
+#[test]
+fn owner_admission_mcp_startup_preserves_refusal_report_without_initializing() {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(root.path().join("a.py"), "def f(): pass\n").unwrap();
+    let output = Command::cargo_bin("prism-mcp").unwrap()
+        .args(["--eager", "--no-cache", "--owner-config", "tsconfig.json", "--owner-compiler"])
+        .arg(root.path().join("absent.js")).arg("--repo").arg(root.path())
+        .write_stdin("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1\"}}}\n")
+        .assert().failure().get_output().clone();
+    assert!(output.stdout.is_empty());
+    let report = admission(&String::from_utf8(output.stderr).unwrap());
+    assert_eq!(report, refused(root.path()));
+}
+
 #[test]
 fn owner_cli_missing_compiler_is_an_error_not_an_ordinary_result() {
     let root = tempfile::tempdir().unwrap();

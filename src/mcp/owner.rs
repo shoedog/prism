@@ -6,6 +6,7 @@ use super::{
     transport::SessionRuntime,
     AutoRefreshSummary, CacheMode, RefreshPolicy, RefreshSummary, ServerConfig, StartupMode,
 };
+use crate::executable_owner::admission::Failure;
 use crate::{api::OwnerOptions, navigation::NavigationSession};
 
 pub(super) struct OwnerRuntime {
@@ -15,6 +16,7 @@ pub(super) struct OwnerRuntime {
     snapshot: Option<FreshnessProbe>,
     before: FreshnessReport,
     generation: u64,
+    last_admission: Option<serde_json::Value>,
 }
 
 impl OwnerRuntime {
@@ -40,6 +42,7 @@ impl OwnerRuntime {
             snapshot: None,
             before: FreshnessReport::from_changed_paths(Vec::new()),
             generation: 0,
+            last_admission: None,
         };
         runtime.acquire()?;
         Ok(runtime)
@@ -49,12 +52,17 @@ impl OwnerRuntime {
         // Clear before even metadata IO. Prior stamps report refresh status only;
         // they never authorize proof reuse (config/libs require full acquisition).
         self.active = None;
+        self.last_admission = None;
         self.before = self
             .snapshot
             .take()
             .map(|p| p.check())
             .unwrap_or_else(|| FreshnessReport::from_changed_paths(Vec::new()));
-        self.owner.replace(&mut self.active, &self.cfg.repo_root)?;
+        self.owner
+            .replace(&mut self.active, &self.cfg.repo_root)
+            .inspect_err(|error| {
+                self.last_admission = error.downcast_ref::<Failure>().map(Failure::diagnostic);
+            })?;
         self.snapshot = self
             .active
             .as_ref()
@@ -69,9 +77,15 @@ impl SessionRuntime for OwnerRuntime {
         match self.acquire() {
             Ok(()) => Readiness::Ready,
             Err(error) => Readiness::Failed {
-                error: error.to_string(),
+                error: error
+                    .downcast_ref::<Failure>()
+                    .map(Failure::message)
+                    .unwrap_or_else(|| error.to_string()),
             },
         }
+    }
+    fn admission_diagnostic(&self) -> Option<serde_json::Value> {
+        self.last_admission.clone()
     }
     fn startup_mode(&self) -> StartupMode {
         StartupMode::Eager

@@ -166,11 +166,11 @@ fn loader_budget(manifest: &[serde_json::Value]) -> Result<()> {
         })
         .collect();
     ensure(
-        supported.len() <= 512
+        supported.len() <= INPUT_FILE_LIMIT
             && supported
                 .iter()
                 .try_fold(0u64, |sum, r| sum.checked_add(r["size"].as_u64()?))
-                .is_some_and(|bytes| bytes <= 8 * 1024 * 1024),
+                .is_some_and(|bytes| bytes <= INPUT_BYTE_LIMIT as u64),
         "loader_budget",
     )
 }

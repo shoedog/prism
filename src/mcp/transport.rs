@@ -144,6 +144,9 @@ pub(super) fn serve_stdio_runtime(
 
 pub(super) trait SessionRuntime {
     fn ensure_ready(&mut self) -> Readiness;
+    fn admission_diagnostic(&self) -> Option<Value> {
+        None
+    }
     fn startup_mode(&self) -> StartupMode;
     fn session(&self) -> &NavigationSession;
     fn freshness(&self) -> Option<&FreshnessProbe>;
@@ -519,7 +522,9 @@ fn call_tool_response_with_cap_and_mode(
                 Err(error) => tools_refresh::refresh_error_result(&error),
             },
             Readiness::Warming { elapsed } => warming_result(elapsed),
-            Readiness::Failed { error } => build_failure_result(&error),
+            Readiness::Failed { error } => {
+                build_failure_result(&error, runtime.admission_diagnostic())
+            }
         };
         return Dispatch::Response(success_response(
             id,
@@ -538,7 +543,8 @@ fn call_tool_response_with_cap_and_mode(
         Readiness::Failed { error } => {
             return Dispatch::Response(success_response(
                 id,
-                build_failure_result(&error).to_call_tool_result_value(structured_content_mode),
+                build_failure_result(&error, runtime.admission_diagnostic())
+                    .to_call_tool_result_value(structured_content_mode),
             ));
         }
     }
@@ -796,15 +802,22 @@ fn warming_result(elapsed: std::time::Duration) -> McpToolResult {
     )
 }
 
-fn build_failure_result(error: &str) -> McpToolResult {
-    retryable_status_result(
-        json!({
-            "status": "build_failed",
-            "cause": clamp_user_text(error),
-            "message": "the server keeps running; the next tool call retries the build"
-        }),
-        "failed",
-    )
+fn build_failure_result(error: &str, admission: Option<Value>) -> McpToolResult {
+    let mut status = json!({
+        "status": "build_failed",
+        "cause": clamp_user_text(error),
+        "message": "the server keeps running; the next tool call retries the build"
+    });
+    // Error paths bypass normal shaping. Preserve the untrusted-text clamp and
+    // independently bound the optional internal diagnostic, including both wire views.
+    if let Some(report) = admission {
+        if serde_json::to_vec(&report).is_ok_and(|bytes| bytes.len() <= 2048) {
+            status["owner_admission"] = report;
+        } else {
+            status["owner_admission_omitted"] = Value::Bool(true);
+        }
+    }
+    retryable_status_result(status, "failed")
 }
 
 fn retryable_status_result(status: Value, index_state: &'static str) -> McpToolResult {

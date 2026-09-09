@@ -57,6 +57,60 @@ fn payload(result: &Value) -> Value {
     })
 }
 
+#[test]
+fn owner_admission_wire_reports_fresh_inputs_and_compiler_phase_without_stale_edges() {
+    let (root, mut runtime) = fixture();
+    assert_eq!(
+        proof_items(
+            &request(&mut runtime, "nav_callees", "run", "src/app.ts"),
+            "src/client.ts"
+        ),
+        1
+    );
+    let extra = root.path().join("extra.py");
+    std::fs::write(&extra, "def extra(): pass\n").unwrap();
+    for tool in ["nav_callees", "nav_callers", "refresh_index"] {
+        let refused = request(&mut runtime, tool, "run", "src/app.ts");
+        assert_eq!(refused["isError"], true);
+        let body = payload(&refused);
+        assert_eq!(body["status"], "build_failed");
+        assert!(body.get("items").is_none());
+        let message = body["cause"].as_str().unwrap();
+        assert_eq!(
+            message,
+            "owner acquisition failed: owner_requires_js_ts_only"
+        );
+        let r = &body["owner_admission"];
+        assert_eq!(r["failed_phase"], "select_inputs");
+        assert_eq!(r["inputs"]["loaded_files"], 4);
+        assert_eq!(r["inputs"]["languages"]["Python"], 1);
+        assert_eq!(r["phases"]["compiler_evidence"], "not_reached");
+    }
+    std::fs::remove_file(extra).unwrap();
+    let config = root.path().join("tsconfig.json");
+    let original = std::fs::read_to_string(&config).unwrap();
+    std::fs::write(&config, "{broken").unwrap();
+    let refused = request(&mut runtime, "nav_callees", "run", "src/app.ts");
+    let body = payload(&refused);
+    assert_eq!(refused["isError"], true);
+    assert!(body.get("items").is_none());
+    let r = &body["owner_admission"];
+    assert_eq!(r["failed_phase"], "compiler_evidence");
+    assert_eq!(r["phases"]["compiler_evidence"], "failed");
+    assert_eq!(r["phases"]["owner_mapping"], "not_reached");
+    assert_eq!(r["inputs"]["loaded_files"], 3);
+    assert!(r["inputs"]["languages"].get("Python").is_none());
+    std::fs::write(config, original).unwrap();
+    assert_eq!(
+        proof_items(
+            &request(&mut runtime, "nav_callees", "run", "src/app.ts"),
+            "src/client.ts"
+        ),
+        1
+    );
+    assert!(runtime.admission_diagnostic().is_none());
+}
+
 fn proof_items(result: &Value, file: &str) -> usize {
     assert_ne!(result["isError"], true, "{result}");
     payload(result)["items"]

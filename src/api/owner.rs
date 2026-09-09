@@ -44,7 +44,7 @@ impl OwnerOptions {
                 &self.compiler,
             )
         })
-        .map_err(|reason| anyhow::anyhow!("owner acquisition failed: {reason}"))
+        .map_err(anyhow::Error::new)
     }
 }
 

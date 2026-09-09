@@ -1,5 +1,9 @@
 # Handoff — executable-owner real-repository value checkpoint
 
+Publication superseded: PR299 merged as `3e1306a3`. The owner approved the
+[admission diagnostics slice](2026-09-09-owner-admission-diagnostics.md).
+The remaining text records the earlier publication checkpoint.
+
 **Written:** 2026-09-09 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · audit/owner-real-repo-checkpoint · **Measured state:** `[MEASURED]` base `0807d7dee826fbcbdcab1fbae9dea40633c718d3`; measurement/readout commit `8f44642` pushed, PR299 open and ready for review. This follow-up is publication metadata only. Release CLI/MCP built with `cargo build --release --features mcp --bins`; local artifact verification 35/35. Raw process outputs in the evidence root below.
 **Predecessor:** PR298, merged.
