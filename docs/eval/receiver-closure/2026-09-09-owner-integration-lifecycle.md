@@ -55,19 +55,40 @@ controls), zero failures; compiler-backed owner integration adds 11 tests.
 
 ## Verification and compatibility
 
-Full default/MCP/compiler-audit, observer, helpers, authority, formatting, clippy and
-Tier-A results are recorded in the closeout receipt. Do not infer full-suite pass
-from the focused result. Persistent versions remain CPG77/navigation45: sidecar and
+At clean code HEAD `2c033e80c26df33f9fa403968a5c4d76ab10ef59`, default4026,
+MCP4216, MCP+compiler-audit4233, observer694, helpers18 and authority40 passed.
+Each Rust run has zero failures, one documented reserved SliceElem ignore and two
+passing doctests. Formatting/diff checks pass; clippy completes with warnings and
+no diagnostics in the new integration/guard files. [Receipt](2026-09-09-owner-integration-lifecycle-gates.json).
+Persistent versions remain CPG77/navigation45: sidecar and
 origin marker are serde-skipped, the resolution kind is appended, staged graph
 bytes equal ordinary graph bytes, and proof-derived CPG/navigation edges are
 refused by supported persistence paths. This is not an authenticity claim about
 arbitrarily fabricated raw public graph data.
 
+The immediate same-worktree release rebuild and Tier-A matrix passed (159 ok,
+zero regressions). Quick ran but is **INVALID**, not passed: corpus SHA drift
+`a892b67ddec0 != pinned 20c8490591a3`, C-method 4/6 and C-name 2/6 successful probes,
+oracle error rate0.20 above0.10; SUT error rate0.00. It used the permitted dirty
+pre-commit source build; no clean baseline claim. Quick's matrix is also159 ok.
+Pinned observations: target-c-method=flip_candidate (expected known_fail, no
+oracle-only/Prism-only sites); module-deps-feature-gated=missing; load-repo-feature-gated=missing;
+ambiguous-symbol-contract=ok. M3 labels six confirmed_fp and four ambiguous; these
+are not adjudicated change findings. Exact report and source snapshot are archived.
+No same-environment base accuracy control was run, so no causal regression or
+pre-existing-failure attribution is made. No pin change, allow-drift waiver or
+re-baseline. [PR297](https://github.com/shoedog/prism/pull/297) is draft pending this
+accuracy-readiness disposition and review. Initial clean-HEAD runner refusal due
+to the generated untracked oracle snapshot ran zero gates; after preserving that
+artifact outside the checkout, the full seven-gate runner passed with clean HEAD
+before and after.
+
 Prism navigation supplied stale/truncated caller orientation; LSP tools were not
 available. Direct source traces and actual parser/compiler consumer tests supplied
 the evidence, following the navigation skills' fallback guidance.
 
-Next checkpoint: separately design and enable the bounded CLI/MCP opt-in and its
+Next checkpoint: bounded baseline/oracle control for accuracy readiness, then
+separately design and enable the bounded CLI/MCP opt-in and its
 actual failure/refresh publication boundary. Preserve default behavior and pinned
 compiler requirements; do not expand provenance grammar or closure policy at the
 same time.

@@ -23,14 +23,16 @@ automatic acquisition, public activation factory, install or closure-policy chan
    and navigation45 stay unchanged. Binary build identity still invalidates old
    ordinary caches. Proof-derived CPG or navigation edges must never be saved.
 4. CPG assembly receives the installed graph BEFORE constructing edges. A private
-   sticky ephemeral flag on the CPG survives clearing its graph sidecar and rejects
+   sticky origin marker on the graph propagates through CPG reconstruction; the
+   CPG's own marker survives clearing its graph sidecar and rejects
    cache writes before directory creation. Navigation discards any supplied cache
    store for such a CPG, fencing both lazy sidecar load and write. The staged entry
    never calls cache load. These guards apply even to a successfully acquired empty
    proof map (opt-in/unproven), not just positive edges.
 5. Refresh clears the active slot before fallible acquisition and publishes only a
    complete new session. It never reuses old proof-derived CPG/DFG/index state.
-   Ordinary remove/merge/recomputation/incremental graph paths clear authority; historical held
+   Ordinary remove/merge/recomputation/incremental graph paths clear authority;
+   ordinary cached contexts rebuild without ephemeral edges. Historical held
    sessions remain historical. Future public activation must apply this lifecycle
    at its actual CLI/MCP publication boundary; that is not enabled here.
 
